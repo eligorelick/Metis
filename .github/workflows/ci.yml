@@ -1,6 +1,11 @@
 name: CI
 
-on: [push, pull_request]
+# A pull request runs once for each push. Without the branch filter every push
+# to a pull request branch ran the whole workflow twice.
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 permissions:
   contents: read
@@ -23,7 +28,7 @@ jobs:
       - run: npm run check:dependencies
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm run test:product
+      # test:coverage runs the whole product suite, so it is not run a third time.
       - run: npm run test:integration
       - run: npm run test:coverage
       - run: npm run build
@@ -39,5 +44,5 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run test:product -- --maxWorkers=1
+      - run: npm run test:product
       - run: npm run test:integration

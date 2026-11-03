@@ -43,6 +43,7 @@ export const COMMAND_DESCRIPTIONS = {
   typecheck: "Type-check without emitting.",
   lint: "ESLint over the repository.",
   test: "The product test suite. Fully offline whatever .env holds.",
+  "test:changed": "Only the tests related to files changed against `origin/main`.",
   "test:integration": "The database CLI suite, which runs in its own process.",
   "test:coverage": "Both coverage contracts, core and risk.",
   "test:watch": "The product suite in watch mode.",

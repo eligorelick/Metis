@@ -2,7 +2,7 @@
   "name": "metis",
   "version": "0.1.0",
   "private": true,
-  "description": "Local-first equity research engine. Informational only, not investment advice.",
+  "description": "Source-available application for equity research on public companies. It builds reports from SEC filings and market data on your own computer.",
   "keywords": [
     "equity-research",
     "finance",
@@ -10,9 +10,13 @@
     "anthropic",
     "nextjs",
     "local-first",
-    "sec-edgar"
+    "sec-edgar",
+    "valuation",
+    "financial-analysis",
+    "typescript",
+    "xbrl"
   ],
-  "homepage": "https://github.com/eligorelick/Metis#readme",
+  "homepage": "https://metis.eligorelick.com",
   "bugs": {
     "url": "https://github.com/eligorelick/Metis/issues"
   },
@@ -52,6 +56,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --config vitest.config.ts",
+    "test:changed": "vitest run --config vitest.config.ts --changed origin/main --passWithNoTests",
     "test:product": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:coverage:core": "vitest run --config vitest.config.ts --coverage",
@@ -72,7 +77,7 @@
     "docs:pricing": "node --conditions=react-server --import tsx scripts/docs-pricing.mjs",
     "audit:deltas": "node --conditions=react-server --import tsx scripts/audit-deltas.mjs",
     "audit:security": "node scripts/run-security-audit.mjs",
-    "verify": "npm run check:dependencies && npm run typecheck && npm run lint && npm run test:product && npm run test:integration && npm run test:coverage && npm run build && npm run audit:security"
+    "verify": "npm run check:dependencies && npm run typecheck && npm run lint && npm run test:integration && npm run test:coverage && npm run build && npm run audit:security"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",

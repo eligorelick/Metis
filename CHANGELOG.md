@@ -18,6 +18,14 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Public repository polish (2026-11-03)
+
+- Make the full check faster without removing any test or lowering any coverage floor: `npm run verify` and the CI `full` job no longer run the product suite a third time, the risk coverage run uses the same parallelism as the core run, and a pull request push runs CI once instead of twice. Tests now time out at 30 seconds, not 5, so a busy machine no longer fails a correct test. Add `npm run test:changed` for tests related to the current change.
+- Add project-specific contribution/security guidance, issue forms and a pull request checklist.
+- Clarify first-run requirements, optional keys, Claude cost estimates, troubleshooting and the existing source-available license in the README.
+- Move working goals, redesign records and Superpowers plans/specs/audits into `docs/internal/`, preserving content and updating references and release allowlists.
+- Repair current documentation links and align package description/homepage/keywords with the public repository. Dependencies, scripts, license and product behavior are unchanged; documentation-only work does not advance calculation stamps.
+
 ## Unreleased - Budget check before paid work; recovered filing sections (2026-11-03)
 
 - A paid run that a job or rolling cap can never finish now stops before its first paid request, at no cost, and says which request, model and cap blocked it and the smallest cap that would admit it (D-183). The same check runs before a retry spends anything. `docs/CLAUDE-USAGE.md` lists the per-model worst-case reservations and a practical cap.
@@ -967,7 +975,7 @@ The independent audit of 2026-10-27 found records the AI context and the data-on
 
 ## Unreleased - opt-in dossier reading layout (2026-10-25 to 2026-10-26)
 
-- `METIS_UI_REDESIGN=1` opts into the dossier layout for saved reports and the workspace; `0`, the default, keeps the classic layout. It adds a dossier cover with the composite and the seven aspects, an evidence inspector, report-local notes kept in this browser, a capital bridge, recorded sensitivity cells, factor attribution, a command palette, a coverage desk and a revision digest. It presents the same saved snapshot, figures, gaps and disclosures as the classic layout; see the [preservation ledger](docs/ui-redesign-parity.md).
+- `METIS_UI_REDESIGN=1` opts into the dossier layout for saved reports and the workspace; `0`, the default, keeps the classic layout. It adds a dossier cover with the composite and the seven aspects, an evidence inspector, report-local notes kept in this browser, a capital bridge, recorded sensitivity cells, factor attribution, a command palette, a coverage desk and a revision digest. It presents the same saved snapshot, figures, gaps and disclosures as the classic layout; see the [preservation ledger](docs/internal/ui-redesign-parity.md).
 - Dossier tables wrap long cells instead of clipping them; a quote observation reads as its date (or to the minute in UTC) and the generation time to the millisecond in UTC, with the raw value kept in `<time dateTime>`; a report blocked only by an analysis-process disclosure states its data as complete or degraded and says that the disclosure blocks it (#51).
 - The dossier's sticky grade shortcuts take their own row when they do not fit beside the report identity, so all seven grades show from 1440px; where they still scroll, a shadow marks each edge with shortcuts beyond it (#52).
 
@@ -1532,7 +1540,7 @@ in [`docs/audit/DECISIONS.md`](docs/audit/DECISIONS.md).
 Every source file, test and document was read against the others; 232
 findings from independent reviewers were verified one by one, and the slices
 no reviewer reached were audited directly. The record is
-[`docs/superpowers/audits/2026-09-06-full-codebase-audit.md`](docs/superpowers/audits/2026-09-06-full-codebase-audit.md);
+[`docs/internal/superpowers/audits/2026-09-06-full-codebase-audit.md`](docs/internal/superpowers/audits/2026-09-06-full-codebase-audit.md);
 the conventions it changed are D-24 to D-27 in
 [`docs/audit/DECISIONS.md`](docs/audit/DECISIONS.md). What follows is what a
 reader of the previous release notices.

@@ -1,0 +1,394 @@
+# Keyless data path — design
+
+> **Historical design record; guidance reconciled 2026-10-05.** The Problem
+> section describes behavior before the September 2 implementation; it does
+> not describe today's keyless path. The implemented-status and deviations
+> paragraphs are essential context for the proposed interfaces below.
+> In particular, issuer identity gates, available-component cash aggregates,
+> form coverage, and predecessor-history support evolved beyond this original
+> design. Its issuer prices and live verification are dated observations,
+> not current market data. Use the [README](../../../../README.md),
+> [methodology](../../../METHODOLOGY.md), and
+> [keyless orchestration](../../../../src/pipeline/keyless.ts) for current
+> requirements and behavior; fallback success remains dependent on source
+> availability and disclosure of missing inputs.
+
+**Date:** 2026-09-02
+**Status:** implemented on `feat/keyless-data-path` (2026-09-02). Live keyless verification, no FMP key, isolated data directory: AAPL resolved through EDGAR; six statement members from company facts, prices from Yahoo, profile/enterprise values/market-cap history computed; forensics, multiples, a DCF and the composite score produced; free cash flow, capex intensity, operating margins, net debt and technicals identical to the FMP-based run, with ten fiscal years of history where the entry-tier FMP plan served five. JPM took the bank route with return on tangible common equity and the excess-return valuation. A fictional ticker rendered the not-found page. Deviations from this design: the fallback gate is issuer identity (an EDGAR-sourced CIK, or a registrant whose own ticker list contains the requested symbol) rather than "a CIK exists", because the fixtures carry placeholder CIKs and SEC merely answering for an FMP-supplied CIK proves the CIK exists, not that the ticker belongs to it; the SPY and sector-ETF fallbacks also run for keyed plans without issuer confirmation; the profile does not carry a fiscal year end; total debt includes lease obligations to match FMP; bank cash and interest tags were added; current ROE falls back to the DuPont figure; financial routes skip cost-of-debt inference; `isEtf`/`isFund` come from Yahoo's `instrumentType` rather than from a "no core forms on file" rule, which would have marked 40-F filers and newly listed issuers unsupported; `cashAndShortTermInvestments` sums whichever of cash and short-term investments a filer tags, rather than requiring both; the debt chains record which tag won each field and net out five us-gaap overlaps (combined debt-and-leases against a separate finance-lease tag, the `LongTermDebt` total against `LongTermDebtCurrent`, `CommercialPaper` inside `ShortTermBorrowings`, the combined `LongTermDebtAndCapitalLeaseObligationsCurrent` beside `LongTermDebtCurrent`, and the debt maturity schedule's next-twelve-months figure beside either current tag — standing in for the current portion when neither is filed) so `totalDebt` counts each obligation once, with the composition in the row notes; shares outstanding fall back to the non-dimensional `us-gaap:CommonStockSharesOutstanding` when a per-class reporter files no `dei:EntityCommonStockSharesOutstanding` at all, with the basis named in the profile, enterprise-value, market-cap-history and shares-float run-log notes and in the shares-float and market-cap-history endpoint strings; the cost-of-debt suppression and the `returns.wacc.interestExpense` warn severity cover all three financial routes (bank, insurer, mortgage REIT) on keyed plans as well as keyless ones, because none of them consumes a WACC cost of debt. Deviations recorded by the audit of 2026-09-06 (`docs/internal/superpowers/audits/2026-09-06-full-codebase-audit.md` §3.3): `Revenues` precedes the ASC-606 elements in every revenue chain, because it is the taxonomy's total and the vendor's figure; `commonDividendsPaid` is its own chain (common element, else total less preferred, else total) rather than an alias of the total; the superseded `original` of a sign-flipped field carries the row's sign; the newest quarters take the 10-Q's own `fy`; a same-ratio split re-tag is measured from the previous re-tag and is never applied again on no restated evidence; Form 40-F is a core form; SIC 4953/4955/4959 route as industrials; the successor's "own history" test is an annual core-form fact, not a concept count.
+
+**Original status:** approved for implementation (owner directive of 2026-09-02: "make sure it works if users don't have an FMP subscription")
+**Plan:** executed on 2026-09-02; the step-by-step plan was retired by the audit of 2026-09-06 (this document and its deviations paragraph are the record).
+
+## Current implementation map — 2026-10-05
+
+Source and test definitions checked at `010a055`. The Sources, Approach,
+Components and Data flow below preserve the original proposal and its
+September deviations. They are not a current API reference or a guarantee of
+complete statements, a DCF or an AI report for every SEC registrant.
+
+| Area | Present implementation and evidence |
+| --- | --- |
+| Fallback admission | [Bundle](../../../../src/pipeline/dataBundle.ts) and [keyless orchestration](../../../../src/pipeline/keyless.ts) fill eligible members per source result/statement-source policy. Issuer-bound replacements require SEC ticker/registrant confirmation; a vendor CIK alone is insufficient. SPY/sector benchmark prices may fall back independently on keyed plans. [Bundle tests](../../../../tests/dataBundle.keyless.test.ts) exercise both boundaries and blocked-identity disclosure. |
+| Fixtures and unsupported instruments | [Reserved symbols](../../../../src/providers/reservedSymbols.ts) keep DEMO/DBNK synthetic whatever keys are configured. [Instrument support](../../../../src/pipeline/stageB/instrumentSupport.ts) rejects ETF/fund company analysis. [Reserved tests](../../../../tests/dataBundle.reservedSymbols.test.ts) and [instrument tests](../../../../tests/stageB.instrumentSupport.test.ts) cover these paths. Fixture preservation means immutable audited fixture bytes and dated intended deltas, not that newly generated fixture reports remain byte-identical forever. |
+| Yahoo transport and quote | [Yahoo](../../../../src/providers/yahoo.ts) uses its fixed browser-style Metis user agent, never the SEC contact identity. Previous close comes from the chart's prior session, with chart-range previous close only as fallback. History TTL is 24 hours and quote TTL 15 minutes during the US regular session; between sessions a quote fetched at least 30 minutes after the close stays fresh until the next open ([usSession](../../../../src/providers/usSession.ts)). Dividend-adjusted `adjClose` is used for beta when both series provide it. [Yahoo tests](../../../../tests/yahoo.client.test.ts) and [beta tests](../../../../tests/stageB.betaEstimate.test.ts) cover these semantics. |
+| Statement builder | [Statements](../../../../src/edgar/statements.ts) requires `asOf` and `vendorSplits` as well as symbol/CIK/history limits; `basisDay` and bank-revenue override are additional options. Results include rows, gaps, substitutions, restatements and withholding details. Annual core forms include 40-F. Operating-income derivations remove tagged non-operating components and unsafe add-backs; cash aggregates may use available filed components with notes. [Statement](../../../../tests/edgar.statements.test.ts) and [keyless tests](../../../../tests/keyless.test.ts) are the executable contract. |
+| Currency and shares | [Split resolution](../../../../src/edgar/splits.ts), [vendor split evidence](../../../../src/providers/splitEvents.ts) and keyless share guards establish the price-session share basis or withhold affected EPS, counts and capitalization. Money comparisons require compatible established currencies; no general ADR/FX conversion bridge is implemented. [Share-basis tests](../../../../tests/keyless.splitBasis.test.ts) and [currency tests](../../../../tests/currency.priceComparison.test.ts) cover the current restrictions. |
+| Successors and beta | [Successor resolution](../../../../src/edgar/successor.ts) can supply eligible predecessor periods with lineage; [successor tests](../../../../tests/edgar.successor.test.ts) use recorded headers. [Beta](../../../../src/pipeline/stageB/betaEstimate.ts) counts at least 24 adjacent monthly return pairs inside five calendar years and reports raw/Blume/uncertainty/price basis. Both series must supply the regular US final-session date; the keyless caller withholds current/future UTC-day bars until the next day. Exceptional closures and non-US calendars remain unmodeled; see [calendar decisions](../../../audit/2026-10-04-recommendations.md#6-calendar-alignment--implemented). |
+| Optional sources | [Bundle](../../../../src/pipeline/dataBundle.ts) uses configured Finnhub news and upcoming-earnings fallbacks when FMP cannot serve them, with source provenance. These require a Finnhub key; this is not fully keyless news/calendar coverage. [Fallback tests](../../../../tests/dataBundle.finnhub.test.ts) and [access tests](../../../../tests/fmp.access.test.ts) cover secondary-source and learned FMP refusal behavior. Keyless SEC Form 4 trade reconstruction remains unimplemented. |
+
+Public access alone does not establish rights for redistribution or AI input;
+see [DATA-RIGHTS](../../../DATA-RIGHTS.md). The current missing-data policy may
+produce a degraded report or withhold a model, especially for IFRS, missing
+tags, unsupported currencies/share bases or unavailable source services.
+
+## Problem
+
+Without `FMP_API_KEY`, the pipeline serves only the two fictional fixtures
+(`DEMO`, `DBNK`); every real ticker renders as unknown. With an entry-tier
+key, FMP refuses some endpoints outright and some symbols (the SPDR sector
+ETFs) on price history. A user without a paid subscription therefore gets no
+report at all, even though every statement the analyzer needs is public.
+
+The original goal (aspirational, not a universal coverage guarantee): a complete
+deterministic report for any US-listed SEC registrant
+with no paid data subscription, from public sources, with the same
+provenance, validation and disclosed-gap discipline the FMP path has.
+
+## Sources
+
+| Need | Keyless source | Requirement |
+| --- | --- | --- |
+| Ticker → CIK, name, SIC, exchange, fiscal year end | SEC EDGAR `company_tickers.json` + submissions | `EDGAR_CONTACT` (truthful identity, already required) |
+| Income statement, balance sheet, cash flow (annual + quarterly) | SEC EDGAR XBRL `companyfacts` | same |
+| Shares outstanding, public float | `dei:EntityCommonStockSharesOutstanding`, `dei:EntityPublicFloat` | same |
+| Daily OHLCV for the symbol, SPY and the sector ETF; quote | Yahoo Finance chart endpoint (`query1.finance.yahoo.com/v8/finance/chart/<symbol>`) | none; a browser-style `User-Agent` is mandatory (429 without) |
+| Risk-free rate, macro | FRED CSV (already keyless) | none |
+| Equity risk premium | `ERP_FALLBACK` constant (already exists, dated) | none |
+
+Not available keylessly and left as disclosed gaps: analyst estimates and
+price targets, grades consensus, peers, insider trades and statistics, 13F
+ownership, news and press releases, transcripts, executive compensation,
+segmentation, earnings calendar, and FMP's derived key-metrics / ratios /
+financial-growth rows (Stage B computes its own from the statements).
+
+Yahoo's chart endpoint is unofficial. It is used only when FMP cannot serve
+the member, requests are rate-limited (2/s) and cached in the durable
+`api_cache`, and every failure degrades to a disclosed gap. The README says
+so plainly.
+
+## Approach
+
+**Per-member fallback**, chosen over (a) a separate keyless bundle builder,
+which duplicates the pipeline and does nothing for entry-tier keys, and (b)
+replacing FMP outright, which drops the paid-only members for users who have
+them.
+
+FMP remains the primary source for every member. After the FMP calls settle,
+a keyless layer fills each core member FMP could not serve — no key, empty
+body, HTTP 402, refused symbol — with its own provenance (`source: "edgar"`,
+`"yahoo"` or `"computed"`) and a manifest entry naming the replacement and
+FMP's reason. Precondition: EDGAR resolves the ticker to a CIK. The fictional
+fixtures resolve to nothing, so they never reach Yahoo and their reports stay
+byte-identical.
+
+## Components
+
+### `src/providers/yahoo.ts` — `YahooClient`
+
+- `dailyHistory(symbol, from, to)` → `FetchResult<FmpPayload<FmpEodBarRow>>`.
+  Rows `{ date, open, high, low, close, volume, adjClose }`, date DESC. `close`
+  is the split-adjusted close (Yahoo's `close` series), matching FMP's
+  "split-adjusted close only" contract; `adjClose` (dividend-adjusted) is
+  carried as an extra field and not consumed. Null bars are dropped. Range is
+  requested with `period1`/`period2` epoch seconds.
+- `quote(symbol)` → `FetchResult<FmpPayload<FmpQuoteRow>>` from the chart
+  `meta` (`regularMarketPrice`, `regularMarketTime` → `timestamp`,
+  `currency`, `exchangeName`, `longName` → `name`, `regularMarketDayHigh/Low`,
+  `fiftyTwoWeekHigh/Low` → `yearHigh/yearLow`, `chartPreviousClose`,
+  `regularMarketVolume`). `marketCap` is left null; the profile builder fills
+  it from shares.
+- `meta(symbol)` → `{ currency, exchange, longName, instrumentType, firstTradeDate }`
+  for profile derivation (same request as `quote`, one cache entry).
+- Symbol mapping: uppercase; `.` → `-` (FMP `BRK.B` → Yahoo `BRK-B`). Response
+  validated with zod; `chart.error` or a missing result → gap.
+- Transport: `fetchWithPolicy` with `provider: "yahoo"`, a 2 req/s limiter,
+  `User-Agent` set from `EDGAR_CONTACT` when configured and a fixed
+  browser-style string otherwise. Durable caching through the same
+  `cachedFetch` adapter FMP uses (`provider: "yahoo"`); TTL 1 day for history,
+  15 minutes for the quote. Fixture mode: none — the client is only invoked
+  after EDGAR resolved a real CIK.
+
+### `src/edgar/statements.ts` — `buildStatementsFromCompanyFacts`
+
+Pure. Input: `CompanyFacts`, `{ symbol, cik, annualPeriods, quarterlyPeriods }`.
+Output: `{ incomeAnnual, incomeQuarterly, balanceAnnual, balanceQuarterly,
+cashflowAnnual, cashflowQuarterly }` as FMP-row-shaped arrays (date DESC) plus
+`notes` and `gaps`.
+
+Rules:
+
+1. Facts from core forms only (`CORE_FACT_FORMS`), one value per period by
+   `dedupFactPoints` (max `filed`, amendments win ties).
+2. Annual rows: duration facts 300–400 days ending at a fiscal year end that
+   has a `10-K`/`20-F`/`40-F` point for at least one anchor concept (revenue,
+   net income or assets). `period: "FY"`, `fiscalYear` from the point's `fy`
+   when its `fp` is `FY`, else the end date's year.
+3. Quarterly income rows: 3-month (70–125 day; the upper bound admits a
+   16- or 17-week fourth quarter on a 12-12-12-16 calendar) duration facts. Where a
+   quarter has only a year-to-date fact, the quarter is derived as
+   `YTD_n − YTD_(n−1)` within the same fiscal year. The fourth quarter is
+   derived as `FY − YTD_Q3` (or `FY − (Q1+Q2+Q3)`). Derived rows carry
+   `derivation: "ytd-difference" | "fy-minus-ytd"` and a note; a derivation is
+   attempted only when every operand exists for the same concept. The two
+   operands must also sit on one presentation (audit 2026-10-27 FIN-511,
+   `src/edgar/presentationLineage.ts`): a minuend a later filing re-filed
+   materially with no discontinued-operations line for the period, a
+   subtrahend a later filing re-filed so, or a minuend filing that re-presented
+   earlier periods beside a subtrahend filing that did not, withholds the
+   quarter naming both filings, and no stand-in, derivation or other tag
+   serves the field afterwards (except the next synonym after a combined
+   tag the component floor skips as a subset line). A re-filing within 1%
+   derives the quarter from the first-reported pair, and the quarter is
+   withheld when that first-reported copy has no subtrahend filed on or before
+   it; a re-rounding to whole millions (half a million or less) is not a
+   re-filing. See `docs/METHODOLOGY.md`
+   "Derived quarters on one presentation".
+4. Quarterly cash-flow rows: cash-flow facts are year-to-date in 10-Qs, so
+   every quarter after Q1 is `YTD_n − YTD_(n−1)`, Q4 is `FY − YTD_Q3`. The
+   one-presentation rule of item 3 applies to these differences too (a
+   withheld operating cash flow, the row's anchor, omits the row and the note
+   quotes the reason).
+5. Balance-sheet rows: instant facts at each 10-Q/10-K period end.
+6. Per-share figures (EPS) are never derived by subtraction across periods.
+   A fourth quarter with no tagged EPS gets Q4 net income ÷ a Q4 weighted
+   share count backed out of the day-weighted identity (FY shares × FY days =
+   Σ quarter shares × quarter days) when the annual and three quarterly counts
+   are tagged, else it is withheld (D-64). Weighted share counts are taken only
+   when tagged for the period and are never written back from that identity.
+6a. Stock splits (`src/edgar/splits.ts`). Companyfacts stores facts as filed,
+   so a period reported only before a split keeps its pre-split EPS and share
+   count (Apple FY2016 diluted EPS 8.31 against 7.46 for FY2025 read as a
+   negative ten-year CAGR). Each split is read from
+   `us-gaap:StockholdersEquityNoteStockSplitConversionRatio1` (any form; the
+   context date is the split date) and its direction confirmed against the
+   share counts the next filings restated across that date; a tagged ratio the
+   restatement contradicts is not applied and the note says why. Every
+   per-share and share-count point — EPS, weighted shares,
+   `CommonStockSharesOutstanding`, the dei cover count used for market-cap
+   history — filed before an applied split is scaled by the product of the
+   later ratios before dedup, so FMP's split-adjusted contract holds. Money
+   facts are untouched. The notes ride on the income and balance rows.
+6b. Stand-in concepts. A chain step may carry a `disclose` text; when such a
+   step resolves, the statement records a `Substitution` `{ field, text,
+   periods }` (newest period first) and the orchestration files it as an
+   `info` manifest entry `keyless.<member>.<field>` — "<text> (periods: …)".
+   Three chains use it. `interestExpense` falls back from the income-statement
+   tags (`InterestExpense`, `InterestExpenseNonoperating`,
+   `InterestExpenseDebt`, `InterestAndDebtExpense`, `InterestExpenseOperating`)
+   to cash interest paid (`InterestPaidNet`, `InterestPaid`): Caterpillar and
+   GE tag their interest line only by extension, and without a cost of debt
+   the WACC and the whole DCF were suppressed. `operatingIncome` falls back
+   from `OperatingIncomeLoss` to the sum of pretax income
+   (`IncomeLossFromContinuingOperationsBeforeIncomeTaxes…`) and the
+   `interestExpense` chain (`sumAll`: every part must resolve): Pfizer files
+   no operating-income line at all. Bank-style filers
+   (`looksLikeBankTagging`) keep the plain `OperatingIncomeLoss` chain: a
+   bank's interest expense is an operating cost, so pretax income plus
+   interest is not its EBIT (JPMorgan's keyless run had derived one).
+   `totalStockholdersEquity` falls back from `StockholdersEquity` to
+   `StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest`
+   minus `MinorityInterest` (`diff`), then to that total alone: Caterpillar
+   tags only the total. A stand-in inside a composite is the composite's
+   disclosure; the field it belongs to discloses its own. The debt maturity
+   schedule's `LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths`
+   is a row-note stand-in rather than a `Substitution`: it joins the
+   `shortTermDebt` sum only when no balance-sheet current-debt tag
+   (`LongTermDebtCurrent` or the combined current tag) resolved for the
+   period, and the overlap pass notes "current maturities taken from the debt
+   maturity schedule"; beside such a tag it is the same amount twice and is
+   dropped with a note.
+7. Missing concepts are `null`, never `0`. Computed fields exist only when
+   every operand is present: `grossProfit = revenue − costOfRevenue`,
+   `ebitda = operatingIncome + depreciationAndAmortization`,
+   `ebit = incomeBeforeTax + interestExpense` (else `operatingIncome`),
+   `totalDebt = shortTermDebt + longTermDebt` (each term may be a tagged
+   total or a sum of components), `netDebt = totalDebt − cashAndCashEquivalents`,
+   `cashAndShortTermInvestments = cash + shortTermInvestments` unless tagged,
+   `totalEquity = stockholdersEquity + minorityInterest` unless tagged,
+   `totalLiabilities = assets − totalEquity` unless tagged,
+   `freeCashFlow = operatingCashFlow + capitalExpenditure` (capex NEGATIVE),
+   `commonStockRepurchased` and dividends NEGATIVE (outflows), matching FMP.
+8. `reportedCurrency` from the fact unit (`USD`, `EUR`, …); a concept whose
+   only unit is not a currency is skipped for monetary fields.
+9. `filingDate` = `filed`, `acceptedDate` = `filed`, `cik`, `symbol`.
+
+Concept chains per field are a documented table in the module (first match
+per period wins, same as `CONCEPT_CHAINS`). Bank-style filers resolve revenue
+through the existing bank chain when `looksLikeBankTagging` is true or when
+the caller's `bankRevenue` option says so — `keyless.ts` sets it from the
+registrant's SIC (`bankStatementRouting`), because the tagging heuristic
+cannot see a bank that also tags its fee revenue under ASC 606.
+
+### `src/edgar/sic.ts` — `sectorIndustryForSic`
+
+SIC → `{ sector, industry }` in FMP's taxonomy so routing, the sector ETF
+map and FRED sector routing work unchanged. Specific codes first (6021/6022
+→ `Banks - Regional`/`Banks - Diversified`, 6035/6036 → `Banks - Regional`,
+6311–6411 → `Insurance - …` by line, 6798 → `REIT - Diversified`, 6211 →
+`Capital Markets`, 6282 → `Asset Management`, 6141/6153/6159/6162/6163 →
+`Credit Services`/`Mortgage Finance`), then the SIC major group (two digits)
+→ sector plus a descriptive industry. Unknown → `{ sector: null, industry: null }`.
+
+### `src/pipeline/stageB/betaEstimate.ts` — `estimateBeta`
+
+Pure OLS slope of the symbol's monthly log returns on SPY's, over the last 60
+month-ends both series share; needs ≥ 24 months; returns
+`{ beta, months, windowStart, windowEnd, rSquared }` or a gap. Consumed by the
+profile builder only when FMP supplied no beta.
+
+### `src/pipeline/keyless.ts` — orchestration
+
+`applyKeylessFallbacks(sym, fmpResults, { edgar, yahoo, now, notes, gaps })`
+returns replacements for: `profile`, `quote`, the six statement members,
+`eodPrices`, `benchmarkPrices.spy`, `benchmarkPrices.sectorEtf`,
+`enterpriseValues`, `marketCapHistory`, `sharesFloat`.
+
+- Profile: EDGAR submissions (name, cik, SIC → sector/industry, exchange,
+  fiscal year end, `isAdr` = files 20-F or 40-F), Yahoo meta (currency, exchange name,
+  `firstTradeDate` → `ipoDate`), `price` = Yahoo quote, `marketCap` = price ×
+  latest `dei:EntityCommonStockSharesOutstanding` (else latest diluted
+  weighted shares), `beta` = `estimateBeta` result. `isEtf` =
+  Yahoo meta `instrumentType === "ETF"`, `isFund` = `"MUTUALFUND"` or
+  `"CLOSEDEND"`, so `classifyInstrumentSupport` refuses a fund on the keyless
+  path as it does on the keyed one; when the meta is unavailable both stay
+  false and an `info` gap `profile.instrumentType` discloses that the
+  instrument was not classified.
+  `country` = `US` when the submissions' state of incorporation is a US
+  state or `DC`, else null (ERP falls back to the US premium with the
+  existing disclosed gap).
+- Quote: Yahoo meta plus `marketCap` from shares.
+- Statements: `buildStatementsFromCompanyFacts` on the already-fetched
+  companyfacts.
+- Prices: Yahoo daily history for the symbol, SPY and the sector ETF; the
+  sector ETF fallback also applies when FMP refuses that symbol on a keyed
+  plan.
+- Enterprise values (quarterly): for each quarterly balance row, `stockPrice`
+  = last Yahoo close on or before the period end, `numberOfShares` = the
+  period's diluted weighted shares (else dei shares nearest the date),
+  `marketCapitalization`, `addTotalDebt`, `minusCashAndCashEquivalents`,
+  `enterpriseValue`.
+- Market-cap history (daily): Yahoo close × piecewise dei shares (each cover
+  date applies forward).
+- Shares float: `outstandingShares` from dei, `floatShares` from
+  `dei:EntityPublicFloat / price` when both exist.
+
+Every replacement carries `Sourced.source` of `edgar`, `yahoo` or `computed`
+and an `endpoint` that names the derivation (`companyfacts→income-statement(annual)`,
+`chart→historical-price-eod/full`, `derived:enterprise-values(balance×close×shares)`).
+Every replacement adds an `info` manifest entry
+`keyless.<member>` — "served by <source> (<endpoint>) because FMP <reason>",
+`expected: true` when no FMP key is configured. When the keyless source also
+fails, the original FMP gap stands and the keyless failure is appended to
+`attemptedSources`. A statement member that built no rows from a parsable
+companyfacts names the cause when one is known: an IFRS reporter ("the issuer
+reports under IFRS (N ifrs-full concepts, M us-gaap) and the keyless
+statement builder reads us-gaap only") or a successor registrant ("the
+registrant is a successor issuer (Form 8-K12B on file) whose predecessor's
+XBRL history sits under another CIK that EDGAR does not link"). The
+companyfacts client accepts the `cik` field as either a number or a digit
+string: SEC emits the string form for registrants created recently
+(ExxonMobil Holdings Corp, CIK 2115436), and rejecting it discarded every
+fact of a reorganized issuer. When the body check rejects a response the gap
+reason is the check's own text, not "HTTP 200". `selectAnnualFiling` reports
+a miss as `no "10-K", "20-F" or "40-F"` and appends the successor-issuer
+notice when a Form 8-K12B is on file.
+
+### `src/pipeline/dataBundle.ts` wiring
+
+The EDGAR bundle (CIK, submissions, companyfacts) is awaited before the
+fallback step. Fallbacks run only when `cik.ok`. `DataSource` gains
+`"yahoo"`; `BuildDataBundleOptions` gains `yahoo?: YahooClient` for tests.
+The `keyless` option `false` disables the layer (tests that assert pure FMP
+gaps).
+
+### `src/pipeline/stageA/validate.ts`
+
+When the annual (or quarterly) income statement's `source` is `edgar`, the
+FMP↔XBRL cross-check for that period records `status: "passed"` with detail
+"statements are XBRL-sourced; the cross-check is an identity" and emits no
+gap, so `dataCompleteness.xbrl` is `checked` and forensics are `complete`.
+
+### `src/app/company/[symbol]/page.tsx`
+
+A symbol is confirmed unknown when FMP returns its empty-array reason **or**
+FMP is keyless and EDGAR's ticker lookup found no registrant. Both render the
+existing not-found page instead of an empty report.
+
+### Configuration and documentation
+
+`EDGAR_CONTACT` is the only requirement for keyless operation. README gains a
+"Without an FMP subscription" section listing what is served from where and
+what stays a gap; `.env.example` says the same at the FMP key. The Yahoo
+dependency is named as unofficial and best-effort.
+
+## Data flow (keyless AAPL)
+
+1. FMP fixture mode: profile/quote/statements/prices return "no API key + no
+   fixture" gaps.
+2. EDGAR: `AAPL` → CIK 320193 → submissions (Apple Inc., SIC 3571, NASDAQ,
+   FYE 09) → companyfacts.
+3. Yahoo: `AAPL`, `SPY`, `XLK` five-year daily history; `AAPL` quote meta.
+4. Keyless layer builds profile (Technology / Consumer Electronics via SIC
+   3571, price 325.13, market cap = price × 14.59B dei shares, beta from
+   returns), quote, statements (10 FY, 24 quarters where filed), prices,
+   enterprise values, market-cap history, float.
+5. Stage A validates (XBRL identity), Stage B computes as today, the report
+   persists with `edgar`/`yahoo` provenance and `keyless.*` info gaps.
+
+## Error handling
+
+Nothing throws for missing data. Yahoo 429/blocked/schema drift → gap; EDGAR
+403 cooldown is honoured by the existing transport; a companyfacts payload
+with no core-form facts → statement gaps with the reason. Derived rows are
+never produced from partial operands.
+
+## Testing
+
+- `tests/yahoo.client.test.ts`: chart parsing, symbol mapping, null-bar
+  drop, date ordering, quote/meta extraction, 429 and schema-drift gaps, UA
+  header, cache key stability.
+- `tests/edgar.statements.test.ts`: synthetic companyfacts covering 3-month
+  + YTD income facts, YTD-only cash flow, Q4 derivation, restatement dedup,
+  52/53-week fiscal years, missing components → null, computed-field
+  operand rules, currency from unit, bank revenue chain, 20-F filer, stock
+  splits, the interest-expense / operating-income / stockholders'-equity
+  stand-ins with their `substitutions` records, the bank guard on the
+  operating-income stand-in, and the maturity-schedule stand-in with its
+  overlap cases (netted beside a balance-sheet current tag, standing alone
+  otherwise, netted out of a `LongTermDebt` total).
+- `tests/edgar.client.test.ts`: the string-typed `cik` of a newly created
+  registrant parses; a body-check rejection reports the check's reason.
+- `tests/dataBundle.edgarForms.test.ts`: no annual form on file names both
+  forms and the successor-issuer notice.
+- `tests/edgar.sic.test.ts`: specific codes, major groups, unknown.
+- `tests/stageB.betaEstimate.test.ts`: known slope, alignment, minimum window.
+- `tests/keyless.test.ts`: orchestration with fake EDGAR/Yahoo — profile,
+  quote, statements, EV, market-cap history, float, provenance, manifest
+  entries, "keyless source also failed" path, fixture symbols skipped, split
+  disclosure, `keyless.<member>.<field>` stand-in entries, and the IFRS /
+  successor-issuer causes on an empty statement member.
+- `tests/dataBundle.keyless.test.ts`: `buildDataBundle` with a keyless FMP
+  client, fake EDGAR transport and fake Yahoo → members present with
+  `edgar`/`yahoo` sources; a keyed FMP whose sector ETF is refused → Yahoo
+  serves it.
+- `tests/stageA.validate.test.ts`: XBRL identity pass.
+- `tests/company.page.unsupported.test.ts`: keyless unknown symbol → not
+  found.
+- Coverage: `yahoo.ts`, `edgar/statements.ts`, `edgar/sic.ts`,
+  `pipeline/keyless.ts` join `RISK_SOURCE_MANIFEST` (85/75/85/85 per file);
+  `betaEstimate.ts` falls under the Stage B core thresholds.
+- Live verification: `FMP_API_KEY=""` end-to-end report for AAPL and one
+  bank (JPM) in an isolated data directory; the audit fixture comparison
+  stays byte-identical (fixtures resolve no CIK).
+
+DATA-113: reuse the actual successful five-day meta observation to construct the quote, rather than reading its cache key a second time. Profile and quote carry its stale state; failed meta still permits the independent quote retry.
