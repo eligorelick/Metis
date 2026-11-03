@@ -4,6 +4,7 @@
  * stand in for an ordinary ticker in a test about provider behaviour.
  */
 import { describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
 import * as extractor from "@/edgar/extract";
 import type { Sourced } from "@/types/core";
 import {
@@ -91,7 +92,7 @@ describe("selectInterimFiling", () => {
 });
 
 describe("buildDataBundle EDGAR filing boundary", () => {
-  it("includes annual-document parsing in the section extraction budget", async () => {
+  it.each(["ordinary", "recovery"] as const)("includes annual-document parsing in the %s section extraction budget", async mode => {
     let elapsed = 0;
     const realParse = extractor.parseDocument;
     const clock = vi.spyOn(Date, "now").mockImplementation(() => elapsed);
@@ -110,7 +111,7 @@ describe("buildDataBundle EDGAR filing boundary", () => {
           } },
         })));
         if (url.includes("companyfacts/")) return Promise.resolve(response(JSON.stringify({ cik: 1234567, entityName: "Example", facts: {} })));
-        return Promise.resolve(response(`<html><body><h2>Item 1A. Risk Factors</h2><p>${"Our business faces substantial operational risks. ".repeat(100)}</p><h2>Item 1B. Unresolved Staff Comments</h2><p>None.</p><h2>Item 7. Management's Discussion and Analysis</h2><p>${"Revenue increased during the year. ".repeat(100)}</p><h2>Item 7A. Quantitative and Qualitative Disclosures</h2></body></html>`));
+        return Promise.resolve(response(mode === "recovery" ? readFileSync("fixtures/edgar/q6-jnj-sections.html", "utf8") : `<html><body><h2>Item 1A. Risk Factors</h2><p>${"Our business faces substantial operational risks. ".repeat(100)}</p><h2>Item 1B. Unresolved Staff Comments</h2><p>None.</p><h2>Item 7. Management's Discussion and Analysis</h2><p>${"Revenue increased during the year. ".repeat(100)}</p><h2>Item 7A. Quantitative and Qualitative Disclosures</h2></body></html>`));
       },
     };
     const noNetworkResponse = (): Promise<Response> => Promise.resolve(new Response("unavailable", { status: 404 }));
@@ -122,7 +123,7 @@ describe("buildDataBundle EDGAR filing boundary", () => {
         finnhub: { fetchImpl: noNetworkResponse, retryDelaysMs: [] },
         finra: { fetchImpl: noNetworkResponse, retryDelaysMs: [], minRequestIntervalMs: 0 },
       });
-      expect(bundle.edgar.item1a.ok, JSON.stringify(bundle.edgar.item1a)).toBe(true);
+      expect(bundle.edgar.item1a.ok, JSON.stringify(bundle.edgar.item1a)).toBe(mode === "ordinary");
       expect(bundle.edgar.mdna.ok).toBe(false);
       if (!bundle.edgar.mdna.ok) expect(bundle.edgar.mdna.gap.reason).toContain("exceeding the");
     } finally {

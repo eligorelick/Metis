@@ -5093,3 +5093,256 @@ verification was 100%. The one-hour synthesis cache was hit: judge sections 2 an
   - Not changed: one claim stating ROIC and its spread over WACC against one cited
     figure stays unverified, because one figure cannot bind two quantities.
 - **Stamps.** Pipeline stage-c-1.6.23. Report spec and payload are unchanged.
+
+## D-183 - Refuse a paid run before its first request when a cap can never admit it (2026-11-03)
+
+The first paid test (D-182) ran under a $3 job cap. The bull analyst spent $0.44.
+Then the bear's research request was refused admission, because its worst-case
+reservation ($2.90) plus the spend exceeded the cap. The judge's worst-case
+section reservation on the Sonnet 5.5 floor ($5.28) could never have fitted
+either. The run became data-only, and a retry keeps the job's recorded cap
+(D-120), so the $0.44 bought nothing. Nothing checked, before money was spent,
+whether the run could finish.
+
+- **Decision.** Before a run's first paid request, and before a resumed run's
+  first new one, Metis prices every reservation the rest of the run will ask for.
+  It uses the same functions and models admission uses: each pass lease, each
+  analyst's research and writing requests, each synthesize section and any
+  billable verify. If the largest one cannot fit the per-job cap (counting what
+  the job has spent and has in flight) or the room left under the rolling cap,
+  nothing is sent. The run ends as a data-only report at $0. The report and the
+  step details name the pass, the model, the worst-case reservation, the cap that
+  blocks it and the smallest cap that would admit it. Subscription connections
+  reserve nothing and are never refused. Reservation formulas, admission
+  accounting and cap defaults are unchanged.
+- **Kept: a retry does not raise the recorded cap (D-120).** The check also runs
+  on retry, so a retry that cannot finish spends nothing, and the disclosure says
+  to raise the setting and start a new report.
+- **Limit.** The check is necessary, not sufficient. Earlier requests spend real
+  money before the largest one is admitted, so a cap just above the largest
+  reservation can still stop a run part-way. `docs/CLAUDE-USAGE.md` gives the
+  per-model reservations and a practical cap: about the largest reservation plus
+  $10.
+- **Worst-case reservations per request** (registry snapshot 2026-10-03, request
+  mode): Haiku 4.5 research $2.90 and judge $5.28 on Sonnet 5.5; Sonnet 5.5
+  research $26.36; Opus 5.5 research $52.64 and judge $10.56. Observed complete
+  runs cost $1.62 (Haiku) and $2.28 (Sonnet 5.5 high).
+- **Built** by a delegated Claude Opus 5.5 agent (extra-high effort). Tests cover
+  a judge reservation above the cap, the observed $3 Haiku case, a fitting cap,
+  rolling headroom, retry under a raised setting, and subscription connections.
+  The refusal tests fail without the change; the controls pass either way.
+- **Stamps.** Pipeline stage-c-1.6.24.
+
+## D-184 - Annual filing sections recovered from bounded filing evidence (2026-11-03)
+
+The 33-company panel lacked a filing section for 9 issuers, so their analysts saw
+no filed risk factors, business description or MD&A. Examples: ASML's integrated
+annual report maps 20-F items to chapters through a cross-reference table; NVO
+uses a subordinate "D." risk heading; JNJ's Item 1A lost to a cybersecurity
+cross-reference; INTC links page ranges from its contents; CAT's Part I link is
+misbound.
+
+- **Decision.** New recovery paths run only after the existing layers fail. They
+  extract a section only when its start and end are proved by the filing's own
+  structure:
+  - a cross-reference table's destination, up to the nearest following
+    destination at the same structural level;
+  - a subordinate heading;
+  - linked page ranges, with the closing item row in the same table;
+  - a corrected contents link.
+
+  A section ends at the next later item heading, whatever its wording. Recovery
+  is withheld when an endpoint page is claimed by another item, when a linked
+  table-of-contents line would start it, or when the closing boundary is not
+  proved. An EX-13 redirect keeps priority over recovery. Parses are cached per
+  document, and recovery honours the filing time budget. There is no
+  ticker-specific code.
+- **Effect on the frozen replay** (266 section slots across 38 snapshots, cached
+  filings, against main at 62af738b):
+  - All 212 sections that extracted before are byte-identical.
+  - 8 sections are recovered: ASML risk factors, SAP business and MD&A, NVO risk
+    factors, BABA risk factors, SONY MD&A, JNJ risk factors and CAT business.
+  - INTC's business and MD&A stay withheld because a shared endpoint page is
+    claimed by another item.
+  - ASML's business and MD&A stay withheld because their dispersed mappings
+    cannot be proved complete.
+  - XOM stays withheld: the successor has no annual filing in the cache.
+- **Independent review (2026-11-03).** Three medium and three low findings were
+  fixed before merge, each with a test that fails without it:
+  - a boundary skipped over an unrecognised next-item title;
+  - a two-table index returned a partial MD&A;
+  - endpoint pages shared with another item;
+  - a linked risk table-of-contents line;
+  - EX-13 precedence;
+  - the reference-table end boundary.
+- **Built** by delegated Codex agents (GPT-6.1 Sol, extra-high effort). 64
+  recovery tests and eight trimmed public fixtures.
+- **Stamps.** Payload 1.66.0: recovered text reaches the analysts for the
+  affected filers.
+
+## D-185 - Tier 3 paid test and PR #88 review: complete an incomplete case; three boundary fixes (2026-11-03)
+
+**Tier 3 paid test.** ASML on Opus 5.5 at high effort, on the build verified for
+PR #88 (report #4 in the isolated test data directory, $3.03).
+
+- Fetch, validation and compute succeeded. The bear case succeeded: 17 thesis
+  claims, 41 drivers, 14 risks and 5 catalysts.
+- The bull's research succeeded ($1.02, 8 searches, 13,567 characters of dated,
+  sourced notes).
+- The bull's written case was a schema-valid skeleton twice: one revenue claim
+  and every other section empty. Both requests ended normally (`end_turn`),
+  after about 7,400 thinking tokens and 343 characters of text. The content
+  check (D-113) rejected both, so synthesis and verification were skipped and the
+  report is data-only.
+- The same skeleton appeared on NVDA #48 (Opus 5.5, medium) and the FIGR
+  high-effort run (D-162). There the one repair recovered it.
+
+**Root cause: the request schema.** The analyst request schema required
+`sourceId` beside `source` on every claim and evidence number. A first diagnosis
+blamed the repair wording (below), but a retry on that fix wrote the same
+skeleton twice more ($0.86). A probe then rebuilt the exact writing request from
+the job's frozen inputs (payload fingerprint `1.66.0:16a8bbce`, matching the run)
+and the saved bull research, and sent it with summarized thinking:
+
+- **As sent.** The reasoning planned a full case: the thesis, the MATCH Act,
+  China and customer-concentration risks, catalysts, evidence tags and a null
+  price target with its conditions. It ended "I'll write the output in JSON".
+  The output was the same one-claim skeleton, with `sourceId: "x"`.
+- **The same request without `sourceId` in the schema.** A complete case: 17
+  thesis claims, 30 drivers, 26 risks, 6 catalysts, 20 evidence numbers and
+  6 price-target conditions (23,965 characters, inside the 24,000 cap).
+- **The same request with no schema.** Also complete.
+
+The analyst has no second identity to give beside `source`. It wrote a
+placeholder and closed the case: 5 of 5 skeletons with the field, 1 of 1 complete
+case without it. This matches NVDA #48 and #49, whose four first attempts carried
+`sourceId: ""` (D-114), and the earlier bull skeletons. The three probe requests
+cost $2.09.
+
+- **Decision.** The analyst request schema omits `sourceId`, and the analyst
+  cites through `source`. A parsed claim without `sourceId` already cites its
+  `source` (D-114), and the stored ASML bear case has none after normalization.
+  The Zod schema still accepts the field, so stored cases parse.
+- **Not changed.** The judge's request schema keeps `sourceId`; no judge failure
+  points to it.
+
+**Confirmed on the paid build.** A Retry of the ASML job on the build without
+`sourceId` reused the frozen inputs, the bear case and the bull's saved research.
+It completed report #6:
+
+- **Bull.** Written on the first attempt ($0.79).
+- **Judge.** Three sections ($2.03, cache reads after the first).
+- **Verification.** Deterministic, $0.
+- **Job total.** $6.71 across every attempt.
+
+The report has:
+
+- **Verification rate:** 99.6%.
+- **Score and value:** composite 67.38 (grade C); DCF value USD 962.12 against
+  a USD 1,566.26 price.
+- **Sections:** 5 dated recent developments and 7 management actions. The
+  competitors (Applied Materials and KLA) are cited from the risk factors that
+  D-184 recovered. The market size is stated once as unsourced. There are 5
+  catalysts and 7 risks.
+
+**Audit follow-ups (not changed in this round):**
+
+- **Uncheckable headline claims.** Some executive-summary claims cite the right
+  record, but the verifier cannot bind their wording, so they show as unchecked
+  (`text-context-mismatch`). Examples: "ADS price", "DCF base-case value",
+  "reverse DCF implies year-one revenue growth over TTM" and "weighted projected
+  revenue for the 12 months ending". TSM report #3 had the same class. These need
+  producer-bound wording, as D-182 added for "trailing P/E".
+- **Buyback magnitude.** "Buybacks ... were EUR 4.07 billion" against the
+  `buybacks (negative)` record is marked contradicted under D-160, which requires
+  signed cash outflows to match the signed record. The sentence states the amount
+  correctly as a magnitude. Accepting a magnitude with explicit outflow wording,
+  or prompting the judge to write the signed figure, needs its own decision.
+- **ASML sections still withheld.** The business and MD&A sections stay withheld
+  (D-184). The CEO and CFO cards are not assessed for lack of attributable
+  payload rows.
+
+**Secondary: the repair wording.** The repair turn said "Fix EXACTLY these issues and
+re-emit the full ANALYST_CASE JSON — same evidence, same citations, corrected
+fields only". The echoed output said "repair this JSON in place — do not start
+over". An empty `keyDrivers` or `risksToCase` cannot be filled without new claims,
+so the instruction contradicted the rejection. The model changed only the
+placeholder `sourceId` ("x" to "") and returned the same skeleton. That wording
+is right for a format error, such as a bad date, which is what it was written for.
+
+- **Decision.** A rejection from the content check is marked "the case is
+  incomplete:". Its repair turn now says the case was rejected as incomplete, not
+  for its format. It asks the model to fill each named section with sourced claims
+  from the payload and the supplied research, keep each correct claim it already
+  wrote, and state a specific evidence limitation instead of leaving a section
+  empty. The echoed output says "incomplete: keep its correct claims and write the
+  missing sections in full".
+- **Unchanged.** Format errors keep the fix-in-place wording. The cached payload
+  turn, tools and schema stay byte-identical, so the repair still reads the cache.
+- **Kept.** The wording still contradicted the rejection, so it is fixed too,
+  but on its own it did not recover the ASML case.
+- **Tests.**
+  - The analyst request schema has no `sourceId`, the judge's keeps it, and a
+    stored case parses with or without it. This fails without the change.
+  - Repair turns: one built from the exact ASML feedback, one control for a
+    format error, and a runner test for the incomplete marker on the echoed
+    output. All three fail without the change.
+
+**PR #88 review (Codex, eight P2 findings over six rounds, plus the related gaps
+found in the same review of the end search), each with a test that fails without
+the fix:**
+
+- **Linked page ranges (D-184).** A page that another item claims strictly
+  inside a mapped range now withholds recovery, as an endpoint does. Example:
+  INTC Business pages 3-5 with Item 1A mapped to page 4.
+- **Reference-table recovery (D-184).** A heading line holding a hyperlink can
+  no longer prove a chapter's start or end, matching the structured-item path.
+- **Prose references as section ends (D-184, second review round).** A paragraph
+  that opens with a later item's reference no longer ends the section. Examples:
+  "Item 1A. Risk Factors below discusses ..." and "Item 1A of this report
+  describes ...". Text that opens in lowercase, or that continues the item's
+  standard title in lowercase words, is prose. A variant or nonstandard title,
+  or a standard title with a parenthetical, still ends the section. The exact
+  standard title ends it in any capitalization ("Item 1A. risk factors.", third
+  review round), so capitalization alone cannot make recovery absorb the next
+  item. The existing
+  tests for singular and plural market-risk titles, "Directors and employees" and
+  a 320-character title still pass.
+- **Adjacent next-item heading (D-184, fourth review round).** A next-item heading
+  that starts exactly where the requested heading ends was passed over, because
+  element ends are exclusive and the search required a later start. The next
+  item's discussion was then accepted as the requested section. The search now
+  accepts a heading at that position, so the section is empty and the stub check
+  withholds it. The 20-F risk path is fixed the same way.
+- **Next-item headings the end search did not see (D-184, fifth review round,
+  widened).** Codex found a complete next-item heading in a single-cell layout
+  row that was not an end boundary, so Business absorbed the risk discussion. The
+  same review of the end search found three more forms it missed:
+  - a colon or a dash after the item number ("Item 1A: Risk Factors", "ITEM
+    1A—RISK FACTORS");
+  - a number-only cell followed by a colon;
+  - a heading wrapped in a name anchor.
+
+  The sixth round found a heading split across cells ("Item | 1A. | Risk
+  Factors."). The row rules were then replaced by one rule: a row of one to four
+  cells with no link reads as its non-empty cell texts in order. The same pass
+  added headings in list items and other block elements, and a Part prefix
+  ("PART I — ITEM 1A.").
+
+  End proof now has its own parser and is deliberately broader than start proof.
+  Absorbing the next item is the error to avoid; an early end can only shorten
+  the section or leave it a withheld stub. A row or heading holding a link is
+  still contents, and prose references are still not headings. Start proof is
+  unchanged.
+- **Pre-launch budget check (D-183).** It now counts an expired lease the way
+  admission's sweep records it: presumed spend at its reservation, dated at its
+  acquisition, or nothing when its request already settled or was presumed.
+  Before, it counted every stored lease as live, so with a rolling window shorter
+  than the lease lifetime it could refuse a run that admission would admit. The
+  sweep and the check now share one function.
+- **Replay.** The frozen 38-snapshot replay is unchanged by every extractor
+  fix in these rounds: 266 of 266 slots are identical, with 220 sections
+  extracted.
+
+- **Stamps.** Pipeline stage-c-1.6.25. Payload 1.66.0 and report spec 1.60.0
+  are unchanged.

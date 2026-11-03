@@ -108,6 +108,9 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/sectionLimits.ts",
   "src/pipeline/jobStore.ts",
   "src/pipeline/jobScheduler.ts",
+  // Pass-lease pricing moved here from jobRunner.ts, with the pre-launch
+  // budget plan that refuses a run a cap can never admit.
+  "src/pipeline/paidRunBudget.ts",
   "src/pipeline/jobSchedulerBootstrap.ts",
   "src/pipeline/jobState.ts",
   "src/pipeline/jobSteps.ts",

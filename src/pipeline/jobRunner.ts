@@ -43,8 +43,6 @@ import { costLog, jobPassArtifacts, jobs, reports, type JobRow } from "@/db/sche
 import { getConfig } from "@/config/env";
 import { JOB_LEASE_RENEWAL_DIVISOR, MODEL_STAGE_DEADLINE_MS } from "@/pipeline/leaseTiming";
 import {
-  maximumPassCostUsd,
-  maximumRequestCostUsd,
   RequestSettlementNotRecordedError,
   resolveModel,
   type VerifyReservationCapability,
@@ -87,7 +85,6 @@ import {
 // PURE module (no clock, no network, no provider) — the passes module itself
 // stays injected, as the decoupling note above requires.
 import {
-  JUDGE_PASSES_PER_SETTING,
   judgeProtocolManifestEntries,
   restampSharedModelFamily,
 } from "@/pipeline/stageC/judgeProtocol";
@@ -101,7 +98,7 @@ import { validateBundle, type ValidationReport } from "@/pipeline/stageA/validat
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
 import { canonicalizeFetchedUrl } from "@/pipeline/stageC/provenance";
 import { enrichDataOnlyReport } from "@/pipeline/stageC/dataOnlyReport";
-import { previousOutputBlock } from "@/pipeline/stageC/payload";
+import { isIncompleteAnalystCase, previousOutputBlock } from "@/pipeline/stageC/payload";
 import {
   getJobSnapshot,
   publishJobEvent,
@@ -137,6 +134,7 @@ import {
 import {
   acquirePaidPassLease,
   authorizePaidPassLaunch,
+  paidReservationCapRefusal,
   claimQueuedJobById,
   configuredSchedulerLimits,
   listPresumedCosts,
@@ -159,6 +157,14 @@ import {
   type SchedulerLimits,
   type SettlePaidPassResult,
 } from "@/pipeline/jobScheduler";
+import {
+  largestPlannedReservation,
+  paidBudgetRefusalReason,
+  passReservationUsd,
+  plannedPaidReservations,
+  usesRequestAdmission,
+  type RemainingPaidWork,
+} from "@/pipeline/paidRunBudget";
 
 /* ------------------------------------------------------------------------ *
  * PipelinePasses — injected Stage C contract (loose/structural types)
@@ -534,8 +540,8 @@ export interface ReportMetaInput {
  * Public constants
  * ------------------------------------------------------------------------ */
 
-/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. 1.6.12 (D-128): the verify pass computes the newest registered period of every reported series once and passes it to the claim check. 1.6.13 (D-132, audit batch 8a): an accepted Retry of a data-only fallback is dispatched and runs the judge and verify on the settled analyst passes instead of closing as done; if it fails again it links a new data-only report and stays resumable (DB-001). 1.6.19 (R1/R4, FIGR paid audit 2026-11-02): blank claim and number dates are read as no date, a FACT keeps only its sourced statement (an embedded "In our judgment" sentence becomes its own JUDGMENT), and the analysts and judge get the evidence-reading, valuation-stance, unassessed-grade, business-model, insider-motive and voting-control rules. 1.6.20 (D-163 to D-167, FIGR extra-high audit 2026-11-02): the analysts and judge get the accounting-scope, multiple-direction, return-basis, matched-window, share-of-total, met-versus-beat, post-transaction liquidity, attribution and specialist-term rules; a catalyst or risk reasoning is one claim; a rejected structured answer records how it ended; the verifier reads producer-bound metric paraphrases, complete table headers and footnotes (R7, D-167); filing excerpts keep qualifying context and the MD&A primary tables (R8, D-167). 1.6.21 (D-168 to D-172, priority fixes 2026-11-03): analysts research in plain text with web search, then write the case without tools; synthesis caches its prefix for one hour; catalyst and risk reasoning is a list of sourced claims; the judge writes market-structure and competitor claims and takes a price stance from the available multiples. 1.6.22 (D-175 to D-181, Q round 2026-11-02): the judge writes dated recent developments and management actions from the news, insider and leadership evidence, and states once that a fresh filing's figures are provisional when the manifest carries the fresh-filing caution. 1.6.23 (D-182, META paid test 2026-11-03): a valid month-only or year-only claim date is read as no date instead of costing a repair round; the judge lists each material dated development and management action without padding, and describes the industry from the filing when no market size is sourced; the verifier no longer reads "Motive is not established" as a person, accepts an issuer document on EDGAR's archive cited by URL and a payload gap row for a credibility statement naming nobody, and reads "trailing P/E" as the P/E (TTM) record (TSM paid test). */
-export const PIPELINE_VERSION = "stage-c-1.6.23" as const;
+/** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. 1.6.12 (D-128): the verify pass computes the newest registered period of every reported series once and passes it to the claim check. 1.6.13 (D-132, audit batch 8a): an accepted Retry of a data-only fallback is dispatched and runs the judge and verify on the settled analyst passes instead of closing as done; if it fails again it links a new data-only report and stays resumable (DB-001). 1.6.19 (R1/R4, FIGR paid audit 2026-11-02): blank claim and number dates are read as no date, a FACT keeps only its sourced statement (an embedded "In our judgment" sentence becomes its own JUDGMENT), and the analysts and judge get the evidence-reading, valuation-stance, unassessed-grade, business-model, insider-motive and voting-control rules. 1.6.20 (D-163 to D-167, FIGR extra-high audit 2026-11-02): the analysts and judge get the accounting-scope, multiple-direction, return-basis, matched-window, share-of-total, met-versus-beat, post-transaction liquidity, attribution and specialist-term rules; a catalyst or risk reasoning is one claim; a rejected structured answer records how it ended; the verifier reads producer-bound metric paraphrases, complete table headers and footnotes (R7, D-167); filing excerpts keep qualifying context and the MD&A primary tables (R8, D-167). 1.6.21 (D-168 to D-172, priority fixes 2026-11-03): analysts research in plain text with web search, then write the case without tools; synthesis caches its prefix for one hour; catalyst and risk reasoning is a list of sourced claims; the judge writes market-structure and competitor claims and takes a price stance from the available multiples. 1.6.22 (D-175 to D-181, Q round 2026-11-02): the judge writes dated recent developments and management actions from the news, insider and leadership evidence, and states once that a fresh filing's figures are provisional when the manifest carries the fresh-filing caution. 1.6.23 (D-182, META paid test 2026-11-03): a valid month-only or year-only claim date is read as no date instead of costing a repair round; the judge lists each material dated development and management action without padding, and describes the industry from the filing when no market size is sourced; the verifier no longer reads "Motive is not established" as a person, accepts an issuer document on EDGAR's archive cited by URL and a payload gap row for a credibility statement naming nobody, and reads "trailing P/E" as the P/E (TTM) record (TSM paid test). 1.6.24 (D-183, 2026-11-03): a paid run whose largest remaining request reservation a job or rolling cap can never admit stops before its first paid request, at $0, with the pass, model, reservation, cap and smallest workable cap disclosed; the same check runs before a resumed run's first new paid request. 1.6.25 (D-185, 2026-11-03): the analyst request schema no longer requires `sourceId` beside `source` (its placeholder drew a one-claim skeleton case from Opus 5.5 on ASML); an analyst case rejected as incomplete is asked on its repair turn to write the missing sections from the payload and research, keeping its correct claims, instead of repairing in place with the same evidence (ASML Opus 5.5 paid run); expired leases count in the pre-launch budget check as admission's presumed spend dated at acquisition. */
+export const PIPELINE_VERSION = "stage-c-1.6.25" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -1205,48 +1211,6 @@ function throwFirstSettlementRejection(outcomes: PromiseSettledResult<unknown>[]
     (outcome): outcome is PromiseRejectedResult => outcome.status === "rejected",
   );
   if (rejected) throw rejected.reason;
-}
-
-/**
- * What the PASS-level lease reserves (DECISIONS D-10).
- *
- * In "request" mode it reserves ONE request maximum. That covers a pass that
- * settles without ever reaching the provider, and it is released the moment
- * the first request takes its own reservation, so live exposure stays at one
- * request maximum per in-flight call. In "pass" mode it reserves the
- * pre-remediation bound covering every request the pass could make, kept for
- * one release as a fallback.
- *
- * WS7 (D-20), 2026-09 review: "every request the pass could make" includes the
- * MIRRORED judge request under `THESIS_JUDGE_ORDER=both`. In "request" mode both
- * requests are admitted and settled individually, so the pass lease is still one
- * request maximum; in "pass" mode there is no per-request admission at all, and
- * two judge requests were sharing one reservation sized for one order.
- */
-function passReservationUsd(
-  model: string,
-  pass: DurablePass,
-  verifyCapability?: VerifyReservationCapability,
-): number {
-  // Subscription allowance is managed by the provider. This route cannot send
-  // API-key requests and reserves no USD; it retains durable launch gates.
-  if (parseSubscriptionModel(model)) return 0;
-  if (pass === "verify" && verifyCapability?.billable !== true) {
-    return maximumPassCostUsd(model, pass, verifyCapability);
-  }
-  return getConfig().reservationMode === "pass"
-    ? maximumPassCostUsd(model, pass, verifyCapability, judgeRequestsPerPass())
-    : maximumRequestCostUsd(model, pass, verifyCapability);
-}
-
-/** How many provider requests one judge pass issues under the setting in force. */
-function judgeRequestsPerPass(): 1 | 2 {
-  return JUDGE_PASSES_PER_SETTING[getConfig().judgeOrder];
-}
-
-/** Whether provider requests are admitted individually. */
-function usesRequestAdmission(): boolean {
-  return getConfig().reservationMode === "request";
 }
 
 function createSettlementCheckpoint<T>(
@@ -3281,6 +3245,29 @@ export async function runJob<TPayload = unknown>(
       );
     }
 
+    // -- paid budget feasibility (before the first paid request) -------------
+    // Admission refuses a request whose worst case does not fit what the job
+    // has spent and reserved under the caps, but only when the run reaches it,
+    // after every earlier pass has been paid for. Spend only grows during a
+    // run, so if the largest reservation the remaining work asks for does not
+    // fit now, it never will: launch nothing and finish the way any other
+    // prelaunch degradation does (a data-only report that adds no cost). Each
+    // entry path calls this before its first new paid request: a fresh run, a
+    // resumed run before its missing analyst side or judge, and a reused
+    // synthesize before verify. Retries keep the job's recorded cap (D-120), so
+    // a retry that cannot finish is refused here too instead of spending first.
+    const refuseUnaffordableRun = (work: RemainingPaidWork): RunJobResult | null => {
+      const blocked = largestPlannedReservation(
+        plannedPaidReservations(analysisModel, work, passes.verifyCapability),
+      );
+      if (blocked === null) return null;
+      const refusal = paidReservationCapRefusal(state.jobId, blocked.reservationUsd, state.schedulerLimits);
+      if (refusal === null) return null;
+      const reason = paidBudgetRefusalReason(blocked, refusal);
+      for (const step of LLM_STEPS) markSkipped(state, step, reason);
+      return persistDataOnly(state, bundle, validation, computed, now, hasKey, { reason });
+    };
+
     // -- synthesize (judge) + verify + assemble, with retry-on-Zod --
     // The rule: "on validation failure, retry with the error fed back (max 2
     // retries), then fail loudly." The judge/verify/assemble unit is retried as
@@ -3849,6 +3836,8 @@ export async function runJob<TPayload = unknown>(
     if (reusableSynthesize !== null) {
       markSkipped(state, "bull", "covered by reused durable synthesize artifact");
       markSkipped(state, "bear", "covered by reused durable synthesize artifact");
+      const refused = refuseUnaffordableRun({ analysts: [], synthesize: false, verify: true });
+      if (refused !== null) return refused;
       return await runSynthesisAndFinish(null, null, reusableSynthesize);
     }
 
@@ -3967,7 +3956,8 @@ export async function runJob<TPayload = unknown>(
       let resends = plan ? SUBSCRIPTION_ANALYST_ATTEMPTS : 0;
       let mode = initialMode;
       let currentDetail = detail;
-      let feedback = mode === "repair" ? `${detail}${raw ? `\n\n${previousOutputBlock(raw)}` : ""}` : undefined;
+      let feedback = mode === "repair"
+        ? `${detail}${raw ? `\n\n${previousOutputBlock(raw, isIncompleteAnalystCase(detail))}` : ""}` : undefined;
       const checked = mode === "retry" ? checkCarried(passes, side, completedTopLevelFields(partial)) : { kept: {}, dropped: [] };
       let dropped = checked.dropped;
       let continuation: PassContinuation | undefined = mode === "retry" && (plan || Object.keys(checked.kept).length > 0)
@@ -4010,7 +4000,8 @@ export async function runJob<TPayload = unknown>(
         if (canRepair) {
           mode = "repair";
           const rejected = capRawOutput((out.error as { rawText?: string }).rawText ?? "");
-          feedback = `${errMessage(out.error)}${rejected ? `\n\n${previousOutputBlock(rejected)}` : ""}`;
+          const repairDetail = errMessage(out.error);
+          feedback = `${repairDetail}${rejected ? `\n\n${previousOutputBlock(rejected, isIncompleteAnalystCase(repairDetail))}` : ""}`;
           continuation = undefined;
         } else if (mode !== "repair") {
           const next = checkCarried(passes, side, { ...completedTopLevelFields(partialTextOfError(out.error)), ...(continuation?.completed ?? {}) });
@@ -4067,6 +4058,8 @@ export async function runJob<TPayload = unknown>(
           snapshot.costUsd,
         );
       }
+      const refused = refuseUnaffordableRun({ analysts: resumeMissingSides, synthesize: true, verify: true });
+      if (refused !== null) return refused;
       // Re-run ONLY the missing side(s) — the sibling's paid output is reused
       // (2026-07-10: one-sided analyst failures no longer discard the pair).
       let resumedBull = resumeSnapshots.bull;
@@ -4082,6 +4075,8 @@ export async function runJob<TPayload = unknown>(
     }
 
     // -- bull + bear ----------------------------------------------------------
+    const refused = refuseUnaffordableRun({ analysts: ["bull", "bear"], synthesize: true, verify: true });
+    if (refused !== null) return refused;
     // Per-pass timing comes from the hooks (the passes overlap in the
     // streaming path); ensureStepStarted backfills for hook-less mocks so a
     // step never jumps pending -> terminal.

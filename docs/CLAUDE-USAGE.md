@@ -249,6 +249,79 @@ or that resumes after the restart or by Retry (a resume keeps the same job row
 and its recorded cap). Raising the cap does not loosen an older job; a new
 report records the cap in force when it is created.
 
+### Worst-case reservations and the smallest workable cap
+
+A paid request is admitted only if what its job has already spent, plus the
+job's reservations in flight, plus the request's worst-case reservation fits
+`METIS_MAX_JOB_COST_USD`; `METIS_MAX_ROLLING_COST_USD` is checked the same way
+against everything spent in the window and every reservation in flight. The
+worst case is the model's whole context window at the cache-write price (ten
+sampling inputs for a request that can search), its whole output ceiling and
+eight $0.01 searches. It is far above what a request usually costs (compare
+the README's estimated run), and it does not vary with effort.
+
+Before a run sends its first paid request, and before a Retry sends its first
+new one, Metis prices every reservation the rest of the run will ask for with
+the functions admission uses: each pass's lease, each analyst's research and
+writing requests, each synthesize section request and any billable verify
+request. Repairs, retries, further sections and the mirrored judge order
+reserve the same amounts as the requests they repeat. If the largest of these
+cannot fit the per-job cap (counting what the job has already spent and has
+in flight) or the room left under the rolling cap (counting the window's spend
+and every reservation in flight), nothing is sent: the run ends as a data-only
+report that adds no cost, and the report and the step details name the pass,
+the model, the reservation, the cap that refused it and the smallest cap that
+would admit it. A subscription connection reserves nothing and is never
+refused this way.
+
+The check is necessary, not sufficient. Requests admitted earlier in a run
+spend real money before the largest one is reached, so a workable cap is the
+largest single reservation **plus whatever the run spends before that request
+is admitted**. A run that passes the check can still be refused later: a
+Haiku 4.5 run under a $5.50 cap whose analysts spend more than $0.22 cannot
+admit its first $5.28 synthesize section, and that analyst spend is kept in
+the ledger. Because a Retry keeps the cap the job was created with, raise the
+cap and start a new report in that case.
+
+In practice, leave room above the largest single reservation for the run's
+earlier requests. Complete runs on 2026-11-03 cost $1.62 (Haiku 4.5 analysts
+at medium effort with the Sonnet 5.5 judge) and $2.28 (Sonnet 5.5 at high).
+The earlier Opus 5.5 FIGR runs cost $4.71 at high effort and $12.27 at extra
+high. A per-job cap of about the largest reservation plus $10 therefore
+leaves a wide margin: about $15 for Haiku 4.5, $40 for Sonnet 5.5 and $65 for
+Opus 5.5. The rolling cap needs the same room on top of the window's spend.
+The cap bounds the worst case; it is not what a run costs.
+
+Default request reservation mode, registry snapshot 2026-10-03:
+
+| Analysis model | Analyst research request | Analyst writing request | Synthesize section request | Largest single reservation |
+| --- | ---: | ---: | ---: | ---: |
+| Claude Fable 5.1 | $197.18 | $28.35 | $39.60 | $197.18 |
+| Claude Fable 5 | $197.18 | $28.35 | $39.60 | $197.18 |
+| Claude Opus 5.5 | $52.64 | $7.56 | $10.56 | $52.64 |
+| Claude Opus 5 | $65.78 | $9.45 | $13.20 | $65.78 |
+| Claude Opus 4.8 | $65.78 | $9.45 | $13.20 | $65.78 |
+| Claude Sonnet 5.5 | $26.36 | $3.78 | $5.28 | $26.36 |
+| Claude Sonnet 5 | $26.36 | $3.78 | $5.28 | $26.36 |
+| Claude Haiku 4.5 | $2.90 | $0.57 | $5.28 (on Claude Sonnet 5.5) | $5.28 |
+
+The last column is the smallest per-job cap that can ever admit a run, and the
+room a run needs under the rolling cap. For every model except Haiku 4.5 it
+is an analyst's research request, so the cap must also cover what the other
+analyst spends before its own research request is admitted; a request that
+does not fit beside one already in flight waits for it to settle. For Haiku
+4.5 it is a synthesize section on the Claude Sonnet 5.5 judge floor, so the cap
+must also cover both analysts and any earlier sections. The 2026-11-03 Haiku
+run under a $3 cap is refused before it starts.
+
+`METIS_RESERVATION_MODE=pass` reserves a whole pass at once, so its largest
+reservation is the synthesize pass: six transport attempts, each able to
+pause and resume five times, for each of six section requests. That is
+$1,140.48 for Sonnet 5.5, Sonnet 5 and Haiku 4.5 (whose judge runs on Sonnet
+5.5), $2,280.96 for Opus 5.5, $2,851.20 for Opus 5 and Opus 4.8 and $8,553.60
+for Fable 5.1 and Fable 5, doubled under `METIS_JUDGE_ORDER=both`. Analyst
+passes reserve less ($107.82 on Haiku 4.5, $971.64 on Sonnet 5.5).
+
 Settlements and validated pass output are stored as durable artifacts with
 generation/attempt identity. An expired unsettled paid lease is counted at its
 full reserved amount as **presumed spend**. A late settlement can replace that

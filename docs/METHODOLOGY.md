@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.60.0 / payload 1.65.0, Stage B `STAGE_B_2026_11_COVERAGE_AND_FX_44` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.60.0 / payload 1.66.0, Stage B `STAGE_B_2026_11_COVERAGE_AND_FX_44` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications (D-138)
 
@@ -772,6 +772,72 @@ first available of three sources:
    tax rate.
 3. **The run-rate**, carried 7.5 months from the latest quarter's midpoint to
    the year-one midpoint at the near-term growth rate.
+
+### Annual business, risk and operating-review section recovery
+
+Existing successful extractions keep priority. After an annual section is missing
+or remains a stub, complete standalone item headings may start a retry through
+the first following item heading, including intervening subsections. End
+headings need a later item number, regardless of title spelling; two- to
+four-cell item rows can end a section. End proof is deliberately broader than
+start proof:
+
+- a period, colon or dash may follow the item number ("Item 1A: Risk Factors",
+  "ITEM 1A—RISK FACTORS");
+- a table row of one to four cells with no link reads as its non-empty cell
+  texts in order, so a heading split across cells ("Item | 1A. | Risk Factors.")
+  ends a section;
+- headings in list items and other block elements count, and a Part prefix
+  ("PART I — ITEM 1A.", "Part I, Item 1A.") is allowed;
+- a name anchor (not a link) around a heading does not hide it.
+
+A prose reference to a later item is
+not an end heading: its text opens in lowercase ("Item 1A of this report
+describes"), or continues the item's standard title in lowercase words ("Item
+1A. Risk Factors below discusses"). The exact standard title ends a section
+in any capitalization ("Item 1A. risk factors."). Only a two-cell, one-row title
+table can establish its start; TOC links, multirow index tables and prose
+references cannot. For 20-F risk factors, an unlinked standalone “D. Risk Factors” or
+“Risk Factors” must lie inside proved Item 3 and Item 4 boundaries. Repeated
+Item 3 page headings do not move the risk start. An issuer-named Item 4 title
+also requires a matching contents entry pointing to that heading.
+
+An integrated 20-F reference table can redirect Item 3.D to one named risk
+chapter only when its item, caption, page link, contents entry and unique
+chapter destination agree. The four reference-table columns must mean item,
+Form 20-F caption/description, location in this document/report, and page(s).
+The nearest following destination in the same contents table must resolve to
+a matching standalone ending heading of the same element level, regardless of
+row order and including a following destination on the same printed page.
+Neither the start nor the end heading may hold a hyperlink. Its title row
+must have the same cell position, nesting and explicit horizontal indentation
+as the risk row; ambiguous subsection structure is withheld. Continued risk
+headings stay inside the chapter.
+Repeated contents tables must prove the same source boundaries.
+Dispersed Item 4/5 mappings are withheld rather than reduced to one convenient
+location. A linked 10-K cross-reference index can supply Item 1 or Item 7 as
+disjoint page ranges only when every mapped range, numeric link and unique
+printed page is present and ordered. The complete item and its closing next-item
+row must be in one table, with page text only in the final column. A range is
+withheld when another item's index row also claims any page in it, an endpoint
+or one strictly inside;
+whole-page slicing cannot prove which item's text occupies a shared page.
+An empty destination immediately before
+the named page's break is allowed. Overlapping intervals are merged; validated
+page footers and return-to-contents links are omitted from the body.
+
+These retries require balanced source markup and text nodes outside explicit
+hidden markup; stylesheets are not evaluated. They admit
+EDGAR's empty self-closing table-cell spacers only immediately before another
+cell or the row end. Missing or ambiguous proof preserves the extraction gap.
+EX-13 exhibit redirects retain priority over these retries. Structural parses
+are cached lazily on the shared parsed-document object's lifetime, including
+malformed parses. Interrupted parses are not cached. Recovery checks the
+annual filing's existing absolute extraction deadline during parsing and
+before accepting text; the existing elapsed gates still govern later sections.
+The existing 2,500-character minimum, incorporation-stub check and payload character
+limits remain in force. Successor issuers still use
+their own annual filings for section text.
 
 **Annual-note appendix redirects (D-138, report-53 Task 7, unreleased).** Ordinary annual Item 8/15 extraction keeps priority and its existing stub and next-item bounds. When it fails, a notes-only route can follow one Item 15 table bounded by the real Item 16 heading. Exactly one notes row with an F-page label and one Schedule II row with an S-page label must resolve to unique forward same-document targets and matching standalone headings, with a first note and at least the existing 2,500-character substantive-body threshold. F-8 and S-1 remain distinct namespaces. Raw HTML character bounds are validated before flattening their actual text nodes; signatures before the appendix, the linked schedule and exhibits do not enter the result. Repeated notes headers and prose references, including paragraphs beginning with full schedule/exhibit/Item 16 titles, do not terminate the validated interval. A first-12,000-character statement prefix is optional and requires a separately proved Consolidated Balance Sheets target from that same index, after Item 16 and before notes, without intervening signature/appendix headings.
 

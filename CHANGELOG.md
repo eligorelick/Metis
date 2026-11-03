@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.60.0** and
-payload **1.65.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174 and the Q round, D-175 to D-181). The
+payload **1.66.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, and the annual filing-section recovery, D-184). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,15 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Budget check before paid work; recovered filing sections (2026-11-03)
+
+- A paid run that a job or rolling cap can never finish now stops before its first paid request, at no cost, and says which request, model and cap blocked it and the smallest cap that would admit it (D-183). The same check runs before a retry spends anything. `docs/CLAUDE-USAGE.md` lists the per-model worst-case reservations and a practical cap.
+- Risk factors, business and MD&A sections are recovered for annual reports laid out with cross-reference tables, subordinate headings, linked page ranges or misbound contents links, only when the filing's own structure proves where each starts and ends (D-184). On the 38-snapshot replay, every previously extracted section is unchanged and 8 missing sections are recovered (ASML, SAP, NVO, BABA, SONY, JNJ, CAT).
+- The analyst request no longer asks for a second citation field (`sourceId`) beside `source`. Opus 5.5 filled it with a placeholder and returned a one-claim outline for the ASML bull case on every attempt. The same request without the field returned a complete case (D-185).
+- When an analyst returns an outline with empty sections, the one repair now asks it to write the missing sections from the payload and research, keeping its correct claims, instead of repairing in place (D-185).
+- Review fixes: a linked page range is withheld when another item claims a page inside it; a linked contents line cannot bound an integrated-report chapter; a prose reference to a later item ("Item 1A. Risk Factors below discusses ...") no longer ends a section; and the pre-launch budget check counts expired leases as admission does (D-185).
+- Stamps: pipeline stage-c-1.6.25, payload 1.66.0. See D-183 to D-185.
 
 ## Unreleased - First paid test findings (2026-11-03)
 
