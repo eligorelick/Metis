@@ -5288,9 +5288,9 @@ is right for a format error, such as a bad date, which is what it was written fo
     format error, and a runner test for the incomplete marker on the echoed
     output. All three fail without the change.
 
-**PR #88 review (Codex, seven P2 findings over five rounds, plus three related
-gaps found in the same review of the end search), each with a test that fails
-without the fix:**
+**PR #88 review (Codex, eight P2 findings over six rounds, plus the related gaps
+found in the same review of the end search), each with a test that fails without
+the fix:**
 
 - **Linked page ranges (D-184).** A page that another item claims strictly
   inside a mapped range now withholds recovery, as an endpoint does. Example:
@@ -5322,6 +5322,12 @@ without the fix:**
     1A—RISK FACTORS");
   - a number-only cell followed by a colon;
   - a heading wrapped in a name anchor.
+
+  The sixth round found a heading split across cells ("Item | 1A. | Risk
+  Factors."). The row rules were then replaced by one rule: a row of one to four
+  cells with no link reads as its non-empty cell texts in order. The same pass
+  added headings in list items and other block elements, and a Part prefix
+  ("PART I — ITEM 1A.").
 
   End proof now has its own parser and is deliberately broader than start proof.
   Absorbing the next item is the error to avoid; an early end can only shorten

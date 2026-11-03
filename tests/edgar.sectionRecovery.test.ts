@@ -137,11 +137,25 @@ describe("failed annual section recovery from filing structure", () => {
     ["an en dash with spaces", "<div>Item 1A – Risk Factors</div>"],
     ["a number-only cell with a colon", "<table><tr><td>Item 1A:</td><td>Risk Factors</td></tr></table>"],
     ["a name anchor around the heading", '<a name="item1a"><div>Item 1A. Risk Factors</div></a>'],
+    ["the word, number and title in three cells", "<table><tr><td>Item</td><td>1A.</td><td>Risk Factors.</td></tr></table>"],
+    ["the number and title in one cell after an empty one", "<table><tr><td></td><td>Item 1A.</td><td>Risk Factors</td></tr></table>"],
+    ["a list item", "<ul><li>Item 1A. Risk Factors</li></ul>"],
+    ["a centered block", "<center>Item 1A. Risk Factors</center>"],
+    ["a section element", "<section>Item 1A. Risk Factors</section>"],
+    ["a Part prefix", "<div>PART I — ITEM 1A. RISK FACTORS</div>"],
+    ["a Part prefix with a comma", "<div>Part I, Item 1A. Risk Factors</div>"],
   ])("ends business at a next-item heading written with %s", (_label, heading) => {
     const html = sample("q6-cat-sections.html").replace('<div id="risk">Item 1A. Risk Factors.</div>',
       `${heading}<p>Risk discussion text.</p><div>Item 1B. Unresolved Staff Comments</div>`);
     const result = extractSection(html, { form: "10-K", item: "1" });
     expect(result.ok && result.text.includes("Risk discussion text.")).toBe(false);
+  });
+
+  it("does not end business at a Part-prefixed prose reference", () => {
+    const html = sample("q6-cat-sections.html").replace('<div id="risk">Item 1A. Risk Factors.</div>',
+      '<p>Part I, Item 1A of this report describes the risks.</p><p>Business prose after the reference.</p><div id="risk">Item 1A. Risk Factors.</div>');
+    const result = extractSection(html, { form: "10-K", item: "1" });
+    expect(result.ok && result.text).toContain("Business prose after the reference.");
   });
 
   it("does not end business at a linked contents row inside the item", () => {

@@ -784,8 +784,11 @@ start proof:
 
 - a period, colon or dash may follow the item number ("Item 1A: Risk Factors",
   "ITEM 1A—RISK FACTORS");
-- a complete heading in the first non-empty cell of a one- to four-cell row with
-  no link also ends a section;
+- a table row of one to four cells with no link reads as its non-empty cell
+  texts in order, so a heading split across cells ("Item | 1A. | Risk Factors.")
+  ends a section;
+- headings in list items and other block elements count, and a Part prefix
+  ("PART I — ITEM 1A.", "Part I, Item 1A.") is allowed;
 - a name anchor (not a link) around a heading does not hide it.
 
 A prose reference to a later item is
