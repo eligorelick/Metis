@@ -1887,7 +1887,7 @@ function totalDebtSnapshot(
   const excluded = [...new Map([...pair, ...(newest ? [newest] : [])].filter(row => refusal(row) !== null)
     .map(row => [String(row.date), row])).values()];
   const exclusion = excluded.length ? "; excluded withheld balances: " + excluded.map(row => isoDay(row.date) + ": " + refusal(row)).join("; ") : "";
-  const scope = used.flatMap(row => [leaseEvidenceNote({ ...row, leaseEvidenceContext },
+  const scope = (used.length ? used : pair).flatMap(row => [leaseEvidenceNote({ ...row, leaseEvidenceContext },
     { removed: bookDebtOnLeaseBasis(row, includeOperatingLeases).leaseRemoved ? num(row.operatingLeaseLiability) : null }),
     ...(incompleteLeaseCoverage(row) ? [incompleteLeaseCoverage(row)!.note] : [])]);
   const which = quarterPair && pair === quarterPair
