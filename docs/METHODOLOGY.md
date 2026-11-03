@@ -1594,6 +1594,14 @@ nonzero observation is not overwritten. Quarterly ownership histories are not
 rebuilt by this replay fallback; fresh extraction reads the ordered synonyms
 on both annual and quarterly bases. No new book-NCI materiality exemption
 is applied: small book NCI cannot by itself bound the earnings claim.
+For a successor, the annual row may read its retained predecessor facts only
+when that row names the predecessor CIK, the predecessor's facts match that
+CIK, both acquisitions and the succession link precede the snapshot cutoff,
+and the existing B-36 earnings/EPS continuity test succeeds using only facts
+filed by that cutoff. The existing `predecessorFactsFor` own-annual-report gate
+also applies. Both NCI income and consolidated profit retain their actual
+same-period predecessor filing provenance, and the completion names the CIK.
+No quarterly revenue conflict or valuation-date roll-forward guard is changed.
 The DCF
 values consolidated free cash flow, so its enterprise value includes the outside
 holders' share of partly owned subsidiaries. Book NCI can understate that claim

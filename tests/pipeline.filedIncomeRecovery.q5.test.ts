@@ -56,6 +56,40 @@ describe("filed annual operating-income coverage fallback", () => {
 });
 
 describe("NCI income synonyms in the existing ordered resolution", () => {
+  function succession(mode = "valid") {
+    const { bundle, facts } = fixture();
+    facts.facts["us-gaap"]!.EarningsPerShareBasic = { units: { "USD/shares": [{ start: "2025-01-01", end: "2025-12-31", val: 1.5,
+      filed: "2026-02-01", form: "10-K", accn: "0000000042-26-000001", fy: 2025, fp: "FY" }] } };
+    const own = structuredClone(facts); own.cik = 99;
+    if (mode === "future-evidence") for (const concept of Object.values(own.facts["us-gaap"]!)) {
+      const units = (concept as { units: Record<string, Record<string, unknown>[]> }).units;
+      for (const ps of Object.values(units)) for (const p of ps) p.filed = "2027-01-01";
+    }
+    if (mode === "own-annual") own.facts["us-gaap"]!.Assets = { units: { USD: [{ end: "2025-12-31", val: 2000 * M,
+      filed: "2026-02-01", form: "10-K", accn: "0000000099-26-000001", fy: 2025, fp: "FY" }] } };
+    if (mode === "discontinuous") (own.facts["us-gaap"]!.EarningsPerShareBasic as { units: { "USD/shares": { val: number }[] } }).units["USD/shares"][0]!.val = 3;
+    if (!bundle.edgar.cik.ok || !bundle.edgar.companyFacts.ok) throw new Error("fixture");
+    bundle.edgar.cik.value.data.cik = 99; bundle.edgar.cik.value.data.cik10 = "0000000099";
+    bundle.edgar.companyFacts.value.data = own;
+    bundle.edgar.predecessor = { facts, cik10: mode === "wrong-issuer" ? "0000000077" : mode === "malformed-issuer" ? "4.2e1" : "0000000042", name: "Synthetic predecessor", endpoint: "fixture predecessor",
+      fetchedAt: mode === "future" ? "2027-01-01T00:00:00Z" : mode === "missing-acquisition" ? "" : bundle.builtAt,
+      via: { accession: "0000000099-26-000001", form: "10-Q", filed: mode === "future-link" ? "2027-01-01" : "2026-05-01", successorFormAccession: "0000000099-26-000000" } };
+    return bundle;
+  }
+  it("completes the matching predecessor FY key only with established successor continuity", () => {
+    const out = withIncomeOperatingBasis(succession()).statements.incomeAnnual;
+    if (!out.ok) throw new Error("fixture");
+    expect(out.value.data.rows[0]?.netIncomeAttributableToNoncontrollingInterest).toBe(-2 * M);
+    expect(out.value.data.rows[0]?.netIncomeConsolidated).toBe(148 * M);
+    expect(out.value.data.rows[0]?.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest?.filings[0]?.accn).toBe("0000000042-26-000001");
+  });
+  for (const mode of ["discontinuous", "wrong-issuer", "malformed-issuer", "future", "future-link", "future-evidence", "own-annual", "missing-acquisition"]) {
+    it(`does not use ${mode} predecessor evidence for the annual key`, () => {
+      const out = withIncomeOperatingBasis(succession(mode)).statements.incomeAnnual;
+      if (!out.ok) throw new Error("fixture");
+      expect(out.value.data.rows[0]?.netIncomeAttributableToNoncontrollingInterest).toBeUndefined();
+    });
+  }
   it("recovers the annual key without rebuilding an already-valued issuer's quarterly ownership history", () => {
     const { bundle, facts } = fixture();
     if (!bundle.statements.incomeAnnual.ok || !bundle.statements.incomeQuarterly.ok) throw new Error("fixture");

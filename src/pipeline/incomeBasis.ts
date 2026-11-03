@@ -4,8 +4,21 @@ import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { sectorIndustryForSic } from "@/edgar/sic";
+import { successorContinuity } from "@/edgar/successor";
+import { conceptFactsSchema, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
+import { predecessorFactsFor } from "@/pipeline/stageB/debtLikeObligations";
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+/** Continuity must be evidenced at the snapshot cutoff, like the amounts it admits. */
+function factsAtCutoff(facts: CompanyFacts, day: string): CompanyFacts {
+  return { ...facts, facts: Object.fromEntries(Object.entries(facts.facts).map(([namespace, concepts]) => [namespace,
+    Object.fromEntries(Object.entries(concepts).map(([tag, raw]) => {
+      const parsed = conceptFactsSchema.safeParse(raw);
+      return [tag, parsed.success ? { ...parsed.data, units: Object.fromEntries(Object.entries(parsed.data.units).map(([unit, ps]) =>
+        [unit, parseFactPoints(ps).filter(p =>
+          /^\d{4}-\d{2}-\d{2}$/.test(p.filed) && Number.isFinite(Date.parse(p.filed)) && p.filed <= day)])) } : raw];
+    }))] )) };
+}
 function sameBasis(a: StatementFieldProvenance | undefined, b: StatementFieldProvenance | undefined): boolean {
   return !!a && !!b && a.source === "edgar" && b.source === "edgar" && a.unit === b.unit &&
     a.filings.length > 0 && b.filings.length > 0 && a.periodStart !== null && a.periodStart === b.periodStart && a.periodEnd === b.periodEnd &&
@@ -22,6 +35,17 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       annualPeriods: 40, quarterlyPeriods: 80, bankRevenue: sectorIndustryForSic(bundle.edgar.sic ?? null).industry?.toLowerCase().startsWith("banks") === true,
       vendorSplits: { status: "unavailable", source: "operating-basis", reason: "Additive operating amounts only; no per-share inference" } }) : null;
   const gaps = [...(bundle.gaps ?? [])];
+  const predecessor = bundle.edgar?.predecessor;
+  const observed = (at: string | null | undefined) => typeof at === "string" && Number.isFinite(Date.parse(at)) && Date.parse(at) <= Date.parse(bundle.builtAt);
+  const predecessorEvidence = facts && predecessor && /^\d{10}$/.test(predecessor.cik10) && Number(predecessor.cik10) === predecessor.facts.cik &&
+    observed(acquired) && observed(predecessor.fetchedAt) && observed(predecessor.via.filed) &&
+    predecessor.via.accession !== "" && predecessor.via.successorFormAccession !== "" &&
+    successorContinuity(factsAtCutoff(facts, bundle.builtAt.slice(0, 10)), factsAtCutoff(predecessor.facts, bundle.builtAt.slice(0, 10))) !== null
+    ? { facts: predecessor.facts, cik10: predecessor.cik10, continuity: true } : null;
+  const predecessorAnnual = predecessorEvidence && predecessor
+    ? buildStatementsFromCompanyFacts(predecessorEvidence.facts, { symbol: bundle.symbol, cik: predecessor.cik10,
+      asOf: bundle.builtAt.slice(0, 10), factsObservedAt: predecessor.fetchedAt, annualPeriods: 40, quarterlyPeriods: 0,
+      vendorSplits: { status: "unavailable", source: "annual-nci-predecessor", reason: "Additive annual ownership key only; no per-share inference" } }).incomeAnnual.rows : [];
   const family = (name: "incomeAnnual" | "incomeQuarterly") => {
     const input = bundle.statements[name];
     if (!input.ok) return input;
@@ -42,24 +66,28 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       // Recover the annual E-5 fallback without rebuilding quarterly ownership
       // history for consumers whose valuation already had an annual key.
       // Fresh SEC extraction still reads every synonym on both period bases.
-      const nci = sec?.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest;
-      if (name === "incomeAnnual" && sec && nci && finite(sec.netIncomeAttributableToNoncontrollingInterest) &&
+      const priorNci = name === "incomeAnnual" && predecessorEvidence && row.cik != null && Number(row.cik) === Number(predecessorEvidence.cik10) &&
+        predecessorFactsFor(facts, predecessorEvidence, row.date ?? null, row.reportedCurrency ?? null, bundle.builtAt) !== null
+        ? predecessorAnnual.find(r => r.date === row.date && r.reportedCurrency === row.reportedCurrency) : undefined;
+      const ownership = sec ?? priorNci;
+      const nci = ownership?.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest;
+      if (name === "incomeAnnual" && ownership && nci && finite(ownership.netIncomeAttributableToNoncontrollingInterest) &&
           (row.netIncomeAttributableToNoncontrollingInterest == null ||
             row.netIncomeAttributableToNoncontrollingInterest === 0 && row.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest === undefined) &&
           row.fieldConflicts?.netIncomeAttributableToNoncontrollingInterest?.usable !== false &&
-          sec.fieldConflicts?.netIncomeAttributableToNoncontrollingInterest?.usable !== false &&
+          ownership.fieldConflicts?.netIncomeAttributableToNoncontrollingInterest?.usable !== false &&
           (row.periodStart == null || row.periodStart === nci.periodStart) &&
           (row.filingDate == null || nci.filings.some(f => f.filed === row.filingDate))) {
-        out = { ...out, netIncomeAttributableToNoncontrollingInterest: sec.netIncomeAttributableToNoncontrollingInterest,
+        out = { ...out, netIncomeAttributableToNoncontrollingInterest: ownership.netIncomeAttributableToNoncontrollingInterest,
           fieldProvenance: { ...out.fieldProvenance, netIncomeAttributableToNoncontrollingInterest: nci } };
         gaps.push({ field: `statements.income.${row.date}.netIncomeAttributableToNoncontrollingInterest`, severity: "info", expected: true,
-          reason: `Missing noncontrolling-interest income completed from the same-period core SEC filing: ${sec.netIncomeAttributableToNoncontrollingInterest} ${nci.unit}; ${nci.tags.join(", ")}; ${nci.filings.map(f => f.accn).join(", ")}.` });
+          reason: `Missing noncontrolling-interest income completed from the same-period core SEC filing${ownership === priorNci ? ` of predecessor CIK ${predecessorEvidence!.cik10} (existing successor continuity established)` : ""}: ${ownership.netIncomeAttributableToNoncontrollingInterest} ${nci.unit}; ${nci.tags.join(", ")}; ${nci.filings.map(f => f.accn).join(", ")}.` });
       }
-      const consolidated = sec?.fieldProvenance?.netIncomeConsolidated;
-      if (name === "incomeAnnual" && sec && finite(sec.netIncomeConsolidated) && sameBasis(nci, consolidated) && out.netIncomeConsolidated == null &&
+      const consolidated = ownership?.fieldProvenance?.netIncomeConsolidated;
+      if (name === "incomeAnnual" && ownership && finite(ownership.netIncomeConsolidated) && sameBasis(nci, consolidated) && out.netIncomeConsolidated == null &&
           out.fieldConflicts?.netIncomeConsolidated?.usable !== false &&
           out.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest === nci) {
-        out = { ...out, netIncomeConsolidated: sec.netIncomeConsolidated,
+        out = { ...out, netIncomeConsolidated: ownership.netIncomeConsolidated,
           fieldProvenance: { ...out.fieldProvenance, netIncomeConsolidated: consolidated! } };
       }
       if (matches && finite(sec.operatingIncome) && operating?.tags.includes("us-gaap/OperatingIncomeLoss") && sameBasis(revenue, operating) &&
