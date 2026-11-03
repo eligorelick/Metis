@@ -34,9 +34,36 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       const matches = sec && finite(row.revenue) && finite(sec.revenue) && vendorAgreesWithFiled(row.revenue, sec.revenue) &&
         row.fieldConflicts?.revenue?.usable !== false && (row.periodStart == null || row.periodStart === revenue?.periodStart) &&
         (row.filingDate == null || revenue?.filings.some(f => f.filed === row.filingDate));
+      if (name === "incomeAnnual" && matches && finite(sec.operatingIncome) && sameBasis(revenue, operating) &&
+          row.fieldConflicts?.operatingIncome?.usable !== false && sec.fieldConflicts?.operatingIncome?.usable !== false) {
+        out = { ...out, waccOperatingIncome: sec.operatingIncome,
+          fieldProvenance: { ...out.fieldProvenance, waccOperatingIncome: operating! } };
+      }
+      // NCI is an additive ownership allocation. Its same-period core-filing
+      // evidence does not require vendor operating-expense classifications.
+      const nci = sec?.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest;
+      if (sec && nci && finite(sec.netIncomeAttributableToNoncontrollingInterest) &&
+          (row.netIncomeAttributableToNoncontrollingInterest == null ||
+            row.netIncomeAttributableToNoncontrollingInterest === 0 && row.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest === undefined) &&
+          row.fieldConflicts?.netIncomeAttributableToNoncontrollingInterest?.usable !== false &&
+          sec.fieldConflicts?.netIncomeAttributableToNoncontrollingInterest?.usable !== false &&
+          (row.periodStart == null || row.periodStart === nci.periodStart) &&
+          (row.filingDate == null || nci.filings.some(f => f.filed === row.filingDate))) {
+        out = { ...out, netIncomeAttributableToNoncontrollingInterest: sec.netIncomeAttributableToNoncontrollingInterest,
+          fieldProvenance: { ...out.fieldProvenance, netIncomeAttributableToNoncontrollingInterest: nci } };
+        gaps.push({ field: `statements.income.${row.date}.netIncomeAttributableToNoncontrollingInterest`, severity: "info", expected: true,
+          reason: `Missing noncontrolling-interest income completed from the same-period core SEC filing: ${sec.netIncomeAttributableToNoncontrollingInterest} ${nci.unit}; ${nci.tags.join(", ")}; ${nci.filings.map(f => f.accn).join(", ")}.` });
+      }
+      const consolidated = sec?.fieldProvenance?.netIncomeConsolidated;
+      if (sec && finite(sec.netIncomeConsolidated) && sameBasis(nci, consolidated) && out.netIncomeConsolidated == null &&
+          out.fieldConflicts?.netIncomeConsolidated?.usable !== false &&
+          out.fieldProvenance?.netIncomeAttributableToNoncontrollingInterest === nci) {
+        out = { ...out, netIncomeConsolidated: sec.netIncomeConsolidated,
+          fieldProvenance: { ...out.fieldProvenance, netIncomeConsolidated: consolidated! } };
+      }
       if (matches && finite(sec.operatingIncome) && operating?.tags.includes("us-gaap/OperatingIncomeLoss") && sameBasis(revenue, operating) &&
         row.fieldConflicts?.operatingIncome?.usable !== false && sec.fieldConflicts?.operatingIncome?.usable !== false) {
-        out = { ...row, operatingIncome: sec.operatingIncome, fieldProvenance: { ...row.fieldProvenance, revenue: revenue!, operatingIncome: operating } };
+        out = { ...out, operatingIncome: sec.operatingIncome, fieldProvenance: { ...out.fieldProvenance, revenue: revenue!, operatingIncome: operating } };
       }
       const revProof = out.fieldProvenance?.revenue, opProof = out.fieldProvenance?.operatingIncome;
       const revSource = revProof?.source ?? out.source ?? input.value.source;

@@ -169,7 +169,7 @@ export interface StatementFieldProvenance {
   /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */
   calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash" | "cash-ppe-plus-hardware" | "cfo-minus-cash-ppe-and-hardware" | "nci-inferred-zero" | "basic-shares-equal-eps" | "equity-statement-nci" | "total-equity-less-equity-statement-nci"
     /** D-133: a vendor total debt recomposed from one filing because its lease line was the noncurrent lease liabilities only. */
-    | "noncurrent-lease-line-completed";
+    | "noncurrent-lease-line-completed" | "same-filing-debt-completed";
 }
 
 export interface StatementFieldConflict {
@@ -208,6 +208,9 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   sellingGeneralAndAdministrativeExpenses?: number;
   operatingExpenses?: number;
   operatingIncome?: number;
+  /** Calculation-view-only filed FY operating income for standalone interest coverage.
+   * Does not establish a vendor revenue/operating-margin basis. */
+  waccOperatingIncome?: number;
   ebitda?: number;
   ebit?: number;
   netInterestIncome?: number;
