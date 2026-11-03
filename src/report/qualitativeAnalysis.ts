@@ -7,6 +7,7 @@
 import type {
   ManagementAction,
   ManagementActionCategory,
+  ManagementActor,
   RecentDevelopment,
   ShareholderAlignment,
   SourcedClaim,
@@ -27,6 +28,15 @@ export const MANAGEMENT_CATEGORY_LABELS: Record<ManagementActionCategory, string
   "insider-transaction": "Insider transaction",
   compensation: "Compensation",
   other: "Other",
+};
+
+export const MANAGEMENT_ACTOR_LABELS: Record<ManagementActor, string> = {
+  ceo: "CEO",
+  cfo: "CFO",
+  "other-executive": "Other executive",
+  board: "Board",
+  company: "Company",
+  unspecified: "Not stated",
 };
 
 export const SHAREHOLDER_ALIGNMENT_LABELS: Record<ShareholderAlignment, string> = {

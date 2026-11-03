@@ -167,7 +167,7 @@ import {
   type ReportSectionKey,
 } from "@/report/sectionManifest";
 import {
-  MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
+  MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_ACTOR_LABELS, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
   RECENT_DEVELOPMENTS_HEADING, SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
 } from "@/report/qualitativeAnalysis";
 
@@ -454,7 +454,7 @@ function managementActionsBlock(actions: Leadership["managementActions"]): strin
   if (actions === undefined) return "";
   const body = actions.length === 0 ? `<p class="faint">${esc(NO_MANAGEMENT_ACTIONS)}</p>` : bodyTable(
     ["Date", "Who", "Action", "Shareholder alignment", "Note"],
-    actions.map((item) => [eventDateText(item.occurredOn), item.actor || DASH, MANAGEMENT_CATEGORY_LABELS[item.category],
+    actions.map((item) => [eventDateText(item.occurredOn), MANAGEMENT_ACTOR_LABELS[item.actor], MANAGEMENT_CATEGORY_LABELS[item.category],
       SHAREHOLDER_ALIGNMENT_LABELS[item.shareholderAlignment], claimReasoning(managementActionClaims(item))]),
     ["Shareholder alignment"],
   );

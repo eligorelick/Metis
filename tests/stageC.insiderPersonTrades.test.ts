@@ -77,6 +77,21 @@ describe("coded purchases and sales by person", () => {
     expect(payload.insiders.notes.find((note) => note.startsWith("Form 4 purchases and sales by person"))).toContain("4 more people are not listed");
   });
 
+  it("lists a person once per code under their newest role, ranks a vice president by amount and counts omitted people", () => {
+    const renamed = [
+      trade("2026-06-02", "Smith Ann", "officer: SVP, GC and Government Affairs", "S-Sale", 100, 50),
+      trade("2026-03-02", "Smith Ann", "officer: SVP, GC and Secretary", "S-Sale", 50, 40),
+    ];
+    const payload = payloadFor([...renamed, ...PERSON_TRADES]);
+    const lines = payload.insiders.notes.filter((note) => note.includes(" Smith Ann (") && note.includes("): code "));
+    expect(lines).toEqual(["2026-06-02 Smith Ann (officer: SVP, GC and Government Affairs): code S sales, 2 rows 2026-03-02 to 2026-06-02, 150 shares at 40-50 [fmp:insider-trades · 2026-06-02]"]);
+    const vps = Array.from({ length: 9 }, (_, i) => trade("2026-06-10", `Vice ${i}`, "officer: Vice President", "P-Purchase", 1, 10));
+    const ranked = payloadFor([...vps, trade("2026-06-11", "Big Seller", "director", "S-Sale", 100_000, 50)]).insiders.notes;
+    const first = ranked.find((note) => / \(.*\): code [PS] /.test(note));
+    expect(first).toContain("Big Seller"); // a vice president is not a senior officer
+    expect(ranked.find((note) => note.startsWith("Form 4 purchases and sales by person"))).toContain("2 more people are not listed");
+  });
+
   it("adds nothing when no coded purchase or sale falls in the window", () => {
     const payload = payloadFor([...AWARDS, PERSON_TRADES[3]!, PERSON_TRADES[4]!]);
     expect(payload.insiders.notes.some((note) => note.startsWith("Form 4 purchases and sales by person"))).toBe(false);

@@ -35,7 +35,7 @@ function development(overrides: Partial<RecentDevelopment> = {}): RecentDevelopm
 }
 
 function action(overrides: Partial<ManagementAction> = {}): ManagementAction {
-  return { occurredOn: "2026-06-15", category: "capital-allocation", actor: "Board",
+  return { occurredOn: "2026-06-15", category: "capital-allocation", actor: "board",
     action: [claim(BUYBACK, "FACT", "2026-06-15")], assessment: [claim(BUYBACK_VIEW, "JUDGMENT", null)],
     shareholderAlignment: "aligned", ...overrides };
 }
@@ -48,7 +48,7 @@ function withAnalysis(): Report {
       whatHappened: [claim("The company closed USD 600 million of 8.500% senior notes due 2031 on 2026-07-14.", "FACT", "2026-07-14")],
       whyItMatters: [claim("The fixed coupon raises interest cost before the acquisition contributes.", "JUDGMENT")] })],
   };
-  report.leadership.managementActions = [action(), action({ occurredOn: "2026-04-20", category: "leadership-change", actor: "Board",
+  report.leadership.managementActions = [action(), action({ occurredOn: "2026-04-20", category: "leadership-change", actor: "board",
     action: [claim("The board appointed a new chief executive effective 2026-09-01.", "FACT", "2026-04-20")],
     assessment: [claim("An internal successor keeps the strategy continuous; the outcome is not yet in reported results.", "JUDGMENT", null)],
     shareholderAlignment: "unclear" })];
@@ -98,6 +98,8 @@ describe("recent developments and management actions schema", () => {
     ["an unknown category", (r: Report) => { (r.leadership.managementActions![0] as { category: string }).category = "rumour"; }],
     ["an unknown alignment", (r: Report) => { (r.leadership.managementActions![0] as { shareholderAlignment: string }).shareholderAlignment = "great"; }],
     ["an action without a sourced fact", (r: Report) => { r.leadership.managementActions![0]!.action = []; }],
+    ["a person's name as the actor", (r: Report) => { (r.leadership.managementActions![0] as { actor: string }).actor = "Jane Doe"; }],
+    ["a plain-text summary", (r: Report) => { (r.verdict.recentDevelopments as { summary: unknown }).summary = "Unsourced prose."; }],
     ["a rating in the assessment", (r: Report) => { r.leadership.managementActions![0]!.assessment = [claim("This makes the shares a strong buy.", "JUDGMENT")]; }],
   ])("rejects %s in a stored report", (_name, mutate) => {
     const report = withAnalysis();
@@ -176,6 +178,50 @@ describe("judge output normalization", () => {
     const items = [development({ occurredOn: null, title: "Undated" }), development({ occurredOn: "2026-03-01", title: "Older" }), development({ title: "Newer" })];
     const normalized = normalizeJudgeOutput({ verdict: { ...report.verdict, recentDevelopments: { summary: [], items } } }) as { verdict: Report["verdict"] };
     expect(normalized.verdict.recentDevelopments!.items.map(item => item.title)).toEqual(["Newer", "Older", "Undated"]);
+  });
+
+  it("drops unsourced prose and titles an untitled item from its own first fact", () => {
+    const report = withAnalysis();
+    const normalized = normalizeJudgeOutput({ verdict: { ...report.verdict, recentDevelopments: {
+      summary: "Unsourced prose the judge wrote as a string.",
+      items: [{ ...development(), title: undefined, whyItMatters: ["A bare string is not a claim.", claim(ACQUISITION_WHY, "JUDGMENT")] }],
+    } } }) as { verdict: Report["verdict"] };
+    const developments = VerdictSchema.parse(normalized.verdict).recentDevelopments!;
+    expect(developments.summary).toEqual([]);
+    expect(developments.items[0]!.whyItMatters).toEqual([claim(ACQUISITION_WHY, "JUDGMENT")]);
+    expect(developments.items[0]!.title).toBe("The company completed its acquisition of Example Lending on 2026-09-01 for cash…");
+    expect(developments.items[0]!.title.length).toBeLessThanOrEqual(81);
+  });
+
+  it.each([
+    ["Aligned with shareholders", "aligned"], ["misaligned with shareholders", "misaligned"], ["Not aligned", "misaligned"],
+    ["partially aligned", "mixed"], ["Mixed", "mixed"], ["neutral", "unclear"],
+  ])("reads alignment %j as %s", (value, expected) => {
+    const report = withAnalysis();
+    const normalized = normalizeJudgeOutput({ leadership: { ...report.leadership, managementActions: [{ ...action(), shareholderAlignment: value }] } }) as { leadership: Report["leadership"] };
+    expect(normalized.leadership.managementActions![0]!.shareholderAlignment).toBe(expected);
+  });
+
+  it.each([
+    ["Executive change", "leadership-change"], ["executive compensation", "compensation"], ["CEO pay", "compensation"],
+    ["officer stock sale", "insider-transaction"], ["director purchase", "insider-transaction"], ["Rule 10b5-1 plan", "insider-transaction"],
+    ["share buyback", "capital-allocation"], ["Dividend", "capital-allocation"], ["debt issuance", "capital-allocation"],
+    ["Acquisition", "acquisition-divestiture"], ["divestiture", "acquisition-divestiture"], ["Guidance raised", "guidance"],
+    ["board appointment", "board-change"], ["CEO succession", "leadership-change"], ["Strategic review", "strategy"], ["payout", "other"],
+  ])("reads category %j as %s", (value, expected) => {
+    const report = withAnalysis();
+    const normalized = normalizeJudgeOutput({ leadership: { ...report.leadership, managementActions: [{ ...action(), category: value }] } }) as { leadership: Report["leadership"] };
+    expect(normalized.leadership.managementActions![0]!.category).toBe(expected);
+  });
+
+  it.each([
+    ["CEO", "ceo"], ["Chief Executive Officer", "ceo"], ["CFO", "cfo"], ["Board of Directors", "board"], ["Chair", "board"],
+    ["Chief Operating Officer", "other-executive"], ["General Counsel", "other-executive"], ["Company", "company"], ["management", "company"],
+    ["Jane Doe", "unspecified"],
+  ])("reads actor %j as the role %s, never a name", (value, expected) => {
+    const report = withAnalysis();
+    const normalized = normalizeJudgeOutput({ leadership: { ...report.leadership, managementActions: [{ ...action(), actor: value }] } }) as { leadership: Report["leadership"] };
+    expect(normalized.leadership.managementActions![0]!.actor).toBe(expected);
   });
 
   it("reads a null field as absent and keeps an otherwise valid section", () => {

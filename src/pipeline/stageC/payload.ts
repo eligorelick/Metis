@@ -2042,7 +2042,7 @@ const INSIDER_WINDOW_WORDS = ["", "one", "two", "three", "four"] as const;
 /** Q1: the window and the number of people the per-person trade lines cover. */
 const PERSON_TRADE_WINDOW_DAYS = 183;
 const PERSON_TRADE_PEOPLE = 8;
-const SENIOR_ROLE = /chief executive|\bceo\b|chief financial|\bcfo\b|\bchair|president/i;
+const SENIOR_ROLE = /chief executive|\bceo\b|chief financial|\bcfo\b|\bchair|(?<!vice[ -])president/i;
 
 /**
  * Q1: one line per person for Form 4 code P and S rows in the last six months,
@@ -2062,8 +2062,10 @@ function personTradeNotes(observed: readonly FmpRawRow[], shown: number, builtAt
     const name = strOrNull(tr.reportingName);
     if (day === null || !isIsoDate(day) || day < start || day > builtAt || (code !== "P" && code !== "S") || name === null) continue;
     const owner = strOrNull(tr.typeOfOwner) ?? "?";
-    const key = JSON.stringify([name, owner, code]);
+    // One line per person and code; a renamed role shows its newest spelling.
+    const key = JSON.stringify([name, code]);
     const group = groups.get(key) ?? { name, owner, code, rows: [], days: [] };
+    if (group.days.every((seen) => seen <= day)) group.owner = owner;
     group.rows.push(tr);
     group.days.push(day);
     groups.set(key, group);
@@ -2077,7 +2079,7 @@ function personTradeNotes(observed: readonly FmpRawRow[], shown: number, builtAt
     Number(SENIOR_ROLE.test(b.owner)) - Number(SENIOR_ROLE.test(a.owner)) || value(b.rows) - value(a.rows) ||
     [...b.days].sort().at(-1)!.localeCompare([...a.days].sort().at(-1)!) || a.name.localeCompare(b.name));
   const listed = ranked.slice(0, PERSON_TRADE_PEOPLE);
-  const omitted = ranked.length - listed.length;
+  const omitted = new Set(ranked.map((group) => group.name)).size - new Set(listed.map((group) => group.name)).size;
   return [
     `Form 4 purchases and sales by person (codes P and S, open-market or private), ${start} to ${builtAt}, from all ${observed.length} selected provider row${observed.length === 1 ? "" : "s"} ` +
       `(the detailed rows below are the newest ${shown}). Row totals may overlap across amendments or joint filings; venue and motive are not established.` +

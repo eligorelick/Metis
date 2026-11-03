@@ -73,6 +73,7 @@ const JUDGE_RULES: Array<[string, RegExp]> = [
   ["management actions cover the action types a sell-side analyst tracks", /Item 5\.02[^.]*strategy[^.]*acquisitions and divestitures[^.]*buybacks, dividends, debt raised or repaid[^.]*guidance raised, cut or reaffirmed[^.]*insider[^.]*10b5-1[^.]*compensation/],
   ["assess shareholder alignment and the record against earlier promises from evidence only", /`assessment`[^.]*aligned with shareholders[^.]*earlier stated plans or guidance[^.]*evidence only[^.]*never a guess at motive/],
   ["an actor is a role; a name belongs in a cited claim", /`actor` is a role[^.]*name a person only inside a cited claim/],
+  ["the summary is cited claims, not prose", /`summary` is 2–3 cited JUDGMENT claims/],
   // A2-27: "the four aspects with no score are pulled toward the midpoint".
   ["route-excluded aspects do not move the composite", /no signal that applies on the route are left out of the composite and do not move it/],
   ["missing applicable evidence shrinks the composite, not the aspects", /distance from 50 is scaled by the\s+evidence-completeness share\. Unscored aspects are not themselves pulled toward any value/],

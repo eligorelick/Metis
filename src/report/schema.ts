@@ -969,7 +969,7 @@ export type RecentDevelopment = z.infer<typeof RecentDevelopmentSchema>;
 
 export const RecentDevelopmentsSchema = z
   .object({
-    summary: z.array(SourcedClaimSchema).describe("2–3 sentences on what the developments mean together."),
+    summary: z.array(SourcedClaimSchema).describe("2–3 cited JUDGMENT claims on what the developments mean together."),
     items: z.array(RecentDevelopmentSchema).max(QUALITATIVE_ITEM_CAP).describe("Dated developments from about the last six months, newest first."),
   })
   .strict();
@@ -1431,13 +1431,16 @@ export type ManagementActionCategory = z.infer<typeof ManagementActionCategorySc
 export const ShareholderAlignmentSchema = z.enum(["aligned", "mixed", "misaligned", "unclear"]);
 export type ShareholderAlignment = z.infer<typeof ShareholderAlignmentSchema>;
 
+/** Who acted, as a role: a person is named only inside a cited claim, where the named-person check reads it. */
+export const ManagementActorSchema = z.enum(["ceo", "cfo", "other-executive", "board", "company", "unspecified"]);
+export type ManagementActor = z.infer<typeof ManagementActorSchema>;
+
 /** Q1: one dated action by the CEO, another executive or the board, and its assessment. */
 export const ManagementActionSchema = z
   .object({
     occurredOn: OccurredOnSchema,
     category: ManagementActionCategorySchema,
-    /** A role (CEO, CFO, board, company); a person is named only inside a cited claim. */
-    actor: z.string(),
+    actor: ManagementActorSchema,
     action: z.array(SourcedClaimSchema).min(1).describe("FACT claims stating the action, each citing its filing, release, transcript or insider-trade row."),
     assessment: z.array(SourcedClaimSchema).describe("1–2 JUDGMENT claims: aligned with shareholders? does it match earlier stated plans or guidance? Evidence only."),
     shareholderAlignment: ShareholderAlignmentSchema,

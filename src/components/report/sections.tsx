@@ -150,7 +150,7 @@ import { ValuationSensitivityTables } from "./ValuationSensitivityTables";
 import { ProjectionFanChart } from "@/components/charts/lazy";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
 import {
-  MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
+  MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_ACTOR_LABELS, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
   SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
 } from "@/report/qualitativeAnalysis";
 
@@ -548,7 +548,7 @@ function ManagementActionsBlock({ actions }: { actions: NonNullable<Leadership["
           {actions.map((item, i) => (
             <li key={i} className="border border-edge bg-raised px-2.5 py-2">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="text-[12px] font-medium text-fg">{MANAGEMENT_CATEGORY_LABELS[item.category]}{item.actor.trim() ? ` · ${item.actor}` : ""}</span>
+                <span className="text-[12px] font-medium text-fg">{MANAGEMENT_CATEGORY_LABELS[item.category]} · {MANAGEMENT_ACTOR_LABELS[item.actor]}</span>
                 <span className="mono text-[10px] text-faint">{eventDateText(item.occurredOn)}</span>
               </div>
               <div className="mono text-[10px] text-muted">shareholder alignment: {SHAREHOLDER_ALIGNMENT_LABELS[item.shareholderAlignment]}</div>

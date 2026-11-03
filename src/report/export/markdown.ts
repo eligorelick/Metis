@@ -139,7 +139,7 @@ import { presentationReportId, reportIdentityNote, type ReportPresentationContex
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
 import {
-  MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
+  MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_ACTOR_LABELS, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
   RECENT_DEVELOPMENTS_HEADING, SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
 } from "@/report/qualitativeAnalysis";
 import {
@@ -802,7 +802,7 @@ function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures
   if (l.managementActions !== undefined) {
     lines.push(`### ${MANAGEMENT_ACTIONS_HEADING}`, "", l.managementActions.length === 0 ? NO_MANAGEMENT_ACTIONS : bodyTable(
       ["Date", "Who", "Action", "Shareholder alignment", "Note"],
-      l.managementActions.map((item) => [eventDateText(item.occurredOn), item.actor || DASH, MANAGEMENT_CATEGORY_LABELS[item.category],
+      l.managementActions.map((item) => [eventDateText(item.occurredOn), MANAGEMENT_ACTOR_LABELS[item.actor], MANAGEMENT_CATEGORY_LABELS[item.category],
         SHAREHOLDER_ALIGNMENT_LABELS[item.shareholderAlignment], claimReasoning(managementActionClaims(item))]),
       ["Shareholder alignment"],
     ), "");
