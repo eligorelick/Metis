@@ -443,7 +443,15 @@ rate)` row) and in the report's computed-returns notes.
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
 | Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
-| Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
+| Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60, extended for incomplete dates: the weight uses the latest complete balance in the selected window; a refused newer balance remains refused in its own EV bridge. Effective cost of debt divides a year of interest by the complete quarter-end balances of the trailing-twelve-month window when interest is TTM, else by the complete latest two fiscal-year ends; a single complete balance can stand in, and exclusions are named | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
+
+When trailing EBIT is unavailable, the latest fiscal year's filed operating
+income (including the existing SEC-derived EBIT chain) may score synthetic
+coverage. This standalone numerator does not establish a vendor operating
+margin: revenue agreement, issuer, currency, period and filing checks still
+admit it, and any explicit EBIT refusal remains binding. The annual interest
+pair is preferred and the coverage note names the fiscal year and filed basis.
+The effective-rate acceptance band and Damodaran spread table are unchanged.
 
 **Retained ADR limitation (FIN-307).** The levered WACC retains its existing
 capitalization when ADR scope alone is unproven, with an explicit
@@ -1575,6 +1583,16 @@ market cap) may already include; companyfacts do not separate them, so such
 shares would be counted both as a claim and in the divisor.
 
 **NCI on the earnings key in the DCF bridge (audit 2026-10-22 E-5).** The DCF
+reads `MinorityInterestInNetIncomeLossOfConsolidatedEntities` and
+`NetIncomeLossAttributableToNonredeemableNoncontrollingInterest` after
+`NetIncomeLossAttributableToNoncontrollingInterest` in its existing ordered
+resolution. Period, core-form, currency and presentation checks are unchanged.
+Missing vendor NCI income may be completed from that admitted statement;
+missing consolidated profit may be supplied with it only from the same filed
+period and accession. A refused allocation is never filled, and a vendor
+nonzero observation is not overwritten. No new book-NCI materiality exemption
+is applied: small book NCI cannot by itself bound the earnings claim.
+The DCF
 values consolidated free cash flow, so its enterprise value includes the outside
 holders' share of partly owned subsidiaries. Book NCI can understate that claim
 by a wide margin: FCX's outside holders earned 35.8% of trailing consolidated
@@ -5846,23 +5864,18 @@ withhold the DCF, the critical gap now names it ("noncontrolling ownership
 unresolved at <date>") instead of "DCF inputs not provided by caller".
 
 **Average debt behind a refused balance (C-1).** The WACC's cost of debt
-divides a year of interest by an average of two balances, and its debt weight
-uses the newest balance. A lease-scope refusal on the newest balance (AT&T's
-10-Q tags only the noncurrent operating lease, so its lease-exclusive debt is
-not established) withheld the whole WACC, and with it the DCF, although the
-two balances averaged were clean; the critical gap said only "average total
-debt missing". Owner decision: such a refusal now withholds only what it
-touches. When the newest balance is outside the averaged pair, the debt
-weight uses the clean average instead, and the basis says the newest balance
-is not used and why. When the refusal falls on the TTM window's quarter-end
-pair, the average falls back to the latest two fiscal-year-end balances if
-both are present, both carry total debt and neither is refused, and the basis
-names the pair not used; otherwise the quarter pair's refusal stands and the
-gap names it. The refused balance is
-never used, so the EV bridge at that date stays withheld. A refused debt
-carrying total (an incomplete debt note) still withholds the WACC wherever
-it falls. When no average is established, the critical gap names the balance
-date and the cause.
+now averages only complete balances in the selected TTM endpoint or fiscal-year
+window, naming the dates and every excluded refusal. A single complete balance
+can stand in for the average; no withheld balance enters either denominator or
+weights. Market equity is current and the debt weight uses the latest complete
+balance in that window. This revises C-1's company-wide veto for a refused debt
+carrying total; the refused date's EV and per-share bridge remain withheld.
+With no complete balance WACC remains unavailable. Negative supplied debt
+remains invalid, rather than an observation silently dropped from the window.
+The original C-1 guard addressed a lease-scope refusal on the newest
+balance (AT&T's 10-Q tagged only the noncurrent operating lease). That refusal
+still protects the EV and bridge at the affected date; it no longer vetoes
+complete debt evidence on other dates in the selected window.
 
 **Operating income when interest sits inside the non-operating total
 (B-39).** A filer with no `OperatingIncomeLoss` line gets EBIT derived as
@@ -6389,7 +6402,18 @@ with that reason; "cannot distinguish debt-free from unknown leverage" is
 kept for a total debt that is absent.
 
 **A vendor short-term debt of 0 beside filed current debt.** A provider row
-whose short-term debt is 0 while the same-period filing tags a positive
+can now be completed rather than withheld when one same-period, same-currency
+core SEC filing establishes every financing and lease component and reconciles
+the vendor total to its observed component scopes. Current debt omitted as zero
+is filled; current operating leases embedded in short-term debt and finance
+leases embedded in explicitly tagged debt-and-capital-lease lines are allocated
+exactly once. Operating-only lease lines may be noncurrent or total. No generic
+`LongTermDebt` scope, principal aggregate, ambiguous value, conflicting total,
+or mixed-accession composition authorizes this completion. Existing collapse
+and plausibility refusals are never cleared. The calculation view records the
+filing and tags and discloses completion; raw vendor observations stay intact.
+The older refusal below continues whenever this exact completion is unavailable.
+A provider row whose short-term debt is 0 while the same-period filing tags a positive
 `DebtCurrent`, `LongTermDebtCurrent`, `ShortTermBorrowings` or
 `CommercialPaper` is not complete: its total debt and net debt are withheld
 with a reason naming the filed tags. The row is kept when the provider folded
