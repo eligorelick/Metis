@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - First paid test findings (2026-11-03)
+
+- A claim dated with a valid month or year alone (for example "2026-01") is read as no date instead of failing the analyst's case and costing a repair round. Malformed dates still fail.
+- The judge lists each material dated development and management action (guidance, financings, buybacks, dividends and leadership changes count), without padding, and describes the industry from the filing when no market size is sourced.
+- Stamps: pipeline stage-c-1.6.23. See D-182.
+
 ## Unreleased - News, management actions, fresh filings and wider valuation coverage (2026-11-02)
 
 - Reports can now open on what changed: up to 8 dated recent developments and up to 8 dated CEO, executive and board actions, each cited and assessed for what it means for the case and for shareholders (D-177). The payload lists coded purchases and sales from the last six months by person (up to 8, senior officers first).

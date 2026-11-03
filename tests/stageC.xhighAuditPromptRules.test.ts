@@ -109,6 +109,18 @@ describe("priority-fix review rules", () => {
   });
 });
 
+describe("paid-run completeness rules (D-182)", () => {
+  const rules = [buildJudgeFraming(), buildJudgeFraming(undefined, true)].join(" ");
+  it("asks for each material dated development and management action, without padding", () => {
+    expect(rules).toMatch(/Include each material development the evidence dates[\s\S]{0,160}never pad/);
+    expect(rules).toMatch(/Guidance issued with results, financings[\s\S]{0,200}never padding with routine items/);
+  });
+  it("describes the industry from the filing when no market size is sourced", () => {
+    expect(rules).toMatch(/When no source states a market size, say so once and still describe the industry structure/);
+    expect(rules).toContain("use [] only when neither discusses the industry");
+  });
+});
+
 describe("fresh-filing caution rule (D-175)", () => {
   it("asks the summary to call figures from a filing SEC has not yet confirmed provisional", () => {
     const rules = [buildJudgeFraming(), buildJudgeFraming(undefined, true)].join(" ");

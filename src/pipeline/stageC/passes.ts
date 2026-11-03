@@ -1371,6 +1371,15 @@ function normalizeKnownEnumCasing(raw: unknown): unknown {
  * had no registry id; in NVDA reports #48 and #49 (2026-10-26) that failed
  * the parse and cost a repair on all four analyst first attempts.
  */
+/** A valid ISO year ("2026") or year-month ("2026-01") without a day. */
+function isPartialIsoDate(value: string): boolean {
+  const match = /^(\d{4})(?:-(\d{2}))?$/.exec(value);
+  if (match === null) return false;
+  const year = Number(match[1]);
+  const month = match[2] === undefined ? 1 : Number(match[2]);
+  return year >= 1900 && year <= 2200 && month >= 1 && month <= 12;
+}
+
 function normalizeCitationFields(raw: unknown): unknown {
   if (raw === null || typeof raw !== "object") return raw;
   if (Array.isArray(raw)) return raw.map(normalizeCitationFields);
@@ -1387,8 +1396,11 @@ function normalizeCitationFields(raw: unknown): unknown {
     (typeof next.value === "number" && typeof next.unit === "string");
   // FIGR paid run (2026-11-02): a claim or number's `asOf` is nullable and
   // null is its "no date"; a blank string rejected a whole $0.37 bear case.
-  // Only a blank is read as no date: a malformed date still fails.
-  if (carrier && typeof next.asOf === "string" && next.asOf.trim() === "") next.asOf = null;
+  // D-182 (META paid run, 2026-11-03): a valid month or year alone ("2026-01",
+  // "2026") is a coarser date, not a wrong one, and cost a repair round; it is
+  // read as no date too (the claim's text keeps the period, and no day is
+  // invented). Any other malformed date still fails.
+  if (carrier && typeof next.asOf === "string" && (next.asOf.trim() === "" || isPartialIsoDate(next.asOf.trim()))) next.asOf = null;
   if (carrier && (next.source == null || (typeof next.source === "string" && next.source.trim() === "")) &&
       typeof next.sourceId === "string") {
     const id = citationSourceId({ sourceId: next.sourceId });
