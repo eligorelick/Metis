@@ -31,6 +31,11 @@ describe("D-188 foreign revenue calibration", () => {
     expect(payload.estimates.figures.find(f => f.label === "est revenue 2026-12-31")?.currency).toBe("TWD");
     expect(payload.estimates.figures.find(f => f.label === "est EPS 2026-12-31")?.currency).toBeNull();
   });
+  it("keeps calibration through an FX rate like a euro near 1.08, and refuses one too close to separate", () => {
+    const set = (value: number) => { const b = fixture(); if (!b.valuationFx?.ok) throw Error("fixture"); b.valuationFx.value.data[0]!.value = value; return b; };
+    expect(runStageB(set(1.08)).valuation.notes.join(" ")).toMatch(/revenue totals admitted by calibration/);
+    expect(runStageB(set(1.05)).valuation.notes.join(" ")).not.toMatch(/revenue totals admitted by calibration/);
+  });
   it.each(["listing", "no-overlap", "future-overlap", "near-one", "contradiction", "latest-outside-3", "own-currency", "no-foreign-basis"])("refuses calibration for %s", mode => {
     const b = fixture();
     if (!b.analystEstimates.ok || !b.edgar.companyFacts.ok || !b.valuationFx?.ok) throw Error("fixture");

@@ -474,7 +474,9 @@ export interface ContextPayload {
 // a dated FX rate for foreign-currency valuation and the completed debt, WACC and NCI operands change admitted context.
 // 1.66.0 (D-184): risk-factor, business and MD&A sections recovered from cross-reference tables, subordinate
 // headings, linked page ranges and misbound table-of-contents links reach the analysts for the affected filers.
-export const PAYLOAD_VERSION = "1.66.0" as const;
+// 1.67.0 (D-186, D-188): new deterministic values, withholding reasons and calibrated revenue-estimate currency
+// reach the analysts.
+export const PAYLOAD_VERSION = "1.67.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

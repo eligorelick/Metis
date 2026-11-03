@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.60.0** and
-payload **1.66.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, and the annual filing-section recovery, D-184). The
+payload **1.67.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -32,8 +32,9 @@ original versions and bytes; source merge does not deploy or publish a release.
   same-filing issued proof and independent standard weighted ratios.
 - Record the complete 33-company before/after replay, downstream effects and
   conditional-model qualifications in [D-188's evidence report](docs/audit/2026-11-03-valuation-inputs.md).
-  Version stamps remain the integrator's responsibility; stored reports stay
-  immutable.
+  Stamps with D-186 and D-187: Stage B, fair value and scenario targets
+  `VALUATION_INPUTS_45`, payload 1.67.0, pipeline stage-c-1.6.26. Stored reports
+  stay immutable.
 
 ## Unreleased - Valuation coverage (2026-11-03)
 

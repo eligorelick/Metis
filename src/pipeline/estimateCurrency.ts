@@ -151,9 +151,9 @@ export function calibratedRevenueCurrency(bundle: DataBundle, issuer: InheritedI
   if (!overlap.length) return refuse("no overlapping estimate and filed annual revenue on or before cutoff");
   const latest = overlap[0]!;
   if (Math.abs(latest.estimate / latest.filed - 1) > 0.03) return refuse(`latest overlap ${latest.end} estimate ${latest.estimate} versus filed ${latest.filed} ${reporting} fails 3% tolerance`);
-  if (!Number.isFinite(rate) || rate <= 0 || Math.abs(1 / rate - 1) <= 0.10 || Math.abs(latest.estimate / (latest.filed * rate) - 1) <= 0.10) return refuse(`listing-currency reading for ${latest.end} is not rejected beyond 10% (FX too close to 1 or ambiguous)`);
+  if (!Number.isFinite(rate) || rate <= 0 || Math.abs(1 / rate - 1) <= 0.06 || Math.abs(latest.estimate / (latest.filed * rate) - 1) <= 0.06) return refuse(`listing-currency reading for ${latest.end} is not rejected beyond 6% (FX too close to 1 or ambiguous)`);
   const recentEnds = [...filed.keys()].sort().reverse().slice(0, 3);
   const contradiction = overlap.find(p => recentEnds.includes(p.end) && Math.abs(p.estimate / p.filed - 1) > 0.10);
   if (contradiction) return refuse(`overlapping year ${contradiction.end} contradicts reporting currency beyond 10%`);
-  return { code: reporting, basis: `revenue totals admitted by calibration: ${latest.end} estimate ${latest.estimate}, filed revenue ${latest.filed} ${reporting}, within 3% tolerance; listing-currency reading rejected beyond 10% at ${rate} USD/${reporting}; every other overlap in the last three filed fiscal years agrees within 10%. EPS, per-share rows and price targets remain withheld without their own currency` };
+  return { code: reporting, basis: `revenue totals admitted by calibration: ${latest.end} estimate ${latest.estimate}, filed revenue ${latest.filed} ${reporting}, within 3% tolerance; listing-currency reading rejected beyond 6% at ${rate} USD/${reporting}; every other overlap in the last three filed fiscal years agrees within 10%. EPS, per-share rows and price targets remain withheld without their own currency` };
 }

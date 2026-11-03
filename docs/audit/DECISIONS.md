@@ -5493,10 +5493,9 @@ Multi-figure claims, ranges citing only a midpoint and out-of-scope signed
 cash-flow records remain unvalidated. Tests:
 `stageC.claimEvidence.headline.test.ts` and `stageC.claimEvidence.figr.test.ts`.
 
-**Stamps.** Integration requires a `PIPELINE_VERSION` bump for changed Stage C
+**Stamps.** A `PIPELINE_VERSION` bump to stage-c-1.6.26, applied at integration, for changed Stage C
 verification outcomes. No payload, report-spec or Stage B stamp change is
 required: their contracts, stored bytes and calculations are unchanged.
-All version constants are deliberately left to the integrator.
 
 ## D-188 - Calibrated foreign revenue, proved operating income and corroborated units (2026-11-03)
 
@@ -5509,7 +5508,7 @@ evidence and verification are in [the evidence report](2026-11-03-valuation-inpu
   basis and withheld issuer-currency inheritance, an estimate without its own
   currency can calibrate to filed annual reporting-currency revenue at the
   same fiscal end, available at cutoff. Latest overlap must agree within 3%,
-  its listing-currency reading must fail beyond 10%, FX must separate the
+  its listing-currency reading must fail beyond 6%, FX must separate the
   readings, and every other overlap in the last three filed fiscal years must
   agree within 10%. Failure names its test. Own-row currency still wins; EPS,
   per-share rows and targets remain withheld. The existing one-spot FX,
@@ -5554,6 +5553,13 @@ evidence and verification are in [the evidence report](2026-11-03-valuation-inpu
   repair has observed failing evidence before implementation, with negative
   controls and the existing FIG/FIGR regressions retained. New fixtures are
   synthetic. Full verification and honest conditional-model qualifications
-  are in the linked report. Integration needs Stage B, fair-value,
-  scenario-target and payload stamps; D-187 separately needs the pipeline
-  verifier stamp. No constants or stored reports changed in this branch.
+  are in the linked report. Stamps, with D-186 and D-187: Stage B, fair value
+  and scenario targets `VALUATION_INPUTS_45`, payload 1.67.0, pipeline
+  stage-c-1.6.26. Stored reports are unchanged.
+
+  Integration review: the listing-currency and FX separation test is 6%, not
+  the 10% first written. The 3% agreement already rejects the other reading,
+  and at 10% a euro drifting below about 1.11 would have switched analyst
+  revenue off for euro reporters. Known limit: at this rate the DCF is still far
+  above the quote for NVO (USD 76.85 against 40.105), because the model holds
+  its roughly 42% margin at a 7.03% WACC; the report's reverse DCF shows the gap.

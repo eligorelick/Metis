@@ -26,7 +26,7 @@ are diagnostics.
   may establish reporting-currency **total revenue** by comparison to filed
   annual revenue available at the snapshot cutoff. The latest overlap must
   agree within 3%; its listing-currency interpretation must disagree beyond
-  10%, and FX must separate the readings beyond 10%. Every other overlap in
+  6%, and FX must separate the readings beyond 6%. Every other overlap in
   the last three filed fiscal years must agree within 10%. Ordered revenue
   synonyms, core forms, issuer identity, acquisition cutoff and same-currency
   filed facts are required. Own-row currency wins. EPS, other per-share rows

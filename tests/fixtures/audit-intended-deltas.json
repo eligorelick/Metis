@@ -10135,22 +10135,22 @@
         {
           "path": "report.fairValue.methodVersion",
           "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_COVERAGE_AND_FX_44"
+          "after": "FAIR_VALUE_2026_11_VALUATION_INPUTS_45"
         },
         {
           "path": "report.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_COVERAGE_AND_FX_44"
+          "after": "SCENARIO_TARGETS_2026_11_VALUATION_INPUTS_45"
         },
         {
           "path": "stageB.fairValue.methodVersion",
           "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_COVERAGE_AND_FX_44"
+          "after": "FAIR_VALUE_2026_11_VALUATION_INPUTS_45"
         },
         {
           "path": "stageB.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_COVERAGE_AND_FX_44"
+          "after": "SCENARIO_TARGETS_2026_11_VALUATION_INPUTS_45"
         },
         {
           "path": "stageB.valuation.notes.7",
