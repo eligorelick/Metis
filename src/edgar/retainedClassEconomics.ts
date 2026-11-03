@@ -21,6 +21,11 @@ const dated = (text: string): string | null => {
  * retained as provider evidence, never described as a filed symbol/title row.
  */
 export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShareEvidence[] {
+  const original = retainedStatementEconomicEvidence(bundle);
+  return original.length ? original : retainedEqualCoverEvidence(bundle);
+}
+
+function retainedStatementEconomicEvidence(bundle: DataBundle): EconomicShareEvidence[] {
   const existing = bundle.economicShareEvidence ?? [];
   if (existing.length) return existing;
   const cutoff = bundle.builtAt.slice(0, 10);
@@ -127,4 +132,77 @@ export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShare
     basis: `${cover.length ? `Filed cover class observations at ${asOf}, mapped one-to-one to the same filing's balance-sheet classes` : `Filed balance-sheet counts at ${d.reportDate}, not a cover-date inventory or weighted averages`}. Quote class bound by provider title "${title}", not independently by a filed trading-symbol row. The hash covers the retained statement, notes and provider title${cover.length ? ", cover observations and retained inventory hashes" : ""}${discrepancy ? " and the disclosed provider count observation" : ""}, not raw filing HTML. Filed rights: "${relation}"${discrepancy}${treasuryBasis}`,
     classes: names.map((name, i) => ({ classId: name === quoteLabels[0] ? bundle.symbol : name, shares: counts[i]!, countBasis: "outstanding",
       economicUnitsPerQuotedShare: 1, priceBasis: name === quoteLabels[0] ? "quoted-market-price" : "economic-equivalence-proxy" })) }];
+}
+
+/** D-186: a complete cover count and explicit equal economics do not require
+ * identifying which equivalent class trades. All classes use the disclosed
+ * same-price approximation. Annual rights can remain in force through an
+ * interim filing only with the same class set and no contrary retained terms. */
+function retainedEqualCoverEvidence(bundle: DataBundle): EconomicShareEvidence[] {
+  const profile = bundle.profile.ok ? bundle.profile.value.data.rows[0] : null;
+  const reg = bundle.edgar.registrant, cutoff = bundle.builtAt.slice(0, 10);
+  if (!profile || !reg || profile.isAdr !== false || profile.symbol !== bundle.symbol ||
+    !/^\d{10}$/.test(reg.cik10) || Number(profile.cik) !== Number(reg.cik10) ||
+    !reg.tickers.includes(bundle.symbol) || !validDay(cutoff) || bundle.edgar.shareBasis?.splits.unresolved.length) return [];
+  const primary = (d: { form: string; accession: string; filingDate: string; documentUrl: string }) => {
+    if (!/^(?:10-K|10-Q)(?:\/A)?$/.test(d.form) || !validDay(d.filingDate) || d.filingDate > cutoff || !/^\d{10}-\d{2}-\d{6}$/.test(d.accession)) return false;
+    try {
+      const u = new URL(d.documentUrl);
+      return u.protocol === "https:" && ["sec.gov", "www.sec.gov"].includes(u.hostname) && !u.port && !u.search && !u.hash && !u.username && !u.password &&
+        new RegExp(`^/Archives/edgar/data/${Number(reg.cik10)}/${d.accession.replaceAll("-", "")}/[a-zA-Z0-9_.-]+\\.html?$`).test(u.pathname);
+    } catch { return false; }
+  };
+  const notes = [bundle.edgar.tenQNotes, bundle.edgar.tenKNotes].flatMap(m => m?.ok && m.value.source === "edgar" ? [m.value.data] : [])
+    .filter(d => primary(d) && validDay(d.reportDate) && d.reportDate <= d.filingDate).sort((a, b) => b.filingDate.localeCompare(a.filingDate));
+  const latest = notes[0];
+  if (!latest || [bundle.edgar.latestTenK, bundle.edgar.latestTenQ].some(m => m?.ok && m.value.data.filingDate <= cutoff && m.value.data.filingDate > latest.filingDate)) return [];
+  const inventories = (bundle.edgar.economicShareInventory ?? []).filter(i => i.source.filingDate <= cutoff);
+  if (inventories.some(i => i.source.filingDate > latest.filingDate || i.source.filingDate === latest.filingDate &&
+    (i.source.accession !== latest.accession || i.source.documentUrl !== latest.documentUrl))) return [];
+  const covers = inventories.filter(i => i.source.accession === latest.accession && i.source.documentUrl === latest.documentUrl && i.source.filingDate === latest.filingDate);
+  if (covers.length !== 1 || !primary(covers[0]!.source) || !covers[0]!.source.hash) return [];
+  const observed = covers[0]!.observations ?? [];
+  const names = observed.map(o => /^us-gaap:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId)?.[1]?.toLowerCase() ?? "");
+  const asOf = observed[0]?.asOf;
+  if (!asOf || !validDay(asOf) || asOf < latest.reportDate || asOf > latest.filingDate || names.length < 2 ||
+    names.some(n => !n) || new Set(names).size !== names.length || observed.some(o => o.asOf !== asOf || !o.contextId ||
+      !Number.isSafeInteger(o.shares) || o.shares < 0 || !o.sourceId.startsWith(latest.documentUrl + "#"))) return [];
+  if (covers[0]!.classes.some(c => !observed.some(o => c.classId === o.classId && c.asOf === o.asOf && c.shares === o.shares)) ||
+    bundle.edgar.shareBasis?.splits.events.some(e => e.date > asOf && e.date <= cutoff)) return [];
+  // Explicit balance-sheet rows establish the complete class set. Flattened
+  // statements may scale these counts; only unscaled inline cover facts count.
+  const statementNames = (d: typeof latest): string[] => {
+    const s = d.statementsText ?? d.text;
+    const section = /\bcommon stock at stated value:\s*([\s\S]*?)\bcapital in excess/i.exec(s)?.[1] ?? "";
+    return [...section.matchAll(/\bClass ([A-Z0-9]{1,8})(?: convertible)?\s*[\u2014\u2013-][^;]{0,160}?shares outstanding/gi)].map(m => m[1]!.toLowerCase());
+  };
+  const sameSet = (ns: string[]) => ns.length === names.length && new Set(ns).size === names.length && names.every(n => ns.includes(n));
+  if (!sameSet(statementNames(latest))) return [];
+  const classNames = names.map(n => `class ${n} common stock`);
+  const sentences = (text: string) => text.split(/(?<=\.)\s+(?=[A-Z])/).map(s => s.trim());
+  const equal = (s: string) => {
+    const ns = identicalClassRights(s);
+    return ns !== null && ns.length === classNames.length && classNames.every(n => ns.includes(n));
+  };
+  const source = notes.find(d => Date.parse(latest.filingDate) - Date.parse(d.filingDate) <= 400 * 86_400_000 &&
+    sentences(d.text).some(equal));
+  if (!source) return [];
+  // Existing full-sentence equality cannot be qualified by a later contrary
+  // entitlement. Omission alone neither changes rights nor removes a class.
+  const relevant = notes.filter(d => d.filingDate >= source.filingDate);
+  if (relevant.some(d => sentences(d.text).some(s => !equal(s) && /\bClass [A-Z0-9]{1,8}\b/i.test(s) &&
+    /\b(?:dividends?|distributions?|liquidation|participation)\b/i.test(s) &&
+    /\b(?:different|differ|unequal|not equal|not identical|preferen\w*|priority|senior|subordinat\w*|not entitled|non-?participating|times|twice|half|percent|greater|less than|equal to)\b|\d\s?%|\b\d+\/\d+\b/i.test(s)))) return [];
+  const annualInventory = inventories.find(i => i.source.accession === source.accession && i.source.documentUrl === source.documentUrl);
+  if (source !== latest && (!annualInventory || !primary(annualInventory.source) || !sameSet((annualInventory.observations ?? []).map(o =>
+    /^us-gaap:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId)?.[1]?.toLowerCase() ?? "")))) return [];
+  const relation = sentences(source.text).find(equal)!;
+  return [{ issuerId: reg.cik10, securityId: bundle.symbol, asOf, filed: latest.filingDate,
+    effectiveFrom: latest.filingDate, effectiveTo: null, complete: true,
+    sourceHash: createHash("sha256").update(JSON.stringify({ covers, rights: source, statement: latest.statementsText ?? latest.text, profile: bundle.profile })).digest("hex"),
+    sourceIds: [...new Set([latest.documentUrl, source.documentUrl, ...observed.map(o => o.sourceId)])],
+    basis: `Filed cover counts at ${asOf} span the same complete Class ${names.map(n => n.toUpperCase()).join(" / Class ")} balance-sheet inventory. ` +
+      `Filed equal economics (${source.form} ${source.accession}, filed ${source.filingDate}): "${relation}" ` +
+      `The quoted class is not identified; every equally participating class uses the same-price approximation at the issuer's non-ADR common quote. Voting-price differences are not modelled.`,
+    classes: observed.map((o, i) => ({ classId: classNames[i]!, shares: o.shares, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "economic-equivalence-proxy" })) }];
 }

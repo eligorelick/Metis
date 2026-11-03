@@ -71,7 +71,12 @@ export function dcfWithheldWarnGap(gaps: readonly ManifestEntry[]): ManifestEntr
 
 function dcfWithheldReason(gaps: readonly ManifestEntry[]): string | null {
   const critical = gaps.find((g) => g.severity === "critical" && (g.field === "valuation.dcf" || g.field.startsWith("valuation.dcf.")));
-  if (critical !== undefined) return critical.reason;
+  if (critical !== undefined) {
+    const upstreamField = critical.field === "valuation.dcf.currency" ? "valuation.currencyConversion"
+      : critical.field === "valuation.dcf.salesToCapital" && critical.reason.startsWith("balance-sheet fields missing") ? "valuation.netDebt" : null;
+    const upstream = upstreamField === null ? undefined : gaps.find(g => g.field === upstreamField)?.reason;
+    return upstream === undefined ? critical.reason : `${critical.reason}. ${upstream}`;
+  }
   const refusedClaim = dcfWithheldWarnGap(gaps);
   if (refusedClaim !== undefined) return refusedClaim.reason;
   const bridge = gaps.find((g) => g.field === "valuation.dcf.netDebt" || g.field === "valuation.dcf.dilutedShares");

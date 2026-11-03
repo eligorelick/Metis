@@ -24,6 +24,7 @@ const trackedFiles = (root = ROOT) =>
 const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
+  "docs/audit/2026-11-03-valuation-coverage.md",
   "docs/audit/2026-11-03-q4-dcf-bias-study.md",
   "docs/audit/2026-11-02-r9-figr-deterministic-fixes.md",
   "docs/audit/2026-11-02-r8-figr-evidence-selection.md",
@@ -77,6 +78,7 @@ const REQUIRED_RELEASE_FILES = [
  * record supersedes them.
  */
 const ALLOWED_MARKDOWN = new Set([
+  "docs/audit/2026-11-03-valuation-coverage.md",
   // R9's requested audit record is part of the tracked release documentation.
   "docs/audit/2026-11-03-q4-dcf-bias-study.md",
   "docs/audit/2026-11-02-r9-figr-deterministic-fixes.md",

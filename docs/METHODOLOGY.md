@@ -448,6 +448,14 @@ rate)` row) and in the report's computed-returns notes.
 | Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
 | Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60, extended for incomplete dates: the weight uses the latest complete balance in the selected window; a refused newer balance remains refused in its own EV bridge. Effective cost of debt divides a year of interest by the complete quarter-end balances of the trailing-twelve-month window when interest is TTM, else by the complete latest two fiscal-year ends; a single complete balance can stand in, and exclusions are named | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
 
+For the weights above, "complete" means complete on the selected operating-
+lease basis. D-186 permits a proved partial operating-lease observation to
+cancel from a same-filing borrowing composition under the lease-excluded
+convention; it does not establish complete lease-inclusive debt. The currency
+suppression applies unless D-178's dated FX and security evidence admits one
+constant-currency USD valuation view. Reporting-currency debt is never combined
+directly with quote-currency market equity.
+
 When trailing EBIT is unavailable, the latest fiscal year's filed operating
 income (including the existing SEC-derived EBIT chain) may score synthetic
 coverage. This standalone numerator does not establish a vendor operating
@@ -7290,3 +7298,57 @@ observed within 7 days of the quote and no later than the analysis cutoff (the
 provider re-stamps the row on each refresh). Unresolved split or
 share-class evidence refuses the ratio, and the valuation stays withheld with
 `valuation.currencyConversion` naming the reason.
+
+**Valuation coverage follow-up (D-186, 2026-11-03).** Outstanding ordinary
+shares may also be established by IFRS `NumberOfSharesOutstanding` when no
+eligible DEI cover count exists. Issued shares, authorized shares and monetary
+treasury stock are not substitutes. The same issuer, filing/cutoff, 400-day
+age, 1% agreement, second independent weighted-average construction and split
+guards still apply; an established DEI path is unchanged.
+
+For a non-ADR common quote, a complete set of unscaled, same-date primary cover
+class observations can establish economic capitalization when the latest
+balance sheet enumerates exactly those classes and filed wording establishes
+equal dividend, liquidation and participation rights. The whole sentence
+"There are no differences in the dividend and liquidation preferences or
+participation rights of the holders of Class A and Class B Common Stock."
+establishes equality; qualifications or contrary entitlements do not. Every
+class is priced at the same common quote, explicitly labelled a same-price
+approximation with voting-price differences unmodelled. The quoted class need
+not be named when all admitted units have identical economics. This extends
+the quote-class binding rule only for this equal-unit case; it never supplies
+an ADS ratio or unequal-class conversion.
+
+Annual rights can remain in force through an interim filing for at most 400
+days when its primary cover has the same complete class set and no newer
+retained terms contradict equality. Counts come from the latest filing's
+cover at their own date, with the same-filing balance-sheet class inventory;
+older counts and scaled balance-sheet counts never replace them. Missing or
+extra classes, mixed dates, duplicate observations, a newer unresolved filing,
+unresolved splits or a subsequent split refuse this fallback. All source URLs
+remain bound to the issuer and accession. Existing admitted paths are preferred.
+
+When a value stays withheld, its headline reason carries the refused debt
+behind missing invested capital, the failed currency/ADS evidence, or the
+source share-unit refusal. The loss overlay discloses its actual net-income
+or operating-cash-flow trigger and TTM/annual basis. It remains a house model
+boundary, not a finding that FCF must be structurally negative or that the
+company cannot be valued with a separately supported turnaround forecast.
+MD&A availability does not gate deterministic valuation. See the
+[33-company replay and analyst sanity checks](audit/2026-11-03-valuation-coverage.md).
+
+D-186 also extends the existing partial-operating-lease cancellation rule to
+a retained total refused solely because its vendor lease line is noncurrent
+operating leases and no total operating liability is filed. One issuer filing,
+instant and currency must independently establish `LongTermDebtCurrent`,
+`LongTermDebtNoncurrent` and `OperatingLeaseLiabilityNoncurrent`, with the
+vendor components and retained total reconciling exactly. Extra borrowings,
+any recognized finance-lease concept, an inclusive debt/lease scope,
+contradictory components, future/mixed filings, or a separate debt-collapse
+refusal disallow recovery. The calculation view restores only that partial
+observation and its provenance; the original source bundle stays unchanged.
+The operating portion cancels against the identical embedded portion under
+the default lease-excluded convention. Its other maturity remains unknown;
+the lease-inclusive switch continues to withhold. Ordinary debt plausibility
+and aggregate/component checks still run afterward. This is the existing
+lease convention applied to proved borrowings, not zero-filling a missing lease.

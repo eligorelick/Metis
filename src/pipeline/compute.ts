@@ -4745,6 +4745,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       `diluted share count from the latest ANNUAL statement (${isoDay(inc0?.date) ?? "?"}) — latest-quarter weightedAverageShsOutDil unavailable, zero, or older than the annual row; per-share values may lag recent buybacks/dilution`,
     );
   }
+  if (result.kind === "dcf-suppressed" && route.overlays.includes("unprofitable") && result.suppressionReason?.startsWith("DCF suppressed for unprofitable overlay")) {
+    const trigger = route.notes.find(n => n.startsWith("unprofitable overlay applied:"));
+    if (trigger) result.suppressionReason += ` Observed trigger: ${trigger}`;
+  }
+  if (dilutedShares === null) {
+    const refusals = bundle.gaps.filter(g => /^keyless\.income(?:Quarterly|Annual)\.shareBasis$/.test(g.field));
+    const upstream = refusals.map(g => g.reason).join("; ");
+    if (upstream) for (const gap of result.gaps) if (gap.field === "valuation.dcf.dilutedShares") gap.reason += ` Source share admission: ${upstream}`;
+  }
   return result;
 }
 

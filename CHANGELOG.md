@@ -18,6 +18,30 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Valuation coverage (2026-11-03)
+
+- Restore EXPE's default lease-excluded valuation when one filing proves all
+  borrowing components and the embedded noncurrent operating-lease observation;
+  the unavailable operating maturity cancels. Full lease-inclusive debt remains
+  unavailable. Restore NIKE's valuation from complete filed class counts and explicitly equal
+  dividend/liquidation/participation rights, using the disclosed same-price
+  approximation. Admit IFRS `NumberOfSharesOutstanding` as a foreign-issuer
+  outstanding-count synonym; NVO's independently corroborated 1:1 ADS ratio now
+  reaches the existing constant-currency USD valuation path.
+- Explain withheld values with the underlying debt, share-unit, currency/ADS or
+  loss-overlay reason. A net-income loss is no longer described as proof of
+  structurally negative free cash flow. Existing domain and input refusals remain.
+- Offline frozen replay: 23/33 values versus 20/33; every previously valued
+  company's fair value, WACC and DCF/share is unchanged. COST's composite moves
+  61.97 to 61.30 as the same lease repair restores historical EV multiples and
+  their below-neutral valuation signal. NVO's large
+  model/quote gap and NIKE's margin-normalization dependence are flagged in the
+  [D-186 evidence report](docs/audit/2026-11-03-valuation-coverage.md).
+- Version constants are intentionally unchanged in this branch. Release requires
+  Stage B, fair-value and scenario-target method stamps, and a payload version
+  advance for the changed deterministic inputs/disclosures; pipeline and report
+  schema versions need no change.
+
 ## Unreleased - Budget check before paid work; recovered filing sections (2026-11-03)
 
 - A paid run that a job or rolling cap can never finish now stops before its first paid request, at no cost, and says which request, model and cap blocked it and the smallest cap that would admit it (D-183). The same check runs before a retry spends anything. `docs/CLAUDE-USAGE.md` lists the per-model worst-case reservations and a practical cap.

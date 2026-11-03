@@ -6853,20 +6853,17 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       const reason = cashFlowApplicability.reason;
       return { kind: "dcf-suppressed", route: route.base, multiples, suppressionReason: reason, notes: [...notes, reason], gaps };
     }
-    notes.push(
-      "fcfDcf suppressed by metric policy (unprofitable overlay) — DCF/sensitivity/reverse-DCF not modelled; " +
-        "free cash flow is structurally negative, making an FCFF-based intrinsic-value model unreliable. " +
-        "See multiples below for relative valuation.",
-    );
+    const reason = "DCF suppressed for unprofitable overlay — house rule: net income or operating cash flow is negative on the selected TTM/annual basis. " +
+      "A separately supported normalization/turnaround forecast is required; see relative multiples and scenario/runway framing.";
+    notes.push(`fcfDcf suppressed by metric policy (unprofitable overlay) — ${reason}`);
     gaps.push(
       gapEntry(
         "valuation.dcf",
-        "DCF suppressed for unprofitable overlay — FCFF-based intrinsic value is not meaningful when free " +
-          "cash flow is structurally negative",
+        reason,
         "info",
       ),
     );
-    return { kind: "dcf-suppressed", route: route.base, multiples, notes, gaps };
+    return { kind: "dcf-suppressed", route: route.base, multiples, suppressionReason: reason, notes, gaps };
   }
   let assumptions: DcfAssumptions | null = null;
   let dcf: DcfResult | null = null;
