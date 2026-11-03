@@ -29,7 +29,7 @@ export async function fetchValuationFx(from: string | null, to: string | null, q
     field: "valuationFx", reason: "FX requires a supported reporting currency, a USD quote and an established quote date", severity: "warn", attemptedSources: ["fred:H.10"],
   } };
   const start = new Date(Date.parse(quoteDate) - FX_MAX_AGE_DAYS * dayMs).toISOString().slice(0, 10);
-  try { return await fetch(spec.series, { start, end: quoteDate, units: "lin" }); }
+  try { return await fetch(spec.series, { start, end: quoteDate, units: "lin", requireSeriesIdentity: true }); }
   catch { return { ok: false, gap: { field: "valuationFx", reason: `FRED ${spec.series} fetch failed; FX unavailable`, severity: "warn", attemptedSources: [`fred:${spec.series}`] } }; }
 }
 export function selectValuationFx(from: string | null, to: string | null, quoteDate: string | null, data?: FetchResult<FredObservation[]>): { rate: ValuationFx | null; reason: string } {

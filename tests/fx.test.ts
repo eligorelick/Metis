@@ -43,6 +43,12 @@ describe("dated H.10 valuation FX", () => {
     expect(await fetchValuationFx("USD", "USD", "2026-11-02", () => { throw new Error("unneeded fetch"); })).toBeUndefined();
     expect(selectValuationFx("TWD", "USD", "2026-11-02", undefined).rate).toBeNull();
   });
+  it("refuses a CSV body for the wrong series, even when the HTTP request succeeded", async () => {
+    const result = await fetchValuationFx("TWD", "USD", "2026-11-02", (id, options) => series(id, options, {
+      fetchImpl: async () => new Response("observation_date,DGS10\n2026-10-30,4.5\n"), minRequestIntervalMs: 0, retryDelaysMs: [],
+    }));
+    expect(result?.ok).toBe(false);
+  });
 });
 
 function fx(seriesId: string, data: { date: string; value: number }[]) {

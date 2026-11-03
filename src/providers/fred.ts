@@ -267,6 +267,8 @@ export interface FredConfig {
 }
 
 export interface FredSeriesOptions {
+  /** Valuation FX must prove the CSV column is the requested level series. */
+  requireSeriesIdentity?: boolean;
   /** observation_start, YYYY-MM-DD. */
   start?: string;
   /** observation_end, YYYY-MM-DD. */
@@ -634,6 +636,9 @@ export async function series(
       ? `fredgraph.csv returned ${res.htmlPage}; retry after provider maintenance`
       : res.failure ?? "unknown failure";
     return { ok: false, gap: gap(seriesId, `${apiFailure ? `${apiFailure}; ` : ""}${via}: ${failure}`, "warn") };
+  }
+  if (opts.requireSeriesIdentity && res.text.split(/\r?\n/, 1)[0]?.trim() !== `observation_date,${seriesId}`) {
+    return { ok: false, gap: gap(seriesId, `FRED CSV series identity does not match ${seriesId}`, "warn") };
   }
   const parsed = parseFredCsv(res.text, units !== "lin");
   if (parsed === null) {

@@ -363,6 +363,7 @@ export function makeCachedFredSeries(cfg: FredConfig): FredSeriesFetch {
           start: opts.start ?? null,
           end: opts.end ?? null,
           units,
+          ...(opts.requireSeriesIdentity ? { requireSeriesIdentity: true } : {}),
         },
         ttlSeconds: ttlForFredSeries(seriesId),
         maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
