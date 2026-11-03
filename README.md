@@ -43,7 +43,7 @@ Other symbols use live/cache data; generating fixture reports can still call sel
 
 No paid API key is required to try the app. For real keyless research, SEC EDGAR requires `EDGAR_CONTACT` (a contact identity, not a key). Optional keys: `FMP_API_KEY` for vendor data, `FRED_API_KEY` for macro requests, `FINNHUB_API_KEY` for Finnhub, and `ANTHROPIC_API_KEY` only for Claude API analysis. `ANTHROPIC_ADMIN_KEY` is only for optional cost reconciliation. Configure provider keys and the SEC contact in `.env` or Settings; keep the optional admin key in the private environment. See the configuration table below for limits and defaults.
 
-Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) and the detailed pricing table below.
+Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps. Measured complete runs in November 2026 cost $1.62 (Haiku 4.5 analysts at medium effort with the Sonnet 5.5 judge), $2.28 (Sonnet 5.5 at high), $4.71 (Opus 5.5 at high) and $12.27 (Opus 5.5 at extra high), so expect more than the estimate at higher effort. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) and the detailed pricing table below.
 
 ## AI connections
 
