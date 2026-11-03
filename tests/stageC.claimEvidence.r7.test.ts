@@ -42,6 +42,12 @@ describe("R7 FIGR record vocabulary", () => {
   ])("refuses a nearby but different metric in row %i: %s", (id, text) => {
     expect(check(id as number, text as string).status).not.toBe("validated");
   });
+  it("reads 'trailing P/E' as the trailing price-to-earnings record (D-182)", () => {
+    expect(check(21, "The trailing P/E was 24.9x at the 2026-11-02 quote.").status).toBe("validated");
+    expect(check(21, "The trailing price to earnings was 24.9x at the 2026-11-02 quote.").status).toBe("validated");
+    for (const text of ["The forward P/E was 24.9x at the 2026-11-02 quote.", "The trailing P/B was 24.9x at the 2026-11-02 quote.",
+      "The trailing P/E was 25.9x at the 2026-11-02 quote."]) expect(check(21, text).status).not.toBe("validated");
+  });
   it("converts an explicitly declared fraction and retains its value and unit", () => {
     expect(check(44, "Fundamentals evidence completeness was 65% as a fraction as of 2026-11-02.").status).toBe("validated");
     for (const value of ["66%", "0.65%", "65", "0.65x"])

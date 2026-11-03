@@ -645,6 +645,9 @@ export function buildJudgeFraming(
     "  and which risks stay on its own balance sheet after a sale.",
     "- `business.marketStructure`: describe the served market's size and growth where the payload or a case's cited source states them,",
     "  how the industry is structured and where value accrues, and the company's position and share where a source states them.",
+    // D-182 (META paid run, 2026-11-03): with no market-size source the judge wrote [] although the 10-K describes the competition.
+    "  When no source states a market size, say so once and still describe the industry structure and the company's position",
+    "  from the filing's business and risk excerpts and the cases; use [] only when neither discusses the industry.",
     "- `competitive.competitors`: name the main competitors from the 10-K business excerpt or the analysts' cited sources,",
     "  explain how each competes and where the company wins or loses. Do not substitute a provider peer list for this analysis.",
     "  Use FACT only with a source, JUDGMENT for interpretation, and never invent market sizes; use [] when no evidence supports a claim.",
@@ -683,6 +686,9 @@ export function buildJudgeFraming(
   "  Each gives `occurredOn` (the event date), a short `title`, `whatHappened` as 1–2 cited FACT claims, `whyItMatters` as 1–2 JUDGMENT",
   "  claims on the investment case, `direction` and `affects` (the part of the case it moves: demand, margins, capital, competition, regulation).",
   "  `summary` is 2–3 cited JUDGMENT claims on what they mean together. Use [] where no dated, sourced evidence exists.",
+  // D-182 (META paid run, 2026-11-03): the judge listed 2 developments for a heavily covered issuer.
+  "  Include each material development the evidence dates (a widely covered company typically has 3–8), most material first",
+  "  when choosing which to keep; never pad with minor or undated items.",
     "- Bull / base / bear scenario NARRATIVE: qualitative commentary in assumptions and qualitative",
     "  'what would have to be true' conditions (rating-safe strings). Do not assign scenario probabilities",
     "  or invent numeric growth, margin, discount-rate or price assumptions. Scenario weights are the fixed,",
@@ -733,6 +739,9 @@ export function buildJudgeFraming(
   "  matches management's earlier stated plans or guidance, from the evidence only and never a guess at motive; tax-withholding dispositions",
   "  and plan capacity are not decisions to sell. `actor` is a role (CEO, CFO, other executive, board, company): name a person only inside a cited claim.",
   "  Use [] when no action is evidenced.",
+  // D-182 (META paid run, 2026-11-03): issued guidance and a preferred offering were in the payload, but only 2 actions were listed.
+  "  Guidance issued with results, financings (debt, preferred or common stock), buybacks, dividends and leadership changes each count:",
+  "  include each one the evidence dates (a large company typically has 3–8 in a year), never padding with routine items.",
     "",
     "Every number you emit is a TracedNumber citing the payload path or a case's cited source. Every",
     "claim is a labeled SourcedClaim.",

@@ -5035,3 +5035,61 @@ history.
 - **Not verified offline.** These need a paid run: the quality of the new
   sections, whether the judge cites the fresh-filing row, and whether sampled
   news changes what the analysts find.
+
+## D-182 - Findings from the first paid test (Haiku, META, 2026-11-03)
+
+The owner allowed up to $25 of paid testing, tiered from cheaper to better models
+so that each tier's findings are fixed before the next. Tier 1 ran META with
+Haiku 4.5 analysts at medium effort (the judge is raised to the Sonnet 5.5 floor)
+on merged main `b5fab23d`. The complete run cost $1.62. All passes completed and
+verification was 100%. The one-hour synthesis cache was hit: judge sections 2 and
+3 each read 169,077 cached tokens.
+
+- **A month-only claim date cost a repair round.** The bull's first written case
+  dated three claims "2026-01", "2026-07" and "2026-03" and failed the parse
+  ($0.05 to repair on Haiku; the same failure would cost far more on Opus). A
+  valid year-month or year is a coarser date, not a wrong one: it is now read as
+  no date, as a blank already was. The claim's text keeps the period, and no day
+  is invented, because a month-end day could read as a future date. Impossible
+  values ("2026-13") and other malformed dates still fail.
+- **The new sections were thin.** The judge listed 2 recent developments and 2
+  management actions for a heavily covered company. The Q4 guidance it quoted in
+  the executive summary was not listed as a management action. The rules now ask
+  for each material dated development (typically 3-8 for a widely covered
+  company) and each dated management action. Guidance issued with results,
+  financings, buybacks, dividends and leadership changes each count. Both rules
+  forbid padding with minor, routine or undated items.
+- **Market structure was empty.** The judge read "use [] when no evidence
+  supports a claim" as a reason to write nothing, because no source stated a
+  market size, although the 10-K describes the competition. The rule now says to
+  state once that no market size is sourced and still describe the industry
+  structure and the company's position from the filing and the cases. [] is used
+  only when neither discusses the industry.
+- **A cost cap that cannot fit a run spends money for nothing.** A first attempt
+  under a $3 job cap ran the bull ($0.44), then the bear was refused admission:
+  its worst-case reservation ($2.90) plus the spend exceeded the cap. The run
+  became data-only. A retry cannot raise a job's recorded cap, so the $0.44 was
+  wasted. Worst-case reservations per request are: Haiku research $2.90, Sonnet
+  5.5 research $26.36, Opus 5.5 research $52.64, judge $5.28 (Sonnet floor) or
+  $10.56 (Opus). A feasibility check before the first paid request is being
+  added separately.
+- **Tier 2 (Sonnet 5.5 high, TSM, $2.28).** With the rules above, every pass
+  succeeded at the first attempt (no repair). The judge listed 4 recent
+  developments and 5 management actions, including the capex raise and the Q4
+  guidance, and wrote market structure from the 20-F, stating that no market size
+  is sourced. Verification was 98.3%. The misses were verifier false positives,
+  fixed here:
+  - "Motive is not established", the prompt's own insider wording, was read as
+    naming a person "Motive". That rejected the per-person insider lines.
+  - The results release TSMC furnished on Form 6-K, cited by its sec.gov archive
+    URL, was refused as a credibility source because only `edgar:` ids counted as
+    filings. A document under `https://www.sec.gov/Archives/edgar/data/<cik>/<accession>/`
+    is a filing.
+  - A credibility statement that names nobody and says a record is absent ("no
+    prior guidance ranges are retained") may cite the payload's own gap row. That
+    row supports absence and never a number.
+  - "The trailing P/E was 26.4x" did not name the P/E (TTM) record. "Trailing
+    P/E" and "trailing price to earnings" are now readings of it.
+  - Not changed: one claim stating ROIC and its spread over WACC against one cited
+    figure stays unverified, because one figure cannot bind two quantities.
+- **Stamps.** Pipeline stage-c-1.6.23. Report spec and payload are unchanged.

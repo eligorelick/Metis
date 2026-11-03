@@ -6017,6 +6017,44 @@ describe("runBullThenBear per-pass lifecycle hooks", () => {
   });
 
   /**
+   * D-182 (META paid run, 2026-11-03): Haiku dated three claims with a month
+   * alone ("2026-01"), which failed the parse and cost a repair round. A valid
+   * month or year is a coarser date, read as no date; no day is invented.
+   */
+  it("treats a valid month-only or year-only asOf as no date", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    const bear = analystCase("bear");
+    mock.onJson("llm.bull", analystCase("bull"));
+    mock.onJson("llm.bear", {
+      ...bear,
+      keyDrivers: [{ ...bear.keyDrivers[0]!, asOf: "2026-01" }, ...bear.keyDrivers.slice(1)],
+      evidence: [{ ...bear.evidence[0]!, asOf: "2025" }, ...bear.evidence.slice(1)],
+    });
+
+    const { bear: run } = await runBullThenBear(makeDeps(mock), payload);
+
+    expect(run.ok).toBe(true);
+    if (run.ok) {
+      expect(run.result.output.keyDrivers[0]?.asOf).toBeNull();
+      expect(run.result.output.evidence[0]?.asOf).toBeNull();
+    }
+  });
+
+  it("still rejects an impossible month", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass();
+    const bear = analystCase("bear");
+    mock.onJson("llm.bull", analystCase("bull"));
+    mock.onJson("llm.bear", { ...bear, keyDrivers: [{ ...bear.keyDrivers[0]!, asOf: "2026-13" }, ...bear.keyDrivers.slice(1)] });
+
+    const { bear: run } = await runBullThenBear(makeDeps(mock), payload);
+
+    expect(run.ok).toBe(false);
+    if (!run.ok) expect(run.validationError).toContain("Invalid ISO date");
+  });
+
+  /**
    * The second `abandon.bear.signal.aborted` check sits AFTER bear's
    * `beforePass` (where the runner acquires bear's durable lease) and before
    * `onPassStart` / `beforeProviderLaunch`: a bull that ends the run while

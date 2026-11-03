@@ -140,6 +140,45 @@ describe("FIG executive title boundaries", () => {
   });
 });
 
+// D-182: false positives in the TSM paid run (Sonnet 5.5, 2026-11-03).
+describe("named-individual checks on paid-run insider and credibility wording", () => {
+  const source = "fmp:insider-trades";
+  const personRows: PersonRow[] = [
+    { tag: source, asOf: "2026-10-07", name: "Wei Che-Chia", title: "director", anyOrder: true },
+    { tag: source, asOf: "2026-10-07", name: "Wei Che-Chia", title: "Chairman and CEO", anyOrder: true },
+  ];
+  const check = (text: string) => run(refs(claim(text, source, { asOf: null })), [], {
+    citationRegistry: [{ id: source, kind: "payload-text", origin: source, asOf: null }],
+    personNames: ["Wei Che-Chia"], personRows,
+  });
+
+  it("does not read the prompt's own 'Motive is not established' as a person", () => {
+    expect(check("Form 4 rows show Wei Che-Chia made code P purchases in 3 rows from 2026-08-07 to 2026-10-07, totalling 445 shares. Motive is not established.").findings).toEqual([]);
+  });
+
+  it("still rejects an unlisted person in the same wording", () => {
+    expect(check("Form 4 rows show Jane Roe made code P purchases in 3 rows. Motive is not established.").findings[0]?.reason).toBe("named-individual-not-in-source");
+  });
+
+  it("accepts an issuer filing on EDGAR's archive cited by URL, but not other SEC pages", () => {
+    expect(isFilingOrTranscriptSource("https://www.sec.gov/Archives/edgar/data/0001046179/000104617926000726/a3q26presentatione.htm")).toBe(true);
+    expect(isFilingOrTranscriptSource("https://www.sec.gov/news/press-release/2026-101")).toBe(false);
+    expect(isFilingOrTranscriptSource("https://example.com/www.sec.gov/Archives/edgar/data/1/2/x.htm")).toBe(false);
+  });
+
+  it("lets a credibility statement naming nobody cite the payload's own gap row, never a news row", () => {
+    const gap = { id: "manifest.edgar.tenQMdna(TSM)", kind: "payload-gap" as const, origin: "manifest.edgar.tenQMdna(TSM)", asOf: null };
+    const news = { id: "fmp:news", kind: "payload-text" as const, origin: "fmp:news", asOf: null };
+    const credibility = (text: string, id: string) => runConsistencyChecks({
+      claims: [{ claim: claim(text, id, { asOf: null }), path: "outlook.guidanceCredibility[1]" }],
+      registry: [], citationRegistry: [gap, news], fetchedUrls: new Set<string>(), personNames: [],
+    });
+    expect(credibility("The retained rows carry no prior-quarter guidance ranges set against reported results.", gap.id).checks.namedIndividual)
+      .toMatchObject({ passed: 1, failed: 0 });
+    expect(credibility("Guidance was met in each of the last four quarters.", news.id).findings[0]?.reason).toBe("credibility-source-restricted");
+  });
+});
+
 /* ------------------------------------------------------------------------ *
  * (d) Direction
  * ------------------------------------------------------------------------ */
