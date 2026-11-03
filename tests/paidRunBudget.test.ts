@@ -29,12 +29,14 @@ import {
   acquirePaidPassLease,
   claimNextQueuedJob,
   paidReservationCapRefusal,
+  type PaidCapRefusal,
   type SchedulerLimits,
 } from "@/pipeline/jobScheduler";
 import {
   largestPlannedReservation,
   paidBudgetRefusalReason,
   plannedPaidReservations,
+  type PlannedReservation,
 } from "@/pipeline/paidRunBudget";
 import { runStageB } from "@/pipeline/compute";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
@@ -313,6 +315,68 @@ describe("the refusal disclosure", () => {
     expect(reason).toContain("$20.00");
     expect(reason).toContain("$2.00");
     expect(reason).toMatch(/at least \$27\.28/);
+  });
+
+  const jobRefusal = (over: Partial<PaidCapRefusal> = {}): PaidCapRefusal => ({
+    cap: "job", capUsd: 1, settledUsd: 0, reservedUsd: 0, headroomUsd: 1, minimumCapUsd: 2,
+    recordedJobCapUsd: null, configuredJobCapUsd: 1, rollingWindowMs: LIMITS.rollingCostWindowMs, ...over,
+  });
+
+  it("names every kind of reservation in words, by reservation mode", () => {
+    const of = (pass: PlannedReservation["pass"], kind: PlannedReservation["kind"]) =>
+      paidBudgetRefusalReason({ pass, kind, model: "claude-haiku-4-5", reservationUsd: 2 }, jobRefusal());
+    expect(of("bull", "writing")).toContain("the bull analyst's writing request");
+    expect(of("bear", "pass-admission")).toContain("the bear analyst pass on");
+    expect(of("synthesize", "pass-admission")).toContain("the synthesize (judge) pass on");
+    expect(of("verify", "verify")).toContain("the verify pass on");
+    setEnv("METIS_RESERVATION_MODE", "pass");
+    expect(of("bull", "pass-admission")).toContain("the bull analyst pass (pass reservation mode reserves every request the pass could make)");
+    expect(of("synthesize", "pass-admission")).toContain("the synthesize (judge) pass (pass reservation mode reserves every request the pass could make)");
+  });
+
+  it("names the job cap's source and counts the job's requests in flight", () => {
+    const recordedOnly = paidBudgetRefusalReason(judge, jobRefusal({
+      capUsd: 3, recordedJobCapUsd: 3, configuredJobCapUsd: null, reservedUsd: 0.5, minimumCapUsd: 5.78,
+    }));
+    expect(recordedOnly).toContain("$3.00 (recorded when this job was created)");
+    expect(recordedOnly).toContain("$0.50 reserved by its requests in flight");
+    expect(recordedOnly).toContain("start a new report");
+    // A recorded cap above what is needed: raising the setting is enough.
+    const configuredBinds = paidBudgetRefusalReason(judge, jobRefusal({
+      capUsd: 3, recordedJobCapUsd: 30, configuredJobCapUsd: 3, minimumCapUsd: 5.28,
+    }));
+    expect(configuredBinds).toContain("the lower of the $30.00 recorded when this job was created and the $3.00 set in METIS_MAX_JOB_COST_USD now");
+    expect(configuredBinds).not.toContain("start a new report");
+  });
+
+  it("prints exact micro-dollar amounts", () => {
+    const reason = paidBudgetRefusalReason(
+      { pass: "verify", kind: "verify", model: "claude-haiku-4-5", reservationUsd: 0.035 },
+      jobRefusal({ capUsd: 0.000001, settledUsd: 0.000001, headroomUsd: 0, minimumCapUsd: 0.035001 }),
+    );
+    expect(reason).toContain("$0.035");
+    expect(reason).toContain("$0.035001");
+    expect(reason).toContain("$0.000001");
+  });
+});
+
+describe("the plan's remaining edges", () => {
+  const billableVerify = { billable: true, maxInputTokens: 12_000, maxOutputTokens: 4_000, maxWebSearches: 0 } as const;
+
+  it("prices a billable verify adapter's lease and request, and leaves an undeclared one to the verify boundary", () => {
+    const planned = plannedPaidReservations("claude-haiku-4-5", { analysts: [], synthesize: false, verify: true }, billableVerify);
+    expect(planned.map((entry) => [entry.kind, entry.reservationUsd])).toEqual([["pass-admission", 0.035], ["verify", 0.035]]);
+    expect(largestPlannedReservation(planned)).toMatchObject({ kind: "verify" });
+    expect(plannedPaidReservations("claude-haiku-4-5", { analysts: [], synthesize: false, verify: true })).toEqual([]);
+  });
+
+  it("breaks ties toward a request over the pass lease that equals it, then toward the earlier entry", () => {
+    const lease: PlannedReservation = { pass: "bull", kind: "pass-admission", model: "m", reservationUsd: 2 };
+    const research: PlannedReservation = { pass: "bull", kind: "research", model: "m", reservationUsd: 2 };
+    const judgeEqual: PlannedReservation = { pass: "synthesize", kind: "judge-section", model: "m", reservationUsd: 2 };
+    expect(largestPlannedReservation([lease, research, judgeEqual])).toBe(research);
+    expect(largestPlannedReservation([research, lease])).toBe(research);
+    expect(largestPlannedReservation([{ ...lease, reservationUsd: 0 }])).toBeNull();
   });
 });
 
