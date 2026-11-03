@@ -749,6 +749,27 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
   for (const form of [...forms]) { const bare = withoutAxis(form); if (bare !== null) forms.add(bare); }
   for (const form of [...forms]) { const bare = withoutRestatedAcronyms(form); if (bare !== null) forms.add(bare); }
   if (record.kind === "computed") {
+    // D-187: names belong to these producers, never to arbitrary numeric rows.
+    if (record.id === "computed.valuation.dcf-per-share" && record.origin === "computed.valuation.dcf" &&
+      record.unit === "currency-per-share" && label === "DCF per share") forms.add("DCF base-case value per share");
+    if (reverseDcfGrowth(record)) forms.add("reverse DCF implies year-one revenue growth");
+    if (record.origin === "computed.valuation.multiples.evToEbitda" && record.unit === "ratio" && label === "evToEbitda (current)")
+      forms.add("EV/EBITDA");
+    if (record.id === "computed.technicals.last-close" && record.origin === "computed.technicals" &&
+      record.unit === "currency-per-share" && label === "last close") forms.add("last settled close");
+    if (record.id === "computed.capital-cash.weighted-average-diluted-common-share-change-5y-total" &&
+      record.origin === "computed.capital.shareCount" && record.unit === "percent" && label === "weighted-average diluted common-share change (5y total)") {
+      forms.add("weighted-average diluted common-share change over five years");
+      forms.add("weighted-average diluted share change over five years");
+    }
+    if (currentCapitalFcfReading(record) === "after-sbc") forms.add("standardized free cash flow after stock compensation");
+    const projection = projectionReading(record);
+    if (projection !== null) {
+      const { metric, scenario, window } = projection;
+      const name = metric === "epsDiluted" ? "operating EPS" : metric === "fcf" ? "unlevered free cash flow" : metric;
+      forms.add(`${scenario === "weighted" ? "weighted" : `${scenario}-case projected`} ${name} ${window}`);
+      if (metric === "revenue") forms.add(`${scenario === "weighted" ? "weighted" : `${scenario}-case projected`} ${name} ${window} modeled`);
+    }
     if (financialPiotroskiCoverage(record) !== null) forms.add("financial variant Piotroski score");
     if (record.unit === "score" && /^computed\.scores\.[a-z]+$/.test(record.origin) &&
       record.id.startsWith("computed.deterministic-aspect-scores.") && /^[a-z]+ score$/.test(label)) forms.add(`quantitative ${label}`);
@@ -789,17 +810,18 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
         forms.add(`operating EPS weighted ${forward[2]}`);
     }
   }
-  // These legacy payload labels contain a sign legend, not an additional
-  // metric. Keep the source ids (and the signed value check) unchanged.
+  // These legacy payload labels contain a sign legend, not an additional metric.
   if (record.unit === "currency" && record.kind === "provider" &&
     /^payload\.statements\.cash-flow-(?:annual|quarterly)\./.test(record.id)) {
-    if (label === "capex (negative)") forms.add("capital expenditure");
+    if (label === "capex (negative)") { forms.add("capital expenditure"); forms.add("capex"); }
     if (label === "buybacks (negative)") { forms.add("buybacks"); forms.add("share repurchases"); }
   }
   if (record.kind === "provider" && record.id.startsWith("payload.filing-facts.") && /^edgar:8-K\s/.test(record.origin)) {
     if (record.unit === "currency" && / \(appointment package\)$/.test(label)) forms.add(label.replace(/ \(appointment package\)$/, ""));
   }
   if (record.kind === "provider") {
+    if (record.id === "payload.quote.price" && record.origin === "fmp:quote" && record.unit === "currency-per-share" && label === "price")
+      forms.add("ADS price");
     if (record.origin === "fmp:price-target-consensus" && label === "price target consensus") forms.add("provider consensus price target");
     if (record.origin === "fmp:price-target-consensus" && /^price target (low|high)$/.test(label)) forms.add(`provider ${label}`);
     if (record.origin === "fmp:analyst-estimates" && /^est (revenue|EPS) \d{4}-\d{2}-\d{2}$/.test(label))
@@ -824,6 +846,30 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
   }
   return [...forms];
 }
+/** Only the forward producer defines operating EPS and unlevered FCF. */
+function projectionReading(record: NumericProvenanceRecord): { metric: string; scenario: string; window: string } | null {
+  const match = /^(revenue|operatingMargin|epsDiluted|fcf) (weighted|bull|bear) (12M ending \d{4}-\d{2}-\d{2})$/.exec(record.label ?? "");
+  if (!match || record.kind !== "computed" || record.id !== `computed.weighted-projections.${match[1].toLowerCase()}-${match[2]}-${match[3].toLowerCase().replace(/ /g, "-")}` ||
+    record.origin !== `computed.projections.${match[1]}.${match[2]}` || record.period !== match[3]) return null;
+  const unit = match[1] === "operatingMargin" ? "percent" : match[1] === "epsDiluted" ? "currency-per-share" : "currency";
+  return record.unit === unit ? { metric: match[1], scenario: match[2], window: match[3] } : null;
+}
+function reverseDcfGrowth(record: NumericProvenanceRecord): boolean {
+  return record.kind === "computed" && record.id === "computed.valuation.reverse-dcf-implied-revenue-growth" &&
+    record.origin === "computed.valuation.reverseDcf" && record.unit === "percent" && record.label === "reverse-DCF implied revenue growth";
+}
+function currentCapitalFcfReading(record: NumericProvenanceRecord): "standardized" | "after-sbc" | null {
+  if (record.kind !== "computed" || record.unit !== "currency" || recordWindow(record) === null) return null;
+  if (record.id === "computed.current-capital.standardized-fcf" && record.origin === "computed.capital.current.cashBridge.standardizedFcf" && record.label === "standardized fcf") return "standardized";
+  if (record.id === "computed.current-capital.after-sbc-standardized-fcf" && record.origin === "computed.capital.current.cashBridge.afterSbcStandardizedFcf" && record.label === "after sbc standardized fcf") return "after-sbc";
+  return null;
+}
+/** D-187 revises D-160 only for negative statement buyback/capex observations. */
+function statementOutflow(record: NumericProvenanceRecord): boolean {
+  return record.kind === "provider" && record.unit === "currency" && record.value < 0 &&
+    /^payload\.statements\.cash-flow-(?:annual|quarterly)\.\d{4}-\d{2}-\d{2}\./.test(record.id) &&
+    /^(?:capex|buybacks) \(negative\)$/.test(record.label ?? "");
+}
 /** The coverage is metadata explicitly printed by this producer, never inferred from a score. */
 function financialPiotroskiCoverage(record: NumericProvenanceRecord): { evaluated: number; total: number } | null {
   if (record.kind !== "computed" || record.origin !== "computed.forensics.piotroski" || record.unit !== "score") return null;
@@ -834,6 +880,21 @@ function financialPiotroskiCoverage(record: NumericProvenanceRecord): { evaluate
 /** Explicit typed-source metadata/formula readings; replacements preserve quantity offsets. */
 function typedClaimContext(text: string, record: NumericProvenanceRecord): string | null {
   const blank = (match: string): string => " ".repeat(match.length);
+  if (record.id === "computed.capital-cash.weighted-average-diluted-common-share-change-5y-total" &&
+    record.origin === "computed.capital.shareCount" && record.label === "weighted-average diluted common-share change (5y total)" &&
+    /\bper[\s-]+(?:share|year)\b|\bannualized\b/i.test(text)) return null;
+  if (projectionReading(record) !== null) {
+    // Read the producer's window in its own spelling. The stated endpoint is
+    // retained for the ordinary period check, including a wrong endpoint.
+    text = text.replace(/\bfor (?:the )?12 months ending\b/gi, match => "12M ending".padEnd(match.length));
+  }
+  if (reverseDcfGrowth(record)) {
+    // This is the model's year-one growth over starting TTM revenue. TTM in
+    // this complete phrase names its denominator, not a historical window.
+    text = text.replace(/\byear-one revenue growth over (?:TTM|trailing twelve-month revenue)\b/gi,
+      match => "year-one revenue growth".padEnd(match.length));
+  }
+  if (currentCapitalFcfReading(record) !== null) text = text.replace(/\bfor the twelve months to\b/gi, match => "on the TTM to".padEnd(match.length));
   // A signed distance from a high is a level, not an inequality or a temporal
   // fall. Only this producer and this complete grammatical relation establish it.
   if (record.origin === "computed.technicals.range52w" && record.label === "% from 52w high" && record.unit === "percent")
@@ -841,8 +902,8 @@ function typedClaimContext(text: string, record: NumericProvenanceRecord): strin
   if (record.unit === "score" && record.id.startsWith("computed.deterministic-aspect-scores.") &&
     /^computed\.scores\.[a-z]+$/i.test(record.origin)) {
     let conflict = false;
-    text = text.replace(/\(grade ([ABCDF])\)|, inside the (?:neutral )?([ABCDF]) band/gi, (match, a: string | undefined, b: string | undefined) => {
-      if ((a ?? b)?.toUpperCase() !== scoreToBand(record.value)) conflict = true;
+    text = text.replace(/\(grade ([ABCDF])\)|, inside the (?:neutral )?([ABCDF]) band|, (?:grade|in band) ([ABCDF])\b/gi, (match, a: string | undefined, b: string | undefined, c: string | undefined) => {
+      if ((a ?? b ?? c)?.toUpperCase() !== scoreToBand(record.value)) conflict = true;
       if (/\bneutral\b/i.test(match) && !isNeutralScore(record.value)) conflict = true;
       return blank(match);
     });
@@ -868,8 +929,7 @@ function typedClaimContext(text: string, record: NumericProvenanceRecord): strin
   if (record.origin === "computed.technicals.relativeStrength.6mo") text = text.replace(/\bover the six months\b/gi, "over six months    ");
   if (record.unit === "currency" && record.value < 0 && record.label === "income tax expense")
     text = text.replace(/, a benefit(?=\.)/gi, blank);
-  if (record.unit === "currency" && record.value < 0 && /^payload\.statements\.cash-flow-(?:annual|quarterly)\./.test(record.id) &&
-    /^(?:capex|buybacks) \(negative\)$/.test(record.label ?? "")) text = text.replace(/\(cash outflow\)/gi, blank);
+  if (statementOutflow(record)) text = text.replace(/\(cash outflow\)|\bof cash outflow\b/gi, blank);
   if (record.unitScale === "fraction" && record.value === 0 && /^computed\.scores\.[a-z]+\.dataCompleteness$/i.test(record.origin))
     text = text.replace(/, so (?:no quantitative (?:[a-z-]+ )?score exists|the quantitative valuation grade defaults to the neutral band|the capital-stewardship proxy produced no score)/gi, blank);
   if (record.unit === "count" && /^computed\.valuation\.peerCoverage\.[\w-]+\.count$/.test(record.origin) && record.value === 0)
@@ -1590,7 +1650,10 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       if (currency === null) return support("unchecked", "currency-mismatch", "prose currency is not established");
       if (currency !== record.currency) return support("unchecked", "currency-mismatch", "prose currency is not established by the cited numeric record");
     }
-    const signed = direction !== null && normalizedQuantity.value >= 0 ? { ...normalizedQuantity, value: normalizedQuantity.value * direction.polarity } : normalizedQuantity;
+    const magnitude = statementOutflow(record) && direction === null && findDirectionWords(claim.text).length === 0 && !/\binflows?\b/i.test(claim.text) &&
+      normalizedQuantity.value > 0 && /\b(?:buybacks|share repurchases|capital expenditure|capex)\b/i.test(own.label);
+    const signed = magnitude ? { ...normalizedQuantity, value: -normalizedQuantity.value }
+      : direction !== null && normalizedQuantity.value >= 0 ? { ...normalizedQuantity, value: normalizedQuantity.value * direction.polarity } : normalizedQuantity;
     return equalValue(signed, record.value)
       ? support("validated", "supported", "every prose quantity matched its typed cited record; qualitative assertions remain unchecked")
       : support("contradicted", "value-mismatch", "prose quantity contradicts the cited numeric record");
