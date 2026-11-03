@@ -3443,7 +3443,43 @@ export function judgeOutputToJsonSchema(): Record<string, unknown> {
   }));
 }
 
-/** JSON Schema the bull/bear passes request. */
+/**
+ * Drop one property from every object of a request schema (its `required` entry
+ * too). The Zod schema that parses the answer is unchanged.
+ */
+function withoutRequestProperty<T>(schema: T, key: string): T {
+  const seen = new WeakSet<object>();
+  const walk = (node: unknown): void => {
+    if (node === null || typeof node !== "object" || seen.has(node as object)) return;
+    seen.add(node as object);
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    const obj = node as Record<string, unknown>;
+    if (obj.properties !== null && typeof obj.properties === "object") {
+      delete (obj.properties as Record<string, unknown>)[key];
+      if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== key);
+    }
+    Object.values(obj).forEach(walk);
+  };
+  walk(schema);
+  return schema;
+}
+
+/**
+ * JSON Schema the bull/bear passes request.
+ *
+ * D-185 (ASML Opus 5.5 paid run, 2026-11-03): the request schema required
+ * `sourceId` beside `source` on every claim and evidence number. The analyst has
+ * no second identity to give, so Opus wrote the placeholder "x" (or "") into the
+ * first claim and closed the case: one thesis claim and every other section
+ * empty, on all four writing attempts and on a reproduction of the same request.
+ * The identical request without `sourceId` returned a complete case (17 thesis
+ * claims, 30 drivers, 26 risks). The analyst cites through `source`; a parsed
+ * claim without `sourceId` already cites its `source` (D-114), and stored cases
+ * keep parsing because the Zod field stays optional.
+ */
 export function analystCaseToJsonSchema(): Record<string, unknown> {
-  return toStructuredJsonSchema(AnalystCaseObjectSchema);
+  return withoutRequestProperty(toStructuredJsonSchema(AnalystCaseObjectSchema), "sourceId");
 }

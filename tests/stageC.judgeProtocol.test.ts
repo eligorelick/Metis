@@ -31,7 +31,7 @@ import { validateBundle } from "@/pipeline/stageA/validate";
 import { parseEnv } from "@/config/env";
 import type { DataBundle } from "@/pipeline/types";
 import type { AnalystCase, JudgeOutput, Report } from "@/report/schema";
-import { ANALYST_CASE_SCHEMA, JudgeProtocolSchema, analystCaseToJsonSchema } from "@/report/schema";
+import { ANALYST_CASE_SCHEMA, JudgeProtocolSchema, analystCaseToJsonSchema, judgeOutputToJsonSchema } from "@/report/schema";
 import {
   annotateSharedModelFamily,
   attributeJudgeProtocolDisclosures,
@@ -1350,6 +1350,27 @@ describe("analyst case_strength", () => {
     delete (legacy as { case_strength?: number }).case_strength;
     expect(ANALYST_CASE_SCHEMA.safeParse(legacy).success).toBe(true);
     expect(ANALYST_CASE_SCHEMA.safeParse({ ...legacy, case_strength: null }).success).toBe(true);
+  });
+
+  it("does not ask the analyst for a second citation identity beside `source` (D-185)", () => {
+    // ASML paid run, 2026-11-03: a required `sourceId` drew the placeholder "x" and
+    // a one-claim skeleton on every attempt; without it the same request was complete.
+    const json = JSON.stringify(analystCaseToJsonSchema());
+    expect(json).not.toContain('"sourceId"');
+    expect(json).toContain('"source"');
+    // The judge's request schema is unchanged.
+    expect(JSON.stringify(judgeOutputToJsonSchema())).toContain('"sourceId"');
+    // Stored cases parse with or without the field.
+    const claim = { text: "Revenue rose.", label: "FACT", source: "payload.quote.price", asOf: "2026-11-03" };
+    const withId = { ...claim, sourceId: "payload.quote.price" };
+    for (const thesis of [[claim], [withId]]) {
+      const parsed = ANALYST_CASE_SCHEMA.safeParse({
+        thesis, keyDrivers: [claim], risksToCase: [claim], catalysts: [],
+        priceTarget: { value: null, horizon: "not modeled", assumptions: ["valuation evidence does not support a target"] },
+        evidence: [], case_strength: 3,
+      });
+      expect(parsed.success).toBe(true);
+    }
   });
 
   it("requires it in the schema a FRESH analyst pass is asked to fill", () => {

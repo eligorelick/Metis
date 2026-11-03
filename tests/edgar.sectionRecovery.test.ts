@@ -100,6 +100,18 @@ describe("failed annual section recovery from filing structure", () => {
     expect(result.ok && result.text).not.toContain("Item 1A");
   });
 
+  it.each([
+    ["a standard title continued in prose", "<p>Item 1A. Risk Factors below discusses the risks associated with our business.</p>"],
+    ["a reference opening in lowercase", "<p>Item 1A of this report describes the risks associated with our business.</p>"],
+  ])("does not end business at %s (PR #88 review)", (_label, reference) => {
+    const html = sample("q6-cat-sections.html").replace('<div id="risk">Item 1A. Risk Factors.</div>',
+      `${reference}<p>Business prose after the reference.</p><div id="risk">Item 1A. Risk Factors.</div>`);
+    const result = extractSection(html, { form: "10-K", item: "1" });
+    expect(result.ok && result.method).toBe("structured-item");
+    expect(result.ok && result.text).toContain("Business prose after the reference.");
+    expect(result.ok && result.text).not.toContain("Item 1A. Risk Factors.");
+  });
+
   it("ends 20-F Item 5 before a nonstandard Item 6 title", () => {
     const html = retryBody(`<div>Item 5. Operating and Financial Review and Prospects</div><p>${"Operating results. ".repeat(180)}</p>` +
       '<div>Item 6. Directors and employees</div><p>Foreign governance text.</p><div>Item 7. Major Shareholders and Related Party Transactions</div>', "5", "6", "Operating and Financial Review and Prospects");

@@ -5197,7 +5197,36 @@ PR #88 (report #4 in the isolated test data directory, $3.03).
 - The same skeleton appeared on NVDA #48 (Opus 5.5, medium) and the FIGR
   high-effort run (D-162). There the one repair recovered it.
 
-**Cause of the failed repair.** The repair turn said "Fix EXACTLY these issues and
+**Root cause: the request schema.** The analyst request schema required
+`sourceId` beside `source` on every claim and evidence number. A first diagnosis
+blamed the repair wording (below), but a retry on that fix wrote the same
+skeleton twice more ($0.86). A probe then rebuilt the exact writing request from
+the job's frozen inputs (payload fingerprint `1.66.0:16a8bbce`, matching the run)
+and the saved bull research, and sent it with summarized thinking:
+
+- **As sent.** The reasoning planned a full case: the thesis, the MATCH Act,
+  China and customer-concentration risks, catalysts, evidence tags and a null
+  price target with its conditions. It ended "I'll write the output in JSON".
+  The output was the same one-claim skeleton, with `sourceId: "x"`.
+- **The same request without `sourceId` in the schema.** A complete case: 17
+  thesis claims, 30 drivers, 26 risks, 6 catalysts, 20 evidence numbers and
+  6 price-target conditions (23,965 characters, inside the 24,000 cap).
+- **The same request with no schema.** Also complete.
+
+The analyst has no second identity to give beside `source`. It wrote a
+placeholder and closed the case: 5 of 5 skeletons with the field, 1 of 1 complete
+case without it. This matches NVDA #48 and #49, whose four first attempts carried
+`sourceId: ""` (D-114), and the earlier bull skeletons. The three probe requests
+cost $2.09.
+
+- **Decision.** The analyst request schema omits `sourceId`, and the analyst
+  cites through `source`. A parsed claim without `sourceId` already cites its
+  `source` (D-114), and the stored ASML bear case has none after normalization.
+  The Zod schema still accepts the field, so stored cases parse.
+- **Not changed.** The judge's request schema keeps `sourceId`; no judge failure
+  points to it.
+
+**Secondary: the repair wording.** The repair turn said "Fix EXACTLY these issues and
 re-emit the full ANALYST_CASE JSON — same evidence, same citations, corrected
 fields only". The echoed output said "repair this JSON in place — do not start
 over". An empty `keyDrivers` or `risksToCase` cannot be filled without new claims,
@@ -5214,29 +5243,38 @@ is right for a format error, such as a bad date, which is what it was written fo
   missing sections in full".
 - **Unchanged.** Format errors keep the fix-in-place wording. The cached payload
   turn, tools and schema stay byte-identical, so the repair still reads the cache.
-- **Not changed.** The first writing prompt already requires at least one claim in
-  each section. Why Opus sometimes writes a skeleton anyway is not visible in the
-  stored artifacts, which keep no thinking. Changing that prompt without evidence
-  could change the cases that are already written in full.
-- **Tests.** One builds the request from the exact ASML feedback, and one is a
-  control for a format error. A runner test checks the incomplete marker on the
-  echoed output. All three fail without the change.
+- **Kept.** The wording still contradicted the rejection, so it is fixed too,
+  but on its own it did not recover the ASML case.
+- **Tests.**
+  - The analyst request schema has no `sourceId`, the judge's keeps it, and a
+    stored case parses with or without it. This fails without the change.
+  - Repair turns: one built from the exact ASML feedback, one control for a
+    format error, and a runner test for the incomplete marker on the echoed
+    output. All three fail without the change.
 
-**PR #88 review (Codex, three P2 findings), each with a test that fails without
-the fix:**
+**PR #88 review (Codex, four P2 findings over two rounds), each with a test that
+fails without the fix:**
 
 - **Linked page ranges (D-184).** A page that another item claims strictly
   inside a mapped range now withholds recovery, as an endpoint does. Example:
   INTC Business pages 3-5 with Item 1A mapped to page 4.
 - **Reference-table recovery (D-184).** A heading line holding a hyperlink can
   no longer prove a chapter's start or end, matching the structured-item path.
+- **Prose references as section ends (D-184, second review round).** A paragraph
+  that opens with a later item's reference no longer ends the section. Examples:
+  "Item 1A. Risk Factors below discusses ..." and "Item 1A of this report
+  describes ...". Text that opens in lowercase, or that continues the item's
+  standard title in lowercase words, is prose. A variant or nonstandard title,
+  or a standard title with a parenthetical, still ends the section. The existing
+  tests for singular and plural market-risk titles, "Directors and employees" and
+  a 320-character title still pass.
 - **Pre-launch budget check (D-183).** It now counts an expired lease the way
   admission's sweep records it: presumed spend at its reservation, dated at its
   acquisition, or nothing when its request already settled or was presumed.
   Before, it counted every stored lease as live, so with a rolling window shorter
   than the lease lifetime it could refuse a run that admission would admit. The
   sweep and the check now share one function.
-- **Replay.** The frozen 38-snapshot replay is unchanged by the two extractor
+- **Replay.** The frozen 38-snapshot replay is unchanged by the three extractor
   fixes: 266 of 266 slots are identical, with 220 sections extracted.
 
 - **Stamps.** Pipeline stage-c-1.6.25. Payload 1.66.0 and report spec 1.60.0

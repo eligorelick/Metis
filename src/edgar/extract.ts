@@ -1671,7 +1671,26 @@ function recoverAnnualSection(
     const cs = cells(n);
     return cs.length >= 2 && cs.length <= 4 && /^Item\s+\d{1,2}[A-D]?\.?$/i.test(nodeText(cs[0]!));
   });
-  const boundaries = [...headings, ...boundaryRows].map(n => ({ n, id: headingItem(n)?.id }))
+  // A paragraph that opens with a later item's reference ("Item 1A. Risk Factors
+  // below discusses ...", "Item 1A of this report describes ...") is prose, not
+  // that item's heading (PR #88 review). It is the item's standard title followed
+  // by lowercase words, or text opening in lowercase. A variant or nonstandard
+  // title, or a standard title with a parenthetical, still ends the section.
+  const proseReference = (n: AppendixElement): boolean => {
+    const heading = headingItem(n);
+    if (!heading) return false;
+    const title = heading.title.trim();
+    if (/^[a-z]/.test(title)) return true;
+    const standard = closed[heading.id];
+    if (!standard) return false;
+    const words = title.split(/\s+/);
+    let end = 0;
+    for (let k = 1; k <= words.length; k++) if (standard.test(key(words.slice(0, k).join(" ")))) end = k;
+    if (end === 0) return false;
+    const rest = words.slice(end).join(" ").replace(/^[\s.:;,–—-]+/, "");
+    return /^[a-z]/.test(rest);
+  };
+  const boundaries = [...headings.filter(n => !proseReference(n)), ...boundaryRows].map(n => ({ n, id: headingItem(n)?.id }))
     .filter(h => h.id !== undefined).sort((a, b) => a.n.start - b.n.start);
   const accept = (body: string, method: ExtractMethod, note: string): ExtractResult | null => {
     if (expired() || detectStub(body, minChars).isStub) return null;
