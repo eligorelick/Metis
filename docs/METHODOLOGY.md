@@ -1188,7 +1188,7 @@ on all existing assets to WACC in year 11. Koller, Goedhart and Wessels allow
 RONIC at WACC when competitive advantages erode, and above it when those
 advantages persist. Choosing between them requires evidence about future
 competition; historical average ROIC alone does not establish marginal RONIC.
-See [McKinsey's continuing-value guidance](https://www.linkedin.com/pulse/dont-only-use-multiples-your-continuing-mbmtc)
+See Koller, Goedhart and Wessels, *Valuation: Measuring and Managing the Value of Companies* (McKinsey & Company), the chapter on continuing value,
 and [Damodaran, Investment Valuation, chapter 12](https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch12.pdf).
 
 So: the implementation sorts computable annual ROIC observations newest-first

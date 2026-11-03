@@ -94,8 +94,7 @@ the reported after-SBC FCF metric is not subtracted again from projected FCFF.
 MSFT, NVDA, PG, KO and WMT already receive evidenced terminal excess returns.
 The terminal input is **RONIC on new investment**, not an immediate reset of
 returns on existing assets. The prior methodology wording confused those two;
-the documentation now explains the distinction. [McKinsey's continuing-value
-guidance](https://www.linkedin.com/pulse/dont-only-use-multiples-your-continuing-mbmtc)
+the documentation now explains the distinction. Koller, Goedhart and Wessels' *Valuation* (McKinsey & Company), chapter on continuing value,
 supports both sustained excess RONIC and convergence to WACC, depending on
 competitive advantage. [Damodaran, Investment Valuation, chapter 12](https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch12.pdf)
 links stable growth to reinvestment and allows gradual transitions.
