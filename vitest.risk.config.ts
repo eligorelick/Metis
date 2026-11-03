@@ -17,7 +17,10 @@ export default defineConfig({
     environment: "node",
     pool: "forks",
     isolate: true,
-    maxWorkers: 1,
+    // Same parallelism as the core run: the v8 report merges across forks, and
+    // one worker made this repeat of the suite about 20 of the gate's 27 minutes.
+    maxWorkers: "50%",
+    testTimeout: 30_000,
     coverage: {
       provider: "v8",
       include: RISK_SOURCE_MANIFEST,

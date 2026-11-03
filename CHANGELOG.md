@@ -69,6 +69,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Public repository polish (2026-11-03)
 
+- Make the full check faster without removing any test or lowering any coverage floor: `npm run verify` and the CI `full` job no longer run the product suite a third time, the risk coverage run uses the same parallelism as the core run, and a pull request push runs CI once instead of twice. Tests now time out at 30 seconds, not 5, so a busy machine no longer fails a correct test. Add `npm run test:changed` for tests related to the current change.
 - Add project-specific contribution/security guidance, issue forms and a pull request checklist.
 - Clarify first-run requirements, optional keys, Claude cost estimates, troubleshooting and the existing source-available license in the README.
 - Move working goals, redesign records and Superpowers plans/specs/audits into `docs/internal/`, preserving content and updating references and release allowlists.
