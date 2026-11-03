@@ -779,7 +779,16 @@ Existing successful extractions keep priority. After an annual section is missin
 or remains a stub, complete standalone item headings may start a retry through
 the first following item heading, including intervening subsections. End
 headings need a later item number, regardless of title spelling; two- to
-four-cell item rows can end a section. A prose reference to a later item is
+four-cell item rows can end a section. End proof is deliberately broader than
+start proof:
+
+- a period, colon or dash may follow the item number ("Item 1A: Risk Factors",
+  "ITEM 1A—RISK FACTORS");
+- a complete heading in the first non-empty cell of a one- to four-cell row with
+  no link also ends a section;
+- a name anchor (not a link) around a heading does not hide it.
+
+A prose reference to a later item is
 not an end heading: its text opens in lowercase ("Item 1A of this report
 describes"), or continues the item's standard title in lowercase words ("Item
 1A. Risk Factors below discusses"). The exact standard title ends a section

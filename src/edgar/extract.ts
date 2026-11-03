@@ -1667,9 +1667,21 @@ function recoverAnnualSection(
     .sort((a, b) => a.n.start - b.n.start);
   // End proof needs an item number, not an exact SEC title. Even a multi-cell
   // table row can mark the next item; it can never establish a section start.
+  // It is deliberately broader than start proof (PR #88 review): a later item's
+  // heading ends the section whether a period, colon or dash follows its number
+  // ("Item 1A: Risk Factors", "ITEM 1A—RISK FACTORS"), and whether or not a name
+  // anchor (not a link) wraps it. Wrongly absorbing the next item is the error to
+  // avoid; an early end can only shorten the section or leave it a withheld stub.
+  const boundaryItem = (n: AppendixElement): { id: string; title: string } | null => {
+    if (/<a\b[^>]*\bhref\s*=/i.test(pre.slice(n.start, n.end))) return null;
+    const m = /^Item\s+(\d{1,2}(?:\s*\.?\s*[A-D])?)(?=[.\s:–—-]|$)[\s.:–—-]*(.*)$/i.exec(nodeText(n));
+    return m ? { id: normItem(m[1]!), title: m[2]! } : null;
+  };
+  const boundaryHeadings = elements.filter(n => !n.hidden && !n.blockChild && /^(?:h[1-6]|p|div)$/.test(n.tag) &&
+    !ancestor(n, "table") && !ancestor(n, "a")?.attrs.has("href"));
   const boundaryRows = rows.filter(n => {
     const cs = cells(n);
-    return cs.length >= 2 && cs.length <= 4 && /^Item\s+\d{1,2}[A-D]?\.?$/i.test(nodeText(cs[0]!));
+    return cs.length >= 2 && cs.length <= 4 && /^Item\s+\d{1,2}[A-D]?[.:]?$/i.test(nodeText(cs[0]!));
   });
   // A paragraph that opens with a later item's reference ("Item 1A. Risk Factors
   // below discusses ...", "Item 1A of this report describes ...") is prose, not
@@ -1678,7 +1690,7 @@ function recoverAnnualSection(
   // title, or a standard title with a parenthetical, still ends the section. The
   // exact standard title ends it in any capitalization ("Item 1A. risk factors.").
   const proseReference = (n: AppendixElement): boolean => {
-    const heading = headingItem(n);
+    const heading = boundaryItem(n);
     if (!heading) return false;
     const title = heading.title.trim();
     const standard = closed[heading.id];
@@ -1692,7 +1704,17 @@ function recoverAnnualSection(
     const rest = words.slice(end).join(" ").replace(/^[\s.:;,–—-]+/, "");
     return /^[a-z]/.test(rest);
   };
-  const boundaries = [...headings.filter(n => !proseReference(n)), ...boundaryRows].map(n => ({ n, id: headingItem(n)?.id }))
+  // A complete item heading can also sit in the first non-empty cell of a one- to
+  // four-cell layout row ("<td>Item 1A. Risk Factors.</td>", PR #88 review). A row
+  // holding a link is contents, and a prose reference is not a heading.
+  const cellHeadingRows = rows.filter(n => {
+    const cs = cells(n);
+    if (cs.length < 1 || cs.length > 4 || /<a\b[^>]*\bhref\s*=/i.test(pre.slice(n.start, n.end))) return false;
+    const first = cs.find(c => nodeText(c) !== "");
+    const heading = first === undefined ? null : boundaryItem(first);
+    return heading !== null && heading.title.trim() !== "" && !proseReference(first!);
+  });
+  const boundaries = [...boundaryHeadings.filter(n => !proseReference(n)), ...boundaryRows, ...cellHeadingRows].map(n => ({ n, id: boundaryItem(n)?.id }))
     .filter(h => h.id !== undefined).sort((a, b) => a.n.start - b.n.start);
   const accept = (body: string, method: ExtractMethod, note: string): ExtractResult | null => {
     if (expired() || detectStub(body, minChars).isStub) return null;

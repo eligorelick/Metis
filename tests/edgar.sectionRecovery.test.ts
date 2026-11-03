@@ -120,6 +120,39 @@ describe("failed annual section recovery from filing structure", () => {
     expect(result.ok && result.text).not.toContain("Risk discussion text.");
   });
 
+  it.each([
+    ["a single-cell row", "<table><tr><td>Item 1A. Risk Factors.</td></tr></table>"],
+    ["the first cell of a two-cell row", "<table><tr><td>Item 1A. Risk Factors.</td><td></td></tr></table>"],
+  ])("ends business at a complete next-item heading in %s (PR #88 review)", (_label, heading) => {
+    const html = sample("q6-cat-sections.html").replace('<div id="risk">Item 1A. Risk Factors.</div>',
+      `${heading}<p>Risk discussion text.</p><div>Item 1B. Unresolved Staff Comments</div>`);
+    const result = extractSection(html, { form: "10-K", item: "1" });
+    expect(result.ok && result.method).toBe("structured-item");
+    expect(result.ok && result.text).not.toContain("Risk discussion text.");
+  });
+
+  it.each([
+    ["a colon", "<div>Item 1A: Risk Factors</div>"],
+    ["an em dash", "<div>ITEM 1A—RISK FACTORS</div>"],
+    ["an en dash with spaces", "<div>Item 1A – Risk Factors</div>"],
+    ["a number-only cell with a colon", "<table><tr><td>Item 1A:</td><td>Risk Factors</td></tr></table>"],
+    ["a name anchor around the heading", '<a name="item1a"><div>Item 1A. Risk Factors</div></a>'],
+  ])("ends business at a next-item heading written with %s", (_label, heading) => {
+    const html = sample("q6-cat-sections.html").replace('<div id="risk">Item 1A. Risk Factors.</div>',
+      `${heading}<p>Risk discussion text.</p><div>Item 1B. Unresolved Staff Comments</div>`);
+    const result = extractSection(html, { form: "10-K", item: "1" });
+    expect(result.ok && result.text.includes("Risk discussion text.")).toBe(false);
+  });
+
+  it("does not end business at a linked contents row inside the item", () => {
+    const html = sample("q6-cat-sections.html").replace('<div id="risk">Item 1A. Risk Factors.</div>',
+      '<table><tr><td><a href="#later">Item 1A. Risk Factors.</a></td></tr></table><p>Business prose after the contents row.</p>' +
+      '<div id="later">Item 1A. Risk Factors.</div><p>Risk discussion text.</p>');
+    const result = extractSection(html, { form: "10-K", item: "1" });
+    expect(result.ok && result.text).toContain("Business prose after the contents row.");
+    expect(result.ok && result.text).not.toContain("Risk discussion text.");
+  });
+
   it("does not pass over a next-item heading placed directly after the start heading (PR #88 review)", () => {
     const base = sample("q6-cat-sections.html");
     const start = base.indexOf('<div id="business">Item 1. Business.</div>');

@@ -5288,8 +5288,9 @@ is right for a format error, such as a bad date, which is what it was written fo
     format error, and a runner test for the incomplete marker on the echoed
     output. All three fail without the change.
 
-**PR #88 review (Codex, six P2 findings over four rounds), each with a test that
-fails without the fix:**
+**PR #88 review (Codex, seven P2 findings over five rounds, plus three related
+gaps found in the same review of the end search), each with a test that fails
+without the fix:**
 
 - **Linked page ranges (D-184).** A page that another item claims strictly
   inside a mapped range now withholds recovery, as an endpoint does. Example:
@@ -5313,14 +5314,29 @@ fails without the fix:**
   item's discussion was then accepted as the requested section. The search now
   accepts a heading at that position, so the section is empty and the stub check
   withholds it. The 20-F risk path is fixed the same way.
+- **Next-item headings the end search did not see (D-184, fifth review round,
+  widened).** Codex found a complete next-item heading in a single-cell layout
+  row that was not an end boundary, so Business absorbed the risk discussion. The
+  same review of the end search found three more forms it missed:
+  - a colon or a dash after the item number ("Item 1A: Risk Factors", "ITEM
+    1A—RISK FACTORS");
+  - a number-only cell followed by a colon;
+  - a heading wrapped in a name anchor.
+
+  End proof now has its own parser and is deliberately broader than start proof.
+  Absorbing the next item is the error to avoid; an early end can only shorten
+  the section or leave it a withheld stub. A row or heading holding a link is
+  still contents, and prose references are still not headings. Start proof is
+  unchanged.
 - **Pre-launch budget check (D-183).** It now counts an expired lease the way
   admission's sweep records it: presumed spend at its reservation, dated at its
   acquisition, or nothing when its request already settled or was presumed.
   Before, it counted every stored lease as live, so with a rolling window shorter
   than the lease lifetime it could refuse a run that admission would admit. The
   sweep and the check now share one function.
-- **Replay.** The frozen 38-snapshot replay is unchanged by the three extractor
-  fixes: 266 of 266 slots are identical, with 220 sections extracted.
+- **Replay.** The frozen 38-snapshot replay is unchanged by every extractor
+  fix in these rounds: 266 of 266 slots are identical, with 220 sections
+  extracted.
 
 - **Stamps.** Pipeline stage-c-1.6.25. Payload 1.66.0 and report spec 1.60.0
   are unchanged.
