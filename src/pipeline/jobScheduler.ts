@@ -1543,6 +1543,98 @@ export function acquirePaidPassLease(
   }, { behavior: "immediate" });
 }
 
+/** A cap that cannot admit a reservation now, in exact micro-USD-derived dollars. */
+export interface PaidCapRefusal {
+  cap: "job" | "rolling";
+  /** The cap applied: the effective per-job cap, or the rolling cap. */
+  capUsd: number;
+  /** Settled spend counted against it: the job's, or the rolling window's. */
+  settledUsd: number;
+  /** Live reservations counted against it: the job's, or every job's. */
+  reservedUsd: number;
+  /** What is left of the cap after settled spend and live reservations (never negative). */
+  headroomUsd: number;
+  /** The smallest cap that admits the reservation now: settled + reserved + reservation. */
+  minimumCapUsd: number;
+  /** The per-job cap recorded on the job row and the one configured now. */
+  recordedJobCapUsd: number | null;
+  configuredJobCapUsd: number | null;
+  rollingWindowMs: number;
+}
+
+/**
+ * Read-only mirror of {@link acquirePaidPassLease}'s cap tests for one
+ * reservation of this job, evaluated now: null when both caps admit it.
+ *
+ * Same accounting, same micro-USD rounding and the same effective job cap. It
+ * counts every live reservation as spent, as admission's full test does: a
+ * reservation that admission would only make wait for (`*-budget-pending`)
+ * is reported here too, because a lease in flight can settle at its full
+ * reserved amount, and an expired one becomes presumed spend at that amount.
+ * Nothing is written: expired leases are not swept and no lease is taken.
+ */
+export function paidReservationCapRefusal(
+  jobId: string,
+  reservationUsd: number,
+  limits: SchedulerLimits,
+  now?: Date,
+  db: ThesisDb = getDb(),
+): PaidCapRefusal | null {
+  assertLimits(limits);
+  const reserveMicro = BigInt(reservationMicroUsd(reservationUsd));
+  // A zero reservation is admitted under any cap, as in acquirePaidPassLease.
+  if (reserveMicro === 0n) return null;
+  const usd = (micro: bigint): number => Number(micro) / MICRO_USD;
+  return db.transaction((tx): PaidCapRefusal | null => {
+    const authority = authorityDate(now, "paid budget feasibility");
+    const parent = tx.select({ maxCostUsd: jobs.maxCostUsd }).from(jobs).where(eq(jobs.id, jobId)).get();
+    if (parent === undefined) throw new Error("jobScheduler: budget feasibility has no job row");
+    const allLive = tx.select({ jobId: jobLlmLeases.jobId, reservedCostUsd: jobLlmLeases.reservedCostUsd })
+      .from(jobLlmLeases).all();
+    const configuredJobCapUsd = limits.maxJobCostUsd ?? null;
+    const base = {
+      recordedJobCapUsd: parent.maxCostUsd,
+      configuredJobCapUsd,
+      rollingWindowMs: limits.rollingCostWindowMs,
+    };
+    const refusal = (cap: "job" | "rolling", capUsd: number, settled: bigint, reserved: bigint): PaidCapRefusal | null => {
+      const capMicro = BigInt(capMicroUsd(capUsd));
+      if (settled + reserved + reserveMicro <= capMicro) return null;
+      const headroom = capMicro - settled - reserved;
+      return {
+        cap,
+        capUsd: usd(capMicro),
+        settledUsd: usd(settled),
+        reservedUsd: usd(reserved),
+        headroomUsd: usd(headroom > 0n ? headroom : 0n),
+        minimumCapUsd: usd(settled + reserved + reserveMicro),
+        ...base,
+      };
+    };
+
+    const jobCapUsd = effectiveJobCapUsd(parent.maxCostUsd, limits.maxJobCostUsd);
+    if (jobCapUsd !== null) {
+      const refused = refusal(
+        "job",
+        jobCapUsd,
+        sumCostRowsMicro(tx.select({ costUsd: costLog.costUsd }).from(costLog).where(eq(costLog.jobId, jobId)).all()),
+        sumLeaseRowsMicro(allLive.filter((lease) => lease.jobId === jobId)),
+      );
+      if (refused !== null) return refused;
+    }
+    if (limits.maxRollingCostUsd !== null) {
+      const cutoff = new Date(authority.getTime() - limits.rollingCostWindowMs).toISOString();
+      return refusal(
+        "rolling",
+        limits.maxRollingCostUsd,
+        sumCostRowsMicro(tx.select({ costUsd: costLog.costUsd }).from(costLog).where(gte(costLog.createdAt, cutoff)).all()),
+        sumLeaseRowsMicro(allLive),
+      );
+    }
+    return null;
+  }, { behavior: "deferred" });
+}
+
 function exactLeaseWhere(lease: PaidPassLease) {
   return and(
     eq(jobLlmLeases.permitId, lease.permitId),
