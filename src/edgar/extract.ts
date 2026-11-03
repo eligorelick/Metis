@@ -57,6 +57,9 @@ export type ExtractMethod =
   | "header-regex"
   | "mini-toc-redirect"
   | "page-header-redirect"
+  | "structured-item"
+  | "reference-table-redirect"
+  | "linked-index-redirect"
   | "annual-notes-index-redirect"
   | "crossref-toc"
   | "exhibit-toc"
@@ -1304,6 +1307,8 @@ export function extractSection(html: string, spec: SectionSpec, opts: ExtractOpt
         diagnostics.stub = { chars: citi.text.length, excerpt: citi.text.slice(0, 300) };
       }
     }
+    const recovered = recoverAnnualSection(pre, entries, spec, minChars, diagnostics);
+    if (recovered !== null) return recovered;
     return fail(
       diagnostics,
       new ExtractionError("no_section_found", `no extraction layer located ${spec.form} Item ${spec.item}${spec.form === "10-Q" ? ` (Part ${specPart(spec)})` : ""}`),
@@ -1348,6 +1353,9 @@ export function extractSection(html: string, spec: SectionSpec, opts: ExtractOpt
       return ok(pageHeaderRedirect, "page-header-redirect", diagnostics);
     }
   }
+
+  const recovered = recoverAnnualSection(pre, entries, spec, minChars, diagnostics);
+  if (recovered !== null) return recovered;
 
   // 3b — exhibit redirect signal (FRD/WFC/Seneca). Caller resolves EX-13 via
   // the index-headers TYPE map and calls extractFromExhibit().
@@ -1453,7 +1461,7 @@ interface AppendixElement {
  * Annual acquisition supplies the full source under its existing elapsed budget:
  * the guidance/event collector's unrelated 2M cap does not apply here.
  */
-function appendixStructure(source: string) {
+function appendixStructure(source: string, filingLayout = false) {
   const elements: AppendixElement[] = [];
   const stack: AppendixElement[] = [];
   const spans: { start: number; end: number; text: string }[] = [];
@@ -1483,6 +1491,7 @@ function appendixStructure(source: string) {
     if (end === source.length) return null;
     const token = source.slice(start, end + 1);
     cursor = end + 1;
+    if (filingLayout && /^<\?xml\s[^?]*\?>$/i.test(token) && source.slice(0, start).trim() === "") continue;
     if (/^<!doctype\s[^<>]*>$/i.test(token)) continue;
     const close = /^<\/([a-z][\w:.-]*)\s*>$/i.exec(token);
     if (close) {
@@ -1509,7 +1518,12 @@ function appendixStructure(source: string) {
     const tag = open[1]!.toLowerCase();
     // HTML ignores a self-closing slash on nonvoid elements. Treating it as
     // an end could discard a hidden ancestor; this route does not repair HTML.
-    if (/\/\s*>$/.test(token) && !voids.test(tag)) return null;
+    // EDGAR layout generators emit empty <td/> spacers. Only the recovery
+    // routes admit that spelling, and only immediately before another cell or
+    // the row close, where HTML's implied cell end has the same text bounds.
+    // The original annual-notes proof remains strict.
+    const emptyCell = filingLayout && /^(?:td|th)$/.test(tag) && /^\s*<(?:t[dh]\b|\/tr\s*>)/i.test(source.slice(cursor, cursor + 100));
+    if (/\/\s*>$/.test(token) && !voids.test(tag) && !emptyCell) return null;
     // These raw-text/fallback modes require browser state or special end rules;
     // never reinterpret their contents as ordinary element/text-node evidence.
     if (/^(?:xmp|iframe|noembed|noframes|noscript|plaintext)$/.test(tag)) return null;
@@ -1541,6 +1555,285 @@ function appendixStructure(source: string) {
     return decodeEntities(parts.join(" ")).replace(/\s+/g, " ").trim();
   };
   return { elements, text };
+}
+
+/** A failed annual item may be retried against closed, source-bound headings.
+ * Ordinary successes never enter these routes. No route can slice to EOF. */
+function recoverAnnualSection(
+  pre: string, entries: TocEntry[], spec: SectionSpec, minChars: number, diagnostics: ExtractDiagnostics,
+): ExtractResult | null {
+  if (spec.form === "10-Q" || !["business", "mdna", "riskFactors"].includes(specKind(spec))) return null;
+  diagnostics.layersTried.push("annual-structure-recovery");
+  const structure = appendixStructure(pre, true);
+  if (!structure) return null;
+  const { elements, text } = structure;
+  const nodeText = (n: AppendixElement) => text(n.start, n.end);
+  const ancestor = (n: AppendixElement, tag: string): AppendixElement | undefined => {
+    for (let p = n.parent; p; p = p.parent) if (p.tag === tag) return p;
+  };
+  const children = new Map<AppendixElement, AppendixElement[]>();
+  const targets = new Map<string, AppendixElement[]>();
+  for (const n of elements) {
+    if (n.parent) {
+      const list = children.get(n.parent) ?? [];
+      list.push(n); children.set(n.parent, list);
+    }
+    for (const id of new Set([n.attrs.get("id"), n.attrs.get("name")])) {
+      if (id === undefined) continue;
+      const list = targets.get(id) ?? [];
+      list.push(n); targets.set(id, list);
+    }
+  }
+  const target = (id: string): AppendixElement | null => {
+    if (!/^[A-Za-z_][A-Za-z0-9_.:-]{0,199}$/.test(id)) return null;
+    const list = targets.get(id);
+    return list?.length === 1 && !list[0]!.hidden ? list[0]! : null;
+  };
+  const rows = elements.filter(n => n.tag === "tr" && !n.hidden);
+  const cells = (row: AppendixElement) => (children.get(row) ?? []).filter(n => /^(?:td|th)$/.test(n.tag) && !n.hidden);
+  const tableRows = new Map<AppendixElement, AppendixElement[]>();
+  for (const row of rows) {
+    const table = ancestor(row, "table");
+    if (!table) continue;
+    const list = tableRows.get(table) ?? [];
+    list.push(row); tableRows.set(table, list);
+  }
+  const headings = elements.filter(n => !n.hidden && !n.blockChild && /^(?:h[1-6]|p|div)$/.test(n.tag) &&
+    !ancestor(n, "table") && !ancestor(n, "a"));
+  // Sony's item title is a two-cell, one-row layout table. A multirow TOC or
+  // index cannot confer heading proof, nor can any row with a hyperlink.
+  const layoutTitles = rows.filter(n => {
+    const table = ancestor(n, "table");
+    return table && !ancestor(table, "table") && tableRows.get(table)?.length === 1 && cells(n).length === 2 &&
+      !/<a\b[^>]*\bhref\s*=/i.test(pre.slice(table.start, table.end));
+  });
+  const key = (s: string) => normalizeTitle(s).replace(/[\s.:'’‘,\-]/g, "");
+  const closed: Record<string, RegExp> = spec.form === "10-K" ? {
+    "1": /^business$/, "1A": /^riskfactors$/, "1B": /^unresolvedstaffcomments$/, "1C": /^cybersecurity$/,
+    "2": /^properties$/, "3": /^legalproceedings$/, "4": /^minesafetydisclosures$/,
+    "7": /^managementsdiscussionandanalysis(?:of(?:financialconditionandresultsofoperations|resultsofoperationsandfinancialcondition))?$/,
+    "7A": /^quantitativeandqualitativedisclosuresaboutmarketrisk$/,
+    "8": /^financialstatementsandsupplementarydata$/,
+  } : {
+    "3": /^keyinformation$/, "3D": /^riskfactors$/, "4": /^informationonthecompany$/,
+    "4A": /^unresolvedstaffcomments$/, "5": /^operatingandfinancialreviewandprospects$/,
+    "6": /^directorsseniormanagementandemployees$/, "7": /^majorshareholdersandrelatedpartytransactions$/,
+  };
+  const itemHeading = (n: AppendixElement): string | null => {
+    const title = nodeText(n);
+    if (title.length > 200 || /<a\b[^>]*\bhref\s*=/i.test(pre.slice(n.start, n.end))) return null;
+    const m = /^Item\s+(\d{1,2}(?:\s*\.?\s*[A-D])?)(?=[.\s])[\s.:]+(.+)$/i.exec(title);
+    if (!m) return null;
+    const id = normItem(m[1]!);
+    if (closed[id]?.test(key(m[2]!))) return id;
+    // Some 20-Fs name the issuer in Item 4. Require the full title in the
+    // contents TOC AND its unique destination at this very heading.
+    if (spec.form === "20-F" && id === "4" && /^informationabout[a-z][a-z0-9&-]*$/.test(key(m[2]!)) &&
+        entries.some(e => key(e.title) === key(title) && target(e.target) !== null &&
+          target(e.target)!.start <= n.start && n.start - target(e.target)!.start < 2_000 && text(target(e.target)!.start, n.start) === "")) return id;
+    return null;
+  };
+  const itemHeads = [...headings, ...layoutTitles].map(n => ({ n, id: itemHeading(n) })).filter(h => h.id !== null)
+    .sort((a, b) => a.n.start - b.n.start);
+  const accept = (body: string, method: ExtractMethod, note: string): ExtractResult | null => {
+    if (detectStub(body, minChars).isStub) return null;
+    diagnostics.notes.push(note);
+    return { ok: true, text: body, method, chars: body.length, diagnostics };
+  };
+
+  if (spec.form === "20-F" && spec.item === "3D") {
+    // D. Risk Factors is subordinate to Item 3, not an Item 3D heading.
+    // Pair it with the actual Item 3/4 blocks; repeated Item 3 running heads
+    // after D cannot move the start past the risk discussion.
+    const risks = headings.filter(n => /^(?:d)?riskfactors$/.test(key(nodeText(n))));
+    const candidates = risks.flatMap(risk => {
+      const before = itemHeads.filter(h => h.n.end <= risk.start).at(-1);
+      const after = itemHeads.find(h => h.n.start > risk.end && h.id !== "3");
+      return before?.id === "3" && after?.id === "4" ? [{ start: risk.start, end: after.n.start }] : [];
+    });
+    if (candidates.length === 1) {
+      const c = candidates[0]!;
+      const result = accept(text(c.start, c.end), "structured-item", "standalone 20-F risk heading inside proved Item 3/4 bounds");
+      if (result) return result;
+    }
+  } else {
+    const seq = spec.form === "10-K" ? TENK_SEQUENCE : TWENTY_F_SEQUENCE;
+    const idx = seq.findIndex(d => d.id === spec.item);
+    const starts = itemHeads.filter(h => h.id === spec.item);
+    if (idx >= 0 && starts.length === 1) {
+      const start = starts[0]!.n;
+      const end = itemHeads.find(h => h.n.start > start.end && seq.slice(idx + 1, idx + 5).some(d => d.id === h.id));
+      if (end) {
+        const result = accept(text(start.start, end.n.start), "structured-item", "closed standalone item headings bound the complete item, including subsections");
+        if (result) return result;
+      }
+    }
+  }
+
+  if (spec.form === "20-F" && spec.item === "3D") {
+    // Integrated reports map 3.D to a named chapter. Only a single proved
+    // risk mapping is supported; dispersed Item 4/5 mappings remain withheld.
+    const markers = headings.filter(n => /(?:reference\s+table\s+20-f|form\s+20-f\s+cross[- ]reference\s+table)/i.test(nodeText(n)));
+    const mappings: { row: AppendixElement; page: number; id: string }[] = [];
+    for (const [table, trs] of tableRows) {
+      if (!markers.some(m => m.end <= table.start && table.start - m.end < 25_000)) continue;
+      if (!trs.some(r => cells(r).map(nodeText).join("|") === "Item|Form 20-F caption|Location in this document|Page")) continue;
+      let item = "";
+      for (const row of trs) {
+        const cs = cells(row);
+        if (cs.length !== 4) continue;
+        const ts = cs.map(nodeText);
+        if (/^\d{1,2}[A-D]?$/.test(ts[0]!)) item = ts[0]!;
+        if (item !== "3" || key(ts[1]!) !== "driskfactors" || key(ts[2]!.split(/\s+[–—-]\s+/).at(-1)!) !== "riskfactors" || !/^\d{1,4}$/.test(ts[3]!)) continue;
+        const links = elements.filter(n => n.tag === "a" && !n.hidden && n.start > cs[3]!.start && n.end < cs[3]!.end);
+        const href = links[0]?.attrs.get("href");
+        if (links.length === 1 && href?.startsWith("#") && nodeText(links[0]!) === ts[3]) mappings.push({ row, page: Number(ts[3]), id: href.slice(1) });
+      }
+    }
+    if (mappings.length === 1) {
+      const mapping = mappings[0]!, dest = target(mapping.id);
+      const tocRows = new Map(rows.map(r => [r.start, r]));
+      const tocs = entries.filter(e => key(e.title) === "riskfactors" && e.pageNo === mapping.page && e.target === mapping.id &&
+        dest !== null && e.rowIndex < dest.start);
+      const nearHeading = (id: string, title: string) => {
+        const dest = target(id);
+        if (!dest) return null;
+        const found = headings.filter(h => key(nodeText(h)) === key(title) && Math.abs(h.start - dest.start) < 2_000 &&
+          (h.end <= dest.start ? text(h.end, dest.start) === "" : h.start >= dest.start && text(dest.start, h.start) === ""));
+        return found.length === 1 ? found[0]! : null;
+      };
+      const proofs = tocs.flatMap(toc => {
+        const tocTable = tocRows.has(toc.rowIndex) ? ancestor(tocRows.get(toc.rowIndex)!, "table") : undefined;
+        const start = nearHeading(mapping.id, toc.title);
+        const next = tocTable && dest ? entries.filter(e => e.rowIndex > toc.rowIndex && e.pageNo !== undefined && e.pageNo > mapping.page &&
+          tocRows.has(e.rowIndex) && ancestor(tocRows.get(e.rowIndex)!, "table") === tocTable && (target(e.target)?.start ?? -1) > dest.start)
+          .sort((a, b) => a.rowIndex - b.rowIndex)[0] : undefined;
+        const end = next ? nearHeading(next.target, next.title) : null;
+        return start && end && start.start < end.start && end.end < mapping.row.start ? [{ start: start.start, end: end.start }] : [];
+      });
+      // Integrated reports can repeat the contents table locally. Repetition
+      // is corroboration only when every copy proves identical source bounds.
+      const bounds = new Set(proofs.map(p => `${p.start}:${p.end}`));
+      if (proofs.length === tocs.length && bounds.size === 1) {
+        const proof = proofs[0]!;
+        const result = accept(text(proof.start, proof.end), "reference-table-redirect", "20-F risk mapping, all contents peers and unique named chapter boundaries agree");
+        if (result) return result;
+      }
+    }
+  }
+
+  if (spec.form !== "10-K" || !["1", "7"].includes(spec.item)) return null;
+  // A linked cross-reference index can explicitly incorporate disjoint pages.
+  // Require every mapped range, every link and every printed page. A partial
+  // assembly cannot stand in for the item. Printed pages, not the next TOC
+  // entry, bound the end (an end link may share a multi-page section target).
+  const indexHeads = elements.filter(n => !n.hidden && !n.blockChild && /^(?:h[1-6]|p|div)$/.test(n.tag) &&
+    !ancestor(n, "a") && /^form10kcrossreferenceindex$/.test(key(nodeText(n))) &&
+    (!ancestor(n, "table") || key(nodeText(ancestor(n, "table")!)) === key(nodeText(n))));
+  if (indexHeads.length !== 1) return null;
+  const index = indexHeads[0]!;
+  const indexTables = [...tableRows].filter(([table, trs]) => table.start >= index.end && table.start - index.end < 20_000 &&
+    trs.some(r => cells(r).some(c => new RegExp(`^Item\\s+${spec.item}\\.$`, "i").test(nodeText(c)))));
+  if (indexTables.length !== 1) return null;
+  const [indexTable, trs] = indexTables[0]!;
+  if (trs.filter(r => cells(r).some(c => new RegExp(`^Item\\s+${spec.item}\\.$`, "i").test(nodeText(c)))).length !== 1) return null;
+  const mapped: AppendixElement[] = [];
+  let active = false;
+  for (const row of trs) {
+    const cs = cells(row), ts = cs.map(nodeText);
+    const item = ts[0] ? ITEM_CELL_RE.exec(ts[0]) : null;
+    if (item) {
+      if (active) break;
+      active = normItem(item[1]!) === spec.item;
+      if (active && !closed[spec.item]?.test(key(ts[1] ?? ""))) return null;
+    }
+    if (active && ts.at(-1)?.trim()) mapped.push(cs.at(-1)!);
+  }
+  if (!mapped.length) return null;
+  const breaks = elements.filter(n => n.tag === "hr" && !n.hidden && /(?:^|;)\s*page-break-after\s*:\s*always\s*(?:;|$)/i.test(n.attrs.get("style") ?? ""));
+  const pages = new Map<number, { start: number; end: number } | null>();
+  const furniture: { start: number; end: number }[] = [];
+  let pageStart = 0, rowAt = 0;
+  for (const br of breaks) {
+    let footer: AppendixElement | undefined;
+    while (rowAt < rows.length && rows[rowAt]!.end <= br.start) {
+      const row = rows[rowAt++]!;
+      if (row.start >= pageStart) footer = row;
+    }
+    if (footer && footer.end < indexTable.start && text(footer.end, br.start) === "") {
+      const cs = cells(footer), ts = cs.map(nodeText).filter(Boolean);
+      const labels = ts.length >= 2 && ts.length <= 4 && ts.slice(0, -1).every(t => /^[A-Za-z][A-Za-z &’'-]{2,80}$/.test(t));
+      const imageLabel = ts.length === 1 && cs.length === 3 && cs.slice(0, -1).some(c => /<img\b/i.test(pre.slice(c.start, c.end)));
+      if ((labels || imageLabel) && /^\d{1,4}$/.test(ts.at(-1)!)) {
+        const number = Number(ts.at(-1));
+        pages.set(number, pages.has(number) ? null : { start: pageStart, end: footer.start });
+        furniture.push({ start: footer.start, end: br.end });
+      }
+    }
+    pageStart = br.end;
+  }
+  const intervals: { start: number; end: number }[] = [];
+  for (const cell of mapped) {
+    const numbers = nodeText(cell).replace(/^Pages?\s+/i, "").replace(/\s*([,;])\s*/g, "$1");
+    if (!PAGE_RANGES_RE.test(numbers)) return null;
+    const ranges = parsePageRanges(numbers);
+    const links = elements.filter(n => n.tag === "a" && !n.hidden && n.start > cell.start && n.end < cell.end);
+    const endpoints = [...numbers.matchAll(/\d+/g)].map(m => Number(m[0]));
+    if (links.length !== endpoints.length || links.some((n, i) => nodeText(n) !== String(endpoints[i]))) return null;
+    let linkAt = 0;
+    for (const [rangeIndex, [a, b]] of ranges.entries()) {
+      if (a < 1 || b < a || b - a > 200) return null;
+      const first = pages.get(a), last = pages.get(b);
+      if (!first || !last) return null;
+      let prior = -1;
+      for (let number = a; number <= b; number++) {
+        const page = pages.get(number);
+        if (!page || page.start <= prior) return null;
+        prior = page.start;
+      }
+      const resolve = (link: AppendixElement) => {
+        const href = link.attrs.get("href");
+        return href?.startsWith("#") ? target(href.slice(1)) : null;
+      };
+      const start = resolve(links[linkAt++]!);
+      const hasEndLink = /[–—-]/.test(numbers.split(/[,;]/)[rangeIndex]!);
+      const end = hasEndLink ? resolve(links[linkAt++]!) : start;
+      // Some page destinations are empty anchors immediately before the <hr>
+      // that opens the named page. No visible text or other markup may bridge
+      // that relationship; a nearby anchor on an earlier page is insufficient.
+      const beforeBreak = start && nodeText(start) === "" && breaks.some(br => br.end === first.start &&
+        start.end <= br.start && pre.slice(start.end, br.start).trim() === "");
+      const startAt = beforeBreak ? first.start : start?.start;
+      if (!start || !end || startAt === undefined || startAt < first.start || startAt >= first.end || end.start < start.start ||
+          end.start >= last.end || last.end >= index.start) return null;
+      intervals.push({ start: startAt, end: last.end });
+    }
+  }
+  intervals.sort((a, b) => a.start - b.start);
+  const merged: typeof intervals = [];
+  for (const interval of intervals) {
+    const previous = merged.at(-1);
+    if (previous && interval.start <= previous.end) previous.end = Math.max(previous.end, interval.end);
+    else merged.push({ ...interval });
+  }
+  // Footer rows prove page coordinates; they are not part of the body. The
+  // standalone return-to-contents links likewise carry no section prose.
+  furniture.push(...elements.filter(n => n.tag === "a" && !n.hidden && key(nodeText(n)) === "tableofcontents")
+    .map(n => ({ start: n.start, end: n.end })));
+  furniture.sort((a, b) => a.start - b.start);
+  const bodyText = (interval: { start: number; end: number }) => {
+    let at = interval.start;
+    const parts: string[] = [];
+    for (const omit of furniture) {
+      if (omit.end <= at || omit.start >= interval.end) continue;
+      if (omit.start > at) parts.push(text(at, omit.start));
+      at = Math.max(at, omit.end);
+    }
+    if (at < interval.end) parts.push(text(at, interval.end));
+    return parts.filter(Boolean).join(" ");
+  };
+  return accept(merged.map(bodyText).join("\n\n"), "linked-index-redirect",
+    `linked index assembled every mapped range into ${merged.length} non-overlapping interval(s), bounded by printed pages`);
 }
 
 /** Notes-only redirect; null preserves the caller's existing warn-level gap. */
