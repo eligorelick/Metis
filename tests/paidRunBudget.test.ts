@@ -264,6 +264,35 @@ describe("the read-only mirror of the scheduler's cap test", () => {
     expect(refusal?.minimumCapUsd).toBeCloseTo(26.9, 6);
   });
 
+  it("treats an expired lease as admission's presumed spend, dated at its acquisition", () => {
+    // PR #88 review: admission first converts an expired lease into presumed spend
+    // dated when it was acquired, so a lease older than the rolling window leaves it.
+    const window = { ...LIMITS, maxRollingCostUsd: 25, rollingCostWindowMs: 10 * 60_000 };
+    seedJob("job", null);
+    const claim = claimNextQueuedJob("owner", NOW, window, handle.db)!;
+    seedJob("other", null);
+    const lease = (attemptId: string, reservedCostUsd: number, acquiredMinutesAgo: number) => handle.db.insert(jobLlmLeases).values({
+      permitId: `p-${attemptId}`, jobId: "other", runGeneration: 0, attemptId, pass: "bull", leaseOwner: "o",
+      reservedCostUsd, model: "claude-opus-5-5", acquiredAt: new Date(NOW.getTime() - acquiredMinutesAgo * 60_000).toISOString(),
+      leaseExpiresAt: new Date(NOW.getTime() - 60_000).toISOString(),
+    }).run();
+    lease("old", 20, 15); // acquired before the 10-minute window: presumed spend outside it
+    lease("recent", 3, 5); // acquired inside the window: presumed spend inside it
+    // Settled before it expired: admission counts the cost row only, not the lease too.
+    lease("settled", 4, 5);
+    handle.db.insert(costLog).values({
+      jobId: "other", runGeneration: 0, attemptId: "settled", step: "bull", model: "claude-opus-5-5",
+      inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, webSearches: 0,
+      costUsd: 1, fallbackUsed: false, createdAt: new Date(NOW.getTime() - 4 * 60_000).toISOString(),
+    }).run();
+    // Window spend is $1 settled + $3 presumed; $21 is left, so $21 fits and $21.000001 does not.
+    expect(paidReservationCapRefusal("job", 21.000001, window, NOW, handle.db)).toMatchObject({
+      cap: "rolling", settledUsd: 4, reservedUsd: 0, headroomUsd: 21,
+    });
+    expect(paidReservationCapRefusal("job", 21, window, NOW, handle.db)).toBeNull();
+    expect(acquirePaidPassLease(claim, "bear", "a1", 21, NOW, window, handle.db).acquired).toBe(true);
+  });
+
   it("never refuses a zero reservation, even under a zero cap", () => {
     seedJob("job", 0);
     expect(paidReservationCapRefusal("job", 0, { ...LIMITS, maxRollingCostUsd: 0 }, NOW, handle.db)).toBeNull();

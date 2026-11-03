@@ -22,7 +22,9 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - A paid run that a job or rolling cap can never finish now stops before its first paid request, at no cost, and says which request, model and cap blocked it and the smallest cap that would admit it (D-183). The same check runs before a retry spends anything. `docs/CLAUDE-USAGE.md` lists the per-model worst-case reservations and a practical cap.
 - Risk factors, business and MD&A sections are recovered for annual reports laid out with cross-reference tables, subordinate headings, linked page ranges or misbound contents links, only when the filing's own structure proves where each starts and ends (D-184). On the 38-snapshot replay, every previously extracted section is unchanged and 8 missing sections are recovered (ASML, SAP, NVO, BABA, SONY, JNJ, CAT).
-- Stamps: pipeline stage-c-1.6.24, payload 1.66.0. See D-183 and D-184.
+- When an analyst returns an outline with empty sections, the one repair now asks it to write the missing sections from the payload and research, keeping its correct claims. The old fix-in-place wording kept an ASML skeleton unchanged on the Opus 5.5 test (D-185).
+- Review fixes: a linked page range is withheld when another item claims a page inside it; a linked contents line cannot bound an integrated-report chapter; and the pre-launch budget check counts expired leases as admission does (D-185).
+- Stamps: pipeline stage-c-1.6.25, payload 1.66.0. See D-183 to D-185.
 
 ## Unreleased - First paid test findings (2026-11-03)
 

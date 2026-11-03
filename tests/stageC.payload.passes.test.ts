@@ -228,6 +228,7 @@ import {
   serializePayloadForPrompt,
   payloadFingerprint,
   fnv1a32,
+  isIncompleteAnalystCase,
   previousOutputBlock,
   projectionProvenanceId,
   truncateWithDisclosure,
@@ -260,6 +261,7 @@ import {
   runVerifyPass,
   buildAnalystRunPassArgs,
   buildAnalystRepairRunPassArgs,
+  analystRepairFeedback,
   runJudgeVerifyAssemble,
   assembleReport,
   buildSources,
@@ -6548,6 +6550,40 @@ describe("analyst repair request", () => {
     expect(repair.messages[1]?.role).toBe("user");
     expect(repair.messages[1]?.content).toMatch(/^Your previous output FAILED the ANALYST_CASE schema validation/);
     expect(repair.messages[1]?.content).toContain('Invalid ISO date (expected YYYY-MM-DD): "2026-Q1"');
+  });
+
+  it("asks an incomplete case to write its missing sections instead of repairing in place (D-185)", () => {
+    // ASML paid run, 2026-11-03 (Opus 5.5, high): the bull returned one thesis claim
+    // and empty sections twice; "same evidence, same citations, corrected fields
+    // only" with "repair this JSON in place" kept the skeleton unchanged.
+    const skeleton = '{"thesis":[{"text":"Revenue for the quarter ended 2026-09-30 was EUR 11.66 billion.","label":"FACT",' +
+      '"source":"computed.quarterly-trend.revenue-quarter-ended-2026-09-30","asOf":"2026-09-30"}],"keyDrivers":[],' +
+      '"risksToCase":[],"catalysts":[],"priceTarget":{"horizon":"not modeled","assumptions":[]},"evidence":[],"case_strength":3}';
+    const detail = "bull pass failed (schema): schema-invalid structured output for llm.bull: the case is incomplete: " +
+      "`keyDrivers` is empty: give it at least one sourced claim; `risksToCase` is empty: give it at least one sourced claim";
+    expect(isIncompleteAnalystCase(detail)).toBe(true);
+    const { payload } = buildInputs();
+    const deps = makeDeps(new MockRunPass());
+    const first = buildAnalystRunPassArgs(deps, payload, "bull");
+    const repair = buildAnalystRepairRunPassArgs(deps, payload, "bull", `${detail}\n\n${previousOutputBlock(skeleton, isIncompleteAnalystCase(detail))}`);
+    expect(repair.messages[0]).toEqual(first.messages[0]);
+    const turn = String(repair.messages[1]?.content);
+    expect(turn).toMatch(/^Your previous output was rejected as an INCOMPLETE case, not for its format/);
+    expect(turn).toContain("Fill every section named below with sourced claims drawn from the payload and the supplied research");
+    expect(turn).toContain("keep each correct claim you already wrote");
+    expect(turn).toContain(detail);
+    expect(turn).toContain("incomplete: keep its correct claims and write the missing sections in full");
+    expect(turn).not.toContain("same evidence, same citations");
+    expect(turn).not.toContain("repair this JSON in place");
+  });
+
+  it("still fixes a format error in place", () => {
+    const detail = 'bull pass failed (schema): schema-invalid structured output for llm.bull: Invalid ISO date (expected YYYY-MM-DD): "2026-Q1"';
+    expect(isIncompleteAnalystCase(detail)).toBe(false);
+    const turn = analystRepairFeedback(`${detail}\n\n${previousOutputBlock("{}", isIncompleteAnalystCase(detail))}`);
+    expect(turn).toMatch(/^Your previous output FAILED the ANALYST_CASE schema validation/);
+    expect(turn).toContain("same evidence, same citations, corrected fields only");
+    expect(turn).toContain("repair this JSON in place");
   });
 });
 

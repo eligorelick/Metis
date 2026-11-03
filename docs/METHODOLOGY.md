@@ -792,7 +792,8 @@ chapter destination agree. The four reference-table columns must mean item,
 Form 20-F caption/description, location in this document/report, and page(s).
 The nearest following destination in the same contents table must resolve to
 a matching standalone ending heading of the same element level, regardless of
-row order, including a following destination on the same printed page. Its title row
+row order and including a following destination on the same printed page.
+Neither the start nor the end heading may hold a hyperlink. Its title row
 must have the same cell position, nesting and explicit horizontal indentation
 as the risk row; ambiguous subsection structure is withheld. Continued risk
 headings stay inside the chapter.
@@ -802,7 +803,8 @@ location. A linked 10-K cross-reference index can supply Item 1 or Item 7 as
 disjoint page ranges only when every mapped range, numeric link and unique
 printed page is present and ordered. The complete item and its closing next-item
 row must be in one table, with page text only in the final column. A range is
-withheld when another item's index row also claims either endpoint page;
+withheld when another item's index row also claims any page in it, an endpoint
+or one strictly inside;
 whole-page slicing cannot prove which item's text occupies a shared page.
 An empty destination immediately before
 the named page's break is allowed. Overlapping intervals are merged; validated

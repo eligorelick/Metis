@@ -6714,7 +6714,7 @@ describe("runJob — full pipeline with mock passes", () => {
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.24");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.25");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -10988,6 +10988,38 @@ describe("analyst repair attempt after schema-invalid output", () => {
     expect(seen).toHaveLength(1);
     expect(seen[0]).toContain("bad asOf");
     expect(seen[0]).toContain(previousOutputBlock('{"asOf":"2026-Q1"}'));
+    expect(result.dataOnly).toBe(false);
+  });
+
+  it("feeds an incomplete case back as one to complete, not to repair in place (D-185)", async () => {
+    const { jobId } = createJob("ASML");
+    const { passes } = mockPasses();
+    const bull = testAnalystPass("bull");
+    const bear = testAnalystPass("bear");
+    const skeleton = '{"thesis":[],"keyDrivers":[],"risksToCase":[]}';
+    const bullError = "bull pass failed (schema): schema-invalid structured output for llm.bull: the case is incomplete: " +
+      "`keyDrivers` is empty: give it at least one sourced claim";
+    passes.runBullThenBear = async (_deps, hooks) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await launchTestAnalystSide(hooks, "bear");
+      throw Object.assign(new Error(bullError), {
+        bear, bullError, bullRetryable: true, bullFailureKind: "schema", bullRawText: skeleton,
+      });
+    };
+    const seen: Array<string | undefined> = [];
+    passes.runAnalystPass = async (_deps, _side, settlement, beforeProviderLaunch, feedback) => {
+      seen.push(feedback);
+      await beforeProviderLaunch?.();
+      await settlement?.(testSuccessSettlement(bull));
+      return bull;
+    };
+
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toContain(bullError);
+    expect(seen[0]).toContain(previousOutputBlock(skeleton, true));
+    expect(seen[0]).not.toContain("repair this JSON in place");
     expect(result.dataOnly).toBe(false);
   });
 

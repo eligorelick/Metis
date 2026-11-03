@@ -1742,7 +1742,9 @@ function recoverAnnualSection(
       const nearHeading = (id: string, title: string) => {
         const dest = target(id);
         if (!dest) return null;
+        // A line holding a hyperlink is contents, not a chapter heading (PR #88 review).
         const found = headings.filter(h => key(nodeText(h)) === key(title) && Math.abs(h.start - dest.start) < 2_000 &&
+          !/<a\b[^>]*\bhref\s*=/i.test(pre.slice(h.start, h.end)) &&
           (h.end <= dest.start ? text(h.end, dest.start) === "" : h.start >= dest.start && text(dest.start, h.start) === ""));
         return found.length === 1 ? found[0]! : null;
       };
@@ -1862,8 +1864,10 @@ function recoverAnnualSection(
     let linkAt = 0;
     for (const [rangeIndex, [a, b]] of ranges.entries()) {
       if (a < 1 || b < a || b - a > 200) return null;
-      if (otherClaims.some(([lo, hi]) => a >= lo && a <= hi || b >= lo && b <= hi)) {
-        diagnostics.notes.push(`linked index withheld: endpoint of pages ${a}-${b} is also claimed by another item`);
+      // Whole pages are assembled, so any page another item claims (an endpoint
+      // or one strictly inside the range) is ambiguous (PR #88 review).
+      if (otherClaims.some(([lo, hi]) => a <= hi && lo <= b)) {
+        diagnostics.notes.push(`linked index withheld: pages ${a}-${b} overlap pages claimed by another item`);
         return null;
       }
       const first = pages.get(a), last = pages.get(b);

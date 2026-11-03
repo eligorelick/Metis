@@ -381,12 +381,52 @@ function finalizeTerminalPaidLeasesInTransaction(
  * wants the same answer: spend enters the window when it happened.
  */
 function presumeExpiredPaidLeasesInTransaction(db: ThesisDb, nowIso: string): number {
+  const { expiredCount, presumed } = expiredPaidLeasePresumptions(db, nowIso);
+  for (const { lease, reservedMicro } of presumed) {
+    db.insert(costLog).values({
+      jobId: lease.jobId,
+      runGeneration: lease.runGeneration,
+      attemptId: null,
+      presumedAttemptId: lease.attemptId,
+      settlementKind: "presumed",
+      step: lease.pass,
+      model: lease.model.length > 0 ? lease.model : "unknown",
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      webSearches: 0,
+      costUsd: Number(reservedMicro) / MICRO_USD,
+      fallbackUsed: false,
+      reconciledAt: null,
+      createdAt: lease.acquiredAt,
+    }).run();
+  }
+  return expiredCount;
+}
+
+/**
+ * The presumed-spend rows an expiry sweep at `nowIso` would write, without
+ * writing them: one per expired lease that reserves money and has neither a
+ * settled nor a presumed cost row yet. Each is dated at the lease's
+ * acquisition (see {@link presumeExpiredPaidLeasesInTransaction}). The sweep
+ * and the read-only budget check share this, so they cannot disagree.
+ */
+function expiredPaidLeasePresumptions(db: ThesisDb, nowIso: string): {
+  expiredCount: number;
+  presumed: Array<{ lease: typeof jobLlmLeases.$inferSelect; reservedMicro: bigint }>;
+} {
   const expired = db.select()
     .from(jobLlmLeases)
     .where(lte(jobLlmLeases.leaseExpiresAt, nowIso))
     .all();
-  if (expired.length === 0) return 0;
+  const presumed: Array<{ lease: typeof jobLlmLeases.$inferSelect; reservedMicro: bigint }> = [];
+  // The sweep inserts as it goes, so a second expired lease for the same
+  // attempt and pass finds the first one's presumed row; mirror that here.
+  const seen = new Set<string>();
   for (const lease of expired) {
+    const attemptKey = JSON.stringify([lease.jobId, lease.runGeneration, lease.attemptId, lease.pass]);
+    if (seen.has(attemptKey)) continue;
     const alreadySettled = db.select({ id: costLog.id })
       .from(costLog)
       .where(and(
@@ -409,26 +449,10 @@ function presumeExpiredPaidLeasesInTransaction(db: ThesisDb, nowIso: string): nu
     if (alreadyPresumed !== undefined) continue;
     const reservedMicro = BigInt(reservationMicroUsd(lease.reservedCostUsd));
     if (reservedMicro === 0n) continue;
-    db.insert(costLog).values({
-      jobId: lease.jobId,
-      runGeneration: lease.runGeneration,
-      attemptId: null,
-      presumedAttemptId: lease.attemptId,
-      settlementKind: "presumed",
-      step: lease.pass,
-      model: lease.model.length > 0 ? lease.model : "unknown",
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      webSearches: 0,
-      costUsd: Number(reservedMicro) / MICRO_USD,
-      fallbackUsed: false,
-      reconciledAt: null,
-      createdAt: lease.acquiredAt,
-    }).run();
+    seen.add(attemptKey);
+    presumed.push({ lease, reservedMicro });
   }
-  return expired.length;
+  return { expiredCount: expired.length, presumed };
 }
 
 function pruneExpiredPaidLeases(db: ThesisDb, nowIso: string): number {
@@ -1570,8 +1594,11 @@ export interface PaidCapRefusal {
  * counts every live reservation as spent, as admission's full test does: a
  * reservation that admission would only make wait for (`*-budget-pending`)
  * is reported here too, because a lease in flight can settle at its full
- * reserved amount, and an expired one becomes presumed spend at that amount.
- * Nothing is written: expired leases are not swept and no lease is taken.
+ * reserved amount. An expired lease is counted as admission's sweep would
+ * record it: presumed spend at its reserved amount, dated at its acquisition
+ * (so it can fall outside the rolling window), or nothing when its request
+ * already settled or was presumed. Nothing is written: expired leases are not
+ * swept and no lease is taken.
  */
 export function paidReservationCapRefusal(
   jobId: string,
@@ -1589,8 +1616,17 @@ export function paidReservationCapRefusal(
     const authority = authorityDate(now, "paid budget feasibility");
     const parent = tx.select({ maxCostUsd: jobs.maxCostUsd }).from(jobs).where(eq(jobs.id, jobId)).get();
     if (parent === undefined) throw new Error("jobScheduler: budget feasibility has no job row");
+    // Admission sweeps expired leases first: each becomes presumed spend dated
+    // at its acquisition (or nothing, when already settled or presumed), and
+    // only unexpired leases stay live. Mirror that without writing (PR #88 review).
+    const nowIso = authority.toISOString();
     const allLive = tx.select({ jobId: jobLlmLeases.jobId, reservedCostUsd: jobLlmLeases.reservedCostUsd })
-      .from(jobLlmLeases).all();
+      .from(jobLlmLeases).where(gt(jobLlmLeases.leaseExpiresAt, nowIso)).all();
+    const presumed = expiredPaidLeasePresumptions(tx as ThesisDb, nowIso).presumed.map(({ lease, reservedMicro }) => ({
+      jobId: lease.jobId,
+      createdAt: lease.acquiredAt,
+      costUsd: Number(reservedMicro) / MICRO_USD,
+    }));
     const configuredJobCapUsd = limits.maxJobCostUsd ?? null;
     const base = {
       recordedJobCapUsd: parent.maxCostUsd,
@@ -1617,7 +1653,10 @@ export function paidReservationCapRefusal(
       const refused = refusal(
         "job",
         jobCapUsd,
-        sumCostRowsMicro(tx.select({ costUsd: costLog.costUsd }).from(costLog).where(eq(costLog.jobId, jobId)).all()),
+        sumCostRowsMicro([
+          ...tx.select({ costUsd: costLog.costUsd }).from(costLog).where(eq(costLog.jobId, jobId)).all(),
+          ...presumed.filter((row) => row.jobId === jobId),
+        ]),
         sumLeaseRowsMicro(allLive.filter((lease) => lease.jobId === jobId)),
       );
       if (refused !== null) return refused;
@@ -1627,7 +1666,10 @@ export function paidReservationCapRefusal(
       return refusal(
         "rolling",
         limits.maxRollingCostUsd,
-        sumCostRowsMicro(tx.select({ costUsd: costLog.costUsd }).from(costLog).where(gte(costLog.createdAt, cutoff)).all()),
+        sumCostRowsMicro([
+          ...tx.select({ costUsd: costLog.costUsd }).from(costLog).where(gte(costLog.createdAt, cutoff)).all(),
+          ...presumed.filter((row) => row.createdAt >= cutoff),
+        ]),
         sumLeaseRowsMicro(allLive),
       );
     }

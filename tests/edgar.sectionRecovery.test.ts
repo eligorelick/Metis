@@ -234,6 +234,23 @@ describe("failed annual section recovery from filing structure", () => {
     expect(extractSection(sample("q6-intc-sections.html"), { form: "10-K", item: "1" }).ok).toBe(false);
   });
 
+  it("withholds business when another item claims a page strictly inside its mapped range", () => {
+    // PR #88 review: Item 1A on page 4 lies inside Business pages 3-5 without touching either endpoint.
+    const html = safeIndex().replace("<td>Pages 37 - 51</td>", "<td>Page 4</td>");
+    expect(extractSection(safeIndex(), { form: "10-K", item: "1" }).ok).toBe(true);
+    expect(extractSection(html, { form: "10-K", item: "1" }).ok).toBe(false);
+  });
+
+  it.each([
+    ["start", "<div>Risk factors</div><div id=\"risk\"></div>", "<div><a href=\"#later\">Risk factors</a></div><div id=\"risk\"></div>"],
+    ["end", "<div>Information security</div>", "<div><a href=\"#later\">Information security</a></div>"],
+  ])("withholds a reference-table chapter whose %s is proved only by a linked contents line", (_label, from, to) => {
+    // PR #88 review: a line holding a hyperlink is contents, not a chapter heading.
+    const html = sample("q6-asml-sections.html").replace(from, to)
+      .replace("<div>Appendix - Reference table 20-F</div>", "<div id=\"later\">Later</div><div>Appendix - Reference table 20-F</div>");
+    expect(extractSection(html, { form: "20-F", item: "3D" }).ok).toBe(false);
+  });
+
   it("withholds Item 7 when Item 7A also claims its last liquidity page", () => {
     const html = safeIndex().replace('Page 33</td>', 'Page 32</td>');
     expect(extractSection(html, { form: "10-K", item: "7" }).ok).toBe(false);

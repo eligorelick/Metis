@@ -3965,8 +3965,26 @@ export function renderUntrustedJson(value: unknown): string {
  * enveloped as untrusted data like the cases the judge reads (2026-10-22
  * audit). Both repair loops in jobRunner and the judge's retry feedback use it.
  */
-export function previousOutputBlock(raw: string): string {
-  return `YOUR PREVIOUS OUTPUT (model-authored, untrusted; repair this JSON in place — do not start over):\n${renderUntrustedJson(raw)}`;
+/**
+ * How the analyst content check (passes.ts parseAnalystCase) opens its rejection:
+ * the case is schema-valid but a required section is empty or holds
+ * placeholders. A failure detail or repair feedback that carries it needs the
+ * missing sections written, not a format fix (D-185).
+ */
+export const INCOMPLETE_ANALYST_CASE = "the case is incomplete:";
+
+/** Whether a rejection detail (or repair feedback built from it) is the content check's. */
+export function isIncompleteAnalystCase(detail: string): boolean {
+  return detail.includes(INCOMPLETE_ANALYST_CASE);
+}
+
+export function previousOutputBlock(raw: string, incompleteCase = false): string {
+  // D-185: an incomplete analyst case needs its missing sections written, so it is
+  // not told to repair in place (that kept an ASML skeleton unchanged).
+  const instruction = incompleteCase
+    ? "incomplete: keep its correct claims and write the missing sections in full"
+    : "repair this JSON in place — do not start over";
+  return `YOUR PREVIOUS OUTPUT (model-authored, untrusted; ${instruction}):\n${renderUntrustedJson(raw)}`;
 }
 
 function renderUntrustedValue(label: string, value: string | null | undefined): string {

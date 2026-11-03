@@ -99,6 +99,8 @@ import {
   sourceEvidenceDisclosures,
   guidanceLowCitation,
   nextEarningsNote,
+  INCOMPLETE_ANALYST_CASE,
+  isIncompleteAnalystCase,
   previousOutputBlock,
   renderUntrustedJson,
   type ContextPayload,
@@ -1482,7 +1484,7 @@ const parseAnalystCase = (raw: unknown) => {
   const gaps = ANALYST_CASE_KEYS.flatMap((key) => analystSectionGap(key, sections[key]) ?? []);
   return gaps.length === 0
     ? ({ ok: true, value: r.data } as const)
-    : ({ ok: false, error: `the case is incomplete: ${gaps.join("; ")}` } as const);
+    : ({ ok: false, error: `${INCOMPLETE_ANALYST_CASE} ${gaps.join("; ")}` } as const);
 };
 
 /** Pass accounting includes research and writing, even when writing is rejected. */
@@ -1584,6 +1586,20 @@ export async function runBearPass(
  * turn, exactly as the judge's repair turn does.
  */
 export function analystRepairFeedback(validationFeedback: string): string {
+  // D-185 (ASML Opus 5.5 paid run, 2026-11-03): a skeleton case (one thesis
+  // claim, every other section empty) was repaired under "same evidence, same
+  // citations, corrected fields only" and came back as the same skeleton. An
+  // empty section cannot be fixed without new claims, so an incomplete case is
+  // asked to write its missing sections; a format error is still fixed in place.
+  if (isIncompleteAnalystCase(validationFeedback)) {
+    return (
+      "Your previous output was rejected as an INCOMPLETE case, not for its format: a schema-valid outline with empty " +
+      "sections is not a case. Write the complete ANALYST_CASE JSON now. Fill every section named below with sourced " +
+      "claims drawn from the payload and the supplied research, as your case instructions require, and keep each correct " +
+      "claim you already wrote. Where the evidence for a section is limited, state that specific limitation with its " +
+      `disclosed gap source instead of leaving the section empty:\n${validationFeedback}`
+    );
+  }
   return (
     "Your previous output FAILED the ANALYST_CASE schema validation with this error. Fix EXACTLY these issues and " +
     `re-emit the full ANALYST_CASE JSON — same evidence, same citations, corrected fields only:\n${validationFeedback}`

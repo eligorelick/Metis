@@ -5179,3 +5179,65 @@ misbound.
   recovery tests and eight trimmed public fixtures.
 - **Stamps.** Payload 1.66.0: recovered text reaches the analysts for the
   affected filers.
+
+## D-185 - Tier 3 paid test and PR #88 review: complete an incomplete case; three boundary fixes (2026-11-03)
+
+**Tier 3 paid test.** ASML on Opus 5.5 at high effort, on the build verified for
+PR #88 (report #4 in the isolated test data directory, $3.03).
+
+- Fetch, validation and compute succeeded. The bear case succeeded: 17 thesis
+  claims, 41 drivers, 14 risks and 5 catalysts.
+- The bull's research succeeded ($1.02, 8 searches, 13,567 characters of dated,
+  sourced notes).
+- The bull's written case was a schema-valid skeleton twice: one revenue claim
+  and every other section empty. Both requests ended normally (`end_turn`),
+  after about 7,400 thinking tokens and 343 characters of text. The content
+  check (D-113) rejected both, so synthesis and verification were skipped and the
+  report is data-only.
+- The same skeleton appeared on NVDA #48 (Opus 5.5, medium) and the FIGR
+  high-effort run (D-162). There the one repair recovered it.
+
+**Cause of the failed repair.** The repair turn said "Fix EXACTLY these issues and
+re-emit the full ANALYST_CASE JSON — same evidence, same citations, corrected
+fields only". The echoed output said "repair this JSON in place — do not start
+over". An empty `keyDrivers` or `risksToCase` cannot be filled without new claims,
+so the instruction contradicted the rejection. The model changed only the
+placeholder `sourceId` ("x" to "") and returned the same skeleton. That wording
+is right for a format error, such as a bad date, which is what it was written for.
+
+- **Decision.** A rejection from the content check is marked "the case is
+  incomplete:". Its repair turn now says the case was rejected as incomplete, not
+  for its format. It asks the model to fill each named section with sourced claims
+  from the payload and the supplied research, keep each correct claim it already
+  wrote, and state a specific evidence limitation instead of leaving a section
+  empty. The echoed output says "incomplete: keep its correct claims and write the
+  missing sections in full".
+- **Unchanged.** Format errors keep the fix-in-place wording. The cached payload
+  turn, tools and schema stay byte-identical, so the repair still reads the cache.
+- **Not changed.** The first writing prompt already requires at least one claim in
+  each section. Why Opus sometimes writes a skeleton anyway is not visible in the
+  stored artifacts, which keep no thinking. Changing that prompt without evidence
+  could change the cases that are already written in full.
+- **Tests.** One builds the request from the exact ASML feedback, and one is a
+  control for a format error. A runner test checks the incomplete marker on the
+  echoed output. All three fail without the change.
+
+**PR #88 review (Codex, three P2 findings), each with a test that fails without
+the fix:**
+
+- **Linked page ranges (D-184).** A page that another item claims strictly
+  inside a mapped range now withholds recovery, as an endpoint does. Example:
+  INTC Business pages 3-5 with Item 1A mapped to page 4.
+- **Reference-table recovery (D-184).** A heading line holding a hyperlink can
+  no longer prove a chapter's start or end, matching the structured-item path.
+- **Pre-launch budget check (D-183).** It now counts an expired lease the way
+  admission's sweep records it: presumed spend at its reservation, dated at its
+  acquisition, or nothing when its request already settled or was presumed.
+  Before, it counted every stored lease as live, so with a rolling window shorter
+  than the lease lifetime it could refuse a run that admission would admit. The
+  sweep and the check now share one function.
+- **Replay.** The frozen 38-snapshot replay is unchanged by the two extractor
+  fixes: 266 of 266 slots are identical, with 220 sections extracted.
+
+- **Stamps.** Pipeline stage-c-1.6.25. Payload 1.66.0 and report spec 1.60.0
+  are unchanged.
