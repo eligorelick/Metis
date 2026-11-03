@@ -120,6 +120,18 @@ describe("failed annual section recovery from filing structure", () => {
     expect(result.ok && result.text).not.toContain("Risk discussion text.");
   });
 
+  it("does not pass over a next-item heading placed directly after the start heading (PR #88 review)", () => {
+    const base = sample("q6-cat-sections.html");
+    const start = base.indexOf('<div id="business">Item 1. Business.</div>');
+    const risk = base.indexOf('<div id="risk">Item 1A. Risk Factors.</div>');
+    expect(start).toBeGreaterThan(-1);
+    expect(risk).toBeGreaterThan(start);
+    const html = base.slice(0, start) + '<div id="business">Item 1. Business.</div><div id="risk">Item 1A. Risk Factors.</div>' +
+      `<p>${"Substantive risk discussion. ".repeat(200)}</p><div>Item 1B. Unresolved Staff Comments</div>`;
+    const result = extractSection(html, { form: "10-K", item: "1" });
+    expect(result.ok && result.text.includes("Substantive risk discussion")).toBe(false);
+  });
+
   it("ends 20-F Item 5 before a nonstandard Item 6 title", () => {
     const html = retryBody(`<div>Item 5. Operating and Financial Review and Prospects</div><p>${"Operating results. ".repeat(180)}</p>` +
       '<div>Item 6. Directors and employees</div><p>Foreign governance text.</p><div>Item 7. Major Shareholders and Related Party Transactions</div>', "5", "6", "Operating and Financial Review and Prospects");

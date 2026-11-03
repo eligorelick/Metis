@@ -5288,7 +5288,7 @@ is right for a format error, such as a bad date, which is what it was written fo
     format error, and a runner test for the incomplete marker on the echoed
     output. All three fail without the change.
 
-**PR #88 review (Codex, five P2 findings over three rounds), each with a test that
+**PR #88 review (Codex, six P2 findings over four rounds), each with a test that
 fails without the fix:**
 
 - **Linked page ranges (D-184).** A page that another item claims strictly
@@ -5307,6 +5307,12 @@ fails without the fix:**
   item. The existing
   tests for singular and plural market-risk titles, "Directors and employees" and
   a 320-character title still pass.
+- **Adjacent next-item heading (D-184, fourth review round).** A next-item heading
+  that starts exactly where the requested heading ends was passed over, because
+  element ends are exclusive and the search required a later start. The next
+  item's discussion was then accepted as the requested section. The search now
+  accepts a heading at that position, so the section is empty and the stub check
+  withholds it. The 20-F risk path is fixed the same way.
 - **Pre-launch budget check (D-183).** It now counts an expired lease the way
   admission's sweep records it: presumed spend at its reservation, dated at its
   acquisition, or nothing when its request already settled or was presumed.

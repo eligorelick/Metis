@@ -1709,7 +1709,7 @@ function recoverAnnualSection(
       !/<a\b[^>]*\bhref\s*=/i.test(pre.slice(n.start, n.end)));
     const candidates = risks.flatMap(risk => {
       const before = itemHeads.filter(h => h.n.end <= risk.start).at(-1);
-      const after = boundaries.find(h => h.n.start > risk.end && h.id !== "3");
+      const after = boundaries.find(h => h.n.start >= risk.end && h.id !== "3");
       return before?.id === "3" && after?.id === "4" ? [{ start: risk.start, end: after.n.start }] : [];
     });
     if (candidates.length === 1) {
@@ -1723,7 +1723,9 @@ function recoverAnnualSection(
     const starts = itemHeads.filter(h => h.id === spec.item);
     if (idx >= 0 && starts.length === 1) {
       const start = starts[0]!.n;
-      const end = boundaries.find(h => h.n.start > start.end && seq.slice(idx + 1).some(d => d.id === h.id));
+      // Element ends are exclusive: a next-item heading that starts exactly where
+      // this one ends bounds an empty section; it must not be passed over (PR #88 review).
+      const end = boundaries.find(h => h.n.start >= start.end && seq.slice(idx + 1).some(d => d.id === h.id));
       if (end) {
         const result = accept(text(start.start, end.n.start), "structured-item", "closed standalone item headings bound the complete item, including subsections");
         if (result) return result;
