@@ -97,6 +97,7 @@ import {
 import { repurchaseExecutionsFromFacts } from "@/pipeline/stageB/repurchaseExecutions";
 import {
   runForensics,
+  FORENSIC_PERIOD_ALIGNMENT_TOLERANCE_DAYS,
   type ForensicsReport,
   type ForensicsIncomeRow,
   type ForensicsBalanceRow,
@@ -155,7 +156,7 @@ import { filedCfoTtm, filedCashFlowTtm, filedCapexTtm } from "@/edgar/financialE
 import { vendorAgreesWithDerived } from "@/edgar/vendorAgreement";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
-import { collapsedDebtReason, implausibleDebtReason } from "@/edgar/debtCompleteness";
+import { collapsedDebtReason, implausibleDebtReason, uncashedDebtCollapseReason } from "@/edgar/debtCompleteness";
 import { filedReceivablesCandidates } from "@/edgar/receivables";
 import { admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
@@ -2034,19 +2035,26 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
     const yearStart = Date.parse(date) - 380 * 86_400_000;
     // One balance per date, latest first: quarterly and annual rows can share a year-end.
     const earlier = new Map<string, number>();
+    const earlierRows = new Map<string, FmpBalanceSheetRow>();
     for (const other of [...rows, ...interim]) {
       const day = isoDay(other.date);
       const debt = day !== null && day < date && Date.parse(day) >= yearStart ? financingDebt(other) : null;
-      if (debt !== null && !earlier.has(day!)) earlier.set(day!, debt);
+      if (debt !== null && !earlier.has(day!)) { earlier.set(day!, debt); earlierRows.set(day!, other); }
     }
     const opening = [...earlier.entries()].sort(([a], [b]) => b.localeCompare(a));
     const interest = interestFor(date);
     const previous = opening[0];
+    const previousRow = previous === undefined ? undefined : earlierRows.get(previous[0]);
+    const equity = (balance: FmpBalanceSheetRow | undefined): number | null =>
+      balance === undefined ? null : num(balance.totalStockholdersEquity) ?? num(balance.totalEquity);
+    const collapse = previous === undefined ? null : { annualInterestExpense: interest, financingDebt: closing, previousFinancingDebt: previous[1],
+      previousDate: previous[0], netDebtIssuance: cashFlow("netDebtIssuance", previous[0], date), debtRepayment: cashFlow("debtRepayment", previous[0], date),
+      totalAssets: num(row.totalAssets), totalLiabilities: num(row.totalLiabilities), previousTotalLiabilities: num(previousRow?.totalLiabilities),
+      equity: equity(row), previousEquity: equity(previousRow) };
+    // D-174: without usable interest, a collapse the span's debt cash flow does not explain.
     const reason = implausibleDebtReason({ annualInterestExpense: interest, financingDebt: closing,
       priorFinancingDebts: opening.map(([, debt]) => debt), totalAssets: num(row.totalAssets) }) ??
-      (previous === undefined ? null : collapsedDebtReason({ annualInterestExpense: interest, financingDebt: closing, previousFinancingDebt: previous[1],
-        previousDate: previous[0], netDebtIssuance: cashFlow("netDebtIssuance", previous[0], date), debtRepayment: cashFlow("debtRepayment", previous[0], date),
-        totalAssets: num(row.totalAssets) }));
+      (collapse === null ? null : collapsedDebtReason(collapse) ?? uncashedDebtCollapseReason(collapse));
     if (reason === null) return row;
     let out = row;
     // Long-term debt is the component the missing borrowings most often belong
@@ -2088,7 +2096,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // consumer can keep them out of cash.
   const admittedFacts = admittedIssuerFacts(bundle.symbol, bundle.edgar);
   const companyFacts = admittedFacts?.ok ? admittedFacts.value.data : null;
-  const balanceAnnualReported = withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt);
+  const balanceAnnualFeed = withMarketableEquity(rowsOf(bundle.statements.balanceAnnual), companyFacts, bundle.builtAt);
   const cashflowAnnualReported = rowsOf(bundle.statements.cashflowAnnual);
   const ttmGaps: ManifestEntry[] = [];
   const incomeQuarterSet = normalizeStatementQuarters(
@@ -2133,6 +2141,14 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const incomeQuarterly = incomeQuarterSet.rows;
   const balanceQuarterlyReported = balanceQuarterSet.rows;
   const cashflowQuarterly = cashflowQuarterSet.rows;
+  // D-173: the newest fiscal year's closing balance, when only the annual balance feed lags.
+  const balanceFamiliesShareSource = bundle.statements.balanceAnnual.ok && bundle.statements.balanceQuarterly.ok &&
+    bundle.statements.balanceAnnual.value.source === bundle.statements.balanceQuarterly.value.source;
+  const balanceSource = bundle.statements.balanceAnnual.ok ? bundle.statements.balanceAnnual.value.source : null;
+  const balanceAnnualReported = balanceFamiliesShareSource
+    ? withFiscalYearEndBalance(balanceAnnualFeed, balanceQuarterlyReported, incomeAnnualReported, ttmGaps,
+      balanceSource === "edgar" ? ["edgar:companyfacts"] : undefined)
+    : balanceAnnualFeed;
 
   const todayIso = bundle.builtAt.slice(0, 10);
 
@@ -5018,6 +5034,56 @@ function gateRunwayCurrency(
     };
   }
   return runway;
+}
+
+/**
+ * D-173. A provider's annual balance-sheet feed can trail its annual income and
+ * cash-flow feeds for days after an annual report is filed (AAPL, 2026-11-02: the
+ * 10-K for the year ended 2026-09-26 had reached the annual income, annual cash-flow
+ * and quarterly balance-sheet feeds, while the annual balance sheet still ended at
+ * 2025-09-27, so Altman, Beneish, accruals and ROIC - WACC were withheld for the
+ * newest year). A balance sheet is a point-in-time statement: the quarterly row
+ * dated exactly at the newest annual income period end is that fiscal year's
+ * closing balance. Only that one date is filled, only when the annual feed has no
+ * row within the forensic alignment tolerance of it (a 52/53-week alias dated a few
+ * days earlier is the same year) and nothing newer, only from the filing that
+ * carries the annual income row (same period end and acceptance) in the same
+ * labelled currency, and the fill is disclosed. The row still passes the debt
+ * checks every annual row passes (D-174). Nothing is summed or estimated, and the
+ * provider rows as fetched are unchanged.
+ */
+export function withFiscalYearEndBalance<TRow extends CurrencyEvidenceRow>(
+  annual: readonly TRow[],
+  quarterly: readonly TRow[],
+  incomeAnnual: readonly CurrencyEvidenceRow[],
+  gaps: ManifestEntry[],
+  attemptedSources: readonly string[] = [STATEMENT_FAMILY.balanceAnnual.endpoint, STATEMENT_FAMILY.balanceQuarterly.endpoint],
+): TRow[] {
+  let newestIncome: CurrencyEvidenceRow | undefined;
+  for (const row of incomeAnnual) {
+    const day = isoDay(row.date);
+    if (day !== null && (newestIncome === undefined || day > isoDay(newestIncome.date)!)) newestIncome = row;
+  }
+  if (newestIncome === undefined) return [...annual];
+  const yearEnd = isoDay(newestIncome.date)!;
+  const earliestSameYear = Date.parse(`${yearEnd}T00:00:00Z`) - FORENSIC_PERIOD_ALIGNMENT_TOLERANCE_DAYS * 86_400_000;
+  const covered = annual.some(row => {
+    const day = isoDay(row.date);
+    return day !== null && Date.parse(`${day}T00:00:00Z`) >= earliestSameYear;
+  });
+  if (covered) return [...annual];
+  const currency = normalizeReportedCurrency(newestIncome.reportedCurrency);
+  const income = newestIncome;
+  const closing = quarterly.find(row => sameFiling(row, income));
+  if (closing === undefined || currency === null || normalizeReportedCurrency(closing.reportedCurrency) !== currency) return [...annual];
+  gaps.push({
+    field: "compute.balanceAnnual.fiscalYearEnd",
+    reason: `The annual balance sheet has no row yet for the fiscal year ended ${yearEnd}, which the annual income statement already reports; ` +
+      `the quarterly balance sheet from the same filing, dated ${yearEnd} (the same closing balance), is used for the annual calculations.`,
+    severity: "info",
+    attemptedSources: [...attemptedSources],
+  });
+  return [closing, ...annual];
 }
 
 export function newestBalanceRow<TRow extends { date?: unknown }>(

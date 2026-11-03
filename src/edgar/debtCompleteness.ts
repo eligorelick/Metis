@@ -205,3 +205,55 @@ export function collapsedDebtReason(input: {
     `to explain it, and annual interest expense ${interest} implies ${(interest / closing * 100).toFixed(1)}% on the closing balance; ` +
     `a debt component is missing, so total debt and net debt are withheld rather than published as a collapse`;
 }
+
+/** Previous debt below this share of total assets is too small to judge a collapse by without interest. */
+const MATERIAL_DEBT_TO_ASSETS = 0.05;
+
+/**
+ * D-174. The tests above judge debt by its interest, so a filer that discloses
+ * none passed them all: hours after AAPL's FY2026 10-K the provider's year-end
+ * quarter carried long-term debt 0 and total debt 1.997B (the previous quarter's
+ * commercial paper) against 84.31B a quarter earlier, while total liabilities rose
+ * and the quarter's cash flow showed zero net debt issuance; the report published
+ * net debt of -54.73B. When interest cannot judge the debt (none disclosed, or below
+ * the materiality floor), material resolved debt (5% of total assets) that fell by
+ * more than 60% is withheld unless something accounts for at least half the fall:
+ * the span's net debt issuance (or its repayments when net issuance is not
+ * disclosed), a matching fall in total liabilities (the debt left the balance
+ * sheet), or a matching rise in equity (a conversion or exchange). A provider
+ * writes undisclosed flows as 0, which is why the balance sheet is evidence too.
+ * With none of the three available nothing is judged.
+ */
+export function uncashedDebtCollapseReason(input: {
+  annualInterestExpense: number | null; financingDebt: number | null; previousFinancingDebt: number | null; previousDate: string;
+  netDebtIssuance: number | null; totalAssets: number | null;
+  /** Repayments over the same span, negative = outflow; read only when the net issuance is not disclosed. */
+  debtRepayment?: number | null;
+  totalLiabilities?: number | null; previousTotalLiabilities?: number | null;
+  equity?: number | null; previousEquity?: number | null;
+}): string | null {
+  const finite = (value: number | null | undefined): value is number => value !== null && value !== undefined && Number.isFinite(value);
+  const { annualInterestExpense: interest, financingDebt: closing, previousFinancingDebt: previous, totalAssets: assets } = input;
+  if (!finite(assets) || assets <= 0) return null;
+  if (finite(interest) && interest > 0 && interest >= MATERIAL_INTEREST_TO_ASSETS * assets) return null;
+  if (!finite(closing) || closing < 0 || !finite(previous) || previous < MATERIAL_DEBT_TO_ASSETS * assets) return null;
+  const fall = previous - closing;
+  if (fall <= DEBT_COLLAPSE_SHARE * previous) return null;
+  const net = finite(input.netDebtIssuance) ? input.netDebtIssuance : null;
+  const repayment = net === null && finite(input.debtRepayment) ? input.debtRepayment : null;
+  const outflow = net ?? repayment;
+  const liabilitiesFall = finite(input.previousTotalLiabilities) && finite(input.totalLiabilities)
+    ? input.previousTotalLiabilities - input.totalLiabilities : null;
+  const equityRise = finite(input.previousEquity) && finite(input.equity) ? input.equity - input.previousEquity : null;
+  if (outflow === null && liabilitiesFall === null && equityRise === null) return null;
+  if ((outflow !== null && -outflow >= fall / 2) || (liabilitiesFall !== null && liabilitiesFall >= fall / 2) ||
+    (equityRise !== null && equityRise >= fall / 2)) return null;
+  const evidence = [
+    net !== null ? `net debt issuance of ${net}` : repayment !== null ? `debt repayments of ${repayment} (issuance not disclosed)` : "no debt cash flow disclosed",
+    liabilitiesFall === null ? null : `total liabilities ${liabilitiesFall >= 0 ? "down" : "up"} ${Math.abs(liabilitiesFall)}`,
+    equityRise === null ? null : `equity ${equityRise >= 0 ? "up" : "down"} ${Math.abs(equityRise)}`,
+  ].filter((part): part is string => part !== null).join(", ");
+  return `incomplete debt carrying value: resolved financing debt fell from ${previous} at ${input.previousDate} to ${closing} ` +
+    `(${(-fall / previous * 100).toFixed(1)}%) with ${evidence} over the period to explain it, and no usable interest expense is disclosed ` +
+    `to judge the debt by; a debt component is missing, so total debt and net debt are withheld rather than published as a collapse`;
+}
