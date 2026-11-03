@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Verifier wording for headline claims and buyback amounts (2026-11-03)
+
+- Numeric prose now recognizes producer-bound wording for ADS quotes, DCF base-case values, reverse-DCF year-one growth over TTM, weighted and scenario projections, EV/EBITDA, settled closes, five-year diluted-share changes, TTM standardized FCF and checked house-grade annotations (D-187). Value, period, metric, currency and per-share checks remain in force.
+- Negative statement buyback and capex records accept a positive outflow magnitude, including "(cash outflow)" and "of cash outflow". Inflow wording, direction words and other records retain signed matching. This deliberately revises D-160: buyback amounts conventionally use a positive magnitude.
+- Offline replay of saved judge outputs validates 29 additional claims across META #2 (4), TSM #3 (4) and ASML #6 (21), with no previously validated claim losing validation. Multi-figure claims and unsupported definitions remain unvalidated.
+- Integration requires a pipeline stamp bump only; this branch leaves all version constants unchanged.
+
 ## Unreleased - Budget check before paid work; recovered filing sections (2026-11-03)
 
 - A paid run that a job or rolling cap can never finish now stops before its first paid request, at no cost, and says which request, model and cap blocked it and the smallest cap that would admit it (D-183). The same check runs before a retry spends anything. `docs/CLAUDE-USAGE.md` lists the per-model worst-case reservations and a practical cap.

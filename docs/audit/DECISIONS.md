@@ -5346,3 +5346,60 @@ the fix:**
 
 - **Stamps.** Pipeline stage-c-1.6.25. Payload 1.66.0 and report spec 1.60.0
   are unchanged.
+
+## D-187 - Producer-bound headline readings and statement outflow magnitudes (2026-11-03)
+
+**Decision.** Correct numeric prose may use an equivalent name only under its
+producing record's contract. Add readings for ADS quote prices, DCF base-case
+per-share values, reverse-DCF year-one revenue growth over starting TTM
+revenue, weighted/scenario projections, EV/EBITDA, settled closes, five-year
+weighted-average diluted-share changes and TTM standardized FCF. Projection
+readings retain the scenario, metric, endpoint and units; the forward EPS
+producer means operating EPS and its FCF producer means unlevered FCF.
+Grade annotations in the forms ", grade B" and ", in band B" are checked
+against the score's house band before being masked. Completeness assertions
+are not inferred from a score.
+
+The additions use producer-bound `forms.add(...)` readings and the existing
+typed-context hook. Window spelling is normalized only for the producing
+projection/FCF records, retaining the stated date for the ordinary period
+check. A reverse-DCF phrase must explicitly name year one and the TTM baseline
+before its baseline words are treated as its denominator. The general metric,
+period, direction, currency, rounding and unit rules are unchanged. No ticker
+or company name participates.
+
+**Revises D-160: outflow amounts.** A buyback amount is conventionally stated
+as a positive magnitude. For negative, currency-valued provider records under
+`payload.statements.cash-flow-(annual|quarterly).<date>.*` labeled exactly
+`buybacks (negative)` or `capex (negative)`, prose naming buybacks, share
+repurchases, capital expenditure or capex may state the absolute value.
+The annotations "(cash outflow)" and "of cash outflow" are permitted.
+Inflow wording, direction words, every other record and nonnegative records
+retain signed matching. Existing signed outflow prose remains supported.
+This supersedes D-160's requirement that every such amount print the record's
+negative sign; it does not introduce general absolute-value matching.
+
+**Evidence and tests.** The paid META #2, TSM #3 and ASML #6 reports were
+examined from the isolated database opened with `readonly: true` and
+`fileMustExist: true`. Frozen bundles and saved judge outputs were replayed
+through `runVerifyPass`, before and after, with the same retained research URL
+identities and no provider/model calls. Newly validated claims: META 4, TSM 4,
+ASML 21 (29 total); no previously validated claim regressed. The classes are:
+projection wording 10, DCF base-case value 2, ADS price 1, reverse DCF 2,
+statement buyback magnitudes 3, EV/EBITDA 1, settled close 1, five-year share
+change 3, TTM FCF 2 and checked grade annotations 4. Full inventories, rejected
+claims, replay logs and every newly validated claim are retained under `tmp/`.
+
+Tests were written first: the final regression set fails 24 tests against the
+unchanged verifier and passes all 106 tests in the two affected files with
+the change. Controls retain wrong values, periods, metrics, currencies,
+per-share bases, projection scenarios/definitions, reverse-DCF horizons and
+baselines, grades, annualized share changes, cash inflows and directions.
+Multi-figure claims, ranges citing only a midpoint and out-of-scope signed
+cash-flow records remain unvalidated. Tests:
+`stageC.claimEvidence.headline.test.ts` and `stageC.claimEvidence.figr.test.ts`.
+
+**Stamps.** Integration requires a `PIPELINE_VERSION` bump for changed Stage C
+verification outcomes. No payload, report-spec or Stage B stamp change is
+required: their contracts, stored bytes and calculations are unchanged.
+All version constants are deliberately left to the integrator.
