@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { discoverCompanyIrMaterialEvents, verifiedCompanyIrAliases, type CompanyIrOptions } from "@/providers/companyIr";
 import { readFileSync } from "node:fs";
 import { gzipSync } from "node:zlib";
@@ -14,9 +14,19 @@ const pages = {
   "https://ir.example.com/news/journey": acquisition(),
 };
 
+// Fetches are all in-memory, but the real HTTP token bucket still waits between
+// requests. Advance those waits without replacing discovery or limiter logic.
+beforeAll(() => { vi.useFakeTimers(); });
+afterAll(() => { vi.useRealTimers(); });
+async function discoverWithTimers(...args: Parameters<typeof discoverCompanyIrMaterialEvents>) {
+  const result = discoverCompanyIrMaterialEvents(...args);
+  await vi.runAllTimersAsync();
+  return result;
+}
+
 async function discover(overrides: Record<string, string> = {}, options: CompanyIrOptions = {}) {
   const attempted: string[] = [];
-  const result = await discoverCompanyIrMaterialEvents(issuer.verifiedWebsite, "EXM", "2026-10-17", { issuer, now, lookup, fetchImpl: (async (url) => {
+  const result = await discoverWithTimers(issuer.verifiedWebsite, "EXM", "2026-10-17", { issuer, now, lookup, fetchImpl: (async (url) => {
     attempted.push(String(url));
     const html = { ...pages, ...overrides }[String(url) as keyof typeof pages];
     return new Response(html ?? "not found", { status: html ? 200 : 404, headers: { "content-type": "text/html" } });
@@ -30,7 +40,7 @@ describe("bounded official material-event discovery", () => {
     const card=mode==="foreign" ? "https://foreign.example/completes-acquisition" : mode==="private-ip" ? "https://127.0.0.1/completes-acquisition" : "https://blog.adobe.com/en/publish/completes-acquisition";
     const encoded=mode==="malformed" ? "notgzip" : gzipSync(JSON.stringify({featuredCards:[{contentId:card}],...(mode==="oversized"?{padding:"x".repeat(140000)}:{})})).toString("base64");
     const attempted:string[]=[];
-    const result=await discoverCompanyIrMaterialEvents(adobe.verifiedWebsite,"ADBE","2026-10-19",{issuer:adobe,now:()=>new Date("2026-10-19T00:00:00Z"),lookup,fetchImpl:(async input=>{
+    const result=await discoverWithTimers(adobe.verifiedWebsite,"ADBE","2026-10-19",{issuer:adobe,now:()=>new Date("2026-10-19T00:00:00Z"),lookup,fetchImpl:(async input=>{
       attempted.push(String(input));return new Response(String(input)==="https://blog.adobe.com/" ? `<a href="https://milo.adobe.com/tools/caas#~~${encoded}">Cards</a>` : "No links",{headers:{"content-type":"text/html"}});
     })as typeof fetch});
     expect(result).toMatchObject({ok:false,gap:{reason:expect.stringMatching(/bounded.*not evidence/i)}});
@@ -41,7 +51,7 @@ describe("bounded official material-event discovery", () => {
     const release = "https://blog.adobe.com/en/publish/2026/09/23/adobe-completes-acquisition-of-topaz-labs";
     const captured: Record<string, string> = Object.fromEntries([[adobe.verifiedWebsite, "home"], ["https://blog.adobe.com/", "blog"], [release, "completion"]].map(([url,file]) => [url!, readFileSync(`fixtures/company-ir/adobe-20261019/${file}.html`, "utf8")]));
     const attempted: string[] = [];
-    const result = await discoverCompanyIrMaterialEvents(adobe.verifiedWebsite, "ADBE", "2026-10-19", { issuer: adobe, now: () => new Date("2026-10-19T00:00:00Z"), lookup, fetchImpl: (async input => {
+    const result = await discoverWithTimers(adobe.verifiedWebsite, "ADBE", "2026-10-19", { issuer: adobe, now: () => new Date("2026-10-19T00:00:00Z"), lookup, fetchImpl: (async input => {
       attempted.push(String(input)); const body = captured[String(input)];
       return new Response(body ?? "missing", { status: String(input) === adobe.verifiedWebsite ? homeStatus : body ? 200 : 404, headers: { "content-type": "text/html" } });
     }) as typeof fetch });
