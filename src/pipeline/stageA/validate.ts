@@ -727,6 +727,50 @@ function checkFmpXbrlCross(bundle: ValidatableBundle, c: Collector): void {
   }
 }
 
+/** A filing at most this many days old, whose period SEC companyfacts does not yet carry, is fresh. */
+export const FRESH_FILING_DAYS = 10;
+
+/**
+ * D-175. A provider publishes its rows for a new filing within hours, and those
+ * first rows are the least reliable: AAPL's 10-K for the year ended 2026-09-26,
+ * accepted 2026-11-02 16:30, arrived with long-term debt 0 (D-174) and no annual
+ * balance sheet (D-173), while SEC companyfacts did not yet carry the period, so no
+ * figure from it could be cross-checked. The cross-check already records "not
+ * checkable" rows; this states the condition once, where the reader looks: when
+ * the newest statement period was filed at most FRESH_FILING_DAYS before the
+ * analysis and the admitted SEC facts have nothing at or after its period end.
+ */
+function checkFreshFiling(bundle: ValidatableBundle, now: Date, c: Collector): void {
+  const factsRes = admittedIssuerFacts(bundle.symbol, bundle.edgar);
+  if (!factsRes?.ok) return;
+  const end = newestStatementEnd(bundle);
+  if (end === null || !Number.isFinite(parseDateMs(end))) return;
+  const newestFact = latestFactEnd(factsRes.value.data, [
+    "RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "RevenuesNetOfInterestExpense",
+    "InterestIncomeExpenseNet", "NetIncomeLoss", "Assets",
+  ]);
+  if (newestFact !== null && newestFact >= end.slice(0, 10)) return;
+  let filed: string | null = null;
+  for (const res of [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly]) {
+    if (!res.ok || res.value.source === "edgar") continue;
+    for (const row of res.value.data.rows) {
+      if (typeof row.date !== "string" || row.date.slice(0, 10) !== end.slice(0, 10)) continue;
+      const day = typeof row.filingDate === "string" ? row.filingDate.slice(0, 10)
+        : typeof row.acceptedDate === "string" ? row.acceptedDate.slice(0, 10) : null;
+      if (day !== null && /^\d{4}-\d{2}-\d{2}$/.test(day) && (filed === null || day > filed)) filed = day;
+    }
+  }
+  if (filed === null) return;
+  const ageDays = (now.getTime() - parseDateMs(filed)) / DAY_MS;
+  if (!Number.isFinite(ageDays) || ageDays < -1 || ageDays > FRESH_FILING_DAYS) return;
+  const age = ageDays < 1 ? "less than a day" : `${Math.floor(ageDays)} day${Math.floor(ageDays) === 1 ? "" : "s"}`;
+  c.gaps.push(gapEntry("validation.freshFiling",
+    `The newest filing (period ended ${end.slice(0, 10)}, filed ${filed}) is ${age} old and SEC structured data does not yet include that period, ` +
+      "so the data provider's figures from it are not yet cross-checked against the filing. A provider's first rows for a new filing are the least reliable; " +
+      "re-run once the SEC data is published.",
+    "warn"));
+}
+
 // ---------------------------------------------------------------------------
 // 3. Staleness
 // ---------------------------------------------------------------------------
@@ -1174,6 +1218,7 @@ export function validateBundle(
 
   checkBalanceSheetIdentity(bundle, c);
   checkFmpXbrlCross(bundle, c);
+  checkFreshFiling(bundle, now, c);
   checkStaleness(bundle, now, c);
   sweepImplausibleZeros(bundle, c);
   checkCurrencyConsistency(bundle, c);

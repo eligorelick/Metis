@@ -980,6 +980,9 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const traces = collectTraces(report);
   const md = report.marketData;
   const rows: KeyDataRow[] = [];
+  // D-175: a newest filing not yet cross-checked against SEC data leads page one.
+  const fresh = report.appendix.missingData.find(gap => gap.field === "validation.freshFiling" && !gap.resolution);
+  if (fresh) rows.push({ label: "Newest filing", value: "not yet cross-checked", note: fresh.reason });
   const perimeter = firstTrace(traces, /^computed\.current-capital\.provider-debt-perimeter-includes-payables-to-third-party-loan-owners$/);
   if (perimeter) rows.push({ label: LENDER_DEBT_PERIMETER_LABEL, value: money(perimeter.value, perimeter.currency ?? null), note: `at ${perimeter.asOf}; filed borrowings and loan-owner payables are shown separately in the debt profile` });
   const bridge = report.valuation.dcf.bridge;
