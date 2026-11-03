@@ -2,10 +2,9 @@ import type { DataBundle } from "@/pipeline/types";
 import type { ValuationFx } from "@/pipeline/fx";
 import { selectValuationFx } from "@/pipeline/fx";
 import { resolveSecurityBasis, type SecurityBasisEvidence } from "@/pipeline/stageB/securityBasis";
-import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { comparePriceCurrency, quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { conceptFactsSchema, CORE_FACT_FORMS, parseFactPoints, type FactPoint } from "@/edgar/xbrl";
-import { quotePriceObservationDay } from "@/providers/fmp";
 import { createHash } from "node:crypto";
 import type { ValuationBundleInputs, DcfAssumptionInputs } from "@/pipeline/stageB/valuation";
 import type { ProjectionsInputs } from "@/pipeline/stageB/projections";
@@ -195,7 +194,9 @@ export function translateValuationInputs(input: ValuationBundleInputs, basis: Fo
       startAlternative: input.excessReturn.startAlternative && money(input.excessReturn.startAlternative, ["bookValue", "convertiblePreferredClaim", "permanentPreferred"], basis),
       convertibles: input.excessReturn.convertibles?.map(r => ({ ...r, claim: r.claim === null ? null : r.claim * k, conversionShares: r.conversionShares / basis.ratio, conversionPrice: r.conversionPrice === null ? null : r.conversionPrice * k * basis.ratio })) },
     reit: input.reit && { ...money(input.reit, ["ffoApprox", "affoApprox", "noiApprox"], basis), shares: d,
-      enterpriseValue: input.reit.enterpriseValue && money(input.reit.enterpriseValue, ["value"], basis) },
+      // valueCompany supplies the house EV from translated multiples. A
+      // preassembled aggregate may contain a USD capitalization already.
+      enterpriseValue: undefined },
   };
 }
 
