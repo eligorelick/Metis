@@ -34,7 +34,7 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       const matches = sec && finite(row.revenue) && finite(sec.revenue) && vendorAgreesWithFiled(row.revenue, sec.revenue) &&
         row.fieldConflicts?.revenue?.usable !== false && (row.periodStart == null || row.periodStart === revenue?.periodStart) &&
         (row.filingDate == null || revenue?.filings.some(f => f.filed === row.filingDate));
-      if (name === "incomeAnnual" && matches && finite(sec.operatingIncome) && sameBasis(revenue, operating) &&
+      if (name === "incomeAnnual" && matches && finite(sec.operatingIncome) && !operating?.tags.includes("us-gaap/OperatingIncomeLoss") && sameBasis(revenue, operating) &&
           row.fieldConflicts?.operatingIncome?.usable !== false && sec.fieldConflicts?.operatingIncome?.usable !== false) {
         out = { ...out, waccOperatingIncome: sec.operatingIncome,
           fieldProvenance: { ...out.fieldProvenance, waccOperatingIncome: operating! } };

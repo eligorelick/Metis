@@ -1867,14 +1867,14 @@ function totalDebtSnapshot(
   const quarterEnd = balancesQuarterly[0];
   const quarterEndMs = Date.parse(String(quarterEnd?.date ?? ""));
   const yearEarlier = balancesQuarterly.find(row => Math.abs(quarterEndMs - Date.parse(String(row.date)) - 365.25 * SPREAD_DAYS) <= 45 * SPREAD_DAYS);
-  const quarterPair = interestBasis === "ttm" && quarterEnd && yearEarlier ? [quarterEnd, yearEarlier] : null;
+  const quarterPair = interestBasis === "ttm" && quarterEnd && yearEarlier && num(quarterEnd.totalDebt) !== null && num(yearEarlier.totalDebt) !== null ? [quarterEnd, yearEarlier] : null;
   const annualPair = [balancesAnnual[0], balancesAnnual[1]].filter((row): row is FmpBalanceSheetRow => row !== undefined);
   const refusal = (row: FmpBalanceSheetRow): string | null => row.fieldConflicts?.totalDebt?.usable === false
     ? row.fieldConflicts.totalDebt.reason : leaseDebtScopeRefusal(row, includeOperatingLeases) ?? leaseDebtConflict(row);
   const complete = (row: FmpBalanceSheetRow): boolean => refusal(row) === null && bookDebtOnLeaseBasis(row, includeOperatingLeases).value !== null;
   // Preserve the existing complete annual-pair fallback for lease scope. Other
   // refused dates are excluded individually; they cannot veto clean balances.
-  const pair = quarterPair && !(quarterPair.some(row => leaseDebtConflict(row) !== null) && annualPair.length === 2 && annualPair.every(complete))
+  const pair = quarterPair && !(quarterPair.some(row => refusal(row) !== null) && annualPair.length === 2 && annualPair.every(complete))
     ? quarterPair : annualPair;
   const all = [...balancesQuarterly, ...balancesAnnual].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const newest = all[0];
@@ -1887,16 +1887,22 @@ function totalDebtSnapshot(
   const excluded = [...new Map([...pair, ...(newest ? [newest] : [])].filter(row => refusal(row) !== null)
     .map(row => [String(row.date), row])).values()];
   const exclusion = excluded.length ? "; excluded withheld balances: " + excluded.map(row => isoDay(row.date) + ": " + refusal(row)).join("; ") : "";
-  const dates = used.map(row => isoDay(row.date)).join(" and ");
-  const scope = used.map(row => leaseEvidenceNote({ ...row, leaseEvidenceContext },
-    { removed: bookDebtOnLeaseBasis(row, includeOperatingLeases).leaseRemoved ? num(row.operatingLeaseLiability) : null })).join(" ");
-  const basis = "book totalDebt on the retained calculation basis, " + (used.length > 1 ? "average of " : "single complete balance from ") +
-    (quarterPair && pair === quarterPair ? "the quarter-end balances at the TTM window's ends" : "the latest two fiscal-year-end balances") +
-    " (" + dates + "); only complete balances used (lease evidence: " + scope + ")" + exclusion;
+  const scope = used.flatMap(row => [leaseEvidenceNote({ ...row, leaseEvidenceContext },
+    { removed: bookDebtOnLeaseBasis(row, includeOperatingLeases).leaseRemoved ? num(row.operatingLeaseLiability) : null }),
+    ...(incompleteLeaseCoverage(row) ? [incompleteLeaseCoverage(row)!.note] : [])]);
+  const which = quarterPair && pair === quarterPair
+    ? `the quarter-end balances at the TTM window's ends (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)})`
+    : "the latest two fiscal-year-end balances" + (quarterPair
+      ? ` (so TTM interest is measured against fiscal-year-end debt; the quarter-end pair (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)}) is not used: ${quarterPair.map(refusal).find(Boolean)})`
+      : interestBasis === "ttm" ? " (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt)" : "");
+  const basis = `book totalDebt on the retained calculation basis, average of ${which}${scope.length ? ` (retained lease coverage: ${scope.join(" ").replace(/\.$/, "")})` : ""}` +
+    (excluded.length ? `; only complete balances used (${used.map(row => isoDay(row.date)).join(" and ") || "none"})${exclusion}` : "") +
+    (newest && latestComplete && latestComplete !== newest ? `; the newest balance (${isoDay(newest.date)}) is not used for the debt weight, which uses the latest complete balance` : "");
   const currency = establishedRowsCurrency(used, currencyEvidence);
   if (used.length === 0) {
     const rejected = excluded[0];
-    const unavailable = rejected ? isoDay(rejected.date) + ": " + refusal(rejected) : "no complete book total debt in the balance window";
+    const unavailable = rejected ? isoDay(rejected.date) + ": " + refusal(rejected)
+      : pair.length ? `no book total debt on ${pair.map(row => isoDay(row.date)).join(" or ")}${pair.length < 2 ? ", and no second balance to average it with" : ""}` : "no balance sheet to average";
     return { average: null, negativeObservation: null, basis, currency, unavailable,
       ...(rejected ? { refused: true as const, refusedBalanceDate: isoDay(rejected.date) ?? undefined } : {}) };
   }
@@ -1904,8 +1910,11 @@ function totalDebtSnapshot(
   const latestCurrency = latestComplete ? establishedRowsCurrency([latestComplete], currencyEvidence) : null;
   const latest = latestComplete && latestCurrency !== null && latestCurrency === currency ? {
     latest: bookDebtOnLeaseBasis(latestComplete, includeOperatingLeases).value,
-    latestBasis: "book totalDebt on the retained calculation basis, the latest complete balance (" + isoDay(latestComplete.date) + ")" +
-      (latestComplete === newest ? ", the one the EV bridge nets" : "; the newer withheld balance is not used; its EV bridge remains withheld") + exclusion,
+    latestBasis: "book totalDebt on the retained calculation basis, the latest " + (excluded.length ? "complete " : "") + "balance (" + isoDay(latestComplete.date) + ")" +
+      (latestComplete === newest ? ", the one the EV bridge nets" : "; the newer withheld balance is not used; its EV bridge remains withheld") +
+      " (lease evidence: " + leaseEvidenceNote({ ...latestComplete, leaseEvidenceContext },
+        { removed: bookDebtOnLeaseBasis(latestComplete, includeOperatingLeases).leaseRemoved ? num(latestComplete.operatingLeaseLiability) : null }).replace(/\.$/, "") +
+      (incompleteLeaseCoverage(latestComplete) ? "; " + incompleteLeaseCoverage(latestComplete)!.note.replace(/\.$/, "") : "") + ")" + exclusion,
   } : {};
   return { average, negativeObservation: null, basis, currency, ...latest };
 }

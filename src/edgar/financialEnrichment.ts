@@ -665,7 +665,7 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       const line = row.capitalLeaseObligations as number;
       if (![op.total, op.noncurrent, op.total + fin.total, op.noncurrent + fin.noncurrent].some(v => eq(line, v))) continue;
       const refuse = (why: string): LeaseLineCompletion<T> => ({ status: "refused", reason: `incomplete debt carrying value: same-filing completion refused: ${why}` });
-      refusal = refuse("current debt or vendor composition cannot be reconciled");
+      refusal = line < op.total + fin.total ? refuse("current debt or vendor composition cannot be reconciled") : none;
       const ltd = own("LongTermDebtCurrent") ?? (notesScope ? own("NotesAndLoansPayableCurrent") ?? own("NotesPayableCurrent") : null), dc = own("DebtCurrent"), both = own(COMBINED_CURRENT_DEBT_TAG);
       const stb = own("ShortTermBorrowings"), cp = own("CommercialPaper");
       const borrowing = stb ?? cp ?? 0;

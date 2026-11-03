@@ -53,18 +53,17 @@ describe("average debt behind a refused balance (audit 2026-10-22 C-1)", () => {
   it.each([
     ["has one balance", (rows: FmpBalanceSheetRow[]) => { rows.splice(1); }],
     ["has one balance with total debt", (rows: FmpBalanceSheetRow[]) => { delete rows[1]!.totalDebt; }],
-  ] as const)("keeps the quarter pair's refusal when the fiscal-year fallback %s", (_label, damage) => {
+  ] as const)("uses the complete quarter endpoint when the fiscal-year fallback %s", (_label, damage) => {
     const bundle = currencyBundle({ balanceQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
     const rows = quarters(bundle);
     rows.push({ ...rows[0]!, date: "2025-03-31", fieldProvenance: {} });
     noncurrentLeaseOnly(rows[0]!);
     damage(annual(bundle));
     const wacc = runStageB(bundle).returns.wacc;
-    expect(wacc.waccPct).toBeNull();
+    expect(wacc.waccPct).not.toBeNull();
     expect(wacc.debtBasis).not.toContain("latest two fiscal-year-end balances");
-    const gap = wacc.gaps.find(g => g.field === "returns.wacc.weights" && g.severity === "critical");
-    expect(gap?.reason).toContain("2026-03-31");
-    expect(gap?.reason).toContain("Operating lease liability is noncurrent only");
+    expect(wacc.debtBasis).toContain("only complete balances used (2025-03-31)");
+    expect(wacc.debtBasis).toContain("Operating lease liability is noncurrent only");
   });
 
   it("names the cause in the critical gap when every pair is refused", () => {
@@ -91,12 +90,13 @@ describe("average debt behind a refused balance (audit 2026-10-22 C-1)", () => {
     expect(criticalReason(one)).toMatch(/: no book total debt on 2025-12-31, and no second balance to average it with$/);
   });
 
-  it("still withholds when the newest balance's debt carrying total is refused, and says so", () => {
+  it("excludes the newest refused carrying total while preserving its refusal for the EV bridge", () => {
     const bundle = currencyBundle({ balanceQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
     const newest = quarters(bundle)[0]!;
     newest.fieldConflicts = { totalDebt: { vendorValue: 300 * M, secValue: null, usable: false, reason: "incomplete debt carrying value: fixture" } };
     const wacc = runStageB(bundle).returns.wacc;
-    expect(wacc.waccPct).toBeNull();
-    expect(wacc.gaps.find(g => g.field === "returns.wacc.weights" && g.severity === "critical")?.reason).toContain("incomplete debt carrying value: fixture");
+    expect(wacc.waccPct).not.toBeNull();
+    expect(wacc.debtBasis).toContain("incomplete debt carrying value: fixture");
+    expect(runStageB(bundle).valuation.multiples?.enterpriseValue.value).toBeNull();
   });
 });

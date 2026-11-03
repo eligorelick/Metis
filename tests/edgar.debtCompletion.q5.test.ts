@@ -35,13 +35,17 @@ describe("exact same-filing debt completion", () => {
     expect(out.row).toMatchObject({ longTermDebt: 100 * M, shortTermDebt: 4 * M, totalDebt: 130 * M });
   });
   it("reads the existing noncurrent notes-and-loans scope with current notes", () => {
-    const tags = { ...tagged, LongTermNotesAndLoans: 100, NotesPayableCurrent: 4 };
+    const tags: Record<string, number> = { ...tagged, LongTermNotesAndLoans: 100, NotesPayableCurrent: 4 };
     delete tags.LongTermDebtNoncurrent; delete tags.LongTermDebtCurrent;
     expect(admit(tags).row.totalDebt).toBe(130 * M);
   });
   it("does not complete contradictory current debt or an unreconciled vendor total", () => {
     expect(admit(tagged, row({ shortTermDebt: 9 * M, totalDebt: 127 * M })).row.totalDebt).toBeNull();
     expect(admit(tagged, row({ totalDebt: 119 * M })).row.totalDebt).toBeNull();
+  });
+  it("does not invent a new completeness refusal for a vendor line already on total lease scope", () => {
+    const vendor = row({ capitalLeaseObligations: 26 * M, shortTermDebt: 10 * M, totalDebt: 136 * M });
+    expect(admit(tagged, vendor).row.totalDebt).toBe(136 * M);
   });
   it("never mixes accessions or chooses an ambiguous value in one filing", () => {
     for (const ambiguous of [false, true]) {
