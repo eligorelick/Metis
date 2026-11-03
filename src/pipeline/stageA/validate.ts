@@ -1,3 +1,4 @@
+import { resolveForeignValuation } from "@/pipeline/foreignCurrency";
 /**
  * Stage A validation  — pure, deterministic, no network/db/LLM.
  *
@@ -122,6 +123,8 @@ export interface ValidateProfileRow {
 }
 
 export interface ValidatableBundle {
+  builtAt?: string;
+  valuationFx?: import("@/pipeline/types").DataBundle["valuationFx"];
   symbol: string;
   quote: FetchResult<unknown>;
   /** Company profile (optional): drives bank-revenue routing for the cross-check (L1). */
@@ -1129,6 +1132,14 @@ function checkCurrencyConsistency(bundle: ValidatableBundle, c: Collector): void
   }
 
   const mismatch = tradingCurrency !== reportingCurrency;
+  // Full Stage A bundles carry FX/security inputs. The resolver validates each
+  // optional member and fails closed for narrow legacy validation fixtures.
+  const translated = mismatch && bundle.valuationFx && bundle.builtAt
+    ? resolveForeignValuation(bundle as unknown as import("@/pipeline/types").DataBundle, reportingCurrency).basis : null;
+  if (translated) {
+    c.checks.push({ id: "currencyConsistency", name: "Reporting vs trading currency", status: "pass", detail: translated.note });
+    return;
+  }
   c.checks.push({
     id: "currencyConsistency",
     name: "Reporting vs trading currency",

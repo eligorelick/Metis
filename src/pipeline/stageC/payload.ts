@@ -715,7 +715,7 @@ function computedCurrencies(bundle: DataBundle, computed: ComputedMetrics): Comp
   const accrualDates = [computed.forensics.accruals?.asOf.current ?? null, computed.forensics.accruals?.asOf.prior ?? null];
   return {
     trading: currencies.trading,
-    model: currencies.model,
+    model: computed.valuationTranslation?.fx.quoteCurrency ?? currencies.model,
     // Several rows sharing the date (a restatement) must agree.
     fcf: sharedRowCurrency(rowsOn(rowsOf(bundle.statements.cashflowAnnual), fcfDate)),
     runwayBurn:
