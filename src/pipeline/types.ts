@@ -408,6 +408,8 @@ export interface DataBundle {
   insiderSentiment: FetchResult<InsiderSentimentMonth[]>;
 
   macro: MacroBundle;
+  /** H.10 native level observations for reporting-currency to USD valuation, dated at/before the quote. */
+  valuationFx?: FetchResult<FredObservation[]>;
   treasury: FmpFetch<FmpTreasuryRatesRow>;
   /**
    * Audit 2026-10-22 B-4: the risk-free rate from the last good cached DGS10

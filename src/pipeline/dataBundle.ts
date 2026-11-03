@@ -1,4 +1,6 @@
 import {historyWindowFallback,historyTailTtlMs} from "@/providers/historyCache";
+import { fetchValuationFx } from "@/pipeline/fx";
+import { quotePriceObservationDay } from "@/providers/fmp";
 import { parsePrimaryEconomicShares, economicEvidenceFromInventories, type FilingEconomicShares } from "@/edgar/economicShares";
 import { parsePrimaryCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { parseEquityStatementNci, type FilingEquityStatementNci } from "@/edgar/equityStatementNci";
@@ -2434,6 +2436,14 @@ export async function buildDataBundle(
 
   progress("assemble: source + missing-data manifests");
 
+  // After fallbacks: use the admitted statement currency and the actual quote
+  // session, never the acquisition clock. Same-currency runs add no member/read.
+  const reportingCurrency = statements.incomeAnnual.ok ? statements.incomeAnnual.value.data.rows[0]?.reportedCurrency ?? null : null;
+  const tradingCurrency = profile.ok ? profile.value.data.rows[0]?.currency ?? null : null;
+  const priceRow = quote.ok ? quote.value.data.rows[0] : undefined;
+  const valuationFx = reserved || reportingCurrency === tradingCurrency ? undefined
+    : await fetchValuationFx(reportingCurrency, tradingCurrency, quotePriceObservationDay(priceRow), fredFetch);
+
   // The producer registry is discovered from the exact object returned below.
   // There is no independently keyed inventory that can drift or be mistyped.
   // The optional peer reads can finish before later core/keyless reads. Compare
@@ -2486,6 +2496,7 @@ export async function buildDataBundle(
     shortInterestTrend: shortInterestTrendRes,
     insiderSentiment: insiderSentimentRes,
     macro,
+    ...(valuationFx === undefined ? {} : { valuationFx }),
     treasury,
     ...(riskFreeFallback === undefined ? {} : { riskFreeFallback }),
     marketRiskPremium,
