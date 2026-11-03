@@ -2,6 +2,7 @@ import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts } from "@/edgar/xbr
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import type { EdgarBundle } from "@/pipeline/types";
 import { establishedIsoCode } from "@/pipeline/estimateCurrency";
+import { COMBINED_CURRENT_DEBT_TAG, tagsFor } from "@/edgar/tagSynonyms";
 
 export interface LeaseEvidenceContext {
   cutoff?: string | null;
@@ -172,6 +173,7 @@ export function leaseDebtScopeRefusal(row: LeaseScopeRow | null | undefined, inc
 /** Caller supplies issuer-confirmed facts. Restore only omitted provenance for
  * an unchanged financing component in the partial operating lease's filing. */
 export function restoreLeaseFinancingProvenance<T extends LeaseScopeRow & { reportedCurrency?: string | null }>(row: T, facts: CompanyFacts, observedAt: string): T {
+  row = restoreRefusedOperatingPortion(row, facts, observedAt);
   if (incompleteLeaseCoverage(row)?.operating == null || !row.date || !row.reportedCurrency) return row;
   const lease = row.fieldProvenance?.operatingLeaseLiability ?? row.fieldProvenance?.capitalLeaseObligations;
   if (lease?.source !== "edgar" || lease.periodEnd !== row.date || lease.unit !== row.reportedCurrency) return row;
@@ -187,6 +189,57 @@ export function restoreLeaseFinancingProvenance<T extends LeaseScopeRow & { repo
       periodStart: null, observedAt, tags: [`us-gaap/${tag}`], filings: [{ accn: point.accn, filed: point.filed, form: point.form }] } } };
   }
   return result;
+}
+
+/** D-186: a missing operating maturity cancels on the existing lease-excluded
+ * basis when one filing proves every borrowing and the retained composition.
+ * Restore a PARTIAL observation, never a complete lease-inclusive total. The
+ * existing lease-scope guard still refuses the lease-inclusive convention. */
+function restoreRefusedOperatingPortion<T extends LeaseScopeRow>(row: T, facts: CompanyFacts, observedAt: string): T {
+  const refused = row.fieldConflicts?.totalDebt;
+  if (row.totalDebt != null || refused?.usable !== false ||
+    !/^incomplete debt carrying value: the vendor lease line /.test(refused.reason ?? "") ||
+    !/no total operating-lease liability/.test(refused.reason ?? "") ||
+    !validDay(row.date) || !validDay(observedAt.slice(0, 10)) || !establishedIsoCode(row.reportedCurrency) ||
+    Number((row as { cik?: unknown }).cik) !== facts.cik ||
+    ["shortTermDebt", "longTermDebt", "operatingLeaseLiability", "financeLeaseLiability", "capitalLeaseObligations"].some(f => row.fieldConflicts?.[f]?.usable === false)) return row;
+  const date = row.date, unit = row.reportedCurrency!;
+  const at = (tag: string) => {
+    const c = facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
+    return parseFactPoints(c?.units?.[unit] ?? []).filter(p => !p.start && p.end === date && p.val >= 0 &&
+      CORE_FACT_FORMS.has(p.form) && validDay(p.filed) && p.filed >= date && p.filed <= observedAt.slice(0, 10) && /^\d{10}-\d{2}-\d{6}$/.test(p.accn));
+  };
+  // An unseen finance maturity must never cancel. Unknown extra borrowings or
+  // an inclusive debt/finance scope also cannot be assumed outside the sum.
+  const financeTotals = tagsFor("financeLeaseLiability");
+  const financeTags = [...financeTotals, ...tagsFor("financeLeaseLiabilityParts"), ...financeTotals.flatMap(t => [`${t}Current`, `${t}Noncurrent`])];
+  if ([...financeTags, "CommercialPaper", "ShortTermBorrowings", "DebtCurrent", "NotesAndLoansPayableCurrent", "NotesPayableCurrent",
+    COMBINED_CURRENT_DEBT_TAG, "LongTermDebtAndCapitalLeaseObligations", "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"].some(t => at(t).length > 0)) return row;
+  if (at("OperatingLeaseLiability").length || at("OperatingLeaseLiabilityCurrent").length) return row;
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+  const total = (refused as { vendorValue?: unknown }).vendorValue;
+  if (!finite(total) || !finite(row.shortTermDebt) || !finite(row.longTermDebt) || !finite(row.capitalLeaseObligations) ||
+    row.financeLeaseLiability != null && row.financeLeaseLiability !== 0 ||
+    row.operatingLeaseLiability != null && row.operatingLeaseLiability !== row.capitalLeaseObligations ||
+    Math.abs(total - row.shortTermDebt - row.longTermDebt - row.capitalLeaseObligations) > Math.max(1, total * 1e-9)) return row;
+  const op = at("OperatingLeaseLiabilityNoncurrent").sort((a, b) => b.filed.localeCompare(a.filed));
+  for (const p of op) {
+    const fields = [["shortTermDebt", "LongTermDebtCurrent"], ["longTermDebt", "LongTermDebtNoncurrent"], ["operatingLeaseLiability", "OperatingLeaseLiabilityNoncurrent"]] as const;
+    const values = fields.map(([, tag]) => at(tag).filter(v => v.accn === p.accn && v.filed === p.filed && v.form === p.form));
+    if (values.some(vs => !vs.length || new Set(vs.map(v => v.val)).size !== 1) ||
+      values[0]![0]!.val !== row.shortTermDebt || values[1]![0]!.val !== row.longTermDebt || values[2]![0]!.val !== row.capitalLeaseObligations) continue;
+    const evidence = (tag: string) => ({ source: "edgar" as const, unit, observedAt, periodStart: null, periodEnd: date,
+      tags: [`us-gaap/${tag}`], filings: [{ accn: p.accn, filed: p.filed, form: p.form }] });
+    const conflicts = { ...row.fieldConflicts };
+    delete conflicts.totalDebt;
+    if (conflicts.netDebt?.reason === refused.reason) delete conflicts.netDebt;
+    return { ...row, totalDebt: total, operatingLeaseLiability: p.val, fieldConflicts: conflicts,
+      fieldProvenance: { ...row.fieldProvenance,
+        ...Object.fromEntries(fields.map(([field, tag]) => [field, evidence(tag)])),
+        capitalLeaseObligations: evidence("OperatingLeaseLiabilityNoncurrent"),
+        totalDebt: { ...evidence("OperatingLeaseLiabilityNoncurrent"), tags: fields.map(([, tag]) => `us-gaap/${tag}`) } } };
+  }
+  return row;
 }
 type Portion = "current" | "noncurrent";
 export function incompleteLeaseCoverage(row: LeaseScopeRow | null | undefined): { operating: Portion | null; finance: Portion | null; note: string } | null {

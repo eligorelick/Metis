@@ -51,8 +51,14 @@ export function resolveForeignValuation(bundle: DataBundle, reportingCurrency: s
       validDay(p.end) && validDay(p.filed) && p.end <= quoteDate! && p.filed <= bundle.builtAt.slice(0, 10) &&
       p.filed >= p.end && positive(p.val) && /^\d{10}-\d{2}-\d{6}$/.test(p.accn)) : [];
   };
-  const current = points("dei", "EntityCommonStockSharesOutstanding").filter(p => !p.start && days(p.end, quoteDate!) <= 400)
+  const recentOutstanding = (ps: FactPoint[]) => ps.filter(p => !p.start && days(p.end, quoteDate!) <= 400)
     .sort((a, b) => b.end.localeCompare(a.end) || b.filed.localeCompare(a.filed));
+  const deiOutstanding = recentOutstanding(points("dei", "EntityCommonStockSharesOutstanding"));
+  // D-186: IFRS issuers may tag their outstanding count only in the IFRS
+  // namespace. Issued/authorized shares and monetary treasury stock are not
+  // synonyms. Keep an established DEI path unchanged; all age/identity,
+  // disagreement and independent weighted-average checks still apply.
+  const current = deiOutstanding.length ? deiOutstanding : recentOutstanding(points("ifrs-full", "NumberOfSharesOutstanding"));
   const cover = current[0];
   if (!cover) return refuse("filed ordinary outstanding count is absent or older than 400 days");
   if (current.some(p => p.end === cover.end && p.filed === cover.filed && p.val !== cover.val)) return refuse("filed outstanding count is disputed");

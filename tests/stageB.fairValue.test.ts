@@ -115,6 +115,20 @@ describe("fairValue — available", () => {
 });
 
 describe("fairValue — suppressed (never fabricate)", () => {
+  it("discloses the refused debt behind missing invested-capital fields", () => {
+    const r = computeFairValue(makeInputs({ valuation: dcfValuation({ dcf: null, gaps: [
+      { field: "valuation.dcf.salesToCapital", reason: "balance-sheet fields missing for invested capital", severity: "critical" },
+      { field: "valuation.netDebt", reason: "total debt withheld: financing debt collapsed without repayments", severity: "warn" },
+    ] }) }));
+    expect(r.reasons[0]!.reason).toContain("financing debt collapsed without repayments");
+  });
+  it("discloses the failed ADS/FX evidence behind the currency guard", () => {
+    const r = computeFairValue(makeInputs({ valuation: dcfValuation({ dcf: null, gaps: [
+      { field: "valuation.dcf.currency", reason: "EUR != USD", severity: "critical" },
+      { field: "valuation.currencyConversion", reason: "filed ordinary / quoted counts disagree", severity: "warn" },
+    ] }) }));
+    expect(r.reasons[0]!.reason).toContain("filed ordinary / quoted counts disagree");
+  });
   it("REIT route has no intrinsic per-share model → suppressed", () => {
     const r = computeFairValue(makeInputs({ valuation: reitValuationResult() }));
     expect(r.status).toBe("suppressed");
