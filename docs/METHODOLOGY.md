@@ -1180,10 +1180,16 @@ pulled down and the note says so.
 **This is a house convention, not a standard, and it is labelled as such
 wherever it is printed.**
 
-The default terminal ROIC equals the WACC: growth adds nothing after the
-explicit horizon. That is the Koller/Goedhart/Wessels recommendation for most
-firms. Applied to every issuer, however, it values an evidenced compounder as
-if its returns collapsed to the cost of capital in year 11.
+The input named `terminal.roicTermPct` is the return on **new** invested
+capital (RONIC) in the continuing-value formula. Its default equals WACC:
+new growth earns no excess return after the explicit horizon. Cash flows from
+the existing business still have value; the formula does not reset the return
+on all existing assets to WACC in year 11. Koller, Goedhart and Wessels allow
+RONIC at WACC when competitive advantages erode, and above it when those
+advantages persist. Choosing between them requires evidence about future
+competition; historical average ROIC alone does not establish marginal RONIC.
+See [McKinsey's continuing-value guidance](https://www.linkedin.com/pulse/dont-only-use-multiples-your-continuing-mbmtc)
+and [Damodaran, Investment Valuation, chapter 12](https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch12.pdf).
 
 So: the implementation sorts computable annual ROIC observations newest-first
 and inspects at most five. When ROIC exceeded the applicable WACC in **all of
@@ -1230,7 +1236,10 @@ answering HTTP 200 with an HTML maintenance or outage page (a body opening with
 backoff, then the keyed path tries `fredgraph.csv`, and the gap names an HTML
 page rather than an unknown series.
 
-Terminal reinvestment is g ÷ ROIC_terminal, Damodaran's consistency rule.
+Terminal reinvestment is g ÷ RONIC (the input named ROIC_terminal),
+Damodaran's consistency rule. This is the value-driver formula
+`NOPAT_(N+1) × (1 − g / RONIC) / (WACC − g)`, rather than a perpetuity of the
+last explicit year's FCFF with its old reinvestment requirement.
 
 ---
 
