@@ -671,6 +671,9 @@ export function buildJudgeFraming(
     "  Say 'the price cannot be judged' only when no multiple is meaningful, and state the evidence that would decide it.",
   // Q1 (owner request 2026-11-02): a sell-side note opens on what changed, not only on the numbers.
   "  The synthesis and the executive summary weigh the most important recent development and the top catalyst and risk alongside the numbers.",
+  // D-175: a provider's first rows for a new filing are the least reliable.
+  "  When the manifest carries `manifest.validation.freshFiling`, the executive summary says once, citing that row, that figures from the",
+  "  newest filing are provisional because SEC data has not yet confirmed them, and weighs conclusions that rest on them accordingly.",
     "  State each evidence limit once, where it bears on the view: a sentence saying what is",
     "  not established is a limit, not a conclusion, and the summary is not built from them. When the analyst estimates",
     "  section carries a \"Consensus target vs our value\" note that calls the two materially different, the summary",

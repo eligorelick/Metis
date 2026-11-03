@@ -108,3 +108,10 @@ describe("priority-fix review rules", () => {
     expect(judge).toContain("provider-EPS multiple whose accounting basis is unverified");
   });
 });
+
+describe("fresh-filing caution rule (D-175)", () => {
+  it("asks the summary to call figures from a filing SEC has not yet confirmed provisional", () => {
+    const rules = [buildJudgeFraming(), buildJudgeFraming(undefined, true)].join(" ");
+    expect(rules).toMatch(/manifest\.validation\.freshFiling[\s\S]{0,200}provisional because SEC data has not yet confirmed them/);
+  });
+});
