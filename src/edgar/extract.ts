@@ -152,6 +152,8 @@ export interface ExtractOptions {
    * Purely a performance option — output is identical whether supplied or not.
    */
   preparsed?: ParsedDocument;
+  /** Absolute Date.now() deadline for the optional annual recovery work. */
+  recoveryDeadlineMs?: number;
 }
 
 export type SectionKind = "mdna" | "riskFactors" | "business" | "financialStatements" | "otherInformation";
@@ -1229,7 +1231,8 @@ export function extractSection(html: string, spec: SectionSpec, opts: ExtractOpt
   const notes: string[] = [];
   const layersTried: string[] = [];
 
-  const { pre, entries, fullText } = opts.preparsed ?? parseDocument(html);
+  const parsed = opts.preparsed ?? parseDocument(html);
+  const { pre, entries, fullText } = parsed;
   const diagnostics: ExtractDiagnostics = {
     layersTried,
     tocEntryCount: entries.length,
@@ -1307,7 +1310,7 @@ export function extractSection(html: string, spec: SectionSpec, opts: ExtractOpt
         diagnostics.stub = { chars: citi.text.length, excerpt: citi.text.slice(0, 300) };
       }
     }
-    const recovered = recoverAnnualSection(pre, entries, spec, minChars, diagnostics);
+    const recovered = recoverAnnualSection(parsed, spec, minChars, diagnostics, opts.recoveryDeadlineMs);
     if (recovered !== null) return recovered;
     return fail(
       diagnostics,
@@ -1354,9 +1357,6 @@ export function extractSection(html: string, spec: SectionSpec, opts: ExtractOpt
     }
   }
 
-  const recovered = recoverAnnualSection(pre, entries, spec, minChars, diagnostics);
-  if (recovered !== null) return recovered;
-
   // 3b — exhibit redirect signal (FRD/WFC/Seneca). Caller resolves EX-13 via
   // the index-headers TYPE map and calls extractFromExhibit().
   if (EXHIBIT_PHRASE_RE.test(sectionText)) {
@@ -1372,6 +1372,9 @@ export function extractSection(html: string, spec: SectionSpec, opts: ExtractOpt
       }),
     );
   }
+
+  const recovered = recoverAnnualSection(parsed, spec, minChars, diagnostics, opts.recoveryDeadlineMs);
+  if (recovered !== null) return recovered;
 
   // Layer 4 — loud hard-fail. NEVER return a stub silently.
   layersTried.push("layer4-hard-fail");
@@ -1461,14 +1464,16 @@ interface AppendixElement {
  * Annual acquisition supplies the full source under its existing elapsed budget:
  * the guidance/event collector's unrelated 2M cap does not apply here.
  */
-function appendixStructure(source: string, filingLayout = false) {
+function appendixStructure(source: string, filingLayout = false, expired?: () => boolean) {
   const elements: AppendixElement[] = [];
   const stack: AppendixElement[] = [];
   const spans: { start: number; end: number; text: string }[] = [];
   const blocks = /^(?:h[1-6]|p|div|td|th|tr|table|section)$/;
   const voids = /^(?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/;
   let cursor = 0;
+  let tokens = 0;
   while (cursor < source.length) {
+    if ((++tokens & 1023) === 0 && expired?.()) return null;
     const start = source.indexOf("<", cursor);
     const textEnd = start < 0 ? source.length : start;
     if (!stack.at(-1)?.hidden && textEnd > cursor) spans.push({ start: cursor, end: textEnd, text: source.slice(cursor, textEnd) });
@@ -1557,23 +1562,42 @@ function appendixStructure(source: string, filingLayout = false) {
   return { elements, text };
 }
 
+// Keyed by the caller's shared document object: no global HTML retention, and
+// no eager structural work for successful legacy sections. Cache malformed
+// parses too, but never cache a parse interrupted by its caller's deadline.
+const annualRecoveryStructures = new WeakMap<ParsedDocument, ReturnType<typeof appendixStructure>>();
+
 /** A failed annual item may be retried against closed, source-bound headings.
  * Ordinary successes never enter these routes. No route can slice to EOF. */
 function recoverAnnualSection(
-  pre: string, entries: TocEntry[], spec: SectionSpec, minChars: number, diagnostics: ExtractDiagnostics,
+  parsed: ParsedDocument, spec: SectionSpec, minChars: number, diagnostics: ExtractDiagnostics, deadline?: number,
 ): ExtractResult | null {
   if (spec.form === "10-Q" || !["business", "mdna", "riskFactors"].includes(specKind(spec))) return null;
   diagnostics.layersTried.push("annual-structure-recovery");
-  const structure = appendixStructure(pre, true);
+  const expired = () => {
+    if (deadline === undefined || Date.now() < deadline) return false;
+    const note = "annual recovery stopped at the filing extraction deadline";
+    if (!diagnostics.notes.includes(note)) diagnostics.notes.push(note);
+    return true;
+  };
+  if (expired()) return null;
+  const { pre, entries } = parsed;
+  let structure = annualRecoveryStructures.get(parsed);
+  if (structure === undefined) {
+    structure = appendixStructure(pre, true, expired);
+    if (expired()) return null;
+    annualRecoveryStructures.set(parsed, structure);
+  }
   if (!structure) return null;
   const { elements, text } = structure;
-  const nodeText = (n: AppendixElement) => text(n.start, n.end);
+  const nodeText = (n: AppendixElement) => expired() ? "" : text(n.start, n.end);
   const ancestor = (n: AppendixElement, tag: string): AppendixElement | undefined => {
     for (let p = n.parent; p; p = p.parent) if (p.tag === tag) return p;
   };
   const children = new Map<AppendixElement, AppendixElement[]>();
   const targets = new Map<string, AppendixElement[]>();
   for (const n of elements) {
+    if (expired()) return null;
     if (n.parent) {
       const list = children.get(n.parent) ?? [];
       list.push(n); children.set(n.parent, list);
@@ -1619,36 +1643,52 @@ function recoverAnnualSection(
     "4A": /^unresolvedstaffcomments$/, "5": /^operatingandfinancialreviewandprospects$/,
     "6": /^directorsseniormanagementandemployees$/, "7": /^majorshareholdersandrelatedpartytransactions$/,
   };
-  const itemHeading = (n: AppendixElement): string | null => {
+  const headingItem = (n: AppendixElement): { id: string; title: string } | null => {
     const title = nodeText(n);
-    if (title.length > 200 || /<a\b[^>]*\bhref\s*=/i.test(pre.slice(n.start, n.end))) return null;
-    const m = /^Item\s+(\d{1,2}(?:\s*\.?\s*[A-D])?)(?=[.\s])[\s.:]+(.+)$/i.exec(title);
+    if (/<a\b[^>]*\bhref\s*=/i.test(pre.slice(n.start, n.end))) return null;
+    const m = /^Item\s+(\d{1,2}(?:\s*\.?\s*[A-D])?)(?=[.\s]|$)[\s.:]*(.*)$/i.exec(title);
     if (!m) return null;
-    const id = normItem(m[1]!);
-    if (closed[id]?.test(key(m[2]!))) return id;
+    return { id: normItem(m[1]!), title: m[2]! };
+  };
+  const itemHeading = (n: AppendixElement): string | null => {
+    if (nodeText(n).length > 200) return null;
+    const heading = headingItem(n);
+    if (!heading) return null;
+    const { id, title } = heading;
+    if (closed[id]?.test(key(title))) return id;
     // Some 20-Fs name the issuer in Item 4. Require the full title in the
     // contents TOC AND its unique destination at this very heading.
-    if (spec.form === "20-F" && id === "4" && /^informationabout[a-z][a-z0-9&-]*$/.test(key(m[2]!)) &&
-        entries.some(e => key(e.title) === key(title) && target(e.target) !== null &&
+    if (spec.form === "20-F" && id === "4" && /^informationabout[a-z][a-z0-9&-]*$/.test(key(title)) &&
+        entries.some(e => key(e.title) === key(nodeText(n)) && target(e.target) !== null &&
           target(e.target)!.start <= n.start && n.start - target(e.target)!.start < 2_000 && text(target(e.target)!.start, n.start) === "")) return id;
     return null;
   };
   const itemHeads = [...headings, ...layoutTitles].map(n => ({ n, id: itemHeading(n) })).filter(h => h.id !== null)
     .sort((a, b) => a.n.start - b.n.start);
+  // End proof needs an item number, not an exact SEC title. Even a multi-cell
+  // table row can mark the next item; it can never establish a section start.
+  const boundaryRows = rows.filter(n => {
+    const cs = cells(n);
+    return cs.length >= 2 && cs.length <= 4 && /^Item\s+\d{1,2}[A-D]?\.?$/i.test(nodeText(cs[0]!));
+  });
+  const boundaries = [...headings, ...boundaryRows].map(n => ({ n, id: headingItem(n)?.id }))
+    .filter(h => h.id !== undefined).sort((a, b) => a.n.start - b.n.start);
   const accept = (body: string, method: ExtractMethod, note: string): ExtractResult | null => {
-    if (detectStub(body, minChars).isStub) return null;
+    if (expired() || detectStub(body, minChars).isStub) return null;
     diagnostics.notes.push(note);
     return { ok: true, text: body, method, chars: body.length, diagnostics };
   };
 
+  if (expired()) return null;
   if (spec.form === "20-F" && spec.item === "3D") {
     // D. Risk Factors is subordinate to Item 3, not an Item 3D heading.
     // Pair it with the actual Item 3/4 blocks; repeated Item 3 running heads
     // after D cannot move the start past the risk discussion.
-    const risks = headings.filter(n => /^(?:d)?riskfactors$/.test(key(nodeText(n))));
+    const risks = headings.filter(n => /^(?:d)?riskfactors$/.test(key(nodeText(n))) &&
+      !/<a\b[^>]*\bhref\s*=/i.test(pre.slice(n.start, n.end)));
     const candidates = risks.flatMap(risk => {
       const before = itemHeads.filter(h => h.n.end <= risk.start).at(-1);
-      const after = itemHeads.find(h => h.n.start > risk.end && h.id !== "3");
+      const after = boundaries.find(h => h.n.start > risk.end && h.id !== "3");
       return before?.id === "3" && after?.id === "4" ? [{ start: risk.start, end: after.n.start }] : [];
     });
     if (candidates.length === 1) {
@@ -1662,7 +1702,7 @@ function recoverAnnualSection(
     const starts = itemHeads.filter(h => h.id === spec.item);
     if (idx >= 0 && starts.length === 1) {
       const start = starts[0]!.n;
-      const end = itemHeads.find(h => h.n.start > start.end && seq.slice(idx + 1, idx + 5).some(d => d.id === h.id));
+      const end = boundaries.find(h => h.n.start > start.end && seq.slice(idx + 1).some(d => d.id === h.id));
       if (end) {
         const result = accept(text(start.start, end.n.start), "structured-item", "closed standalone item headings bound the complete item, including subsections");
         if (result) return result;
@@ -1677,7 +1717,11 @@ function recoverAnnualSection(
     const mappings: { row: AppendixElement; page: number; id: string }[] = [];
     for (const [table, trs] of tableRows) {
       if (!markers.some(m => m.end <= table.start && table.start - m.end < 25_000)) continue;
-      if (!trs.some(r => cells(r).map(nodeText).join("|") === "Item|Form 20-F caption|Location in this document|Page")) continue;
+      if (!trs.some(r => {
+        const ts = cells(r).map(n => key(nodeText(n)));
+        return ts.length === 4 && /^(?:item|itemnumber)$/.test(ts[0]!) && /^form20f(?:caption|description)$/.test(ts[1]!) &&
+          /^locationinthis(?:document|report)$/.test(ts[2]!) && /^pages?$/.test(ts[3]!);
+      })) continue;
       let item = "";
       for (const row of trs) {
         const cs = cells(row);
@@ -1705,11 +1749,24 @@ function recoverAnnualSection(
       const proofs = tocs.flatMap(toc => {
         const tocTable = tocRows.has(toc.rowIndex) ? ancestor(tocRows.get(toc.rowIndex)!, "table") : undefined;
         const start = nearHeading(mapping.id, toc.title);
-        const next = tocTable && dest ? entries.filter(e => e.rowIndex > toc.rowIndex && e.pageNo !== undefined && e.pageNo > mapping.page &&
+        const next = tocTable && dest ? entries.filter(e => e.pageNo !== undefined &&
           tocRows.has(e.rowIndex) && ancestor(tocRows.get(e.rowIndex)!, "table") === tocTable && (target(e.target)?.start ?? -1) > dest.start)
-          .sort((a, b) => a.rowIndex - b.rowIndex)[0] : undefined;
+          .sort((a, b) => target(a.target)!.start - target(b.target)!.start)[0] : undefined;
+        // A differently indented/nested title may be a subsection. Without
+        // matching row hierarchy, withhold rather than truncate at that link.
+        const titleShape = (entry: TocEntry) => {
+          const row = tocRows.get(entry.rowIndex);
+          if (!row) return null;
+          const cs = cells(row), titleCells = cs.filter(c => key(nodeText(c)) === key(entry.title));
+          if (titleCells.length !== 1) return null;
+          const cell = titleCells[0]!;
+          return JSON.stringify([cs.length, cs.indexOf(cell), ...elements.filter(n => n === row || n.start >= cell.start && n.end <= cell.end).map(n =>
+            [n.tag, n.attrs.get("class") ?? "", (n.attrs.get("style") ?? "").split(";").map(s => s.trim().toLowerCase())
+              .filter(s => /^(?:left|padding-left|margin-left|text-indent|list-style(?:-type)?)\s*:/.test(s)).sort()])]);
+        };
+        if (!next || next.pageNo! < mapping.page || titleShape(toc) === null || titleShape(toc) !== titleShape(next)) return [];
         const end = next ? nearHeading(next.target, next.title) : null;
-        return start && end && start.start < end.start && end.end < mapping.row.start ? [{ start: start.start, end: end.start }] : [];
+        return start && end && start.tag === end.tag && start.start < end.start && end.end < mapping.row.start ? [{ start: start.start, end: end.start }] : [];
       });
       // Integrated reports can repeat the contents table locally. Repetition
       // is corroboration only when every copy proves identical source bounds.
@@ -1722,7 +1779,7 @@ function recoverAnnualSection(
     }
   }
 
-  if (spec.form !== "10-K" || !["1", "7"].includes(spec.item)) return null;
+  if (expired() || spec.form !== "10-K" || !["1", "7"].includes(spec.item)) return null;
   // A linked cross-reference index can explicitly incorporate disjoint pages.
   // Require every mapped range, every link and every printed page. A partial
   // assembly cannot stand in for the item. Printed pages, not the next TOC
@@ -1738,18 +1795,40 @@ function recoverAnnualSection(
   const [indexTable, trs] = indexTables[0]!;
   if (trs.filter(r => cells(r).some(c => new RegExp(`^Item\\s+${spec.item}\\.$`, "i").test(nodeText(c)))).length !== 1) return null;
   const mapped: AppendixElement[] = [];
-  let active = false;
+  let active = false, closedItem = false;
   for (const row of trs) {
     const cs = cells(row), ts = cs.map(nodeText);
     const item = ts[0] ? ITEM_CELL_RE.exec(ts[0]) : null;
     if (item) {
-      if (active) break;
+      if (active) { closedItem = true; break; }
       active = normItem(item[1]!) === spec.item;
       if (active && !closed[spec.item]?.test(key(ts[1] ?? ""))) return null;
     }
-    if (active && ts.at(-1)?.trim()) mapped.push(cs.at(-1)!);
+    if (active) {
+      if (!ts.some(Boolean) && nodeText(row) === "") continue;
+      if (cs.length !== 3 || ts.slice(0, -1).some(t => /^Pages?\s+\d/i.test(t) || PAGE_RANGES_RE.test(t))) return null;
+      if (ts[2]?.trim()) mapped.push(cs[2]!);
+      else if (!item && ts.some(Boolean)) return null;
+    }
   }
-  if (!mapped.length) return null;
+  if (!closedItem || !mapped.length) return null;
+  // Other items may claim a range endpoint too. Whole-page slicing cannot
+  // prove which portion belongs here, even when both links resolve correctly.
+  const otherClaims: [number, number][] = [];
+  let owner = "";
+  for (const [table, claimRows] of tableRows) {
+    if (table.start < index.end || table.start - index.end >= 20_000) continue;
+    for (const row of claimRows) {
+      const ts = cells(row).map(nodeText);
+      const item = ts[0] ? ITEM_CELL_RE.exec(ts[0]) : null;
+      if (item) owner = normItem(item[1]!);
+      if (!owner || owner === spec.item) continue;
+      for (const value of ts.slice(1)) {
+        const numbers = value.replace(/^Pages?\s+/i, "").replace(/\s*([,;])\s*/g, "$1");
+        if (PAGE_RANGES_RE.test(numbers)) otherClaims.push(...parsePageRanges(numbers));
+      }
+    }
+  }
   const breaks = elements.filter(n => n.tag === "hr" && !n.hidden && /(?:^|;)\s*page-break-after\s*:\s*always\s*(?:;|$)/i.test(n.attrs.get("style") ?? ""));
   const pages = new Map<number, { start: number; end: number } | null>();
   const furniture: { start: number; end: number }[] = [];
@@ -1783,6 +1862,10 @@ function recoverAnnualSection(
     let linkAt = 0;
     for (const [rangeIndex, [a, b]] of ranges.entries()) {
       if (a < 1 || b < a || b - a > 200) return null;
+      if (otherClaims.some(([lo, hi]) => a >= lo && a <= hi || b >= lo && b <= hi)) {
+        diagnostics.notes.push(`linked index withheld: endpoint of pages ${a}-${b} is also claimed by another item`);
+        return null;
+      }
       const first = pages.get(a), last = pages.get(b);
       if (!first || !last) return null;
       let prior = -1;

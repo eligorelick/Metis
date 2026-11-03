@@ -918,6 +918,7 @@ async function runExtraction(
   job: SectionJob,
   symbol: string,
   preparsed?: ParsedDocument,
+  recoveryDeadlineMs?: number,
 ): Promise<FetchResult<ExtractedSection>> {
   const field = `edgar.${job.member}(${symbol})`;
   const asOf = filing.reportDate !== "" ? filing.reportDate : filing.filingDate;
@@ -955,7 +956,7 @@ async function runExtraction(
 
   let res: ReturnType<typeof extractSection>;
   try {
-    res = extractSection(html, job.spec, { ...(preparsed !== undefined ? { preparsed } : {}), ...(job.stubMinChars !== undefined ? { stubMinChars: job.stubMinChars } : {}) });
+    res = extractSection(html, job.spec, { ...(preparsed !== undefined ? { preparsed } : {}), ...(job.stubMinChars !== undefined ? { stubMinChars: job.stubMinChars } : {}), ...(recoveryDeadlineMs !== undefined ? { recoveryDeadlineMs } : {}) });
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     return gapResult(field, `section extraction threw: ${reason}`, job.failSeverity, [documentUrl]);
@@ -1353,6 +1354,7 @@ async function buildEdgarBundle(
           annualRiskJob,
           symbol,
           parsedDoc,
+          t0 + edgarSectionBudgetMs,
         );
         const elapsedMs = Date.now() - t0;
         if (elapsedMs > edgarSectionBudgetMs) {
@@ -1375,6 +1377,7 @@ async function buildEdgarBundle(
             annualMdnaJob,
             symbol,
             parsedDoc,
+            t0 + edgarSectionBudgetMs,
           );
         }
         // D-63: Item 1 (Business) from the same parse, under the same budget.
@@ -1386,7 +1389,7 @@ async function buildEdgarBundle(
           } else if (filing.form === "10-K" || filing.form === "20-F") {
             business = await runExtraction(edgar, cik, filing, docUrl, html, doc.value.fetchedAt,
               { member: "business", sectionName: "item1", spec: filing.form === "20-F" ? { form: "20-F", item: "4" } : { form: "10-K", item: "1" }, failSeverity: "warn" },
-              symbol, parsedDoc);
+              symbol, parsedDoc, t0 + edgarSectionBudgetMs);
             // D-66: the notes (business combinations, goodwill, investments,
             // commitments, segment footnotes), same parse, same budget.
             const notesMs = Date.now() - t0;
