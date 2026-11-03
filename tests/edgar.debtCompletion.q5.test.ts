@@ -56,6 +56,16 @@ describe("exact same-filing debt completion", () => {
       expect(admitDebtFields(row(), facts, "USD", OBSERVED).row.totalDebt).toBeNull();
     }
   });
+  it("reconciles debt including finance leases with pure debt when the noncurrent finance lease is zero", () => {
+    // PR #86 review: pure 100, combined 120 and a zero noncurrent finance lease contradict by 20;
+    // the vendor's 120 must not be admitted beside current debt as a 151 total.
+    const tags = { ...tagged, LongTermDebtAndCapitalLeaseObligations: 120, LongTermDebtCurrent: 30, FinanceLeaseLiabilityNoncurrent: 0 };
+    const vendor = row({ longTermDebt: 120 * M, shortTermDebt: 0, capitalLeaseObligations: 20 * M, totalDebt: 140 * M });
+    expect(admit(tags, vendor).row.totalDebt).not.toBe(151 * M);
+    expect(admit(tags, vendor).row.totalDebt).toBeNull();
+    // Agreeing scopes with a zero finance lease still complete.
+    expect(admit({ ...tags, LongTermDebtAndCapitalLeaseObligations: 100 }, row({ capitalLeaseObligations: 20 * M, totalDebt: 120 * M })).row.totalDebt).toBe(151 * M);
+  });
   it("keeps the ambiguous combined/noncurrent finance-lease overlap refusal", () => {
     expect(admit({ ...tagged, LongTermDebtAndCapitalLeaseObligations: 100 }).row.totalDebt).toBeNull();
   });

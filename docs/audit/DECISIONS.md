@@ -4940,8 +4940,11 @@ EBIT was ignored when trailing EBIT was refused.
     the latest fiscal year's filed operating income may score interest coverage,
     paired with annual interest. It does not admit a vendor operating margin. The
     acceptance band and spread table are unchanged.
-  - **NCI synonyms and predecessor facts.** Two more NCI concepts are read after
-    the existing one. Annual NCI income and consolidated profit may be completed
+  - **NCI synonyms and predecessor facts.** One more total-NCI concept
+    (`MinorityInterestInNetIncomeLossOfConsolidatedEntities`) is read after the
+    existing one. The nonredeemable-only concept is not, because beside
+    redeemable NCI it understates outside owners' earnings (PR #86 review).
+    Annual NCI income and consolidated profit may be completed
     together from one filing. A successor may read its predecessor's same-year
     facts only under the existing B-36 continuity test and cutoff.
 - **Effect on the frozen panel.** US coverage rises from 10 to 19 of 26: GOOGL,
@@ -4953,6 +4956,14 @@ EBIT was ignored when trailing EBIT was refused.
   falls outside its domain once WACC computes), EXPE (no invested-capital basis
   at the balance date), TSLA (domain), INTC (structurally negative FCF) and AAPL
   (D-174).
+- **PR #86 review (Codex, 2026-11-02).** Three P2 findings were fixed before merge,
+  each with a test that fails without the fix:
+  - the nonredeemable-only NCI concept is no longer read as total NCI income;
+  - a translated bridge balance is labelled USD, so the lease note no longer prints
+    USD amounts as TWD;
+  - pure debt and debt including finance leases must reconcile whenever both are
+    filed, also when the noncurrent finance lease is zero.
+  The 44 frozen snapshots are unchanged by the three fixes.
 - **The new values sit mostly below price,** as the existing ones do (D-180). That
   is the method's conservative house convention, disclosed beside each value,
   not a coverage error.

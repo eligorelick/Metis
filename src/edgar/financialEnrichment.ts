@@ -658,7 +658,9 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       };
       const op = lease("Operating"), fin = lease("Finance");
       const pure = own("LongTermDebtNoncurrent") ?? own("LongTermNotesAndLoans"), combined = own("LongTermDebtAndCapitalLeaseObligations");
-      if (pure !== null && combined !== null && fin.noncurrent > 0 && !eq(combined, pure + fin.noncurrent)) throw new Error("ambiguous noncurrent finance-lease overlap");
+      // Both scopes filed: debt including finance leases must equal pure debt plus the
+      // noncurrent finance lease, also when that lease is zero (PR #86 review).
+      if (pure !== null && combined !== null && !eq(combined, pure + fin.noncurrent)) throw new Error("ambiguous noncurrent finance-lease overlap");
       const noncurrent = pure ?? (combined === null ? null : combined - fin.noncurrent);
       if (noncurrent === null || noncurrent < 0 || !(vendorAgreesWithFiled(row.longTermDebt as number, noncurrent) ||
           combined !== null && vendorAgreesWithFiled(row.longTermDebt as number, combined))) continue;

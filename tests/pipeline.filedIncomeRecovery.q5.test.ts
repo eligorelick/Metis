@@ -104,7 +104,14 @@ describe("NCI income synonyms in the existing ordered resolution", () => {
     if (!out.ok) throw new Error("fixture");
     expect(out.value.data.rows[0]?.netIncomeAttributableToNoncontrollingInterest).toBeUndefined();
   });
-  for (const tag of ["MinorityInterestInNetIncomeLossOfConsolidatedEntities", "NetIncomeLossAttributableToNonredeemableNoncontrollingInterest"]) {
+  it("does not read nonredeemable NCI income as total NCI income", () => {
+    // Beside redeemable NCI it is only part of outside owners' earnings (PR #86 review).
+    const { bundle, facts } = fixture("NetIncomeLossAttributableToNonredeemableNoncontrollingInterest");
+    const built = buildStatementsFromCompanyFacts(facts, { symbol: bundle.symbol, cik: "42", asOf: bundle.builtAt.slice(0, 10), annualPeriods: 1, quarterlyPeriods: 0,
+      vendorSplits: { status: "unavailable", source: "fixture", reason: "additive amounts" } });
+    expect(built.incomeAnnual.rows[0]?.netIncomeAttributableToNoncontrollingInterest ?? null).toBeNull();
+  });
+  for (const tag of ["MinorityInterestInNetIncomeLossOfConsolidatedEntities"]) {
     it(`reads and admits ${tag} on the same fiscal-year row`, () => {
       const { bundle, facts } = fixture(tag);
       const built = buildStatementsFromCompanyFacts(facts, { symbol: bundle.symbol, cik: "42", asOf: bundle.builtAt.slice(0, 10), annualPeriods: 1, quarterlyPeriods: 0,

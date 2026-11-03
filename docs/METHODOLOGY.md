@@ -1595,10 +1595,12 @@ market cap) may already include; companyfacts do not separate them, so such
 shares would be counted both as a claim and in the divisor.
 
 **NCI on the earnings key in the DCF bridge (audit 2026-10-22 E-5).** The DCF
-reads `MinorityInterestInNetIncomeLossOfConsolidatedEntities` and
-`NetIncomeLossAttributableToNonredeemableNoncontrollingInterest` after
+reads `MinorityInterestInNetIncomeLossOfConsolidatedEntities` after
 `NetIncomeLossAttributableToNoncontrollingInterest` in its existing ordered
-resolution. Period, core-form, currency and presentation checks are unchanged.
+resolution. `NetIncomeLossAttributableToNonredeemableNoncontrollingInterest` is
+not read as total NCI income: beside redeemable NCI it is only part of outside
+owners' earnings, and subtracting it from consolidated profit would overstate the
+parent's. Period, core-form, currency and presentation checks are unchanged.
 On replay, missing vendor annual NCI income may be completed from that admitted statement;
 missing consolidated profit may be supplied with it only from the same filed
 period and accession. A refused allocation is never filled, and a vendor

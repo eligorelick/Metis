@@ -45,6 +45,11 @@ function inputs(): ValuationBundleInputs {
 }
 
 describe("monetary valuation translation", () => {
+  it("labels the translated bridge balance in USD (PR #86 review)", () => {
+    const input = inputs();
+    const out = translateValuationInputs({ ...input, bridgeBalance: { ...input.bridgeBalance!, reportedCurrency: "TWD" } }, basis());
+    expect(out.bridgeBalance?.reportedCurrency).toBe("USD");
+  });
   it("keeps the full DCF forecast and its reinvestment/bridge operands in USD", () => {
     const raw = inputs(), snapshot = JSON.stringify(raw), t = translateValuationInputs(raw, basis()), d = t.dcfInputs!;
     expect(d.incomeTtm?.revenue).toBe(100 * M);

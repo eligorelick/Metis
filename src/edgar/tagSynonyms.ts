@@ -356,8 +356,11 @@ export const LINE_ITEM_TAGS = {
   totalOtherIncomeExpensesNet: entry(["NonoperatingIncomeExpense"]),
   netIncome: entry(["NetIncomeLoss", ...CONSOLIDATED_NET_INCOME_TAGS, "NetIncomeLossAvailableToCommonStockholdersBasic"]),
   netIncomeConsolidated: entry(CONSOLIDATED_NET_INCOME_TAGS),
+  // Total NCI income only. NetIncomeLossAttributableToNonredeemableNoncontrollingInterest
+  // is the nonredeemable part: beside redeemable NCI it would understate outside
+  // owners' earnings and overstate the parent's (PR #86 review), so it is not read.
   netIncomeAttributableToNoncontrollingInterest: entry(["NetIncomeLossAttributableToNoncontrollingInterest",
-    "MinorityInterestInNetIncomeLossOfConsolidatedEntities", "NetIncomeLossAttributableToNonredeemableNoncontrollingInterest"]),
+    "MinorityInterestInNetIncomeLossOfConsolidatedEntities"]),
   netIncomeAvailableToCommon: entry(["NetIncomeLossAvailableToCommonStockholdersBasic"]),
   netIncomeFromContinuingOperations: entry(["IncomeLossFromContinuingOperations"]),
   netIncomeFromDiscontinuedOperations: entry(["IncomeLossFromDiscontinuedOperationsNetOfTax"]),

@@ -175,7 +175,7 @@ export function translateValuationInputs(input: ValuationBundleInputs, basis: Fo
   }
   return { ...money(input, ["netDebt", "minorityInterest", "preferred", "leaseLiability", "operatingLeaseLiability", "convertiblePreferredClaim"], basis),
     dilutedShares: d, dilutedShareSecurityBasis: d === null ? undefined : "quoted",
-    bridgeBalance: input.bridgeBalance && money(input.bridgeBalance, BALANCE_MONEY, basis),
+    bridgeBalance: input.bridgeBalance && { ...money(input.bridgeBalance, BALANCE_MONEY, basis), reportedCurrency: "USD" },
     nonOperatingAssets: input.nonOperatingAssets && { ...input.nonOperatingAssets, value: input.nonOperatingAssets.value * k, basis: `${input.nonOperatingAssets.basis} ${basis.note}` },
     noncontrollingEarnings: input.noncontrollingEarnings && money(input.noncontrollingEarnings, ["noncontrollingIncome", "consolidatedProfit"], basis),
     temporaryEquity: input.temporaryEquity && money(input.temporaryEquity, ["total", "capitalTotal", "redeemablePreferred", "redeemableNoncontrolling", "unsplit"], basis),
