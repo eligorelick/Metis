@@ -818,6 +818,8 @@ export interface DcfRevenueTrend {
 }
 
 export interface DcfAssumptionInputs {
+  /** Snapshot cutoff, used to admit recent annual margin fallbacks. */
+  analysisCutoff?: string | null;
   /** FIN-401 / OD-5: the stake and its income must be on the same side of the DCF. */
   equityMethodStake?: { value: number; treatment: "added-back" | "operating"; incomePlacement: "in-operating-income" | "below-operating-income" | "undetermined" | null; incomeExcludedFromEbit?: boolean; basis: string } | null;
   /**
@@ -2099,6 +2101,17 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   let m0Source = guidedMargin !== null
     ? `guided (${guide!.source})`
     : normalizeUnusual ? `${periodBasis}, excluding tagged one-off items` : periodBasis;
+  const marginCutoff = inputs.analysisCutoff ?? inputs.valuationDate ?? inputs.incomeTtm?.date ?? null;
+  const annualFloor = marginCutoff ? new Date(`${marginCutoff}T00:00:00Z`) : null;
+  if (annualFloor && Number.isFinite(annualFloor.getTime())) annualFloor.setUTCMonth(annualFloor.getUTCMonth() - 15);
+  const latestAnnualMargin = [...histMarginPoints].reverse().find(p => marginCutoff !== null && p.date <= marginCutoff &&
+    annualFloor !== null && Date.parse(p.date) >= annualFloor.getTime());
+  if (m0 === null && latestAnnualMargin) {
+    m0 = latestAnnualMargin.marginPct;
+    m0Source = `latest annual FY ${latestAnnualMargin.date}`;
+    notes.push(`TTM EBIT margin unavailable — base margin set to ${m0Source}, within 15 months of ${marginCutoff}`);
+    gaps.push(gapEntry("valuation.dcf.ttmEbitMargin", `TTM operatingIncome or revenue missing; using ${m0Source} before the 5y median`, "warn"));
+  }
   if (m0 === null && median5y !== null) {
     m0 = median5y;
     m0Source = "5y median";
@@ -2187,7 +2200,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     }
     slopeBasis = marginSlope === null ? "unavailable" : `${fmtNum(marginSlope)}pp/year`;
     notes.push(
-      `EBIT margin regime ${regime}: dated 5y slope ${slopeBasis}; target ${fmtNum(targetMargin)}% versus current ${fmtNum(m0)}% and median ${fmtNum(median5y)}%`,
+      `EBIT margin regime ${regime}: dated 5y slope ${slopeBasis}; target ${fmtNum(targetMargin)}% versus ${m0Source === "5y median" ? "historical seed" : "current"} ${fmtNum(m0)}% and median ${fmtNum(median5y)}%`,
     );
   }
   const cappedTarget = Math.min(marginCeiling, Math.max(MARGIN_CLAMP_PP[0], targetMargin));
@@ -2210,8 +2223,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     ? "no 5y margin history for a fade target"
     : `${regime} dated-margin regime (5y median ${fmtNum(median5y as number)}%, slope ${slopeBasis})`;
   let marginBasis = cappedTarget === m0
-    ? `held flat at current ${fmtNum(m0)}% (${m0Source}) under ${regimeText}${capText}`
-    : `fade current ${fmtNum(m0)}% (${m0Source}) -> ${fmtNum(cappedTarget)}% by year ${fadeYears} under ${regimeText}` +
+    ? `held flat at ${m0Source === "5y median" ? "historical seed" : "current"} ${fmtNum(m0)}% (${m0Source}) under ${regimeText}${capText}`
+    : `fade ${m0Source === "5y median" ? "historical seed" : "current"} ${fmtNum(m0)}% (${m0Source}) -> ${fmtNum(cappedTarget)}% by year ${fadeYears} under ${regimeText}` +
       `${improvingBound !== null ? `; the improving target is ${improvingBound}` : ""}${capText}, flat thereafter`;
   if (inputs.equityMethodStake?.incomePlacement === "in-operating-income") marginBasis += `; ${inputs.equityMethodStake.basis}`;
   if (marginPath.some((m) => m < MARGIN_WARN_BAND_PP[0] || m > MARGIN_WARN_BAND_PP[1])) {
@@ -6333,7 +6346,11 @@ export interface ValuationBundleInputs {
    * (`noncontrollingEarningsInput`). Null/absent ⇒ the key is unestablished,
    * and a DCF with a noncontrolling interest withholds its per-share value.
    */
-  noncontrollingEarnings?: { noncontrollingIncome: number | null; consolidatedProfit: number | null; asOf: string | null; basis?: "ttm" | "annual" } | null;
+  noncontrollingEarnings?: { noncontrollingIncome: number | null; consolidatedProfit: number | null; asOf: string | null; basis?: "ttm" | "annual"; sourceBasis?: string } | null;
+  /** Independently filed annual key; current when it matches the latest FY, otherwise D-188 gates apply. */
+  staleNoncontrollingEarnings?: ValuationBundleInputs["noncontrollingEarnings"];
+  latestAnnualIncomeDate?: string | null;
+  analysisCutoff?: string | null;
   /**
    * WS6 (D-19): TOTAL lease liabilities (FMP `capitalLeaseObligations`), already
    * inside `totalDebt` and therefore inside `netDebt`. Null when undisclosed.
@@ -6551,6 +6568,12 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   // the rule allows), and the per-share value is then withheld.
   let noncontrollingEarningsShare: number | null = null;
   let noncontrollingKeyMissing: string | null = null;
+  const filedKey = inputs.staleNoncontrollingEarnings;
+  if (filedKey && filedKey.asOf === inputs.latestAnnualIncomeDate &&
+      (!isNum(inputs.noncontrollingEarnings?.noncontrollingIncome) || !isNum(inputs.noncontrollingEarnings?.consolidatedProfit))) {
+    inputs = { ...inputs, noncontrollingEarnings: filedKey };
+    if (filedKey.sourceBasis) notes.push(filedKey.sourceBasis);
+  }
   const noncontrollingEarningsAsOf = inputs.noncontrollingEarnings?.asOf ?? null;
   const noncontrollingEarningsBasis = inputs.noncontrollingEarnings?.basis;
   // A zero book balance does not negate the outside claim positive NCI income shows.
@@ -7133,6 +7156,25 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         if (best !== null) dcf = best;
         const entries = convertibleReadingGaps(dcf.bridge.convertibles ?? [], original.dilutedShares);
         gaps.push(...entries); notes.push(...entries.map(e => e.reason));
+      }
+
+      // D-188: a small stale filed allocation can only authorize a book claim.
+      // Its absolute earnings share and book / consolidated equity must both
+      // be below 1%; missing allocations and nonpositive profit are never zero.
+      if (noncontrollingKeyMissing !== null && filedKey?.basis === "annual" && filedKey.asOf && inputs.analysisCutoff &&
+          isNum(inputs.minorityInterest) && inputs.minorityInterest >= 0 && redeemableNoncontrolling === 0 &&
+          isNum(filedKey.noncontrollingIncome) && isNum(filedKey.consolidatedProfit) && filedKey.consolidatedProfit > 0) {
+        const oldest = new Date(`${inputs.analysisCutoff}T00:00:00Z`);
+        oldest.setUTCMonth(oldest.getUTCMonth() - 24);
+        const share = Math.abs(filedKey.noncontrollingIncome / filedKey.consolidatedProfit);
+        const consolidated = dcf.equityValue === null ? null : dcf.equityValue + (dcf.bridge.noncontrollingDeducted ?? inputs.minorityInterest);
+        if (filedKey.asOf <= inputs.analysisCutoff && Date.parse(filedKey.asOf) >= oldest.getTime() && share < 0.01 &&
+            consolidated !== null && consolidated > 0 && inputs.minorityInterest / consolidated < 0.01) {
+          const basis = `Immaterial NCI stale annual key ${filedKey.asOf}, within 24 months of cutoff ${inputs.analysisCutoff}: absolute allocation / consolidated profit ${(share * 100).toFixed(6)}% < 1%; book NCI / consolidated equity ${(inputs.minorityInterest / consolidated * 100).toFixed(6)}% < 1%. Book NCI is deducted; the stale allocation only sizes the E-5 test, whose 10% trigger is not met. ${filedKey.sourceBasis ?? "Filed annual allocation"}.`;
+          noncontrollingKeyMissing = null;
+          notes.push(basis);
+          gaps.push(gapEntry("valuation.dcf.noncontrollingEarningsKey.staleImmaterial", basis, "info"));
+        }
       }
 
       // Audit 2026-10-22 B-29: a DCF outside its domain publishes nothing

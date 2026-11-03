@@ -1,5 +1,26 @@
 # Valuation coverage: frozen 33-company replay, 2026-11-03
 
+## Superseded input-dependent values — D-188
+
+The NVO, NKE and related values below are the historical D-186 result.
+[D-188](2026-11-03-valuation-inputs.md) supersedes them with calibrated foreign
+revenue, proved operating-income bases, corroborated filer share units and
+the narrow immaterial stale-NCI/issued-cover rules. This section preserves
+the original investigation rather than rewriting its history.
+
+| Company | D-186 DCF/share USD | D-188 DCF/share USD | D-188 WACC % |
+| --- | --- | --- | --- |
+| NVO | 93.38750042770081 | 76.84979780857702 | 7.033602930834064 |
+| NKE | 41.09429026490767 | 28.050635524407898 | 9.02809166297445 |
+| LLY | 595.7102104657257 | 769.8592617260745 | 7.647009830753421 |
+| JNJ | 153.25016843747767 | 154.12076758255077 | 7.436363468015166 |
+| ASML | 962.1478841467142 | 882.6658770983291 | 10.065876860295035 |
+| TSM | — | 408.42442643326206 | 11.330692169311364 |
+| MCD | — | 182.4498771125117 | 6.9034307426760115 |
+| SAP | — | 105.75029277139562 | 8.564138377532657 |
+| COST | 324.99677080730805 | 334.6288174360531 | 8.931592723228366 |
+
+
 Coverage increases from **20 to 23 of 33**. EXPE, NKE and NVO have evidence-backed
 coverage defects. Every previously valued company's fair value, WACC and
 DCF/share is unchanged at full precision. COST's composite intentionally moves

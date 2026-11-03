@@ -7280,6 +7280,57 @@ evidence exists. The payload lists coded open-market and private purchases and
 sales (Form 4 codes P and S) from the last six months by person, for up to 8
 people (senior officers first, then by value), and counts the rest.
 
+**Valuation-input follow-up (D-188, 2026-11-03).** Foreign analyst revenue
+totals without their own currency may be calibrated only after the foreign
+FX/security basis is admitted and D-57 inheritance is withheld. Match fiscal
+year ends to filed reporting-currency annual revenue available at cutoff:
+latest overlap within 3%, listing-currency reading rejected beyond 10%, FX
+sufficiently far from one to separate the readings, and no other overlap in
+the last three filed fiscal years contradicting the reading beyond 10%.
+Failure names the failed test. Own-row currency wins. EPS, other per-share
+rows and price targets do not inherit from revenue calibration. Revenue then
+uses the existing one-spot translation, D-65 breadth/dispersion gates, D-60
+precedence, calendarization and clamps. Stage C labels only the calibrated
+revenue in the established reporting currency and discloses the same proof.
+
+A source-label difference alone does not refuse operating income. A provider
+numerator may agree with SEC-derived EBIT on the exact filed revenue basis,
+or its retained original row may prove the pair: same issuer, currency,
+fiscal interval and filing date, exact retained numerator, and provider
+revenue agreeing with filed revenue. An explicit field conflict or contrary
+directly tagged operating numerator still refuses; FIGR's pre-interest
+numerator is not restored. This establishes the provider operating
+presentation, not gross-profit/expense placement. All downstream metrics and
+scores consume admitted operating income. Guidance and the admitted trailing
+margin lead; when unavailable, the latest admitted annual margin ending
+within 15 calendar months of cutoff precedes the five-year median. A median
+seed is described as historical, not current. This revises the D-58/D-60
+fallback order without changing the margin fade or one-off normalization.
+
+An SEC weighted-share fact may be repaired by exactly 1,000 or 1,000,000 only
+when the scaled fact agrees with the retained provider count within 0.1%, an
+independent filed DEI cover count within 100 days of period end within 3%,
+and market cap / price within 3%. Identity, exact period, unit, direct fact,
+latest filing, cutoff and split checks apply. Repairs change only the
+calculation view and are disclosed in the manifest and valuation notes;
+already correct counts and unexplained factors are not multiplied.
+
+For E-5, a current filed annual NCI allocation may be derived as consolidated
+profit less profit attributable to owners of the parent, from one filing,
+period and currency. Otherwise the last filed annual allocation may size the
+test only within 24 calendar months of cutoff, with positive consolidated
+profit, absolute NCI earnings share below 1% and book NCI below 1% of the
+computed consolidated equity value. It authorizes the book deduction and is
+disclosed as stale; missing allocation is never zero. Larger, older or
+invalid claims still withhold. Redeemable NCI is not admitted by this fallback.
+
+If a DEI cover produces a nonstandard ratio but equals same-filing,
+same-period IFRS issued shares within 0.1%, it may include treasury. An
+independently matched filed/provider annual weighted-average ratio may then
+establish a standard ratio within 1%, with the remaining security/split/FX
+gates unchanged. Issued shares are not substituted for outstanding shares.
+See [the complete frozen replay and limits](audit/2026-11-03-valuation-inputs.md).
+
 **Foreign-issuer valuation (D-178).** When an issuer reports in one currency and
 quotes in USD, `src/pipeline/foreignCurrency.ts` translates the admitted
 valuation operands at one Federal Reserve H.10 spot rate from FRED

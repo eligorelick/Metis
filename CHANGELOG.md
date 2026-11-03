@@ -18,6 +18,23 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Valuation inputs: foreign consensus, operating income basis, filer unit errors (2026-11-03)
+
+- Admit foreign-issuer analyst revenue totals only when past-year estimates
+  calibrate to filed reporting-currency revenue; retain separate currency
+  refusals for EPS and targets and consistent Stage C labels.
+- Admit provider operating income with an independently proved period/revenue
+  basis. Prefer a recent admitted annual margin before the historical median
+  when trailing margin is unavailable; retain FIG/FIGR and expense conflicts.
+- Repair exact filer share scaling only with independent cover and
+  capitalization corroboration. Permit a disclosed stale annual NCI key only
+  for immaterial earnings/book claims; resolve issued-share covers only with
+  same-filing issued proof and independent standard weighted ratios.
+- Record the complete 33-company before/after replay, downstream effects and
+  conditional-model qualifications in [D-188's evidence report](docs/audit/2026-11-03-valuation-inputs.md).
+  Version stamps remain the integrator's responsibility; stored reports stay
+  immutable.
+
 ## Unreleased - Valuation coverage (2026-11-03)
 
 - Restore EXPE's default lease-excluded valuation when one filing proves all

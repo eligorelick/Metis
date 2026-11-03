@@ -53,6 +53,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/edgar/instanceFacts.ts",
   "src/edgar/retainedClassEconomics.ts",
   "src/edgar/cashInvestment.ts",
+  "src/edgar/shareUnitRepair.ts",
   // WS4 review N3: the versioned tag table and the successor hop were carved
   // out of statements.ts, and the reserved-symbol rule is a safety guard; all
   // three were audited logic with no coverage floor of their own.
@@ -71,6 +72,8 @@ const EXPECTED_RISK_SOURCES = [
   "src/pipeline/dataBundle.ts",
   "src/pipeline/commonEarnings.ts",
   "src/pipeline/incomeBasis.ts",
+  "src/pipeline/shareUnits.ts",
+  "src/pipeline/nciEarnings.ts",
   "src/pipeline/cashFlowBasis.ts",
   "src/pipeline/keyless.ts",
   "src/pipeline/riskFreeFallback.ts",

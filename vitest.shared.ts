@@ -66,6 +66,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/edgar/instanceFacts.ts",
   "src/edgar/retainedClassEconomics.ts",
   "src/edgar/cashInvestment.ts",
+  "src/edgar/shareUnitRepair.ts",
   // The element names and the successor hop moved OUT of the audited
   // statements.ts, taking logic with them; the reserved-symbol rule is the
   // guard that keeps a demo report from reaching a provider at all. All three
@@ -85,6 +86,8 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/dataBundle.ts",
   "src/pipeline/commonEarnings.ts",
   "src/pipeline/incomeBasis.ts",
+  "src/pipeline/shareUnits.ts",
+  "src/pipeline/nciEarnings.ts",
   "src/pipeline/cashFlowBasis.ts",
   "src/pipeline/keyless.ts",
   "src/pipeline/riskFreeFallback.ts",

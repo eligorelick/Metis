@@ -5497,3 +5497,63 @@ cash-flow records remain unvalidated. Tests:
 verification outcomes. No payload, report-spec or Stage B stamp change is
 required: their contracts, stored bytes and calculations are unchanged.
 All version constants are deliberately left to the integrator.
+
+## D-188 - Calibrated foreign revenue, proved operating income and corroborated units (2026-11-03)
+
+**Decision.** Repair the valuation inputs generally, without choosing any
+assumption or tolerance to approach a quote. The complete 33-company fresh
+baseline/replay, per-company causes, eight-company sanity checks, fail-first
+evidence and verification are in [the evidence report](2026-11-03-valuation-inputs.md).
+
+- **Revises D-57 for revenue totals only.** With an admitted foreign valuation
+  basis and withheld issuer-currency inheritance, an estimate without its own
+  currency can calibrate to filed annual reporting-currency revenue at the
+  same fiscal end, available at cutoff. Latest overlap must agree within 3%,
+  its listing-currency reading must fail beyond 10%, FX must separate the
+  readings, and every other overlap in the last three filed fiscal years must
+  agree within 10%. Failure names its test. Own-row currency still wins; EPS,
+  per-share rows and targets remain withheld. The existing one-spot FX,
+  D-65 consensus quality, D-60 precedence, calendarization and clamps apply.
+  Stage C labels revenue by the same proof. Notes/manifest name the year,
+  estimate, filed amount and tolerance.
+- **Revises the operating-basis refusal, retaining D-164/FIGR.** A provider
+  operating numerator may agree with SEC-derived operating income on the
+  exact revenue basis, or be paired in its retained original provider row
+  with revenue agreeing with filed revenue, for the same issuer, currency,
+  fiscal interval and filing date. Explicit revenue/numerator conflicts,
+  contrary directly tagged EBIT and missing period/basis proof still refuse.
+  No gross-profit/expense classification follows from an admitted numerator.
+  FIGR's pre-interest provider numerator remains refused. All existing
+  downstream consumers receive newly admitted history; scores are not frozen.
+- **Revises D-58/D-60's margin fallback order.** Guidance and the admitted
+  trailing pair lead, then the latest admitted annual margin whose fiscal
+  year ended within 15 calendar months of cutoff, then the five-year median.
+  Median seeds are historical, never described as current. Fade, one-off
+  normalization and margin ceilings are unchanged.
+- **Revises D-179 and D-186's MCD disposition.** A direct SEC share fact may
+  be treated as a filer scaling error only at exactly 1,000 or 1,000,000,
+  within 0.1% of provider count, independently within 3% of a filed DEI cover
+  within 100 days of period end and within 3% of market cap / price. Identity,
+  latest-fact, exact-period, currency, cutoff and split checks remain. Repairs
+  are calculation-view-only and disclosed; correct facts are not scaled.
+- **Revises D-102 E-5 and D-186's TSM disposition narrowly.** First derive a
+  current allocation from filed consolidated profit less profit attributable
+  to owners of the parent when both share one filing, period and currency.
+  Otherwise a last filed annual allocation can size E-5 only within 24 calendar
+  months of cutoff, absolute NCI share of positive consolidated profit below
+  1%, and book NCI below 1% of computed consolidated equity value. Deduct book
+  NCI with the stale basis disclosed. Missing allocation is never zero;
+  larger/older/invalid and redeemable claims retain refusal.
+- **Revises D-178/D-186's SAP count disposition.** A nonstandard DEI cover
+  ratio may defer to the independent standard weighted-average construction
+  within 1% only when the cover equals same-filing, same-period issued shares
+  within 0.1%. It may include treasury and is not substituted for outstanding
+  shares. Other identity, split, FX and debt gates remain. SAP's historical
+  debt refusals persist, but do not block its complete current/bridge balances.
+- **Tests and stamps.** Every new positive admission, fallback and cutoff
+  repair has observed failing evidence before implementation, with negative
+  controls and the existing FIG/FIGR regressions retained. New fixtures are
+  synthetic. Full verification and honest conditional-model qualifications
+  are in the linked report. Integration needs Stage B, fair-value,
+  scenario-target and payload stamps; D-187 separately needs the pipeline
+  verifier stamp. No constants or stored reports changed in this branch.

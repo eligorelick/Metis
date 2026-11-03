@@ -23,6 +23,12 @@
  * unknown, withholds inheritance; the row then stays "currency unknown" and is
  * never registered or used as money.
  */
+import type { DataBundle } from "./types";
+import type { ForeignValuationBasis } from "./foreignCurrency";
+import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { conceptFactsSchema, CORE_FACT_FORMS, parseFactPoints } from "@/edgar/xbrl";
+import { REVENUE_TAGS } from "@/edgar/tagSynonyms";
+
 export const ANALYST_ESTIMATE_PROVIDER_CONVENTION: string | null = null;
 
 function iso(value: unknown): string | null {
@@ -111,4 +117,43 @@ export function providerRowCurrency(
   const own = estimateCurrency(row);
   if (own !== null) return { code: own, inherited: false };
   return { code: issuer.code, inherited: issuer.code !== null };
+}
+
+/** D-188: calibration establishes total revenue only, never EPS or targets. */
+export function calibratedRevenueCurrency(bundle: DataBundle, issuer: InheritedIssuerCurrency, foreign: ForeignValuationBasis | null): InheritedIssuerCurrency {
+  const refuse = (test: string): InheritedIssuerCurrency => ({ code: null, basis: `revenue calibration refused: ${test}` });
+  if (issuer.code !== null || foreign === null) return refuse("requires withheld inheritance and an admitted foreign valuation basis");
+  const reporting = foreign.fx.reportingCurrency, rate = foreign.fx.usdPerReportingUnit;
+  const cutoff = bundle.builtAt.slice(0, 10);
+  const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const observed = bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : null;
+  if (!facts || !observed || !Number.isFinite(Date.parse(observed)) || Date.parse(observed) > Date.parse(bundle.builtAt)) return refuse("filed annual revenue evidence unavailable at cutoff");
+  const filed = new Map<string, number>();
+  for (const [namespace, tags] of [["us-gaap", REVENUE_TAGS], ["ifrs-full", ["Revenue", "RevenueFromContractsWithCustomers"]]] as const) {
+    for (const tag of tags) {
+      const parsed = conceptFactsSchema.safeParse(facts.facts[namespace]?.[tag]);
+      if (!parsed.success) continue;
+      const points = parseFactPoints(parsed.data.units[reporting] ?? []).filter(p => p.start && CORE_FACT_FORMS.has(p.form) &&
+        p.end <= cutoff && p.filed <= cutoff && Number.isFinite(Date.parse(p.filed)) && p.val > 0 &&
+        (Date.parse(p.end) - Date.parse(p.start)) / 86400000 >= 350 && (Date.parse(p.end) - Date.parse(p.start)) / 86400000 <= 380);
+      for (const end of new Set(points.map(p => p.end))) {
+        if (filed.has(end)) continue; // Same ordered total-revenue synonyms as statements.
+        const latest = points.filter(p => p.end === end).sort((a, b) => b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn));
+        if (latest.some(p => p.filed === latest[0]!.filed && p.val !== latest[0]!.val)) return refuse(`contradictory filed annual revenue for ${end}`);
+        filed.set(end, latest[0]!.val);
+      }
+    }
+  }
+  const rows = bundle.analystEstimates.ok ? bundle.analystEstimates.value.data.rows : [];
+  const overlap = rows.filter(r => estimateCurrency(r) === null && typeof r.date === "string" && r.date <= cutoff && filed.has(r.date) &&
+    typeof r.revenueAvg === "number" && Number.isFinite(r.revenueAvg) && r.revenueAvg > 0)
+    .map(r => ({ end: r.date!, estimate: r.revenueAvg!, filed: filed.get(r.date!)! })).sort((a, b) => b.end.localeCompare(a.end));
+  if (!overlap.length) return refuse("no overlapping estimate and filed annual revenue on or before cutoff");
+  const latest = overlap[0]!;
+  if (Math.abs(latest.estimate / latest.filed - 1) > 0.03) return refuse(`latest overlap ${latest.end} estimate ${latest.estimate} versus filed ${latest.filed} ${reporting} fails 3% tolerance`);
+  if (!Number.isFinite(rate) || rate <= 0 || Math.abs(1 / rate - 1) <= 0.10 || Math.abs(latest.estimate / (latest.filed * rate) - 1) <= 0.10) return refuse(`listing-currency reading for ${latest.end} is not rejected beyond 10% (FX too close to 1 or ambiguous)`);
+  const recentEnds = [...filed.keys()].sort().reverse().slice(0, 3);
+  const contradiction = overlap.find(p => recentEnds.includes(p.end) && Math.abs(p.estimate / p.filed - 1) > 0.10);
+  if (contradiction) return refuse(`overlapping year ${contradiction.end} contradicts reporting currency beyond 10%`);
+  return { code: reporting, basis: `revenue totals admitted by calibration: ${latest.end} estimate ${latest.estimate}, filed revenue ${latest.filed} ${reporting}, within 3% tolerance; listing-currency reading rejected beyond 10% at ${rate} USD/${reporting}; every other overlap in the last three filed fiscal years agrees within 10%. EPS, per-share rows and price targets remain withheld without their own currency` };
 }
