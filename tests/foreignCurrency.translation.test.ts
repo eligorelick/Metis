@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveForeignValuation, translateProjectionInputs, translateValuationInputs } from "@/pipeline/foreignCurrency";
 import type { ValuationBundleInputs } from "@/pipeline/stageB/valuation";
 import { foreignBundle } from "./helpers/foreignBundle";
+import { runStageB } from "@/pipeline/compute";
 
 const M = 1e6;
 const basis = () => resolveForeignValuation(foreignBundle(), "TWD").basis!;
@@ -93,7 +94,7 @@ describe("monetary valuation translation", () => {
     expect(t.reit?.enterpriseValue).toBeUndefined();
   });
   it("keeps projection histories, interest, debt and capital-return authorization in one currency", () => {
-    const t = translateProjectionInputs({ route: { base: "general", overlays: [], notes: [], gaps: [], asOf: { today: "2026-07-02", incomeTtm: null, incomeAnnual: "2025-12-31", cashflowTtm: null, cashflowAnnual: "2025-12-31" } }, valuation: { kind: "pre-revenue", route: "general", multiples: null, notes: [], gaps: [] }, waccPct: 8,
+    const t = translateProjectionInputs({ route: runStageB(foreignBundle()).route, valuation: { kind: "pre-revenue", route: "general", multiples: null, notes: [], gaps: [] }, waccPct: 8,
       dilutedShares: 500 * M, incomeHistory: [{ date: "2025-12-31", revenue: 3200 * M, ebit: 640 * M, netIncome: 320 * M, epsDiluted: 0.64, interestExpense: 32 * M }], fcfHistory: [{ date: "2025-12-31", fcf: 256 * M }], shareCountAnnualizedPct: -2, currency: "TWD", asOf: "2026-07-02",
       interestRunRate: { value: 32 * M, ratePct: 5, basis: "filed interest" }, debtAtAnchor: { date: "2025-12-31", debt: 640 * M }, capitalReturn: { authorizationRemaining: 320 * M, currentPrice: 100, source: "filed authorization" },
     }, basis());
