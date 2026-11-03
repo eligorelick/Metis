@@ -456,6 +456,10 @@ function analystCommon(capChars: number): string {
     "Carry the research's sourced market and competitor findings that bear on your case (market size and growth, named",
     "competitors and how they compete, the company's position) into `thesis`, `keyDrivers` or `risksToCase`, each citing",
     "its fetched URL, so the judge can use them for the market-structure and competitor sections.",
+    "Carry its dated news and management findings the same way (executive and board changes, strategy, deals,",
+    "capital-allocation and guidance decisions, notable insider trades): each that bears on your case goes, with its event date,",
+    "into `thesis`, `keyDrivers`, `risksToCase` or, if still to come, `catalysts`, citing its fetched URL or payload tag,",
+    "for the recent-developments and management-actions sections.",
     "(the payload's transcript/filings are as-of their filing dates). Every web-sourced number and",
     "claim must cite the fetched URL. Do not use web search to pull historical financials — those",
     "come from the payload only (rule #1). A claim that NAMES A PERSON may never rest on a web-search",
@@ -665,10 +669,17 @@ export function buildJudgeFraming(
     "  from a price / provider-EPS multiple whose accounting basis is unverified. An unscored valuation does not erase them.",
     "  State once which anchor is missing, without treating its absence as evidence that the price is about right.",
     "  Say 'the price cannot be judged' only when no multiple is meaningful, and state the evidence that would decide it.",
+  // Q1 (owner request 2026-11-02): a sell-side note opens on what changed, not only on the numbers.
+  "  The synthesis and the executive summary weigh the most important recent development and the top catalyst and risk alongside the numbers.",
     "  State each evidence limit once, where it bears on the view: a sentence saying what is",
     "  not established is a limit, not a conclusion, and the summary is not built from them. When the analyst estimates",
     "  section carries a \"Consensus target vs our value\" note that calls the two materially different, the summary",
     "  reconciles the price target consensus with our model value as that note asks, citing both rows.",
+  "- `verdict.recentDevelopments`: at most 8 dated developments from about the last six months, newest first, drawn from the news and",
+  "  press rows, 8-K events and releases, the transcript, filing excerpts and the cases' fetched URLs; past events only (upcoming events are catalysts).",
+  "  Each gives `occurredOn` (the event date), a short `title`, `whatHappened` as 1–2 cited FACT claims, `whyItMatters` as 1–2 JUDGMENT",
+  "  claims on the investment case, `direction` and `affects` (the part of the case it moves: demand, margins, capital, competition, regulation).",
+  "  `summary` is 2–3 cited JUDGMENT claims on what they mean together. Use [] where no dated, sourced evidence exists.",
     "- Bull / base / bear scenario NARRATIVE: qualitative commentary in assumptions and qualitative",
     "  'what would have to be true' conditions (rating-safe strings). Do not assign scenario probabilities",
     "  or invent numeric growth, margin, discount-rate or price assumptions. Scenario weights are the fixed,",
@@ -711,6 +722,14 @@ export function buildJudgeFraming(
     "  you may choose a LOWER label than the cap, never a higher one — a higher label is lowered and",
     "  the cap is shown to the reader.",
     "- A disagreements list separating fact-vs-interpretation as above.",
+  "- `leadership.managementActions`: at most 8 dated actions from about the last twelve months by the CEO, other executives or the board,",
+  "  newest first: officer and director changes (8-K Item 5.02), strategy announcements, acquisitions and divestitures,",
+  "  buybacks, dividends, debt raised or repaid, guidance raised, cut or reaffirmed, notable insider purchases or sales and Rule 10b5-1 plans,",
+  "  and compensation changes.",
+  "  `action` states it in cited FACT claims. `assessment` gives 1–2 JUDGMENT claims on whether it is aligned with shareholders and whether it",
+  "  matches management's earlier stated plans or guidance, from the evidence only and never a guess at motive; tax-withholding dispositions",
+  "  and plan capacity are not decisions to sell. `actor` is a role (CEO, CFO, other executive, board, company): name a person only inside a cited claim.",
+  "  Use [] when no action is evidenced.",
     "",
     "Every number you emit is a TracedNumber citing the payload path or a case's cited source. Every",
     "claim is a labeled SourcedClaim.",
@@ -764,6 +783,7 @@ export function buildVerifySystem(): string {
 export function buildAnalystResearchFraming(side: "bull" | "bear"): string {
   return `Research independently for the ${side} analyst. Return plain-text research notes, NOT an ANALYST_CASE or JSON outline.
 Find dated findings NOT already in the payload on recent catalysts, news, guidance, management commentary, capital-markets activity, regulatory/legal events and competitive moves.
+Cover the last six months, including management and board actions: executive changes, strategy, acquisitions or divestitures, buybacks, dividends, debt and guidance changes.
 Also research the market and industry structure: market size and growth with a dated source; main competitors by name and how each competes; the company's position and share only where a source states it; and industry economics and regulation that shape the business.
 Each finding must include its source URL and date. Distinguish publication dates from event dates and flag missing dates or conflicting evidence.
 Do not retrieve historical company financials from the web: those come only from the payload. No claim naming a person may rest on a web result; use only the payload for named-person claims.

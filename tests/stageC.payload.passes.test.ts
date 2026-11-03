@@ -192,6 +192,7 @@ import { restoreResearchReliabilityGolden } from "./helpers/researchReliabilityP
 import { restoreB4bEquityMethodGolden } from "./helpers/b4bEquityMethodPayloadGolden";
 import { restoreR6InsiderCoverageGolden } from "./helpers/r6InsiderCoverageGolden";
 import { restoreR8EvidenceBasisGolden } from "./helpers/r8EvidenceBasisGolden";
+import { restoreQ1PersonTradesGolden } from "./helpers/q1PersonTradesGolden";
 
 it.each(["success", "schema", "transport"] as const)("forwards presumed billing through a %s pass settlement", async (kind) => {
   const { payload } = buildInputs();
@@ -917,7 +918,8 @@ describe("payload determinism + provenance", () => {
     // R6 (FIGR paid audit): restore only the reviewed insider-coverage text first.
     // R9 changes SBC basis labels and their semantic ids; preserve all earlier byte/stamp pins.
     // R8 restores only its reviewed evidence qualifications before the R6 pin.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(buildInputs()))))))))));
+    // Q1 restores only its per-person Form 4 summary first.
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(buildInputs())))))))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>

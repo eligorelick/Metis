@@ -2039,6 +2039,65 @@ export function insiderStatisticsWindow(rows: readonly FmpInsiderTradeStatistics
 
 const INSIDER_WINDOW_WORDS = ["", "one", "two", "three", "four"] as const;
 
+/** Q1: the window and the number of people the per-person trade lines cover. */
+const PERSON_TRADE_WINDOW_DAYS = 183;
+const PERSON_TRADE_PEOPLE = 8;
+const SENIOR_ROLE = /chief executive|\bceo\b|chief financial|\bcfo\b|\bchair|(?<!vice[ -])president/i;
+
+/**
+ * Q1: one line per person for Form 4 code P and S rows in the last six months,
+ * from every selected provider row. The detailed rows are only the newest
+ * twelve, which awards, gifts and tax withholding often fill: on the frozen
+ * 2026-11-02 panel these trades were visible for 3 of 7 people at AAPL, 1 of 9
+ * at JPM and 1 of 5 at FIGR. Each line keeps the trade-row shape (date, name,
+ * role, tag), so a claim naming the person can cite it. Senior officers come
+ * first, then the larger amounts; at most eight people are listed.
+ */
+function personTradeNotes(observed: readonly FmpRawRow[], shown: number, builtAt: string): string[] {
+  const start = new Date(Date.parse(`${builtAt}T00:00:00Z`) - PERSON_TRADE_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const groups = new Map<string, { name: string; owner: string; code: "P" | "S"; rows: FmpRawRow[]; days: string[] }>();
+  for (const tr of observed) {
+    const day = isoDay(tr.transactionDate);
+    const code = strOrNull(tr.transactionType)?.split("-")[0];
+    const name = strOrNull(tr.reportingName);
+    if (day === null || !isIsoDate(day) || day < start || day > builtAt || (code !== "P" && code !== "S") || name === null) continue;
+    const owner = strOrNull(tr.typeOfOwner) ?? "?";
+    // One line per person and code; a renamed role shows its newest spelling.
+    const key = JSON.stringify([name, code]);
+    const group = groups.get(key) ?? { name, owner, code, rows: [], days: [] };
+    if (group.days.every((seen) => seen <= day)) group.owner = owner;
+    group.rows.push(tr);
+    group.days.push(day);
+    groups.set(key, group);
+  }
+  if (groups.size === 0) return [];
+  const shares = (rows: readonly FmpRawRow[]): number | null =>
+    // Fractional lots (dividend reinvestment) must not print binary-float noise.
+    rows.every((tr) => numOrNull(tr.securitiesTransacted) !== null) ? Math.round(rows.reduce((sum, tr) => sum + numOrNull(tr.securitiesTransacted)!, 0) * 1e4) / 1e4 : null;
+  const value = (rows: readonly FmpRawRow[]): number => rows.reduce((sum, tr) => sum + (numOrNull(tr.securitiesTransacted) ?? 0) * (numOrNull(tr.price) ?? 0), 0);
+  const ranked = [...groups.values()].sort((a, b) =>
+    Number(SENIOR_ROLE.test(b.owner)) - Number(SENIOR_ROLE.test(a.owner)) || value(b.rows) - value(a.rows) ||
+    [...b.days].sort().at(-1)!.localeCompare([...a.days].sort().at(-1)!) || a.name.localeCompare(b.name));
+  const listed = ranked.slice(0, PERSON_TRADE_PEOPLE);
+  const omitted = new Set(ranked.map((group) => group.name)).size - new Set(listed.map((group) => group.name)).size;
+  return [
+    `Form 4 purchases and sales by person (codes P and S, open-market or private), ${start} to ${builtAt}, from all ${observed.length} selected provider row${observed.length === 1 ? "" : "s"} ` +
+      `(the detailed rows below are the newest ${shown}). Row totals may overlap across amendments or joint filings; venue and motive are not established.` +
+      (omitted > 0 ? ` ${omitted} more ${omitted === 1 ? "person is" : "people are"} not listed.` : ""),
+    ...listed.map((group) => {
+      const days = [...group.days].sort();
+      const first = days[0]!, last = days.at(-1)!;
+      const total = shares(group.rows);
+      const prices = group.rows.map((tr) => numOrNull(tr.price)).filter((price): price is number => price !== null && price > 0);
+      const low = Math.min(...prices), high = Math.max(...prices);
+      return `${last} ${group.name} (${group.owner}): code ${group.code} ${group.code === "S" ? "sales" : "purchases"}, ` +
+        `${group.rows.length} row${group.rows.length === 1 ? "" : "s"} ${first === last ? `on ${last}` : `${first} to ${last}`}, ` +
+        `${total === null ? "share total unavailable" : `${total} shares`}${prices.length === 0 ? "" : ` at ${low === high ? low : `${low}-${high}`}`} ` +
+        `[fmp:insider-trades · ${last}]`;
+    }),
+  ];
+}
+
 function insidersSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
@@ -2119,6 +2178,7 @@ function insidersSection(bundle: DataBundle): PayloadSection {
       }).join("; ") + ". Codes S/P are reported sales/purchases; F is not a sale code. These row totals are not a complete post-window aggregate and may overlap across joint owners or amendments; do not infer unique shares sold or motive.");
     } else notes.push(`No dated post-window Form 4 rows are available in the selected provider rows after ${win.end}; this does not establish no activity.`);
   }
+  notes.push(...personTradeNotes(observed, trades.length, bundle.builtAt.slice(0, 10)));
   for (const tr of trades) {
     const d = isoDay(tr.transactionDate) ?? isoDay(tr.filingDate) ?? "unknown";
     notes.push(

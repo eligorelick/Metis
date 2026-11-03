@@ -64,6 +64,12 @@ import {
   DISCLAIMER_TEXT,
   FRED_ATTRIBUTION_TEXT,
   REPORT_SPEC_VERSION,
+  DevelopmentDirectionSchema,
+  IsoDateSchema,
+  ManagementActionCategorySchema,
+  ManagementActorSchema,
+  QUALITATIVE_ITEM_CAP,
+  ShareholderAlignmentSchema,
   analystCaseToJsonSchema,
   judgeOutputToJsonSchema,
   fillNullableGaps,
@@ -2459,6 +2465,128 @@ function splitEmbeddedJudgments(value: unknown): unknown {
   return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, child]) => [key, splitEmbeddedJudgments(child)]));
 }
 
+/* ------------------------------------------------------------------------ *
+ * Q1: recent developments and management actions. A paid section request is
+ * not discarded for a shape a careful reader would accept: these repairs keep
+ * every sourced claim and never invent one.
+ * ------------------------------------------------------------------------ */
+
+/** An event date, or null: a timestamp keeps its day; a month or quarter is not a date. */
+function normalizedOccurredOn(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  const day = trimmed.slice(0, 10);
+  const shaped = trimmed.length === 10 || /^\d{4}-\d{2}-\d{2}T/.test(trimmed);
+  return shaped && /^\d{4}-\d{2}-\d{2}$/.test(day) && IsoDateSchema.safeParse(day).success ? day : null;
+}
+
+/** A claim list: a single claim becomes a list; blank claims and bare text (no citation) are dropped; a missing list is empty. */
+function normalizedClaimList(value: unknown): unknown {
+  if (value === undefined || value === null || typeof value === "string") return [];
+  const list = isPlainObject(value) ? [value] : value;
+  if (!Array.isArray(list)) return list;
+  return list.filter((claim) => isPlainObject(claim) && !(typeof claim.text === "string" && claim.text.trim() === ""));
+}
+
+function normalizedText(value: unknown): unknown {
+  return value === undefined || value === null ? "" : value;
+}
+
+/** A missing headline is the item's own first sourced fact, shortened at a word boundary. */
+function derivedTitle(title: unknown, facts: unknown): unknown {
+  if (typeof title === "string" && title.trim() !== "") return title;
+  const first = Array.isArray(facts) && isPlainObject(facts[0]) && typeof facts[0].text === "string" ? facts[0].text.trim() : null;
+  if (first === null) return title ?? "";
+  if (first.length <= 80) return first;
+  const cut = first.slice(0, 80);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(" "), 40)).replace(/[\s,;:]+$/, "")}…`;
+}
+
+/**
+ * Dated items newest first (undated last, original order otherwise), capped.
+ * An item whose factual list is empty carries no sourced fact and is dropped.
+ */
+function normalizedDatedItems(items: unknown, factKey: string, viewKey: string, repair: (item: Record<string, unknown>) => Record<string, unknown>): unknown {
+  if (!Array.isArray(items)) return items;
+  const kept = items.flatMap((item, index) => {
+    if (!isPlainObject(item)) return [{ item: item as unknown, index }];
+    const next = repair({ ...item, occurredOn: normalizedOccurredOn(item.occurredOn),
+      [factKey]: normalizedClaimList(item[factKey]), [viewKey]: normalizedClaimList(item[viewKey]) });
+    const facts = next[factKey];
+    return Array.isArray(facts) && facts.length === 0 ? [] : [{ item: next as unknown, index }];
+  });
+  const date = (item: unknown): string => isPlainObject(item) && typeof item.occurredOn === "string" ? item.occurredOn : "";
+  return kept.sort((a, b) => date(b.item).localeCompare(date(a.item)) || a.index - b.index)
+    .slice(0, QUALITATIVE_ITEM_CAP).map(({ item }) => item);
+}
+
+const DIRECTION_VALUES: ReadonlySet<string> = new Set(DevelopmentDirectionSchema.options);
+const CATEGORY_VALUES: ReadonlySet<string> = new Set(ManagementActionCategorySchema.options);
+const ALIGNMENT_VALUES: ReadonlySet<string> = new Set(ShareholderAlignmentSchema.options);
+const ACTOR_VALUES: ReadonlySet<string> = new Set(ManagementActorSchema.options);
+/** Hyphenated lower-case words, so a rule can match whole words anywhere in the label. */
+const labelKey = (value: string): string => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+// Ordered: the subject of the action (pay, an insider trade) outranks who acted.
+const CATEGORY_RULES: ReadonlyArray<[RegExp, string]> = [
+  [/(?:^|-)(?:compensation|remuneration|pay|comp|bonus)(?:-|$)/, "compensation"],
+  [/(?:^|-)(?:insider|10b5|form-4)(?:-|$)|(?:^|-)(?:stock|share|director|officer|executive|ceo|cfo)-(?:sale|sales|sell|selling|purchase|purchases|buy|buying)(?:-|$)/, "insider-transaction"],
+  [/(?:^|-)(?:buyback|buybacks|repurchase|repurchases|dividend|dividends|debt|financing|refinancing|capital|notes|bonds?|issuance|offering)(?:-|$)/, "capital-allocation"],
+  [/(?:^|-)(?:acquisition|acquisitions|acquire|acquired|divestiture|divestment|divest|merger|m-a|disposal|spin-off|spinoff)(?:-|$)/, "acquisition-divestiture"],
+  [/(?:^|-)(?:guidance|outlook|forecast)(?:-|$)/, "guidance"],
+  [/(?:^|-)(?:board|director|directors)(?:-|$)/, "board-change"],
+  [/(?:^|-)(?:executive|executives|officer|officers|management|ceo|cfo|coo|leadership|succession|appointment|resignation|retirement|departure)(?:-|$)/, "leadership-change"],
+  [/(?:^|-)(?:strateg|restructur|reorgani[sz]|transformation)/, "strategy"],
+];
+const ACTOR_RULES: ReadonlyArray<[RegExp, string]> = [
+  [/(?:^|-)(?:ceo|chief-executive)(?:-|$)/, "ceo"],
+  [/(?:^|-)(?:cfo|chief-financial)(?:-|$)/, "cfo"],
+  [/(?:^|-)(?:board|director|directors|chair|chairman|chairwoman|chairperson|committee)(?:-|$)/, "board"],
+  [/(?:^|-)(?:company|management|issuer|firm|group)(?:-|$)/, "company"],
+  [/(?:^|-)(?:officer|officers|executive|executives|president|coo|cto|cio|counsel|chief|evp|svp|vp|treasurer|secretary)(?:-|$)/, "other-executive"],
+];
+
+function normalizedLabel(value: unknown, allowed: ReadonlySet<string>, rules: ReadonlyArray<[RegExp, string]>, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const key = labelKey(value);
+  if (allowed.has(key)) return key;
+  return rules.find(([pattern]) => pattern.test(key))?.[1] ?? fallback;
+}
+
+function normalizedAlignment(value: unknown): string {
+  return normalizedLabel(value, ALIGNMENT_VALUES, [
+    [/^(?:mis|not-|un|poorly-)aligned|^against/, "misaligned"],
+    [/^(?:partial|partly|somewhat|mixed)/, "mixed"],
+    [/^(?:well-|fully-|strongly-)?aligned/, "aligned"],
+  ], "unclear");
+}
+
+function normalizeRecentDevelopments(verdict: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...verdict };
+  let value = next.recentDevelopments;
+  if (value === null) { delete next.recentDevelopments; return next; }
+  if (Array.isArray(value)) value = { summary: [], items: value };
+  if (!isPlainObject(value)) return next;
+  next.recentDevelopments = { ...value, summary: normalizedClaimList(value.summary),
+    items: normalizedDatedItems(value.items ?? [], "whatHappened", "whyItMatters", (item) => ({ ...item,
+      title: derivedTitle(item.title, item.whatHappened),
+      // Casing is already repaired; any other word is the mixed case, not a lost section.
+      direction: typeof item.direction === "string" && DIRECTION_VALUES.has(item.direction) ? item.direction : "mixed",
+      affects: normalizedText(item.affects) })) };
+  return next;
+}
+
+function normalizeManagementActions(leadership: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...leadership };
+  if (next.managementActions === null) { delete next.managementActions; return next; }
+  if (!Array.isArray(next.managementActions)) return next;
+  next.managementActions = normalizedDatedItems(next.managementActions, "action", "assessment", (item) => ({ ...item,
+    category: normalizedLabel(item.category, CATEGORY_VALUES, CATEGORY_RULES, "other"),
+    shareholderAlignment: normalizedAlignment(item.shareholderAlignment),
+    // A role only: a name here would escape the named-person check that reads cited claims.
+    actor: normalizedLabel(item.actor, ACTOR_VALUES, ACTOR_RULES, "unspecified") }));
+  return next;
+}
+
 export function normalizeJudgeOutput(raw: unknown): unknown {
   const enumNormalized = normalizeKnownEnumCasing(normalizeCitationFields(raw));
   if (enumNormalized === null || typeof enumNormalized !== "object" || Array.isArray(enumNormalized)) {
@@ -2478,6 +2606,9 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
     }
     root.catalystsRisks = section;
   }
+
+  if (isPlainObject(root.verdict)) root.verdict = normalizeRecentDevelopments(root.verdict);
+  if (isPlainObject(root.leadership)) root.leadership = normalizeManagementActions(root.leadership);
 
   if (root.macro !== null && typeof root.macro === "object" && !Array.isArray(root.macro)) {
     root.macro = {
