@@ -149,6 +149,10 @@ import { RecordedSensitivity } from "./RecordedSensitivity";
 import { ValuationSensitivityTables } from "./ValuationSensitivityTables";
 import { ProjectionFanChart } from "@/components/charts/lazy";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
+import {
+  MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
+  SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
+} from "@/report/qualitativeAnalysis";
 
 import {
   ClaimList,
@@ -493,6 +497,67 @@ export function ExecutiveSummary({ claims }: { claims: readonly SourcedClaim[] }
         <ClaimList claims={claims} />
       </div>
     </div>
+  );
+}
+
+/** Q1: dated recent developments, read after the executive summary. Absent on saved reports. */
+export function RecentDevelopmentsBlock({ developments }: { developments: NonNullable<Verdict["recentDevelopments"]> }) {
+  return (
+    <div className="border border-edge bg-panel">
+      <div className="border-b border-edge px-3 py-1.5">
+        <SectionHeading>recent developments · newest first</SectionHeading>
+      </div>
+      <div className="flex flex-col gap-2 px-3 py-3">
+        {developments.summary.length > 0 && <ClaimList claims={developments.summary} />}
+        {developments.items.length === 0 ? (
+          <div className="text-[11px] text-faint">{NO_RECENT_DEVELOPMENTS}</div>
+        ) : (
+          <ol className="flex flex-col">
+            {developments.items.map((item, i) => {
+              const dir = DIRECTION_META[item.direction];
+              return (
+                <li key={i} className="flex items-start gap-2 border-l-2 py-1.5 pl-2.5" style={{ borderColor: dir.tone === "pos" ? "var(--pos)" : dir.tone === "neg" ? "var(--neg)" : "var(--warn)" }}>
+                  <span aria-hidden="true" className={`mono mt-px shrink-0 text-[12px] ${dir.tone === "pos" ? "text-pos" : dir.tone === "neg" ? "text-neg" : "text-warn"}`}>{dir.glyph}</span>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[12px] font-medium text-fg">{item.title}</span>
+                    <div className="mono text-[10px] text-faint">
+                      {eventDateText(item.occurredOn)}
+                      <span className="ml-2">direction {item.direction}</span>
+                      {item.affects.trim() && <span className="ml-2">affects {item.affects}</span>}
+                    </div>
+                    <div className="mt-1"><ClaimReasoning reasoning={developmentClaims(item)} /></div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Q1: dated actions by the CEO, other executives or the board. Absent on saved reports. */
+function ManagementActionsBlock({ actions }: { actions: NonNullable<Leadership["managementActions"]> }) {
+  return (
+    <SubBlock label={MANAGEMENT_ACTIONS_HEADING}>
+      {actions.length === 0 ? (
+        <div className="text-[11px] text-faint">{NO_MANAGEMENT_ACTIONS}</div>
+      ) : (
+        <ol className="flex flex-col gap-2">
+          {actions.map((item, i) => (
+            <li key={i} className="border border-edge bg-raised px-2.5 py-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="text-[12px] font-medium text-fg">{MANAGEMENT_CATEGORY_LABELS[item.category]}{item.actor.trim() ? ` · ${item.actor}` : ""}</span>
+                <span className="mono text-[10px] text-faint">{eventDateText(item.occurredOn)}</span>
+              </div>
+              <div className="mono text-[10px] text-muted">shareholder alignment: {SHAREHOLDER_ALIGNMENT_LABELS[item.shareholderAlignment]}</div>
+              <div className="mt-1"><ClaimReasoning reasoning={managementActionClaims(item)} /></div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </SubBlock>
   );
 }
 
@@ -1529,6 +1594,7 @@ export function LeadershipSection({
           )}
         </div>
       </SubBlock>
+      {leadership.managementActions !== undefined && <ManagementActionsBlock actions={leadership.managementActions} />}
       <div className="grid gap-4 lg:grid-cols-2">
         <SubBlock label="Insider activity" semanticToken="insider activity">
           <ClaimList claims={leadership.insiderSummary} empty="No analyst insider summary recorded." />

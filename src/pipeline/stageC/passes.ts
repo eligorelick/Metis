@@ -64,6 +64,11 @@ import {
   DISCLAIMER_TEXT,
   FRED_ATTRIBUTION_TEXT,
   REPORT_SPEC_VERSION,
+  DevelopmentDirectionSchema,
+  IsoDateSchema,
+  ManagementActionCategorySchema,
+  QUALITATIVE_ITEM_CAP,
+  ShareholderAlignmentSchema,
   analystCaseToJsonSchema,
   judgeOutputToJsonSchema,
   fillNullableGaps,
@@ -2459,6 +2464,103 @@ function splitEmbeddedJudgments(value: unknown): unknown {
   return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, child]) => [key, splitEmbeddedJudgments(child)]));
 }
 
+/* ------------------------------------------------------------------------ *
+ * Q1: recent developments and management actions. A paid section request is
+ * not discarded for a shape a careful reader would accept: these repairs keep
+ * every sourced claim and never invent one.
+ * ------------------------------------------------------------------------ */
+
+/** An event date, or null: a timestamp keeps its day; a month or quarter is not a date. */
+function normalizedOccurredOn(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  const day = trimmed.slice(0, 10);
+  const shaped = trimmed.length === 10 || /^\d{4}-\d{2}-\d{2}T/.test(trimmed);
+  return shaped && /^\d{4}-\d{2}-\d{2}$/.test(day) && IsoDateSchema.safeParse(day).success ? day : null;
+}
+
+/** A claim list: a single claim becomes a list, blank claims are dropped, a missing list is empty. */
+function normalizedClaimList(value: unknown): unknown {
+  if (value === undefined || value === null) return [];
+  const list = isPlainObject(value) ? [value] : value;
+  if (!Array.isArray(list)) return list;
+  return list.filter((claim) => !(isPlainObject(claim) && typeof claim.text === "string" && claim.text.trim() === ""));
+}
+
+function normalizedText(value: unknown): unknown {
+  return value === undefined || value === null ? "" : value;
+}
+
+/**
+ * Dated items newest first (undated last, original order otherwise), capped.
+ * An item whose factual list is empty carries no sourced fact and is dropped.
+ */
+function normalizedDatedItems(items: unknown, factKey: string, viewKey: string, repair: (item: Record<string, unknown>) => Record<string, unknown>): unknown {
+  if (!Array.isArray(items)) return items;
+  const kept = items.flatMap((item, index) => {
+    if (!isPlainObject(item)) return [{ item: item as unknown, index }];
+    const next = repair({ ...item, occurredOn: normalizedOccurredOn(item.occurredOn),
+      [factKey]: normalizedClaimList(item[factKey]), [viewKey]: normalizedClaimList(item[viewKey]) });
+    const facts = next[factKey];
+    return Array.isArray(facts) && facts.length === 0 ? [] : [{ item: next as unknown, index }];
+  });
+  const date = (item: unknown): string => isPlainObject(item) && typeof item.occurredOn === "string" ? item.occurredOn : "";
+  return kept.sort((a, b) => date(b.item).localeCompare(date(a.item)) || a.index - b.index)
+    .slice(0, QUALITATIVE_ITEM_CAP).map(({ item }) => item);
+}
+
+const DIRECTION_VALUES: ReadonlySet<string> = new Set(DevelopmentDirectionSchema.options);
+const CATEGORY_VALUES: ReadonlySet<string> = new Set(ManagementActionCategorySchema.options);
+const ALIGNMENT_VALUES: ReadonlySet<string> = new Set(ShareholderAlignmentSchema.options);
+const CATEGORY_SYNONYMS: ReadonlyArray<[RegExp, string]> = [
+  [/^(?:executive|officer|management|ceo|cfo|leadership|succession)(?:-|$)/, "leadership-change"],
+  [/^(?:board|director)(?:-|$)/, "board-change"],
+  [/^(?:acquisition|divestiture|merger|m-a|deal|disposal|spin)/, "acquisition-divestiture"],
+  [/^(?:buyback|repurchase|dividend|debt|financing|capital|refinanc|share-issu)/, "capital-allocation"],
+  [/^guidance/, "guidance"],
+  [/^insider/, "insider-transaction"],
+  [/^(?:compensation|pay|comp-)/, "compensation"],
+  [/^strateg/, "strategy"],
+];
+
+function normalizedCategory(value: unknown): string {
+  if (typeof value !== "string") return "other";
+  const key = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  if (CATEGORY_VALUES.has(key)) return key;
+  return CATEGORY_SYNONYMS.find(([pattern]) => pattern.test(key))?.[1] ?? "other";
+}
+
+function normalizedAlignment(value: unknown): string {
+  if (typeof value !== "string") return "unclear";
+  const key = value.trim().toLowerCase().replace(/[^a-z]+/g, "-").replace(/^-|-$/g, "");
+  if (ALIGNMENT_VALUES.has(key)) return key;
+  return /^(?:not-aligned|unaligned)$/.test(key) ? "misaligned" : "unclear";
+}
+
+function normalizeRecentDevelopments(verdict: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...verdict };
+  let value = next.recentDevelopments;
+  if (value === null) { delete next.recentDevelopments; return next; }
+  if (Array.isArray(value)) value = { summary: [], items: value };
+  if (!isPlainObject(value)) return next;
+  next.recentDevelopments = { ...value, summary: normalizedClaimList(value.summary),
+    items: normalizedDatedItems(value.items ?? [], "whatHappened", "whyItMatters", (item) => ({ ...item,
+      // Casing is already repaired; any other word is the mixed case, not a lost section.
+      direction: typeof item.direction === "string" && DIRECTION_VALUES.has(item.direction) ? item.direction : "mixed",
+      affects: normalizedText(item.affects) })) };
+  return next;
+}
+
+function normalizeManagementActions(leadership: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...leadership };
+  if (next.managementActions === null) { delete next.managementActions; return next; }
+  if (!Array.isArray(next.managementActions)) return next;
+  next.managementActions = normalizedDatedItems(next.managementActions, "action", "assessment", (item) => ({ ...item,
+    category: normalizedCategory(item.category), shareholderAlignment: normalizedAlignment(item.shareholderAlignment),
+    actor: normalizedText(item.actor) }));
+  return next;
+}
+
 export function normalizeJudgeOutput(raw: unknown): unknown {
   const enumNormalized = normalizeKnownEnumCasing(normalizeCitationFields(raw));
   if (enumNormalized === null || typeof enumNormalized !== "object" || Array.isArray(enumNormalized)) {
@@ -2478,6 +2580,9 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
     }
     root.catalystsRisks = section;
   }
+
+  if (isPlainObject(root.verdict)) root.verdict = normalizeRecentDevelopments(root.verdict);
+  if (isPlainObject(root.leadership)) root.leadership = normalizeManagementActions(root.leadership);
 
   if (root.macro !== null && typeof root.macro === "object" && !Array.isArray(root.macro)) {
     root.macro = {

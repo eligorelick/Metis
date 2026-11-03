@@ -280,6 +280,8 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/presentation.ts",
   "src/report/export/auditMarkdown.ts",
   "src/pipeline/marketData.ts",
+  // Q1: reader wording for recent developments and management actions on every surface.
+  "src/report/qualitativeAnalysis.ts",
 ];
 
 /** TEST-201: one glob-free key per core file preserves the aggregate gate. */
