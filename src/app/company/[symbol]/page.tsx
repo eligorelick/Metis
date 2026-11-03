@@ -575,10 +575,10 @@ function TechnicalsPanel({
 function ValuationPanel({ computed, bundle }: { computed: ComputedMetrics; bundle: DataBundle }) {
   const v = computed.valuation;
   const quote = bundle.quote.ok ? bundle.quote.value.data.rows[0] : undefined;
-  // Per-share values are in the currency the model ran in — the statements'.
+  // Per-share values use the model's admitted FX basis when translated.
   // They are set against the quote only when both are in one known currency.
   const currencies = statementCurrencies(bundle);
-  const modelCurrency = currencies.model;
+  const modelCurrency = computed.valuationTranslation?.fx.quoteCurrency ?? currencies.model;
   const price =
     typeof quote?.price === "number" && comparePriceCurrency(modelCurrency, currencies.trading).comparable
       ? quote.price
@@ -586,6 +586,7 @@ function ValuationPanel({ computed, bundle }: { computed: ComputedMetrics; bundl
 
   return (
     <Panel title={`valuation · ${v.route} (${v.kind})`}>
+      {computed.valuationTranslation ? <p className="mb-2 text-[11px] leading-snug text-muted">{computed.valuationTranslation.note}</p> : null}
       {v.kind === "dcf" ? <DcfBlock v={v} price={price} currency={modelCurrency} /> : null}
       {v.kind === "excess-return" ? <ExcessReturnBlock v={v} price={price} currency={modelCurrency} /> : null}
       {v.kind === "reit" ? <ReitBlock v={v} currency={modelCurrency} /> : null}

@@ -4305,7 +4305,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
           fairValue,
         ),
         args.computed.valuation,
-        args.computed.valuation === undefined ? null : statementCurrencies(args.bundle).model,
+        args.computed.valuation === undefined ? null : args.computed.valuationTranslation?.fx.quoteCurrency ?? statementCurrencies(args.bundle).model,
       ),
       args.computed.valuation,
     ),

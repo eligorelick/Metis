@@ -63,3 +63,13 @@ export function comparePriceCurrency(
           : `quote currency unknown (statements in ${statements})`,
   };
 }
+
+
+/** Pure quote-session resolver shared by acquisition, validation and computation. */
+export function quotePriceObservationDay(row: Record<string, unknown> | null | undefined): string | null {
+  if (!row) return null;
+  const timestamp = typeof row.timestamp === "number" ? row.timestamp : null;
+  if (timestamp !== null && Number.isFinite(timestamp) && timestamp > 0 && timestamp * 1000 <= 8.64e15) return new Date(timestamp * 1000).toISOString().slice(0, 10);
+  const date = typeof row.date === "string" ? row.date.slice(0, 10) : "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date ? date : null;
+}
