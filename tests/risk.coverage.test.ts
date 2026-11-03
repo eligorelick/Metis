@@ -75,6 +75,8 @@ const EXPECTED_RISK_SOURCES = [
   "src/pipeline/keyless.ts",
   "src/pipeline/riskFreeFallback.ts",
   "src/pipeline/riskFreeSeries.ts",
+  "src/pipeline/fx.ts",
+  "src/pipeline/foreignCurrency.ts",
   "src/pipeline/stageA/manifest.ts",
   "src/pipeline/stageA/validate.ts",
   "src/pipeline/stageC/citations.ts",
@@ -238,6 +240,8 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/presentation.ts",
   "src/report/export/auditMarkdown.ts",
   "src/pipeline/marketData.ts",
+  // Q1: reader wording for recent developments and management actions on every surface.
+  "src/report/qualitativeAnalysis.ts",
 ] as const;
 
 /**

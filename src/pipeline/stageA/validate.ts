@@ -1,3 +1,4 @@
+import { resolveForeignValuation } from "@/pipeline/foreignCurrency";
 /**
  * Stage A validation  — pure, deterministic, no network/db/LLM.
  *
@@ -30,6 +31,7 @@ import {
   crossCheck,
   getConcept,
   latestFactEnd,
+  latestFiledPeriodEnd,
   looksLikeBankTagging,
   type CompanyFacts,
   type ConceptName,
@@ -122,6 +124,8 @@ export interface ValidateProfileRow {
 }
 
 export interface ValidatableBundle {
+  builtAt?: string;
+  valuationFx?: import("@/pipeline/types").DataBundle["valuationFx"];
   symbol: string;
   quote: FetchResult<unknown>;
   /** Company profile (optional): drives bank-revenue routing for the cross-check (L1). */
@@ -727,6 +731,70 @@ function checkFmpXbrlCross(bundle: ValidatableBundle, c: Collector): void {
   }
 }
 
+/** A filing at most this many days old, whose period SEC companyfacts does not yet carry, is fresh. */
+export const FRESH_FILING_DAYS = 10;
+const FRESH_FILING_END_TOLERANCE_DAYS = 3;
+const FRESH_FILING_TAGS = [
+  "RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "RevenuesNetOfInterestExpense",
+  "InterestIncomeExpenseNet", "NetIncomeLoss", "Assets",
+  // ifrs-full (20-F filers)
+  "Revenue", "ProfitLoss",
+] as const;
+
+/**
+ * D-175. A provider publishes its rows for a new filing within hours, and those
+ * first rows are the least reliable: AAPL's 10-K for the year ended 2026-09-26,
+ * accepted 2026-11-02 16:30, arrived with long-term debt 0 (D-174) and no annual
+ * balance sheet (D-173), while SEC companyfacts did not yet carry the period, so no
+ * figure from it could be cross-checked. The cross-check already records "not
+ * checkable" rows; this states the condition once, where the reader looks: when
+ * the newest statement period was filed at most FRESH_FILING_DAYS before the
+ * analysis and the admitted SEC facts have nothing at or after its period end.
+ */
+function checkFreshFiling(bundle: ValidatableBundle, now: Date, c: Collector): void {
+  // Without admitted SEC facts nothing at all is cross-checked; the EDGAR gaps say so.
+  const factsRes = admittedIssuerFacts(bundle.symbol, bundle.edgar);
+  if (!factsRes?.ok) return;
+  const sec = latestFiledPeriodEnd(factsRes.value.data, FRESH_FILING_TAGS);
+  // A 20-F or 40-F filer's quarters come from 6-K releases, which SEC structured
+  // data never carries: only its annual periods can wait to be confirmed.
+  const families = sec.foreignAnnual && !sec.quarterly
+    ? [bundle.statements.incomeAnnual] : [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly];
+  let end: string | null = null;
+  for (const res of families) {
+    if (!res.ok) continue;
+    for (const row of res.value.data.rows) if (typeof row.date === "string" && (end === null || row.date > end)) end = row.date;
+  }
+  if (end === null || !Number.isFinite(parseDateMs(end.slice(0, 10)))) return;
+  end = end.slice(0, 10);
+  // The cross-check matches a period end within this many days (52/53-week calendars).
+  if (sec.end !== null && parseDateMs(sec.end) >= parseDateMs(end) - FRESH_FILING_END_TOLERANCE_DAYS * DAY_MS) return;
+  let filed: string | null = null;
+  for (const res of families) {
+    if (!res.ok || res.value.source === "edgar") continue;
+    for (const row of res.value.data.rows) {
+      if (typeof row.date !== "string" || row.date.slice(0, 10) !== end) continue;
+      // SEC dates a filing accepted after 17:30 ET to the next business day, so the
+      // acceptance day is the earlier, truer age.
+      const days = [row.acceptedDate, row.filingDate]
+        .map(value => (typeof value === "string" ? value.slice(0, 10) : null))
+        .filter((day): day is string => day !== null && /^\d{4}-\d{2}-\d{2}$/.test(day))
+        .sort();
+      const day = days[0];
+      if (day !== undefined && (filed === null || day > filed)) filed = day;
+    }
+  }
+  if (filed === null) return;
+  const ageDays = (now.getTime() - parseDateMs(filed)) / DAY_MS;
+  if (!Number.isFinite(ageDays) || ageDays < -1 || ageDays > FRESH_FILING_DAYS) return;
+  const age = ageDays < 1 ? "less than a day" : `${Math.floor(ageDays)} day${Math.floor(ageDays) === 1 ? "" : "s"}`;
+  c.gaps.push(gapEntry("validation.freshFiling",
+    `The newest filing (period ended ${end.slice(0, 10)}, filed ${filed}) is ${age} old and SEC structured data does not yet include that period, ` +
+      "so the data provider's figures from it are not yet cross-checked against the filing. A provider's first rows for a new filing are the least reliable; " +
+      "re-run once the SEC data is published.",
+    "warn"));
+}
+
 // ---------------------------------------------------------------------------
 // 3. Staleness
 // ---------------------------------------------------------------------------
@@ -1129,6 +1197,14 @@ function checkCurrencyConsistency(bundle: ValidatableBundle, c: Collector): void
   }
 
   const mismatch = tradingCurrency !== reportingCurrency;
+  // Full Stage A bundles carry FX/security inputs. The resolver validates each
+  // optional member and fails closed for narrow legacy validation fixtures.
+  const translated = mismatch && bundle.valuationFx && bundle.builtAt
+    ? resolveForeignValuation(bundle as unknown as import("@/pipeline/types").DataBundle, reportingCurrency).basis : null;
+  if (translated) {
+    c.checks.push({ id: "currencyConsistency", name: "Reporting vs trading currency", status: "pass", detail: translated.note });
+    return;
+  }
   c.checks.push({
     id: "currencyConsistency",
     name: "Reporting vs trading currency",
@@ -1174,6 +1250,7 @@ export function validateBundle(
 
   checkBalanceSheetIdentity(bundle, c);
   checkFmpXbrlCross(bundle, c);
+  checkFreshFiling(bundle, now, c);
   checkStaleness(bundle, now, c);
   sweepImplausibleZeros(bundle, c);
   checkCurrencyConsistency(bundle, c);

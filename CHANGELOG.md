@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.59.0** and
-payload **1.64.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes and D-173/D-174). The
+Current source declares application **0.1.0**, report spec **1.60.0** and
+payload **1.65.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174 and the Q round, D-175 to D-181). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,16 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - News, management actions, fresh filings and wider valuation coverage (2026-11-02)
+
+- Reports can now open on what changed: up to 8 dated recent developments and up to 8 dated CEO, executive and board actions, each cited and assessed for what it means for the case and for shareholders (D-177). The payload lists coded purchases and sales from the last six months by person (up to 8, senior officers first).
+- News covers the quarter, not the newest hours: six two-week windows from 8 to 90 days back are fetched, and the payload shows the 6 newest rows plus 6 spread across earlier days (D-176). A failed or empty window adds no gap.
+- When the newest filing is days old and SEC data does not yet carry it, page one says its figures are not yet cross-checked, and the executive summary calls them provisional (D-175). IFRS filers are read from their ifrs-full facts, and a foreign filer's 6-K quarters are not waited for.
+- Foreign issuers can be valued in USD at one dated Federal Reserve H.10 rate, with the depositary ratio proved two independent ways (D-178). On the frozen panel ASML is valued; TSM gains WACC, multiples and Altman; TM, SAP, NVO, SONY and BABA stay withheld with reasons.
+- Valuation coverage of the 26 US frozen-panel companies rises from 10 to 19 (GOOGL, META, COST, HD, VZ, JNJ, LLY, CAT, XOM), by completing debt and leases from the same filing, building WACC from complete balances, scoring interest coverage on filed annual EBIT, and reading one more total-NCI concept (D-179). No published value changed.
+- A DCF bias study found no evidence-backed numerical change; the terminal-return wording now says it is the return on new capital (D-180).
+- Stamps: report 1.60.0, payload 1.65.0, pipeline stage-c-1.6.22; Stage B, fair value and scenario targets `COVERAGE_AND_FX_44`. Stored reports keep their bytes. See D-175 to D-181.
 
 ## Unreleased - Fresh annual filings: lagging balance feed and collapsed debt (2026-11-02)
 

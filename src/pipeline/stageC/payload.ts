@@ -469,7 +469,9 @@ export interface ContextPayload {
 // and the TTM cash-flow window gate changes current-capital operands.
 // 1.64.0 (D-173, D-174): the newest fiscal year's closing balance fills a lagging annual balance feed, and a debt
 // collapse no cash flow explains is withheld without interest, changing the debt, returns, forensic and valuation operands.
-export const PAYLOAD_VERSION = "1.64.0" as const;
+// 1.65.0 (D-175 to D-181, Q round): the fresh-filing caution, news sampled across 90 days, insider trades by person,
+// a dated FX rate for foreign-currency valuation and the completed debt, WACC and NCI operands change admitted context.
+export const PAYLOAD_VERSION = "1.65.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -715,7 +717,7 @@ function computedCurrencies(bundle: DataBundle, computed: ComputedMetrics): Comp
   const accrualDates = [computed.forensics.accruals?.asOf.current ?? null, computed.forensics.accruals?.asOf.prior ?? null];
   return {
     trading: currencies.trading,
-    model: currencies.model,
+    model: computed.valuationTranslation?.fx.quoteCurrency ?? currencies.model,
     // Several rows sharing the date (a restatement) must agree.
     fcf: sharedRowCurrency(rowsOn(rowsOf(bundle.statements.cashflowAnnual), fcfDate)),
     runwayBurn:
@@ -2039,6 +2041,65 @@ export function insiderStatisticsWindow(rows: readonly FmpInsiderTradeStatistics
 
 const INSIDER_WINDOW_WORDS = ["", "one", "two", "three", "four"] as const;
 
+/** Q1: the window and the number of people the per-person trade lines cover. */
+const PERSON_TRADE_WINDOW_DAYS = 183;
+const PERSON_TRADE_PEOPLE = 8;
+const SENIOR_ROLE = /chief executive|\bceo\b|chief financial|\bcfo\b|\bchair|(?<!vice[ -])president/i;
+
+/**
+ * Q1: one line per person for Form 4 code P and S rows in the last six months,
+ * from every selected provider row. The detailed rows are only the newest
+ * twelve, which awards, gifts and tax withholding often fill: on the frozen
+ * 2026-11-02 panel these trades were visible for 3 of 7 people at AAPL, 1 of 9
+ * at JPM and 1 of 5 at FIGR. Each line keeps the trade-row shape (date, name,
+ * role, tag), so a claim naming the person can cite it. Senior officers come
+ * first, then the larger amounts; at most eight people are listed.
+ */
+function personTradeNotes(observed: readonly FmpRawRow[], shown: number, builtAt: string): string[] {
+  const start = new Date(Date.parse(`${builtAt}T00:00:00Z`) - PERSON_TRADE_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const groups = new Map<string, { name: string; owner: string; code: "P" | "S"; rows: FmpRawRow[]; days: string[] }>();
+  for (const tr of observed) {
+    const day = isoDay(tr.transactionDate);
+    const code = strOrNull(tr.transactionType)?.split("-")[0];
+    const name = strOrNull(tr.reportingName);
+    if (day === null || !isIsoDate(day) || day < start || day > builtAt || (code !== "P" && code !== "S") || name === null) continue;
+    const owner = strOrNull(tr.typeOfOwner) ?? "?";
+    // One line per person and code; a renamed role shows its newest spelling.
+    const key = JSON.stringify([name, code]);
+    const group = groups.get(key) ?? { name, owner, code, rows: [], days: [] };
+    if (group.days.every((seen) => seen <= day)) group.owner = owner;
+    group.rows.push(tr);
+    group.days.push(day);
+    groups.set(key, group);
+  }
+  if (groups.size === 0) return [];
+  const shares = (rows: readonly FmpRawRow[]): number | null =>
+    // Fractional lots (dividend reinvestment) must not print binary-float noise.
+    rows.every((tr) => numOrNull(tr.securitiesTransacted) !== null) ? Math.round(rows.reduce((sum, tr) => sum + numOrNull(tr.securitiesTransacted)!, 0) * 1e4) / 1e4 : null;
+  const value = (rows: readonly FmpRawRow[]): number => rows.reduce((sum, tr) => sum + (numOrNull(tr.securitiesTransacted) ?? 0) * (numOrNull(tr.price) ?? 0), 0);
+  const ranked = [...groups.values()].sort((a, b) =>
+    Number(SENIOR_ROLE.test(b.owner)) - Number(SENIOR_ROLE.test(a.owner)) || value(b.rows) - value(a.rows) ||
+    [...b.days].sort().at(-1)!.localeCompare([...a.days].sort().at(-1)!) || a.name.localeCompare(b.name));
+  const listed = ranked.slice(0, PERSON_TRADE_PEOPLE);
+  const omitted = new Set(ranked.map((group) => group.name)).size - new Set(listed.map((group) => group.name)).size;
+  return [
+    `Form 4 purchases and sales by person (codes P and S, open-market or private), ${start} to ${builtAt}, from all ${observed.length} selected provider row${observed.length === 1 ? "" : "s"} ` +
+      `(the detailed rows below are the newest ${shown}). Row totals may overlap across amendments or joint filings; venue and motive are not established.` +
+      (omitted > 0 ? ` ${omitted} more ${omitted === 1 ? "person is" : "people are"} not listed.` : ""),
+    ...listed.map((group) => {
+      const days = [...group.days].sort();
+      const first = days[0]!, last = days.at(-1)!;
+      const total = shares(group.rows);
+      const prices = group.rows.map((tr) => numOrNull(tr.price)).filter((price): price is number => price !== null && price > 0);
+      const low = Math.min(...prices), high = Math.max(...prices);
+      return `${last} ${group.name} (${group.owner}): code ${group.code} ${group.code === "S" ? "sales" : "purchases"}, ` +
+        `${group.rows.length} row${group.rows.length === 1 ? "" : "s"} ${first === last ? `on ${last}` : `${first} to ${last}`}, ` +
+        `${total === null ? "share total unavailable" : `${total} shares`}${prices.length === 0 ? "" : ` at ${low === high ? low : `${low}-${high}`}`} ` +
+        `[fmp:insider-trades · ${last}]`;
+    }),
+  ];
+}
+
 function insidersSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
@@ -2119,6 +2180,7 @@ function insidersSection(bundle: DataBundle): PayloadSection {
       }).join("; ") + ". Codes S/P are reported sales/purchases; F is not a sale code. These row totals are not a complete post-window aggregate and may overlap across joint owners or amendments; do not infer unique shares sold or motive.");
     } else notes.push(`No dated post-window Form 4 rows are available in the selected provider rows after ${win.end}; this does not establish no activity.`);
   }
+  notes.push(...personTradeNotes(observed, trades.length, bundle.builtAt.slice(0, 10)));
   for (const tr of trades) {
     const d = isoDay(tr.transactionDate) ?? isoDay(tr.filingDate) ?? "unknown";
     notes.push(
@@ -2317,6 +2379,55 @@ function macroSection(bundle: DataBundle): PayloadSection {
   });
 }
 
+/** D-176: of the news rows shown, at most this many are the newest; the rest are spread across earlier dates. */
+export const NEWS_NEWEST_ROWS = 6;
+
+/**
+ * D-176. The newest-rows feed alone can cover hours for a heavily covered issuer,
+ * so a report saw only the latest headlines. Rows from every retained window are
+ * merged (deduplicated by URL, else by date and title) newest first. When more
+ * than `limit` remain, the `NEWS_NEWEST_ROWS` newest are kept and the remaining
+ * slots are spread evenly across the older rows, so the model sees the quarter, not
+ * one day. Up to `limit` rows keep today's order unchanged.
+ */
+export function sampleNewsRows(rows: readonly FmpRawRow[], limit: number): { rows: FmpRawRow[]; sampled: boolean; retained: number } {
+  const seen = new Set<string>();
+  const merged: FmpRawRow[] = [];
+  for (const row of rows) {
+    const key = strOrNull(row.url) ?? `${isoDay(row.publishedDate) ?? "unknown"}|${(strOrNull(row.title) ?? "").toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(row);
+  }
+  const day = (row: FmpRawRow) => isoDay(row.publishedDate) ?? "";
+  merged.sort((a, b) => day(b).localeCompare(day(a)));
+  if (merged.length <= limit) return { rows: merged, sampled: false, retained: merged.length };
+  const newest = merged.slice(0, Math.min(NEWS_NEWEST_ROWS, limit));
+  const slots = limit - newest.length;
+  // Spread by calendar day, not by position: one heavily covered day must not fill every slot.
+  const newestDay = newest.length > 0 ? day(newest[newest.length - 1]!) : "";
+  const byDay = new Map<string, FmpRawRow[]>();
+  for (const row of merged.slice(newest.length)) {
+    const key = day(row) === newestDay ? "" : day(row);
+    byDay.set(key, [...(byDay.get(key) ?? []), row]);
+  }
+  const earlierDays = [...byDay.keys()].filter(key => key !== "").sort((x, y) => y.localeCompare(x));
+  const chosenDays: string[] = [];
+  if (earlierDays.length <= slots) chosenDays.push(...earlierDays);
+  else for (let i = 0; i < slots; i += 1) {
+    const pick = earlierDays[slots === 1 ? 0 : Math.round((i * (earlierDays.length - 1)) / (slots - 1))]!;
+    if (!chosenDays.includes(pick)) chosenDays.push(pick);
+  }
+  const picked: FmpRawRow[] = chosenDays.map(key => byDay.get(key)![0]!);
+  // Spare slots go to further rows, round-robin from the newest chosen day, then the newest day's remainder.
+  const queues = [...chosenDays.map(key => byDay.get(key)!.slice(1)), byDay.get("") ?? []];
+  while (picked.length < slots && queues.some(queue => queue.length > 0)) {
+    for (const queue of queues) if (picked.length < slots && queue.length > 0) picked.push(queue.shift()!);
+  }
+  picked.sort((a, b) => day(b).localeCompare(day(a)));
+  return { rows: [...newest, ...picked], sampled: true, retained: merged.length };
+}
+
 function newsSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
   const notes: string[] = [];
@@ -2340,7 +2451,19 @@ function newsSection(bundle: DataBundle): PayloadSection {
       used += clipped.length;
     }
   };
-  if (bundle.news.ok) addRows(rowsOf(bundle.news).slice(0, PAYLOAD_BUDGETS.listRows), "news", bundle.news.value.source);
+  if (bundle.news.ok) {
+    const source = bundle.news.value.source;
+    const earlier = bundle.newsEarlier
+      ? bundle.newsEarlier.flatMap(fetch => (fetch.ok && fetch.value.source === source ? rowsOf(fetch) : []))
+      : [];
+    const sample = sampleNewsRows([...rowsOf(bundle.news), ...earlier], PAYLOAD_BUDGETS.listRows);
+    if (sample.sampled) {
+      const dates = sample.rows.map(row => isoDay(row.publishedDate)).filter((d): d is string => d !== null).sort();
+      notes.push(`News sampled from ${sample.retained} retained rows: the ${NEWS_NEWEST_ROWS} newest and ${sample.rows.length - NEWS_NEWEST_ROWS} spread across earlier dates` +
+        (dates.length > 0 ? `, ${dates[0]} to ${dates[dates.length - 1]}.` : "."));
+    }
+    addRows(sample.rows, "news", source);
+  }
   if (bundle.pressReleases.ok) addRows(rowsOf(bundle.pressReleases).slice(0, PAYLOAD_BUDGETS.listRows), "press-release", bundle.pressReleases.value.source);
   // Every truncation is disclosed (module rule): a snippet cut mid-line or a
   // row left out for the budget used to vanish silently (audit 2026-09-06,

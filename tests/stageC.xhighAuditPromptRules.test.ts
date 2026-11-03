@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBearFraming, buildBullFraming, buildJudgeFraming } from "@/pipeline/stageC/prompts";
+import { buildAnalystResearchFraming, buildBearFraming, buildBullFraming, buildJudgeFraming } from "@/pipeline/stageC/prompts";
 
 /**
  * FIGR extra-high paid run (2026-11-02): the fact review (AUDIT-A2) and the
@@ -64,6 +64,16 @@ const JUDGE_RULES: Array<[string, RegExp]> = [
   ["request market economics and sourced size, growth and share", /business\.marketStructure[^.]*size and growth[^.]*industry is structured[^.]*value accrues[^.]*position and share/],
   ["request named competitors and the basis of competition", /competitive\.competitors[^.]*10-K business excerpt[^.]*cited sources[^.]*how each competes[^.]*wins or loses/],
   ["do not invent market sizes", /FACT only with a source[^.]*JUDGMENT for interpretation[^.]*never invent market sizes/],
+  // Q1 (owner request 2026-11-02): recent developments and management actions, as a sell-side analyst covers them.
+  ["request at most eight dated recent developments, newest first", /verdict\.recentDevelopments[^.]*at most 8 dated developments[^.]*last six months, newest first/],
+  ["developments are past events with cited facts and labelled judgments", /past events only[^.]*upcoming events are catalysts/],
+  ["each development states what happened, why it matters, direction and the part of the case", /`whatHappened`[^.]*cited FACT[^.]*`whyItMatters`[^.]*JUDGMENT[^.]*`direction`[^.]*`affects`/],
+  ["the verdict weighs the top development, catalyst and risk beside the numbers", /synthesis and the executive summary weigh the most important recent development and the top catalyst and risk alongside the numbers/],
+  ["request at most eight dated management actions", /leadership\.managementActions[^.]*at most 8 dated actions[^.]*CEO, other executives or the board/],
+  ["management actions cover the action types a sell-side analyst tracks", /Item 5\.02[^.]*strategy[^.]*acquisitions and divestitures[^.]*buybacks, dividends, debt raised or repaid[^.]*guidance raised, cut or reaffirmed[^.]*insider[^.]*10b5-1[^.]*compensation/],
+  ["assess shareholder alignment and the record against earlier promises from evidence only", /`assessment`[^.]*aligned with shareholders[^.]*earlier stated plans or guidance[^.]*evidence only[^.]*never a guess at motive/],
+  ["an actor is a role; a name belongs in a cited claim", /`actor` is a role[^.]*name a person only inside a cited claim/],
+  ["the summary is cited claims, not prose", /`summary` is 2–3 cited JUDGMENT claims/],
   // A2-27: "the four aspects with no score are pulled toward the midpoint".
   ["route-excluded aspects do not move the composite", /no signal that applies on the route are left out of the composite and do not move it/],
   ["missing applicable evidence shrinks the composite, not the aspects", /distance from 50 is scaled by the\s+evidence-completeness share\. Unscored aspects are not themselves pulled toward any value/],
@@ -84,10 +94,24 @@ describe("priority-fix review rules", () => {
     expect(framing).toContain("market and competitor findings that bear on your case");
     expect(framing).toContain("its fetched URL, so the judge can use them for the market-structure and competitor sections");
   });
+  // Q1: the writers carry dated news and management findings as they carry market findings (D-172).
+  it.each([["bull", buildBullFraming()], ["bear", buildBearFraming()]])("the %s writer carries dated news and management findings to the judge", (_side, framing) => {
+    expect(framing).toMatch(/dated news and management findings[^.]*executive and board changes[^.]*capital-allocation and guidance decisions[^.]*insider trades[^.]*event date[^.]*recent-developments and management-actions sections/);
+  });
+  it.each(["bull", "bear"] as const)("the %s research request looks for recent developments and management actions", (side) => {
+    expect(buildAnalystResearchFraming(side)).toMatch(/last six months[^.]*management and board actions[^.]*executive changes[^.]*acquisitions or divestitures[^.]*buybacks, dividends, debt[^.]*guidance changes/);
+  });
   it("takes the price stance from sector-appropriate multiples on a named earnings basis, never an unverified provider EPS", () => {
     const judge = buildJudgeFraming();
     expect(judge).toContain("sector-appropriate");
     expect(judge).toContain("against the company's OWN growth, returns");
     expect(judge).toContain("provider-EPS multiple whose accounting basis is unverified");
+  });
+});
+
+describe("fresh-filing caution rule (D-175)", () => {
+  it("asks the summary to call figures from a filing SEC has not yet confirmed provisional", () => {
+    const rules = [buildJudgeFraming(), buildJudgeFraming(undefined, true)].join(" ");
+    expect(rules).toMatch(/manifest\.validation\.freshFiling[\s\S]{0,200}provisional because SEC data has not yet confirmed them/);
   });
 });

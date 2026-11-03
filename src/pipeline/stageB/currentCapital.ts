@@ -91,11 +91,13 @@ export function debtBridge(row: CapitalBalanceRow | null): DebtBridge {
     netDebtIncludingLeases: null, netDebtExcludingOperatingLeases: null,
     compositionNote: closeSentence(`Total debt including leases withheld at ${row?.date ?? "the balance date"}: ${refusal ?? conflict}`),
   };
-  const composed = row?.fieldProvenance?.totalDebt?.calculation === "noncurrent-lease-line-completed" ? row.fieldProvenance.totalDebt : undefined;
+  const composed = ["noncurrent-lease-line-completed", "same-filing-debt-completed"].includes(row?.fieldProvenance?.totalDebt?.calculation ?? "") ? row!.fieldProvenance!.totalDebt : undefined;
   const compositionNote = composed === undefined || debt === null ? undefined
     : `Debt on the recomposed reported basis ${millions(debt)} is composed from the ${composed.filings?.map((f) => `${f.form} ${f.accn}`).join(", ") ?? "same"} filing ` +
-      `(${composed.tags.map((tag) => tag.replace(/^us-gaap\//, "")).join(" + ")}): the vendor's own total held only the noncurrent lease liabilities, ` +
-      `leaving out ${completedTotalOmission(composed.tags)}. It is a composed figure, not a vendor-reported total.`;
+      `(${composed.tags.map((tag) => tag.replace(/^us-gaap\//, "")).join(", ")}): ` +
+      (composed.calculation === "same-filing-debt-completed" ? "current and noncurrent financing debt plus operating and finance leases are counted exactly once after reconciling the vendor component scopes. "
+        : `the vendor's own total held only the noncurrent lease liabilities, leaving out ${completedTotalOmission(composed.tags)}. `) +
+      "It is a composed figure, not a vendor-reported total.";
   const incomplete = incompleteLeaseCoverage(row);
   if (incomplete !== null) return {
     ...descriptive, totalDebtIncludingLeases: null, operatingLeases: incomplete.operating === null ? operating : null,

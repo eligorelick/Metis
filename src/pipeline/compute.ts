@@ -1,3 +1,4 @@
+import { resolveForeignValuation, translateValuationInputs, translateProjectionInputs, type ForeignValuationBasis } from "@/pipeline/foreignCurrency";
 import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
 import { admittedStatementRow, isFmpQuotaReason, quotePriceObservationDay } from "@/providers/fmp";
 /**
@@ -198,6 +199,8 @@ import type {
  * UI can render "suppressed for <route>" rather than a blank.
  */
 export interface ComputedMetrics {
+  /** Derived FX/security basis; raw filed statements retain their reporting currency. */
+  valuationTranslation?: ForeignValuationBasis;
   symbol: string;
   builtAt: string;
   route: CompanyRouteResult;
@@ -707,9 +710,9 @@ function toForensicsBalance(r: FmpBalanceSheetRow): ForensicsBalanceRow {
     shortTermDebt: num(r.shortTermDebt),
     // Leverage tests read long-term debt alone; a composed figure holding
     // current notes would count those notes twice beside current liabilities.
-    longTermDebt: longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags) ? null : num(r.longTermDebt),
+    longTermDebt: (r.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags)) ? null : num(r.longTermDebt),
     // Audit 2026-10-22 E-8: kept with its tags for the Piotroski leverage direction.
-    longTermDebtComposed: longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags) && num(r.longTermDebt) !== null
+    longTermDebtComposed: (r.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsCurrent(r.fieldProvenance?.longTermDebt?.tags)) && num(r.longTermDebt) !== null
       ? { value: num(r.longTermDebt)!, tags: [...r.fieldProvenance!.longTermDebt!.tags] }
       : null,
     taxPayables: num(r.taxPayables),
@@ -1865,107 +1868,58 @@ function totalDebtSnapshot(
   refusedBalanceDate?: string;
 } {
   const quarterEnd = balancesQuarterly[0];
-  const quarterEndMs = quarterEnd ? Date.parse(String(quarterEnd.date ?? "")) : Number.NaN;
-  const yearEarlier = Number.isFinite(quarterEndMs)
-    ? balancesQuarterly.find((row) => {
-        const t = Date.parse(String(row.date ?? ""));
-        return Number.isFinite(t) && Math.abs(quarterEndMs - t - 365.25 * SPREAD_DAYS) <= 45 * SPREAD_DAYS;
-      })
-    : undefined;
-  type Pair = [FmpBalanceSheetRow | undefined, FmpBalanceSheetRow | undefined];
-  // Audit 2026-10-22 C-1: a lease-scope refusal blocks a pair; it no longer
-  // vetoes an average it is not part of.
-  const leaseRefusal = (rows: readonly (FmpBalanceSheetRow | undefined)[]): string | null =>
-    rows.map(row => row === undefined ? null : leaseDebtScopeRefusal(row, includeOperatingLeases) ?? leaseDebtConflict(row)).find(reason => reason !== null) ?? null;
-  const quarterPair: Pair | null =
-    interestBasis === "ttm" &&
-    quarterEnd !== undefined &&
-    yearEarlier !== undefined &&
-    num(quarterEnd.totalDebt) !== null &&
-    num(yearEarlier.totalDebt) !== null
-      ? [quarterEnd, yearEarlier]
-      : null;
-  const annualPair: Pair = [balancesAnnual[0], balancesAnnual[1]];
-  const quarterRefusal = quarterPair === null ? null : leaseRefusal(quarterPair);
-  // The fallback replaces a refused quarter pair only with a complete one:
-  // two fiscal-year balances, each with total debt, neither refused.
-  const annualComplete = annualPair.every(row => row !== undefined && num(row.totalDebt) !== null) && leaseRefusal(annualPair) === null;
-  let pair: Pair;
-  let which: string;
-  if (quarterPair !== null && (quarterRefusal === null || !annualComplete)) {
-    pair = quarterPair;
-    which = `the quarter-end balances at the TTM window's ends (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)})`;
-  } else {
-    pair = annualPair;
-    which =
-      "the latest two fiscal-year-end balances" +
-      (quarterPair !== null
-        ? ` (so TTM interest is measured against fiscal-year-end debt; the quarter-end pair (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)}) is not used: ${quarterRefusal})`
-        : interestBasis === "ttm"
-          ? " (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt)"
-          : "");
-  }
-  const a = bookDebtOnLeaseBasis(pair[0], includeOperatingLeases);
-  const b = bookDebtOnLeaseBasis(pair[1], includeOperatingLeases);
-  const leaseText = "book totalDebt on the retained calculation basis";
-  const scopeNotes = pair.flatMap((row, index) => row === undefined ? [] : [
-    leaseEvidenceNote({ ...row, leaseEvidenceContext }, { removed: (index === 0 ? a : b).leaseRemoved ? num(row.operatingLeaseLiability) : null }),
-    ...(incompleteLeaseCoverage(row) ? [incompleteLeaseCoverage(row)!.note] : []),
-  ]);
-  const newestBalance = [balancesQuarterly[0], balancesAnnual[0]].filter((row): row is FmpBalanceSheetRow => row !== undefined)
-    .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
-  // The newest balance is the debt weight's (D-60). Outside the pair, a lease
-  // refusal on it withholds only that weight, which then uses the average.
-  const newestInPair = newestBalance === undefined || pair.some(row => isoDay(row?.date) === isoDay(newestBalance.date));
-  const newestRefusal = newestInPair ? null : leaseRefusal([newestBalance]);
-  const newestNote = newestRefusal === null ? ""
-    : `; the newest balance (${isoDay(newestBalance!.date)}) is not used for the debt weight, which uses this average: ${newestRefusal}`;
-  const basis = `${leaseText}, average of ${which}${scopeNotes.length ? ` (retained lease coverage: ${scopeNotes.join(" ").replace(/\.$/, "")})` : ""}${newestNote}`;
-  const used = [a.value !== null ? pair[0] : undefined, b.value !== null ? pair[1] : undefined].filter(
-    (row): row is FmpBalanceSheetRow => row !== undefined,
-  );
+  const quarterEndMs = Date.parse(String(quarterEnd?.date ?? ""));
+  const yearEarlier = balancesQuarterly.find(row => Math.abs(quarterEndMs - Date.parse(String(row.date)) - 365.25 * SPREAD_DAYS) <= 45 * SPREAD_DAYS);
+  const quarterPair = interestBasis === "ttm" && quarterEnd && yearEarlier && num(quarterEnd.totalDebt) !== null && num(yearEarlier.totalDebt) !== null ? [quarterEnd, yearEarlier] : null;
+  const annualPair = [balancesAnnual[0], balancesAnnual[1]].filter((row): row is FmpBalanceSheetRow => row !== undefined);
+  const refusal = (row: FmpBalanceSheetRow): string | null => row.fieldConflicts?.totalDebt?.usable === false
+    ? row.fieldConflicts.totalDebt.reason : leaseDebtScopeRefusal(row, includeOperatingLeases) ?? leaseDebtConflict(row);
+  const complete = (row: FmpBalanceSheetRow): boolean => refusal(row) === null && bookDebtOnLeaseBasis(row, includeOperatingLeases).value !== null;
+  // Preserve the existing complete annual-pair fallback for lease scope. Other
+  // refused dates are excluded individually; they cannot veto clean balances.
+  const pair = quarterPair && !(quarterPair.some(row => refusal(row) !== null) && annualPair.length === 2 && annualPair.every(complete))
+    ? quarterPair : annualPair;
+  const all = [...balancesQuarterly, ...balancesAnnual].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const newest = all[0];
+  const negative = [...pair, ...(newest ? [newest] : [])].find(row => (num(row.totalDebt) ?? 0) < 0);
+  if (negative) return { average: null, negativeObservation: num(negative.totalDebt), basis: "invalid negative debt observation", currency: null, refusedBalanceDate: isoDay(negative.date) ?? undefined };
+  const used = pair.filter(complete);
+  const oldest = pair.map(row => String(row.date)).sort()[0];
+  const latestComplete = all.find(row => complete(row) && (oldest === undefined || String(row.date) >= oldest));
+  if (used.length === 0 && latestComplete) used.push(latestComplete);
+  const excluded = [...new Map([...pair, ...(newest ? [newest] : [])].filter(row => refusal(row) !== null)
+    .map(row => [String(row.date), row])).values()];
+  const exclusion = excluded.length ? "; excluded withheld balances: " + excluded.map(row => isoDay(row.date) + ": " + refusal(row)).join("; ") : "";
+  const scope = (used.length ? used : pair).flatMap(row => [leaseEvidenceNote({ ...row, leaseEvidenceContext },
+    { removed: bookDebtOnLeaseBasis(row, includeOperatingLeases).leaseRemoved ? num(row.operatingLeaseLiability) : null }),
+    ...(incompleteLeaseCoverage(row) ? [incompleteLeaseCoverage(row)!.note] : [])]);
+  const which = quarterPair && pair === quarterPair
+    ? `the quarter-end balances at the TTM window's ends (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)})`
+    : "the latest two fiscal-year-end balances" + (quarterPair
+      ? ` (so TTM interest is measured against fiscal-year-end debt; the quarter-end pair (${isoDay(quarterEnd!.date)} and ${isoDay(yearEarlier!.date)}) is not used: ${quarterPair.map(refusal).find(Boolean)})`
+      : interestBasis === "ttm" ? " (no quarter-end balance four quarters back, so TTM interest is measured against fiscal-year-end debt)" : "");
+  const basis = `book totalDebt on the retained calculation basis, average of ${which}${scope.length ? ` (retained lease coverage: ${scope.join(" ").replace(/\.$/, "")})` : ""}` +
+    (excluded.length ? `; only complete balances used (${used.map(row => isoDay(row.date)).join(" and ") || "none"})${exclusion}` : "") +
+    (newest && latestComplete && latestComplete !== newest ? `; the newest balance (${isoDay(newest.date)}) is not used for the debt weight, which uses the latest complete balance` : "");
   const currency = establishedRowsCurrency(used, currencyEvidence);
-  const refused = [...pair, newestBalance].find((row) => row?.fieldConflicts?.totalDebt?.usable === false);
-  if (refused !== undefined) {
-    const unavailable = `${isoDay(refused.date)}: ${refused.fieldConflicts!.totalDebt!.reason}`;
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${refused.fieldConflicts!.totalDebt!.reason}`, currency, unavailable, refused: true, refusedBalanceDate: isoDay(refused.date) ?? undefined };
+  if (used.length === 0) {
+    const rejected = excluded[0];
+    const unavailable = rejected ? isoDay(rejected.date) + ": " + refusal(rejected)
+      : pair.length ? `no book total debt on ${pair.map(row => isoDay(row.date)).join(" or ")}${pair.length < 2 ? ", and no second balance to average it with" : ""}` : "no balance sheet to average";
+    return { average: null, negativeObservation: null, basis, currency, unavailable,
+      ...(rejected ? { refused: true as const, refusedBalanceDate: isoDay(rejected.date) ?? undefined } : {}) };
   }
-  const scopeRefused = [...pair, ...(newestInPair ? [newestBalance] : [])].find(row => row !== undefined && leaseDebtScopeRefusal(row, includeOperatingLeases) !== null);
-  if (scopeRefused) {
-    const scopeRefusal = leaseDebtScopeRefusal(scopeRefused, includeOperatingLeases)!;
-    return { average: null, latest: null, negativeObservation: null, basis: `${basis}; ${scopeRefusal}`, latestBasis: scopeRefusal, currency, unavailable: `${isoDay(scopeRefused.date)}: ${scopeRefusal}`, refused: true, refusedBalanceDate: isoDay(scopeRefused.date) ?? undefined };
-  }
-  // Invalid supplied balances are not missing observations that the other
-  // year may replace. Preserve the raw negative sentinel before lease guards
-  // null the adjusted values, and reject contradictory lease compositions.
-  const negativeRow = pair.find(row => { const value = num(row?.totalDebt); return value !== null && value < 0; });
-  const negativeObservation = negativeRow === undefined ? null : num(negativeRow.totalDebt);
-  if (negativeObservation !== null) return { average: null, negativeObservation, basis, currency, refusedBalanceDate: isoDay(negativeRow!.date) ?? undefined };
-  const conflicted = pair.find(row => leaseDebtConflict(row ?? {}) !== null);
-  if (conflicted !== undefined) {
-    const leaseConflict = leaseDebtConflict(conflicted)!;
-    return { average: null, negativeObservation: null, basis: `${basis}; unavailable: ${leaseConflict}`, currency, unavailable: `${isoDay(conflicted.date)}: ${leaseConflict}`, refused: true, refusedBalanceDate: isoDay(conflicted.date) ?? undefined };
-  }
-  if (a.value === null && b.value === null) {
-    const dated = pair.filter((row): row is FmpBalanceSheetRow => row !== undefined).map(row => isoDay(row.date));
-    const unavailable = dated.length === 0 ? "no balance sheet to average"
-      : `no book total debt on ${dated.join(" or ")}${dated.length < pair.length ? ", and no second balance to average it with" : ""}`;
-    return { average: null, negativeObservation: null, basis, currency, unavailable };
-  }
-  // D-60: the newest balance sheet (quarterly or annual, whichever is newer),
-  // in the same established currency as the averaged pair.
-  const newestRow = [balancesQuarterly[0], balancesAnnual[0]]
-    .filter((row): row is FmpBalanceSheetRow => row !== undefined)
-    .sort((x, y) => String(y.date ?? "").localeCompare(String(x.date ?? "")))[0];
-  const newestDebt = newestRow === undefined ? null : bookDebtOnLeaseBasis(newestRow, includeOperatingLeases).value;
-  const newestCurrency = newestRow === undefined ? null : establishedRowsCurrency([newestRow], currencyEvidence);
-  const latest = newestRefusal === null && newestDebt !== null && newestDebt >= 0 && currency !== null && newestCurrency === currency
-    ? { latest: newestDebt, latestBasis: `book totalDebt on the retained calculation basis, the latest balance (${isoDay(newestRow?.date) ?? "date unavailable"}), the one the EV bridge nets (lease evidence: ${leaseEvidenceNote({ ...newestRow, leaseEvidenceContext }, { removed: newestRow && bookDebtOnLeaseBasis(newestRow, includeOperatingLeases).leaseRemoved ? num(newestRow.operatingLeaseLiability) : null }).replace(/\.$/, "")}${incompleteLeaseCoverage(newestRow)?.note ? `; ${incompleteLeaseCoverage(newestRow)!.note.replace(/\.$/, "")}` : ""})` }
-    : {};
-  if (a.value !== null && b.value !== null) {
-    return { average: (a.value + b.value) / 2, negativeObservation: null, basis, currency, ...latest };
-  }
-  return { average: a.value ?? b.value, negativeObservation: null, basis, currency, ...latest };
+  const average = used.reduce((sum, row) => sum + bookDebtOnLeaseBasis(row, includeOperatingLeases).value!, 0) / used.length;
+  const latestCurrency = latestComplete ? establishedRowsCurrency([latestComplete], currencyEvidence) : null;
+  const latest = latestComplete && latestCurrency !== null && latestCurrency === currency ? {
+    latest: bookDebtOnLeaseBasis(latestComplete, includeOperatingLeases).value,
+    latestBasis: "book totalDebt on the retained calculation basis, the latest " + (excluded.length ? "complete " : "") + "balance (" + isoDay(latestComplete.date) + ")" +
+      (latestComplete === newest ? ", the one the EV bridge nets" : "; the newer withheld balance is not used; its EV bridge remains withheld") +
+      " (lease evidence: " + leaseEvidenceNote({ ...latestComplete, leaseEvidenceContext },
+        { removed: bookDebtOnLeaseBasis(latestComplete, includeOperatingLeases).leaseRemoved ? num(latestComplete.operatingLeaseLiability) : null }).replace(/\.$/, "") +
+      (incompleteLeaseCoverage(latestComplete) ? "; " + incompleteLeaseCoverage(latestComplete)!.note.replace(/\.$/, "") : "") + ")" + exclusion,
+  } : {};
+  return { average, negativeObservation: null, basis, currency, ...latest };
 }
 
 export interface StageBReplayConfig { evIncludeLeases: boolean }
@@ -2023,7 +1977,7 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
   cashFlow: (field: "netDebtIssuance" | "debtRepayment", from: string, to: string) => number | null = () => null): FmpBalanceSheetRow[] {
   const financingDebt = (row: FmpBalanceSheetRow): number | null => {
     // Long-term debt tagged with its finance leases already holds them.
-    const financeLeases = longTermDebtHoldsFinanceLeases(row.fieldProvenance?.longTermDebt?.tags) ? null : num(row.financeLeaseLiability);
+    const financeLeases = row.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsFinanceLeases(row.fieldProvenance?.longTermDebt?.tags) ? null : num(row.financeLeaseLiability);
     const parts = [num(row.shortTermDebt), num(row.longTermDebt), financeLeases];
     // A row without components (vendor rows) is judged on its published total.
     return parts.every((part) => part === null) ? num(row.totalDebt) : parts.reduce<number>((sum, part) => sum + (part ?? 0), 0);
@@ -2224,6 +2178,13 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     [...incomeQuarterSet.rows, ...balanceQuarterSet.rows, ...cashflowQuarterSet.rows], ttmGaps,
   );
 
+  const foreignResolution = resolveForeignValuation(bundle, currencies.model);
+  const foreignBasis = foreignResolution.basis;
+  const valuationCurrency = foreignBasis ? "USD" : currencies.model;
+  if (foreignResolution.reason && currencies.model !== str(profile?.currency)) ttmGaps.push({
+    field: "valuation.currencyConversion", reason: `Foreign valuation remains withheld: ${foreignResolution.reason}. Existing currency and security guards remain in force.`, severity: "warn",
+  });
+
   // Rows that may be combined with one another: those established in the
   // model currency, back to the first that is not. Filing-linked statements
   // of any period are evidence for an unlabelled row.
@@ -2298,6 +2259,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     { today: todayIso, evidence: routingEvidence },
   );
 
+  if (foreignBasis) route.notes = route.notes.map(note => note.startsWith("adr overlay applied")
+    ? `adr overlay applied (profile.isAdr). ${foreignBasis.note}` : note);
+
   // Audit 2026-10-19 O-2: debt the year's interest expense shows to be
   // incomplete is withheld before any consumer reads it. Financial routes are
   // excluded: their interest expense funds deposits and float, not debt.
@@ -2337,7 +2301,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     route.overlays,
     incomeQuarterly.length,
     route.reitSubmap ?? null,
-    { statements: currencies.model, quote: str(profile?.currency) },
+    { statements: valuationCurrency, quote: str(profile?.currency) },
   );
 
   // --- Growth ----------------------------------------------------------------
@@ -2387,6 +2351,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     evIncludeLeases,
     currencies.model,
     currencies.ttmIncomeUsable,
+    foreignBasis,
   );
   if (lendingCashFlow) {
     returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [lendingCashFlow.reason], gaps: [] };
@@ -2567,7 +2532,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     priceAsOf: quotePriceObservationDay(num(quote?.price) !== null ? quote : profile),
     issuerId: bundle.edgar.registrant?.cik10, securityId: bundle.symbol,
     isAdr: adrQuote,
-    ...(adrQuote && forensicCapRow?.marketCapSecurityBasis === "issuer-common" ? { marketCapSecurityBasis: "issuer-common" as const } : {}),
+    ...(adrQuote && (foreignBasis || forensicCapRow?.marketCapSecurityBasis === "issuer-common") ? { marketCapSecurityBasis: "issuer-common" as const } : {}),
     ...(forensicClassAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: forensicClassAmbiguity } : {}),
   }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
   const forensics = runForensics(route, {
@@ -2585,22 +2550,22 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     income: forensicContext.income,
     balance: balanceAnnual.map(toForensicsBalance),
     cashFlow: forensicContext.cashFlow,
-    marketCap: forensicEquityScope.marketCap,
+    marketCap: foreignBasis ? foreignBasis.marketCapUsd / foreignBasis.fx.usdPerReportingUnit : forensicEquityScope.marketCap,
     marketEquityWithheldReason: forensicEquityScope.status === "unresolved" ? forensicEquityScope.basis : null,
     // Derived class capitalization belongs to its admitted price session;
     // a vendor cap belongs to its own source row, never its fetch envelope.
-    marketCapAsOf: forensicEquityScope.status === "resolved" ? forensicEquityScope.priceAsOf ?? null
+    marketCapAsOf: foreignBasis ? foreignBasis.fx.quoteDate : forensicEquityScope.status === "resolved" ? forensicEquityScope.priceAsOf ?? null
       : forensicEquityScope.status === "unresolved" ? null
         : quotePriceObservationDay(num(profile?.marketCap) !== null ? profile : quote),
     reportedCurrency: str(inc0?.reportedCurrency),
-    quoteCurrency: str(profile?.currency),
+    quoteCurrency: foreignBasis ? currencies.model : str(profile?.currency),
     classification: {
       sector: str(profile?.sector),
       industry: str(profile?.industry),
       sicCode: str(bundle.edgar?.sic),
     },
   });
-  if (balanceAnnual.some((row) => num(row.longTermDebt) !== null && longTermDebtHoldsCurrent(row.fieldProvenance?.longTermDebt?.tags))) {
+  if (balanceAnnual.some((row) => num(row.longTermDebt) !== null && row.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsCurrent(row.fieldProvenance?.longTermDebt?.tags))) {
     forensics.gaps.push({ field: "forensics.longTermDebt", severity: "info", reason:
       "long-term debt is composed from instrument-class tags that include current debt, so Beneish LVGI, which adds it to current liabilities, is not evaluated; Piotroski leverage compares the composed figure year on year only when both years compose it from the same classes; total debt is unaffected" });
   }
@@ -2610,6 +2575,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   if (revenueEligibilityReason) {
     forensics.gaps.push({ field: "forensics.revenueEligibility", reason: revenueEligibilityReason, severity: "warn" });
   }
+
+  if (foreignBasis) forensics.notes.push(`${foreignBasis.note} Altman X4 converts the admitted USD market capitalization back into the reporting currency for its local-currency liability denominator.`);
 
   // --- Technicals ------------------------------------------------------------
   // EOD rows are date DESC in the bundle; the module re-sorts ASC defensively.
@@ -2627,6 +2594,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // --- Valuation -------------------------------------------------------------
   const valuation = computeValuation(bundle, {
     route,
+    foreignBasis,
     revenueEligibilityReason,
     // FIN-121: use the SAME selected routing flow, before model-currency filtering.
     finOtherOcfExemption: route.base === "general" && !route.overlays.includes("unprofitable") &&
@@ -2772,7 +2740,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // sets a model value against the quote. Without one known currency on both
   // sides there is no such figure, so the price is withheld from all of them;
   // the per-share values themselves do not use it and stand.
-  const quoteComparison = comparePriceCurrency(currencies.model, str(profile?.currency));
+  const quoteComparison = comparePriceCurrency(valuationCurrency, str(profile?.currency));
   const currentPrice = quoteComparison.comparable ? num(quote?.price) : null;
   if (!quoteComparison.comparable) {
     ttmGaps.push({
@@ -2891,7 +2859,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // vocabulary, so canonicalizeTracedUnit rejected it and the fair value,
   // projections and scenario targets were silently DROPPED from the registry —
   // a worse outcome than the USD default this replaced.
-  const projectionCurrency = currencies.model;
+  const projectionCurrency = valuationCurrency;
   // D-65: forecast EPS deducts interest at the latest quarter's run-rate, on
   // debt net of the operating-lease liability (its cost is an operating expense).
   const debtExLeases = (row: FmpBalanceSheetRow | undefined): { date: string; debt: number | null } | null => {
@@ -2931,7 +2899,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       debtExLeases(balanceQuarterly.find((b) => isoDay(b.date) === isoDay(latestIncomeQuarter.date))),
       debtExLeases(balanceQuarterly.find((b) => { const d = isoDay(b.date); const q = isoDay(latestIncomeQuarter.date); return d !== null && q !== null && d < q && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS >= 80 && (Date.parse(q) - Date.parse(d)) / SPREAD_DAYS <= 100; })))
     : null;
-  const projections = computeProjections({
+  const projectionInputs: Parameters<typeof computeProjections>[0] = {
     route,
     interestRunRate: projectionInterest,
     debtAtAnchor: debtExLeases([...balanceQuarterly, ...balanceAnnual].find((row) => isoDay(row.date) === projectionAnchorDate)),
@@ -2955,7 +2923,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
         currentPrice: num(firstRow(bundle.quote)?.price),
       };
     })(),
-  });
+  };
+  const translatedProjectionInputs = foreignBasis ? translateProjectionInputs(projectionInputs, foreignBasis) : projectionInputs;
+  const projections = computeProjections(translatedProjectionInputs);
 
   // Deterministic bull/base/bear price targets (2026-07-11 scenario-credibility
   // checkpoint). Reuses the SAME point-in-time anchors + ±σ construction as the
@@ -2970,7 +2940,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     route,
     valuation,
     waccPct: returns.wacc.waccPct,
-    incomeHistory: projectionIncomeHistory,
+    incomeHistory: translatedProjectionInputs.incomeHistory,
     currentPrice,
     currency: projectionCurrency,
     asOf: asOfDay,
@@ -3060,6 +3030,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   return {
     symbol: bundle.symbol,
     builtAt: bundle.builtAt,
+    ...(foreignBasis ? { valuationTranslation: foreignBasis } : {}),
     route,
     degradation,
     growth,
@@ -3201,6 +3172,7 @@ function computeReturns(
   modelCurrency: string | null,
   /** StatementCurrencies.ttmIncomeUsable: the window's currency matches the annual statement's. */
   ttmIncomeUsable: boolean,
+  foreignBasis: ForeignValuationBasis | null,
 ): ReturnsBlock {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
@@ -3244,7 +3216,8 @@ function computeReturns(
   // The basis also decides which balance-sheet pair averages the debt.
   const annualDate = isoDay(incomeAnnual[0]?.date) ?? "?";
   const interestExpenseAnnual = num(incomeAnnual[0]?.interestExpense);
-  const ebitAnnual = num(incomeAnnual[0]?.operatingIncome);
+  const ebitAnnual = num(incomeAnnual[0]?.operatingIncome) ?? num(incomeAnnual[0]?.waccOperatingIncome);
+  const standaloneAnnualCoverage = num(incomeAnnual[0]?.operatingIncome) === null && num(incomeAnnual[0]?.waccOperatingIncome) !== null;
   // The TTM interest is divided by the debt balances at the window's ends; a
   // ratio of two sums is a figure only when both are in one currency. When the
   // balances are not established in the window's currency, the TTM pair is not
@@ -3282,7 +3255,7 @@ function computeReturns(
   } else if (interestExpenseAnnual !== null && ebitAnnual !== null) {
     interestExpenseForWacc = interestExpenseAnnual;
     ebitForWacc = ebitAnnual;
-    coverageBasis = `FY ${annualDate} annual statement`;
+    coverageBasis = `FY ${annualDate} annual statement${standaloneAnnualCoverage ? " (filed operating income for standalone interest coverage)" : ""}`;
     interestBasis = "annual";
     if (ttmInc && ttmDebtComparable) {
       notes.push(
@@ -3296,7 +3269,7 @@ function computeReturns(
     ebitForWacc = ebitTtm ?? ebitAnnual;
     const interestLabel =
       interestExpenseTtm !== null ? "TTM" : interestExpenseAnnual !== null ? `FY ${annualDate}` : "unavailable";
-    const ebitLabel = ebitTtm !== null ? "TTM" : ebitAnnual !== null ? `FY ${annualDate}` : "unavailable";
+    const ebitLabel = ebitTtm !== null ? "TTM" : ebitAnnual !== null ? `FY ${annualDate}${standaloneAnnualCoverage ? " filed operating income for standalone interest coverage" : ""}` : "unavailable";
     interestBasis = interestExpenseTtm !== null ? "ttm" : "annual";
     coverageBasis =
       interestLabel === ebitLabel
@@ -3359,12 +3332,13 @@ function computeReturns(
     gaps.push({ field: "returns.wacc.effectiveTaxRate.basis", reason: `WACC tax rate: ${statementTax.fallback}`, severity: "info" });
   }
 
+  const usdMoney = (v: number | null | undefined): number | null => v == null ? null : v * (foreignBasis?.fx.usdPerReportingUnit ?? 1);
   const wacc = computeWacc({
     beta: num(profile?.beta),
     riskFreePct: rf.pct,
     erpPct: usErpPct,
     ...(erpSelection.basis === "domicile" && erpSelection.country && !US_COUNTRY_KEYS.has(countryKeyOf(erpSelection.country)) ? { erpCountry: erpSelection.country } : {}),
-    interestExpenseTtm: interestExpenseForWacc,
+    interestExpenseTtm: usdMoney(interestExpenseForWacc),
     // Never inferred on ANY financial route — bank, insurer and mortgage REIT
     // alike — and on keyed plans as well as keyless ones.
     //
@@ -3382,14 +3356,14 @@ function computeReturns(
       !isFinancial && (interestExpenseForWacc === null || interestExpenseForWacc <= 0)
         ? priorYearCostOfDebt(incomeAnnual, balanceAnnual, { includeOperatingLeases, unusualByYear: new Map([...annualUnusual].map(([date, value]) => [date, value.value])) })
         : null,
-    totalDebtAvg: debtSnapshot.average,
+    totalDebtAvg: usdMoney(debtSnapshot.average),
     totalDebtBasis: debtSnapshot.basis,
     totalDebtUnavailable: debtSnapshot.unavailable ?? null,
     totalDebtRefused: debtSnapshot.refused === true,
-    totalDebtLatest: debtSnapshot.latest ?? null,
+    totalDebtLatest: usdMoney(debtSnapshot.latest),
     totalDebtLatestBasis: debtSnapshot.latestBasis ?? null,
     currentCoverageBasis: coverageBasis,
-    negativeTotalDebtObservation: debtSnapshot.negativeObservation,
+    negativeTotalDebtObservation: usdMoney(debtSnapshot.negativeObservation),
     marketCap: equityScope.marketCap,
     // Review m5: a cap withheld on share scope is named as withheld, with the scope's reason.
     marketCapWithheld: equityScope.status === "unresolved" ? equityScope.basis : null,
@@ -3415,15 +3389,15 @@ function computeReturns(
       rSquared: betaFit.rSquared, standardError: betaFit.standardError, basis: betaFit.basis, benchmark: "SPY",
     },
     betaRegressionUnavailable: betaFit.beta === null ? (betaFit.gap?.reason ?? betaFit.note) : null,
-    ebitTtm: ebitForWacc,
+    ebitTtm: usdMoney(ebitForWacc),
     analysisDate: isoDay(bundle.builtAt) ?? undefined,
     isFinancial,
     // Audit 2026-10-22 B-31: these routes value equity at the cost of equity.
     equityOnlyRoute: isFinancial ? route.base : null,
-    totalAssets: bal0 ? num(bal0.totalAssets) : null,
+    totalAssets: bal0 ? usdMoney(num(bal0.totalAssets)) : null,
     // ADR guard: market cap is quoted in the trading currency while totalDebt
     // is a reporting-currency balance, so the E/D weights must not mix them.
-    reportedCurrency: modelCurrency,
+    reportedCurrency: foreignBasis ? "USD" : modelCurrency,
     quoteCurrency: str(profile?.currency),
     asOf: {
       riskFreeRate: rf.asOf ?? undefined,
@@ -3433,6 +3407,8 @@ function computeReturns(
           : quotePriceObservationDay(num(quote?.marketCap) !== null ? quote : profile)) ?? undefined,
     },
   });
+
+  if (foreignBasis) wacc.notes.push(foreignBasis.note);
 
   if (route.overlays.includes("recent-ipo") && wacc.costOfEquityPct === null && betaFit.beta === null &&
     wacc.gaps.some(gap => gap.field === "returns.wacc.beta")) {
@@ -3456,7 +3432,7 @@ function computeReturns(
   // would newly Block the DCF. Preserve the existing WACC, but disclose its
   // unproven ADR scope. Existing currency/class refusals remain dominant.
   if ((route.overlays.includes("adr") || profile?.isAdr === true)
-    && equityScope.status !== "unresolved" && wacc.waccPct !== null && wacc.weightEquity !== 1) {
+    && !foreignBasis && equityScope.status !== "unresolved" && wacc.waccPct !== null && wacc.weightEquity !== 1) {
     const capRow = quote?.marketCap != null ? quote : profile;
     const adrScope = resolveEconomicEquityScope({ ...equityQuote, isAdr: true,
       ...(capRow?.marketCapSecurityBasis === "issuer-common" ? { marketCapSecurityBasis: "issuer-common" as const } : {}),
@@ -3577,6 +3553,7 @@ function computeReturns(
 // ---------------------------------------------------------------------------
 
 interface ValuationCtx {
+  foreignBasis: ForeignValuationBasis | null;
   route: CompanyRouteResult;
   revenueEligibilityReason: string | null;
   /** Previously suppressed solely by negative FIN-OTHER operating cash flow. */
@@ -3809,8 +3786,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         (estimateCodes.includes(null)
           ? `analyst estimates carry no currency of their own and the issuer currency is ${issuerCurrency.basis}`
           : `analyst estimates are in ${estimateCodes.join("/")}`) +
-        ` while the model runs in ${ctx.modelCurrency ?? "an unestablished currency"}, so the analyst-consensus ` +
-        "growth case is not used (no FX conversion is attempted)",
+        (ctx.foreignBasis
+          ? `; their currency/share basis is not established against the reporting-currency inputs (${ctx.modelCurrency}), so the analyst-consensus growth case is not used. The admitted statement FX rate does not establish these analyst rows' units.`
+          : ` while the model runs in ${ctx.modelCurrency ?? "an unestablished currency"}, so the analyst-consensus growth case is not used (no FX conversion is attempted)`),
       severity: "info",
       attemptedSources: ["fmp:/stable/analyst-estimates"],
     });
@@ -4626,7 +4604,17 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   };
 
   void ratiosTtm; // reserved for future ratio cross-checks
-  let result = valueCompany(route, bundleInputs);
+  const valuationInputs = ctx.foreignBasis ? translateValuationInputs(bundleInputs, ctx.foreignBasis) : bundleInputs;
+  let result = valueCompany(route, valuationInputs);
+  if (ctx.foreignBasis) {
+    result.notes.push(ctx.foreignBasis.note);
+    result.gaps.push({ field: "valuation.currencyTranslation", reason: ctx.foreignBasis.note, severity: "info", attemptedSources: [`fred:${ctx.foreignBasis.fx.series}`, ...ctx.foreignBasis.securityEvidence.flatMap(e => e.sourceIds)] });
+    if (result.multiples) {
+      result.multiples.notes.push(ctx.foreignBasis.note);
+      result.multiples.enterpriseValue.basis += ` ${ctx.foreignBasis.note}`;
+      for (const row of result.multiples.multiples) row.basis += ` ${ctx.foreignBasis.note}`;
+    }
+  }
   // F8 / VAL-14: disclosure only. C2 does not admit filing-note text as placement evidence.
   if (!financialRoute && ownCompanyFacts !== null && bridgePoint && ctx.modelCurrency !== null) {
     const tag = "AvailableForSaleSecuritiesDebtSecurities";
@@ -4651,7 +4639,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // Existing model-eligibility holds and every ordinary DCF check still run.
   if (ctx.finOtherOcfExemption && !route.modelEligibility && result.kind === "dcf" &&
       result.gaps.some(g => g.severity === "critical")) {
-    const prior = valueCompany({ ...route, overlays: ["unprofitable", ...route.overlays] }, bundleInputs);
+    const prior = valueCompany({ ...route, overlays: ["unprofitable", ...route.overlays] }, valuationInputs);
     if (prior.kind === "dcf-suppressed" && !prior.gaps.some(g => g.severity === "critical")) {
       const reason = "Prior DCF suppression retained for this FIN-OTHER financial issuer: the required model inputs do not support a value (" +
         result.gaps.filter(g => g.severity === "critical").map(g => g.reason).join("; ") +

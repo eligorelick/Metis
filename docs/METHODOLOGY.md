@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.59.0 / payload 1.64.0, Stage B `STAGE_B_2026_11_FISCAL_YEAR_END_BALANCE_43` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.60.0 / payload 1.65.0, Stage B `STAGE_B_2026_11_COVERAGE_AND_FX_44` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications (D-138)
 
@@ -316,7 +316,9 @@ series, projections and own-history calculations therefore do not cross a
 presentation-currency change. A dimensionless margin within one statement may
 still be shown on a row that cannot enter a cross-period money calculation.
 Original statement rows remain available in their own currency or labeled
-unknown. No FX series or automatic conversion is supplied.
+unknown. No FX series or automatic conversion is applied to these rows; only a
+foreign issuer's admitted valuation operands are translated, at one dated rate
+(D-178, below).
 
 `src/pipeline/stageB/priceCurrency.ts` permits a model/quote comparison only
 when both currencies are known three-letter codes and equal. Unknown currency
@@ -380,7 +382,8 @@ are refused, so U.S. peer caps will often read "(currency unknown)": an honest
 unknown is preferred to a cap in the wrong currency. All estimate rows must resolve to
 the model currency to enter the consensus growth method and the year-one
 revenue anchor. A row in another currency is excluded, as is a row whose
-currency stays unknown, and no FX conversion is attempted. D-57 replaces
+currency stays unknown, and no FX conversion is attempted (under D-178 the admitted
+model-currency estimates are then translated with the other valuation operands). D-57 replaces
 D-28's own-row-only rule, which discarded USD consensus, peer sizes and
 executive pay for a USD issuer (NVDA report #34); for peer caps the own-row
 rule of D-28 is restored.
@@ -443,7 +446,15 @@ rate)` row) and in the report's computed-returns notes.
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
 | Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
-| Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60: the weight uses the latest balance sheet (the balance the EV bridge nets); the effective cost of debt still divides a year of interest by the average of the two quarter-ends of the trailing-twelve-month window when the interest figure is TTM, else of the latest two fiscal-year ends | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
+| Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60, extended for incomplete dates: the weight uses the latest complete balance in the selected window; a refused newer balance remains refused in its own EV bridge. Effective cost of debt divides a year of interest by the complete quarter-end balances of the trailing-twelve-month window when interest is TTM, else by the complete latest two fiscal-year ends; a single complete balance can stand in, and exclusions are named | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
+
+When trailing EBIT is unavailable, the latest fiscal year's filed operating
+income (including the existing SEC-derived EBIT chain) may score synthetic
+coverage. This standalone numerator does not establish a vendor operating
+margin: revenue agreement, issuer, currency, period and filing checks still
+admit it, and any explicit EBIT refusal remains binding. The annual interest
+pair is preferred and the coverage note names the fiscal year and filed basis.
+The effective-rate acceptance band and Damodaran spread table are unchanged.
 
 **Retained ADR limitation (FIN-307).** The levered WACC retains its existing
 capitalization when ADR scope alone is unproven, with an explicit
@@ -1180,10 +1191,16 @@ pulled down and the note says so.
 **This is a house convention, not a standard, and it is labelled as such
 wherever it is printed.**
 
-The default terminal ROIC equals the WACC: growth adds nothing after the
-explicit horizon. That is the Koller/Goedhart/Wessels recommendation for most
-firms. Applied to every issuer, however, it values an evidenced compounder as
-if its returns collapsed to the cost of capital in year 11.
+The input named `terminal.roicTermPct` is the return on **new** invested
+capital (RONIC) in the continuing-value formula. Its default equals WACC:
+new growth earns no excess return after the explicit horizon. Cash flows from
+the existing business still have value; the formula does not reset the return
+on all existing assets to WACC in year 11. Koller, Goedhart and Wessels allow
+RONIC at WACC when competitive advantages erode, and above it when those
+advantages persist. Choosing between them requires evidence about future
+competition; historical average ROIC alone does not establish marginal RONIC.
+See Koller, Goedhart and Wessels, *Valuation: Measuring and Managing the Value of Companies* (McKinsey & Company), the chapter on continuing value,
+and [Damodaran, Investment Valuation, chapter 12](https://pages.stern.nyu.edu/~adamodar/pdfiles/valn2ed/ch12.pdf).
 
 So: the implementation sorts computable annual ROIC observations newest-first
 and inspects at most five. When ROIC exceeded the applicable WACC in **all of
@@ -1230,7 +1247,10 @@ answering HTTP 200 with an HTML maintenance or outage page (a body opening with
 backoff, then the keyed path tries `fredgraph.csv`, and the gap names an HTML
 page rather than an unknown series.
 
-Terminal reinvestment is g ÷ ROIC_terminal, Damodaran's consistency rule.
+Terminal reinvestment is g ÷ RONIC (the input named ROIC_terminal),
+Damodaran's consistency rule. This is the value-driver formula
+`NOPAT_(N+1) × (1 − g / RONIC) / (WACC − g)`, rather than a perpetuity of the
+last explicit year's FCFF with its old reinvestment requirement.
 
 ---
 
@@ -1575,6 +1595,28 @@ market cap) may already include; companyfacts do not separate them, so such
 shares would be counted both as a claim and in the divisor.
 
 **NCI on the earnings key in the DCF bridge (audit 2026-10-22 E-5).** The DCF
+reads `MinorityInterestInNetIncomeLossOfConsolidatedEntities` after
+`NetIncomeLossAttributableToNoncontrollingInterest` in its existing ordered
+resolution. `NetIncomeLossAttributableToNonredeemableNoncontrollingInterest` is
+not read as total NCI income: beside redeemable NCI it is only part of outside
+owners' earnings, and subtracting it from consolidated profit would overstate the
+parent's. Period, core-form, currency and presentation checks are unchanged.
+On replay, missing vendor annual NCI income may be completed from that admitted statement;
+missing consolidated profit may be supplied with it only from the same filed
+period and accession. A refused allocation is never filled, and a vendor
+nonzero observation is not overwritten. Quarterly ownership histories are not
+rebuilt by this replay fallback; fresh extraction reads the ordered synonyms
+on both annual and quarterly bases. No new book-NCI materiality exemption
+is applied: small book NCI cannot by itself bound the earnings claim.
+For a successor, the annual row may read its retained predecessor facts only
+when that row names the predecessor CIK, the predecessor's facts match that
+CIK, both acquisitions and the succession link precede the snapshot cutoff,
+and the existing B-36 earnings/EPS continuity test succeeds using only facts
+filed by that cutoff. The existing `predecessorFactsFor` own-annual-report gate
+also applies. Both NCI income and consolidated profit retain their actual
+same-period predecessor filing provenance, and the completion names the CIK.
+No quarterly revenue conflict or valuation-date roll-forward guard is changed.
+The DCF
 values consolidated free cash flow, so its enterprise value includes the outside
 holders' share of partly owned subsidiaries. Book NCI can understate that claim
 by a wide margin: FCX's outside holders earned 35.8% of trailing consolidated
@@ -3221,6 +3263,15 @@ a live statistic, and changes only with a new census. This batch only discloses
 the base rate. The calibration behind it (B-3) and the valuation band's
 dependence on it (B-33) are left for a later batch.
 
+The [2026-11-03 frozen-panel study](audit/2026-11-03-q4-dcf-bias-study.md)
+tested the current assumptions without changing the numerical method. Only ten
+of its 26 US issuers published a DCF: nine below price, median −27.46%, five
+more than 30% below. Fifteen were suppressed and one was outside-domain; seven
+foreign issuers were excluded from the US diagnosis. This selected population
+does not replace the October census or establish a market-wide bias estimate.
+No tested numerical replacement met all four study conditions. The dated
+headline disclosure and its pinned figures therefore remain unchanged.
+
 **Degraded inputs** (audit 2026-10-22 F-13, an owner decision). An available
 fair value built on a substituted input carries a `valuation.fairValue.degradedInputs`
 entry in `fairValue.reasons` that names each substitution:
@@ -3491,8 +3542,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_FISCAL_YEAR_END_BALANCE_43 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_FISCAL_YEAR_END_BALANCE_43. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_COVERAGE_AND_FX_44 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_COVERAGE_AND_FX_44. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -5174,7 +5225,9 @@ ADR disclosures describe the path that runs: dividend yield is gross of foreign
 withholding tax and depositary pass-through fees, with no withholding rate
 applied. A currency annotation names the statement and quote currencies only
 when both are known and different; it says price comparisons are withheld and
-no depositary ratio or FX rate is applied. Unknown or minor-unit currencies
+no depositary ratio or FX rate is applied. When the D-178 translation is admitted,
+the valuation runs in USD, this annotation does not appear, and the valuation note
+names the rate and ratio. Unknown or minor-unit currencies
 retain their existing valuation gaps without an invented currency mismatch.
 
 **Noncurrent notes and loans (B-14).** Oracle tags its noncurrent debt as
@@ -5846,23 +5899,18 @@ withhold the DCF, the critical gap now names it ("noncontrolling ownership
 unresolved at <date>") instead of "DCF inputs not provided by caller".
 
 **Average debt behind a refused balance (C-1).** The WACC's cost of debt
-divides a year of interest by an average of two balances, and its debt weight
-uses the newest balance. A lease-scope refusal on the newest balance (AT&T's
-10-Q tags only the noncurrent operating lease, so its lease-exclusive debt is
-not established) withheld the whole WACC, and with it the DCF, although the
-two balances averaged were clean; the critical gap said only "average total
-debt missing". Owner decision: such a refusal now withholds only what it
-touches. When the newest balance is outside the averaged pair, the debt
-weight uses the clean average instead, and the basis says the newest balance
-is not used and why. When the refusal falls on the TTM window's quarter-end
-pair, the average falls back to the latest two fiscal-year-end balances if
-both are present, both carry total debt and neither is refused, and the basis
-names the pair not used; otherwise the quarter pair's refusal stands and the
-gap names it. The refused balance is
-never used, so the EV bridge at that date stays withheld. A refused debt
-carrying total (an incomplete debt note) still withholds the WACC wherever
-it falls. When no average is established, the critical gap names the balance
-date and the cause.
+now averages only complete balances in the selected TTM endpoint or fiscal-year
+window, naming the dates and every excluded refusal. A single complete balance
+can stand in for the average; no withheld balance enters either denominator or
+weights. Market equity is current and the debt weight uses the latest complete
+balance in that window. This revises C-1's company-wide veto for a refused debt
+carrying total; the refused date's EV and per-share bridge remain withheld.
+With no complete balance WACC remains unavailable. Negative supplied debt
+remains invalid, rather than an observation silently dropped from the window.
+The original C-1 guard addressed a lease-scope refusal on the newest
+balance (AT&T's 10-Q tagged only the noncurrent operating lease). That refusal
+still protects the EV and bridge at the affected date; it no longer vetoes
+complete debt evidence on other dates in the selected window.
 
 **Operating income when interest sits inside the non-operating total
 (B-39).** A filer with no `OperatingIncomeLoss` line gets EBIT derived as
@@ -6389,7 +6437,18 @@ with that reason; "cannot distinguish debt-free from unknown leverage" is
 kept for a total debt that is absent.
 
 **A vendor short-term debt of 0 beside filed current debt.** A provider row
-whose short-term debt is 0 while the same-period filing tags a positive
+can now be completed rather than withheld when one same-period, same-currency
+core SEC filing establishes every financing and lease component and reconciles
+the vendor total to its observed component scopes. Current debt omitted as zero
+is filled; current operating leases embedded in short-term debt and finance
+leases embedded in explicitly tagged debt-and-capital-lease lines are allocated
+exactly once. Operating-only lease lines may be noncurrent or total. No generic
+`LongTermDebt` scope, principal aggregate, ambiguous value, conflicting total,
+or mixed-accession composition authorizes this completion. Existing collapse
+and plausibility refusals are never cleared. The calculation view records the
+filing and tags and discloses completion; raw vendor observations stay intact.
+The older refusal below continues whenever this exact completion is unavailable.
+A provider row whose short-term debt is 0 while the same-period filing tags a positive
 `DebtCurrent`, `LongTermDebtCurrent`, `ShortTermBorrowings` or
 `CommercialPaper` is not complete: its total debt and net debt are withheld
 with a reason naming the filed tags. The row is kept when the provider folded
@@ -7105,3 +7164,63 @@ money. Insider sales are attributed to withholding or a plan only where the
 records classify them. Voting control is stated when there are several share
 classes. These rules shape what the model writes; their effect is observable
 only in a later paid run.
+
+## Fresh filings, news, developments and foreign valuation (D-175 to D-178, 2026-11-02)
+
+**Fresh-filing caution (D-175).** A provider's first rows for a new filing are
+the least reliable, and for a few days SEC companyfacts may not carry the period
+at all. `checkFreshFiling` in `src/pipeline/stageA/validate.ts` adds the warning
+`validation.freshFiling` when SEC facts are admitted (us-gaap or ifrs-full), carry
+nothing within 3 days of the newest statement period end, and that row was
+accepted or filed within `FRESH_FILING_DAYS` (10) of the analysis time. The
+acceptance day is used when present, since SEC dates an after-hours filing to the
+next business day. A 20-F or 40-F filer is checked on its annual periods only:
+its 6-K quarters never reach SEC structured data. A date more than one day after
+the analysis time is ignored, and without admitted SEC facts no caution is added
+(the EDGAR gaps already disclose that nothing is cross-checked). The first Key
+data row then reads "Newest filing: not yet cross-checked", the cover ledger
+shows it above the price, and the judge states once in the executive summary that
+the newest filing's figures are provisional. The caution withholds nothing by
+itself; the debt, currency and period checks keep their own refusals.
+
+**News sampling (D-176).** Beside the newest 50 rows over 30 days, Stage A
+requests six two-week windows from 8 to 90 days back (`NEWS_EARLIER_WINDOWS`),
+4 rows each, from the same provider. The provider returns a window's newest rows
+first, so short windows are what spread the dates for a heavily covered issuer.
+Only windows that return rows are kept; a failed or empty window adds no gap. The
+payload merges them, removes duplicates (by URL, else date and title) and, when
+more than 12 remain, keeps the 6 newest and gives the other 6 to distinct earlier
+calendar days spread evenly across the span. A window from another source than
+the main feed is ignored. A note states the retained count and the date span
+shown.
+
+**Recent developments and management actions (D-177).** The verdict may carry up
+to 8 dated past developments from about the last six months, and the leadership
+section up to 8 dated actions by the CEO, other executives or the board from
+about the last twelve months. Each states the event in cited FACT claims and its
+meaning in JUDGMENT claims; a management action is assessed for shareholder
+alignment and consistency with earlier stated plans, from the evidence only.
+Upcoming events remain catalysts. Both fields are optional, pass the same claim
+verification as every section, and are empty rather than invented when no dated
+evidence exists. The payload lists coded open-market and private purchases and
+sales (Form 4 codes P and S) from the last six months by person, for up to 8
+people (senior officers first, then by value), and counts the rest.
+
+**Foreign-issuer valuation (D-178).** When an issuer reports in one currency and
+quotes in USD, `src/pipeline/foreignCurrency.ts` translates the admitted
+valuation operands at one Federal Reserve H.10 spot rate from FRED
+(`src/pipeline/fx.ts`), dated within `FX_MAX_AGE_DAYS` (7) before the quote,
+with each series' direction mapped explicitly. One rate applies to every
+monetary level, historical levels included, so growth rates and margins are
+unchanged (constant currency). The USD risk-free rate and WACC apply only to the
+translated USD cash flows. Own-history multiples are not translated and are
+dropped for a translated issuer. Source statement rows are never rewritten, and
+the valuation note names the series, observation date, native value and quote
+date. The depositary ratio is admitted only when two independent constructions
+(filed ordinary outstanding against the provider's quoted count, and matched
+annual weighted averages) snap to the same standard ratio within 1%, and market
+cap divided by price agrees with the quoted count within 1%. That count must be
+observed within 7 days of the quote and no later than the analysis cutoff (the
+provider re-stamps the row on each refresh). Unresolved split or
+share-class evidence refuses the ratio, and the valuation stays withheld with
+`valuation.currencyConversion` naming the reason.

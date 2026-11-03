@@ -925,7 +925,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
       ...fundamentalsSections(computed, cf),
     },
     balanceSheet: { graded: balanceSheetGrade, ...balanceSheetSection(computed, currency, cf, flagClaim) },
-    valuation: valuationSection(stub.valuation, computed, valuationGrade, currency),
+    valuation: valuationSection(stub.valuation, computed, valuationGrade, computed.valuationTranslation?.fx.quoteCurrency ?? currency),
     quality: qualitySection(stub.quality, computed, qualityGrade),
     technicals: technicalsSection(computed, technicalsGrade, priceCurrency),
     leadership: leadershipSection(stub.leadership, bundle, leadershipGrade),

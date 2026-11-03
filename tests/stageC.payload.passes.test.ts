@@ -192,6 +192,7 @@ import { restoreResearchReliabilityGolden } from "./helpers/researchReliabilityP
 import { restoreB4bEquityMethodGolden } from "./helpers/b4bEquityMethodPayloadGolden";
 import { restoreR6InsiderCoverageGolden } from "./helpers/r6InsiderCoverageGolden";
 import { restoreR8EvidenceBasisGolden } from "./helpers/r8EvidenceBasisGolden";
+import { restoreQ1PersonTradesGolden } from "./helpers/q1PersonTradesGolden";
 
 it.each(["success", "schema", "transport"] as const)("forwards presumed billing through a %s pass settlement", async (kind) => {
   const { payload } = buildInputs();
@@ -917,7 +918,8 @@ describe("payload determinism + provenance", () => {
     // R6 (FIGR paid audit): restore only the reviewed insider-coverage text first.
     // R9 changes SBC basis labels and their semantic ids; preserve all earlier byte/stamp pins.
     // R8 restores only its reviewed evidence qualifications before the R6 pin.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(buildInputs()))))))))));
+    // Q1 restores only its per-person Form 4 summary first.
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(buildInputs())))))))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>
@@ -1826,7 +1828,7 @@ describe("payload determinism + provenance", () => {
     const second = buildInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.64.0");
+    expect(first.payloadVersion).toBe("1.65.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -3445,7 +3447,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.59.0"); // the priority-fix round moved the shared report stamp
+    expect(report.meta.specVersion).toBe("1.60.0"); // the Q round moved the shared report stamp
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

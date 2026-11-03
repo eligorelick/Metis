@@ -15,6 +15,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { currencyBundle, type CurrencyBundleOptions } from "./helpers/currencyBundle";
+import { foreignBundle } from "./helpers/foreignBundle";
 
 const harness = vi.hoisted(() => ({ buildDataBundle: vi.fn() }));
 
@@ -47,8 +48,8 @@ function elementsWithin(node: ReactNode): ReactElement<Props>[] {
 }
 
 /** Render the named live panels of the company page for a bundle. */
-async function panels(opts: CurrencyBundleOptions): Promise<Record<string, string>> {
-  harness.buildDataBundle.mockResolvedValue(currencyBundle(opts));
+async function panels(opts: CurrencyBundleOptions, bundle = currencyBundle(opts)): Promise<Record<string, string>> {
+  harness.buildDataBundle.mockResolvedValue(bundle);
   const tree = await CompanyBody({ symbol: opts.symbol ?? (opts.bank ? "BNK" : "GEN") });
   const out: Record<string, string> = {};
   for (const name of ["QuoteHeader", "TechnicalsPanel", "ValuationPanel"]) {
@@ -90,6 +91,12 @@ describe("company page money cells", () => {
     const label = variant === "unresolved" ? "piotroski F (eligibility unresolved)" : variant === "bank" ? "piotroski F (fin.)" : "piotroski F";
     expect(rendered).toContain(`>${label}<`);
     if (variant === "unresolved") expect(rendered).not.toContain(">piotroski F<");
+  });
+  it("shows translated ADS values and sensitivity cells in USD", async () => {
+    const p = await panels({ symbol: "ADRX" }, foreignBundle());
+    expect(cell(p.ValuationPanel!, "dcf / share")).toMatch(/^\$/);
+    expect(heatmapAmounts(p.ValuationPanel!).every(a => a.startsWith("$"))).toBe(true);
+    expect(p.ValuationPanel).toContain("one spot rate");
   });
   it("control: a USD listing reporting in USD keeps the dollar sign", async () => {
     const p = await panels({});

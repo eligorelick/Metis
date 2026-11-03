@@ -74,8 +74,9 @@ describe("CRWV saved debt facts must not publish a partial carrying total", () =
     expect(computed.valuation.multiples!.enterpriseValue.value).toBeNull();
     expect(computed.valuation.multiples!.multiples.find((multiple) => multiple.key === "evToSales")?.current).toBeNull();
     expect(computed.valuation.multiples!.multiples.find((multiple) => multiple.key === "evToEbitda")?.current).toBeNull();
-    expect(computed.returns.wacc.waccPct).toBeNull();
-    expect(computed.returns.wacc.weightDebt).toBeNull();
+    expect(computed.returns.wacc.waccPct).not.toBeNull();
+    expect(computed.returns.wacc.weightDebt).not.toBeNull();
+    expect(computed.returns.wacc.debtBasis).toContain("excluded withheld balances");
     const complete = { ...row, totalDebt: 51_608 * M, shortTermDebt: 7513 * M, longTermDebt: 27_555 * M } as FmpBalanceSheetRow;
     const admitted = enrichFinancialFields({ ...balance, value: { ...balance.value, data: { ...balance.value.data, rows: [complete] } } }, cf,
       frozen.facts as CompanyFacts, "quarter", "2026-10-16T09:33:42.064Z");
@@ -110,7 +111,7 @@ describe("CRWV saved debt facts must not publish a partial carrying total", () =
     confirmFixtureIssuer(bundle, 1769628);
     const result = runStageB(bundle);
     expect(result.valuation.multiples!.enterpriseValue.value).toBeNull();
-    expect(result.returns.wacc.waccPct).toBeNull();
+    expect(result.returns.wacc.waccPct).toBeNull(); // the currency gate still applies to the remaining balances
   });
 
   it.each(["USD", null])("never registers refused raw debt in the analyst payload (own currency %s)", (currency) => {

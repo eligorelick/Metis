@@ -2,10 +2,10 @@ import { withNeutral } from "@/report/assessment";
 import type { Report } from "@/report/schema";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import { scoreAuditTables } from "@/report/auditTables";
-import { businessQualityGraded, confidenceText, displayProse, keyDataRows } from "@/report/presentation";
+import { businessQualityGraded, confidenceText, coverLedgerRows, displayProse, keyDataRows } from "@/report/presentation";
 import { evidencePercentText, hasLimitedEvidence, limitedEvidenceText } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { CompositeScorecard, DisagreementsBlock, ExecutiveSummary, GradeStripBar, KeyDataBox, VerdictHeader } from "./sections";
+import { CompositeScorecard, DisagreementsBlock, ExecutiveSummary, GradeStripBar, KeyDataBox, RecentDevelopmentsBlock, VerdictHeader } from "./sections";
 import { FactorAttribution } from "./FactorAttribution";
 import { ThesisCheckpoints } from "./ThesisCheckpoints";
 
@@ -26,7 +26,7 @@ export function DossierCover({ report, completeness }: { report: Report; complet
     ? [row[0], `${formatScore(report.scores!.assessments!.valuation.score)} / limited evidence`, `${row[2]} Limited evidence: ${limitedEvidenceText(valuation)}.`]
     : row);
   const rows = keyDataRows(report);
-  const selected = rows.filter((row, index) => index === 0 || row.label === "Composite grade" || row.label.startsWith("Model fair value") || row.label.startsWith("Scenario range"));
+  const selected = coverLedgerRows(rows);
   return <section className="dossier-cover" aria-label="Executive research dossier">
     <div id="report-key-data"><KeyDataBox report={report} /></div>
     <div className="dossier-thesis">
@@ -43,6 +43,7 @@ export function DossierCover({ report, completeness }: { report: Report; complet
     <nav className="dossier-detail-links" aria-label="Supporting research"><a href="#report-research-detail">Executive evidence</a><a href="#report-score-detail">Scores &amp; attribution</a><a href="#report-debate-detail">Checkpoints &amp; debate</a></nav>
     <details id="report-research-detail" className="dossier-detail" open={!completeness.dataOnly}><summary>{completeness.dataOnly ? "Recorded supporting evidence" : "Executive evidence and full recorded assessment rationales"}</summary>
       {report.verdict.executiveSummary && report.verdict.executiveSummary.length > 0 && <ExecutiveSummary claims={report.verdict.executiveSummary} />}
+      {report.verdict.recentDevelopments && <RecentDevelopmentsBlock developments={report.verdict.recentDevelopments} />}
       <div className="dossier-analyst-assessments"><h3>{completeness.dataOnly ? "Deterministic section summaries" : "Analyst section assessments"}</h3><p>{completeness.dataOnly ? "No analyst assessment was completed. Any available bands below describe deterministic results." : "Recorded section judgments are distinct from deterministic scores and may differ."}</p><GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} /></div>
     </details>
     <details id="report-score-detail" className="dossier-detail"><summary>Deterministic scorecard, methodology &amp; factor attribution</summary>

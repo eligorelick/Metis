@@ -63,6 +63,7 @@ import type {
   Technicals,
   TracedNumber,
   Valuation,
+  Verdict,
 } from "@/report/schema";
 import {
   deriveReportCompletenessPresentation,
@@ -137,6 +138,10 @@ import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanati
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
+import {
+  MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_ACTOR_LABELS, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
+  RECENT_DEVELOPMENTS_HEADING, SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
+} from "@/report/qualitativeAnalysis";
 import {
   markdownBlockquote,
   markdownHeading,
@@ -419,10 +424,24 @@ function renderVerdict(report: Report): string {
   if (v.executiveSummary && v.executiveSummary.length > 0) {
     lines.push("### Executive summary", "", claimList(v.executiveSummary), "");
   }
+  lines.push(...renderRecentDevelopments(v.recentDevelopments));
   lines.push("### Grade strip", "", strip, "");
   // D-62: the debate belongs with the verdict it informs, not under Macro.
   lines.push(...renderDisagreements(report.disagreements));
   return lines.join("\n").trimEnd();
+}
+
+/** Q1: absent on saved reports (nothing printed); an empty list says so. */
+function renderRecentDevelopments(developments: Verdict["recentDevelopments"]): string[] {
+  if (developments === undefined) return [];
+  const lines = [`### ${RECENT_DEVELOPMENTS_HEADING}`, ""];
+  if (developments.summary.length > 0) lines.push(claimList(developments.summary), "");
+  lines.push(developments.items.length === 0 ? NO_RECENT_DEVELOPMENTS : bodyTable(
+    ["Date", "Development", "Direction", "Affects", "Note"],
+    developments.items.map((item) => [eventDateText(item.occurredOn), item.title, item.direction, item.affects || DASH, claimReasoning(developmentClaims(item))]),
+    ["Direction"],
+  ), "");
+  return lines;
 }
 
 function renderScores(scores: Scoring): string {
@@ -779,6 +798,14 @@ function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures
   if (groups.notAssessed.length > 0) {
     lines.push(`#### ${groups.assessed.length > 0 ? "Other officers" : "Officers"}`, "", ...groups.notAssessedLines.flatMap((line) => [markdownProse(line), ""]));
     if (groups.notAssessedClaims.length > 0) lines.push(claimList(groups.notAssessedClaims), "");
+  }
+  if (l.managementActions !== undefined) {
+    lines.push(`### ${MANAGEMENT_ACTIONS_HEADING}`, "", l.managementActions.length === 0 ? NO_MANAGEMENT_ACTIONS : bodyTable(
+      ["Date", "Who", "Action", "Shareholder alignment", "Note"],
+      l.managementActions.map((item) => [eventDateText(item.occurredOn), MANAGEMENT_ACTOR_LABELS[item.actor], MANAGEMENT_CATEGORY_LABELS[item.category],
+        SHAREHOLDER_ALIGNMENT_LABELS[item.shareholderAlignment], claimReasoning(managementActionClaims(item))]),
+      ["Shareholder alignment"],
+    ), "");
   }
   lines.push(...subsection("### Insider activity", claimList(l.insiderSummary)));
   lines.push(...subsection("### Governance", claimList(l.governanceNotes)));

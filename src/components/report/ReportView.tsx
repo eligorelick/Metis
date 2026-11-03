@@ -77,6 +77,7 @@ import {
   MacroSection,
   OutlookSection,
   ProjectionsSection,
+  RecentDevelopmentsBlock,
   QualityFlags,
   TechnicalsSection,
   ValuationSection,
@@ -212,6 +213,7 @@ export function ReportView({
         {report.verdict.executiveSummary && report.verdict.executiveSummary.length > 0 && (
           <div className="mt-3"><ExecutiveSummary claims={report.verdict.executiveSummary} /></div>
         )}
+        {report.verdict.recentDevelopments && <div className="mt-3"><RecentDevelopmentsBlock developments={report.verdict.recentDevelopments} /></div>}
         {report.scores && <div className="mt-3"><CompositeScorecard scores={report.scores} /></div>}
         <div className="mt-3"><GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} /></div>
         {/* D-62: the bull/bear debate sits with the verdict it informs. */}

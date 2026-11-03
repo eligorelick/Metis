@@ -160,7 +160,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.59.0 (D-168 to D-172, priority fixes): catalyst/risk reasoning may be a list of sourced claims, optional market-structure
 // and competitor claims, the run-process table in the appendix, and no provider peer list when none is comparable.
 // Stored reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.59.0" as const;
+// 1.60.0 (D-175 to D-181, Q round): optional dated recent developments in the verdict and management actions in the
+// leadership section, and the fresh-filing caution in the key data. Stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.60.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -940,6 +942,41 @@ export const GradeStripSchema = z
   .strict();
 export type GradeStrip = z.infer<typeof GradeStripSchema>;
 
+/**
+ * Q1: the event date of a recent development or management action. Nullable
+ * on the stored schema; the request schema requires the key (generation
+ * normalizes an unreadable date to null instead of rejecting the section).
+ */
+const OccurredOnSchema = IsoDateSchema.nullable().describe("The date the event happened or was announced, YYYY-MM-DD; null only when no source dates it.");
+
+/** At most this many recent developments and management actions are kept. */
+export const QUALITATIVE_ITEM_CAP = 8;
+
+export const DevelopmentDirectionSchema = z.enum(["positive", "negative", "mixed"]);
+
+/** Q1: one dated past event and what it means for the investment case. */
+export const RecentDevelopmentSchema = z
+  .object({
+    occurredOn: OccurredOnSchema,
+    /** A short headline. */
+    title: z.string(),
+    whatHappened: z.array(SourcedClaimSchema).min(1).describe("1–2 FACT claims stating the event, each citing its payload row, filing or fetched URL."),
+    whyItMatters: z.array(SourcedClaimSchema).describe("1–2 JUDGMENT claims on what it means for the investment case."),
+    direction: DevelopmentDirectionSchema,
+    /** The part of the case it moves, in a word or two (demand, margins, capital…). */
+    affects: z.string(),
+  })
+  .strict();
+export type RecentDevelopment = z.infer<typeof RecentDevelopmentSchema>;
+
+export const RecentDevelopmentsSchema = z
+  .object({
+    summary: z.array(SourcedClaimSchema).describe("2–3 cited JUDGMENT claims on what the developments mean together."),
+    items: z.array(RecentDevelopmentSchema).max(QUALITATIVE_ITEM_CAP).describe("Dated developments from about the last six months, newest first."),
+  })
+  .strict();
+export type RecentDevelopments = z.infer<typeof RecentDevelopmentsSchema>;
+
 export const VerdictSchema = z
   .object({
     /** 3–5 sentence synthesis; rating-safe. */
@@ -952,6 +989,8 @@ export const VerdictSchema = z
      * Optional for backward-compat; the judge fills it on 1.1.0+.
      */
     executiveSummary: z.array(SourcedClaimSchema).optional(),
+    /** Q1: dated recent developments; absent on historical reports. */
+    recentDevelopments: RecentDevelopmentsSchema.optional(),
   })
   .strict();
 export type Verdict = z.infer<typeof VerdictSchema>;
@@ -1378,12 +1417,47 @@ export const ExecutiveSchema = z
   .strict();
 export type Executive = z.infer<typeof ExecutiveSchema>;
 
+export const ManagementActionCategorySchema = z.enum([
+  "leadership-change",
+  "board-change",
+  "strategy",
+  "acquisition-divestiture",
+  "capital-allocation",
+  "guidance",
+  "insider-transaction",
+  "compensation",
+  "other",
+]);
+export type ManagementActionCategory = z.infer<typeof ManagementActionCategorySchema>;
+
+export const ShareholderAlignmentSchema = z.enum(["aligned", "mixed", "misaligned", "unclear"]);
+export type ShareholderAlignment = z.infer<typeof ShareholderAlignmentSchema>;
+
+/** Who acted, as a role: a person is named only inside a cited claim, where the named-person check reads it. */
+export const ManagementActorSchema = z.enum(["ceo", "cfo", "other-executive", "board", "company", "unspecified"]);
+export type ManagementActor = z.infer<typeof ManagementActorSchema>;
+
+/** Q1: one dated action by the CEO, another executive or the board, and its assessment. */
+export const ManagementActionSchema = z
+  .object({
+    occurredOn: OccurredOnSchema,
+    category: ManagementActionCategorySchema,
+    actor: ManagementActorSchema,
+    action: z.array(SourcedClaimSchema).min(1).describe("FACT claims stating the action, each citing its filing, release, transcript or insider-trade row."),
+    assessment: z.array(SourcedClaimSchema).describe("1–2 JUDGMENT claims: aligned with shareholders? does it match earlier stated plans or guidance? Evidence only."),
+    shareholderAlignment: ShareholderAlignmentSchema,
+  })
+  .strict();
+export type ManagementAction = z.infer<typeof ManagementActionSchema>;
+
 export const LeadershipSchema = z
   .object({
     graded: GradeBlockSchema,
     executives: z.array(ExecutiveSchema),
     insiderSummary: z.array(SourcedClaimSchema),
     governanceNotes: z.array(SourcedClaimSchema),
+    /** Q1: dated management and board actions; absent on historical reports. */
+    managementActions: z.array(ManagementActionSchema).max(QUALITATIVE_ITEM_CAP).optional().describe("Dated actions by the CEO, other executives or the board, newest first."),
   })
   .strict();
 export type Leadership = z.infer<typeof LeadershipSchema>;
@@ -3156,6 +3230,11 @@ const ALWAYS_FILLED_BY_GENERATION = new Set([
   "tam",
   "marketStructure",
   "competitors",
+  // Q1: optional only for saved reports; arrays/objects with an honest empty
+  // form, and a date the generation normalizer turns to null when unreadable.
+  "recentDevelopments",
+  "managementActions",
+  "occurredOn",
   // Fresh model output carries the canonical source identity separately from
   // the legacy display field. The Zod field stays optional so old persisted
   // reports remain readable; a blank or null value from a model that had no

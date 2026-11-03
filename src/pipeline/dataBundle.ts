@@ -1,4 +1,6 @@
 import {historyWindowFallback,historyTailTtlMs} from "@/providers/historyCache";
+import { fetchValuationFx } from "@/pipeline/fx";
+import { quotePriceObservationDay } from "@/providers/fmp";
 import { parsePrimaryEconomicShares, economicEvidenceFromInventories, type FilingEconomicShares } from "@/edgar/economicShares";
 import { parsePrimaryCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { parseEquityStatementNci, type FilingEquityStatementNci } from "@/edgar/equityStatementNci";
@@ -361,6 +363,7 @@ export function makeCachedFredSeries(cfg: FredConfig): FredSeriesFetch {
           start: opts.start ?? null,
           end: opts.end ?? null,
           units,
+          ...(opts.requireSeriesIdentity ? { requireSeriesIdentity: true } : {}),
         },
         ttlSeconds: ttlForFredSeries(seriesId),
         maxStaleSeconds: PROVIDER_MAX_STALE_SECONDS,
@@ -606,6 +609,13 @@ function gapResult<T>(
   if (expected) gap.expected = true;
   return { ok: false, gap };
 }
+
+/**
+ * D-176: earlier news windows as [newer, older] days back, two weeks each from
+ * 8 to 90 days, and the rows requested from each.
+ */
+export const NEWS_EARLIER_WINDOWS: readonly (readonly [number, number])[] = [[8, 21], [22, 35], [36, 49], [50, 63], [64, 77], [78, 90]];
+export const NEWS_EARLIER_ROWS = 4;
 
 /** Awaits a FetchResult-producing promise; thrown errors become gaps. */
 async function settle<T>(field: string, p: Promise<FetchResult<T>>): Promise<FetchResult<T>> {
@@ -2032,6 +2042,12 @@ export async function buildDataBundle(
   const pFloat = settle(`fmp.sharesFloat(${sym})`, fmp.sharesFloat(sym));
   const pSecFilings = settle(`fmp.secFilingsSearch(${sym})`, fmp.secFilingsSearch(sym, filingsFrom, today, 0, 100));
   const pNews = settle(`fmp.stockNews(${sym})`, fmp.stockNews([sym], newsFrom, today, 0, 50));
+  // D-176: the newest 50 rows can span hours for a heavily covered issuer. The
+  // provider returns a window's newest rows first, so one wide earlier window would
+  // repeat that problem at its own end date; short windows spread across the quarter
+  // give the payload dates to sample from.
+  const pNewsEarlier = reserved ? undefined : NEWS_EARLIER_WINDOWS.map(([newer, older]) =>
+    settle(`fmp.stockNews(${sym}).earlier`, fmp.stockNews([sym], isoDaysAgo(nowDate, older), isoDaysAgo(nowDate, newer), 0, NEWS_EARLIER_ROWS)));
   const pPress = settle(`fmp.pressReleases(${sym})`, fmp.pressReleases([sym], newsFrom, today, 0, 50));
   const pEod = settle(`fmp.historicalPriceEodFull(${sym})`, fmp.historicalPriceEodFull(sym, eodFrom, today));
   const pSpy = settle(
@@ -2153,6 +2169,10 @@ export async function buildDataBundle(
   if (!reserved && finnhubCfg.apiKey) {
     news = await resolveFinnhubFallback<FmpPayload<FmpNewsArticleRow>>(news, () => finnhubNewsFetch(sym, newsFrom, today), "news", configuredFallbackGaps);
   }
+  // Only windows that returned rows are kept. A failed or empty earlier window
+  // leaves the sample thinner; it is not a gap in the news feed itself.
+  const newsEarlier = pNewsEarlier === undefined ? undefined
+    : (await Promise.all(pNewsEarlier)).map((window) => sortRows(window, "publishedDate")).filter((window) => window.ok);
   const pressReleases = sortRows(await pPress, "publishedDate");
   let eodPrices = sortRows(await pEod);
   let spyPrices = sortRows(await pSpy);
@@ -2434,6 +2454,14 @@ export async function buildDataBundle(
 
   progress("assemble: source + missing-data manifests");
 
+  // After fallbacks: use the admitted statement currency and the actual quote
+  // session, never the acquisition clock. Same-currency runs add no member/read.
+  const reportingCurrency = statements.incomeAnnual.ok ? statements.incomeAnnual.value.data.rows[0]?.reportedCurrency ?? null : null;
+  const tradingCurrency = profile.ok ? profile.value.data.rows[0]?.currency ?? null : null;
+  const priceRow = quote.ok ? quote.value.data.rows[0] : undefined;
+  const valuationFx = reserved || reportingCurrency === tradingCurrency ? undefined
+    : await fetchValuationFx(reportingCurrency, tradingCurrency, quotePriceObservationDay(priceRow), fredFetch);
+
   // The producer registry is discovered from the exact object returned below.
   // There is no independently keyed inventory that can drift or be mistyped.
   // The optional peer reads can finish before later core/keyless reads. Compare
@@ -2472,6 +2500,7 @@ export async function buildDataBundle(
     peers,
     peerFundamentals,
     segmentation: { product: segProduct, geographic: segGeo },
+    ...(newsEarlier === undefined ? {} : { newsEarlier }),
     executives,
     compensation,
     marketCapHistory,
@@ -2486,6 +2515,7 @@ export async function buildDataBundle(
     shortInterestTrend: shortInterestTrendRes,
     insiderSentiment: insiderSentimentRes,
     macro,
+    ...(valuationFx === undefined ? {} : { valuationFx }),
     treasury,
     ...(riskFreeFallback === undefined ? {} : { riskFreeFallback }),
     marketRiskPremium,

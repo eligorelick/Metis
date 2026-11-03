@@ -26,6 +26,7 @@
  */
 
 import "server-only";
+import { quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
 import { buildEstimateTiming, type EstimateTiming } from "@/report/estimateTiming";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getProviderCredential } from "@/ai/store";
@@ -169,7 +170,7 @@ export interface StatementFieldProvenance {
   /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */
   calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash" | "cash-ppe-plus-hardware" | "cfo-minus-cash-ppe-and-hardware" | "nci-inferred-zero" | "basic-shares-equal-eps" | "equity-statement-nci" | "total-equity-less-equity-statement-nci"
     /** D-133: a vendor total debt recomposed from one filing because its lease line was the noncurrent lease liabilities only. */
-    | "noncurrent-lease-line-completed";
+    | "noncurrent-lease-line-completed" | "same-filing-debt-completed";
 }
 
 export interface StatementFieldConflict {
@@ -208,6 +209,9 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   sellingGeneralAndAdministrativeExpenses?: number;
   operatingExpenses?: number;
   operatingIncome?: number;
+  /** Calculation-view-only filed FY operating income for standalone interest coverage.
+   * Does not establish a vendor revenue/operating-margin basis. */
+  waccOperatingIncome?: number;
   ebitda?: number;
   ebit?: number;
   netInterestIncome?: number;
@@ -1180,13 +1184,7 @@ function addUtcYears(date: Date, years: number): Date {
 }
 
 /** A fetch/envelope date never establishes when a price was observed. */
-export function quotePriceObservationDay(row: FmpRawRow | null | undefined): string | null {
-  if (!row) return null;
-  const timestamp = typeof row.timestamp === "number" ? row.timestamp : null;
-  if (timestamp !== null && Number.isFinite(timestamp) && timestamp > 0 && timestamp * 1000 <= 8.64e15) return new Date(timestamp * 1000).toISOString().slice(0, 10);
-  const date = typeof row.date === "string" ? row.date.slice(0, 10) : "";
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date ? date : null;
-}
+export { quotePriceObservationDay };
 
 /**
  * Derive an asOf date from response rows (fiscal date / quote timestamp), else

@@ -71,6 +71,7 @@ import type {
   SourcedClaim,
   TracedNumber,
   Valuation,
+  Verdict,
 } from "@/report/schema";
 import {
   deriveReportCompletenessPresentation,
@@ -165,6 +166,10 @@ import {
   reportSection,
   type ReportSectionKey,
 } from "@/report/sectionManifest";
+import {
+  MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_ACTOR_LABELS, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
+  RECENT_DEVELOPMENTS_HEADING, SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
+} from "@/report/qualitativeAnalysis";
 
 /** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
 function evidenceRow(report: Report): string[][] {
@@ -431,7 +436,29 @@ function sectionVerdict(report: Report): string {
   );
   const execSummary = v.executiveSummary && v.executiveSummary.length > 0 ? `<h3>Executive summary</h3>${claimList(v.executiveSummary)}` : "";
   // D-62: the debate sits with the verdict it informs.
-  return `<section class="block">${sectionHeading("verdict")}<p class="synthesis">${prose(v.synthesis)}</p>${execSummary}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements)}</section>`;
+  return `<section class="block">${sectionHeading("verdict")}<p class="synthesis">${prose(v.synthesis)}</p>${execSummary}${recentDevelopmentsBlock(v.recentDevelopments)}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements)}</section>`;
+}
+
+/** Q1: absent on saved reports (nothing printed); an empty list says so. */
+function recentDevelopmentsBlock(developments: Verdict["recentDevelopments"]): string {
+  if (developments === undefined) return "";
+  const items = developments.items.length === 0 ? `<p class="faint">${esc(NO_RECENT_DEVELOPMENTS)}</p>` : bodyTable(
+    ["Date", "Development", "Direction", "Affects", "Note"],
+    developments.items.map((item) => [eventDateText(item.occurredOn), item.title, item.direction, item.affects || DASH, claimReasoning(developmentClaims(item))]),
+    ["Direction"],
+  );
+  return `<h3>${esc(RECENT_DEVELOPMENTS_HEADING)}</h3>${claimList(developments.summary)}${items}`;
+}
+
+function managementActionsBlock(actions: Leadership["managementActions"]): string {
+  if (actions === undefined) return "";
+  const body = actions.length === 0 ? `<p class="faint">${esc(NO_MANAGEMENT_ACTIONS)}</p>` : bodyTable(
+    ["Date", "Who", "Action", "Shareholder alignment", "Note"],
+    actions.map((item) => [eventDateText(item.occurredOn), MANAGEMENT_ACTOR_LABELS[item.actor], MANAGEMENT_CATEGORY_LABELS[item.category],
+      SHAREHOLDER_ALIGNMENT_LABELS[item.shareholderAlignment], claimReasoning(managementActionClaims(item))]),
+    ["Shareholder alignment"],
+  );
+  return `<h3>${esc(MANAGEMENT_ACTIONS_HEADING)}</h3>${body}`;
 }
 
 function sectionScores(scores: Scoring): string {
@@ -696,7 +723,7 @@ function sectionLeadership(l: Leadership, report: Report): string {
   const others = groups.notAssessed.length > 0
     ? `<div class="exec"><h4>${groups.assessed.length > 0 ? "Other officers" : "Officers"}</h4>${groups.notAssessedLines.map((line) => `<p>${esc(line)}</p>`).join("")}${claimList(groups.notAssessedClaims)}</div>`
     : "";
-  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${execs}${others}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Governance", claimList(l.governanceNotes))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
+  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${execs}${others}${managementActionsBlock(l.managementActions)}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Governance", claimList(l.governanceNotes))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
 }
 
 function sectionCompetitive(c: Competitive, report: Report): string {

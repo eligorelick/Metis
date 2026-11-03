@@ -915,6 +915,19 @@ export function priceTiming(report: Pick<Report, "meta">): { label: string; deta
  * Key-data box (page 1)
  * ======================================================================== */
 
+/** D-175: the Key data row that leads when the newest filing is not yet cross-checked. */
+export const FRESH_FILING_LABEL = "Newest filing";
+
+/**
+ * The key data rows the cover ledger repeats: the lead row, the composite grade,
+ * the model fair value and the scenario range. A fresh-filing caution leads
+ * without displacing the row that led before it (the price).
+ */
+export function coverLedgerRows(rows: readonly KeyDataRow[]): KeyDataRow[] {
+  const lead = rows[0]?.label === FRESH_FILING_LABEL ? 2 : 1;
+  return rows.filter((row, index) => index < lead || row.label === "Composite grade" || row.label.startsWith("Model fair value") || row.label.startsWith("Scenario range"));
+}
+
 export interface KeyDataRow {
   label: string;
   value: string;
@@ -980,6 +993,9 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   const traces = collectTraces(report);
   const md = report.marketData;
   const rows: KeyDataRow[] = [];
+  // D-175: a newest filing not yet cross-checked against SEC data leads page one.
+  const fresh = report.appendix.missingData.find(gap => gap.field === "validation.freshFiling" && !gap.resolution);
+  if (fresh) rows.push({ label: FRESH_FILING_LABEL, value: "not yet cross-checked", note: fresh.reason });
   const perimeter = firstTrace(traces, /^computed\.current-capital\.provider-debt-perimeter-includes-payables-to-third-party-loan-owners$/);
   if (perimeter) rows.push({ label: LENDER_DEBT_PERIMETER_LABEL, value: money(perimeter.value, perimeter.currency ?? null), note: `at ${perimeter.asOf}; filed borrowings and loan-owner payables are shown separately in the debt profile` });
   const bridge = report.valuation.dcf.bridge;
