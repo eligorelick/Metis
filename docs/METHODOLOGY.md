@@ -3230,6 +3230,15 @@ a live statistic, and changes only with a new census. This batch only discloses
 the base rate. The calibration behind it (B-3) and the valuation band's
 dependence on it (B-33) are left for a later batch.
 
+The [2026-11-03 frozen-panel study](audit/2026-11-03-q4-dcf-bias-study.md)
+tested the current assumptions without changing the numerical method. Only ten
+of its 26 US issuers published a DCF: nine below price, median −27.46%, five
+more than 30% below. Fifteen were suppressed and one was outside-domain; seven
+foreign issuers were excluded from the US diagnosis. This selected population
+does not replace the October census or establish a market-wide bias estimate.
+No tested numerical replacement met all four study conditions. The dated
+headline disclosure and its pinned figures therefore remain unchanged.
+
 **Degraded inputs** (audit 2026-10-22 F-13, an owner decision). An available
 fair value built on a substituted input carries a `valuation.fairValue.degradedInputs`
 entry in `fairValue.reasons` that names each substitution:
