@@ -2,7 +2,7 @@
   "name": "metis",
   "version": "0.1.0",
   "private": true,
-  "description": "Local-first equity research engine. Informational only, not investment advice.",
+  "description": "Source-available application for equity research on public companies. It builds reports from SEC filings and market data on your own computer.",
   "keywords": [
     "equity-research",
     "finance",
@@ -10,9 +10,13 @@
     "anthropic",
     "nextjs",
     "local-first",
-    "sec-edgar"
+    "sec-edgar",
+    "valuation",
+    "financial-analysis",
+    "typescript",
+    "xbrl"
   ],
-  "homepage": "https://github.com/eligorelick/Metis#readme",
+  "homepage": "https://metis.eligorelick.com",
   "bugs": {
     "url": "https://github.com/eligorelick/Metis/issues"
   },

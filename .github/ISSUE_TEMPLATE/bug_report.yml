@@ -1,0 +1,32 @@
+name: Bug report
+description: Report a reproducible problem running Metis or using a research workflow.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "For vulnerabilities use the private advisory form in SECURITY.md. For wrong figures or unsupported tickers use the data issue form. Do not attach keys, databases or real report exports."
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Metis commit, OS, Node version, development or production mode, and AI connection type (no credentials).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the page/workflow and a minimal synthetic example where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Relevant error text, frequency, and any workaround. Remove contact identities, tokens and provider content you cannot redistribute.

@@ -1,0 +1,23 @@
+name: Feature request
+description: Suggest a research or local-first workflow improvement.
+title: "[Feature]: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Research problem
+      description: Who is affected, what decision or workflow is difficult, and what do you do today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior and alternatives
+      description: Describe the desired outcome and alternatives, including how missing data should appear.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sources and constraints
+      description: Public source links, data rights, provider/AI cost concerns and local-first considerations. Use synthetic examples; no provider exports or keys.

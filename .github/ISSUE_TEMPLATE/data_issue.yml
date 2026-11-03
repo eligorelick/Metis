@@ -1,0 +1,47 @@
+name: Wrong figure or ticker not supported
+description: Report a data, source, period, unit or company-eligibility problem.
+title: "[Data]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Use public source links and only the minimum values needed. Do not upload full provider responses, reports, databases or credentials. Source tracing does not establish redistribution rights; see docs/DATA-RIGHTS.md."
+  - type: input
+    id: symbol
+    attributes:
+      label: Symbol
+      description: Include exchange/share class if ambiguous.
+    validations:
+      required: true
+  - type: input
+    id: report
+    attributes:
+      label: Report ID or report date
+      description: For an unsupported ticker with no report, give the attempted run date.
+    validations:
+      required: true
+  - type: input
+    id: section
+    attributes:
+      label: Section or workflow
+      description: Name the report section and metric, or the unsupported-ticker message.
+    validations:
+      required: true
+  - type: textarea
+    id: values
+    attributes:
+      label: Expected and shown values
+      description: Include currency, units, fiscal period and as-of date. For eligibility, describe expected support and the exact shown reason.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: Link the public filing or other authoritative source with page/table and date; state if no source is available.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Run context
+      description: Metis commit, statement-source policy, provider names (no keys), saved versus live view, and relevant disclosed gaps.

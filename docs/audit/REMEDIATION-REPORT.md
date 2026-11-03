@@ -37,7 +37,7 @@ Read alongside:
 
 - [`DECISIONS.md`](DECISIONS.md) — D-01 to D-23, the options considered and why
   each was chosen (D-24 to D-26 were added by the audit that followed).
-- [`2026-09-06-full-codebase-audit.md`](../superpowers/audits/2026-09-06-full-codebase-audit.md)
+- [`2026-09-06-full-codebase-audit.md`](../internal/superpowers/audits/2026-09-06-full-codebase-audit.md)
   — the full audit that followed this remediation. The Phase 0 reconciliation
   (sixty README claims with file-and-line evidence and a verdict) and the
   running progress board this report used to link were retired by that audit,
