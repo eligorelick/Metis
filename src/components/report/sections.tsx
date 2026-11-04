@@ -77,6 +77,7 @@ import {
   withoutTabled,
   type BodyTable,
   type FigureRow,
+  withoutDecisionNumbers,
 } from "@/report/presentation";
 import { ValuationReview } from "@/components/report/ValuationReview";
 import type { ValuationReviewInputs } from "@/report/researchReview";
@@ -446,7 +447,7 @@ export function CompositeScorecard({ scores, mode = "default" }: { scores: Scori
                 key={descriptor.id}
                 href={`#${sectionAnchorId(descriptor.sectionKey)}`}
                 className="scorecard-aspect flex flex-col gap-1 border border-edge bg-raised px-2 py-1.5 transition-colors hover:border-accent/50"
-                title={a.notApplicableReason ?? a.note}
+                title={withoutDecisionNumbers(a.notApplicableReason ?? a.note)}
               >
                 <span className="text-[9px] uppercase tracking-[0.09em] text-faint">{descriptor.label}</span>
                 {mode === "cover" && a.score !== null && !hasLimitedEvidence(a) && <span className="factor-score-track" aria-hidden="true"><i style={{ width: `${a.score}%` }} /></span>}

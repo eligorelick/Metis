@@ -446,7 +446,7 @@ function unwrap<T>(run: PassRun<T>, label: string): PassResult<T> {
  * unit, currency, period, and as-of must all match the registered record before
  * anything is rewritten. Judge-authored numbers are deliberately untouched.
  */
-function bindDeterministicReportProvenance(
+export function bindDeterministicReportProvenance(
   input: Report,
   payload: ContextPayload,
 ): Report {
