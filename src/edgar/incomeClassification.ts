@@ -1,12 +1,15 @@
 import { PRETAX_EXCLUDING_EQUITY_METHOD_TAG, tagsFor } from "@/edgar/tagSynonyms";
-import type { CompanyFacts } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, conceptFactsSchema, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
+import { factsForFilings } from "@/edgar/filedPresentation";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
-import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FmpIncomeStatementRow, FmpPayload, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const same = vendorAgreesWithFiled;
+/** D-200: the observed minor cluster ends at 0.907%; the next disagreement is 1.544%. */
+const INCOMPLETE_EARNINGS_MINOR_DIFFERENCE = 0.01;
 
 /** An unreconciled ASC-606 amount need not cover the face revenue line. It
  * can omit derivative or lease transactions and can be rounded in a note.
@@ -25,6 +28,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     bankRevenue: opts.bankRevenue || opts.securitiesRevenue, annualPeriods: Math.max(12, income.value.data.rows.length + 2), quarterlyPeriods: Math.max(12, income.value.data.rows.length + 4),
     vendorSplits: { status: "unavailable", source: "income-classification", reason: "Income classification does not resolve per-share values" } });
   const filed = opts.filedRows ?? (scope === "annual" ? built!.incomeAnnual.rows : built!.incomeQuarterly.rows);
+  const originalFilings = new Map<string, FmpIncomeStatementRow[]>();
   const gaps: ManifestEntry[] = [];
   const allowed: Record<string, string[]> = {
     revenue: ["us-gaap/Revenues", "us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax", "us-gaap/SalesRevenueNet", "us-gaap/RevenueFromContractWithCustomerIncludingAssessedTax"],
@@ -58,38 +62,175 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       out = { ...out, [field]: null, fieldConflicts };
       gaps.push({ field: `statements.income.${row.date}.${field}`, reason, severity: "warn", attemptedSources: ["fmp:income-statement", "edgar:companyfacts"] });
     };
-    // A self-consistent provider loss is still contradicted when the exact
-    // filed interval reports a profit. Refuse the family together so aliases
-    // cannot restore it and a partial transplant cannot break its arithmetic.
     const earnings = ["incomeBeforeTax", "incomeTaxExpense", "netIncome"] as const;
     const sameScope = (a: StatementFieldProvenance, b: StatementFieldProvenance) =>
       a.unit === b.unit && a.periodStart === b.periodStart && a.periodEnd === b.periodEnd &&
-      JSON.stringify(a.filings) === JSON.stringify(b.filings);
-    const conflict = earnings.find(field => {
-      const proof = evidenceFor(field);
-      const vendor = row[field];
-      if (!proof || !finite(vendor) || !finite(sec[field]) || same(vendor, sec[field])) return false;
+      JSON.stringify(a.filings.map(f => `${f.accn}|${f.filed}|${f.form}`).sort()) === JSON.stringify(b.filings.map(f => `${f.accn}|${f.filed}|${f.form}`).sort());
+    let earningsSec = sec;
+    const earningsProof = (field: string) => {
+      const proof = earningsSec.fieldProvenance?.[field];
+      return proof && proof.unit === row.reportedCurrency && proof.periodStart && proof.periodEnd === row.date &&
+        (row.periodStart == null || row.periodStart === proof.periodStart) && proof.filings.length > 0 &&
+        (row.filingDate == null || proof.filings.map(f => f.filed).sort().at(-1) === row.filingDate) ? proof : null;
+    };
+    const vendorFor = (field: string): number | null => finite(row[field]) ? row[field] :
+      /^Filed earnings/.test(row.fieldConflicts?.[field]?.reason ?? "") ? row.fieldConflicts?.[field]?.vendorValue ?? null : null;
+    const conflicts = () => earnings.filter(field => {
+      const proof = earningsProof(field), vendor = vendorFor(field), value = earningsSec[field];
+      if (!proof || !finite(vendor) || !finite(value) || same(vendor, value)) return false;
       if (field === "incomeBeforeTax" && proof.tags.includes(`us-gaap/${PRETAX_EXCLUDING_EQUITY_METHOD_TAG}`)) {
-        const equity = evidenceFor("equityMethodIncomeLoss");
-        if (equity && sameScope(proof, equity) && finite(sec.equityMethodIncomeLoss) &&
-            same(vendor, sec.incomeBeforeTax! + sec.equityMethodIncomeLoss)) return false;
+        const equity = earningsProof("equityMethodIncomeLoss");
+        if (equity && sameScope(proof, equity) && finite(earningsSec.equityMethodIncomeLoss) &&
+            same(vendor, value + earningsSec.equityMethodIncomeLoss)) return false;
       }
       if (field !== "netIncome") return true;
-      // Parent, consolidated and common income are distinct valid scopes.
-      // Only independently filed, same-interval alternatives can bridge them.
       return !["netIncomeConsolidated", "netIncomeAvailableToCommon"].some(alternative => {
-        const other = evidenceFor(alternative);
-        return other && sameScope(proof, other) && finite(sec[alternative]) && same(vendor, sec[alternative]);
+        const other = earningsProof(alternative);
+        return other && sameScope(proof, other) && finite(earningsSec[alternative]) && same(vendor, earningsSec[alternative]);
       });
     });
-    if (conflict) {
-      const proof = evidenceFor(conflict)!;
-      const reason = `Filed earnings conflict for ${conflict}: vendor ${row[conflict]}, filed ${sec[conflict]} ${proof.unit}, ${proof.periodStart} through ${row.date}; pretax, tax and net-income family withheld together, including ownership/continuing aliases and dependent margins; vendor observations retained`;
-      for (const field of [...earnings, "bottomLineNetIncome", "netIncomeConsolidated", "netIncomeAvailableToCommon",
-        "netIncomeFromContinuingOperations", "netIncomeFromDiscontinuedOperations"]) {
-        refuse(field, finite(sec[field]) ? sec[field] : null, evidenceFor(field) ?? proof, reason);
+    type Operand = { value: number; proof: StatementFieldProvenance };
+    const operand = (field: string): Operand | null => {
+      const proof = earningsProof(field), value = earningsSec[field];
+      return proof && finite(value) && earningsSec.fieldConflicts?.[field]?.usable !== false ? { value, proof } : null;
+    };
+    const familyFor = () => {
+      let pretax = operand("incomeBeforeTax");
+      const tax = operand("incomeTaxExpense"), equity = operand("equityMethodIncomeLoss");
+      if (!pretax || !tax || !sameScope(pretax.proof, tax.proof)) return null;
+      if (pretax.proof.tags.includes(`us-gaap/${PRETAX_EXCLUDING_EQUITY_METHOD_TAG}`) && equity && sameScope(pretax.proof, equity.proof)) {
+        pretax = { value: pretax.value + equity.value, proof: { ...pretax.proof,
+          tags: [...new Set([...pretax.proof.tags, ...equity.proof.tags])], calculation: "pretax-plus-equity-method" } };
       }
-      out = { ...out, netIncomeRatio: null, netProfitMargin: null, incomeBeforeTaxRatio: null, effectiveTaxRate: null };
+      const consolidated = operand("netIncomeConsolidated"), parent = operand("netIncome"), nci = operand("netIncomeAttributableToNoncontrollingInterest");
+      const discontinued = operand("netIncomeFromDiscontinuedOperations");
+      // Continuing pretax/tax cannot be called a complete total-earnings
+      // family beside a separately filed nonzero discontinued result.
+      if (discontinued && discontinued.value !== 0) return null;
+      const candidates: { net: Operand; basis: "parent" | "consolidated" }[] = [];
+      if (consolidated) candidates.push({ net: consolidated, basis: "consolidated" });
+      const parentBasis = parent && (parent.proof.tags.includes("us-gaap/NetIncomeLoss") ||
+        parent.proof.tags.includes("us-gaap/ProfitLoss") && parent.proof.tags.includes("us-gaap/NetIncomeLossAttributableToNoncontrollingInterest"));
+      if (parent && parentBasis && nci && sameScope(parent.proof, nci.proof)) candidates.push({ basis: "consolidated", net: {
+        value: parent.value + nci.value, proof: { ...parent.proof, tags: [...new Set([...parent.proof.tags, ...nci.proof.tags])], calculation: "parent-plus-nci" } } });
+      if (parent && parentBasis) candidates.push({ net: parent, basis: "parent" });
+      const selected = candidates.find(c => sameScope(pretax!.proof, c.net.proof) &&
+        vendorAgreesWithDerived(c.net.value, pretax!.value - tax.value, [pretax!.value, tax.value]));
+      return selected ? { pretax, tax, ...selected } : null;
+    };
+    let disputed = conflicts();
+    if (disputed.length) {
+      let family = familyFor();
+      // Newer comparative copies can make a complete original family appear
+      // mixed. Try the original filing as a unit before calling it incomplete.
+      if (!family && row.filingDate) {
+        if (!originalFilings.has(row.filingDate)) {
+          const accns = new Set(Object.values(facts.facts).flatMap(ns => Object.values(ns).flatMap(raw => {
+            const parsed = conceptFactsSchema.safeParse(raw);
+            return parsed.success ? Object.values(parsed.data.units).flatMap(ps => parseFactPoints(ps).filter(p =>
+              p.end === row.date && p.filed === row.filingDate && CORE_FACT_FORMS.has(p.form)).map(p => p.accn)) : [];
+          })));
+          const original = accns.size === 1 ? buildStatementsFromCompanyFacts(factsForFilings(facts, [...accns]), {
+            symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0, 10), factsObservedAt: observedAt,
+            annualPeriods: 40, quarterlyPeriods: 80, bankRevenue: opts.bankRevenue || opts.securitiesRevenue,
+            vendorSplits: { status: "unavailable", source: "earnings-family", reason: "Monetary family only" } }) : null;
+          originalFilings.set(row.filingDate, original ? scope === "annual" ? original.incomeAnnual.rows : original.incomeQuarterly.rows : []);
+        }
+        const original = originalFilings.get(row.filingDate)!.find(r => r.date === row.date);
+        if (original) { earningsSec = original; family = familyFor(); disputed = conflicts(); }
+      }
+      const differences = disputed.map(field => `${field}: vendor ${vendorFor(field)}, filed ${earningsSec[field]}`).join("; ");
+      const audit = (field: string, value: number | null, proof: StatementFieldProvenance | null, reason: string, resolution: "filed-family" | "minor-retained") => {
+        out = { ...out, [field]: value, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendorFor(field), secValue: resolution === "minor-retained" && finite(earningsSec[field]) ? earningsSec[field] : value,
+          usable: value !== null, resolution, reason, ...(proof ? { secEvidence: proof } : {}) } },
+          ...(proof && resolution === "filed-family" && value !== null ? { fieldProvenance: { ...out.fieldProvenance, [field]: proof } } : {}) };
+        if (resolution === "minor-retained" && out.fieldProvenance?.[field]) {
+          const fieldProvenance = { ...out.fieldProvenance }; delete fieldProvenance[field];
+          out = { ...out, fieldProvenance };
+        }
+      };
+      if (disputed.length && family) {
+        const common = operand("netIncomeAvailableToCommon");
+        const reason = `Filed earnings family adopted (${family.basis} basis), ${family.pretax.proof.periodStart} through ${row.date} ${family.pretax.proof.unit}; ${differences}; filed pretax ${family.pretax.value} - tax ${family.tax.value} = net income ${family.net.value}${common && sameScope(family.pretax.proof, common.proof) ? `; filed income available to common ${common.value}` : ""}; vendor observations retained`;
+        const adopted: Record<string, Operand | null> = { incomeBeforeTax: family.pretax, incomeTaxExpense: family.tax, netIncome: family.net,
+          netIncomeConsolidated: family.basis === "consolidated" ? family.net : operand("netIncomeConsolidated"),
+          netIncomeAvailableToCommon: operand("netIncomeAvailableToCommon"), netIncomeAttributableToNoncontrollingInterest: operand("netIncomeAttributableToNoncontrollingInterest"),
+          netIncomeFromContinuingOperations: operand("netIncomeFromContinuingOperations"), netIncomeFromDiscontinuedOperations: operand("netIncomeFromDiscontinuedOperations") };
+        // The reconciled continuing pretax/tax and total-profit observations
+        // establish these aliases by identity, rather than treating missing
+        // discontinued data as zero without a complete earnings bridge.
+        if (family.pretax.proof.tags.some(tag => tag.includes("IncomeLossFromContinuingOperationsBeforeIncomeTaxes"))) {
+          const identityProof = { ...family.net.proof, tags: [...new Set([...family.pretax.proof.tags, ...family.tax.proof.tags, ...family.net.proof.tags])], calculation: "earnings-identity" as const };
+          adopted.netIncomeFromContinuingOperations ??= { value: family.net.value, proof: identityProof };
+          adopted.netIncomeFromDiscontinuedOperations ??= { value: 0, proof: identityProof };
+        }
+        adopted.bottomLineNetIncome = adopted.netIncomeAvailableToCommon ?? operand("netIncome") ?? family.net;
+        for (const [field, item] of Object.entries(adopted)) {
+          const compatible = item && sameScope(family.pretax.proof, item.proof) ? item : null;
+          if (compatible || finite(row[field]) || row.fieldConflicts?.[field]) audit(field, compatible?.value ?? null, compatible?.proof ?? null, reason, "filed-family");
+        }
+        out = { ...out, netIncomeOwnershipBasis: family.basis, periodStart: family.pretax.proof.periodStart,
+          netIncomeRatio: finite(out.revenue) && out.revenue !== 0 ? family.net.value / out.revenue : null,
+          incomeBeforeTaxRatio: finite(out.revenue) && out.revenue !== 0 ? family.pretax.value / out.revenue : null,
+          effectiveTaxRate: family.pretax.value !== 0 ? family.tax.value / family.pretax.value : null, netProfitMargin: null };
+        // Do not derive EPS from profit. A previously admitted count can prove
+        // that direct filed EPS uses this row's unchanged ordinary-share unit.
+        // Split-adjusted, ADR-converted and million-scaled counts cannot pass
+        // the raw filed-count tie-out below.
+        for (const [eps, shares] of [["eps", "weightedAverageShsOut"], ["epsDiluted", "weightedAverageShsOutDil"]] as const) {
+          const shareProof = row.fieldProvenance?.[shares], count = row[shares];
+          if (!finite(row[eps]) || !finite(count) || !shareProof || shareProof.unit !== "shares" || shareProof.shareUnitConversion ||
+              row.fieldConflicts?.[shares]?.usable === false || !sameScope({ ...shareProof, unit: family.pretax.proof.unit }, family.pretax.proof)) continue;
+          const matchingPoints = (tag: string, unit: string) => {
+            const concept = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
+            return concept.success ? parseFactPoints(concept.data.units[unit] ?? []).filter(p =>
+              p.start === shareProof.periodStart && p.end === shareProof.periodEnd && shareProof.filings.some(f =>
+                f.accn === p.accn && f.filed === p.filed && f.form === p.form)) : [];
+          };
+          const countMatches = tagsFor(shares).some(tag => matchingPoints(tag, "shares").some(p =>
+            Math.abs(p.val - count) <= Math.max(1, Math.abs(p.val) * 0.0001)));
+          if (!countMatches) continue;
+          const points = tagsFor(eps).flatMap(tag => matchingPoints(tag, `${row.reportedCurrency}/shares`).map(point => ({ tag, point })));
+          if (new Set(points.map(p => p.point.val)).size !== 1) continue;
+          const value = points[0]!.point.val;
+          if (Math.abs(value - row[eps]!) <= 0.005 + 1e-9) continue;
+          audit(eps, value, { ...shareProof, unit: `${row.reportedCurrency}/shares`, tags: [...new Set(points.map(p => `us-gaap/${p.tag}`))] }, reason, "filed-family");
+        }
+        // The adoption invalidates provider aggregates that depended on the
+        // old pretax base. Recover compatible filed operands, never invent a plug.
+        const oldPretax = vendorFor("incomeBeforeTax");
+        const brokenOperating = finite(row.operatingIncome) && finite(row.totalOtherIncomeExpensesNet) && finite(oldPretax) &&
+          same(row.operatingIncome + row.totalOtherIncomeExpensesNet, oldPretax) && !same(row.operatingIncome + row.totalOtherIncomeExpensesNet, family.pretax.value);
+        if (brokenOperating) {
+          const op = operand("operatingIncome"), rev = operand("revenue"), other = operand("totalOtherIncomeExpensesNet");
+          if (op && rev && sameScope(family.pretax.proof, op.proof) && sameScope(op.proof, rev.proof) && finite(out.revenue) && same(out.revenue, rev.value)) audit("operatingIncome", op.value, op.proof, reason, "filed-family");
+          if (other && sameScope(family.pretax.proof, other.proof) && finite(out.operatingIncome) && same(out.operatingIncome + other.value, family.pretax.value)) audit("totalOtherIncomeExpensesNet", other.value, other.proof, reason, "filed-family");
+          else refuse("totalOtherIncomeExpensesNet", null, family.pretax.proof, `${reason}; old nonoperating aggregate no longer reconciles to pretax`);
+        }
+        const oldEbit = row.ebit;
+        if (finite(oldEbit) && finite(oldPretax) && finite(row.interestExpense) && same(oldEbit, oldPretax + row.interestExpense) && !same(oldEbit, family.pretax.value + row.interestExpense)) {
+          const op = operand("operatingIncome");
+          if (op && sameScope(family.pretax.proof, op.proof)) audit("ebit", op.value, { ...op.proof, calculation: "operating-income-as-ebit" }, reason, "filed-family");
+          else refuse("ebit", null, family.pretax.proof, `${reason}; old pretax-derived EBIT has no compatible filed operating basis`);
+          if (finite(row.ebitda) && finite(row.depreciationAndAmortization) && same(row.ebitda, oldEbit + row.depreciationAndAmortization)) {
+            const da = operand("depreciationAndAmortization");
+            if (op && da && sameScope(op.proof, da.proof)) audit("ebitda", op.value + da.value, { ...op.proof, tags: [...new Set([...op.proof.tags, ...da.proof.tags])], calculation: "operating-income-plus-da" }, reason, "filed-family");
+            else refuse("ebitda", null, family.pretax.proof, `${reason}; old EBIT-derived EBITDA has no compatible filed operands`);
+          }
+        }
+        if (finite(row.costAndExpenses) && finite(row.revenue) && finite(oldPretax) && same(row.revenue - row.costAndExpenses, oldPretax) && !same(row.revenue - row.costAndExpenses, family.pretax.value)) refuse("costAndExpenses", null, family.pretax.proof, `${reason}; old cost aggregate no longer reconciles to pretax`);
+        gaps.push({ field: `statements.income.${row.date}.earningsFamily`, reason, severity: "info", expected: true });
+      } else if (disputed.length) {
+        const sign = disputed.some(field => { const vendor = vendorFor(field), value = earningsSec[field]; return finite(vendor) && finite(value) && vendor * value < 0; });
+        const minor = !sign && disputed.every(field => Math.abs(vendorFor(field)! - (earningsSec[field] as number)) / Math.max(Math.abs(vendorFor(field)!), Math.abs(earningsSec[field] as number), 1) <= INCOMPLETE_EARNINGS_MINOR_DIFFERENCE);
+        const reason = `Filed earnings family incomplete or unreconciled for ${row.date}; ${differences}; ${minor ? "same-sign difference within the 1% minor-restatement allowance; vendor family retained with both observations" : sign ? "sign conflict; earnings family withheld" : "material difference above 1%; earnings family withheld"}`;
+        if (minor) for (const field of disputed) audit(field, vendorFor(field), earningsProof(field), reason, "minor-retained");
+        else {
+          for (const field of [...earnings, "bottomLineNetIncome", "netIncomeConsolidated", "netIncomeAvailableToCommon", "netIncomeFromContinuingOperations", "netIncomeFromDiscontinuedOperations"]) refuse(field, finite(earningsSec[field]) ? earningsSec[field] : null, earningsProof(field) ?? earningsProof(disputed[0]!)!, reason);
+          out = { ...out, netIncomeRatio: null, netProfitMargin: null, incomeBeforeTaxRatio: null, effectiveTaxRate: null };
+        }
+        gaps.push({ field: `statements.income.${row.date}.earningsFamily`, reason, severity: minor ? "info" : "warn", ...(minor ? { expected: true } : {}) });
+      }
     }
     const netRevenue = evidenceFor("revenue");
     if (opts.securitiesRevenue && netRevenue?.tags.includes("us-gaap/RevenuesNetOfInterestExpense") &&

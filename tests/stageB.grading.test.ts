@@ -70,7 +70,7 @@ function rote(latestRotePct: number | null = 14) {
   };
 }
 
-function cagr(windowYears: number, cagrPct: number | null) {
+function cagr(windowYears: 1 | 3 | 5 | 10, cagrPct: number | null) {
   return { windowYears, actualYears: windowYears, cagrPct, startDate: null, endDate: null, startValue: null, endValue: null };
 }
 
@@ -289,6 +289,13 @@ describe("grading — primitives", () => {
  * ------------------------------------------------------------------------ */
 
 describe("grading — computeScores", () => {
+  it("does not improve the current score by exposing an old EPS CAGR after recent EPS is withheld", () => {
+    const absent = makeInputs({ growth: growth({ epsDilutedCagrs: [cagr(1, null), cagr(3, null), cagr(5, null)] }) });
+    const stale = makeInputs({ growth: growth({ epsDilutedCagrs: [{ ...cagr(3, 44.686), startDate: "2013-03-31", endDate: "2016-03-31",
+      note: "latest 10 period(s) missing — endpoint moved to 2016-03-31" }] }) });
+    expect(computeScores(stale).composite).toEqual(computeScores(absent).composite);
+    expect(computeScores(stale).aspects.fundamentals.signals?.some(signal => signal.id === "epsCagr")).toBe(false);
+  });
   // WS6 review (SHOULD-FIX 2): the balance-sheet aspect graded FCF-after-SBC on
   // a band calibrated for FCF-before-SBC, under a driver still called
   // "fcfConversion" — an undisclosed definition change that also charged
