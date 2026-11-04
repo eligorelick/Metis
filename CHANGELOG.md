@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Filed figures over vendor conflicts (2026-11-04)
+
+- Refuse contradicted pretax, tax and net-income operands together, including aliases, while preserving filed ownership and equity-method bridges.
+- Reconcile weighted shares on the established filed interval, distinguish YTD counts from quarterly counts, and retain split and share-unit safeguards.
+- Check foreign annual EPS in native currency on the established ADS ratio; qualify growth when that ratio or same-period annual evidence is unavailable.
+- Admit directly filed net revenue for securities firms and compare historical cash with its original same-filing observation. D-200 records the panel replay and required release stamps; saved reports and version constants remain unchanged.
+
 ## Unreleased - Fair value coverage (2026-11-04)
 
 - Complete undisclosed vendor lease zeros only from reconciled same-filing borrowing and lease components, including operating leases embedded in vendor long-term debt. Keep the lease treatment consistent across valuation, WACC and invested capital.

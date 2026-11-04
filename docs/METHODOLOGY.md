@@ -331,6 +331,55 @@ the WACC's market-value weights. Same-currency checks do not independently
 resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
 
+**Filed figures over vendor conflicts (D-200).** An exact-period, same-currency,
+same-filing earnings contradiction refuses pretax income, income tax and net
+income together, including bottom-line, continuing, consolidated and common
+aliases and dependent margins. Missing aliases also carry the refusal, so a
+later completion cannot reintroduce the contradicted family. Independently
+filed parent/consolidated/common alternatives remain distinct valid scopes;
+pretax before equity-method income is compared after adding the separately
+filed same-scope equity-method result when appropriate. Arithmetic consistency
+within a provider row alone does not establish that its earnings were reported.
+
+Weighted shares are checked after an exact interval is established from filed
+provenance, a unique same-filing duration, or the existing month-end calendar
+rule. A missing off-calendar start is not silently rounded to a calendar year.
+Numerical count agreement permits the greater of one share or **0.01%** of the
+filed count. The panel's independent latest-count census has 76 numeric pairs:
+50 exact matches and two small rounding differences of 0.0034% and 0.0088%; the
+next difference is 0.0170%. This numerical allowance is distinct from the
+existing 3% unit/split-identity test. A count matching another duration in the
+same filing is a period mismatch even inside the numerical allowance. Larger
+conflicts use the exact-period filed count with provenance. A suspected
+thousand/million unit error still requires the existing independently
+corroborated repair; the small raw SEC count is not transplanted. Previously
+guarded split-adjusted histories retain their existing split-basis treatment.
+
+Foreign annual EPS is reconciled in native reporting currency, applying only
+the independently corroborated ordinary-shares-per-ADS ratio, with its source
+ids retained in field provenance. This check needs no FX rate. Ordinary EPS
+precision permits half a cent times the ADS ratio. Without a demonstrated
+ratio, EPS is withheld from verified growth; without comparable annual facts,
+the annual series is qualified rather than presented as independently checked.
+The foreign security resolver's other identity, count, split and date gates
+remain in force. Missing quarterly coverage with an established ratio does
+not itself contradict an otherwise retained provider observation.
+
+For SIC 6211 securities firms only, directly filed
+`RevenuesNetOfInterestExpense` replaces a conflicting gross-interest revenue
+denominator on the same interval. Incompatible vendor gross-profit, cost and
+operating subtotals and margins are withheld together. Revenue growth and
+capex/revenue therefore share the filed net definition. This does not route
+other industries through a securities revenue policy.
+
+Historical balance-sheet cash is compared with the observation from the
+vendor row's original filing date, even when a later filing repeats that
+balance. Conflicts retain both observations and withhold cash, dependent
+combined liquidity and net debt. Selection of newer cash or a changed
+definition is not a substitute for a same-filing comparison. These admissions
+also run in an immutable calculation view of frozen inputs; stored reports
+and their historical version identities are not rewritten.
+
 A minor-unit quote code (`GBp`, `GBX`, `GBx` pence; `ZAc`, `ZAC` cents;
 `ILA`, `ILa` agorot) is never treated as its major currency in a price
 comparison, technical-price label or admitted peer multiple. The raw code
