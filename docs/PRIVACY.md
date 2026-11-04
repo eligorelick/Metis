@@ -85,7 +85,9 @@ are researching. Public data for peers and market
 benchmarks can support the selected company's analysis. The payload is
 deterministic: the same inputs produce the same bytes.
 
-Text budgets, in characters: 18,000 for the latest transcript; risk factors 14,000, or 20% of a longer section up to 24,000; 12,000 for business; 14,000 for annual MD&A; 12,000 for quarterly MD&A; 14,000 for 10-Q notes; 10,000 for 10-K notes; 2,500 for Other Information; 6,000 for controls; 9,000 for earnings releases; 11,000 for CFO commentary; 1,200 per material-event item (1,800 for credit-support agreements), 8,600 total; and 6,000 for news. Signatures are sent whole at at most 2,500 characters, otherwise withheld. Compact statement extracts keep five annual and four quarterly
+When the notes opening is proved, the excerpt contains notes only. If only the enclosing financial-statement item is proved, its bounded text is labelled **financial statements and notes** in the excerpt and source citation. The same rules apply to same-document 20-F financial statements; a separately incorporated document requires the filing's explicit reference and its own boundary proof.
+
+Text budgets, in characters: 18,000 for the latest transcript; risk factors 14,000, or 20% of a longer section up to 24,000; 12,000 for business; 14,000 for annual MD&A; 12,000 for quarterly MD&A; 14,000 for 10-Q notes; 10,000 for 10-K notes and proved 20-F notes; the same limits apply to combined financial-statement items; 2,500 for Other Information; 6,000 for controls; 9,000 for earnings releases; 11,000 for CFO commentary; 1,200 per material-event item (1,800 for credit-support agreements), 8,600 total; and 6,000 for news. Signatures are sent whole at at most 2,500 characters, otherwise withheld. Compact statement extracts keep five annual and four quarterly
 periods, and list-shaped sources generally keep twelve rows. These are
 character/row limits, not a guaranteed overall prompt-token limit. Truncation
 is disclosed. The database can cache full provider responses beyond what the

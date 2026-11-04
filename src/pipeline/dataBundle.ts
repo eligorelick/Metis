@@ -76,7 +76,9 @@ import {
   extractFromExhibit,
   extractSection,
   notesToFinancialStatements,
+  financialStatementsAndNotes,
   annualNotesToFinancialStatements,
+  extractForeignAnnualNotes,
   extractAnnualNotesFromIndex,
   parseDocument,
   periodicSignatureText,
@@ -931,9 +933,11 @@ async function runExtraction(
   symbol: string,
   preparsed?: ParsedDocument,
   recoveryDeadlineMs?: number,
+  sourceDocuments?: Map<string, ParsedDocument>,
 ): Promise<FetchResult<ExtractedSection>> {
   const field = `edgar.${job.member}(${symbol})`;
   const asOf = filing.reportDate !== "" ? filing.reportDate : filing.filingDate;
+  if (sourceDocuments) sourceDocuments.set(documentUrl, preparsed ?? parseDocument(html));
 
   const wrap = (
     text: string,
@@ -1012,7 +1016,10 @@ async function runExtraction(
       section: err.exhibit.section,
       quotedTitles: err.exhibit.quotedTitles,
     });
-    if (exRes.ok) return wrap(exRes.text, exRes.method, exRes.chars, exUrl);
+    if (exRes.ok) {
+      sourceDocuments?.set(exUrl, parseDocument(exDoc.value.data));
+      return wrap(exRes.text, exRes.method, exRes.chars, exUrl);
+    }
     return gapResult(
       field,
       `exhibit-redirect extraction failed: ${exRes.error.message}`,
@@ -1036,11 +1043,17 @@ async function runExtraction(
 /**
  * D-63: a 10-Q Part I Item 1 cut to its notes. The statements before the
  * notes heading are tables the payload already carries as typed figures; when
- * no heading is found the whole item is kept (its notes are inside it).
+ * no substantive heading is found, retain the proved and bounded financial
+ * item under its broader identity. Unproved items remain explicit gaps.
  */
-function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>): FetchResult<ExtractedSection> {
-  const notes = notesToFinancialStatements(result.value.data.text);
-  if (notes === null) return result;
+function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>, symbol: string, source?: ParsedDocument): FetchResult<ExtractedSection> {
+  const notes = notesToFinancialStatements(result.value.data.text, source);
+  if (notes === null) {
+    const item = financialStatementsAndNotes(result.value.data.text, source);
+    if (item === null) return gapResult(`edgar.tenQNotes(${symbol})`, "neither a substantive notes opening nor a substantive bounded financial-statement item was established", "warn", [result.value.data.documentUrl]);
+    return { ...result, value: { ...result.value, data: { ...result.value.data, text: item.text, chars: item.text.length,
+      financialTextScope: "statements-and-notes" } } };
+  }
   // D-66: the statements before the heading stay beside the notes (bounded)
   // for the lines no typed statement carries.
   const statementsText = result.value.data.text.slice(0, notes.start).slice(0, PERIODIC_STATEMENTS_CHARS);
@@ -1057,19 +1070,49 @@ function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>)
 async function annualNotes(
   edgar: EdgarClient, cik: number, filing: EdgarFiling, docUrl: string, html: string, fetchedAt: string, symbol: string, parsed: ParsedDocument | undefined,
 ): Promise<FetchResult<ExtractedSection>> {
+  if (filing.form === "20-F") {
+    let source = { html, url: docUrl, fetchedAt };
+    let notes = extractForeignAnnualNotes(source.html);
+    if (!notes.ok && notes.exhibit) {
+      const { filename, reference } = notes.exhibit;
+      const exhibit = await settle(`edgar.tenKNotes(${symbol})`, edgar.fetchFilingDocument(cik, { ...filing, primaryDocument: filename }));
+      if (!exhibit.ok) return gapResult(`edgar.tenKNotes(${symbol})`, `${notes.reason}; exhibit fetch failed: ${exhibit.gap.reason}`, "warn", [docUrl, ...(exhibit.gap.attemptedSources ?? [])]);
+      source = { html: exhibit.value.data, url: exhibit.value.endpoint, fetchedAt: exhibit.value.fetchedAt };
+      notes = extractForeignAnnualNotes(source.html);
+      if (!notes.ok) return gapResult(`edgar.tenKNotes(${symbol})`, `20-F incorporated exhibit ${filename} (${reference}): ${notes.reason}`, "warn", [docUrl, source.url]);
+    }
+    if (!notes.ok) return gapResult(`edgar.tenKNotes(${symbol})`, notes.reason, "warn", [docUrl]);
+    const asOf = filing.reportDate || filing.filingDate;
+    return { ok: true, value: { source: "edgar", asOf, fetchedAt: source.fetchedAt,
+      endpoint: `${source.url} (20-F ${notes.financialTextScope ? "financial statements and notes" : "financial-statement notes"})`, data: {
+        sectionName: "tenKNotes", text: notes.text, chars: notes.text.length, method: notes.method,
+        ...(notes.financialTextScope ? { financialTextScope: notes.financialTextScope } : {}),
+        accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reportDate: asOf, documentUrl: source.url,
+      } } };
+  }
   const tried: string[] = [];
+  const sources = new Map<string, ParsedDocument>();
+  let financialItem: Extract<FetchResult<ExtractedSection>, { ok: true }> | undefined;
   for (const item of ["8", "15"] as const) {
     const section = await runExtraction(edgar, cik, filing, docUrl, html, fetchedAt,
-      { member: "tenKNotes", sectionName: "tenKNotes", spec: { form: "10-K", item }, failSeverity: "warn" }, symbol, parsed);
+      { member: "tenKNotes", sectionName: "tenKNotes", spec: { form: "10-K", item }, failSeverity: "warn" }, symbol, parsed, undefined, sources);
     if (!section.ok) { tried.push(`Item ${item}: ${section.gap.reason}`); continue; }
-    const notes = annualNotesToFinancialStatements(section.value.data.text);
-    if (notes === null) { tried.push(`Item ${item}: no notes heading`); continue; }
+    const notes = annualNotesToFinancialStatements(section.value.data.text, sources.get(section.value.data.documentUrl), item);
+    if (notes === null) {
+      tried.push(`Item ${item}: no substantive notes opening proved`);
+      if (item === "8") {
+        const bounded = financialStatementsAndNotes(section.value.data.text, sources.get(section.value.data.documentUrl), 8);
+        if (bounded) financialItem = { ...section, value: { ...section.value, data: { ...section.value.data,
+          text: bounded.text, chars: bounded.text.length, financialTextScope: "statements-and-notes" } } };
+      }
+      continue;
+    }
     const statementsText = section.value.data.text.slice(0, notes.start).slice(0, PERIODIC_STATEMENTS_CHARS);
     return { ...section, value: { ...section.value, endpoint: `${docUrl} (10-K Item ${item} notes)`,
       data: { ...section.value.data, text: notes.text, chars: notes.text.length,
         ...(statementsText.trim() === "" ? {} : { statementsText }) } } };
   }
-  const redirect = extractAnnualNotesFromIndex(html);
+  const redirect = extractAnnualNotesFromIndex(html, parsed);
   if (redirect !== null) {
     const asOf = filing.reportDate !== "" ? filing.reportDate : filing.filingDate;
     return { ok: true, value: { source: "edgar", asOf, fetchedAt,
@@ -1079,7 +1122,8 @@ async function annualNotes(
         documentUrl: docUrl, annualNotesRedirect: redirect.evidence,
         ...(redirect.statementsText ? { statementsText: redirect.statementsText } : {}) } } };
   }
-  return gapResult(`edgar.tenKNotes(${symbol})`, `no notes to the financial statements were found in 10-K Item 8 or Item 15 (${tried.join("; ")})`, "warn", [docUrl]);
+  if (financialItem) return financialItem;
+  return gapResult(`edgar.tenKNotes(${symbol})`, `neither substantive notes nor a substantive bounded financial-statement item were established in 10-K Item 8 or Item 15 (${tried.join("; ")})`, "warn", [docUrl]);
 }
 
 /** Newest exact-form filing from an already-fetched submissions payload. */
@@ -1407,10 +1451,8 @@ async function buildEdgarBundle(
             // D-66: the notes (business combinations, goodwill, investments,
             // commitments, segment footnotes), same parse, same budget.
             const notesMs = Date.now() - t0;
-            tenKNotes = filing.form !== "10-K"
-              ? gapResult(`edgar.tenKNotes(${symbol})`, `annual filing is Form ${filing.form}; its financial-statement notes (Item 18) are not read`, "info", [docUrl])
-              : notesMs > edgarSectionBudgetMs
-                ? gapResult(`edgar.tenKNotes(${symbol})`, `10-K notes skipped: parsing and the earlier sections took ${Math.round(notesMs / 1000)}s, ` +
+            tenKNotes = notesMs > edgarSectionBudgetMs
+                ? gapResult(`edgar.tenKNotes(${symbol})`, `${filing.form} notes skipped: parsing and the earlier sections took ${Math.round(notesMs / 1000)}s, ` +
                   `exceeding the ${Math.round(edgarSectionBudgetMs / 1000)}s per-filing extraction budget.`, "warn", [docUrl])
                 : await annualNotes(edgar, cik, filing, docUrl, html, doc.value.fetchedAt, symbol, parsedDoc);
           } else {
@@ -1469,10 +1511,11 @@ async function buildEdgarBundle(
           parsedQ,
         );
         if (filingDisclosures) {
+          const noteSources = new Map<string, ParsedDocument>();
           const statements = await runExtraction(edgar, cik, filing, docUrl, doc.value.data, doc.value.fetchedAt,
             { member: "tenQNotes", sectionName: "tenQNotes", spec: { form: "10-Q", item: "1", part: 1 }, failSeverity: "warn" },
-            symbol, parsedQ);
-          tenQNotes = statements.ok ? notesOnly(statements) : statements;
+            symbol, parsedQ, undefined, noteSources);
+          tenQNotes = statements.ok ? notesOnly(statements, symbol, noteSources.get(statements.value.data.documentUrl)) : statements;
           const signaturesText = periodicSignatureText(parsedQ.fullText);
           if (tenQNotes.ok && signaturesText !== null) tenQNotes = { ...tenQNotes, value: { ...tenQNotes.value,
             data: { ...tenQNotes.value.data, signaturesText } } };

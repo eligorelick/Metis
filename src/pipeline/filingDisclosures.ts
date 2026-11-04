@@ -1229,17 +1229,19 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
   const notes = sectionRef(bundle.edgar?.tenQNotes);
   if (notes !== null) {
     const sourceCurrency = periodReportingCurrency(bundle, day(notes.data.reportDate));
-    add(parseCustomerConcentrationFacts(notes.data.text, concentrationScope(notes.data)), "edgar:10-Q notes", notes.ref, sourceCurrency);
+    const sourceTag = `edgar:${notes.data.form} ${notes.data.financialTextScope === "statements-and-notes" ? "financial statements and notes" : "notes"}`;
+    add(parseCustomerConcentrationFacts(notes.data.text, concentrationScope(notes.data)), sourceTag, notes.ref, sourceCurrency);
     add(parseStatementFacts(notes.data.statementsText ?? ""), "edgar:10-Q statements", notes.ref, sourceCurrency);
-    add(parseInvestmentFacts(notes.data.text, day(notes.data.reportDate)), "edgar:10-Q notes", notes.ref, sourceCurrency);
-    add(parseCommitmentFacts(notes.data.text), "edgar:10-Q notes", notes.ref, sourceCurrency);
+    add(parseInvestmentFacts(notes.data.text, day(notes.data.reportDate)), sourceTag, notes.ref, sourceCurrency);
+    add(parseCommitmentFacts(notes.data.text), sourceTag, notes.ref, sourceCurrency);
   }
   if (mdna !== null) add(parseCommitmentFacts(mdna.data.text), "edgar:10-Q item2", mdna.ref, periodReportingCurrency(bundle, day(mdna.data.reportDate)));
   const annual = sectionRef(bundle.edgar?.tenKNotes);
   if (annual !== null) {
     const sourceCurrency = periodReportingCurrency(bundle, day(annual.data.reportDate));
-    add(parseBusinessCombinationFacts(annual.data.text, day(annual.data.reportDate)), "edgar:10-K notes", annual.ref, sourceCurrency);
-    add(parseCustomerConcentrationFacts(annual.data.text, concentrationScope(annual.data)), "edgar:10-K notes", annual.ref, sourceCurrency);
+    const sourceTag = `edgar:${annual.data.form} ${annual.data.financialTextScope === "statements-and-notes" ? "financial statements and notes" : "notes"}`;
+    add(parseBusinessCombinationFacts(annual.data.text, day(annual.data.reportDate)), sourceTag, annual.ref, sourceCurrency);
+    add(parseCustomerConcentrationFacts(annual.data.text, concentrationScope(annual.data)), sourceTag, annual.ref, sourceCurrency);
   }
   for (const goodwill of annualTagValues(bundle, "Goodwill", currency)) {
     facts.push({ key: "goodwill", label: "goodwill (balance sheet)", value: goodwill.value, unit: "currency", asOf: goodwill.end, period: null, qualifier: null,

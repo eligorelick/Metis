@@ -489,7 +489,8 @@ export interface ContextPayload {
 // 1.74.0 (D-196): fair values restored from reconciled debt and share evidence; refusals name their cause
 // 1.75.0 (D-198): one-time operating sale gains, preferred capital and trailing bank returns change the computed figures
 // 1.76.0 (D-200): filed earnings, share counts, native ADS earnings and same-filing cash replace conflicting vendor values
-export const PAYLOAD_VERSION = "1.76.0" as const;
+// 1.77.0 (D-199): filing notes have proved boundaries, combined items are labelled as such, and 20-F notes are read where provable
+export const PAYLOAD_VERSION = "1.77.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -2654,9 +2655,13 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   const newer = tenQEnd !== null && annual.length > 0 && annual.every((excerpt) => excerpt.asOf !== null && excerpt.asOf < tenQEnd);
   add(bundle.edgar.tenQMdna, () => "10-Q Item 2 — MD&A", PAYLOAD_BUDGETS.tenQMdnaChars, () => "edgar:10-Q item2", "interim",
     newer ? operatingMeasuresStated(annual.map((excerpt) => excerpt.text).join("\n")) : []);
-  add(bundle.edgar.tenQNotes, () => "10-Q Part I Item 1 — Notes to the financial statements", PAYLOAD_BUDGETS.tenQNotesChars, () => "edgar:10-Q notes", "notes");
+  const combinedQuarter = bundle.edgar.tenQNotes?.ok && bundle.edgar.tenQNotes.value.data.financialTextScope === "statements-and-notes";
+  const combinedAnnual = bundle.edgar.tenKNotes?.ok && bundle.edgar.tenKNotes.value.data.financialTextScope === "statements-and-notes";
+  add(bundle.edgar.tenQNotes, () => `10-Q Part I Item 1 — ${combinedQuarter ? "Financial statements and notes" : "Notes to the financial statements"}`, PAYLOAD_BUDGETS.tenQNotesChars,
+    form => `edgar:${form} ${combinedQuarter ? "financial statements and notes" : "notes"}`, "notes");
   // D-66: the annual notes and the 10-Q's Other Information (trading arrangements).
-  add(bundle.edgar.tenKNotes, () => "10-K — Notes to the consolidated financial statements", PAYLOAD_BUDGETS.tenKNotesChars, () => "edgar:10-K notes", "notes");
+  add(bundle.edgar.tenKNotes, form => `${form} — ${combinedAnnual ? "Financial statements and notes" : "Notes to the financial statements"}`, PAYLOAD_BUDGETS.tenKNotesChars,
+    form => `edgar:${form} ${combinedAnnual ? "financial statements and notes" : "notes"}`, "notes");
   add(bundle.edgar.tenQOther, () => "10-Q Part II Item 5 — Other Information", PAYLOAD_BUDGETS.tenQOtherChars, () => "edgar:10-Q item5");
   // A separate bounded reading stops financially scored prose displacing
   // class votes, controllers and the issuer's actual exemption election.
@@ -2664,7 +2669,8 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   for (const [section, item] of [[bundle.edgar.item1a, "item1A"], [bundle.edgar.tenKNotes, "notes"],
     [bundle.edgar.tenQNotes, "notes"], [bundle.edgar.business, "item1"]] as const) {
     const before = out.length;
-    const filedItem = (form: string) => form === "20-F" ? item === "item1A" ? "item3D" : item === "item1" ? "item4" : item : item;
+    const combined = section?.ok && section.value.data.financialTextScope === "statements-and-notes";
+    const filedItem = (form: string) => combined ? "financial statements and notes" : form === "20-F" ? item === "item1A" ? "item3D" : item === "item1" ? "item4" : item : item;
     add(section, form => `Governance: filed voting rights and control (${filedItem(form)})`, Math.min(10_000, governanceRemaining),
       form => `edgar:${form} ${filedItem(form)} governance`, "governance");
     if (out.length > before) governanceRemaining -= out.at(-1)!.text.length;

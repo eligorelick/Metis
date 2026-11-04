@@ -1851,7 +1851,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.76.0");
+    expect(first.payloadVersion).toBe("1.77.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2210,6 +2210,34 @@ describe("payload determinism + provenance", () => {
     expect(payload.filings[1]).toMatchObject({
       title: expect.stringContaining("20-F Item 5 — Operating and Financial Review"),
       source: "edgar:20-F item5",
+    });
+  });
+
+  it.each(["10-K", "10-Q", "20-F"] as const)("labels a combined %s financial item accurately in the payload title and source", form => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.edgar.mdna.ok) throw new Error("fixture requires filing provenance");
+    const text = "Consolidated financial statements and accompanying disclosures. Borrowings were $500 million. Each Class B share has ten votes and each Class A share has one vote.";
+    const section = { ...bundle.edgar.mdna, value: { ...bundle.edgar.mdna.value, data: { ...bundle.edgar.mdna.value.data,
+      sectionName: form === "10-Q" ? "tenQNotes" as const : "tenKNotes" as const, form, text, chars: text.length,
+      financialTextScope: "statements-and-notes" as const } } };
+    if (form === "10-Q") bundle.edgar.tenQNotes = section;
+    else bundle.edgar.tenKNotes = section;
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    expect(payload.filings.find(f => f.source === `edgar:${form} financial statements and notes`)).toMatchObject({
+      title: expect.stringContaining("Financial statements and notes"), text, truncated: false,
+    });
+    expect(payload.filings.filter(f => f.text.includes(text)).every(f => !/\bnotes(?: governance)?$/.test(f.source) || /financial statements and notes/.test(f.source))).toBe(true);
+  });
+
+  it("keeps short IFRS notes intact with their actual annual form and source", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.edgar.mdna.ok) throw new Error("fixture requires annual filing provenance");
+    const text = "(IN.1) Basis for Preparation. The consolidated financial statements comply with IFRS. Borrowings were EUR 500 million. Capital commitments were EUR 200 million. Business combinations included consideration of EUR 100 million and goodwill of EUR 20 million.";
+    bundle.edgar.tenKNotes = { ...bundle.edgar.mdna, value: { ...bundle.edgar.mdna.value,
+      data: { ...bundle.edgar.mdna.value.data, sectionName: "tenKNotes", form: "20-F", text, chars: text.length } } };
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    expect(payload.filings.find(f => f.source === "edgar:20-F notes")).toMatchObject({
+      title: expect.stringContaining("20-F — Notes to the financial statements"), text, truncated: false, originalChars: text.length,
     });
   });
 

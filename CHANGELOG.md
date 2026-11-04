@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.64.0** and
-payload **1.76.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.77.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -53,6 +53,12 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Require typed executive execution evidence to overlap an established office tenure. Derive new tenure numbers from an evidenced start and report cutoff; saved cards show only filing-backed office tenure.
 - Match producer-owned financial acronym expansions without relaxing value, unit, currency or period checks.
 - Count classified data gaps in data-only synthesis, with a narrowly anchored display correction for the old saved template.
+
+## Unreleased - Clean filing section boundaries and foreign notes (2026-11-04)
+
+- Prefer proved substantive notes openings; otherwise retain a proved bounded financial-statement item with accurate combined titles and source tags. Stop at separate auditor/reviewer reports and subsequent sections. Header item slices stop at the next item.
+- Read proved same-document 20-F notes and follow only an explicit incorporated annual-report exhibit reference. Keep actual-form provenance and the 10,000-character annual notes budget.
+- Preserve clean filing sections and immutable stored reports; see [D-199](docs/audit/DECISIONS.md#d-199---clean-filing-section-boundaries-and-read-proved-foreign-notes-2026-11-04) for the panel replay, payload deltas and remaining gaps. A payload stamp advance is required on integration; constants are unchanged here.
 
 ## Unreleased - Public polish (2026-11-04)
 

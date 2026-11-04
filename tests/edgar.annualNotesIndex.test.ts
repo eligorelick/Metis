@@ -3,6 +3,20 @@ import { extractAnnualNotesFromIndex, extractSection } from "@/edgar/extract";
 import { annualNotesIndexFixture } from "./helpers/annualNotesIndexFixture";
 
 describe("source-derived annual appendix index (synthetic markup)", () => {
+  it.each([" (continued)", ""])("keeps later notes after a repeated enclosing Item 15 header%s", suffix => {
+    const html = annualNotesIndexFixture().replace('<h2>Notes to Consolidated Financial Statements (continued)</h2>', `<h2>Item 15. Exhibits and Financial Statement Schedules${suffix}</h2><h2>Notes to Consolidated Financial Statements (continued)</h2>`);
+    const result = extractAnnualNotesFromIndex(html);
+    expect(result?.text).toContain("LATER_NOTE_SENTINEL");
+    expect(result?.text).not.toContain("SCHEDULE_SENTINEL");
+  });
+
+  it("still ends an Item 15 notes redirect at a real supplemental section", () => {
+    const html = annualNotesIndexFixture().replace('<h2 id="schedule">', '<h2>Supplemental Financial Information</h2><p>SUPPLEMENTAL_OUTSIDE</p><h2 id="schedule">');
+    const result = extractAnnualNotesFromIndex(html);
+    expect(result?.text).toContain("LATER_NOTE_SENTINEL");
+    expect(result?.text).not.toContain("SUPPLEMENTAL_OUTSIDE");
+  });
+
   it.each([
     '<p>Note 1 — as described in another document — is incorporated here by reference.',
     '<h3>Note 1 Is Described In Another Document</h3><p>',

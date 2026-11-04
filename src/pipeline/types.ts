@@ -95,6 +95,8 @@ export interface ExtractedSection {
   /** Which report section this is. */
   sectionName: "item1A" | "item7" | "tenQItem2" | "item1" | "tenQNotes" | "tenKNotes" | "tenQItem5";
   text: string;
+  /** Present only when text retains the proved financial item, not notes alone. */
+  financialTextScope?: "statements-and-notes";
   /**
    * For 10-Q and 10-K notes, the statement prefix before the notes heading
    * (bounded to 12,000 characters), with the same filing identity as this
