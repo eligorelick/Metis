@@ -7,6 +7,22 @@ import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { LENDER_DEBT_PERIMETER_LABEL } from "@/pipeline/stageB/lenderCashFlow";
 import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
 import { readerBaseUnits, readerConventionText, unavailableCashFlowModel } from "@/report/readerConventions";
+
+/** Only a recorded check may annotate a field; saved reports are never rechecked at display time. */
+export function withPlainFigureNotes(report: Report): Report {
+  const flags = report.appendix.verificationLog?.filter(entry => entry.check === "plain-figure" && entry.path && entry.note);
+  if (!flags?.length) return report;
+  const next = structuredClone(report);
+  for (const entry of flags) {
+    const keys = entry.path!.replace(/\[(\d+)\]/g, ".$1").split(".");
+    let parent: unknown = next;
+    for (const key of keys.slice(0, -1)) parent = parent && typeof parent === "object" ? (parent as Record<string, unknown>)[key] : undefined;
+    const key = keys.at(-1)!;
+    if (parent && typeof parent === "object" && (parent as Record<string, unknown>)[key] === entry.claim)
+      (parent as Record<string, unknown>)[key] = `${entry.claim} (${entry.note})`;
+  }
+  return next;
+}
 /**
  * Reader-facing presentation rules shared by the Markdown export, the print
  * export and the live report (D-62). The three surfaces call these helpers so

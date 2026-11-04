@@ -1,11 +1,24 @@
 import { SPY_BENCHMARK, SECTOR_ETF_MAP } from "@/pipeline/stageB/sectorRouting";
 import type { ManifestEntry } from "@/types/core";
-import type { DataCompleteness as PersistedDataCompleteness, SourceEntry } from "@/report/schema";
+import type { DataCompleteness as PersistedDataCompleteness, Report, SourceEntry } from "@/report/schema";
 import { RESERVED_FIXTURE_MANIFEST_FIELD } from "@/providers/reservedSymbols";
 import { resolvedAcquisitionReason } from "@/report/gapResolution";
 
 /** Only source identity is needed to distinguish partial from missing coverage. */
 export type CompletenessSource = Pick<SourceEntry, "provider" | "endpoint">;
+
+/** Narrow read-time correction for the old deterministic template; persisted text is immutable. */
+export function withClassifiedDataOnlyGapCount(report: Report): Report {
+  const gaps = report.appendix.missingData;
+  if (!gaps.some(gap => gap.field === "analysis.llm")) return report;
+  const suffix = /\b(\d+) data gaps? disclosed in the appendix\. Figures below come from fetched data and deterministic computations; no completed analyst synthesis is available\.$/;
+  const match = suffix.exec(report.verdict.synthesis);
+  if (!match || Number(match[1]) !== gaps.length) return report;
+  const count = classifyManifest(gaps).dataGaps.length;
+  const synthesis = report.verdict.synthesis.replace(suffix,
+    `${count} data gap${count === 1 ? "" : "s"} recorded in the appendix. Figures below come from fetched data and deterministic computations; no completed analyst synthesis is available.`);
+  return { ...report, verdict: { ...report.verdict, synthesis } };
+}
 
 export interface DataCompleteness {
   state: "complete" | "degraded" | "blocked";

@@ -1,5 +1,6 @@
-import { macroDisplayRows } from "@/report/presentation";
+import { macroDisplayRows, withPlainFigureNotes } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
+import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
 /**
  * reportToMarkdown — a clean, DETERMINISTIC Markdown rendering of a full
  * {@link Report} (report sections 1–13 + appendix) for an institutional
@@ -1042,6 +1043,7 @@ function capitalize(s: string): string {
  * present; the audit material is in {@link reportToAuditMarkdown}.
  */
 export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
+  report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
   report = withLegacyScopeQualifications(report);

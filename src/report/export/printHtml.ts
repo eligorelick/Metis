@@ -1,5 +1,6 @@
-import { macroDisplayRows } from "@/report/presentation";
+import { macroDisplayRows, withPlainFigureNotes } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
+import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
 import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
@@ -864,6 +865,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  * standalone document and the React print page. Does NOT include <html>/<head>.
  */
 export function reportToPrintBody(report: Report, context: ReportPresentationContext = {}): string {
+  report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
   report = withLegacyScopeQualifications(report);

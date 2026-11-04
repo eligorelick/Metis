@@ -46,13 +46,13 @@ import { DossierCover } from "./DossierCover";
 import { ClassicReportScrollOffset, ReportContents } from "./ReportContents";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { evidenceIdentity } from "./evidenceIdentity";
-import { dataStateText, presentationReportId, routeMetricsForDisplay } from "@/report/presentation";
+import { dataStateText, presentationReportId, routeMetricsForDisplay, withPlainFigureNotes } from "@/report/presentation";
 import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
 import { evidenceTimingRows } from "@/report/evidenceTiming";
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
-import { deriveReportCompletenessPresentation } from "@/report/completeness";
+import { deriveReportCompletenessPresentation, withClassifiedDataOnlyGapCount } from "@/report/completeness";
 import { withReaderConventions, unavailableCashFlowModel, lenderConventionTables } from "@/report/readerConventions";
 import {
   REPORT_SECTION_MANIFEST,
@@ -191,7 +191,7 @@ export function ReportView({
   selectedReportId?: number;
   selectedReportStatus?: string;
 }) {
-  const report = withReaderConventions(withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport)))))))));
+  const report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(withReaderConventions(withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport)))))))))));
   const lenderTables = lenderConventionTables(sourceReport);
   const scopeQualifications = legacyScopeQualifications(report);
   // F-21: the claim chips below read each claim's verification status.

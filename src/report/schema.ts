@@ -1719,7 +1719,7 @@ export const VerificationLogEntrySchema = z
      * citation-coverage entries, which are provenance, not consistency.
      */
     check: z
-      .enum(["direction", "period", "unit", "named-individual"])
+      .enum(["direction", "period", "unit", "named-individual", "plain-figure"])
       .optional(),
     /**
      * How the number traced — separates the CITATION-COVERAGE modes the audit

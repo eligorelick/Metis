@@ -119,7 +119,7 @@ import {
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
 import { unitLabel } from "@/report/format";
-import { descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
+import { descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, unmatchedPlainFigures, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
 import {
   parseCitationRef,
   citationAsOf,
@@ -3238,6 +3238,32 @@ function collectSourcedClaimRefs(root: unknown): SourcedClaimRef[] {
   return out;
 }
 
+/** Reader strings outside sourced claims/numbers, including optional future fields. */
+function collectPlainProse(root: unknown): { path: string; text: string }[] {
+  const out: { path: string; text: string }[] = [];
+  const assembled = !!root && typeof root === "object" && "meta" in root && "appendix" in root;
+  // These blocks are overwritten by assembly, not written by the judge. On an
+  // intermediate judge/analyst output, still inspect every supplied string.
+  const sections = new Set(JUDGE_OUTPUT_KEYS);
+  const pipelineProse = /^(?:valuation\.(?:dcf|multiples|multiplesBasis|marketValueScope|peerCoverage)(?:\.|\[|$)|valuation\.scenarios\[\d+\]\.(?:assumptions|whatWouldHaveToBeTrue|horizon)(?:\[|$)|quality\.notes(?:\[|$)|leadership\.executives\[\d+\]\.officeTenure(?:\.|$))/;
+  const nonProse = new Set(["source", "sourceId", "asOf", "unit", "currency", "period", "url", "documentUrl", "filingDate", "occurredOn"]);
+  const walk = (node: unknown, path: string): void => {
+    if (assembled && path && (!sections.has(path.split(/[.[]/)[0]!) || pipelineProse.test(path))) return;
+    if (typeof node === "string") { out.push({ path, text: node }); return; }
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) { node.forEach((child, i) => walk(child, `${path}[${i}]`)); return; }
+    const obj = node as Record<string, unknown>;
+    if ((typeof obj.text === "string" && ["FACT", "ESTIMATE", "JUDGMENT"].includes(String(obj.label))) ||
+      (typeof obj.value === "number" && typeof obj.unit === "string" && "verified" in obj)) return;
+    for (const [key, value] of Object.entries(obj)) {
+      if (nonProse.has(key) || (!path && ["meta", "appendix"].includes(key))) continue;
+      walk(value, path ? `${path}.${key}` : key);
+    }
+  };
+  walk(root, "");
+  return out;
+}
+
 function claimSourceMatch(
   claim: SourcedClaim,
   numericRegistry: readonly NumericProvenanceRecord[],
@@ -3830,6 +3856,16 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       reason: finding.reason,
       check: finding.check,
     });
+  }
+
+  const validatedClaims = claims.filter(({ path }) =>
+    log.some(entry => entry.path === path && !entry.check && entry.validationStatus === "validated") &&
+    !log.some(entry => entry.path === path && entry.check && entry.outcome === "unverified")).map(({ claim }) => claim);
+  for (const { path, text } of collectPlainProse(verifiedReport)) {
+    const unmatched = unmatchedPlainFigures(text, { registry, validatedClaims, excerpts, reportingCurrency, ignoreWords: issuerWords, seriesLatest });
+    if (unmatched.length > 0) log.push({ path, claim: text, outcome: "unverified", check: "plain-figure", traceKind: "untraced",
+      validationStatus: "unchecked", numericSupportStatus: "unchecked", claimSupportStatus: "unreviewed", reason: "text-source",
+      note: `Not matched to a source: ${[...new Set(unmatched)].join("; ")}.` });
   }
 
   const total = numbers.length;
