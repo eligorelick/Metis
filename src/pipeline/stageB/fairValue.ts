@@ -37,7 +37,7 @@ import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/prov
 // D-135 (audit 2026-10-27 B4a): the bridge every target re-runs counts redeemable equity and the debt-like obligations once, and the DCF reads the covered operating lease in sales-to-capital.
 // FIN-401 / FIN-401-V1: the DCF bridge and its operating margin/capital inputs now share the stake reading.
 // D-178 / D-179: the per-share value converts at one dated FX rate per ADS ratio; completed debt and WACC reach more issuers.
-export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_11_PLAIN_READER_WORDING_48" as const;
+export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_11_FAIR_VALUE_COVERAGE_49" as const;
 
 export interface FairValueInputs {
   /** The route-dispatched valuation result (carries the per-route per-share). */

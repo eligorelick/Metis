@@ -486,7 +486,8 @@ export interface ContextPayload {
 // 1.71.0 (D-194): financial-statement notes now reach the analysts from filings that index them, so admitted filing context changes.
 // 1.72.0 (D-193): excess-return scenario targets reach the analysts as computed figures.
 // 1.73.0 (D-195): valuation notes shown to readers use plain words; numbers unchanged
-export const PAYLOAD_VERSION = "1.73.0" as const;
+// 1.74.0 (D-196): fair values restored from reconciled debt and share evidence; refusals name their cause
+export const PAYLOAD_VERSION = "1.74.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
