@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.60.0** and
+Current source declares application **0.1.0**, report spec **1.61.0** and
 payload **1.68.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -17,6 +17,20 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Executive cards reflect dated management decisions (2026-11-04)
+
+- CEO/CFO cards show the report's dated office decisions, existing judgments and
+  company guidance context, with unchecked figures labelled and company/board
+  attribution retained. Historical reports keep their saved grades and marks.
+- Added execution admission requires a dated decision quoted exactly from its
+  retained filing, bound to the card, within an evidenced tenure; a company
+  result alone cannot satisfy this new rule. Refused candidates leave existing gates and reasons unchanged.
+  Guidance credibility still needs a later actual on the same period and basis.
+- Known fetched SEC archive documents are eligible credibility sources even
+  when absent from the payload citation registry; a URL alone validates no fact.
+- Offline saved-judge replay and limits are recorded in D-190. No paid run was
+  made for this change.
 
 ## Unreleased - A current sample report for visitors (2026-11-04)
 

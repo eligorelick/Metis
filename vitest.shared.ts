@@ -125,6 +125,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/gapResolution.ts",
   "src/report/assessment.ts",
   "src/report/earningsReferences.ts",
+  "src/report/executiveDecisions.ts",
   "src/report/earningsSchedule.ts",
   "src/report/evidenceTiming.ts",
   "src/report/estimateTiming.ts",
