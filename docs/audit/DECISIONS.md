@@ -6549,6 +6549,25 @@ selection ran on its own with unchanged assertions and timeout limits and
 passed all 551 files. The full `npm run verify` was not run; CI still owns
 the complete integration/coverage/build gate.
 
+
+## D-201 - A composite that lost an aspect says so (2026-11-04)
+
+The composite counts an unscored aspect at the neutral midpoint. That rule is
+stated, and it stops sparse favorable data creating an extreme grade. It also
+means that withholding poor evidence can raise the number: MET rose from 43.93
+to 53.14 when its valuation was withheld (D-198), and BABA rose 0.56 when
+unsupported earnings left its score (D-200). Neither is a better conclusion
+about the company.
+
+Changing the formula, or adding a penalty for missing evidence, would pick a
+number with no evidence behind it, so the score stays as computed. The composite
+note, which every surface prints, now names each unscored aspect that carries
+weight and says its weight counts as neutral, and that the score is not directly
+comparable with a company scored on that aspect. This is computed at display
+time from the stored aspects, so saved reports get it without being rewritten.
+Aspects the route gives no weight to are not mentioned, and fully scored
+composites read exactly as before. No score, band or stamp changes.
+
 ## D-197 - Check AI-written figures and bind executive grades to office tenure (2026-11-04)
 
 The independent C/D audit demonstrated unchecked financial figures in plain

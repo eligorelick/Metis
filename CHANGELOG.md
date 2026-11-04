@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Scores that lost an aspect say so (2026-11-04)
+
+- The composite note now names any unscored aspect that carries weight, says its
+  weight counts as neutral, and warns that the score is not directly comparable
+  with a company scored on that aspect. Scores are unchanged.
+
 ## Unreleased - Fair value coverage (2026-11-04)
 
 - Complete undisclosed vendor lease zeros only from reconciled same-filing borrowing and lease components, including operating leases embedded in vendor long-term debt. Keep the lease treatment consistent across valuation, WACC and invested capital.
