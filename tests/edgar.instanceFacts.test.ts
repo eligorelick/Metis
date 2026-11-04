@@ -99,6 +99,13 @@ const Q2_FILING = { accession: "0001326160-26-000040", form: "10-Q", filingDate:
 describe("parseInstanceFacts (audit 2026-10-22 B-23)", () => {
   const parsed = parseInstanceFacts(instance(Q2_CONTEXTS, Q2_FACTS), Q2_FILING, CIK);
 
+  it("does not construct parent revenue when a combined filing supplies only subsidiary or other-registrant facts", () => {
+    const onlySubsidiary = Q2_FACTS.filter(f => f.ctx === "sub" || f.ctx === "other");
+    const retained = parseInstanceFacts(instance(Q2_CONTEXTS, onlySubsidiary), Q2_FILING, CIK);
+    expect(retained.facts["us-gaap"]?.Revenues).toBeUndefined();
+    expect(retained.count).toBe(0);
+  });
+
   it("reads the registrant's undimensioned numeric facts in companyfacts shape", () => {
     expect(parsed.periodEnd).toBe("2026-06-30");
     expect(parsed.facts["us-gaap"]!.Revenues!.USD).toEqual([

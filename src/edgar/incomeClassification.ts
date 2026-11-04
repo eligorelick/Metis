@@ -8,6 +8,15 @@ import type { FetchResult, ManifestEntry } from "@/types/core";
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const same = vendorAgreesWithFiled;
 
+/** An unreconciled ASC-606 amount need not cover the face revenue line. It
+ * can omit derivative or lease transactions and can be rounded in a note.
+ * Keep the refusal, but never call this evidence a proved consolidated total. */
+export function contractRevenueScopeRefusal(proof: StatementFieldProvenance | null | undefined, vendor: number, filed: number): string | null {
+  if (!proof || proof.tags.length !== 1 || !/^us-gaap\/RevenueFromContractWithCustomer(?:Including|Excluding)AssessedTax$/.test(proof.tags[0]!)) return null;
+  return `Revenue scope unresolved: vendor revenue ${vendor} ${proof.unit} differs from contract-revenue fact ${filed} for ${proof.periodStart} through ${proof.periodEnd} (${proof.filings.map(f => `${f.form} ${f.accn}`).join(" + ")}). ` +
+    "The contract-revenue amount is not established as consolidated operating revenue; derivative or lease transactions may be outside it, and a note may be rounded. A reconciled full income statement for the same registrant is required; a subsidiary registrant cannot substitute. Revenue and dependent margins remain withheld; source observations retained.";
+}
+
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
 export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, opts: { bankRevenue?: boolean } = {}): { income: typeof income; gaps: ManifestEntry[] } {
   if (!income.ok || income.value.data.rows.length === 0) return { income, gaps: [] };
@@ -58,7 +67,8 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       const proof = evidenceFor(field);
       if (!proof || (!proof.tags.some(tag => tags.includes(tag)) && !(field === "grossProfit" && proof.calculation === "revenue-minus-cost")) || !finite(sec[field]) || !finite(row[field])) continue;
       if (same(row[field], sec[field])) out = { ...out, fieldProvenance: { ...out.fieldProvenance, [field]: proof } };
-      else refuse(field, sec[field], proof, `Income classification conflict for ${field}: vendor ${row[field]}, filed ${sec[field]} ${proof.unit}, ${proof.periodStart} through ${row.date}; a reconciled EBIT does not establish expense placement`);
+      else refuse(field, sec[field], proof, (field === "revenue" ? contractRevenueScopeRefusal(proof, row[field], sec[field]) : null) ??
+        `Income classification conflict for ${field}: vendor ${row[field]}, filed ${sec[field]} ${proof.unit}, ${proof.periodStart} through ${row.date}; a reconciled EBIT does not establish expense placement`);
     }
     const unsupportedOperand = (["revenue", "costOfRevenue"] as const).map(field => ({ field, proof: evidenceFor(field) }))
       .find(({ field, proof }) => proof && !proof.tags.some(tag => (field === "revenue" ? industrialRevenue : allowed[field]!).includes(tag)));

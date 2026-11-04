@@ -7,6 +7,7 @@ import { sectorIndustryForSic } from "@/edgar/sic";
 import { successorContinuity } from "@/edgar/successor";
 import { conceptFactsSchema, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { predecessorFactsFor } from "@/pipeline/stageB/debtLikeObligations";
+import { contractRevenueScopeRefusal } from "@/edgar/incomeClassification";
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 /** Continuity must be evidenced at the snapshot cutoff, like the amounts it admits. */
@@ -55,6 +56,12 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       const sec = candidates?.find(r => r.date === row.date && r.reportedCurrency === row.reportedCurrency &&
         (row.cik == null || Number(row.cik) === facts?.cik));
       const revenue = sec?.fieldProvenance?.revenue, operating = sec?.fieldProvenance?.operatingIncome;
+      const revenueConflict = row.fieldConflicts?.revenue;
+      if (revenueConflict?.usable === false && finite(revenueConflict.vendorValue) && revenueConflict.secValue === sec?.revenue &&
+          sameBasis(revenueConflict.secEvidence, revenue) && /^(?:Income classification conflict for revenue:|Vendor quarterly revenue )/.test(revenueConflict.reason)) {
+        const reason = contractRevenueScopeRefusal(revenue, revenueConflict.vendorValue, revenueConflict.secValue!);
+        if (reason) out = { ...out, fieldConflicts: { ...out.fieldConflicts, revenue: { ...revenueConflict, reason } } };
+      }
       const matches = sec && finite(row.revenue) && finite(sec.revenue) && vendorAgreesWithFiled(row.revenue, sec.revenue) &&
         row.fieldConflicts?.revenue?.usable !== false && (row.periodStart == null || row.periodStart === revenue?.periodStart) &&
         (row.filingDate == null || revenue?.filings.some(f => f.filed === row.filingDate));

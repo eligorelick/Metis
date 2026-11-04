@@ -4824,6 +4824,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     const upstream = refusals.map(g => g.reason).join("; ");
     if (upstream) for (const gap of result.gaps) if (gap.field === "valuation.dcf.dilutedShares") gap.reason += ` Source share admission: ${upstream}`;
   }
+  if (ctx.revenueEligibilityReason) {
+    const revenueGap = result.gaps.find(g => g.field === "valuation.dcf.startRevenue");
+    if (revenueGap) revenueGap.reason += ` ${ctx.revenueEligibilityReason}`;
+  }
   return result;
 }
 

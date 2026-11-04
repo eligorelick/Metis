@@ -45,3 +45,16 @@ it("names missing common-earnings years behind an unavailable financial payout a
   expect(c.fairValue.status).toBe("suppressed");
   expect(c.fairValue.reasons[0]!.reason).toMatch(/common earnings.*at least 2/i);
 });
+
+it("names the unresolved consolidated revenue scope behind an absent DCF base", () => {
+  const b = completeCurrencyBundle({});
+  for (const m of [b.statements.incomeAnnual, b.statements.incomeQuarterly]) {
+    if (!m.ok) throw Error("fixture");
+    for (const r of m.value.data.rows) {
+      r.revenue = undefined;
+      r.fieldConflicts = { revenue: { usable: false, vendorValue: 7000, secValue: 6600,
+        reason: "Contract revenue 6600 is not established as the parent's consolidated operating revenue 7000." } };
+    }
+  }
+  expect(runStageB(b).fairValue.reasons[0]!.reason).toContain("Contract revenue 6600");
+});
