@@ -5652,8 +5652,6 @@ the same retained evidence still required. All pass with controls for wrong valu
 words, currency, share basis, grade, producer identity/label, RSI horizon,
 Beneish interpretation and unsupported completeness or multiple figures.
 
-**Stamps required at integration, not changed here.** Stage B and fair-value
-method, payload and pipeline stamps must advance for changed computed inputs
-and verification outcomes; scenario-target method should advance with the
-valuation dependency. Score bands and report schema are unchanged. The
-optional alternative book date does not require a schema migration.
+**Stamps.** Stage B, fair value and scenario targets `LATEST_BOOK_46`, payload
+1.68.0, pipeline stage-c-1.6.27. Score bands and the report schema are
+unchanged; the optional alternative book date needs no schema migration.
