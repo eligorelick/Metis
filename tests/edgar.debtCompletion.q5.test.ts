@@ -24,6 +24,14 @@ describe("exact same-filing debt completion", () => {
     expect(out.admissions[0]?.detail).toMatch(/undisclosed.*zero/i);
     expect(JSON.stringify(vendor)).toBe(before);
   });
+  it("counts operating leases embedded in vendor noncurrent debt exactly once when its separate lease line is zero", () => {
+    const vendor = row({ longTermDebt: 118 * M, shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 122 * M,
+      operatingLeaseLiability: 20 * M, financeLeaseLiability: 6 * M });
+    const out = admit(tagged, vendor);
+    expect(out.row).toMatchObject({ longTermDebt: 100 * M, shortTermDebt: 4 * M, capitalLeaseObligations: 26 * M, totalDebt: 130 * M });
+    expect(leaseDebtConflict(out.row)).toBeNull();
+    expect(out.admissions[0]?.detail).toContain("noncurrent operating leases inside vendor long-term debt");
+  });
   it("preserves a true zero lease line when no filed leases exist", () => {
     const out = admit({ LongTermDebtNoncurrent: 100, LongTermDebtCurrent: 4 },
       row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M }));
