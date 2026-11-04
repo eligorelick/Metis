@@ -84,10 +84,35 @@ export function compositeText(scores: Pick<Scoring, "composite" | "assessments">
 }
 
 /** The evidence share and the band thresholds, printed beside the composite. */
-export function compositeNote(scores: Pick<Scoring, "composite" | "assessments">): string {
+export function compositeNote(scores: Pick<Scoring, "composite" | "assessments"> & Partial<Pick<Scoring, "aspects">>): string {
   const { evidence } = compositeDisplay(scores);
   const floor = `a letter needs ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}%`;
-  return `${evidence === null ? "" : `evidence for ${evidencePercentText(evidence)} of the route-applicable signal weight (${floor}); `}bands ${BAND_THRESHOLDS_TEXT}`;
+  const note = `${evidence === null ? "" : `evidence for ${evidencePercentText(evidence)} of the route-applicable signal weight (${floor}); `}bands ${BAND_THRESHOLDS_TEXT}`;
+  const unscored = unscoredAspectsText(scores);
+  return unscored === null ? note : `${note}. ${unscored}`;
+}
+
+const COMPOSITE_ASPECT_LABEL: Readonly<Record<keyof Scoring["aspects"], string>> = {
+  fundamentals: "Fundamentals", valuation: "Valuation", quality: "Quality", balanceSheet: "Balance sheet",
+  moat: "Moat", leadership: "Leadership", technicals: "Technicals",
+};
+
+/**
+ * The composite shrinks an unscored aspect to the neutral midpoint, so removing
+ * poor evidence can raise the number. The score is not rewritten; the reader is
+ * told which weight is a placeholder, on saved reports as well as new ones.
+ */
+function unscoredAspectsText(scores: Pick<Scoring, "composite"> & Partial<Pick<Scoring, "aspects">>): string | null {
+  const { aspects } = scores;
+  if (!aspects) return null;
+  const missing = (Object.keys(COMPOSITE_ASPECT_LABEL) as (keyof Scoring["aspects"])[])
+    .filter((key) => aspects[key]?.score === null && scores.composite.weights[key] > 0)
+    .map((key) => ({ label: COMPOSITE_ASPECT_LABEL[key], weight: scores.composite.weights[key] }));
+  if (missing.length === 0) return null;
+  const limit = "Not directly comparable with a company scored on it, and a missing aspect can raise or lower this number.";
+  if (missing.length === 1) return `${missing[0]!.label} (${missing[0]!.weight}% of the score) has no score, so its weight counts as neutral. ${limit}`;
+  const named = missing.map(({ label, weight }) => `${label} (${weight}%)`);
+  return `${named.slice(0, -1).join(", ")} and ${named.at(-1)} of the score have no score, so their weight counts as neutral. Not directly comparable with a company scored on them, and a missing aspect can raise or lower this number.`;
 }
 
 /**
