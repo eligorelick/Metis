@@ -5679,9 +5679,10 @@ unchanged.
   context, not proof of the person's contribution or a new personal record.
 - **Execution admission.** A proposed letter can use a dated management action
   when the card repeats its FACT and citation in reasoning or capital-allocation
-  evidence, and each action fact quotes its sentence exactly as the cited
-  retained filing/transcript writes it, with no failed check. An exact quotation
-  proves figures and wording together; the numeric check alone cannot, and it
+  evidence, and each action fact quotes a whole sentence exactly as the cited
+  retained filing/transcript writes it, with no failed check. A whole-sentence
+  quotation proves figures, wording and qualifications together, so one that
+  drops a trailing condition does not match; the numeric check alone cannot, and it
   reads a true sentence as ambiguous when the amount recurs. Real filings write
   dates out and use a dollar sign, so both forms are accepted: JPM's 10-Q
   sentence on its USD 50 billion authorization replays through this route once

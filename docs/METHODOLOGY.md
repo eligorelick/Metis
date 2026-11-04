@@ -7319,9 +7319,9 @@ share-count trend, job title, pay or citation alone cannot establish a dated
 decision record. A proposed letter may also survive when the card's reasoning
 or capital-allocation evidence repeats a
 FACT from a relevant management action with the same source and as-of. Every
-factual claim in that action must quote its sentence exactly as the cited
-retained filing or transcript writes it, including the event date, and pass the
-existing consistency checks. An exact quotation proves both figures and wording,
+factual claim in that action must quote a whole sentence exactly as the cited
+retained filing or transcript writes it, including the event date and every
+qualification, and pass the existing consistency checks. An exact quotation proves both figures and wording,
 so a repeated amount that leaves the numeric check ambiguous does not refuse it;
 only a dollar sign may be read as the report's USD spelling. The event date must
 fall between an established tenure start and the report date. Tenure comes from
@@ -7343,7 +7343,8 @@ unretained contents. Named-person source restrictions still apply.
 Read-time CEO/CFO cards also show relevant dated company/board/office actions
 and their original judgments, together with the retained company guidance
 discussion. Explicit unchecked labels accompany context that has not passed
-numeric/wording checks; rejected claims are not promoted into this context.
+numeric/wording checks; rejected claims and citations that did not resolve to a
+known source are not promoted into this context.
 The card names the missing tenure, decision or comparison evidence. Withheld
 letter-grade rationales stay withheld when an ungraded card is expanded; the
 original action-level judgments remain. Office

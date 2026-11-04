@@ -44,18 +44,26 @@ function normalized(text: string): string {
   return text.toLowerCase().replace(/(?:\bus)?\$\s*/g, "usd ").replace(/\s+/g, " ").trim();
 }
 
+/** Sentences of a retained source. An abbreviation that splits one fails closed; a dropped qualification cannot match. */
+function sentencesOf(text: string): string[] {
+  return text.split(/\n+|(?<=[.!?\]])\s+(?=[A-Z[("\u201c])/);
+}
+
+/** A verifier span can stop at a clause, so this labels a quotation for display and never admits a grade. */
 function quotedInSpan(claim: SourcedClaim, entry: VerificationLogEntry): boolean {
-  return entry.sourceSpans?.some(span => span.source === citationSourceId(claim) && normalized(span.text).includes(normalized(claim.text))) === true;
+  return entry.sourceSpans?.some(span => span.source === citationSourceId(claim) && normalized(span.text) === normalized(claim.text)) === true;
 }
 
-function quotedInRetainedFiling(text: string, source: string | null | undefined, context: ExecutiveDecisionEvidence): boolean {
-  return (context.filings ?? []).some(f => f.source === source && normalized(f.text).includes(normalized(text)));
+function quotedInRetainedSource(text: string, source: string | null | undefined, context: ExecutiveDecisionEvidence): boolean {
+  const quote = normalized(text);
+  return (context.filings ?? []).some(f => f.source === source && sentencesOf(f.text).some(sentence => normalized(sentence) === quote));
 }
 
-/** Exact path, claim and canonical source identity; any failed check vetoes it. */
+/** Exact path, claim and canonical source identity; any failed check or unresolved citation vetoes it. */
 export function executiveClaimEntry(claim: SourcedClaim, path: string, log: readonly VerificationLogEntry[]): VerificationLogEntry | undefined {
   if (log.some(e => e.path === path && (e.check && e.outcome === "unverified" || e.validationStatus === "contradicted" || e.outcome === "removed"))) return undefined;
-  return log.find(e => !e.check && e.path === path && e.claim === claim.text && e.source === citationSourceId(claim));
+  const entry = log.find(e => !e.check && e.path === path && e.claim === claim.text && e.source === citationSourceId(claim));
+  return entry?.traceKind === "untraced" ? undefined : entry;
 }
 
 /** Never derive tenure from pay, a rounded tenureYears, a title, or the current roster alone. */
@@ -71,7 +79,7 @@ export function executiveTenureStart(e: Executive, index: number, log: readonly 
   for (const [i, claim] of e.reasoning.entries()) {
     if (claim.label !== "FACT" || !isFilingOrTranscriptSource(citationSourceId(claim) ?? "") ||
       !executiveClaimEntry(claim, `leadership.executives[${index}].reasoning[${i}]`, log) ||
-      !quotedInRetainedFiling(claim.text, citationSourceId(claim), context)) continue;
+      !quotedInRetainedSource(claim.text, citationSourceId(claim), context)) continue;
     const match = /^(?:On (?:\d{1,2} [A-Za-z]+ \d{4}|[A-Za-z]+ \d{1,2}, \d{4}),? )?(.+?) (?:became|was appointed(?: as)?|succeeded .+? as) (.+?)(?:,? (?:on|effective|with effect from) [^.]+)?\.$/.exec(claim.text);
     const dates = statedDays(claim.text);
     // "of <issuer>" is permitted in the biography, whose retained sentence
@@ -112,9 +120,10 @@ export function validatedExecutiveDecisions(e: Executive, index: number, leaders
         const entry = executiveClaimEntry(c, `leadership.managementActions[${i}].action[${j}]`, log);
         // A numeric match is not a match of the decision, and a repeated amount
         // can leave a true sentence numerically ambiguous. An exact quotation of
-        // the cited retained source proves both the figures and the wording.
+        // a whole sentence of the cited retained source proves figures, wording
+        // and qualifications together.
         return c.label === "FACT" && c.asOf && isFilingOrTranscriptSource(citationSourceId(c) ?? "") && entry !== undefined &&
-          statedDays(c.text).includes(occurred) && (quotedInSpan(c, entry) || quotedInRetainedFiling(c.text, citationSourceId(c), context));
+          statedDays(c.text).includes(occurred) && quotedInRetainedSource(c.text, citationSourceId(c), context);
       });
   });
 }

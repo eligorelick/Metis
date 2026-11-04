@@ -3866,7 +3866,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const executiveRoot = verifiedReport as {leadership?: Report["leadership"]};
   if (executiveRoot.leadership && Array.isArray(executiveRoot.leadership.executives)) {
     executiveRoot.leadership = assessExecutiveEvidence(executiveRoot.leadership, log, false, {
-      notes: payload.leadership?.notes, filings: payload.filings,
+      notes: payload.leadership?.notes, filings: retainedDecisionSources(payload),
       asOf: reportRoot.meta?.generatedAt ?? payload.quote?.figures?.find(f => f.asOf)?.asOf,
     });
   }
@@ -4368,6 +4368,11 @@ export function applySegmentShares(
   };
 }
 
+/** The sources an executive decision may quote: the same excerpts the verify pass reads. */
+function retainedDecisionSources(payload: ContextPayload): { source: string; text: string }[] {
+  return [payload.transcript ?? null, ...(payload.filings ?? [])].filter((excerpt): excerpt is NonNullable<typeof excerpt> => excerpt !== null);
+}
+
 export function assembleReport(args: AssembleReportArgs, generatedAt?: string): Report {
   const companyName = firstProfileName(args.bundle) ?? args.symbol;
   const coverage: ProvenanceCoverage = args.verify.coverage ?? {
@@ -4551,7 +4556,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   }
   const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(assembled, args.computed, args.bundle, {
     pendingVerification: args.provisionalVerification === true,
-    executiveEvidence: { notes: executivePayload?.leadership.notes, filings: executivePayload?.filings, asOf: assembled.meta.generatedAt },
+    executiveEvidence: { notes: executivePayload?.leadership.notes, filings: executivePayload && retainedDecisionSources(executivePayload), asOf: assembled.meta.generatedAt },
   }));
   if (!parsed.success) {
     throw new ReportValidationError(

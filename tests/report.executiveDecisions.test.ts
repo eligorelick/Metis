@@ -24,7 +24,8 @@ const actionLog = (): VerificationLogEntry[] => [{ path: "leadership.managementA
   sourceSpans: [{ source: "edgar:8-K", asOf: "2026-06-24", start: 0, end: decision().action[0]!.text.length, text: decision().action[0]!.text }] },
   { path: "leadership.executives[0].reasoning[0]", claim: decision().action[0]!.text, source: "edgar:8-K", outcome: "unverified", validationStatus: "validated" },
   { path: "leadership.managementActions[0].assessment[0]", claim: decision().assessment[0]!.text, source: "edgar:8-K", outcome: "unverified", validationStatus: "cited" }];
-const context = () => ({ asOf: "2026-11-03", notes: ["Alex Smith — Chief Executive Officer (since 2024-04-01) [fmp:key-executives]"], filings: [] });
+const context = () => ({ asOf: "2026-11-03", notes: ["Alex Smith — Chief Executive Officer (since 2024-04-01) [fmp:key-executives]"],
+  filings: [{ source: "edgar:8-K", text: `Other discussion. ${decision().action[0]!.text} More discussion.` }] });
 
 describe("executive decisions bound to a validated action and dated tenure", () => {
   it("retains a proposed execution grade from a validated board decision during the CEO tenure, without inventing credibility", () => {
@@ -45,8 +46,7 @@ describe("executive decisions bound to a validated action and dated tenure", () 
   it("preserves the existing assessment reason when the new decision rule is refused", () => {
     const l = leadership(), log = actionLog();
     log[0]!.validationStatus = "unchecked";
-    delete log[0]!.sourceSpans;
-    expect(assessExecutiveEvidence(l, log, false, context()).executives[0]!.assessmentReason).toBe(EXECUTIVE_NOT_ASSESSED_REASON);
+    expect(assessExecutiveEvidence(l, log, false, { ...context(), filings: [] }).executives[0]!.assessmentReason).toBe(EXECUTIVE_NOT_ASSESSED_REASON);
     expect(assessExecutiveEvidence(l, log, false, { ...context(), notes: [] }).executives[0]!.assessmentReason).toBe(EXECUTIVE_NOT_ASSESSED_REASON);
   });
 
@@ -58,13 +58,13 @@ describe("executive decisions bound to a validated action and dated tenure", () 
     expect(assessExecutiveEvidence(l, log, false, { ...context(), notes: [] }).executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed", assessmentReason: CREDIBILITY_NOT_ASSESSED_REASON });
   });
 
-  it.each(["title only", "pay only", "outside tenure", "rejected claim", "unchecked amount", "no tenure", "non-filing source", "company result", "wrong office"])("withholds execution for %s", (control) => {
+  it.each(["title only", "pay only", "outside tenure", "rejected claim", "unquoted amount", "no tenure", "non-filing source", "company result", "wrong office"])("withholds execution for %s", (control) => {
     const l = leadership(), log = actionLog(), c = context();
     if (control === "title only" || control === "pay only") l.managementActions = [];
     if (control === "pay only") l.executives[0]!.evidence.compensation = [fact("Alex Smith: pay was USD 5 million.", "fmp:key-executives")];
     if (control === "outside tenure") c.notes = ["Alex Smith — Chief Executive Officer (since 2026-07-01) [fmp:key-executives]"];
     if (control === "rejected claim") log.push({ ...log[0]!, outcome: "unverified", check: "named-individual", reason: "named-individual-unsourced" });
-    if (control === "unchecked amount") { log[0]!.validationStatus = "unchecked"; delete log[0]!.sourceSpans; }
+    if (control === "unquoted amount") { log[0]!.validationStatus = "unchecked"; c.filings = []; }
     if (control === "no tenure") c.notes = ["Alex Smith — Chief Executive Officer [fmp:key-executives]"];
     if (control === "non-filing source") { l.managementActions![0]!.action[0]!.source = "fmp:news"; log[0]!.source = "fmp:news"; }
     if (control === "company result") {
@@ -100,7 +100,7 @@ describe("executive decisions bound to a validated action and dated tenure", () 
     log[0]!.sourceSpans![0]!.text = text;
     log[0]!.sourceSpans![0]!.end = text.length;
     log[1]!.claim = text;
-    expect(assessExecutiveEvidence(l, log, false, context()).executives[0]!.grade).toBe("B");
+    expect(assessExecutiveEvidence(l, log, false, { ...context(), filings: [{ source: "edgar:8-K", text }] }).executives[0]!.grade).toBe("B");
   });
 
   it("keeps guidance without a later actual unassessed", () => {
@@ -114,9 +114,7 @@ describe("executive decisions bound to a validated action and dated tenure", () 
 
   it("does not promote numeric-only support of different wording or an invented event date into a decision grade", () => {
     for (const text of ["On 2026-06-24 the Board rejected a USD 50 billion share repurchase program.", "On 2023-06-24 the Board authorized a USD 50 billion share repurchase program."]) {
-      const log = actionLog();
-      log[0]!.sourceSpans![0]!.text = text;
-      expect(assessExecutiveEvidence(leadership(), log, false, context()).executives[0]!.grade).toBe("not-assessed");
+      expect(assessExecutiveEvidence(leadership(), actionLog(), false, { ...context(), filings: [{ source: "edgar:8-K", text }] }).executives[0]!.grade).toBe("not-assessed");
     }
   });
 
@@ -237,6 +235,32 @@ describe("executive decision verification boundaries", () => {
     const claim = fact(appointment, "edgar:10-Q item4", "2026-08-04");
     const result = await runVerifyPass({} as PassDeps, quotedPayload(`${QUOTED} ${appointment}`, []), { leadership: quotedLeadership(QUOTED, [claim]) });
     expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed" });
+  });
+
+  it("refuses a quotation that drops the start or the end of its sentence", async () => {
+    const full = "Subject to regulatory approval, on June 24, 2026, the Board authorized a $50 billion share repurchase program, conditional on a shareholder vote that has not been held.";
+    for (const partial of ["On June 24, 2026, the Board authorized a $50 billion share repurchase program.",
+      "The Board authorized a $50 billion share repurchase program on June 24, 2026.",
+      "On June 24, 2026, the Board authorized a $50 billion share repurchase program, conditional on a shareholder vote that has not been held."]) {
+      const result = await runVerifyPass({} as PassDeps, quotedPayload(full), { leadership: quotedLeadership(partial) });
+      expect(result.verifiedReport.leadership.executives[0]!.grade).toBe("not-assessed");
+    }
+    const ending = "On June 24, 2026, the Board authorized a $50 billion share repurchase program, conditional on a shareholder vote.";
+    const stop = await runVerifyPass({} as PassDeps, quotedPayload(`${ending} That vote has not been held.`), { leadership: quotedLeadership(ending.replace(", conditional on a shareholder vote", "")) });
+    expect(stop.verifiedReport.leadership.executives[0]!.grade).toBe("not-assessed");
+  });
+
+  it("keeps citations that did not resolve out of the office context, the judgments and the guidance", () => {
+    const l = leadership(), log = actionLog();
+    log[0]!.traceKind = "untraced";
+    log[0]!.reason = "unknown-source";
+    expect(executiveOfficeContext(l.executives[0]!, l, log)).toBeUndefined();
+    const judgment = actionLog();
+    judgment[2]!.traceKind = "untraced";
+    expect(executiveOfficeContext(l.executives[0]!, l, judgment)?.actions[0]!.assessment).toEqual([]);
+    const claim = fact("The company guided to growth.", "https://example.com/unfetched");
+    const guidance: VerificationLogEntry = { path: "outlook.guidanceCredibility[0]", claim: claim.text, source: claim.source, outcome: "unverified", validationStatus: "unchecked", traceKind: "untraced", reason: "unknown-source" };
+    expect(executiveOfficeContext(l.executives[0]!, l, [...actionLog(), guidance], [claim])?.guidance).toEqual([]);
   });
 
   it("does not read a tenure start from another person, another office or a sentence with two dates", async () => {
