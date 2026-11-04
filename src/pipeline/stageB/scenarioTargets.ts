@@ -21,13 +21,16 @@
  * "computed.scenarioTargets.<scenario>") — calculation traceability, NOT factual
  * verification. It is a DCF sensitivity range, deliberately NOT a narrative-matched
  * analyst target; the LLM keeps the qualitative narrative but no longer owns the
- * number. When the route is non-DCF, or WACC / the base per-share bridge are
- * unavailable, the whole block is `status:"suppressed"` with empty targets and a
+ * number. D-193 adds own-return-history and persistence sensitivities for
+ * excess-return financial routes, reusing their existing base fair value.
+ * When the route or required evidence is unavailable, the block is
+ * `status:"suppressed"` with empty targets and a
  * disclosing missingReasons[] — a target is SUPPRESSED, never fabricated.
  */
 
 import {
   dcfDomainFailure,
+  excessReturnValue,
   unsplitCellsNote,
   type DcfRunOptions,
   type ValuationResult,
@@ -52,13 +55,14 @@ export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
 // D-135 (audit 2026-10-27 B4a): the bridge each target re-runs changed (redeemable equity and debt-like obligations counted once, after tax), so every target is recomputed.
 // FIN-401 / FIN-401-V1: every target re-runs the corrected stake/operating-income bridge.
 // D-178 / D-179: every target re-runs the FX-converted, completed-debt bridge.
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_LATEST_BOOK_46" as const;
+export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_EXCESS_RETURN_SCENARIOS_47" as const;
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;
   /**
-   * The valuation result — only the general DCF route yields per-share
-   * targets. The EV→equity→per-share bridge (net debt, diluted shares,
+   * The route valuation: DCF uses its own EV→equity→per-share bridge;
+   * financials use their retained excess-return paths and admitted divisor.
+   * The DCF bridge (net debt, diluted shares,
    * minority interest, preferred) is read from `valuation.dcf.bridge`, the
    * bridge the base per-share was computed with, never supplied separately.
    */
@@ -77,6 +81,107 @@ const isNum = (v: number | null | undefined): v is number =>
   typeof v === "number" && Number.isFinite(v);
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;
+
+/** D-193: finite-path business sensitivities, with the base valuation frozen. */
+function financialScenarioTargets(inputs: ScenarioTargetsInputs, valuation: Extract<ValuationResult, { kind: "excess-return" }>): ScenarioTargets {
+  const method = "excess-return-history";
+  const refuse = (field: string, reason: string): ScenarioTargets => ({
+    status: "suppressed", method, methodVersion: SCENARIO_TARGET_METHOD_VERSION,
+    dispersion: null, targets: [], basis: [`Excess-return scenario targets withheld: ${reason}.`],
+    missingReasons: [{ field: `valuation.scenarioTargets.${field}`, reason, severity: "warn" }],
+  });
+  const er = valuation.excessReturn;
+  const coe = er.costOfEquityPct.value;
+  const book = er.openingBookValue.value;
+  if (!isNum(coe) || coe <= 0) return refuse("costOfEquity", "cost of equity unavailable or non-positive; no discount rate is defaulted");
+  if (!isNum(book) || book <= 0) return refuse("openingBook", "opening book refused or non-positive; no common book is invented");
+  if (!isNum(er.payoutRatioPct.value)) return refuse("payout", "company payout path unavailable");
+  const basePath = er.roePathPct.value;
+  if (!isNum(basePath[0]) || basePath[0] <= 0) return refuse("currentReturn", "current return unavailable or non-positive (loss-making record)");
+  if (!isNum(er.perShare) || er.perShare <= 0 || !isNum(er.equityValue) || er.equityValue <= 0) {
+    return refuse("perShare", `base excess-return per-share unavailable or non-positive${valuation.gaps.length ? `: ${valuation.gaps.map(g => g.reason).join("; ")}` : ""}`);
+  }
+  if (er.convertibles?.length) return refuse("convertibles", "scenario-specific convertible claim choices are not established");
+  const evidence = er.scenarioEvidence;
+  if (!evidence?.bookValueBasis) return refuse("evidence", "same-basis common return history and opening book evidence unavailable in this retained valuation");
+  if (evidence.bookEvidence?.openingBookRefusal) return refuse("openingBook", `opening book scenario evidence refused: ${evidence.bookEvidence.openingBookRefusal}`);
+  if (evidence.bookEvidence?.historyRefusal) return refuse("history", `annual return scenario evidence refused: ${evidence.bookEvidence.historyRefusal}`);
+  const rows = [...evidence.returnHistory].sort((a, b) => a.date.localeCompare(b.date)).slice(-5);
+  if (rows.length < 4) return refuse("history", "at least four consecutive annual company return observations are required; no house return range substitutes for thin history");
+  if (new Set(rows.map(row => row.date)).size !== rows.length) return refuse("history", "annual return history must have unique dates; duplicate observations refused");
+  if (rows.some((row, i) => {
+    const time = Date.parse(row.date);
+    const days = i === 0 ? 365 : (time - Date.parse(rows[i - 1].date)) / 86_400_000;
+    return !/^\d{4}-\d{2}-\d{2}$/.test(row.date) || !Number.isFinite(time) || new Date(time).toISOString().slice(0, 10) !== row.date || days < 330 || days > 400;
+  })) return refuse("history", "annual company returns must be consecutive, 330-400 days apart, with valid dates");
+  if (rows.some(row => !isNum(row.roicPct))) return refuse("history", "unavailable annual return in the recent company record; missing years are not dropped");
+  const returns = rows.map(row => row.roicPct as number);
+  if (returns.some(value => value <= 0)) return refuse("history", "loss or non-positive annual return in the recent company record; loss years are not removed");
+  const a = er.financialAssumptions;
+  const n = basePath.length;
+  if (!a || n < 2 || n !== a.horizonYears || !isNum(evidence.dilutedShares) || evidence.dilutedShares <= 0 ||
+      a.costOfEquityPct !== coe || a.initialCommonBook !== book || basePath.some(value => !isNum(value) || value <= 0) ||
+      !a.payoutPathPct || a.payoutPathPct.length !== n || a.payoutPathPct.some(value => !isNum(value) || value < 0 || value > 100) ||
+      !isNum(a.terminalRoePct) || Math.abs(basePath[n - 1] - a.terminalRoePct) > 1e-9 ||
+      (a.terminalGrowthPct !== null && (!isNum(a.terminalGrowthPct) || coe <= a.terminalGrowthPct))) {
+    return refuse("inputs", "retained base return, payout, terminal or per-share inputs are unavailable or inconsistent");
+  }
+  const sorted = [...returns].sort((x, y) => x - y);
+  const quantile = (p: number) => {
+    const rank = (sorted.length - 1) * p;
+    const lo = Math.floor(rank);
+    return sorted[lo] + (sorted[Math.ceil(rank)] - sorted[lo]) * (rank - lo);
+  };
+  const low = quantile(0.25), high = quantile(0.75), terminal = a.terminalRoePct;
+  const starts = { bull: Math.max(basePath[0], high), base: basePath[0], bear: Math.min(basePath[0], low) };
+  const path = (name: "bull" | "bear") => {
+    const deviation = starts[name] - terminal;
+    const exponent = (name === "bull") === (deviation >= 0) ? 0.5 : 2;
+    return Array.from({ length: n }, (_, i) => terminal + deviation * Math.pow(1 - i / (n - 1), exponent));
+  };
+  const paths = { bull: path("bull"), base: basePath, bear: path("bear") };
+  if (Math.max(...Object.values(paths).flat()) <= coe) return refuse("excessReturn", "no positive excess return on any path: all returns are at or below the cost of equity");
+  const continuing = a.terminalGrowthPct !== null && a.terminalExcessReturnPp > 0
+    ? { excessPp: a.terminalExcessReturnPp, gPct: a.terminalGrowthPct } : null;
+  const payoutPath = a.payoutPathPct;
+  const value = (roe: number[]) => excessReturnValue(book, roe, coe, payoutPath, continuing).equityValue;
+  const baseEquity = value(basePath);
+  const roll = er.valuationDate ? Math.pow(1 + coe / 100, er.valuationDate.elapsedYears) : 1;
+  const same = (x: number, y: number) => Number.isFinite(x) && Number.isFinite(y) && Math.abs(x - y) <= Math.max(1, Math.abs(y)) * 1e-9;
+  if (!same(baseEquity * roll, er.equityValue) || !same(baseEquity * roll / evidence.dilutedShares, er.perShare)) {
+    return refuse("base", "retained assumptions do not reproduce the existing base fair value; no rescaled range is published");
+  }
+  const values = { bull: value(paths.bull) * roll / evidence.dilutedShares, base: er.perShare, bear: value(paths.bear) * roll / evidence.dilutedShares };
+  if (Object.values(values).some(v => !isNum(v) || v <= 0) || values.bull < values.base - 1e-9 || values.bear > values.base + 1e-9) {
+    return refuse("domain", "financial scenario values are non-positive, non-finite or do not bracket the base fair value");
+  }
+  const label = evidence.bookValueBasis === "tangible-common-equity" ? "ROTE" : "common-equity ROE";
+  const display = (v: number) => Number(v.toFixed(4)).toString();
+  const list = (xs: number[]) => xs.map(display).join(", ");
+  const tbv = evidence.tangibleBookPerShare;
+  const names = ["bull", "base", "bear"] as const;
+  return {
+    status: "available", method, methodVersion: SCENARIO_TARGET_METHOD_VERSION, dispersion: null,
+    targets: names.map(name => {
+      const v = round2(values[name]);
+      return { name, perShare: { value: v, unit: perShareUnit(inputs.currency), source: `computed.scenarioTargets.${name}`,
+        asOf: er.valuationDate?.value ?? er.asOf, verified: true },
+      upsidePct: isNum(inputs.currentPrice) && inputs.currentPrice > 0 ? (v / inputs.currentPrice - 1) * 100 : null,
+      growthDeltaPp: 0, marginDeltaPp: 0 };
+    }),
+    basis: [
+      "Computed-derived excess-return model outputs on stated assumptions, not analyst targets, calibrated probabilities or future-price forecasts. The bear case is not a floor on the downside. Base equals the existing fair value; revenue-growth/margin deltas and DCF dispersion do not apply.",
+      `Own ${label} record (%): ${rows.map(row => `${row.date}: ${display(row.roicPct as number)}`).join("; ")}. Latest ${rows.length} consecutive annual observations, including acquisition years; no missing or loss years removed. House bounds: interpolated 25th percentile ${display(low)}%, 75th percentile ${display(high)}%; bear start=min(current,Q25), bull start=max(current,Q75).`,
+      `House persistence rule: remaining starting deviation from terminal return is (1-u)^0.5 for the slow fade and (1-u)^2 for the fast fade, u=t/(N-1). Bull fades positive deviations slowly and negative deviations quickly; bear reverses this; base keeps its existing path. Half-fade at 75%, 29.29% and 50% of the explicit interval respectively; these are assumption stresses, not estimated persistence.`,
+      `Fixed base inputs: cost of equity ${display(coe)}% fixed; opening ${evidence.bookValueBasis} ${display(book)} at ${er.asOf}; diluted shares ${display(evidence.dilutedShares)}; ${n}-year explicit horizon; terminal ${label} ${display(terminal)}%; continuing growth ${a.terminalGrowthPct === null ? "not carried" : `${display(a.terminalGrowthPct)}%`}. Terminal excess and continuing-value rule remain fixed; continuing value changes only through modeled closing book.`,
+      `Company payout path (%) fixed in all scenarios: ${list(a.payoutPathPct)}. Return history alone does not establish a change in regulatory distribution capacity. Value date ${er.valuationDate?.value ?? er.asOf}; same base roll factor ${display(roll)}, gross of distributions.`,
+      `Base return provenance: ${er.roePathPct.basis}.`,
+      ...names.map(name => `${name[0].toUpperCase() + name.slice(1)}: ${label} return path (%): ${list(paths[name])}. ` +
+        (isNum(tbv) && tbv > 0 ? `Implied target P/TBV ${display(round2(values[name]) / tbv)}x on diluted tangible book per share ${display(tbv)} at ${evidence.tangibleBookAsOf ?? "unknown date"}.` : "P/TBV withheld: positive tangible common book per share is unavailable; common book is not tangible book.")),
+    ],
+    missingReasons: isNum(tbv) && tbv > 0 ? [] : [{ field: "valuation.scenarioTargets.priceToTangibleBook", severity: "info", reason: "Scenario P/TBV withheld: tangible common book per share unavailable; common-equity scenarios retain their own book basis" }],
+  };
+}
 
 /**
  * Which side of the base DCF both ±σ runs fall on, or null when they bracket
@@ -105,8 +210,9 @@ function suppressed(missingReasons: ManifestEntry[], basis: string[]): ScenarioT
 export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioTargets & { scenarioAssumptions?: ScenarioAssumptions } {
   const { valuation, currency, asOf } = inputs;
 
-  // Only the general FCFF-DCF route has a per-share intrinsic value to perturb.
-  // Banks/insurers/REITs/pre-revenue/dcf-suppressed → no target (docs/METHODOLOGY.md "Financial-company routes").
+  if (valuation.kind === "excess-return") return financialScenarioTargets(inputs, valuation);
+
+  // Financial scenarios dispatch above; other non-DCF routes still withhold.
   if (valuation.kind !== "dcf") {
     const unresolvedReason = valuation.kind === "ineligible"
       ? valuation.gaps[0]?.reason ?? "valuation applicability is unresolved"

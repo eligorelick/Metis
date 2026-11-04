@@ -179,12 +179,17 @@ export function buildScenarioPresentation(computed: ComputedMetrics, currentPric
   const cells = display?.sensitivityGrid ?? [];
   const entityAvailable = finite(display?.bridge?.enterpriseValue) && (display?.forecastRows?.length ?? 0) > 0;
   const projections = projectionAvailability(computed.projections?.series ?? []);
+  const financial = computed.scenarioTargets?.method === "excess-return-history";
   return {
     methodVersion: "SCENARIO_PRESENTATION_2026_10",
-    weightBasis: `${WEIGHT_BASIS} ${projections.weighted
+    weightBasis: `${financial ? "Scenario price targets carry no weight: bull and bear are excess-return business sensitivities around the unchanged base value; no probability-weighted value is implied." : WEIGHT_BASIS} ${projections.weighted
       ? "The fixed 25/50/25 display prior applies only to the weighted operating projections and is not a calibrated probability."
       : "No weighted operating projections are available; no projection weights are applied."}`,
-    interpretation: computed.scenarioTargets?.status === "available"
+    interpretation: financial
+      ? computed.scenarioTargets.status === "available"
+        ? "Scenario values are present-value excess-return model outputs on stated own-record return bounds and house persistence stresses. Cost of equity, payout path and terminal assumptions stay at base. These are not calibrated probabilities or future-price forecasts; qualitative commentary does not set the numerical inputs."
+        : `Excess-return scenario targets are withheld: ${computed.scenarioTargets.missingReasons.map(g => g.reason).join("; ")}. Qualitative commentary supplies no numerical target or future-price probability.`
+      : computed.scenarioTargets?.status === "available"
       ? "Scenario values are present-value DCF sensitivities over the explicit operating horizon. Growth and margin paths use the shifts that generated each labeled target; all other model inputs remain at base. Model commentary is qualitative and does not set those inputs."
       : entityAvailable
         ? `${projections.forward ? "Entity DCF and numerical operating scenario paths are available" : "Entity DCF is available; numerical operating scenario paths are unavailable"}; per-share scenario targets are withheld. Any model commentary is qualitative; no future-price probability is implied.`
@@ -239,6 +244,15 @@ export function fixedBridgeNonOperatingText(bridge: DcfBridge, display: (v: numb
 
 function deterministicAssumptions(computed: ComputedMetrics, name: Scenario["name"]): string[] {
   const targets = computed.scenarioTargets;
+  if (targets?.method === "excess-return-history") {
+    if (targets.status !== "available") return [...targets.basis];
+    const own = `${name[0].toUpperCase() + name.slice(1)}:`;
+    return [
+      "Computed inputs are displayed rounded; valuation calculations retain full precision.",
+      ...targets.basis.filter(line => line.startsWith(own)),
+      ...targets.basis.filter(line => !/^(Bull|Base|Bear):/.test(line)),
+    ];
+  }
   const target = targets?.status === "available" ? targets.targets.find((entry) => entry.name === name) : undefined;
   const scenarioInputs = target?.perShare != null ? target : computed.projections?.scenarioAssumptions?.scenarios.find(entry => entry.name === name);
   const valuation = computed.valuation;
@@ -279,7 +293,10 @@ export function applyScenarioPresentation(valuation: Valuation, computed: Comput
     scenarios: valuation.scenarios.map((scenario) => {
       const assumptions = deterministicAssumptions(computed, scenario.name);
       const modeled = assumptions.length > 1;
-      const modeledConditions = modeled ? [`Modeled conditions: ${assumptions[1]} Capital efficiency (sales-to-capital), WACC, tax path and terminal assumptions stay at base. Additional qualitative conditions are not numerical prerequisites for this target.`] : [...scenario.whatWouldHaveToBeTrue];
+      const fixedInputs = computed.scenarioTargets?.method === "excess-return-history"
+        ? "Cost of equity, payout path, opening book, shares and terminal assumptions stay at base."
+        : "Capital efficiency (sales-to-capital), WACC, tax path and terminal assumptions stay at base.";
+      const modeledConditions = modeled ? [`Modeled conditions: ${assumptions[1]} ${fixedInputs} Additional qualitative conditions are not numerical prerequisites for this target.`] : [...scenario.whatWouldHaveToBeTrue];
       // A model-authored prefix is not proof of an earlier presentation pass.
       // Match the complete generated array so fresh text/citations survive.
       const alreadySeparated = modeled && scenario.whatWouldHaveToBeTrue.length === modeledConditions.length &&

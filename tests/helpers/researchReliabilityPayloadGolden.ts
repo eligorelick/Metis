@@ -24,8 +24,8 @@ export function restoreResearchReliabilityGolden(input: { computed: ComputedMetr
   // F-01/F-02: this valid-issuer fixture changes only its payload stamp.
   // Restore the previous stamp before every existing financial/byte/hash pin.
   // P0 M-1/L-2 and AI-407: 1.59.0 -> 1.60.0, the FIGR paid-run round 1.60.0 -> 1.61.0 and the extra-high audit
-  // round 1.61.0 -> 1.62.0 the priority fixes 1.62.0 -> 1.63.0 D-173 1.63.0 -> 1.64.0 the Q round 1.64.0 -> 1.65.0 D-184 1.65.0 -> 1.66.0 D-188 1.66.0 -> 1.67.0 D-189 1.67.0 -> 1.68.0 D-191 1.68.0 -> 1.69.0 D-192 1.69.0 -> 1.70.0 and D-194 1.70.0 -> 1.71.0 are stamp-only here.
-  expect(payload.payloadVersion).toBe("1.71.0");
+  // round 1.61.0 -> 1.62.0 the priority fixes 1.62.0 -> 1.63.0 D-173 1.63.0 -> 1.64.0 the Q round 1.64.0 -> 1.65.0 D-184 1.65.0 -> 1.66.0 D-188 1.66.0 -> 1.67.0 D-189 1.67.0 -> 1.68.0 D-191 1.68.0 -> 1.69.0 D-192 1.69.0 -> 1.70.0 D-194 1.70.0 -> 1.71.0 and D-193 1.71.0 -> 1.72.0 are stamp-only here.
+  expect(payload.payloadVersion).toBe("1.72.0");
   payload.payloadVersion = "1.56.0";
   // D-140: retain every older pin.
   expect(payloadFingerprint(payload)).toBe("1.56.0:f9b1277c");
