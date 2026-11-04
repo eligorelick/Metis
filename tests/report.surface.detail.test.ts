@@ -215,7 +215,7 @@ describe("Task 28 complete report surfaces", () => {
     // weights, aspect fields and driver traces are in the audit export (D-62).
     for (const output of values(renderSurfaces(report))) {
       expect(output).toContain("TASK28:composite:methodology");
-      expect(output).toContain("TASK28:BANDS:VERSION");
+      expect(output).toMatch(/TASK28:BANDS:VERSION|House scoring bands/);
       expect(output).not.toContain("TASK28:fundamentals:driver:0:source-display");
     }
     const surfaces = auditSurface(report);

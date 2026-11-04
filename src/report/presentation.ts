@@ -1576,7 +1576,10 @@ export function readerPrecision(text: string, source?: string): string {
 /** Decision numbers are internal references. The rule's own explanation stays. */
 export function withoutDecisionNumbers(text: string): string {
   return text
-    .replace(/\b([Hh])ouse rule D-\d+\b/g, "$1ouse rule")
+    .replaceAll('(house rule, WS6 D-18: median of methods; the former "lower of the 3y/5y CAGR" and sign-disagreement rules are RETIRED)', "(house rule: median of methods)")
+    .replace(/\s*\(WS6 review, (?:SHOULD-FIX|BLOCKER) \d+\)/g, "")
+    .replace(/([Hh]ouse rule), WS6 D-18:/g, "$1:")
+    .replace(/\b([Hh])ouse rule D-\d+(?:\/D-\d+)*\b/g, "$1ouse rule")
     .replace(/\s*\(D-\d+(?:\s+disclosure)?\)/g, "");
 }
 

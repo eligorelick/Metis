@@ -73,6 +73,7 @@ function Sidebar() {
           <span className="text-faint"> · synthetic fixture</span>
         </div>
       </div>
+      <p className="px-2 text-[11px] text-muted">This report and the company slice are separate fictional datasets with different figures.</p>
       <Link
         href="/company/DEMO"
         className="px-2 text-[11px] text-accent hover:underline"

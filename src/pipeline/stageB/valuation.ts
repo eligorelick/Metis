@@ -1992,7 +1992,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     `median of ${available.length} available growth method${available.length === 1 ? "" : "s"} = ${fmtNum(point)}%` +
     `${rangePct === null ? " (single method; no range)" : `, range ${fmtNum(lo)}% to ${fmtNum(hi)}%`}` +
     ` — methods: ${methods.map((m) => `${m.name} ${m.detail}`).join("; ")}` +
-    ` (house rule, WS6 D-18: median of methods; the former "lower of the 3y/5y CAGR" and sign-disagreement rules are RETIRED).` +
+    ` (house rule: median of methods).` +
     clampSentence;
   notes.push(`Near-term growth anchor: ${anchorBasis}`);
   if (unavailable.length > 0) {
@@ -2409,7 +2409,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   let s2cBasis = exceedsBasis !== null
     ? `sales-to-capital is the house cap ${S2C_CLAMP[1]}, not a measured ratio; ${capitalDefinition} less long-term investments: ${exceedsBasis}`
     : operatingIc !== null
-    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)`
+    ? `${periodBasis} revenue / operating invested capital (totalDebt + consolidated equity [${equity.basis}]${temporaryText} - cashAndShortTermInvestments - longTermInvestments ${fmtMoney(lti as number)}, ${bal.basis} balance as of ${bal.date}; ${equity.reason}; long-term investments are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe)`
     : `${periodBasis} revenue / ${capitalDefinition}`;
   if (bal.leaseCoverageNote) s2cBasis += ` Retained totalDebt operand ${bal.totalDebt} (source monetary units): ${bal.leaseCoverageNote}`;
   if (leaseExcluded) s2cBasis += ` Invested capital excludes the disclosed operating-lease portion ${bal.operatingLeaseLiability} (source monetary units): the lease-inclusive total is unavailable, so debt is taken on the lease-excluded basis.`;
@@ -2419,7 +2419,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   if (emptiedHistory !== null) {
     s2cBasis = `sales-to-capital ${s2c.toFixed(4)}x is the median of the issuer's own filed fiscal-year ratios on the lease-excluded basis: invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (D-25), ` +
       `so the ${bal.basis} balance as of ${bal.date} cannot establish a ratio and the lease is not put back (${emptiedHistory.basis})${s2c !== rawS2c ? `; held to the house cap ${S2C_CLAMP[1]}` : ""}` +
-      `${lti !== null ? `; long-term investments ${fmtMoney(lti)} are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65` : ""}`;
+      `${lti !== null ? `; long-term investments ${fmtMoney(lti)} are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe` : ""}`;
   } else if (s2c !== rawS2c && s2cFloor !== S2C_CLAMP[0] && rawS2c < s2cFloor) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${filedRevenue} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
     `Applied lower floor ${s2c.toFixed(4)}x, the issuer's own filed history in place of the house floor ${S2C_CLAMP[0]}: ${s2cHistory.basis}. Forecast reinvestment uses the applied ratio, not the raw ratio. Raw-input basis: ${s2cBasis}`;
   else if (s2c !== rawS2c) s2cBasis = `model input used ${s2c.toFixed(4)}x; raw ratio ${rawS2c.toFixed(4)}x = revenue ${filedRevenue} / ${operatingIc !== null ? "operating " : ""}invested capital ${operatingIc ?? ic} (source monetary units). ` +
@@ -5102,7 +5102,7 @@ export function multiplesFramework(
     priceToFcf:
       `marketCap / (operatingCashFlow + capitalExpenditure) (${cashFlowBasisLabel}; FMP capex negative) — free cash flow BEFORE ` +
       "stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is " +
-      "ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)",
+      "ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed",
 
     priceToBook: `marketCap / common equity (${balanceBasisLabel}; ${capital.equityBasis}); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness`,
     priceToTbv: `marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill ${bal?.goodwill ?? "unavailable"} and intangibleAssets ${bal?.intangibleAssets ?? "unavailable"} (source monetary units; vendor composition unverified unless stated). ${bal?.tangibleBookDeductionBasis ?? ""} (${balanceBasisLabel}; ${capital.equityBasis}; undisclosed preferred assumed zero only when no material preferred amount is known)`,

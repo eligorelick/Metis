@@ -205,6 +205,10 @@ export default async function Home() {
           <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">Build your investment thesis from financial statements, source evidence and explicit assumptions. Keep the reasoning, risks and unanswered questions in view.</p>
         </section>}
 
+        <Link href="/report/sample" className="self-start border border-accent bg-accent/10 px-4 py-2 text-sm font-semibold text-accent hover:underline">
+          View sample report
+        </Link>
+
         {config.fixtureMode && (
           <div className="border border-warn/40 bg-warn/10 px-3 py-2 text-[12px] text-warn">
             <span className="mono font-semibold uppercase tracking-[0.08em]">

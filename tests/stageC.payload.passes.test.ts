@@ -1,3 +1,4 @@
+import { restorePublicPolishGolden } from "./helpers/publicPolishGolden";
 import { restoreP2DcfInputsGolden } from "./helpers/p2DcfInputsGolden";
 import { restoreR2FigurePayloadGolden } from "./helpers/r2FigurePayloadGolden";
 import { restoreR9SbcBasisGolden } from "./helpers/r9SbcBasisPayloadGolden";
@@ -941,7 +942,7 @@ describe("payload determinism + provenance", () => {
     // R9 changes SBC basis labels and their semantic ids; preserve all earlier byte/stamp pins.
     // R8 restores only its reviewed evidence qualifications before the R6 pin.
     // Q1 restores only its per-person Form 4 summary first.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(buildInputs())))))))))));
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(restorePublicPolishGolden(buildInputs()))))))))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>

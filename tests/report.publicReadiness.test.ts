@@ -116,3 +116,44 @@ it("RPT-208: cover assessment scores use reader precision",()=>{
  expect(html).not.toContain("78.80");
  expect(scoreAuditTables(report.scores!).find(t=>t.heading==="Assessment dimensions")!.rows[0]![1]).toContain("78.80");
 });
+
+
+it("offers an audit download only for an identified saved report and uses reader scorecard labels", async () => {
+  const { AppendixSection, CompositeScorecard } = await import("@/components/report/sections");
+  const report = loadTask28Fixture();
+  const sample = renderToStaticMarkup(createElement(AppendixSection, { report, index: 14 }));
+  expect(sample).not.toContain("are in the separate audit export");
+  const saved = renderToStaticMarkup(createElement(AppendixSection, { report, index: 14, selectedReportId: 42 }));
+  expect(saved).toContain('/api/export/42?format=audit');
+  expect(saved).toContain("download the audit trail");
+  const header = renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores! }));
+  expect(header).not.toContain("SCORE_BANDS_");
+  expect(header).toContain("House scoring bands");
+});
+
+it("removes narrowly owned workstream annotations while preserving company text", async () => {
+  const { withoutDecisionNumbers } = await import("@/report/presentation");
+  expect(withoutDecisionNumbers("Different figures (WS6 review, SHOULD-FIX 4)")).toBe("Different figures");
+  expect(withoutDecisionNumbers('Growth (house rule, WS6 D-18: median of methods; the former "lower of the 3y/5y CAGR" and sign-disagreement rules are RETIRED).')).toBe("Growth (house rule: median of methods).");
+  expect(withoutDecisionNumbers("Growth (house rule D-60/D-65)")).toBe("Growth (house rule)");
+  const company = "WS6 Industries sells D-18 and D-60/D-65 equipment. RETIRED employees receive pensions; SHOULD-FIX 4 is a product label.";
+  expect(withoutDecisionNumbers(company)).toBe(company);
+});
+
+it("describes Gemini's installed Chrome requirement", async () => {
+  const { AiConnections } = await import("@/app/settings/AiConnections");
+  const html = renderToStaticMarkup(createElement(AiConnections));
+  expect(html).toContain("Gemini requires Chrome to be installed; Metis opens Chrome");
+  expect(html).not.toContain("choose Chrome as your default");
+});
+
+it("uses a plain scorecard header", async () => {
+  const { CompositeScorecard } = await import("@/components/report/sections");
+  const html = renderToStaticMarkup(createElement(CompositeScorecard, { scores: loadTask28Fixture().scores! }));
+  expect(html).not.toContain("SCORE_BANDS_");
+  expect(html).toContain("House scoring bands");
+});
+it("explains the sample's separate fictional dataset beside its company link", async () => {
+  const { default: SamplePage } = await import("@/app/report/sample/page");
+  expect(renderToStaticMarkup(createElement(SamplePage))).toContain("separate fictional datasets with different figures");
+});

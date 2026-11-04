@@ -1,3 +1,4 @@
+import { restorePublicPolishGolden } from "./helpers/publicPolishGolden";
 import { restoreP2ComputedGolden } from "./helpers/p2DcfInputsGolden";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
@@ -161,7 +162,7 @@ describe("retained forensic observation context on real data-only exports", () =
     expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_LATEST_BOOK_46");
     // The FIGR paid-run round (D-159) renamed only these two stamps on this fixture; restore
     // them so the pin keeps checking every value byte.
-    const restored = restoreP2ComputedGolden(computed);
+    const restored = restoreP2ComputedGolden(restorePublicPolishGolden(computed));
     restored.fairValue.methodVersion = "FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39";
     restored.scenarioTargets.methodVersion = "SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39";
     // FIN-402-V1/FIN-102/FIN-113: separately asserted metadata restoration; old numeric pin remains.

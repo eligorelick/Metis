@@ -324,3 +324,14 @@ describe("company page — unsupported instruments", () => {
     expect(pageHarness.buildDataBundle).toHaveBeenCalledTimes(2);
   });
 });
+
+
+it.each(["DEMO", "DBNK", "AAPL"])("labels only reserved fictional company pages: %s", async symbol => {
+  const page = await CompanyPage({ params: Promise.resolve({ symbol }) });
+  const tree = JSON.stringify(page, (key, value) => key === "type" ? undefined : value);
+  if (symbol === "AAPL") expect(tree).not.toContain("separate fictional datasets with different figures");
+  else {
+    expect(tree).toContain("separate fictional datasets with different figures");
+    expect(tree).toContain("/report/sample");
+  }
+});
