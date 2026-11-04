@@ -30,7 +30,7 @@ export function resolveForeignValuation(bundle: DataBundle, reportingCurrency: s
   const fx = selected.rate;
   const note = `Valuation translated at one spot rate (constant currency): all reporting-currency monetary valuation inputs and historical levels use ${fx.usdPerReportingUnit} USD per ${fx.reportingCurrency}; ` +
     `FRED ${fx.series}, ${fx.observation.date}, native value ${fx.observation.value}, quote date ${quoteDate}. Source statements and source amounts in basis notes remain in ${fx.reportingCurrency}. Historical growth rates are unchanged by translation. ` +
-    security.basis.note + ` USD cash flows are discounted at the USD-based rate (cost of equity on financial routes); intrinsic values are USD per quoted share. Analyst rows without an established currency/share basis remain withheld. Historical price-multiple bands require their own dated FX/security evidence and remain withheld.`;
+    security.basis.note + ` USD cash flows are discounted at the USD-based rate; intrinsic values are USD per ${security.basis.securityEvidence[0]?.quoteUnit === "ordinary" ? "quoted common share" : "ADS"}. Analyst rows without an established currency/share basis remain withheld. Historical price-multiple bands require their own dated FX/security evidence and remain withheld.`;
   return { basis: { ...security.basis, fx, note }, reason: null };
 }
 
@@ -86,7 +86,9 @@ export function resolveForeignShareRatio(bundle: DataBundle): { basis: Omit<Fore
   const issued = points("ifrs-full", "NumberOfSharesIssued").filter(p => !p.start && p.end === cover.end &&
     p.accn === cover.accn && p.filed === cover.filed && p.form === cover.form);
   const issuedCover = ratio === null && issued.length > 0 && issued.every(p => agrees(cover.val, p.val, 0.001));
-  if (ratio === null && !issuedCover) return refuse("filed ordinary / quoted outstanding counts do not establish a standard ADS ratio within 1%");
+  if (ratio === null && !issuedCover) return refuse(ordinaryListing
+    ? "filed ordinary / quoted outstanding counts do not establish one-for-one ordinary units within 1%"
+    : "filed ordinary / quoted outstanding counts do not establish a standard ADS ratio within 1%");
   if (ordinaryListing && ratio !== 1) return refuse("non-ADR ordinary listing requires independently corroborated one-for-one share units");
   const annual = bundle.statements.incomeAnnual;
   if (!annual.ok || annual.value.source !== "fmp") return refuse("independent provider weighted-average count evidence is absent");

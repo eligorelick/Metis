@@ -3,7 +3,6 @@ import { resolveForeignValuation, translateProjectionInputs, translateValuationI
 import type { ValuationBundleInputs } from "@/pipeline/stageB/valuation";
 import { foreignBundle } from "./helpers/foreignBundle";
 import { valueCompany } from "@/pipeline/stageB/valuation";
-import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { runStageB } from "@/pipeline/compute";
 
 const M = 1e6;

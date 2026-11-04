@@ -22,6 +22,17 @@ describe("foreign valuation security evidence", () => {
     b.profile.value.data.rows[0]!.isAdr = false;
     expect(resolveForeignValuation(b, "EUR").basis).toBeNull();
   });
+  it("names the ordinary one-for-one count failure without calling it an ADS", () => {
+    const b = foreignBundle("EUR", 1);
+    if (!b.profile.ok || !b.edgar.companyFacts.ok) throw Error("fixture");
+    b.profile.value.data.rows[0]!.isAdr = false;
+    const cover = b.edgar.companyFacts.value.data.facts.dei!.EntityCommonStockSharesOutstanding as { units: { shares: { val: number }[] } };
+    cover.units.shares[0]!.val *= 1.02;
+    const result = resolveForeignValuation(b, "EUR");
+    expect(result.basis).toBeNull();
+    expect(result.reason).toMatch(/ordinary.*one-for-one.*1%/);
+    expect(result.reason).not.toMatch(/ADS/);
+  });
   it("reconciles native-currency EPS without requiring an FX rate", () => {
     const b = foreignBundle();
     delete b.valuationFx;

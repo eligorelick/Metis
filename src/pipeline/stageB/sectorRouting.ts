@@ -1146,7 +1146,7 @@ const OVERLAY_POLICIES: Readonly<Record<SectorOverlay, { suppress: readonly stri
   // B-13 / A-3: the Z models were estimated on manufacturers; a utility's
   // rate base and regulatory assets are not the balance sheet they describe.
   "regulated-utility": {
-    suppress: ["altmanZ", "fcfDcf"],
+    suppress: ["altmanZ", "fcfDcf", "reverseDcf"],
     lead: [],
   },
 };
