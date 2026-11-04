@@ -85,6 +85,15 @@ function dcfWithheldReason(gaps: readonly ManifestEntry[]): string | null {
   return upstream === undefined ? bridge.reason : `${bridge.reason}: ${upstream}`;
 }
 
+function excessReturnWithheldReason(gaps: readonly ManifestEntry[]): string {
+  const model = gaps.find(g => g.severity === "critical" && g.field.startsWith("valuation.excessReturn.")) ??
+    gaps.find(g => g.field === "valuation.excessReturn.dilutedShares");
+  const shares = model?.field === "valuation.excessReturn.dilutedShares"
+    ? gaps.find(g => g.field === "valuation.perShare.economicClassBasis" || g.field === "valuation.perShare.securityBasis") : undefined;
+  return model ? `${model.reason}${shares ? ` ${shares.reason}` : ""}`
+    : "Excess-return intrinsic value per share is unavailable; no model-specific refusal was recorded.";
+}
+
 function suppressed(reasons: ManifestEntry[], basis: string[]): FairValue {
   return {
     status: "suppressed",
@@ -226,13 +235,14 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
           ? "pre-revenue company — no meaningful intrinsic per-share model in v1"
           : valuation.kind === "dcf-suppressed"
             ? valuation.suppressionReason ?? "intrinsic per-share DCF suppressed for this route/overlay (e.g. structurally negative free cash flow) — see missing-data"
+            : valuation.kind === "excess-return" ? excessReturnWithheldReason(valuation.gaps)
             : (valuation.kind === "dcf" ? dcfWithheldReason(valuation.gaps) : null) ??
               "deterministic intrinsic per-share unavailable — the model was not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge";
     // Not-applicable routes are info; a suppressed bridge on a modellable route is a warn.
     const severity: ManifestEntry["severity"] =
       valuation.kind === "reit" || valuation.kind === "pre-revenue" ? "info" : "warn";
     return suppressed(
-      [{ field: "valuation.dcf.perShare", reason, severity }],
+      [{ field: valuation.kind === "excess-return" ? "valuation.excessReturn.perShare" : "valuation.dcf.perShare", reason, severity }],
       [`Intrinsic value per share unavailable: ${reason}.`],
     );
   }
