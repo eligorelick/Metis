@@ -2112,7 +2112,7 @@ export function KeyDataBox({ report }: { report: Report }) {
       <dl className="grid gap-x-4 gap-y-1 px-3 py-2 text-[11px] sm:grid-cols-2 lg:grid-cols-3">
         {rows.map((row) => (
           <div key={row.label} className="flex min-w-0 items-baseline justify-between gap-2 border-b border-edge/60 py-1">
-            <dt className="text-faint">{row.label}</dt>
+            <dt className="min-w-[6rem] shrink-0 text-faint">{row.label}</dt>
             <dd className="mono text-right text-fg">
               {row.value}
               {row.note && <span className="ml-1 text-[9px] text-faint">{row.note}</span>}

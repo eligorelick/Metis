@@ -32,6 +32,11 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Offline saved-judge replay and limits are recorded in D-190. No paid run was
   made for this change.
 
+## Unreleased - A current sample report for visitors (2026-11-04)
+
+- Keep hidden screen-reader labels contained within the scrollable main region.
+- Show a current fictional sample report with deterministic calculations, offline verification and matching synthetic charts. Rebuild with `npm run sample:build`; no provider or model calls are made.
+
 ## Unreleased - Bank valuation from the latest filed book; headline claim wording (2026-11-03)
 
 - Open financial excess-return values from the latest complete, filed quarterly
