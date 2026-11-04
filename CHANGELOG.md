@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.62.0** and
-payload **1.70.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.71.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -31,6 +31,15 @@ original versions and bytes; source merge does not deploy or publish a release.
 - DCF results and stored reports stay unchanged. Integration must advance
   Stage B, scenario-target/presentation, payload and Stage C pipeline stamps; this branch
   changes no version constants. See D-193 and the methodology.
+
+## Unreleased - Financial statement notes from filing indexes (2026-11-04)
+
+- Recover annual notes through proved numeric/F-prefixed financial indexes and
+  narrowly recognize split headings and unnumbered accounting policies. Preserve
+  legacy successes and reject contradictory page, link, contents and stub evidence.
+- Frozen panel: six missing domestic notes recovered; all 160 prior successful
+  item/notes extractions remain byte-identical. See D-194. Payload stamp required
+  on integration; stored reports and version constants remain unchanged.
 
 ## Unreleased - Officer tenure from filings (2026-11-04)
 
