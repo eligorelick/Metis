@@ -18,12 +18,13 @@ export function contractRevenueScopeRefusal(proof: StatementFieldProvenance | nu
 }
 
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
-export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, opts: { bankRevenue?: boolean } = {}): { income: typeof income; gaps: ManifestEntry[] } {
+export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string,
+  opts: { bankRevenue?: boolean; securitiesRevenue?: boolean; earningsOnly?: boolean; filedRows?: FmpIncomeStatementRow[] } = {}): { income: typeof income; gaps: ManifestEntry[] } {
   if (!income.ok || income.value.data.rows.length === 0) return { income, gaps: [] };
-  const built = buildStatementsFromCompanyFacts(facts, { symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0, 10), factsObservedAt: observedAt,
-    ...opts, annualPeriods: Math.max(12, income.value.data.rows.length + 2), quarterlyPeriods: Math.max(12, income.value.data.rows.length + 4),
+  const built = opts.filedRows ? null : buildStatementsFromCompanyFacts(facts, { symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0, 10), factsObservedAt: observedAt,
+    bankRevenue: opts.bankRevenue || opts.securitiesRevenue, annualPeriods: Math.max(12, income.value.data.rows.length + 2), quarterlyPeriods: Math.max(12, income.value.data.rows.length + 4),
     vendorSplits: { status: "unavailable", source: "income-classification", reason: "Income classification does not resolve per-share values" } });
-  const filed = scope === "annual" ? built.incomeAnnual.rows : built.incomeQuarterly.rows;
+  const filed = opts.filedRows ?? (scope === "annual" ? built!.incomeAnnual.rows : built!.incomeQuarterly.rows);
   const gaps: ManifestEntry[] = [];
   const allowed: Record<string, string[]> = {
     revenue: ["us-gaap/Revenues", "us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax", "us-gaap/SalesRevenueNet", "us-gaap/RevenueFromContractWithCustomerIncludingAssessedTax"],
@@ -57,12 +58,52 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       out = { ...out, [field]: null, fieldConflicts };
       gaps.push({ field: `statements.income.${row.date}.${field}`, reason, severity: "warn", attemptedSources: ["fmp:income-statement", "edgar:companyfacts"] });
     };
+    // A self-consistent provider loss is still contradicted when the exact
+    // filed interval reports a profit. Refuse the family together so aliases
+    // cannot restore it and a partial transplant cannot break its arithmetic.
+    const earnings = ["incomeBeforeTax", "incomeTaxExpense", "netIncome"] as const;
+    const sameScope = (a: StatementFieldProvenance, b: StatementFieldProvenance) =>
+      a.unit === b.unit && a.periodStart === b.periodStart && a.periodEnd === b.periodEnd &&
+      JSON.stringify(a.filings) === JSON.stringify(b.filings);
+    const conflict = earnings.find(field => {
+      const proof = evidenceFor(field);
+      if (!proof || !finite(row[field]) || !finite(sec[field]) || same(row[field], sec[field])) return false;
+      if (field !== "netIncome") return true;
+      // Parent, consolidated and common income are distinct valid scopes.
+      // Only independently filed, same-interval alternatives can bridge them.
+      return !["netIncomeConsolidated", "netIncomeAvailableToCommon"].some(alternative => {
+        const other = evidenceFor(alternative);
+        return other && sameScope(proof, other) && finite(sec[alternative]) && same(row[field], sec[alternative]);
+      });
+    });
+    if (conflict) {
+      const proof = evidenceFor(conflict)!;
+      const reason = `Filed earnings conflict for ${conflict}: vendor ${row[conflict]}, filed ${sec[conflict]} ${proof.unit}, ${proof.periodStart} through ${row.date}; pretax, tax and net-income family withheld together, including ownership/continuing aliases and dependent margins; vendor observations retained`;
+      for (const field of [...earnings, "bottomLineNetIncome", "netIncomeConsolidated", "netIncomeAvailableToCommon",
+        "netIncomeFromContinuingOperations", "netIncomeFromDiscontinuedOperations"]) {
+        if (finite(row[field])) refuse(field, finite(sec[field]) ? sec[field] : null, evidenceFor(field) ?? proof, reason);
+      }
+      out = { ...out, netIncomeRatio: null, netProfitMargin: null, incomeBeforeTaxRatio: null, effectiveTaxRate: null };
+    }
+    const netRevenue = evidenceFor("revenue");
+    if (opts.securitiesRevenue && netRevenue?.tags.includes("us-gaap/RevenuesNetOfInterestExpense") &&
+        finite(sec.revenue) && finite(row.revenue) && !same(row.revenue, sec.revenue) && row.fieldConflicts?.revenue?.usable !== false) {
+      const reason = `Securities-firm revenue reconciled from vendor ${row.revenue} gross of interest expense to directly filed net revenue ${sec.revenue} ${netRevenue.unit}, ${netRevenue.periodStart} through ${row.date}; incompatible gross-revenue costs, profit subtotals and margins withheld`;
+      out = { ...out, revenue: sec.revenue, fieldProvenance: { ...out.fieldProvenance, revenue: netRevenue } };
+      for (const field of ["costOfRevenue", "grossProfit", "operatingIncome", "operatingExpenses"]) {
+        if (finite(row[field])) refuse(field, null, netRevenue, reason);
+      }
+      out = { ...out, grossProfitRatio: null, grossProfitMargin: null, operatingIncomeRatio: null, netIncomeRatio: null };
+      gaps.push({ field: `statements.income.${row.date}.revenue`, reason, severity: "info", expected: true, attemptedSources: ["edgar:companyfacts/us-gaap/RevenuesNetOfInterestExpense", "fmp:income-statement"] });
+    }
+    if (opts.earningsOnly) return out;
     const canonicalCostEvidence = evidenceFor("costOfRevenue");
     // A canonical unknown cannot establish a refusal outside this row's source scope.
     if (sec.fieldConflicts?.grossProfit?.usable === false && canonicalCostEvidence && evidenceFor("revenue")) {
       refuse("grossProfit", null, canonicalCostEvidence, sec.fieldConflicts.grossProfit.reason);
     }
     for (const [field, tags] of Object.entries(allowed)) {
+      if (field === "revenue" && out !== row && out.fieldProvenance?.revenue === netRevenue && out.revenue === sec.revenue && opts.securitiesRevenue) continue;
       if (row.fieldConflicts?.[field]?.usable === false) { out = { ...out, [field]: null }; continue; }
       const proof = evidenceFor(field);
       if (!proof || (!proof.tags.some(tag => tags.includes(tag)) && !(field === "grossProfit" && proof.calculation === "revenue-minus-cost")) || !finite(sec[field]) || !finite(row[field])) continue;

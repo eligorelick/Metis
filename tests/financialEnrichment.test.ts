@@ -3,6 +3,9 @@ import { enrichFinancialFields } from "@/edgar/financialEnrichment";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
+import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
 const observedAt = "2026-10-13T12:00:00.000Z";
 const point = (val: number, extra: Record<string, unknown> = {}) => ({ end: "2026-06-30", val, accn: "0000000001-26-000002", filed: "2026-07-30", form: "10-Q", fy: 2026, fp: "Q2", ...extra });
@@ -15,6 +18,20 @@ function sourced<T extends FmpBalanceSheetRow | FmpCashFlowRow>(rows: T[]): Fetc
 const leases = () => facts({ OperatingLeaseLiability: [point(30)], FinanceLeaseLiability: [point(7)], FinanceLeasePrincipalPayments: [point(5, { start: "2026-01-01" }), point(2, { start: "2026-01-01", end: "2026-03-31", filed: "2026-04-30", accn: "0000000001-26-000001", fp: "Q1" })] });
 
 describe("SEC field enrichment of existing vendor statements", () => {
+  it("compares cash to the original same-filing observation despite a newer repeated balance", () => {
+    const f = facts({ CashAndCashEquivalentsAtCarryingValue: [point(3127e6), point(3127e6, { filed: "2026-09-01", accn: "0000000001-26-000003" })] });
+    const original = sourced([{ cik: "1", date: "2026-06-30", filingDate: "2026-07-30", reportedCurrency: "USD",
+      cashAndCashEquivalents: 3946e6, cashAndShortTermInvestments: 4000e6, netDebt: -3000e6 }]);
+    const out = enrichFinancialFields(original, sourced<FmpCashFlowRow>([]), f, "quarter", observedAt);
+    expect(out.balance.ok && out.balance.value.data.rows[0]).toMatchObject({ cashAndCashEquivalents: null,
+      cashAndShortTermInvestments: null, netDebt: null, fieldConflicts: { cashAndCashEquivalents: { secValue: 3127e6,
+        secEvidence: { filings: [{ filed: "2026-07-30" }] } } } });
+    const b = withIssuerFacts(completeCurrencyBundle({}), f);
+    b.builtAt = observedAt;
+    b.statements.balanceQuarterly = original;
+    expect(withCashFlowSbcBasis(b).statements.balanceQuarterly).toMatchObject({ ok: true,
+      value: { data: { rows: [{ cashAndCashEquivalents: null }] } } });
+  });
   it("fills lease slices in a partial vendor row and retains vendor row and raw evidence", () => {
     const balance = sourced([{ date: "2026-06-30", reportedCurrency: "USD", totalAssets: 500, totalDebt: 80 }]);
     const out = enrichFinancialFields(balance, sourced<FmpCashFlowRow>([]), leases(), "quarter", observedAt);

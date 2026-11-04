@@ -26,6 +26,29 @@ function admit(row: Partial<FmpIncomeStatementRow> = {}, source = facts()) {
   return { row: result.income.value.data.rows[0]!, result, original };
 }
 describe("same-definition income classification", () => {
+  it("withholds a contradicted earnings family even when the vendor loss adds up", () => {
+    const source = facts({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 1119,
+      IncomeTaxExpenseBenefit: 270, ProfitLoss: 849, NetIncomeLoss: 844, NetIncomeLossAttributableToNoncontrollingInterest: 5 });
+    const result = admit({ incomeBeforeTax: -2251, incomeTaxExpense: -540, netIncome: -1711,
+      bottomLineNetIncome: -1711, netIncomeFromContinuingOperations: -1711, netIncomeRatio: -0.2 }, source);
+    expect(result.row).toMatchObject({ incomeBeforeTax: null, incomeTaxExpense: null, netIncome: null,
+      bottomLineNetIncome: null, netIncomeFromContinuingOperations: null, netIncomeRatio: null });
+    expect(result.row.fieldConflicts?.netIncome).toMatchObject({ vendorValue: -1711, secValue: 844, usable: false });
+    expect(result.original.ok && result.original.value.data.rows[0]?.netIncome).toBe(-1711);
+    const b = withIssuerFacts(completeCurrencyBundle({}), source);
+    b.builtAt = at;
+    b.statements.incomeQuarterly = result.original;
+    const calculation = withIncomeOperatingBasis(b).statements.incomeQuarterly;
+    expect(calculation.ok && calculation.value.data.rows[0]?.netIncome).toBeNull();
+  });
+  it("keeps parent earnings when filed noncontrolling income bridges to consolidated profit", () => {
+    const source = facts({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 500,
+      IncomeTaxExpenseBenefit: 68, ProfitLoss: 432, NetIncomeLoss: 404, NetIncomeLossAttributableToNoncontrollingInterest: 28 });
+    delete source.facts["us-gaap"]!.NetIncomeLoss;
+    const result = admit({ incomeBeforeTax: 500, incomeTaxExpense: 68, netIncome: 404 }, source);
+    expect(result.row.netIncome).toBe(404);
+    expect(result.row.fieldConflicts?.netIncome).toBeUndefined();
+  });
   it("explains the original contract-scope refusal in an immutable frozen calculation view", () => {
     const f = facts();
     f.facts["us-gaap"]!.RevenueFromContractWithCustomerIncludingAssessedTax = f.facts["us-gaap"]!.Revenues;

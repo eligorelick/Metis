@@ -7,7 +7,7 @@ import { sectorIndustryForSic } from "@/edgar/sic";
 import { successorContinuity } from "@/edgar/successor";
 import { conceptFactsSchema, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { predecessorFactsFor } from "@/pipeline/stageB/debtLikeObligations";
-import { contractRevenueScopeRefusal } from "@/edgar/incomeClassification";
+import { contractRevenueScopeRefusal, enrichIncomeClassification } from "@/edgar/incomeClassification";
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 /** Continuity must be evidenced at the snapshot cutoff, like the amounts it admits. */
@@ -33,7 +33,7 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
   const acquired = bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : null;
   const filed = facts && acquired && Number.isFinite(Date.parse(acquired)) && Date.parse(acquired) <= Date.parse(bundle.builtAt)
     ? buildStatementsFromCompanyFacts(facts, { symbol: bundle.symbol, cik: String(facts.cik), asOf: bundle.builtAt.slice(0, 10), factsObservedAt: acquired,
-      annualPeriods: 40, quarterlyPeriods: 80, bankRevenue: sectorIndustryForSic(bundle.edgar.sic ?? null).industry?.toLowerCase().startsWith("banks") === true,
+      annualPeriods: 40, quarterlyPeriods: 80, bankRevenue: bundle.edgar.sic === "6211" || sectorIndustryForSic(bundle.edgar.sic ?? null).industry?.toLowerCase().startsWith("banks") === true,
       vendorSplits: { status: "unavailable", source: "operating-basis", reason: "Additive operating amounts only; no per-share inference" } }) : null;
   const gaps = [...(bundle.gaps ?? [])];
   const predecessor = bundle.edgar?.predecessor;
@@ -48,9 +48,16 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       asOf: bundle.builtAt.slice(0, 10), factsObservedAt: predecessor.fetchedAt, annualPeriods: 40, quarterlyPeriods: 0,
       vendorSplits: { status: "unavailable", source: "annual-nci-predecessor", reason: "Additive annual ownership key only; no per-share inference" } }).incomeAnnual.rows : [];
   const family = (name: "incomeAnnual" | "incomeQuarterly") => {
-    const input = bundle.statements[name];
+    let input = bundle.statements[name];
     if (!input.ok) return input;
     const candidates = name === "incomeAnnual" ? filed?.incomeAnnual.rows : filed?.incomeQuarterly.rows;
+    if (facts && candidates) {
+      const admission = enrichIncomeClassification(input, facts, name === "incomeAnnual" ? "annual" : "quarter", bundle.builtAt,
+        { earningsOnly: true, securitiesRevenue: bundle.edgar.sic === "6211", filedRows: candidates });
+      input = admission.income;
+      gaps.push(...admission.gaps);
+    }
+    if (!input.ok) return input;
     const rows = input.value.data.rows.map(row => {
       let out: FmpIncomeStatementRow = row;
       const sec = candidates?.find(r => r.date === row.date && r.reportedCurrency === row.reportedCurrency &&

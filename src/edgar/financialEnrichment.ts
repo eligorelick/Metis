@@ -62,8 +62,11 @@ function points(facts: CompanyFacts, tag: string, unit: string, observedAt: stri
 function resolved(value: number, tags: string[], ps: FactPoint[], unit: string, observedAt: string, periodStart: string | null, periodEnd: string): Resolved {
   return { value, evidence: { source: "edgar", unit, periodStart, periodEnd, observedAt, tags: tags.map((t) => `us-gaap/${t}`), filings: ps.map((p) => ({ accn: p.accn, filed: p.filed, form: p.form })) } };
 }
-function instant(facts: CompanyFacts, tag: string, unit: string, end: string, observedAt: string): Resolved | null {
-  const p = newest(points(facts, tag, unit, observedAt).filter((p) => p.end === end && p.start === undefined && p.val >= 0));
+function instant(facts: CompanyFacts, tag: string, unit: string, end: string, observedAt: string, filingDate?: string): Resolved | null {
+  const candidates = points(facts, tag, unit, observedAt).filter(p => p.end === end && p.start === undefined &&
+    (filingDate === undefined || p.filed === filingDate));
+  const p = filingDate === undefined ? newest(candidates.filter(p => p.val >= 0)) : unambiguousNewest(candidates);
+  if (p && p.val < 0) return null;
   return p ? resolved(p.val, [tag], [p], unit, observedAt, null, end) : null;
 }
 function liability(facts: CompanyFacts, prefix: "Operating" | "Finance", unit: string, end: string, observedAt: string): Resolved | null {
@@ -310,7 +313,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
   }
   for (const [field, tag, signed, sign] of specifications) {
     if (onlySbc && field !== "stockBasedCompensation") continue;
-    const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt)
+    const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt, validDay(row.filingDate) ? row.filingDate : undefined)
       : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
         ? cashAmounts[field] ?? (field === "netChangeInCash" ? matchingCashChange(facts, unit, row, scope, observedAt) : null)
         : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed, ctx) ??
@@ -357,6 +360,14 @@ export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts:
     (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
   return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "cashflow",
     { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() }, true);
+}
+
+/** Balance cash uses the vendor row's original filing, including at frozen replay boundaries. */
+export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  if (!validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") ||
+      (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
+  return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "balance",
+    { labels: [], withheld: new Set(), unverified: new Map() });
 }
 
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
