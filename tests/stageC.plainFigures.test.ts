@@ -5,6 +5,8 @@ import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
 import type { ContextPayload } from "@/pipeline/stageC/payload";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { ReportView } from "@/components/report/ReportView";
+import { GradeStripBar } from "@/components/report/sections";
+import { withPlainFigureNotes } from "@/report/presentation";
 import { reportToMarkdown, reportToAuditMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { ReportSchema } from "@/report/schema";
@@ -135,4 +137,15 @@ it("shows recorded field notes on live, Markdown, print and audit surfaces witho
   }
   expect(JSON.stringify(report)).toBe(before);
   expect(JSON.stringify(checked.verifiedReport)).toBe(verifiedBefore);
+});
+
+it("shows a flagged grade-strip explanation as visible text in both compact layouts", async () => {
+  const report = loadTask28Fixture();
+  report.verdict.gradeStrip.fundamentals = { ...report.verdict.gradeStrip.fundamentals, oneLineWhy: "Operating margin was 120.7%." };
+  const checked = await runVerifyPass({} as PassDeps, payload(), report);
+  const shown = withPlainFigureNotes(checked.verifiedReport);
+  for (const presentation of ["default", "dossier"] as const) {
+    const html = renderToStaticMarkup(createElement(GradeStripBar, { gradeStrip: shown.verdict.gradeStrip, compact: true, presentation }));
+    expect(html.replace(/<[^>]*>/g, "")).toContain("Not matched to a source: 120.7%.");
+  }
 });
