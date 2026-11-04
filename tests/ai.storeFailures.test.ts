@@ -144,10 +144,28 @@ describe("credential protection and lock failures", () => {
     system("win32");
     fake.protect.mockImplementation(() => { throw Object.assign(new Error("private diagnostic"), { code: "ETIMEDOUT" }); });
     await expect(withAiStore(() => {})).rejects.toThrow("Windows protection timed out");
+    // One slow start is retried; a second timeout is reported rather than retried again.
+    expect(fake.protect).toHaveBeenCalledTimes(2);
     expect(fs.existsSync(path.join(aiDirectory(), "connections.v1.json"))).toBe(false);
     expect(fs.existsSync(path.join(aiDirectory(), "connections.lock"))).toBe(true);
     fake.protect.mockImplementation((_exe, _args, options) => options.input);
     await expect(withAiStore(() => "retry")).resolves.toBe("retry");
+  });
+  it("retries a slow Windows start once and saves normally", async () => {
+    system("win32");
+    fake.protect.mockReset();
+    fake.protect.mockImplementationOnce(() => { throw Object.assign(new Error("private diagnostic"), { code: "ETIMEDOUT" }); });
+    fake.protect.mockImplementation((_exe, _args, options) => options.input);
+    await expect(withAiStore(() => "saved")).resolves.toBe("saved");
+    expect(fake.protect).toHaveBeenCalledTimes(2);
+    expect(fs.existsSync(path.join(aiDirectory(), "connections.v1.json"))).toBe(true);
+  });
+  it("does not retry a Windows protection failure that is not a timeout", async () => {
+    system("win32");
+    fake.protect.mockReset();
+    fake.protect.mockImplementation(() => { throw new Error("private diagnostic"); });
+    await expect(withAiStore(() => {})).rejects.toThrow("Unable to access Windows protected AI credentials");
+    expect(fake.protect).toHaveBeenCalledTimes(1);
   });
   it("times out behind a live writer instead of overwriting its lock", async () => {
     ensurePrivateDirectory(aiDirectory()); const lock = path.join(aiDirectory(), "connections.lock");

@@ -25,6 +25,7 @@ export default defineConfig({
     // Repository scans and payload builds legitimately take seconds under load.
     // A hung test costs 30 seconds; a false timeout costs a whole gate rerun.
     testTimeout: 30_000,
+    hookTimeout: 30_000,
     coverage: {
       provider: "v8",
       include: ["src/pipeline/stageB/**/*.ts", "src/report/schema.ts"],
