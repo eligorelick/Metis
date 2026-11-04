@@ -69,7 +69,8 @@ describe("DATA-103: classification rebuild vs SIC bank routing", () => {
     const input: FetchResult<FmpPayload<FmpIncomeStatementRow>> = { ok: true, value: { data: { rows, raw: rows }, asOf: "2026-03-31", source: "fmp", endpoint: "fixture", fetchedAt: at } };
     const out = enrichIncomeClassification(input, bankFacts(), "quarter", at, { bankRevenue });
     expect(out.income.ok && out.income.value.data.rows[0]!.revenue).toBeNull();
-    expect(out.gaps.some(g => g.reason.includes(`filed ${bankRevenue ? 5_000e6 : 700e6}`))).toBe(true);
+    expect(out.gaps.some(g => bankRevenue ? g.reason.includes(`filed ${5_000e6}`)
+      : g.reason.includes(`contract-revenue fact ${700e6}`) && g.reason.includes("not established as consolidated"))).toBe(true);
   });
 
 });

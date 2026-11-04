@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { identicalClassRights } from "@/edgar/economicShares";
 import type { DataBundle } from "@/pipeline/types";
 import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
+import { quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
 
 const labelPattern = "(?:Class [A-Z0-9]{1,8}|[A-Z][A-Z-]{0,30}) common stock";
 const labels = (text: string): string[] => [...text.matchAll(new RegExp(`\\b(${labelPattern})\\b`, "gi"))].map(m => m[1]!.toLowerCase());
@@ -22,7 +23,15 @@ const dated = (text: string): string | null => {
  */
 export function retainedClassEconomicEvidence(bundle: DataBundle): EconomicShareEvidence[] {
   const original = retainedStatementEconomicEvidence(bundle);
-  return original.length ? original : retainedEqualCoverEvidence(bundle);
+  const quoteDay = quotePriceObservationDay(bundle.quote.ok ? bundle.quote.value.data.rows[0] : undefined);
+  // A newer filing expires the earlier inventory. Its mere presence must not
+  // prevent the independently proved interim-cover path from being evaluated.
+  // Unknown/active evidence retains first choice and its existing refusals.
+  const allExpired = quoteDay !== null && original.length > 0 && original.every(e =>
+    e.effectiveTo !== null && validDay(e.effectiveTo) && e.effectiveTo <= quoteDay);
+  if (original.length && !allExpired) return original;
+  const current = retainedEqualCoverEvidence(bundle);
+  return current.length ? current : original;
 }
 
 function retainedStatementEconomicEvidence(bundle: DataBundle): EconomicShareEvidence[] {

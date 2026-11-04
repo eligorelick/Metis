@@ -1,4 +1,5 @@
 import {quoteFromMetaResult} from "@/providers/yahoo";
+import { contractRevenueScopeRefusal } from "@/edgar/incomeClassification";
 /**
  * Keyless fallback orchestration — fills the bundle members FMP could not
  * serve from the public sources (SEC EDGAR + Yahoo) that need no API key.
@@ -1623,7 +1624,8 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
           }
           if (!reconciles(sec) || member === "incomeQuarterly" && proof.filings.length !== 1 && !canonicalDerived) {
             if (member === "incomeAnnual") return row;
-            const reason = `Vendor quarterly revenue ${row.revenue} conflicts with filed-operand revenue ${sec.revenue} ${proof.unit} at ${row.date}; a reconciled whole income row from one filing is unavailable. Revenue and dependent gross-margin fields withheld; vendor observations retained.`;
+            const reason = contractRevenueScopeRefusal(proof, row.revenue as number, sec.revenue as number) ??
+              `Vendor quarterly revenue ${row.revenue} conflicts with filed-operand revenue ${sec.revenue} ${proof.unit} at ${row.date}; a reconciled whole income row from one filing is unavailable. Revenue and dependent gross-margin fields withheld; vendor observations retained.`;
             gaps.push({ field: `statements.income.${row.date}.revenue`, reason, severity: "warn" });
             return { ...row, revenue: null, grossProfit: null, grossProfitRatio: null, grossProfitMargin: null,
               fieldConflicts: { ...row.fieldConflicts, revenue: { usable: false as const, vendorValue: row.revenue as number, secValue: sec.revenue as number, secEvidence: proof, reason } } };

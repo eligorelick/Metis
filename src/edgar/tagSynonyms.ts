@@ -630,6 +630,12 @@ export function floorsFor(item: LineItem): string[] {
 
 // P2: admitted operating one-offs; total wins over components.
 export const UNUSUAL_OPERATING_GAIN_TAGS = ["InsuredEventGainLoss"] as const;
+/** Candidates only: neither these tags nor their sign establish operating placement or nonrecurrence. */
+export const DISPOSITION_GAIN_CANDIDATE_TAGS = [
+  "GainLossOnDispositionOfAssets", "GainLossOnDispositionOfAssets1", "GainLossOnSaleOfBusiness",
+  "GainLossOnSaleOfOtherAssets", "GainLossOnDispositionOfIntangibleAssets",
+  "GainLossOnSalesOfAssetsAndAssetImpairmentCharges",
+] as const;
 export const UNUSUAL_OPERATING_CHARGE_TOTAL_TAG = "AssetImpairmentCharges";
 export const UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS = [
   "GoodwillImpairmentLoss",

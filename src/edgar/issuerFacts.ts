@@ -1,6 +1,7 @@
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { EdgarBundle } from "@/pipeline/types";
 import type { FetchResult } from "@/types/core";
+import { sameEntitySymbol } from "@/symbol";
 
 export type IssuerFactsInput = Pick<EdgarBundle, "companyFacts"> & Partial<Pick<EdgarBundle, "cik" | "registrant">>;
 
@@ -19,10 +20,10 @@ export function confirmedIssuerFacts(symbol: string, edgar: IssuerFactsInput | u
       cik(facts.cik) !== mappedCik || facts.facts === null || typeof facts.facts !== "object") return null;
   const requested = symbol.trim().toUpperCase();
   if (requested === "") return null;
-  const secMapping = edgar.cik.value.source === "edgar" && mapping.ticker.trim().toUpperCase() === requested;
+  const secMapping = edgar.cik.value.source === "edgar" && sameEntitySymbol(requested, mapping.ticker);
   const registrant = edgar.registrant;
   const secRegistrant = registrant != null && cik(registrant.cik10) === mappedCik &&
-    registrant.tickers.some((ticker) => ticker.trim().toUpperCase() === requested);
+    registrant.tickers.some((ticker) => sameEntitySymbol(requested, ticker));
   return secMapping || secRegistrant ? facts : null;
 }
 
