@@ -20,6 +20,18 @@ describe('closed annual notes recognition', () => {
 });
 function fixture(namespace = '', firstNote = false) { const p = (n: number) => `${namespace}${n}`; return `<html><body><ix:header><link:schemaRef href="schema.xsd"/></ix:header><h2>Index to Financial Statements</h2><table><tr><td>Consolidated Balance Sheets</td><td><a href="#balance">${p(2)}</a></td></tr><tr><td>Notes to Consolidated Financial Statements</td><td>${firstNote ? '' : '<a href="#notes">' + p(3) + '</a>'}</td></tr>${firstNote ? `<tr><td>Note 1 - Basis of Presentation</td><td><a href="#notes">${p(3)}</a></td></tr>` : ''}</table><p>${p(1)}</p><div id="balance"></div><hr style="page-break-after:always"/><h2>Consolidated Balance Sheets</h2><p>Balance sheet.</p><p>${p(2)}</p><div id="notes"></div><hr style="page-break-after:always"/><h2>Notes to Consolidated Financial Statements</h2><p>Note 1 - Basis of Presentation</p><p>${prose}</p><p>${p(3)}</p></body></html>`; }
 describe('printed-page financial index', () => {
+    it.each([true, false])('keeps later notes after a printed-index Item 15 continuation (enclosing item known: %s)', known => {
+        const html = fixture('F-').replace('<h2>Index to Financial Statements</h2>', `${known ? '<h2>Item 15. Exhibits and Financial Statement Schedules</h2>' : ''}<h2>Index to Financial Statements</h2>`)
+            .replace('<p>F-3</p>', `<h2>Item 15. Exhibits and Financial Statement Schedules (continued)</h2><h3>Note 12 - Debt</h3><p>LATER_NOTE_SENTINEL ${prose}</p><p>F-3</p>`);
+        expect(extractAnnualNotesFromIndex(html)?.text).toContain('LATER_NOTE_SENTINEL');
+    });
+    it('still ends a printed-index Item 15 notes body at a real later Item 16', () => {
+        const html = fixture('F-').replace('<h2>Index to Financial Statements</h2>', '<h2>Item 15. Exhibits and Financial Statement Schedules</h2><h2>Index to Financial Statements</h2>')
+            .replace('<p>F-3</p>', '<h2>Item 16. Form 10-K Summary</h2><p>LATER_ITEM_OUTSIDE</p><p>F-3</p>');
+        const result = extractAnnualNotesFromIndex(html);
+        expect(result?.text).toContain(prose.trim());
+        expect(result?.text).not.toContain('LATER_ITEM_OUTSIDE');
+    });
     it('refuses an unlinked later numbered note row instead of silently dropping its proof', () => {
         const html = fixture('', true).replace('</table>', '<tr><td>Note 2 - Debt</td><td>3</td></tr></table>');
         expect(extractAnnualNotesFromIndex(html)).toBeNull();

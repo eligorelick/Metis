@@ -201,6 +201,42 @@ function foreignAppendix(first = "(IN.1) Basis for Preparation") {
 }
 
 describe("proved same-primary foreign notes", () => {
+  it("ends a printed-page foreign notes appendix at an actual later Item 19", () => {
+    const html = foreignAppendix().replace("<h2>ITEM 18. FINANCIAL STATEMENTS</h2>", "<h2>Financial Statements Index</h2>")
+      .replace("<p>F-3</p>", "<h2>Item 19. Exhibits</h2><p>EXHIBITS_OUTSIDE</p><p>F-3</p>");
+    const result = extractForeignAnnualNotes(html);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.text).toContain("Note 2 - Debt");
+      expect(result.text).not.toContain("EXHIBITS_OUTSIDE");
+    }
+  });
+
+  it.each(["item", "appendix"] as const)("applies original source-heading stops to the foreign %s route", route => {
+    for (const heading of ["Supplemental Financial Information", "Glossary of Common Terms and Acronyms", "Management's Assessment of Internal Control Over Financial Reporting"]) {
+      const outside = `<h2>${heading}</h2><p>OUTSIDE_NOTES ${prose}</p>`;
+      const html = route === "appendix" ? foreignAppendix().replace("<p>F-3</p>", `${outside}<p>F-3</p>`) :
+        `<html><body><h2>Item 18 Financial Statements</h2><h2>Notes to Consolidated Financial Statements</h2><h3>1. General</h3><p>${prose}</p><h3>Note 2 - Debt</h3><p>${prose}</p>${outside}<h2>Item 19 Exhibits</h2><p>EXHIBITS_OUTSIDE</p></body></html>`;
+      const result = extractForeignAnnualNotes(html);
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.text).toContain("Note 2 - Debt");
+        expect(result.text).not.toMatch(/OUTSIDE_NOTES|EXHIBITS_OUTSIDE/);
+      }
+    }
+  });
+
+  it("keeps a repeated current Item 18 header and a genuine supplemental subsection before a later note", () => {
+    const html = `<html><body><h2>Item 18 Financial Statements</h2><h2>Notes to Consolidated Financial Statements</h2><h3>1. General</h3><p>${prose}</p><h2>Item 18. Financial Statements (continued)</h2><h3>Supplemental Financial Information</h3><p>INSIDE_NOTES</p><h3>Note 2 - Debt</h3><p>${prose}</p><h2>Item 19 Exhibits</h2><p>EXHIBITS_OUTSIDE</p></body></html>`;
+    const result = extractForeignAnnualNotes(html);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.text).toContain("INSIDE_NOTES");
+      expect(result.text).toContain("Note 2 - Debt");
+      expect(result.text).not.toContain("EXHIBITS_OUTSIDE");
+    }
+  });
+
   it.each(["(IN.1) Basis for Preparation", "1 . GENERAL"])("reads %s from a proved financial appendix", first => {
     const result = extractForeignAnnualNotes(foreignAppendix(first));
     expect(result.ok).toBe(true);

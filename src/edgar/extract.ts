@@ -1515,7 +1515,7 @@ export function financialStatementsAndNotes(itemText: string, source?: ParsedDoc
 /** A source heading closes notes; the same words inside a note never do.
  * Match the preceding source context as well as the caption, preserving the
  * caller's exact text offsets instead of substituting another flattening. */
-function sourceNotesBoundary(notes: { text: string; start: number }, source?: ParsedDocument, currentItem = 1): { text: string; start: number } {
+function sourceNotesBoundary(notes: { text: string; start: number }, source?: ParsedDocument, currentItem: number | null = 1): { text: string; start: number } {
   if (!source) return notes;
   let structure = annualRecoveryStructures.get(source);
   if (structure === undefined) {
@@ -1574,9 +1574,11 @@ function sourceNotesBoundary(notes: { text: string; start: number }, source?: Pa
     if (caption.length > 220 || inLink(node) || /<a\b[^>]*href\s*=/i.test(source.pre.slice(node.start, node.end))) continue;
     const named = /^(?:Glossary(?: of (?:Common )?Terms(?: and Acronyms)?)?|Acronyms|(?:Supplemental|Supplementary) Financial Information|Management[’']s (?:Reports?|Assessment of Internal Control Over Financial Reporting|Responsibility for (?:the )?(?:Consolidated )?Financial Statements)|Report of Management|Unregistered Sales of Equity Securities(?:, Repurchases of Equity Securities and Dividends)?)$/i.test(caption);
     const itemNumber = /^Item\s+(\d{1,2})(?:\s*\.?\s*[A-D])?\s*[.:]?\s+/i.exec(caption);
-    const item = itemNumber !== null && Number(itemNumber[1]) > currentItem &&
+    const item = currentItem !== null && itemNumber !== null && Number(itemNumber[1]) > currentItem &&
       !/\b(?:above|below|provides?|describes?|discusses?|included|includes?|appears?|refers?|in this|of this)\b/i.test(caption) &&
-      [...TENK_SEQUENCE, ...TENQ_P1_SEQUENCE, ...TENQ_P2_SEQUENCE].some(def => findHeaderCandidates(caption, def, 0, caption.length, true).some(c => c.index === 0));
+      [...TENK_SEQUENCE, ...TENQ_P1_SEQUENCE, ...TENQ_P2_SEQUENCE,
+        ...(currentItem === 18 ? [{ id: "19", title: /Exhibits/i }] : [])]
+        .some(def => findHeaderCandidates(caption, def, 0, caption.length, true).some(c => c.index === 0));
     if (!named && (!item || inTable(node))) continue;
     const boundary = position(node, caption);
     // An unnumbered caption may be a subsection of a note. A later proved,
@@ -1655,6 +1657,8 @@ function recognizeAnnualNotes(text: string): { text: string; start: number } | n
 export interface AnnualNotesRedirectEvidence {
   coordinateSystem: "original-html-characters";
   index: { start: number; end: number };
+  /** Logical item proved around the financial index, not a running page header. */
+  enclosingItem?: "8" | "15";
   notes: { target: string; page: { namespace: "F" | ""; number: number }; start: number };
   schedule?: { target: string; page: { namespace: "S"; number: number }; start: number };
   boundary?: { start: number; kind: "heading" | "document-end"; lastPage: number };
@@ -2339,7 +2343,8 @@ export function extractAnnualNotesFromIndex(html: string, source?: ParsedDocumen
   if (notes === null) return null;
   // Index routes have already proved appendix headings in original markup;
   // flattened full-title prose must not replace that stronger boundary proof.
-  const bounded = sourceNotesBoundary(boundFinancialNotes({ text: notes.text, start: 0 }, false), source ?? parseDocument(html), 8);
+  const currentItem = notes.evidence.enclosingItem ? Number(notes.evidence.enclosingItem) : null;
+  const bounded = sourceNotesBoundary(boundFinancialNotes({ text: notes.text, start: 0 }, false), source ?? parseDocument(html), currentItem);
   return bounded.text === notes.text ? notes : { ...notes, text: bounded.text };
 }
 
@@ -2351,7 +2356,13 @@ export type ForeignAnnualNotesResult =
 export function extractForeignAnnualNotes(html: string): ForeignAnnualNotesResult {
   const structure = appendixStructure(html, true);
   const notes = extractProvedForeignNotes(html, structure);
-  if (notes.ok || !structure) return notes;
+  if (notes.ok) {
+    // Both the closed Item 18 and printed-page appendix routes have the same
+    // original-markup end stops as domestic notes. Item 18 page furniture stays.
+    const bounded = sourceNotesBoundary({ text: notes.text, start: 0 }, parseDocument(html), 18);
+    return bounded.text === notes.text ? notes : { ...notes, text: bounded.text };
+  }
+  if (!structure) return notes;
   const blocks = structure.elements.filter(n => !n.hidden && (!n.blockChild || n.tag === "tr") && /^(?:p|div|h[1-6]|td|tr)$/.test(n.tag));
   const unlinked = (n: AppendixElement) => {
     if (/<a\b[^>]*href\s*=/i.test(html.slice(n.start, n.end))) return false;
@@ -2473,11 +2484,13 @@ function extractAnnualAppendixNotes(html: string): ReturnType<typeof extractAnnu
     for (let p = node.parent; p; p = p.parent) if (p.tag === tag) return p;
   };
   const headings = elements.filter(n => !n.hidden && !n.blockChild && /^(?:h[1-6]|p|div)$/.test(n.tag) && !ancestor(n, "a") && !ancestor(n, "table"));
-  const item15 = headings.filter(n => /^Item\s+15\.?\s+Exhibits\s*(?:,|and)\s*(?:and\s+)?Financial Statement Schedules\.?$/i.test(nodeText(n)));
+  const finish = headings.find(n => /^Item\s+16\.?\s+Form\s+10-K\s+Summary\.?$/i.test(nodeText(n)));
+  if (!finish) return null;
+  // Only the Item 15 enclosing the index precedes Item 16. Repeated Item 15
+  // captions in the later financial appendix are page furniture.
+  const item15 = headings.filter(n => n.end < finish.start && /^Item\s+15\.?\s+Exhibits\s*(?:,|and)\s*(?:and\s+)?Financial Statement Schedules\.?$/i.test(nodeText(n)));
   if (item15.length !== 1) return null;
   const begin = item15[0]!;
-  const finish = headings.find(n => n.start > begin.end && /^Item\s+16\.?\s+Form\s+10-K\s+Summary\.?$/i.test(nodeText(n)));
-  if (!finish) return null;
   const role = (title: string): "notes" | "schedule" | "statements" | null => {
     if (/^Notes to (?:the )?(?:Condensed )?(?:Consolidated )?Financial (?:Statements|Information)$/i.test(title)) return "notes";
     if (/^Schedule II(?:\s*[-–—:]\s*Valuation and Qualifying Accounts)?$/i.test(title)) return "schedule";
@@ -2545,10 +2558,10 @@ function extractAnnualAppendixNotes(html: string): ReturnType<typeof extractAnnu
   // A linked schedule cannot authorize swallowing other appendices/signatures.
   // Exact standalone titles only: a paragraph beginning with a full title and
   // continuing "provides ..." is a reference, not another appendix boundary.
-  const excludedHeading = /^(?:SIGNATURES|EXHIBIT INDEX|Item\s+16\.?\s+Form\s+10-K\s+Summary|Item\s+15\.?\s+Exhibits\s*(?:,|and)\s*(?:and\s+)?Financial Statement Schedules|Schedule\s+[IVX]+(?:(?:\s*[-–—:]\s*|\s+)Valuation and Qualifying Accounts)?)\.?$/i;
+  const excludedHeading = /^(?:SIGNATURES|EXHIBIT INDEX|Item\s+16\.?\s+Form\s+10-K\s+Summary|Schedule\s+[IVX]+(?:(?:\s*[-–—:]\s*|\s+)Valuation and Qualifying Accounts)?)\.?$/i;
   if (headings.some(n => n.start > start.heading.end && n.start < end.target.start && excludedHeading.test(nodeText(n)))) return null;
   const evidence: AnnualNotesRedirectEvidence = {
-    coordinateSystem: "original-html-characters", index: { start: notes.table.start, end: notes.table.end },
+    coordinateSystem: "original-html-characters", index: { start: notes.table.start, end: notes.table.end }, enclosingItem: "15",
     notes: { target: notes.target, page: { namespace: "F", number: notes.number }, start: start.heading.start },
     schedule: { target: schedule.target, page: { namespace: "S", number: schedule.number }, start: end.target.start },
   };
@@ -2614,6 +2627,9 @@ function extractPrintedIndexNotes(html: string): ReturnType<typeof extractAnnual
     if (!rows.some(r => (cellsByRow.get(r) ?? []).some(n => isNotes(nt(n))))) continue;
     // Require a financial-statement index, rather than a contents-only notes row.
     if (!/balance\s*sheets?/i.test(nt(table))) continue;
+    const enclosing = blocks.filter(n => n.end < table.start && !ancestor(n, "table") && !/<a\b[^>]*href/i.test(html.slice(n.start, n.end)) &&
+      /^Item\s+(?:8\.?\s+Financial Statements(?: and Supplementary Data)?|15\.?\s+Exhibits\s*(?:,|and)\s*(?:and\s+)?Financial Statement Schedules)\.?$/i.test(nt(n))).at(-1);
+    const enclosingItem = enclosing ? /^Item\s+15\b/i.test(nt(enclosing)) ? "15" : "8" : undefined;
     type Mapping = { title: string; dest: AppendixElement; page: Page };
     const mappings: Mapping[] = [];
     const groups: AppendixElement[] = [];
@@ -2654,8 +2670,12 @@ function extractPrintedIndexNotes(html: string): ReturnType<typeof extractAnnual
       !ancestor(n, "table") && !/<a\b[^>]*href/i.test(html.slice(n.start, n.end)));
     if (heads.length !== 1) continue;
     const head = heads[0]!;
-    const boundary = blocks.find(n => n.start > head.end && !ancestor(n, "table") &&
-      /^(?:INDEX OF EXHIBITS|EXHIBIT INDEX|SIGNATURES|REPORT OF INDEPENDENT REGIST\s*ERED PUBLIC ACCOUNTING FIRM|Item\s+(?:7A|9|15|16)\..*|Schedule II(?:\s*[-–—:]?\s*Valuation and Qualifying Accounts)?)$/i.test(nt(n)));
+    const boundary = blocks.find(n => {
+      if (n.start <= head.end || ancestor(n, "table")) return false;
+      const title = nt(n), item = /^Item\s+(\d+)[A-Z]?\./i.exec(title);
+      if (item && ((enclosingItem && Number(item[1]) <= Number(enclosingItem)) || /\(continued\)\.?$/i.test(title))) return false;
+      return /^(?:INDEX OF EXHIBITS|EXHIBIT INDEX|SIGNATURES|REPORT OF INDEPENDENT REGIST\s*ERED PUBLIC ACCOUNTING FIRM|Item\s+(?:7A|9|15|16)\..*|Schedule II(?:\s*[-–—:]?\s*Valuation and Qualifying Accounts)?)$/i.test(title);
+    });
     // A heading that opens its own page need not continue the notes' numbering,
     // but nothing may stand between the last proved notes page and that heading.
     const boundaryPage = boundary ? pages.find(p => boundary.start >= p.start && boundary.start < p.end) : undefined;
@@ -2674,6 +2694,7 @@ function extractPrintedIndexNotes(html: string): ReturnType<typeof extractAnnual
     if (!accepted || accepted.start !== 0 || detectStub(body).isStub) continue;
     return { text: body, method: "annual-notes-index-redirect", evidence: {
       coordinateSystem: "original-html-characters", index: { start: table.start, end: table.end },
+      ...(enclosingItem ? { enclosingItem } : {}),
       notes: { target: opening.dest.attrs.get("id") ?? opening.dest.attrs.get("name")!, page: { namespace: opening.page.namespace, number: opening.page.number }, start: head.start },
       boundary: { start: end, kind: boundary ? "heading" : "document-end", lastPage: endPage.number },
     } };
