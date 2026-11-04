@@ -42,6 +42,8 @@ describe.each([[false, "classic"], [true, "redesign"]])("Home AI route (redesign
   it("shows the route reports run on, with a Settings link, not the env default as the analysis model", async () => {
     h.redesign = redesign;
     const html = await renderAsync(await Home());
+    expect(html).toContain('href="/report/sample"');
+    expect(html).toContain("View sample report");
     expect(html).toContain("Reports run on");
     expect(html).toContain("ChatGPT plan · gpt-6.1-sol · max effort");
     expect(html).not.toContain("analysis model (env default)");

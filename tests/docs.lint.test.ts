@@ -276,3 +276,14 @@ describe("the research citations in the source", () => {
     expect(text).toContain("4.697");
   });
 });
+
+
+it("keeps the environment's Sonnet reservation examples tied to policy", () => {
+  const env = readFileSync(path.join(ROOT, ".env.example"), "utf8");
+  const money = (value: number) => value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const analyst = money(passWorstCaseCostUsd("claude-sonnet-5-5", "bull"));
+  const largest = money(passWorstCaseCostUsd("claude-sonnet-5-5", "synthesize"));
+  expect(env).toContain(`$${analyst} for a Sonnet 5.5 analyst pass`);
+  expect(env).toContain(`$${largest} for its larger synthesis pass`);
+  expect(env).not.toContain("$948.96");
+});

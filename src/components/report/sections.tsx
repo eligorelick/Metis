@@ -418,7 +418,7 @@ export function CompositeScorecard({ scores, mode = "default" }: { scores: Scori
     <div className={`${mode === "cover" ? "dossier-scorecard" : ""} border border-edge-strong bg-panel`}>
       <div className="flex items-center justify-between gap-2 border-b border-edge px-3 py-1.5">
         <SectionHeading>{mode === "cover" ? "Deterministic scorecard" : "composite scorecard"}</SectionHeading>
-        {mode !== "cover" && <span className="mono text-[9px] text-faint">bands {scores.bandsVersion}</span>}
+        {mode !== "cover" && <span className="mono text-[9px] text-faint">House scoring bands</span>}
       </div>
       {mode === "cover" && <p className="scorecard-scale">All aspect bars: 0–100; center marker 50. Limited evidence withholds the headline band.</p>}
       <div className="scorecard-summary flex flex-col gap-3 px-3 py-3 lg:flex-row lg:items-center">
@@ -2244,10 +2244,10 @@ export function AppendixSection({
         />
       </SubBlock>
 
-      <p className="text-[11px] text-muted">
+      {auditPath && <p className="text-[11px] text-muted">
         The verification log, deterministic checks, full missing-data manifest, score drivers with registry ids, projection series, evidence timing, as-of map and pass-by-pass execution record are in the separate audit export
-        {auditPath ? <> (<a className="text-accent hover:underline" href={auditPath}>download the audit trail</a>)</> : null}.
-      </p>
+        (<a className="text-accent hover:underline" href={auditPath}>download the audit trail</a>).
+      </p>}
     </SectionFrame>
   );
 }

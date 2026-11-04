@@ -3,9 +3,9 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.63.0 / payload 1.72.0, Stage B `STAGE_B_2026_11_EXCESS_RETURN_SCENARIOS_47` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.63.0 / payload 1.73.0, Stage B `STAGE_B_2026_11_PLAIN_READER_WORDING_48` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
-## Saved-report scope qualifications (D-138)
+## Saved-report scope qualifications
 
 Reports before the frozen 1.53.0 convention display a separate read-time
 clarification section before the affected body in classic, dossier, Markdown,
@@ -31,9 +31,9 @@ scope, dates or operands. Earlier 1.50/1.51/1.52 safety conventions retain their
 order and cutoffs, including bridge EXCLUDES evidence. Repeated parser/reader
 composition is immutable and idempotent. Audit distinguishes recorded model
 labels from the shared saved-execution summary; its existing omission of
-historical fair-value basis prose remains unchanged. The [report-53 disposition](audit/2026-10-30-qcom-report-53-integrity.md)
+historical fair-value basis prose remains unchanged. The [saved-report audit record](audit/2026-10-30-qcom-report-53-integrity.md)
 records implemented source changes, all evidence limits and separate release
-acceptance work. No original report-53 snapshot replay is claimed.
+acceptance work. No original snapshot replay is claimed.
 
 Company analysis requires established security classification: an explicit equity
 type, or both provider fund flags explicitly false when no explicit type is given.
@@ -59,7 +59,7 @@ current approximate AFFO may remain visible without a historical percentile.
 These are implementation safeguards, not issuer-specific model validation. See
 the [cross-company audit and bounded fixes](audit/2026-10-19-company-eligibility-affo.md).
 
-D-90 compares direct and derived quarter durations using the actual emitted
+Quarter-duration validation compares direct and derived quarter durations using the actual emitted
 start/end interval. Exact-source cash/repurchase and income-classification
 refusals survive payout history, liquidity fallbacks, buyback coverage and
 forensic margins. A refused year is not zero payout; retained buyback dollars
@@ -74,9 +74,9 @@ therefore advance its implementation stamp. Saved reports remain immutable.
 See the [phase-one evidence record](audit/2026-10-19-phase-one-evidence-completion.md)
 for source intervals, negative controls and unresolved original vendor evidence.
 
-D-91 applies these rules in the canonical EDGAR constructor as well as vendor admission. Partial service-cost tags cannot create a full gross-profit subtotal; compatible full operands or a directly filed subtotal are required. A newly propagated canonical refusal requires source evidence compatible with the vendor row's currency, explicit interval and filing; existing refusals remain preserved. Explicit refusals survive serialized rows, mixed backfill and immutable disclosure reads, including alternate CFO aliases and dependent standardized FCF. Unicode datelines retain hyphen, en dash and em dash. Historical report bytes and prior method identities remain distinct.
+These rules apply in both the canonical EDGAR constructor and vendor admission. Partial service-cost tags cannot create a full gross-profit subtotal; compatible full operands or a directly filed subtotal are required. A newly propagated canonical refusal requires source evidence compatible with the vendor row's currency, explicit interval and filing; existing refusals remain preserved. Explicit refusals survive serialized rows, mixed backfill and immutable disclosure reads, including alternate CFO aliases and dependent standardized FCF. Unicode datelines retain hyphen, en dash and em dash. Historical report bytes and prior method identities remain distinct.
 
-The evidence follow-up (D-56) carries source-established instant/duration
+The evidence follow-up carries source-established instant/duration
 boundaries independently from as-of dates. Missing context keeps the legacy
 matching contract; contradictory supplied contexts fail closed. Explicit
 source metadata stays outside model-authored request fields. Assembled reported
@@ -112,7 +112,7 @@ timestamp together while retaining every input timestamp and calculation basis.
 Recovery preserves the original persisted generation time rather than dating
 old evidence as a fresh generation. Legacy timing omissions remain omissions.
 
-Consensus estimate dates have separate roles (D-138 Task 11). FMP row `date`
+Consensus estimate dates have separate roles. FMP row `date`
 remains the forecast fiscal-period end. The estimate producer records whether
 its compatible envelope `asOf` selected a fiscal end or used its fallback day;
 these dates do not establish publication/update vintage. The exact retained
@@ -3688,8 +3688,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_EXCESS_RETURN_SCENARIOS_47 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_EXCESS_RETURN_SCENARIOS_47. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_PLAIN_READER_WORDING_48 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_PLAIN_READER_WORDING_48. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 

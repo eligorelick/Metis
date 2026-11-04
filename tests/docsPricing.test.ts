@@ -85,7 +85,7 @@ describe("generated pricing block", () => {
     expect(block).toContain("| Claude Fable 5.1 | $197.18 | $39.60 | $7,268.58 | $3.20 → $6.40 |");
     // 64K at $10/MTok, and no arrow: the step does not exist on this model.
     expect(block).toContain("| Claude Haiku 4.5 | $2.90 | $5.28 | $107.82 | $0.32 |");
-    expect(block).toContain("does NOT scale with effort");
+    expect(block).toContain("does not scale with effort");
   });
 
   it("prices the fixture run shape from the registry, cache reads included", async () => {

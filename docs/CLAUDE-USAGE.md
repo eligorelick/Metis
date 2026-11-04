@@ -179,11 +179,12 @@ maximum request setting, not an expected report length or cost. Truncated,
 refused, repeatedly paused or incomplete responses are not accepted as complete
 research output.
 
-Claude requests mark a shared evidence prefix for five-minute caching. Cache
+Analyst requests mark a shared evidence prefix for five-minute caching; synthesis
+requests use a one-hour cache breakpoint. Cache
 eligibility and hits are provider decisions, and differing request schemas can
 invalidate reuse. Recorded cache read/write tokens determine charges using
 each model's own registry rates; there is no universal cache-price ratio.
-The adapter does not request one-hour caching, Batch, Claude Fast mode or a
+The adapter does not request Batch, Claude Fast mode or a
 region-specific pricing tier. Anthropic offers fast mode (`speed: "fast"`) on
 Opus 5.5 at premium rates ($8/$40 per MTok against Opus 5.5's standard
 rates); Metis does not request it, so every Claude cost and cap in this guide

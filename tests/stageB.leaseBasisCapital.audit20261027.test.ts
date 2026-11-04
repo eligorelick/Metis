@@ -287,7 +287,7 @@ describe("lease-emptied capital (Review Focus 13)", () => {
     const basis = buildDcfAssumptions({ ...base, incomeHistory: income, balance: emptied({ longTermInvestments: 30e6 }), capitalHistory }).assumptions!.salesToCapital.basis;
     expect(basis).not.toMatch(/^TTM sales-to-capital/);
     expect(basis).toMatch(/median of the issuer's own filed fiscal-year ratios on the lease-excluded basis/);
-    expect(basis).toMatch(/long-term investments .* are non-operating, house rule D-60, and the equity bridge adds them back/);
+    expect(basis).toMatch(/long-term investments .* are treated as non-operating assets, and the equity bridge adds them back/);
   });
 
   it("a capital that is non-positive even lease-inclusive keeps main's gap text (fix round 1, M7 iii)", () => {

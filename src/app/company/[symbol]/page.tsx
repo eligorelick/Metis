@@ -29,6 +29,7 @@ import {
 } from "@/components/ui";
 import type { ManifestEntry, Sourced } from "@/types/core";
 
+import { isReservedFixtureSymbol } from "@/providers/reservedSymbols";
 import { buildDataBundle } from "@/pipeline/dataBundle";
 import { createCompanyLoadCoordinator } from "@/pipeline/companyLoad";
 import type { DataBundle } from "@/pipeline/types";
@@ -936,6 +937,12 @@ export default async function CompanyPage({ params, searchParams }: {
   const symbol = normalizeRouteSymbol(routeSymbol);
   if (symbol === null) notFound();
   const liveRequested = (await searchParams)?.view === "live";
+  const fictionalBanner = isReservedFixtureSymbol(symbol) ? (
+    <div role="note" className="border border-warn/40 bg-warn/10 px-4 py-3 text-sm text-warn">
+      This company uses fictional data. This page and the sample report are separate fictional datasets with different figures.{" "}
+      <Link href="/report/sample" className="font-semibold underline">View sample report</Link>
+    </div>
+  ) : null;
   // Opening saved research is a DB read. Do not construct the live pipeline,
   // including as a hidden tab or prefetch, until the reader requests it.
   let saved: LatestReport | null = null;
@@ -948,6 +955,7 @@ export default async function CompanyPage({ params, searchParams }: {
     const resumableJobId = !dossier ? (await import("@/pipeline/jobRunner")).getLatestResumableJobForSymbol(symbol) : null;
     return (
       <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} activeReportId={saved.reportId} />}>
+        {fictionalBanner}
         <div className="saved-research-workspace flex flex-col gap-3 p-4">
           <ReportSnapshotHeader snapshot={saved.report} reportId={saved.reportId} status={saved.status}
             actions={<><ExportButtons reportId={saved.reportId} symbol={symbol} />{!dossier && <Link href={`/company/${encodeURIComponent(symbol)}/history`}>History</Link>}</>}
@@ -973,6 +981,7 @@ export default async function CompanyPage({ params, searchParams }: {
         </Suspense>
       }
     >
+      {fictionalBanner}
       <Suspense fallback={<CompanyBodySkeleton symbol={symbol} />}>
         <CompanyBody symbol={symbol} liveRequested={liveRequested} />
       </Suspense>

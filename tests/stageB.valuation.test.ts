@@ -754,7 +754,8 @@ describe("buildDcfAssumptions", () => {
     expect(a.growthPath.value[0]).toBeCloseTo(15, 9); // median(20, 10), not min
     expect(a.growthAnchor.rangePct).toEqual([10, 20]);
     expect(a.growthAnchor.basis).toContain("median of 2 available growth methods");
-    expect(a.growthAnchor.basis).toContain("RETIRED");
+    expect(a.growthAnchor.basis).toContain("house rule: median of methods");
+    expect(a.growthAnchor.basis).not.toContain("RETIRED");
     expect(a.notes.some((n) => n.includes(">5pp") || n.includes("conservatism"))).toBe(false);
   });
 
@@ -2399,7 +2400,8 @@ describe("buildDcfAssumptions — revenue history with a spike or a collapse", (
     expect(a.growthPath.value[0]).toBeCloseTo(-1.75, 9); // median(−12, 8.5)
     expect(a.growthAnchor.rangePct).toEqual([-12, 8.5]);
     expect(a.notes.some((n) => /disagree in sign/.test(n))).toBe(false);
-    expect(a.growthAnchor.basis).toContain("sign-disagreement rules are RETIRED");
+    expect(a.growthAnchor.basis).toContain("house rule: median of methods");
+    expect(a.growthAnchor.basis).not.toContain("WS6");
   });
 
   it("takes the median, not the minimum, when both windows agree in sign", () => {

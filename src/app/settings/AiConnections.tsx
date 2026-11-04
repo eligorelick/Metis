@@ -101,7 +101,7 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
   return <Panel title="AI connections">
     <div className="space-y-3 text-sm">
       <p>Choose how Metis runs its AI research. Financial calculations and citation checks stay in Metis.</p>
-      <p className="text-faint">ChatGPT sign-in opens your normal Chrome browser. Gemini opens your default browser; choose Chrome as your default to use its saved sign-in. Signing in does not run a report. Metis never switches a failed connection to paid API usage.</p>
+      <p className="text-faint">ChatGPT sign-in opens your normal Chrome browser. Gemini requires Chrome to be installed; Metis opens Chrome to use its saved sign-in. Signing in does not run a report. Metis never switches a failed connection to paid API usage.</p>
       {view && <>
         <p><strong>Active:</strong> {active?.provider === "none" ? "AI off — data-only reports" : active?.provider === "anthropic" ? "Claude API — separately billed" : `${active?.provider === "chatgpt" ? "ChatGPT plan" : "Google Gemini CLI allowance"} · ${active && "model" in active ? active.model : ""} · ${view.connections.find((c) => c.id === (active && "connectionId" in active ? active.connectionId : ""))?.label ?? "connection unavailable"}`}</p>
         {active?.provider === "chatgpt" && <p className="text-xs text-faint">Saved reasoning: {active.effort ?? "provider default"} · speed: {active.serviceTier === "fast" ? "Fast" : "Standard"}. Each report records the settings actually reported by the provider.</p>}

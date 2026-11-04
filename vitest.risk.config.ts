@@ -21,6 +21,7 @@ export default defineConfig({
     // one worker made this repeat of the suite about 20 of the gate's 27 minutes.
     maxWorkers: "50%",
     testTimeout: 30_000,
+    hookTimeout: 30_000,
     coverage: {
       provider: "v8",
       include: RISK_SOURCE_MANIFEST,

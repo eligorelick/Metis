@@ -485,7 +485,8 @@ export interface ContextPayload {
 // 1.70.0 (D-192): bounded officer biographies from the annual filing supply filing-sourced officer tenure in the leadership context.
 // 1.71.0 (D-194): financial-statement notes now reach the analysts from filings that index them, so admitted filing context changes.
 // 1.72.0 (D-193): excess-return scenario targets reach the analysts as computed figures.
-export const PAYLOAD_VERSION = "1.72.0" as const;
+// 1.73.0 (D-195): valuation notes shown to readers use plain words; numbers unchanged
+export const PAYLOAD_VERSION = "1.73.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

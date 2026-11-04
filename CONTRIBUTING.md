@@ -47,3 +47,5 @@ Report spec, payload, Stage B implementation and score-band stamps identify calc
 - Include no keys, local databases, real provider data or report exports; retain license and attribution notices.
 
 Contributions remain subject to the [Metis No-Sale Attribution License 1.0](LICENSE). It is source-available with attribution and paid-access restrictions; submitting a contribution does not change those terms.
+
+Please follow the [Code of conduct](CODE_OF_CONDUCT.md) in all project spaces.

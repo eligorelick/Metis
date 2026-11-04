@@ -1,3 +1,4 @@
+import { restorePublicPolishGolden } from "./helpers/publicPolishGolden";
 import { restoreP2ComputedGolden } from "./helpers/p2DcfInputsGolden";
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
@@ -157,11 +158,11 @@ describe("retained forensic observation context on real data-only exports", () =
     // FIN-401 / FIN-401-V1 (B4b) moved only the fair-value and scenario-target method stamps on
     // this fixture: a leaf diff against integration d4802acb (hash 50ef4b29…) found these two
     // stamps and no value, so the hash is re-pinned for them alone.
-    expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_EXCESS_RETURN_SCENARIOS_47");
-    expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_EXCESS_RETURN_SCENARIOS_47");
+    expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_PLAIN_READER_WORDING_48");
+    expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_PLAIN_READER_WORDING_48");
     // The FIGR paid-run round (D-159) renamed only these two stamps on this fixture; restore
     // them so the pin keeps checking every value byte.
-    const restored = restoreP2ComputedGolden(computed);
+    const restored = restoreP2ComputedGolden(restorePublicPolishGolden(computed));
     restored.fairValue.methodVersion = "FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39";
     restored.scenarioTargets.methodVersion = "SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39";
     // FIN-402-V1/FIN-102/FIN-113: separately asserted metadata restoration; old numeric pin remains.

@@ -6150,3 +6150,14 @@ selection and passed all tests. The initial release-inventory run caught the
 new test being untracked; staging it made the tracked inventory agree. No test
 expectations were loosened for those failures. The full `npm run verify` was
 not run.
+
+## D-195 - Plain wording in valuation notes shown to readers (2026-11-04)
+
+A fresh-clone audit found internal review labels and decision numbers in text a
+reader sees: the growth anchor basis, the sales-to-capital basis and the
+price-to-free-cash-flow basis. New runs now write those three notes in plain
+words. The meaning and every number are unchanged, and no calculation, score or
+scenario changes. Saved reports are never rewritten: the same labels are removed
+at display time, with patterns anchored to those labels so that company text is
+left alone. Stage B output text changes, so the Stage B and payload stamps
+advance.

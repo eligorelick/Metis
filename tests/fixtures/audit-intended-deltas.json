@@ -2187,7 +2187,7 @@
         {
           "path": "stageB.valuation.multiples.multiples.3.basis",
           "before": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative)",
-          "after": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)"
+          "after": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed"
         }
       ]
     },
@@ -6223,7 +6223,7 @@
               "3y revenue CAGR",
               "5y revenue CAGR"
             ],
-            "basis": "median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
+            "basis": "median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus."
           }
         },
         {
@@ -6277,7 +6277,7 @@
         {
           "path": "stageB.valuation.assumptions.notes.1",
           "beforeMissing": true,
-          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
+          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus."
         },
         {
           "path": "stageB.valuation.assumptions.terminal.reinvestmentRate.basis",
@@ -6587,7 +6587,7 @@
         {
           "path": "stageB.valuation.notes.1",
           "before": "NET_DEBT_V1: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000",
-          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule, WS6 D-18: median of methods; the former \"lower of the 3y/5y CAGR\" and sign-disagreement rules are RETIRED). It does not set year one, which comes from consensus."
+          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus."
         }
       ]
     },
@@ -7594,7 +7594,7 @@
         {
           "path": "report.valuation.multiples.3.basis",
           "beforeMissing": true,
-          "after": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)"
+          "after": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed"
         },
         {
           "path": "report.valuation.multiples.4.basis",
@@ -8543,7 +8543,7 @@
           "after": {
             "name": "sales-to-capital",
             "value": "2.98",
-            "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)"
+            "basis": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe)"
           }
         },
         {
@@ -8797,7 +8797,7 @@
         {
           "path": "stageB.valuation.assumptions.salesToCapital.basis",
           "before": "latest annual FY 2025-12-31 revenue / invested capital (totalDebt + totalStockholdersEquity - cashAndShortTermInvestments, as of 2025-12-31)",
-          "after": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are non-operating, house rule D-60, and the equity bridge adds them back at carrying value less the tax a sale would owe, house rule D-65)"
+          "after": "latest annual FY 2025-12-31 revenue / operating invested capital (totalDebt + consolidated equity [totalEquity] - cashAndShortTermInvestments - longTermInvestments 500M, annual balance as of 2025-12-31; consolidated total equity including NCI; NCI is not added again; long-term investments are treated as non-operating assets, and the equity bridge adds them back at carrying value less the tax a sale would owe)"
         },
         {
           "path": "stageB.valuation.dcf.bridge",
@@ -10135,22 +10135,22 @@
         {
           "path": "report.fairValue.methodVersion",
           "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_EXCESS_RETURN_SCENARIOS_47"
+          "after": "FAIR_VALUE_2026_11_PLAIN_READER_WORDING_48"
         },
         {
           "path": "report.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_EXCESS_RETURN_SCENARIOS_47"
+          "after": "SCENARIO_TARGETS_2026_11_PLAIN_READER_WORDING_48"
         },
         {
           "path": "stageB.fairValue.methodVersion",
           "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_EXCESS_RETURN_SCENARIOS_47"
+          "after": "FAIR_VALUE_2026_11_PLAIN_READER_WORDING_48"
         },
         {
           "path": "stageB.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_EXCESS_RETURN_SCENARIOS_47"
+          "after": "SCENARIO_TARGETS_2026_11_PLAIN_READER_WORDING_48"
         },
         {
           "path": "stageB.valuation.notes.7",
