@@ -6,7 +6,7 @@ import { createFmpClient } from "@/providers/fmp";
 const prose = "The consolidated financial statements include subsidiaries and eliminate intercompany balances. ".repeat(40);
 const appendix = `<html><body><h2>Item 18. Financial Statements</h2><h2>Notes to Consolidated Financial Statements</h2><h3>1. General</h3><p>${prose}</p><h2>Item 19. Exhibits</h2><p>Exhibits.</p></body></html>`;
 
-async function acquire(form: "20-F" | "10-Q", html: string, exhibit?: string) {
+async function acquire(form: "20-F" | "10-Q" | "10-K", html: string, exhibit?: string) {
   const response = (body: string, status = 200) => ({ status, body, fetchedAt: "2026-07-06T00:00:00.000Z", fromCache: true, stale: false });
   const transport: EdgarTransport = { async fetchText(url) {
     if (url.includes("company_tickers.json")) return response(JSON.stringify({ "0": { cik_str: 1234567, ticker: "EXMP", title: "Example" } }));
@@ -46,4 +46,13 @@ it("withholds a quarterly whole-item fallback without a substantive notes openin
   const bundle = await acquire("10-Q", `<html><body><h2>Item 1. Financial Statements</h2><p>${prose}</p><h2>Item 2. Management's Discussion and Analysis</h2><p>${prose}</p><h2>Item 3. Quantitative and Qualitative Disclosures</h2></body></html>`);
   expect(bundle.edgar.tenQNotes?.ok).toBe(false);
   if (bundle.edgar.tenQNotes && !bundle.edgar.tenQNotes.ok) expect(bundle.edgar.tenQNotes.gap.reason).toMatch(/substantive notes.*opening/i);
+});
+
+it.each(["10-K", "10-Q"] as const)("uses original source blocks to keep a glossary out of %s notes", async form => {
+  const item = form === "10-K" ? "8. Financial Statements and Supplementary Data" : "1. Financial Statements";
+  const next = form === "10-K" ? "9. Changes in and Disagreements with Accountants on Accounting and Financial Disclosure" : "2. Management's Discussion and Analysis";
+  const bundle = await acquire(form, `<html><body><h2>Item ${item}</h2><h3>Notes to Consolidated Financial Statements</h3><p>Note 1 - Basis of Presentation ${prose}</p><h3>Glossary of Common Terms and Acronyms</h3><p>OUTSIDE_NOTES</p><h2>Item ${next}</h2></body></html>`);
+  const notes = form === "10-K" ? bundle.edgar.tenKNotes : bundle.edgar.tenQNotes;
+  expect(notes?.ok).toBe(true);
+  if (notes?.ok) expect(notes.value.data.text).not.toContain("OUTSIDE_NOTES");
 });

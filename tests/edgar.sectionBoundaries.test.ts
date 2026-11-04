@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { annualNotesToFinancialStatements, extractForeignAnnualNotes, extractSection, notesToFinancialStatements } from "@/edgar/extract";
+import { annualNotesToFinancialStatements, extractForeignAnnualNotes, extractSection, notesToFinancialStatements, parseDocument } from "@/edgar/extract";
 
 const prose = "The company consolidates subsidiaries and eliminates intercompany balances. ".repeat(45);
 const opening = "Notes to Consolidated Financial Statements Note 1 - Basis of presentation ";
@@ -51,6 +51,76 @@ describe("substantive notes boundaries", () => {
   it("ends before a separately titled auditor report on financial statement schedules", () => {
     const body = opening + prose;
     expect(annualNotesToFinancialStatements(`${body}Report of Independent Registered Public Accounting Firm on Financial Statement Schedules To the Board of Directors and Shareholders of Example Our audits of the consolidated financial statements also included these schedules. AUDIT_TEXT`)?.text).toBe(body.trimEnd());
+  });
+
+  it.each([
+    "REPORT OF MANAGEMENT Management’s Responsibility for the Financial Statements Management of the Company is responsible for the financial statements.",
+    "Management's Reports Management's Report for Financial Statements—Example Company Management of Example Company is responsible for the financial statements.",
+    "Schedule I Consolidated Summary of Investments — Other Than Investments in Related Parties INVESTMENT_TABLE",
+    "Schedule II Condensed Financial Information (Parent Company Only) PARENT_TABLE",
+  ])("stops at the separate section %s", heading => {
+    const body = opening + prose;
+    expect(annualNotesToFinancialStatements(body + heading)?.text).toBe(body.trimEnd());
+  });
+
+  it("keeps full appendix titles used in explanatory prose", () => {
+    const body = opening + prose + "Schedule II Valuation and Qualifying Accounts provides additional detail. The Exhibit Index describes other exhibits. See Schedule I Consolidated Summary of Investments for details. " + prose;
+    expect(annualNotesToFinancialStatements(body)?.text).toBe(body);
+  });
+
+  it.each(["Glossary of Common Terms and Acronyms", "Acronyms", "Supplemental Financial Information", "Management’s Assessment of Internal Control Over Financial Reporting", "Item 9. Changes in and Disagreements with Accountants on Accounting and Financial Disclosure", "UNREGISTERED SALES OF EQUITY SECURITIES, REPURCHASES OF EQUITY SECURITIES AND DIVIDENDS"])("uses the original standalone %s block to close notes", heading => {
+    const html = `<html><body><h2>Notes to Consolidated Financial Statements</h2><p>Note 1 - Basis of presentation ${prose}</p><h2>${heading}</h2><p>OUTSIDE_NOTES</p></body></html>`;
+    const parsed = parseDocument(html);
+    expect(annualNotesToFinancialStatements(parsed.fullText, parsed)?.text).toBe((opening + prose).trimEnd());
+  });
+
+  it("keeps a prose Item 7 or glossary mention when original blocks prove no heading", () => {
+    const body = opening + prose + "We discuss Item 7. Management's Discussion and Analysis here. Our Glossary of Common Terms and Acronyms is available elsewhere. " + prose;
+    const parsed = parseDocument(`<html><body><p>${body}</p></body></html>`);
+    expect(annualNotesToFinancialStatements(parsed.fullText, parsed)?.text).toBe(body.trimEnd());
+  });
+
+  it("chooses the substantive title when a closing statement reference precedes it", () => {
+    const body = opening + prose;
+    expect(notesToFinancialStatements(`Notes to Consolidated Financial Statements. ${body}`)?.text).toBe(body);
+  });
+
+  it.each(["10-Q", "10-K"] as const)("keeps repeated current-item page furniture in %s notes", form => {
+    const item = form === "10-Q" ? "1. Financial Statements" : "15. Exhibits and Financial Statement Schedules";
+    const html = `<html><body><h2>Notes to Consolidated Financial Statements</h2><p>Note 1 - Basis of Presentation ${prose}</p><h2>Item ${item}</h2><p>CONTINUED_NOTE_BODY</p></body></html>`;
+    const parsed = parseDocument(html);
+    const result = form === "10-Q" ? notesToFinancialStatements(parsed.fullText, parsed) : annualNotesToFinancialStatements(parsed.fullText, parsed, "15");
+    expect(result?.text).toContain("CONTINUED_NOTE_BODY");
+  });
+
+  it("maps a closing source heading across dense attribute markup", () => {
+    const html = `<html><body><h2>Notes to Consolidated Financial Statements</h2><p>Note 1 - Basis of Presentation ${prose}<span data-layout="${"x".repeat(9000)}">End of the actual notes.</span></p><h2>Glossary of Common Terms and Acronyms</h2><p>OUTSIDE_NOTES</p></body></html>`;
+    const parsed = parseDocument(html);
+    expect(annualNotesToFinancialStatements(parsed.fullText, parsed)?.text).not.toContain("OUTSIDE_NOTES");
+  });
+
+  it("recognizes an unlinked section caption in a layout table", () => {
+    const html = `<html><body><h2>Notes to Consolidated Financial Statements</h2><p>Note 1 - Basis of Presentation ${prose}</p><table><tr><td><p>Glossary of Common Terms and Acronyms</p></td></tr></table><p>OUTSIDE_NOTES</p></body></html>`;
+    const parsed = parseDocument(html);
+    expect(annualNotesToFinancialStatements(parsed.fullText, parsed)?.text).not.toContain("OUTSIDE_NOTES");
+  });
+
+  it("keeps a navigation caption whose enclosing anchor has an href", () => {
+    const html = `<html><body><h2>Notes to Consolidated Financial Statements</h2><p>Note 1 - Basis of Presentation ${prose}</p><a href="#elsewhere"><p>Glossary of Common Terms and Acronyms</p></a><p>CONTINUED_NOTE_BODY</p></body></html>`;
+    const parsed = parseDocument(html);
+    expect(annualNotesToFinancialStatements(parsed.fullText, parsed)?.text).toContain("CONTINUED_NOTE_BODY");
+  });
+
+  it.each(["Supplemental Financial Information", "Glossary of Common Terms and Acronyms"])("keeps an unnumbered %s subheading when substantive notes continue", heading => {
+    const html = `<html><body><h2>Notes to Consolidated Financial Statements</h2><p>Note 1 - Basis of Presentation ${prose}</p><h3>${heading}</h3><p>${prose}</p><h3>Note 2 - Borrowings</h3><p>LATER_NOTE_BODY ${prose}</p></body></html>`;
+    const parsed = parseDocument(html);
+    expect(annualNotesToFinancialStatements(parsed.fullText, parsed)?.text).toContain("LATER_NOTE_BODY");
+  });
+
+  it("does not mistake a later note reference for a continuing numbered note", () => {
+    const html = `<html><body><h2>Notes to Consolidated Financial Statements</h2><p>Note 1 - Basis of Presentation ${prose}</p><h3>Supplemental Financial Information</h3><p>Note 9 to the consolidated financial statements explains these amounts.</p><p>OUTSIDE_NOTES</p></body></html>`;
+    const parsed = parseDocument(html);
+    expect(annualNotesToFinancialStatements(parsed.fullText, parsed)?.text).not.toContain("OUTSIDE_NOTES");
   });
 
   it("keeps prose mentioning an audit report, schedule or another item", () => {

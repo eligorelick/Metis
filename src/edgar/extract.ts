@@ -1423,16 +1423,92 @@ const FIRST_NOTE_RE = /^[\s\S]{0,300}?(?:\bNote\s+(?:1|A|One)\b|\b1\s*[.:–—-
  * item text; null when no substantive opening is found. The caller supplies
  * an already bounded item and must withhold unrecognized notes.
  */
-export function notesToFinancialStatements(itemText: string): { text: string; start: number } | null {
+export function notesToFinancialStatements(itemText: string, source?: ParsedDocument, currentItem = 1): { text: string; start: number } | null {
   for (const match of itemText.matchAll(NOTES_HEADING_RE)) {
     // "See accompanying notes to condensed consolidated financial statements."
     // closes each statement page; it is a reference, not the heading.
     if (/\b(?:accompanying|see|refer to)\s+(?:the\s+)?$/i.test(itemText.slice(Math.max(0, match.index - 30), match.index))) continue;
     const after = itemText.slice(match.index + match[0].length, match.index + match[0].length + 400);
-    if (FIRST_NOTE_RE.test(after) && !notesContentsOpening(after) && !notesReferenceOpening(after)) return boundFinancialNotes({ text: itemText.slice(match.index), start: match.index });
+    const first = /\bNote\s+(?:1|A|One)\b|\b1\s*[.:–—-]\s*[A-Z]|\(1\)\s*[A-Z]/i.exec(after);
+    if (first && new RegExp(NOTES_HEADING_RE.source, "i").test(after.slice(0, first.index))) continue;
+    if (FIRST_NOTE_RE.test(after) && !notesContentsOpening(after) && !notesReferenceOpening(after)) return sourceNotesBoundary(boundFinancialNotes({ text: itemText.slice(match.index), start: match.index }), source, currentItem);
   }
   const recognized = recognizeAnnualNotes(itemText);
-  return recognized === null ? null : boundFinancialNotes(recognized);
+  return recognized === null ? null : sourceNotesBoundary(boundFinancialNotes(recognized), source, currentItem);
+}
+
+/** A source heading closes notes; the same words inside a note never do.
+ * Match the preceding source context as well as the caption, preserving the
+ * caller's exact text offsets instead of substituting another flattening. */
+function sourceNotesBoundary(notes: { text: string; start: number }, source?: ParsedDocument, currentItem = 1): { text: string; start: number } {
+  if (!source) return notes;
+  let structure = annualRecoveryStructures.get(source);
+  if (structure === undefined) {
+    structure = appendixStructure(source.pre, true);
+    annualRecoveryStructures.set(source, structure);
+  }
+  if (!structure) return notes;
+  const inTable = (n: AppendixElement) => {
+    for (let p = n.parent; p; p = p.parent) if (p.tag === "table") return true;
+    return false;
+  };
+  const inLink = (n: AppendixElement) => {
+    for (let p = n.parent; p; p = p.parent) if (p.tag === "a" && p.attrs.has("href")) return true;
+    return false;
+  };
+  const position = (node: AppendixElement, caption: string): number | null => {
+    if (!notes.text.includes(caption)) return null;
+    const locate = (preceding: string): number | null => {
+      if (preceding.length < 40) return null;
+      const witnessed = `${preceding} ${caption}`;
+      const at = notes.text.indexOf(witnessed);
+      return at < 0 || notes.text.indexOf(witnessed, at + 1) !== -1 ? null : at + preceding.length;
+    };
+    const nearby = htmlToText(source.pre.slice(Math.max(0, node.start - 8_000), node.start)).slice(-160);
+    // Dense layout can start the nearby window inside an attribute. The full
+    // prefix uses complete tokens instead of admitting partial markup.
+    return locate(nearby) ?? locate(htmlToText(source.pre.slice(0, node.start)).slice(-160));
+  };
+  let noteHeads: { at: number; number: number }[] | undefined;
+  const continuesAfter = (boundary: number): boolean => {
+    if (noteHeads === undefined) {
+      noteHeads = [];
+      for (const node of structure.elements) {
+        if (node.hidden || node.blockChild || inLink(node) || !/^(?:p|div|h[1-6]|td|th)$/.test(node.tag)) continue;
+        const html = source.pre.slice(node.start, node.end), caption = htmlToText(html);
+        const explicit = /^Note\s+(\d{1,2}|[A-Z])(?=$|\s|[.:–—-](?!\d))/i.exec(caption);
+        const bare = !explicit && (/^h[1-6]$/.test(node.tag) || /<(?:b|strong)\b|font-weight\s*:\s*(?:bold|[6-9]00)/i.test(html))
+          ? /^(?:\((\d{1,2})\)|(\d{1,2})[.:–—-])\s+/.exec(caption) : null;
+        if (!explicit && !bare) continue;
+        const rest = caption.slice((explicit ?? bare)![0].length).replace(/^[\s.:–—-]+/, "");
+        if (/^(?:to|of|is|was|as|above|below|for|see|refer|the|this|these|includes?|amounts?|represents?|in|all|our|certain|based|total|such|reflects?)\b/i.test(rest)) continue;
+        if (caption.length < 220 && /<a\b[^>]*href\s*=/i.test(html)) continue;
+        const label = explicit?.[1] ?? bare?.[1] ?? bare?.[2] ?? "";
+        const number = /^\d+$/.test(label) ? Number(label) : label.toUpperCase().charCodeAt(0) - 64;
+        const at = position(node, caption.slice(0, 120));
+        if (at !== null) noteHeads.push({ at, number });
+      }
+    }
+    const preceding = Math.max(0, ...noteHeads.filter(n => n.at < boundary).map(n => n.number));
+    return noteHeads.some(n => n.at > boundary && n.number > preceding);
+  };
+  let end = notes.text.length;
+  for (const node of structure.elements) {
+    if (node.hidden || node.blockChild || !/^(?:p|div|h[1-6]|li|center|section|article|header|blockquote|td|th)$/.test(node.tag)) continue;
+    const caption = htmlToText(source.pre.slice(node.start, node.end));
+    if (caption.length > 220 || inLink(node) || /<a\b[^>]*href\s*=/i.test(source.pre.slice(node.start, node.end))) continue;
+    const named = /^(?:Glossary(?: of (?:Common )?Terms(?: and Acronyms)?)?|Acronyms|(?:Supplemental|Supplementary) Financial Information|Management[’']s (?:Reports?|Assessment of Internal Control Over Financial Reporting|Responsibility for (?:the )?(?:Consolidated )?Financial Statements)|Report of Management|Unregistered Sales of Equity Securities(?:, Repurchases of Equity Securities and Dividends)?)$/i.test(caption);
+    const itemNumber = /^Item\s+(\d{1,2})(?:\s*\.?\s*[A-D])?\s*[.:]?\s+/i.exec(caption);
+    const item = itemNumber !== null && Number(itemNumber[1]) > currentItem &&
+      !/\b(?:above|below|provides?|describes?|discusses?|included|includes?|appears?|refers?|in this|of this)\b/i.test(caption) &&
+      [...TENK_SEQUENCE, ...TENQ_P1_SEQUENCE, ...TENQ_P2_SEQUENCE].some(def => findHeaderCandidates(caption, def, 0, caption.length, true).some(c => c.index === 0));
+    if (!named && (!item || inTable(node))) continue;
+    const boundary = position(node, caption);
+    // An unnumbered caption may be a subsection of a note. A later proved,
+    // advancing note heading keeps it inside the same notes interval.
+    if (boundary !== null && !(named && continuesAfter(boundary))) end = Math.min(end, boundary);
+  }
+  return end < notes.text.length ? { ...notes, text: notes.text.slice(0, end).trimEnd() } : notes;
 }
 
 function notesReferenceOpening(after: string): boolean {
@@ -1452,7 +1528,7 @@ function notesContentsOpening(after: string): boolean {
  * accounts schedule, the exhibit index or Item 16 — whichever comes first
  * after the notes begin. Item 15 carries all three after the last note.
  */
-const ANNUAL_NOTES_END_RE = /\bSchedule II\s*[-–—:]?\s*Valuation and Qualifying Accounts\b|\bSCHEDULE [IVX]+\s*[-–—:]?\s*(?:SUPPLEMENTARY INSURANCE INFORMATION|REINSURANCE|SUMMARY OF INVESTMENTS)\b|\bExhibit Index\b|\bEXHIBIT INDEX\b|\bItem 16\.?\s+Form 10-K Summary\b|\bSupplementary Information:\s+Distribution\b/g;
+const ANNUAL_NOTES_END_RE = /\bSchedule [IVX]+\s*[-–—:]?\s*(?:Consolidated\s+)?(?:Valuation and Qualifying Accounts|Supplementary Insurance Information|Reinsurance|Summary of Investments|Condensed Financial Information)\b|\bExhibit Index\b|\bItem 16\.?\s+Form 10-K Summary\b|\bSupplementary Information:\s+Distribution\b/gi;
 
 /** All notes paths share the same external-report stop; a prose mention is insufficient. */
 function boundFinancialNotes(notes: { text: string; start: number }, textAppendices = true): { text: string; start: number } {
@@ -1461,7 +1537,11 @@ function boundFinancialNotes(notes: { text: string; start: number }, textAppendi
   if (auditor) stops.push(auditor.index);
   const signatures = /\bSIGNATURES\s+Pursuant to the requirements of the Securities Exchange Act\b/i.exec(notes.text);
   if (signatures) stops.push(signatures.index);
+  const management = /\b(?:REPORT OF MANAGEMENT\s+Management[’']s Responsibility for the Financial Statements|Management[’']s Reports(?=\s+Management[’']s Report (?:for Financial Statements|on Internal Control Over Financial Reporting))|Management[’']s Report (?:for Financial Statements|on Internal Control Over Financial Reporting)[\s\S]{0,160}?\bManagement (?:of|is)\b[\s\S]{0,150}?\bresponsible\b)/i.exec(notes.text);
+  if (management && !REJECT_BEFORE_RE.test(notes.text.slice(Math.max(0, management.index - 40), management.index))) stops.push(management.index);
   if (textAppendices) for (const end of notes.text.matchAll(ANNUAL_NOTES_END_RE)) {
+    if (REJECT_BEFORE_RE.test(notes.text.slice(Math.max(0, end.index - 40), end.index)) ||
+      /^\s+(?:provides?|describes?|discusses?|contains?|is|are|included|above|below)\b/i.test(notes.text.slice(end.index + end[0].length))) continue;
     if (end.index > 0) { stops.push(end.index); break; }
   }
   return stops.length ? { text: notes.text.slice(0, Math.min(...stops)).trimEnd(), start: notes.start } : notes;
@@ -1472,8 +1552,8 @@ function boundFinancialNotes(notes: { text: string; start: number }, textAppendi
  * ({@link notesToFinancialStatements}) to the schedules or exhibit index.
  * Null when no notes heading is found.
  */
-export function annualNotesToFinancialStatements(itemText: string): { text: string; start: number } | null {
-  return notesToFinancialStatements(itemText);
+export function annualNotesToFinancialStatements(itemText: string, source?: ParsedDocument, item: "8" | "15" = "8"): { text: string; start: number } | null {
+  return notesToFinancialStatements(itemText, source, Number(item));
 }
 
 // Closed vocabulary tolerates inline font-run word splits only in the title.
@@ -2176,14 +2256,14 @@ function recoverAnnualSection(
 }
 
 /** Notes-only redirect; null preserves the caller's existing warn-level gap. */
-export function extractAnnualNotesFromIndex(html: string): {
+export function extractAnnualNotesFromIndex(html: string, source?: ParsedDocument): {
   text: string; method: "annual-notes-index-redirect"; statementsText?: string; evidence: AnnualNotesRedirectEvidence;
 } | null {
   const notes = extractAnnualAppendixNotes(html) ?? extractPrintedIndexNotes(html);
   if (notes === null) return null;
   // Index routes have already proved appendix headings in original markup;
   // flattened full-title prose must not replace that stronger boundary proof.
-  const bounded = boundFinancialNotes({ text: notes.text, start: 0 }, false);
+  const bounded = sourceNotesBoundary(boundFinancialNotes({ text: notes.text, start: 0 }, false), source ?? parseDocument(html), 8);
   return bounded.text === notes.text ? notes : { ...notes, text: bounded.text };
 }
 

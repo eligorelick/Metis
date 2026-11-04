@@ -931,9 +931,11 @@ async function runExtraction(
   symbol: string,
   preparsed?: ParsedDocument,
   recoveryDeadlineMs?: number,
+  sourceDocuments?: Map<string, ParsedDocument>,
 ): Promise<FetchResult<ExtractedSection>> {
   const field = `edgar.${job.member}(${symbol})`;
   const asOf = filing.reportDate !== "" ? filing.reportDate : filing.filingDate;
+  if (sourceDocuments) sourceDocuments.set(documentUrl, preparsed ?? parseDocument(html));
 
   const wrap = (
     text: string,
@@ -1012,7 +1014,10 @@ async function runExtraction(
       section: err.exhibit.section,
       quotedTitles: err.exhibit.quotedTitles,
     });
-    if (exRes.ok) return wrap(exRes.text, exRes.method, exRes.chars, exUrl);
+    if (exRes.ok) {
+      sourceDocuments?.set(exUrl, parseDocument(exDoc.value.data));
+      return wrap(exRes.text, exRes.method, exRes.chars, exUrl);
+    }
     return gapResult(
       field,
       `exhibit-redirect extraction failed: ${exRes.error.message}`,
@@ -1038,8 +1043,8 @@ async function runExtraction(
  * notes heading are tables the payload already carries as typed figures; when
  * no substantive heading is found the notes remain an explicit gap.
  */
-function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>, symbol: string): FetchResult<ExtractedSection> {
-  const notes = notesToFinancialStatements(result.value.data.text);
+function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>, symbol: string, source?: ParsedDocument): FetchResult<ExtractedSection> {
+  const notes = notesToFinancialStatements(result.value.data.text, source);
   if (notes === null) return gapResult(`edgar.tenQNotes(${symbol})`, "quarterly financial statements found, but a substantive notes opening was not established; whole-item text is withheld", "warn", [result.value.data.documentUrl]);
   // D-66: the statements before the heading stay beside the notes (bounded)
   // for the lines no typed statement carries.
@@ -1077,18 +1082,19 @@ async function annualNotes(
       } } };
   }
   const tried: string[] = [];
+  const sources = new Map<string, ParsedDocument>();
   for (const item of ["8", "15"] as const) {
     const section = await runExtraction(edgar, cik, filing, docUrl, html, fetchedAt,
-      { member: "tenKNotes", sectionName: "tenKNotes", spec: { form: "10-K", item }, failSeverity: "warn" }, symbol, parsed);
+      { member: "tenKNotes", sectionName: "tenKNotes", spec: { form: "10-K", item }, failSeverity: "warn" }, symbol, parsed, undefined, sources);
     if (!section.ok) { tried.push(`Item ${item}: ${section.gap.reason}`); continue; }
-    const notes = annualNotesToFinancialStatements(section.value.data.text);
+    const notes = annualNotesToFinancialStatements(section.value.data.text, sources.get(section.value.data.documentUrl), item);
     if (notes === null) { tried.push(`Item ${item}: no substantive notes opening and bounded interval proved`); continue; }
     const statementsText = section.value.data.text.slice(0, notes.start).slice(0, PERIODIC_STATEMENTS_CHARS);
     return { ...section, value: { ...section.value, endpoint: `${docUrl} (10-K Item ${item} notes)`,
       data: { ...section.value.data, text: notes.text, chars: notes.text.length,
         ...(statementsText.trim() === "" ? {} : { statementsText }) } } };
   }
-  const redirect = extractAnnualNotesFromIndex(html);
+  const redirect = extractAnnualNotesFromIndex(html, parsed);
   if (redirect !== null) {
     const asOf = filing.reportDate !== "" ? filing.reportDate : filing.filingDate;
     return { ok: true, value: { source: "edgar", asOf, fetchedAt,
@@ -1486,10 +1492,11 @@ async function buildEdgarBundle(
           parsedQ,
         );
         if (filingDisclosures) {
+          const noteSources = new Map<string, ParsedDocument>();
           const statements = await runExtraction(edgar, cik, filing, docUrl, doc.value.data, doc.value.fetchedAt,
             { member: "tenQNotes", sectionName: "tenQNotes", spec: { form: "10-Q", item: "1", part: 1 }, failSeverity: "warn" },
-            symbol, parsedQ);
-          tenQNotes = statements.ok ? notesOnly(statements, symbol) : statements;
+            symbol, parsedQ, undefined, noteSources);
+          tenQNotes = statements.ok ? notesOnly(statements, symbol, noteSources.get(statements.value.data.documentUrl)) : statements;
           const signaturesText = periodicSignatureText(parsedQ.fullText);
           if (tenQNotes.ok && signaturesText !== null) tenQNotes = { ...tenQNotes, value: { ...tenQNotes.value,
             data: { ...tenQNotes.value.data, signaturesText } } };
