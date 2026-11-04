@@ -3483,7 +3483,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.60.0"); // the Q round moved the shared report stamp
+    expect(report.meta.specVersion).toBe("1.61.0"); // the Q round moved the shared report stamp
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

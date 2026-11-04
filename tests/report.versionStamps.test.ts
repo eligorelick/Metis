@@ -149,10 +149,10 @@ describe("new version stamps", () => {
     expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
   });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.60.0");
+    expect(REPORT_SPEC_VERSION).toBe("1.61.0");
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.68.0");
-    expect(PIPELINE_VERSION).toBe("stage-c-1.6.27"); // D-189: plain aspect-score, P/TBV, ROTE, P/E, excess-return, estimate and other headline wording binds to its producing record.
+    expect(PIPELINE_VERSION).toBe("stage-c-1.6.28"); // D-190: executive cards admit exactly quoted dated decisions within an evidenced tenure and the judge is told both grade routes
     expect(INSIDER_ROLES_READ_FROM).toBe("1.56.0"); // AI-116 frozen display cutoff
     expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_LATEST_BOOK_46");
     expect(SCORE_BANDS_VERSION).toBe("SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE");
@@ -182,7 +182,7 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.60.0");
+    expect(newReport().meta.specVersion).toBe("1.61.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.68.0");

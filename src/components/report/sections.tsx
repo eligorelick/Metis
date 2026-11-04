@@ -149,6 +149,7 @@ import { RecordedSensitivity } from "./RecordedSensitivity";
 import { ValuationSensitivityTables } from "./ValuationSensitivityTables";
 import { ProjectionFanChart } from "@/components/charts/lazy";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
+import { executiveCardClaims, executiveOfficeContext, type ExecutiveOfficeContext } from "@/report/executiveDecisions";
 import {
   MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_ACTOR_LABELS, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
   SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
@@ -1506,7 +1507,8 @@ export function TechnicalsSection({
  * §7.8 Leadership & governance (graded)
  * ======================================================================== */
 
-function ExecutiveCard({ exec }: { exec: Executive }) {
+function ExecutiveCard({ exec, context }: { exec: Executive; context?: ExecutiveOfficeContext }) {
+  const reason = context?.note ?? executiveAssessmentNote(exec);
   return (
     <div className="flex flex-col border border-edge bg-raised">
       <div className="flex items-center justify-between gap-2 border-b border-edge px-2.5 py-1.5">
@@ -1537,11 +1539,11 @@ function ExecutiveCard({ exec }: { exec: Executive }) {
         </div>
       </div>
       <div className="flex flex-col gap-2 px-2.5 py-2">
-        {executiveAssessmentNote(exec) && <p className="text-[11px] text-muted">{displayProse(executiveAssessmentNote(exec)!)}</p>}
-        <ClaimList claims={exec.reasoning} />
+        {reason && <p className="text-[11px] text-muted">{displayProse(reason)}</p>}
+        <ClaimList claims={executiveCardClaims(exec, exec.reasoning)} />
         {EXECUTIVE_EVIDENCE_GROUPS.map((descriptor) => ({
           descriptor,
-          claims: exec.evidence[descriptor.key],
+          claims: executiveCardClaims(exec, exec.evidence[descriptor.key] ?? []),
         })).filter((group) => group.claims && group.claims.length > 0).map((group) => (
           <SubBlock
             key={group.descriptor.id}
@@ -1551,6 +1553,14 @@ function ExecutiveCard({ exec }: { exec: Executive }) {
             <ClaimList claims={group.claims ?? []} />
           </SubBlock>
         ))}
+        {context && <SubBlock label="Office decision context">
+          {context.actions.map((action, i) => <div key={i} className="flex flex-col gap-1">
+            <p className="text-[11px] text-muted">{action.occurredOn} · {MANAGEMENT_ACTOR_LABELS[action.actor]} · {action.verificationNote}</p>
+            <ClaimList claims={action.action} />
+            <ClaimList claims={action.assessment} />
+          </div>)}
+          {context.guidance.length > 0 && <SubBlock label="Company guidance context"><ClaimList claims={context.guidance} /></SubBlock>}
+        </SubBlock>}
       </div>
     </div>
   );
@@ -1563,14 +1573,15 @@ export function LeadershipSection({
   report = {},
   grading = {},
 }: {
-  report?: Pick<Report, "filingDisclosures">;
+  report?: Partial<Pick<Report, "filingDisclosures" | "appendix" | "outlook">>;
   grading?: SectionGrading;
   leadership: Leadership;
   index: number;
   openReasoning?: boolean;
 }) {
   // D-67: one card per assessed officer; the not-assessed officers share one card.
-  const groups = executiveGroups(leadership.executives);
+  const contexts = new Map(leadership.executives.map(e => [e, executiveOfficeContext(e, leadership, report.appendix?.verificationLog, report.outlook?.guidanceCredibility)]));
+  const groups = executiveGroups(leadership.executives, leadership.executives.filter(e => contexts.get(e) !== undefined));
   return (
     <SectionFrame id="leadership" index={index} title="Leadership & Governance">
       <GradeReasoning
@@ -1583,7 +1594,7 @@ export function LeadershipSection({
       <SubBlock label={`executives (${leadership.executives.length})`}>
         <div className="grid gap-3 lg:grid-cols-2">
           {groups.assessed.map((exec, i) => (
-            <ExecutiveCard key={i} exec={exec} />
+            <ExecutiveCard key={i} exec={exec} context={contexts.get(exec)} />
           ))}
           {groups.notAssessed.length > 0 && (
             <div className="flex flex-col gap-2 border border-edge bg-raised px-2.5 py-2">
@@ -2101,7 +2112,7 @@ export function KeyDataBox({ report }: { report: Report }) {
       <dl className="grid gap-x-4 gap-y-1 px-3 py-2 text-[11px] sm:grid-cols-2 lg:grid-cols-3">
         {rows.map((row) => (
           <div key={row.label} className="flex min-w-0 items-baseline justify-between gap-2 border-b border-edge/60 py-1">
-            <dt className="text-faint">{row.label}</dt>
+            <dt className="min-w-[6rem] shrink-0 text-faint">{row.label}</dt>
             <dd className="mono text-right text-fg">
               {row.value}
               {row.note && <span className="ml-1 text-[9px] text-faint">{row.note}</span>}

@@ -53,6 +53,9 @@ const REQUIRED_RELEASE_FILES = [
   "docs/audit/2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md",
   "docs/internal/superpowers/plans/2026-10-27-audit-fix-05-seasonality-calendars-and-dcf-inputs.md",
   "config/models.json",
+  "scripts/build-sample-report.ts",
+  "fixtures/report/DEMO-current.json",
+  "fixtures/report/DEMO-current-charts.json",
   "scripts/check-dependency-shape.mjs",
   "scripts/models-refresh.mjs",
   "scripts/reconcile-presumed-costs.mjs",
@@ -850,7 +853,7 @@ describe("public release contract", () => {
       file.startsWith("fixtures/report/"),
     );
 
-    expect(reportFixtures).toEqual(["fixtures/report/DEMO-sample.json"]);
+    expect(reportFixtures).toEqual(["fixtures/report/DEMO-current-charts.json", "fixtures/report/DEMO-current.json", "fixtures/report/DEMO-sample.json"]);
   });
 });
 

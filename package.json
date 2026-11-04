@@ -53,6 +53,7 @@
     "dev": "next dev -H 127.0.0.1",
     "build": "node scripts/build-with-identity.mjs",
     "start": "next start -H 127.0.0.1",
+    "sample:build": "node --conditions=react-server --import tsx scripts/build-sample-report.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --config vitest.config.ts",

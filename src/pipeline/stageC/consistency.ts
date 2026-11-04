@@ -1726,6 +1726,9 @@ export function runConsistencyChecks(input: ConsistencyInput): ConsistencyResult
       // payload's own gap row, which supports absence and never a number.
       const allowed =
         record !== undefined ||
+        // D-190: fetched EDGAR documents need not also be payload citation
+        // rows. This admits their source class, never validates their prose.
+        (canonicalUrl !== null && input.fetchedUrls.has(canonicalUrl) && sourceId !== null && SEC_ARCHIVE_DOCUMENT.test(sourceId)) ||
         (citation !== undefined &&
           (isFilingOrTranscriptSource(citation.id) || isPayloadPersonRowSource(citation.id) ||
             (person === null && credibility && citation.kind === "payload-gap")));

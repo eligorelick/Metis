@@ -165,6 +165,7 @@ import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
 import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeHeading, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
+import { executiveCardClaims, executiveOfficeContext } from "@/report/executiveDecisions";
 import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
@@ -773,12 +774,13 @@ function renderTechnicals(report: Report, ctx: GradeContext = {}): string {
   return lines.join("\n").trimEnd();
 }
 
-function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures"> = {}, ctx: GradeContext = {}): string {
+function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDisclosures" | "appendix" | "outlook">> = {}, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("leadership"), ""];
   lines.push(gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, ctx), "");
   lines.push("### Executives", "");
   // D-67: one card per assessed officer; the not-assessed officers share one line.
-  const groups = executiveGroups(l.executives);
+  const contexts = new Map(l.executives.map(e => [e, executiveOfficeContext(e, l, report.appendix?.verificationLog, report.outlook?.guidanceCredibility)]));
+  const groups = executiveGroups(l.executives, l.executives.filter(e => contexts.get(e) !== undefined));
   for (const e of groups.assessed) {
     lines.push(
       `#### ${markdownHeading(e.name)} — ${markdownHeading(e.title)}`,
@@ -786,13 +788,19 @@ function renderLeadership(l: Leadership, report: Pick<Report, "filingDisclosures
       `Grade **${executiveGradeText(e.grade)}** · credibility **${executiveGradeText(e.credibilityGrade)}**${e.tenureYears === null ? "" : ` · tenure ${e.tenureYears.toFixed(1)}y`}`,
       "",
     );
-    if (e.reasoning.length > 0) lines.push(claimList(e.reasoning), "");
-    const reason = executiveAssessmentNote(e);
+    if (e.reasoning.length > 0) lines.push(claimList(executiveCardClaims(e, e.reasoning)), "");
+    const context = contexts.get(e);
+    const reason = context?.note ?? executiveAssessmentNote(e);
     if (reason) lines.push(prose(reason), "");
     for (const descriptor of EXECUTIVE_EVIDENCE_GROUPS) {
-      const claims = e.evidence[descriptor.key];
+      const claims = executiveCardClaims(e, e.evidence[descriptor.key] ?? []);
       if (!claims || claims.length === 0) continue;
       lines.push(`##### ${descriptor.label}`, "", claimList(claims), "");
+    }
+    if (context) {
+      lines.push("##### Office decision context", "");
+      for (const a of context.actions) lines.push(`**${a.occurredOn} · ${MANAGEMENT_ACTOR_LABELS[a.actor]}** · ${prose(a.verificationNote)}`, "", claimList(a.action), claimList(a.assessment), "");
+      if (context.guidance.length) lines.push("##### Company guidance context", "", claimList(context.guidance), "");
     }
   }
   if (groups.notAssessed.length > 0) {
