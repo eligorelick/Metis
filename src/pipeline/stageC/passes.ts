@@ -3245,10 +3245,15 @@ function collectPlainProse(root: unknown): { path: string; text: string }[] {
   // These blocks are overwritten by assembly, not written by the judge. On an
   // intermediate judge/analyst output, still inspect every supplied string.
   const sections = new Set(JUDGE_OUTPUT_KEYS);
-  const pipelineProse = /^(?:valuation\.(?:dcf|multiples|multiplesBasis|marketValueScope|peerCoverage)(?:\.|\[|$)|valuation\.scenarios\[\d+\]\.(?:assumptions|whatWouldHaveToBeTrue|horizon)(?:\[|$)|quality\.notes(?:\[|$)|leadership\.executives\[\d+\]\.officeTenure(?:\.|$))/;
+  const pipelineProse = /^(?:valuation\.(?:dcf|multiples|multiplesBasis|marketValueScope|peerCoverage)(?:\.|\[|$)|valuation\.scenarios\[\d+\]\.(?:assumptions|horizon)(?:\[|$)|quality\.notes(?:\[|$)|leadership\.executives\[\d+\]\.officeTenure(?:\.|$))/;
   const nonProse = new Set(["source", "sourceId", "asOf", "unit", "currency", "period", "url", "documentUrl", "filingDate", "occurredOn"]);
   const walk = (node: unknown, path: string): void => {
     if (assembled && path && (!sections.has(path.split(/[.[]/)[0]!) || pipelineProse.test(path))) return;
+    const conditions = /^valuation\.scenarios\[(\d+)\]\.whatWouldHaveToBeTrue(?:\[|$)/.exec(path);
+    // applyScenarioPresentation replaces these conditions only when its
+    // deterministic assumption array has more than one row. Otherwise the
+    // original AI conditions survive and must be checked here as reader prose.
+    if (assembled && conditions && ((root as Report).valuation?.scenarios?.[Number(conditions[1])]?.assumptions?.length ?? 0) > 1) return;
     if (typeof node === "string") { out.push({ path, text: node }); return; }
     if (!node || typeof node !== "object") return;
     if (Array.isArray(node)) { node.forEach((child, i) => walk(child, `${path}[${i}]`)); return; }

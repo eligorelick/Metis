@@ -60,6 +60,17 @@ it("does not audit deterministic display blocks as model prose on an assembled r
   expect(result.log.filter(e => e.check === "plain-figure").some(e => e.path?.startsWith("valuation.dcf"))).toBe(false);
 });
 
+it("checks AI scenario conditions retained when no deterministic scenario was modeled", async () => {
+  const report = loadTask28Fixture();
+  report.valuation.scenarios[0]!.assumptions = ["No model available."];
+  report.valuation.scenarios[0]!.whatWouldHaveToBeTrue = ["Revenue must reach USD 900 billion."];
+  report.valuation.scenarios[1]!.assumptions = ["Computed inputs.", "Computed scenario shift."];
+  report.valuation.scenarios[1]!.whatWouldHaveToBeTrue = ["Modeled conditions: Revenue USD 900 billion."];
+  const result = await runVerifyPass({} as PassDeps, payload(), report);
+  expect(result.log.filter(e => e.check === "plain-figure" && e.path?.includes("whatWouldHaveToBeTrue")).map(e => e.path))
+    .toEqual(["valuation.scenarios[0].whatWouldHaveToBeTrue[0]"]);
+});
+
 it("also checks suffix currencies and the multiplication-sign spelling of multiples", async () => {
   const records = [record({ id: "computed.multiple", label: "P/E", value: 12.34, unit: "ratio", currency: null }),
     record({ id: "payload.revenue", label: "revenue", value: 10e9, unit: "currency" })];
