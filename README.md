@@ -35,10 +35,9 @@ On macOS/Linux, use `cp .env.example .env`. Production: `npm run build`, then `n
 
 Open <http://127.0.0.1:3000>; development and production both bind to `127.0.0.1`. Every provider key is optional: with no `FMP_API_KEY`, set
 `EDGAR_CONTACT` to a truthful "Name email" identity and real US-listed tickers
-come from SEC EDGAR and Yahoo. With no key at all, `/report/sample` renders a
-fictional report, and `/company/DEMO` and `/company/DBNK` are reserved strings
-served from `fixtures/fmp` whatever keys are set. None of the three reaches a
-market-data provider: the company slices disclose fixtures and the sample is synthetic.
+come from SEC EDGAR and Yahoo. With no key at all, `/report/sample` renders a fictional report,
+and `/company/DEMO` and `/company/DBNK` are reserved strings
+served from `fixtures/fmp` whatever keys are set. None reaches a market-data provider: the company slices disclose fixtures and the sample is synthetic.
 Other symbols use live/cache data; generating fixture reports can still call selected AI.
 
 No paid API key is required to try the app. For real keyless research, SEC EDGAR requires `EDGAR_CONTACT` (a contact identity, not a key). Optional keys: `FMP_API_KEY` for vendor data, `FRED_API_KEY` for macro requests, `FINNHUB_API_KEY` for Finnhub, and `ANTHROPIC_API_KEY` only for Claude API analysis. `ANTHROPIC_ADMIN_KEY` is only for optional cost reconciliation. Configure provider keys and the SEC contact in `.env` or Settings; keep the optional admin key in the private environment. See the configuration table below for limits and defaults.
@@ -215,6 +214,7 @@ repository's [private advisory form](https://github.com/eligorelick/Metis/securi
 | `npm run dev` | Run the app on 127.0.0.1 in development. |
 | `npm run build` | Production build. |
 | `npm run start` | Serve the production build on 127.0.0.1. |
+| `npm run sample:build` | Rebuild the fictional sample report and matching charts offline; no provider or model calls. |
 | `npm run typecheck` | Type-check without emitting. |
 | `npm run lint` | ESLint over the repository. |
 | `npm run test` | The product test suite. Fully offline whatever .env holds. |

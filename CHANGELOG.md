@@ -18,6 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - A current sample report for visitors (2026-11-04)
+
+- Keep hidden screen-reader labels contained within the scrollable main region.
+- Show a current fictional sample report with deterministic calculations, offline verification and matching synthetic charts. Rebuild with `npm run sample:build`; no provider or model calls are made.
+
 ## Unreleased - Bank valuation from the latest filed book; headline claim wording (2026-11-03)
 
 - Open financial excess-return values from the latest complete, filed quarterly
