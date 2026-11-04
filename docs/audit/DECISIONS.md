@@ -5563,3 +5563,96 @@ evidence and verification are in [the evidence report](2026-11-03-valuation-inpu
   revenue off for euro reporters. Known limit: at this rate the DCF is still far
   above the quote for NVO (USD 76.85 against 40.105), because the model holds
   its roughly 42% margin at a 7.03% WACC; the report's reverse DCF shows the gap.
+
+## D-189 - Latest admitted financial book and producer-bound headline wording (2026-11-03)
+
+**Opening book (Task A).** Decouple the financial-route opening balance from
+the availability of a complete trailing return. Select the newest quarterly
+balance newer than the fiscal-year book only with positive common equity,
+explicit equity and preferred operands (also goodwill and other intangibles
+for tangible common equity), matching currency and date, filing available at
+cutoff, no operand conflict, and an admitted diluted divisor ending on that
+same date. Field-level evidence must agree on period, units and filing cutoff.
+Refuse negative adjustments and contradictory filing/acceptance dates.
+Otherwise retain the annual calculation and disclose the reason, including an
+info missing-data entry. No undisclosed adjustment becomes zero.
+
+This revises D-102/C-10's coupling of return and opening book, retaining its
+reason: a newer complete trailing return is more representative than a
+distorted fiscal year. Return selection, CAPM, terminal evidence, carry, payout
+fade and grid assumptions do not change. Historical earnings set a forward
+rate; they are not added to a book that already includes them. Forecasts and
+the existing 1-200-day CoE roll start at the selected book. C-10's fiscal-return
+alternative keeps its own fiscal-year book, date and preferred claims. A bank's
+P/TBV reads the selected balance and retains the return's own date; other routes
+keep their fiscal tangible balance. If the quarterly book is refused, the prior
+path stands exactly, including a trailing start's own dated book (integration
+review: the first version fell back to the older annual book and moved the
+alternative; nine existing regressions caught it). Stored reports remain immutable.
+
+**Offline evidence.** All 77 saved bundles across the four supplied databases
+were replayed read-only; JPM is the only excess-return issuer (two snapshots).
+Paid JPM: USD 222.78 at 2025-12-31 becomes USD 231.55 at the 2026-11-03 quote;
+opening TCE rises from 277.935bn to 286.458bn at 2026-09-30 and rolls 34 days.
+Older final84 JPM: USD 223.06 becomes USD 231.78 at 2026-11-02 (33 days).
+FY2025 ROTE remains 20.6961%; paid P/TBV moves 3.2325x to 3.1363x versus
+unchanged stable-growth justified P/TBV 2.6146x. The older snapshot's latest
+P/TBV is 3.1604x versus 2.6202x justified. Both remain below quote: the fade
+to terminal ROTE around 14.46% assumes less persistence than the stable-ROTE
+cross-check. No assumption was fitted to price. Full frozen inputs, outputs
+and logs remain under gitignored `tmp/int/panel/`.
+
+Tests failed first: 11 new opening-book regressions, followed by two boundary
+regressions for negative adjustments and contradictory future filing dates.
+Controls preserve annual fallback for missing tangible/preferred operands,
+equity/share conflicts, unavailable/absent filings, currency mismatch and
+different share dates. The synthetic financial-route fixture now supplies
+explicit filing dates rather than relying on undated balances.
+
+**Headline wording (Task B).** Extend D-187 through producer-bound label
+readings and typed-context/unit hooks. Recognize bare scores for the seven
+house aspects, checking the parenthetical letter against the house band;
+current price to tangible book, annual P/E on diluted EPS, ROTE, excess-return
+value per share, provider-estimated EPS/revenue, Beneish M score, RSI-14,
+four-quarter insider transaction counts and fixed-prior weighted projections.
+The Beneish "unlikely" interpretation uses the producer's own classification
+threshold. RSI must name the 14-period horizon. A bare score/index does not
+admit per-share units. General matching rules and rounding are unchanged.
+
+An older annual ROTE/Beneish record may recover a fiscal label from retained
+annual statement records at its exact return/score date. It must be explicit
+and unambiguous; conflicting annual labels refuse even when another excerpt
+would match. The existing explicit calendar-fiscal filing proof also applies
+to these annual producers. A date's year alone proves no fiscal period.
+
+The D-187 measure was applied to FACT/ESTIMATE claims citing a numeric record,
+not validated, with at least one prose quantity equal at displayed precision.
+The full class inventory (including multi-figure candidates), source records,
+status counts and exact newly validated claims are in `tmp/int/claims/`.
+Repeated residual classes include multi-figure scores and completeness,
+product-segment descriptions, trailing P/E accounting-basis qualifiers, fiscal
+forensic wording without an established period, guidance and forecast-prior
+qualifiers. They retain their refusal; none receives a number-only match.
+
+Offline `runVerifyPass` replays used saved judge outputs #2/#3/#6/#7 and fixed
+pre-Task-A numeric payloads, with retained research URL identities. Status
+counts (validated/unchecked/cited/contradicted/other): META 28/41/20/1/0 becomes
+31/38/20/1/0; TSM stays 63/81/64/1/1; ASML 103/68/69/16/3 becomes
+104/67/69/16/3; JPM 63/113/58/0/0 becomes 81/95/58/0/0. There are 22 newly
+validated claims (META 3, ASML 1, JPM 18) and no lost validation. All new
+validations are factual claims: nine house scores, three Beneish readings, one RSI, one P/TBV, one
+annual P/E, one ROTE, one excess-return value, two insider counts and three
+provider EPS estimates. Existing contradictions on the fixed current-source
+payloads precede this wording change; they were not repaired or suppressed.
+
+Seventeen headline regressions failed before the readings, then an annual
+fiscal-label recovery regression, its conflicting-evidence control and the
+hyphenated M-score/fiscal-year spelling regression failed before their fixes.
+For these annual producers only, "fiscal 2025" normalizes to "FY2025", with
+the same retained evidence still required. All pass with controls for wrong values, periods, metric
+words, currency, share basis, grade, producer identity/label, RSI horizon,
+Beneish interpretation and unsupported completeness or multiple figures.
+
+**Stamps.** Stage B, fair value and scenario targets `LATEST_BOOK_46`, payload
+1.68.0, pipeline stage-c-1.6.27. Score bands and the report schema are
+unchanged.

@@ -5,6 +5,7 @@ import { baseAgrees, comparisonBase, comparisonCueEnd, findDirectionWords, HEDGE
 import { isIsoDate, periodsAgree, recordEstablishesInterval, type CanonicalUnit, type NumericProvenanceRecord, type ProvenanceFailureReason } from "@/pipeline/stageC/provenance";
 import { PeriodContextSchema } from "@/types/periodContext";
 import { scoreToBand } from "@/pipeline/stageB/grading";
+import { classifyBeneishVerdict } from "@/pipeline/stageB/forensics";
 import { isNeutralScore } from "@/report/assessment";
 
 export interface ClaimSourceSpan { source: string; asOf: string | null; start: number; end: number; text: string }
@@ -737,6 +738,23 @@ function withoutRestatedAcronyms(label: string): string | null {
   });
   return out === label ? null : out;
 }
+function houseAspectScore(record: NumericProvenanceRecord): boolean {
+  const aspect = /^computed\.scores\.(fundamentals|valuation|technicals|quality|leadership|moat|balanceSheet)$/.exec(record.origin)?.[1];
+  return aspect !== undefined && record.kind === "computed" && record.unit === "score" &&
+    record.id === `computed.deterministic-aspect-scores.${aspect.toLowerCase()}-score` && record.label === `${aspect} score`;
+}
+function annualRoteReading(record: NumericProvenanceRecord): boolean {
+  return record.kind === "computed" && record.unit === "percent" && record.origin === "computed.returns.rote" &&
+    record.id === "computed.valuation.rote-the-return-p-tbv-is-read-against" && record.label === "ROTE (the return P/TBV is read against)";
+}
+function beneishScoreReading(record: NumericProvenanceRecord): boolean {
+  return record.kind === "computed" && record.unit === "score" && record.origin === "computed.forensics.beneish" &&
+    record.id === "computed.forensics.beneish-m" && record.label === "Beneish M";
+}
+function rsiIndexReading(record: NumericProvenanceRecord): boolean {
+  return record.kind === "computed" && record.unit === "index" && record.origin === "computed.technicals.rsi14" &&
+    record.id === "computed.technicals.rsi-14" && record.label === "RSI-14";
+}
 /**
  * Equivalent names bound to the producers' explicit contracts. These are
  * additional source labels, never stopwords in arbitrary prose/excerpts.
@@ -753,6 +771,22 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (record.id === "computed.valuation.dcf-per-share" && record.origin === "computed.valuation.dcf" &&
       record.unit === "currency-per-share" && label === "DCF per share") forms.add("DCF base-case value per share");
     if (reverseDcfGrowth(record)) forms.add("reverse DCF implies year-one revenue growth");
+    if (record.id === "computed.valuation.excess-return-per-share" && record.origin === "computed.valuation.excessReturn" &&
+      record.unit === "currency-per-share" && label === "excess-return per share") forms.add("excess-return value per share");
+    if (annualRoteReading(record)) forms.add("return on tangible common equity");
+    if (beneishScoreReading(record)) {
+      forms.add("Beneish M score");
+      forms.add("Beneish M-score");
+      if (classifyBeneishVerdict(record.value) === "unlikely") {
+        forms.add("Beneish M score read as unlikely manipulation");
+        forms.add("Beneish M score read as manipulation unlikely");
+      }
+    }
+    if (houseAspectScore(record) && label === "balanceSheet score") forms.add("balance sheet score");
+    const annualPe = /^P\/E \(current, (FY\d{4})\)$/.exec(label)?.[1];
+    if (annualPe && record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" &&
+      record.id === `computed.valuation.p-e-current-${annualPe.toLowerCase()}` && record.period === annualPe && record.fiscalPeriod === annualPe)
+      forms.add(`price to earnings on ${annualPe} diluted EPS`);
     if (record.origin === "computed.valuation.multiples.evToEbitda" && record.unit === "ratio" && label === "evToEbitda (current)")
       forms.add("EV/EBITDA");
     if (record.id === "computed.technicals.last-close" && record.origin === "computed.technicals" &&
@@ -768,6 +802,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
       const { metric, scenario, window } = projection;
       const name = metric === "epsDiluted" ? "operating EPS" : metric === "fcf" ? "unlevered free cash flow" : metric;
       forms.add(`${scenario === "weighted" ? "weighted" : `${scenario}-case projected`} ${name} ${window}`);
+      if (scenario === "weighted") forms.add(`fixed-prior weighted ${name} ${window}`);
       if (metric === "revenue") forms.add(`${scenario === "weighted" ? "weighted" : `${scenario}-case projected`} ${name} ${window} modeled`);
     }
     if (financialPiotroskiCoverage(record) !== null) forms.add("financial variant Piotroski score");
@@ -781,8 +816,10 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
       forms.add("trailing P/E");
       forms.add("trailing price to earnings");
     }
-    if (record.origin === "computed.valuation.multiples.priceToTbv" && record.unit === "ratio" && label === "priceToTbv (current)")
+    if (record.origin === "computed.valuation.multiples.priceToTbv" && record.unit === "ratio" && label === "priceToTbv (current)") {
       forms.add("price to tangible book value");
+      if (record.id === "computed.valuation.pricetotbv-current") forms.add("current price to tangible book value");
+    }
     if (record.origin === "computed.capital.current.debtBridge.loanOwnerPayables" && label === "loan owner payables")
       forms.add("payables to third-party loan owners");
     if (record.origin === "computed.valuation.peerCoverage.market-cap-ttm-common-earnings.count" && label === "Market cap / TTM common earnings eligible peer count after filtering")
@@ -826,12 +863,16 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (record.origin === "fmp:price-target-consensus" && /^price target (low|high)$/.test(label)) forms.add(`provider ${label}`);
     if (record.origin === "fmp:analyst-estimates" && /^est (revenue|EPS) \d{4}-\d{2}-\d{2}$/.test(label))
       forms.add(label.replace(/^est /, "consensus "));
+    if (record.origin === "fmp:analyst-estimates" && record.id.startsWith("payload.estimates.est-") && /^est (revenue|EPS) \d{4}-\d{2}-\d{2}$/.test(label))
+      forms.add(label.replace(/^est /, "provider estimated "));
     if ((label === "stock-based comp" || label === "SBC, cash-flow add-back") && /^edgar:cash-flow\(/.test(record.origin)) forms.add("stock based compensation");
     if (record.origin === "edgar:xbrl us-gaap/CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents" &&
       /^Combined cash including restrictions \(reported\), as of \d{4}-\d{2}-\d{2}$/.test(label)) forms.add(label.replace(" (reported)", ""));
     if (record.origin === "fmp:insider-statistics" && record.unit === "count") {
       const trades = /^insider (sale|purchase) transactions \(Form 4 code ([SP])\), (four calendar quarters ended \d{4}-\d{2}-\d{2})$/.exec(label);
       if (trades && trades[2] === (trades[1] === "sale" ? "S" : "P")) forms.add(`Insiders made ${trades[1]} transactions ${trades[3]}`);
+      if (trades && trades[2] === (trades[1] === "sale" ? "S" : "P") && record.id.startsWith("payload.insiders."))
+        forms.add(`there were insider ${trades[1]} transactions (Form 4 code ${trades[2]}) in the ${trades[3]}`);
     }
     if (record.origin === "fmp:insider-statistics" && record.unit === "shares") {
       const disposed = /^insider shares disposed, all reported dispositions incl\. open-market sales, tax withholding and gifts, (four calendar quarters ended \d{4}-\d{2}-\d{2})$/.exec(label);
@@ -880,13 +921,25 @@ function financialPiotroskiCoverage(record: NumericProvenanceRecord): { evaluate
 /** Explicit typed-source metadata/formula readings; replacements preserve quantity offsets. */
 function typedClaimContext(text: string, record: NumericProvenanceRecord): string | null {
   const blank = (match: string): string => " ".repeat(match.length);
+  if (annualRoteReading(record) || beneishScoreReading(record)) {
+    // Keep the stated fiscal year, including a wrong one. This spelling does
+    // not supply a fiscal basis; retained producer evidence must still prove it.
+    text = text.replace(/\bfiscal(?: year)?\s+(\d{4})\b/gi, (match, year: string) => `FY${year}`.padEnd(match.length));
+  }
+  if ((houseAspectScore(record) || beneishScoreReading(record) || rsiIndexReading(record) ||
+    (record.kind === "provider" && record.origin === "fmp:insider-statistics" && record.unit === "count" && record.id.startsWith("payload.insiders."))) &&
+    /\bper[\s-]+share\b/i.test(text)) return null;
+  if (rsiIndexReading(record)) {
+    const horizons = [...text.matchAll(/\bRSI[-\s]?(\d+)\b/gi)];
+    if (!horizons.length || horizons.some(match => match[1] !== "14")) return null;
+  }
   if (record.id === "computed.capital-cash.weighted-average-diluted-common-share-change-5y-total" &&
     record.origin === "computed.capital.shareCount" && record.label === "weighted-average diluted common-share change (5y total)" &&
     /\bper[\s-]+(?:share|year)\b|\bannualized\b/i.test(text)) return null;
   if (projectionReading(record) !== null) {
     // Read the producer's window in its own spelling. The stated endpoint is
     // retained for the ordinary period check, including a wrong endpoint.
-    text = text.replace(/\bfor (?:the )?12 months ending\b/gi, match => "12M ending".padEnd(match.length));
+    text = text.replace(/\bfor (?:the )?12 months (?:ending|to)\b/gi, match => "12M ending".padEnd(match.length));
   }
   if (reverseDcfGrowth(record)) {
     // This is the model's year-one growth over starting TTM revenue. TTM in
@@ -1463,7 +1516,7 @@ export function reportedSeriesLatest(registry: readonly NumericProvenanceRecord[
 export function filedCalendarFiscalLabel(record: NumericProvenanceRecord, excerpts: readonly TextExcerpt[]): string | undefined {
   const estimate = record.kind === "provider" && record.origin === "fmp:analyst-estimates" && /^est (?:revenue|EPS) \d{4}-12-31$/.test(record.label ?? "");
   const annual = record.kind === "computed" && record.period === null && record.periodContext === undefined &&
-    (financialPiotroskiCoverage(record) !== null || (record.origin === "computed.capital.sbc" && (record.label === "SBC % revenue" || record.label === "SBC, cash-flow add-back / revenue")));
+    (annualRoteReading(record) || beneishScoreReading(record) || financialPiotroskiCoverage(record) !== null || (record.origin === "computed.capital.sbc" && (record.label === "SBC % revenue" || record.label === "SBC, cash-flow add-back / revenue")));
   const quarter = record.kind === "computed" && record.origin === "fmp:income-statement(quarter)" &&
     record.id.startsWith("computed.quarterly-trend.") && record.period !== null &&
     (record.label ?? "").endsWith(`, quarter ended ${record.period}`);
@@ -1484,6 +1537,20 @@ export function filedCalendarFiscalLabel(record: NumericProvenanceRecord, excerp
   return estimate || bases.some(basis => basis.date === date) ? `FY${date.slice(0, 4)}` : undefined;
 }
 
+/** Older annual-return/score records omit a fiscal label. Recover only an
+ * explicit, unambiguous label from the retained annual statement on the exact
+ * return/score date; asOf's calendar year alone is not evidence. */
+function annualProducerFiscalLabel(record: NumericProvenanceRecord, registry: readonly NumericProvenanceRecord[]): string | null | undefined {
+  if ((!annualRoteReading(record) && !beneishScoreReading(record)) || record.period !== null || record.periodContext !== undefined) return undefined;
+  const labels = registry.filter(row => row.kind === "provider" &&
+    /^payload\.statements\.income-statement-annual\./.test(row.id) && /^(?:fmp|edgar):income-statement\(annual\)$/.test(row.origin) &&
+    row.period === record.asOf).flatMap(row => row.fiscalPeriod === undefined ? [] : [row.fiscalPeriod]);
+  const distinct = new Set(labels);
+  const label = labels[0];
+  if (distinct.size > 1 || (label !== undefined && !/^FY\d{4}$/.test(label))) return null;
+  return label;
+}
+
 // Section-independent: marketStructure and competitors receive the same
 // source-bound numeric checks as every other SourcedClaim.
 export function validateClaimNumericSupport(claim: SourcedClaim, options: {
@@ -1494,6 +1561,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   ignoreWords?: readonly string[];
   index?: ClaimEvidenceIndex;
   seriesLatest?: ReadonlyMap<string, string>;
+  registry?: readonly NumericProvenanceRecord[];
 }): ClaimNumericSupport {
   const record = options.record;
   if (record === undefined) {
@@ -1525,7 +1593,9 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous");
     }
     // Final re-review (AI-303-V3): no record label or basis establishes a prior fiscal year-end.
-    const filedFiscal = filedCalendarFiscalLabel(record, options.excerpts);
+    const annualFiscal = annualProducerFiscalLabel(record, options.registry ?? []);
+    if (annualFiscal === null) return support("unchecked", "period-mismatch", "retained annual statements conflict on the producing record's fiscal label");
+    const filedFiscal = annualFiscal ?? filedCalendarFiscalLabel(record, options.excerpts);
     const established = new Set([...basisWindows(record), ...labelLooseWindows(record), ...(filedFiscal ? basisWindows({ ...record, fiscalPeriod: filedFiscal }) : [])].filter((key) => key !== PRIOR_FISCAL_YEAR_END));
     const ignore = options.ignoreWords ?? [];
     // D-66: a per-share record's "per share" is its unit, which the prose
@@ -1631,7 +1701,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     // producer's declared financial Piotroski variant supplies a bare score
     // reading; generic forensic scores still need an explicit unit suffix.
     const explicitUnit = quantity.unit === null && record.unitScale === "fraction" && record.unit === "ratio" ? "ratio"
-      : quantity.unit === null && /\bscore\b/i.test(own.label) && financialPiotroskiCoverage(record) !== null ? "score"
+      : quantity.unit === null && /\bscore\b/i.test(own.label) && (financialPiotroskiCoverage(record) !== null || houseAspectScore(record) || beneishScoreReading(record)) ? "score"
+        : quantity.unit === null && rsiIndexReading(record) ? "index"
         : quantity.unit === null && /\b(?:count|transactions?|rows)\b/i.test(own.label) && record.unit === "count" ? "count"
           : quantity.unit === null && /\bindex\b/i.test(own.label) && record.unit === "index" ? "index" : quantity.unit;
     if (explicitUnit === null) return support("unchecked", "text-ambiguous", "prose quantity has no established unit");

@@ -72,11 +72,15 @@ export function buildSyntheticRouteBundle(route: SyntheticRoute, options: { quar
   if (route === "bank" || route === "insurer") {
     for (const result of [bundle.statements.balanceAnnual, bundle.statements.balanceQuarterly]) {
       if (!result.ok) throw new Error("synthetic fixture requires balances");
-      for (const row of result.value.data.rows) row.preferredStock = 50 * M;
+      for (const row of result.value.data.rows) {
+        row.preferredStock = 50 * M;
+        row.filingDate = new Date(Date.parse(String(row.date)) + 40 * 86_400_000).toISOString().slice(0, 10);
+      }
     }
     for (const result of [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly]) {
       if (!result.ok) throw new Error("synthetic fixture requires income");
       for (const row of result.value.data.rows) {
+        row.filingDate = new Date(Date.parse(String(row.date)) + 40 * 86_400_000).toISOString().slice(0, 10);
         row.netIncomeAvailableToCommon = Number(row.netIncome) - (result === bundle.statements.incomeAnnual ? 10 : 2.5) * M;
       }
     }
