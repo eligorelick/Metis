@@ -150,7 +150,7 @@ import { retainedCommonClassAmbiguity, retainedCombinedClassEpsBasis } from "@/p
 import { retainedClassEconomicEvidence } from "@/edgar/retainedClassEconomics";
 import { applyLenderCapitalApplicability, lenderCashFlowApplicability } from "@/pipeline/stageB/lenderCashFlow";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
-import { commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
+import { preferredCapitalRefusal, commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
@@ -163,8 +163,8 @@ import { collapsedDebtReason, implausibleDebtReason, uncashedDebtCollapseReason 
 import { filedReceivablesCandidates } from "@/edgar/receivables";
 import { admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
-import { quarterlyOpeningBook } from "@/pipeline/stageB/excessReturnBook";
-import { unusualOperatingItemsByFiscalYear, withoutRecurringFamilies, recurringOperatingItemsBasis, unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
+import { quarterlyOpeningBook, resolvePreferredCapital } from "@/pipeline/stageB/excessReturnBook";
+import { materialOperatingDispositions, type OperatingDispositionRead, unusualOperatingItemsByFiscalYear, withoutRecurringFamilies, recurringOperatingItemsBasis, unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
   adjacentQuarterEnds,
   normalizeQuarterRows,
@@ -598,6 +598,8 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     goodwill: num(r.goodwill),
     intangibleAssets: num(r.intangibleAssets),
     preferredStock: num(r.preferredStock),
+    preferredCapitalWithheldReason: r.preferredCapitalWithheldReason,
+    preferredCapitalBasis: r.preferredCapitalBasis,
     // FIN-119-V1: temporary equity is financing capital (and its refusals ride in `fieldConflicts` above).
     ...temporaryEquityFields(r),
     cashAndShortTermInvestments: num(r.cashAndShortTermInvestments),
@@ -1293,11 +1295,10 @@ function ttmIncomeFromNormalized(
   if (revenueCount < 4) {
     gaps?.push({
       field: "compute.ttmIncome",
-      reason: `revenue present in only ${revenueCount}/4 latest quarters — TTM basis suppressed (a partial sum would understate it); latest annual statement used instead`,
+      reason: `revenue present in only ${revenueCount}/4 latest quarters — TTM revenue suppressed (a partial sum would understate it); revenue-dependent consumers use the latest annual statement or refuse. Independently complete common earnings remain eligible.`,
       severity: "info",
       attemptedSources: ["fmp:/stable/income-statement?period=quarter"],
     });
-    return null;
   }
 
   let incomeBeforeTax = sumField(q, "incomeBeforeTax");
@@ -1358,7 +1359,7 @@ function ttmIncomeFromNormalized(
     // One established code for all four quarters (the gate above).
     reportedCurrency: windowCurrency.code,
     currencyFromSameFilingStatements: windowCurrency.fromSameFiling,
-    revenue: sumField(q, "revenue"),
+    revenue: revenueCount === 4 ? sumField(q, "revenue") : null,
     operatingIncome: gateComplete("operatingIncome"),
     depreciationAndAmortization: gateComplete("depreciationAndAmortization"),
     netIncome: commonWindow.netIncome,
@@ -1632,10 +1633,11 @@ export function statementCurrencies(bundle: DataBundle): StatementCurrencies {
   const income = normalizeStatementQuarters(rows(statements.incomeQuarterly), "income");
   const balance = normalizeStatementQuarters(rows(statements.balanceQuarterly), "balance");
   const cashflow = normalizeStatementQuarters(rows(statements.cashflowQuarterly), "cashFlow");
+  const incomeWindow = ttmIncomeFromNormalized(income, undefined, [...balance.rows, ...cashflow.rows]);
   return resolveStatementCurrencies(
     bundle.profile === undefined ? undefined : firstRow(bundle.profile)?.currency,
     rows(statements.incomeAnnual)[0],
-    ttmIncomeFromNormalized(income, undefined, [...balance.rows, ...cashflow.rows]),
+    incomeWindow?.revenue != null ? incomeWindow : null,
     ttmCashFlowFromNormalized(cashflow, undefined, [...income.rows, ...balance.rows]),
     income.rows[0],
     [...income.rows, ...balance.rows, ...cashflow.rows],
@@ -2026,6 +2028,93 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
   });
 }
 
+function preferredCapitalView(bundle: DataBundle): DataBundle {
+  const acquired = bundle.edgar?.companyFacts;
+  const facts = acquired?.ok && Number.isFinite(Date.parse(acquired.value.fetchedAt)) && Date.parse(acquired.value.fetchedAt) <= Date.parse(bundle.builtAt)
+    ? confirmedIssuerFacts(bundle.symbol, bundle.edgar) : null;
+  const gaps = [...bundle.gaps];
+  const cash = [bundle.statements.cashflowAnnual, bundle.statements.cashflowQuarterly].flatMap(f => f.ok &&
+    Number.isFinite(Date.parse(f.value.fetchedAt)) && Date.parse(f.value.fetchedAt) <= Date.parse(bundle.builtAt) ? f.value.data.rows : []);
+  const normalize = (input: DataBundle["statements"]["balanceAnnual"]) => !input.ok ? input : { ...input,
+    value: { ...input.value, data: { ...input.value.data, rows: input.value.data.rows.map(row => {
+      const preferredCash = cash.filter(cf => {
+        const proof = cf.fieldProvenance?.preferredDividendsPaid;
+        return cf.date === row.date && cf.reportedCurrency === row.reportedCurrency &&
+          (!row.cik || !cf.cik || Number(row.cik) === Number(cf.cik)) && cf.fieldConflicts?.preferredDividendsPaid?.usable !== false &&
+          proof?.source === "edgar" && proof.periodEnd === row.date && proof.unit === row.reportedCurrency &&
+          proof.tags.includes("us-gaap/PaymentsOfDividendsPreferredStockAndPreferenceStock") &&
+          Number.isFinite(Date.parse(proof.observedAt)) && Date.parse(proof.observedAt) <= Date.parse(bundle.builtAt) &&
+          proof.filings.length > 0 && proof.filings.every(f => CORE_FACT_FORMS.has(f.form) && f.filed >= String(row.date) && f.filed <= bundle.builtAt.slice(0,10));
+      })
+        .map(cf => num(cf.preferredDividendsPaid)).filter((v): v is number => v !== null).map(Math.abs);
+      const evidenceRow = preferredCash.some(v => v > 0) ? { ...row, preferredDividendsPaid: Math.max(...preferredCash) } : row;
+      const resolved = resolvePreferredCapital(evidenceRow, facts, bundle.builtAt);
+      const selected = resolved === evidenceRow ? row : resolved;
+      if (selected !== row) gaps.push({ field: `statements.balance.${row.date}.preferredCapital`,
+        reason: selected.preferredCapitalWithheldReason ?? selected.preferredCapitalBasis!, severity: selected.preferredCapitalWithheldReason ? "warn" : "info" });
+      return selected;
+    }) } } };
+  const balanceAnnual = normalize(bundle.statements.balanceAnnual), balanceQuarterly = normalize(bundle.statements.balanceQuarterly);
+  return { ...bundle, statements: { ...bundle.statements, balanceAnnual, balanceQuarterly }, gaps };
+}
+
+/** D-198: one calculation view; the acquired statements and immutable reports retain their filed values. */
+export function operatingDispositionView(bundle: DataBundle): { bundle: DataBundle; read: OperatingDispositionRead } {
+  const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const annual = rowsOf(bundle.statements.incomeAnnual);
+  const quarters = normalizeStatementQuarters(rowsOf(bundle.statements.incomeQuarterly), "income");
+  const trailing = ttmIncomeFromNormalized(quarters, undefined,
+    [...rowsOf(bundle.statements.balanceQuarterly), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt);
+  const seed = trailing?.revenue != null ? trailing : annual[0];
+  const end = isoDay(seed?.date), currency = normalizeReportedCurrency(seed?.reportedCurrency);
+  const sections = [bundle.edgar?.tenKNotes, bundle.edgar?.tenQNotes].flatMap(s => s?.ok && s.value.source === "edgar" &&
+    Number.isFinite(Date.parse(s.value.fetchedAt)) && Date.parse(s.value.fetchedAt) <= Date.parse(bundle.builtAt) ? [s.value.data] : []);
+  const read = materialOperatingDispositions(facts, { ttmEnd: end ?? "", fiscalYearEnd: annual.map(r => isoDay(r.date)).find(d => d !== null && end !== null && d <= end) ?? null,
+    unit: currency, observedAt: bundle.builtAt, periodStart: seed === trailing ? trailing?.periodStart : annual[0] ? incomePeriod(annual[0], annual[1], "annual").periodStart : null,
+    operatingIncome: num(seed?.operatingIncome), sections });
+  if (!read.events.length) return { bundle, read };
+  const reason = `${read.basis}. Operating income excludes this completed sale in every affected annual and quarterly calculation. ` +
+    "Recurring net earnings, EPS and the tax pair are withheld for those periods because the sale's tax and common-holder allocation are not separately established; filed observations remain in the source bundle.";
+  const normalize = (input: DataBundle["statements"]["incomeAnnual"], basis: "annual" | "quarter") => {
+    if (!input.ok) return input;
+    const rows = normalizeQuarterRows(input.value.data.rows).rows;
+    return { ...input, value: { ...input.value, data: { ...input.value.data, rows: input.value.data.rows.map(row => {
+      if (normalizeReportedCurrency(row.reportedCurrency) !== currency) return row;
+      const index = rows.findIndex(r => r === row);
+      const period = incomePeriod(row, rows[index + 1], basis);
+      const rowEnd = String(row.date);
+      // Without a start, a period that could hold the sale cannot be shown to exclude it.
+      // Withhold its operating figures rather than silently leaving the gain inside them.
+      if (!period.periodStart) {
+        const longestPeriodDays = basis === "annual" ? 372 : 100;
+        const earliest = Date.parse(rowEnd) - longestPeriodDays * 86_400_000;
+        if (!read.events.some(e => e.date <= rowEnd && Date.parse(e.date) > earliest)) return row;
+        const undated = `${read.basis}. The period start of the row ending ${rowEnd} cannot be established, so it may contain this completed sale; its operating income is withheld rather than left holding the gain.`;
+        const out: FmpIncomeStatementRow = { ...row, ebitda: undefined, fieldConflicts: { ...row.fieldConflicts } };
+        for (const field of ["operatingIncome", "ebit", "netIncome", "netIncomeConsolidated", "netIncomeAvailableToCommon", "netIncomeFromContinuingOperations", "eps", "epsDiluted", "incomeBeforeTax", "incomeTaxExpense"] as const) {
+          out[field] = undefined;
+          out.fieldConflicts![field] = { vendorValue: num(row[field]), secValue: null, usable: false, reason: undated };
+        }
+        return out;
+      }
+      const gain = read.events.filter(e => e.date >= period.periodStart! && e.date <= rowEnd).reduce((sum, e) => sum + e.value, 0);
+      if (!gain) return row;
+      const out: FmpIncomeStatementRow = { ...row, operatingIncome: num(row.operatingIncome) === null ? undefined : row.operatingIncome! - gain,
+        ebit: num(row.ebit) === null ? undefined : row.ebit! - gain,
+        ebitda: undefined,
+        fieldConflicts: { ...row.fieldConflicts } };
+      for (const field of ["netIncome", "netIncomeConsolidated", "netIncomeAvailableToCommon", "netIncomeFromContinuingOperations", "eps", "epsDiluted", "incomeBeforeTax", "incomeTaxExpense"] as const) {
+        out[field] = undefined;
+        out.fieldConflicts![field] = { vendorValue: num(row[field]), secValue: null, usable: false, reason };
+      }
+      return out;
+    }) } } };
+  };
+  return { read, bundle: { ...bundle, statements: { ...bundle.statements,
+    incomeAnnual: normalize(bundle.statements.incomeAnnual, "annual"), incomeQuarterly: normalize(bundle.statements.incomeQuarterly, "quarter") },
+    gaps: [...bundle.gaps, { field: "compute.operatingDispositions", reason, severity: "info" }] } };
+}
+
 export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig, suppliedValidation?: ValidationReport): ComputedMetrics {
   const notes: string[] = [];
   const suppressed: SuppressedMetric[] = [];
@@ -2035,6 +2124,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
   bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle)));
+  bundle = preferredCapitalView(bundle);
+  const operatingDispositions = operatingDispositionView(bundle);
+  bundle = operatingDispositions.bundle;
+  if (operatingDispositions.read.basis) notes.push(operatingDispositions.read.basis);
   // Derive only after instrument admission; unsupported sparse inputs retain their typed refusal.
   // D-67: source bundles and stored reports stay byte-for-byte unchanged.
   bundle = { ...bundle, economicShareEvidence: retainedClassEconomicEvidence(bundle) };
@@ -2123,13 +2216,16 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
         reportedCurrency: normalizeReportedCurrency(inc0.reportedCurrency),
       }
     : null;
-  const ttmInc = ttmIncomeFromNormalized(incomeQuarterSet, ttmGaps, [
+  const trailingIncome = ttmIncomeFromNormalized(incomeQuarterSet, ttmGaps, [
     ...balanceQuarterSet.rows,
     ...cashflowQuarterSet.rows,
   ], bundle.builtAt);
-  if (commonEarningsSupplemented && num(ttmInc?.netIncomeAvailableToCommon) !== null) {
+  // D-198: only common-return consumers admit an earnings-only window. Every
+  // legacy revenue-dependent consumer keeps its complete-revenue gate.
+  const ttmInc = trailingIncome?.revenue != null ? trailingIncome : null;
+  if (commonEarningsSupplemented && num(trailingIncome?.netIncomeAvailableToCommon) !== null) {
     const components = incomeQuarterSet.rows.slice(0, 4);
-    const reason = `Aggregate TTM common earnings ${ttmInc!.netIncomeAvailableToCommon}: ` + components.map(row => {
+    const reason = `Aggregate TTM common earnings ${trailingIncome!.netIncomeAvailableToCommon}: ` + components.map(row => {
       const evidence = row.fieldProvenance?.netIncomeAvailableToCommon;
       return `${row.date} ${row.netIncomeAvailableToCommon} (${evidence?.derivation ?? "direct filed flow"}; ${evidence?.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ") ?? "source unavailable"})`;
     }).join(" + ") + ". Four contiguous common-income quarters; a derived Q4 is fiscal year less nine months, both operands filed. No per-share EPS is inferred and no FY-plus-YTD substitution is used.";
@@ -2355,6 +2451,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     currencies.model,
     currencies.ttmIncomeUsable,
     foreignBasis,
+    trailingIncome,
   );
   if (lendingCashFlow) {
     returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [lendingCashFlow.reason], gaps: [] };
@@ -2599,6 +2696,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     route,
     foreignBasis,
     revenueEligibilityReason,
+    operatingDispositions: operatingDispositions.read,
     // FIN-121: use the SAME selected routing flow, before model-currency filtering.
     finOtherOcfExemption: route.base === "general" && !route.overlays.includes("unprofitable") &&
       ["financial services", "financial"].includes(str(profile?.sector)?.trim().toLowerCase() ?? "") &&
@@ -3180,6 +3278,8 @@ function computeReturns(
   /** StatementCurrencies.ttmIncomeUsable: the window's currency matches the annual statement's. */
   ttmIncomeUsable: boolean,
   foreignBasis: ForeignValuationBasis | null,
+  /** Same admitted quarter window, independently of revenue completeness. */
+  earningsTtm: TtmIncome | null,
 ): ReturnsBlock {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
@@ -3490,7 +3590,7 @@ function computeReturns(
   // from the quarterly rows already fetched. A window in another currency than
   // the annual statement is withheld here as it is from the valuation: its
   // earnings cannot be set against balances in the model currency.
-  const commonIncomeTtm = ttmIncomeUsable ? ttmInc : null;
+  const commonIncomeTtm = earningsTtm?.reportedCurrency === modelCurrency ? earningsTtm : null;
   const commonReturnTtm = isFinancial
     ? computeTtmCommonReturn({
         // The same earnings evidence the TTM P/E admits common income from.
@@ -3592,6 +3692,7 @@ interface ValuationCtx {
   rote: RoteResult;
   /** C-10: the trailing-four-quarter common return (financial routes). */
   commonReturnTtm: TtmCommonReturn | null;
+  operatingDispositions: OperatingDispositionRead;
   /** THESIS_EV_INCLUDE_LEASES, read once in runStageB and shared with the returns block. */
   evIncludeLeases: boolean;
   profile: FmpRawRow | null;
@@ -3651,6 +3752,8 @@ function toMultiplesBalance(row: FmpBalanceSheetRow, basis: "quarter" | "annual"
     tangibleBookDeductionBasis: str(row.tangibleBookDeductionBasis) ?? undefined,
     minorityInterest: num(row.minorityInterest),
     preferredStock: num(row.preferredStock),
+    preferredCapitalWithheldReason: row.preferredCapitalWithheldReason,
+    preferredCapitalBasis: row.preferredCapitalBasis,
     // FIN-119: redeemable preferred and redeemable NCI (temporary equity), read through `temporaryEquityClaims`.
     ...temporaryEquityOperands(row),
     equityOwnershipBasis: statementEquityOwnershipBasis(row),
@@ -4104,6 +4207,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
               },
           riskFreePct: rf.pct ?? 0,
           incomeTtm: dcfIncomeTtm,
+          operatingNormalizationBasis: ctx.operatingDispositions.basis,
+          operatingNormalizationRefusal: ctx.operatingDispositions.refusal,
+          equityBridgePreferredRefusal: preferredCapitalRefusal(bridgePoint),
           equityMethodStake,
           // Audit item 15 (FCX-9): tagged one-offs inside that operating income.
           unusualOperatingItems: dcfIncomeTtm === null ? null : unusualOperatingItemsTtm(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
@@ -4443,13 +4549,16 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     shareRow: dilutedSharesRow, dilutedShares: valuationDilutedShares,
   });
   const quarterlyBook = "bookValue" in openingBook ? openingBook : null;
+  const currentBookPreferredRefusal = preferredCapitalRefusal(newestBalanceRow(ctx.balanceQuarterly[0], ctx.balanceAnnual[0]));
   const fiscalYearConvertibles = readConvertibles(fiscalYearBalance ?? { date: commonReturns.asOf ?? undefined });
   const quarterlyConvertibles = quarterlyBook ? readConvertibles(balQ ?? { date: quarterlyBook.asOf }) : null;
-  // D-193: new scenario evidence must not inherit the legacy helper's zero
-  // defaults for undisclosed book adjustments. The existing fair value stands.
+  // D-193/D-198: scenario evidence requires the dated book adjustments. An
+  // explicit preferred-capital refusal also blocks the headline common book.
   const scenarioBookRefusal = (date: string | null, tangible: boolean): string | null => {
     const row = [...ctx.balanceAnnual, ...ctx.balanceQuarterly].find(row => isoDay(row.date) === date);
     if (!row) return `no balance for book date ${date ?? "unavailable"}`;
+    const preferredRefusal = preferredCapitalRefusal(row);
+    if (preferredRefusal) return preferredRefusal;
     if (row.reportedCurrency !== ctx.modelCurrency || !ctx.modelCurrency) return `book currency unavailable or inconsistent at ${date}`;
     const fields = tangible ? ["totalStockholdersEquity", "preferredStock", "goodwill", "intangibleAssets"] as const
       : ["totalStockholdersEquity", "preferredStock"] as const;
@@ -4471,12 +4580,14 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     financialRoute
       ? {
           scenarioBookEvidence: {
-            openingBookRefusal: scenarioBookRefusal(quarterlyBook?.asOf ?? ttmStart?.asOf ?? commonReturns.asOf, route.base === "bank"),
+            openingBookRefusal: currentBookPreferredRefusal ?? scenarioBookRefusal(quarterlyBook?.asOf ?? ttmStart?.asOf ?? commonReturns.asOf, route.base === "bank"),
             tangibleBookRefusal: scenarioBookRefusal(route.base === "bank"
               ? quarterlyBook?.asOf ?? ttmStart?.asOf ?? commonReturns.asOf : ctx.rote?.asOf ?? null, true),
             historyRefusal: scenarioHistoryDates.map(date => scenarioBookRefusal(date, route.base === "bank")).find(reason => reason !== null) ?? null,
           },
-          bookValue: quarterlyBook?.bookValue ?? ttmStart?.bookValue ?? commonReturns.latestTangibleCommonEquity,
+          bookValue: currentBookPreferredRefusal ? null : quarterlyBook?.bookValue ?? ttmStart?.bookValue ?? commonReturns.latestTangibleCommonEquity,
+          bookValueRefusal: currentBookPreferredRefusal,
+          bookValueBasisDetail: (quarterlyBook ? balQ : fiscalYearBalance)?.preferredCapitalBasis,
           bookValueBasis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
           currentRoePct: ttmStart?.roePct ?? commonReturns.latestRotePct,
           currentRoeBasis: ttmStart !== null ? (route.base === "bank" ? "ttm-rote" : "ttm-common-roe") : fyBasis,
@@ -5242,6 +5353,8 @@ function mergeQuarterly(
       marketableEquitySecurities: bal ? num(bal.marketableEquitySecurities) : null,
       cashAndShortTermInvestments: bal ? num(bal.cashAndShortTermInvestments) : null,
       preferredStock: bal ? num(bal.preferredStock) : null,
+      preferredCapitalWithheldReason: bal?.preferredCapitalWithheldReason,
+      preferredCapitalBasis: bal?.preferredCapitalBasis,
       minorityInterest: bal ? num(bal.minorityInterest) : null,
       // FIN-119: each quarter's own redeemable claims, so the own-history EV and the P/FCF guard read them.
       ...(bal ? temporaryEquityOperands(bal) : {}),

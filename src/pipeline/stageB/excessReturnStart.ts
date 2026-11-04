@@ -16,7 +16,7 @@
 import { CORE_FACT_FORMS, dedupByPeriod, tagPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { BALANCE_MATCH_TOLERANCE_DAYS, tangibleCommonEquity, type ReturnsBalanceRow } from "@/pipeline/stageB/returns";
-import { selectCommonIncome, type CommonIncomeInputs } from "@/pipeline/stageB/securityBasis";
+import { preferredCapitalRefusal, selectCommonIncome, type CommonIncomeInputs } from "@/pipeline/stageB/securityBasis";
 
 
 /**
@@ -109,6 +109,8 @@ export function computeTtmCommonReturn(input: {
   });
   if (input.asOf === null || input.income === null) return withheld("no complete trailing four-quarter window");
   const closingRow = balanceNear(input.balances, input.asOf);
+  const preferredRefusal = preferredCapitalRefusal(closingRow);
+  if (preferredRefusal) return withheld(preferredRefusal);
   const closing = closingRow === null ? null : commonEquityOn(closingRow, input.basis);
   if (closingRow === null || closing === null) return withheld(`no balance sheet within ${BALANCE_MATCH_TOLERANCE_DAYS} days of the window's end ${input.asOf}`);
   const selected = selectCommonIncome(
@@ -122,6 +124,8 @@ export function computeTtmCommonReturn(input: {
   const startMs = input.periodStart ? Date.parse(input.periodStart) - DAY_MS : Date.parse(input.asOf) - 365 * DAY_MS;
   const openingDate = Number.isFinite(startMs) ? new Date(startMs).toISOString().slice(0, 10) : null;
   const openingRow = openingDate === null ? null : balanceNear(input.balances, openingDate);
+  const openingPreferredRefusal = preferredCapitalRefusal(openingRow);
+  if (openingPreferredRefusal) return withheld(openingPreferredRefusal, closing);
   const opening = openingRow === null || openingRow === closingRow ? null : commonEquityOn(openingRow, input.basis);
   const average = opening === null ? closing : (closing + opening) / 2;
   if (average <= 0) return withheld(`${input.basis === "tangible-common-equity" ? "tangible common" : "common"} equity is not positive`, closing);

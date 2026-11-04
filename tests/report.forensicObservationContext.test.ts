@@ -158,8 +158,8 @@ describe("retained forensic observation context on real data-only exports", () =
     // FIN-401 / FIN-401-V1 (B4b) moved only the fair-value and scenario-target method stamps on
     // this fixture: a leaf diff against integration d4802acb (hash 50ef4b29…) found these two
     // stamps and no value, so the hash is re-pinned for them alone.
-    expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_FAIR_VALUE_COVERAGE_49");
-    expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_FAIR_VALUE_COVERAGE_49");
+    expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_VALUATION_INPUTS_50");
+    expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_VALUATION_INPUTS_50");
     // The FIGR paid-run round (D-159) renamed only these two stamps on this fixture; restore
     // them so the pin keeps checking every value byte.
     const restored = restoreP2ComputedGolden(restorePublicPolishGolden(computed));

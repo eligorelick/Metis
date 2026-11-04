@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.63.0 / payload 1.74.0, Stage B `STAGE_B_2026_11_FAIR_VALUE_COVERAGE_49` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.63.0 / payload 1.75.0, Stage B `STAGE_B_2026_11_VALUATION_INPUTS_50` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications
 
@@ -2697,13 +2697,34 @@ with, all printed as assumptions in their own right:
   over the average of the equity at the window's end and four quarters
   earlier (the closing balance alone when no earlier balance sheet exists, as
   for the fiscal year). Otherwise the latest fiscal year supplies the return.
+  Revenue completeness is independent of common-earnings completeness (D-198).
+  After the existing fiscal-period, currency, issuer and filing admission,
+  four complete common-income quarters may establish this return even when
+  revenue is missing. Revenue itself remains null unless all four quarters
+  report it; revenue-dependent routing, margins, capital and valuation inputs
+  retain their complete-revenue gate and annual fallback or refusal. Missing
+  common earnings still withholds the trailing common return.
   **Opening book is selected independently (D-189).** Use the latest admitted
   quarterly balance newer than the fiscal-year book when equity and preferred
   adjustments (also goodwill and other intangibles for banks) are all present,
   conflict-free, on that exact date and in the model currency, with filing
   available at the analysis cutoff and admitted diluted shares ending on the
   same date. Field provenance must agree on date, unit and filing cutoff.
-  Missing adjustments are not zero. Otherwise the prior path stands, including
+  Missing adjustments are not zero. A zero preferred par line with filed
+  preferred shares outstanding, dividends or an aggregate liquidation claim
+  does not establish zero preferred capital (D-198). Use a filed carrying
+  amount for the same balance date first; otherwise use a filed aggregate
+  liquidation preference for that date, labelled as the senior liquidation
+  claim used for common book rather than accounting carrying value. Authorized
+  shares and a per-share preference are not an aggregate claim. A different
+  date cannot supply the amount. If neither same-date amount is established,
+  withhold that common-book claim, the financial fair value and its targets;
+  an older annual book cannot restore them. The same rule guards non-financial
+  DCF equity bridges, common-book multiples and EV claims.
+  A known unresolved preferred claim at an opening balance also withholds
+  its annual or trailing return; the closing balance cannot replace that
+  explicitly refused common-capital denominator. Other quarterly
+  admission failures retain the prior path, including
   a trailing start's own dated book, and the specific refusal is disclosed. The historical return remains
   a forward-rate assumption: earnings already inside opening book are never
   added again. Forecast years begin after that book date; the existing 200-day
@@ -3689,8 +3710,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_FAIR_VALUE_COVERAGE_49 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_FAIR_VALUE_COVERAGE_49. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_VALUATION_INPUTS_50 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_VALUATION_INPUTS_50. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -5177,6 +5198,40 @@ of $73M has no filed half-year amount and stays in. The tag list
 is an owner decision (D-98). Impairments are assumed to sit inside operating
 income, where US GAAP places them when an operating-income subtotal is shown.
 Restructuring charges are not treated as one-offs.
+
+**Material completed disposals (D-198).** Broad asset/business disposition
+tags are search candidates only: they can contain routine disposals, losses,
+and gains recorded below operating income. For the current admitted margin
+seed, an individual completed sale qualifies when its gain is at least **10%
+of the absolute operating income** of that same seed window (house convention;
+not a valuation calibration). On the frozen 49-company panel, the current
+large disposal candidate is Boeing: the aggregate TTM disposition tag is
+$9.688B against filed operating income of $9.735B, while the named sale is
+$9.566B. The other current ordinary disposal observations fall below the
+threshold. The rule is applied to the named event, not its whole tag balance.
+
+Retained filing notes must establish completion date, amount and statement
+line. The retained income statement's first-column disposition line and
+operating subtotal must both reconcile to facts from that same filing and
+duration. The named line must precede the operating subtotal. A line below
+that subtotal is not removed. The event date must fall in the same admitted
+trailing window, including its known period start; evidence filed or acquired
+after cutoff is unavailable. Unknown material placement or an unexplained
+material remainder withholds the DCF with a specific reason. Unsupported text
+formats refuse; proximity alone does not establish placement.
+
+An admitted event is removed once in the shared calculation view, including
+affected annual margins, ROIC/quality inputs, operating coverage and current
+and historical EBITDA multiples. The existing impairment and recurrence rules
+then apply. Without a separately established sale-tax and common-holder
+allocation, affected recurring net earnings, EPS and tax pairs are withheld
+instead of subtracting a pre-tax gain from after-tax earnings. Raw filing
+observations, cash flows, balance sheets and source snapshots remain retained;
+no sale proceeds are subtracted again from cash. For Boeing, the resulting
+0.3203% current margin and normalized declining history fail the existing DCF
+domain guard. Fair value, sensitivities, reverse DCF and scenario targets are
+withheld with a reason naming Digital Aviation Solutions. No turnaround
+forecast or replacement target is introduced.
 
 **What the report itself discloses.** Two facts appeared only in the audit
 export. First, all three Amazon passes ran on the ChatGPT plan with only the

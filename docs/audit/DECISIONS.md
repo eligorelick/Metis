@@ -6375,3 +6375,176 @@ convention returned 403 and was not retried. No live FMP, Finnhub, FRED or model
 call was made. Stored source facts are used as evidence, not refreshed through
 paid APIs. Numerical recovery remains deliberately incomplete for NEE, TM,
 BABA, SONY, PGR and BRK.B for the specific scope/model reasons above.
+
+## D-198 - Material operating sales, preferred capital and independent trailing earnings (2026-11-04)
+
+The independent frozen-input audit found three input-admission defects. This
+decision changes admission rather than calibrating a target price. Acquired
+snapshots and saved reports remain immutable; existing report schemas and
+display adapters are unchanged.
+
+### Rules and source evidence
+
+1. **Independent earnings and revenue.** The old whole-TTM revenue gate
+   discarded complete common earnings before the earnings-specific checks.
+   Keep the admitted earnings window after the existing fiscal-period,
+   currency, issuer and filing checks. Common returns can consume four
+   complete common-earnings quarters without revenue. All existing
+   revenue-dependent consumers retain their complete-revenue gate. A missing
+   common-earnings quarter still refuses the trailing return.
+2. **Material completed operating sales.** A broad disposition tag alone does
+   not establish recurrence, placement or window. The house threshold is an
+   individual sale gain of at least 10% of absolute operating income in the
+   current admitted seed window. This is an input-materiality rule, unrelated
+   to the resulting valuation. The 49-company current-seed scan touches BA
+   only: its aggregate tagged TTM disposition gain is $9.688B against $9.735B
+   of filed operating income; the individually evidenced event is $9.566B.
+   Other current routine disposal observations stay below the threshold.
+   Retained notes must identify a completed sale, date, gain and statement
+   line; both that line and the operating subtotal must reconcile to
+   same-filing, same-duration facts. Only a line before the operating subtotal
+   qualifies. Cash-flow statements cannot establish income placement. The
+   event must be inside the admitted seed window. Missing placement,
+   unsupported formats, or an unexplained material remainder withholds the
+   DCF. Overlapping aliases cannot count an event twice.
+
+   Read BA's retained 2025 Note 3 and consolidated operations: Digital
+   Aviation Solutions closed on 2025-10-31; its $9.566B gain was included in
+   Gain on dispositions, net, above operating income. The source is
+   [BA 2025 10-K](https://www.sec.gov/Archives/edgar/data/12927/000162828026004357/ba-20251231.htm),
+   accession 0001628280-26-004357. Remove this event once from affected annual
+   and quarterly calculation views. Historical margin paths, ROIC/quality,
+   coverage and EBITDA multiples share the corrected operating income.
+   Without separately established tax/common-holder allocation, recurring net
+   earnings, EPS and tax pairs are withheld for affected periods. Filed
+   earnings remain source observations; no pre-tax gain is subtracted from
+   after-tax earnings, and sale proceeds are not removed again from cash.
+   The existing impairment rules then leave a 0.320293% current margin and
+   declining normalized history. The DCF fails its existing domain guard;
+   fair value, targets, reverse DCF and sensitivity values are withheld with
+   a reason naming the sale. There is no turnaround forecast.
+3. **Preferred capital.** Zero displayed par with filed preferred shares,
+   dividends or an aggregate liquidation claim does not establish zero senior
+   capital. Use a same-balance-date filed APIC-inclusive carrying amount
+   first, otherwise the same-date aggregate liquidation preference, labelled
+   as the liquidation claim used for common book. Authorized shares and
+   per-share preferences are not aggregate capital. Without either amount,
+   withhold common book and its financial value/targets; do not restore an
+   older annual book. Apply the same claim guard to common-book multiples and
+   non-financial DCF/EV bridges.
+
+   Read MET's retained June 2026 Note 13: 24,572,200 preferred shares and $31M
+   quarterly/$76M year-to-date preferred dividends are disclosed. Its
+   [June 2026 10-Q](https://www.sec.gov/Archives/edgar/data/1099219/000109921926000050/met-20260630.htm)
+   establishes no same-date aggregate capital amount. The filed $2.905B
+   preference at 2025-12-31 is used only on that dated annual book, never on
+   June 2026. MET's latest common book, financial fair value and targets are
+   withheld. The historical zero-line scan also flags ORCL, EXPE, PGR, AIG,
+   O and CRWV; these are source-date qualifications, not invented current
+   claims. In non-financials the flagged retained points are historical, so
+   this panel does not demonstrate an additional available current DCF being
+   withdrawn. The non-financial current-bridge case is covered synthetically.
+
+### Frozen-panel impacts and analyst review
+
+Prices and targets are USD per quoted share, at the frozen quote. Target
+triples are bull/base/bear. A dash means withheld, not zero.
+
+| Company | Price | Fair value before → after | Targets before → after | Composite before → after | Analyst check |
+| --- | ---: | --- | --- | --- | --- |
+| BA | 176.70 | 145.69 → — | 245.98/145.69/59.07 → — | 44.31 D → 42.61 D | A completed software sale cannot fund a recurring operating margin; normalized economics fail the existing domain. |
+| JPM | 351.67001 | 232.19 → 246.12 | 259.10/232.19/222.20 → 259.39/246.12/222.20 | 55.10 C → 55.77 C | The complete 22.9555% trailing return is newer than the 20.6961% annual start; the audit's 246.12 diagnostic agrees independently. |
+| BAC | 51.265 | 38.45 → 39.36 | 40.03/38.45/37.12 → 40.18/39.36/37.12 | 54.97 D → 55.54 C | Complete common earnings support 14.8804% trailing return versus 14.1178% annual; missing bank revenue is not an earnings refusal. |
+| WFC | 86.95 | 67.26 → 68.96 | 68.93/67.26/63.35 → 71.06/68.96/63.35 | 51.80 D → 52.29 D | The 16.4998% trailing return replaces the older 15.5571% annual return; no revenue was filled. |
+| PGR | 234.92 | — → — | — → — | 56.67 C → 55.26 C | Historical 2024 zero preferred lines have preferred-dividend evidence but no usable same-date capital amount; unsupported historical common-capital observations leave the score. Existing valuation refusals remain. |
+| MET | 102.41 | 51.89 → — | 52.63/51.89/48.42 → — | 43.93 D → 53.14 D | June senior capital is unresolved. The composite rises mainly because the unsupported low valuation signal is no longer scored; this is not an improved valuation conclusion. |
+| AIG | 81.0501 | 71.98 → 74.37 | — → — | 43.82 D → 44.95 D | Independently complete common earnings also establish an 8.2279% trailing return versus the 7.4010% annual start. Scenario-history refusals and the separately excluded preferred conflict are not relaxed. |
+
+All 12 financial routes were replayed independently after the earnings repair
+and again with the combined fixes:
+
+| Company | Before | Earnings repair only | Combined |
+| --- | ---: | ---: | ---: |
+| JPM | 232.19 | 246.12 | 246.12 |
+| BAC | 38.45 | 39.36 | 39.36 |
+| WFC | 67.26 | 68.96 | 68.96 |
+| GS | 591.93 | 591.93 | 591.93 |
+| MS | 99.99 | 99.99 | 99.99 |
+| C | 91.26 | 91.26 | 91.26 |
+| USB | 55.78 | 55.78 | 55.78 |
+| PGR | — | — | — |
+| TRV | 359.61 | 359.61 | 359.61 |
+| MET | 51.89 | 53.81 | — |
+| AIG | 71.98 | 74.37 | 74.37 |
+| BRK.B | — | — | — |
+
+**No collateral change:** the other 42 companies are identical on the complete
+fair-value, scenario-target and composite objects (including their bases,
+refusals and contributions): AAPL, MSFT,
+NVDA, GOOGL, AMZN, META, JNJ, PG, KO, PEP, WMT, COST, HD, MCD, XOM, CAT,
+UNH, LLY, ORCL, NKE, DIS, INTC, VZ, TSLA, EXPE, TSM, ASML, TM, NVO, SAP,
+SONY, BABA, GS, MS, C, USB, TRV, O, NEE, BRK.B, FIGR and CRWV. The comparison
+digest is `60b4f71560ecdd8c6b4923865214601032155162016bbdb1e4afccad07b1d077`.
+The extra SPY input snapshot is refused as an ETF in both runs and is not a
+company report. All original database connections used `readonly: true,
+fileMustExist: true`. Scratch replay details, comparison code and analyst
+checks are under this branch's ignored `tmp/`.
+
+### Verification and integration stamps
+
+Tests were written and observed failing before the implementation: independent
+earnings admission and wiring; material named-sale extraction, unknown and
+mismatched placement, cutoff, statement boundaries, overlapping tags and
+window start; zero-par common book, carrying/preference priority, date/currency
+refusals, dependent financial targets and the non-financial equity bridge.
+Negative controls cover a small routine disposal, a material gain below
+operating income, a true zero preferred claim and a missing common-earnings
+quarter. A final replay caught an uncorroborated vendor preferred-dividend
+label on COST; requiring filed source provenance restores it unchanged and
+is covered by an additional negative control. Explicitly unresolved opening
+preferred capital cannot fall back to a closing-only return denominator.
+Source text is retained only in ignored scratch files; committed
+fixtures are small synthetic statements.
+
+Integration must advance `STAGE_B_IMPLEMENTATION_VERSION`,
+`FAIR_VALUE_METHOD_VERSION`, `SCENARIO_TARGET_METHOD_VERSION`, `PIPELINE_VERSION`
+and `PAYLOAD_VERSION` for changed calculations, refusal/output selection and
+evidence. No version constant was changed here. Report schema, score bands,
+scenario shock paths and net-debt resolver definitions did not change. Stored
+reports retain their original stamps and bytes and remain supported by the
+existing display adapters.
+
+Final checks used Node 24.11.1 with the prescribed Node directory first on
+PATH and npm's executable path set explicitly. No paid, model or live-provider
+calls were made; no owner `.env` or live Thesis application data was read.
+
+| Check | Result |
+| --- | --- |
+| `npm ci --offline --no-audit --no-fund` | Installed the initially missing dependencies offline. |
+| `npm run typecheck` | Passed. |
+| ESLint on all 14 changed TypeScript files | Passed with no warnings. |
+| `node node_modules/vitest/vitest.mjs run --config vitest.config.ts --changed origin/main --passWithNoTests --maxWorkers 4` | Final isolated run: 551 files passed; 13,256 tests passed, one skipped. No filenames narrowed this selection. |
+| Separate `tests/risk.coverage.test.ts`, `tests/repository.release.test.ts`, `tests/docs.lint.test.ts` run | 43 tests passed. |
+| Focused disposal and preferred-capital regression suites | 26 tests passed; the TTM suite's 102 tests also pass in the full selection. |
+| Final offline Stage B plus validation replay | 49 companies, no company errors; complete fair-value/scenario-target/composite equality for the 42 controls. |
+| `git diff --check` | Passed. |
+
+The first observed red tests were in `tests/stageB.ttm.compute.test.ts` (three
+failures: revenue-only withholding and trailing-return wiring),
+`tests/stageB.materialDisposition.test.ts` (four admission failures before the
+helper, then two wiring failures before the shared calculation view), and
+`tests/stageB.preferredCapital.test.ts` (seven failures before preferred-capital
+admission). Later source-boundary, opening-capital and disclosure cases were
+also observed failing before their fixes.
+
+Verification failures were retained and resolved without weakening tests:
+`tests/repository.release.test.ts` / "records every methodology and
+audited-delta decision in the decisions ledger" first caught the unfinished
+D-198 entry. A repeat changed selection running beside the replay hit
+`tests/jobScheduler.test.ts` / "serializes simultaneous process-level claim
+contenders with exactly one winner and no lock leak" (race-worker barrier)
+and `tests/runtimeReplay.test.ts` / "requires explicit trust before evaluating
+a self-authored runtime manifest" (30-second timeout). The final full changed
+selection ran on its own with unchanged assertions and timeout limits and
+passed all 551 files. The full `npm run verify` was not run; CI still owns
+the complete integration/coverage/build gate.

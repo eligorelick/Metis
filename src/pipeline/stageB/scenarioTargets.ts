@@ -55,7 +55,7 @@ export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
 // D-135 (audit 2026-10-27 B4a): the bridge each target re-runs changed (redeemable equity and debt-like obligations counted once, after tax), so every target is recomputed.
 // FIN-401 / FIN-401-V1: every target re-runs the corrected stake/operating-income bridge.
 // D-178 / D-179: every target re-runs the FX-converted, completed-debt bridge.
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_FAIR_VALUE_COVERAGE_49" as const;
+export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_VALUATION_INPUTS_50" as const;
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;
@@ -91,6 +91,8 @@ function financialScenarioTargets(inputs: ScenarioTargetsInputs, valuation: Extr
     missingReasons: [{ field: `valuation.scenarioTargets.${field}`, reason, severity: "warn" }],
   });
   const er = valuation.excessReturn;
+  const preferredBook = valuation.gaps.find(g => g.field === "valuation.excessReturn.preferredCapital");
+  if (preferredBook) return refuse("openingBook", preferredBook.reason);
   const coe = er.costOfEquityPct.value;
   const book = er.openingBookValue.value;
   if (!isNum(coe) || coe <= 0) return refuse("costOfEquity", "cost of equity unavailable or non-positive; no discount rate is defaulted");

@@ -30,7 +30,7 @@ import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, operatingLeaseO
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
-import { selectCommonIncome, type CommonIncomeInputs } from "@/pipeline/stageB/securityBasis";
+import { preferredCapitalRefusal, selectCommonIncome, type CommonIncomeInputs, type PreferredCapitalInputs } from "@/pipeline/stageB/securityBasis";
 import { leaseDebtScopeRefusal } from "./leaseScope";
 import { temporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import { marginalTaxFloor } from "@/pipeline/stageB/valuation";
@@ -1292,7 +1292,7 @@ export interface ReturnsIncomeRow extends Omit<CommonIncomeInputs, "netIncome"> 
   filingDate?: string | null;
 }
 
-export interface ReturnsBalanceRow {
+export interface ReturnsBalanceRow extends PreferredCapitalInputs {
   commonEquityPeriodEnd?: string | null;
   /** The admission's refusals, so a refused total debt is named (KNW-03/KNW-04). */
   fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
@@ -1656,6 +1656,7 @@ export interface RoteResult {
  * analysts and the banks themselves report.
  */
 export function tangibleCommonEquity(b: ReturnsBalanceRow): number | null {
+  if (preferredCapitalRefusal(b)) return null;
   if (!isFiniteNumber(b.totalStockholdersEquity)) return null;
   const goodwill = isFiniteNumber(b.goodwill) ? b.goodwill : 0;
   const intangibles = isFiniteNumber(b.intangibleAssets) ? b.intangibleAssets : 0;
@@ -1706,7 +1707,9 @@ export function computeRote(
     const prior = findPriorAnnualBalance(bal, cur, priorDate, "rote", notes, gaps);
     const tce = tangibleCommonEquity(cur);
     const tcePrior = prior ? tangibleCommonEquity(prior) : null;
-    const avg = tce !== null && tcePrior !== null ? (tce + tcePrior) / 2 : tce;
+    const capitalRefusal = preferredCapitalRefusal(cur) ?? preferredCapitalRefusal(prior);
+    const avg = capitalRefusal ? null : tce !== null && tcePrior !== null ? (tce + tcePrior) / 2 : tce;
+    if (capitalRefusal) notes.push(`${row.date}: ROTE withheld: ${capitalRefusal}`);
 
     // Numerator is net income available to COMMON. The denominator already
     // excludes preferred, so crediting preferred earnings to common would
