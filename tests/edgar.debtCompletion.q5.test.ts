@@ -38,6 +38,15 @@ describe("exact same-filing debt completion", () => {
     expect(out.row.totalDebt).toBe(104 * M);
     expect(out.admissions).toEqual([]);
   });
+  it("does not complete an undisclosed lease zero by assuming an unfiled finance-lease family is zero", () => {
+    const onlyOperating = Object.fromEntries(Object.entries(tagged).filter(([tag]) => !tag.startsWith("FinanceLease")));
+    const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M,
+      operatingLeaseLiability: 20 * M });
+    const out = admit(onlyOperating, vendor);
+    expect(out.row.totalDebt).toBe(104 * M);
+    expect(out.admissions).toEqual([]);
+    expect(leaseDebtConflict(out.row)).toMatch(/do not reconcile/);
+  });
   it("leaves an unproved zero-line composition to the existing integrity guard without adding a debt refusal", () => {
     const vendor = row({ shortTermDebt: 9 * M, capitalLeaseObligations: 0, totalDebt: 109 * M,
       operatingLeaseLiability: 20 * M, financeLeaseLiability: 6 * M });

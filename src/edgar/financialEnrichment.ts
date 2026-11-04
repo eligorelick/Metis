@@ -667,6 +667,11 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       // real leases. Complete the debt composition below; never merely ignore
       // the contradictory zero or subtract leases from borrowings-only debt.
       const undisclosedZero = line === 0 && op.total + fin.total > 0;
+      // A missing vendor lease line cannot attest to an unfiled family being
+      // zero. This new completion path needs primary coverage of both kinds;
+      // explicit filed zeros qualify, taxonomy silence does not.
+      if (undisclosedZero && !["Operating", "Finance"].every(prefix => used.includes(`${prefix}LeaseLiability`) ||
+        used.includes(`${prefix}LeaseLiabilityCurrent`) && used.includes(`${prefix}LeaseLiabilityNoncurrent`))) continue;
       const operatingInLong = undisclosedZero && op.noncurrent > 0 && noncurrent !== null &&
         [noncurrent + op.noncurrent, noncurrent + op.noncurrent + fin.noncurrent].some(v => eq(row.longTermDebt as number, v));
       if (noncurrent === null || noncurrent < 0 || !(vendorAgreesWithFiled(row.longTermDebt as number, noncurrent) ||
