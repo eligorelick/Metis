@@ -97,6 +97,14 @@ it("reads days as a unit in a days-to-cover metric while preserving the metric i
   expect(result.log.filter(e => e.check === "plain-figure").map(e => e.path)).toEqual(["commentary[1]"]);
 });
 
+it("does not lose an accounting-parentheses sign when extracting a metric from prose", async () => {
+  const result = await runVerifyPass({} as PassDeps, payload(), { commentary: [
+    "The debate concerns a price of (USD 606.73), a negative amount.",
+    "The debate concerns a price of USD 606.73, a positive amount.",
+  ] });
+  expect(result.log.filter(e => e.check === "plain-figure").map(e => e.path)).toEqual(["commentary[0]"]);
+});
+
 it("requires the additional claim's own numeric validation, regardless of its prose label", async () => {
   const source = "edgar:10-K:business", asOf = "2026-11-01";
   const p = { ...payload([]), citationRegistry: [{ id: source, asOf, kind: "payload-text" }],
