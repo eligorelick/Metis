@@ -1,6 +1,6 @@
 # Metis
 
-[![CI](https://github.com/eligorelick/Metis/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/eligorelick/Metis/actions/workflows/ci.yml) ![Node 24](https://img.shields.io/badge/Node-24-339933) [![source-available](https://img.shields.io/badge/licence-source--available-blue)](LICENSE)
+[![CI](https://github.com/eligorelick/Metis/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/eligorelick/Metis/actions/workflows/ci.yml) ![Node 24](https://img.shields.io/badge/Node-24-339933) [![source-available](https://img.shields.io/badge/license-source--available-blue)](LICENSE)
 
 ![Metis equity research](public/brand/metis-lockup.svg)
 
@@ -45,14 +45,13 @@ On macOS/Linux, use `cp .env.example .env`. Production: `npm run build`, then `n
 
 Open <http://127.0.0.1:3000>; development and production both bind to `127.0.0.1`. Every provider key is optional: with no `FMP_API_KEY`, set
 `EDGAR_CONTACT` to a truthful "Name email" identity and real US-listed tickers
-come from SEC EDGAR and Yahoo. With no key at all, **[View sample report](http://127.0.0.1:3000/report/sample)** for a complete fictional report,
-and `/company/DEMO` and `/company/DBNK` are reserved strings
+come from SEC EDGAR and Yahoo. With no key at all, open the **[sample report](http://127.0.0.1:3000/report/sample)**, a complete fictional report. `/company/DEMO` and `/company/DBNK` are reserved strings
 served from `fixtures/fmp` whatever keys are set. None reaches a market-data provider: the company slices disclose fixtures and the sample is synthetic.
 Other symbols use live/cache data; generating fixture reports can still call selected AI.
 
 No paid API key is required to try the app. For real keyless research, SEC EDGAR requires `EDGAR_CONTACT` (a contact identity, not a key). Optional keys: `FMP_API_KEY` for vendor data, `FRED_API_KEY` for macro requests, `FINNHUB_API_KEY` for Finnhub, and `ANTHROPIC_API_KEY` only for Claude API analysis. `ANTHROPIC_ADMIN_KEY` is only for optional cost reconciliation. Configure provider keys and the SEC contact in `.env` or Settings; Settings also supports Save, Test and Remove saved for the optional admin key in protected local storage. See the configuration table below for limits and defaults.
 
-Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps. Measured complete runs in November 2026 cost $1.62 (Haiku 4.5 analysts at medium effort with the Sonnet 5.5 judge), $2.28 (Sonnet 5.5 at high), $4.71 (Opus 5.5 at high), $12.27 (Opus 5.5 at extra high), $3.08 (Claude Sonnet on JPM) and $6.30 (Claude Opus on NVO), so expect more than the estimate at higher effort. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) and the detailed pricing table below.
+Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps. Measured complete runs in November 2026 cost $1.62 (Haiku 4.5 analysts at medium effort with the Sonnet 5.5 judge), $2.28 (Sonnet 5.5 at high), $4.71 (Opus 5.5 at high), $12.27 (Opus 5.5 at extra high), $3.08 (Sonnet 5.5 on JPM) and $6.30 (Opus 5.5 on NVO), so expect more than the estimate at higher effort. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) and the detailed pricing table below.
 
 ## AI connections
 
