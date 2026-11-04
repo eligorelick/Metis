@@ -65,12 +65,25 @@ describe("zero par does not establish zero preferred capital", () => {
     const c = runStageB(fixture([{ tag: "PaymentsOfDividendsPreferredStockAndPreferenceStock", val: M }]));
     expect(c.fairValue.perShare).toBeNull();
   });
-  it("does not ignore a retained preferred-dividend cash flow when companyfacts are unavailable", () => {
+  it("does not ignore a filed preferred-dividend cash flow when companyfacts are unavailable", () => {
     const b = fixture([]);
     b.edgar.companyFacts = { ok: false, gap: { field: "edgar.companyFacts", reason: "Synthetic missing facts", severity: "info" } };
     if (!b.statements.cashflowQuarterly.ok) throw new Error("fixture");
     b.statements.cashflowQuarterly.value.data.rows[0]!.preferredDividendsPaid = -M;
+    b.statements.cashflowQuarterly.value.data.rows[0]!.fieldProvenance = { preferredDividendsPaid: { source: "edgar", unit: "USD",
+      periodStart: "2026-01-01", periodEnd: "2026-03-31", observedAt: b.builtAt,
+      tags: ["us-gaap/PaymentsOfDividendsPreferredStockAndPreferenceStock"],
+      filings: [{ accn: "0000000042-26-000002", filed: "2026-05-01", form: "10-Q" }] } };
     expect(runStageB(b).fairValue.perShare).toBeNull();
+  });
+  it("does not let an uncorroborated vendor dividend label invent a preferred claim", () => {
+    const b = fixture([]);
+    if (!b.statements.cashflowQuarterly.ok) throw new Error("fixture");
+    b.statements.cashflowQuarterly.value.data.rows[0]!.preferredDividendsPaid = -M;
+    const c = runStageB(b);
+    expect(c.fairValue.perShare?.value).toBeGreaterThan(0);
+    if (c.valuation.kind !== "excess-return") throw new Error("fixture");
+    expect(c.valuation.excessReturn.openingBookValue.value).toBe(520 * M);
   });
   it("does not use a preference filed after cutoff or denominated in another currency", () => {
     for (const extra of [{ filed: "2026-08-01" }, { unit: "EUR" }]) {

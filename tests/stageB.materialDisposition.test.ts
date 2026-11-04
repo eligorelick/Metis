@@ -37,10 +37,14 @@ describe("material disposal gains need placement, materiality and the matching w
     expect(result?.basis).toMatch(/Navigation Software Divestiture/);
   });
   it("leaves a small routine disposal below 10% of absolute operating income untouched", () => {
-    expect(read(facts(5 * M), [section({ amount: 5 })])?.value ?? 0).toBe(0);
+    const result = read(facts(5 * M), [section({ amount: 5 })]);
+    expect(result?.value ?? 0).toBe(0);
+    expect(result?.dcfRefusal).toBeUndefined();
   });
   it("leaves a material gain recorded below operating income untouched", () => {
-    expect(read(facts(), [section({ below: true })])?.value ?? 0).toBe(0);
+    const result = read(facts(), [section({ below: true })]);
+    expect(result?.value ?? 0).toBe(0);
+    expect(result?.dcfRefusal).toBeUndefined();
   });
   it("does not mistake a cash-flow reconciliation for below-operating placement", () => {
     const s = section();

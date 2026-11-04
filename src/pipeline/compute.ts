@@ -2037,8 +2037,15 @@ function preferredCapitalView(bundle: DataBundle): DataBundle {
     Number.isFinite(Date.parse(f.value.fetchedAt)) && Date.parse(f.value.fetchedAt) <= Date.parse(bundle.builtAt) ? f.value.data.rows : []);
   const normalize = (input: DataBundle["statements"]["balanceAnnual"]) => !input.ok ? input : { ...input,
     value: { ...input.value, data: { ...input.value.data, rows: input.value.data.rows.map(row => {
-      const preferredCash = cash.filter(cf => cf.date === row.date && cf.reportedCurrency === row.reportedCurrency &&
-        cf.fieldConflicts?.preferredDividendsPaid?.usable !== false && (!cf.filingDate || cf.filingDate <= bundle.builtAt.slice(0,10)))
+      const preferredCash = cash.filter(cf => {
+        const proof = cf.fieldProvenance?.preferredDividendsPaid;
+        return cf.date === row.date && cf.reportedCurrency === row.reportedCurrency &&
+          (!row.cik || !cf.cik || Number(row.cik) === Number(cf.cik)) && cf.fieldConflicts?.preferredDividendsPaid?.usable !== false &&
+          proof?.source === "edgar" && proof.periodEnd === row.date && proof.unit === row.reportedCurrency &&
+          proof.tags.includes("us-gaap/PaymentsOfDividendsPreferredStockAndPreferenceStock") &&
+          Number.isFinite(Date.parse(proof.observedAt)) && Date.parse(proof.observedAt) <= Date.parse(bundle.builtAt) &&
+          proof.filings.length > 0 && proof.filings.every(f => CORE_FACT_FORMS.has(f.form) && f.filed >= String(row.date) && f.filed <= bundle.builtAt.slice(0,10));
+      })
         .map(cf => num(cf.preferredDividendsPaid)).filter((v): v is number => v !== null).map(Math.abs);
       const evidenceRow = preferredCash.some(v => v > 0) ? { ...row, preferredDividendsPaid: Math.max(...preferredCash) } : row;
       const resolved = resolvePreferredCapital(evidenceRow, facts, bundle.builtAt);
@@ -4528,8 +4535,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const currentBookPreferredRefusal = preferredCapitalRefusal(newestBalanceRow(ctx.balanceQuarterly[0], ctx.balanceAnnual[0]));
   const fiscalYearConvertibles = readConvertibles(fiscalYearBalance ?? { date: commonReturns.asOf ?? undefined });
   const quarterlyConvertibles = quarterlyBook ? readConvertibles(balQ ?? { date: quarterlyBook.asOf }) : null;
-  // D-193: new scenario evidence must not inherit the legacy helper's zero
-  // defaults for undisclosed book adjustments. The existing fair value stands.
+  // D-193/D-198: scenario evidence requires the dated book adjustments. An
+  // explicit preferred-capital refusal also blocks the headline common book.
   const scenarioBookRefusal = (date: string | null, tangible: boolean): string | null => {
     const row = [...ctx.balanceAnnual, ...ctx.balanceQuarterly].find(row => isoDay(row.date) === date);
     if (!row) return `no balance for book date ${date ?? "unavailable"}`;
