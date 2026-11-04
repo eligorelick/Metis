@@ -126,8 +126,6 @@ export function executiveTenureStart(e: Executive, index: number, log: readonly 
     const match = /^(.*?) — (.*?) \(since (\d{4}-\d{2}-\d{2})\)/.exec(note);
     return match && note.endsWith("[fmp:key-executives]") && match[1] === e.name && executiveOffice(match[2]!) === office && day(match[3]) ? [match[3]!] : [];
   });
-  const filing = filingTenureFor(e, context);
-  if (filing) starts.push(filing.start);
   // A narrow biography fallback: the whole dated appointment sentence must be
   // present verbatim in its retained filing, not just cited by the judge.
   for (const [i, claim] of e.reasoning.entries()) {
@@ -140,6 +138,12 @@ export function executiveTenureStart(e: Executive, index: number, log: readonly 
     // names the officer. Office authority still comes from the exact roster.
     const role = issuerScopedRole(match?.[2] ?? "", context.issuer);
     if (match?.[1] === e.name && executiveOffice(role) === office && dates.length === 1) starts.push(dates[0]!);
+  }
+  // A month or year cannot disagree with an exact date inside that period.
+  const filing = filingTenureFor(e, context);
+  if (filing) {
+    const shared = filing.precision === "year" ? 4 : filing.precision === "month" ? 7 : 10;
+    if (!starts.some(start => start.slice(0, shared) === filing.start.slice(0, shared))) starts.push(filing.start);
   }
   const unique = [...new Set(starts)];
   return unique.length === 1 ? unique[0] : undefined;

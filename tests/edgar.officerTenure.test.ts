@@ -25,6 +25,31 @@ describe("filing officer tenure, bound to a current roster person and office", (
     expect(read(`Information About Our Executive Officers ${text}`)[0]).toMatchObject({ start, precision, wording });
   });
 
+  it.each([
+    ["another employer after the date", "Alex Smith has served as CEO since 2014 at Another Corporation."],
+    ["a deputy role", "Alex Smith has served as Deputy Chief Executive Officer since 2014."],
+    ["an assistant role", "Jane Doe has served as Assistant Chief Financial Officer since 2014."],
+    ["an acting role", "Alex Smith has served as Acting Chief Executive Officer since 2014."],
+    ["a closed period", "Alex Smith has served as Chief Executive Officer since 2014 until 2016."],
+  ])("refuses %s", (_label, text) => {
+    expect(read(`Information About Our Executive Officers ${text}`)).toEqual([]);
+  });
+
+  it("uses the stated effective date, not the date of the announcement", () => {
+    expect(read("Information About Our Executive Officers Alex Smith was appointed CEO of the Company on April 24, 2024, effective May 1, 2024.")[0])
+      .toMatchObject({ start: "2024-05-01", wording: "May 1, 2024" });
+  });
+
+  it("keeps the issuer's own name after the date", () => {
+    expect(read("Information About Our Executive Officers Alex Smith has served as Chief Executive Officer since 2014 at Example Holdings.")[0]).toMatchObject({ start: "2014-12-31" });
+  });
+
+  it("reads a co-CEO date only for a roster co-CEO", () => {
+    const text = "Information About Our Executive Officers Alex Smith has served as Co-Chief Executive Officer since 2014.";
+    expect(read(text)).toEqual([]);
+    expect(extractOfficerTenures(text, [{ name: "Alex S. Smith", title: "Co-Chief Executive Officer" }], filing)).toHaveLength(1);
+  });
+
   it("binds a surname pronoun only inside a uniquely named officer biography", () => {
     expect(read("Information About Our Executive Officers Alex Smith. Mr. Smith has served as President and CEO since July 2021. Jane Doe. In February 2018 Ms. Doe was promoted to Executive Vice President and Chief Financial Officer.")).toEqual([
       expect.objectContaining({ office: "ceo", start: "2021-07-31" }), expect.objectContaining({ office: "cfo", start: "2018-02-28" }),

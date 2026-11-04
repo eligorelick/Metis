@@ -77,6 +77,10 @@ function period(wording: string): { lower: string; start: string; precision: Off
   return Number.isFinite(Date.parse(start)) && new Date(start).toISOString().slice(0, 10) === start ? { lower, start, precision } : undefined;
 }
 
+// What may stand right before the office and leave it the same job. Anything else qualifies it: "Deputy CEO" is another role.
+const BEFORE_OFFICE = new Set(["", "and", "&", "as", "our", "the", "its", "to", "is", "president", "chairman", "chairwoman", "chairperson", "chair",
+  "director", "officer", "treasurer", "secretary", "board", "became", "appointed", "promoted", "been", "served", "serving", "new", "sole", "group", "company's"]);
+
 export function extractOfficerTenures(text: string, roster: readonly { name: string; title: string }[], filing: OfficerFiling, conflicts: Pick<OfficerTenure, "name" | "office">[] = []): OfficerTenure[] {
   const normalized = text.replace(/’/g, "'").replace(/\n{2,}/g, " \u0000 ").replace(/\s+/g, " ");
   const results: OfficerTenure[] = [];
@@ -124,6 +128,15 @@ export function extractOfficerTenures(text: string, roster: readonly { name: str
         }
         for (const match of matches) {
           const prefix = sentence.slice(0, match.index);
+          const beforeOffice = /([\p{L}&'\u2019-]+)[\s,]*$/u.exec(prefix)?.[1]?.toLowerCase().replace(/-$/, "") ?? "";
+          if (!BEFORE_OFFICE.has(beforeOffice) && !(beforeOffice === "co" && /\bco-?(?:ceo|chief)/i.test(officer.title))) continue;
+          // What follows the date can name another employer, an end date or the true start.
+          const after = sentence.slice(match.index! + match[0].length);
+          if (/^[\s,]*(?:until|through)\b/i.test(after)) continue;
+          const employer = /^[\s,]*(?:at|with|of|for)\s+([^.,;]+)/i.exec(after)?.[1];
+          if (employer && issuerScopedRole(`x of ${employer}`, filing.issuer) !== "x") continue;
+          const effective = new RegExp(`^[^.;]*?\\b(?:effective(?: as of)?|with effect from)\\s+(${DATE})`, "i").exec(after)?.[1];
+          const wording = effective ?? match[3]!;
           const datePrefix = match[0].slice(0, match[0].lastIndexOf(match[3]!));
           if (/\b(?:in|on)\s+$/i.test(datePrefix) && !/\b(?:became|was appointed|was promoted|succeeded)\b/i.test(prefix)) continue;
           if (/\b(?:joined|from|prior|before|after|former|previously)\b/i.test(prefix)) continue;
@@ -138,13 +151,13 @@ export function extractOfficerTenures(text: string, roster: readonly { name: str
           if (executiveOffice(role) !== office) continue;
           const headingContext = normalized.slice(Math.max(0, begin - 500), begin);
           if (/\b(?:Our directors|Director biographies|Biographies of directors)\b/i.test(headingContext) && !/^of\s+/i.test(suffix)) continue;
-          const bounds = period(match[3]!);
+          const bounds = period(wording);
           if (!bounds || bounds.start > filing.filingDate || filing.reportDate > filing.filingDate) continue;
           const quoteStart = begin + subject.index - (opening ? new RegExp(`(?:On|In) (${DATE}),? $`, "i").exec(before)![0].length : 0);
           const bodyStart = begin + subject.index + subject.length;
           const gap = normalized.slice(bodyStart).match(/^\.?\s*/)?.[0].length ?? 0;
           const quote = normalized.slice(quoteStart, bodyStart + gap + sentence.length);
-          candidates.push({ name: officer.name, office, ...bounds, wording: match[3]!, quote, source: filing.source, filingDate: filing.filingDate });
+          candidates.push({ name: officer.name, office, ...bounds, wording, quote, source: filing.source, filingDate: filing.filingDate });
         }
       }
     }

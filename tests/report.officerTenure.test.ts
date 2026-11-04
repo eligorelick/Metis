@@ -15,6 +15,23 @@ import { completeCurrencyBundle } from "./helpers/currencyBundle";
 const tenure = { name: "Alex S. Smith", office: "ceo" as const, start: "2024-04-30", precision: "month" as const, wording: "April 2024", quote: "Alex Smith became Chief Executive Officer in April 2024.", source: "https://www.sec.gov/Archives/edgar/data/1234/000123426000001/annual.htm", filingDate: "2026-02-13" };
 const executive = (): Executive => ({ name: "Alex Smith", title: "CEO", tenureYears: 99, grade: "not-assessed", credibilityGrade: "not-assessed", reasoning: [], evidence: {} });
 
+describe("a filing's stated period and an exact start", () => {
+  const card = { name: "Alex Smith", title: "Chief Executive Officer", tenureYears: null, grade: "B", credibilityGrade: "B", reasoning: [], evidence: {} } as never;
+  const filing = (start: string, precision: "day" | "month" | "year", wording: string) =>
+    ({ name: "Alex Smith", office: "ceo" as const, start, precision, wording, quote: `since ${wording}`, source: "edgar:10-K officer-biographies", filingDate: "2026-02-13" });
+  const notes = ["Alex Smith \u2014 Chief Executive Officer (since 2024-04-01) [fmp:key-executives]"];
+
+  it("keeps the exact date when the filing's month or year contains it", () => {
+    expect(executiveTenureStart(card, 0, [], { notes, officerTenures: [filing("2024-04-30", "month", "April 2024")] })).toBe("2024-04-01");
+    expect(executiveTenureStart(card, 0, [], { notes, officerTenures: [filing("2024-12-31", "year", "2024")] })).toBe("2024-04-01");
+  });
+
+  it("fails closed when the filing's period excludes it", () => {
+    expect(executiveTenureStart(card, 0, [], { notes, officerTenures: [filing("2023-12-31", "year", "2023")] })).toBeUndefined();
+    expect(executiveTenureStart(card, 0, [], { notes, officerTenures: [filing("2024-04-02", "day", "April 2, 2024")] })).toBeUndefined();
+  });
+});
+
 describe("filing tenure from leadership context to persisted officer cards", () => {
   it("adds source-bound tenure and its original precision to leadership context and retained filings", () => {
     const b = completeCurrencyBundle({});
