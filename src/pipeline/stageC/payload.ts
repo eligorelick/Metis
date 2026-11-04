@@ -1,3 +1,4 @@
+import { extractOfficerTenures, type OfficerTenure } from "@/edgar/officerTenure";
 import { fiscalLabelContradicted } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
 import {latestResultsRelease, updatesFiledAfterResults} from "@/providers/currentReports";
@@ -216,6 +217,9 @@ export interface PayloadFigure {
 
 /** A labelled group of figures rendered as one block in the prompt. */
 export interface PayloadSection {
+  /** Pipeline-owned officer evidence, bound to roster identity and office. */
+  officerTenures?: OfficerTenure[];
+  tenureConflicts?: Pick<OfficerTenure, "name" | "office">[];
   title: string;
   /** Stable-ordered figures. */
   figures: PayloadFigure[];
@@ -2269,8 +2273,17 @@ function leadershipSection(bundle: DataBundle, issuer: InheritedIssuerCurrency):
     });
   }
   void execAsOf;
+  const biography = bundle.edgar?.officerBiographies;
+  const tenureConflicts: Pick<OfficerTenure, "name" | "office">[] = [];
+  const officerTenures = biography ? extractOfficerTenures(biography.text, rowsOf(bundle.executives).flatMap(e => typeof e.name === "string" && typeof e.title === "string" ? [{ name: e.name, title: e.title }] : []), {
+    source: biography.documentUrl, filingDate: biography.filingDate, reportDate: biography.reportDate,
+    issuer: bundle.edgar?.registrant?.name ?? strOrNull(firstRow(bundle.profile)?.companyName) ?? bundle.symbol,
+  }, tenureConflicts) : [];
+  if (biography) notes.push(...biography.notes);
+  for (const t of officerTenures) notes.push(`${t.name} — ${t.office.toUpperCase()} since ${t.wording}; ${t.precision} precision, overlap checks from ${t.start}; filed ${t.filingDate} [${t.source}]. Filing wording: ${t.quote}`);
+  for (const t of tenureConflicts) notes.push(`${t.name} — ${t.office.toUpperCase()} start withheld: conflicting dated office statements in the annual filing; roster and rounded tenure cannot resolve them.`);
   notes.push(...inheritanceNote(figures, issuer));
-  return payloadSection({ title: "Leadership & compensation", figures, notes });
+  return { ...payloadSection({ title: "Leadership & compensation", figures, notes }), ...(officerTenures.length ? { officerTenures } : {}), ...(tenureConflicts.length ? { tenureConflicts } : {}) };
 }
 
 function shortInterestSection(bundle: DataBundle): PayloadSection {
@@ -3759,7 +3772,13 @@ export function assembleContextPayload(
   // CAGR windows) that Stage B computes but that otherwise never reach the model
   // — surfacing them here keeps the prompt and the rendered appendix in agreement.
   const transcript = transcriptExcerpt(bundle);
+  const leadership = leadershipSection(bundle, issuer);
   const filings = filingExcerpts(bundle);
+  if (leadership.officerTenures?.length) {
+    const biography = bundle.edgar.officerBiographies!;
+    const text = [...new Set(leadership.officerTenures.map(t => t.quote))].join("\n");
+    filings.push({ source: biography.documentUrl, asOf: biography.filingDate, title: `${biography.form} officer tenure (${biography.accession}; filed ${biography.filingDate})`, text, truncated: false, originalChars: text.length });
+  }
   const disclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability);
   const anchor = computed.valuation.kind === "dcf" ? computed.valuation.assumptions?.revenueAnchor : undefined;
   const guidedAccession = /^sec:8-K EX-99\.1 (\d{10}-\d{2}-\d{6})$/.exec(anchor?.evidence?.guidedQuarter?.source ?? "")?.[1] ?? null;
@@ -3804,7 +3823,7 @@ export function assembleContextPayload(
     peers: peersSection(bundle),
     insiders: insidersSection(bundle),
     institutional: institutionalSection(bundle),
-    leadership: leadershipSection(bundle, issuer),
+    leadership,
     shortInterest: shortInterestSection(bundle),
     segments: segmentsSection(bundle),
     macro: macroSection(bundle),

@@ -1409,6 +1409,12 @@ export const ExecutiveSchema = z
     name: z.string(),
     title: z.string(),
     tenureYears: z.number().nullable(),
+    /** Pipeline-owned filing evidence; absent on historical reports. */
+    officeTenure: z.object({
+      name: z.string(), office: z.enum(["ceo", "cfo"]), start: z.iso.date(),
+      precision: z.enum(["day", "month", "year"]), wording: z.string(), quote: z.string(),
+      source: z.string(), filingDate: z.iso.date(),
+    }).strict().optional(),
     grade: z.enum(["A", "B", "C", "D", "F", "not-assessed"]),
     credibilityGrade: z.enum(["A", "B", "C", "D", "F", "not-assessed"]),
     assessmentReason: z.string().optional(),
@@ -2693,7 +2699,7 @@ const JudgeOutputObjectSchema = z
     valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, excessReturnGrid: true, consensusPath: true, sensitivityNotes: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
-    leadership: LeadershipSchema,
+    leadership: LeadershipSchema.extend({ executives: z.array(ExecutiveSchema.omit({ officeTenure: true })) }),
     competitive: CompetitiveSchema,
     catalystsRisks: CatalystsRisksSchema,
     outlook: OutlookSchema,

@@ -149,7 +149,7 @@ import { RecordedSensitivity } from "./RecordedSensitivity";
 import { ValuationSensitivityTables } from "./ValuationSensitivityTables";
 import { ProjectionFanChart } from "@/components/charts/lazy";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
-import { executiveCardClaims, executiveOfficeContext, type ExecutiveOfficeContext } from "@/report/executiveDecisions";
+import { executiveTenureText, executiveCardClaims, executiveOfficeContext, type ExecutiveOfficeContext } from "@/report/executiveDecisions";
 import {
   MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_ACTOR_LABELS, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
   SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
@@ -1539,6 +1539,7 @@ function ExecutiveCard({ exec, context }: { exec: Executive; context?: Executive
         </div>
       </div>
       <div className="flex flex-col gap-2 px-2.5 py-2">
+        {executiveTenureText(exec) && <p className="break-words text-[11px] text-muted">{executiveTenureText(exec)} (<a className="underline" href={exec.officeTenure!.source} target="_blank" rel="noreferrer">SEC filing</a>; filed {exec.officeTenure!.filingDate})</p>}
         {reason && <p className="text-[11px] text-muted">{displayProse(reason)}</p>}
         <ClaimList claims={executiveCardClaims(exec, exec.reasoning)} />
         {EXECUTIVE_EVIDENCE_GROUPS.map((descriptor) => ({
@@ -1581,7 +1582,7 @@ export function LeadershipSection({
 }) {
   // D-67: one card per assessed officer; the not-assessed officers share one card.
   const contexts = new Map(leadership.executives.map(e => [e, executiveOfficeContext(e, leadership, report.appendix?.verificationLog, report.outlook?.guidanceCredibility)]));
-  const groups = executiveGroups(leadership.executives, leadership.executives.filter(e => contexts.get(e) !== undefined));
+  const groups = executiveGroups(leadership.executives, leadership.executives.filter(e => contexts.get(e) !== undefined || executiveTenureText(e) !== undefined));
   return (
     <SectionFrame id="leadership" index={index} title="Leadership & Governance">
       <GradeReasoning

@@ -3,10 +3,37 @@ import { isFilingOrTranscriptSource } from "@/pipeline/stageC/consistency";
 import type { Executive, Leadership, ManagementAction, SourcedClaim, VerificationLogEntry } from "@/report/schema";
 
 export interface ExecutiveDecisionEvidence {
+  officerTenures?: readonly NonNullable<Executive["officeTenure"]>[];
+  tenureConflicts?: readonly { name: string; office: "ceo" | "cfo" }[];
   asOf?: string | null;
   issuer?: string | null;
   notes?: readonly string[];
   filings?: readonly { source: string; text: string }[];
+}
+
+/** Only optional middle initials; conflicting initials and expanded/nicknames fail closed. */
+export function sameOfficerName(a: string, b: string): boolean {
+  const tokens = (s: string) => s.toLowerCase().replace(/’/g, "'").trim().split(/\s+/).map(t => t.replace(/\.$/, ""));
+  const x = tokens(a), y = tokens(b);
+  if (x.length < 2 || y.length < 2 || x[0] !== y[0] || x.at(-1) !== y.at(-1)) return false;
+  const m = x.slice(1, -1), n = y.slice(1, -1);
+  return m.join(" ") === n.join(" ") || (m.length === 0 && n.every(t => /^[a-z]$/.test(t))) || (n.length === 0 && m.every(t => /^[a-z]$/.test(t)));
+}
+
+/** Context is produced from the roster and retained filing, never model-authored tenure. */
+export function filingTenureFor(e: Executive, context: ExecutiveDecisionEvidence): Executive["officeTenure"] {
+  const matches = (context.officerTenures ?? []).filter(t => sameOfficerName(t.name, e.name) && t.office === executiveOffice(e.title));
+  if (matches.length !== 1) return undefined;
+  const tenure = matches[0]!;
+  return day(tenure.start) && day(tenure.filingDate) && tenure.start <= tenure.filingDate &&
+    (!context.asOf || tenure.filingDate <= context.asOf.slice(0, 10)) ? tenure : undefined;
+}
+
+/** Preserve stated month/year wording; a conservative overlap bound is not an exact appointment date. */
+export function executiveTenureText(e: Executive): string | undefined {
+  const t = e.officeTenure;
+  return t && sameOfficerName(t.name, e.name) && t.office === executiveOffice(e.title)
+    ? `${t.office.toUpperCase()} since ${t.precision === "day" ? t.start : t.wording}` : undefined;
 }
 
 // What may follow "CEO," and remain the same issuer-wide office. Anything else names a unit.
@@ -81,7 +108,7 @@ export function executiveClaimEntry(claim: SourcedClaim, path: string, log: read
 }
 
 /** Only the issuer's own name, or a plain "the Company", may qualify an appointment. "CEO of Consumer Banking" stays divisional. */
-function issuerScopedRole(role: string, issuer: string | null | undefined): string {
+export function issuerScopedRole(role: string, issuer: string | null | undefined): string {
   const qualifier = /^(.*?)\s+of\s+(.+)$/i.exec(role);
   if (!qualifier) return role;
   const named = qualifier[2]!.toLowerCase();
@@ -94,10 +121,13 @@ function issuerScopedRole(role: string, issuer: string | null | undefined): stri
 export function executiveTenureStart(e: Executive, index: number, log: readonly VerificationLogEntry[], context: ExecutiveDecisionEvidence): string | undefined {
   const office = executiveOffice(e.title);
   if (!office) return undefined;
+  if (context.tenureConflicts?.some(t => sameOfficerName(t.name, e.name) && t.office === office)) return undefined;
   const starts = (context.notes ?? []).flatMap(note => {
     const match = /^(.*?) — (.*?) \(since (\d{4}-\d{2}-\d{2})\)/.exec(note);
     return match && note.endsWith("[fmp:key-executives]") && match[1] === e.name && executiveOffice(match[2]!) === office && day(match[3]) ? [match[3]!] : [];
   });
+  const filing = filingTenureFor(e, context);
+  if (filing) starts.push(filing.start);
   // A narrow biography fallback: the whole dated appointment sentence must be
   // present verbatim in its retained filing, not just cited by the judge.
   for (const [i, claim] of e.reasoning.entries()) {

@@ -217,7 +217,7 @@ export function buildLeadershipGuidance(
     // series and not a dividend history (audit 2026-09-06, F178). The inputs
     // name what is actually there.
     "- ROIC / margin trend over the executive's tenure: the computed growth & margins and returns",
-    "  figures plus the statement extracts, read against the titleSince dates.",
+    "  figures plus the statement extracts, read against the titleSince dates or the filing-sourced officer tenure in leadership context.",
     `- Capital-allocation record: buyback timing vs price paid (the capital section's buyback-price analysis and the cash-flow extract), M&A${options.webSearch ? " (web search for deals)" : " (as the analyst cases cite it — this pass has no web search)"}.`,
     "- Insider net activity trailing 12 months (payload insider trades + statistics). State the window the totals",
     "  cover. Attribute sales to tax withholding or a Rule 10b5-1 plan only for transactions the records classify that",
@@ -230,7 +230,10 @@ export function buildLeadershipGuidance(
     "  Date the filed control/count observations; an IPO conversion count is not a current Class B balance.",
     "  Distinguish controlled-company exemptions the issuer says it elected from exemptions merely available or contemplated.",
     "- Compensation vs performance (executive-compensation rows vs the return/margin trend).",
-    "- Tenure and turnover (titleSince dates; frequent C-suite churn is a JUDGMENT signal).",
+    "- Tenure and turnover (titleSince or filing-sourced officer tenure in leadership context; frequent C-suite churn is a JUDGMENT signal).",
+    "  Filing tenure retains the original wording and precision. A month/year establishes overlap only from its last day,",
+    "  not an invented appointment day. Read its filing citation/date; another office, director service or joining date",
+    "  cannot establish the current CEO/CFO start. The pipeline supplies officeTenure; do not author or infer that field.",
     // D-63 (audit P1-10): the gate became reachable (D-59) but the judge gave
     // no card an admissible record, so every card read "not-assessed".
     "- GUIDANCE TRACK RECORD: the quarterly-trend rows \"share of the last <N> guided quarters with <metric> above",
@@ -261,7 +264,7 @@ export function buildLeadershipGuidance(
     "number to the tag. For the CEO and CFO, company cash generation, returns and buybacks during the tenure are",
     "eligible execution metrics; they describe the company's record under that officer, not a personal contribution.",
     "ROUTE 2, DATED DECISION: bind a proposed CEO/CFO execution grade to a relevant `leadership.managementActions` entry",
-    "during an established tenure (the roster's titleSince, or a dated appointment sentence quoted exactly from a",
+    "during an established tenure (the roster's titleSince, filing-sourced officer tenure in leadership context, or an appointment quoted from a",
     "retained filing in the card's reasoning). Its FACT quotes one sentence exactly as the retained filing or transcript",
     "writes it, including its date, currency symbol and all qualifications; occurredOn is the decision's date in ISO form,",
     "which must be the sentence's only date or its opening 'On <date>'.",

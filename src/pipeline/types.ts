@@ -158,6 +158,11 @@ export interface EdgarRegistrant {
 }
 
 export interface EdgarBundle {
+  /** Same annual primary document, bounded officer biographies (D-192). */
+  officerBiographies?: {
+    text: string; notes: string[]; documentUrl: string; accession: string;
+    form: string; filingDate: string; reportDate: string;
+  };
   /** Source-bound cash PPE/hardware scope; original filing observations retained. */
   cashInvestment?: import("@/edgar/cashInvestment").FilingCashInvestment[];
   /** Audit 2026-10-22 C-15: NCI from the fetched 10-K/10-Q equity statements. */

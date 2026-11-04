@@ -3866,7 +3866,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const executiveRoot = verifiedReport as {leadership?: Report["leadership"]};
   if (executiveRoot.leadership && Array.isArray(executiveRoot.leadership.executives)) {
     executiveRoot.leadership = assessExecutiveEvidence(executiveRoot.leadership, log, false, {
-      notes: payload.leadership?.notes, filings: retainedDecisionSources(payload), issuer: payload.companyName,
+      officerTenures: payload.leadership?.officerTenures, tenureConflicts: payload.leadership?.tenureConflicts, notes: payload.leadership?.notes, filings: retainedDecisionSources(payload), issuer: payload.companyName,
       asOf: reportRoot.meta?.generatedAt ?? payload.quote?.figures?.find(f => f.asOf)?.asOf,
     });
   }
@@ -4556,7 +4556,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   }
   const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(assembled, args.computed, args.bundle, {
     pendingVerification: args.provisionalVerification === true,
-    executiveEvidence: { notes: executivePayload?.leadership.notes, filings: executivePayload && retainedDecisionSources(executivePayload), issuer: executivePayload?.companyName, asOf: assembled.meta.generatedAt },
+    executiveEvidence: { officerTenures: executivePayload?.leadership.officerTenures, tenureConflicts: executivePayload?.leadership.tenureConflicts, notes: executivePayload?.leadership.notes, filings: executivePayload && retainedDecisionSources(executivePayload), issuer: executivePayload?.companyName, asOf: assembled.meta.generatedAt },
   }));
   if (!parsed.success) {
     throw new ReportValidationError(

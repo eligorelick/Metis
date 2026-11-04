@@ -147,6 +147,7 @@ import {
   markdownHeading,
   markdownListItem,
   markdownProse,
+  markdownSourceLabel,
   markdownTable as table,
 } from "@/report/export/markdownEscape";
 import {
@@ -165,7 +166,7 @@ import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
 import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeHeading, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
-import { executiveCardClaims, executiveOfficeContext } from "@/report/executiveDecisions";
+import { executiveTenureText, executiveCardClaims, executiveOfficeContext } from "@/report/executiveDecisions";
 import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
@@ -780,7 +781,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
   lines.push("### Executives", "");
   // D-67: one card per assessed officer; the not-assessed officers share one line.
   const contexts = new Map(l.executives.map(e => [e, executiveOfficeContext(e, l, report.appendix?.verificationLog, report.outlook?.guidanceCredibility)]));
-  const groups = executiveGroups(l.executives, l.executives.filter(e => contexts.get(e) !== undefined));
+  const groups = executiveGroups(l.executives, l.executives.filter(e => contexts.get(e) !== undefined || executiveTenureText(e) !== undefined));
   for (const e of groups.assessed) {
     lines.push(
       `#### ${markdownHeading(e.name)} — ${markdownHeading(e.title)}`,
@@ -788,6 +789,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
       `Grade **${executiveGradeText(e.grade)}** · credibility **${executiveGradeText(e.credibilityGrade)}**${e.tenureYears === null ? "" : ` · tenure ${e.tenureYears.toFixed(1)}y`}`,
       "",
     );
+    if (executiveTenureText(e)) lines.push(`${markdownProse(executiveTenureText(e)!)} (${markdownSourceLabel(e.officeTenure!.source)}; filed ${e.officeTenure!.filingDate})`, "");
     if (e.reasoning.length > 0) lines.push(claimList(executiveCardClaims(e, e.reasoning)), "");
     const context = contexts.get(e);
     const reason = context?.note ?? executiveAssessmentNote(e);
