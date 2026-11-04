@@ -488,7 +488,8 @@ export interface ContextPayload {
 // 1.73.0 (D-195): valuation notes shown to readers use plain words; numbers unchanged
 // 1.74.0 (D-196): fair values restored from reconciled debt and share evidence; refusals name their cause
 // 1.75.0 (D-198): one-time operating sale gains, preferred capital and trailing bank returns change the computed figures
-export const PAYLOAD_VERSION = "1.75.0" as const;
+// 1.76.0 (D-200): filed earnings, share counts, native ADS earnings and same-filing cash replace conflicting vendor values
+export const PAYLOAD_VERSION = "1.76.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
