@@ -25,6 +25,22 @@ export function resolveForeignValuation(bundle: DataBundle, reportingCurrency: s
   const quoteDate = quotePriceObservationDay(quote);
   const selected = selectValuationFx(reportingCurrency, typeof profile?.currency === "string" ? profile.currency : null, quoteDate, bundle.valuationFx);
   if (!selected.rate) return refuse(selected.reason);
+  const security = resolveForeignShareRatio(bundle);
+  if (!security.basis) return refuse(security.reason ?? "quoted-unit security evidence is absent");
+  const fx = selected.rate;
+  const note = `Valuation translated at one spot rate (constant currency): all reporting-currency monetary valuation inputs and historical levels use ${fx.usdPerReportingUnit} USD per ${fx.reportingCurrency}; ` +
+    `FRED ${fx.series}, ${fx.observation.date}, native value ${fx.observation.value}, quote date ${quoteDate}. Source statements and source amounts in basis notes remain in ${fx.reportingCurrency}. Historical growth rates are unchanged by translation. ` +
+    security.basis.note + ` USD cash flows are discounted at the USD-based rate; intrinsic values are USD per ADS. Analyst rows without an established currency/share basis remain withheld. Historical price-multiple bands require their own dated FX/security evidence and remain withheld.`;
+  return { basis: { ...security.basis, fx, note }, reason: null };
+}
+
+/** Quoted-unit corroboration is independent of FX; native EPS needs no exchange rate. */
+export function resolveForeignShareRatio(bundle: DataBundle): { basis: Omit<ForeignValuationBasis, "fx"> | null; reason: string | null } {
+  const profile = bundle.profile?.ok ? bundle.profile.value.data.rows[0] : undefined;
+  const quote = bundle.quote?.ok ? bundle.quote.value.data.rows[0] : undefined;
+  const quoteDate = quotePriceObservationDay(quote);
+  const refuse = (reason: string) => ({ basis: null, reason });
+  if (!quoteDate) return refuse("dated quote is absent");
   if (!bundle.builtAt || !validDay(bundle.builtAt.slice(0, 10))) return refuse("analysis cutoff is not established");
   if (quoteDate! > bundle.builtAt.slice(0, 10)) return refuse("quote date is after the analysis cutoff");
   // Non-ADR foreign listings need explicit security evidence too: country or
@@ -104,15 +120,12 @@ export function resolveForeignValuation(bundle: DataBundle, reportingCurrency: s
     sourceIds: [`https://www.sec.gov/Archives/edgar/data/${facts.cik}/${fact.accn.replaceAll("-", "")}/`, `${endpoint} (${label} count ${provider})`],
   }));
   if (!resolveSecurityBasis(evidence, quoteDate!)) return refuse("security identity or effective-dated ratios disagree");
-  const fx = selected.rate;
-  const note = `Valuation translated at one spot rate (constant currency): all reporting-currency monetary valuation inputs and historical levels use ${fx.usdPerReportingUnit} USD per ${fx.reportingCurrency}; ` +
-    `FRED ${fx.series}, ${fx.observation.date}, native value ${fx.observation.value}, quote date ${quoteDate}. Source statements and source amounts in basis notes remain in ${fx.reportingCurrency}. Historical growth rates are unchanged by translation. ` +
-    (issuedCover
+  const note = (issuedCover
       ? `1 ADS = ${ratio} ordinary shares: the cover count equals same-filing issued shares within 0.1%, so it may include treasury; the independent filed/provider weighted-average ratio establishes the standard ratio within 1%. The issued cover is not treated as outstanding; `
       : `1 ADS = ${ratio} ordinary shares, corroborated by filed ordinary/provider quoted outstanding and independently matched weighted-average counts (1% tolerance); `) +
-    `market cap / price = ${cap / price} ADS versus provider ${quotedShares}. USD cash flows are discounted at the USD-based rate; intrinsic values are USD per ADS. ` +
-    `Sources: ${evidence.flatMap(e => e.sourceIds).join("; ")}. Analyst rows without an established currency/share basis remain withheld. Historical price-multiple bands require their own dated FX/security evidence and remain withheld.`;
-  return { basis: { fx, ratio, securityEvidence: evidence, quotedShares, marketCapUsd: cap, note }, reason: null };
+    `market cap / price = ${cap / price} ADS versus provider ${quotedShares}. ` +
+    `Sources: ${evidence.flatMap(e => e.sourceIds).join("; ")}.`;
+  return { basis: { ratio, securityEvidence: evidence, quotedShares, marketCapUsd: cap, note }, reason: null };
 }
 
 const positive = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v > 0;

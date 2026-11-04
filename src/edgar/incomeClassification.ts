@@ -1,4 +1,4 @@
-import { tagsFor } from "@/edgar/tagSynonyms";
+import { PRETAX_EXCLUDING_EQUITY_METHOD_TAG, tagsFor } from "@/edgar/tagSynonyms";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
@@ -67,13 +67,19 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       JSON.stringify(a.filings) === JSON.stringify(b.filings);
     const conflict = earnings.find(field => {
       const proof = evidenceFor(field);
-      if (!proof || !finite(row[field]) || !finite(sec[field]) || same(row[field], sec[field])) return false;
+      const vendor = row[field];
+      if (!proof || !finite(vendor) || !finite(sec[field]) || same(vendor, sec[field])) return false;
+      if (field === "incomeBeforeTax" && proof.tags.includes(`us-gaap/${PRETAX_EXCLUDING_EQUITY_METHOD_TAG}`)) {
+        const equity = evidenceFor("equityMethodIncomeLoss");
+        if (equity && sameScope(proof, equity) && finite(sec.equityMethodIncomeLoss) &&
+            same(vendor, sec.incomeBeforeTax! + sec.equityMethodIncomeLoss)) return false;
+      }
       if (field !== "netIncome") return true;
       // Parent, consolidated and common income are distinct valid scopes.
       // Only independently filed, same-interval alternatives can bridge them.
       return !["netIncomeConsolidated", "netIncomeAvailableToCommon"].some(alternative => {
         const other = evidenceFor(alternative);
-        return other && sameScope(proof, other) && finite(sec[alternative]) && same(row[field], sec[alternative]);
+        return other && sameScope(proof, other) && finite(sec[alternative]) && same(vendor, sec[alternative]);
       });
     });
     if (conflict) {
@@ -81,7 +87,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       const reason = `Filed earnings conflict for ${conflict}: vendor ${row[conflict]}, filed ${sec[conflict]} ${proof.unit}, ${proof.periodStart} through ${row.date}; pretax, tax and net-income family withheld together, including ownership/continuing aliases and dependent margins; vendor observations retained`;
       for (const field of [...earnings, "bottomLineNetIncome", "netIncomeConsolidated", "netIncomeAvailableToCommon",
         "netIncomeFromContinuingOperations", "netIncomeFromDiscontinuedOperations"]) {
-        if (finite(row[field])) refuse(field, finite(sec[field]) ? sec[field] : null, evidenceFor(field) ?? proof, reason);
+        refuse(field, finite(sec[field]) ? sec[field] : null, evidenceFor(field) ?? proof, reason);
       }
       out = { ...out, netIncomeRatio: null, netProfitMargin: null, incomeBeforeTaxRatio: null, effectiveTaxRate: null };
     }

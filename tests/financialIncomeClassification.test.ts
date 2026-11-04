@@ -32,7 +32,8 @@ describe("same-definition income classification", () => {
     const result = admit({ incomeBeforeTax: -2251, incomeTaxExpense: -540, netIncome: -1711,
       bottomLineNetIncome: -1711, netIncomeFromContinuingOperations: -1711, netIncomeRatio: -0.2 }, source);
     expect(result.row).toMatchObject({ incomeBeforeTax: null, incomeTaxExpense: null, netIncome: null,
-      bottomLineNetIncome: null, netIncomeFromContinuingOperations: null, netIncomeRatio: null });
+      bottomLineNetIncome: null, netIncomeFromContinuingOperations: null, netIncomeRatio: null,
+      netIncomeConsolidated: null, netIncomeAvailableToCommon: null });
     expect(result.row.fieldConflicts?.netIncome).toMatchObject({ vendorValue: -1711, secValue: 844, usable: false });
     expect(result.original.ok && result.original.value.data.rows[0]?.netIncome).toBe(-1711);
     const b = withIssuerFacts(completeCurrencyBundle({}), source);
@@ -40,6 +41,7 @@ describe("same-definition income classification", () => {
     b.statements.incomeQuarterly = result.original;
     const calculation = withIncomeOperatingBasis(b).statements.incomeQuarterly;
     expect(calculation.ok && calculation.value.data.rows[0]?.netIncome).toBeNull();
+    expect(calculation.ok && calculation.value.data.rows[0]?.netIncomeConsolidated).toBeNull();
   });
   it("keeps parent earnings when filed noncontrolling income bridges to consolidated profit", () => {
     const source = facts({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 500,
@@ -48,6 +50,13 @@ describe("same-definition income classification", () => {
     const result = admit({ incomeBeforeTax: 500, incomeTaxExpense: 68, netIncome: 404 }, source);
     expect(result.row.netIncome).toBe(404);
     expect(result.row.fieldConflicts?.netIncome).toBeUndefined();
+  });
+  it("keeps pretax income that includes the separately filed equity-method result", () => {
+    const source = facts({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments: 97311,
+      IncomeLossFromEquityMethodInvestments: -554, IncomeTaxExpenseBenefit: 19087, NetIncomeLoss: 77670 });
+    const result = admit({ incomeBeforeTax: 96757, incomeTaxExpense: 19087, netIncome: 77670 }, source);
+    expect(result.row.netIncome).toBe(77670);
+    expect(result.row.incomeBeforeTax).toBe(96757);
   });
   it("explains the original contract-scope refusal in an immutable frozen calculation view", () => {
     const f = facts();

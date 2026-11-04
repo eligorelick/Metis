@@ -164,6 +164,8 @@ export interface StatementFieldProvenance {
   periodEnd: string;
   observedAt: string;
   tags: string[];
+  /** Native per-ordinary-share facts converted to the independently established quoted ADS unit. */
+  shareUnitConversion?: { ordinarySharesPerQuotedUnit: number; sourceIds: string[] };
   filings: { accn: string; filed: string; form: string }[];
   /** Quarter reconstruction; absent for a directly reported field. */
   derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
