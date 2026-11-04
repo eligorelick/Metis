@@ -568,7 +568,7 @@ function fixtureBundle(symbol = "AAPL"): DataBundle {
   return bundle;
 }
 
-function buildInputs(symbol = "AAPL"): {
+function buildFreshInputs(symbol = "AAPL"): {
   bundle: DataBundle;
   computed: ComputedMetrics;
   payload: ContextPayload;
@@ -578,6 +578,26 @@ function buildInputs(symbol = "AAPL"): {
   const validation = validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") });
   const payload = assembleContextPayload(bundle, computed, validation);
   return { bundle, computed, payload };
+}
+
+// Build the expensive real pipeline once per symbol. Never expose the cached
+// graph: many cases deliberately mutate nested bundle/computed/payload fields.
+const inputFixtures = new Map<string, ReturnType<typeof buildFreshInputs>>();
+function freezeInputFixture(value: unknown, seen = new WeakSet<object>()): void {
+  if (value === null || typeof value !== "object" || seen.has(value)) return;
+  seen.add(value);
+  for (const child of Object.values(value)) freezeInputFixture(child, seen);
+  Object.freeze(value);
+}
+function buildInputs(symbol = "AAPL"): ReturnType<typeof buildFreshInputs> {
+  let fixture = inputFixtures.get(symbol);
+  if (!fixture) {
+    fixture = buildFreshInputs(symbol);
+    freezeInputFixture(fixture);
+    inputFixtures.set(symbol, fixture);
+  }
+  // Clone the whole graph together to retain aliases within one test's inputs.
+  return structuredClone(fixture);
 }
 
 /** A schema-valid AnalystCase with a traceable payload number. */
@@ -894,16 +914,16 @@ describe("payload determinism + provenance", () => {
     expect(section?.notes).toContain("same currency and issuer-common earnings basis");
   });
   it("produces byte-identical serialized output for identical inputs", () => {
-    const a = buildInputs();
-    const b = buildInputs();
+    const a = buildFreshInputs();
+    const b = buildFreshInputs();
     const sa = serializePayloadForPrompt(a.payload);
     const sb = serializePayloadForPrompt(b.payload);
     expect(sa).toBe(sb);
   });
 
   it("produces a stable fingerprint across identical builds and a versioned prefix", () => {
-    const a = buildInputs();
-    const b = buildInputs();
+    const a = buildFreshInputs();
+    const b = buildFreshInputs();
     expect(payloadFingerprint(a.payload)).toBe(payloadFingerprint(b.payload));
     expect(payloadFingerprint(a.payload).startsWith(`${PAYLOAD_VERSION}:`)).toBe(true);
   });
@@ -1826,8 +1846,8 @@ describe("payload determinism + provenance", () => {
   });
 
   it("emits a deterministic registry with unique semantic IDs", () => {
-    const first = buildInputs().payload;
-    const second = buildInputs().payload;
+    const first = buildFreshInputs().payload;
+    const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
     expect(first.payloadVersion).toBe("1.67.0");
@@ -3672,7 +3692,7 @@ describe("scenario price targets — deterministic injection (assembly)", () => 
   });
 
   it("attaches the deterministic scenarioTargets block to the report end to end (runStageB → assembleReport)", () => {
-    const { computed } = buildInputs();
+    const { computed } = buildFreshInputs();
     const report = assemble(computed, judgeOutput());
     expect(report.scenarioTargets).toBeDefined();
     expect(["available", "suppressed"]).toContain(report.scenarioTargets!.status);
@@ -3913,7 +3933,7 @@ describe("DCF fair value — deterministic injection (assembly)", () => {
   });
 
   it("end to end: runStageB fair value is attached, and the judge's raw DCF number never survives", () => {
-    const { computed } = buildInputs();
+    const { computed } = buildFreshInputs();
     const report = assemble(computed, judgeOutput());
     expect(report.fairValue).toBeDefined();
     if (report.fairValue!.status === "available") {
