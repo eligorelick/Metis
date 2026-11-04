@@ -6,6 +6,11 @@ describe('closed annual notes recognition', () => {
         const body = `NOTES TO FINANCI AL STATEMENTS NOTE 1 - ACCOUNTING POLICIES ${prose}`;
         expect(annualNotesToFinancialStatements(`${body}REPORT OF INDEPENDENT REGIST ERED PUBLIC ACCOUNTING FIRM To the Stockholders and the Board of Directors of Example Company Opinion on the Financial Statements AUDIT_SENTINEL`)?.text).toBe(body.trim());
     });
+    it('ends at an appendix that comes before the auditor report', () => {
+        const body = `NOTES TO FINANCI AL STATEMENTS NOTE 1 - ACCOUNTING POLICIES ${prose}`;
+        const text = annualNotesToFinancialStatements(`${body}Schedule II Valuation and Qualifying Accounts SCHEDULE_DATA REPORT OF INDEPENDENT REGIST ERED PUBLIC ACCOUNTING FIRM To the Stockholders and the Board of Directors Opinion on the Financial Statements AUDITOR_TEXT`)?.text;
+        expect(text).toBe(body.trimEnd());
+    });
     it('recognizes a split financial word without rewriting text', () => { const t = `NOTES TO FINANCI AL STATEMENTS NOTE 1 - ACCOUNTING POLICIES ${prose}`; expect(annualNotesToFinancialStatements(t)?.text).toBe(t); });
     it('recognizes unnumbered policies with business and consolidation evidence', () => { const t = `Notes to Consolidated Financial Statements Summary of Significant Accounting Policies NATURE OF BUSINESS ${prose} CONSOLIDATION The Consolidated Financial Statements include ${prose}`; expect(annualNotesToFinancialStatements(t)?.text).toBe(t); });
     it.each(['Summary of Significant Accounting Policies is described elsewhere.', 'See Note 1 for policies.', 'Summary of Significant Accounting Policies NATURE OF BUSINESS Short stub.'])('rejects %s', opening => { expect(annualNotesToFinancialStatements(`NOTES TO FINANCI AL STATEMENTS ${opening}`)).toBeNull(); });
@@ -37,6 +42,11 @@ describe('printed-page financial index', () => {
     });
     it('refuses an unnumbered notes page before the boundary rather than dropping it', () => {
         expect(extractAnnualNotesFromIndex(fixture('F-').replace('<p>F-3</p>', '<p>F-3</p><hr style="page-break-after:always"/><p>MORE_NOTES without a printed page.</p><hr style="page-break-after:always"/><h2>EXHIBIT INDEX</h2><p>List.</p>'))).toBeNull();
+    });
+    it('ends the notes at a split auditor title', () => {
+        const text = extractAnnualNotesFromIndex(fixture().replace('<p>3</p>', '<h2>REPORT OF INDEPENDENT REGIST ERED PUBLIC ACCOUNTING FIRM</h2><p>AUDITOR_TEXT</p><p>3</p>'))?.text;
+        expect(text).toContain(prose.trim());
+        expect(text).not.toContain('AUDITOR_TEXT');
     });
     it('does not take a numeric table cell for the printed footer', () => {
         expect(extractAnnualNotesFromIndex(fixture().replace('<p>3</p>', '<table><tr><td>Debt maturity</td><td><p>3</p></td></tr></table>'))).toBeNull();

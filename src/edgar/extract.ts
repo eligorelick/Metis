@@ -1445,14 +1445,16 @@ export function annualNotesToFinancialStatements(itemText: string): { text: stri
   const legacy = notesToFinancialStatements(itemText);
   const notes = legacy ?? recognizeAnnualNotes(itemText);
   if (notes === null) return null;
+  // The notes end at whichever comes first: an auditor report or an appendix.
+  const stops: number[] = [];
   if (legacy === null) {
     const auditor = /\bREPORT OF INDEPENDENT REGIST\s*ERED PUBLIC ACCOUNTING FIRM\s+To the (?:Stockholders|Shareholders)\b[\s\S]{0,200}?Opinion on the Financial Statements/i.exec(notes.text);
-    if (auditor && auditor.index > 1_000) return { text: notes.text.slice(0, auditor.index).trimEnd(), start: notes.start };
+    if (auditor && auditor.index > 1_000) stops.push(auditor.index);
   }
   for (const end of notes.text.matchAll(ANNUAL_NOTES_END_RE)) {
-    if (end.index > 1_000) return { text: notes.text.slice(0, end.index).trimEnd(), start: notes.start };
+    if (end.index > 1_000) { stops.push(end.index); break; }
   }
-  return notes;
+  return stops.length ? { text: notes.text.slice(0, Math.min(...stops)).trimEnd(), start: notes.start } : notes;
 }
 
 // Closed vocabulary tolerates inline font-run word splits only in the title.
@@ -2352,7 +2354,7 @@ function extractPrintedIndexNotes(html: string): ReturnType<typeof extractAnnual
     if (heads.length !== 1) continue;
     const head = heads[0]!;
     const boundary = blocks.find(n => n.start > head.end && !ancestor(n, "table") &&
-      /^(?:INDEX OF EXHIBITS|EXHIBIT INDEX|SIGNATURES|REPORT OF INDEPENDENT REGISTERED PUBLIC ACCOUNTING FIRM|Item\s+(?:7A|9|15|16)\..*|Schedule II(?:\s*[-–—:]?\s*Valuation and Qualifying Accounts)?)$/i.test(nt(n)));
+      /^(?:INDEX OF EXHIBITS|EXHIBIT INDEX|SIGNATURES|REPORT OF INDEPENDENT REGIST\s*ERED PUBLIC ACCOUNTING FIRM|Item\s+(?:7A|9|15|16)\..*|Schedule II(?:\s*[-–—:]?\s*Valuation and Qualifying Accounts)?)$/i.test(nt(n)));
     // A heading that opens its own page need not continue the notes' numbering,
     // but nothing may stand between the last proved notes page and that heading.
     const boundaryPage = boundary ? pages.find(p => boundary.start >= p.start && boundary.start < p.end) : undefined;
