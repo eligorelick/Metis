@@ -71,7 +71,8 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       const proof = earningsSec.fieldProvenance?.[field];
       return proof && proof.unit === row.reportedCurrency && proof.periodStart && proof.periodEnd === row.date &&
         (row.periodStart == null || row.periodStart === proof.periodStart) && proof.filings.length > 0 &&
-        (row.filingDate == null || proof.filings.map(f => f.filed).sort().at(-1) === row.filingDate) ? proof : null;
+        (row.filingDate == null || proof.filings.map(f => f.filed).sort().at(-1) === row.filingDate ||
+          row.fieldProvenance?.[field]?.source === "edgar" && sameScope(row.fieldProvenance[field]!, proof)) ? proof : null;
     };
     const vendorFor = (field: string): number | null => finite(row[field]) ? row[field] :
       /^Filed earnings/.test(row.fieldConflicts?.[field]?.reason ?? "") ? row.fieldConflicts?.[field]?.vendorValue ?? null : null;
@@ -118,37 +119,37 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
         vendorAgreesWithDerived(c.net.value, pretax!.value - tax.value, [pretax!.value, tax.value]));
       return selected ? { pretax, tax, ...selected } : null;
     };
-    let disputed = conflicts();
-    if (disputed.length) {
-      let family = familyFor();
-      // Newer comparative copies can make a complete original family appear
-      // mixed. Try the original filing as a unit before calling it incomplete.
-      if (!family && row.filingDate) {
-        if (!originalFilings.has(row.filingDate)) {
-          const accns = new Set(Object.values(facts.facts).flatMap(ns => Object.values(ns).flatMap(raw => {
-            const parsed = conceptFactsSchema.safeParse(raw);
-            return parsed.success ? Object.values(parsed.data.units).flatMap(ps => parseFactPoints(ps).filter(p =>
-              p.end === row.date && p.filed === row.filingDate && CORE_FACT_FORMS.has(p.form)).map(p => p.accn)) : [];
-          })));
-          const original = accns.size === 1 ? buildStatementsFromCompanyFacts(factsForFilings(facts, [...accns]), {
-            symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0, 10), factsObservedAt: observedAt,
-            annualPeriods: 40, quarterlyPeriods: 80, bankRevenue: opts.bankRevenue || opts.securitiesRevenue,
-            vendorSplits: { status: "unavailable", source: "earnings-family", reason: "Monetary family only" } }) : null;
-          originalFilings.set(row.filingDate, original ? scope === "annual" ? original.incomeAnnual.rows : original.incomeQuarterly.rows : []);
-        }
-        const original = originalFilings.get(row.filingDate)!.find(r => r.date === row.date);
-        if (original) { earningsSec = original; family = familyFor(); disputed = conflicts(); }
+    let family = familyFor();
+    // Resolve the source candidate before deciding whether a dispute exists:
+    // every latest comparative can have a different filing date from the row.
+    if (!family && row.filingDate) {
+      if (!originalFilings.has(row.filingDate)) {
+        const accns = new Set(Object.values(facts.facts).flatMap(ns => Object.values(ns).flatMap(raw => {
+          const parsed = conceptFactsSchema.safeParse(raw);
+          return parsed.success ? Object.values(parsed.data.units).flatMap(ps => parseFactPoints(ps).filter(p =>
+            p.end === row.date && p.filed === row.filingDate && CORE_FACT_FORMS.has(p.form)).map(p => p.accn)) : [];
+        })));
+        const original = accns.size === 1 ? buildStatementsFromCompanyFacts(factsForFilings(facts, [...accns]), {
+          symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0, 10), factsObservedAt: observedAt,
+          annualPeriods: 40, quarterlyPeriods: 80, bankRevenue: opts.bankRevenue || opts.securitiesRevenue,
+          vendorSplits: { status: "unavailable", source: "earnings-family", reason: "Monetary family only" } }) : null;
+        originalFilings.set(row.filingDate, original ? scope === "annual" ? original.incomeAnnual.rows : original.incomeQuarterly.rows : []);
       }
+      const original = originalFilings.get(row.filingDate)!.find(r => r.date === row.date);
+      if (original) { earningsSec = original; family = familyFor(); }
+    }
+    const audit = (field: string, value: number | null, proof: StatementFieldProvenance | null, reason: string, resolution: "filed-family" | "minor-retained") => {
+      out = { ...out, [field]: value, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendorFor(field), secValue: resolution === "minor-retained" && finite(earningsSec[field]) ? earningsSec[field] : value,
+        usable: value !== null, resolution, reason, ...(proof ? { secEvidence: proof } : {}) } },
+        ...(proof && resolution === "filed-family" && value !== null ? { fieldProvenance: { ...out.fieldProvenance, [field]: proof } } : {}) };
+      if (resolution === "minor-retained" && out.fieldProvenance?.[field]) {
+        const fieldProvenance = { ...out.fieldProvenance }; delete fieldProvenance[field];
+        out = { ...out, fieldProvenance };
+      }
+    };
+    const disputed = conflicts();
+    if (disputed.length) {
       const differences = disputed.map(field => `${field}: vendor ${vendorFor(field)}, filed ${earningsSec[field]}`).join("; ");
-      const audit = (field: string, value: number | null, proof: StatementFieldProvenance | null, reason: string, resolution: "filed-family" | "minor-retained") => {
-        out = { ...out, [field]: value, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendorFor(field), secValue: resolution === "minor-retained" && finite(earningsSec[field]) ? earningsSec[field] : value,
-          usable: value !== null, resolution, reason, ...(proof ? { secEvidence: proof } : {}) } },
-          ...(proof && resolution === "filed-family" && value !== null ? { fieldProvenance: { ...out.fieldProvenance, [field]: proof } } : {}) };
-        if (resolution === "minor-retained" && out.fieldProvenance?.[field]) {
-          const fieldProvenance = { ...out.fieldProvenance }; delete fieldProvenance[field];
-          out = { ...out, fieldProvenance };
-        }
-      };
       if (disputed.length && family) {
         const common = operand("netIncomeAvailableToCommon");
         const reason = `Filed earnings family adopted (${family.basis} basis), ${family.pretax.proof.periodStart} through ${row.date} ${family.pretax.proof.unit}; ${differences}; filed pretax ${family.pretax.value} - tax ${family.tax.value} = net income ${family.net.value}${common && sameScope(family.pretax.proof, common.proof) ? `; filed income available to common ${common.value}` : ""}; vendor observations retained`;
@@ -173,29 +174,6 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
           netIncomeRatio: finite(out.revenue) && out.revenue !== 0 ? family.net.value / out.revenue : null,
           incomeBeforeTaxRatio: finite(out.revenue) && out.revenue !== 0 ? family.pretax.value / out.revenue : null,
           effectiveTaxRate: family.pretax.value !== 0 ? family.tax.value / family.pretax.value : null, netProfitMargin: null };
-        // Do not derive EPS from profit. A previously admitted count can prove
-        // that direct filed EPS uses this row's unchanged ordinary-share unit.
-        // Split-adjusted, ADR-converted and million-scaled counts cannot pass
-        // the raw filed-count tie-out below.
-        for (const [eps, shares] of [["eps", "weightedAverageShsOut"], ["epsDiluted", "weightedAverageShsOutDil"]] as const) {
-          const shareProof = row.fieldProvenance?.[shares], count = row[shares];
-          if (!finite(row[eps]) || !finite(count) || !shareProof || shareProof.unit !== "shares" || shareProof.shareUnitConversion ||
-              row.fieldConflicts?.[shares]?.usable === false || !sameScope({ ...shareProof, unit: family.pretax.proof.unit }, family.pretax.proof)) continue;
-          const matchingPoints = (tag: string, unit: string) => {
-            const concept = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
-            return concept.success ? parseFactPoints(concept.data.units[unit] ?? []).filter(p =>
-              p.start === shareProof.periodStart && p.end === shareProof.periodEnd && shareProof.filings.some(f =>
-                f.accn === p.accn && f.filed === p.filed && f.form === p.form)) : [];
-          };
-          const countMatches = tagsFor(shares).some(tag => matchingPoints(tag, "shares").some(p =>
-            Math.abs(p.val - count) <= Math.max(1, Math.abs(p.val) * 0.0001)));
-          if (!countMatches) continue;
-          const points = tagsFor(eps).flatMap(tag => matchingPoints(tag, `${row.reportedCurrency}/shares`).map(point => ({ tag, point })));
-          if (new Set(points.map(p => p.point.val)).size !== 1) continue;
-          const value = points[0]!.point.val;
-          if (Math.abs(value - row[eps]!) <= 0.005 + 1e-9) continue;
-          audit(eps, value, { ...shareProof, unit: `${row.reportedCurrency}/shares`, tags: [...new Set(points.map(p => `us-gaap/${p.tag}`))] }, reason, "filed-family");
-        }
         // The adoption invalidates provider aggregates that depended on the
         // old pretax base. Recover compatible filed operands, never invent a plug.
         const oldPretax = vendorFor("incomeBeforeTax");
@@ -230,6 +208,33 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
           out = { ...out, netIncomeRatio: null, netProfitMargin: null, incomeBeforeTaxRatio: null, effectiveTaxRate: null };
         }
         gaps.push({ field: `statements.income.${row.date}.earningsFamily`, reason, severity: minor ? "info" : "warn", ...(minor ? { expected: true } : {}) });
+      }
+    }
+    // Share admission may run after monetary adoption on fresh acquisition.
+    // Recheck direct EPS independently when the complete family already agrees.
+    if (family) {
+      // Do not derive EPS from profit. A previously admitted count can prove
+      // that direct filed EPS uses this row's unchanged ordinary-share unit.
+      // Split-adjusted, ADR-converted and million-scaled counts cannot pass
+      // the raw filed-count tie-out below.
+      for (const [eps, shares] of [["eps", "weightedAverageShsOut"], ["epsDiluted", "weightedAverageShsOutDil"]] as const) {
+        const shareProof = row.fieldProvenance?.[shares], count = row[shares];
+        if (!finite(row[eps]) || !finite(count) || !shareProof || shareProof.unit !== "shares" || shareProof.shareUnitConversion ||
+            row.fieldConflicts?.[shares]?.usable === false || row.fieldConflicts?.[eps]?.usable === false || !sameScope({ ...shareProof, unit: family.pretax.proof.unit }, family.pretax.proof)) continue;
+        const matchingPoints = (tag: string, unit: string) => {
+          const concept = conceptFactsSchema.safeParse(facts.facts["us-gaap"]?.[tag]);
+          return concept.success ? parseFactPoints(concept.data.units[unit] ?? []).filter(p =>
+            p.start === shareProof.periodStart && p.end === shareProof.periodEnd && shareProof.filings.some(f =>
+              f.accn === p.accn && f.filed === p.filed && f.form === p.form)) : [];
+        };
+        const countMatches = tagsFor(shares).some(tag => matchingPoints(tag, "shares").some(p =>
+          Math.abs(p.val - count) <= Math.max(1, Math.abs(p.val) * 0.0001)));
+        if (!countMatches) continue;
+        const points = tagsFor(eps).flatMap(tag => matchingPoints(tag, `${row.reportedCurrency}/shares`).map(point => ({ tag, point })));
+        if (new Set(points.map(p => p.point.val)).size !== 1) continue;
+        const value = points[0]!.point.val;
+        if (Math.abs(value - row[eps]!) <= 0.005 + 1e-9) continue;
+        audit(eps, value, { ...shareProof, unit: `${row.reportedCurrency}/shares`, tags: [...new Set(points.map(p => `us-gaap/${p.tag}`))] }, `Filed ${eps} adopted on the independently admitted unchanged share unit, ${shareProof.periodStart} through ${row.date}; vendor ${row[eps]}, filed ${value} ${row.reportedCurrency}/shares; vendor observation retained`, "filed-family");
       }
     }
     const netRevenue = evidenceFor("revenue");

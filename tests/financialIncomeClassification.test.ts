@@ -9,6 +9,8 @@ import { withIssuerFacts } from "./helpers/confirmedIssuer";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
 import { buildSourceFactSummary } from "@/report/sourceFacts";
+import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import { withFilerShareUnits } from "@/pipeline/shareUnits";
 
 const at = "2026-10-19T00:00:00Z";
 function facts(extra: Record<string, number> = {}): CompanyFacts {
@@ -28,6 +30,62 @@ function admit(row: Partial<FmpIncomeStatementRow> = {}, source = facts()) {
   return { row: result.income.value.data.rows[0]!, result, original };
 }
 describe("same-definition income classification", () => {
+  it("recovers the original filed earnings before treating later comparative copies as no dispute", () => {
+    const source = facts({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 1000,
+      IncomeTaxExpenseBenefit: 200, NetIncomeLoss: 800 });
+    for (const tag of ["IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest", "IncomeTaxExpenseBenefit", "NetIncomeLoss"]) {
+      const concept = source.facts["us-gaap"]![tag] as { units: { USD: Record<string, unknown>[] } };
+      concept.units.USD.push({ ...concept.units.USD[0], accn: "0000796343-26-000113", filed: "2026-09-15" });
+    }
+    const result = admit({ filingDate: "2026-06-15", incomeBeforeTax: -1000, incomeTaxExpense: -200, netIncome: -800 }, source);
+    expect(result.row).toMatchObject({ incomeBeforeTax: 1000, incomeTaxExpense: 200, netIncome: 800 });
+    expect(result.row.fieldProvenance?.netIncome?.filings).toEqual([{ accn: "0000796343-26-000112", filed: "2026-06-15", form: "10-Q" }]);
+  });
+  it("preserves an SEC-built earnings restatement with the original reporter date", () => {
+    const source = facts({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 1000,
+      IncomeTaxExpenseBenefit: 200, NetIncomeLoss: 800 });
+    for (const [tag, value] of Object.entries({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 1100, IncomeTaxExpenseBenefit: 200, NetIncomeLoss: 900 })) {
+      const concept = source.facts["us-gaap"]![tag] as { units: { USD: Record<string, unknown>[] } };
+      concept.units.USD.push({ ...concept.units.USD[0], val: value, accn: "0000796343-26-000113", filed: "2026-09-15" });
+    }
+    const built = buildStatementsFromCompanyFacts(source, { symbol: "EXAMPLE", cik: "796343", asOf: at.slice(0, 10), factsObservedAt: at, annualPeriods: 4, quarterlyPeriods: 4,
+      vendorSplits: { status: "retrieved", source: "fixture", events: [], coverage: [{ from: "2020-01-01", to: at.slice(0, 10) }] } });
+    const row = built.incomeQuarterly.rows.find(r => r.date === "2026-05-29")!;
+    expect(row).toMatchObject({ filingDate: "2026-06-15", incomeBeforeTax: 1100, netIncome: 900 });
+    expect(admit(row, source).row).toMatchObject({ incomeBeforeTax: 1100, incomeTaxExpense: 200, netIncome: 900 });
+  });
+  it.each([false, true])("converges fresh income-first and replay shares-first admission on filed EPS (missing start: %s)", missingStart => {
+    const source = facts({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 1000,
+      IncomeTaxExpenseBenefit: 200, NetIncomeLoss: 800 });
+    const point = { start: "2026-02-28", end: "2026-05-29", accn: "0000796343-26-000112", filed: "2026-06-15", form: "10-Q", fy: 2026, fp: "Q2" };
+    source.facts["us-gaap"]!.WeightedAverageNumberOfDilutedSharesOutstanding = { units: { shares: [{ ...point, val: 100 }] } };
+    if (missingStart) {
+      const shares = source.facts["us-gaap"]!.WeightedAverageNumberOfDilutedSharesOutstanding as { units: { shares: Record<string, unknown>[] } };
+      shares.units.shares.push({ ...point, start: "2026-03-01", val: 97 });
+    }
+    source.facts["us-gaap"]!.EarningsPerShareDiluted = { units: { "USD/shares": [{ ...point, val: 8 }] } };
+    const b = completeCurrencyBundle({}); b.builtAt = at;
+    withIssuerFacts(b, source);
+    if (!b.profile.ok) throw Error("fixture");
+    b.profile.value.data.rows[0]!.isAdr = false;
+    b.edgar.registrant = { cik10: "0000796343", name: "Example", tickers: [b.symbol], sic: null, sicDescription: null,
+      exchanges: [], fiscalYearEnd: "1130", forms: ["10-Q"], stateOfIncorporation: null };
+    const built = buildStatementsFromCompanyFacts(source, { symbol: b.symbol, cik: "796343", asOf: at.slice(0, 10), factsObservedAt: at, annualPeriods: 4, quarterlyPeriods: 4,
+      vendorSplits: { status: "retrieved", source: "fixture", events: [], coverage: [{ from: "2020-01-01", to: at.slice(0, 10) }] } });
+    b.edgar.shareBasis = { splits: built.splits, basisDay: at.slice(0, 10) };
+    b.statements.incomeQuarterly = input({ periodStart: missingStart ? undefined : point.start, period: "Q2", filingDate: "2026-06-15", incomeBeforeTax: 1002, incomeTaxExpense: 200,
+      netIncome: 802, epsDiluted: 8.02, weightedAverageShsOutDil: 102 });
+    const original = structuredClone(b);
+    const freshIncome = enrichIncomeClassification(b.statements.incomeQuarterly, source, "quarter", at).income;
+    const fresh = withIncomeOperatingBasis(withFilerShareUnits({ ...b, statements: { ...b.statements, incomeQuarterly: freshIncome } }));
+    const replay = withIncomeOperatingBasis(withFilerShareUnits(b));
+    const row = (bundle: typeof b) => bundle.statements.incomeQuarterly.ok ? bundle.statements.incomeQuarterly.value.data.rows[0]! : null;
+    expect(row(fresh)).toMatchObject({ incomeBeforeTax: 1000, incomeTaxExpense: 200, netIncome: 800, weightedAverageShsOutDil: 100, epsDiluted: 8 });
+    expect(row(replay)?.epsDiluted).toBe(8);
+    expect(row(fresh)?.fieldProvenance?.epsDiluted).toEqual(row(replay)?.fieldProvenance?.epsDiluted);
+    expect(row(fresh)?.fieldConflicts?.epsDiluted).toEqual(row(replay)?.fieldConflicts?.epsDiluted);
+    expect(b).toEqual(original);
+  });
   it("adopts a reconciled filed family even when the contradicted vendor loss adds up", () => {
     const source = facts({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 1119,
       IncomeTaxExpenseBenefit: 270, ProfitLoss: 849, NetIncomeLoss: 844, NetIncomeLossAvailableToCommonStockholdersBasic: 844,

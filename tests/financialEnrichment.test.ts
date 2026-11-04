@@ -6,6 +6,7 @@ import type { FetchResult } from "@/types/core";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
+import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 
 const observedAt = "2026-10-13T12:00:00.000Z";
 const point = (val: number, extra: Record<string, unknown> = {}) => ({ end: "2026-06-30", val, accn: "0000000001-26-000002", filed: "2026-07-30", form: "10-Q", fy: 2026, fp: "Q2", ...extra });
@@ -18,6 +19,23 @@ function sourced<T extends FmpBalanceSheetRow | FmpCashFlowRow>(rows: T[]): Fetc
 const leases = () => facts({ OperatingLeaseLiability: [point(30)], FinanceLeaseLiability: [point(7)], FinanceLeasePrincipalPayments: [point(5, { start: "2026-01-01" }), point(2, { start: "2026-01-01", end: "2026-03-31", filed: "2026-04-30", accn: "0000000001-26-000001", fp: "Q1" })] });
 
 describe("SEC field enrichment of existing vendor statements", () => {
+  it("preserves genuine SEC-built restated cash and its dependents despite the original reporter date", () => {
+    const f = facts({ Assets: [point(1000)], CashAndCashEquivalentsAtCarryingValue: [point(100),
+      point(120, { filed: "2026-09-01", accn: "0000000001-26-000003" })],
+      ShortTermInvestments: [point(20)], LongTermDebtCurrent: [point(50)], LongTermDebtNoncurrent: [point(150)] });
+    const built = buildStatementsFromCompanyFacts(f, { symbol: "EXAMPLE", cik: "1", asOf: observedAt.slice(0, 10), factsObservedAt: observedAt, annualPeriods: 4, quarterlyPeriods: 4,
+      vendorSplits: { status: "unavailable", source: "fixture", reason: "cash only" } });
+    const row = built.balanceQuarterly.rows.find(r => r.date === "2026-06-30")!;
+    expect(row).toMatchObject({ filingDate: "2026-07-30", cashAndCashEquivalents: 120 });
+    expect(row.fieldProvenance?.cashAndCashEquivalents?.filings[0]?.filed).toBe("2026-09-01");
+    const original = sourced([{ ...row, cashAndShortTermInvestments: 140, netDebt: 80 }]);
+    const out = enrichFinancialFields(original, sourced<FmpCashFlowRow>([]), f, "quarter", observedAt);
+    expect(out.balance.ok && out.balance.value.data.rows[0]).toMatchObject({ cashAndCashEquivalents: 120, cashAndShortTermInvestments: 140, netDebt: 80 });
+    const b = completeCurrencyBundle({}); b.builtAt = observedAt; withIssuerFacts(b, f);
+    b.statements.balanceQuarterly = original;
+    expect(withCashFlowSbcBasis(b).statements.balanceQuarterly).toMatchObject({ ok: true,
+      value: { data: { rows: [{ cashAndCashEquivalents: 120, cashAndShortTermInvestments: 140, netDebt: 80 }] } } });
+  });
   it("compares cash to the original same-filing observation despite a newer repeated balance", () => {
     const f = facts({ CashAndCashEquivalentsAtCarryingValue: [point(3127e6), point(3127e6, { filed: "2026-09-01", accn: "0000000001-26-000003" })] });
     const original = sourced([{ cik: "1", date: "2026-06-30", filingDate: "2026-07-30", reportedCurrency: "USD",

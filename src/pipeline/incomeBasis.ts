@@ -8,6 +8,7 @@ import { successorContinuity } from "@/edgar/successor";
 import { conceptFactsSchema, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { predecessorFactsFor } from "@/pipeline/stageB/debtLikeObligations";
 import { contractRevenueScopeRefusal, enrichIncomeClassification } from "@/edgar/incomeClassification";
+import { withFilerShareUnits } from "./shareUnits";
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 /** Continuity must be evidenced at the snapshot cutoff, like the amounts it admits. */
@@ -167,5 +168,20 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
     });
     return { ...input, value: { ...input.value, data: { ...input.value.data, rows } } };
   };
-  return { ...bundle, statements: { ...bundle.statements, incomeAnnual: family("incomeAnnual"), incomeQuarterly: family("incomeQuarterly") }, gaps };
+  const admitted = { ...bundle, statements: { ...bundle.statements, incomeAnnual: family("incomeAnnual"), incomeQuarterly: family("incomeQuarterly") }, gaps };
+  // Monetary admission can establish a missing period start after the first
+  // share pass skipped an ambiguous interval. Resolve those deferred shares,
+  // then recheck direct EPS only in families whose rows actually changed.
+  const shares = facts && filed ? withFilerShareUnits(admitted) : admitted;
+  const finalGaps = [...shares.gaps];
+  const finishPerShare = (name: "incomeAnnual" | "incomeQuarterly") => {
+    const input = shares.statements[name], prior = admitted.statements[name];
+    if (!facts || !filed || !input.ok || !prior.ok || input.value.data.rows.every((row, i) => row === prior.value.data.rows[i])) return input;
+    const result = enrichIncomeClassification(input, facts, name === "incomeAnnual" ? "annual" : "quarter", bundle.builtAt,
+      { earningsOnly: true, securitiesRevenue: bundle.edgar.sic === "6211",
+        filedRows: name === "incomeAnnual" ? filed.incomeAnnual.rows : filed.incomeQuarterly.rows });
+    finalGaps.push(...result.gaps);
+    return result.income;
+  };
+  return { ...shares, statements: { ...shares.statements, incomeAnnual: finishPerShare("incomeAnnual"), incomeQuarterly: finishPerShare("incomeQuarterly") }, gaps: finalGaps };
 }
