@@ -157,7 +157,6 @@ import {
   initialSteps,
   LLM_STEPS,
   NO_KEY_SKIP_REASON,
-  NO_ANALYZABLE_DATA_REASON,
   plainRejectionNote,
   withPlainIssueList,
   MAX_JUDGE_RETRIES,
@@ -7259,11 +7258,26 @@ describe("runJob — no-key degraded path", () => {
 });
 
 describe("runJob — unresolved ticker", () => {
-  it("skips every paid pass and persists a data-only report when nothing could be fetched", async () => {
-    const { jobId } = createJob("ZZZZQ");
+  it.each(["../AAPL", "...", "AAPL/QQQ"])("refuses malformed symbol %s even with a company-shaped bundle", async symbol => {
+    const { jobId } = createJob(symbol);
     const { passes, calls } = mockPasses();
-    const empty = { ok: false as const, gap: { field: "x", reason: "not found", severity: "critical" as const } };
-    const base = fakeBundle("ZZZZQ");
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(symbol), hasAnthropicKey: true, now: NOW });
+    expect(result).toMatchObject({ status: "unsupported", reportId: null, totalCostUsd: 0, message: expect.stringMatching(/malformed ticker/i) });
+    expect(calls).toEqual([]);
+    expect(resolveModelMock).not.toHaveBeenCalled();
+    expect(handle.db.select().from(jobLlmLeases).all()).toHaveLength(0);
+    expect(handle.db.select().from(reports).all()).toHaveLength(0);
+  });
+  it.each([
+    { symbol: "ZZZZQ", reason: "FMP returned an empty array (no data for this query)", message: /not found.*invalid or delisted/i },
+    { symbol: "OLDCOQ", reason: "FMP returned an empty array (no data for this query)", message: /not found.*invalid or delisted/i },
+    { symbol: "AAPL", reason: "HTTP 503: provider temporarily unavailable", message: /not established/i },
+  ])("refuses $symbol without a saved report or paid admission: $reason", async ({ symbol, reason, message }) => {
+    const { jobId } = createJob(symbol);
+    const { passes, calls } = mockPasses();
+    const preflightPass = vi.fn();
+    const empty = { ok: false as const, gap: { field: "x", reason, severity: "critical" as const } };
+    const base = fakeBundle(symbol);
     const bundle = {
       ...base,
       profile: empty,
@@ -7272,17 +7286,25 @@ describe("runJob — unresolved ticker", () => {
       statements: { ...base.statements, incomeAnnual: empty },
     } as unknown as DataBundle;
 
-    const result = await runJob(jobId, passes, { bundle, hasAnthropicKey: true, now: NOW });
+    const result = await runJob(jobId, { ...passes, preflightPass }, { bundle, hasAnthropicKey: true, now: NOW });
 
-    expect(result.status).toBe("done");
-    expect(result.dataOnly).toBe(true);
+    expect(result).toMatchObject({ status: "unsupported", reportId: null, totalCostUsd: 0, kind: "unknown", message: expect.stringMatching(message) });
+    if (symbol === "AAPL") expect(result).not.toHaveProperty("message", expect.stringMatching(/not found|does not exist|invalid or delisted/i));
     expect(calls).toEqual([]);
+    expect(preflightPass).not.toHaveBeenCalled();
+    expect(resolveModelMock).not.toHaveBeenCalled();
+    expect(providerBoundaryMocks.runPass).not.toHaveBeenCalled();
+    expect(providerBoundaryMocks.runPassStreaming).not.toHaveBeenCalled();
+    expect(providerBoundaryMocks.webSearchTool).not.toHaveBeenCalled();
+    expect(handle.db.select().from(jobLlmLeases).all()).toHaveLength(0);
+    expect(handle.db.select().from(jobPassArtifacts).all()).toHaveLength(0);
+    expect(handle.db.select().from(reports).all()).toHaveLength(0);
     const jobRow = handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get();
     const steps = JSON.parse(jobRow?.stepsJson ?? "[]") as StepProgress[];
     for (const step of LLM_STEPS) {
       const found = steps.find((s) => s.step === step);
       expect(found?.status).toBe("skipped");
-      expect(found?.detail).toBe(NO_ANALYZABLE_DATA_REASON);
+      expect(found?.detail).toMatch(message);
     }
     expect(handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all()).toHaveLength(0);
   });

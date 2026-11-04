@@ -90,6 +90,8 @@ import {
 } from "@/pipeline/stageC/judgeProtocol";
 import type { RequestAdmission, RequestPermit } from "@/providers/anthropic";
 import { buildDataBundle, type BuildDataBundleOptions } from "@/pipeline/dataBundle";
+import { FMP_EMPTY_ARRAY_REASON } from "@/providers/fmp";
+import { isValidSymbol } from "@/symbol";
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
 import { captureRunInputSnapshot, CURRENT_SNAPSHOT_VERSIONS } from "@/pipeline/runInputSnapshot";
 import { getRuntimeSnapshotArtifactIdentity } from "@/pipeline/runtimeArtifactIdentity";
@@ -2987,6 +2989,10 @@ export async function runJob<TPayload = unknown>(
 
     // -- fetch ----------------------------------------------------------------
     startStep(state, "fetch");
+    if (!isValidSymbol(state.symbol)) {
+      return finishUnsupported(state, { supported: false, kind: "unknown",
+        reason: "Malformed ticker symbol; company analysis is unsupported. No data or AI request was admitted." });
+    }
     // Audit 2026-10-22 F-12: a plan connection owned by another Metis server
     // ends the job here, in one attempt, before any data is fetched. Any other
     // store problem is left to the pass, which reports its own reason. A
@@ -3068,17 +3074,15 @@ export async function runJob<TPayload = unknown>(
       bundle.profile.ok ? (bundle.profile.value.data.rows[0] ?? null) : null,
     );
     if (!validatedSupport.supported) {
-      if (validatedSupport.kind === "unknown" && !hasAnalyzableData(bundle)) {
-        // Retain the existing source-only empty-data outcome without treating
-        // an unclassified instrument as a company or running Stage B/paid work.
-        for (const step of ["compute", ...LLM_STEPS] as const) {
-          startStep(state, step);
-          finishStep(state, step, "skipped", NO_ANALYZABLE_DATA_REASON);
-        }
-        return persistDataOnly(state, bundle, validation, null, now, hasKey, {
-          reason: NO_ANALYZABLE_DATA_REASON,
-          gaps: [{ field: "instrument.classification", reason: validatedSupport.reason, severity: "warn" }],
-        });
+      // A positive empty response is different from a transport failure. Neither
+      // admits a company report, a model resolution, or a paid request lease.
+      const confirmedMiss = bundle.profile.ok ? bundle.profile.value.data.rows.length === 0
+        : bundle.profile.gap.reason === FMP_EMPTY_ARRAY_REASON ||
+          (/no API key/.test(bundle.profile.gap.reason) && !bundle.edgar.cik.ok &&
+            /not in SEC company_tickers\.json/.test(bundle.edgar.cik.gap.reason));
+      if (validatedSupport.kind === "unknown" && confirmedMiss) {
+        return finishUnsupported(state, { ...validatedSupport,
+          reason: `Ticker ${bundle.symbol} was not found in the company sources. It may be invalid or delisted; no report was saved and no AI request was admitted.` });
       }
       return finishUnsupported(state, validatedSupport);
     }
