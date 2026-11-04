@@ -23,7 +23,7 @@ import { parseIssuerGrowthEffect } from "@/edgar/currentReports";
 import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf, periodDays, fiscalYearEndFor, snapToFiscalYearEnd, type FiscalYearRule } from "./fiscalCalendar";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
-import { commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
+import { preferredCapitalRefusal, commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type PreferredCapitalInputs, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, type LeaseFieldEvidence, type LeaseEvidenceContext } from "@/pipeline/stageB/leaseScope";
 import type { DebtLikeObligations } from "@/pipeline/stageB/debtLikeObligations";
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
@@ -888,6 +888,7 @@ export interface DcfAssumptionInputs {
   /** D-198: completed material disposals already excluded from the shared calculation view. */
   operatingNormalizationBasis?: string;
   operatingNormalizationRefusal?: string | null;
+  equityBridgePreferredRefusal?: string | null;
   /** Annual income history (any order; used for 5y median margin + trend). */
   incomeHistory: DcfIncomeRow[];
   recurringOperatingItemsBasis?: string;
@@ -1852,6 +1853,8 @@ export const MID_YEAR_DISCOUNTING_BASIS =
 export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssumptionsResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
+  if (inputs.equityBridgePreferredRefusal) return { assumptions: null, notes: [inputs.equityBridgePreferredRefusal],
+    gaps: [gapEntry("valuation.dcf.preferredCapital", inputs.equityBridgePreferredRefusal, "critical")] };
   const normalizationRefusal = inputs.operatingNormalizationRefusal ?? inputs.unusualOperatingItems?.dcfRefusal;
   if (normalizationRefusal) return { assumptions: null, notes: [normalizationRefusal],
     gaps: [gapEntry("valuation.dcf.operatingDisposition", normalizationRefusal, "critical")] };
@@ -3802,7 +3805,7 @@ export interface MultiplesCashFlowTtm {
 }
 
 /** Latest balance sheet slice (FMP names). */
-export interface MultiplesBalance {
+export interface MultiplesBalance extends PreferredCapitalInputs {
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
   reportedCurrency?: string | null;
@@ -3871,7 +3874,7 @@ export interface MultiplesBalance {
 }
 
 /** Quarterly fundamentals merged per quarter by the caller (FMP names). */
-export interface QuarterlyFundamentalsRow extends CommonIncomeInputs {
+export interface QuarterlyFundamentalsRow extends CommonIncomeInputs, PreferredCapitalInputs {
   fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
@@ -4274,7 +4277,7 @@ function bookNciImmaterial(row: (Parameters<typeof temporaryEquityClaims>[0] & {
 
 function unresolvedCashOwnership(row: Parameters<typeof unknownNoncontrollingAllocation>[0] & Parameters<typeof temporaryEquityClaims>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
   const nciImmaterial = bookNciImmaterial(row, row?.noncontrollingIncome);
-  return unknownNoncontrollingAllocation(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
+  return preferredCapitalRefusal(row) !== null || unknownNoncontrollingAllocation(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
     (!nciImmaterial && isNum(row?.noncontrollingIncome) && row.noncontrollingIncome !== 0) ||
     (isNum(row?.preferredStock) && row.preferredStock !== 0) ||
     temporaryEquityBlocksCashOwnership(row) ||
@@ -4398,7 +4401,7 @@ function deriveOwnHistory(
     const windowTemporary = temporaryEquityClaims(b);
     if (windowTemporary?.refusal != null) temporaryEquityRejectedWindows.push({ anchor: b.date, reason: windowTemporary.refusal });
     const evVal =
-      leaseBasisMatches && leaseScopeRefusal === null && !unknownNoncontrollingAllocation(b) && windowTemporary?.refusal == null && isNum(mcap) && historicalNetDebt.value !== null
+      leaseBasisMatches && leaseScopeRefusal === null && preferredCapitalRefusal(b) === null && !unknownNoncontrollingAllocation(b) && windowTemporary?.refusal == null && isNum(mcap) && historicalNetDebt.value !== null
         ? mcap +
           historicalNetDebt.value +
           (isNum(b.preferredStock) ? b.preferredStock : 0) +
@@ -4637,6 +4640,11 @@ export function multiplesFramework(
   // like permanent preferred and book NCI. A refused operand withholds the EV.
   const temporaryClaims = financialsRoute ? null : temporaryEquityClaims(bal);
   const temporaryRefusal = temporaryClaims?.refusal ?? null;
+  const preferredRefusal = preferredCapitalRefusal(bal);
+  if (preferredRefusal) {
+    notes.push(preferredRefusal);
+    gaps.push(gapEntry("valuation.multiples.preferredCapital", preferredRefusal, "warn"));
+  }
   const temporaryTotal = temporaryClaims !== null && temporaryRefusal === null ? temporaryClaims.total : 0;
   if (temporaryRefusal !== null) {
     const reason = `${temporaryRefusal}; the redeemable preferred and redeemable noncontrolling claims cannot be added, and the EV-dependent multiples are withheld rather than zero-filled`;
@@ -4668,7 +4676,7 @@ export function multiplesFramework(
     notes.push(`EV withheld: ${netDebt.reason}. Equity-only multiples are evaluated separately.`);
   }
   const rawEvIncludingLeases =
-    mcap !== null && bal && netDebt.value !== null && !unknownNciAllocation && temporaryRefusal === null
+    mcap !== null && bal && netDebt.value !== null && !unknownNciAllocation && temporaryRefusal === null && preferredRefusal === null
       ? mcap +
         netDebt.value +
         (isNum(bal.preferredStock) ? bal.preferredStock : 0) +
@@ -5240,6 +5248,8 @@ export interface ExcessReturnInputs {
   preferredSeriesDistinct?: boolean;
   /** BV0: equity on the same ownership/asset basis as currentRoePct. */
   bookValue: number | null;
+  bookValueRefusal?: string | null;
+  bookValueBasisDetail?: string | null;
   /** Production financial routes value only the equity belonging to common holders. */
   bookValueBasis?: "tangible-common-equity" | "common-equity";
   /** Current ROE, percent — TTM unless `currentRoeBasis` says otherwise. */
@@ -5691,11 +5701,11 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
           : `cost of equity ${fmtNum(coeSupplied)}% (CAPM, upstream); the model never uses a WACC`,
     },
     openingBookValue: {
-      value: posOrNull(inputs.bookValue),
+      value: inputs.bookValueRefusal ? null : posOrNull(inputs.bookValue),
       basis:
-        posOrNull(inputs.bookValue) === null
-          ? "totalStockholdersEquity missing or non-positive"
-          : "latest total stockholders' equity (BV0)",
+        inputs.bookValueRefusal ?? (posOrNull(inputs.bookValue) === null
+          ? inputs.bookValueRefusal ?? "totalStockholdersEquity missing or non-positive"
+          : "latest total stockholders' equity (BV0)"),
     },
     priceToTangibleBookVsRote: priceToTangibleBookVsRote(inputs, coeSupplied, null),
   } satisfies Pick<
@@ -5731,10 +5741,10 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   }
   const coe = inputs.costOfEquityPct;
 
-  let bv0 = posOrNull(inputs.bookValue);
+  let bv0 = inputs.bookValueRefusal ? null : posOrNull(inputs.bookValue);
   if (bv0 === null) {
     gaps.push(
-      gapEntry("valuation.excessReturn.bookValue", "totalStockholdersEquity missing or non-positive — excess-return model not computable", "critical"),
+      gapEntry("valuation.excessReturn.bookValue", inputs.bookValueRefusal ?? "totalStockholdersEquity missing or non-positive — excess-return model not computable", "critical"),
     );
     return {
       equityValue: null,
@@ -6134,7 +6144,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     },
     openingBookValue: {
       value: bv0,
-      basis: `opening book equity BV0 = ${inputs.bookValueBasis === "tangible-common-equity" ? "tangible common equity (equity less goodwill, intangibles and preferred)" : inputs.bookValueBasis === "common-equity" ? "common equity (equity less preferred)" : "latest total stockholders' equity"} ${bv0}${inputs.asOf != null ? ` as of ${inputs.asOf}` : ""}; each later year's book value compounds at the matching equity return x retention`,
+      basis: `opening book equity BV0 = ${inputs.bookValueBasis === "tangible-common-equity" ? "tangible common equity (equity less goodwill, intangibles and preferred)" : inputs.bookValueBasis === "common-equity" ? "common equity (equity less preferred)" : "latest total stockholders' equity"} ${bv0}${inputs.asOf != null ? ` as of ${inputs.asOf}` : ""}; each later year's book value compounds at the matching equity return x retention` + (inputs.bookValueBasisDetail ? `; preferred capital: ${inputs.bookValueBasisDetail}` : ""),
     },
     priceToTangibleBookVsRote: pTbvVsRote,
     bookValuePath,
