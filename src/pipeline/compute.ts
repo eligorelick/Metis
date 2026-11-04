@@ -1293,11 +1293,10 @@ function ttmIncomeFromNormalized(
   if (revenueCount < 4) {
     gaps?.push({
       field: "compute.ttmIncome",
-      reason: `revenue present in only ${revenueCount}/4 latest quarters — TTM basis suppressed (a partial sum would understate it); latest annual statement used instead`,
+      reason: `revenue present in only ${revenueCount}/4 latest quarters — TTM revenue suppressed (a partial sum would understate it); revenue-dependent consumers use the latest annual statement or refuse. Independently complete common earnings remain eligible.`,
       severity: "info",
       attemptedSources: ["fmp:/stable/income-statement?period=quarter"],
     });
-    return null;
   }
 
   let incomeBeforeTax = sumField(q, "incomeBeforeTax");
@@ -1358,7 +1357,7 @@ function ttmIncomeFromNormalized(
     // One established code for all four quarters (the gate above).
     reportedCurrency: windowCurrency.code,
     currencyFromSameFilingStatements: windowCurrency.fromSameFiling,
-    revenue: sumField(q, "revenue"),
+    revenue: revenueCount === 4 ? sumField(q, "revenue") : null,
     operatingIncome: gateComplete("operatingIncome"),
     depreciationAndAmortization: gateComplete("depreciationAndAmortization"),
     netIncome: commonWindow.netIncome,
@@ -1632,10 +1631,11 @@ export function statementCurrencies(bundle: DataBundle): StatementCurrencies {
   const income = normalizeStatementQuarters(rows(statements.incomeQuarterly), "income");
   const balance = normalizeStatementQuarters(rows(statements.balanceQuarterly), "balance");
   const cashflow = normalizeStatementQuarters(rows(statements.cashflowQuarterly), "cashFlow");
+  const incomeWindow = ttmIncomeFromNormalized(income, undefined, [...balance.rows, ...cashflow.rows]);
   return resolveStatementCurrencies(
     bundle.profile === undefined ? undefined : firstRow(bundle.profile)?.currency,
     rows(statements.incomeAnnual)[0],
-    ttmIncomeFromNormalized(income, undefined, [...balance.rows, ...cashflow.rows]),
+    incomeWindow?.revenue != null ? incomeWindow : null,
     ttmCashFlowFromNormalized(cashflow, undefined, [...income.rows, ...balance.rows]),
     income.rows[0],
     [...income.rows, ...balance.rows, ...cashflow.rows],
@@ -2123,13 +2123,16 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
         reportedCurrency: normalizeReportedCurrency(inc0.reportedCurrency),
       }
     : null;
-  const ttmInc = ttmIncomeFromNormalized(incomeQuarterSet, ttmGaps, [
+  const trailingIncome = ttmIncomeFromNormalized(incomeQuarterSet, ttmGaps, [
     ...balanceQuarterSet.rows,
     ...cashflowQuarterSet.rows,
   ], bundle.builtAt);
-  if (commonEarningsSupplemented && num(ttmInc?.netIncomeAvailableToCommon) !== null) {
+  // D-198: only common-return consumers admit an earnings-only window. Every
+  // legacy revenue-dependent consumer keeps its complete-revenue gate.
+  const ttmInc = trailingIncome?.revenue != null ? trailingIncome : null;
+  if (commonEarningsSupplemented && num(trailingIncome?.netIncomeAvailableToCommon) !== null) {
     const components = incomeQuarterSet.rows.slice(0, 4);
-    const reason = `Aggregate TTM common earnings ${ttmInc!.netIncomeAvailableToCommon}: ` + components.map(row => {
+    const reason = `Aggregate TTM common earnings ${trailingIncome!.netIncomeAvailableToCommon}: ` + components.map(row => {
       const evidence = row.fieldProvenance?.netIncomeAvailableToCommon;
       return `${row.date} ${row.netIncomeAvailableToCommon} (${evidence?.derivation ?? "direct filed flow"}; ${evidence?.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ") ?? "source unavailable"})`;
     }).join(" + ") + ". Four contiguous common-income quarters; a derived Q4 is fiscal year less nine months, both operands filed. No per-share EPS is inferred and no FY-plus-YTD substitution is used.";
@@ -2355,6 +2358,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     currencies.model,
     currencies.ttmIncomeUsable,
     foreignBasis,
+    trailingIncome,
   );
   if (lendingCashFlow) {
     returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [lendingCashFlow.reason], gaps: [] };
@@ -3177,6 +3181,8 @@ function computeReturns(
   /** StatementCurrencies.ttmIncomeUsable: the window's currency matches the annual statement's. */
   ttmIncomeUsable: boolean,
   foreignBasis: ForeignValuationBasis | null,
+  /** Same admitted quarter window, independently of revenue completeness. */
+  earningsTtm: TtmIncome | null,
 ): ReturnsBlock {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
@@ -3487,7 +3493,7 @@ function computeReturns(
   // from the quarterly rows already fetched. A window in another currency than
   // the annual statement is withheld here as it is from the valuation: its
   // earnings cannot be set against balances in the model currency.
-  const commonIncomeTtm = ttmIncomeUsable ? ttmInc : null;
+  const commonIncomeTtm = earningsTtm?.reportedCurrency === modelCurrency ? earningsTtm : null;
   const commonReturnTtm = isFinancial
     ? computeTtmCommonReturn({
         // The same earnings evidence the TTM P/E admits common income from.
