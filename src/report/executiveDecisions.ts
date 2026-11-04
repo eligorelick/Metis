@@ -21,6 +21,12 @@ export function sameOfficerName(a: string, b: string): boolean {
 }
 
 /** Context is produced from the roster and retained filing, never model-authored tenure. */
+/** A month or year cannot disagree with an exact date inside that period. */
+export function startAgreesWithFiling(start: string, filing: NonNullable<Executive["officeTenure"]>): boolean {
+  const shared = filing.precision === "year" ? 4 : filing.precision === "month" ? 7 : 10;
+  return start.slice(0, shared) === filing.start.slice(0, shared);
+}
+
 export function filingTenureFor(e: Executive, context: ExecutiveDecisionEvidence): Executive["officeTenure"] {
   const matches = (context.officerTenures ?? []).filter(t => sameOfficerName(t.name, e.name) && t.office === executiveOffice(e.title));
   if (matches.length !== 1) return undefined;
@@ -139,12 +145,8 @@ export function executiveTenureStart(e: Executive, index: number, log: readonly 
     const role = issuerScopedRole(match?.[2] ?? "", context.issuer);
     if (match?.[1] === e.name && executiveOffice(role) === office && dates.length === 1) starts.push(dates[0]!);
   }
-  // A month or year cannot disagree with an exact date inside that period.
   const filing = filingTenureFor(e, context);
-  if (filing) {
-    const shared = filing.precision === "year" ? 4 : filing.precision === "month" ? 7 : 10;
-    if (!starts.some(start => start.slice(0, shared) === filing.start.slice(0, shared))) starts.push(filing.start);
-  }
+  if (filing && !starts.some(start => startAgreesWithFiling(start, filing))) starts.push(filing.start);
   const unique = [...new Set(starts)];
   return unique.length === 1 ? unique[0] : undefined;
 }

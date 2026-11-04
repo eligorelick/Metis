@@ -26,6 +26,12 @@ describe("a filing's stated period and an exact start", () => {
     expect(executiveTenureStart(card, 0, [], { notes, officerTenures: [filing("2024-12-31", "year", "2024")] })).toBe("2024-04-01");
   });
 
+  it("keeps the filing citation on the card when an exact date agrees with its period", () => {
+    const leadership = { graded: { grade: "B", confidence: "low", oneLineWhy: "x", reasoning: [], keyNumbers: [] }, executives: [card], insiderSummary: [], governanceNotes: [] } as never;
+    const result = assessExecutiveEvidence(leadership, [], false, { notes, officerTenures: [filing("2024-04-30", "month", "April 2024")] });
+    expect(result.executives[0]!.officeTenure).toMatchObject({ wording: "April 2024" });
+  });
+
   it("fails closed when the filing's period excludes it", () => {
     expect(executiveTenureStart(card, 0, [], { notes, officerTenures: [filing("2023-12-31", "year", "2023")] })).toBeUndefined();
     expect(executiveTenureStart(card, 0, [], { notes, officerTenures: [filing("2024-04-02", "day", "April 2, 2024")] })).toBeUndefined();

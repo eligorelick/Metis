@@ -5,7 +5,7 @@ import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { executiveAssessmentReason } from "@/report/executiveAssessment";
 import { reasoningClaims } from "@/report/presentation";
-import { executiveTenureStart, filingTenureFor, validatedExecutiveDecisions, type ExecutiveDecisionEvidence } from "@/report/executiveDecisions";
+import { executiveTenureStart, filingTenureFor, startAgreesWithFiling, validatedExecutiveDecisions, type ExecutiveDecisionEvidence } from "@/report/executiveDecisions";
 
 /** Positive contracts for pipeline-owned metric families, never the model's evidence bucket. */
 export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidance-track-record" | "execution" | undefined {
@@ -33,7 +33,8 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
     const { officeTenure: _untrusted, ...original } = executive;
     void _untrusted;
     const candidateTenure = filingTenureFor(executive, context);
-    const officeTenure = candidateTenure && executiveTenureStart(executive, index, log, context) === candidateTenure.start ? candidateTenure : undefined;
+    const establishedStart = candidateTenure && executiveTenureStart(executive, index, log, context);
+    const officeTenure = candidateTenure && establishedStart && startAgreesWithFiling(establishedStart, candidateTenure) ? candidateTenure : undefined;
     executive = officeTenure ? { ...original, officeTenure } : original;
     const admissible = (claim:SourcedClaim, field:string, claimIndex:number): VerificationLogEntry["executiveEvidenceKind"] => {
       if (claim.label !== "FACT" || !claim.asOf || !claim.source.trim() || /^(?:unknown|memory|assumed)$/i.test(claim.source.trim())) return undefined;

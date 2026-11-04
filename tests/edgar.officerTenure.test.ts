@@ -49,6 +49,19 @@ describe("filing officer tenure, bound to a current roster person and office", (
     expect(read("Information About Our Executive Officers Alex Smith was appointed CEO of the Company on April 24, 2024, and the appointment became effective May 1, 2024.")).toEqual([]);
   });
 
+  it.each([
+    ["another person's office later in the sentence", "Alex Smith has served as President since 2018, while Robin Lee has served as CEO since 2010."],
+    ["a named person in a separate clause", "Alex Smith has served as President since 2018 and Robin Lee was appointed CEO in 2010."],
+    ["a later interruption and return", "Alex Smith was appointed CEO on January 1, 2010. He resigned in 2015 and was reappointed CEO on May 1, 2024."],
+  ])("withholds %s", (_label, text) => {
+    expect(read(`Information About Our Executive Officers ${text}`).filter(t => t.office === "ceo")).toEqual([]);
+  });
+
+  it("still reads an appointment that names the predecessor", () => {
+    expect(read("Information About Our Executive Officers On 7 August 2025, Alex Smith succeeded Robin Lee as president and chief executive officer of the Company.")[0])
+      .toMatchObject({ start: "2025-08-07" });
+  });
+
   it("keeps the issuer's own name after the date", () => {
     expect(read("Information About Our Executive Officers Alex Smith has served as Chief Executive Officer since 2014 at Example Holdings.")[0]).toMatchObject({ start: "2014-12-31" });
   });

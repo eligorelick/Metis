@@ -114,6 +114,8 @@ export function extractOfficerTenures(text: string, roster: readonly { name: str
         const stop = /[.!?](?=\s|$)/.exec(tail);
         const sentence = tail.slice(0, stop ? stop.index + 1 : tail.length);
         if (/\b(?:retired|stepped down|resigned|will|would|expected|plans to)\b/i.test(sentence)) continue;
+        // A later departure or return in the same biography leaves this start unproved as the current term.
+        if (/\b(?:re-?appointed|returned (?:to|as)|rejoined|resigned|stepped down|retired)\b/i.test(tail.slice(sentence.length))) continue;
         const before = subject.index === 0 ? normalized.slice(Math.max(0, begin - 45), begin) : subjectBio.slice(Math.max(0, subject.index - 45), subject.index);
         const opening = new RegExp(`(?:On|In) (${DATE}),? $`, "i").exec(before)?.[1];
         const matches = [...sentence.matchAll(new RegExp(`(${OFFICE})([^.;]{0,150}?)\\s+(?:\\(?since|in|on|effective(?: as of)?)\\s+(${DATE})(?=[).,; ]|$)`, "gi"))];
@@ -128,6 +130,8 @@ export function extractOfficerTenures(text: string, roster: readonly { name: str
         }
         for (const match of matches) {
           const prefix = sentence.slice(0, match.index);
+          // The office clause must still be about this officer, not someone named on the way to it.
+          if (/\b(?:while|whereas)\b/i.test(prefix) || /\b[A-Z][\p{L}'\u2019-]+(?:\s+[A-Z]\.?)?\s+[A-Z][\p{L}'\u2019-]+\s+(?:has|have|had|was|is|became|serves|served|succeeded|joined)\b/u.test(prefix)) continue;
           const beforeOffice = /([\p{L}&'\u2019-]+)[\s,]*$/u.exec(prefix)?.[1]?.toLowerCase().replace(/-$/, "") ?? "";
           if (!BEFORE_OFFICE.has(beforeOffice) && !(beforeOffice === "co" && /\bco-?(?:ceo|chief)/i.test(officer.title))) continue;
           // What follows the date can name another employer, an end date or the true start.
