@@ -10,6 +10,16 @@
 
 Verdict and executive summary · how the company makes money, its segments, and its market and industry structure · fundamentals and quarterly trends · balance sheet and capital · valuation (a sector-appropriate intrinsic value, multiples against history and peers, sensitivity grids, reverse DCF) · quality and forensic red flags · technicals · leadership, compensation and insider activity · competitors and moat · dated catalysts and risks · outlook and weighted bull/base/bear projections · macro context · an appendix of sources, data gaps and verification results.
 
+## See a sample report
+
+From `/report/sample`: a fictional company, with real code outputs on invented inputs.
+
+![Sample report: key data and section grades](public/screenshots/sample-overview.png)
+
+![Sample report: verdict, executive summary and scorecard](public/screenshots/sample-summary.png)
+
+![Sample report: CEO and CFO cards with dated decisions and what is missing for a grade](public/screenshots/sample-leadership.png)
+
 ## How it works
 
 1. **Collect.** Typed data from Financial Modeling Prep, SEC EDGAR, Yahoo Finance, FINRA, FRED, Finnhub, the U.S. Treasury and an EDGAR-confirmed issuer's own website, checked for freshness, balance-sheet identities and selected vendor figures against EDGAR XBRL.

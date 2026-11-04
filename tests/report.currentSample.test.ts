@@ -6,6 +6,7 @@ import { ReportSchema } from "@/report/schema";
 import { ReportView } from "@/components/report/ReportView";
 import SamplePage from "@/app/report/sample/page";
 import { legacyScopeQualifications } from "@/report/legacyScopeQualifications";
+import { reportToMarkdown } from "@/report/export/markdown";
 
 const state = vi.hoisted(() => ({ malformed: false }));
 vi.mock("node:fs", async importOriginal => {
@@ -64,6 +65,13 @@ describe("current fictional visitor sample", () => {
       for (const section of ["verdict", "business", "fundamentals", "balanceSheet", "valuation", "quality", "technicals", "leadership", "competitive", "catalystsRisks", "outlook", "appendix"]) expect(html).toContain(`id="report-${section}"`);
     }
   });
+  it("shows readers no internal decision numbers", () => {
+    const markdown = reportToMarkdown(ReportSchema.parse(JSON.parse(readFileSync("fixtures/report/DEMO-current.json", "utf8"))));
+    expect(markdown).not.toMatch(/\bhouse rule D-\d+/i);
+    expect(markdown).not.toMatch(/\(D-\d+/);
+    expect(markdown).not.toContain("saved execution grade");
+  });
+
   it("loads the new fixture through the sample route", () => {
     const html = renderToStaticMarkup(createElement(SamplePage));
     expect(html).toContain("Mira Vale");
