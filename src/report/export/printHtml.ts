@@ -1,4 +1,4 @@
-import { macroDisplayRows, withPlainFigureNotes } from "@/report/presentation";
+import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
 import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
@@ -438,7 +438,8 @@ function sectionVerdict(report: Report): string {
   );
   const execSummary = v.executiveSummary && v.executiveSummary.length > 0 ? `<h3>Executive summary</h3>${claimList(v.executiveSummary)}` : "";
   // D-62: the debate sits with the verdict it informs.
-  return `<section class="block">${sectionHeading("verdict")}<p class="synthesis">${prose(v.synthesis)}</p>${execSummary}${recentDevelopmentsBlock(v.recentDevelopments)}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements)}</section>`;
+  const figureNote = plainFigureReaderNote(report);
+  return `<section class="block">${sectionHeading("verdict")}<p class="synthesis">${prose(v.synthesis)}</p>${figureNote ? `<p class="muted">${esc(figureNote)}</p>` : ""}${execSummary}${recentDevelopmentsBlock(v.recentDevelopments)}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements)}</section>`;
 }
 
 /** Q1: absent on saved reports (nothing printed); an empty list says so. */

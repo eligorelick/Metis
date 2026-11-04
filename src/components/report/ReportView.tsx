@@ -46,7 +46,7 @@ import { DossierCover } from "./DossierCover";
 import { ClassicReportScrollOffset, ReportContents } from "./ReportContents";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { evidenceIdentity } from "./evidenceIdentity";
-import { dataStateText, presentationReportId, routeMetricsForDisplay, withPlainFigureNotes } from "@/report/presentation";
+import { dataStateText, plainFigureReaderNote, presentationReportId, routeMetricsForDisplay, withPlainFigureNotes } from "@/report/presentation";
 import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
@@ -210,6 +210,7 @@ export function ReportView({
       <div id={sectionAnchorId("verdict")} tabIndex={-1} className="scroll-mt-28">
         {layout === "dossier" ? <DossierCover report={report} completeness={completeness} /> : <>
         <VerdictHeader verdict={report.verdict} />
+        {plainFigureReaderNote(report) && <p className="mt-2 text-xs text-muted">{plainFigureReaderNote(report)}</p>}
         {report.verdict.executiveSummary && report.verdict.executiveSummary.length > 0 && (
           <div className="mt-3"><ExecutiveSummary claims={report.verdict.executiveSummary} /></div>
         )}

@@ -1735,12 +1735,14 @@ export const VerificationLogEntrySchema = z
      *    does not check the period; the second gate, the source-span binding of
      *    claimEvidence.ts, checks a period the number supplies against the
      *    clause or table column it binds (D-66).
+     *  - "value-match": a plain figure occurs in retained evidence, but its
+     *    context is unconfirmed. Audit only, never counted as traced/validated.
      *  - "untraced": neither — flagged, never counted as traced.
      * NONE of these is factual verification; the value is not re-derived or
      * re-fetched (see runVerifyPass docstring).
      */
     traceKind: z
-      .enum(["payload-match", "source-cited", "computed-derived", "excerpt-match", "untraced"])
+      .enum(["payload-match", "source-cited", "computed-derived", "excerpt-match", "value-match", "untraced"])
       .optional(),
   })
   .strict();
@@ -1749,6 +1751,7 @@ export type VerificationLogEntry = z.infer<typeof VerificationLogEntrySchema>;
 /** Numeric matching is a separate result from support for the whole prose claim. */
 export function verificationEntryOutcomeLabel(entry: VerificationLogEntry): string {
   if (entry.outcome === "removed") return citationOutcomeLabel(entry.outcome);
+  if (entry.check === "plain-figure" && entry.traceKind === "value-match") return "Value match; context not confirmed";
   if (entry.claimSupportStatus === "numeric-only") return "Numeric match; prose unchecked";
   // A contradicted claim was cited; a legacy metadata gap reads as unchecked (F-22).
   if (entry.claimSupportStatus === "contradicted") {
@@ -1772,6 +1775,8 @@ export function traceKindLabel(
       return "computed";
     case "excerpt-match":
       return "filing/transcript text match";
+    case "value-match":
+      return "value match; context unconfirmed";
     case "untraced":
       return "untraced";
   }

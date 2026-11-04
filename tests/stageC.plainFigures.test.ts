@@ -29,7 +29,7 @@ it("flags every plain financial field by path, retaining prose and matching show
   expect(checked.verifiedReport).toEqual(prose);
   const flags = checked.log.filter(e => e.check === "plain-figure");
   expect(flags.map(e => e.path).sort()).toEqual(["verdict.synthesis", "technicals.trend", "disagreements[0].bearView", "disagreements[0].judgeResolution", "valuation.assumptions[0]", "valuation.assumptions[1]"].sort());
-  expect(flags.find(e => e.path === "verdict.synthesis")?.note).toBe("Not matched to a source: USD 706.73 per share.");
+  expect(flags.find(e => e.path === "verdict.synthesis")?.note).toBe("Differs from the record: USD 706.73 per share stated, USD 606.73 per share recorded.");
 });
 
 it("checks each figure of mixed prose, including scaled amounts, percentages and multiples", async () => {
@@ -38,7 +38,7 @@ it("checks each figure of mixed prose, including scaled amounts, percentages and
     record({ id: "payload.revenue", label: "revenue", value: 10e9, unit: "currency", period: "FY2025", fiscalPeriod: "FY2025" })];
   const text = "Operating margin: 25.0%; P/E: 12.3x; Revenue for FY2025: USD 11 billion.";
   const checked = await runVerifyPass({} as PassDeps, payload(records), { fundamentals: { graded: { interpretation: text } } });
-  expect(checked.log.filter(e => e.check === "plain-figure")).toEqual([expect.objectContaining({ path: "fundamentals.graded.interpretation", claim: text, note: "Not matched to a source: USD 11 billion." })]);
+  expect(checked.log.filter(e => e.check === "plain-figure")).toEqual([expect.objectContaining({ path: "fundamentals.graded.interpretation", claim: text, note: "Differs from the record: USD 11 billion stated, USD 10 billion recorded." })]);
 });
 
 it("finds a figure's metric inside interpretation without borrowing another metric or a conflicting modifier", async () => {
@@ -96,7 +96,7 @@ it("checks a financial-input age in days, including the audit's 307-to-407-day m
   const result = await runVerifyPass({} as PassDeps, payload(records), { disagreements: [
     { bullView: "Opening book age was 407 days." }, { bullView: "Opening book age was 307 days." },
   ] });
-  expect(result.log.filter(e => e.check === "plain-figure")).toEqual([expect.objectContaining({ path: "disagreements[0].bullView", note: "Not matched to a source: 407 days." })]);
+  expect(result.log.filter(e => e.check === "plain-figure")).toEqual([expect.objectContaining({ path: "disagreements[0].bullView", note: "Differs from the record: 407 days stated, 307 days recorded." })]);
 });
 
 it("reads days as a unit in a days-to-cover metric while preserving the metric identity", async () => {
@@ -116,7 +116,7 @@ it("does not lose an accounting-parentheses sign when extracting a metric from p
   expect(result.log.filter(e => e.check === "plain-figure").map(e => e.path)).toEqual(["commentary[0]"]);
 });
 
-it("requires the additional claim's own numeric validation, regardless of its prose label", async () => {
+it("uses even an invalid source-bound claim only as value evidence, regardless of its prose label", async () => {
   const source = "edgar:10-K:business", asOf = "2026-11-01";
   const p = { ...payload([]), citationRegistry: [{ id: source, asOf, kind: "payload-text" }],
     filings: [{ source, asOf, title: "Business", text: "Revenue for FY2025 was USD 10 billion.", truncated: false, originalChars: 44 }] } as ContextPayload;
@@ -125,10 +125,10 @@ it("requires the additional claim's own numeric validation, regardless of its pr
       { label: "FACT", source, asOf, text: "Revenue for FY2025 was USD 11 billion." }],
     commentary: ["Revenue for FY2025: USD 10 billion.", "Revenue for FY2025: USD 11 billion."],
   });
-  expect(result.log.filter(e => e.check === "plain-figure").map(e => e.path)).toEqual(["commentary[1]"]);
+  expect(result.log.filter(e => e.check === "plain-figure").map(e => [e.path, e.traceKind])).toEqual([["commentary[0]", "value-match"], ["commentary[1]", "value-match"]]);
 });
 
-it("uses only numerically validated source-bound claims in the same report as additional support", async () => {
+it("keeps a same-report value match separate from context confirmation", async () => {
   const source = "edgar:10-K:business", asOf = "2026-11-01";
   const p = { ...payload([]), citationRegistry: [{ id: source, asOf, kind: "payload-text" }],
     filings: [{ source, asOf, title: "Business", text: "Revenue for FY2025 was USD 10 billion.", truncated: false, originalChars: 44 }] } as ContextPayload;
@@ -136,7 +136,7 @@ it("uses only numerically validated source-bound claims in the same report as ad
     verdict: { synthesis: "Revenue for FY2025: USD 10 billion. Operating income for FY2025: USD 10 billion." },
     disagreements: [{ judgeResolution: "Revenue for FY2025: USD 11 billion." }] });
   expect(checked.log.find(e => e.path === "commentary[0]")?.validationStatus).toBe("validated");
-  expect(checked.log.filter(e => e.check === "plain-figure").map(e => e.note)).toEqual(["Not matched to a source: USD 10 billion.", "Not matched to a source: USD 11 billion."]);
+  expect(checked.log.filter(e => e.check === "plain-figure").map(e => e.note)).toEqual(["Value matched; context not confirmed: USD 10 billion.", "Not matched to a source: USD 11 billion."]);
 });
 
 it("shows recorded field notes on live, Markdown, print and audit surfaces without inventing checks for saved reports", async () => {
@@ -151,8 +151,8 @@ it("shows recorded field notes on live, Markdown, print and audit surfaces witho
   const verifiedBefore = JSON.stringify(checked.verifiedReport);
   for (const surface of [reportToMarkdown(checked.verifiedReport), reportToPrintBody(checked.verifiedReport),
     reportToAuditMarkdown(checked.verifiedReport), renderToStaticMarkup(createElement(ReportView, { report: checked.verifiedReport }))]) {
-    expect(surface).toContain("Not matched to a source: USD 706.73 per share.");
-    expect(surface).toContain("Not matched to a source: USD 806.73 per share.");
+    expect(surface).toContain("Differs from the record: USD 706.73 per share stated, USD 606.73 per share recorded.");
+    expect(surface).toContain("Differs from the record: USD 806.73 per share stated, USD 606.73 per share recorded.");
   }
   expect(JSON.stringify(report)).toBe(before);
   expect(JSON.stringify(checked.verifiedReport)).toBe(verifiedBefore);

@@ -6761,6 +6761,7 @@ describe("runJob — full pipeline with mock passes", () => {
     const runJudgePass = base.passes.runJudgePass.bind(base.passes);
     const runVerifyPass = base.passes.runVerifyPass.bind(base.passes);
     let seen: string[] | undefined;
+    let retained: readonly { source: string; text: string }[] | undefined;
 
     const result = await runJob(
       jobId,
@@ -6770,6 +6771,8 @@ describe("runJob — full pipeline with mock passes", () => {
           const analyst = await runBullThenBear(deps, hooks);
           analyst.bull.fetchedUrls = ["https://example.com/shared", "https://example.com/bull"];
           analyst.bear.fetchedUrls = ["https://example.com/bear", "https://example.com/shared"];
+          analyst.bull.research = { notes: "Bull research: USD 50 billion.", sources: [] };
+          analyst.bear.research = { notes: "Bear research: 8.3%.", sources: [] };
           return analyst;
         },
         runJudgePass: async (deps, bull, bear, feedback) => {
@@ -6779,6 +6782,7 @@ describe("runJob — full pipeline with mock passes", () => {
         },
         runVerifyPass: async (deps, judge, evidence) => {
           seen = evidence!.fetchedUrls;
+          retained = evidence!.retainedTexts;
           return runVerifyPass(deps, judge, evidence);
         },
       },
@@ -6792,6 +6796,47 @@ describe("runJob — full pipeline with mock passes", () => {
       "https://example.com/judge",
       "https://example.com/shared",
     ]);
+    expect(retained).toEqual(expect.arrayContaining([
+      { source: "analyst:bull.research", text: "Bull research: USD 50 billion." },
+      { source: "analyst:bear.research", text: "Bear research: 8.3%." },
+    ]));
+    expect(retained?.some(e => e.source.startsWith("analyst:bull.case."))).toBe(true);
+    expect(retained?.some(e => e.source.startsWith("analyst:bear.case."))).toBe(true);
+  });
+
+  it("passes source-generation analyst cases and research to verify when synthesize is reused", async () => {
+    const { jobId } = createJob("AAPL");
+    const research = { notes: "Retained authorization: USD 50 billion.", sources: [] };
+    const bullSettlement = testSuccessSettlement({ data: fakeAnalystCase(), model: "m", costUsd: 0, fallbackUsed: false });
+    if (bullSettlement.outcome !== "success") throw new Error("success fixture required");
+    persistPassSettlement({ jobId, runGeneration: 0, attemptId: "retained-bull", pass: "bull", payloadFingerprint: "retained-payload",
+      settlement: { ...bullSettlement, research } });
+    for (const [attemptId, payloadFingerprint, notes] of [["retained-failed-bear", "retained-payload", "Failed writer retained 8.3%."],
+      ["other-payload-bear", "other-payload", "Other payload USD 999 billion."]] as const) {
+      persistPassSettlement({ jobId, runGeneration: 0, attemptId, pass: "bear", payloadFingerprint,
+        settlement: { outcome: "failure", failure: { name: "Error", message: "Writer rejected", research: { notes, sources: [] },
+          rejectedText: `Rejected case: ${notes}`, partialText: `Partial case: ${notes}` }, telemetry: bullSettlement.telemetry } });
+    }
+    persistPassSettlement({ jobId, runGeneration: 0, attemptId: "retained-synthesize", pass: "synthesize", payloadFingerprint: "retained-payload",
+      settlement: testSuccessSettlement({ data: fakeJudgeOutput(), model: "m", costUsd: 0, fallbackUsed: false }) });
+    handle.db.update(jobs).set({ status: "error", error: "interrupted before verify" }).where(eq(jobs.id, jobId)).run();
+    const base = mockPasses();
+    let retained: readonly { source: string; text: string }[] | undefined;
+    const result = await runJob(jobId, { ...base.passes, fingerprintPayload: () => "retained-payload",
+      runVerifyPass: async (deps, judge, evidence) => {
+        retained = evidence!.retainedTexts;
+        return base.passes.runVerifyPass(deps, judge, evidence);
+      },
+    }, { bundle: fakeBundle("AAPL"), hasAnthropicKey: true, now: NOW, resume: true });
+    expect(result.status).toBe("done");
+    expect(base.calls).not.toContain("runBullThenBear");
+    expect(base.calls).not.toContain("runJudgePass");
+    expect(retained).toContainEqual({ source: "analyst:bull.research", text: research.notes });
+    expect(retained).toContainEqual({ source: "analyst:bear.research", text: "Failed writer retained 8.3%." });
+    expect(retained).toContainEqual({ source: "analyst:bear.rejected-case", text: "Rejected case: Failed writer retained 8.3%." });
+    expect(retained).toContainEqual({ source: "analyst:bear.partial-case", text: "Partial case: Failed writer retained 8.3%." });
+    expect(retained?.some(e => e.text.includes("USD 999 billion"))).toBe(false);
+    expect(retained?.some(e => e.source.startsWith("analyst:bull.case."))).toBe(true);
   });
 
   it("rolls back the report insert if linking the terminal job fails", async () => {

@@ -119,7 +119,7 @@ import {
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
 import { unitLabel } from "@/report/format";
-import { descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, unmatchedPlainFigures, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
+import { buildPlainFigureIndex, checkPlainFigures, descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan, type PlainFigureText } from "@/pipeline/stageC/claimEvidence";
 import {
   parseCitationRef,
   citationAsOf,
@@ -196,6 +196,7 @@ import type {
 // WS7 (D-20) end.
 import {
   PassSettlementHookError,
+  analystVerificationTexts,
   AnalystResearchSchema,
   type AnalystResearch,
   invokePassSettlementHook,
@@ -3103,6 +3104,8 @@ function mergeJudgeBilling(
 
 export interface VerificationEvidence {
   fetchedUrls: string[];
+  /** Retained analyst text, used only by deterministic value lookup. Never added to a model prompt. */
+  retainedTexts?: readonly PlainFigureText[];
 }
 
 export interface VerifyResult<T = JudgeOutput> {
@@ -3863,14 +3866,25 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     });
   }
 
-  const validatedClaims = claims.filter(({ path }) =>
-    log.some(entry => entry.path === path && !entry.check && entry.validationStatus === "validated") &&
-    !log.some(entry => entry.path === path && entry.check && entry.outcome === "unverified")).map(({ claim }) => claim);
+  const plainIndex = buildPlainFigureIndex(registry, [
+    ...excerpts.map(excerpt => ({ source: excerpt.source, text: excerptBodyForVerification(excerpt) })),
+    ...(payload.news?.notes ?? []).map(text => ({ source: "payload.news", text })),
+    ...claims.map(({ claim }) => ({ source: claim.source, text: claim.text })),
+    ...(evidence.retainedTexts ?? []),
+  ], reportingCurrency, issuerWords);
   for (const { path, text } of collectPlainProse(verifiedReport)) {
-    const unmatched = unmatchedPlainFigures(text, { registry, validatedClaims, excerpts, reportingCurrency, ignoreWords: issuerWords, seriesLatest });
-    if (unmatched.length > 0) log.push({ path, claim: text, outcome: "unverified", check: "plain-figure", traceKind: "untraced",
-      validationStatus: "unchecked", numericSupportStatus: "unchecked", claimSupportStatus: "unreviewed", reason: "text-source",
-      note: `Not matched to a source: ${[...new Set(unmatched)].join("; ")}.` });
+    const results = checkPlainFigures(text, { registry, excerpts, reportingCurrency, ignoreWords: issuerWords, seriesLatest, index: plainIndex });
+    for (const outcome of ["contradiction", "not-found", "value-match"] as const) {
+      const figures = results.filter(result => result.outcome === outcome);
+      if (!figures.length) continue;
+      const note = outcome === "contradiction"
+        ? `Differs from the record: ${[...new Set(figures.map(result => `${result.figure} stated, ${result.recorded} recorded`))].join("; ")}.`
+        : `${outcome === "value-match" ? "Value matched; context not confirmed" : "Not matched to a source"}: ${[...new Set(figures.map(result => result.figure))].join("; ")}.`;
+      log.push({ path, claim: text, outcome: "unverified", check: "plain-figure", traceKind: outcome === "value-match" ? "value-match" : "untraced",
+        validationStatus: "unchecked", numericSupportStatus: "unchecked", claimSupportStatus: "unreviewed",
+        reason: outcome === "contradiction" ? "value-mismatch" : outcome === "value-match" ? "supported" : "text-source", note,
+        ...(figures.length === 1 && figures[0]!.source ? { source: figures[0]!.source } : {}) });
+    }
   }
 
   const total = numbers.length;
@@ -4741,7 +4755,8 @@ export async function runJudgeVerifyAssemble(
       }
     }
 
-    const verify = await runVerifyPass(deps, payload, judgeRun.result.output);
+    const verify = await runVerifyPass(deps, payload, judgeRun.result.output, { fetchedUrls: [],
+      retainedTexts: [...analystVerificationTexts("bull", { data: bull }), ...analystVerificationTexts("bear", { data: bear })] });
 
     const costEntries: CostBreakdownEntry[] = [
       ...assemble.priorCostEntries,

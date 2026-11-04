@@ -340,7 +340,7 @@ export function VerdictHeader({ verdict }: { verdict: Verdict }) {
  * lives. Renders inline in flow AND is reused sticky at the top of ReportView.
  */
 function plainFigureWarning(text: string): string | undefined {
-  return /\((Not matched to a source: [\s\S]+)\)$/.exec(text)?.[1];
+  return /\(((?:Not matched to a source|Differs from the record): [\s\S]+)\)$/.exec(text)?.[1];
 }
 
 export function GradeStripBar({

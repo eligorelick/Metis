@@ -1,4 +1,4 @@
-import { macroDisplayRows, withPlainFigureNotes } from "@/report/presentation";
+import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
 /**
@@ -424,6 +424,8 @@ function renderVerdict(report: Report): string {
     ]),
   );
   const lines: string[] = [sectionHeading("verdict"), "", prose(v.synthesis), ""];
+  const figureNote = plainFigureReaderNote(report);
+  if (figureNote) lines.push(figureNote, "");
   if (v.executiveSummary && v.executiveSummary.length > 0) {
     lines.push("### Executive summary", "", claimList(v.executiveSummary), "");
   }

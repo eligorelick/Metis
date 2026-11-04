@@ -117,7 +117,7 @@ function normalized(text: string): string {
 }
 
 /** Sentences of a retained source. An abbreviation that splits one fails closed; a dropped qualification cannot match. */
-function sentencesOf(text: string): string[] {
+export function retainedSourceSentences(text: string): string[] {
   return text.split(/\n+|(?<=[.!?\]])\s+(?=[A-Z[("\u201c])/);
 }
 
@@ -128,7 +128,7 @@ function quotedInSpan(claim: SourcedClaim, entry: VerificationLogEntry): boolean
 
 function quotedInRetainedSource(text: string, source: string | null | undefined, context: ExecutiveDecisionEvidence): boolean {
   const quote = normalized(text);
-  return (context.filings ?? []).some(f => f.source === source && sentencesOf(f.text).some(sentence => normalized(sentence) === quote));
+  return (context.filings ?? []).some(f => f.source === source && retainedSourceSentences(f.text).some(sentence => normalized(sentence) === quote));
 }
 
 /** Exact path, claim and canonical source identity; any failed check or unresolved citation vetoes it. */

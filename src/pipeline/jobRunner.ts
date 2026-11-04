@@ -114,6 +114,8 @@ import {
 } from "@/pipeline/stageB/instrumentSupport";
 import {
   PassSettlementHookError,
+  analystArtifactVerificationTexts,
+  analystVerificationTexts,
   costRowBelongsToAttempt,
   parseLegacyAnalystSnapshot,
   readJobPassArtifactLineage,
@@ -125,6 +127,8 @@ import {
   type PassSettlementHook,
   type PassTelemetry,
   type SerializedPassFailure,
+  type AnalystResearch,
+  type RetainedVerificationText,
 } from "@/pipeline/jobArtifacts";
 import {
   linkedReportBlocksResume,
@@ -178,6 +182,7 @@ import {
  * cost-related is optional so a mock or a degraded pass can omit it.
  */
 export interface PassResultLike<T> {
+  research?: AnalystResearch;
   presumed?: boolean;
   execution?: ProviderExecution;
   /** The parsed structured output for this pass. */
@@ -385,7 +390,7 @@ export interface PipelinePasses<TPayload = unknown> {
       | {
           pass: "verify";
           judgeOutput: JudgeOutput;
-          evidence: { fetchedUrls: string[] };
+          evidence: { fetchedUrls: string[]; retainedTexts?: readonly RetainedVerificationText[] };
         },
   ): void | Promise<void>;
   /**
@@ -470,7 +475,7 @@ export interface PipelinePasses<TPayload = unknown> {
   runVerifyPass(
     deps: PassDeps<TPayload>,
     judgeOutput: JudgeOutput,
-    evidence?: { fetchedUrls: string[] },
+    evidence?: { fetchedUrls: string[]; retainedTexts?: readonly RetainedVerificationText[] },
     settlement?: PassSettlementHook<Report>,
     beforeProviderLaunch?: () => void | Promise<void>,
   ): Promise<VerifyPassResult>;
@@ -981,7 +986,7 @@ function telemetryFromAttempt(
 }
 
 function successSettlement<T>(pass: PassResultLike<T>, billable = true): PassSettlement<T> {
-  return { outcome: "success", data: pass.data, telemetry: telemetryFromPassResult(pass, billable) };
+  return { outcome: "success", data: pass.data, telemetry: telemetryFromPassResult(pass, billable), ...(pass.research ? { research: pass.research } : {}) };
 }
 
 function failureSettlement(
@@ -3571,6 +3576,16 @@ export async function runJob<TPayload = unknown>(
             }),
           ),
         ].sort();
+        const retainedTexts = [
+          ...analystVerificationTexts("bull", bull),
+          ...analystVerificationTexts("bear", bear),
+          // Resume can reuse an analyst from an earlier generation of this job.
+          // Earlier generations need the exact frozen-payload cohort; current
+          // generation attempts were held by this run, including retained failures.
+          ...analystArtifactVerificationTexts(readJobPassArtifactLineage(state.jobId).filter(artifact =>
+            artifact.runGeneration === state.runGeneration || (fingerprint !== null && artifact.envelope.payloadFingerprint === fingerprint))),
+        ];
+        const evidence = { fetchedUrls, retainedTexts: [...new Map(retainedTexts.map(item => [JSON.stringify(item), item])).values()] };
         try {
           if (passes.verifyCapability?.billable === true && passes.preflightPass === undefined) {
             throw new Error("billable verify requires finite provider preflight capability");
@@ -3578,7 +3593,7 @@ export async function runJob<TPayload = unknown>(
           await passes.preflightPass?.(deps, {
             pass: "verify",
             judgeOutput: judge.data,
-            evidence: { fetchedUrls },
+            evidence,
           });
           // A billable verify adapter reserves each of its provider requests
           // through this admission, like the other three passes; without the
@@ -3591,7 +3606,7 @@ export async function runJob<TPayload = unknown>(
             passes.runVerifyPass(
               deps,
               judge.data,
-              { fetchedUrls },
+              evidence,
               verifyCheckpoint.hook,
               () => {
                 // Verify was already moved to running above. The atomic launch
