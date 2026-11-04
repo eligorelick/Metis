@@ -1072,7 +1072,7 @@ async function annualNotes(
   if (redirect !== null) {
     const asOf = filing.reportDate !== "" ? filing.reportDate : filing.filingDate;
     return { ok: true, value: { source: "edgar", asOf, fetchedAt,
-      endpoint: `${docUrl} (10-K notes via Item 15 same-document index)`,
+      endpoint: `${docUrl} (10-K notes via same-document financial index)`,
       data: { sectionName: "tenKNotes", text: redirect.text, chars: redirect.text.length, method: redirect.method,
         accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reportDate: asOf,
         documentUrl: docUrl, annualNotesRedirect: redirect.evidence,

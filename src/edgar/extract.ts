@@ -1442,20 +1442,44 @@ const ANNUAL_NOTES_END_RE = /\bSchedule II\b|\bExhibit Index\b|\bEXHIBIT INDEX\b
  * Null when no notes heading is found.
  */
 export function annualNotesToFinancialStatements(itemText: string): { text: string; start: number } | null {
-  const notes = notesToFinancialStatements(itemText);
+  const legacy = notesToFinancialStatements(itemText);
+  const notes = legacy ?? recognizeAnnualNotes(itemText);
   if (notes === null) return null;
+  if (legacy === null) {
+    const auditor = /\bREPORT OF INDEPENDENT REGIST\s*ERED PUBLIC ACCOUNTING FIRM\s+To the (?:Stockholders|Shareholders)\b[\s\S]{0,200}?Opinion on the Financial Statements/i.exec(notes.text);
+    if (auditor && auditor.index > 1_000) return { text: notes.text.slice(0, auditor.index).trimEnd(), start: notes.start };
+  }
   for (const end of notes.text.matchAll(ANNUAL_NOTES_END_RE)) {
     if (end.index > 1_000) return { text: notes.text.slice(0, end.index).trimEnd(), start: notes.start };
   }
   return notes;
 }
 
+// Closed vocabulary tolerates inline font-run word splits only in the title.
+// Offsets and returned source text are never normalized. Legacy successes win.
+const ANNUAL_NOTES_HEADING = new RegExp("\\bNotes\\s+to\\s+(?:the\\s+)?(?:" +
+  "Consolidated".split("").join("\\s*") + "\\s+)?" +
+  "Financial".split("").join("\\s*") + "\\s+Statements\\b", "gi");
+function recognizeAnnualNotes(text: string): { text: string; start: number } | null {
+  for (const m of text.matchAll(ANNUAL_NOTES_HEADING)) {
+    if (/\b(?:accompanying|see|refer to)\s+(?:the\s+)?$/i.test(text.slice(Math.max(0, m.index - 30), m.index))) continue;
+    const after = text.slice(m.index + m[0].length);
+    const numbered = /^\s*(?:[A-Z][a-z]+\s+\d{1,2},\s+\d{4}\s+|\(Tabular dollars[^)]{0,150}\)\s*)?(?:NOTE\s+1\s*[-:.–—]?\s*|1\s*\.?\s+)(?:ACCOUNTING POLICIES|BASIS OF PRESENTATION|Description of the Business and Segment Information|ORGANIZATION AND SIGNI\s*FICANT ACCOUNTING POLICIES)\b/i.exec(after);
+    if (numbered && /^\s*(?:\d{1,4}\b|See\b|Refer\b|is described\b|is incorporated\b)/i.test(after.slice(numbered[0].length))) continue;
+    const unnumbered = /^\s*Summary of Significant Accounting Policies\s+NATURE OF BUSINESS\s+/i.test(after) &&
+      /\bCONSOLIDATION\s+The Consolidated Financial Statements include\b/i.test(after);
+    if ((numbered || unnumbered) && !detectStub(text.slice(m.index)).isStub) return { text: text.slice(m.index), start: m.index };
+  }
+  return null;
+}
+
 /** Compact optional evidence; offsets are JS UTF-16 indices in the original HTML. */
 export interface AnnualNotesRedirectEvidence {
   coordinateSystem: "original-html-characters";
   index: { start: number; end: number };
-  notes: { target: string; page: { namespace: "F"; number: number }; start: number };
-  schedule: { target: string; page: { namespace: "S"; number: number }; start: number };
+  notes: { target: string; page: { namespace: "F" | ""; number: number }; start: number };
+  schedule?: { target: string; page: { namespace: "S"; number: number }; start: number };
+  boundary?: { start: number; kind: "heading" | "document-end"; lastPage: number };
   statements?: { target: string; start: number; retainedChars: number };
 }
 
@@ -1540,7 +1564,8 @@ function appendixStructure(source: string, filingLayout = false, expired?: () =>
     // the row close, where HTML's implied cell end has the same text bounds.
     // The original annual-notes proof remains strict.
     const emptyCell = filingLayout && /^(?:td|th)$/.test(tag) && /^\s*<(?:t[dh]\b|\/tr\s*>)/i.test(source.slice(cursor, cursor + 100));
-    if (/\/\s*>$/.test(token) && !voids.test(tag) && !emptyCell) return null;
+    const metadataEmpty = filingLayout && !!stack.at(-1)?.hidden && /^(?:(?:link|xbrli|xbrldi):|ix:relationship$)/.test(tag);
+    if (/\/\s*>$/.test(token) && !voids.test(tag) && !emptyCell && !metadataEmpty) return null;
     // These raw-text/fallback modes require browser state or special end rules;
     // never reinterpret their contents as ordinary element/text-node evidence.
     if (/^(?:xmp|iframe|noembed|noframes|noscript|plaintext)$/.test(tag)) return null;
@@ -2132,6 +2157,11 @@ function recoverAnnualSection(
 export function extractAnnualNotesFromIndex(html: string): {
   text: string; method: "annual-notes-index-redirect"; statementsText?: string; evidence: AnnualNotesRedirectEvidence;
 } | null {
+  return extractAnnualAppendixNotes(html) ?? extractPrintedIndexNotes(html);
+}
+
+/** Preserve the original appendix proof and its exact output. */
+function extractAnnualAppendixNotes(html: string): ReturnType<typeof extractAnnualNotesFromIndex> {
   const structure = appendixStructure(html);
   if (!structure) return null;
   const { elements, text } = structure;
@@ -2228,6 +2258,119 @@ export function extractAnnualNotesFromIndex(html: string): {
     evidence.statements = { target: statement.target, start: statementStart.heading.start, retainedChars: statementsText.length };
   }
   return { text: body, method: "annual-notes-index-redirect", ...(statementsText ? { statementsText } : {}), evidence };
+}
+
+/** D-194: a financial index supplies coordinates, never prose by itself.
+ * Every linked row must agree with a unique destination and printed page.
+ * Notes end at a closed appendix heading, or a closed document with a final
+ * printed footer. Missing/duplicate/interrupted pages refuse the entire route.
+ */
+function extractPrintedIndexNotes(html: string): ReturnType<typeof extractAnnualNotesFromIndex> {
+  const structure = appendixStructure(html, true);
+  if (!structure || !/<\/body>\s*<\/html>\s*$/i.test(html)) return null;
+  const { elements, text } = structure;
+  const nt = (n: AppendixElement) => text(n.start, n.end);
+  const ancestor = (n: AppendixElement, tag: string): AppendixElement | undefined => {
+    for (let p = n.parent; p; p = p.parent) if (p.tag === tag) return p;
+  };
+  const blocks = elements.filter(n => !n.hidden && !n.blockChild && /^(?:p|div|h[1-6])$/.test(n.tag) && !ancestor(n, "a"));
+  const pageNumber = (s: string) => /^(F\s*-\s*)?(\d{1,4})$/i.exec(s);
+  const breaks = elements.filter(n => !n.hidden && n.tag === "hr" && /page-break-after\s*:\s*always/i.test(n.attrs.get("style") ?? ""));
+  type Page = { start: number; end: number; footer: number; namespace: "" | "F"; number: number };
+  const pages: Page[] = [];
+  let start = 0;
+  for (const end of [...breaks.map(n => n.start), html.length]) {
+    const footer = blocks.filter(n => n.start >= start && n.end <= end && pageNumber(nt(n)) && text(n.end, end) === "").at(-1);
+    if (footer) {
+      const m = pageNumber(nt(footer))!;
+      pages.push({ start, end, footer: footer.start, namespace: m[1] ? "F" : "", number: Number(m[2]) });
+    }
+    start = breaks.find(n => n.start === end)?.end ?? end;
+  }
+  const resolve = (href: string) => {
+    if (!/^#[A-Za-z_][A-Za-z0-9_.:-]{0,199}$/.test(href)) return null;
+    const found = elements.filter(n => n.attrs.get("id") === href.slice(1) || n.attrs.get("name") === href.slice(1));
+    return found.length === 1 && !found[0]!.hidden ? found[0]! : null;
+  };
+  const destinationPage = (dest: AppendixElement) => pages.find(p => dest.start >= p.start && dest.start < p.footer) ??
+    pages.find(p => breaks.some(br => br.end === p.start && dest.end <= br.start && html.slice(dest.end, br.start).trim() === ""));
+  const titleKey = (s: string) => s.replace(/\s/g, "").toLowerCase();
+  const isNotes = (s: string) => /^(?:notestothe|notesto)(?:consolidated)?financialstatements$/.test(titleKey(s));
+  const rowsByTable = new Map<AppendixElement, AppendixElement[]>();
+  const cellsByRow = new Map<AppendixElement, AppendixElement[]>();
+  const linksByRow = new Map<AppendixElement, AppendixElement[]>();
+  for (const n of elements) {
+    if (n.hidden) continue;
+    const owner = n.tag === "tr" ? ancestor(n, "table") : /^(?:td|th)$/.test(n.tag) ? n.parent : n.tag === "a" ? ancestor(n, "tr") : undefined;
+    if (!owner) continue;
+    const map = n.tag === "tr" ? rowsByTable : n.tag === "a" ? linksByRow : cellsByRow;
+    const list = map.get(owner) ?? [];
+    list.push(n); map.set(owner, list);
+  }
+  for (const [table, rows] of rowsByTable) {
+    if (!rows.some(r => (cellsByRow.get(r) ?? []).some(n => isNotes(nt(n))))) continue;
+    // Require a financial-statement index, rather than a contents-only notes row.
+    if (!/balance\s*sheets?/i.test(nt(table))) continue;
+    type Mapping = { title: string; dest: AppendixElement; page: Page };
+    const mappings: Mapping[] = [];
+    const groups: AppendixElement[] = [];
+    let bad = false, notesGroup = false;
+    for (const row of rows) {
+      const cells = cellsByRow.get(row) ?? [];
+      const title = cells.map(nt).find(s => s && !pageNumber(s)) ?? "";
+      if (isNotes(title)) notesGroup = true;
+      const links = linksByRow.get(row) ?? [];
+      const pageCells = cells.filter(c => pageNumber(nt(c)));
+      if (!links.length) {
+        if (pageCells.length) { bad = true; break; }
+        continue;
+      }
+      const hrefs = new Set(links.map(n => n.attrs.get("href")));
+      if (pageCells.length === 0 && title === "Consolidated Financial Statements" && hrefs.size === 1) {
+        const dest = resolve([...hrefs][0] ?? "");
+        const page = dest && destinationPage(dest);
+        if (!dest || !page || !blocks.some(n => n.start >= page.start && n.end <= page.footer && nt(n) === title &&
+          !ancestor(n, "table") && !/<a\b[^>]*href/i.test(html.slice(n.start, n.end)))) { bad = true; break; }
+        groups.push(dest);
+        continue;
+      }
+      if (pageCells.length !== 1 || hrefs.size !== 1) { bad = true; break; }
+      const dest = resolve([...hrefs][0] ?? ""), printed = pageNumber(nt(pageCells[0]!))!;
+      const page = dest && destinationPage(dest);
+      if (!dest || !page || page.number !== Number(printed[2]) || page.namespace !== (printed[1] ? "F" : "") ||
+          pages.filter(p => p.number === page.number && p.namespace === page.namespace).length !== 1 || dest.start <= table.end) { bad = true; break; }
+      // All links, including fragmented page links and title links, were checked.
+      mappings.push({ title, dest, page });
+    }
+    if (bad || !notesGroup) continue;
+    if (groups.some(g => !mappings.some(m => /^(?:Consolidated )?(?:Statements? of|Balance Sheets)/i.test(m.title) && destinationPage(g) === m.page))) continue;
+    const openings = mappings.filter(m => isNotes(m.title) || /^Note\s+1\s*[-–—:]/i.test(m.title));
+    if (openings.length !== 1) continue;
+    const opening = openings[0]!;
+    const heads = blocks.filter(n => n.start >= opening.page.start && n.end <= opening.page.footer && isNotes(nt(n)) &&
+      !ancestor(n, "table") && !/<a\b[^>]*href/i.test(html.slice(n.start, n.end)));
+    if (heads.length !== 1) continue;
+    const head = heads[0]!;
+    const boundary = blocks.find(n => n.start > head.end && !ancestor(n, "table") &&
+      /^(?:INDEX OF EXHIBITS|EXHIBIT INDEX|SIGNATURES|REPORT OF INDEPENDENT REGISTERED PUBLIC ACCOUNTING FIRM|Item\s+(?:7A|9|15|16)\..*|Schedule II(?:\s*[-–—:]\s*Valuation and Qualifying Accounts)?)$/i.test(nt(n)));
+    const endPage = boundary ? pages.find(p => boundary.start >= p.start && boundary.start < p.end) : pages.at(-1);
+    if (!endPage || (!boundary && endPage.end !== html.length)) continue;
+    const retained = pages.filter(p => p.start >= opening.page.start && p.start <= endPage.start);
+    if (!retained.length || retained.some((p, i) => p.namespace !== opening.page.namespace || p.number !== opening.page.number + i ||
+      (i > 0 && !breaks.some(br => br.start === retained[i - 1]!.end && br.end === p.start)))) continue;
+    const end = boundary?.start ?? endPage.footer;
+    // A notes sub-index cannot silently skip its later notes or cross the end.
+    if (mappings.some(m => /^Note\s+\d+\b/i.test(m.title) && (m.page.start < opening.page.start || m.dest.start >= end))) continue;
+    const body = text(head.start, end);
+    const accepted = recognizeAnnualNotes(body);
+    if (!accepted || accepted.start !== 0 || detectStub(body).isStub) continue;
+    return { text: body, method: "annual-notes-index-redirect", evidence: {
+      coordinateSystem: "original-html-characters", index: { start: table.start, end: table.end },
+      notes: { target: opening.dest.attrs.get("id") ?? opening.dest.attrs.get("name")!, page: { namespace: opening.page.namespace, number: opening.page.number }, start: head.start },
+      boundary: { start: end, kind: boundary ? "heading" : "document-end", lastPage: endPage.number },
+    } };
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
