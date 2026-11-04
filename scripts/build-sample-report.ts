@@ -5,6 +5,7 @@ import { runStageB } from "../src/pipeline/compute";
 import { validateBundle } from "../src/pipeline/stageA/validate";
 import { assembleContextPayload } from "../src/pipeline/stageC/payload";
 import { assembleReport, runVerifyPass } from "../src/pipeline/stageC/passes";
+import { bindDeterministicReportProvenance } from "../src/pipeline/stageC";
 import { enrichDataOnlyReport } from "../src/pipeline/stageC/dataOnlyReport";
 import { FRED_ATTRIBUTION_TEXT, ReportSchema, type JudgeOutput, type SourcedClaim } from "../src/report/schema";
 import { fundamentalsChartDataFromBundle, priceChartPropsFromBundle, relativeStrengthSeriesFromBundle } from "../src/components/charts/map";
@@ -235,8 +236,9 @@ async function main() {
     else judge[key].graded = grade;
   }
   const provisional = assembleReport({ symbol: "DEMO", bundle, computed, judgeOutput: judge, verify: { verificationRate: null, log: [] }, costEntries: [], model: "synthetic-handwritten", provisionalVerification: true }, generatedAt);
-  const verify = await runVerifyPass({ model: "synthetic-handwritten", runPass: async () => { throw new Error("Sample generation must never call a model"); } }, payload, provisional, { fetchedUrls: [] });
-  const report = assembleReport({ symbol: "DEMO", bundle, computed, judgeOutput: verify.verifiedReport, verify, costEntries: [], model: "synthetic-handwritten", validationGaps: validation.gaps }, generatedAt);
+  const verify = await runVerifyPass({ model: "synthetic-handwritten", runPass: async () => { throw new Error("Sample generation must never call a model"); } }, payload, bindDeterministicReportProvenance(provisional, payload), { fetchedUrls: [] });
+  // As in the real pipeline, deterministic tables cite their registered provenance rows.
+  const report = bindDeterministicReportProvenance(assembleReport({ symbol: "DEMO", bundle, computed, judgeOutput: verify.verifiedReport, verify, costEntries: [], model: "synthetic-handwritten", validationGaps: validation.gaps }, generatedAt), payload);
   const chart = priceChartPropsFromBundle(bundle, computed);
   writeFileSync("fixtures/report/DEMO-current.json", JSON.stringify(ReportSchema.parse(report), null, 2) + "\n");
   writeFileSync("fixtures/report/DEMO-current-charts.json", JSON.stringify({ market: { bars: chart.rows, crosses: chart.crosses, relativeStrength: relativeStrengthSeriesFromBundle(bundle) }, fundamentals: fundamentalsChartDataFromBundle(bundle, computed) }, null, 2) + "\n");

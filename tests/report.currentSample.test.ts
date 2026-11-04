@@ -42,7 +42,7 @@ describe("current fictional visitor sample", () => {
     expect(report.business.segments.product.length).toBeGreaterThanOrEqual(2);
     expect(report.leadership.executives.every(e => e.credibilityGrade === "not-assessed")).toBe(true);
     expect(report.appendix.verificationLog?.filter(e => e.executiveEvidenceKind === "execution" && e.validationStatus === "validated").length).toBeGreaterThanOrEqual(2);
-    expect(report.meta.verificationRate).toBeGreaterThan(0.30);
+    expect(report.meta.verificationRate).toBeGreaterThan(0.8);
     const prose: string[] = [];
     const collectProse = (node: unknown): void => {
       if (!node || typeof node !== "object") return;
