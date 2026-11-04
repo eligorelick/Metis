@@ -83,6 +83,89 @@ describe("D-187 house grade annotations", () => {
   });
 });
 
+describe("D-189 plain headline wording stays producer-bound", () => {
+  const score = (aspect: string, value = 85.33) => record({ id: `computed.deterministic-aspect-scores.${aspect.toLowerCase()}-score`,
+    label: `${aspect} score`, origin: `computed.scores.${aspect}`, value, unit: "score", currency: null });
+  const tbv = record({ id: "computed.valuation.pricetotbv-current", label: "priceToTbv (current)", origin: "computed.valuation.multiples.priceToTbv", value: 3.1, unit: "ratio", currency: null });
+  const rote = record({ id: "computed.valuation.rote-the-return-p-tbv-is-read-against", label: "ROTE (the return P/TBV is read against)",
+    origin: "computed.returns.rote", value: 20.7, unit: "percent", currency: null, asOf: "2025-12-31", fiscalPeriod: "FY2025" });
+  const pe = record({ id: "computed.valuation.p-e-current-fy2025", label: "P/E (current, FY2025)", origin: "computed.valuation.multiples.peTtm",
+    value: 16.9, unit: "ratio", currency: null, period: "FY2025", fiscalPeriod: "FY2025" });
+  const er = record({ id: "computed.valuation.excess-return-per-share", label: "excess-return per share", origin: "computed.valuation.excessReturn", value: 222.78, asOf: "2025-12-31" });
+  const eps = record({ id: "payload.estimates.est-eps-2026-12-31", label: "est EPS 2026-12-31", origin: "fmp:analyst-estimates",
+    kind: "provider", value: 24.69, period: "2026-12-31" });
+  const beneish = record({ id: "computed.forensics.beneish-m", label: "Beneish M", origin: "computed.forensics.beneish", value: -3.01, unit: "score", currency: null });
+  const rsi = record({ id: "computed.technicals.rsi-14", label: "RSI-14", origin: "computed.technicals.rsi14", unit: "index", currency: null, value: 31.72 });
+  const insider = record({ id: "payload.insiders.insider-sale-transactions-form-4-code-s-four-calendar-quarters-ended-2026-09-30", label: "insider sale transactions (Form 4 code S), four calendar quarters ended 2026-09-30",
+    origin: "fmp:insider-statistics", kind: "provider", unit: "count", currency: null, value: 43, period: "2026-09-30" });
+  const headlines = [
+    [tbv, "Current price to tangible book value was 3.1 times.", "3.1", "tangible book value", "earnings"],
+    [rote, "Return on tangible common equity for FY2025 was 20.7%.", "20.7", "tangible common equity", "assets"],
+    [pe, "Price to earnings on FY2025 diluted EPS was 16.9 times.", "16.9", "diluted", "basic"],
+    [er, "Our excess-return value was USD 222.78 per share at 2025-12-31.", "222.78", "excess-return", "DCF"],
+    [eps, "Provider estimated EPS was USD 24.69 per share for 2026-12-31.", "24.69", "EPS", "revenue"],
+    [beneish, "The Beneish M score was -3.01, read as unlikely manipulation.", "-3.01", "Beneish", "Piotroski"],
+    [{ ...beneish, asOf: "2025-12-31", fiscalPeriod: "FY2025" }, "The Beneish M-score for fiscal 2025 was -3.01.", "-3.01", "Beneish", "Piotroski"],
+    [rsi, "RSI-14 was 31.72 on 2026-11-03.", "31.72", "RSI-14", "RSI-7"],
+    [insider, "There were 43 insider sale transactions (Form 4 code S) in the four calendar quarters ended 2026-09-30.", "43", "sale", "purchase"],
+    [projection("revenue", "currency"), "The fixed-prior weighted revenue for the 12 months to 2027-09-30 is USD 12.34 billion.", "12.34", "revenue", "income"],
+  ] as const;
+  it.each(["fundamentals", "valuation", "technicals", "quality", "leadership", "moat", "balanceSheet"])("reads a bare %s score only from its score producer", aspect => {
+    const rec = score(aspect), text = `The ${aspect === "balanceSheet" ? "balance-sheet" : aspect} score is 85.33 (grade A).`;
+    expect(check(text, rec).status).toBe("validated");
+    for (const wrong of [text.replace("85.33", "65.33"), text.replace("grade A", "grade B"),
+      text.replace("score", "margin"), text.replace("85.33", "USD 85.33"), text.replace("85.33", "85.33 per share"),
+      `For FY2024, ${text}`]) expect(check(wrong, rec).status, wrong).not.toBe("validated");
+    expect(check(text, { ...rec, id: "computed.unrelated", origin: "computed.unrelated" }).status).not.toBe("validated");
+    expect(check(text, { ...rec, label: "different score" }).status).not.toBe("validated");
+  });
+  it.each(headlines)("binds the exact producer for %j", (rec, text, value, metric, wrongMetric) => {
+    expect(check(text, rec), text).toMatchObject({ status: "validated" });
+    for (const wrong of [text.replace(value, "999.99"), text.replace(metric, wrongMetric),
+      text.includes("USD") ? text.replace("USD", "EUR") : text.replace(value, `EUR ${value}`),
+      text.includes("per share") ? text.replace("per share", "in total") : text.replace(value, `${value} per share`),
+      text.includes("2025") ? text.replace("2025", "2024") : text.includes("2026-12-31") ? text.replace("2026-12-31", "2027-12-31") : `For FY2024, ${text}`])
+      expect(check(wrong, rec).status, wrong).not.toBe("validated");
+    expect(check(text, { ...rec, id: "computed.unrelated", origin: "computed.unrelated" }).status).not.toBe("validated");
+    expect(check(text, { ...rec, label: "unrelated metric" }).status).not.toBe("validated");
+  });
+  it("does not bind a second score or a completeness assertion to the score", () => {
+    expect(check("The moat score is 85.33 (grade A), with evidence completeness of 0.75.", score("moat")).status).not.toBe("validated");
+    expect(check("The moat score is 85.33 (grade A), with full evidence completeness.", score("moat")).status).not.toBe("validated");
+    expect(check("Our excess-return value was USD 222.78 per share against a quote of USD 337.98.", er).status).not.toBe("validated");
+    expect(check("The Beneish M score was -2.00, read as unlikely manipulation.", { ...beneish, value: -2 }).status).not.toBe("validated");
+    expect(check("The Beneish M score was -3.01, read as likely manipulation.", beneish).status).not.toBe("validated");
+  });
+  it("requires retained calendar fiscal evidence for an annual ROTE record without a fiscal label", () => {
+    const rec = { ...rote, fiscalPeriod: undefined };
+    const text = "Return on tangible common equity for FY2025 was 20.7%.";
+    const options = { record: rec, sourceId: rec.id, reportingCurrency: "USD", excerpts: [
+      { source: "edgar:10-K", title: "Annual report: reporting period ended 2025-12-31 (FY2025)", text: "Retained annual filing.", asOf: "2025-12-31", truncated: false, originalChars: 23 },
+    ] };
+    expect(check(text, rec).status).not.toBe("validated");
+    expect(validateClaimNumericSupport({ label: "FACT", text, source: rec.id, asOf: rec.asOf }, options).status).toBe("validated");
+    expect(validateClaimNumericSupport({ label: "FACT", text: text.replace("2025", "2024"), source: rec.id, asOf: rec.asOf }, options).status).not.toBe("validated");
+    expect(validateClaimNumericSupport({ label: "FACT", text, source: rec.id, asOf: rec.asOf }, { ...options,
+      excerpts: options.excerpts.map(e => ({ ...e, title: "Annual report: reporting period ended 2025-06-30 (FY2025)" })) }).status).not.toBe("validated");
+  });
+  it("reads the annual ROTE fiscal label from the retained same-period annual statement, never the calendar alone", () => {
+    const rec = { ...rote, fiscalPeriod: undefined };
+    const text = "Return on tangible common equity for FY2025 was 20.7%.";
+    const statement = record({ id: "payload.statements.income-statement-annual.2025-12-31.net-income", kind: "provider",
+      origin: "fmp:income-statement(annual)", label: "net income", period: "2025-12-31", fiscalPeriod: "FY2025" });
+    const options = { record: rec, sourceId: rec.id, reportingCurrency: "USD", excerpts: [], registry: [statement] };
+    const claim = { label: "FACT" as const, text, source: rec.id, asOf: rec.asOf };
+    expect(validateClaimNumericSupport(claim, options).status).toBe("validated");
+    for (const invalid of [{ ...statement, period: "2024-12-31" }, { ...statement, fiscalPeriod: undefined },
+      { ...statement, id: "computed.unrelated", origin: "computed.unrelated" }])
+      expect(validateClaimNumericSupport(claim, { ...options, registry: [invalid] }).status).not.toBe("validated");
+    expect(validateClaimNumericSupport(claim, { ...options, registry: [statement, { ...statement, fiscalPeriod: "FY2024" }] }).status).not.toBe("validated");
+    expect(validateClaimNumericSupport(claim, { ...options, registry: [statement, { ...statement, fiscalPeriod: "FY2024" }], excerpts: [
+      { source: "edgar:10-K", title: "Annual report: reporting period ended 2025-12-31 (FY2025)", text: "Retained annual filing.", asOf: "2025-12-31", truncated: false, originalChars: 23 },
+    ] }).status).not.toBe("validated");
+  });
+});
+
 describe("D-187 statement outflow magnitudes", () => {
   const outflow = (metric: "buybacks" | "capex", frequency = "quarterly") => record({
     id: `payload.statements.cash-flow-${frequency}.2026-09-30.${metric}-negative`, label: `${metric} (negative)`, kind:"provider",

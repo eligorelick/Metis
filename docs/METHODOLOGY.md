@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.60.0 / payload 1.67.0, Stage B `STAGE_B_2026_11_VALUATION_INPUTS_45` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.60.0 / payload 1.68.0, Stage B `STAGE_B_2026_11_LATEST_BOOK_46` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications (D-138)
 
@@ -2695,15 +2695,27 @@ with, all printed as assumptions in their own right:
   available to common, admitted by the same rule as the fiscal-year figure,
   over the average of the equity at the window's end and four quarters
   earlier (the closing balance alone when no earlier balance sheet exists, as
-  for the fiscal year), with `BV0` the equity at the window's end. Otherwise
-  the latest fiscal year is the start. When the trailing start is used, the
-  fiscal-year start is valued with the same fade target, carry and payout path from
-  its own fiscal-year book value, and whenever the two starts are more than
+  for the fiscal year). Otherwise the latest fiscal year supplies the return.
+  **Opening book is selected independently (D-189).** Use the latest admitted
+  quarterly balance newer than the fiscal-year book when equity and preferred
+  adjustments (also goodwill and other intangibles for banks) are all present,
+  conflict-free, on that exact date and in the model currency, with filing
+  available at the analysis cutoff and admitted diluted shares ending on the
+  same date. Field provenance must agree on date, unit and filing cutoff.
+  Missing adjustments are not zero. Otherwise the prior path stands, including
+  a trailing start's own dated book, and the specific refusal is disclosed. The historical return remains
+  a forward-rate assumption: earnings already inside opening book are never
+  added again. Forecast years begin after that book date; the existing 200-day
+  quote roll-forward limit runs from it. A bank's P/TBV reads that balance too,
+  with its return's historical date separately disclosed; other routes keep their
+  fiscal tangible balance. When the trailing return is used, the fiscal-year return
+  alternative keeps its own fiscal-year book, date and preferred claims.
+  Whenever the two starts are more than
   **5pp** apart (house convention) that value is printed beside the headline
   and in the fair-value basis. COF's FY2025 ROTE of 4.2% (the Day-1 allowance on
   the acquired Discover loans went through provision) against about 17% over
-  the trailing four quarters is the case that set the rule. Return and opening
-  book value always share one dated basis; vendor total-equity ROE is never
+  the trailing four quarters is the case that set the rule. Every opening-book
+  operand shares one dated basis; vendor total-equity ROE is never
   substituted into a common-equity valuation. Later
   years compound at `ROE_t × retention_t`, where retention is `1 − payout_t`.
   The payout fades linearly from the three-year average in year 1 to the
@@ -3616,8 +3628,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_VALUATION_INPUTS_45 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_VALUATION_INPUTS_45. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_LATEST_BOOK_46 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_LATEST_BOOK_46. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -4070,6 +4082,24 @@ categories and operand order. A monthly sentiment record establishes only its
 explicit month. A complete ordered date interval on a traced figure must match
 both endpoints of the record's declared interval or valid duration context;
 sharing an end date is insufficient.
+
+D-189 extends those contracts to plain house-aspect scores such as "The moat
+score is 85.33 (grade A)." The named score supplies its unit only for the exact
+aspect producer, and the printed grade must match its house band. Completeness
+is a separate assertion. Other readings cover current price to tangible book,
+annual P/E on diluted EPS, return on tangible common equity, excess-return
+value per share, provider-estimated EPS/revenue, Beneish M score, RSI-14,
+four-quarter insider transaction counts and fixed-prior weighted projections.
+Only the Beneish producer's actual "unlikely" threshold supports that optional
+interpretation; RSI's 14-period horizon cannot change. An older annual ROTE
+or Beneish record without a fiscal label can recover only an explicit,
+unambiguous label from the retained annual income statement on its exact
+return/score date (or the existing explicit calendar-fiscal filing proof).
+Conflicting labels refuse. No year is inferred from the date alone. General
+metric, period, currency, unit and rounding checks remain unchanged; a second
+quantity, wrong grade or altered per-share basis remains unvalidated.
+For those annual producers only, "fiscal 2025" and "FY2025" are equivalent
+spellings; both still require the same retained fiscal evidence.
 
 The excerpt reader also recognizes a complete repeated quarter/year header
 with four level columns and two YoY columns. Row width, units, money scale,

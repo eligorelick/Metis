@@ -476,7 +476,8 @@ export interface ContextPayload {
 // headings, linked page ranges and misbound table-of-contents links reach the analysts for the affected filers.
 // 1.67.0 (D-186, D-188): new deterministic values, withholding reasons and calibrated revenue-estimate currency
 // reach the analysts.
-export const PAYLOAD_VERSION = "1.67.0" as const;
+// 1.68.0 (D-189): financial companies open from the latest admitted quarterly book, so analysts receive newer book, value date and P/TBV.
+export const PAYLOAD_VERSION = "1.68.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

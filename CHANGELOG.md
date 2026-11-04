@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.60.0** and
-payload **1.67.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.68.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -31,6 +31,20 @@ original versions and bytes; source merge does not deploy or publish a release.
   when absent from the payload citation registry; a URL alone validates no fact.
 - Offline saved-judge replay and limits are recorded in D-190. No paid run was
   made for this change.
+
+## Unreleased - Bank valuation from the latest filed book; headline claim wording (2026-11-03)
+
+- Open financial excess-return values from the latest complete, filed quarterly
+  common book with matching-date shares, independently of trailing-return
+  availability. Keep return, discount and terminal assumptions unchanged; use
+  the selected book date for roll-forward and grids, and for a bank's P/TBV.
+  Disclose refused quarterly operands and retain the annual fallback (D-189).
+- Bind plain headline score, financial valuation, provider EPS, Beneish, RSI
+  and insider-count wording to each producing record. Check score grades and
+  recover annual fiscal labels only from retained evidence. The four saved
+  judge replays validate 22 more claims with no lost validation (D-189).
+- Stamps: Stage B, fair value and scenario targets `LATEST_BOOK_46`, payload
+  1.68.0, pipeline stage-c-1.6.27.
 
 ## Unreleased - Valuation inputs: foreign consensus, operating income basis, filer unit errors (2026-11-03)
 
