@@ -2653,7 +2653,7 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     newer ? operatingMeasuresStated(annual.map((excerpt) => excerpt.text).join("\n")) : []);
   add(bundle.edgar.tenQNotes, () => "10-Q Part I Item 1 — Notes to the financial statements", PAYLOAD_BUDGETS.tenQNotesChars, () => "edgar:10-Q notes", "notes");
   // D-66: the annual notes and the 10-Q's Other Information (trading arrangements).
-  add(bundle.edgar.tenKNotes, () => "10-K — Notes to the consolidated financial statements", PAYLOAD_BUDGETS.tenKNotesChars, () => "edgar:10-K notes", "notes");
+  add(bundle.edgar.tenKNotes, form => `${form} — Notes to the financial statements`, PAYLOAD_BUDGETS.tenKNotesChars, form => `edgar:${form} notes`, "notes");
   add(bundle.edgar.tenQOther, () => "10-Q Part II Item 5 — Other Information", PAYLOAD_BUDGETS.tenQOtherChars, () => "edgar:10-Q item5");
   // A separate bounded reading stops financially scored prose displacing
   // class votes, controllers and the issuer's actual exemption election.

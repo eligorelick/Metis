@@ -1238,8 +1238,8 @@ function filingFactRows(bundle: DataBundle, currency: string | null, releases: r
   const annual = sectionRef(bundle.edgar?.tenKNotes);
   if (annual !== null) {
     const sourceCurrency = periodReportingCurrency(bundle, day(annual.data.reportDate));
-    add(parseBusinessCombinationFacts(annual.data.text, day(annual.data.reportDate)), "edgar:10-K notes", annual.ref, sourceCurrency);
-    add(parseCustomerConcentrationFacts(annual.data.text, concentrationScope(annual.data)), "edgar:10-K notes", annual.ref, sourceCurrency);
+    add(parseBusinessCombinationFacts(annual.data.text, day(annual.data.reportDate)), `edgar:${annual.data.form} notes`, annual.ref, sourceCurrency);
+    add(parseCustomerConcentrationFacts(annual.data.text, concentrationScope(annual.data)), `edgar:${annual.data.form} notes`, annual.ref, sourceCurrency);
   }
   for (const goodwill of annualTagValues(bundle, "Goodwill", currency)) {
     facts.push({ key: "goodwill", label: "goodwill (balance sheet)", value: goodwill.value, unit: "currency", asOf: goodwill.end, period: null, qualifier: null,

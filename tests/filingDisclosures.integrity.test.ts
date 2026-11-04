@@ -192,6 +192,16 @@ describe("filing disclosures statement integrity", () => {
     expect(buildFilingDisclosures(bundle)?.filingFacts).toContainEqual(expect.objectContaining({ key: "deal-consideration-total", value: 17e9 }));
   });
 
+  it("keeps a foreign annual note fact's form and source tag", () => {
+    const bundle = currencyBundle();
+    const text = "Note 1 - Business Combinations We completed an acquisition with Example Company. We recorded $2 billion of goodwill. Note 2 - Debt";
+    bundle.edgar.tenKNotes = { ok: true, value: { source: "edgar", endpoint: "notes", fetchedAt: bundle.builtAt, asOf: "2025-12-31",
+      data: { sectionName: "tenKNotes", text, chars: text.length, method: "structured-item", form: "20-F", accession: "foreign", reportDate: "2025-12-31", filingDate: "2026-02-25", documentUrl: "https://www.sec.gov/foreign" } } };
+    expect(buildFilingDisclosures(bundle)?.filingFacts).toContainEqual(expect.objectContaining({
+      key: "deal-goodwill", value: 2e9, sourceTag: "edgar:20-F notes", source: expect.objectContaining({ form: "20-F" }),
+    }));
+  });
+
   it("does not compare prior CAD implicit-dollar guidance against a USD actual", () => {
     const bundle = withRelease(currencyBundle({ quarterCurrencies: ["USD", "CAD", "CAD", "CAD"], annualCurrency: "CAD", quarterlyRevenue: NVDA_QUARTER }));
     const reports = bundle.edgar.currentReports;

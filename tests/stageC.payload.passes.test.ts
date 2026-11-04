@@ -2213,6 +2213,18 @@ describe("payload determinism + provenance", () => {
     });
   });
 
+  it("keeps short IFRS notes intact with their actual annual form and source", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.edgar.mdna.ok) throw new Error("fixture requires annual filing provenance");
+    const text = "(IN.1) Basis for Preparation. The consolidated financial statements comply with IFRS. Borrowings were EUR 500 million. Capital commitments were EUR 200 million. Business combinations included consideration of EUR 100 million and goodwill of EUR 20 million.";
+    bundle.edgar.tenKNotes = { ...bundle.edgar.mdna, value: { ...bundle.edgar.mdna.value,
+      data: { ...bundle.edgar.mdna.value.data, sectionName: "tenKNotes", form: "20-F", text, chars: text.length } } };
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    expect(payload.filings.find(f => f.source === "edgar:20-F notes")).toMatchObject({
+      title: expect.stringContaining("20-F — Notes to the financial statements"), text, truncated: false, originalChars: text.length,
+    });
+  });
+
   it("keeps mapped-page coverage in the filing title when evidence selection omits the opening disclosure", () => {
     const { bundle, computed } = buildInputs();
     if (!bundle.edgar.mdna.ok) throw new Error("fixture requires annual MD&A");

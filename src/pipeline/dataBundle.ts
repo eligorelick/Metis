@@ -76,6 +76,7 @@ import {
   extractSection,
   notesToFinancialStatements,
   annualNotesToFinancialStatements,
+  extractForeignAnnualNotes,
   extractAnnualNotesFromIndex,
   parseDocument,
   periodicSignatureText,
@@ -1035,11 +1036,11 @@ async function runExtraction(
 /**
  * D-63: a 10-Q Part I Item 1 cut to its notes. The statements before the
  * notes heading are tables the payload already carries as typed figures; when
- * no heading is found the whole item is kept (its notes are inside it).
+ * no substantive heading is found the notes remain an explicit gap.
  */
-function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>): FetchResult<ExtractedSection> {
+function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>, symbol: string): FetchResult<ExtractedSection> {
   const notes = notesToFinancialStatements(result.value.data.text);
-  if (notes === null) return result;
+  if (notes === null) return gapResult(`edgar.tenQNotes(${symbol})`, "quarterly financial statements found, but a substantive notes opening was not established; whole-item text is withheld", "warn", [result.value.data.documentUrl]);
   // D-66: the statements before the heading stay beside the notes (bounded)
   // for the lines no typed statement carries.
   const statementsText = result.value.data.text.slice(0, notes.start).slice(0, PERIODIC_STATEMENTS_CHARS);
@@ -1056,13 +1057,32 @@ function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>)
 async function annualNotes(
   edgar: EdgarClient, cik: number, filing: EdgarFiling, docUrl: string, html: string, fetchedAt: string, symbol: string, parsed: ParsedDocument | undefined,
 ): Promise<FetchResult<ExtractedSection>> {
+  if (filing.form === "20-F") {
+    let source = { html, url: docUrl, fetchedAt };
+    let notes = extractForeignAnnualNotes(source.html);
+    if (!notes.ok && notes.exhibit) {
+      const { filename, reference } = notes.exhibit;
+      const exhibit = await settle(`edgar.tenKNotes(${symbol})`, edgar.fetchFilingDocument(cik, { ...filing, primaryDocument: filename }));
+      if (!exhibit.ok) return gapResult(`edgar.tenKNotes(${symbol})`, `${notes.reason}; exhibit fetch failed: ${exhibit.gap.reason}`, "warn", [docUrl, ...(exhibit.gap.attemptedSources ?? [])]);
+      source = { html: exhibit.value.data, url: exhibit.value.endpoint, fetchedAt: exhibit.value.fetchedAt };
+      notes = extractForeignAnnualNotes(source.html);
+      if (!notes.ok) return gapResult(`edgar.tenKNotes(${symbol})`, `20-F incorporated exhibit ${filename} (${reference}): ${notes.reason}`, "warn", [docUrl, source.url]);
+    }
+    if (!notes.ok) return gapResult(`edgar.tenKNotes(${symbol})`, notes.reason, "warn", [docUrl]);
+    const asOf = filing.reportDate || filing.filingDate;
+    return { ok: true, value: { source: "edgar", asOf, fetchedAt: source.fetchedAt,
+      endpoint: `${source.url} (20-F financial-statement notes)`, data: {
+        sectionName: "tenKNotes", text: notes.text, chars: notes.text.length, method: notes.method,
+        accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reportDate: asOf, documentUrl: source.url,
+      } } };
+  }
   const tried: string[] = [];
   for (const item of ["8", "15"] as const) {
     const section = await runExtraction(edgar, cik, filing, docUrl, html, fetchedAt,
       { member: "tenKNotes", sectionName: "tenKNotes", spec: { form: "10-K", item }, failSeverity: "warn" }, symbol, parsed);
     if (!section.ok) { tried.push(`Item ${item}: ${section.gap.reason}`); continue; }
     const notes = annualNotesToFinancialStatements(section.value.data.text);
-    if (notes === null) { tried.push(`Item ${item}: no notes heading`); continue; }
+    if (notes === null) { tried.push(`Item ${item}: no substantive notes opening and bounded interval proved`); continue; }
     const statementsText = section.value.data.text.slice(0, notes.start).slice(0, PERIODIC_STATEMENTS_CHARS);
     return { ...section, value: { ...section.value, endpoint: `${docUrl} (10-K Item ${item} notes)`,
       data: { ...section.value.data, text: notes.text, chars: notes.text.length,
@@ -1406,10 +1426,8 @@ async function buildEdgarBundle(
             // D-66: the notes (business combinations, goodwill, investments,
             // commitments, segment footnotes), same parse, same budget.
             const notesMs = Date.now() - t0;
-            tenKNotes = filing.form !== "10-K"
-              ? gapResult(`edgar.tenKNotes(${symbol})`, `annual filing is Form ${filing.form}; its financial-statement notes (Item 18) are not read`, "info", [docUrl])
-              : notesMs > edgarSectionBudgetMs
-                ? gapResult(`edgar.tenKNotes(${symbol})`, `10-K notes skipped: parsing and the earlier sections took ${Math.round(notesMs / 1000)}s, ` +
+            tenKNotes = notesMs > edgarSectionBudgetMs
+                ? gapResult(`edgar.tenKNotes(${symbol})`, `${filing.form} notes skipped: parsing and the earlier sections took ${Math.round(notesMs / 1000)}s, ` +
                   `exceeding the ${Math.round(edgarSectionBudgetMs / 1000)}s per-filing extraction budget.`, "warn", [docUrl])
                 : await annualNotes(edgar, cik, filing, docUrl, html, doc.value.fetchedAt, symbol, parsedDoc);
           } else {
@@ -1471,7 +1489,7 @@ async function buildEdgarBundle(
           const statements = await runExtraction(edgar, cik, filing, docUrl, doc.value.data, doc.value.fetchedAt,
             { member: "tenQNotes", sectionName: "tenQNotes", spec: { form: "10-Q", item: "1", part: 1 }, failSeverity: "warn" },
             symbol, parsedQ);
-          tenQNotes = statements.ok ? notesOnly(statements) : statements;
+          tenQNotes = statements.ok ? notesOnly(statements, symbol) : statements;
           const signaturesText = periodicSignatureText(parsedQ.fullText);
           if (tenQNotes.ok && signaturesText !== null) tenQNotes = { ...tenQNotes, value: { ...tenQNotes.value,
             data: { ...tenQNotes.value.data, signaturesText } } };

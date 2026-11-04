@@ -802,7 +802,7 @@ const REJECT_AFTER_60_RE = /^[\s\S]{0,60}?\bon[\s]+page[s]?[\s]+\d/i;
  * Pattern: Item <N>[.:]? + optional interposed run ≤120 chars (F15) + title.
  * Rejects cross-reference contexts (F7/F7b/F16).
  */
-export function findHeaderCandidates(fullText: string, def: ItemDefLike, windowStart = 0, windowEnd = Number.MAX_SAFE_INTEGER): HeaderCandidate[] {
+export function findHeaderCandidates(fullText: string, def: ItemDefLike, windowStart = 0, windowEnd = Number.MAX_SAFE_INTEGER, boundary = false): HeaderCandidate[] {
   const re = new RegExp(`\\bItem[\\s]+${itemIdHeaderPattern(def.id)}\\b[.:]?[\\s\\S]{0,120}?(?:${def.title.source})`, "gi");
   const out: HeaderCandidate[] = [];
   let m: RegExpExecArray | null;
@@ -811,7 +811,7 @@ export function findHeaderCandidates(fullText: string, def: ItemDefLike, windowS
     const before = fullText.slice(Math.max(0, m.index - 40), m.index);
     if (REJECT_BEFORE_RE.test(before)) continue;
     const after = fullText.slice(m.index + m[0].length, m.index + m[0].length + 130);
-    if (REJECT_AFTER_100_RE.test(after) || REJECT_AFTER_60_RE.test(after) || REJECT_AFTER_10_RE.test(after)) continue;
+    if (REJECT_AFTER_100_RE.test(after) || (!boundary && REJECT_AFTER_60_RE.test(after)) || REJECT_AFTER_10_RE.test(after)) continue;
     out.push({ index: m.index, matchText: m[0] });
   }
   return out;
@@ -822,7 +822,7 @@ export interface ItemDefLike {
   title: RegExp;
 }
 
-function layer2Slice(fullText: string, spec: SectionSpec, notes: string[]): { text: string; zeroCandidates: boolean } | null {
+function layer2Slice(fullText: string, spec: SectionSpec, notes: string[]): { text: string; zeroCandidates: boolean; missingBoundary?: true } | null {
   let seq: ItemDef[];
   let winStart = 0;
   let winEnd = fullText.length;
@@ -857,7 +857,7 @@ function layer2Slice(fullText: string, spec: SectionSpec, notes: string[]): { te
 
   const boundaryCands: HeaderCandidate[] = [];
   for (const bd of seq.slice(idx + 1, idx + 5)) {
-    boundaryCands.push(...findHeaderCandidates(fullText, bd, winStart, winEnd));
+    boundaryCands.push(...findHeaderCandidates(fullText, bd, winStart, winEnd, true));
   }
   if (spec.form === "10-Q" && specPart(spec) === 1 && winEnd < fullText.length) {
     boundaryCands.push({ index: winEnd, matchText: "PART II" });
@@ -877,8 +877,9 @@ function layer2Slice(fullText: string, spec: SectionSpec, notes: string[]): { te
     }
   }
   if (chosen === null) {
-    chosen = targetCands[targetCands.length - 1];
-    notes.push(`layer 2: no boundary header after Item ${target.id}; sliced to window end`);
+    notes.push(`layer 2: no closing boundary header after Item ${target.id}`);
+    const last = targetCands[targetCands.length - 1]!;
+    return { text: fullText.slice(last.index, Math.min(winEnd, last.index + 400)), zeroCandidates: false, missingBoundary: true };
   }
   return { text: fullText.slice(chosen.index, end).trim(), zeroCandidates: false };
 }
@@ -1281,6 +1282,10 @@ export function extractSection(html: string, spec: SectionSpec, opts: ExtractOpt
   } else {
     layersTried.push("layer2-header-regex");
     const l2 = layer2Slice(fullText, spec, notes);
+    if (l2?.missingBoundary) {
+      const financial = specKind(spec) === "financialStatements" ? "; no complete financial-statement section boundaries were proved" : "";
+      return fail(diagnostics, new ExtractionError("unresolved_reference", `Item ${spec.item}: no closing item boundary was established; document/window end is not a section boundary${financial}. Source reference: ${l2.text}`));
+    }
     if (l2 !== null && !l2.zeroCandidates) {
       sectionText = l2.text;
       method = "header-regex";
@@ -1415,8 +1420,8 @@ const FIRST_NOTE_RE = /^[\s\S]{0,300}?(?:\bNote\s+(?:1|A|One)\b|\b1\s*[.:–—-
  * (Condensed) (Consolidated) Financial Statements" heading that is followed by
  * its first note, to the end of the item. The statements before it are tables
  * the payload already carries as typed figures. `start` is the offset in the
- * item text; null when no such heading is found, so the caller can disclose
- * that it kept the whole item instead.
+ * item text; null when no substantive opening is found. The caller supplies
+ * an already bounded item and must withhold unrecognized notes.
  */
 export function notesToFinancialStatements(itemText: string): { text: string; start: number } | null {
   for (const match of itemText.matchAll(NOTES_HEADING_RE)) {
@@ -1424,9 +1429,22 @@ export function notesToFinancialStatements(itemText: string): { text: string; st
     // closes each statement page; it is a reference, not the heading.
     if (/\b(?:accompanying|see|refer to)\s+(?:the\s+)?$/i.test(itemText.slice(Math.max(0, match.index - 30), match.index))) continue;
     const after = itemText.slice(match.index + match[0].length, match.index + match[0].length + 400);
-    if (FIRST_NOTE_RE.test(after)) return { text: itemText.slice(match.index), start: match.index };
+    if (FIRST_NOTE_RE.test(after) && !notesContentsOpening(after) && !notesReferenceOpening(after)) return boundFinancialNotes({ text: itemText.slice(match.index), start: match.index });
   }
-  return null;
+  const recognized = recognizeAnnualNotes(itemText);
+  return recognized === null ? null : boundFinancialNotes(recognized);
+}
+
+function notesReferenceOpening(after: string): boolean {
+  return /^\s*(?:\(unaudited\)\s*)?[.,;:]?\s*(?:are\s+an?\s+integral\b|See\b|Refer\b|appearing\b|tagged\b)/i.test(after);
+}
+
+/** A first-note label and page number followed by another note is navigation. */
+function notesContentsOpening(after: string): boolean {
+  return /^\s*:?\s*Page\b/i.test(after) ||
+    /^\s*\d{2,4}\s+(?:Note\s+)?1\b/i.test(after) ||
+    /\b(?:\d{1,4}|F\s*-\s*\d{1,4})\s+(?:Note\s+2\b|2\s*\.\s*[A-Z])/i.test(after) ||
+    /^\s*:?\s*Note\s+1\b[^.]{0,150}\.{2,}\s*\d/i.test(after);
 }
 
 /**
@@ -1434,7 +1452,20 @@ export function notesToFinancialStatements(itemText: string): { text: string; st
  * accounts schedule, the exhibit index or Item 16 — whichever comes first
  * after the notes begin. Item 15 carries all three after the last note.
  */
-const ANNUAL_NOTES_END_RE = /\bSchedule II\b|\bExhibit Index\b|\bEXHIBIT INDEX\b|\bItem 16\.?\s/g;
+const ANNUAL_NOTES_END_RE = /\bSchedule II\s*[-–—:]?\s*Valuation and Qualifying Accounts\b|\bSCHEDULE [IVX]+\s*[-–—:]?\s*(?:SUPPLEMENTARY INSURANCE INFORMATION|REINSURANCE|SUMMARY OF INVESTMENTS)\b|\bExhibit Index\b|\bEXHIBIT INDEX\b|\bItem 16\.?\s+Form 10-K Summary\b|\bSupplementary Information:\s+Distribution\b/g;
+
+/** All notes paths share the same external-report stop; a prose mention is insufficient. */
+function boundFinancialNotes(notes: { text: string; start: number }, textAppendices = true): { text: string; start: number } {
+  const stops: number[] = [];
+  const auditor = /\bREPORT OF INDEPENDENT REGIST\s*ERED PUBLIC ACCOUNTING FIRM(?: on Financial Statement Schedules)?\s+To the (?:Stockholders|Shareholders|Shareowners|Board of Directors)\b[\s\S]{0,350}?(?:Opinions? on the (?:Consolidated )?Financial Statements|Results of Review of Interim Financial Information|We have (?:audited|reviewed)|Our audits of the consolidated financial statements)\b/i.exec(notes.text);
+  if (auditor) stops.push(auditor.index);
+  const signatures = /\bSIGNATURES\s+Pursuant to the requirements of the Securities Exchange Act\b/i.exec(notes.text);
+  if (signatures) stops.push(signatures.index);
+  if (textAppendices) for (const end of notes.text.matchAll(ANNUAL_NOTES_END_RE)) {
+    if (end.index > 0) { stops.push(end.index); break; }
+  }
+  return stops.length ? { text: notes.text.slice(0, Math.min(...stops)).trimEnd(), start: notes.start } : notes;
+}
 
 /**
  * D-66: the notes of a 10-K Item 8 (or Item 15): from the notes heading
@@ -1442,19 +1473,7 @@ const ANNUAL_NOTES_END_RE = /\bSchedule II\b|\bExhibit Index\b|\bEXHIBIT INDEX\b
  * Null when no notes heading is found.
  */
 export function annualNotesToFinancialStatements(itemText: string): { text: string; start: number } | null {
-  const legacy = notesToFinancialStatements(itemText);
-  const notes = legacy ?? recognizeAnnualNotes(itemText);
-  if (notes === null) return null;
-  // The notes end at whichever comes first: an auditor report or an appendix.
-  const stops: number[] = [];
-  if (legacy === null) {
-    const auditor = /\bREPORT OF INDEPENDENT REGIST\s*ERED PUBLIC ACCOUNTING FIRM\s+To the (?:Stockholders|Shareholders)\b[\s\S]{0,200}?Opinion on the Financial Statements/i.exec(notes.text);
-    if (auditor && auditor.index > 1_000) stops.push(auditor.index);
-  }
-  for (const end of notes.text.matchAll(ANNUAL_NOTES_END_RE)) {
-    if (end.index > 1_000) { stops.push(end.index); break; }
-  }
-  return stops.length ? { text: notes.text.slice(0, Math.min(...stops)).trimEnd(), start: notes.start } : notes;
+  return notesToFinancialStatements(itemText);
 }
 
 // Closed vocabulary tolerates inline font-run word splits only in the title.
@@ -1465,7 +1484,8 @@ const ANNUAL_NOTES_HEADING = new RegExp("\\bNotes\\s+to\\s+(?:the\\s+)?(?:" +
 function recognizeAnnualNotes(text: string): { text: string; start: number } | null {
   for (const m of text.matchAll(ANNUAL_NOTES_HEADING)) {
     if (/\b(?:accompanying|see|refer to)\s+(?:the\s+)?$/i.test(text.slice(Math.max(0, m.index - 30), m.index))) continue;
-    const after = text.slice(m.index + m[0].length);
+    const after = text.slice(m.index + m[0].length).replace(/^\s*\(Unaudited\)/i, "");
+    if (notesReferenceOpening(after) || notesContentsOpening(after.slice(0,400))) continue;
     const numbered = /^\s*(?:[A-Z][a-z]+\s+\d{1,2},\s+\d{4}\s+|\(Tabular dollars[^)]{0,150}\)\s*)?(?:NOTE\s+1\s*[-:.–—]?\s*|1\s*\.?\s+)(?:ACCOUNTING POLICIES|BASIS OF PRESENTATION|Description of the Business and Segment Information|ORGANIZATION AND SIGNI\s*FICANT ACCOUNTING POLICIES)\b/i.exec(after);
     if (numbered && /^\s*(?:\d{1,4}\b|F\s*-\s*\d{1,4}\b|\.{2,}|See\b|Refer\b|is described\b|is incorporated\b)/i.test(after.slice(numbered[0].length))) continue;
     const unnumbered = /^\s*Summary of Significant Accounting Policies\s+NATURE OF BUSINESS\s+/i.test(after) &&
@@ -2159,7 +2179,113 @@ function recoverAnnualSection(
 export function extractAnnualNotesFromIndex(html: string): {
   text: string; method: "annual-notes-index-redirect"; statementsText?: string; evidence: AnnualNotesRedirectEvidence;
 } | null {
-  return extractAnnualAppendixNotes(html) ?? extractPrintedIndexNotes(html);
+  const notes = extractAnnualAppendixNotes(html) ?? extractPrintedIndexNotes(html);
+  if (notes === null) return null;
+  // Index routes have already proved appendix headings in original markup;
+  // flattened full-title prose must not replace that stronger boundary proof.
+  const bounded = boundFinancialNotes({ text: notes.text, start: 0 }, false);
+  return bounded.text === notes.text ? notes : { ...notes, text: bounded.text };
+}
+
+export type ForeignAnnualNotesResult =
+  | { ok: true; text: string; method: "structured-item"; statementsText?: string }
+  | { ok: false; reason: string; exhibit?: { filename: string; reference: string } };
+
+/** Financial appendices require their own source and closing-boundary proof. */
+export function extractForeignAnnualNotes(html: string): ForeignAnnualNotesResult {
+  const missing = (reason: string): ForeignAnnualNotesResult => ({ ok: false, reason: `20-F notes: ${reason}` });
+  const structure = appendixStructure(html, true);
+  if (!structure) return missing("primary document markup is not closed; financial appendix boundaries cannot be proved");
+  const { elements, text } = structure;
+  const nt = (n: AppendixElement) => text(n.start, n.end).replace(/[\u200b\u00ad]/g, "").trim();
+  const ancestor = (n: AppendixElement, tag: string) => {
+    for (let p = n.parent; p; p = p.parent) if (p.tag === tag) return p;
+  };
+  const blocks = elements.filter(n => !n.hidden && !n.blockChild && /^(?:p|div|h[1-6]|td)$/.test(n.tag) && !ancestor(n, "a"));
+  const linked = (n: AppendixElement) => /<a\b[^>]*href\s*=/i.test(html.slice(n.start, n.end));
+  const title = /\bNotes to (?:the )?(?:Consolidated )?Financial Statements(?:\s+FOR THE YEARS ENDED\b[^.]{0,100})?$/i;
+  const headings = blocks.filter(n => {
+    const value = nt(n), match = title.exec(value);
+    return match && /^[A-Z0-9 &.,’()\-]*$/.test(value.slice(0, match.index)) && !linked(n);
+  });
+  const openings = headings.filter(n => {
+    const next = text(n.end, Math.min(html.length, n.end + 50_000));
+    return !notesContentsOpening(next.slice(0,400)) &&
+      /^(?:\s*(?:FOR THE YEARS ENDED\b.{0,100}?)?)\s*(?:\(?IN\.1\)?\s+Basis for Preparation|(?:Note\s+)?1\s*[.():–—-]?\s+[A-Z])/i.test(next);
+  });
+  if (openings.length !== 1) {
+    // Follow only the filing's own annual-report link, never an exhibit guessed
+    // from a filename or TYPE. Fetching and proving that document is separate.
+    const item18Heads = blocks.filter(n => /^ITEM\s+18\.?\s+FINANCIAL STATEMENTS$/i.test(nt(n)) && !linked(n));
+    const reference = blocks.find(n => /^The financial statements\b.*Annual Report\b/i.test(nt(n)) && nt(n).length < 600 &&
+      item18Heads.some(head => head.end <= n.start && /\b(?:Item\s+19|Exhibit\s+15\.\d+)\b/i.test(nt(n))));
+    const exhibits = elements.filter(n => n.tag === "tr" && !n.hidden && nt(n).length < 1_500 && /\bAnnual Report\b/i.test(nt(n)) && /^15\.\d+\b/.test(nt(n)));
+    if (reference && exhibits.length === 1) {
+      const row = exhibits[0]!;
+      const links = elements.filter(n => n.tag === "a" && n.start >= row.start && n.end <= row.end && !n.hidden);
+      const filenames = new Set(links.map(n => n.attrs.get("href")).filter((h): h is string => !!h && /^[A-Za-z0-9_-]+\.html?$/i.test(h)));
+      if (filenames.size === 1 && links.every(n => filenames.has(n.attrs.get("href") ?? ""))) {
+        return { ok: false, reason: `20-F Item 18 incorporates a separately filed annual report; its financial notes require the referenced exhibit ${[...filenames][0]} and complete note-boundary proof`,
+          exhibit: { filename: [...filenames][0]!, reference: nt(row) } };
+      }
+    }
+    return missing(`${openings.length ? "ambiguous substantive notes openings" : "no substantive notes opening was proved in the primary document"}; an incorporated exhibit needs an explicit, unique filing reference`);
+  }
+  const opening = openings[0]!;
+  // An actual later item closes a primary-document financial statement body.
+  const item18 = blocks.filter(n => n.start < opening.start && /^ITEM\s+18\.?\s+FINANCIAL STATEMENTS$/i.test(nt(n)) && !linked(n)).at(-1);
+  const closingItem = blocks.find(n => n.start > opening.end && /^ITEM\s+19\.?\s+EXHIBITS$/i.test(nt(n)) && !linked(n));
+  if (item18 && closingItem) {
+    const body = text(opening.start, closingItem.start);
+    if (!detectStub(body).isStub) return { ok: true, text: boundFinancialNotes({ text: body, start: 0 }, false).text, method: "structured-item" };
+  }
+  // Financial indexes can also incorporate an appendix after the item/exhibits.
+  // The explicit F-page reference must agree with a unique opening and every
+  // intervening printed page, including a proved final page/document close.
+  const rows = elements.filter(n => n.tag === "tr" && !n.hidden && n.end < opening.start);
+  const mappings = rows.map(row => ({ row, match: /^Notes to (?:the )?(?:Consolidated )?Financial Statements\s+F\s*-\s*(\d+)(?:\s*(?:to|through|[-–—])\s*(?:F\s*-\s*)?(\d+))?$/i.exec(nt(row)) })).filter(m => m.match);
+  if (mappings.length !== 1) return missing("the substantive notes have no unique financial-index F-page reference or later closing item");
+  const { row, match } = mappings[0]!;
+  const indexTable = ancestor(row, "table");
+  if (!indexTable || !rows.some(n => ancestor(n, "table") === indexTable && /^(?:Consolidated )?(?:Balance Sheets|Statements of Financial Position)\b[\s\S]*\bF\s*-\s*\d+/i.test(nt(n)))) return missing("notes reference is not part of a proved financial-statement index");
+  const first = Number(match![1]), last = match![2] ? Number(match![2]) : undefined;
+  const fixedBoxes = new Set(elements.filter(n => !n.hidden && n.tag === "div" &&
+    /(?:^|;)\s*position\s*:\s*relative\s*(?:;|$)/i.test(n.attrs.get("style") ?? "") &&
+    /(?:^|;)\s*height\s*:\s*[\d.]+(?:pt|px)\s*(?:;|$)/i.test(n.attrs.get("style") ?? "") &&
+    /(?:^|;)\s*overflow\s*:\s*hidden\s*(?:;|$)/i.test(n.attrs.get("style") ?? "")));
+  const owner = (n: AppendixElement) => {
+    for (let p: AppendixElement | undefined = n; p; p = p.parent) if (fixedBoxes.has(p)) return p;
+  };
+  const openingBox = owner(opening);
+  const markers = blocks.filter(n => n.start > row.end && /^F\s*-\s*\d+$/.test(nt(n)) && !ancestor(n, "table") && !linked(n));
+  const retained = markers.filter(n => n.start >= (openingBox?.start ?? opening.start));
+  if (!retained.length || retained.some((n, i) => Number(nt(n).replace(/^F\s*-\s*/, "")) !== first + i) ||
+    (last !== undefined && first + retained.length - 1 !== last)) return missing("financial-index reference disagrees with missing, duplicate or nonconsecutive printed F-pages");
+  if (markers.some(n => n.start < retained[0]!.start && Number(nt(n).replace(/^F\s*-\s*/, "")) >= first)) return missing("financial appendix printed-page identity is ambiguous");
+  const links = elements.filter(n => n.tag === "a" && !n.hidden && n.start >= row.start && n.end <= row.end);
+  for (const link of links) {
+    const href = link.attrs.get("href") ?? "";
+    if (!/^#[A-Za-z_][A-Za-z0-9_.:-]*$/.test(href)) return missing("notes index points outside the primary document");
+    const targets = elements.filter(n => n.attrs.get("id") === href.slice(1) || n.attrs.get("name") === href.slice(1));
+    if (targets.length !== 1 || targets[0]!.hidden ||
+      !(targets[0] === opening || (openingBox && owner(targets[0]!) === openingBox) ||
+        (targets[0]!.start <= opening.start && /^(?:[A-Z0-9 &.,’()\-]+ AND SUBSIDIARIES)?$/.test(text(targets[0]!.end, opening.start).replace(/[\u200b\u00ad]/g, "").trim())))) return missing("notes index destination is missing, duplicated or disagrees with the opening page");
+  }
+  let end: number;
+  if (openingBox) {
+    const boxes = retained.map(owner);
+    if (boxes.some((box, i) => !box || (i > 0 && box!.start < boxes[i - 1]!.end)) || boxes[0] !== openingBox) return missing("printed F-pages do not identify unique closed physical pages");
+    end = boxes.at(-1)!.end;
+    if ([...fixedBoxes].some(box => box.start >= openingBox.start && box.end <= end && !boxes.includes(box))) return missing("an intervening physical page has no proved printed F-page identity");
+  } else {
+    // A final footer closes a flowing appendix; unlike fixed-layout headers,
+    // any visible text after it leaves the end unproved.
+    end = retained.at(-1)!.end;
+  }
+  if (text(end, html.length).replace(/[\u200b\u00ad]/g, "").trim() !== "") return missing("visible material follows the final proved financial page; notes end is not established");
+  const body = text(opening.start, end);
+  if (detectStub(body).isStub) return missing("proved notes interval is only a reference or short stub");
+  return { ok: true, text: boundFinancialNotes({ text: body, start: 0 }, false).text, method: "structured-item" };
 }
 
 /** Preserve the original appendix proof and its exact output. */
