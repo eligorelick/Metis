@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Clean filing section boundaries and foreign notes (2026-11-04)
+
+- Require substantive notes openings and stop every notes path before separate auditor/reviewer reports; keep original-markup index boundaries and explicit gaps when proof is missing. Header item slices stop at the next item.
+- Read proved same-document 20-F notes and follow only an explicit incorporated annual-report exhibit reference. Keep actual-form provenance and the 10,000-character annual notes budget.
+- Preserve clean filing sections and immutable stored reports; see [D-199](docs/audit/DECISIONS.md#d-199---clean-filing-section-boundaries-and-read-proved-foreign-notes-2026-11-04) for the panel replay, payload deltas and remaining gaps. A payload stamp advance is required on integration; constants are unchanged here.
+
 ## Unreleased - Public polish (2026-11-04)
 
 - Make the complete fictional sample easy to find and distinguish its dataset from the company examples.

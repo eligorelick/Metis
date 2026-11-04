@@ -6161,3 +6161,196 @@ scenario changes. Saved reports are never rewritten: the same labels are removed
 at display time, with patterns anchored to those labels so that company text is
 left alone. Stage B output text changes, so the Stage B and payload stamps
 advance.
+
+
+## D-199 - Clean filing section boundaries and read proved foreign notes (2026-11-04)
+
+The frozen final50 database and the independent audit's saved SEC responses were reused offline. The database was opened only with `new Database(path, { readonly: true, fileMustExist: true })`. No owner settings, credentials, live application database, paid provider, model or live SEC endpoint was read. Real filings, complete first/last-line ledgers, source hashes and replay scripts remain under gitignored `tmp/section-boundaries/`; tests contain synthetic markup.
+
+The panel has 49 distinct issuers. The replay covers **484 available-document slots**: annual narrative and financial items, domestic quarterly items and 90 notes slots. Foreign 6-Ks have no standardized 10-Q items and are not treated as failed 10-Q extractions. XOM's missing annual remains missing. Section successes move from **432 to 427**: four proved foreign notes are recovered and nine falsely labelled notes are withheld. Availability is not used as a substitute for correct identity.
+
+### Boundary rule and preservation
+
+Legacy notes recognition formerly bypassed the auditor stop, accepted contents/statement references through a nearby first-note token, and quarterly acquisition retained an unrecognized whole item. All recognized notes now share the external audit/review and signature-declaration stop, including schedule-audit titles. Contents/page sequences and statement-reference openings are rejected. Split financial-title words and the unaudited qualifier can establish the quarterly opening. Recognized following schedules/appendices end flattened item notes; source-index routes retain their stronger original-markup appendix proof, so full-title prose references cannot override it.
+
+Header-based item extraction accepts the next item's page-reference body as a closing boundary. It withholds a header slice without a closing item instead of using document/window end, retaining a bounded source reference in the reason. PGR's short Item 5 still uses the producer's existing 120-character stub threshold. No ticker-specific dispatch was added.
+
+**397 previous successful slots stay byte-identical**, proved by direct string equality and SHA-256 over retained outputs. Another 48 existing gaps are unchanged. Every one of the 39 changed slots is listed below; 35 replace contaminated/misidentified old successes and four add foreign notes. Every changed old success is accounted for as contamination or misidentification, so no previously clean slot changes. Of 353 formerly successful non-notes item slots, 351 are identical; only BAC quarterly Item 2 and PGR quarterly Item 5 lose their following items. Of 79 formerly accepted notes slots, 46 are identical. The complete before/after ledger records found status, length, first line, last line and hash for every slot.
+
+Original visible source blocks also prove standalone management, glossary, supplemental-information and later-item boundaries; linked contents entries and repeated current-item page headers cannot close notes. Exact preceding source context maps the boundary into the existing text without reformatting it. The preservation replay caught PG's legitimate Supplemental Financial Information note subsection: an advancing numbered-note continuation now retains that subsection, and PG annual notes and AIG quarterly page-header cases remain byte-identical. A separate acquisition replay covers all 343 pipeline field slots, including unsupported 6-K and missing-source gaps, with direct equality and hashes: successes move from 296 to 291, 261 previous successes stay byte-identical, and its 39 changed fields correspond to the same changed source slots. WFC's existing annual risk-factor exhibit redirect succeeds identically in both acquisition phases (99,869 characters), while the primary-document-only ledger retains its original gap; this explains their one availability difference.
+
+| Company / form / slot | Before chars | After chars | Why |
+| --- | ---: | ---: | --- |
+| AAPL / 10-K / notes | 55,354 | 45,635 | Remove the external auditor report from the notes interval. |
+| AIG / 10-K / notes | 341,926 | 315,408 | Remove the external auditor report from the notes interval. |
+| BA / 10-K / notes | 187,528 | 167,664 | Skip the statement-reference prefix and remove the external audit/review report. |
+| BA / 10-Q / notes | 76,339 | 69,285 | Skip the statement-reference prefix and remove the external audit/review report. |
+| BABA / 20-F / notes | 0 | 211,279 | New same-primary notes, with structural opening and closing-item or financial-index/page proof. |
+| BAC / 10-K / notes | 360,520 | 351,037 | End before the standalone glossary, identified in the original source blocks. |
+| BAC / 10-Q / 2 | 200,258 | 200,041 | Remove the following Item 3 market-risk disclosure from MD&A. |
+| C / 10-K / notes | 558,113 | 557,997 | Skip the statement-footer reference. |
+| C / 10-Q / notes | 271,829 | 267,164 | Skip the statement-footer reference; remove the reviewer report and subsequent unregistered-sales section. |
+| FIGR / 10-K / notes | 209,890 | 193,758 | Remove the external auditor report from the notes interval. |
+| GS / 10-K / notes | 428,359 | 411,749 | End before supplemental financial tables and the following Item 9. |
+| GS / 10-Q / notes | 417,448 | 406,292 | Remove the external auditor report from the notes interval. |
+| HD / 10-K / notes | 115,423 | 100,807 | Remove the external auditor report from the notes interval. |
+| INTC / 10-K / notes | 173,439 | 150,655 | Remove the external auditor report from the notes interval. |
+| INTC / 10-Q / notes | 71,979 | 0 | Reject the old whole-financial-item fallback; no substantive notes opening proved. |
+| JNJ / 10-K / notes | 207,375 | 188,007 | Remove the external auditor report from the notes interval. |
+| JPM / 10-K / notes | 983,488 | 507,580 | Skip contents and statement references; stop before supplementary information. |
+| JPM / 10-Q / notes | 330,760 | 281,756 | Skip the statement-footer reference before the substantive notes. |
+| KO / 10-K / notes | 233,081 | 205,926 | End before the separate management and auditor reports. |
+| LLY / 10-K / notes | 110,470 | 93,724 | End before the separate management and auditor reports. |
+| LLY / 10-Q / notes | 47,818 | 0 | Reject the old whole-financial-item fallback; no substantive notes opening proved. |
+| MCD / 10-K / notes | 76,689 | 73,748 | End before the management assessment of internal control. |
+| MCD / 10-Q / notes | 22,833 | 0 | Reject the old whole-financial-item fallback; no substantive notes opening proved. |
+| MET / 10-K / notes | 1,246 | 540,840 | Skip the contents list and start at the substantive first note. |
+| MET / 10-Q / notes | 419,721 | 0 | Reject the old whole-financial-item fallback; no substantive notes opening proved. |
+| MS / 10-K / notes | 327,584 | 323,669 | End before the standalone glossary, identified in the original source blocks. |
+| MS / 10-Q / notes | 159,913 | 156,269 | End before the standalone glossary, identified in the original source blocks. |
+| MSFT / 10-Q / notes | 60,392 | 52,155 | Recognize the split quarterly notes title and unaudited qualifier; remove statements and the review report. |
+| NEE / 10-Q / notes | 140,650 | 0 | Reject the old whole-financial-item fallback; no substantive notes opening proved. |
+| NKE / 10-K / notes | 99,808 | 0 | Reject a notes contents list; standalone note-body/index proof remains missing. |
+| NKE / 10-Q / notes | 38,258 | 0 | Reject the old whole-financial-item fallback; no substantive notes opening proved. |
+| ORCL / 10-Q / notes | 56,041 | 0 | Reject the old whole-financial-item fallback; no substantive notes opening proved. |
+| PGR / 10-K / notes | 6,240 | 2,855 | End parent-company notes before insurance schedules and their separate auditor report. |
+| PGR / 10-Q / 5 | 3,734 | 1,712 | Next Item 6 was rejected by the old page-reference filter; it now closes Item 5. |
+| SAP / 20-F / notes | 0 | 272,868 | New same-primary notes, with structural opening and closing-item or financial-index/page proof. |
+| TM / 20-F / notes | 0 | 175,771 | New same-primary notes, with structural opening and closing-item or financial-index/page proof. |
+| TSM / 20-F / notes | 0 | 161,127 | New same-primary notes, with structural opening and closing-item or financial-index/page proof. |
+| UNH / 10-K / notes | 113,515 | 96,605 | Skip the contents list and start at the substantive first note. |
+| USB / 10-K / notes | 520 | 0 | Reject exhibit/XBRL metadata that was misidentified as a notes opening. |
+
+### Foreign notes and readers
+
+The blanket 20-F refusal is removed. A closed Item 18-to-Item 19 body or a financial-index F-page reference must identify one substantive opening. Every linked destination must be visible, unique and on the opening page. Appendix page numbers must be consecutive and unambiguous; fixed-layout pages must have closed physical boxes, with no unnumbered intervening page, and the final page/document close must be proved. Flowing appendices require their final printed footer with no visible trailing material. A contents label or document end alone does not establish notes.
+
+TSM recovers 161,127 characters (F-13 through F-82); SAP recovers 272,868 (F-10 through F-110), including its IFRS preparation note and final ownership disclosures; TM recovers 175,771 through the next exhibits item; BABA recovers 211,279 through its final F-80 footer. These four also pass normal acquisition with the saved SEC transport. The AAPL/JPM/MSFT/PGR/TSM/SAP source openings and endings were read against their surrounding sections.
+
+NVO's own Item 18 reference and uniquely linked annual-report exhibit row resolve `nvo-20251231_d2.htm`. Acquisition attempts only that same-accession document and applies the same note-boundary proof. Its body is absent from the frozen cache; the offline transport's 404 is a cache miss, not a claim about live SEC availability. The retained gap names the missing exhibit. ASML's notes are present, but this route cannot prove a financial-index page enclosure or later closing item; SONY's original layout does not prove its substantive opening through this parser. Both remain specific gaps. There is no claim that every 20-F works.
+
+The payload and deterministic filing-fact source tags now use the actual annual form. The excerpt title says financial-statement notes without assuming consolidation: the PGR primary-document notes in this replay are parent-company notes. Existing domestic-only debt, class-economics and goodwill operand guards remain closed to unsupported IFRS constructions. IFRS preparation, borrowings, commitments and combinations can reach narrative evidence selection; no US-GAAP-only numeric parser is broadened. Stored report bytes and schemas remain unchanged.
+
+### Contamination census and selector cost
+
+Across all 90 notes slots, the broad auditor/independent-auditor scan falls from **27 to 1** mentions. The remaining SAP mention is its auditor-appointment/audit-fee disclosure, not a report boundary. Heading-plus-addressee proof identifies **21 external reports in 16 old notes slots and zero afterward**. A separate signature-heading scan falls from one (inside the old JPM annual interval) to zero. The additional insurer schedule report is included in these counts. Spot-checks cover AIG, BA, BAC, C, FIGR, GS, HD, INTC, JNJ, KO, LLY, MET, NVDA, PGR, TRV, USB and WFC, including banks and insurers; per-slot counts and inspected first/last passages are retained locally.
+
+The annual notes budget stays **10,000 characters**. A short synthetic IFRS input stays intact; all real selected bodies remain within budget. The following measures the exact selected text returned by the production notes selector, not raw filing size or a dollar/token estimate. Annual selected-body characters change by **30,280** across the panel; annual plus quarterly notes change by **-31,763**. Each retained existing annual excerpt title also becomes 13 characters shorter; excerpt-envelope/citation changes are not included in the selected-body table. New foreign evidence increases those issuers' inputs even though the budget is unchanged.
+
+| Company | Annual selected chars before | After | Delta | Quarterly delta |
+| --- | ---: | ---: | ---: | ---: |
+| AAPL | 8873 | 8884 | +11 | 0 |
+| AIG | 8876 | 8881 | +5 | 0 |
+| AMZN | 8842 | 8842 | 0 | 0 |
+| ASML | 0 | 0 | 0 | 0 |
+| BA | 8880 | 8870 | -10 | +10 |
+| BABA | 0 | 8874 | +8874 | 0 |
+| BAC | 8886 | 8836 | -50 | 0 |
+| BRK.B | 8850 | 8850 | 0 | 0 |
+| C | 8875 | 8875 | 0 | -27 |
+| CAT | 8886 | 8886 | 0 | 0 |
+| COST | 8874 | 8874 | 0 | 0 |
+| CRWV | 8868 | 8868 | 0 | 0 |
+| DIS | 8860 | 8860 | 0 | 0 |
+| EXPE | 8884 | 8884 | 0 | 0 |
+| FIGR | 8858 | 8818 | -40 | 0 |
+| GOOGL | 8885 | 8885 | 0 | 0 |
+| GS | 8889 | 8878 | -11 | 0 |
+| HD | 8867 | 8877 | +10 | 0 |
+| INTC | 8875 | 8889 | +14 | -8845 |
+| JNJ | 8861 | 8882 | +21 | 0 |
+| JPM | 8873 | 8871 | -2 | +1 |
+| KO | 8836 | 8883 | +47 | 0 |
+| LLY | 8864 | 8875 | +11 | -8881 |
+| MCD | 8883 | 8851 | -32 | -8844 |
+| MET | 1246 | 8863 | +7617 | -8855 |
+| META | 8890 | 8890 | 0 | 0 |
+| MS | 8881 | 8881 | 0 | +22 |
+| MSFT | 8866 | 8866 | 0 | -2 |
+| NEE | 8824 | 8824 | 0 | -8856 |
+| NKE | 8857 | 0 | -8857 | -8883 |
+| NVDA | 8886 | 8886 | 0 | 0 |
+| NVO | 0 | 0 | 0 | 0 |
+| O | 8890 | 8890 | 0 | 0 |
+| ORCL | 8857 | 8857 | 0 | -8883 |
+| PEP | 8884 | 8884 | 0 | 0 |
+| PG | 8871 | 8871 | 0 | 0 |
+| PGR | 6240 | 2855 | -3385 | 0 |
+| SAP | 0 | 8851 | +8851 | 0 |
+| SONY | 0 | 0 | 0 | 0 |
+| TM | 0 | 8848 | +8848 | 0 |
+| TRV | 8888 | 8888 | 0 | 0 |
+| TSLA | 8887 | 8887 | 0 | 0 |
+| TSM | 0 | 8876 | +8876 | 0 |
+| UNH | 8872 | 8874 | +2 | 0 |
+| USB | 520 | 0 | -520 | 0 |
+| VZ | 8861 | 8861 | 0 | 0 |
+| WFC | 0 | 0 | 0 | 0 |
+| WMT | 8874 | 8874 | 0 | 0 |
+| XOM | 0 | 0 | 0 | 0 |
+
+The following measures the complete production prompt serializer, including gaps, governance, filing envelopes and citations. It uses each frozen bundle with only the seven acquired EDGAR section fields and their corresponding gaps replaced, then recomputes deterministic analysis and validation. The before run uses the original extractor, original quarterly fallback, blanket 20-F gap and original title; the after run uses normal current acquisition. All provider transport is offline. Total serialized prompt size changes by **-94,767 characters**; compact full-context JSON changes by **-171,104**. These are character measurements, not token or dollar estimates.
+
+| Company | Prompt chars before | After | Delta | Compact JSON delta |
+| --- | ---: | ---: | ---: | ---: |
+| AAPL | 286,843 | 286,835 | -8 | -215 |
+| AIG | 280,357 | 280,351 | -6 | -14 |
+| AMZN | 354,632 | 354,619 | -13 | -13 |
+| ASML | 206,508 | 206,531 | +23 | +23 |
+| BA | 295,407 | 295,395 | -12 | +61 |
+| BABA | 204,489 | 218,097 | +13,608 | +24,330 |
+| BAC | 275,380 | 275,315 | -65 | -127 |
+| BRK.B | 248,575 | 248,562 | -13 | -13 |
+| C | 286,376 | 286,337 | -39 | -48 |
+| CAT | 310,895 | 310,882 | -13 | -13 |
+| COST | 311,450 | 311,437 | -13 | -13 |
+| CRWV | 330,958 | 330,945 | -13 | -13 |
+| DIS | 326,332 | 326,319 | -13 | -13 |
+| EXPE | 374,989 | 374,976 | -13 | -13 |
+| FIGR | 349,811 | 349,774 | -37 | +45 |
+| GOOGL | 352,462 | 352,449 | -13 | -13 |
+| GS | 291,425 | 291,399 | -26 | -37 |
+| HD | 303,691 | 303,686 | -5 | +105 |
+| INTC | 291,734 | 277,057 | -14,677 | -28,323 |
+| JNJ | 299,654 | 299,650 | -4 | +42 |
+| JPM | 312,179 | 312,119 | -60 | +15 |
+| KO | 304,160 | 304,200 | +40 | -359 |
+| LLY | 317,825 | 294,047 | -23,778 | -43,621 |
+| MCD | 298,266 | 279,207 | -19,059 | -35,024 |
+| MET | 292,943 | 287,039 | -5,904 | -9,226 |
+| META | 351,067 | 351,054 | -13 | -13 |
+| MS | 222,651 | 222,665 | +14 | +294 |
+| MSFT | 313,583 | 313,567 | -16 | -65 |
+| NEE | 306,410 | 288,358 | -18,052 | -32,452 |
+| NKE | 306,399 | 270,171 | -36,228 | -65,719 |
+| NVDA | 381,907 | 381,894 | -13 | -13 |
+| NVO | 187,460 | 187,584 | +124 | +212 |
+| O | 310,166 | 310,153 | -13 | -13 |
+| ORCL | 311,105 | 287,339 | -23,766 | -43,149 |
+| PEP | 300,069 | 300,056 | -13 | -13 |
+| PG | 290,335 | 290,322 | -13 | -13 |
+| PGR | 244,352 | 239,459 | -4,893 | -9,002 |
+| SAP | 196,840 | 210,277 | +13,437 | +24,509 |
+| SONY | 188,242 | 188,305 | +63 | +63 |
+| TM | 178,576 | 189,806 | +11,230 | +20,304 |
+| TRV | 258,308 | 258,295 | -13 | -13 |
+| TSLA | 333,773 | 333,760 | -13 | -13 |
+| TSM | 198,770 | 213,812 | +15,042 | +28,313 |
+| UNH | 315,037 | 315,027 | -10 | +3 |
+| USB | 244,404 | 242,922 | -1,482 | -1,821 |
+| VZ | 304,774 | 304,761 | -13 | -13 |
+| WFC | 228,122 | 228,122 | 0 | 0 |
+| WMT | 333,457 | 333,444 | -13 | -13 |
+| XOM | 220,290 | 220,290 | 0 | 0 |
+
+### Tests, limits and stamps
+
+Synthetic regressions were observed failing before their fixes for the shared audit/review stop, contents/statement references, split quarterly titles and qualifiers, numeric contents, next-item page references, absent item closes, signatures, management reports, glossaries, original-source layout tables, note-continuation controls, insurance schedules and schedule-audit titles, foreign openings/page/link/end proof, exhibit incorporation/fetch/missing-source handling, and actual-form payload/fact labels. Negative controls retain prose mentioning an independent auditor's report, Item 7 and Schedule II; structural index controls also retain full-title appendix references, linked captions and repeated current-item page headers. Missing/duplicate/external/wrong targets, unnumbered or conflicting pages, missing closes and visible material after the final page are withheld.
+
+The first broad changed-test run exposed an index-proof regression, source-reference reasons and an old signature fixture without a first-note marker. The stronger index proof and reasons were restored; the fixture now supplies its actual first note. All affected suites were rerun. Final validation results are recorded below after the gates complete.
+
+Unrecovered notes are explicit gaps: ASML/SONY layout proof and NVO's missing exhibit; annual NKE's contents-only opening and USB's exhibit/XBRL metadata; quarterly INTC, LLY, MCD, MET, NEE, NKE and ORCL's unproved substantive opening. These sources may contain notes; no absence from the filing is asserted. No 40-F acquisition or foreign 6-K normalization is added.
+
+**Stamps required, not applied:** advance the payload version for changed filing evidence, source tags and titles. No Stage B, fair-value, scenario-target, pipeline-orchestration or report-schema stamp change is required. No version constants or stored reports were changed. No push, PR or merge was performed.
+
+Validation on Node 24.11.1: `npm run typecheck` passed; ESLint on all nine changed TypeScript files passed; `node node_modules/vitest/vitest.mjs run --config vitest.config.ts --changed origin/main --passWithNoTests --maxWorkers 4` passed **508 files / 12,408 tests**, without filename narrowing. The six focused extraction/acquisition/downstream suites passed **257 tests** after the final note-continuation fix. The risk, release and docs suites were also run individually: **11, 18 and 14 tests**, respectively. The final individual gate reruns after documentation are recorded in the local report. No full `npm run verify` was run.
