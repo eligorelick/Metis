@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.64.0 / payload 1.75.0, Stage B `STAGE_B_2026_11_VALUATION_INPUTS_50` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.64.0 / payload 1.76.0, Stage B `STAGE_B_2026_11_FILED_FIGURES_51` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications
 
@@ -330,6 +330,81 @@ the quote can remain in statement currency; FCFF valuation also depends on
 the WACC's market-value weights. Same-currency checks do not independently
 resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
+
+**Filed figures over vendor conflicts (D-200).** For an exact-period,
+same-currency earnings disagreement, first adopt the complete filed pretax,
+tax and net-income family when the three reconcile on a stated ownership
+basis. Preserve vendor observations in resolved `fieldConflicts`, with filed
+provenance on adopted values. Parent/consolidated/common alternatives and
+separately filed equity-method income remain distinct scopes. Repeated
+comparatives do not hide an available original same-filing family: resolve
+that candidate before concluding there is no conflict. SEC-built restatements
+retain their own field-level filing provenance rather than reverting to the
+row's first-reporter date.
+
+If a reconciled filed family is unavailable, retain the vendor family with a
+note showing both values only when every disagreement is same-sign and no
+larger than **1% of the larger absolute observation**. The independent panel
+census contains a minor cluster ending at 0.907% and the next disagreement at
+1.544%; the 1% cutoff lies in that gap and applies only after filed-family
+recovery fails. It is an operational minor-restatement allowance, not a claim
+that a small vendor value equals the filing. An incomplete family with a
+material or sign conflict is withheld with the specific contradictory values.
+Arithmetic consistency within a provider row alone does not verify it.
+
+Adoption also reconciles bottom-line, continuing, consolidated and common
+aliases and dependent margins. A pretax-derived aggregate invalidated by the
+new family uses compatible filed operands or is qualified individually.
+Direct filed EPS is adopted only when an already admitted raw count proves
+the same unchanged share unit; it is never computed from net income.
+Direct EPS is rechecked after share admission even when monetary earnings
+already reconcile. If monetary admission establishes a previously missing
+period start, deferred share admission and the direct EPS check run again so
+fresh acquisition and frozen replay converge.
+
+Weighted shares are checked after an exact interval is established from filed
+provenance, a unique same-filing duration, or the existing month-end calendar
+rule. A missing off-calendar start is not silently rounded to a calendar year.
+Numerical count agreement permits the greater of one share or **0.01%** of the
+filed count. The panel's independent latest-count census has 76 numeric pairs:
+50 exact matches and two small rounding differences of 0.0034% and 0.0088%; the
+next difference is 0.0170%. This numerical allowance is distinct from the
+existing 3% unit/split-identity test. A count matching another duration in the
+same filing is a period mismatch even inside the numerical allowance. Larger
+conflicts use the exact-period filed count with provenance. A suspected
+thousand/million unit error still requires the existing independently
+corroborated repair; the small raw SEC count is not transplanted. Previously
+guarded split-adjusted histories retain their existing split-basis treatment.
+
+Foreign annual EPS is reconciled in native reporting currency, applying only
+the independently corroborated ordinary-shares-per-ADS ratio, with its source
+ids retained in field provenance. This check needs no FX rate. Ordinary EPS
+precision permits half a cent times the ADS ratio. Without a demonstrated
+ratio, EPS is withheld from verified growth; without comparable annual facts,
+the annual series is qualified rather than presented as independently checked.
+The foreign security resolver's other identity, count, split and date gates
+remain in force. Missing quarterly coverage with an established ratio does
+not itself contradict an otherwise retained provider observation.
+An EPS CAGR whose known endpoint precedes the latest annual income period
+remains historical context and cannot contribute to the current score. Losing
+recent evidence must not expose an old favorable growth endpoint as current.
+
+For SIC 6211 securities firms only, directly filed
+`RevenuesNetOfInterestExpense` replaces a conflicting gross-interest revenue
+denominator on the same interval. Incompatible vendor gross-profit, cost and
+operating subtotals and margins are withheld together. Revenue growth and
+capex/revenue therefore share the filed net definition. This does not route
+other industries through a securities revenue policy.
+
+Historical balance-sheet cash is compared with the observation from the
+vendor row's original filing date, even when a later filing repeats that
+balance. An SEC-built or already sourced cash field instead uses its compatible
+field-level accession, form and filing date, preserving a genuine restatement
+when the row still carries its first reporter's date. Conflicts retain both observations and withhold cash, dependent
+combined liquidity and net debt. Selection of newer cash or a changed
+definition is not a substitute for a same-filing comparison. These admissions
+also run in an immutable calculation view of frozen inputs; stored reports
+and their historical version identities are not rewritten.
 
 A minor-unit quote code (`GBp`, `GBX`, `GBx` pence; `ZAc`, `ZAC` cents;
 `ILA`, `ILa` agorot) is never treated as its major currency in a price
@@ -3710,8 +3785,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_VALUATION_INPUTS_50 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_VALUATION_INPUTS_50. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_FILED_FIGURES_51 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_FILED_FIGURES_51. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 

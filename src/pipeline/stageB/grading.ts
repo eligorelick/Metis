@@ -802,6 +802,10 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   const weights = weightsForRoute(route);
   const financial = route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage";
   const currentCapital = capital.current;
+  // Withheld recent EPS may expose an older, favorable endpoint. It remains
+  // historical context, not evidence for the latest income period's score.
+  const currentEpsCagrs = growth.epsDilutedCagrs.filter(point =>
+    point.endDate == null || growth.asOf == null || point.endDate >= growth.asOf);
 
   // --- Fundamentals --------------------------------------------------------
   const fundamentals = scoreAspect(
@@ -813,12 +817,13 @@ export function computeScores(inputs: ScoringInputs): Scoring {
       // real-estate depreciation swamps net income, so FFO/AFFO growth leads).
       // Tagged so the route policy drops it instead of scoring fundamentals on a
       // metric the policy forbids displaying.
-      { name: "epsCagr", raw: bestCagr(growth.epsDilutedCagrs), unit: "%", weight: 0.2, band: CAGR_BAND, suppressedBy: "epsGrowth" },
+      { name: "epsCagr", raw: bestCagr(currentEpsCagrs), unit: "%", weight: 0.2, band: CAGR_BAND, suppressedBy: "epsGrowth" },
       { name: "fcfCagr", raw: bestCagr(growth.fcfCagrs), unit: "%", weight: 0.15, band: CAGR_BAND, suppressedBy: "fcfGrowth" },
     ],
     weights.fundamentals,
     inputs.asOf,
-    "Growth + margin trajectory: revenue/EPS/FCF CAGRs and operating-margin slope. EPS CAGR is dropped where the route suppresses GAAP EPS growth (REITs).",
+    "Growth + margin trajectory: revenue/EPS/FCF CAGRs and operating-margin slope. EPS CAGR is dropped where the route suppresses GAAP EPS growth (REITs)." +
+      (currentEpsCagrs.length < growth.epsDilutedCagrs.length ? " Historical EPS endpoints preceding the latest income period are not current score evidence." : ""),
     policy,
   );
 

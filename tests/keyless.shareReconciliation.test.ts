@@ -18,6 +18,8 @@ import type { YahooClient } from "@/providers/yahoo";
 import { reportToMarkdown } from "@/report/export/markdown";
 import type { FetchResult } from "@/types/core";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
+import { withFilerShareUnits } from "@/pipeline/shareUnits";
 
 const AS_OF = "2026-11-01";
 const FETCHED = `${AS_OF}T22:38:31.000Z`;
@@ -52,6 +54,96 @@ const quarter = fiscalRow("2025-03-31", "Q1", { eps: -2.05, epsDiluted: -2.05, w
 const primaryQuarter = { ...quarter, eps: 0.04, epsDiluted: 0.04, weightedAverageShsOut: 231_076_000, weightedAverageShsOutDil: 231_076_000, netIncome: 44_882_000 };
 
 describe("vendor EPS and weighted shares with independently comparable primary facts", () => {
+  it("corrects a quarter count that actually matches the filed nine-month count below the old 3% band", () => {
+    const row = fiscalRow("2026-09-30", "Q3", { weightedAverageShsOutDil: 7312.5e6 });
+    const facts = factsFor([{ ...row, weightedAverageShsOutDil: 7222.2e6 }]);
+    const c = facts.facts["us-gaap"]![tags.weightedAverageShsOutDil] as { units: { shares: FactPoint[] } };
+    c.units.shares.push({ ...c.units.shares[0]!, start: "2026-01-01", val: 7312.5e6 });
+    const primary = built(facts);
+    const out = guardVendorShareFields([row], primary.incomeQuarterly.rows, primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter", reconcileFiled: true });
+    expect(out.rows[0]?.weightedAverageShsOutDil).toBe(7222.2e6);
+    expect(out.rows[0]?.fieldProvenance?.weightedAverageShsOutDil?.periodStart).toBe("2026-07-01");
+    expect(out.reconciled[0]?.reason).toMatch(/different.*period|year.to.date/i);
+    const b = withIssuerFacts(completeCurrencyBundle({}), facts);
+    b.builtAt = FETCHED;
+    if (!b.profile.ok || !b.statements.incomeQuarterly.ok) throw Error("fixture");
+    b.profile.value.data.rows[0]!.isAdr = false;
+    b.edgar.registrant = { cik10: CIK, name: "Example", tickers: ["FIG"], sic: null, sicDescription: null,
+      exchanges: [], fiscalYearEnd: "1231", forms: ["10-Q"], stateOfIncorporation: null };
+    b.edgar.shareBasis = { splits: primary.splits, basisDay: AS_OF };
+    b.statements.incomeQuarterly.value.data.rows = [row];
+    const original = JSON.stringify(b);
+    const replay = withFilerShareUnits(b).statements.incomeQuarterly;
+    expect(replay.ok && replay.value.data.rows[0]?.weightedAverageShsOutDil).toBe(7222.2e6);
+    expect(JSON.stringify(b)).toBe(original);
+  });
+  it("uses the unique same-filing annual interval for an off-calendar count", () => {
+    const row = fiscalRow("2025-12-27", "FY", { weightedAverageShsOutDil: 4856e6 });
+    const facts = factsFor([{ ...row, weightedAverageShsOutDil: 4530e6 }]);
+    for (const concept of Object.values(facts.facts["us-gaap"]!)) for (const points of Object.values((concept as { units: Record<string, FactPoint[]> }).units)) {
+      for (const p of points) if (p.start) p.start = "2024-12-29";
+    }
+    const primary = built(facts);
+    const out = guardVendorShareFields([row], primary.incomeAnnual.rows, primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1226", period: "annual", reconcileFiled: true });
+    expect(out.rows[0]?.weightedAverageShsOutDil).toBe(4530e6);
+  });
+  it("does not treat normal count rounding as a conflict in filed reconciliation", () => {
+    const row = { ...primaryQuarter, weightedAverageShsOutDil: 231080000 };
+    const facts = factsFor([primaryQuarter]);
+    const primary = built(facts);
+    const out = guardVendorShareFields([row], primary.incomeQuarterly.rows, primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter", reconcileFiled: true });
+    expect(out.rows[0]?.weightedAverageShsOutDil).toBe(231080000);
+    expect(out.withheld).toEqual([]);
+  });
+  it("does not transplant a filed count with an unresolved thousand/million scaling error", () => {
+    const facts = factsFor([{ ...primaryQuarter, weightedAverageShsOutDil: 231.076 }]);
+    const primary = built(facts);
+    const out = guardVendorShareFields([primaryQuarter], primary.incomeQuarterly.rows, primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter", reconcileFiled: true });
+    expect(out.rows[0]?.weightedAverageShsOutDil).toBeUndefined();
+    expect(out.rows[0]?.fieldConflicts?.weightedAverageShsOutDil?.secValue).toBe(231.076);
+  });
+  it("keeps already guarded split-adjusted history unchanged during filed reconciliation", () => {
+    const facts = factsFor([primaryQuarter]);
+    const primary = built(facts);
+    const splits = { ...primary.splits, events: [{ date: "2026-06-01", ratio: 10, tagged: 10, evidence: 10,
+      contextDates: ["2026-06-01"], announced: "2026-05-01", firstAdjustedSession: "2026-06-01", sessionWindow: { from: "2026-06-01", to: "2026-06-01" },
+      legalFrom: "2026-06-01", sources: ["edgar", "vendor"] as ("edgar" | "vendor")[] }] };
+    const row = { ...primaryQuarter, epsDiluted: 0.004, weightedAverageShsOutDil: 2310760000 };
+    const out = guardVendorShareFields([row], [], splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter", reconcileFiled: true });
+    expect(out.rows).toEqual([row]);
+  });
+  it("checks IFRS EPS in native currency per ADS on an established ratio", () => {
+    const row = fiscalRow("2025-12-31", "FY", { reportedCurrency: "TWD", epsDiluted: 331.25 });
+    const facts: CompanyFacts = { cik: Number(CIK), entityName: "Foreign", facts: { "ifrs-full": {
+      Revenue: { units: { TWD: [{ start: "2025-01-01", end: row.date!, val: 1000, filed: "2026-04-01", form: "20-F", accn: "0001579878-26-000001", fy: 2025, fp: "FY" }] } },
+      DilutedEarningsLossPerShare: { units: { "TWD/shares": [{ start: "2025-01-01", end: row.date!, val: 65.47, filed: "2026-04-01", form: "20-F", accn: "0001579878-26-000001", fy: 2025, fp: "FY" }] } },
+    } } };
+    const primary = built(facts);
+    const out = guardVendorShareFields([row], [], primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: true, fiscalYearEnd: "1231", period: "annual", reconcileFiled: true, ordinarySharesPerQuotedUnit: 5 });
+    expect(out.rows[0]?.epsDiluted).toBeCloseTo(327.35, 8);
+    expect(out.rows[0]?.fieldProvenance?.epsDiluted?.tags).toContain("ifrs-full/DilutedEarningsLossPerShare");
+  });
+  it("withholds unverified ADR EPS without an established quoted-unit ratio", () => {
+    const facts = factsFor([primaryQuarter]), primary = built(facts);
+    const out = guardVendorShareFields([quarter], [], primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: true, fiscalYearEnd: "1231", period: "quarter", reconcileFiled: true });
+    expect(out.rows[0]?.epsDiluted).toBeUndefined();
+    expect(out.withheld.find(r => r.field === "epsDiluted")?.reason).toMatch(/ratio.*not established/i);
+  });
+  it("qualifies an ADR EPS period absent from filed facts even with an established ratio", () => {
+    const facts = factsFor([primaryQuarter]), primary = built(facts);
+    const row = { ...quarter, date: "2025-12-31", period: "FY", epsDiluted: 2 };
+    const out = guardVendorShareFields([row], [], primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: true, fiscalYearEnd: "1231", period: "annual", reconcileFiled: true, ordinarySharesPerQuotedUnit: 5 });
+    expect(out.rows[0]?.epsDiluted).toBeUndefined();
+    expect(out.withheld.find(r => r.field === "epsDiluted")?.reason).toMatch(/same.period.*not established/i);
+  });
   it.each([{ registrantTickers: ["BRK.A", "BRK.B"] }, { registrantTickers: [] }, { registrantTickers: undefined }])("keeps unequal or unestablished share units (%j)", ({ registrantTickers }) => {
     const facts = factsFor([{ ...primaryQuarter, eps: 150, epsDiluted: 150, weightedAverageShsOutDil: 1000000 }]);
     const primary = built(facts);

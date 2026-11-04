@@ -2,8 +2,24 @@ import { describe, expect, it } from "vitest";
 import { quotedDilutedCount, resolveForeignValuation } from "@/pipeline/foreignCurrency";
 import { resolveSecurityBasis } from "@/pipeline/stageB/securityBasis";
 import { foreignBundle } from "./helpers/foreignBundle";
+import { withFilerShareUnits } from "@/pipeline/shareUnits";
+import { discoverStockSplits } from "@/edgar/splits";
 
 describe("foreign valuation security evidence", () => {
+  it("reconciles native-currency EPS without requiring an FX rate", () => {
+    const b = foreignBundle();
+    delete b.valuationFx;
+    if (!b.edgar.companyFacts.ok || !b.statements.incomeAnnual.ok) throw Error("fixture");
+    const facts = b.edgar.companyFacts.value.data;
+    const p = { start: "2025-01-01", end: "2025-12-31", filed: "2026-02-01", form: "20-F", accn: "0000000042-26-000001", fy: 2025, fp: "FY" };
+    Object.assign(facts.facts["ifrs-full"]!, { Revenue: { units: { TWD: [{ ...p, val: 1000e6 }] } },
+      DilutedEarningsLossPerShare: { units: { "TWD/shares": [{ ...p, val: 65.47 }] } } });
+    b.edgar.shareBasis = { basisDay: b.builtAt.slice(0, 10), splits: discoverStockSplits(facts, { asOf: b.builtAt.slice(0, 10),
+      vendor: { status: "retrieved", source: "fixture", events: [], coverage: [{ from: "2020-01-01", to: b.builtAt.slice(0, 10) }] } }) };
+    Object.assign(b.statements.incomeAnnual.value.data.rows[0]!, { cik: "42", epsDiluted: 331.25 });
+    const out = withFilerShareUnits(b).statements.incomeAnnual;
+    expect(out.ok && out.value.data.rows[0]?.epsDiluted).toBeCloseTo(327.35, 8);
+  });
   function issuedCover() {
     const b = foreignBundle("EUR", 1);
     if (!b.edgar.companyFacts.ok) throw Error("fixture");

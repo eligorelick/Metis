@@ -62,8 +62,12 @@ function points(facts: CompanyFacts, tag: string, unit: string, observedAt: stri
 function resolved(value: number, tags: string[], ps: FactPoint[], unit: string, observedAt: string, periodStart: string | null, periodEnd: string): Resolved {
   return { value, evidence: { source: "edgar", unit, periodStart, periodEnd, observedAt, tags: tags.map((t) => `us-gaap/${t}`), filings: ps.map((p) => ({ accn: p.accn, filed: p.filed, form: p.form })) } };
 }
-function instant(facts: CompanyFacts, tag: string, unit: string, end: string, observedAt: string): Resolved | null {
-  const p = newest(points(facts, tag, unit, observedAt).filter((p) => p.end === end && p.start === undefined && p.val >= 0));
+function instant(facts: CompanyFacts, tag: string, unit: string, end: string, observedAt: string, filingDate?: string, filings?: StatementFieldProvenance["filings"]): Resolved | null {
+  const candidates = points(facts, tag, unit, observedAt).filter(p => p.end === end && p.start === undefined &&
+    (filingDate === undefined || p.filed === filingDate) &&
+    (filings === undefined || filings.some(f => f.accn === p.accn && f.filed === p.filed && f.form === p.form)));
+  const p = filingDate === undefined && filings === undefined ? newest(candidates.filter(p => p.val >= 0)) : unambiguousNewest(candidates);
+  if (p && p.val < 0) return null;
   return p ? resolved(p.val, [tag], [p], unit, observedAt, null, end) : null;
 }
 function liability(facts: CompanyFacts, prefix: "Operating" | "Finance", unit: string, end: string, observedAt: string): Resolved | null {
@@ -310,7 +314,14 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
   }
   for (const [field, tag, signed, sign] of specifications) {
     if (onlySbc && field !== "stockBasedCompensation") continue;
-    const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt)
+    // SEC-built rows retain the first reporter's filing date while each field
+    // carries the filing that supplied its latest value, including restatements.
+    const proof = row.fieldProvenance?.[field];
+    const balanceFilings = kind === "balance" && proof?.source === "edgar" && proof.unit === unit &&
+      proof.periodStart === null && proof.periodEnd === row.date && proof.tags.includes(`us-gaap/${tag}`) && proof.filings.length > 0
+      ? proof.filings : undefined;
+    const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt,
+      balanceFilings ? undefined : validDay(row.filingDate) ? row.filingDate : undefined, balanceFilings)
       : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
         ? cashAmounts[field] ?? (field === "netChangeInCash" ? matchingCashChange(facts, unit, row, scope, observedAt) : null)
         : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed, ctx) ??
@@ -324,7 +335,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       keptUnverified(ctx, field, row.date!, [cashField ? CASH_MOVEMENT_TAG : tag]);
     }
     if (!sec || (sec.evidence.periodStart !== null && kind === "cashflow" && typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart) ||
-      (validDay(row.filingDate) && !filingAnchor?.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
+      (!balanceFilings && validDay(row.filingDate) && !filingAnchor?.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
     const vendor = row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const value = sec.value * sign;
@@ -357,6 +368,14 @@ export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts:
     (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
   return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "cashflow",
     { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() }, true);
+}
+
+/** Cash honors field-level SEC lineage; unproved vendor values use their original filing. */
+export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  if (!validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") ||
+      (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
+  return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "balance",
+    { labels: [], withheld: new Set(), unverified: new Map() });
 }
 
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */

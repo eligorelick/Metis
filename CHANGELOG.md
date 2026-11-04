@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.64.0** and
-payload **1.75.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.76.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -23,6 +23,15 @@ original versions and bytes; source merge does not deploy or publish a release.
 - The composite note now names any unscored aspect that carries weight, says its
   weight counts as neutral, and warns that the score is not directly comparable
   with a company scored on that aspect. Scores are unchanged.
+
+## Unreleased - Filed figures over vendor conflicts (2026-11-04)
+
+- Adopt reconciled filed earnings families and aliases with provenance; retain minor incomplete-family differences with both observations, and withhold only incomplete material or sign conflicts. Preserve ownership and equity-method bridges.
+- Recover original-filing earnings before declaring no dispute, preserve SEC-built cash restatements on their field provenance, and reconcile deferred shares/EPS independently of pass order.
+- Reconcile weighted shares on the established filed interval, distinguish YTD counts from quarterly counts, and retain split and share-unit safeguards.
+- Check foreign annual EPS in native currency on the established ADS ratio; qualify growth when that ratio or same-period annual evidence is unavailable.
+- Keep historical EPS growth with a moved endpoint out of the current score, so missing recent evidence cannot expose an old favorable scoring window.
+- Admit directly filed net revenue for securities firms and compare historical cash with its original same-filing observation. D-200 records the panel replay and required release stamps; saved reports and version constants remain unchanged.
 
 ## Unreleased - Fair value coverage (2026-11-04)
 
