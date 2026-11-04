@@ -885,6 +885,9 @@ export interface DcfAssumptionInputs {
    * operating income, removed from the margin seed in both directions.
    */
   unusualOperatingItems?: import("./unusualItems").UnusualOperatingItems | null;
+  /** D-198: completed material disposals already excluded from the shared calculation view. */
+  operatingNormalizationBasis?: string;
+  operatingNormalizationRefusal?: string | null;
   /** Annual income history (any order; used for 5y median margin + trend). */
   incomeHistory: DcfIncomeRow[];
   recurringOperatingItemsBasis?: string;
@@ -1849,6 +1852,10 @@ export const MID_YEAR_DISCOUNTING_BASIS =
 export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssumptionsResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
+  const normalizationRefusal = inputs.operatingNormalizationRefusal ?? inputs.unusualOperatingItems?.dcfRefusal;
+  if (normalizationRefusal) return { assumptions: null, notes: [normalizationRefusal],
+    gaps: [gapEntry("valuation.dcf.operatingDisposition", normalizationRefusal, "critical")] };
+  if (inputs.operatingNormalizationBasis) notes.push(`Operating income excludes ${inputs.operatingNormalizationBasis}`);
   const years = DCF_HORIZON_YEARS;
 
   const baseFactor = fiftyTwoWeekFactor(inputs.incomeTtm?.days ?? null);
@@ -2553,7 +2560,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
           : "") +
         "The year-one revenue anchor and the near-term growth rows state their own bases.",
     },
-    ebitMarginPath: { value: marginPath, basis: marginBasis },
+    ebitMarginPath: { value: marginPath, basis: marginBasis + (inputs.operatingNormalizationBasis ? `; excludes ${inputs.operatingNormalizationBasis}` : "") },
     ...(improvingBound !== null && cappedTarget > m0 ? { improvingMarginFade: { currentPct: m0, targetPct: cappedTarget } } : {}),
     taxRatePath: { value: taxRatePath, basis: taxBasis },
     salesToCapital: { value: s2c, basis: s2cBasis },
@@ -7207,6 +7214,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       // sees why; the critical gap names the failed test.
       const domain = dcfDomainFailure(dcf);
       if (domain !== null) {
+        if (dcfIn?.operatingNormalizationBasis) domain.reason += ` Operating income excludes the completed sale: ${dcfIn.operatingNormalizationBasis}.`;
         dcf.domain = domain;
         dcf.perShare = null;
         notes.push(`${domain.reason}.`);

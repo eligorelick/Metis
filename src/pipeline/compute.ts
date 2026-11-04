@@ -164,7 +164,7 @@ import { filedReceivablesCandidates } from "@/edgar/receivables";
 import { admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
 import { quarterlyOpeningBook } from "@/pipeline/stageB/excessReturnBook";
-import { unusualOperatingItemsByFiscalYear, withoutRecurringFamilies, recurringOperatingItemsBasis, unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
+import { materialOperatingDispositions, type OperatingDispositionRead, unusualOperatingItemsByFiscalYear, withoutRecurringFamilies, recurringOperatingItemsBasis, unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
   adjacentQuarterEnds,
   normalizeQuarterRows,
@@ -2026,6 +2026,48 @@ function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date:
   });
 }
 
+/** D-198: one calculation view; the acquired statements and immutable reports retain their filed values. */
+function operatingDispositionView(bundle: DataBundle): { bundle: DataBundle; read: OperatingDispositionRead } {
+  const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const annual = rowsOf(bundle.statements.incomeAnnual);
+  const quarters = normalizeStatementQuarters(rowsOf(bundle.statements.incomeQuarterly), "income");
+  const trailing = ttmIncomeFromNormalized(quarters, undefined,
+    [...rowsOf(bundle.statements.balanceQuarterly), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt);
+  const seed = trailing?.revenue != null ? trailing : annual[0];
+  const end = isoDay(seed?.date), currency = normalizeReportedCurrency(seed?.reportedCurrency);
+  const sections = [bundle.edgar?.tenKNotes, bundle.edgar?.tenQNotes].flatMap(s => s?.ok && s.value.source === "edgar" &&
+    Number.isFinite(Date.parse(s.value.fetchedAt)) && Date.parse(s.value.fetchedAt) <= Date.parse(bundle.builtAt) ? [s.value.data] : []);
+  const read = materialOperatingDispositions(facts, { ttmEnd: end ?? "", fiscalYearEnd: annual.map(r => isoDay(r.date)).find(d => d !== null && end !== null && d <= end) ?? null,
+    unit: currency, observedAt: bundle.builtAt, operatingIncome: num(seed?.operatingIncome), sections });
+  if (!read.events.length) return { bundle, read };
+  const reason = `${read.basis}. Operating income excludes this completed sale in every affected annual and quarterly calculation. ` +
+    "Recurring net earnings, EPS and the tax pair are withheld for those periods because the sale's tax and common-holder allocation are not separately established; filed observations remain in the source bundle.";
+  const normalize = (input: DataBundle["statements"]["incomeAnnual"], basis: "annual" | "quarter") => {
+    if (!input.ok) return input;
+    const rows = normalizeQuarterRows(input.value.data.rows).rows;
+    return { ...input, value: { ...input.value, data: { ...input.value.data, rows: input.value.data.rows.map(row => {
+      if (normalizeReportedCurrency(row.reportedCurrency) !== currency) return row;
+      const index = rows.findIndex(r => r === row);
+      const period = incomePeriod(row, rows[index + 1], basis);
+      if (!period.periodStart) return row;
+      const gain = read.events.filter(e => e.date >= period.periodStart! && e.date <= String(row.date)).reduce((sum, e) => sum + e.value, 0);
+      if (!gain) return row;
+      const out: FmpIncomeStatementRow = { ...row, operatingIncome: num(row.operatingIncome) === null ? undefined : row.operatingIncome! - gain,
+        ebit: num(row.ebit) === null ? undefined : row.ebit! - gain,
+        ebitda: undefined,
+        fieldConflicts: { ...row.fieldConflicts } };
+      for (const field of ["netIncome", "netIncomeConsolidated", "netIncomeAvailableToCommon", "netIncomeFromContinuingOperations", "eps", "epsDiluted", "incomeBeforeTax", "incomeTaxExpense"] as const) {
+        out[field] = undefined;
+        out.fieldConflicts![field] = { vendorValue: num(row[field]), secValue: null, usable: false, reason };
+      }
+      return out;
+    }) } } };
+  };
+  return { read, bundle: { ...bundle, statements: { ...bundle.statements,
+    incomeAnnual: normalize(bundle.statements.incomeAnnual, "annual"), incomeQuarterly: normalize(bundle.statements.incomeQuarterly, "quarter") },
+    gaps: [...bundle.gaps, { field: "compute.operatingDispositions", reason, severity: "info" }] } };
+}
+
 export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig, suppliedValidation?: ValidationReport): ComputedMetrics {
   const notes: string[] = [];
   const suppressed: SuppressedMetric[] = [];
@@ -2035,6 +2077,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
   bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle)));
+  const operatingDispositions = operatingDispositionView(bundle);
+  bundle = operatingDispositions.bundle;
+  if (operatingDispositions.read.basis) notes.push(operatingDispositions.read.basis);
   // Derive only after instrument admission; unsupported sparse inputs retain their typed refusal.
   // D-67: source bundles and stored reports stay byte-for-byte unchanged.
   bundle = { ...bundle, economicShareEvidence: retainedClassEconomicEvidence(bundle) };
@@ -2603,6 +2648,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     route,
     foreignBasis,
     revenueEligibilityReason,
+    operatingDispositions: operatingDispositions.read,
     // FIN-121: use the SAME selected routing flow, before model-currency filtering.
     finOtherOcfExemption: route.base === "general" && !route.overlays.includes("unprofitable") &&
       ["financial services", "financial"].includes(str(profile?.sector)?.trim().toLowerCase() ?? "") &&
@@ -3595,6 +3641,7 @@ interface ValuationCtx {
   rote: RoteResult;
   /** C-10: the trailing-four-quarter common return (financial routes). */
   commonReturnTtm: TtmCommonReturn | null;
+  operatingDispositions: OperatingDispositionRead;
   /** THESIS_EV_INCLUDE_LEASES, read once in runStageB and shared with the returns block. */
   evIncludeLeases: boolean;
   profile: FmpRawRow | null;
@@ -4107,6 +4154,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
               },
           riskFreePct: rf.pct ?? 0,
           incomeTtm: dcfIncomeTtm,
+          operatingNormalizationBasis: ctx.operatingDispositions.basis,
+          operatingNormalizationRefusal: ctx.operatingDispositions.refusal,
           equityMethodStake,
           // Audit item 15 (FCX-9): tagged one-offs inside that operating income.
           unusualOperatingItems: dcfIncomeTtm === null ? null : unusualOperatingItemsTtm(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
