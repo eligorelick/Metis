@@ -40,7 +40,8 @@ it("keeps a found value with unconfirmed context in the audit only", async () =>
   const checked = await runVerifyPass({} as PassDeps, p, report);
   expect(checked.log).toContainEqual(expect.objectContaining({ path: "verdict.synthesis", check: "plain-figure", traceKind: "value-match",
     validationStatus: "unchecked", claimSupportStatus: "unreviewed", note: "Value matched; context not confirmed: USD 50 billion." }));
-  for (const surface of [reportToMarkdown(checked.verifiedReport), reportToPrintBody(checked.verifiedReport), renderToStaticMarkup(createElement(ReportView, { report: checked.verifiedReport }))]) {
+  for (const surface of [reportToMarkdown(checked.verifiedReport), reportToPrintBody(checked.verifiedReport), renderToStaticMarkup(createElement(ReportView, { report: checked.verifiedReport })),
+    renderToStaticMarkup(createElement(ReportView, { report: checked.verifiedReport, layout: "dossier" }))]) {
     expect(surface).not.toContain("Not matched to a source: USD 50 billion");
     expect(surface).not.toContain("Value matched; context not confirmed: USD 50 billion");
     expect(surface.split("Figures without a note are not necessarily verified.")).toHaveLength(2);

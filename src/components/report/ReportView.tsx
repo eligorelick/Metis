@@ -205,12 +205,14 @@ export function ReportView({
   );
   // D-67: each grade line gets its aspect score (limited-evidence label) and the data state (confidence cap).
   const grading = (key: keyof NonNullable<Report["scores"]>["aspects"]) => ({ aspect: report.scores?.aspects[key] ?? null, completeness });
+  const figureCaveat = plainFigureReaderNote(report);
+  const figureNote = figureCaveat && <p className="mt-2 text-xs text-muted">{figureCaveat}</p>;
   const sections: Record<ReportSectionKey, ReactNode> = {
     verdict: (
       <div id={sectionAnchorId("verdict")} tabIndex={-1} className="scroll-mt-28">
-        {layout === "dossier" ? <DossierCover report={report} completeness={completeness} /> : <>
+        {layout === "dossier" ? <><DossierCover report={report} completeness={completeness} />{figureNote}</> : <>
         <VerdictHeader verdict={report.verdict} />
-        {plainFigureReaderNote(report) && <p className="mt-2 text-xs text-muted">{plainFigureReaderNote(report)}</p>}
+        {figureNote}
         {report.verdict.executiveSummary && report.verdict.executiveSummary.length > 0 && (
           <div className="mt-3"><ExecutiveSummary claims={report.verdict.executiveSummary} /></div>
         )}
