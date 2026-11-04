@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Checks on AI-written figures and executive grades (2026-11-04)
+
+- Check currency amounts, percentages and multiples in AI-written reader prose deterministically, including section interpretations, synthesis, disagreements, titles and commentary. Keep unmatched figures and show a field-specific source note on live, Markdown, print and audit surfaces; no model repair or paid call.
+- Require typed executive execution evidence to overlap an established office tenure. Derive new tenure numbers from an evidenced start and report cutoff; saved cards show only filing-backed office tenure.
+- Match producer-owned financial acronym expansions without relaxing value, unit, currency or period checks.
+- Count classified data gaps in data-only synthesis, with a narrowly anchored display correction for the old saved template.
+
 ## Unreleased - Public polish (2026-11-04)
 
 - Make the complete fictional sample easy to find and distinguish its dataset from the company examples.

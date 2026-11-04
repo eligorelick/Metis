@@ -7373,9 +7373,11 @@ people (senior officers first, then by value), and counts the rest.
 
 **Executive decision cards (D-190, 2026-11-04).** An additional CEO/CFO execution
 admission assesses dated decisions and outcomes during an evidenced office
-tenure, not personal skill or contribution. Existing typed performance and
-guidance gates remain unchanged; refusing a new decision candidate preserves
-their original grade and reason, with no new fallback. A company result,
+tenure, not personal skill or contribution. D-197 also requires typed metrics
+supporting execution to overlap an established office tenure by the report
+cutoff. An observation or filing date is not the measured period. Without an
+office start or a compatible measurement period, execution is withheld with a
+plain reason; a numerically valid pre-appointment result is insufficient. A company result,
 share-count trend, job title, pay or citation alone cannot establish a dated
 decision record. A proposed letter may also survive when the card's reasoning
 or capital-allocation evidence repeats a
@@ -7421,6 +7423,38 @@ gate; it supplies neither a decision nor a grade. Rounded `tenureYears`, pay
 and a current title remain insufficient. Saved reports without this optional
 field still parse and display, and their stored bytes and grades stay immutable.
 No new source, SEC request, paid call or proxy retrieval is introduced.
+
+**AI-written figures and tenure (D-197, 2026-11-04).** Currency amounts,
+percentages, multiples and financial-input ages in days in plain reader strings use the existing claim
+quantity reader, displayed-precision comparison, numeric record registry and
+metric/period checks. This includes synthesis, grade explanations and
+interpretations, disagreements, technical commentary, titles, assumptions and
+other reader prose outside sourced claims. Assembly-owned calculation displays
+remain under their existing deterministic contracts. A number must agree in
+value and dimension with a payload record, or a source-bound claim in the same
+report whose numeric validation passed in this run. Citation presence or an old
+saved validation mark alone is insufficient. Metric and period words remain
+restrictions; matching the amount never validates the whole interpretation.
+Unmatched figures remain verbatim with a path-specific verification entry and
+the visible note "Not matched to a source", naming the figures. Live, Markdown
+and print place the recorded note beside its field; the audit log preserves the
+path, original text and note. No additional model call, repair request or paid
+data call is made. Displaying a saved report never runs this new check or
+invents flags. Conservative context refusals can still produce false alarms;
+they are reported separately in replay measurements.
+
+The judge is no longer asked for `tenureYears`. New reports derive an exact
+duration only from an established exact office start and the report cutoff;
+partial or unavailable starts leave it unknown. Month/year filing bounds keep
+their stated wording. Saved bare model-authored tenure numbers still parse but
+are not printed as facts. Only the filing-backed `officeTenure` start is shown.
+Saved bytes, execution grades and verification marks remain immutable.
+
+Data-only synthesis uses the same classified data-gap count as the completeness
+banner, excluding informational notes, expected omissions and analysis-process
+disclosures. At display time, only the exact old deterministic suffix, with a
+count equal to the raw manifest length and an `analysis.llm` disclosure, is
+corrected to that classified count. Other saved sentences remain unchanged.
 
 The existing typed guidance-versus-actual contract remains: credibility requires
 a validated prior-guidance/later-actual comparison for the same metric, period

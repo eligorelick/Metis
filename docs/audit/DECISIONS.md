@@ -6161,3 +6161,53 @@ scenario changes. Saved reports are never rewritten: the same labels are removed
 at display time, with patterns anchored to those labels so that company text is
 left alone. Stage B output text changes, so the Stage B and payload stamps
 advance.
+
+## D-197 - Check AI-written figures and bind executive grades to office tenure (2026-11-04)
+
+The independent C/D audit demonstrated unchecked financial figures in plain
+reader strings, execution grades supported by results before appointment,
+model-authored tenure printed as fact, acronym expansion false failures and a
+data-only gap count that included informational entries.
+
+The deterministic verifier now walks reader prose outside sourced claims and
+traced numbers, checks each financial quantity with the existing claim reader
+and numeric registry, and permits additional evidence only from source-bound
+claims numerically validated in the same run. Metric, period, currency, unit
+and displayed precision remain restrictions. Unmatched figures are retained,
+logged by exact path and shown beside their field in live, Markdown and print;
+the audit log retains the original prose and warning. Assembly-owned display
+blocks keep their deterministic contracts. Saved reports acquire no flags from
+display alone. The judge prompt requires payload-grounded figures. There is no
+model repair, new retrieval or paid call.
+
+Typed metrics can support execution only when a measured period reaches an
+established office tenure by the report cutoff. An as-of date cannot replace
+the measurement period. Dated decisions retain their existing tenure/source
+checks. The legacy tenure number remains parseable but is omitted from the
+judge request and reader surfaces; new values are derived only from an exact
+established start and cutoff. Filing-backed office start wording remains
+visible, including on saved unassessed cards.
+
+ROIC, ROE, ROA, ROTE/ROTCE, WACC, CAGR, EBIT/EBITDA, NOPAT and ERP expansions use the same metric tokens
+on source and prose. Different return definitions do not match. Data-only
+synthesis counts classified data gaps; the old saved suffix is corrected only
+when its exact deterministic wording and raw manifest count identify it.
+
+Integration must advance the report-spec and Stage C pipeline stamps for the
+new verification/schema/request behavior. The payload contents and registry
+production are unchanged, so this change alone requires no payload stamp.
+Version constants are deliberately left to integration. No Stage B valuation,
+lease, currency or share-count implementation is changed. Stored reports and
+evidence databases are immutable.
+
+Offline replay of the five saved reports catches all 59 original mutations;
+the catch assertion requires the exact changed figure in the note at the exact
+field path, including the opening-book age mutation from 307 to 407 days.
+Unmodified reports still produce 105 field warnings: human review classifies
+44 as false alarms, 18 as mixed supported/unsupported readings and 43 as
+appropriate conservative admission warnings. False alarms remain high,
+especially for technical horizon labels and comparative model prose. No
+source, dimension, metric or period restriction is relaxed to lower that count.
+These are current-rule replays of historical calculations, not factual-error
+rates for the original reports. All ten execution grades remain unchanged;
+NVO's CEO retains C on the post-appointment June 2026 cash-flow evidence.
