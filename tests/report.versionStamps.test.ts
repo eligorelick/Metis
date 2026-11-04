@@ -149,10 +149,10 @@ describe("new version stamps", () => {
     expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
   });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.63.0");
+    expect(REPORT_SPEC_VERSION).toBe("1.64.0");
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.76.0");
-    expect(PIPELINE_VERSION).toBe("stage-c-1.6.33"); // D-198: computed valuation inputs changed for material sale gains and preferred capital
+    expect(PIPELINE_VERSION).toBe("stage-c-1.6.34"); // D-197: figures in reader prose are checked deterministically; executive tenure is derived, not model-written
     expect(INSIDER_ROLES_READ_FROM).toBe("1.56.0"); // AI-116 frozen display cutoff
     expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_FILED_FIGURES_51");
     expect(SCORE_BANDS_VERSION).toBe("SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE");
@@ -182,7 +182,7 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.63.0");
+    expect(newReport().meta.specVersion).toBe("1.64.0");
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.76.0");

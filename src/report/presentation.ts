@@ -7,6 +7,31 @@ import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { LENDER_DEBT_PERIMETER_LABEL } from "@/pipeline/stageB/lenderCashFlow";
 import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
 import { readerBaseUnits, readerConventionText, unavailableCashFlowModel } from "@/report/readerConventions";
+
+/** Only a recorded check may annotate a field; saved reports are never rechecked at display time. */
+export function withPlainFigureNotes(report: Report): Report {
+  const flags = report.appendix.verificationLog?.filter(entry => entry.check === "plain-figure" && entry.traceKind !== "value-match" && entry.path && entry.note);
+  if (!flags?.length) return report;
+  const next = structuredClone(report);
+  const grouped = new Map<string, typeof flags>();
+  for (const entry of flags) grouped.set(entry.path!, [...(grouped.get(entry.path!) ?? []), entry]);
+  for (const entries of grouped.values()) {
+    const entry = entries[0]!;
+    const keys = entry.path!.replace(/\[(\d+)\]/g, ".$1").split(".");
+    let parent: unknown = next;
+    for (const key of keys.slice(0, -1)) parent = parent && typeof parent === "object" ? (parent as Record<string, unknown>)[key] : undefined;
+    const key = keys.at(-1)!;
+    if (parent && typeof parent === "object" && (parent as Record<string, unknown>)[key] === entry.claim)
+      (parent as Record<string, unknown>)[key] = `${entry.claim} (${entries.filter(e => e.claim === entry.claim).map(e => e.note).join(" ")})`;
+  }
+  return next;
+}
+
+/** One reminder per checked report; absence of a field note never asserts verification. */
+export function plainFigureReaderNote(report: Report): string | null {
+  return report.appendix.verificationLog?.some(entry => entry.check === "plain-figure")
+    ? "Figures without a note are not necessarily verified." : null;
+}
 /**
  * Reader-facing presentation rules shared by the Markdown export, the print
  * export and the live report (D-62). The three surfaces call these helpers so

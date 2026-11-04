@@ -6549,6 +6549,105 @@ selection ran on its own with unchanged assertions and timeout limits and
 passed all 551 files. The full `npm run verify` was not run; CI still owns
 the complete integration/coverage/build gate.
 
+
+## D-201 - A composite that lost an aspect says so (2026-11-04)
+
+The composite counts an unscored aspect at the neutral midpoint. That rule is
+stated, and it stops sparse favorable data creating an extreme grade. It also
+means that withholding poor evidence can raise the number: MET rose from 43.93
+to 53.14 when its valuation was withheld (D-198), and BABA rose 0.56 when
+unsupported earnings left its score (D-200). Neither is a better conclusion
+about the company.
+
+Changing the formula, or adding a penalty for missing evidence, would pick a
+number with no evidence behind it, so the score stays as computed. The composite
+note, which every surface prints, now names each unscored aspect that carries
+weight and says its weight counts as neutral, and that the score is not directly
+comparable with a company scored on that aspect. This is computed at display
+time from the stored aspects, so saved reports get it without being rewritten.
+Aspects the route gives no weight to are not mentioned, and fully scored
+composites read exactly as before. No score, band or stamp changes.
+
+## D-197 - Check AI-written figures and bind executive grades to office tenure (2026-11-04)
+
+The independent C/D audit demonstrated unchecked financial figures in plain
+reader strings, execution grades supported by results before appointment,
+model-authored tenure printed as fact, acronym expansion false failures and a
+data-only gap count that included informational entries.
+
+The deterministic verifier walks reader prose outside sourced claims and
+traced numbers. It checks context first using the existing metric, period,
+currency, unit and displayed-precision contracts. If an identified metric and
+period record disagree, a visible "Differs from the record" note names stated
+and recorded values even when the stated value exists elsewhere. If the value
+is absent everywhere in retained evidence, a visible "Not matched to a source"
+note names it. A found value with unconfirmed context is audit only, at its
+exact path, marked "Value matched; context not confirmed". It never promotes a
+verification rate, claim status or grade. A low-precision coincidence is at most
+this value-only result. An ordinary context match also does not validate the
+whole interpretation or enter the factual-claim counts.
+
+The value index includes all numeric registry metrics, retained filing,
+transcript and news text, retained analyst research/cases, and source-bound
+report claims regardless of validation state. The filing quotation sentence
+reader is shared. Analyst text is handed to deterministic verification outside
+the model payload. Fresh runs include current attempts; resumed runs can also
+use the same job's exact frozen-payload cohort, including failed writers'
+retained research and rejected/partial cases. No cross-job or incompatible earlier payload is admitted.
+Producer-bound SMA, 52-week endpoint, below-high and price/tangible-book
+readings fix repeated context refusals. Explanatory parentheses and an explicit
+shared money scale can establish only a value reading; explicit signs,
+currencies, dimensions, periods and definition-changing modifiers stay guarded.
+
+Original prose is retained. Live, Markdown and print show only recorded visible
+notes; audit exports retain every result and original path. A single reader
+sentence says unflagged figures are not necessarily verified. Assembly-owned
+displays keep their contracts. Saved reports acquire no flags from display
+alone. The judge prompt requires payload-grounded figures. There is no model
+repair, new retrieval, larger model prompt or paid call.
+
+Typed metrics can support execution only when a measured period reaches an
+established office tenure by the report cutoff. An as-of date cannot replace
+the measurement period. Dated decisions retain their existing tenure/source
+checks. The legacy tenure number remains parseable but is omitted from the
+judge request and reader surfaces; new values are derived only from an exact
+established start and cutoff. Filing-backed office start wording remains
+visible, including on saved unassessed cards.
+
+ROIC, ROE, ROA, ROTE/ROTCE, WACC, CAGR, EBIT/EBITDA, NOPAT and ERP expansions use the same metric tokens
+on source and prose. Different return definitions do not match. Data-only
+synthesis counts classified data gaps; the old saved suffix is corrected only
+when its exact deterministic wording and raw manifest count identify it.
+
+Integration must advance the report-spec and Stage C pipeline stamps for the
+new verification/schema/request behavior. The payload contents and registry
+production are unchanged, so this change alone requires no payload stamp.
+Version constants are deliberately left to integration. No Stage B valuation,
+lease, currency or share-count implementation is changed. Stored reports and
+evidence databases are immutable.
+
+Offline replay visibly flags 58/59 original mutated figures: 6 contradictions
+and 52 values not found. A catch requires the exact changed figure in the note
+at its exact field path, including 307 to 407 days. The sole audit-only miss is
+NVO disagreements[4].bullView: mutated sales-growth outlook 100% matches retained
+1.0 completeness fractions, but no outlook context is confirmed. The mutation
+set is unchanged. Rounding those same 59 mutations to integer precision in
+their printed units gives 54/59 visible catches (6 contradictions, 48 not found;
+5 audit only). Same-dimension, same-currency different-metric registry swaps on
+those 59 paths give only 6/59 visible catches, all contradictions; 53 remain
+audit only. This weak contextual detection rate is a limitation, not a verified
+fact claim or a reason to relabel value matches as confirmations.
+
+Unmodified visible fields: META 1, TSM 1, ASML 0, JPM 0, NVO 0. Both remaining
+notes were read: META's USD 250 million-depositary-share offering converts a
+share count to money; TSM's 30.0% year-one growth input is absent from retained
+evidence in the current replay. Both are appropriate catches; zero false
+alarms among these two visible fields. The latter can reflect historical model
+drift; replay is not a factual-error rate for the original saved report. The
+separate implementation report retains every note, mutation result and review.
+All ten execution grades remain unchanged; NVO's CEO retains C on the
+post-appointment June 2026 cash-flow evidence.
+
 ## D-200 - Filed figures over vendor conflicts (2026-11-04)
 
 Implements source-data findings 1-5 and 8 from fair-value coverage baseline

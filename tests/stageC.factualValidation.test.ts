@@ -520,7 +520,10 @@ describe("factual prose numeric validation", () => {
         evidence: { [field]: [evidence] } }],
       insiderSummary: [], governanceNotes: [],
     };
-    const result = await runVerifyPass({} as PassDeps, { provenanceRegistry: [record], citationRegistry: [], filings: [] } as unknown as ContextPayload, { leadership });
+    const result = await runVerifyPass({} as PassDeps, { provenanceRegistry: [record], citationRegistry: [], filings: [],
+      leadership: { notes: ["Jen-Hsun Huang — President and CEO (since 2024-01-01) [fmp:key-executives]"], figures: [] },
+      quote: { figures: [{ asOf: "2026-02-01" }] },
+    } as unknown as ContextPayload, { leadership });
     expect(result.log.find(entry => entry.path === `leadership.executives[0].evidence.${field}[0]`)).toMatchObject({ validationStatus: "validated", executiveEvidenceKind: "execution" });
     // Execution is evidenced; guidance credibility is not, so only that grade is withdrawn.
     expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed" });
