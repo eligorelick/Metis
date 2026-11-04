@@ -263,6 +263,9 @@ describe("executive decision verification boundaries", () => {
     ["On June 24, 2026, the Company announced that it may repurchase up to $50 billion of common shares.", "not-assessed"],
     ["On June 24, 2026, the Company announced a $50 billion share repurchase program.", "B"],
     ["On June 24, 2026, the Company announced a proposed $50 billion share repurchase program.", "not-assessed"],
+    ["On June 24, 2026, a $50 billion share repurchase program is expected to be approved by the Board.", "not-assessed"],
+    ["On June 24, 2026, the Company said the $50 billion share repurchase program remains to be approved.", "not-assessed"],
+    ["On June 24, 2026, the Company said the sale of its unit for $2 billion, if completed, would be accretive.", "not-assessed"],
   ])("reads a completed decision and refuses a possible one: %s", async (sentence, grade) => {
     const result = await runVerifyPass({} as PassDeps, quotedPayload(sentence), { leadership: quotedLeadership(sentence) });
     expect(result.verifiedReport.leadership.executives[0]!.grade).toBe(grade);
@@ -296,6 +299,7 @@ describe("executive decision verification boundaries", () => {
 
   it("does not read a tenure start from another person, another office or a sentence with two dates", async () => {
     for (const appointment of ["On April 1, 2024, Jordan Lee became Chief Executive Officer.", "On April 1, 2024, Alex Smith became Chief Operating Officer.",
+      "On April 1, 2024, Alex Smith became Chief Executive Officer of Consumer Banking.",
       "Alex Smith was appointed Chief Executive Officer effective April 1, 2024 and resigned on May 1, 2025."]) {
       const claim = fact(appointment, "edgar:10-Q item4", "2026-08-04");
       const result = await runVerifyPass({} as PassDeps, quotedPayload(`${QUOTED} ${appointment}`, []), { leadership: quotedLeadership(QUOTED, [claim]) });

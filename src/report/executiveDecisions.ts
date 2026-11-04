@@ -4,6 +4,7 @@ import type { Executive, Leadership, ManagementAction, SourcedClaim, Verificatio
 
 export interface ExecutiveDecisionEvidence {
   asOf?: string | null;
+  issuer?: string | null;
   notes?: readonly string[];
   filings?: readonly { source: string; text: string }[];
 }
@@ -79,6 +80,16 @@ export function executiveClaimEntry(claim: SourcedClaim, path: string, log: read
   return entry?.traceKind === "untraced" ? undefined : entry;
 }
 
+/** Only the issuer's own name, or a plain "the Company", may qualify an appointment. "CEO of Consumer Banking" stays divisional. */
+function issuerScopedRole(role: string, issuer: string | null | undefined): string {
+  const qualifier = /^(.*?)\s+of\s+(.+)$/i.exec(role);
+  if (!qualifier) return role;
+  const named = qualifier[2]!.toLowerCase();
+  const own = /^(?:the\s+)?(?:company|firm|group|corporation|bank)$/.test(named) || (issuer ?? "").toLowerCase().replace(/^the\s+/, "").startsWith(`${named.replace(/^the\s+/, "")} `) ||
+    (issuer ?? "").toLowerCase().replace(/^the\s+/, "") === named.replace(/^the\s+/, "");
+  return own ? qualifier[1]! : role;
+}
+
 /** Never derive tenure from pay, a rounded tenureYears, a title, or the current roster alone. */
 export function executiveTenureStart(e: Executive, index: number, log: readonly VerificationLogEntry[], context: ExecutiveDecisionEvidence): string | undefined {
   const office = executiveOffice(e.title);
@@ -97,7 +108,7 @@ export function executiveTenureStart(e: Executive, index: number, log: readonly 
     const dates = statedDays(claim.text);
     // "of <issuer>" is permitted in the biography, whose retained sentence
     // names the officer. Office authority still comes from the exact roster.
-    const role = match?.[2]?.replace(/\s+of\s+.+$/i, "") ?? "";
+    const role = issuerScopedRole(match?.[2] ?? "", context.issuer);
     if (match?.[1] === e.name && executiveOffice(role) === office && dates.length === 1) starts.push(dates[0]!);
   }
   const unique = [...new Set(starts)];
@@ -113,7 +124,7 @@ function officeAction(e: Executive, a: ManagementAction): boolean {
 }
 
 const COMPLETED_DECISION = /\b(?:authori[sz]ed|approved|acquired|purchased|repurchased|redeemed|issued|elected|appointed|launched|closed|declared|completed|sold|divested)\b/i;
-const POSSIBLE_DECISION = /\b(?:not|never|may|might|could|would|will|plans? to|expects? to)\s+(?:\w+\s+){0,2}(?:authori[sz]e[ds]?|approve[ds]?|announce[ds]?|acquire[ds]?|purchase[ds]?|repurchase[ds]?|redeem(?:ed)?|issue[ds]?|elect(?:ed)?|appoint(?:ed)?|launch(?:ed)?|close[ds]?|declare[ds]?|complete[ds]?|sell|sold|divest(?:ed)?)\b/gi;
+const POSSIBLE_DECISION = /\b(?:not|never|may|might|could|would|will|shall|should|must|can|if|unless|until|once|to be|plans? to|expects? to|expected to|intends? to|intended to|anticipates? to|anticipated to|proposes? to|proposed to|scheduled to|seeks? to|aims? to)\s+(?:\w+\s+){0,2}(?:authori[sz]e[ds]?|approve[ds]?|announce[ds]?|acquire[ds]?|purchase[ds]?|repurchase[ds]?|redeem(?:ed)?|issue[ds]?|elect(?:ed)?|appoint(?:ed)?|launch(?:ed)?|close[ds]?|declare[ds]?|complete[ds]?|sell|sold|divest(?:ed)?)\b/gi;
 const PROPOSAL = /\bannounced\s+(?:(?:a|the)\s+)?(?:no|proposed|plans?|proposal)\b/i;
 
 /**
