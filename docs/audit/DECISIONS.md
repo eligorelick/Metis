@@ -5563,3 +5563,53 @@ evidence and verification are in [the evidence report](2026-11-03-valuation-inpu
   revenue off for euro reporters. Known limit: at this rate the DCF is still far
   above the quote for NVO (USD 76.85 against 40.105), because the model holds
   its roughly 42% margin at a 7.03% WACC; the report's reverse DCF shows the gap.
+
+## D-189 - Latest admitted financial book and producer-bound headline wording (2026-11-03)
+
+**Opening book (Task A).** Decouple the financial-route opening balance from
+the availability of a complete trailing return. Select the newest quarterly
+balance newer than the fiscal-year book only with positive common equity,
+explicit equity and preferred operands (also goodwill and other intangibles
+for tangible common equity), matching currency and date, filing available at
+cutoff, no operand conflict, and an admitted diluted divisor ending on that
+same date. Field-level evidence must agree on period, units and filing cutoff.
+Refuse negative adjustments and contradictory filing/acceptance dates.
+Otherwise retain the annual calculation and disclose the reason, including an
+info missing-data entry. No undisclosed adjustment becomes zero.
+
+This revises D-102/C-10's coupling of return and opening book, retaining its
+reason: a newer complete trailing return is more representative than a
+distorted fiscal year. Return selection, CAPM, terminal evidence, carry, payout
+fade and grid assumptions do not change. Historical earnings set a forward
+rate; they are not added to a book that already includes them. Forecasts and
+the existing 1-200-day CoE roll start at the selected book. The fiscal-return
+alternative and its grid row use that same quarterly book and share basis,
+with return and book dates separate; this narrowly replaces C-10's old-book
+alternative when a quarter is admitted, avoiding an old book/new divisor mix.
+P/TBV uses the selected balance, retains the return's own date, and withholds
+an incomplete tangible basis. Stored reports remain immutable.
+
+**Offline evidence.** All 77 saved bundles across the four supplied databases
+were replayed read-only; JPM is the only excess-return issuer (two snapshots).
+Paid JPM: USD 222.78 at 2025-12-31 becomes USD 231.55 at the 2026-11-03 quote;
+opening TCE rises from 277.935bn to 286.458bn at 2026-09-30 and rolls 34 days.
+Older final84 JPM: USD 223.06 becomes USD 231.78 at 2026-11-02 (33 days).
+FY2025 ROTE remains 20.6961%; paid P/TBV moves 3.2325x to 3.1363x versus
+unchanged stable-growth justified P/TBV 2.6146x. The older snapshot's latest
+P/TBV is 3.1604x versus 2.6202x justified. Both remain below quote: the fade
+to terminal ROTE around 14.46% assumes less persistence than the stable-ROTE
+cross-check. No assumption was fitted to price. Full frozen inputs, outputs
+and logs remain under gitignored `tmp/int/panel/`.
+
+Tests failed first: 11 new opening-book regressions, followed by two boundary
+regressions for negative adjustments and contradictory future filing dates.
+Controls preserve annual fallback for missing tangible/preferred operands,
+equity/share conflicts, unavailable/absent filings, currency mismatch and
+different share dates. The synthetic financial-route fixture now supplies
+explicit filing dates rather than relying on undated balances.
+
+**Stamps required at integration, not changed here.** Stage B and fair-value
+method, payload and pipeline stamps must advance for changed computed inputs
+and verification outcomes; scenario-target method should advance with the
+valuation dependency. Score bands and report schema are unchanged. The
+optional alternative book date does not require a schema migration.

@@ -289,7 +289,7 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
         upsidePct: isNum(inputs.currentPrice) && inputs.currentPrice > 0 ? (altPerShare / inputs.currentPrice - 1) * 100 : null,
       };
       startLines.push(
-        `The ${alt.label} gives ${altPerShare} per share from its own fiscal-year book value; the two starts are ${round2(Math.abs(alt.differencePp))}pp apart, so it is shown beside the headline (house convention: more than ${EXCESS_RETURN_START_GAP_PP}pp).`,
+        `The ${alt.label} gives ${altPerShare} per share from ${alt.bookAsOf ? `the same admitted book and share basis at ${alt.bookAsOf}` : "its own fiscal-year book value"}; the two starts are ${round2(Math.abs(alt.differencePp))}pp apart, so it is shown beside the headline (house convention: more than ${EXCESS_RETURN_START_GAP_PP}pp).`,
       );
     }
   }

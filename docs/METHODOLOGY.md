@@ -2695,15 +2695,29 @@ with, all printed as assumptions in their own right:
   available to common, admitted by the same rule as the fiscal-year figure,
   over the average of the equity at the window's end and four quarters
   earlier (the closing balance alone when no earlier balance sheet exists, as
-  for the fiscal year), with `BV0` the equity at the window's end. Otherwise
-  the latest fiscal year is the start. When the trailing start is used, the
-  fiscal-year start is valued with the same fade target, carry and payout path from
-  its own fiscal-year book value, and whenever the two starts are more than
+  for the fiscal year). Otherwise the latest fiscal year supplies the return.
+  **Opening book is selected independently (D-189).** Use the latest admitted
+  quarterly balance newer than the fiscal-year book when equity and preferred
+  adjustments (also goodwill and other intangibles for banks) are all present,
+  conflict-free, on that exact date and in the model currency, with filing
+  available at the analysis cutoff and admitted diluted shares ending on the
+  same date. Field provenance must agree on date, unit and filing cutoff.
+  Missing adjustments are not zero. Otherwise retain the fiscal-year book
+  calculation and disclose the specific refusal. The historical return remains
+  a forward-rate assumption: earnings already inside opening book are never
+  added again. Forecast years begin after that book date; the existing 200-day
+  quote roll-forward limit runs from it. P/TBV reads that balance too, with its
+  return's historical date separately disclosed (or is withheld if the tangible
+  operands are incomplete). When the trailing return is used, the fiscal-year
+  return alternative uses the same admitted quarterly book, dated share basis,
+  fade target, carry and payout path. Its fiscal-year return date stays explicit;
+  without an admitted quarter it keeps the fiscal-year book calculation.
+  Whenever the two starts are more than
   **5pp** apart (house convention) that value is printed beside the headline
   and in the fair-value basis. COF's FY2025 ROTE of 4.2% (the Day-1 allowance on
   the acquired Discover loans went through provision) against about 17% over
-  the trailing four quarters is the case that set the rule. Return and opening
-  book value always share one dated basis; vendor total-equity ROE is never
+  the trailing four quarters is the case that set the rule. Every opening-book
+  operand shares one dated basis; vendor total-equity ROE is never
   substituted into a common-equity valuation. Later
   years compound at `ROE_t × retention_t`, where retention is `1 − payout_t`.
   The payout fades linearly from the three-year average in year 1 to the

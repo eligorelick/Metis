@@ -5252,6 +5252,8 @@ export interface ExcessReturnInputs {
     basis: "fiscal-year-rote" | "fiscal-year-common-roe";
     asOf: string | null;
     bookValue: number;
+    /** D-189: when comparing return starts on the latest admitted book, its date differs from the return's fiscal year. */
+    bookAsOf?: string;
     /** F4: preferred claims on this book's date; absent means no dated claim. */
     convertiblePreferredClaim?: number | null;
     permanentPreferred?: number | null;
@@ -5350,6 +5352,7 @@ function withholdPriceToTangibleBook(p: PriceToTangibleBookVsRote, reason: strin
 export interface ExcessReturnStartAlternative {
   basis: "fiscal-year-rote" | "fiscal-year-common-roe";
   asOf: string | null;
+  bookAsOf?: string;
   startRoePct: number;
   bookValue: number;
   equityValue: number;
@@ -5899,22 +5902,24 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     preferredConversionFraction * Math.min(alternativeFold.preferred ?? 0, alternative?.convertiblePreferredClaim ?? 0);
   const alt = inputs.startAlternative ? { ...inputs.startAlternative, bookValue: inputs.startAlternative.bookValue + alternativeRestoredBook } : null;
   if (alt != null && isNum(alt.roePct) && posOrNull(alt.bookValue) !== null) {
-    const altValue = (excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue) * (roll ? growthFactor(alt.asOf, inputs.valuationDate ?? null, coe) : 1);
+    const altBookDate = alt.bookAsOf ?? alt.asOf;
+    const altValue = (excessReturnValue(alt.bookValue, fadePath(alt.roePct, endRoe, years), coe, payoutPath, continuing).equityValue) * (roll ? growthFactor(altBookDate, inputs.valuationDate ?? null, coe) : 1);
     const differencePp = alt.roePct - roeStart;
     const altLabel = `FY ${alt.asOf ?? "unknown"} ${alt.basis === "fiscal-year-rote" ? "ROTE" : "common-equity ROE"} start ${fmtNum(alt.roePct)}%`;
     startAlternative = {
       basis: alt.basis,
       asOf: alt.asOf,
+      ...(alt.bookAsOf ? { bookAsOf: alt.bookAsOf } : {}),
       startRoePct: alt.roePct,
       bookValue: alt.bookValue,
       equityValue: altValue,
-      perShare: shares !== null && !(roll && alt.asOf === null) ? altValue / shares : null,
+      perShare: shares !== null && !(roll && altBookDate === null) ? altValue / shares : null,
       differencePp,
       besideHeadline: Math.abs(differencePp) > EXCESS_RETURN_START_GAP_PP,
       label: altLabel,
     };
     notes.push(
-      `start ${retLabel}: ${startBasis} ${fmtNum(roeStart)}% (newer than the latest fiscal year); the ${altLabel} from book value ${alt.bookValue} ` +
+      `start ${retLabel}: ${startBasis} ${fmtNum(roeStart)}% (newer than the latest fiscal year); the ${altLabel} from book value ${alt.bookValue}${alt.bookAsOf ? ` at ${alt.bookAsOf}, on the headline's share basis,` : ""} ` +
         `would value the equity at ${fmtNum(altValue)}${shares !== null ? ` (${fmtNum(altValue / shares)} per share)` : ""}, ` +
         `${fmtNum(Math.abs(differencePp))}pp ${differencePp < 0 ? "below" : "above"} the start used` +
         (startAlternative.besideHeadline ? ` — more than ${EXCESS_RETURN_START_GAP_PP}pp apart, so it is shown beside the headline (house convention)` : ""),
@@ -5936,7 +5941,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     const alternativeRow = startAlternative === undefined ? -1 : startAlternative.startRoePct < roeStart ? 0 : 2;
     if (startAlternative !== undefined) {
       rows[startAlternative.startRoePct < roeStart ? 0 : 2] = {
-        label: `${startAlternative.label} (fiscal-year book value)`,
+        label: `${startAlternative.label} (${startAlternative.bookAsOf ? `book at ${startAlternative.bookAsOf}` : "fiscal-year book value"})`,
         startReturnPct: startAlternative.startRoePct,
         bookValue: startAlternative.bookValue,
       };
@@ -5946,7 +5951,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     // Floored at 0 like the published headline (limited liability).
     const cell = (value: number): number | null => (Number.isFinite(value) ? Math.max(0, value) : null);
     const perShareGrid = rows.map((row, rowIndex) => costOfEquityPcts.map((c) => {
-      const rowDate = rowIndex === alternativeRow ? startAlternative!.asOf : inputs.asOf ?? null;
+      const rowDate = rowIndex === alternativeRow ? startAlternative!.bookAsOf ?? startAlternative!.asOf : inputs.asOf ?? null;
       if (roll && rowDate === null) return null;
       const factor = roll ? growthFactor(rowDate, inputs.valuationDate ?? null, c) : 1;
       if (c === coe) {
@@ -5968,7 +5973,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
           : evidencedPp > 0
             ? `each cell fades its start linearly over ${years} years to the column's cost of equity plus the ${fmtNum(evidencedPp)}pp evidenced excess, carried past year ${years} at ${fmtNum(continuingG)}% where the cost of equity clears that growth by ${TV_GUARD_PP}pp`
             : `each cell fades its start linearly over ${years} years to the column's cost of equity (zero terminal excess)`,
-        `payout fades from ${fmtNum(payout)}% to each cell's steady state (1 − g / its terminal ROE) by year ${years}; ${startAlternative !== undefined ? "the fiscal-year row starts from its own fiscal-year book value, the others from the headline's opening book value" : `rows other than the headline shift its start by ±${step}pp from the same opening book value`}`,
+        `payout fades from ${fmtNum(payout)}% to each cell's steady state (1 − g / its terminal ROE) by year ${years}; ${startAlternative !== undefined ? startAlternative.bookAsOf ? `all rows use the admitted opening book at ${startAlternative.bookAsOf} and its share count; the fiscal-year row changes only the return` : "the fiscal-year row starts from its own fiscal-year book value, the others from the headline's opening book value" : `rows other than the headline shift its start by ±${step}pp from the same opening book value`}`,
         "the centre cell is the headline value; a cell below zero is shown as 0, as the headline is",
         ...(roll ? [`cells are stated at the quote date ${inputs.valuationDate}, each rolled from its row's opening book at its column's cost of equity`] : []),
       ],

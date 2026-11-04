@@ -18,6 +18,14 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Bank valuation from the latest filed book; headline claim wording (2026-11-03)
+
+- Open financial excess-return values from the latest complete, filed quarterly
+  common book with matching-date shares, independently of trailing-return
+  availability. Keep return, discount and terminal assumptions unchanged; use
+  the selected book date for roll-forward, P/TBV, grids and return alternatives.
+  Disclose refused quarterly operands and retain the annual fallback (D-189).
+
 ## Unreleased - Valuation inputs: foreign consensus, operating income basis, filer unit errors (2026-11-03)
 
 - Admit foreign-issuer analyst revenue totals only when past-year estimates
