@@ -526,6 +526,11 @@ const PERIOD_DESCRIPTORS = new Set(["latest", "recent", "most", "same", "end", "
 // Registry labels abbreviate what prose spells out.
 const ABBREVIATIONS: Readonly<Record<string, readonly string[]>> = {
   fcf: ["free", "cash", "flow"], sbc: ["stock", "based", "compensation"], capex: ["capital", "expenditure"],
+  roic: ["return", "on", "invested", "capital"], roe: ["return", "on", "equity"], roa: ["return", "on", "assets"],
+  rote: ["return", "on", "tangible", "common", "equity"], rotce: ["return", "on", "tangible", "common", "equity"],
+  wacc: ["weighted", "average", "cost", "of", "capital"], cagr: ["compound", "annual", "growth", "rate"],
+  ebit: ["earnings", "before", "interest", "and", "taxes"], ebitda: ["earnings", "before", "interest", "taxes", "depreciation", "and", "amortization"],
+  nopat: ["net", "operating", "profit", "after", "tax"], erp: ["equity", "risk", "premium"],
   // D-63: an executive-compensation row ("comp Jen-Hsun Huang President and CEO
   // FY2026") is the summary table's total, which prose calls total compensation.
   comp: ["total", "compensation"],
@@ -602,6 +607,7 @@ function metricTokens(label: string, ignore: readonly string[], options: { loose
   // D-66: registry keys are camelCase ("priceToBook (current)"), and a
   // comparison basis is part of a growth's definition (see COMPARISON_BASIS).
   let metric = label.replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\bcompound annual growth rate\b/gi, "CAGR")
     .replace(/\bForm\s+4\s+code\s+([A-Z])\b/gi, "form4code$1")
     .replace(/\bgains?(?=\s+(?:on|from)\b)/gi, "metricgain")
     .replace(/\bnon[ -]GAAP\s+Adjusted\s+EBITDA\b/gi, "Adjusted EBITDA")
