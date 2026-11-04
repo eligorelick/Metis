@@ -18,6 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - A fuller sample report (2026-11-04)
+
+- Expand the wholly fictional visitor sample with a complete thesis, market economics, named rivals, dated catalysts and risks, and evidence-backed management actions and executive assessments.
+- Cite authored synthetic filing excerpts and exact computed figures, retain the real verification and grading rules, and guard report breadth in the current-sample tests.
+
 ## Unreleased - A current sample report for visitors (2026-11-04)
 
 - Keep hidden screen-reader labels contained within the scrollable main region.

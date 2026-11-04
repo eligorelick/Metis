@@ -25,31 +25,31 @@
     "model": "synthetic-handwritten",
     "pipelineVersion": "1.60.0",
     "costUsd": 0,
-    "verificationRate": 0.28125,
+    "verificationRate": 0.3539518900343643,
     "provenanceCoverage": {
       "numeric": {
-        "supported": 81,
-        "total": 288,
-        "rate": 0.28125
+        "supported": 103,
+        "total": 291,
+        "rate": 0.3539518900343643
       },
       "factualClaims": {
-        "supported": 0,
-        "total": 8,
-        "rate": 0
+        "supported": 33,
+        "total": 33,
+        "rate": 1
       },
       "judgments": {
-        "cited": 2,
-        "total": 38,
-        "rate": 0.05263157894736842
+        "cited": 56,
+        "total": 56,
+        "rate": 1
       },
       "factualValidation": {
-        "cited": 0,
-        "validated": 0,
-        "unchecked": 8,
+        "cited": 33,
+        "validated": 16,
+        "unchecked": 17,
         "contradicted": 0,
-        "qualitative": 0,
-        "total": 8,
-        "rate": 0
+        "qualitative": 8,
+        "total": 33,
+        "rate": 0.48484848484848486
       }
     },
     "consistencyChecks": {
@@ -60,28 +60,28 @@
         "rate": null
       },
       "period": {
-        "checked": 0,
-        "passed": 0,
+        "checked": 12,
+        "passed": 12,
         "failed": 0,
-        "rate": null
+        "rate": 1
       },
       "unit": {
-        "checked": 0,
-        "passed": 0,
+        "checked": 16,
+        "passed": 16,
         "failed": 0,
-        "rate": null
+        "rate": 1
       },
       "namedIndividual": {
-        "checked": 3,
-        "passed": 0,
-        "failed": 3,
-        "rate": 0
+        "checked": 7,
+        "passed": 7,
+        "failed": 0,
+        "rate": 1
       }
     },
     "dataCompleteness": {
       "state": "degraded",
       "criticalCount": 0,
-      "warningCount": 5,
+      "warningCount": 4,
       "edgar": "missing",
       "xbrl": "skipped",
       "forensicValidation": "provisional"
@@ -123,9 +123,30 @@
           "periodEnd": "2026-03-31"
         }
       ],
-      "filings": [],
+      "filings": [
+        {
+          "source": "edgar.tenQMdna",
+          "form": "10-Q",
+          "reportDate": "2026-03-31",
+          "filedAt": "2026-07-01"
+        },
+        {
+          "source": "edgar.business",
+          "form": "10-K",
+          "reportDate": "2025-12-31",
+          "filedAt": "2026-07-01"
+        }
+      ],
       "publications": [],
       "acquisitions": [
+        {
+          "source": "edgar.business",
+          "at": "2026-07-06T00:00:00.000Z"
+        },
+        {
+          "source": "edgar.tenQMdna",
+          "at": "2026-07-06T00:00:00.000Z"
+        },
         {
           "source": "quote",
           "at": "2026-07-06T00:00:00.000Z"
@@ -165,7 +186,7 @@
     }
   },
   "verdict": {
-    "synthesis": "Thesis Example Systems combines a growing installation base with recurring support. Cash generation is encouraging, but the valuation depends on preserving margins as customers expand more slowly. This fictional case illustrates a sound business with execution risk rather than a recommendation.",
+    "synthesis": "JUDGMENT: A credible cash generator with a modest valuation cushion. Recurring support can soften equipment cyclicality, but does not remove it. Recent asset investment and a succession appointment strengthen service execution; neither proves durable pricing power. The model's narrow positive scenario range understates a severe customer-spending shock. Renewal quality and cash collection would determine whether this view holds. This invented case is informational, not a recommendation.",
     "gradeStrip": {
       "fundamentals": {
         "grade": "C",
@@ -181,11 +202,32 @@
         "oneLineWhy": "Growth is encouraging, while margin durability still needs watching.",
         "reasoning": [
           {
-            "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+            "text": "Revenue CAGR over one year was 11.11%.",
+            "label": "FACT",
+            "sourceId": "computed.growth-margins.revenue-cagr-1y",
+            "source": "computed.growth-margins.revenue-cagr-1y",
+            "asOf": "2025-12-31"
+          },
+          {
+            "text": "FY2025 operating margin was 20.00%.",
+            "label": "FACT",
+            "sourceId": "computed.growth-margins.operating-margin-latest",
+            "source": "computed.growth-margins.operating-margin-latest",
+            "asOf": "2025-12-31"
+          },
+          {
+            "text": "FY2025 FCF after SBC was USD 170.00 million.",
+            "label": "FACT",
+            "sourceId": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+            "source": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+            "asOf": "2025-12-31"
+          },
+          {
+            "text": "Sales growth is outpacing cash growth. Sustaining margins requires renewals without heavy concessions and collections that keep pace with installation acceptance.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
           }
         ],
         "confidence": "medium",
@@ -242,11 +284,11 @@
         "oneLineWhy": "The model value depends on sustained cash generation and disciplined reinvestment.",
         "reasoning": [
           {
-            "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+            "text": "The positive base valuation depends on the revenue anchor and steady margins; wider operating sensitivities show why the narrow scenario fan is not a downside floor.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
           }
         ],
         "confidence": "medium",
@@ -285,11 +327,18 @@
         "oneLineWhy": "The invented price series rises, with limited confirmation from other signals.",
         "reasoning": [
           {
-            "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
-            "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
+            "text": "RSI-14 was 100.00.",
+            "label": "FACT",
+            "sourceId": "computed.technicals.rsi-14",
+            "source": "computed.technicals.rsi-14",
             "asOf": "2026-07-02"
+          },
+          {
+            "text": "A smooth rising synthetic series limits what momentum can tell us about risk.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
           }
         ],
         "confidence": "low",
@@ -324,11 +373,18 @@
         "oneLineWhy": "Cash conversion is constructive; incomplete forensic inputs limit confidence.",
         "reasoning": [
           {
-            "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+            "text": "FY2025 FCF conversion after SBC was 1.13x.",
+            "label": "FACT",
+            "sourceId": "computed.capital-cash.fcf-conversion-latest-after-sbc",
+            "source": "computed.capital-cash.fcf-conversion-latest-after-sbc",
+            "asOf": "2025-12-31"
+          },
+          {
+            "text": "Cash conversion supports earnings quality, but unavailable forensic inputs are a reason to reserve judgment.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
           }
         ],
         "confidence": "medium",
@@ -492,14 +548,14 @@
           "status": "unchanged",
           "reason": "matches-deterministic-band"
         },
-        "oneLineWhy": "Capital stewardship is measurable here; personal management credibility remains unassessed.",
+        "oneLineWhy": "Cash generation supports an execution assessment; a repeatable personal guidance record remains unestablished.",
         "reasoning": [
           {
-            "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+            "text": "Operating cash generation supports an execution assessment; the asset purchase and succession plan still need follow-through.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
           }
         ],
         "confidence": "low",
@@ -534,11 +590,11 @@
         "oneLineWhy": "Profitability supports the score; switching costs remain a qualitative judgment.",
         "reasoning": [
           {
-            "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+            "text": "Service switching costs look narrow despite strong measured profitability; regional support coverage and hardware price competition constrain the advantage.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
           }
         ],
         "confidence": "medium",
@@ -586,11 +642,11 @@
         "oneLineWhy": "No funded debt offers flexibility, while operating liabilities still require cash.",
         "reasoning": [
           {
-            "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+            "text": "Net cash supports flexibility, but undisclosed lease components and maintenance needs limit how much liquidity is truly distributable.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
           }
         ],
         "confidence": "medium",
@@ -618,58 +674,175 @@
     },
     "executiveSummary": [
       {
-        "text": "The attractive feature is the support relationship after installation; the weak point is dependence on warehouse investment cycles.",
+        "text": "The thesis rests on service continuity: recurring support can cushion installation delays, provided renewals do not require price concessions.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       },
       {
-        "text": "The model's fair value and scenario range are sensitivities to operating assumptions, not forecasts of a future share price.",
+        "text": "A reader focused only on equipment orders could miss the installed base's support economics; this is a thesis about resilience, not evidence of market mispricing.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "Cash generation supports reinvestment, but slowing cash growth relative to sales warrants watching collections and service staffing costs.",
+        "label": "JUDGMENT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "The valuation offers a modest cushion under the model assumptions; the narrow sensitivity range does not represent the full economic downside.",
+        "label": "JUDGMENT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "The Willow Relay asset purchase and internal succession step address service capacity. Integration failures, lost renewals or weaker cash conversion would change the favorable operating view.",
+        "label": "JUDGMENT",
+        "sourceId": "edgar:10-Q item2",
+        "source": "edgar:10-Q item2",
+        "asOf": "2026-03-31"
+      },
+      {
+        "text": "DCF per share is USD 35.47 under the modeled assumptions; this is a sensitivity result, not a future-price forecast.",
+        "label": "FACT",
+        "sourceId": "computed.valuation.dcf-per-share",
+        "source": "computed.valuation.dcf-per-share",
+        "asOf": "2026-07-06"
       }
     ]
   },
   "business": {
     "whatTheySell": [
       {
-        "text": "Fictional workflow hardware and support subscriptions for regional warehouses.",
+        "text": "Controllers, installation and annual support subscriptions serve regional warehouse operators. Equipment revenue is recognized on acceptance; support is recognized over the service term.",
         "label": "FACT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "Hardware and installation contributed USD 650 million of FY2025 revenue.",
+        "label": "FACT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "Support contributed USD 350 million of FY2025 revenue.",
+        "label": "FACT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "All sales were domestic; customers include independent distributors and regional logistics operators.",
+        "label": "FACT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       }
     ],
     "marketStructure": [
       {
-        "text": "Installation work is fragmented. Support contracts are stickier because replacing a system interrupts warehouse operations.",
-        "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "text": "The invented management planning study defines a USD 8 billion annual served market for regional warehouse equipment and support. This is a fictional planning assumption, not an independent market estimate.",
+        "label": "FACT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       },
       {
-        "text": "No independently measured market size or market share is supplied in this invented case.",
+        "text": "Value accrues to reliable service and integration expertise; hardware tenders remain price competitive.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "Renewal pricing power appears narrow: switching disrupts operations, but cheaper installation bids and software substitutes constrain lifetime economics.",
+        "label": "JUDGMENT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "Warehouse capacity spending drives equipment demand; the installed base supports service demand through the cycle. No measured market-share trend is supplied.",
+        "label": "JUDGMENT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       }
     ],
     "segments": {
-      "product": [],
-      "geographic": []
+      "product": [
+        {
+          "name": "Hardware and installation",
+          "revenue": {
+            "value": 650000000,
+            "unit": "currency",
+            "currency": "USD",
+            "period": "2025-12-31",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31",
+            "verified": false,
+            "verificationNote": "[unverified] text-source"
+          },
+          "sharePct": null
+        },
+        {
+          "name": "Support",
+          "revenue": {
+            "value": 350000000,
+            "unit": "currency",
+            "currency": "USD",
+            "period": "2025-12-31",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31",
+            "verified": false,
+            "verificationNote": "[unverified] text-source"
+          },
+          "sharePct": null
+        }
+      ],
+      "geographic": [
+        {
+          "name": "Domestic",
+          "revenue": {
+            "value": 1000000000,
+            "unit": "currency",
+            "currency": "USD",
+            "period": "2025-12-31",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31",
+            "verified": false,
+            "verificationNote": "[unverified] text-source"
+          },
+          "sharePct": null
+        }
+      ]
     },
     "concentrationRisks": [
       {
-        "text": "A slowdown in warehouse expansion could delay installations even if existing customers renew support.",
+        "text": "The largest customer contributed USD 120 million of FY2025 revenue.",
+        "label": "FACT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "Domestic exposure and regional customers concentrate the business in the same warehouse investment cycle; renewal resilience should be tested when capacity budgets tighten.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       }
     ]
   },
@@ -688,11 +861,32 @@
       "oneLineWhy": "Growth is encouraging, while margin durability still needs watching.",
       "reasoning": [
         {
-          "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+          "text": "Revenue CAGR over one year was 11.11%.",
+          "label": "FACT",
+          "sourceId": "computed.growth-margins.revenue-cagr-1y",
+          "source": "computed.growth-margins.revenue-cagr-1y",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "FY2025 operating margin was 20.00%.",
+          "label": "FACT",
+          "sourceId": "computed.growth-margins.operating-margin-latest",
+          "source": "computed.growth-margins.operating-margin-latest",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "FY2025 FCF after SBC was USD 170.00 million.",
+          "label": "FACT",
+          "sourceId": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+          "source": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "Sales growth is outpacing cash growth. Sustaining margins requires renewals without heavy concessions and collections that keep pace with installation acceptance.",
           "label": "JUDGMENT",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         }
       ],
       "confidence": "medium",
@@ -744,12 +938,11 @@
             "value": {
               "value": 11.111111,
               "unit": "%",
-              "period": "1y",
-              "sourceId": "computed.growth.revenueCagrs",
-              "source": "computed.growth.revenueCagrs",
+              "period": null,
+              "sourceId": "computed.growth-margins.revenue-cagr-1y",
+              "source": "computed.growth-margins.revenue-cagr-1y",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           },
           {
@@ -757,12 +950,11 @@
             "value": {
               "value": 12.624788,
               "unit": "%",
-              "period": "3y",
-              "sourceId": "computed.growth.revenueCagrs",
-              "source": "computed.growth.revenueCagrs",
+              "period": null,
+              "sourceId": "computed.growth-margins.revenue-cagr-3y",
+              "source": "computed.growth-margins.revenue-cagr-3y",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           },
           {
@@ -770,12 +962,11 @@
             "value": {
               "value": 12.624788,
               "unit": "%",
-              "period": "3y",
-              "sourceId": "computed.growth.revenueCagrs",
-              "source": "computed.growth.revenueCagrs",
+              "period": null,
+              "sourceId": "computed.growth-margins.revenue-cagr-3y",
+              "source": "computed.growth-margins.revenue-cagr-3y",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -788,12 +979,11 @@
             "value": {
               "value": 7.142857,
               "unit": "%",
-              "period": "1y",
-              "sourceId": "computed.growth.epsDilutedCagrs",
-              "source": "computed.growth.epsDilutedCagrs",
+              "period": null,
+              "sourceId": "computed.growth-margins.diluted-eps-cagr-1y",
+              "source": "computed.growth-margins.diluted-eps-cagr-1y",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           },
           {
@@ -801,12 +991,11 @@
             "value": {
               "value": 12.269502,
               "unit": "%",
-              "period": "3y",
-              "sourceId": "computed.growth.epsDilutedCagrs",
-              "source": "computed.growth.epsDilutedCagrs",
+              "period": null,
+              "sourceId": "computed.growth-margins.diluted-eps-cagr-3y",
+              "source": "computed.growth-margins.diluted-eps-cagr-3y",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           },
           {
@@ -814,12 +1003,11 @@
             "value": {
               "value": 12.269502,
               "unit": "%",
-              "period": "3y",
-              "sourceId": "computed.growth.epsDilutedCagrs",
-              "source": "computed.growth.epsDilutedCagrs",
+              "period": null,
+              "sourceId": "computed.growth-margins.diluted-eps-cagr-3y",
+              "source": "computed.growth-margins.diluted-eps-cagr-3y",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -832,12 +1020,11 @@
             "value": {
               "value": 7.784431,
               "unit": "%",
-              "period": "1y",
-              "sourceId": "computed.growth.fcfCagrs",
-              "source": "computed.growth.fcfCagrs",
+              "period": null,
+              "sourceId": "computed.growth-margins.fcf-cagr-1y-before-sbc",
+              "source": "computed.growth-margins.fcf-cagr-1y-before-sbc",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           },
           {
@@ -941,11 +1128,10 @@
               "value": 40,
               "unit": "%",
               "period": "2025-12-31",
-              "sourceId": "computed.growth.margins.gross",
-              "source": "computed.growth.margins.gross",
+              "sourceId": "computed.growth-margins.gross-margin-latest",
+              "source": "computed.growth-margins.gross-margin-latest",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -998,11 +1184,10 @@
               "value": 20,
               "unit": "%",
               "period": "2025-12-31",
-              "sourceId": "computed.growth.margins.operating",
-              "source": "computed.growth.margins.operating",
+              "sourceId": "computed.growth-margins.operating-margin-latest",
+              "source": "computed.growth-margins.operating-margin-latest",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -1055,11 +1240,10 @@
               "value": 15,
               "unit": "%",
               "period": "2025-12-31",
-              "sourceId": "computed.growth.margins.net",
-              "source": "computed.growth.margins.net",
+              "sourceId": "computed.growth-margins.net-margin-latest",
+              "source": "computed.growth-margins.net-margin-latest",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -1142,11 +1326,10 @@
               "value": 41.82642,
               "unit": "%",
               "period": "2025-12-31",
-              "sourceId": "computed.returns.roic",
-              "source": "computed.returns.roic",
+              "sourceId": "computed.returns.roic-latest",
+              "source": "computed.returns.roic-latest",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -1204,11 +1387,10 @@
               "value": 31.578947,
               "unit": "%",
               "period": "2025-12-31",
-              "sourceId": "computed.returns.dupont",
-              "source": "computed.returns.dupont",
+              "sourceId": "computed.returns.roe-latest-dupont",
+              "source": "computed.returns.roe-latest-dupont",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -1307,11 +1489,10 @@
               "unit": "currency",
               "currency": "USD",
               "period": "2025-12-31",
-              "sourceId": "computed.capital.fcf",
-              "source": "computed.capital.fcf",
+              "sourceId": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+              "source": "computed.capital-cash.latest-fcf-after-sbc-house-default",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -1354,11 +1535,10 @@
               "unit": "currency",
               "currency": "USD",
               "period": "2025-12-31",
-              "sourceId": "computed.capital.fcf.beforeSbc",
-              "source": "computed.capital.fcf.beforeSbc",
+              "sourceId": "computed.capital-cash.latest-fcf-before-sbc-vendor-convention",
+              "source": "computed.capital-cash.latest-fcf-before-sbc-vendor-convention",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -1398,11 +1578,10 @@
               "value": 1.133333,
               "unit": "x",
               "period": "2025-12-31",
-              "sourceId": "computed.capital.fcf.conversion",
-              "source": "computed.capital.fcf.conversion",
+              "sourceId": "computed.capital-cash.fcf-conversion-latest-after-sbc",
+              "source": "computed.capital-cash.fcf-conversion-latest-after-sbc",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -1442,11 +1621,10 @@
               "value": 1.2,
               "unit": "x",
               "period": "2025-12-31",
-              "sourceId": "computed.capital.fcf.conversionBeforeSbc",
-              "source": "computed.capital.fcf.conversionBeforeSbc",
+              "sourceId": "computed.capital-cash.fcf-conversion-latest-fiscal-year-before-sbc",
+              "source": "computed.capital-cash.fcf-conversion-latest-fiscal-year-before-sbc",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -1486,11 +1664,10 @@
               "value": 4,
               "unit": "%",
               "period": "2025-12-31",
-              "sourceId": "computed.capital.capexIntensity",
-              "source": "computed.capital.capexIntensity",
+              "sourceId": "computed.capital-cash.capex-revenue-latest",
+              "source": "computed.capital-cash.capex-revenue-latest",
               "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] unknown-source"
+              "verified": true
             }
           }
         ]
@@ -1498,11 +1675,32 @@
     ],
     "commentary": [
       {
-        "text": "Revenue growth is useful only if it converts into cash. Watch working capital as installation volumes rise.",
+        "text": "Revenue CAGR over one year was 11.11%.",
+        "label": "FACT",
+        "sourceId": "computed.growth-margins.revenue-cagr-1y",
+        "source": "computed.growth-margins.revenue-cagr-1y",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "FY2025 operating margin was 20.00%.",
+        "label": "FACT",
+        "sourceId": "computed.growth-margins.operating-margin-latest",
+        "source": "computed.growth-margins.operating-margin-latest",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "FY2025 FCF after SBC was USD 170.00 million.",
+        "label": "FACT",
+        "sourceId": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+        "source": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "Sales growth is outpacing cash growth. Sustaining margins requires renewals without heavy concessions and collections that keep pace with installation acceptance.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       }
     ]
   },
@@ -1521,11 +1719,11 @@
       "oneLineWhy": "No funded debt offers flexibility, while operating liabilities still require cash.",
       "reasoning": [
         {
-          "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+          "text": "Net cash supports flexibility, but undisclosed lease components and maintenance needs limit how much liquidity is truly distributable.",
           "label": "JUDGMENT",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         }
       ],
       "confidence": "medium",
@@ -1555,9 +1753,9 @@
         {
           "text": "The invented balance sheet has no funded debt. Operating liabilities still require cash and should not be treated as free financing.",
           "label": "JUDGMENT",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         },
         {
           "text": "The debt bridge shows debt on the retained basis and the selected operating-lease basis, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero. 2026-03-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified.",
@@ -1641,11 +1839,18 @@
     "coverage": {
       "commentary": [
         {
+          "text": "Net debt on the retained basis was USD -120.00 million at 2026-03-31.",
+          "label": "FACT",
+          "sourceId": "computed.current-capital.net-debt-including-leases",
+          "source": "computed.current-capital.net-debt-including-leases",
+          "asOf": "2026-03-31"
+        },
+        {
           "text": "Liquidity provides a cushion for uneven customer payments; there is no interest burden in this case.",
           "label": "JUDGMENT",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         },
         {
           "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
@@ -1730,9 +1935,16 @@
         {
           "text": "Maintenance and installation capacity require continuing capital spending.",
           "label": "JUDGMENT",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "FY2025 capex as a share of revenue was 4.00%.",
+          "label": "FACT",
+          "sourceId": "computed.capital-cash.capex-revenue-latest",
+          "source": "computed.capital-cash.capex-revenue-latest",
+          "asOf": "2025-12-31"
         }
       ],
       "numbers": [
@@ -1780,11 +1992,11 @@
     },
     "capitalAllocation": [
       {
-        "text": "Preserving liquidity takes priority over an acquisition-led expansion in this scenario.",
+        "text": "Service investment and selective asset purchases fit the strategy, provided capital returns do not erode the liquidity cushion.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-Q item2",
+        "source": "edgar:10-Q item2",
+        "asOf": "2026-03-31"
       }
     ]
   },
@@ -1803,11 +2015,11 @@
       "oneLineWhy": "The model value depends on sustained cash generation and disciplined reinvestment.",
       "reasoning": [
         {
-          "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+          "text": "The positive base valuation depends on the revenue anchor and steady margins; wider operating sensitivities show why the narrow scenario fan is not a downside floor.",
           "label": "JUDGMENT",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         }
       ],
       "confidence": "medium",
@@ -2294,7 +2506,7 @@
     "reverseDcf": {
       "impliedMetric": "starting revenue growth (fades to terminal rate)",
       "impliedValue": 4.7119140625,
-      "narrative": "Compare the market-implied growth requirement with the operating scenarios; neither is a promise of delivery."
+      "narrative": "JUDGMENT: Compare the implied growth requirement below with customer spending and renewal quality. The favorable model values depend on continued operating performance; they do not establish a floor under the share price."
     },
     "multiples": [
       {
@@ -2393,7 +2605,7 @@
           "Targets are labeled by per-share value; runs outside the DCF domain are withheld. No scenario is a future-price forecast."
         ],
         "qualitativeCommentary": [
-          "Faster installations and resilient margins",
+          "Higher near-term growth with unchanged modeled margins",
           "Separate qualitative condition, not a modeled input or prerequisite for this target: Cash collection keeps pace with recognized revenue"
         ],
         "whatWouldHaveToBeTrue": [
@@ -2421,7 +2633,7 @@
           "Targets are labeled by per-share value; runs outside the DCF domain are withheld. No scenario is a future-price forecast."
         ],
         "qualitativeCommentary": [
-          "Steady growth and measured reinvestment",
+          "Base growth and margin path",
           "Separate qualitative condition, not a modeled input or prerequisite for this target: Cash collection keeps pace with recognized revenue"
         ],
         "whatWouldHaveToBeTrue": [
@@ -2449,7 +2661,7 @@
           "Targets are labeled by per-share value; runs outside the DCF domain are withheld. No scenario is a future-price forecast."
         ],
         "qualitativeCommentary": [
-          "Slower installations and margin pressure",
+          "Lower near-term growth with unchanged modeled margins",
           "Separate qualitative condition, not a modeled input or prerequisite for this target: Cash collection keeps pace with recognized revenue"
         ],
         "whatWouldHaveToBeTrue": [
@@ -2493,11 +2705,18 @@
       "oneLineWhy": "Cash conversion is constructive; incomplete forensic inputs limit confidence.",
       "reasoning": [
         {
-          "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+          "text": "FY2025 FCF conversion after SBC was 1.13x.",
+          "label": "FACT",
+          "sourceId": "computed.capital-cash.fcf-conversion-latest-after-sbc",
+          "source": "computed.capital-cash.fcf-conversion-latest-after-sbc",
+          "asOf": "2025-12-31"
+        },
+        {
+          "text": "Cash conversion supports earnings quality, but unavailable forensic inputs are a reason to reserve judgment.",
           "label": "JUDGMENT",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         }
       ],
       "confidence": "medium",
@@ -2672,7 +2891,13 @@
         "zone": "unremarkable"
       }
     },
-    "flags": [],
+    "flags": [
+      {
+        "severity": "low",
+        "text": "Cash conversion is constructive, but missing forensic inputs prevent a clean bill of accounting health. Watch collections and maintenance spending together.",
+        "source": "edgar:10-K item1"
+      }
+    ],
     "notes": [
       "Accrual definition: operating accruals (NI − CFO), because compatible admitted inputs are unavailable for purchases and sales/maturities of investments, long-term investments in both years - the financial-asset-adjusted construction (Richardson et al. 2005) cannot separate investment purchases from operating investment. Reported but refused observations are not substituted for admitted inputs. Operating accruals exclude every investing flow, including capex and acquisitions.",
       "Net operating assets are not adjusted for long-term investments, which are unavailable on a compatible admitted basis in both years.",
@@ -2696,11 +2921,18 @@
       "oneLineWhy": "The invented price series rises, with limited confirmation from other signals.",
       "reasoning": [
         {
-          "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
-          "label": "JUDGMENT",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
+          "text": "RSI-14 was 100.00.",
+          "label": "FACT",
+          "sourceId": "computed.technicals.rsi-14",
+          "source": "computed.technicals.rsi-14",
           "asOf": "2026-07-02"
+        },
+        {
+          "text": "A smooth rising synthetic series limits what momentum can tell us about risk.",
+          "label": "JUDGMENT",
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         }
       ],
       "confidence": "low",
@@ -2723,8 +2955,8 @@
     },
     "read": {
       "trend": "House SMA trend: uptrend as of 2026-07-02. Last close USD 32.00 is above both averages (50-day USD 31.4576; 200-day USD 29.7776).",
-      "momentum": "A persistent rise can reverse quickly when operating expectations change.",
-      "keyLevels": "Moving averages provide reference levels rather than guaranteed support.",
+      "momentum": "The smooth invented price series produces an extreme momentum reading; it is a demonstration artifact, not realistic evidence of a durable trading edge.",
+      "keyLevels": "The moving averages below are reference levels; a loss of trend alongside weaker cash collection would reduce confidence in the thesis.",
       "relativeStrength": "No external benchmark is supplied in this fictional case."
     },
     "indicators": [
@@ -2732,55 +2964,50 @@
         "value": 32,
         "unit": "currency/share",
         "currency": "USD",
-        "period": "last close",
-        "sourceId": "computed.technicals",
-        "source": "computed.technicals",
+        "period": null,
+        "sourceId": "computed.technicals.last-close",
+        "source": "computed.technicals.last-close",
         "asOf": "2026-07-02",
-        "verified": false,
-        "verificationNote": "[unverified] unknown-source"
+        "verified": true
       },
       {
         "value": 31.4576,
         "unit": "currency/share",
         "currency": "USD",
-        "period": "SMA50",
-        "sourceId": "computed.technicals.smaCross",
-        "source": "computed.technicals.smaCross",
+        "period": null,
+        "sourceId": "computed.technicals.sma50",
+        "source": "computed.technicals.sma50",
         "asOf": "2026-07-02",
-        "verified": false,
-        "verificationNote": "[unverified] unknown-source"
+        "verified": true
       },
       {
         "value": 29.7776,
         "unit": "currency/share",
         "currency": "USD",
-        "period": "SMA200",
-        "sourceId": "computed.technicals.smaCross",
-        "source": "computed.technicals.smaCross",
+        "period": null,
+        "sourceId": "computed.technicals.sma200",
+        "source": "computed.technicals.sma200",
         "asOf": "2026-07-02",
-        "verified": false,
-        "verificationNote": "[unverified] unknown-source"
+        "verified": true
       },
       {
         "value": 100,
         "unit": "index",
-        "period": "RSI-14",
-        "sourceId": "computed.technicals.rsi14",
-        "source": "computed.technicals.rsi14",
+        "period": null,
+        "sourceId": "computed.technicals.rsi-14",
+        "source": "computed.technicals.rsi-14",
         "asOf": "2026-07-02",
-        "verified": false,
-        "verificationNote": "[unverified] unknown-source"
+        "verified": true
       },
       {
         "value": -0.000214,
         "unit": "currency/share",
         "currency": "USD",
-        "period": "MACD histogram",
-        "sourceId": "computed.technicals.macd",
-        "source": "computed.technicals.macd",
+        "period": null,
+        "sourceId": "computed.technicals.macd-histogram",
+        "source": "computed.technicals.macd-histogram",
         "asOf": "2026-07-02",
-        "verified": false,
-        "verificationNote": "[unverified] unknown-source"
+        "verified": true
       },
       {
         "value": 0.06847,
@@ -2807,14 +3034,14 @@
         "status": "unchanged",
         "reason": "matches-deterministic-band"
       },
-      "oneLineWhy": "Capital stewardship is measurable here; personal management credibility remains unassessed.",
+      "oneLineWhy": "Cash generation supports an execution assessment; a repeatable personal guidance record remains unestablished.",
       "reasoning": [
         {
-          "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+          "text": "Operating cash generation supports an execution assessment; the asset purchase and succession plan still need follow-through.",
           "label": "JUDGMENT",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-Q item2",
+          "source": "edgar:10-Q item2",
+          "asOf": "2026-03-31"
         }
       ],
       "confidence": "low",
@@ -2840,26 +3067,26 @@
         "name": "Mira Vale",
         "title": "Chief Executive Officer",
         "tenureYears": 4,
-        "grade": "not-assessed",
+        "grade": "B",
         "credibilityGrade": "not-assessed",
-        "assessmentReason": "No attributable, validated execution or guidance-versus-actual record. A citation, rejected claim, compensation or job title alone cannot establish an assessment.",
+        "assessmentReason": "Credibility is not assessed: no attributable, validated guidance-versus-actual record. The execution grade rests on company results cited in this officer's evidence, not on a measured personal track record.",
         "reasoning": [
           {
-            "text": "A focus on supporting installed systems is sensible; execution evidence remains limited.",
+            "text": "Service investment fits the installed-base strategy; the acquisition still needs an operating result.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
           }
         ],
         "evidence": {
           "capitalAllocation": [
             {
-              "text": "The fictional plan favors service capacity over acquisitions.",
-              "label": "JUDGMENT",
-              "sourceId": "fmp:profile",
-              "source": "fmp:profile",
-              "asOf": "2026-07-02"
+              "text": "Mira Vale: operating cash flow was USD 220 million (2025-12-31).",
+              "label": "FACT",
+              "sourceId": "payload.statements.cash-flow-annual.2025-12-31.operating-cash-flow",
+              "source": "payload.statements.cash-flow-annual.2025-12-31.operating-cash-flow",
+              "asOf": "2025-12-31"
             }
           ]
         }
@@ -2868,37 +3095,47 @@
         "name": "Jonas Pell",
         "title": "Chief Financial Officer",
         "tenureYears": 2,
-        "grade": "not-assessed",
+        "grade": "B",
         "credibilityGrade": "not-assessed",
-        "assessmentReason": "No attributable, validated execution or guidance-versus-actual record. A citation, rejected claim, compensation or job title alone cannot establish an assessment.",
+        "assessmentReason": "Credibility is not assessed: no attributable, validated guidance-versus-actual record. The execution grade rests on company results cited in this officer's evidence, not on a measured personal track record.",
         "reasoning": [
           {
-            "text": "Cash discipline matters most when customers delay installation payments.",
+            "text": "Cash discipline looks constructive; undisclosed repurchase prices prevent a judgment on buyback timing.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
           }
         ],
-        "evidence": {}
+        "evidence": {
+          "capitalAllocation": [
+            {
+              "text": "Jonas Pell: operating cash flow was USD 220 million (2025-12-31).",
+              "label": "FACT",
+              "sourceId": "payload.statements.cash-flow-annual.2025-12-31.operating-cash-flow",
+              "source": "payload.statements.cash-flow-annual.2025-12-31.operating-cash-flow",
+              "asOf": "2025-12-31"
+            }
+          ]
+        }
       }
     ],
     "insiderSummary": [
       {
-        "text": "No insider transactions are supplied; absence of records does not establish absence of activity.",
+        "text": "No insider transaction records are supplied; this does not establish that no transactions occurred.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-Q item2",
+        "source": "edgar:10-Q item2",
+        "asOf": "2026-03-31"
       }
     ],
     "governanceNotes": [
       {
-        "text": "The invented strategy note does not establish board independence or compensation alignment.",
+        "text": "The succession step is constructive, but board independence and compensation alignment remain unestablished.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-Q item2",
+        "source": "edgar:10-Q item2",
+        "asOf": "2026-03-31"
       }
     ],
     "managementActions": [
@@ -2908,23 +3145,119 @@
         "actor": "board",
         "action": [
           {
-            "text": "In this invented June strategy note, the board prioritized service capacity over acquisitions.",
+            "text": "The board approved a staged service-capacity expansion on 2026-06-15.",
             "label": "FACT",
-            "sourceId": "synthetic:strategy-note",
-            "source": "synthetic:strategy-note",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
           }
         ],
         "assessment": [
           {
-            "text": "The plan appears consistent with protecting liquidity, but future delivery remains uncertain.",
+            "text": "Staging capacity limits the risk that staffing costs precede renewals.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
           }
         ],
         "shareholderAlignment": "aligned"
+      },
+      {
+        "occurredOn": "2026-05-12",
+        "category": "leadership-change",
+        "actor": "board",
+        "action": [
+          {
+            "text": "The board appointed Tessa Rowan as chief operating officer with emergency CEO succession responsibility on 2026-05-12; Mira Vale remained CEO.",
+            "label": "FACT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ],
+        "assessment": [
+          {
+            "text": "Internal succession reduces disruption risk, while concentrating execution responsibility in the existing team.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ],
+        "shareholderAlignment": "aligned"
+      },
+      {
+        "occurredOn": "2026-02-19",
+        "category": "guidance",
+        "actor": "company",
+        "action": [
+          {
+            "text": "Mira Vale and Jonas Pell reported FY2025 revenue of USD 1000 million within their guidance range of USD 980 million to USD 1020 million issued on 2025-02-14.",
+            "label": "FACT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ],
+        "assessment": [
+          {
+            "text": "Meeting the range is encouraging, but a single annual comparison cannot establish a repeatable guidance record.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ],
+        "shareholderAlignment": "aligned"
+      },
+      {
+        "occurredOn": "2026-01-20",
+        "category": "acquisition-divestiture",
+        "actor": "company",
+        "action": [
+          {
+            "text": "The company acquired Willow Relay Services dispatch assets for USD 8 million on 2026-01-20, included in quarterly capital expenditure.",
+            "label": "FACT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ],
+        "assessment": [
+          {
+            "text": "A focused asset purchase fits the service strategy; integration costs and retention will determine the return.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ],
+        "shareholderAlignment": "mixed"
+      },
+      {
+        "occurredOn": "2025-11-18",
+        "category": "capital-allocation",
+        "actor": "board",
+        "action": [
+          {
+            "text": "The board reviewed USD 20 million of FY2025 share repurchases; the program completed by year end.",
+            "label": "FACT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ],
+        "assessment": [
+          {
+            "text": "Repurchases returned capital, but undisclosed prices prevent assessing timing or value creation.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ],
+        "shareholderAlignment": "unclear"
       }
     ]
   },
@@ -2943,11 +3276,11 @@
       "oneLineWhy": "Profitability supports the score; switching costs remain a qualitative judgment.",
       "reasoning": [
         {
-          "text": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+          "text": "Service switching costs look narrow despite strong measured profitability; regional support coverage and hardware price competition constrain the advantage.",
           "label": "JUDGMENT",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         }
       ],
       "confidence": "medium",
@@ -2984,18 +3317,32 @@
     "peerTable": [],
     "competitors": [
       {
-        "text": "In this fictional market, Lantern Quay Automation competes on installation price and Bramble Circuit Works competes on support coverage.",
-        "label": "FACT",
-        "sourceId": "synthetic:market-note",
-        "source": "synthetic:market-note",
-        "asOf": "2026-07-02"
+        "text": "Against Lantern Quay Automation, Thesis wins on local service continuity and loses on installation price.",
+        "label": "JUDGMENT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       },
       {
-        "text": "Thesis Example Systems appears better placed in support continuity than in winning the cheapest installation bid.",
+        "text": "Against Bramble Circuit Works, Thesis wins on custom deployment speed and loses on support-network breadth.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "Against Aster Dock Software, Thesis wins where integrated controllers are necessary and loses on cost where software alone is sufficient.",
+        "label": "JUDGMENT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "Against Kestrel Bay Robotics, Thesis suits regional-site integration budgets but loses complex mega-site automation work.",
+        "label": "JUDGMENT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       }
     ],
     "moatAssessment": [
@@ -3006,29 +3353,74 @@
           {
             "text": "Replacement requires retraining and downtime, but does not prevent customers from switching.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
           }
         ]
       }
     ],
-    "marketShareDirection": "Share direction is unmeasured; growth alone does not establish share gains."
+    "marketShareDirection": "Unmeasured: company growth and a fictional served-market assumption do not establish share gains."
   },
   "catalystsRisks": {
     "catalysts": [
       {
-        "title": "Support capacity expansion",
-        "expectedDate": "2027",
+        "title": "Service readiness review",
+        "expectedDate": "2026-09-15",
         "direction": "mixed",
         "significance": "medium",
         "reasoning": [
           {
-            "text": "More service capacity could improve renewals, while additional staff costs could arrive before revenue.",
-            "label": "ESTIMATE",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "text": "Readiness evidence could support renewals; premature hiring would pressure operating margin.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ]
+      },
+      {
+        "title": "Renewal cohort review",
+        "expectedDate": "2026-10-20",
+        "direction": "mixed",
+        "significance": "medium",
+        "reasoning": [
+          {
+            "text": "Retention without discounts would support recurring revenue quality; concessions would weaken the pricing thesis.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ]
+      },
+      {
+        "title": "Controller acceptance pilot",
+        "expectedDate": "2026-12-10",
+        "direction": "mixed",
+        "significance": "medium",
+        "reasoning": [
+          {
+            "text": "Customer acceptance could release installation revenue and cash; slippage would defer both.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
+          }
+        ]
+      },
+      {
+        "title": "Willow Relay integration review",
+        "expectedDate": "2027-01-20",
+        "direction": "mixed",
+        "significance": "medium",
+        "reasoning": [
+          {
+            "text": "Better dispatch productivity could contain service costs; integration delays would reduce returns on the asset purchase.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-Q item2",
+            "source": "edgar:10-Q item2",
+            "asOf": "2026-03-31"
           }
         ]
       }
@@ -3038,14 +3430,74 @@
         "title": "Customer investment delays",
         "severity": "high",
         "probability": "unknown",
-        "source": "fmp:profile",
+        "source": "edgar:10-K item1",
         "reasoning": [
           {
-            "text": "Delayed warehouse projects could reduce installations and weaken cash conversion.",
+            "text": "Deferred warehouse projects would reduce installation revenue and cash collection. Watch acceptance dates and receivables.",
             "label": "JUDGMENT",
-            "sourceId": "fmp:profile",
-            "source": "fmp:profile",
-            "asOf": "2026-07-02"
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "title": "Renewal price concessions",
+        "severity": "high",
+        "probability": "unknown",
+        "source": "edgar:10-K item1",
+        "reasoning": [
+          {
+            "text": "Discounting to retain accounts would weaken support revenue and operating margin. Watch renewal prices alongside retention.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "title": "Service expansion execution",
+        "severity": "high",
+        "probability": "unknown",
+        "source": "edgar:10-K item1",
+        "reasoning": [
+          {
+            "text": "Staffing ahead of renewals would raise operating expenses and lower free cash flow. Watch technician utilization and response times.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "title": "Customer concentration",
+        "severity": "high",
+        "probability": "unknown",
+        "source": "edgar:10-K item1",
+        "reasoning": [
+          {
+            "text": "Losing a major account would reduce equipment and support revenue together. Watch contract renewals and the largest customer's spending.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "title": "Cash quality and reinvestment",
+        "severity": "high",
+        "probability": "unknown",
+        "source": "edgar:10-K item1",
+        "reasoning": [
+          {
+            "text": "Working-capital absorption or underfunded maintenance would weaken distributable cash. Watch operating cash flow, capital expenditure and service failures together.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
           }
         ]
       }
@@ -3056,27 +3508,27 @@
       {
         "text": "Support should be steadier than installation demand, subject to renewals and service quality.",
         "label": "ESTIMATE",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       }
     ],
     "estimateRevisionTrend": [
       {
         "text": "Only a single invented estimate snapshot is supplied; a revision trend cannot be inferred.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       }
     ],
     "guidanceCredibility": [
       {
-        "text": "There is no multi-period guidance scorecard, so management credibility remains unassessed.",
+        "text": "The annual revenue comparison met the issued range. A single observation is insufficient for a personal credibility grade.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-Q item2",
+        "source": "edgar:10-Q item2",
+        "asOf": "2026-03-31"
       }
     ],
     "scenarioNarratives": {
@@ -3084,27 +3536,27 @@
         {
           "text": "Customer payment timing is the near-term test of earnings quality.",
           "label": "ESTIMATE",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         }
       ],
       "y3": [
         {
           "text": "Support relationships could deepen if service reliability holds.",
           "label": "ESTIMATE",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         }
       ],
       "y5": [
         {
           "text": "Longer-term returns depend on resisting price competition and funding maintenance.",
           "label": "ESTIMATE",
-          "sourceId": "fmp:profile",
-          "source": "fmp:profile",
-          "asOf": "2026-07-02"
+          "sourceId": "edgar:10-K item1",
+          "source": "edgar:10-K item1",
+          "asOf": "2025-12-31"
         }
       ]
     }
@@ -3115,9 +3567,9 @@
       {
         "text": "Higher financing costs for customers could delay warehouse investments; no real macroeconomic observations are used.",
         "label": "JUDGMENT",
-        "sourceId": "fmp:profile",
-        "source": "fmp:profile",
-        "asOf": "2026-07-02"
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
       }
     ],
     "fredAttribution": "This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis."
@@ -3152,14 +3604,6 @@
         "field": "validation.xbrlCrossCheck",
         "reason": "FMP↔XBRL cross-check skipped — companyfacts unavailable (companyfacts absent)",
         "severity": "warn"
-      },
-      {
-        "field": "verify.check.namedIndividual",
-        "reason": "3 of 3 checked claim(s) about a named individual, or in the executive-credibility section, resting on a source that is neither a filing, a transcript, a registry figure nor a payload executive, compensation or insider row that lists that person and title. Each one is listed in the verification log with the sentence, the cited figure and the reason.",
-        "severity": "warn",
-        "attemptedSources": [
-          "deterministic-verify"
-        ]
       },
       {
         "field": "capital.dilution",
@@ -3257,31 +3701,31 @@
         "severity": "info"
       }
     ],
-    "verificationRate": 0.28125,
+    "verificationRate": 0.3539518900343643,
     "provenanceCoverage": {
       "numeric": {
-        "supported": 81,
-        "total": 288,
-        "rate": 0.28125
+        "supported": 103,
+        "total": 291,
+        "rate": 0.3539518900343643
       },
       "factualClaims": {
-        "supported": 0,
-        "total": 8,
-        "rate": 0
+        "supported": 33,
+        "total": 33,
+        "rate": 1
       },
       "judgments": {
-        "cited": 2,
-        "total": 38,
-        "rate": 0.05263157894736842
+        "cited": 56,
+        "total": 56,
+        "rate": 1
       },
       "factualValidation": {
-        "cited": 0,
-        "validated": 0,
-        "unchecked": 8,
+        "cited": 33,
+        "validated": 16,
+        "unchecked": 17,
         "contradicted": 0,
-        "qualitative": 0,
-        "total": 8,
-        "rate": 0
+        "qualitative": 8,
+        "total": 33,
+        "rate": 0.48484848484848486
       }
     },
     "consistencyChecks": {
@@ -3292,22 +3736,22 @@
         "rate": null
       },
       "period": {
-        "checked": 0,
-        "passed": 0,
+        "checked": 12,
+        "passed": 12,
         "failed": 0,
-        "rate": null
+        "rate": 1
       },
       "unit": {
-        "checked": 0,
-        "passed": 0,
+        "checked": 16,
+        "passed": 16,
         "failed": 0,
-        "rate": null
+        "rate": 1
       },
       "namedIndividual": {
-        "checked": 3,
-        "passed": 0,
-        "failed": 3,
-        "rate": 0
+        "checked": 7,
+        "passed": 7,
+        "failed": 0,
+        "rate": 1
       }
     },
     "verificationLog": [
@@ -3620,6 +4064,39 @@
         "traceKind": "computed-derived"
       },
       {
+        "claim": "650000000 currency [edgar:10-K item1 · 2025-12-31]",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "note": "[unverified] text-source: value not printed in the cited excerpt",
+        "path": "business.segments.product[0].revenue",
+        "evidenceKind": "number",
+        "source": "edgar:10-K item1",
+        "reason": "text-source",
+        "traceKind": "untraced"
+      },
+      {
+        "claim": "350000000 currency [edgar:10-K item1 · 2025-12-31]",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "note": "[unverified] text-source: value not printed in the cited excerpt",
+        "path": "business.segments.product[1].revenue",
+        "evidenceKind": "number",
+        "source": "edgar:10-K item1",
+        "reason": "text-source",
+        "traceKind": "untraced"
+      },
+      {
+        "claim": "1000000000 currency [edgar:10-K item1 · 2025-12-31]",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "note": "[unverified] text-source: value not printed in the cited excerpt",
+        "path": "business.segments.geographic[0].revenue",
+        "evidenceKind": "number",
+        "source": "edgar:10-K item1",
+        "reason": "text-source",
+        "traceKind": "untraced"
+      },
+      {
         "claim": "12.624788044360603 % [computed.scores.fundamentals.revenueCagr · 2025-12-31]",
         "outcome": "verified",
         "validationStatus": "validated",
@@ -3664,81 +4141,81 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "11.111111 % [computed.growth.revenueCagrs · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "11.111111 % [computed.growth-margins.revenue-cagr-1y · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched (column \"1y CAGR\" not period-checked)",
         "path": "fundamentals.growthTable[0].values[0].value",
         "evidenceKind": "number",
-        "source": "computed.growth.revenueCagrs",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.growth-margins.revenue-cagr-1y",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "12.624788 % [computed.growth.revenueCagrs · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "12.624788 % [computed.growth-margins.revenue-cagr-3y · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched (column \"3y CAGR\" not period-checked)",
         "path": "fundamentals.growthTable[0].values[1].value",
         "evidenceKind": "number",
-        "source": "computed.growth.revenueCagrs",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.growth-margins.revenue-cagr-3y",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "12.624788 % [computed.growth.revenueCagrs · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "12.624788 % [computed.growth-margins.revenue-cagr-3y · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched (column \"3y CAGR (available history)\" not period-checked)",
         "path": "fundamentals.growthTable[0].values[2].value",
         "evidenceKind": "number",
-        "source": "computed.growth.revenueCagrs",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.growth-margins.revenue-cagr-3y",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "7.142857 % [computed.growth.epsDilutedCagrs · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "7.142857 % [computed.growth-margins.diluted-eps-cagr-1y · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched (column \"1y CAGR\" not period-checked)",
         "path": "fundamentals.growthTable[1].values[0].value",
         "evidenceKind": "number",
-        "source": "computed.growth.epsDilutedCagrs",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.growth-margins.diluted-eps-cagr-1y",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "12.269502 % [computed.growth.epsDilutedCagrs · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "12.269502 % [computed.growth-margins.diluted-eps-cagr-3y · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched (column \"3y CAGR\" not period-checked)",
         "path": "fundamentals.growthTable[1].values[1].value",
         "evidenceKind": "number",
-        "source": "computed.growth.epsDilutedCagrs",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.growth-margins.diluted-eps-cagr-3y",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "12.269502 % [computed.growth.epsDilutedCagrs · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "12.269502 % [computed.growth-margins.diluted-eps-cagr-3y · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched (column \"3y CAGR (available history)\" not period-checked)",
         "path": "fundamentals.growthTable[1].values[2].value",
         "evidenceKind": "number",
-        "source": "computed.growth.epsDilutedCagrs",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.growth-margins.diluted-eps-cagr-3y",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "7.784431 % [computed.growth.fcfCagrs · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "7.784431 % [computed.growth-margins.fcf-cagr-1y-before-sbc · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched (column \"1y CAGR\" not period-checked)",
         "path": "fundamentals.growthTable[2].values[0].value",
         "evidenceKind": "number",
-        "source": "computed.growth.fcfCagrs",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.growth-margins.fcf-cagr-1y-before-sbc",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "7.763181 % [computed.growth.fcfCagrs · 2025-12-31]",
@@ -3807,15 +4284,15 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "40 % [computed.growth.margins.gross · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "40 % [computed.growth-margins.gross-margin-latest · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "fundamentals.marginTrend[0].values[3].value",
         "evidenceKind": "number",
-        "source": "computed.growth.margins.gross",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.growth-margins.gross-margin-latest",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "20 % [computed.growth.margins.operating · 2022-12-31]",
@@ -3851,15 +4328,15 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "20 % [computed.growth.margins.operating · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "20 % [computed.growth-margins.operating-margin-latest · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "fundamentals.marginTrend[1].values[3].value",
         "evidenceKind": "number",
-        "source": "computed.growth.margins.operating",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.growth-margins.operating-margin-latest",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "15.714286 % [computed.growth.margins.net · 2022-12-31]",
@@ -3895,15 +4372,15 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "15 % [computed.growth.margins.net · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "15 % [computed.growth-margins.net-margin-latest · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "fundamentals.marginTrend[2].values[3].value",
         "evidenceKind": "number",
-        "source": "computed.growth.margins.net",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.growth-margins.net-margin-latest",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "0 pp/yr [computed.growth.margins.gross · 2025-12-31]",
@@ -3950,15 +4427,15 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "41.82642 % [computed.returns.roic · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "41.82642 % [computed.returns.roic-latest · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "fundamentals.returns[0].values[1].value",
         "evidenceKind": "number",
-        "source": "computed.returns.roic",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.returns.roic-latest",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "35 % [computed.returns.rote · 2024-12-31]",
@@ -3994,15 +4471,15 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "31.578947 % [computed.returns.dupont · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "31.578947 % [computed.returns.roe-latest-dupont · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "fundamentals.returns[2].values[1].value",
         "evidenceKind": "number",
-        "source": "computed.returns.dupont",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.returns.roe-latest-dupont",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "8.18 % [computed.returns.wacc · 2025-12-31]",
@@ -4060,15 +4537,15 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "170000000 currency [computed.capital.fcf · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "170000000 currency [computed.capital-cash.latest-fcf-after-sbc-house-default · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "fundamentals.fcf[0].values[2].value",
         "evidenceKind": "number",
-        "source": "computed.capital.fcf",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "155000000 currency [computed.capital.fcf.beforeSbc · 2023-12-31]",
@@ -4093,15 +4570,15 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "180000000 currency [computed.capital.fcf.beforeSbc · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "180000000 currency [computed.capital-cash.latest-fcf-before-sbc-vendor-convention · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "fundamentals.fcf[1].values[2].value",
         "evidenceKind": "number",
-        "source": "computed.capital.fcf.beforeSbc",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.capital-cash.latest-fcf-before-sbc-vendor-convention",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "1.130769 x [computed.capital.fcf.conversion · 2023-12-31]",
@@ -4126,15 +4603,15 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "1.133333 x [computed.capital.fcf.conversion · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "1.133333 x [computed.capital-cash.fcf-conversion-latest-after-sbc · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "fundamentals.fcf[2].values[2].value",
         "evidenceKind": "number",
-        "source": "computed.capital.fcf.conversion",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.capital-cash.fcf-conversion-latest-after-sbc",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "1.192308 x [computed.capital.fcf.conversionBeforeSbc · 2023-12-31]",
@@ -4159,15 +4636,15 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "1.2 x [computed.capital.fcf.conversionBeforeSbc · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "1.2 x [computed.capital-cash.fcf-conversion-latest-fiscal-year-before-sbc · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "fundamentals.fcf[3].values[2].value",
         "evidenceKind": "number",
-        "source": "computed.capital.fcf.conversionBeforeSbc",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.capital-cash.fcf-conversion-latest-fiscal-year-before-sbc",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "4.375 % [computed.capital.capexIntensity · 2023-12-31]",
@@ -4192,15 +4669,15 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "4 % [computed.capital.capexIntensity · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "4 % [computed.capital-cash.capex-revenue-latest · 2025-12-31]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "fundamentals.fcf[4].values[2].value",
         "evidenceKind": "number",
-        "source": "computed.capital.capexIntensity",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.capital-cash.capex-revenue-latest",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "-0.41379310344827586 x [computed.scores.balanceSheet.netDebtToEbitda · 2026-03-31]",
@@ -4643,59 +5120,59 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "32 currency/share [computed.technicals · 2026-07-02]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "32 currency/share [computed.technicals.last-close · 2026-07-02]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "technicals.indicators[0]",
         "evidenceKind": "number",
-        "source": "computed.technicals",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.technicals.last-close",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "31.4576 currency/share [computed.technicals.smaCross · 2026-07-02]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "31.4576 currency/share [computed.technicals.sma50 · 2026-07-02]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "technicals.indicators[1]",
         "evidenceKind": "number",
-        "source": "computed.technicals.smaCross",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.technicals.sma50",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "29.7776 currency/share [computed.technicals.smaCross · 2026-07-02]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "29.7776 currency/share [computed.technicals.sma200 · 2026-07-02]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "technicals.indicators[2]",
         "evidenceKind": "number",
-        "source": "computed.technicals.smaCross",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.technicals.sma200",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "100 index [computed.technicals.rsi14 · 2026-07-02]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "100 index [computed.technicals.rsi-14 · 2026-07-02]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "technicals.indicators[3]",
         "evidenceKind": "number",
-        "source": "computed.technicals.rsi14",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.technicals.rsi-14",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "-0.000214 currency/share [computed.technicals.macd · 2026-07-02]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] unknown-source",
+        "claim": "-0.000214 currency/share [computed.technicals.macd-histogram · 2026-07-02]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched",
         "path": "technicals.indicators[4]",
         "evidenceKind": "number",
-        "source": "computed.technicals.macd",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "computed.technicals.macd-histogram",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "0.06847 % [computed.technicals.atr14 · 2026-07-02]",
@@ -6480,225 +6957,516 @@
         "traceKind": "untraced"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "Revenue CAGR over one year was 11.11%.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
         "path": "verdict.gradeStrip.fundamentals.reasoning[0]",
-        "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "factual-claim",
+        "source": "computed.growth-margins.revenue-cagr-1y",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "FY2025 operating margin was 20.00%.",
+        "outcome": "unverified",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
+        "path": "verdict.gradeStrip.fundamentals.reasoning[1]",
+        "evidenceKind": "factual-claim",
+        "source": "computed.growth-margins.operating-margin-latest",
+        "reason": "supported",
+        "traceKind": "computed-derived"
+      },
+      {
+        "claim": "FY2025 FCF after SBC was USD 170.00 million.",
         "outcome": "unverified",
         "validationStatus": "unchecked",
         "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "claimSupportStatus": "cited",
+        "note": "prose does not identify the metric of the cited numeric record",
+        "path": "verdict.gradeStrip.fundamentals.reasoning[2]",
+        "evidenceKind": "factual-claim",
+        "source": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+        "reason": "text-context-mismatch",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Sales growth is outpacing cash growth. Sustaining margins requires renewals without heavy concessions and collections that keep pace with installation acceptance.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "verdict.gradeStrip.fundamentals.reasoning[3]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "The positive base valuation depends on the revenue anchor and steady margins; wider operating sensitivities show why the narrow scenario fan is not a downside floor.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "verdict.gradeStrip.valuation.reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "RSI-14 was 100.00.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
         "path": "verdict.gradeStrip.technicals.reasoning[0]",
-        "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "factual-claim",
+        "source": "computed.technicals.rsi-14",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "A smooth rising synthetic series limits what momentum can tell us about risk.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "verdict.gradeStrip.technicals.reasoning[1]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "FY2025 FCF conversion after SBC was 1.13x.",
+        "outcome": "unverified",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
         "path": "verdict.gradeStrip.quality.reasoning[0]",
-        "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "factual-claim",
+        "source": "computed.capital-cash.fcf-conversion-latest-after-sbc",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "Cash conversion supports earnings quality, but unavailable forensic inputs are a reason to reserve judgment.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "verdict.gradeStrip.quality.reasoning[1]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Operating cash generation supports an execution assessment; the asset purchase and succession plan still need follow-through.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "verdict.gradeStrip.leadership.reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "Service switching costs look narrow despite strong measured profitability; regional support coverage and hardware price competition constrain the advantage.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "verdict.gradeStrip.moat.reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "Net cash supports flexibility, but undisclosed lease components and maintenance needs limit how much liquidity is truly distributable.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "verdict.gradeStrip.balanceSheet.reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "The attractive feature is the support relationship after installation; the weak point is dependence on warehouse investment cycles.",
+        "claim": "The thesis rests on service continuity: recurring support can cushion installation delays, provided renewals do not require price concessions.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "verdict.executiveSummary[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "The model's fair value and scenario range are sensitivities to operating assumptions, not forecasts of a future share price.",
+        "claim": "A reader focused only on equipment orders could miss the installed base's support economics; this is a thesis about resilience, not evidence of market mispricing.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "verdict.executiveSummary[1]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Fictional workflow hardware and support subscriptions for regional warehouses.",
+        "claim": "Cash generation supports reinvestment, but slowing cash growth relative to sales warrants watching collections and service staffing costs.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "verdict.executiveSummary[2]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "The valuation offers a modest cushion under the model assumptions; the narrow sensitivity range does not represent the full economic downside.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "verdict.executiveSummary[3]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "The Willow Relay asset purchase and internal succession step address service capacity. Integration failures, lost renewals or weaker cash conversion would change the favorable operating view.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "verdict.executiveSummary[4]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "DCF per share is USD 35.47 under the modeled assumptions; this is a sensitivity result, not a future-price forecast.",
         "outcome": "unverified",
         "validationStatus": "unchecked",
         "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "claimSupportStatus": "cited",
+        "note": "prose does not identify the metric of the cited numeric record",
+        "path": "verdict.executiveSummary[5]",
+        "evidenceKind": "factual-claim",
+        "source": "computed.valuation.dcf-per-share",
+        "reason": "text-context-mismatch",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Controllers, installation and annual support subscriptions serve regional warehouse operators. Equipment revenue is recognized on acceptance; support is recognized over the service term.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "business.whatTheySell[0]",
         "evidenceKind": "factual-claim",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Installation work is fragmented. Support contracts are stickier because replacing a system interrupts warehouse operations.",
+        "claim": "Hardware and installation contributed USD 650 million of FY2025 revenue.",
+        "outcome": "unverified",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "sourceSpans": [
+          {
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31",
+            "start": 619,
+            "end": 691,
+            "text": "Hardware and installation contributed USD 650 million of FY2025 revenue."
+          }
+        ],
+        "note": "every prose quantity matched its source metric, unit and stated period; qualitative assertions remain unchecked",
+        "path": "business.whatTheySell[1]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "excerpt-match"
+      },
+      {
+        "claim": "Support contributed USD 350 million of FY2025 revenue.",
+        "outcome": "unverified",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "sourceSpans": [
+          {
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31",
+            "start": 692,
+            "end": 746,
+            "text": "Support contributed USD 350 million of FY2025 revenue."
+          }
+        ],
+        "note": "every prose quantity matched its source metric, unit and stated period; qualitative assertions remain unchecked",
+        "path": "business.whatTheySell[2]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "excerpt-match"
+      },
+      {
+        "claim": "All sales were domestic; customers include independent distributors and regional logistics operators.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.whatTheySell[3]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "The invented management planning study defines a USD 8 billion annual served market for regional warehouse equipment and support. This is a fictional planning assumption, not an independent market estimate.",
         "outcome": "unverified",
         "validationStatus": "unchecked",
         "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "claimSupportStatus": "cited",
+        "note": "no source quantity establishes the metric and period",
         "path": "business.marketStructure[0]",
-        "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "text-context-mismatch",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "No independently measured market size or market share is supplied in this invented case.",
+        "claim": "Value accrues to reliable service and integration expertise; hardware tenders remain price competitive.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "business.marketStructure[1]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "A slowdown in warehouse expansion could delay installations even if existing customers renew support.",
+        "claim": "Renewal pricing power appears narrow: switching disrupts operations, but cheaper installation bids and software substitutes constrain lifetime economics.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.marketStructure[2]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Warehouse capacity spending drives equipment demand; the installed base supports service demand through the cycle. No measured market-share trend is supplied.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.marketStructure[3]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "The largest customer contributed USD 120 million of FY2025 revenue.",
         "outcome": "unverified",
         "validationStatus": "unchecked",
         "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "claimSupportStatus": "cited",
+        "note": "no source quantity establishes the metric and period",
         "path": "business.concentrationRisks[0]",
-        "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "text-context-mismatch",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "Domestic exposure and regional customers concentrate the business in the same warehouse investment cycle; renewal resilience should be tested when capacity budgets tighten.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.concentrationRisks[1]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Revenue CAGR over one year was 11.11%.",
+        "outcome": "unverified",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
         "path": "fundamentals.graded.reasoning[0]",
-        "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "factual-claim",
+        "source": "computed.growth-margins.revenue-cagr-1y",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "Revenue growth is useful only if it converts into cash. Watch working capital as installation volumes rise.",
+        "claim": "FY2025 operating margin was 20.00%.",
+        "outcome": "unverified",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
+        "path": "fundamentals.graded.reasoning[1]",
+        "evidenceKind": "factual-claim",
+        "source": "computed.growth-margins.operating-margin-latest",
+        "reason": "supported",
+        "traceKind": "computed-derived"
+      },
+      {
+        "claim": "FY2025 FCF after SBC was USD 170.00 million.",
         "outcome": "unverified",
         "validationStatus": "unchecked",
         "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "claimSupportStatus": "cited",
+        "note": "prose does not identify the metric of the cited numeric record",
+        "path": "fundamentals.graded.reasoning[2]",
+        "evidenceKind": "factual-claim",
+        "source": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+        "reason": "text-context-mismatch",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Sales growth is outpacing cash growth. Sustaining margins requires renewals without heavy concessions and collections that keep pace with installation acceptance.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "fundamentals.graded.reasoning[3]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Revenue CAGR over one year was 11.11%.",
+        "outcome": "unverified",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
         "path": "fundamentals.commentary[0]",
-        "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "factual-claim",
+        "source": "computed.growth-margins.revenue-cagr-1y",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "FY2025 operating margin was 20.00%.",
+        "outcome": "unverified",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
+        "path": "fundamentals.commentary[1]",
+        "evidenceKind": "factual-claim",
+        "source": "computed.growth-margins.operating-margin-latest",
+        "reason": "supported",
+        "traceKind": "computed-derived"
+      },
+      {
+        "claim": "FY2025 FCF after SBC was USD 170.00 million.",
         "outcome": "unverified",
         "validationStatus": "unchecked",
         "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "claimSupportStatus": "cited",
+        "note": "prose does not identify the metric of the cited numeric record",
+        "path": "fundamentals.commentary[2]",
+        "evidenceKind": "factual-claim",
+        "source": "computed.capital-cash.latest-fcf-after-sbc-house-default",
+        "reason": "text-context-mismatch",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Sales growth is outpacing cash growth. Sustaining margins requires renewals without heavy concessions and collections that keep pace with installation acceptance.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "fundamentals.commentary[3]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Net cash supports flexibility, but undisclosed lease components and maintenance needs limit how much liquidity is truly distributable.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "balanceSheet.graded.reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
         "claim": "The invented balance sheet has no funded debt. Operating liabilities still require cash and should not be treated as free financing.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "balanceSheet.debtProfile.commentary[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
         "claim": "The debt bridge shows debt on the retained basis and the selected operating-lease basis, and offsets cash plus short-term investments. Vendor cash-only net debt is a separate convention. Undisclosed lease components are unavailable, not assumed zero. 2026-03-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified.",
@@ -6714,17 +7482,30 @@
         "traceKind": "source-cited"
       },
       {
+        "claim": "Net debt on the retained basis was USD -120.00 million at 2026-03-31.",
+        "outcome": "unverified",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
+        "path": "balanceSheet.coverage.commentary[0]",
+        "evidenceKind": "factual-claim",
+        "source": "computed.current-capital.net-debt-including-leases",
+        "reason": "supported",
+        "traceKind": "computed-derived"
+      },
+      {
         "claim": "Liquidity provides a cushion for uneven customer payments; there is no interest burden in this case.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
-        "path": "balanceSheet.coverage.commentary[0]",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "balanceSheet.coverage.commentary[1]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
         "claim": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
@@ -6733,7 +7514,7 @@
         "numericSupportStatus": "cited",
         "claimSupportStatus": "cited",
         "note": "citation observed; factual content not machine-validated",
-        "path": "balanceSheet.coverage.commentary[1]",
+        "path": "balanceSheet.coverage.commentary[2]",
         "evidenceKind": "judgment",
         "source": "computed.capital.current",
         "reason": "supported",
@@ -6742,373 +7523,615 @@
       {
         "claim": "Maintenance and installation capacity require continuing capital spending.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "balanceSheet.capexTrajectory.commentary[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Preserving liquidity takes priority over an acquisition-led expansion in this scenario.",
+        "claim": "FY2025 capex as a share of revenue was 4.00%.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
+        "path": "balanceSheet.capexTrajectory.commentary[1]",
+        "evidenceKind": "factual-claim",
+        "source": "computed.capital-cash.capex-revenue-latest",
+        "reason": "supported",
+        "traceKind": "computed-derived"
+      },
+      {
+        "claim": "Service investment and selective asset purchases fit the strategy, provided capital returns do not erode the liquidity cushion.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "balanceSheet.capitalAllocation[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "The positive base valuation depends on the revenue anchor and steady margins; wider operating sensitivities show why the narrow scenario fan is not a downside floor.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "valuation.graded.reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "FY2025 FCF conversion after SBC was 1.13x.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
         "path": "quality.graded.reasoning[0]",
-        "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "factual-claim",
+        "source": "computed.capital-cash.fcf-conversion-latest-after-sbc",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "Cash conversion supports earnings quality, but unavailable forensic inputs are a reason to reserve judgment.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "quality.graded.reasoning[1]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "RSI-14 was 100.00.",
+        "outcome": "unverified",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
         "path": "technicals.graded.reasoning[0]",
-        "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "factual-claim",
+        "source": "computed.technicals.rsi-14",
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "A smooth rising synthetic series limits what momentum can tell us about risk.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "technicals.graded.reasoning[1]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Operating cash generation supports an execution assessment; the asset purchase and succession plan still need follow-through.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "leadership.graded.reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "A focus on supporting installed systems is sensible; execution evidence remains limited.",
+        "claim": "Service investment fits the installed-base strategy; the acquisition still needs an operating result.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] rejected by the named-individual restriction; see the check entry for this path",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "leadership.executives[0].reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "credibility-source-restricted",
-        "traceKind": "untraced"
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "The fictional plan favors service capacity over acquisitions.",
+        "claim": "Mira Vale: operating cash flow was USD 220 million (2025-12-31).",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "executiveEvidenceKind": "execution",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
         "path": "leadership.executives[0].evidence.capitalAllocation[0]",
-        "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "factual-claim",
+        "source": "payload.statements.cash-flow-annual.2025-12-31.operating-cash-flow",
+        "reason": "supported",
+        "traceKind": "payload-match"
       },
       {
-        "claim": "Cash discipline matters most when customers delay installation payments.",
+        "claim": "Cash discipline looks constructive; undisclosed repurchase prices prevent a judgment on buyback timing.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] rejected by the named-individual restriction; see the check entry for this path",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "leadership.executives[1].reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "credibility-source-restricted",
-        "traceKind": "untraced"
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "No insider transactions are supplied; absence of records does not establish absence of activity.",
+        "claim": "Jonas Pell: operating cash flow was USD 220 million (2025-12-31).",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "validated",
+        "numericSupportStatus": "validated",
+        "claimSupportStatus": "numeric-only",
+        "executiveEvidenceKind": "execution",
+        "note": "every prose quantity matched its typed cited record; qualitative assertions remain unchecked",
+        "path": "leadership.executives[1].evidence.capitalAllocation[0]",
+        "evidenceKind": "factual-claim",
+        "source": "payload.statements.cash-flow-annual.2025-12-31.operating-cash-flow",
+        "reason": "supported",
+        "traceKind": "payload-match"
+      },
+      {
+        "claim": "No insider transaction records are supplied; this does not establish that no transactions occurred.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "leadership.insiderSummary[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "The invented strategy note does not establish board independence or compensation alignment.",
+        "claim": "The succession step is constructive, but board independence and compensation alignment remain unestablished.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "leadership.governanceNotes[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "In this invented June strategy note, the board prioritized service capacity over acquisitions.",
+        "claim": "The board approved a staged service-capacity expansion on 2026-06-15.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "leadership.managementActions[0].action[0]",
         "evidenceKind": "factual-claim",
-        "source": "synthetic:strategy-note",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "The plan appears consistent with protecting liquidity, but future delivery remains uncertain.",
+        "claim": "Staging capacity limits the risk that staffing costs precede renewals.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "leadership.managementActions[0].assessment[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Support relationships offer some resilience, but new installations still depend on customer budgets.",
+        "claim": "The board appointed Tessa Rowan as chief operating officer with emergency CEO succession responsibility on 2026-05-12; Mira Vale remained CEO.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "leadership.managementActions[1].action[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Internal succession reduces disruption risk, while concentrating execution responsibility in the existing team.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "leadership.managementActions[1].assessment[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Mira Vale and Jonas Pell reported FY2025 revenue of USD 1000 million within their guidance range of USD 980 million to USD 1020 million issued on 2025-02-14.",
         "outcome": "unverified",
         "validationStatus": "unchecked",
         "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "claimSupportStatus": "cited",
+        "note": "multiple unbound quantities or a missing unit in the prose clause",
+        "path": "leadership.managementActions[2].action[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-Q item2",
+        "reason": "text-ambiguous",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Meeting the range is encouraging, but a single annual comparison cannot establish a repeatable guidance record.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "leadership.managementActions[2].assessment[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "The company acquired Willow Relay Services dispatch assets for USD 8 million on 2026-01-20, included in quarterly capital expenditure.",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "numericSupportStatus": "unchecked",
+        "claimSupportStatus": "cited",
+        "note": "no source quantity establishes the metric and period",
+        "path": "leadership.managementActions[3].action[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-Q item2",
+        "reason": "text-context-mismatch",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "A focused asset purchase fits the service strategy; integration costs and retention will determine the return.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "leadership.managementActions[3].assessment[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "The board reviewed USD 20 million of FY2025 share repurchases; the program completed by year end.",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "numericSupportStatus": "unchecked",
+        "claimSupportStatus": "cited",
+        "note": "no source quantity establishes the metric and period",
+        "path": "leadership.managementActions[4].action[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-Q item2",
+        "reason": "text-context-mismatch",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Repurchases returned capital, but undisclosed prices prevent assessing timing or value creation.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "leadership.managementActions[4].assessment[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Service switching costs look narrow despite strong measured profitability; regional support coverage and hardware price competition constrain the advantage.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "competitive.moatGraded.reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "In this fictional market, Lantern Quay Automation competes on installation price and Bramble Circuit Works competes on support coverage.",
+        "claim": "Against Lantern Quay Automation, Thesis wins on local service continuity and loses on installation price.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "competitive.competitors[0]",
-        "evidenceKind": "factual-claim",
-        "source": "synthetic:market-note",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Thesis Example Systems appears better placed in support continuity than in winning the cheapest installation bid.",
+        "claim": "Against Bramble Circuit Works, Thesis wins on custom deployment speed and loses on support-network breadth.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "competitive.competitors[1]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Against Aster Dock Software, Thesis wins where integrated controllers are necessary and loses on cost where software alone is sufficient.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "competitive.competitors[2]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Against Kestrel Bay Robotics, Thesis suits regional-site integration budgets but loses complex mega-site automation work.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "competitive.competitors[3]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
         "claim": "Replacement requires retraining and downtime, but does not prevent customers from switching.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "competitive.moatAssessment[0].reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "More service capacity could improve renewals, while additional staff costs could arrive before revenue.",
+        "claim": "Readiness evidence could support renewals; premature hiring would pressure operating margin.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "catalystsRisks.catalysts[0].reasoning[0]",
-        "evidenceKind": "factual-claim",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "evidenceKind": "judgment",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "Delayed warehouse projects could reduce installations and weaken cash conversion.",
+        "claim": "Retention without discounts would support recurring revenue quality; concessions would weaken the pricing thesis.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "catalystsRisks.catalysts[1].reasoning[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Customer acceptance could release installation revenue and cash; slippage would defer both.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "catalystsRisks.catalysts[2].reasoning[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Better dispatch productivity could contain service costs; integration delays would reduce returns on the asset purchase.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "catalystsRisks.catalysts[3].reasoning[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Deferred warehouse projects would reduce installation revenue and cash collection. Watch acceptance dates and receivables.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "catalystsRisks.risks[0].reasoning[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Discounting to retain accounts would weaken support revenue and operating margin. Watch renewal prices alongside retention.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "catalystsRisks.risks[1].reasoning[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Staffing ahead of renewals would raise operating expenses and lower free cash flow. Watch technician utilization and response times.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "catalystsRisks.risks[2].reasoning[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Losing a major account would reduce equipment and support revenue together. Watch contract renewals and the largest customer's spending.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "catalystsRisks.risks[3].reasoning[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Working-capital absorption or underfunded maintenance would weaken distributable cash. Watch operating cash flow, capital expenditure and service failures together.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "catalystsRisks.risks[4].reasoning[0]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
         "claim": "Support should be steadier than installation demand, subject to renewals and service quality.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "outlook.segmentTrajectories[0]",
         "evidenceKind": "factual-claim",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
         "claim": "Only a single invented estimate snapshot is supplied; a revision trend cannot be inferred.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "outlook.estimateRevisionTrend[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
-        "claim": "There is no multi-period guidance scorecard, so management credibility remains unassessed.",
+        "claim": "The annual revenue comparison met the issued range. A single observation is insufficient for a personal credibility grade.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] rejected by the named-individual restriction; see the check entry for this path",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "outlook.guidanceCredibility[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "credibility-source-restricted",
-        "traceKind": "untraced"
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
         "claim": "Customer payment timing is the near-term test of earnings quality.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "outlook.scenarioNarratives.y1[0]",
         "evidenceKind": "factual-claim",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
         "claim": "Support relationships could deepen if service reliability holds.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "outlook.scenarioNarratives.y3[0]",
         "evidenceKind": "factual-claim",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
         "claim": "Longer-term returns depend on resisting price competition and funding maintenance.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "outlook.scenarioNarratives.y5[0]",
         "evidenceKind": "factual-claim",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       },
       {
         "claim": "Higher financing costs for customers could delay warehouse investments; no real macroeconomic observations are used.",
         "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "numericSupportStatus": "unchecked",
-        "claimSupportStatus": "unreviewed",
-        "note": "[unverified] unknown-source",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
         "path": "macro.sensitivityNotes[0]",
         "evidenceKind": "judgment",
-        "source": "fmp:profile",
-        "reason": "unknown-source",
-        "traceKind": "untraced"
-      },
-      {
-        "claim": "A focus on supporting installed systems is sensible; execution evidence remains limited.",
-        "outcome": "unverified",
-        "note": "[check:named-individual] An executive-credibility claim may cite only a registry figure or a filing/transcript text source; this one cites \"fmp:profile\". Cited figure: [fmp:profile].",
-        "path": "leadership.executives[0].reasoning[0]",
-        "evidenceKind": "factual-claim",
-        "source": "fmp:profile",
-        "reason": "credibility-source-restricted",
-        "check": "named-individual",
-        "traceKind": "untraced"
-      },
-      {
-        "claim": "Cash discipline matters most when customers delay installation payments.",
-        "outcome": "unverified",
-        "note": "[check:named-individual] An executive-credibility claim may cite only a registry figure or a filing/transcript text source; this one cites \"fmp:profile\". Cited figure: [fmp:profile].",
-        "path": "leadership.executives[1].reasoning[0]",
-        "evidenceKind": "factual-claim",
-        "source": "fmp:profile",
-        "reason": "credibility-source-restricted",
-        "check": "named-individual",
-        "traceKind": "untraced"
-      },
-      {
-        "claim": "There is no multi-period guidance scorecard, so management credibility remains unassessed.",
-        "outcome": "unverified",
-        "note": "[check:named-individual] An executive-credibility claim may cite only a registry figure or a filing/transcript text source; this one cites \"fmp:profile\". Cited figure: [fmp:profile].",
-        "path": "outlook.guidanceCredibility[0]",
-        "evidenceKind": "factual-claim",
-        "source": "fmp:profile",
-        "reason": "credibility-source-restricted",
-        "check": "named-individual",
-        "traceKind": "untraced"
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
       }
     ],
     "costBreakdown": []
@@ -9901,7 +10924,7 @@
   "scenarioTargets": {
     "status": "available",
     "method": "dcf-dispersion",
-    "methodVersion": "SCENARIO_TARGETS_2026_11_VALUATION_INPUTS_45",
+    "methodVersion": "SCENARIO_TARGETS_2026_11_LATEST_BOOK_46",
     "scenarioAssumptions": {
       "methodVersion": "SHARED_SCENARIO_PATHS_2026_10_D99",
       "shockPersistence": "mean-reverting-convergent",
@@ -10024,7 +11047,7 @@
   "fairValue": {
     "status": "available",
     "method": "fcff-dcf",
-    "methodVersion": "FAIR_VALUE_2026_11_VALUATION_INPUTS_45",
+    "methodVersion": "FAIR_VALUE_2026_11_LATEST_BOOK_46",
     "perShare": {
       "value": 35.47,
       "unit": "USD/share",
