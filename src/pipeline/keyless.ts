@@ -52,7 +52,7 @@ import {
   type StatementRowsResult,
 } from "@/edgar/statements";
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, conceptFactsSchema, dedupFactPoints, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
-import { COSTS_AND_EXPENSES_TAG, FILED_REVENUE_TOTAL_TAGS, tagsFor } from "@/edgar/tagSynonyms";
+import { COSTS_AND_EXPENSES_TAG, FILED_REVENUE_TOTAL_TAGS, IFRS_PER_SHARE_TAGS, tagsFor } from "@/edgar/tagSynonyms";
 import { factsForFilings } from "@/edgar/filedPresentation";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { describeSplits, sameShareBasis, shareBasisFactor, shareCountOnBasis, SPLIT_RATIO_TAG, type StockSplits } from "@/edgar/splits";
@@ -431,7 +431,7 @@ function vendorSharePeriodStart(row: FmpStatementRow, context: PrimaryShareRecon
   if (context.reconcileFiled) {
     const [min, max] = context.period === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
     const intervals = new Set(Object.values(context.companyFacts.facts).flatMap(namespace =>
-      [...tagsFor("revenue"), ...tagsFor("netIncome"), "Revenue", "ProfitLoss", "WeightedAverageShares", ...tagsFor("weightedAverageShsOutDil")].flatMap(tag => {
+      [...tagsFor("revenue"), ...tagsFor("netIncome"), "Revenue", "ProfitLoss", ...IFRS_PER_SHARE_TAGS.weightedAverageShsOut, ...tagsFor("weightedAverageShsOutDil")].flatMap(tag => {
       const raw = namespace[tag];
       const parsed = conceptFactsSchema.safeParse(raw);
       return parsed.success ? Object.values(parsed.data.units).flatMap(ps => parseFactPoints(ps).filter(p =>
@@ -495,10 +495,8 @@ function comparablePrimaryShareField(row: FmpStatementRow, field: (typeof VENDOR
   }));
   if (!currencyEstablished) return null;
   let selected: { value: number; evidence: StatementFieldProvenance; superseded?: boolean } | null = null;
-  const ifrsTags = { eps: ["BasicEarningsLossPerShare"], epsDiluted: ["DilutedEarningsLossPerShare"],
-    weightedAverageShsOut: ["WeightedAverageShares"], weightedAverageShsOutDil: ["AdjustedWeightedAverageShares"] };
   const ratio = context.isAdr === true ? context.ordinarySharesPerQuotedUnit! : 1;
-  for (const ns of namespaces) for (const tag of ns === "ifrs-full" ? ifrsTags[field] : tagsFor(field)) {
+  for (const ns of namespaces) for (const tag of ns === "ifrs-full" ? IFRS_PER_SHARE_TAGS[field] : tagsFor(field)) {
     const concept = conceptFactsSchema.safeParse(context.companyFacts.facts[ns]?.[tag]);
     if (!concept.success) continue;
     const points = parseFactPoints(concept.data.units[expectedUnit] ?? []).filter(point => point.start === start && point.end === row.date &&
