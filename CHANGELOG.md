@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.61.0** and
-payload **1.68.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.69.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,19 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Foreign annual report sections (2026-11-04)
+
+- Recover explicit 10-K page ranges even when the filing incorporates the same
+  pages into several items. Keep complete range, link and printed-page proof.
+- Read dispersed 20-F point-page mappings as labelled excerpts, with a permanent
+  payload-title disclosure that the complete item was not recovered. Exclude
+  navigation pages and refuse unresolved, ambiguous or wrong-page references.
+- Disclose unresolved financial-statement index references and exhibit-based
+  40-F structure instead of unexplained item failures. Frozen-panel evidence,
+  limits and verification are recorded in [D-191's audit](docs/audit/2026-11-04-foreign-sections.md).
+- Version constants remain unchanged. Release needs a payload-version advance;
+  stored reports remain immutable.
 
 ## Unreleased - Executive cards reflect dated management decisions (2026-11-04)
 
