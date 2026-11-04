@@ -7425,23 +7425,44 @@ field still parse and display, and their stored bytes and grades stay immutable.
 No new source, SEC request, paid call or proxy retrieval is introduced.
 
 **AI-written figures and tenure (D-197, 2026-11-04).** Currency amounts,
-percentages, multiples and financial-input ages in days in plain reader strings use the existing claim
-quantity reader, displayed-precision comparison, numeric record registry and
-metric/period checks. This includes synthesis, grade explanations and
-interpretations, disagreements, technical commentary, titles, assumptions and
-other reader prose outside sourced claims. Assembly-owned calculation displays
-remain under their existing deterministic contracts. A number must agree in
-value and dimension with a payload record, or a source-bound claim in the same
-report whose numeric validation passed in this run. Citation presence or an old
-saved validation mark alone is insufficient. Metric and period words remain
-restrictions; matching the amount never validates the whole interpretation.
-Unmatched figures remain verbatim with a path-specific verification entry and
-the visible note "Not matched to a source", naming the figures. Live, Markdown
-and print place the recorded note beside its field; the audit log preserves the
-path, original text and note. No additional model call, repair request or paid
-data call is made. Displaying a saved report never runs this new check or
-invents flags. Conservative context refusals can still produce false alarms;
-they are reported separately in replay measurements.
+percentages, multiples and financial-input ages in days in plain reader strings
+use the existing quantity reader, numeric registry and metric/period checks.
+This includes synthesis, grade explanations, interpretations, disagreements,
+technical commentary, titles, assumptions and other prose outside sourced
+claims. Assembly-owned calculation displays retain their existing contracts.
+
+Context is checked before an evidence-wide value lookup. An identified metric
+and period with a different recorded value gets a visible "Differs from the
+record" note, even if the stated value occurs elsewhere. If no eligible
+context binding exists and the value appears nowhere in the retained evidence
+in the same dimension, currency and displayed precision, it gets a visible
+"Not matched to a source" note. A value found with unconfirmed context gets
+only an exact-path audit entry, marked "Value matched; context not confirmed".
+It never counts as a verified fact or raises a verification rate, claim status
+or grade. Low-precision coincidences can produce this third result; they cannot
+confirm context. Numeric context agreement also does not validate a whole
+interpretation or enter the factual-claim counts.
+
+Value lookup includes every numeric registry metric; the retained filing,
+transcript and news text; analysts' retained research and case text for this
+run; and source-bound report claims whatever their validation state. Retained
+text uses the same sentence reader as executive source quotations. Analyst
+text is passed deterministically to verification, including compatible resumed
+artifacts and failed writers' retained research and rejected/partial cases. It is not added to a model
+prompt. Currency, dimension, sign and precision restrictions remain. A printed
+multiple cannot borrow a dimensionless fraction. Producer-bound short readings
+cover 50-day/200-day SMAs, 52-week endpoints, percentages below the high and
+price to tangible book. Explanatory parentheses and explicit shared money
+scales supply only value readings, never context confirmation; explicit
+negative amounts and mixed-unit lists retain their refusals.
+
+Figures remain verbatim. Live, Markdown and print show only the recorded
+visible notes beside their fields; the audit preserves the path, original text
+and all three results. A checked report with figure entries says once that
+figures without a note are not necessarily verified. Display alone never runs
+the check or invents saved-report flags. No additional model call, repair
+request or paid data call is made. Replay measurements report visible catches,
+audit-only misses and reviewed false alarms separately.
 
 The judge is no longer asked for `tenureYears`. New reports derive an exact
 duration only from an established exact office start and the report cutoff;

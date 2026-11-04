@@ -20,7 +20,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Checks on AI-written figures and executive grades (2026-11-04)
 
-- Check currency amounts, percentages and multiples in AI-written reader prose deterministically, including section interpretations, synthesis, disagreements, titles and commentary. Keep unmatched figures and show a field-specific source note on live, Markdown, print and audit surfaces; no model repair or paid call.
+- Check AI-written figures with three outcomes: visible context contradictions, visible values absent from retained evidence, and audit-only value matches with unconfirmed context. Include retained analyst research/cases without enlarging model prompts; value matches never raise verification rates, claim status or grades. Keep original prose and show recorded field notes on live, Markdown and print; no model repair or paid call.
 - Require typed executive execution evidence to overlap an established office tenure. Derive new tenure numbers from an evidenced start and report cutoff; saved cards show only filing-backed office tenure.
 - Match producer-owned financial acronym expansions without relaxing value, unit, currency or period checks.
 - Count classified data gaps in data-only synthesis, with a narrowly anchored display correction for the old saved template.
