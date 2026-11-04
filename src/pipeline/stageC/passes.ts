@@ -119,7 +119,7 @@ import {
 } from "@/pipeline/stageC/provenance";
 import { currencyCandidateInBaseUnits, matchExcerptNumber } from "@/pipeline/stageC/excerptNumbers";
 import { unitLabel } from "@/report/format";
-import { descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan } from "@/pipeline/stageC/claimEvidence";
+import { buildPlainFigureIndex, checkPlainFigures, descriptionConflictsWithRecord, filedCalendarFiscalLabel, reportedSeriesLatest, validateClaimNumericSupport, type ClaimEvidenceIndex, type ClaimSourceSpan, type PlainFigureText } from "@/pipeline/stageC/claimEvidence";
 import {
   parseCitationRef,
   citationAsOf,
@@ -196,6 +196,7 @@ import type {
 // WS7 (D-20) end.
 import {
   PassSettlementHookError,
+  analystVerificationTexts,
   AnalystResearchSchema,
   type AnalystResearch,
   invokePassSettlementHook,
@@ -3103,6 +3104,8 @@ function mergeJudgeBilling(
 
 export interface VerificationEvidence {
   fetchedUrls: string[];
+  /** Retained analyst text, used only by deterministic value lookup. Never added to a model prompt. */
+  retainedTexts?: readonly PlainFigureText[];
 }
 
 export interface VerifyResult<T = JudgeOutput> {
@@ -3233,6 +3236,37 @@ function collectSourcedClaimRefs(root: unknown): SourcedClaimRef[] {
       return;
     }
     for (const key of Object.keys(obj)) walk(obj[key], path ? `${path}.${key}` : key);
+  };
+  walk(root, "");
+  return out;
+}
+
+/** Reader strings outside sourced claims/numbers, including optional future fields. */
+function collectPlainProse(root: unknown): { path: string; text: string }[] {
+  const out: { path: string; text: string }[] = [];
+  const assembled = !!root && typeof root === "object" && "meta" in root && "appendix" in root;
+  // These blocks are overwritten by assembly, not written by the judge. On an
+  // intermediate judge/analyst output, still inspect every supplied string.
+  const sections = new Set(JUDGE_OUTPUT_KEYS);
+  const pipelineProse = /^(?:valuation\.(?:dcf|multiples|multiplesBasis|marketValueScope|peerCoverage)(?:\.|\[|$)|valuation\.scenarios\[\d+\]\.(?:assumptions|horizon)(?:\[|$)|quality\.notes(?:\[|$)|leadership\.executives\[\d+\]\.officeTenure(?:\.|$))/;
+  const nonProse = new Set(["source", "sourceId", "asOf", "unit", "currency", "period", "url", "documentUrl", "filingDate", "occurredOn"]);
+  const walk = (node: unknown, path: string): void => {
+    if (assembled && path && (!sections.has(path.split(/[.[]/)[0]!) || pipelineProse.test(path))) return;
+    const conditions = /^valuation\.scenarios\[(\d+)\]\.whatWouldHaveToBeTrue(?:\[|$)/.exec(path);
+    // applyScenarioPresentation replaces these conditions only when its
+    // deterministic assumption array has more than one row. Otherwise the
+    // original AI conditions survive and must be checked here as reader prose.
+    if (assembled && conditions && ((root as Report).valuation?.scenarios?.[Number(conditions[1])]?.assumptions?.length ?? 0) > 1) return;
+    if (typeof node === "string") { out.push({ path, text: node }); return; }
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) { node.forEach((child, i) => walk(child, `${path}[${i}]`)); return; }
+    const obj = node as Record<string, unknown>;
+    if ((typeof obj.text === "string" && ["FACT", "ESTIMATE", "JUDGMENT"].includes(String(obj.label))) ||
+      (typeof obj.value === "number" && typeof obj.unit === "string" && "verified" in obj)) return;
+    for (const [key, value] of Object.entries(obj)) {
+      if (nonProse.has(key) || (!path && ["meta", "appendix"].includes(key))) continue;
+      walk(value, path ? `${path}.${key}` : key);
+    }
   };
   walk(root, "");
   return out;
@@ -3832,6 +3866,27 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     });
   }
 
+  const plainIndex = buildPlainFigureIndex(registry, [
+    ...excerpts.map(excerpt => ({ source: excerpt.source, text: excerptBodyForVerification(excerpt) })),
+    ...(payload.news?.notes ?? []).map(text => ({ source: "payload.news", text })),
+    ...claims.map(({ claim }) => ({ source: claim.source, text: claim.text })),
+    ...(evidence.retainedTexts ?? []),
+  ], reportingCurrency, issuerWords);
+  for (const { path, text } of collectPlainProse(verifiedReport)) {
+    const results = checkPlainFigures(text, { registry, excerpts, reportingCurrency, ignoreWords: issuerWords, seriesLatest, index: plainIndex });
+    for (const outcome of ["contradiction", "not-found", "value-match"] as const) {
+      const figures = results.filter(result => result.outcome === outcome);
+      if (!figures.length) continue;
+      const note = outcome === "contradiction"
+        ? `Differs from the record: ${[...new Set(figures.map(result => `${result.figure} stated, ${result.recorded} recorded`))].join("; ")}.`
+        : `${outcome === "value-match" ? "Value matched; context not confirmed" : "Not matched to a source"}: ${[...new Set(figures.map(result => result.figure))].join("; ")}.`;
+      log.push({ path, claim: text, outcome: "unverified", check: "plain-figure", traceKind: outcome === "value-match" ? "value-match" : "untraced",
+        validationStatus: "unchecked", numericSupportStatus: "unchecked", claimSupportStatus: "unreviewed",
+        reason: outcome === "contradiction" ? "value-mismatch" : outcome === "value-match" ? "supported" : "text-source", note,
+        ...(figures.length === 1 && figures[0]!.source ? { source: figures[0]!.source } : {}) });
+    }
+  }
+
   const total = numbers.length;
   const numeric = calculateCoverage(traced, total);
   const factualClaims = calculateCoverage(factualSupported, factualTotal);
@@ -3866,10 +3921,11 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const executiveRoot = verifiedReport as {leadership?: Report["leadership"]};
   if (executiveRoot.leadership && Array.isArray(executiveRoot.leadership.executives)) {
     executiveRoot.leadership = assessExecutiveEvidence(executiveRoot.leadership, log, false, {
-      officerTenures: payload.leadership?.officerTenures, tenureConflicts: payload.leadership?.tenureConflicts, notes: payload.leadership?.notes, filings: retainedDecisionSources(payload), issuer: payload.companyName,
+      officerTenures: payload.leadership?.officerTenures, tenureConflicts: payload.leadership?.tenureConflicts, notes: payload.leadership?.notes, filings: retainedDecisionSources(payload), issuer: payload.companyName, numericRecords: registry,
       asOf: reportRoot.meta?.generatedAt ?? payload.quote?.figures?.find(f => f.asOf)?.asOf,
     });
   }
+  if (reportRoot.meta && reportRoot.appendix) reportRoot.appendix.verificationLog = log;
   const result = {
     verifiedReport,
     verificationRate: numeric.rate,
@@ -4460,9 +4516,9 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   // (2026-07-11 checkpoints). The blocks are attached for their trace/basis/reasons.
   // 2026-07 invariant-1 hardening extends the same pattern to the remaining
   // judge-path numerics: multiples rows, the reverse-DCF implied value, forensic
-  // scores, and segment revenue shares are all computed-injected below. The one
-  // remaining LLM-authored bare numeric is leadership.executives[].tenureYears —
-  // biographical (not financial) and grounded in the payload's titleSince dates.
+  // scores, and segment revenue shares are all computed-injected below.
+  // Executive tenure is derived from an established office start; the legacy
+  // tenureYears field never preserves a model-authored number.
   const scenarioTargets = args.computed.scenarioTargets;
   const fairValue = args.computed.fairValue;
   const routeMetrics = routeMetricsBlock(args.computed);
@@ -4558,7 +4614,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   }
   const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(assembled, args.computed, args.bundle, {
     pendingVerification: args.provisionalVerification === true,
-    executiveEvidence: { officerTenures: executivePayload?.leadership.officerTenures, tenureConflicts: executivePayload?.leadership.tenureConflicts, notes: executivePayload?.leadership.notes, filings: executivePayload && retainedDecisionSources(executivePayload), issuer: executivePayload?.companyName, asOf: assembled.meta.generatedAt },
+    executiveEvidence: { officerTenures: executivePayload?.leadership.officerTenures, tenureConflicts: executivePayload?.leadership.tenureConflicts, notes: executivePayload?.leadership.notes, filings: executivePayload && retainedDecisionSources(executivePayload), issuer: executivePayload?.companyName, asOf: assembled.meta.generatedAt, numericRecords: executivePayload?.provenanceRegistry },
   }));
   if (!parsed.success) {
     throw new ReportValidationError(
@@ -4699,7 +4755,8 @@ export async function runJudgeVerifyAssemble(
       }
     }
 
-    const verify = await runVerifyPass(deps, payload, judgeRun.result.output);
+    const verify = await runVerifyPass(deps, payload, judgeRun.result.output, { fetchedUrls: [],
+      retainedTexts: [...analystVerificationTexts("bull", { data: bull }), ...analystVerificationTexts("bear", { data: bear })] });
 
     const costEntries: CostBreakdownEntry[] = [
       ...assemble.priorCostEntries,

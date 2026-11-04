@@ -7,6 +7,7 @@ import { PeriodContextSchema } from "@/types/periodContext";
 import { scoreToBand } from "@/pipeline/stageB/grading";
 import { classifyBeneishVerdict } from "@/pipeline/stageB/forensics";
 import { isNeutralScore } from "@/report/assessment";
+import { retainedSourceSentences } from "@/report/executiveDecisions";
 
 export interface ClaimSourceSpan { source: string; asOf: string | null; start: number; end: number; text: string }
 export interface ClaimNumericSupport {
@@ -24,6 +25,9 @@ interface Quantity {
   bound: "upper" | "lower" | null;
   /** AI-409: a strict bound excludes its own value ("more than", "less than"); an inclusive one ("at least", "up to") keeps it. */
   strict: boolean;
+  /** Display metadata from this same parser, used only to name a recorded comparison. */
+  displayScale?: number; decimalPlaces?: number; scaleWord?: string; unitWord?: string;
+  accounting?: boolean; explicitSign?: boolean;
 }
 const SCALES: Record<string, number> = { k: 1e3, thousand: 1e3, thousands: 1e3, m: 1e6, mm: 1e6, mn: 1e6, mln: 1e6, mil: 1e6, mio: 1e6, million: 1e6, millions: 1e6,
   b: 1e9, bn: 1e9, bln: 1e9, billion: 1e9, billions: 1e9, trillion: 1e12, trillions: 1e12 };
@@ -82,7 +86,7 @@ function quantities(text: string): Quantity[] {
   // e.g. "USD millions: Cash ... USD 56,586". That explicit declaration is
   // distinct from a claim that simply copies "$56,586" out of a scaled table.
   const declaredMoneyScale = new RegExp(String.raw`^\s*(?:${CURRENCIES}|currency)\s+(thousands?|millions?|billions?|trillions?):`, "i").exec(text)?.[1];
-  const pattern = new RegExp(String.raw`(?:(?:(?<![A-Za-z0-9.])(?<lead>[-+−]))?(?<prefix>US\$|[$€£¥]|(?<![A-Za-z])(?:${CURRENCIES})(?![A-Za-z]))\s*)?(?:(?<sign>[-+−])\s*)?(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?:(?<scale>thousands?|millions?|billions?|trillions?|bn|bln|mm|mn|mln|mil|mio|k|m|b)(?![A-Za-z]))?\s*(?:(?<unit>p\.p\.|%|(?:(?:percentage[\s-]points?(?:\s+per\s+year)?|percent|bps?|basis[\s-]points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|per share|score)(?![A-Za-z]|-[A-Za-z])|x(?![A-Za-z]))))?`, "gi");
+  const pattern = new RegExp(String.raw`(?:(?:(?<![A-Za-z0-9.])(?<lead>[-+−]))?(?<prefix>US\$|[$€£¥]|(?<![A-Za-z])(?:${CURRENCIES})(?![A-Za-z]))\s*)?(?:(?<sign>[-+−])\s*)?(?<digits>\d{1,3}(?:,\d{3})+|\d+)(?<fraction>\.\d+)?\s*(?:(?<scale>thousands?|millions?|billions?|trillions?|bn|bln|mm|mn|mln|mil|mio|k|m|b)(?![A-Za-z]))?\s*(?:(?<unit>p\.p\.|%|(?:(?:percentage[\s-]points?(?:\s+per\s+year)?|percent|bps?|basis[\s-]points?|pps?|dollars?|shares?|days?|people|users|subscribers|count|times|per share|score)(?![A-Za-z]|-[A-Za-z])|[x×](?![A-Za-z]))))?(?:\s*(?<currencySuffix>${CURRENCIES})(?![A-Za-z]))?`, "gi");
   const scaled: { start: number; end: number }[] = [];
   return [...masked.matchAll(pattern)].flatMap((match) => {
     const groups = match.groups!;
@@ -113,11 +117,11 @@ function quantities(text: string): Quantity[] {
     if (signWord !== null && !groups.sign && !lead) start -= signWord[0].length;
     const scale = SCALES[(groups.scale ?? (groups.prefix ? declaredMoneyScale : undefined) ?? "").toLowerCase()] ?? 1;
     const token = (groups.unit ?? "").toLowerCase();
-    const prefix = (groups.prefix ?? "").trim();
+    const prefix = (groups.prefix ?? groups.currencySuffix ?? "").trim();
     let unit: CanonicalUnit | null = /^(?:%|percent)$/.test(token) ? "percent"
       : /^percentage[\s-]points?\s+per\s+year$/.test(token) ? "percentage-points-per-year"
       : /^(?:p\.p\.|pp|pps|percentage[\s-]points?|bp|bps|basis[\s-]points?)$/.test(token) ? "percentage-points"
-        : /^(?:x|times)$/.test(token) ? "ratio"
+        : /^(?:x|×|times)$/.test(token) ? "ratio"
           : /^shares?$/.test(token) ? "shares"
             : /^days?$/.test(token) ? "days" : /^(?:people|users|subscribers|count)$/.test(token) ? "count" : null;
     if (unit === null && /\b(?:people|users|subscribers)\b/i.test(text.slice(Math.max(0, start - 90), start))) unit = "count";
@@ -131,6 +135,10 @@ function quantities(text: string): Quantity[] {
       unit = token === "per share" || (token === "" && (leadingPerShare || leadingSharePrice)) ? "currency-per-share" : "currency";
       currency = /^[A-Z]{3}$/i.test(prefix) ? prefix.toUpperCase()
         : prefix === "US$" ? "USD" : prefix === "€" ? "EUR" : prefix === "£" ? "GBP" : null;
+      if (groups.currencySuffix) {
+        const suffix = groups.currencySuffix.toUpperCase();
+        currency = !groups.prefix || currency === suffix || (prefix === "$" && DOLLARS.has(suffix)) ? suffix : null;
+      }
     }
     const factor = /^(?:bp|bps|basis[\s-]points?)$/.test(token) ? 0.01 : 1;
     const decimals = (groups.fraction ?? "").length > 0 ? groups.fraction.length - 1 : 0;
@@ -140,8 +148,10 @@ function quantities(text: string): Quantity[] {
       accountingPercents.some(match => match.index === start && match.index + match[0].length === end);
     return [{ start, end, value: (/^[-−]$/.test(lead ?? "") || /^[-−]$/.test(groups.sign ?? "") || accountingNegative || signWord !== null ? -1 : 1) *
       Number(groups.digits.replace(/,/g, "") + (groups.fraction ?? "")) * scale * factor,
-    step: 10 ** -decimals * scale * factor, unit, currency, dollar: prefix === "$" || /^dollars?$/.test(token),
+    step: 10 ** -decimals * scale * factor, unit, currency, dollar: !groups.currencySuffix && (prefix === "$" || /^dollars?$/.test(token)),
     scaled: groups.scale !== undefined || Boolean(groups.prefix && declaredMoneyScale !== undefined),
+    displayScale: scale * factor, decimalPlaces: decimals, scaleWord: groups.scale ?? (groups.prefix ? declaredMoneyScale : undefined), unitWord: groups.unit,
+    accounting: accountingNegative, explicitSign: Boolean(groups.sign || lead || signWord),
     ...boundBefore(masked, start) }];
   });
 }
@@ -149,6 +159,176 @@ function quantities(text: string): Quantity[] {
 /** The prose quantity reader, exported for tests. */
 export function readProseQuantities(text: string): readonly Quantity[] {
   return quantities(text);
+}
+
+export interface PlainFigureText { source: string; text: string }
+interface PlainValue { value: number; unit: CanonicalUnit; currency: string | null; step?: number; fraction?: boolean; source?: string }
+type PlainReading = { label: string; tokens: string[] };
+export interface PlainFigureIndex { values: PlainValue[]; readings: Map<NumericProvenanceRecord, PlainReading[]> }
+export interface PlainFigureResult {
+  figure: string;
+  outcome: "confirmed" | "contradiction" | "not-found" | "value-match";
+  recorded?: string;
+  source?: string;
+}
+interface PlainFigureOptions {
+  registry: readonly NumericProvenanceRecord[];
+  excerpts: readonly TextExcerpt[];
+  reportingCurrency: string | null;
+  ignoreWords: readonly string[];
+  seriesLatest: ReadonlyMap<string, string>;
+  index: PlainFigureIndex;
+}
+
+function priceInWords(text: string): boolean {
+  return /\b(?:price|quote|close|SMA\d*|moving average|(?:50|200)-day(?: average)?|52(?:[- ]week|[- ]?w)(?: high| low| range)?)\b/i.test(text);
+}
+function plainValue(q: Quantity, own: Context, currency: string | null): PlainValue | null {
+  if (q.unit === null) return null;
+  return { value: q.value, step: q.step, unit: q.unit === "currency" && (perShareInWords(q, own.label) || priceInWords(own.own)) ? "currency-per-share" : q.unit,
+    currency: q.unit === "currency" || q.unit === "currency-per-share" ? resolvedCurrency(q, currency) : null };
+}
+
+/** These two prose forms resolve only a value reading, never a metric/period binding. */
+function plainLookupQuantity(text: string, q: Quantity, all: readonly Quantity[]): Quantity {
+  let value = q;
+  const open = text.lastIndexOf("(", q.start);
+  if (q.accounting && !q.explicitSign && open >= 0 &&
+    /\b(?:price|quote|value|income(?: before tax)?|growth|quarter|margin|revenue|outflows)\s*$/i.test(text.slice(0, open)) &&
+    !/\b(?:negative|minus|loss)\b/i.test(text.slice(Math.max(0, open - 160), q.end + 80))) value = { ...q, value: Math.abs(q.value) };
+  // "EUR 1.00, 1.08 and 4.07 billion": only punctuation/conjunctions may
+  // connect the bare figures. A metric, unit or currency between them refuses it.
+  if (q.unit === "currency" && !q.scaled && !q.unitWord) {
+    let previous = q;
+    for (const next of all.slice(all.indexOf(q) + 1, all.indexOf(q) + 7)) {
+      if (next.unit !== null || !/^\s*(?:,\s*|(?:,\s*)?and\s*)$/i.test(text.slice(previous.end, next.start))) break;
+      if (next.scaled && next.scaleWord) {
+        const scale = next.displayScale ?? 1;
+        value = { ...value, value: value.value * scale, step: value.step * scale, displayScale: scale, scaleWord: next.scaleWord };
+        break;
+      }
+      previous = next;
+    }
+  }
+  return value;
+}
+
+/** Value-only evidence is intentionally independent of claim validation, metric and period. */
+export function buildPlainFigureIndex(registry: readonly NumericProvenanceRecord[], texts: readonly PlainFigureText[], reportingCurrency: string | null, ignore: readonly string[]): PlainFigureIndex {
+  const values: PlainValue[] = registry.map(r => ({ value: r.value, unit: r.unit, currency: r.currency, fraction: r.unitScale === "fraction", source: r.id }));
+  for (const { source, text } of texts) for (const sentence of retainedSourceSentences(text)) {
+    const all = quantities(sentence);
+    for (const q of all) {
+      const lookup = plainLookupQuantity(sentence, q, all), own = context(sentence, q, all);
+      const value = plainValue(lookup, lookup === q ? own : { ...own, own: own.label }, reportingCurrency);
+      if (value) values.push({ ...value, source });
+    }
+  }
+  return { values, readings: new Map(registry.map(r => [r, labelReadings(r).map(label => ({ label, tokens: metricTokens(label, ignore).filter(w => !w.startsWith("window")) }))])) };
+}
+
+function valueFound(q: PlainValue, values: readonly PlainValue[]): PlainValue | undefined {
+  return values.find(v => {
+    const fraction = q.unit === "percent" && v.unit === "ratio" && v.fraction;
+    const value = fraction ? v.value * 100 : v.value;
+    const step = v.step === undefined ? undefined : fraction ? v.step * 100 : v.step;
+    return ((q.unit === v.unit && !(q.unit === "ratio" && v.fraction)) || fraction) && q.currency === v.currency &&
+      (step === undefined || step <= (q.step ?? 0) * (1 + 1e-10)) && equalValue({ ...q, step: q.step ?? 0 } as Quantity, value);
+  });
+}
+
+function displayedPlainValue(q: Quantity, value: number, currency: string | null): string {
+  const number = (value / (q.displayScale ?? 1)).toLocaleString("en-US", { minimumFractionDigits: q.decimalPlaces ?? 0, maximumFractionDigits: q.decimalPlaces ?? 0 });
+  const scale = q.scaleWord ? ` ${q.scaleWord}` : "";
+  if (q.unit === "currency" || q.unit === "currency-per-share") return `${currency ?? "currency unknown"} ${number}${scale}${q.unitWord === "per share" || q.unit === "currency-per-share" ? " per share" : ""}`;
+  if (q.unit === "percent") return `${number}%`;
+  if (q.unit === "ratio") return `${number}x`;
+  return `${number} ${q.unitWord ?? q.unit}`;
+}
+
+/** Only exact producer identities may supply these short reader labels. */
+function technicalPlainFrame(text: string, q: Quantity, all: Quantity[], own: Context): { label: string; source: (r: NumericProvenanceRecord) => boolean; flip?: boolean } | undefined {
+  const bareSma = /^\s*(50|200)[- ]day\s*:?\s*$/i.exec(text.slice(own.start, q.start));
+  const sma = bareSma ?? /\b(50|200)[- ]day\b/i.exec(own.own);
+  if (sma && (bareSma || /\b(?:averages?|SMA)\b/i.test(own.text) || /\b(?:averages|SMAs)\s*\([^)]*;\s*$/i.test(text.slice(0, own.start)))) return { label: `SMA${sma[1]}`, source: r => r.kind === "computed" && r.origin === "computed.technicals" && r.id === `computed.technicals.sma${sma[1]}` && r.label === `SMA${sma[1]}` };
+  const highScope = /\b52[- ](?:week|w)\b/i.test(own.text) || /\b52[- ](?:week|w)\b[^;\n]*;\s*$/i.test(text.slice(0, own.start));
+  if (!highScope) return undefined;
+  const highRelation = /^\s*(below|above)\s+(?:(?:its|the)\s+)?(?:52[- ](?:week|w)\s+)?high\b/i.exec(text.slice(q.end, own.end));
+  if (q.unit === "percent" && highRelation) {
+    return { label: "% from 52w high", flip: highRelation[1]!.toLowerCase() === "below", source: r => r.kind === "computed" && r.origin === "computed.technicals.range52w" && r.label === "% from 52w high" && r.unit === "percent" };
+  }
+  if (q.unit !== "currency" && q.unit !== "currency-per-share") return undefined;
+  let endpoint = /\b(high|low)\b/i.exec(own.own)?.[1]?.toLowerCase();
+  if (!endpoint && /\b52[- ](?:week|w)\s+range\b/i.test(own.text)) {
+    const money = all.filter(other => other.start >= own.start && other.end <= own.end && (other.unit === "currency" || other.unit === "currency-per-share"));
+    if (money.length === 2 && /\b(?:to|through)\b|[–—]/.test(text.slice(money[0]!.end, money[1]!.start))) endpoint = q === money[0] ? "low" : "high";
+  }
+  return endpoint ? { label: `52w ${endpoint}`, source: r => r.kind === "computed" && r.origin === "computed.technicals.range52w" && r.label === `52w ${endpoint}` && r.unit === "currency-per-share" } : undefined;
+}
+
+/** Context checks run BEFORE evidence-wide value lookup, including for coincidental equal values elsewhere. */
+export function checkPlainFigures(text: string, options: PlainFigureOptions): PlainFigureResult[] {
+  const all = quantities(text);
+  return all.filter(q => q.unit === "currency" || q.unit === "currency-per-share" || q.unit === "percent" ||
+    q.unit === "percentage-points" || q.unit === "percentage-points-per-year" || q.unit === "ratio" || q.unit === "days").map(q => {
+    const own = context(text, q, all), figure = text.slice(q.start, q.end);
+    const isolated = text.slice(own.start, own.end).split("").map((ch, i) =>
+      all.some(other => other !== q && i + own.start >= other.start && i + own.start < other.end) ? " " : ch).join("");
+    const frame = technicalPlainFrame(text, q, all, own);
+    const lookup = plainLookupQuantity(text, q, all);
+    const words = metricTokens(own.own, options.ignoreWords, { loose: true }).filter(w => !w.startsWith("window"));
+    const nearby = metricTokens(own.label, options.ignoreWords, { loose: true });
+    const kept = metricTokens(own.own, options.ignoreWords, { loose: true, keepDirectionWords: true });
+    const bindings: { record: NumericProvenanceRecord; display: number; supported: boolean }[] = [];
+    for (const record of options.registry) {
+      if (lookup !== q) break;
+      const value = plainValue(q, frame ? { ...own, own: frame.label } : own, options.reportingCurrency);
+      if (!value || (value.unit !== record.unit && !(q.unit === "percent" && record.unit === "ratio" && record.unitScale === "fraction")) || value.currency !== record.currency) continue;
+      const series = namesRecency(own.text) ? reportedSeries(record) : null;
+      if (series && (options.seriesLatest.get(series.key) ?? series.date) > series.date) continue;
+      const readings = options.index.readings.get(record) ?? [];
+      if (!frame && !readings.some(reading => reading.tokens.some(w => nearby.includes(w)))) continue;
+      const validate = (candidate: string) => validateClaimNumericSupport({ label: "FACT", text: candidate, source: record.id, asOf: record.asOf }, {
+        record, sourceId: record.id, registry: options.registry, excerpts: options.excerpts, reportingCurrency: options.reportingCurrency,
+        ignoreWords: options.ignoreWords, seriesLatest: options.seriesLatest,
+      });
+      let result = frame ? undefined : validate(isolated);
+      let display = record.unit === "ratio" && record.unitScale === "fraction" && q.unit === "percent" ? record.value * 100 : record.value;
+      if (!result || (result.status !== "validated" && !(result.status === "contradicted" && result.reason === "value-mismatch"))) {
+        if (frame && !frame.source(record)) continue;
+        if (!frame && descriptionConflictsWithRecord({ metric: own.own, segment: own.own }, record, options.ignoreWords)) continue;
+        const reading = frame ? { label: frame.label } : readings.find(({ tokens }) => tokens.length > 0 && words.some((_, i) => namesMetric(words.slice(i, i + tokens.length), tokens)));
+        if (!reading) continue;
+        const sourceWords = [...metricTokens(reading.label, options.ignoreWords, { keepDirectionWords: true }), ...(frame?.label.startsWith("SMA") ? ["average"] : [])];
+        const defining = new Set([...DEFINITION_MODIFIERS, "growth", "decline", "increase", "decrease", "change", "spread", "ratio", "conversion", "margin", "after", "before", "discount", "threshold"]);
+        if (kept.some(w => defining.has(w) && !sourceWords.includes(w))) continue;
+        if (frame && (FORWARD_LOOKING.test(own.text) || /\bexpected\b/i.test(own.text))) continue;
+        const signed = frame?.flip ? { ...q, value: -q.value } : q;
+        const raw = frame?.flip ? displayedPlainValue(q, signed.value, value.currency) : figure;
+        const money = q.unit === "currency" && record.unit === "currency-per-share" ? `${raw} per share` : raw;
+        const periods = [...own.periods.map(p => `for ${p.raw}`), ...own.bases.map(p => `compared with ${p.raw}`)].join(" ");
+        result = validate(`${reading.label}: ${money} ${periods}`);
+        if (frame?.flip) display = -display;
+      }
+      if (result.status === "validated" || (result.status === "contradicted" && result.reason === "value-mismatch")) {
+        if (statementOutflow(record) && q.value > 0 && /\b(?:buybacks|share repurchases|capital expenditure|capex)\b/i.test(own.label)) display = Math.abs(display);
+        const boundSupported = q.bound === "lower" ? (q.strict ? display > q.value : display >= q.value)
+          : q.bound === "upper" ? (q.strict ? display < q.value : display <= q.value) : false;
+        if (/\b(?:must|would need|would have to|well beyond|threshold)\b/i.test(own.own)) continue;
+        bindings.push({ record, display, supported: result.status === "validated" || boundSupported });
+      }
+    }
+    // Different eligible periods/bases with different values leave context
+    // unresolved; never pick the convenient record from an ambiguous set.
+    const first = bindings[0];
+    if (first && bindings.every(b => equalValue({ ...q, value: first.display }, b.display))) {
+      if (bindings.every(b => b.supported) || equalValue(q, first.display)) return { figure, outcome: "confirmed", source: first.record.id };
+      return { figure, outcome: "contradiction", source: first.record.id, recorded: displayedPlainValue(q, first.display, first.record.currency) };
+    }
+    const value = plainValue(lookup, frame ? { ...own, own: frame.label } : lookup !== q ? { ...own, own: own.label } : own, options.reportingCurrency);
+    const matched = value && valueFound(value, options.index.values);
+    return { figure, outcome: matched ? "value-match" : "not-found", ...(matched?.source ? { source: matched.source } : {}) };
+  });
 }
 
 /** `start` and `end` are offsets in the text the period was read from. */
@@ -513,7 +693,7 @@ function context(text: string, quantity: Quantity, all: Quantity[], source = fal
 const METRIC_GRAMMAR = new Set(["a", "an", "and", "as", "at", "by", "for", "from", "in", "into", "is", "it", "its", "of", "on", "or",
   "per", "the", "to", "was", "were", "with", "are", "be", "been", "being", "has", "have", "had", "this", "that", "these", "those",
   "company", "firm", "firmwide", "remained", "recorded", "stood", "reached", "compared", "during", "versus", "vs", "while", "our",
-  "percent", "percentage", "point", "points", "basis", "bp", "bps", "pp", "pps", "currency", "count", "dollar", "dollars",
+  "percent", "percentage", "point", "points", "basis", "bp", "bps", "pp", "pps", "currency", "count", "dollar", "dollars", "days",
   "thousand", "thousands", "million", "millions", "billion", "billions", "trillion", "trillions"]);
 // Words that place a figure in time without defining it ("at the latest
 // quarter end", "ROIC (latest)"). A claim's window words are read as windows
@@ -526,6 +706,11 @@ const PERIOD_DESCRIPTORS = new Set(["latest", "recent", "most", "same", "end", "
 // Registry labels abbreviate what prose spells out.
 const ABBREVIATIONS: Readonly<Record<string, readonly string[]>> = {
   fcf: ["free", "cash", "flow"], sbc: ["stock", "based", "compensation"], capex: ["capital", "expenditure"],
+  roic: ["return", "on", "invested", "capital"], roe: ["return", "on", "equity"], roa: ["return", "on", "assets"],
+  rote: ["return", "on", "tangible", "common", "equity"], rotce: ["return", "on", "tangible", "common", "equity"],
+  wacc: ["weighted", "average", "cost", "of", "capital"], cagr: ["compound", "annual", "growth", "rate"],
+  ebit: ["earnings", "before", "interest", "and", "taxes"], ebitda: ["earnings", "before", "interest", "taxes", "depreciation", "and", "amortization"],
+  nopat: ["net", "operating", "profit", "after", "tax"], erp: ["equity", "risk", "premium"],
   // D-63: an executive-compensation row ("comp Jen-Hsun Huang President and CEO
   // FY2026") is the summary table's total, which prose calls total compensation.
   comp: ["total", "compensation"],
@@ -602,6 +787,7 @@ function metricTokens(label: string, ignore: readonly string[], options: { loose
   // D-66: registry keys are camelCase ("priceToBook (current)"), and a
   // comparison basis is part of a growth's definition (see COMPARISON_BASIS).
   let metric = label.replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\bcompound annual growth rate\b/gi, "CAGR")
     .replace(/\bForm\s+4\s+code\s+([A-Z])\b/gi, "form4code$1")
     .replace(/\bgains?(?=\s+(?:on|from)\b)/gi, "metricgain")
     .replace(/\bnon[ -]GAAP\s+Adjusted\s+EBITDA\b/gi, "Adjusted EBITDA")
@@ -818,6 +1004,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     }
     if (record.origin === "computed.valuation.multiples.priceToTbv" && record.unit === "ratio" && label === "priceToTbv (current)") {
       forms.add("price to tangible book value");
+      forms.add("price to tangible book");
       if (record.id === "computed.valuation.pricetotbv-current") forms.add("current price to tangible book value");
     }
     if (record.origin === "computed.capital.current.debtBridge.loanOwnerPayables" && label === "loan owner payables")

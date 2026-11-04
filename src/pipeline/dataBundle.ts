@@ -56,6 +56,7 @@ import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseE
 import { collectCurrentReports, collectQuarterlySegments } from "@/providers/currentReports";
 import { discoverCompanyIrEarnings, discoverCompanyIrMaterialEvents, verifiedCompanyIrAliases, type CompanyIrOptions } from "@/providers/companyIr";
 import { enrichIncomeClassification } from "@/edgar/incomeClassification";
+import { withFilerShareUnits } from "@/pipeline/shareUnits";
 import { loadPeerFundamentals } from "@/pipeline/peers";
 import { loadPeerFromFilings } from "@/pipeline/peerFilings";
 import {
@@ -2466,8 +2467,8 @@ export async function buildDataBundle(
     const facts = edgarBundle.companyFacts.value.data;
     const annual = enrichFinancialFields(statements.balanceAnnual, statements.cashflowAnnual, facts, "annual", builtAt, debtPresentationSections(edgarBundle), edgarBundle.cashInvestment, edgarBundle.equityStatementNci);
     const quarterly = enrichFinancialFields(statements.balanceQuarterly, statements.cashflowQuarterly, facts, "quarter", builtAt, debtPresentationSections(edgarBundle), edgarBundle.cashInvestment, edgarBundle.equityStatementNci);
-    const annualIncome = enrichIncomeClassification(statements.incomeAnnual, facts, "annual", builtAt, { bankRevenue: bankStatementRouting(edgarBundle.registrant ?? null) });
-    const quarterlyIncome = enrichIncomeClassification(statements.incomeQuarterly, facts, "quarter", builtAt, { bankRevenue: bankStatementRouting(edgarBundle.registrant ?? null) });
+    const annualIncome = enrichIncomeClassification(statements.incomeAnnual, facts, "annual", builtAt, { bankRevenue: bankStatementRouting(edgarBundle.registrant ?? null), securitiesRevenue: edgarBundle.sic === "6211" });
+    const quarterlyIncome = enrichIncomeClassification(statements.incomeQuarterly, facts, "quarter", builtAt, { bankRevenue: bankStatementRouting(edgarBundle.registrant ?? null), securitiesRevenue: edgarBundle.sic === "6211" });
     statements = { ...statements, balanceAnnual: annual.balance, cashflowAnnual: annual.cashflow, balanceQuarterly: quarterly.balance, cashflowQuarterly: quarterly.cashflow,
       incomeAnnual: annualIncome.income, incomeQuarterly: quarterlyIncome.income };
     // Review m6: one completion and one stakes entry for both families, each listing its dates.
@@ -2645,11 +2646,11 @@ export async function buildDataBundle(
   const gaps = resolveAcquisitionGaps(recordedGaps, statements, edgarBundle.registrant?.cik10 ?? "", now().toISOString());
   progress(`done: bundle for ${sym} (${gaps.length} gap(s))`);
 
-  return {
+  return withFilerShareUnits({
     ...bundleCore,
     builtAt: analysisCutoff,
     sourceManifest,
     asOf,
     gaps,
-  };
+  });
 }

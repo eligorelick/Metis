@@ -164,19 +164,24 @@ export interface StatementFieldProvenance {
   periodEnd: string;
   observedAt: string;
   tags: string[];
+  /** Native per-ordinary-share facts converted to the independently established quoted ADS unit. */
+  shareUnitConversion?: { ordinarySharesPerQuotedUnit: number; sourceIds: string[] };
   filings: { accn: string; filed: string; form: string }[];
   /** Quarter reconstruction; absent for a directly reported field. */
   derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
   /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */
   calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash" | "cash-ppe-plus-hardware" | "cfo-minus-cash-ppe-and-hardware" | "nci-inferred-zero" | "basic-shares-equal-eps" | "equity-statement-nci" | "total-equity-less-equity-statement-nci"
     /** D-133: a vendor total debt recomposed from one filing because its lease line was the noncurrent lease liabilities only. */
-    | "noncurrent-lease-line-completed" | "same-filing-debt-completed";
+    | "noncurrent-lease-line-completed" | "same-filing-debt-completed"
+    | "pretax-plus-equity-method" | "parent-plus-nci" | "operating-income-as-ebit" | "operating-income-plus-da" | "earnings-identity";
 }
 
 export interface StatementFieldConflict {
   vendorValue: number | null;
   secValue: number | null;
-  usable: false;
+  /** False refuses the operand; true retains the observation as an audit trail after resolution. */
+  usable: boolean;
+  resolution?: "filed-family" | "minor-retained";
   reason: string;
   secEvidence?: StatementFieldProvenance;
 }
@@ -270,6 +275,11 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   financeLeaseLiability?: number;
   treasuryStock?: number;
   preferredStock?: number;
+  /** D-198 calculation-view evidence; acquired source rows remain immutable. */
+  preferredCapitalWithheldReason?: string;
+  preferredCapitalBasis?: string;
+  preferredStockSharesOutstanding?: number;
+  preferredLiquidationPreference?: number;
   commonStock?: number;
   retainedEarnings?: number;
   accumulatedOtherComprehensiveIncomeLoss?: number;

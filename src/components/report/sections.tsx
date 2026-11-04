@@ -339,6 +339,10 @@ export function VerdictHeader({ verdict }: { verdict: Verdict }) {
  * (`#report-<section>`) — clicking scrolls there where the full GradeReasoning
  * lives. Renders inline in flow AND is reused sticky at the top of ReportView.
  */
+function plainFigureWarning(text: string): string | undefined {
+  return /\(((?:Not matched to a source|Differs from the record): [\s\S]+)\)$/.exec(text)?.[1];
+}
+
 export function GradeStripBar({
   gradeStrip,
   compact = false,
@@ -352,11 +356,18 @@ export function GradeStripBar({
   presentation?: "default" | "dossier";
 }) {
   const entries = gradeSurfaceEntries(gradeStrip);
-  if (compact && presentation === "dossier") return <nav className="dossier-grade-navigation" aria-label="Section assessment shortcuts">
+  if (compact && presentation === "dossier") {
+    const nav = <nav className="dossier-grade-navigation" aria-label="Section assessment shortcuts">
     {entries.map(({ descriptor, block }) => <a key={descriptor.id} href={`#${sectionAnchorId(descriptor.sectionKey)}`} title={`${descriptor.label}: ${block.oneLineWhy}`} aria-label={`${descriptor.label}: ${gradeDisplayLabel(block, scores?.aspects[descriptor.key])}`}>
       <span className="text-muted">{descriptor.key === "leadership" ? "Leadership proxy" : descriptor.label}</span><HeadlineGrade block={block} aspect={scores?.aspects[descriptor.key]} />
     </a>)}
-  </nav>;
+    </nav>;
+    const warnings = entries.flatMap(({descriptor, block}) => {
+      const note = plainFigureWarning(block.oneLineWhy);
+      return note ? [<p key={descriptor.id} role="note" className="text-[10px] leading-snug text-muted">{descriptor.label}: {note}</p>] : [];
+    });
+    return warnings.length ? <div>{nav}<div className="mt-1 grid gap-1">{warnings}</div></div> : nav;
+  }
   return (
     <div
       className={`grid grid-cols-3 gap-1.5 ${entries.length === 7 ? "lg:grid-cols-7" : "lg:grid-cols-6"} ${compact ? "" : ""}`}
@@ -381,6 +392,7 @@ export function GradeStripBar({
                 {displayProse(block.oneLineWhy)}
               </p>
             )}
+            {plainFigureWarning(block.oneLineWhy) ? <span role="note" className="text-[10px] leading-snug text-muted">{plainFigureWarning(block.oneLineWhy)}</span> : null}
           </a>
         );
       })}
@@ -1519,9 +1531,6 @@ function ExecutiveCard({ exec, context }: { exec: Executive; context?: Executive
           </div>
           <div className="truncate text-[10px] text-faint">
             {exec.title}
-            {exec.tenureYears !== null
-              ? ` · ${exec.tenureYears.toFixed(0)}y tenure`
-              : ""}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">

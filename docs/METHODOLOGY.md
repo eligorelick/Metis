@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.63.0 / payload 1.73.0, Stage B `STAGE_B_2026_11_PLAIN_READER_WORDING_48` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.64.0 / payload 1.76.0, Stage B `STAGE_B_2026_11_FILED_FIGURES_51` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications
 
@@ -330,6 +330,81 @@ the quote can remain in statement currency; FCFF valuation also depends on
 the WACC's market-value weights. Same-currency checks do not independently
 resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
+
+**Filed figures over vendor conflicts (D-200).** For an exact-period,
+same-currency earnings disagreement, first adopt the complete filed pretax,
+tax and net-income family when the three reconcile on a stated ownership
+basis. Preserve vendor observations in resolved `fieldConflicts`, with filed
+provenance on adopted values. Parent/consolidated/common alternatives and
+separately filed equity-method income remain distinct scopes. Repeated
+comparatives do not hide an available original same-filing family: resolve
+that candidate before concluding there is no conflict. SEC-built restatements
+retain their own field-level filing provenance rather than reverting to the
+row's first-reporter date.
+
+If a reconciled filed family is unavailable, retain the vendor family with a
+note showing both values only when every disagreement is same-sign and no
+larger than **1% of the larger absolute observation**. The independent panel
+census contains a minor cluster ending at 0.907% and the next disagreement at
+1.544%; the 1% cutoff lies in that gap and applies only after filed-family
+recovery fails. It is an operational minor-restatement allowance, not a claim
+that a small vendor value equals the filing. An incomplete family with a
+material or sign conflict is withheld with the specific contradictory values.
+Arithmetic consistency within a provider row alone does not verify it.
+
+Adoption also reconciles bottom-line, continuing, consolidated and common
+aliases and dependent margins. A pretax-derived aggregate invalidated by the
+new family uses compatible filed operands or is qualified individually.
+Direct filed EPS is adopted only when an already admitted raw count proves
+the same unchanged share unit; it is never computed from net income.
+Direct EPS is rechecked after share admission even when monetary earnings
+already reconcile. If monetary admission establishes a previously missing
+period start, deferred share admission and the direct EPS check run again so
+fresh acquisition and frozen replay converge.
+
+Weighted shares are checked after an exact interval is established from filed
+provenance, a unique same-filing duration, or the existing month-end calendar
+rule. A missing off-calendar start is not silently rounded to a calendar year.
+Numerical count agreement permits the greater of one share or **0.01%** of the
+filed count. The panel's independent latest-count census has 76 numeric pairs:
+50 exact matches and two small rounding differences of 0.0034% and 0.0088%; the
+next difference is 0.0170%. This numerical allowance is distinct from the
+existing 3% unit/split-identity test. A count matching another duration in the
+same filing is a period mismatch even inside the numerical allowance. Larger
+conflicts use the exact-period filed count with provenance. A suspected
+thousand/million unit error still requires the existing independently
+corroborated repair; the small raw SEC count is not transplanted. Previously
+guarded split-adjusted histories retain their existing split-basis treatment.
+
+Foreign annual EPS is reconciled in native reporting currency, applying only
+the independently corroborated ordinary-shares-per-ADS ratio, with its source
+ids retained in field provenance. This check needs no FX rate. Ordinary EPS
+precision permits half a cent times the ADS ratio. Without a demonstrated
+ratio, EPS is withheld from verified growth; without comparable annual facts,
+the annual series is qualified rather than presented as independently checked.
+The foreign security resolver's other identity, count, split and date gates
+remain in force. Missing quarterly coverage with an established ratio does
+not itself contradict an otherwise retained provider observation.
+An EPS CAGR whose known endpoint precedes the latest annual income period
+remains historical context and cannot contribute to the current score. Losing
+recent evidence must not expose an old favorable growth endpoint as current.
+
+For SIC 6211 securities firms only, directly filed
+`RevenuesNetOfInterestExpense` replaces a conflicting gross-interest revenue
+denominator on the same interval. Incompatible vendor gross-profit, cost and
+operating subtotals and margins are withheld together. Revenue growth and
+capex/revenue therefore share the filed net definition. This does not route
+other industries through a securities revenue policy.
+
+Historical balance-sheet cash is compared with the observation from the
+vendor row's original filing date, even when a later filing repeats that
+balance. An SEC-built or already sourced cash field instead uses its compatible
+field-level accession, form and filing date, preserving a genuine restatement
+when the row still carries its first reporter's date. Conflicts retain both observations and withhold cash, dependent
+combined liquidity and net debt. Selection of newer cash or a changed
+definition is not a substitute for a same-filing comparison. These admissions
+also run in an immutable calculation view of frozen inputs; stored reports
+and their historical version identities are not rewritten.
 
 A minor-unit quote code (`GBp`, `GBX`, `GBx` pence; `ZAc`, `ZAC` cents;
 `ILA`, `ILa` agorot) is never treated as its major currency in a price
@@ -2141,15 +2216,16 @@ are already *after* it and adding that liability to EV as well double-counts the
 leases in EV/EBITDA. Finance-lease cost is split between right-of-use
 amortisation, which is included in EBIT and added back in EBITDA, and interest,
 which sits below EBIT ([ASC 842, 842-20-45-4](https://storage.fasb.org/ASU_2016-02_Section_A.pdf)). The finance-lease liability remains financing debt in both frames
-and stays in enterprise value and in net debt, always. The provider's
-`totalDebt` contains both, so the default subtracts the operating slice back out
-and leaves the finance slice where it is.
+and stays in enterprise value and in net debt, always. The calculation's debt
+basis must be shown to contain the operating slice before the default
+subtracts it. A provider total can be borrowings only; same-filing completion
+establishes the included components before an operating lease is removed.
 
-Only the EDGAR route resolves the split: the lease chain there sums a separately
-resolved operating and finance liability, and the operating slice is published
-as its own balance-sheet field. FMP publishes one combined
-`capitalLeaseObligations` and no split, so on that route **no lease adjustment
-is made at all** — enterprise value is reported as-is and an info-level
+Only filed evidence resolves the split: SEC-built rows and provider rows
+enriched from the same-period filing can carry separate operating and finance
+liabilities. A provider-only combined `capitalLeaseObligations` does not prove
+the split, so **no lease adjustment is made without that evidence** —
+enterprise value is reported as-is and an info-level
 `valuation.multiples.enterpriseValue.leases` manifest entry says that removing
 the combined figure would strip an unknown amount of finance-lease debt out of
 EV. The same entry fires when no lease liability is disclosed at all. Nothing is
@@ -2696,13 +2772,34 @@ with, all printed as assumptions in their own right:
   over the average of the equity at the window's end and four quarters
   earlier (the closing balance alone when no earlier balance sheet exists, as
   for the fiscal year). Otherwise the latest fiscal year supplies the return.
+  Revenue completeness is independent of common-earnings completeness (D-198).
+  After the existing fiscal-period, currency, issuer and filing admission,
+  four complete common-income quarters may establish this return even when
+  revenue is missing. Revenue itself remains null unless all four quarters
+  report it; revenue-dependent routing, margins, capital and valuation inputs
+  retain their complete-revenue gate and annual fallback or refusal. Missing
+  common earnings still withholds the trailing common return.
   **Opening book is selected independently (D-189).** Use the latest admitted
   quarterly balance newer than the fiscal-year book when equity and preferred
   adjustments (also goodwill and other intangibles for banks) are all present,
   conflict-free, on that exact date and in the model currency, with filing
   available at the analysis cutoff and admitted diluted shares ending on the
   same date. Field provenance must agree on date, unit and filing cutoff.
-  Missing adjustments are not zero. Otherwise the prior path stands, including
+  Missing adjustments are not zero. A zero preferred par line with filed
+  preferred shares outstanding, dividends or an aggregate liquidation claim
+  does not establish zero preferred capital (D-198). Use a filed carrying
+  amount for the same balance date first; otherwise use a filed aggregate
+  liquidation preference for that date, labelled as the senior liquidation
+  claim used for common book rather than accounting carrying value. Authorized
+  shares and a per-share preference are not an aggregate claim. A different
+  date cannot supply the amount. If neither same-date amount is established,
+  withhold that common-book claim, the financial fair value and its targets;
+  an older annual book cannot restore them. The same rule guards non-financial
+  DCF equity bridges, common-book multiples and EV claims.
+  A known unresolved preferred claim at an opening balance also withholds
+  its annual or trailing return; the closing balance cannot replace that
+  explicitly refused common-capital denominator. Other quarterly
+  admission failures retain the prior path, including
   a trailing start's own dated book, and the specific refusal is disclosed. The historical return remains
   a forward-rate assumption: earnings already inside opening book are never
   added again. Forecast years begin after that book date; the existing 200-day
@@ -3688,8 +3785,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_PLAIN_READER_WORDING_48 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_PLAIN_READER_WORDING_48. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_FILED_FIGURES_51 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_FILED_FIGURES_51. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -5176,6 +5273,40 @@ of $73M has no filed half-year amount and stays in. The tag list
 is an owner decision (D-98). Impairments are assumed to sit inside operating
 income, where US GAAP places them when an operating-income subtotal is shown.
 Restructuring charges are not treated as one-offs.
+
+**Material completed disposals (D-198).** Broad asset/business disposition
+tags are search candidates only: they can contain routine disposals, losses,
+and gains recorded below operating income. For the current admitted margin
+seed, an individual completed sale qualifies when its gain is at least **10%
+of the absolute operating income** of that same seed window (house convention;
+not a valuation calibration). On the frozen 49-company panel, the current
+large disposal candidate is Boeing: the aggregate TTM disposition tag is
+$9.688B against filed operating income of $9.735B, while the named sale is
+$9.566B. The other current ordinary disposal observations fall below the
+threshold. The rule is applied to the named event, not its whole tag balance.
+
+Retained filing notes must establish completion date, amount and statement
+line. The retained income statement's first-column disposition line and
+operating subtotal must both reconcile to facts from that same filing and
+duration. The named line must precede the operating subtotal. A line below
+that subtotal is not removed. The event date must fall in the same admitted
+trailing window, including its known period start; evidence filed or acquired
+after cutoff is unavailable. Unknown material placement or an unexplained
+material remainder withholds the DCF with a specific reason. Unsupported text
+formats refuse; proximity alone does not establish placement.
+
+An admitted event is removed once in the shared calculation view, including
+affected annual margins, ROIC/quality inputs, operating coverage and current
+and historical EBITDA multiples. The existing impairment and recurrence rules
+then apply. Without a separately established sale-tax and common-holder
+allocation, affected recurring net earnings, EPS and tax pairs are withheld
+instead of subtracting a pre-tax gain from after-tax earnings. Raw filing
+observations, cash flows, balance sheets and source snapshots remain retained;
+no sale proceeds are subtracted again from cash. For Boeing, the resulting
+0.3203% current margin and normalized declining history fail the existing DCF
+domain guard. Fair value, sensitivities, reverse DCF and scenario targets are
+withheld with a reason naming Digital Aviation Solutions. No turnaround
+forecast or replacement target is introduced.
 
 **What the report itself discloses.** Two facts appeared only in the audit
 export. First, all three Amazon passes ran on the ChatGPT plan with only the
@@ -7373,9 +7504,11 @@ people (senior officers first, then by value), and counts the rest.
 
 **Executive decision cards (D-190, 2026-11-04).** An additional CEO/CFO execution
 admission assesses dated decisions and outcomes during an evidenced office
-tenure, not personal skill or contribution. Existing typed performance and
-guidance gates remain unchanged; refusing a new decision candidate preserves
-their original grade and reason, with no new fallback. A company result,
+tenure, not personal skill or contribution. D-197 also requires typed metrics
+supporting execution to overlap an established office tenure by the report
+cutoff. An observation or filing date is not the measured period. Without an
+office start or a compatible measurement period, execution is withheld with a
+plain reason; a numerically valid pre-appointment result is insufficient. A company result,
 share-count trend, job title, pay or citation alone cannot establish a dated
 decision record. A proposed letter may also survive when the card's reasoning
 or capital-allocation evidence repeats a
@@ -7421,6 +7554,59 @@ gate; it supplies neither a decision nor a grade. Rounded `tenureYears`, pay
 and a current title remain insufficient. Saved reports without this optional
 field still parse and display, and their stored bytes and grades stay immutable.
 No new source, SEC request, paid call or proxy retrieval is introduced.
+
+**AI-written figures and tenure (D-197, 2026-11-04).** Currency amounts,
+percentages, multiples and financial-input ages in days in plain reader strings
+use the existing quantity reader, numeric registry and metric/period checks.
+This includes synthesis, grade explanations, interpretations, disagreements,
+technical commentary, titles, assumptions and other prose outside sourced
+claims. Assembly-owned calculation displays retain their existing contracts.
+
+Context is checked before an evidence-wide value lookup. An identified metric
+and period with a different recorded value gets a visible "Differs from the
+record" note, even if the stated value occurs elsewhere. If no eligible
+context binding exists and the value appears nowhere in the retained evidence
+in the same dimension, currency and displayed precision, it gets a visible
+"Not matched to a source" note. A value found with unconfirmed context gets
+only an exact-path audit entry, marked "Value matched; context not confirmed".
+It never counts as a verified fact or raises a verification rate, claim status
+or grade. Low-precision coincidences can produce this third result; they cannot
+confirm context. Numeric context agreement also does not validate a whole
+interpretation or enter the factual-claim counts.
+
+Value lookup includes every numeric registry metric; the retained filing,
+transcript and news text; analysts' retained research and case text for this
+run; and source-bound report claims whatever their validation state. Retained
+text uses the same sentence reader as executive source quotations. Analyst
+text is passed deterministically to verification, including compatible resumed
+artifacts and failed writers' retained research and rejected/partial cases. It is not added to a model
+prompt. Currency, dimension, sign and precision restrictions remain. A printed
+multiple cannot borrow a dimensionless fraction. Producer-bound short readings
+cover 50-day/200-day SMAs, 52-week endpoints, percentages below the high and
+price to tangible book. Explanatory parentheses and explicit shared money
+scales supply only value readings, never context confirmation; explicit
+negative amounts and mixed-unit lists retain their refusals.
+
+Figures remain verbatim. Live, Markdown and print show only the recorded
+visible notes beside their fields; the audit preserves the path, original text
+and all three results. A checked report with figure entries says once that
+figures without a note are not necessarily verified. Display alone never runs
+the check or invents saved-report flags. No additional model call, repair
+request or paid data call is made. Replay measurements report visible catches,
+audit-only misses and reviewed false alarms separately.
+
+The judge is no longer asked for `tenureYears`. New reports derive an exact
+duration only from an established exact office start and the report cutoff;
+partial or unavailable starts leave it unknown. Month/year filing bounds keep
+their stated wording. Saved bare model-authored tenure numbers still parse but
+are not printed as facts. Only the filing-backed `officeTenure` start is shown.
+Saved bytes, execution grades and verification marks remain immutable.
+
+Data-only synthesis uses the same classified data-gap count as the completeness
+banner, excluding informational notes, expected omissions and analysis-process
+disclosures. At display time, only the exact old deterministic suffix, with a
+count equal to the raw manifest length and an `analysis.llm` disclosure, is
+corrected to that classified count. Other saved sentences remain unchanged.
 
 The existing typed guidance-versus-actual contract remains: credibility requires
 a validated prior-guidance/later-actual comparison for the same metric, period
@@ -7567,3 +7753,34 @@ the default lease-excluded convention. Its other maturity remains unknown;
 the lease-inclusive switch continues to withhold. Ordinary debt plausibility
 and aggregate/component checks still run afterward. This is the existing
 lease convention applied to proved borrowings, not zero-filling a missing lease.
+
+**Fair-value coverage follow-up (D-196, 2026-11-04).** A vendor lease line of
+zero without filed provenance is undisclosed when a same-period filing proves
+positive lease liabilities. It is completed only when the vendor debt total
+reconciles to its components, each borrowing scope and lease maturity is
+resolved from one filing in one currency, and the existing completeness
+checks pass. Noncurrent operating leases embedded in vendor long-term debt
+are counted once when that exact composition is proved. The calculation view
+rebuilds financing debt plus leases; the default basis then removes operating
+leases consistently from the bridge, WACC and invested capital, while finance
+leases stay in debt. A filed zero, a contradictory vendor lease split,
+unresolved current notes, incomplete or mixed-filing lease evidence, and
+independent debt refusals never authorize completion. A failed zero-line
+repair preserves the prior admission decision and its integrity guard.
+
+Existing class evidence is preferred while active on the quote date. If every
+retained inventory has expired, the fully evidenced interim-cover rule above
+is evaluated independently. Expired counts are never extended, and incomplete
+current classes still withhold capitalization. Independent SEC issuer identity
+uses the established dot/hyphen spelling equivalence for a share-class ticker;
+different class suffixes and CIK mismatches remain distinct.
+
+An unreconciled ASC-606 contract-revenue fact is not described as a proved
+consolidated operating-revenue total. It can omit derivative or lease
+transactions and may be rounded in a note. The affected revenue remains
+withheld until a full statement for the same registrant is reconciled;
+subsidiary figures never substitute for the parent. Financial-route headline
+refusals name the excess-return model's missing assumption or common-share
+denominator, including missing compatible common earnings behind an unusable
+payout history. ADR refusals carry the failed security/FX evidence. These
+disclosures do not relax numeric admission or create a new valuation model.

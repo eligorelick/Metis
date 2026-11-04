@@ -560,7 +560,7 @@ describe("D-63 filing evidence", () => {
     expect(parseCommitmentTables(text).find((t) => t.kind === "guarantees")).toMatchObject({ asOf: "2026-08-26", total: 105e9 });
   });
 
-  it("validates a CFO guidance-track-record fact the gate then admits, and figures an 8-K or the commentary states in a sentence", async () => {
+  it("validates CFO guidance evidence without inferring execution tenure, and figures an 8-K or the commentary states", async () => {
     const payload = payloadOf(nvdaBundle());
     const track = payload.provenanceRegistry!.find((r) => r.id === "computed.quarterly-trend.share-of-the-last-one-guided-quarter-with-revenue-above-the-prior-guided-range")!;
     expect(track).toMatchObject({ value: 100, unit: "percent", period: null, asOf: "2026-07-26" });
@@ -580,11 +580,11 @@ describe("D-63 filing evidence", () => {
     ];
     const result = await runVerifyPass({} as PassDeps, payload, { leadership, keyNumbers });
     expect(result.log.find((e) => e.path === "leadership.executives[0].evidence.guidanceVsActuals[0]")).toMatchObject({ validationStatus: "validated" });
-    expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "A" });
-    // A genuine track record stays eligible even if the model chooses another bucket.
+    expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "not-assessed", credibilityGrade: "A" });
+    // Guidance credibility stays eligible in either bucket; execution still requires dated tenure overlap.
     leadership.executives[0]!.evidence = { capitalAllocation: [fact] };
     const recategorized = await runVerifyPass({} as PassDeps, payload, { leadership });
-    expect(recategorized.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "A" });
+    expect(recategorized.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "not-assessed", credibilityGrade: "A" });
     expect(result.verifiedReport.keyNumbers.map((n) => n.verified)).toEqual([true, true]);
     // AI-305 / OD-1: the short label no longer binds the 105 figure (recall cost accepted).
     const short = await runVerifyPass({} as PassDeps, payload, { keyNumbers: [{ ...keyNumbers[0]!, unit: "USD billions: aggregate payment obligation" }] });

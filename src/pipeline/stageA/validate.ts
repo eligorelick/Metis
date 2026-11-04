@@ -94,7 +94,7 @@ export interface ValidateIncomeRow {
 /** Balance-sheet row fields the validator reads (FMP field names). */
 export interface ValidateBalanceRow {
   [key: string]: unknown;
-  fieldConflicts?: Record<string, { usable: false; reason: string }>;
+  fieldConflicts?: Record<string, { usable: boolean; reason: string }>;
   identityDerivedFields?: readonly string[];
   date?: string;
   period?: string;

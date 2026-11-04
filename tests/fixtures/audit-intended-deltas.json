@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-11-02",
+  "generatedAt": "2026-11-04",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -10091,12 +10091,12 @@
         "D-140",
         "D-141"
       ],
-      "reason": "D-140 established workflow/source-scope conventions. D-193 advances the report to 1.63.0. D-192 advances the report to 1.62.0. D-190 advances the report to 1.61.0. the Q round advances the report to 1.60.0 (D-175 to D-181), after the priority fixes moved it to 1.59.0 (D-168 to D-172), after the FIGR extra-high audit fixes moved it to 1.58.0 (D-163 to D-167), the FIGR paid-run fixes moved it to 1.57.0 (D-156 to D-161) and P0 M-1/M-2/L-2 to 1.56.0 (D-142); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
+      "reason": "D-140 established workflow/source-scope conventions. D-197 advances the report to 1.64.0. D-193 advances the report to 1.63.0. D-192 advances the report to 1.62.0. D-190 advances the report to 1.61.0. the Q round advances the report to 1.60.0 (D-175 to D-181), after the priority fixes moved it to 1.59.0 (D-168 to D-172), after the FIGR extra-high audit fixes moved it to 1.58.0 (D-163 to D-167), the FIGR paid-run fixes moved it to 1.57.0 (D-156 to D-161) and P0 M-1/M-2/L-2 to 1.56.0 (D-142); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.63.0"
+          "after": "1.64.0"
         },
         {
           "path": "report.technicals.read.trend",
@@ -10135,22 +10135,22 @@
         {
           "path": "report.fairValue.methodVersion",
           "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_PLAIN_READER_WORDING_48"
+          "after": "FAIR_VALUE_2026_11_FILED_FIGURES_51"
         },
         {
           "path": "report.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_PLAIN_READER_WORDING_48"
+          "after": "SCENARIO_TARGETS_2026_11_FILED_FIGURES_51"
         },
         {
           "path": "stageB.fairValue.methodVersion",
           "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_PLAIN_READER_WORDING_48"
+          "after": "FAIR_VALUE_2026_11_FILED_FIGURES_51"
         },
         {
           "path": "stageB.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_PLAIN_READER_WORDING_48"
+          "after": "SCENARIO_TARGETS_2026_11_FILED_FIGURES_51"
         },
         {
           "path": "stageB.valuation.notes.7",
@@ -10455,6 +10455,25 @@
               "Operating expenses are the provider's subtotal on its own rows (gross profit less operating income), not a filed total."
             ]
           }
+        }
+      ]
+    },
+    {
+      "name": "ai-figure-and-tenure-checks-d197",
+      "decisions": [
+        "D-197"
+      ],
+      "reason": "Executive tenure is derived from the retained exact office start and fixed report cutoff; the two legacy model-authored durations are no longer preserved.",
+      "deltas": [
+        {
+          "path": "report.leadership.executives.0.tenureYears",
+          "before": 6,
+          "after": 6.510742862618671
+        },
+        {
+          "path": "report.leadership.executives.1.tenureYears",
+          "before": 4,
+          "after": 5.095244940005613
         }
       ]
     }

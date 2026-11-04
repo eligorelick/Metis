@@ -5,7 +5,7 @@
  * partial sum a full TTM: one null revenue quarter undercounted TTM revenue
  * ~25% (mis-routing real companies to pre-revenue and understating DCF
  * startRevenue), and the tax pair could sum over MISMATCHED quarter subsets.
- * The fix gates revenue (whole-row) and the tax pair (as a pair) on 4 complete
+ * The fix gates revenue (independently) and the tax pair (as a pair) on 4 complete
  * quarters while keeping partial tolerance for legitimately-sparse fields
  * (interestExpense / D&A are null in some quarters for debt-free firms).
  */
@@ -112,15 +112,15 @@ describe("ttmIncome — completeness gating", () => {
     expect(ttm!.reportedCurrency).toBe("USD");
   });
 
-  it("returns null (annual-basis fallback) when a quarter's revenue is missing — never a partial TTM", () => {
+  it("withholds incomplete revenue while retaining independently complete earnings", () => {
     const rows = fourQ([{}, { revenue: null }]);
-    expect(ttmIncome(rows)).toBeNull();
+    expect(ttmIncome(rows)).toMatchObject({ revenue: null, netIncome: 60, operatingIncome: 80 });
   });
 
   it("discloses the suppressed TTM via a gap sink when revenue is partial", () => {
     const gaps: ManifestEntry[] = [];
     const rows = fourQ([{}, { revenue: null }]);
-    expect(ttmIncome(rows, gaps)).toBeNull();
+    expect(ttmIncome(rows, gaps)?.revenue).toBeNull();
     expect(gaps).toHaveLength(1);
     expect(gaps[0].field).toBe("compute.ttmIncome");
     expect(gaps[0].severity).toBe("info");
@@ -1173,6 +1173,36 @@ describe("runStageB wiring — trailing excess-return start (audit 2026-10-22 C-
     { date: "2026-03-31", totalAssets: 2050, totalLiabilities: 1530, totalStockholdersEquity: 520, totalEquity: 520, totalDebt: 280, netDebt: 210, cashAndCashEquivalents: 70, cashAndShortTermInvestments: 120, goodwill: 40, intangibleAssets: 10, minorityInterest: 0, preferredStock: 0 },
     { date: "2025-03-31", totalAssets: 1950, totalLiabilities: 1480, totalStockholdersEquity: 470, totalEquity: 470, totalDebt: 280, netDebt: 210, cashAndCashEquivalents: 70, cashAndShortTermInvestments: 120, goodwill: 40, intangibleAssets: 10, minorityInterest: 0, preferredStock: 0 },
   ];
+
+  it("starts from complete trailing common earnings even when all four revenues are missing", () => {
+    const bundle = wiringBundle({ bank: true, balanceQuarterly: quarterlyBalances });
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("fixture");
+    for (const row of bundle.statements.incomeQuarterly.value.data.rows) {
+      row.revenue = undefined;
+      row.netIncomeAvailableToCommon = 37.5 * M;
+    }
+    const computed = runStageB(bundle);
+    expect(computed.returns.commonReturnTtm?.returnPct).toBeCloseTo(33.7078651685, 8);
+    if (computed.valuation.kind !== "excess-return") throw new Error("fixture");
+    expect(computed.valuation.excessReturn.roePathPct.value[0]).toBeCloseTo(33.7078651685, 8);
+    // Every revenue-dependent consumer retains its annual fallback or refusal.
+    expect(computed.route.asOf.incomeTtm).toBeNull();
+    expect(computed.gaps.some(g => /revenue present in only 0\/4/.test(g.reason))).toBe(true);
+  });
+
+  it("still refuses a trailing common return when one common-earnings quarter is missing", () => {
+    const bundle = wiringBundle({ bank: true, balanceQuarterly: quarterlyBalances });
+    if (!bundle.statements.incomeQuarterly.ok || !bundle.statements.balanceQuarterly.ok) throw new Error("fixture");
+    for (const row of bundle.statements.incomeQuarterly.value.data.rows) {
+      row.revenue = undefined;
+      row.netIncomeAvailableToCommon = 37.5 * M;
+    }
+    bundle.statements.incomeQuarterly.value.data.rows[1]!.netIncomeAvailableToCommon = undefined;
+    for (const row of bundle.statements.balanceQuarterly.value.data.rows) row.preferredStock = 10 * M;
+    const computed = runStageB(bundle);
+    expect(computed.returns.commonReturnTtm?.returnPct).toBeNull();
+    expect(computed.returns.commonReturnTtm?.withheldReason).toMatch(/common|quarter/i);
+  });
 
   it("starts the bank's fade from the TTM ROTE at the window's end and values the fiscal-year start beside it", () => {
     const computed = runStageB(wiringBundle({ bank: true, balanceQuarterly: quarterlyBalances }));

@@ -78,6 +78,27 @@ function makeInputs(over: Partial<FairValueInputs> = {}): FairValueInputs {
   return { valuation: dcfValuation(), currentPrice: 100, currency: "USD", asOf: "2026-07-06", ...over };
 }
 
+describe("route-specific withholding reasons", () => {
+  it.each(["payout", "dilutedShares"])("quotes the excess-return %s refusal", field => {
+    const valuation = excessReturnValuation();
+    if (valuation.kind !== "excess-return") throw Error("fixture");
+    valuation.excessReturn.perShare = null;
+    valuation.gaps = [{ field: `valuation.excessReturn.${field}`, severity: field === "payout" ? "critical" : "info",
+      reason: field === "payout" ? "Common earnings and payouts align in only one fiscal year; two are required." : "Diluted shares on the all-class economic basis are unavailable." }];
+    const r = computeFairValue(makeInputs({ valuation }));
+    expect(r.reasons[0]!.reason).toBe(valuation.gaps[0]!.reason);
+    expect(r.reasons[0]!.field).toBe("valuation.excessReturn.perShare");
+    expect(r.reasons[0]!.reason).not.toMatch(/DCF|net debt|ADR/);
+  });
+  it("carries failed foreign security evidence behind the currency refusal", () => {
+    const valuation = dcfValuation({ dcf: null, assumptions: null, gaps: [
+      { field: "valuation.dcf.currency", reason: "Statements JPY differ from the USD quote.", severity: "critical" },
+      { field: "valuation.currencyConversion", reason: "Filed ordinary and quoted outstanding counts disagree; receipt ratio unproved.", severity: "warn" },
+    ] });
+    expect(computeFairValue(makeInputs({ valuation })).reasons[0]!.reason).toContain("receipt ratio unproved");
+  });
+});
+
 /* ------------------------------------------------------------------------ */
 
 describe("fairValue — available", () => {

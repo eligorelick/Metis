@@ -102,6 +102,7 @@ import {
   isTransientSubscriptionFailure,
   isRetryablePassFailure,
   type PassDeps,
+  type VerificationEvidence,
   type PassResult,
   type PassRun,
   type RunPassArgs,
@@ -340,6 +341,7 @@ function toPassResultLike<T>(r: PassResult<T>): PassResultLike<T> {
     },
     webSearches: r.webSearches,
     fetchedUrls: r.fetchedUrls,
+    ...(r.research === undefined ? {} : { research: r.research }),
     ...(r.execution === undefined ? {} : { execution: r.execution }),
   };
 }
@@ -715,7 +717,7 @@ export const pipelinePasses: PipelinePasses<ContextPayload> = {
   async runVerifyPass(
     deps: RunnerPassDeps<ContextPayload>,
     judgeOutput: JudgeOutput,
-    evidence: { fetchedUrls: string[] } = { fetchedUrls: [] },
+    evidence: VerificationEvidence = { fetchedUrls: [] },
     settlement?: PassSettlementHook<Report>,
     beforeProviderLaunch?: () => void | Promise<void>,
   ): Promise<VerifyPassResult> {

@@ -43,6 +43,6 @@ describe("deterministic financial explanation",()=>{
     r.appendix.verificationLog=[{path:"leadership.executives[0].evidence.guidanceVsActuals[0]",claim:text,source:"edgar:10-Q",outcome:"unverified",validationStatus:"validated"}];
     expect(applyFinancialDiagnostics(r,{capital:capital()} as ComputedMetrics).leadership.executives[0]).toMatchObject({grade:"not-assessed",credibilityGrade:"not-assessed"});
     r.appendix.verificationLog[0]!.executiveEvidenceKind="guidance-track-record";
-    expect(applyFinancialDiagnostics(r,{capital:capital()} as ComputedMetrics).leadership.executives[0]).toMatchObject({grade:"B",credibilityGrade:"B"});
+    expect(applyFinancialDiagnostics(r,{capital:capital()} as ComputedMetrics).leadership.executives[0]).toMatchObject({grade:"not-assessed",credibilityGrade:"B"});
   });
 });

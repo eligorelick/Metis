@@ -435,7 +435,24 @@ export function constructCommonIncomeQuarterWindow(rows: readonly CommonIncomeIn
     targetScope: { periodEnd: rows[0]!.targetScope?.periodEnd, currency: fallbackCurrency, basis: "ttm" }, admissionAsOf: rows[0]!.admissionAsOf,
     preferredClaimsInPeriod: rows.some(row => row.preferredClaimsInPeriod || (finite(row.preferredDividendsPaid) && row.preferredDividendsPaid !== 0)) };
 }
-export interface CommonEquityInputs {
+export interface PreferredCapitalInputs {
+  date?: string;
+  preferredStock?: number | null;
+  preferredStockSharesOutstanding?: number | null;
+  preferredDividendsPaid?: number | null;
+  preferredLiquidationPreference?: number | null;
+  preferredCapitalWithheldReason?: string | null;
+  preferredCapitalBasis?: string | null;
+}
+/** A zero par line cannot erase a known preferred claim. */
+export function preferredCapitalRefusal(balance: PreferredCapitalInputs | null | undefined): string | null {
+  if (balance?.preferredCapitalWithheldReason) return balance.preferredCapitalWithheldReason;
+  if (balance?.preferredStock === 0 && [balance.preferredStockSharesOutstanding, balance.preferredDividendsPaid, balance.preferredLiquidationPreference].some(v => finite(v) && v > 0)) {
+    return `Preferred capital at ${balance.date ?? "the balance date"} is unresolved: zero par with preferred shares, dividends or liquidation preference does not establish zero capital; a filed carrying amount or liquidation preference for the same balance date is required.`;
+  }
+  return null;
+}
+export interface CommonEquityInputs extends PreferredCapitalInputs {
   totalStockholdersEquity: number | null;
   preferredStock?: number | null;
   minorityInterest?: number | null;
@@ -462,7 +479,7 @@ export function selectCommonIncome(income: CommonIncomeInputs | null, balance: C
   const incomeScopeRefusal = commonIncomeTargetRefusal(income.incomeScope, income.targetScope, income.admissionAsOf, income.capitalPeriodEnd);
   if (incomeScopeRefusal) return withheld(incomeScopeRefusal);
   if (income.noncontrollingIncome != null && !finite(income.noncontrollingIncome)) return withheld("noncontrolling-income allocation is nonfinite");
-  const preferred = income.preferredClaimsInPeriod === true || (finite(balance?.preferredStock) && balance.preferredStock > 0) ||
+  const preferred = preferredCapitalRefusal(balance) !== null || income.preferredClaimsInPeriod === true || (finite(balance?.preferredStock) && balance.preferredStock > 0) ||
     (finite(income.preferredDividendsPaid) && income.preferredDividendsPaid !== 0);
   if (preferred) return withheld("preferred claims exist during the earnings period but filed common earnings or a complete earnings-allocation bridge are unavailable; cash paid is not an earnings allocation");
   const nci = finite(balance?.minorityInterest) ? balance.minorityInterest : 0;
@@ -491,9 +508,11 @@ export function commonHolderCapital(income: CommonIncomeInputs | null, balance: 
   const nci = finite(balance?.minorityInterest) ? balance.minorityInterest : 0;
   let commonEquity: number | null = null;
   let equityWithheldReason: string | null = null;
-  const equityBasis = finite(balance?.commonEquity) ? "explicit common equity" :
-    `${balance?.equityOwnershipBasis === "consolidated" ? "consolidated equity less noncontrolling equity" : "parent stockholders equity (excludes noncontrolling equity)"} less preferred stock`;
-  if (finite(balance?.commonEquity)) commonEquity = balance.commonEquity;
+  const equityBasis = (finite(balance?.commonEquity) ? "explicit common equity" :
+    `${balance?.equityOwnershipBasis === "consolidated" ? "consolidated equity less noncontrolling equity" : "parent stockholders equity (excludes noncontrolling equity)"} less preferred stock`) + (balance?.preferredCapitalBasis ? `; ${balance.preferredCapitalBasis}` : "");
+  const preferredRefusal = preferredCapitalRefusal(balance);
+  if (preferredRefusal) equityWithheldReason = preferredRefusal;
+  else if (finite(balance?.commonEquity)) commonEquity = balance.commonEquity;
   else if (finite(balance?.totalStockholdersEquity)) {
     if (balance.equityOwnershipBasis === "consolidated" && !finite(balance.minorityInterest)) {
       equityWithheldReason = "consolidated equity has no disclosed noncontrolling-equity allocation — common equity unavailable";

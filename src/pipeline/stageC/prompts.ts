@@ -38,6 +38,7 @@ import {
  * ------------------------------------------------------------------------ */
 
 export const NON_NEGOTIABLE_RULES = [
+  "Figures in every plain-text reader field (synthesis, one-line reasons, interpretations, disagreements, technical commentary, assumptions and notes included) must come from the payload or a source-bound claim in this report. Preserve the metric, period, currency, unit and displayed precision. These figures are checked deterministically; unmatched figures remain visible with a source warning. Do not invent or independently estimate them.",
   "No financial figure may come from model memory. Payload or cited fetched source only.",
   "Every claim is labeled FACT (from payload/source), ESTIMATE (analyst/model projection), or JUDGMENT (interpretation).",
   "Never output investment ratings or allocation directives (including buy/sell/hold, outperform/underperform, overweight/underweight, accumulate/avoid, or reduce exposure). Explain modeled scenarios and their conditions.",

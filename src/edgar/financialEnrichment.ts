@@ -62,8 +62,12 @@ function points(facts: CompanyFacts, tag: string, unit: string, observedAt: stri
 function resolved(value: number, tags: string[], ps: FactPoint[], unit: string, observedAt: string, periodStart: string | null, periodEnd: string): Resolved {
   return { value, evidence: { source: "edgar", unit, periodStart, periodEnd, observedAt, tags: tags.map((t) => `us-gaap/${t}`), filings: ps.map((p) => ({ accn: p.accn, filed: p.filed, form: p.form })) } };
 }
-function instant(facts: CompanyFacts, tag: string, unit: string, end: string, observedAt: string): Resolved | null {
-  const p = newest(points(facts, tag, unit, observedAt).filter((p) => p.end === end && p.start === undefined && p.val >= 0));
+function instant(facts: CompanyFacts, tag: string, unit: string, end: string, observedAt: string, filingDate?: string, filings?: StatementFieldProvenance["filings"]): Resolved | null {
+  const candidates = points(facts, tag, unit, observedAt).filter(p => p.end === end && p.start === undefined &&
+    (filingDate === undefined || p.filed === filingDate) &&
+    (filings === undefined || filings.some(f => f.accn === p.accn && f.filed === p.filed && f.form === p.form)));
+  const p = filingDate === undefined && filings === undefined ? newest(candidates.filter(p => p.val >= 0)) : unambiguousNewest(candidates);
+  if (p && p.val < 0) return null;
   return p ? resolved(p.val, [tag], [p], unit, observedAt, null, end) : null;
 }
 function liability(facts: CompanyFacts, prefix: "Operating" | "Finance", unit: string, end: string, observedAt: string): Resolved | null {
@@ -310,7 +314,14 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
   }
   for (const [field, tag, signed, sign] of specifications) {
     if (onlySbc && field !== "stockBasedCompensation") continue;
-    const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt)
+    // SEC-built rows retain the first reporter's filing date while each field
+    // carries the filing that supplied its latest value, including restatements.
+    const proof = row.fieldProvenance?.[field];
+    const balanceFilings = kind === "balance" && proof?.source === "edgar" && proof.unit === unit &&
+      proof.periodStart === null && proof.periodEnd === row.date && proof.tags.includes(`us-gaap/${tag}`) && proof.filings.length > 0
+      ? proof.filings : undefined;
+    const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt,
+      balanceFilings ? undefined : validDay(row.filingDate) ? row.filingDate : undefined, balanceFilings)
       : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
         ? cashAmounts[field] ?? (field === "netChangeInCash" ? matchingCashChange(facts, unit, row, scope, observedAt) : null)
         : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed, ctx) ??
@@ -324,7 +335,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       keptUnverified(ctx, field, row.date!, [cashField ? CASH_MOVEMENT_TAG : tag]);
     }
     if (!sec || (sec.evidence.periodStart !== null && kind === "cashflow" && typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart) ||
-      (validDay(row.filingDate) && !filingAnchor?.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
+      (!balanceFilings && validDay(row.filingDate) && !filingAnchor?.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
     const vendor = row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const value = sec.value * sign;
@@ -357,6 +368,14 @@ export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts:
     (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
   return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "cashflow",
     { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() }, true);
+}
+
+/** Cash honors field-level SEC lineage; unproved vendor values use their original filing. */
+export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  if (!validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") ||
+      (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
+  return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "balance",
+    { labels: [], withheld: new Set(), unverified: new Map() });
 }
 
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
@@ -662,12 +681,31 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       // noncurrent finance lease, also when that lease is zero (PR #86 review).
       if (pure !== null && combined !== null && !eq(combined, pure + fin.noncurrent)) throw new Error("ambiguous noncurrent finance-lease overlap");
       const noncurrent = pure ?? (combined === null ? null : combined - fin.noncurrent);
-      if (noncurrent === null || noncurrent < 0 || !(vendorAgreesWithFiled(row.longTermDebt as number, noncurrent) ||
-          combined !== null && vendorAgreesWithFiled(row.longTermDebt as number, combined))) continue;
       const line = row.capitalLeaseObligations as number;
-      if (![op.total, op.noncurrent, op.total + fin.total, op.noncurrent + fin.noncurrent].some(v => eq(line, v))) continue;
+      // An unproven provider zero is undisclosed when the same filing shows
+      // real leases. Complete the debt composition below; never merely ignore
+      // the contradictory zero or subtract leases from borrowings-only debt.
+      const undisclosedZero = line === 0 && op.total + fin.total > 0;
+      // A missing vendor lease line cannot attest to an unfiled family being
+      // zero. This new completion path needs primary coverage of both kinds;
+      // explicit filed zeros qualify, taxonomy silence does not.
+      if (undisclosedZero && !["Operating", "Finance"].every(prefix => used.includes(`${prefix}LeaseLiability`) ||
+        used.includes(`${prefix}LeaseLiabilityCurrent`) && used.includes(`${prefix}LeaseLiabilityNoncurrent`))) continue;
+      const operatingInLong = undisclosedZero && op.noncurrent > 0 && noncurrent !== null &&
+        [noncurrent + op.noncurrent, noncurrent + op.noncurrent + fin.noncurrent].some(v => eq(row.longTermDebt as number, v));
+      if (noncurrent === null || noncurrent < 0 || !(vendorAgreesWithFiled(row.longTermDebt as number, noncurrent) ||
+          combined !== null && vendorAgreesWithFiled(row.longTermDebt as number, combined) || operatingInLong)) continue;
+      if (!undisclosedZero && ![op.total, op.noncurrent, op.total + fin.total, op.noncurrent + fin.noncurrent].some(v => eq(line, v))) continue;
       const refuse = (why: string): LeaseLineCompletion<T> => ({ status: "refused", reason: `incomplete debt carrying value: same-filing completion refused: ${why}` });
-      refusal = line < op.total + fin.total ? refuse("current debt or vendor composition cannot be reconciled") : none;
+      // An unsuccessful zero-line repair keeps the prior admission decision;
+      // the independent lease-integrity guard still withholds its bridge.
+      // It must not introduce a new debt-field refusal and alter other scores.
+      refusal = !undisclosedZero && line < op.total + fin.total ? refuse("current debt or vendor composition cannot be reconciled") : none;
+      if (undisclosedZero && ([row.capitalLeaseObligationsCurrent, row.capitalLeaseObligationsNonCurrent]
+        .some(v => v != null && (!finite(v) || v !== 0)) || !notesScope &&
+        ["NotesPayableCurrent", "NotesAndLoansPayableCurrent"].some(tag => (own(tag) ?? 0) > 0))) {
+        throw new Error("vendor zero has a contradictory lease split or unresolved current notes");
+      }
       const ltd = own("LongTermDebtCurrent") ?? (notesScope ? own("NotesAndLoansPayableCurrent") ?? own("NotesPayableCurrent") : null), dc = own("DebtCurrent"), both = own(COMBINED_CURRENT_DEBT_TAG);
       const stb = own("ShortTermBorrowings"), cp = own("CommercialPaper");
       const borrowing = stb ?? cp ?? 0;
@@ -701,7 +739,7 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
         vendorNetDebt: row.vendorNetDebt ?? row.netDebt ?? row.fieldConflicts?.netDebt?.vendorValue ?? null,
         fieldConflicts, fieldProvenance: { ...row.fieldProvenance, ...Object.fromEntries(fields.map(f => [f, evidence])) } } as T,
         admission: { kind: "filing-completion", date: row.date!, summary: `${millions(totalDebt)} (vendor ${millions(vendorTotal)}; ${filing.accn})`,
-          detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: current financing debt ${millions(current)} + noncurrent financing debt ${millions(noncurrent)} + operating leases ${millions(op.total)} + finance leases ${millions(fin.total)} = total debt ${millions(totalDebt)} ${unit}; vendor component scopes reconciled exactly; ${[...new Set(used)].join(", ")}` } };
+          detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: current financing debt ${millions(current)} + noncurrent financing debt ${millions(noncurrent)} + operating leases ${millions(op.total)} + finance leases ${millions(fin.total)} = total debt ${millions(totalDebt)} ${unit}; ${undisclosedZero ? "undisclosed vendor lease zero replaced by filed liabilities; " : ""}${operatingInLong ? "noncurrent operating leases inside vendor long-term debt counted once; " : ""}vendor component scopes reconciled exactly; ${[...new Set(used)].join(", ")}` } };
     } catch { /* Ambiguous or incomplete facts never authorize a completion. */ }
   }
   return refusal;

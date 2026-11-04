@@ -59,6 +59,20 @@ async function producedBank(): Promise<DataBundle> {
 }
 
 describe("issuer admission across producer, calculations and payload", () => {
+  it.each(["SEC mapping", "SEC registrant"])("recognizes a class punctuation alias from %s without confusing sibling classes", mode => {
+    const facts = { cik: 42, entityName: "Example", facts: {} } as CompanyFacts;
+    const b = withIssuerFacts(completeCurrencyBundle({ symbol: "EX.B" }), facts, true);
+    if (!b.edgar.cik.ok) throw Error("fixture");
+    b.edgar.cik.value.data.ticker = mode === "SEC mapping" ? "EX-B" : "OTHER";
+    if (mode === "SEC registrant") b.edgar.registrant = { cik10: "0000000042", name: "Example", tickers: ["EX-B"],
+      exchanges: [], sic: null, sicDescription: null, fiscalYearEnd: null, stateOfIncorporation: null, forms: [] };
+    else b.edgar.registrant = null;
+    expect(confirmedIssuerFacts("EX.B", b.edgar)).toBe(facts);
+    expect(confirmedIssuerFacts("EX.A", b.edgar)).toBeNull();
+    b.edgar.companyFacts = { ok: true, value: { ...b.edgar.companyFacts.ok && b.edgar.companyFacts.value,
+      source: "edgar", endpoint: "fixture", fetchedAt: "2026-07-06T00:00:00Z", asOf: "2025-12-31", data: { ...facts, cik: 99 } } };
+    expect(confirmedIssuerFacts("EX.B", b.edgar)).toBeNull();
+  });
   let produced: DataBundle;
   beforeAll(async () => { produced = await producedBank(); });
 

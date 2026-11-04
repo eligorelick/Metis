@@ -13,6 +13,66 @@ const row = (over: Partial<FmpBalanceSheetRow> = {}): FmpBalanceSheetRow => ({ d
 const admit = (tags = tagged, vendor = row()) => admitDebtFields(vendor, companyFacts({ [Q2]: tags }), "USD", OBSERVED);
 
 describe("exact same-filing debt completion", () => {
+  it("completes an undisclosed vendor lease zero from reconciled same-filing borrowings and leases", () => {
+    const vendor = row({ shortTermDebt: 7 * M, capitalLeaseObligations: 0, totalDebt: 107 * M,
+      operatingLeaseLiability: 20 * M, financeLeaseLiability: 6 * M });
+    const before = JSON.stringify(vendor);
+    const out = admit({ ...tagged, CommercialPaper: 3 }, vendor);
+    expect(out.row).toMatchObject({ shortTermDebt: 7 * M, longTermDebt: 100 * M,
+      capitalLeaseObligations: 26 * M, totalDebt: 133 * M, netDebt: 123 * M });
+    expect(leaseDebtConflict(out.row)).toBeNull();
+    expect(out.admissions[0]?.detail).toMatch(/undisclosed.*zero/i);
+    expect(JSON.stringify(vendor)).toBe(before);
+  });
+  it("counts operating leases embedded in vendor noncurrent debt exactly once when its separate lease line is zero", () => {
+    const vendor = row({ longTermDebt: 118 * M, shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 122 * M,
+      operatingLeaseLiability: 20 * M, financeLeaseLiability: 6 * M });
+    const out = admit(tagged, vendor);
+    expect(out.row).toMatchObject({ longTermDebt: 100 * M, shortTermDebt: 4 * M, capitalLeaseObligations: 26 * M, totalDebt: 130 * M });
+    expect(leaseDebtConflict(out.row)).toBeNull();
+    expect(out.admissions[0]?.detail).toContain("noncurrent operating leases inside vendor long-term debt");
+  });
+  it("preserves a true zero lease line when no filed leases exist", () => {
+    const out = admit({ LongTermDebtNoncurrent: 100, LongTermDebtCurrent: 4 },
+      row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M }));
+    expect(out.row.totalDebt).toBe(104 * M);
+    expect(out.admissions).toEqual([]);
+  });
+  it("does not complete an undisclosed lease zero by assuming an unfiled finance-lease family is zero", () => {
+    const onlyOperating = Object.fromEntries(Object.entries(tagged).filter(([tag]) => !tag.startsWith("FinanceLease")));
+    const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M,
+      operatingLeaseLiability: 20 * M });
+    const out = admit(onlyOperating, vendor);
+    expect(out.row.totalDebt).toBe(104 * M);
+    expect(out.admissions).toEqual([]);
+    expect(leaseDebtConflict(out.row)).toMatch(/do not reconcile/);
+  });
+  it("leaves an unproved zero-line composition to the existing integrity guard without adding a debt refusal", () => {
+    const vendor = row({ shortTermDebt: 9 * M, capitalLeaseObligations: 0, totalDebt: 109 * M,
+      operatingLeaseLiability: 20 * M, financeLeaseLiability: 6 * M });
+    const out = admit(tagged, vendor);
+    expect(out.row.totalDebt).toBe(109 * M);
+    expect(out.admissions).toEqual([]);
+    expect(out.row.fieldConflicts?.totalDebt).toBeUndefined();
+    expect(leaseDebtConflict(out.row)).toMatch(/do not reconcile/);
+  });
+  it("does not replace a filed zero or reconcile an incomplete lease or disputed borrowing with a vendor zero", () => {
+    for (const mode of ["filed zero", "incomplete finance", "unreconciled total", "different issuer", "refused lease", "current notes", "contradictory vendor split"]) {
+      const tags = { ...tagged };
+      const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M });
+      if (mode === "filed zero") vendor.fieldProvenance = { capitalLeaseObligations: {
+        source: "edgar", tags: ["us-gaap/OperatingLeaseLiability"], unit: "USD", periodStart: null,
+        periodEnd: Q2, observedAt: OBSERVED, filings: [{ accn: ACCN, form: "10-Q", filed: "2026-08-01" }] } };
+      if (mode === "incomplete finance") delete tags.FinanceLeaseLiabilityCurrent;
+      if (mode === "unreconciled total") vendor.totalDebt = 105 * M;
+      if (mode === "different issuer") vendor.cik = "99";
+      if (mode === "current notes") tags.NotesPayableCurrent = 2;
+      if (mode === "contradictory vendor split") vendor.capitalLeaseObligationsCurrent = 2 * M;
+      if (mode === "refused lease") vendor.fieldConflicts = { financeLeaseLiability: {
+        usable: false, vendorValue: 6 * M, secValue: null, reason: "lease scope disputed" } };
+      expect(admit(tags, vendor).admissions, mode).toEqual([]);
+    }
+  });
   it("completes an operating-only noncurrent lease line and omitted current debt", () => {
     const out = admit();
     expect(out.row).toMatchObject({ shortTermDebt: 4 * M, capitalLeaseObligations: 26 * M,

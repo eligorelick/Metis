@@ -27,6 +27,21 @@ function bankFacts(): CompanyFacts {
 }
 
 describe("DATA-103: classification rebuild vs SIC bank routing", () => {
+  it("uses directly filed net revenue for a securities firm and refuses incompatible gross operands", () => {
+    const rows = [{ cik: "0000099999", date: "2026-03-31", reportedCurrency: "USD", filingDate: "2026-05-01",
+      revenue: 9000e6, costOfRevenue: 5000e6, grossProfit: 4000e6, operatingIncome: 1000e6 }];
+    const input: FetchResult<FmpPayload<FmpIncomeStatementRow>> = { ok: true, value: { data: { rows, raw: rows }, asOf: "2026-03-31", source: "fmp", endpoint: "fixture", fetchedAt: at } };
+    const out = enrichIncomeClassification(input, bankFacts(), "quarter", at, { securitiesRevenue: true });
+    expect(out.income.ok && out.income.value.data.rows[0]).toMatchObject({ revenue: 5000e6,
+      costOfRevenue: null, grossProfit: null, operatingIncome: null,
+      fieldProvenance: { revenue: { tags: ["us-gaap/RevenuesNetOfInterestExpense"] } } });
+  });
+  it("does not change gross revenue for a non-securities company without eligible revenue evidence", () => {
+    const rows = [{ cik: "0000099999", date: "2026-03-31", reportedCurrency: "USD", revenue: 9000e6 }];
+    const f = bankFacts(); delete f.facts["us-gaap"]!.RevenueFromContractWithCustomerExcludingAssessedTax;
+    const input: FetchResult<FmpPayload<FmpIncomeStatementRow>> = { ok: true, value: { data: { rows, raw: rows }, asOf: "2026-03-31", source: "fmp", endpoint: "fixture", fetchedAt: at } };
+    expect(enrichIncomeClassification(input, f, "quarter", at).income).toMatchObject({ ok: true, value: { data: { rows: [{ revenue: 9000e6 }] } } });
+  });
   it("the trigger premise: a SIC 6022 registrant is routed as a bank, and the routed build resolves total net revenue", () => {
     expect(bankStatementRouting({ sic: "6022" } as never)).toBe(true);
     const routed = buildStatementsFromCompanyFacts(bankFacts(), { symbol: "RGNL", cik: "0000099999", annualPeriods: 4, quarterlyPeriods: 4, asOf: "2026-06-01", factsObservedAt: at, bankRevenue: true,
@@ -69,7 +84,8 @@ describe("DATA-103: classification rebuild vs SIC bank routing", () => {
     const input: FetchResult<FmpPayload<FmpIncomeStatementRow>> = { ok: true, value: { data: { rows, raw: rows }, asOf: "2026-03-31", source: "fmp", endpoint: "fixture", fetchedAt: at } };
     const out = enrichIncomeClassification(input, bankFacts(), "quarter", at, { bankRevenue });
     expect(out.income.ok && out.income.value.data.rows[0]!.revenue).toBeNull();
-    expect(out.gaps.some(g => g.reason.includes(`filed ${bankRevenue ? 5_000e6 : 700e6}`))).toBe(true);
+    expect(out.gaps.some(g => bankRevenue ? g.reason.includes(`filed ${5_000e6}`)
+      : g.reason.includes(`contract-revenue fact ${700e6}`) && g.reason.includes("not established as consolidated"))).toBe(true);
   });
 
 });
