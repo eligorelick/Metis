@@ -1850,7 +1850,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.68.0");
+    expect(first.payloadVersion).toBe("1.69.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2210,6 +2210,20 @@ describe("payload determinism + provenance", () => {
       title: expect.stringContaining("20-F Item 5 — Operating and Financial Review"),
       source: "edgar:20-F item5",
     });
+  });
+
+  it("keeps mapped-page coverage in the filing title when evidence selection omits the opening disclosure", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.edgar.mdna.ok) throw new Error("fixture requires annual MD&A");
+    bundle.edgar.mdna.value.data.form = "20-F";
+    bundle.edgar.mdna.value.data.method = "reference-table-pages";
+    bundle.edgar.mdna.value.data.text = "Chapters may continue beyond the referenced pages.\n" +
+      "Operating income was $5 billion and revenue was $20 billion. ".repeat(600);
+    const validation = validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") });
+    const payload = assembleContextPayload(bundle, computed, validation);
+    const excerpt = payload.filings.find(e => e.source === "edgar:20-F item5");
+    expect(excerpt?.title).toContain("mapped-page excerpts; complete item not recovered");
+    expect(excerpt?.text).toContain("Operating income");
   });
 
   it("changing an input changes the fingerprint", () => {

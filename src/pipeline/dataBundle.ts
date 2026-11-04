@@ -1335,11 +1335,11 @@ async function buildEdgarBundle(
       const annualRiskJob: SectionJob =
         filing.form === "20-F"
           ? { member: "item1a", sectionName: "item1A", spec: { form: "20-F", item: "3D" }, failSeverity: "critical" }
-          : { member: "item1a", sectionName: "item1A", spec: { form: "10-K", item: "1A" }, failSeverity: "critical" };
+          : { member: "item1a", sectionName: "item1A", spec: { form: filing.form === "40-F" ? "40-F" : "10-K", item: "1A" }, failSeverity: "critical" };
       const annualMdnaJob: SectionJob =
         filing.form === "20-F"
           ? { member: "mdna", sectionName: "item7", spec: { form: "20-F", item: "5" }, failSeverity: "critical" }
-          : { member: "mdna", sectionName: "item7", spec: { form: "10-K", item: "7" }, failSeverity: "critical" };
+          : { member: "mdna", sectionName: "item7", spec: { form: filing.form === "40-F" ? "40-F" : "10-K", item: "7" }, failSeverity: "critical" };
       progress(`EDGAR: extracting ${filing.form} Item ${annualRiskJob.spec.item} + Item ${annualMdnaJob.spec.item} (${filing.accessionNumber})`);
       const doc = await settle(
         `edgar.tenKDocument(${symbol})`,

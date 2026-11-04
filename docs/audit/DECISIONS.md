@@ -5736,6 +5736,51 @@ unchanged.
   behavior. No payload shape, Stage B, valuation method or score-band change is
   needed. This implementation intentionally changes no version constants.
 
+## D-191 - Recover explicit annual-report page references with honest coverage (2026-11-04)
+
+The frozen 33-company panel retained four missing business/MD&A sections:
+INTC 10-K Items 1/7 and ASML 20-F Items 4/5. PEP, DIS and EXPE retained
+underlying financial-note item failures; MSFT, MCD and ORCL had separate
+notes-recognition gaps after successful item extraction. The full census, source URLs, before/after lengths and
+first lines are in the [evidence report](2026-11-04-foreign-sections.md).
+
+- **Shared pages revise D-184/D-185.** A filing's explicit incorporation of
+  the same pages into two items is not an exclusive-ownership conflict. Admit
+  the requested ranges only when every endpoint link, intervening printed
+  page and closing item row is proved. Merge repeated/overlapping ranges;
+  disclose shared pages in extraction diagnostics. INTC explicitly incorporates
+  segment results into Business and MD&A, and financial-note pages into MD&A.
+- **Point pages are excerpts, not complete chapters.** For dispersed 20-F
+  mappings, resolve every reference across repeated column headers and merged
+  item-caption cells. Each destination must uniquely identify its printed,
+  closed physical page before the index. The unnumbered cover is admitted only
+  when explicitly mapped as Cover page 1 and its form/annual-report text agrees.
+  Keep only mapped pages; never infer a chapter end from an unrelated link or
+  slice to EOF. Label the returned text and payload title as mapped-page
+  excerpts with the complete item not recovered. This is an explicit partial
+  evidence route, not a relaxation of the complete-section proof.
+- **Wrong text remains withheld.** Reject contents/index pages, wrong-page,
+  duplicate, missing or external destinations, malformed/open mappings and
+  truncated source stubs. Resolve but omit navigation-only chapter dividers,
+  disclosing their page numbers. Missing references refuse the whole mapping;
+  no subset can silently stand in for it. Existing EX-13 precedence, hidden
+  markup handling, ordinary extraction and deadline checks remain.
+- **Absence reasons.** Unresolved 10-K financial-statement index stubs now
+  retain the actual source reference and explain that complete section bounds
+  were not proved. A 40-F is no longer sent through a purported 10-K item job:
+  it explicitly requires the annual-report exhibit from the filing index.
+  Automated 40-F exhibit selection is not added.
+- **Effect.** INTC recovers both complete mapped-range assemblies. ASML
+  supplies 11/13 unique mapped pages for Items 4/5; its Item 4 navigation page
+  13 is omitted. ASML's complete chapters remain unproved. PEP, DIS and EXPE
+  notes remain gaps with specific reference reasons; the other three domestic
+  notes-recognition gaps are unchanged. In 146 real-document
+  section checks, successes increase from 137 to 141 and all 137 previous
+  successes are byte-identical. No stored report or input was rewritten.
+- **Stamps required, not applied.** Advance the payload version for changed
+  filing evidence and coverage labels. No Stage B/fair-value/scenario-target,
+  pipeline-orchestration or report-schema stamp change is needed.
+
 
 ## D-192 - Officer tenure from annual filings (2026-11-04)
 
