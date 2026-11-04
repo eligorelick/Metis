@@ -5586,10 +5586,14 @@ evidence and verification are in [the evidence report](2026-11-03-valuation-inpu
   context, not proof of the person's contribution or a new personal record.
 - **Execution admission.** A proposed letter can use a dated management action
   when the card repeats its FACT and citation in reasoning or capital-allocation
-  evidence, all action facts validate without failed checks, and their exact
-  dated wording is present in retained filing/transcript spans. The event must
-  fall within an evidenced office tenure, from explicit `titleSince` or an
-  exact retained appointment sentence. Unknown/conflicting dates and divisional,
+  evidence, and each action fact quotes its sentence exactly as the cited
+  retained filing/transcript writes it, with no failed check. An exact quotation
+  proves figures and wording together; the numeric check alone cannot, and it
+  reads a true sentence as ambiguous when the amount recurs. Real filings write
+  dates out and use a dollar sign, so both forms are accepted: JPM's 10-Q
+  sentence on its USD 50 billion authorization replays through this route once
+  a tenure start is supplied. The event must fall within an evidenced office
+  tenure, from explicit `titleSince` or an exact retained appointment sentence. Unknown/conflicting dates and divisional,
   deputy or staff authority fail closed. The assessment concerns decisions and
   outcomes during that tenure, not personal skill. A completed authorization
   retains its suspension qualification and is never presented as an executed
@@ -5628,6 +5632,10 @@ evidence and verification are in [the evidence report](2026-11-03-valuation-inpu
   are the gate; the full `npm run verify` is deliberately omitted.
   Future model compliance with exact dated decision/card binding and tenure
   instructions requires a paid run. No paid/provider/network calls were made.
+  The roster supplied no tenure start for any of the three reports, so this
+  route stays closed for most officers until tenure is read from filings. The
+  judge keeps its typed-metric instructions, the only route that has produced a
+  letter in a saved report.
 - **Stamps required at integration.** Advance the report spec for the changed
   executive-grade meaning and the Stage C pipeline stamp for prompt/verifier
   behavior. No payload shape, Stage B, valuation method or score-band change is

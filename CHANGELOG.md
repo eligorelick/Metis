@@ -23,14 +23,14 @@ original versions and bytes; source merge does not deploy or publish a release.
 - CEO/CFO cards show the report's dated office decisions, existing judgments and
   company guidance context, with unchecked figures labelled and company/board
   attribution retained. Historical reports keep their saved grades and marks.
-- Added execution admission requires a validated dated decision bound to the
-  card and an evidenced tenure; a company result alone cannot satisfy this new
-  rule. Refused candidates leave existing gates and reasons unchanged.
+- Added execution admission requires a dated decision quoted exactly from its
+  retained filing, bound to the card, within an evidenced tenure; a company
+  result alone cannot satisfy this new rule. Refused candidates leave existing gates and reasons unchanged.
   Guidance credibility still needs a later actual on the same period and basis.
 - Known fetched SEC archive documents are eligible credibility sources even
   when absent from the payload citation registry; a URL alone validates no fact.
-- Offline saved-judge replay and limits are recorded in D-190. No paid run or
-  version-constant changes were made in this branch.
+- Offline saved-judge replay and limits are recorded in D-190. No paid run was
+  made for this change.
 
 ## Unreleased - Valuation inputs: foreign consensus, operating income basis, filer unit errors (2026-11-03)
 

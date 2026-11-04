@@ -1555,8 +1555,7 @@ function ExecutiveCard({ exec, context }: { exec: Executive; context?: Executive
         ))}
         {context && <SubBlock label="Office decision context">
           {context.actions.map((action, i) => <div key={i} className="flex flex-col gap-1">
-            <p className="text-[11px] text-muted">{action.occurredOn} · {MANAGEMENT_ACTOR_LABELS[action.actor]}</p>
-            <p className="text-[11px] text-muted">{action.verificationNote}</p>
+            <p className="text-[11px] text-muted">{action.occurredOn} · {MANAGEMENT_ACTOR_LABELS[action.actor]} · {action.verificationNote}</p>
             <ClaimList claims={action.action} />
             <ClaimList claims={action.assessment} />
           </div>)}

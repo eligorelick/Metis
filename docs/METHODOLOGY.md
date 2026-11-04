@@ -7289,12 +7289,14 @@ share-count trend, job title, pay or citation alone cannot establish a dated
 decision record. A proposed letter may also survive when the card's reasoning
 or capital-allocation evidence repeats a
 FACT from a relevant management action with the same source and as-of. Every
-factual claim in that action must pass numeric validation and the existing
-consistency checks, and its exact dated wording must occur in the retained
-filing/transcript source span. The ISO event date must fall between an
-established tenure start and the report date. Tenure comes from the roster's
-explicit `titleSince`, or an exact retained filing appointment sentence in the
-card's reasoning; unknown or conflicting dates fail closed. Divisional,
+factual claim in that action must quote its sentence exactly as the cited
+retained filing or transcript writes it, including the event date, and pass the
+existing consistency checks. An exact quotation proves both figures and wording,
+so a repeated amount that leaves the numeric check ambiguous does not refuse it;
+only a dollar sign may be read as the report's USD spelling. The event date must
+fall between an established tenure start and the report date. Tenure comes from
+the roster's explicit `titleSince`, or an exact retained filing appointment
+sentence in the card's reasoning; unknown or conflicting dates fail closed. Divisional,
 deputy and staff titles do not confer company-wide authority. An authorization
 is a decision, not an executed purchase or a realized return; its suspension
 qualifications remain. The gate retains a proposed grade, never creates one.

@@ -799,7 +799,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
     }
     if (context) {
       lines.push("##### Office decision context", "");
-      for (const a of context.actions) lines.push(`**${a.occurredOn} · ${MANAGEMENT_ACTOR_LABELS[a.actor]}**`, "", prose(a.verificationNote), "", claimList(a.action), claimList(a.assessment), "");
+      for (const a of context.actions) lines.push(`**${a.occurredOn} · ${MANAGEMENT_ACTOR_LABELS[a.actor]}** · ${prose(a.verificationNote)}`, "", claimList(a.action), claimList(a.assessment), "");
       if (context.guidance.length) lines.push("##### Company guidance context", "", claimList(context.guidance), "");
     }
   }

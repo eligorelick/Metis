@@ -24,8 +24,32 @@ function day(value: string | null | undefined): string | undefined {
   return Number.isFinite(stamp) && new Date(stamp).toISOString().slice(0, 10) === value ? value : undefined;
 }
 
+const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+
+function writtenDay(year: string, month: string, date: string): string | undefined {
+  const index = MONTHS.indexOf(month.toLowerCase()) + 1;
+  return index ? day(`${year}-${String(index).padStart(2, "0")}-${date.padStart(2, "0")}`) : undefined;
+}
+
+/** Calendar dates a sentence states. Filings write them out, so ISO alone would never match a quotation. */
+function statedDays(text: string): string[] {
+  const days = [...text.matchAll(/\b\d{4}-\d{2}-\d{2}\b/g)].map(m => day(m[0]));
+  for (const m of text.matchAll(/\b(\d{1,2}) ([A-Za-z]+) (\d{4})\b/g)) days.push(writtenDay(m[3]!, m[2]!, m[1]!));
+  for (const m of text.matchAll(/\b([A-Za-z]+) (\d{1,2}),? (\d{4})\b/g)) days.push(writtenDay(m[3]!, m[1]!, m[2]!));
+  return days.filter((d): d is string => d !== undefined);
+}
+
+/** Whitespace, case and the report's USD spelling of a filing's dollar sign do not change a quotation. */
 function normalized(text: string): string {
-  return text.toLowerCase().replace(/\s+/g, " ").trim();
+  return text.toLowerCase().replace(/(?:\bus)?\$\s*/g, "usd ").replace(/\s+/g, " ").trim();
+}
+
+function quotedInSpan(claim: SourcedClaim, entry: VerificationLogEntry): boolean {
+  return entry.sourceSpans?.some(span => span.source === citationSourceId(claim) && normalized(span.text).includes(normalized(claim.text))) === true;
+}
+
+function quotedInRetainedFiling(text: string, source: string | null | undefined, context: ExecutiveDecisionEvidence): boolean {
+  return (context.filings ?? []).some(f => f.source === source && normalized(f.text).includes(normalized(text)));
 }
 
 /** Exact path, claim and canonical source identity; any failed check vetoes it. */
@@ -47,14 +71,13 @@ export function executiveTenureStart(e: Executive, index: number, log: readonly 
   for (const [i, claim] of e.reasoning.entries()) {
     if (claim.label !== "FACT" || !isFilingOrTranscriptSource(citationSourceId(claim) ?? "") ||
       !executiveClaimEntry(claim, `leadership.executives[${index}].reasoning[${i}]`, log) ||
-      !(context.filings ?? []).some(f => f.source === citationSourceId(claim) && normalized(f.text).includes(normalized(claim.text)))) continue;
-    const match = /^On (\d{1,2}) ([A-Za-z]+) (\d{4}), (.+?) (?:became|was appointed|succeeded .+? as) (.+?)\.$/.exec(claim.text);
-    const month = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"].indexOf(match?.[2]?.toLowerCase() ?? "") + 1;
+      !quotedInRetainedFiling(claim.text, citationSourceId(claim), context)) continue;
+    const match = /^(?:On (?:\d{1,2} [A-Za-z]+ \d{4}|[A-Za-z]+ \d{1,2}, \d{4}),? )?(.+?) (?:became|was appointed(?: as)?|succeeded .+? as) (.+?)(?:,? (?:on|effective|with effect from) [^.]+)?\.$/.exec(claim.text);
+    const dates = statedDays(claim.text);
     // "of <issuer>" is permitted in the biography, whose retained sentence
     // names the officer. Office authority still comes from the exact roster.
-    const role = match?.[5]?.replace(/\s+of\s+.+$/i, "") ?? "";
-    const start = match && month ? day(`${match[3]}-${String(month).padStart(2, "0")}-${match[1]!.padStart(2, "0")}`) : undefined;
-    if (match?.[4] === e.name && executiveOffice(role) === office && start) starts.push(start);
+    const role = match?.[2]?.replace(/\s+of\s+.+$/i, "") ?? "";
+    if (match?.[1] === e.name && executiveOffice(role) === office && dates.length === 1) starts.push(dates[0]!);
   }
   const unique = [...new Set(starts)];
   return unique.length === 1 ? unique[0] : undefined;
@@ -82,15 +105,16 @@ export function validatedExecutiveDecisions(e: Executive, index: number, leaders
     ...(e.evidence.capitalAllocation ?? []).map((claim, i) => ({ claim, path: `leadership.executives[${index}].evidence.capitalAllocation[${i}]` }))];
   return (leadership.managementActions ?? []).filter((a, i) => {
     const occurred = day(a.occurredOn);
-    const bound = cardClaims.some(({ claim, path }) => claim.label === "FACT" && executiveClaimEntry(claim, path, log)?.validationStatus === "validated" &&
+    const bound = cardClaims.some(({ claim, path }) => claim.label === "FACT" && executiveClaimEntry(claim, path, log) !== undefined &&
       a.action.some(c => c.text === claim.text && citationSourceId(c) === citationSourceId(claim) && c.asOf === claim.asOf));
     return bound && occurred !== undefined && occurred >= start && occurred <= end && officeAction(e, a) && decisionAction(a) && a.action.length > 0 &&
       a.action.every((c, j) => {
         const entry = executiveClaimEntry(c, `leadership.managementActions[${i}].action[${j}]`, log);
-        // A numeric match is not a match of the decision. Require the exact
-        // dated factual wording in the retained source span as well.
-        return c.label === "FACT" && c.asOf && isFilingOrTranscriptSource(citationSourceId(c) ?? "") && entry?.validationStatus === "validated" &&
-          c.text.includes(occurred) && entry.sourceSpans?.some(span => span.source === citationSourceId(c) && normalized(span.text).includes(normalized(c.text)));
+        // A numeric match is not a match of the decision, and a repeated amount
+        // can leave a true sentence numerically ambiguous. An exact quotation of
+        // the cited retained source proves both the figures and the wording.
+        return c.label === "FACT" && c.asOf && isFilingOrTranscriptSource(citationSourceId(c) ?? "") && entry !== undefined &&
+          statedDays(c.text).includes(occurred) && (quotedInSpan(c, entry) || quotedInRetainedFiling(c.text, citationSourceId(c), context));
       });
   });
 }
@@ -114,17 +138,19 @@ export function executiveOfficeContext(e: Executive, leadership: Leadership, log
       executiveClaimEntry(c, `leadership.managementActions[${i}].action[${j}]`, log)?.validationStatus !== undefined);
     if (!action.length) return [];
     const assessment = a.assessment.filter((c, j) => executiveClaimEntry(c, `leadership.managementActions[${i}].assessment[${j}]`, log)?.validationStatus !== undefined);
-    const validated = a.action.every((c, j) => executiveClaimEntry(c, `leadership.managementActions[${i}].action[${j}]`, log)?.validationStatus === "validated");
-    return [{ ...a, action, assessment, verificationNote: validated ? "Figures validated; company/board attribution is retained." : "Cited context; figures or wording remain unchecked." }];
+    const entries = a.action.map((c, j) => ({ c, entry: executiveClaimEntry(c, `leadership.managementActions[${i}].action[${j}]`, log) }));
+    const validated = entries.every(({ entry }) => entry?.validationStatus === "validated");
+    const quoted = entries.every(({ c, entry }) => entry !== undefined && quotedInSpan(c, entry));
+    return [{ ...a, action, assessment, verificationNote: quoted ? "quoted from the source" : validated ? "figures checked against the source" : "cited; figures not checked" }];
   });
   if (!actions.length) return undefined;
   const outlook = guidance.filter((c, i) => executiveClaimEntry(c, `outlook.guidanceCredibility[${i}]`, log)?.validationStatus !== undefined);
   const execution = e.grade === "not-assessed"
-    ? "Execution is not assessed: a validated decision record with established tenure overlap is missing from this card."
+    ? "Execution is not assessed: this card has no validated record of dated decisions within an established tenure."
     : "The saved execution grade is retained; company decisions and outcomes do not measure personal skill.";
   const credibility = e.credibilityGrade === "not-assessed"
-    ? "Credibility is not assessed: no validated comparison of earlier guidance with a later actual for the same period and basis is bound to this card."
+    ? "Credibility is not assessed: no validated comparison of earlier guidance with a later actual for the same period and basis."
     : "The saved credibility assessment is retained.";
   const specific = /^(?:Execution is not assessed:|Execution assesses decisions|Validated dated decisions)/.test(e.assessmentReason ?? "") ? e.assessmentReason : undefined;
-  return { actions, guidance: outlook, note: `${specific ?? `${execution} ${credibility}`} Office context below preserves the report's company/board attribution and verification limits; it does not establish tenure overlap or this person's contribution.` };
+  return { actions, guidance: outlook, note: `${specific ?? `${execution} ${credibility}`} The decisions below are the company's and the board's. They give context for the office and do not measure this person's own record.` };
 }

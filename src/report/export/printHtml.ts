@@ -719,7 +719,7 @@ function sectionLeadership(l: Leadership, report: Report): string {
         return `<h4>${esc(descriptor.label)}</h4>${claimList(claims)}`;
       }).join("");
       const context = contexts.get(e), reason = context?.note ?? executiveAssessmentNote(e);
-      const decisions = context ? `<h4>Office decision context</h4>${context.actions.map(a => `<p><strong>${esc(a.occurredOn!)} &middot; ${esc(MANAGEMENT_ACTOR_LABELS[a.actor])}</strong></p><p>${esc(a.verificationNote)}</p>${claimList(a.action)}${claimList(a.assessment)}`).join("")}${context.guidance.length ? `<h4>Company guidance context</h4>${claimList(context.guidance)}` : ""}` : "";
+      const decisions = context ? `<h4>Office decision context</h4>${context.actions.map(a => `<p><strong>${esc(a.occurredOn!)} &middot; ${esc(MANAGEMENT_ACTOR_LABELS[a.actor])}</strong> &middot; ${esc(a.verificationNote)}</p>${claimList(a.action)}${claimList(a.assessment)}`).join("")}${context.guidance.length ? `<h4>Company guidance context</h4>${claimList(context.guidance)}` : ""}` : "";
       return `<div class="exec"><h4>${esc(e.name)} &mdash; ${esc(e.title)}</h4>
         <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span>${e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`}</p>${reason ? `<p>${prose(reason)}</p>` : ""}${claimList(executiveCardClaims(e, e.reasoning))}${evidence}${decisions}</div>`;
     })

@@ -45,6 +45,7 @@ describe("executive decisions bound to a validated action and dated tenure", () 
   it("preserves the existing assessment reason when the new decision rule is refused", () => {
     const l = leadership(), log = actionLog();
     log[0]!.validationStatus = "unchecked";
+    delete log[0]!.sourceSpans;
     expect(assessExecutiveEvidence(l, log, false, context()).executives[0]!.assessmentReason).toBe(EXECUTIVE_NOT_ASSESSED_REASON);
     expect(assessExecutiveEvidence(l, log, false, { ...context(), notes: [] }).executives[0]!.assessmentReason).toBe(EXECUTIVE_NOT_ASSESSED_REASON);
   });
@@ -63,7 +64,7 @@ describe("executive decisions bound to a validated action and dated tenure", () 
     if (control === "pay only") l.executives[0]!.evidence.compensation = [fact("Alex Smith: pay was USD 5 million.", "fmp:key-executives")];
     if (control === "outside tenure") c.notes = ["Alex Smith — Chief Executive Officer (since 2026-07-01) [fmp:key-executives]"];
     if (control === "rejected claim") log.push({ ...log[0]!, outcome: "unverified", check: "named-individual", reason: "named-individual-unsourced" });
-    if (control === "unchecked amount") log[0]!.validationStatus = "unchecked";
+    if (control === "unchecked amount") { log[0]!.validationStatus = "unchecked"; delete log[0]!.sourceSpans; }
     if (control === "no tenure") c.notes = ["Alex Smith — Chief Executive Officer [fmp:key-executives]"];
     if (control === "non-filing source") { l.managementActions![0]!.action[0]!.source = "fmp:news"; log[0]!.source = "fmp:news"; }
     if (control === "company result") {
@@ -142,7 +143,7 @@ describe("stored executive cards show the report's existing decision context", (
     for (const text of surfaces) {
       expect(text).toContain("Office decision context");
       expect(text).toContain("2026-06-24");
-      expect(text).toContain("tenure overlap");
+      expect(text).toContain("established tenure");
       expect(text).toContain("not an executed purchase");
       expect(text).not.toContain("A citation, rejected claim, compensation or job title alone");
       expect(text).not.toContain("This warrants an A execution grade.");
@@ -153,9 +154,9 @@ describe("stored executive cards show the report's existing decision context", (
 
   it("labels unchecked context explicitly and omits rejected actions without changing marks", () => {
     const l = leadership(), log = actionLog();
-    log[0]!.validationStatus = "unchecked";
+    log[0]!.validationStatus = "unchecked"; delete log[0]!.sourceSpans;
     const view = executiveOfficeContext(l.executives[0]!, l, log);
-    expect(view?.actions[0]).toMatchObject({ verificationNote: "Cited context; figures or wording remain unchecked." });
+    expect(view?.actions[0]).toMatchObject({ verificationNote: "cited; figures not checked" });
     log.push({ ...log[0]!, check: "named-individual", reason: "named-individual-unsourced" });
     expect(executiveOfficeContext(l.executives[0]!, l, log)).toBeUndefined();
   });
@@ -191,5 +192,59 @@ describe("executive decision verification boundaries", () => {
     const result = await runVerifyPass({} as PassDeps, payload, { leadership: l });
     expect(result.log.find(e => e.path === "leadership.managementActions[0].action[0]" && !e.check)).toMatchObject({ validationStatus: "validated" });
     expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed" });
+  });
+
+  // Shape of a real filing sentence: a written date, a dollar sign and a second date.
+  const QUOTED = "On June 24, 2026, the Company announced that its Board of Directors had authorized a new $50 billion common share repurchase program, effective July 1, 2026.";
+  const quotedPayload = (filingText: string, notes = context().notes) => ({ provenanceRegistry: [], citationRegistry: [{ id: "edgar:10-Q item4", kind: "payload-text", origin: "edgar:10-Q item4", asOf: "2026-08-04" }],
+    leadership: { notes, figures: [] }, quote: { figures: [{ asOf: "2026-11-03" }], notes: [] },
+    filings: [{ source: "edgar:10-Q item4", asOf: "2026-08-04", title: "Issuer purchases", text: `Item 2 discussion. ${filingText} Other text follows.`, truncated: false, originalChars: 200 }] }) as unknown as ContextPayload;
+  const quotedLeadership = (text: string, reasoning: SourcedClaim[] = []): Leadership => {
+    const l = leadership(), claim = fact(text, "edgar:10-Q item4", "2026-08-04");
+    l.managementActions![0]!.action = [claim];
+    l.managementActions![0]!.assessment = [];
+    l.executives[0]!.reasoning = [claim, ...reasoning];
+    return l;
+  };
+
+  it("admits a decision quoted as the filing writes it, with a written date and a dollar sign", async () => {
+    const result = await runVerifyPass({} as PassDeps, quotedPayload(QUOTED), { leadership: quotedLeadership(QUOTED) });
+    expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed" });
+  });
+
+  it("admits the exact quotation even when a repeated amount leaves its figures numerically ambiguous", async () => {
+    const earlier = "Through June 30, 2026, the Company was authorized to purchase up to $50 billion of common shares under its previous program.";
+    const result = await runVerifyPass({} as PassDeps, quotedPayload(`${earlier} ${QUOTED}`), { leadership: quotedLeadership(QUOTED) });
+    expect(result.log.find(e => e.path === "leadership.managementActions[0].action[0]" && !e.check)?.validationStatus).not.toBe("validated");
+    expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed" });
+  });
+
+  it("refuses the same decision when its wording differs from the retained filing or its date differs from occurredOn", async () => {
+    const reworded = QUOTED.replace("had authorized", "rejected a proposal for");
+    const a = await runVerifyPass({} as PassDeps, quotedPayload(QUOTED), { leadership: quotedLeadership(reworded) });
+    expect(a.verifiedReport.leadership.executives[0]!.grade).toBe("not-assessed");
+    const l = quotedLeadership(QUOTED);
+    l.managementActions![0]!.occurredOn = "2026-06-25";
+    const b = await runVerifyPass({} as PassDeps, quotedPayload(QUOTED), { leadership: l });
+    expect(b.verifiedReport.leadership.executives[0]!.grade).toBe("not-assessed");
+  });
+
+  it.each([
+    ["On April 1, 2024, Alex Smith became Chief Executive Officer of the Company."],
+    ["On 1 April 2024, Alex Smith became Chief Executive Officer."],
+    ["Alex Smith was appointed Chief Executive Officer effective April 1, 2024."],
+  ])("reads a tenure start from the appointment sentence: %s", async (appointment) => {
+    const claim = fact(appointment, "edgar:10-Q item4", "2026-08-04");
+    const result = await runVerifyPass({} as PassDeps, quotedPayload(`${QUOTED} ${appointment}`, []), { leadership: quotedLeadership(QUOTED, [claim]) });
+    expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed" });
+  });
+
+  it("does not read a tenure start from another person, another office or a sentence with two dates", async () => {
+    for (const appointment of ["On April 1, 2024, Jordan Lee became Chief Executive Officer.", "On April 1, 2024, Alex Smith became Chief Operating Officer.",
+      "Alex Smith was appointed Chief Executive Officer effective April 1, 2024 and resigned on May 1, 2025."]) {
+      const claim = fact(appointment, "edgar:10-Q item4", "2026-08-04");
+      const result = await runVerifyPass({} as PassDeps, quotedPayload(`${QUOTED} ${appointment}`, []), { leadership: quotedLeadership(QUOTED, [claim]) });
+      expect(result.verifiedReport.leadership.executives[0]!.grade).toBe("not-assessed");
+    }
   });
 });
