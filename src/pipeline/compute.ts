@@ -2933,8 +2933,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // Deterministic bull/base/bear price targets (2026-07-11 scenario-credibility
   // checkpoint). Reuses the SAME point-in-time anchors + ±σ construction as the
   // projection fan, so the target band and the fan agree; base IS the DCF fair
-  // value. Suppressed (never fabricated) off the general DCF route / on missing
-  // WACC or bridge inputs. assembleReport overwrites the judge's scenario
+  // value. Financial routes instead stress their own common-return history
+  // and persistence around the unchanged excess-return base (D-193). Missing
+  // route evidence suppresses targets. assembleReport overwrites the judge's scenario
   // priceTargets from this — the LLM no longer authors the headline numbers.
   // The per-share bridge for the perturbed re-runs is the base DCF's own
   // (valuation.dcf.bridge, lease-adjusted by valueCompany), never the raw
@@ -4441,9 +4442,37 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const quarterlyBook = "bookValue" in openingBook ? openingBook : null;
   const fiscalYearConvertibles = readConvertibles(fiscalYearBalance ?? { date: commonReturns.asOf ?? undefined });
   const quarterlyConvertibles = quarterlyBook ? readConvertibles(balQ ?? { date: quarterlyBook.asOf }) : null;
+  // D-193: new scenario evidence must not inherit the legacy helper's zero
+  // defaults for undisclosed book adjustments. The existing fair value stands.
+  const scenarioBookRefusal = (date: string | null, tangible: boolean): string | null => {
+    const row = [...ctx.balanceAnnual, ...ctx.balanceQuarterly].find(row => isoDay(row.date) === date);
+    if (!row) return `no balance for book date ${date ?? "unavailable"}`;
+    if (row.reportedCurrency !== ctx.modelCurrency || !ctx.modelCurrency) return `book currency unavailable or inconsistent at ${date}`;
+    const fields = tangible ? ["totalStockholdersEquity", "preferredStock", "goodwill", "intangibleAssets"] as const
+      : ["totalStockholdersEquity", "preferredStock"] as const;
+    for (const field of fields) {
+      const v = num(row[field]);
+      if (v === null || (field !== "totalStockholdersEquity" && v < 0) || row.fieldConflicts?.[field]?.usable === false) {
+        return `${field} missing, negative or conflicted at ${date}; undisclosed adjustments are not zero`;
+      }
+    }
+    return null;
+  };
+  const scenarioHistoryDates = financialRoute ? commonReturns.series.slice(-5).flatMap(y => [y.date,
+    ...ctx.balanceAnnual.filter(row => {
+      const days = (Date.parse(y.date) - Date.parse(String(row.date))) / 86_400_000;
+      return days >= 330 && days <= 400;
+    }).map(row => String(row.date)),
+  ]) : [];
   const excessReturn: ExcessReturnInputs | null =
     financialRoute
       ? {
+          scenarioBookEvidence: {
+            openingBookRefusal: scenarioBookRefusal(quarterlyBook?.asOf ?? ttmStart?.asOf ?? commonReturns.asOf, route.base === "bank"),
+            tangibleBookRefusal: scenarioBookRefusal(route.base === "bank"
+              ? quarterlyBook?.asOf ?? ttmStart?.asOf ?? commonReturns.asOf : ctx.rote?.asOf ?? null, true),
+            historyRefusal: scenarioHistoryDates.map(date => scenarioBookRefusal(date, route.base === "bank")).find(reason => reason !== null) ?? null,
+          },
           bookValue: quarterlyBook?.bookValue ?? ttmStart?.bookValue ?? commonReturns.latestTangibleCommonEquity,
           bookValueBasis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
           currentRoePct: ttmStart?.roePct ?? commonReturns.latestRotePct,

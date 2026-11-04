@@ -4009,7 +4009,9 @@ export function applyScenarioTargets(
     scenarios: valuation.scenarios.map((s) => {
       const priceTarget = byName.get(s.name) ?? null;
       // A target listed with a null perShare is still no target: "n/a".
-      return { ...s, priceTarget, horizon: priceTarget !== null ? SCENARIO_TARGET_HORIZON : "n/a" };
+      return { ...s, priceTarget, horizon: priceTarget !== null
+        ? scenarioTargets?.method === "excess-return-history" ? "explicit excess-return horizon" : SCENARIO_TARGET_HORIZON
+        : "n/a" };
     }),
   };
 }
