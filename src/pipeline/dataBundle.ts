@@ -1,3 +1,4 @@
+import { officerBiographiesText } from "@/edgar/officerTenure";
 import {historyWindowFallback,historyTailTtlMs} from "@/providers/historyCache";
 import { fetchValuationFx } from "@/pipeline/fx";
 import { quotePriceObservationDay } from "@/providers/fmp";
@@ -1303,6 +1304,7 @@ async function buildEdgarBundle(
   let tenKNotes: FetchResult<ExtractedSection> | undefined;
   let tenQOther: FetchResult<ExtractedSection> | undefined;
   let annualGeography: EdgarBundle["annualGeography"];
+  let officerBiographies: EdgarBundle["officerBiographies"];
   const withBusiness = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[]): void => {
     if (filingDisclosures) business = gapResult(`edgar.business(${symbol})`, reason, severity, attempted);
     if (filingDisclosures) tenKNotes = gapResult(`edgar.tenKNotes(${symbol})`, reason, severity, attempted);
@@ -1350,6 +1352,7 @@ async function buildEdgarBundle(
         const html = doc.value.data;
         const t0 = Date.now();
         const parsedDoc = parseDocument(html);
+        if (filingDisclosures) officerBiographies = { ...officerBiographiesText(parsedDoc), documentUrl: docUrl, accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reportDate: filing.reportDate };
         cashInvestment.push(parsePrimaryCashInvestment(html, { issuerId: cikRes.value.data.cik10, form: filing.form, accession: filing.accessionNumber, filingDate: filing.filingDate, reportDate: filing.reportDate, documentUrl: docUrl, primaryDocument: filing.primaryDocument }, nowIso.slice(0, 10)));
         equityStatementNci.push(parseEquityStatementNci(html, { issuerId: cikRes.value.data.cik10, form: filing.form, accession: filing.accessionNumber, filingDate: filing.filingDate }));
         economicShareInventory.push(parsePrimaryEconomicShares(html, { issuerId: cikRes.value.data.cik10, securityId: symbol, form: filing.form, accession: filing.accessionNumber, filingDate: filing.filingDate, documentUrl: docUrl, primaryDocument: filing.primaryDocument }, nowIso.slice(0, 10), parsedDoc));
@@ -1577,6 +1580,7 @@ async function buildEdgarBundle(
     ...(tenKNotes === undefined ? {} : { tenKNotes }),
     ...(tenQOther === undefined ? {} : { tenQOther }),
     ...(annualGeography === undefined ? {} : { annualGeography }),
+    ...(officerBiographies === undefined ? {} : { officerBiographies }),
     auditorChange8Ks,
     nonReliance8Ks,
     ...(currentReports === null ? {} : { currentReports }),

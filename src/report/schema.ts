@@ -163,7 +163,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.60.0 (D-175 to D-181, Q round): optional dated recent developments in the verdict and management actions in the
 // leadership section, and the fresh-filing caution in the key data. Stored reports keep their bytes.
 // 1.61.0 (D-190): the meaning of an executive execution grade widens to an exactly quoted dated decision during an evidenced tenure, and cards show dated office context. Stored reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.61.0" as const;
+// 1.62.0 (D-192): an executive card may carry pipeline-owned filing evidence of office tenure. Stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.62.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1409,6 +1410,12 @@ export const ExecutiveSchema = z
     name: z.string(),
     title: z.string(),
     tenureYears: z.number().nullable(),
+    /** Pipeline-owned filing evidence; absent on historical reports. */
+    officeTenure: z.object({
+      name: z.string(), office: z.enum(["ceo", "cfo"]), start: z.iso.date(),
+      precision: z.enum(["day", "month", "year"]), wording: z.string(), quote: z.string(),
+      source: z.string(), filingDate: z.iso.date(),
+    }).strict().optional(),
     grade: z.enum(["A", "B", "C", "D", "F", "not-assessed"]),
     credibilityGrade: z.enum(["A", "B", "C", "D", "F", "not-assessed"]),
     assessmentReason: z.string().optional(),
@@ -2693,7 +2700,7 @@ const JudgeOutputObjectSchema = z
     valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, excessReturnGrid: true, consensusPath: true, sensitivityNotes: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
-    leadership: LeadershipSchema,
+    leadership: LeadershipSchema.extend({ executives: z.array(ExecutiveSchema.omit({ officeTenure: true })) }),
     competitive: CompetitiveSchema,
     catalystsRisks: CatalystsRisksSchema,
     outlook: OutlookSchema,
