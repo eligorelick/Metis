@@ -3741,7 +3741,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
       return parts.length > 1 && parts.every((part) => claimWords.has(part));
     });
     const validation = supported && !scheduleQualified && sourceId !== null
-      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex, seriesLatest })
+      ? validateClaimNumericSupport({ ...claim, asOf: citationAsOf(claim) }, { record: registryRecord, excerpts, sourceId, reportingCurrency, ignoreWords: [...issuerWords, ...namedPeople], index: claimEvidenceIndex, seriesLatest, registry })
       : { status: "unchecked" as const, reason: match.reason, note: "citation unavailable or rejected; factual content unchecked", spans: [] };
     if (supported && validation.status === "unchecked" && citationRegistry.some((entry) => entry.id === sourceId && entry.allowedNumbers !== undefined)) {
       validation.reason = "supported";

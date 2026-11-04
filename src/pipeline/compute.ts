@@ -163,6 +163,7 @@ import { collapsedDebtReason, implausibleDebtReason, uncashedDebtCollapseReason 
 import { filedReceivablesCandidates } from "@/edgar/receivables";
 import { admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
+import { quarterlyOpeningBook } from "@/pipeline/stageB/excessReturnBook";
 import { unusualOperatingItemsByFiscalYear, withoutRecurringFamilies, recurringOperatingItemsBasis, unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import {
   adjacentQuarterEnds,
@@ -4430,11 +4431,20 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     ? businessCombinationYears(confirmedIssuerFacts(bundle.symbol, bundle.edgar), ctx.balanceAnnual.map(toReturnsBalance), ctx.modelCurrency)
     : new Map<string, string>();
   const fiscalYearBalance = ctx.balanceAnnual.find(row => isoDay(row.date) === commonReturns.asOf);
+  const openingBook = quarterlyOpeningBook({
+    row: balQ ? { ...balQ, ...toReturnsBalance(balQ) } : null,
+    annualAsOf: commonReturns.asOf,
+    basis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
+    currency: ctx.modelCurrency, cutoff: bundle.builtAt,
+    shareRow: dilutedSharesRow, dilutedShares: valuationDilutedShares,
+  });
+  const quarterlyBook = "bookValue" in openingBook ? openingBook : null;
   const fiscalYearConvertibles = readConvertibles(fiscalYearBalance ?? { date: commonReturns.asOf ?? undefined });
+  const quarterlyConvertibles = quarterlyBook ? readConvertibles(balQ ?? { date: quarterlyBook.asOf }) : null;
   const excessReturn: ExcessReturnInputs | null =
     financialRoute
       ? {
-          bookValue: ttmStart?.bookValue ?? commonReturns.latestTangibleCommonEquity,
+          bookValue: quarterlyBook?.bookValue ?? ttmStart?.bookValue ?? commonReturns.latestTangibleCommonEquity,
           bookValueBasis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
           currentRoePct: ttmStart?.roePct ?? commonReturns.latestRotePct,
           currentRoeBasis: ttmStart !== null ? (route.base === "bank" ? "ttm-rote" : "ttm-common-roe") : fyBasis,
@@ -4451,20 +4461,20 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // the annual cash-flow statements; null suppresses the valuation.
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
           dilutedShares: valuationDilutedShares,
-          convertibles: instrumentsOnEconomicBasis(financialConvertibles),
-          convertiblePreferredClaim: financialConvertibles.convertiblePreferredClaim,
-          permanentPreferred: num(balPoint?.preferredStock),
-          preferredSeriesDistinct: financialConvertibles.preferredSeriesDistinct,
-          totalDebt: num(balPoint?.totalDebt),
+          convertibles: instrumentsOnEconomicBasis(quarterlyConvertibles ?? financialConvertibles),
+          convertiblePreferredClaim: (quarterlyConvertibles ?? financialConvertibles).convertiblePreferredClaim,
+          permanentPreferred: num((quarterlyBook ? balQ : balPoint)?.preferredStock),
+          preferredSeriesDistinct: (quarterlyConvertibles ?? financialConvertibles).preferredSeriesDistinct,
+          totalDebt: num((quarterlyBook ? balQ : balPoint)?.totalDebt),
           marketCap,
           price: currentPrice,
-          asOf: ttmStart?.asOf ?? commonReturns.asOf,
+          asOf: quarterlyBook?.asOf ?? ttmStart?.asOf ?? commonReturns.asOf,
           valuationDate: quotePriceObservationDay(quote),
           // WS5: P/TBV is read against ROTE, both on the tangible base the
           // returns block already computes — never against plain book equity.
           // A bank's trailing ROTE and the tangible equity at its end pair the same way (C-10).
-          tangibleCommonEquity: route.base === "bank" && ttmStart !== null ? ttmStart.bookValue : ctx.rote?.latestTangibleCommonEquity ?? null,
-          tangibleCommonEquityAsOf: route.base === "bank" && ttmStart !== null ? ttmStart.asOf : ctx.rote?.asOf ?? null,
+          tangibleCommonEquity: route.base === "bank" && quarterlyBook ? quarterlyBook.bookValue : route.base === "bank" && ttmStart !== null ? ttmStart.bookValue : ctx.rote?.latestTangibleCommonEquity ?? null,
+          tangibleCommonEquityAsOf: route.base === "bank" && quarterlyBook ? quarterlyBook.asOf : route.base === "bank" && ttmStart !== null ? ttmStart.asOf : ctx.rote?.asOf ?? null,
           rotePct: route.base === "bank" && ttmStart !== null ? ttmStart.roePct : ctx.rote?.latestRotePct ?? null,
           roteAsOf: route.base === "bank" && ttmStart !== null ? ttmStart.asOf : ctx.rote?.asOf ?? null,
           roteSource: route.base === "bank" && ttmStart !== null ? "computed.returns.commonReturnTtm" : "computed.returns.rote",
@@ -4740,13 +4750,18 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     );
   }
   if (excessReturn !== null) {
+    const bookNote = quarterlyBook
+      ? `Quarterly opening book admitted at ${quarterlyBook.asOf}, with equity, adjustments and diluted shares on that date. The ${ttmStart ? "trailing" : "fiscal-year"} return remains a forward rate; historical earnings already included in opening book are not added again. The forecast begins after opening book; roll-forward starts only at that book date.`
+      : `Quarterly opening book not admitted: ${"reason" in openingBook ? openingBook.reason : "unavailable"}; retaining the fiscal-year opening-book calculation.`;
+    result.notes.push(bookNote);
+    if (!quarterlyBook) result.gaps.push({ field: "valuation.excessReturn.openingBook", reason: bookNote, severity: "info" });
     result.notes.push(
       `Common-share valuation uses ${route.base === "bank" ? "tangible common equity and ROTE" : "common equity and common-equity ROE"} ` +
         (excessReturn.currentRoeBasis === "ttm-rote" || excessReturn.currentRoeBasis === "ttm-common-roe"
-          ? `from the trailing four quarters to ${excessReturn.currentRoeAsOf ?? "unavailable"}, with the book value at that window's end (fiscal-year history to FY ${commonReturns.asOf ?? "unavailable"}); ` +
-            "earnings and payout exclude preferred claims. The trailing return and its equity share one dated window; vendor total-equity ROE is not substituted."
+          ? `from the trailing four quarters to ${excessReturn.currentRoeAsOf ?? "unavailable"}, opening book at ${excessReturn.asOf ?? "unavailable"} (fiscal-year history to FY ${commonReturns.asOf ?? "unavailable"}); ` +
+            "earnings and payout exclude preferred claims; vendor total-equity ROE is not substituted."
           : `from FY ${commonReturns.asOf ?? "unavailable"}; ` +
-            "earnings and payout exclude preferred claims. Annual return and opening equity share one dated basis; vendor total-equity ROE is not substituted."),
+            `earnings and payout exclude preferred claims. Opening equity is dated ${excessReturn.asOf ?? "unavailable"}; vendor total-equity ROE is not substituted.`),
     );
     if (excessReturn.payoutRatioPct === null && ctx.cashflowAnnual.some(row => row.fieldConflicts?.commonDividendsPaid?.usable === false ||
       (num(row.commonDividendsPaid) === null && num(row.netDividendsPaid) !== null && row.netDividendsPaid !== 0))) {
