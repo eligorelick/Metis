@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { assessExecutiveEvidence } from "@/report/financialDiagnostics";
-import { executiveOfficeContext } from "@/report/executiveDecisions";
+import { executiveOffice, executiveOfficeContext } from "@/report/executiveDecisions";
 import { CREDIBILITY_NOT_ASSESSED_REASON, EXECUTIVE_NOT_ASSESSED_REASON } from "@/report/executiveAssessment";
 import { LeadershipSection } from "@/components/report/sections";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
@@ -118,7 +118,11 @@ describe("executive decisions bound to a validated action and dated tenure", () 
     }
   });
 
-  it.each(["Chief of Staff to CEO", "Deputy Chief Executive Officer", "Co-CEO of Investment Banking"])("does not confer company-wide authority on %s", title => {
+  it.each(["Chairman and CEO", "President, CEO & Director", "CEO, President and Director", "Chief Financial Officer, Treasurer", "Executive Vice President and CFO"])("keeps issuer-wide authority for %s", title => {
+    expect(executiveOffice(title)).toBeDefined();
+  });
+
+  it.each(["Chief of Staff to CEO", "Deputy Chief Executive Officer", "Co-CEO of Investment Banking", "CEO, Asset & Wealth Management", "Co-CEO, Commercial & Investment Bank", "CFO, Consumer & Community Banking", "CEO - Americas"])("does not confer company-wide authority on %s", title => {
     const l = leadership(), c = context();
     l.executives[0]!.title = title;
     c.notes = [`Alex Smith — ${title} (since 2024-04-01) [fmp:key-executives]`];
@@ -255,6 +259,10 @@ describe("executive decision verification boundaries", () => {
     ["On June 24, 2026, the Company completed the sale of its payments business for $2 billion.", "B"],
     ["On June 24, 2026, the Board said it may declare a special dividend of $1 per common share.", "not-assessed"],
     ["On June 24, 2026, the Company said it will not complete the sale of its payments business for $2 billion.", "not-assessed"],
+    ["On June 24, 2026, the Board authorized a $50 billion share repurchase program under which the Company may repurchase common shares.", "B"],
+    ["On June 24, 2026, the Company announced that it may repurchase up to $50 billion of common shares.", "not-assessed"],
+    ["On June 24, 2026, the Company announced a $50 billion share repurchase program.", "B"],
+    ["On June 24, 2026, the Company announced a proposed $50 billion share repurchase program.", "not-assessed"],
   ])("reads a completed decision and refuses a possible one: %s", async (sentence, grade) => {
     const result = await runVerifyPass({} as PassDeps, quotedPayload(sentence), { leadership: quotedLeadership(sentence) });
     expect(result.verifiedReport.leadership.executives[0]!.grade).toBe(grade);

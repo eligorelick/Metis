@@ -8,8 +8,13 @@ export interface ExecutiveDecisionEvidence {
   filings?: readonly { source: string; text: string }[];
 }
 
+// What may follow "CEO," and remain the same issuer-wide office. Anything else names a unit.
+const SAME_OFFICE = /^(?:and\s+|&\s+)?(?:president|director|chair(?:man|woman|person)?|treasurer|secretary|principal|member|founder|co-?founder|vice|evp|svp|senior|executive|coo|cfo|ceo|chief|board)\b/i;
+
 /** Only issuer-wide CEO/CFO titles confer office context; divisional CEOs do not. */
 export function executiveOffice(title: string): "ceo" | "cfo" | undefined {
+  const qualifier = /\b(?:CEO|CFO|chief (?:executive|financial) officer)\s*(?:,|:|[-\u2013\u2014]\s)\s*(.+)$/i.exec(title)?.[1];
+  if (qualifier !== undefined && !SAME_OFFICE.test(qualifier)) return undefined;
   if (/\b(?:deputy|assistant|former|incoming|designate|chief of staff)\b/i.test(title)) return undefined;
   if (/\b(?:CEO|chief executive officer)\s+(?:of|for)\b/i.test(title)) return undefined;
   if (/\b(?:CFO|chief financial officer)\s+(?:of|for)\b/i.test(title)) return undefined;
@@ -107,11 +112,23 @@ function officeAction(e: Executive, a: ManagementAction): boolean {
   return office === "ceo" || ["capital-allocation", "acquisition-divestiture", "guidance"].includes(a.category);
 }
 
+const COMPLETED_DECISION = /\b(?:authori[sz]ed|approved|acquired|purchased|repurchased|redeemed|issued|elected|appointed|launched|closed|declared|completed|sold|divested)\b/i;
+const POSSIBLE_DECISION = /\b(?:not|never|may|might|could|would|will|plans? to|expects? to)\s+(?:\w+\s+){0,2}(?:authori[sz]e[ds]?|approve[ds]?|announce[ds]?|acquire[ds]?|purchase[ds]?|repurchase[ds]?|redeem(?:ed)?|issue[ds]?|elect(?:ed)?|appoint(?:ed)?|launch(?:ed)?|close[ds]?|declare[ds]?|complete[ds]?|sell|sold|divest(?:ed)?)\b/gi;
+const PROPOSAL = /\bannounced\s+(?:(?:a|the)\s+)?(?:no|proposed|plans?|proposal)\b/i;
+
+/**
+ * A completed decision survives a clause on what it permits ("authorized a program under which the Company may
+ * repurchase shares"). "Announced" alone proves nothing beside a possibility ("announced that it may repurchase").
+ */
+function statesCompletedDecision(text: string): boolean {
+  const rest = text.replace(POSSIBLE_DECISION, " ");
+  return COMPLETED_DECISION.test(rest) || (rest === text && /\bannounced\b/i.test(text) && !PROPOSAL.test(text));
+}
+
 /** A proposal/authorization is a decision, not proof of its eventual return. */
 function decisionAction(a: ManagementAction): boolean {
   return ["capital-allocation", "acquisition-divestiture", "strategy", "leadership-change"].includes(a.category) &&
-    a.action.some(c => /\b(?:authori[sz]ed|approved|announced|acquired|purchased|repurchased|redeemed|issued|elected|appointed|launched|closed|declared|completed|sold|divested)\b/i.test(c.text)) &&
-    !a.action.some(c => /\b(?:not|never|may|might|could|would|will|plans? to|expects? to)\s+(?:\w+\s+){0,2}(?:authori[sz]e[ds]?|approve[ds]?|announce[ds]?|acquire[ds]?|purchase[ds]?|repurchase[ds]?|redeem(?:ed)?|issue[ds]?|elect(?:ed)?|appoint(?:ed)?|launch(?:ed)?|close[ds]?|declare[ds]?|complete[ds]?|sell|sold|divest(?:ed)?)\b|\bannounced\s+(?:(?:a|the)\s+)?(?:no|proposed|plans?|proposal)\b/i.test(c.text));
+    a.action.some(c => statesCompletedDecision(c.text));
 }
 
 export function validatedExecutiveDecisions(e: Executive, index: number, leadership: Leadership, log: readonly VerificationLogEntry[], context: ExecutiveDecisionEvidence): ManagementAction[] {
