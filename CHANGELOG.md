@@ -18,6 +18,15 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Financial statement notes from filing indexes (2026-11-04)
+
+- Recover annual notes through proved numeric/F-prefixed financial indexes and
+  narrowly recognize split headings and unnumbered accounting policies. Preserve
+  legacy successes and reject contradictory page, link, contents and stub evidence.
+- Frozen panel: six missing domestic notes recovered; all 160 prior successful
+  item/notes extractions remain byte-identical. See D-194. Payload stamp required
+  on integration; stored reports and version constants remain unchanged.
+
 ## Unreleased - Officer tenure from filings (2026-11-04)
 
 - CEO/CFO cards show filing-sourced office starts with the original date

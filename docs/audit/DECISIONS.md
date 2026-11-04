@@ -5854,3 +5854,146 @@ first lines are in the [evidence report](2026-11-04-foreign-sections.md).
   functions/lines. The initial changed run caught a new judge-schema optional
   field; omitting pipeline-owned tenure from that request schema fixed it.
   The full `npm run verify` was not run, as required by the brief.
+
+## D-194 - Recover financial-statement notes from filing indexes (2026-11-04)
+
+The frozen 33-company panel has six domestic notes failures: PEP, DIS, EXPE,
+MSFT, MCD and ORCL. Nineteen other 10-K notes already extract. Seven 20-F
+issuers remain unsupported for annual notes; XOM has no annual filing in the
+snapshot. These are coverage limits, not newly failed extraction.
+
+### Evidence and root causes
+
+The prescribed census database was opened only with `new Database(path,
+{ readonly: true, fileMustExist: true })`. Its report symbols confirm the panel.
+Real SEC HTML was reused from the D-191 scratch directory; no network, paid,
+provider or model calls were made. No credentials or live application database
+were read. Real filing text remains under gitignored `tmp/statement-notes/`.
+
+- PEP: Item 8 redirects to Item 15, which names the financial index in Item 7.
+  Both item slices are rejected stubs; the old appendix route requires a
+  standalone Item 15/16 enclosure and F-notes/S-schedule rows. The actual
+  integrated index has an unlinked notes-group title and linked numbered
+  notes on pages 63-107, followed by the auditor report on page 108.
+- DIS: Item 8 points to the page-67 index and Item 15 is exhibits. Its numeric
+  notes row points to page 76; notes occupy the remaining printed pages
+  through 121. The opening is bare `1 Description of the Business and Segment
+  Information`, which the old first-note recognizer also rejected.
+- EXPE: Item 8 points to F-1; Item 15 is exhibits. The separate index links
+  notes at F-9 through the final F-43. Unlike the old appendix layout, there
+  is no linked S-schedule. Its linked, unnumbered statement-group title is
+  separately proved against the first numbered statement page.
+- MSFT: Item 8 succeeds, but `NOTES TO FINANCI AL STATEMENTS` misses the
+  literal heading regex. The fallback recognizes the closed title vocabulary
+  while retaining the original bytes. The auditor title is itself split as
+  `REGIST ERED`; its title plus salutation bounds the newly recognized notes.
+- MCD: Item 8 succeeds. Notes begin with unnumbered Summary of Significant
+  Accounting Policies. The fallback requires the immediate Nature of Business
+  opening and actual consolidation disclosure, plus the existing stub guard.
+- ORCL: successful slices previously supplied no recognized notes: Item 8
+  begins inside Note 1 and the later complete title is `CONSOLID ATED`. The
+  annual-only fallback recognizes that split title in Item 15. Its full-source
+  index can independently prove page 69 and the index-of-exhibits end.
+
+### Rule and preservation
+
+Legacy notes and appendix-index successes take precedence. New annual-only
+recognition tolerates spaces inside the closed Consolidated/Financial title
+words; it never rewrites source text. Contents-page numbers immediately after
+a first-note title, reference openings and truncated stubs are rejected.
+
+The new index route reads balanced original HTML, preserves original source
+offsets and requires a financial index with balance sheets and notes. Every
+linked numeric or F-prefixed row must resolve to one visible same-document
+target and the same unique printed page. Fragmented title/page links must all
+agree. Unnumbered linked statement-group headings require their own source
+heading and a numbered statement on that page. No page ranges are guessed.
+A notes-group heading can supply a first-note mapping; all later mapped notes
+must fall within the retained bounds. Notes require a real opening, consecutive
+physical printed pages, and a closed appendix heading or a closed document
+ending at a proved final printed footer. Duplicate, missing or interrupted
+page evidence withholds the result. Self-closing namespaced metadata is
+admitted only inside hidden metadata; visible nonvoid markup stays strict.
+
+The original appendix evidence retains its schedule field. General financial
+indexes instead record a heading/document-end boundary and last printed page.
+The acquisition endpoint now accurately names a same-document financial index.
+
+### Frozen replay
+
+Lengths are accepted JavaScript string lengths; missing is zero. First lines
+are abbreviated. All six failures become accepted notes.
+
+| Company | Before chars | After chars | First line (abbreviated) |
+| --- | ---: | ---: | --- |
+| AAPL | 55,354 | 55,354 | Notes to Consolidated Financial Statements Note 1 – Summary of Significant Accounting Policies  |
+| MSFT | 0 | 87,747 | NOTES TO FINANCI AL STATEMENTS NOTE 1 — ACCOUNTING POLICIES Accounting Principles Our consolida |
+| NVDA | 80,000 | 80,000 | Notes to the Consolidated Financial Statements Note 1 - Organization and Summary of Significant |
+| GOOGL | 113,444 | 113,444 | NOTES TO CONSOLIDATED FINANCIAL STATEMENTS Note 1. Summary of Significant Accounting Policies N |
+| AMZN | 108,511 | 108,511 | NOTES TO CONSOLIDATED FINANCIAL STATEMENTS Note 1 — DESCRIPTION OF BUSINESS, ACCOUNTING POLICIE |
+| META | 119,709 | 119,709 | NOTES TO CONSOLIDATED FINANCIAL STATEMENTS Note 1. Summary of Significant Accounting Policies O |
+| JNJ | 207,375 | 207,375 | Notes to consolidated financial statements 1. Summary of significant accounting policies Princi |
+| PG | 93,895 | 93,895 | Notes to Consolidated Financial Statements NOTE 1 SUMMARY OF SIGNIFICANT ACCOUNTING POLICIES Na |
+| KO | 233,081 | 233,081 | Notes to Consolidated Financial Statements 66 Note 1 Business and Summary of Significant Accoun |
+| PEP | 0 | 130,686 | Notes to the Consolidated Financial Statements Note 1 — Basis of Presentation and Our Segments  |
+| WMT | 89,631 | 89,631 | Notes to Consolidated Financial Statements Note 1. Summary of Significant Accounting Policies G |
+| COST | 66,949 | 66,949 | NOTES TO CONSOLIDATED FINANCIAL STATEMENTS (amounts in millions, except share, per share, and w |
+| HD | 115,423 | 115,423 | Notes to Consolidated Financial Statements 44 Note 1. Summary of Significant Accounting Policie |
+| MCD | 0 | 76,689 | Notes to Consolidated Financial Statements Summary of Significant Accounting Policies NATURE OF |
+| CAT | 157,448 | 157,448 | NOTES TO CONSOLIDATED FINANCIAL STATEMENTS 1. Operations and summary of significant accounting  |
+| UNH | 113,515 | 113,515 | Notes to the Consolidated Financial Statements 46 1. Description of Business 46 2. Basis of Pre |
+| LLY | 110,470 | 110,470 | Notes to Consolidated Financial Statements ELI LILLY AND COMPANY AND SUBSIDIARIES (Tables prese |
+| ORCL | 0 | 131,203 | NOTES TO CONSOLID ATED FINANCIAL STATEMENTS May 31, 2026 1. ORGANIZATION AND SIGNI FICANT ACCOU |
+| NKE | 99,808 | 99,808 | NOTES TO CONSOLIDATED FINANCIAL STATEMENTS Note 1 Summary of Significant Accounting Policies 61 |
+| DIS | 0 | 152,423 | NOTES TO CONSOLIDATED FINANCIAL STATEMENTS (Tabular dollars in millions, except where noted and |
+| INTC | 173,439 | 173,439 | Notes to Consolidated Financial Statements 65 Basis Note 1: Basis of Presentation 65 Note 2: Ac |
+| VZ | 190,810 | 190,810 | Notes to Consolidated Financial Statements Verizon Communications Inc. and Subsidiaries Note 1. |
+| TSLA | 148,423 | 148,423 | Notes to Consolidated Financial Statements Note 1 – Overview Tesla, Inc. (“Tesla”, the “Company |
+| BA | 187,528 | 187,528 | Notes to the Consolidated Financial Statements. See Note 24 for further segment results. 59 Tab |
+| EXPE | 0 | 128,534 | Notes to Consolidated Financial Statements NOTE 1 — Basis of Presentation These accompanying co |
+| XOM | 0 | 0 | No annual filing |
+| TSM | 0 | 0 | Foreign annual notes unsupported |
+| ASML | 0 | 0 | Foreign annual notes unsupported |
+| TM | 0 | 0 | Foreign annual notes unsupported |
+| NVO | 0 | 0 | Foreign annual notes unsupported |
+| SAP | 0 | 0 | Foreign annual notes unsupported |
+| SONY | 0 | 0 | Foreign annual notes unsupported |
+| BABA | 0 | 0 | Foreign annual notes unsupported |
+
+The replay covers all 146 narrative/item section slots plus 25 domestic notes
+slots. All 141 previously successful item sections and all 19 previously
+successful notes (160 successes total) remain byte-identical, compared directly
+and by SHA-256. Notes coverage rises from 19/25 to 25/25. Items 8/15 that were
+references remain references; only the notes acquisition fallback is repaired.
+
+Read the PEP, DIS, EXPE and MSFT outputs, including opening policies and final
+notes. PEP contains its debt, leases and final legal-contingencies note; DIS
+contains business/segments through new accounting pronouncements; EXPE retains
+its final valuation-and-qualifying-accounts note; MSFT ends after its segment
+tables before the auditor report. ORCL ends before the index of exhibits.
+
+### Validation and stamps
+
+Synthetic tests were observed failing before fixes for split headings,
+unnumbered policies, numeric/F-prefixed indexes, grouped first-note rows,
+linked statement groups, the auditor boundary, long contents/reference decoys
+and the endpoint label. Negative controls cover missing/duplicate/external
+targets, wrong printed pages, wrong statement-group destinations, unrelated
+row links, unlinked later note rows, missing document close and truncated/reference-only bodies. Existing
+appendix-index refusal tests remain in the required changed selection.
+
+Integration requires a payload-version advance for changed evidence selection.
+No version constants were changed. Stage B, fair-value, scenario-target, pipeline
+and report-schema stamps need no change. Stored reports remain immutable.
+
+Final Node 24.11.1 checks passed: `npm run typecheck`; ESLint on all five
+changed TypeScript files (zero warnings); `node_modules/vitest/vitest.mjs run
+--config vitest.config.ts --changed origin/main --passWithNoTests --maxWorkers 4`
+(505 files, 12,298 tests); and separate runs of `tests/risk.coverage.test.ts`
+(11 tests) and `tests/repository.release.test.ts` (18 tests). The exact default-
+worker changed command was run first and completed with five subprocess/barrier
+timeouts across three unrelated suites; limiting workers preserved the entire
+selection and passed all tests. The initial release-inventory run caught the
+new test being untracked; staging it made the tracked inventory agree. No test
+expectations were loosened for those failures. The full `npm run verify` was
+not run.
