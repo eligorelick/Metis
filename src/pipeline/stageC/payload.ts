@@ -483,7 +483,8 @@ export interface ContextPayload {
 // 1.68.0 (D-189): financial companies open from the latest admitted quarterly book, so analysts receive newer book, value date and P/TBV.
 // 1.69.0 (D-191): explicit annual-report page references recover shared 10-K ranges and labelled 20-F mapped-page excerpts, with partial coverage named in the excerpt title.
 // 1.70.0 (D-192): bounded officer biographies from the annual filing supply filing-sourced officer tenure in the leadership context.
-export const PAYLOAD_VERSION = "1.70.0" as const;
+// 1.71.0 (D-194): financial-statement notes now reach the analysts from filings that index them, so admitted filing context changes.
+export const PAYLOAD_VERSION = "1.71.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
