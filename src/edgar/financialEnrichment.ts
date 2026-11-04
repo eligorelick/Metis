@@ -671,7 +671,15 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       const undisclosedZero = line === 0 && op.total + fin.total > 0;
       if (!undisclosedZero && ![op.total, op.noncurrent, op.total + fin.total, op.noncurrent + fin.noncurrent].some(v => eq(line, v))) continue;
       const refuse = (why: string): LeaseLineCompletion<T> => ({ status: "refused", reason: `incomplete debt carrying value: same-filing completion refused: ${why}` });
-      refusal = line < op.total + fin.total ? refuse("current debt or vendor composition cannot be reconciled") : none;
+      // An unsuccessful zero-line repair keeps the prior admission decision;
+      // the independent lease-integrity guard still withholds its bridge.
+      // It must not introduce a new debt-field refusal and alter other scores.
+      refusal = !undisclosedZero && line < op.total + fin.total ? refuse("current debt or vendor composition cannot be reconciled") : none;
+      if (undisclosedZero && ([row.capitalLeaseObligationsCurrent, row.capitalLeaseObligationsNonCurrent]
+        .some(v => v != null && (!finite(v) || v !== 0)) || !notesScope &&
+        ["NotesPayableCurrent", "NotesAndLoansPayableCurrent"].some(tag => (own(tag) ?? 0) > 0))) {
+        throw new Error("vendor zero has a contradictory lease split or unresolved current notes");
+      }
       const ltd = own("LongTermDebtCurrent") ?? (notesScope ? own("NotesAndLoansPayableCurrent") ?? own("NotesPayableCurrent") : null), dc = own("DebtCurrent"), both = own(COMBINED_CURRENT_DEBT_TAG);
       const stb = own("ShortTermBorrowings"), cp = own("CommercialPaper");
       const borrowing = stb ?? cp ?? 0;

@@ -36,9 +36,10 @@ function syntheticInterimFixture() {
   b.edgar.economicShareInventory = [annual, interim].map((s, i) => ({ source: s, classes: [], evidence: null,
     observations: observations(s, i === 0 ? "2026-07-08" : "2026-09-28"), reason: "unresolved cover", passages: { inventory: "", rights: null } }));
   const notes = (s: typeof annual, reportDate: string, text: string) => ({ ok: true as const, value: { source: "edgar" as const,
-    endpoint: s.documentUrl, asOf: reportDate, fetchedAt: b.builtAt, data: { ...s, reportDate, text, chars: text.length, method: "fixture" } } });
-  b.edgar.tenKNotes = notes(annual, "2026-05-31", rights) as DataBundle["edgar"]["tenKNotes"];
-  b.edgar.tenQNotes = notes(interim, "2026-08-31", "Common stock at stated value: Class A convertible — 100 shares outstanding; Class B — 200 shares outstanding Capital in excess") as DataBundle["edgar"]["tenQNotes"];
+    endpoint: s.documentUrl, asOf: reportDate, fetchedAt: b.builtAt, data: { ...s, reportDate, text, chars: text.length,
+      sectionName: s.form === "10-K" ? "tenKNotes" as const : "tenQNotes" as const, method: "header-regex" as const } } });
+  b.edgar.tenKNotes = notes(annual, "2026-05-31", rights);
+  b.edgar.tenQNotes = notes(interim, "2026-08-31", "Common stock at stated value: Class A convertible — 100 shares outstanding; Class B — 200 shares outstanding Capital in excess");
   return b;
 }
 

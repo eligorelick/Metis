@@ -30,8 +30,17 @@ describe("exact same-filing debt completion", () => {
     expect(out.row.totalDebt).toBe(104 * M);
     expect(out.admissions).toEqual([]);
   });
+  it("leaves an unproved zero-line composition to the existing integrity guard without adding a debt refusal", () => {
+    const vendor = row({ shortTermDebt: 9 * M, capitalLeaseObligations: 0, totalDebt: 109 * M,
+      operatingLeaseLiability: 20 * M, financeLeaseLiability: 6 * M });
+    const out = admit(tagged, vendor);
+    expect(out.row.totalDebt).toBe(109 * M);
+    expect(out.admissions).toEqual([]);
+    expect(out.row.fieldConflicts?.totalDebt).toBeUndefined();
+    expect(leaseDebtConflict(out.row)).toMatch(/do not reconcile/);
+  });
   it("does not replace a filed zero or reconcile an incomplete lease or disputed borrowing with a vendor zero", () => {
-    for (const mode of ["filed zero", "incomplete finance", "unreconciled total", "different issuer", "refused lease"]) {
+    for (const mode of ["filed zero", "incomplete finance", "unreconciled total", "different issuer", "refused lease", "current notes", "contradictory vendor split"]) {
       const tags = { ...tagged };
       const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M });
       if (mode === "filed zero") vendor.fieldProvenance = { capitalLeaseObligations: {
@@ -40,6 +49,8 @@ describe("exact same-filing debt completion", () => {
       if (mode === "incomplete finance") delete tags.FinanceLeaseLiabilityCurrent;
       if (mode === "unreconciled total") vendor.totalDebt = 105 * M;
       if (mode === "different issuer") vendor.cik = "99";
+      if (mode === "current notes") tags.NotesPayableCurrent = 2;
+      if (mode === "contradictory vendor split") vendor.capitalLeaseObligationsCurrent = 2 * M;
       if (mode === "refused lease") vendor.fieldConflicts = { financeLeaseLiability: {
         usable: false, vendorValue: 6 * M, secValue: null, reason: "lease scope disputed" } };
       expect(admit(tags, vendor).admissions, mode).toEqual([]);
