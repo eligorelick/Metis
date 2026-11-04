@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { ExtractedSection } from "@/pipeline/types";
-import { runStageB } from "@/pipeline/compute";
+import { operatingDispositionView, runStageB } from "@/pipeline/compute";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 const M = 1e6;
@@ -78,6 +78,19 @@ describe("material disposal gains need placement, materiality and the matching w
   it("requires the individual event to be material even when the aggregate tag is large", () => {
     expect(read(facts(), [section({ amount: 5 })])?.value ?? 0).toBe(0);
   });
+  it("counts one sale once when two retained notes describe it under different headings", () => {
+    const annual = section(), interim = section();
+    interim.text = interim.text.replace("Note 3 - Navigation Software Divestiture", "Note 5 - Dispositions of businesses");
+    const result = read(facts(), [annual, interim]) as { value: number; dcfRefusal?: string };
+    expect(result.value).toBe(100 * M);
+    expect(result.dcfRefusal).toBeUndefined();
+  });
+  it("refuses when separately dated sales add up to more than the tagged gain", () => {
+    const first = section(), second = section({ date: "November 30, 2025" });
+    const result = read(facts(), [first, second]) as { value: number; dcfRefusal?: string };
+    expect(result.value).toBe(0);
+    expect(result.dcfRefusal).toMatch(/more than the tagged/i);
+  });
   it("refuses another unresolved material tag even after one sale has been placed", () => {
     const f = facts();
     f.facts["us-gaap"]!.GainLossOnSaleOfOtherAssets = structuredClone(f.facts["us-gaap"]!.GainLossOnDispositionOfAssets);
@@ -104,6 +117,23 @@ describe("disposal normalization reaches all shared operating-income consumers",
     expect(c.growth.margins.net.series.at(-1)?.pct).toBeNull();
     expect(c.valuation.multiples?.multiples.find(m => m.key === "peTtm")?.current).toBeNull();
     expect(c.notes.join(" ")).toMatch(/Navigation Software Divestiture/);
+  });
+  it("withholds an affected quarter whose start cannot be established instead of leaving the gain in it", () => {
+    const b = bundleWithSale();
+    if (!b.statements.incomeQuarterly.ok) throw new Error("fixture");
+    const template = b.statements.incomeQuarterly.value.data.rows[0]!;
+    b.statements.incomeQuarterly.value.data.rows = ["2026-09-30", "2026-06-30", "2026-03-31", "2025-12-31"].map(date =>
+      ({ ...template, date, period: undefined, fiscalYear: undefined, periodStart: undefined, operatingIncome: 60 * M, ebit: 60 * M, netIncome: 40 * M }));
+    const rows = operatingDispositionView(b).bundle.statements.incomeQuarterly;
+    if (!rows.ok) throw new Error("fixture");
+    const byDate = new Map(rows.value.data.rows.map(row => [String(row.date), row]));
+    const oldest = byDate.get("2025-12-31")!;
+    expect(oldest.operatingIncome).toBeUndefined();
+    expect(oldest.ebit).toBeUndefined();
+    expect(oldest.fieldConflicts?.operatingIncome?.usable).toBe(false);
+    expect(oldest.fieldConflicts?.operatingIncome?.reason).toMatch(/period start/i);
+    // Control: a later quarter cannot contain the sale and stays as filed.
+    expect(byDate.get("2026-06-30")?.operatingIncome).toBe(60 * M);
   });
   it("withholds a DCF rather than using a material gain with unknown placement", () => {
     const c = runStageB(bundleWithSale(false));

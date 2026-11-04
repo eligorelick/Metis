@@ -21,8 +21,9 @@ export function resolvePreferredCapital(row: FmpBalanceSheetRow, facts: CompanyF
     typeof row.preferredDividendsPaid === "number" && Number.isFinite(row.preferredDividendsPaid) ? Math.abs(row.preferredDividendsPaid) : 0);
   const preference = points("PreferredStockLiquidationPreferenceValue", currency).find(p => p.start === undefined);
   const carrying = carryingTags.flatMap(tag => {
-    const p = points(tag, currency).find(p => p.start === undefined && p.val > 0);
-    return p ? [{ tag, p }] : [];
+    // The latest filed amount decides, including a correction to zero: never search older filings for a positive one.
+    const p = points(tag, currency).find(p => p.start === undefined);
+    return p && p.val > 0 ? [{ tag, p }] : [];
   })[0];
   if (!(shares > 0 || dividends > 0 || (preference?.val ?? 0) > 0 || carrying)) return row;
   const selection = carrying ?? (preference && preference.val > 0 ? { tag: "PreferredStockLiquidationPreferenceValue", p: preference } : null);

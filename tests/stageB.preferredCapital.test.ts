@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
-import { quarterlyOpeningBook } from "@/pipeline/stageB/excessReturnBook";
+import { quarterlyOpeningBook, resolvePreferredCapital } from "@/pipeline/stageB/excessReturnBook";
 import { buildSyntheticRouteBundle } from "./helpers/researchRoutePanel";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { computeTtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
@@ -29,6 +29,24 @@ function fixture(evidence: Fact[], route: "general" | "insurer" = "insurer") {
 const outstanding: Fact = { tag: "PreferredStockSharesOutstanding", unit: "shares", val: 24_600_000 };
 
 describe("zero par does not establish zero preferred capital", () => {
+  it("does not bring back a carrying amount that a later filing corrected to zero", () => {
+    const corrected = fixture([
+      { tag: "PreferredStockIncludingAdditionalPaidInCapital", val: 80 * M, filed: "2026-05-01" },
+      { tag: "PreferredStockIncludingAdditionalPaidInCapital", val: 0, filed: "2026-05-20" },
+    ]);
+    if (!corrected.edgar.companyFacts?.ok) throw new Error("fixture");
+    const row = { date: "2026-03-31", reportedCurrency: "USD", preferredStock: 0 } as Parameters<typeof resolvePreferredCapital>[0];
+    expect(resolvePreferredCapital(row, corrected.edgar.companyFacts.value.data, "2026-06-01T00:00:00Z")).toBe(row);
+  });
+  it("uses a later positive correction of a carrying amount", () => {
+    const corrected = fixture([
+      { tag: "PreferredStockIncludingAdditionalPaidInCapital", val: 80 * M, filed: "2026-05-01" },
+      { tag: "PreferredStockIncludingAdditionalPaidInCapital", val: 90 * M, filed: "2026-05-20" },
+    ]);
+    if (!corrected.edgar.companyFacts?.ok) throw new Error("fixture");
+    const row = { date: "2026-03-31", reportedCurrency: "USD", preferredStock: 0 } as Parameters<typeof resolvePreferredCapital>[0];
+    expect(resolvePreferredCapital(row, corrected.edgar.companyFacts.value.data, "2026-06-01T00:00:00Z").preferredStock).toBe(90 * M);
+  });
   it("withholds the latest common book, fair value and targets when only an older preference exists", () => {
     const c = runStageB(fixture([outstanding,
       { tag: "PreferredStockLiquidationPreferenceValue", val: 50 * M, end: "2025-12-31" }]));

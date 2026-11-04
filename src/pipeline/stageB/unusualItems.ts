@@ -163,7 +163,8 @@ export function materialOperatingDispositions(facts: CompanyFacts | null | undef
           if (!sourceGain.some(p => equalAmount(lineValue === null ? null : lineValue * scale, p.val) &&
             sourceOperating.some(op => op.start === p.start && equalAmount(opValue === null ? null : opValue * scale, op.val)))) continue;
           const name = chunk.slice(0, dated.index).trim().slice(0, 160) || "business divestiture";
-          const key = `${date}|${value}|${name}`;
+          // Headings differ between annual and quarterly notes; the sale date and gain identify the event.
+          const key = `${date}|${value}`;
           const amounts = accounted.get(sourceCandidate.tag) ?? new Map<string, number>();
           amounts.set(key, lineAt > subtotal.index ? sourceCandidate.magnitude : value);
           accounted.set(sourceCandidate.tag, amounts);
@@ -173,6 +174,8 @@ export function materialOperatingDispositions(facts: CompanyFacts | null | undef
     }
   }
   const admitted = [...events.values()];
+  const overstated = candidates.filter(c => admitted.filter(e => e.tag === c.tag).reduce((sum, e) => sum + e.value, 0) > c.magnitude + Math.max(1, c.magnitude * .01));
+  if (overstated.length) return { events: [], basis: "", refusal: `Completed sales read from retained notes add up to more than the tagged gain (${overstated.map(c => `us-gaap/${c.tag} ${unit} ${millions(c.magnitude)}`).join("; ")}); the events cannot be reconciled, so the DCF is withheld rather than removing an unproved amount.` };
   const basis = admitted.map(e => `${e.name}: completed ${e.date}, gain ${unit} ${millions(e.value)} inside operating income; ${e.accession}`).join("; ");
   const unresolved = candidates.filter(c => {
     const remainder = c.magnitude - [...(accounted.get(c.tag)?.values() ?? [])].reduce((sum, value) => sum + value, 0);

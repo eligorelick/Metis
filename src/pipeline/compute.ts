@@ -2059,7 +2059,7 @@ function preferredCapitalView(bundle: DataBundle): DataBundle {
 }
 
 /** D-198: one calculation view; the acquired statements and immutable reports retain their filed values. */
-function operatingDispositionView(bundle: DataBundle): { bundle: DataBundle; read: OperatingDispositionRead } {
+export function operatingDispositionView(bundle: DataBundle): { bundle: DataBundle; read: OperatingDispositionRead } {
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const annual = rowsOf(bundle.statements.incomeAnnual);
   const quarters = normalizeStatementQuarters(rowsOf(bundle.statements.incomeQuarterly), "income");
@@ -2082,8 +2082,22 @@ function operatingDispositionView(bundle: DataBundle): { bundle: DataBundle; rea
       if (normalizeReportedCurrency(row.reportedCurrency) !== currency) return row;
       const index = rows.findIndex(r => r === row);
       const period = incomePeriod(row, rows[index + 1], basis);
-      if (!period.periodStart) return row;
-      const gain = read.events.filter(e => e.date >= period.periodStart! && e.date <= String(row.date)).reduce((sum, e) => sum + e.value, 0);
+      const rowEnd = String(row.date);
+      // Without a start, a period that could hold the sale cannot be shown to exclude it.
+      // Withhold its operating figures rather than silently leaving the gain inside them.
+      if (!period.periodStart) {
+        const longestPeriodDays = basis === "annual" ? 372 : 100;
+        const earliest = Date.parse(rowEnd) - longestPeriodDays * 86_400_000;
+        if (!read.events.some(e => e.date <= rowEnd && Date.parse(e.date) > earliest)) return row;
+        const undated = `${read.basis}. The period start of the row ending ${rowEnd} cannot be established, so it may contain this completed sale; its operating income is withheld rather than left holding the gain.`;
+        const out: FmpIncomeStatementRow = { ...row, ebitda: undefined, fieldConflicts: { ...row.fieldConflicts } };
+        for (const field of ["operatingIncome", "ebit", "netIncome", "netIncomeConsolidated", "netIncomeAvailableToCommon", "netIncomeFromContinuingOperations", "eps", "epsDiluted", "incomeBeforeTax", "incomeTaxExpense"] as const) {
+          out[field] = undefined;
+          out.fieldConflicts![field] = { vendorValue: num(row[field]), secValue: null, usable: false, reason: undated };
+        }
+        return out;
+      }
+      const gain = read.events.filter(e => e.date >= period.periodStart! && e.date <= rowEnd).reduce((sum, e) => sum + e.value, 0);
       if (!gain) return row;
       const out: FmpIncomeStatementRow = { ...row, operatingIncome: num(row.operatingIncome) === null ? undefined : row.operatingIncome! - gain,
         ebit: num(row.ebit) === null ? undefined : row.ebit! - gain,
