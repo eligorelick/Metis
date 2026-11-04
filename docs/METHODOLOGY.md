@@ -2141,15 +2141,16 @@ are already *after* it and adding that liability to EV as well double-counts the
 leases in EV/EBITDA. Finance-lease cost is split between right-of-use
 amortisation, which is included in EBIT and added back in EBITDA, and interest,
 which sits below EBIT ([ASC 842, 842-20-45-4](https://storage.fasb.org/ASU_2016-02_Section_A.pdf)). The finance-lease liability remains financing debt in both frames
-and stays in enterprise value and in net debt, always. The provider's
-`totalDebt` contains both, so the default subtracts the operating slice back out
-and leaves the finance slice where it is.
+and stays in enterprise value and in net debt, always. The calculation's debt
+basis must be shown to contain the operating slice before the default
+subtracts it. A provider total can be borrowings only; same-filing completion
+establishes the included components before an operating lease is removed.
 
-Only the EDGAR route resolves the split: the lease chain there sums a separately
-resolved operating and finance liability, and the operating slice is published
-as its own balance-sheet field. FMP publishes one combined
-`capitalLeaseObligations` and no split, so on that route **no lease adjustment
-is made at all** — enterprise value is reported as-is and an info-level
+Only filed evidence resolves the split: SEC-built rows and provider rows
+enriched from the same-period filing can carry separate operating and finance
+liabilities. A provider-only combined `capitalLeaseObligations` does not prove
+the split, so **no lease adjustment is made without that evidence** —
+enterprise value is reported as-is and an info-level
 `valuation.multiples.enterpriseValue.leases` manifest entry says that removing
 the combined figure would strip an unknown amount of finance-lease debt out of
 EV. The same entry fires when no lease liability is disclosed at all. Nothing is
@@ -7567,3 +7568,34 @@ the default lease-excluded convention. Its other maturity remains unknown;
 the lease-inclusive switch continues to withhold. Ordinary debt plausibility
 and aggregate/component checks still run afterward. This is the existing
 lease convention applied to proved borrowings, not zero-filling a missing lease.
+
+**Fair-value coverage follow-up (D-196, 2026-11-04).** A vendor lease line of
+zero without filed provenance is undisclosed when a same-period filing proves
+positive lease liabilities. It is completed only when the vendor debt total
+reconciles to its components, each borrowing scope and lease maturity is
+resolved from one filing in one currency, and the existing completeness
+checks pass. Noncurrent operating leases embedded in vendor long-term debt
+are counted once when that exact composition is proved. The calculation view
+rebuilds financing debt plus leases; the default basis then removes operating
+leases consistently from the bridge, WACC and invested capital, while finance
+leases stay in debt. A filed zero, a contradictory vendor lease split,
+unresolved current notes, incomplete or mixed-filing lease evidence, and
+independent debt refusals never authorize completion. A failed zero-line
+repair preserves the prior admission decision and its integrity guard.
+
+Existing class evidence is preferred while active on the quote date. If every
+retained inventory has expired, the fully evidenced interim-cover rule above
+is evaluated independently. Expired counts are never extended, and incomplete
+current classes still withhold capitalization. Independent SEC issuer identity
+uses the established dot/hyphen spelling equivalence for a share-class ticker;
+different class suffixes and CIK mismatches remain distinct.
+
+An unreconciled ASC-606 contract-revenue fact is not described as a proved
+consolidated operating-revenue total. It can omit derivative or lease
+transactions and may be rounded in a note. The affected revenue remains
+withheld until a full statement for the same registrant is reconciled;
+subsidiary figures never substitute for the parent. Financial-route headline
+refusals name the excess-return model's missing assumption or common-share
+denominator, including missing compatible common earnings behind an unusable
+payout history. ADR refusals carry the failed security/FX evidence. These
+disclosures do not relax numeric admission or create a new valuation model.

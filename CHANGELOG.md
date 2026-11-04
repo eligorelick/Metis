@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Fair value coverage (2026-11-04)
+
+- Complete undisclosed vendor lease zeros only from reconciled same-filing borrowing and lease components, including operating leases embedded in vendor long-term debt. Keep the lease treatment consistent across valuation, WACC and invested capital.
+- Evaluate a fully proved current common-class cover after earlier evidence expires; recognize established dot/hyphen class aliases without accepting sibling classes or mismatched CIKs.
+- Explain unresolved contract-revenue scope, failed ADR evidence and the actual excess-return model refusal. Preserve genuine loss and incomplete-input refusals.
+- D-196 records frozen-panel comparisons, analyst checks and release stamps required. Version constants and saved reports are unchanged.
+
 ## Unreleased - Public polish (2026-11-04)
 
 - Make the complete fictional sample easy to find and distinguish its dataset from the company examples.

@@ -38,7 +38,7 @@ function syntheticInterimFixture() {
   const notes = (s: typeof annual, reportDate: string, text: string) => ({ ok: true as const, value: { source: "edgar" as const,
     endpoint: s.documentUrl, asOf: reportDate, fetchedAt: b.builtAt, data: { ...s, reportDate, text, chars: text.length,
       sectionName: s.form === "10-K" ? "tenKNotes" as const : "tenQNotes" as const, method: "header-regex" as const } } });
-  b.edgar.tenKNotes = notes(annual, "2026-05-31", rights);
+  b.edgar.tenKNotes = notes(annual, "2026-05-31", "The holders of Class A and Class B common stock have identical liquidation and dividend rights.");
   b.edgar.tenQNotes = notes(interim, "2026-08-31", "Common stock at stated value: Class A convertible — 100 shares outstanding; Class B — 200 shares outstanding Capital in excess");
   return b;
 }
