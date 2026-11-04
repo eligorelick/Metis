@@ -1,6 +1,43 @@
-import type { FmpStatementRow } from "@/providers/fmp";
+import type { FmpBalanceSheetRow, FmpStatementRow } from "@/providers/fmp";
+import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
+import { preferredCapitalRefusal } from "./securityBasis";
 import { commonEquityOn, type CommonEquityBasis } from "./excessReturnStart";
 import type { ReturnsBalanceRow } from "./returns";
+
+/** Same-date filed claims only; par, authorized shares and per-share preferences are not capital amounts. */
+export function resolvePreferredCapital(row: FmpBalanceSheetRow, facts: CompanyFacts | null, cutoff: string): FmpBalanceSheetRow {
+  if (row.preferredStock !== 0 || (facts && row.cik && Number(row.cik) !== facts.cik)) return row;
+  const date = row.date, currency = row.reportedCurrency;
+  if (!date || !currency || !Number.isFinite(Date.parse(cutoff))) return row;
+  const points = (tag: string, unit: string): FactPoint[] => {
+    const concept = facts?.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
+    return parseFactPoints(concept?.units?.[unit] ?? []).filter(p => p.end === date && p.val >= 0 && CORE_FACT_FORMS.has(p.form) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(p.filed) && p.filed >= date && p.filed <= cutoff.slice(0, 10))
+      .sort((a,b) => b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn));
+  };
+  const carryingTags = ["PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount", "PreferredStockIncludingAdditionalPaidInCapital"];
+  const shares = points("PreferredStockSharesOutstanding", "shares")[0]?.val ?? row.preferredStockSharesOutstanding ?? 0;
+  const dividends = Math.max(points("PaymentsOfDividendsPreferredStockAndPreferenceStock", currency)[0]?.val ?? 0,
+    typeof row.preferredDividendsPaid === "number" && Number.isFinite(row.preferredDividendsPaid) ? Math.abs(row.preferredDividendsPaid) : 0);
+  const preference = points("PreferredStockLiquidationPreferenceValue", currency).find(p => p.start === undefined);
+  const carrying = carryingTags.flatMap(tag => {
+    // The latest filed amount decides, including a correction to zero: never search older filings for a positive one.
+    const p = points(tag, currency).find(p => p.start === undefined);
+    return p && p.val > 0 ? [{ tag, p }] : [];
+  })[0];
+  if (!(shares > 0 || dividends > 0 || (preference?.val ?? 0) > 0 || carrying)) return row;
+  const selection = carrying ?? (preference && preference.val > 0 ? { tag: "PreferredStockLiquidationPreferenceValue", p: preference } : null);
+  if (selection && row.fieldConflicts?.preferredStock?.usable !== false) {
+    const { tag, p } = selection;
+    const basis = `${carrying ? "filed carrying amount" : "filed liquidation preference (senior claim used for common book, not an accounting carrying amount)"} ${currency} ${p.val} at ${date}; us-gaap/${tag}, ${p.accn}, filed ${p.filed}`;
+    return { ...row, preferredStock: p.val, preferredCapitalBasis: basis,
+      fieldProvenance: { ...row.fieldProvenance, preferredStock: { source: "edgar", unit: currency, periodStart: null, periodEnd: date,
+        observedAt: cutoff, tags: [`us-gaap/${tag}`], filings: [{ accn: p.accn, form: p.form, filed: p.filed }] } } };
+  }
+  const reason = `Preferred capital at ${date} is unresolved: zero par with ${shares} preferred shares and ${currency} ${dividends} preferred-dividend evidence does not establish zero capital. No usable filed carrying amount or liquidation preference for the same balance date is retained; another date is not carried forward. Common book and dependent values are withheld.`;
+  return { ...row, preferredStock: undefined, preferredCapitalWithheldReason: reason,
+    fieldConflicts: { ...row.fieldConflicts, preferredStock: { vendorValue: 0, secValue: null, usable: false, reason } } };
+}
 
 /** Admit a whole quarterly book, independently of whether a trailing return exists. */
 export function quarterlyOpeningBook(input: {
@@ -29,6 +66,8 @@ export function quarterlyOpeningBook(input: {
   };
   if (!filedByCutoff(row)) return { reason: `quarterly filing at ${day} is missing or unavailable at the analysis cutoff` };
   if (!currency || row.reportedCurrency !== currency) return { reason: "quarterly balance currency differs from the model currency" };
+  const preferredRefusal = preferredCapitalRefusal(row);
+  if (preferredRefusal) return { reason: preferredRefusal };
   const fields = input.basis === "tangible-common-equity"
     ? ["totalStockholdersEquity", "goodwill", "intangibleAssets", "preferredStock"] as const
     : ["totalStockholdersEquity", "preferredStock"] as const;

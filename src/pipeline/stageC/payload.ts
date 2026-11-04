@@ -487,7 +487,8 @@ export interface ContextPayload {
 // 1.72.0 (D-193): excess-return scenario targets reach the analysts as computed figures.
 // 1.73.0 (D-195): valuation notes shown to readers use plain words; numbers unchanged
 // 1.74.0 (D-196): fair values restored from reconciled debt and share evidence; refusals name their cause
-export const PAYLOAD_VERSION = "1.74.0" as const;
+// 1.75.0 (D-198): one-time operating sale gains, preferred capital and trailing bank returns change the computed figures
+export const PAYLOAD_VERSION = "1.75.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

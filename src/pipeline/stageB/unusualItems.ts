@@ -1,4 +1,5 @@
 import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
+import type { ExtractedSection } from "@/pipeline/types";
 
 /**
  * Audit item 15 (FCX-9) with AMZN audit 2026-10-20 finding 5: tagged items
@@ -8,7 +9,7 @@ import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts, type FactPoint } f
  * income. `AssetImpairmentCharges` is the total when filed; the three
  * component tags stand in only when it is not, so nothing is counted twice.
  */
-import { UNUSUAL_OPERATING_GAIN_TAGS, UNUSUAL_OPERATING_CHARGE_TOTAL_TAG, UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS } from "@/edgar/tagSynonyms";
+import { DISPOSITION_GAIN_CANDIDATE_TAGS, UNUSUAL_OPERATING_GAIN_TAGS, UNUSUAL_OPERATING_CHARGE_TOTAL_TAG, UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS } from "@/edgar/tagSynonyms";
 export { UNUSUAL_OPERATING_GAIN_TAGS, UNUSUAL_OPERATING_CHARGE_TOTAL_TAG, UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS } from "@/edgar/tagSynonyms";
 
 export interface UnusualOperatingItems {
@@ -22,7 +23,26 @@ export interface UnusualOperatingItems {
    */
   withheld: { tag: string; reason: string }[];
   basis: string;
+  /** A material possible gain cannot seed a perpetual margin without placement evidence. */
+  dcfRefusal?: string;
 }
+
+/** D-198 house convention: an individual sale must be at least 10% of absolute seed EBIT. */
+export const OPERATING_DISPOSITION_MATERIALITY_PCT = 10;
+export interface OperatingDispositionEvent {
+  date: string;
+  name: string;
+  value: number;
+  tag: string;
+  accession: string;
+}
+export interface OperatingDispositionRead {
+  events: OperatingDispositionEvent[];
+  refusal: string | null;
+  basis: string;
+}
+type UnusualWindow = { ttmEnd: string; fiscalYearEnd: string | null; unit: string | null; observedAt: string;
+  periodStart?: string | null; operatingIncome?: number | null; sections?: readonly ExtractedSection[] };
 
 const DAY_MS = 86_400_000;
 const dayMs = (d: string): number => Date.parse(`${d}T00:00:00Z`);
@@ -75,9 +95,99 @@ function tagTtm(points: FactPoint[], ttmEnd: string, fiscalYearEnd: string): Tag
   return { value: (fiscalYear ?? 0) + yearToDate - (priorYearToDate ?? 0) };
 }
 
+const operatingSubtotal = /(?:operating\s+(?:income|profit|loss)(?:\s*\(loss\))?|(?:earnings|income)\s*(?:\/\s*)?(?:\(loss\)\s*)?from\s+operations)/i;
+const firstAmount = (text: string): number | null => {
+  const m = /^\s*\$?\s*(\(\s*)?(-?[\d,]+(?:\.\d+)?)/.exec(text);
+  return m ? Number(m[2].replaceAll(",", "")) * (m[1] ? -1 : 1) : null;
+};
+const equalAmount = (a: number | null, b: number): boolean => a !== null && Math.abs(a - b) <= Math.max(1, Math.abs(b) * 1e-6);
+
+/**
+ * An aggregate disposition tag is a search trigger, never an adjustment. A
+ * dated completed sale, its named gain and statement line must be retained.
+ * The first-column line and operating subtotal must both tie to same-filing
+ * facts. Their order establishes placement; a below-operating gain stays in.
+ * Unsupported formats fail closed instead of guessing from proximity.
+ */
+export function materialOperatingDispositions(facts: CompanyFacts | null | undefined, q: UnusualWindow): OperatingDispositionRead {
+  const none: OperatingDispositionRead = { events: [], refusal: null, basis: "" };
+  if (!facts || !validDay(q.ttmEnd) || !validDay(q.fiscalYearEnd) || q.fiscalYearEnd > q.ttmEnd ||
+    !q.unit || !Number.isFinite(q.operatingIncome) || !validDay(q.observedAt.slice(0, 10))) return none;
+  const unit = q.unit, cutoff = q.observedAt.slice(0, 10);
+  const threshold = Math.abs(q.operatingIncome!) * OPERATING_DISPOSITION_MATERIALITY_PCT / 100;
+  const candidates = DISPOSITION_GAIN_CANDIDATE_TAGS.flatMap(tag => {
+    const points = durationPoints(facts, tag, unit, cutoff);
+    const total = tagTtm(points, q.ttmEnd, q.fiscalYearEnd!);
+    const magnitude = total && "value" in total ? total.value : Math.max(0, ...points.filter(p => p.end > shiftDays(q.ttmEnd, -365) && p.end <= q.ttmEnd).map(p => p.val));
+    return magnitude > 0 && magnitude >= threshold ? [{ tag, points, magnitude }] : [];
+  });
+  if (!candidates.length) return none;
+  const events = new Map<string, OperatingDispositionEvent>();
+  const accounted = new Map<string, Map<string, number>>();
+  for (const section of q.sections ?? []) {
+    if (!validDay(section.filingDate) || section.filingDate > cutoff || !CORE_FACT_FORMS.has(section.form) ||
+      !section.accession || !section.statementsText || !section.documentUrl.includes(`/data/${facts.cik}/`)) continue;
+    const statement = section.statementsText.replace(/\s+/g, " ");
+    // Currency is established by the seed; dollars alone is only accepted for USD.
+    const scale = unit === "USD" && /\bdollars in millions\b/i.test(statement) ? 1e6
+      : new RegExp(`\\b${unit} in millions\\b`, "i").test(statement) ? 1e6 : null;
+    if (scale === null) continue;
+    const chunks = section.text.replace(/\s+/g, " ").split(/\bNote\s+\d+\s*[-–—]\s*/i);
+    for (const chunk of chunks) {
+      const dated = /\bOn\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4}),/g.exec(chunk);
+      if (!dated) continue;
+      const at = Date.parse(dated[1] + " UTC");
+      if (!Number.isFinite(at)) continue;
+      const date = new Date(at).toISOString().slice(0, 10);
+      if (date < (q.periodStart ?? shiftDays(q.ttmEnd, -364)) || date > q.ttmEnd) continue;
+      const body = chunk.slice(dated.index, dated.index + 1600);
+      if (!/\b(?:closed|completed|sold)\b[\s\S]{0,900}?\b(?:sale|divestiture|business)\b/i.test(body)) continue;
+      const gain = /\bgain of\s*\$\s*([\d,]+(?:\.\d+)?)\s*(billion|million)?\s*(?:was\s+)?(?:recorded|recognized|included) in\s+(.+?)\s+in\s+(?:the\s+)?(?:Consolidated\s+)?Statements? of (?:Operations|Income|Earnings)/i.exec(body);
+      if (!gain) continue;
+      const value = Number(gain[1].replaceAll(",", "")) * (gain[2]?.toLowerCase() === "billion" ? 1e9 : gain[2] ? 1e6 : scale);
+      if (!(value > 0 && value >= threshold)) continue;
+      const label = gain[3].trim();
+      const sourceCandidates = candidates.filter(c => value <= c.magnitude + Math.max(1, c.magnitude * .01) && c.points.some(p =>
+        p.accn === section.accession && p.end === section.reportDate));
+      const sourceOperating = durationPoints(facts, "OperatingIncomeLoss", unit, cutoff).filter(p => p.accn === section.accession && p.end === section.reportDate);
+      for (const sourceCandidate of sourceCandidates) {
+        const sourceGain = sourceCandidate.points.filter(p => p.accn === section.accession && p.end === section.reportDate);
+        // TOC headings and subsequent cash-flow tables cannot establish placement.
+        for (const rawPart of statement.split(/(?:Consolidated\s+)?Statements? of (?:Operations|Income|Earnings)/i).slice(1)) {
+          const part = rawPart.split(/\b(?:Consolidated\s+)?(?:Statements? of|Balance Sheets?)\b/i)[0];
+          const subtotal = operatingSubtotal.exec(part);
+          const lineAt = part.toLowerCase().indexOf(label.toLowerCase());
+          if (!subtotal || lineAt < 0) continue;
+          const lineValue = firstAmount(part.slice(lineAt + label.length));
+          const opValue = firstAmount(part.slice(subtotal.index + subtotal[0].length));
+          if (!sourceGain.some(p => equalAmount(lineValue === null ? null : lineValue * scale, p.val) &&
+            sourceOperating.some(op => op.start === p.start && equalAmount(opValue === null ? null : opValue * scale, op.val)))) continue;
+          const name = chunk.slice(0, dated.index).trim().slice(0, 160) || "business divestiture";
+          // Headings differ between annual and quarterly notes; the sale date and gain identify the event.
+          const key = `${date}|${value}`;
+          const amounts = accounted.get(sourceCandidate.tag) ?? new Map<string, number>();
+          amounts.set(key, lineAt > subtotal.index ? sourceCandidate.magnitude : value);
+          accounted.set(sourceCandidate.tag, amounts);
+          if (lineAt < subtotal.index) events.set(key, { date, name, value, tag: sourceCandidate.tag, accession: section.accession });
+        }
+      }
+    }
+  }
+  const admitted = [...events.values()];
+  const overstated = candidates.filter(c => admitted.filter(e => e.tag === c.tag).reduce((sum, e) => sum + e.value, 0) > c.magnitude + Math.max(1, c.magnitude * .01));
+  if (overstated.length) return { events: [], basis: "", refusal: `Completed sales read from retained notes add up to more than the tagged gain (${overstated.map(c => `us-gaap/${c.tag} ${unit} ${millions(c.magnitude)}`).join("; ")}); the events cannot be reconciled, so the DCF is withheld rather than removing an unproved amount.` };
+  const basis = admitted.map(e => `${e.name}: completed ${e.date}, gain ${unit} ${millions(e.value)} inside operating income; ${e.accession}`).join("; ");
+  const unresolved = candidates.filter(c => {
+    const remainder = c.magnitude - [...(accounted.get(c.tag)?.values() ?? [])].reduce((sum, value) => sum + value, 0);
+    return remainder > 0 && remainder >= threshold;
+  });
+  if (!unresolved.length) return { events: admitted, refusal: null, basis };
+  return { events: admitted, basis, refusal: `Material disposition gain candidate (${unresolved.map(c => `us-gaap/${c.tag} ${unit} ${millions(c.magnitude)}`).join("; ")}) exceeds ${OPERATING_DISPOSITION_MATERIALITY_PCT}% of absolute operating income for the window ending ${q.ttmEnd}; retained filing evidence does not establish the completed sale's amount, date and operating placement. DCF withheld.` };
+}
+
 export function unusualOperatingItemsTtm(
   facts: CompanyFacts | null | undefined,
-  q: { ttmEnd: string; fiscalYearEnd: string | null; unit: string | null; observedAt: string },
+  q: UnusualWindow,
 ): UnusualOperatingItems | null {
   const observedDay = q.observedAt.slice(0, 10);
   if (!facts || !validDay(q.ttmEnd) || !validDay(q.fiscalYearEnd) || q.fiscalYearEnd > q.ttmEnd || !validDay(observedDay)) return null;
@@ -93,10 +203,12 @@ export function unusualOperatingItemsTtm(
     else if (result.value !== 0) components.push({ tag, value: sign * result.value });
   };
   for (const tag of UNUSUAL_OPERATING_GAIN_TAGS) admit(tag, ttm(tag), 1);
+  const dispositions = materialOperatingDispositions(facts, q);
+  for (const event of dispositions.events) components.push({ tag: event.tag, value: event.value });
   const total = ttm(UNUSUAL_OPERATING_CHARGE_TOTAL_TAG);
   if (total !== null) admit(UNUSUAL_OPERATING_CHARGE_TOTAL_TAG, total, -1);
   else for (const tag of UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS) admit(tag, ttm(tag), -1);
-  if (components.length === 0 && withheld.length === 0) return null;
+  if (components.length === 0 && withheld.length === 0 && !dispositions.refusal) return null;
   const value = components.reduce((sum, c) => sum + c.value, 0);
   const removed = components.map((c) => `us-gaap/${c.tag} ${c.value >= 0 ? "+" : "−"}${millions(Math.abs(c.value))}`).join(", ");
   const kept = withheld.map((w) => `not removed: us-gaap/${w.tag} (${w.reason})`).join("; ");
@@ -104,8 +216,9 @@ export function unusualOperatingItemsTtm(
     value,
     components,
     withheld,
+    ...(dispositions.refusal ? { dcfRefusal: dispositions.refusal } : {}),
     basis: `tagged one-off items inside operating income over the TTM ending ${q.ttmEnd} (fiscal year ending ${fiscalYearEnd} plus year to date less prior year to date; ${unit}): ` +
-      [removed || "none removed", kept].filter(Boolean).join("; "),
+      [removed || "none removed", kept, dispositions.basis].filter(Boolean).join("; "),
   };
 }
 

@@ -275,6 +275,11 @@ export interface FmpBalanceSheetRow extends FmpStatementRow {
   financeLeaseLiability?: number;
   treasuryStock?: number;
   preferredStock?: number;
+  /** D-198 calculation-view evidence; acquired source rows remain immutable. */
+  preferredCapitalWithheldReason?: string;
+  preferredCapitalBasis?: string;
+  preferredStockSharesOutstanding?: number;
+  preferredLiquidationPreference?: number;
   commonStock?: number;
   retainedEarnings?: number;
   accumulatedOtherComprehensiveIncomeLoss?: number;
