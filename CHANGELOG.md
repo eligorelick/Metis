@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - One-time gains, preferred capital and trailing bank returns (2026-11-04)
+
+- Admit complete trailing common earnings independently of missing revenue, preserving revenue-dependent refusals.
+- Exclude individually material completed-sale gains only with dated, same-filing operating-placement evidence. Refuse the DCF when that evidence is unavailable; normalize shared operating inputs and withhold unsupported recurring net earnings.
+- Resolve a zero preferred par line against same-date filed carrying capital, then liquidation preference. Withhold common book, dependent financial values and non-financial equity bridges when the senior claim remains unresolved.
+- Keep acquired snapshots and saved reports immutable. Integration must advance the affected calculation and output stamps; this branch does not change version constants.
+
 ## Unreleased - Public polish (2026-11-04)
 
 - Make the complete fictional sample easy to find and distinguish its dataset from the company examples.
