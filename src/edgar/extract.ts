@@ -1465,7 +1465,7 @@ function recognizeAnnualNotes(text: string): { text: string; start: number } | n
     if (/\b(?:accompanying|see|refer to)\s+(?:the\s+)?$/i.test(text.slice(Math.max(0, m.index - 30), m.index))) continue;
     const after = text.slice(m.index + m[0].length);
     const numbered = /^\s*(?:[A-Z][a-z]+\s+\d{1,2},\s+\d{4}\s+|\(Tabular dollars[^)]{0,150}\)\s*)?(?:NOTE\s+1\s*[-:.–—]?\s*|1\s*\.?\s+)(?:ACCOUNTING POLICIES|BASIS OF PRESENTATION|Description of the Business and Segment Information|ORGANIZATION AND SIGNI\s*FICANT ACCOUNTING POLICIES)\b/i.exec(after);
-    if (numbered && /^\s*(?:\d{1,4}\b|See\b|Refer\b|is described\b|is incorporated\b)/i.test(after.slice(numbered[0].length))) continue;
+    if (numbered && /^\s*(?:\d{1,4}\b|F\s*-\s*\d{1,4}\b|\.{2,}|See\b|Refer\b|is described\b|is incorporated\b)/i.test(after.slice(numbered[0].length))) continue;
     const unnumbered = /^\s*Summary of Significant Accounting Policies\s+NATURE OF BUSINESS\s+/i.test(after) &&
       /\bCONSOLIDATION\s+The Consolidated Financial Statements include\b/i.test(after);
     if ((numbered || unnumbered) && !detectStub(text.slice(m.index)).isStub) return { text: text.slice(m.index), start: m.index };
@@ -2280,7 +2280,7 @@ function extractPrintedIndexNotes(html: string): ReturnType<typeof extractAnnual
   const pages: Page[] = [];
   let start = 0;
   for (const end of [...breaks.map(n => n.start), html.length]) {
-    const footer = blocks.filter(n => n.start >= start && n.end <= end && pageNumber(nt(n)) && text(n.end, end) === "").at(-1);
+    const footer = blocks.filter(n => n.start >= start && n.end <= end && pageNumber(nt(n)) && !ancestor(n, "table") && text(n.end, end) === "").at(-1);
     if (footer) {
       const m = pageNumber(nt(footer))!;
       pages.push({ start, end, footer: footer.start, namespace: m[1] ? "F" : "", number: Number(m[2]) });
@@ -2352,9 +2352,14 @@ function extractPrintedIndexNotes(html: string): ReturnType<typeof extractAnnual
     if (heads.length !== 1) continue;
     const head = heads[0]!;
     const boundary = blocks.find(n => n.start > head.end && !ancestor(n, "table") &&
-      /^(?:INDEX OF EXHIBITS|EXHIBIT INDEX|SIGNATURES|REPORT OF INDEPENDENT REGISTERED PUBLIC ACCOUNTING FIRM|Item\s+(?:7A|9|15|16)\..*|Schedule II(?:\s*[-–—:]\s*Valuation and Qualifying Accounts)?)$/i.test(nt(n)));
-    const endPage = boundary ? pages.find(p => boundary.start >= p.start && boundary.start < p.end) : pages.at(-1);
+      /^(?:INDEX OF EXHIBITS|EXHIBIT INDEX|SIGNATURES|REPORT OF INDEPENDENT REGISTERED PUBLIC ACCOUNTING FIRM|Item\s+(?:7A|9|15|16)\..*|Schedule II(?:\s*[-–—:]?\s*Valuation and Qualifying Accounts)?)$/i.test(nt(n)));
+    // A heading that opens its own page need not continue the notes' numbering,
+    // but nothing may stand between the last proved notes page and that heading.
+    const boundaryPage = boundary ? pages.find(p => boundary.start >= p.start && boundary.start < p.end) : undefined;
+    const opensPage = boundary !== undefined && (!boundaryPage || text(boundaryPage.start, boundary.start) === "");
+    const endPage = !boundary ? pages.at(-1) : opensPage ? pages.filter(p => p.end <= boundary.start).at(-1) : boundaryPage;
     if (!endPage || (!boundary && endPage.end !== html.length)) continue;
+    if (opensPage && text(endPage.end, boundary!.start) !== "") continue;
     const retained = pages.filter(p => p.start >= opening.page.start && p.start <= endPage.start);
     if (!retained.length || retained.some((p, i) => p.namespace !== opening.page.namespace || p.number !== opening.page.number + i ||
       (i > 0 && !breaks.some(br => br.start === retained[i - 1]!.end && br.end === p.start)))) continue;
