@@ -25,6 +25,10 @@ original versions and bytes; source merge does not deploy or publish a release.
   availability. Keep return, discount and terminal assumptions unchanged; use
   the selected book date for roll-forward, P/TBV, grids and return alternatives.
   Disclose refused quarterly operands and retain the annual fallback (D-189).
+- Bind plain headline score, financial valuation, provider EPS, Beneish, RSI
+  and insider-count wording to each producing record. Check score grades and
+  recover annual fiscal labels only from retained evidence. The four saved
+  judge replays validate 22 more claims with no lost validation (D-189).
 
 ## Unreleased - Valuation inputs: foreign consensus, operating income basis, filer unit errors (2026-11-03)
 

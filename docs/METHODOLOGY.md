@@ -4085,6 +4085,24 @@ explicit month. A complete ordered date interval on a traced figure must match
 both endpoints of the record's declared interval or valid duration context;
 sharing an end date is insufficient.
 
+D-189 extends those contracts to plain house-aspect scores such as "The moat
+score is 85.33 (grade A)." The named score supplies its unit only for the exact
+aspect producer, and the printed grade must match its house band. Completeness
+is a separate assertion. Other readings cover current price to tangible book,
+annual P/E on diluted EPS, return on tangible common equity, excess-return
+value per share, provider-estimated EPS/revenue, Beneish M score, RSI-14,
+four-quarter insider transaction counts and fixed-prior weighted projections.
+Only the Beneish producer's actual "unlikely" threshold supports that optional
+interpretation; RSI's 14-period horizon cannot change. An older annual ROTE
+or Beneish record without a fiscal label can recover only an explicit,
+unambiguous label from the retained annual income statement on its exact
+return/score date (or the existing explicit calendar-fiscal filing proof).
+Conflicting labels refuse. No year is inferred from the date alone. General
+metric, period, currency, unit and rounding checks remain unchanged; a second
+quantity, wrong grade or altered per-share basis remains unvalidated.
+For those annual producers only, "fiscal 2025" and "FY2025" are equivalent
+spellings; both still require the same retained fiscal evidence.
+
 The excerpt reader also recognizes a complete repeated quarter/year header
 with four level columns and two YoY columns. Row width, units, money scale,
 precision and each period remain mandatory. Header tokens and change columns
