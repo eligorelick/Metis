@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-11-02",
+  "generatedAt": "2026-11-04",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -10455,6 +10455,25 @@
               "Operating expenses are the provider's subtotal on its own rows (gross profit less operating income), not a filed total."
             ]
           }
+        }
+      ]
+    },
+    {
+      "name": "ai-figure-and-tenure-checks-d197",
+      "decisions": [
+        "D-197"
+      ],
+      "reason": "Executive tenure is derived from the retained exact office start and fixed report cutoff; the two legacy model-authored durations are no longer preserved.",
+      "deltas": [
+        {
+          "path": "report.leadership.executives.0.tenureYears",
+          "before": 6,
+          "after": 6.510742862618671
+        },
+        {
+          "path": "report.leadership.executives.1.tenureYears",
+          "before": 4,
+          "after": 5.095244940005613
         }
       ]
     }

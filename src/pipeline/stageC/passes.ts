@@ -3866,10 +3866,11 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
   const executiveRoot = verifiedReport as {leadership?: Report["leadership"]};
   if (executiveRoot.leadership && Array.isArray(executiveRoot.leadership.executives)) {
     executiveRoot.leadership = assessExecutiveEvidence(executiveRoot.leadership, log, false, {
-      officerTenures: payload.leadership?.officerTenures, tenureConflicts: payload.leadership?.tenureConflicts, notes: payload.leadership?.notes, filings: retainedDecisionSources(payload), issuer: payload.companyName,
+      officerTenures: payload.leadership?.officerTenures, tenureConflicts: payload.leadership?.tenureConflicts, notes: payload.leadership?.notes, filings: retainedDecisionSources(payload), issuer: payload.companyName, numericRecords: registry,
       asOf: reportRoot.meta?.generatedAt ?? payload.quote?.figures?.find(f => f.asOf)?.asOf,
     });
   }
+  if (reportRoot.meta && reportRoot.appendix) reportRoot.appendix.verificationLog = log;
   const result = {
     verifiedReport,
     verificationRate: numeric.rate,
@@ -4460,9 +4461,9 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   // (2026-07-11 checkpoints). The blocks are attached for their trace/basis/reasons.
   // 2026-07 invariant-1 hardening extends the same pattern to the remaining
   // judge-path numerics: multiples rows, the reverse-DCF implied value, forensic
-  // scores, and segment revenue shares are all computed-injected below. The one
-  // remaining LLM-authored bare numeric is leadership.executives[].tenureYears —
-  // biographical (not financial) and grounded in the payload's titleSince dates.
+  // scores, and segment revenue shares are all computed-injected below.
+  // Executive tenure is derived from an established office start; the legacy
+  // tenureYears field never preserves a model-authored number.
   const scenarioTargets = args.computed.scenarioTargets;
   const fairValue = args.computed.fairValue;
   const routeMetrics = routeMetricsBlock(args.computed);
@@ -4558,7 +4559,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   }
   const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(assembled, args.computed, args.bundle, {
     pendingVerification: args.provisionalVerification === true,
-    executiveEvidence: { officerTenures: executivePayload?.leadership.officerTenures, tenureConflicts: executivePayload?.leadership.tenureConflicts, notes: executivePayload?.leadership.notes, filings: executivePayload && retainedDecisionSources(executivePayload), issuer: executivePayload?.companyName, asOf: assembled.meta.generatedAt },
+    executiveEvidence: { officerTenures: executivePayload?.leadership.officerTenures, tenureConflicts: executivePayload?.leadership.tenureConflicts, notes: executivePayload?.leadership.notes, filings: executivePayload && retainedDecisionSources(executivePayload), issuer: executivePayload?.companyName, asOf: assembled.meta.generatedAt, numericRecords: executivePayload?.provenanceRegistry },
   }));
   if (!parsed.success) {
     throw new ReportValidationError(

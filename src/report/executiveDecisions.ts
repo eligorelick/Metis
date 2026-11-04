@@ -1,6 +1,8 @@
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { isFilingOrTranscriptSource } from "@/pipeline/stageC/consistency";
 import type { Executive, Leadership, ManagementAction, SourcedClaim, VerificationLogEntry } from "@/report/schema";
+import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
+import { PeriodContextSchema } from "@/types/periodContext";
 
 export interface ExecutiveDecisionEvidence {
   officerTenures?: readonly NonNullable<Executive["officeTenure"]>[];
@@ -9,6 +11,29 @@ export interface ExecutiveDecisionEvidence {
   issuer?: string | null;
   notes?: readonly string[];
   filings?: readonly { source: string; text: string }[];
+  numericRecords?: readonly NumericProvenanceRecord[];
+}
+
+/** A measured period must reach the evidenced tenure by the cutoff; observation dates are not measurement dates. */
+export function executiveMetricDuringTenure(record: NumericProvenanceRecord | undefined, start: string | undefined, asOf: string | null | undefined): boolean {
+  const cutoff = day(asOf?.slice(0, 10));
+  if (!record || !start || !cutoff || start > cutoff) return false;
+  if (record.periodContext !== undefined) {
+    const parsed = PeriodContextSchema.safeParse(record.periodContext);
+    if (!parsed.success) return false;
+    const p = parsed.data;
+    const end = p.kind === "instant" ? p.at : p.end;
+    return end >= start && end <= cutoff;
+  }
+  // A statement's fiscal end is a measured day, independently of its as-of date.
+  const end = day(record.period);
+  return end !== undefined && end >= start && end <= cutoff;
+}
+
+/** A month/year bound must not masquerade as an exact duration. */
+export function derivedExecutiveTenureYears(start: string | undefined, asOf: string | null | undefined): number | null {
+  const cutoff = day(asOf?.slice(0, 10));
+  return start && day(start) && cutoff && start <= cutoff ? (Date.parse(cutoff) - Date.parse(start)) / (365.2425 * 86400000) : null;
 }
 
 /** Only optional middle initials; conflicting initials and expanded/nicknames fail closed. */
@@ -38,7 +63,7 @@ export function filingTenureFor(e: Executive, context: ExecutiveDecisionEvidence
 /** Preserve stated month/year wording; a conservative overlap bound is not an exact appointment date. */
 export function executiveTenureText(e: Executive): string | undefined {
   const t = e.officeTenure;
-  return t && sameOfficerName(t.name, e.name) && t.office === executiveOffice(e.title)
+  return t && isFilingOrTranscriptSource(t.source) && filingTenureFor(e, { officerTenures: [t] })
     ? `${t.office.toUpperCase()} since ${t.precision === "day" ? t.start : t.wording}` : undefined;
 }
 

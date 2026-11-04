@@ -84,7 +84,7 @@ describe("B2-09: executive assessment notes", () => {
     r.leadership.executives[0]!.evidence = { capitalAllocation: [{ label: "FACT", text, source, asOf: "2025-12-31" }] };
     const log = [{ path: "leadership.executives[0].evidence.capitalAllocation[0]", claim: text, source, validationStatus: "validated", executiveEvidenceKind: "execution", outcome: "verified" }] as unknown as VerificationLogEntry[];
     const out = assessExecutiveEvidence(r.leadership, log).executives;
-    expect(out[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed", assessmentReason: CREDIBILITY_NOT_ASSESSED_REASON });
+    expect(out[0]).toMatchObject({ grade: "not-assessed", credibilityGrade: "not-assessed", assessmentReason: expect.stringContaining("no office start is established") });
     expect(out[1]).toMatchObject({ grade: "not-assessed", credibilityGrade: "not-assessed", assessmentReason: EXECUTIVE_NOT_ASSESSED_REASON });
   });
 });

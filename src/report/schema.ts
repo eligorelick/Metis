@@ -1410,7 +1410,7 @@ export const ExecutiveSchema = z
   .object({
     name: z.string(),
     title: z.string(),
-    tenureYears: z.number().nullable(),
+    tenureYears: z.number().nullable().default(null),
     /** Pipeline-owned filing evidence; absent on historical reports. */
     officeTenure: z.object({
       name: z.string(), office: z.enum(["ceo", "cfo"]), start: z.iso.date(),
@@ -3350,7 +3350,7 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       // optional only for older saved reports. Keep them off provider schemas.
       // Exact period contexts come from source evidence; the model uses the
       // registry ID and existing period field instead of guessing boundaries.
-        for (const key of ["peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming", "multiplesBasis", "marketValueScope"]) {
+        for (const key of ["tenureYears", "peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming", "multiplesBasis", "marketValueScope"]) {
         delete props[key];
         if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== key);
       }

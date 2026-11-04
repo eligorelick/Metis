@@ -1519,9 +1519,6 @@ function ExecutiveCard({ exec, context }: { exec: Executive; context?: Executive
           </div>
           <div className="truncate text-[10px] text-faint">
             {exec.title}
-            {exec.tenureYears !== null
-              ? ` · ${exec.tenureYears.toFixed(0)}y tenure`
-              : ""}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">

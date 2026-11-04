@@ -786,7 +786,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
     lines.push(
       `#### ${markdownHeading(e.name)} — ${markdownHeading(e.title)}`,
       "",
-      `Grade **${executiveGradeText(e.grade)}** · credibility **${executiveGradeText(e.credibilityGrade)}**${e.tenureYears === null ? "" : ` · tenure ${e.tenureYears.toFixed(1)}y`}`,
+      `Grade **${executiveGradeText(e.grade)}** · credibility **${executiveGradeText(e.credibilityGrade)}**`,
       "",
     );
     if (executiveTenureText(e)) lines.push(`${markdownProse(executiveTenureText(e)!)} (${markdownSourceLabel(e.officeTenure!.source)}; filed ${e.officeTenure!.filingDate})`, "");
