@@ -1,5 +1,6 @@
-import { macroDisplayRows } from "@/report/presentation";
+import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
+import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
 /**
  * reportToMarkdown — a clean, DETERMINISTIC Markdown rendering of a full
  * {@link Report} (report sections 1–13 + appendix) for an institutional
@@ -423,6 +424,8 @@ function renderVerdict(report: Report): string {
     ]),
   );
   const lines: string[] = [sectionHeading("verdict"), "", prose(v.synthesis), ""];
+  const figureNote = plainFigureReaderNote(report);
+  if (figureNote) lines.push(figureNote, "");
   if (v.executiveSummary && v.executiveSummary.length > 0) {
     lines.push("### Executive summary", "", claimList(v.executiveSummary), "");
   }
@@ -786,7 +789,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
     lines.push(
       `#### ${markdownHeading(e.name)} — ${markdownHeading(e.title)}`,
       "",
-      `Grade **${executiveGradeText(e.grade)}** · credibility **${executiveGradeText(e.credibilityGrade)}**${e.tenureYears === null ? "" : ` · tenure ${e.tenureYears.toFixed(1)}y`}`,
+      `Grade **${executiveGradeText(e.grade)}** · credibility **${executiveGradeText(e.credibilityGrade)}**`,
       "",
     );
     if (executiveTenureText(e)) lines.push(`${markdownProse(executiveTenureText(e)!)} (${markdownSourceLabel(e.officeTenure!.source)}; filed ${e.officeTenure!.filingDate})`, "");
@@ -1042,6 +1045,7 @@ function capitalize(s: string): string {
  * present; the audit material is in {@link reportToAuditMarkdown}.
  */
 export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
+  report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
   report = withLegacyScopeQualifications(report);

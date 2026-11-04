@@ -46,13 +46,13 @@ import { DossierCover } from "./DossierCover";
 import { ClassicReportScrollOffset, ReportContents } from "./ReportContents";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { evidenceIdentity } from "./evidenceIdentity";
-import { dataStateText, presentationReportId, routeMetricsForDisplay } from "@/report/presentation";
+import { dataStateText, plainFigureReaderNote, presentationReportId, routeMetricsForDisplay, withPlainFigureNotes } from "@/report/presentation";
 import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
 import { evidenceTimingRows } from "@/report/evidenceTiming";
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
-import { deriveReportCompletenessPresentation } from "@/report/completeness";
+import { deriveReportCompletenessPresentation, withClassifiedDataOnlyGapCount } from "@/report/completeness";
 import { withReaderConventions, unavailableCashFlowModel, lenderConventionTables } from "@/report/readerConventions";
 import {
   REPORT_SECTION_MANIFEST,
@@ -191,7 +191,7 @@ export function ReportView({
   selectedReportId?: number;
   selectedReportStatus?: string;
 }) {
-  const report = withReaderConventions(withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport)))))))));
+  const report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(withReaderConventions(withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport)))))))))));
   const lenderTables = lenderConventionTables(sourceReport);
   const scopeQualifications = legacyScopeQualifications(report);
   // F-21: the claim chips below read each claim's verification status.
@@ -205,11 +205,14 @@ export function ReportView({
   );
   // D-67: each grade line gets its aspect score (limited-evidence label) and the data state (confidence cap).
   const grading = (key: keyof NonNullable<Report["scores"]>["aspects"]) => ({ aspect: report.scores?.aspects[key] ?? null, completeness });
+  const figureCaveat = plainFigureReaderNote(report);
+  const figureNote = figureCaveat && <p className="mt-2 text-xs text-muted">{figureCaveat}</p>;
   const sections: Record<ReportSectionKey, ReactNode> = {
     verdict: (
       <div id={sectionAnchorId("verdict")} tabIndex={-1} className="scroll-mt-28">
-        {layout === "dossier" ? <DossierCover report={report} completeness={completeness} /> : <>
+        {layout === "dossier" ? <><DossierCover report={report} completeness={completeness} />{figureNote}</> : <>
         <VerdictHeader verdict={report.verdict} />
+        {figureNote}
         {report.verdict.executiveSummary && report.verdict.executiveSummary.length > 0 && (
           <div className="mt-3"><ExecutiveSummary claims={report.verdict.executiveSummary} /></div>
         )}

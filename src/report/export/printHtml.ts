@@ -1,5 +1,6 @@
-import { macroDisplayRows } from "@/report/presentation";
+import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
+import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
 import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
@@ -437,7 +438,8 @@ function sectionVerdict(report: Report): string {
   );
   const execSummary = v.executiveSummary && v.executiveSummary.length > 0 ? `<h3>Executive summary</h3>${claimList(v.executiveSummary)}` : "";
   // D-62: the debate sits with the verdict it informs.
-  return `<section class="block">${sectionHeading("verdict")}<p class="synthesis">${prose(v.synthesis)}</p>${execSummary}${recentDevelopmentsBlock(v.recentDevelopments)}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements)}</section>`;
+  const figureNote = plainFigureReaderNote(report);
+  return `<section class="block">${sectionHeading("verdict")}<p class="synthesis">${prose(v.synthesis)}</p>${figureNote ? `<p class="muted">${esc(figureNote)}</p>` : ""}${execSummary}${recentDevelopmentsBlock(v.recentDevelopments)}<h3>Grade strip</h3>${strip}${disagreementsBlock(report.disagreements)}</section>`;
 }
 
 /** Q1: absent on saved reports (nothing printed); an empty list says so. */
@@ -721,7 +723,7 @@ function sectionLeadership(l: Leadership, report: Report): string {
       const context = contexts.get(e), reason = context?.note ?? executiveAssessmentNote(e);
       const decisions = context ? `<h4>Office decision context</h4>${context.actions.map(a => `<p><strong>${esc(a.occurredOn!)} &middot; ${esc(MANAGEMENT_ACTOR_LABELS[a.actor])}</strong> &middot; ${esc(a.verificationNote)}</p>${claimList(a.action)}${claimList(a.assessment)}`).join("")}${context.guidance.length ? `<h4>Company guidance context</h4>${claimList(context.guidance)}` : ""}` : "";
       return `<div class="exec"><h4>${esc(e.name)} &mdash; ${esc(e.title)}</h4>
-        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span>${e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`}</p>${executiveTenureText(e) ? `<p>${esc(executiveTenureText(e)!)} (${esc(e.officeTenure!.source)}; filed ${esc(e.officeTenure!.filingDate)})</p>` : ""}${reason ? `<p>${prose(reason)}</p>` : ""}${claimList(executiveCardClaims(e, e.reasoning))}${evidence}${decisions}</div>`;
+        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span></p>${executiveTenureText(e) ? `<p>${esc(executiveTenureText(e)!)} (${esc(e.officeTenure!.source)}; filed ${esc(e.officeTenure!.filingDate)})</p>` : ""}${reason ? `<p>${prose(reason)}</p>` : ""}${claimList(executiveCardClaims(e, e.reasoning))}${evidence}${decisions}</div>`;
     })
     .join("");
   const others = groups.notAssessed.length > 0
@@ -864,6 +866,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  * standalone document and the React print page. Does NOT include <html>/<head>.
  */
 export function reportToPrintBody(report: Report, context: ReportPresentationContext = {}): string {
+  report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
   report = withLegacyScopeQualifications(report);

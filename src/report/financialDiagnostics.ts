@@ -5,7 +5,7 @@ import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { executiveAssessmentReason } from "@/report/executiveAssessment";
 import { reasoningClaims } from "@/report/presentation";
-import { executiveTenureStart, filingTenureFor, startAgreesWithFiling, validatedExecutiveDecisions, type ExecutiveDecisionEvidence } from "@/report/executiveDecisions";
+import { derivedExecutiveTenureYears, executiveMetricDuringTenure, executiveTenureStart, filingTenureFor, startAgreesWithFiling, validatedExecutiveDecisions, type ExecutiveDecisionEvidence } from "@/report/executiveDecisions";
 
 /** Positive contracts for pipeline-owned metric families, never the model's evidence bucket. */
 export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidance-track-record" | "execution" | undefined {
@@ -33,9 +33,10 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
     const { officeTenure: _untrusted, ...original } = executive;
     void _untrusted;
     const candidateTenure = filingTenureFor(executive, context);
-    const establishedStart = candidateTenure && executiveTenureStart(executive, index, log, context);
+    const establishedStart = executiveTenureStart(executive, index, log, context);
     const officeTenure = candidateTenure && establishedStart && startAgreesWithFiling(establishedStart, candidateTenure) ? candidateTenure : undefined;
-    executive = officeTenure ? { ...original, officeTenure } : original;
+    executive = { ...original, ...(officeTenure ? { officeTenure } : {}), tenureYears:
+      candidateTenure && candidateTenure.precision !== "day" ? null : derivedExecutiveTenureYears(establishedStart, context.asOf) };
     const admissible = (claim:SourcedClaim, field:string, claimIndex:number): VerificationLogEntry["executiveEvidenceKind"] => {
       if (claim.label !== "FACT" || !claim.asOf || !claim.source.trim() || /^(?:unknown|memory|assumed)$/i.test(claim.source.trim())) return undefined;
       const words = new Set(claim.text.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []);
@@ -50,17 +51,20 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
     // Provisional assembly is internal to verification and preserves proposed
     // grades; only the final gate consumes pipeline-produced classifications.
     if (pendingVerification) return executive;
-    const kinds = [...(executive.evidence.guidanceVsActuals ?? []).map((claim,i)=>admissible(claim,"guidanceVsActuals",i)),
-      ...(executive.evidence.capitalAllocation ?? []).map((claim,i)=>admissible(claim,"capitalAllocation",i))];
-    const credibility = kinds.includes("guidance-track-record");
     const decisions = validatedExecutiveDecisions(executive, index, leadership, log, context);
-    // Decision admission is additive. A refused candidate leaves the existing
-    // typed-metric gate and its reasons exactly as they were.
-    const execution = credibility || kinds.includes("execution") || decisions.length > 0;
+    const metricClaims = [...(executive.evidence.guidanceVsActuals ?? []).map((claim,i)=>({claim,kind:admissible(claim,"guidanceVsActuals",i)})),
+      ...(executive.evidence.capitalAllocation ?? []).map((claim,i)=>({claim,kind:admissible(claim,"capitalAllocation",i)}))];
+    const credibility = metricClaims.some(c => c.kind === "guidance-track-record");
+    const execution = decisions.length > 0 || metricClaims.some(({claim,kind}) => kind !== undefined &&
+      executiveMetricDuringTenure(context.numericRecords?.find(r => r.id === citationSourceId(claim) && r.asOf === claim.asOf), establishedStart, context.asOf));
     const grade = execution ? executive.grade : "not-assessed";
     // FIGR extra-high audit B2-09: name which assessment is missing.
     const missingCredibility = "Credibility is not assessed: no validated comparison of earlier guidance with a later actual for the same period and basis.";
-    const reason = decisions.length > 0
+    const tenureReason = !execution && metricClaims.some(c => c.kind !== undefined)
+      ? !establishedStart ? "Execution is not assessed: no office start is established, so company metrics cannot be attributed to this tenure."
+        : "Execution is not assessed: no validated metric measurement period overlaps the established office tenure by the report cutoff."
+      : undefined;
+    const reason = tenureReason ? `${tenureReason}${!credibility ? ` ${missingCredibility}` : ""}` : decisions.length > 0
       ? `${grade === "not-assessed" ? "Validated dated decisions are available during the evidenced tenure; the judge left execution ungraded. Assessments concern decisions and outcomes during the tenure, not personal skill." : "Execution assesses decisions and outcomes during the evidenced tenure, not personal skill."}${!credibility ? ` ${missingCredibility}` : ""}`
       : executiveAssessmentReason({ execution, credibility }, grade);
     return {...executive, grade, credibilityGrade:credibility ? executive.credibilityGrade : "not-assessed",

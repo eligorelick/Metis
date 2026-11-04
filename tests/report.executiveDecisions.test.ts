@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { assessExecutiveEvidence } from "@/report/financialDiagnostics";
 import { executiveOffice, executiveOfficeContext } from "@/report/executiveDecisions";
-import { CREDIBILITY_NOT_ASSESSED_REASON, EXECUTIVE_NOT_ASSESSED_REASON } from "@/report/executiveAssessment";
+import { EXECUTIVE_NOT_ASSESSED_REASON } from "@/report/executiveAssessment";
 import { LeadershipSection } from "@/components/report/sections";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
 import type { ContextPayload } from "@/pipeline/stageC/payload";
@@ -50,12 +50,12 @@ describe("executive decisions bound to a validated action and dated tenure", () 
     expect(assessExecutiveEvidence(l, log, false, { ...context(), notes: [] }).executives[0]!.assessmentReason).toBe(EXECUTIVE_NOT_ASSESSED_REASON);
   });
 
-  it("preserves an existing typed execution assessment when the new decision rule is refused", () => {
+  it("withholds a typed execution assessment when no office start is established", () => {
     const l = leadership(), log = actionLog();
     const claim = fact("Alex Smith: operating cash flow was USD 50 billion.", "payload.statements.cash-flow-quarterly.2026-06-24.operating-cash-flow");
     l.executives[0]!.evidence.capitalAllocation = [claim];
     log.push({ path: "leadership.executives[0].evidence.capitalAllocation[0]", claim: claim.text, source: claim.source, outcome: "unverified", validationStatus: "validated", executiveEvidenceKind: "execution" });
-    expect(assessExecutiveEvidence(l, log, false, { ...context(), notes: [] }).executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed", assessmentReason: CREDIBILITY_NOT_ASSESSED_REASON });
+    expect(assessExecutiveEvidence(l, log, false, { ...context(), notes: [] }).executives[0]).toMatchObject({ grade: "not-assessed", credibilityGrade: "not-assessed", assessmentReason: expect.stringContaining("no office start is established") });
   });
 
   it.each(["title only", "pay only", "outside tenure", "rejected claim", "unquoted amount", "no tenure", "non-filing source", "company result", "wrong office"])("withholds execution for %s", (control) => {

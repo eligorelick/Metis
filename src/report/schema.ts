@@ -165,7 +165,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.61.0 (D-190): the meaning of an executive execution grade widens to an exactly quoted dated decision during an evidenced tenure, and cards show dated office context. Stored reports keep their bytes.
 // 1.62.0 (D-192): an executive card may carry pipeline-owned filing evidence of office tenure. Stored reports keep their bytes.
 // 1.63.0 (D-193): banks and insurers can carry scenario targets from the excess-return route. Stored reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.63.0" as const;
+// 1.64.0 (D-197): verification log records figure-check outcomes for reader prose; the model no longer writes executive tenure
+export const REPORT_SPEC_VERSION = "1.64.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1410,7 +1411,7 @@ export const ExecutiveSchema = z
   .object({
     name: z.string(),
     title: z.string(),
-    tenureYears: z.number().nullable(),
+    tenureYears: z.number().nullable().default(null),
     /** Pipeline-owned filing evidence; absent on historical reports. */
     officeTenure: z.object({
       name: z.string(), office: z.enum(["ceo", "cfo"]), start: z.iso.date(),
@@ -1719,7 +1720,7 @@ export const VerificationLogEntrySchema = z
      * citation-coverage entries, which are provenance, not consistency.
      */
     check: z
-      .enum(["direction", "period", "unit", "named-individual"])
+      .enum(["direction", "period", "unit", "named-individual", "plain-figure"])
       .optional(),
     /**
      * How the number traced — separates the CITATION-COVERAGE modes the audit
@@ -1735,12 +1736,14 @@ export const VerificationLogEntrySchema = z
      *    does not check the period; the second gate, the source-span binding of
      *    claimEvidence.ts, checks a period the number supplies against the
      *    clause or table column it binds (D-66).
+     *  - "value-match": a plain figure occurs in retained evidence, but its
+     *    context is unconfirmed. Audit only, never counted as traced/validated.
      *  - "untraced": neither — flagged, never counted as traced.
      * NONE of these is factual verification; the value is not re-derived or
      * re-fetched (see runVerifyPass docstring).
      */
     traceKind: z
-      .enum(["payload-match", "source-cited", "computed-derived", "excerpt-match", "untraced"])
+      .enum(["payload-match", "source-cited", "computed-derived", "excerpt-match", "value-match", "untraced"])
       .optional(),
   })
   .strict();
@@ -1749,6 +1752,7 @@ export type VerificationLogEntry = z.infer<typeof VerificationLogEntrySchema>;
 /** Numeric matching is a separate result from support for the whole prose claim. */
 export function verificationEntryOutcomeLabel(entry: VerificationLogEntry): string {
   if (entry.outcome === "removed") return citationOutcomeLabel(entry.outcome);
+  if (entry.check === "plain-figure" && entry.traceKind === "value-match") return "Value match; context not confirmed";
   if (entry.claimSupportStatus === "numeric-only") return "Numeric match; prose unchecked";
   // A contradicted claim was cited; a legacy metadata gap reads as unchecked (F-22).
   if (entry.claimSupportStatus === "contradicted") {
@@ -1772,6 +1776,8 @@ export function traceKindLabel(
       return "computed";
     case "excerpt-match":
       return "filing/transcript text match";
+    case "value-match":
+      return "value match; context unconfirmed";
     case "untraced":
       return "untraced";
   }
@@ -3350,7 +3356,7 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       // optional only for older saved reports. Keep them off provider schemas.
       // Exact period contexts come from source evidence; the model uses the
       // registry ID and existing period field instead of guessing boundaries.
-        for (const key of ["peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming", "multiplesBasis", "marketValueScope"]) {
+        for (const key of ["tenureYears", "peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming", "multiplesBasis", "marketValueScope"]) {
         delete props[key];
         if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== key);
       }

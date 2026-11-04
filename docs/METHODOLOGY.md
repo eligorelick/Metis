@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.63.0 / payload 1.75.0, Stage B `STAGE_B_2026_11_VALUATION_INPUTS_50` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.64.0 / payload 1.75.0, Stage B `STAGE_B_2026_11_VALUATION_INPUTS_50` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications
 
@@ -7429,9 +7429,11 @@ people (senior officers first, then by value), and counts the rest.
 
 **Executive decision cards (D-190, 2026-11-04).** An additional CEO/CFO execution
 admission assesses dated decisions and outcomes during an evidenced office
-tenure, not personal skill or contribution. Existing typed performance and
-guidance gates remain unchanged; refusing a new decision candidate preserves
-their original grade and reason, with no new fallback. A company result,
+tenure, not personal skill or contribution. D-197 also requires typed metrics
+supporting execution to overlap an established office tenure by the report
+cutoff. An observation or filing date is not the measured period. Without an
+office start or a compatible measurement period, execution is withheld with a
+plain reason; a numerically valid pre-appointment result is insufficient. A company result,
 share-count trend, job title, pay or citation alone cannot establish a dated
 decision record. A proposed letter may also survive when the card's reasoning
 or capital-allocation evidence repeats a
@@ -7477,6 +7479,59 @@ gate; it supplies neither a decision nor a grade. Rounded `tenureYears`, pay
 and a current title remain insufficient. Saved reports without this optional
 field still parse and display, and their stored bytes and grades stay immutable.
 No new source, SEC request, paid call or proxy retrieval is introduced.
+
+**AI-written figures and tenure (D-197, 2026-11-04).** Currency amounts,
+percentages, multiples and financial-input ages in days in plain reader strings
+use the existing quantity reader, numeric registry and metric/period checks.
+This includes synthesis, grade explanations, interpretations, disagreements,
+technical commentary, titles, assumptions and other prose outside sourced
+claims. Assembly-owned calculation displays retain their existing contracts.
+
+Context is checked before an evidence-wide value lookup. An identified metric
+and period with a different recorded value gets a visible "Differs from the
+record" note, even if the stated value occurs elsewhere. If no eligible
+context binding exists and the value appears nowhere in the retained evidence
+in the same dimension, currency and displayed precision, it gets a visible
+"Not matched to a source" note. A value found with unconfirmed context gets
+only an exact-path audit entry, marked "Value matched; context not confirmed".
+It never counts as a verified fact or raises a verification rate, claim status
+or grade. Low-precision coincidences can produce this third result; they cannot
+confirm context. Numeric context agreement also does not validate a whole
+interpretation or enter the factual-claim counts.
+
+Value lookup includes every numeric registry metric; the retained filing,
+transcript and news text; analysts' retained research and case text for this
+run; and source-bound report claims whatever their validation state. Retained
+text uses the same sentence reader as executive source quotations. Analyst
+text is passed deterministically to verification, including compatible resumed
+artifacts and failed writers' retained research and rejected/partial cases. It is not added to a model
+prompt. Currency, dimension, sign and precision restrictions remain. A printed
+multiple cannot borrow a dimensionless fraction. Producer-bound short readings
+cover 50-day/200-day SMAs, 52-week endpoints, percentages below the high and
+price to tangible book. Explanatory parentheses and explicit shared money
+scales supply only value readings, never context confirmation; explicit
+negative amounts and mixed-unit lists retain their refusals.
+
+Figures remain verbatim. Live, Markdown and print show only the recorded
+visible notes beside their fields; the audit preserves the path, original text
+and all three results. A checked report with figure entries says once that
+figures without a note are not necessarily verified. Display alone never runs
+the check or invents saved-report flags. No additional model call, repair
+request or paid data call is made. Replay measurements report visible catches,
+audit-only misses and reviewed false alarms separately.
+
+The judge is no longer asked for `tenureYears`. New reports derive an exact
+duration only from an established exact office start and the report cutoff;
+partial or unavailable starts leave it unknown. Month/year filing bounds keep
+their stated wording. Saved bare model-authored tenure numbers still parse but
+are not printed as facts. Only the filing-backed `officeTenure` start is shown.
+Saved bytes, execution grades and verification marks remain immutable.
+
+Data-only synthesis uses the same classified data-gap count as the completeness
+banner, excluding informational notes, expected omissions and analysis-process
+disclosures. At display time, only the exact old deterministic suffix, with a
+count equal to the raw manifest length and an `analysis.llm` disclosure, is
+corrected to that classified count. Other saved sentences remain unchanged.
 
 The existing typed guidance-versus-actual contract remains: credibility requires
 a validated prior-guidance/later-actual comparison for the same metric, period

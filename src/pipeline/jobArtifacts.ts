@@ -54,6 +54,39 @@ export const AnalystResearchSchema = z.object({
 }).strict();
 export type AnalystResearch = z.infer<typeof AnalystResearchSchema>;
 
+export interface RetainedVerificationText { source: string; text: string }
+
+/** Deterministic audit evidence only. These strings never enlarge a model request. */
+export function analystVerificationTexts(side: string, pass: { data?: unknown; research?: AnalystResearch } | null): RetainedVerificationText[] {
+  if (!pass) return [];
+  const texts: RetainedVerificationText[] = [];
+  const visit = (value: unknown, path: string): void => {
+    if (typeof value === "string" && value.trim()) texts.push({ source: `analyst:${side}.case.${path}`, text: value });
+    else if (Array.isArray(value)) value.forEach((item, index) => visit(item, `${path}[${index}]`));
+    else if (value && typeof value === "object") for (const [key, child] of Object.entries(value)) visit(child, path ? `${path}.${key}` : key);
+  };
+  visit(pass.data, "");
+  if (pass.research?.notes.trim()) texts.push({ source: `analyst:${side}.research`, text: pass.research.notes });
+  pass.research?.sources.forEach((item, index) => {
+    if (item.title.trim()) texts.push({ source: `analyst:${side}.research.sources[${index}].title`, text: item.title });
+  });
+  return texts;
+}
+
+/** The caller scopes artifacts to the run's compatible payload cohort. Include retained failed-attempt research. */
+export function analystArtifactVerificationTexts(artifacts: readonly CurrentGenerationPassArtifact[]): RetainedVerificationText[] {
+  return artifacts.flatMap(artifact => {
+    if (artifact.pass !== "bull" && artifact.pass !== "bear") return [];
+    if (artifact.envelope.outcome === "success") return analystVerificationTexts(artifact.pass, artifact.envelope);
+    const failure = artifact.envelope.failure;
+    return [
+      ...analystVerificationTexts(artifact.pass, { research: failure.research }),
+      ...([['rejected-case', failure.rejectedText], ['partial-case', failure.partialText]] as const)
+        .flatMap(([kind, text]) => text?.trim() ? [{ source: `analyst:${artifact.pass}.${kind}`, text }] : []),
+    ];
+  });
+}
+
 export interface SerializedPassFailure {
   research?: AnalystResearch;
   providerFailure?: ProviderFailure;
@@ -141,6 +174,7 @@ export interface CurrentGenerationPassArtifact<T = unknown>
 
 /** Structural result shared by reusable durable and legacy pass outputs. */
 export interface ReusablePassResult<T> {
+  research?: AnalystResearch;
   presumed?: boolean;
   execution?: ProviderExecution;
   data: T;
@@ -366,6 +400,7 @@ export function parseLegacyAnalystSnapshot(json: string | null): ReusableAnalyst
   ) {
     return null;
   }
+  const research = AnalystResearchSchema.safeParse(raw.research);
   const fetchedUrls = Array.isArray(raw.fetchedUrls)
     ? [
         ...new Set(
@@ -393,6 +428,7 @@ export function parseLegacyAnalystSnapshot(json: string | null): ReusableAnalyst
     : undefined;
   return {
     data: parsedData.data,
+    ...(research.success ? { research: research.data } : {}),
     ...(raw.presumed === undefined ? {} : { presumed: raw.presumed as boolean }),
     model: raw.model,
     costUsd: raw.costUsd,
@@ -418,6 +454,7 @@ function reusableResultFromArtifact<T>(
   }
   return {
     data: artifact.envelope.data as T,
+    ...(artifact.envelope.research === undefined ? {} : { research: artifact.envelope.research }),
     ...(artifact.telemetry.presumed === undefined ? {} : { presumed: artifact.telemetry.presumed }),
     model: artifact.telemetry.model,
     costUsd: artifact.telemetry.costUsd,

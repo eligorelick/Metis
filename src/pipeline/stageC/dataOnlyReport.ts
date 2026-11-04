@@ -43,6 +43,7 @@ import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
 import { assembleContextPayload, guidanceLowCitation } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
+import { classifyManifest } from "@/report/completeness";
 import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptions";
 import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 import type { ForensicFlag } from "@/pipeline/stageB/forensics";
@@ -849,7 +850,7 @@ function synthesis(
   const flags = computed.forensics.flags.length;
   const gaps = disclosedGaps;
   parts.push(
-    `${flags} forensic flag${flags === 1 ? "" : "s"} raised; ${gaps} data gap${gaps === 1 ? "" : "s"} disclosed in the appendix. Figures below come from fetched data and deterministic computations; no completed analyst synthesis is available.`,
+    `${flags} forensic flag${flags === 1 ? "" : "s"} raised; ${gaps} data gap${gaps === 1 ? "" : "s"} recorded in the appendix. Figures below come from fetched data and deterministic computations; no completed analyst synthesis is available.`,
   );
   return parts.join(" ");
 }
@@ -903,7 +904,7 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
     scenarioPresentation: buildScenarioPresentation(computed, comparableScenarioPrice(computed, bundle)),
     thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability))),
     verdict: {
-      synthesis: synthesis(computed, bundle, args.reason, currency, stub.appendix.missingData.length),
+      synthesis: synthesis(computed, bundle, args.reason, currency, classifyManifest(stub.appendix.missingData).dataGaps.length),
       gradeStrip: {
         fundamentals: fundamentalsGrade,
         valuation: valuationGrade,
