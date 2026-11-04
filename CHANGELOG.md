@@ -18,6 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - A current sample report for visitors (2026-11-04)
+
+- Keep hidden screen-reader labels contained within the scrollable main region.
+- Show a current fictional sample report with deterministic calculations, offline verification and matching synthetic charts. Rebuild with `npm run sample:build`; no provider or model calls are made.
+
 ## Unreleased - Valuation inputs: foreign consensus, operating income basis, filer unit errors (2026-11-03)
 
 - Admit foreign-issuer analyst revenue totals only when past-year estimates

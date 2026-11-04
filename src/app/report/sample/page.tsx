@@ -1,6 +1,6 @@
 /**
  * /report/sample — dev route that renders the full report UI (ReportView)
- * from the bundled DEMO fixture (fixtures/report/DEMO-sample.json), with NO
+ * from the bundled DEMO fixture (fixtures/report/DEMO-current.json), with NO
  * live pipeline or LLM. It lets the report surface be built and viewed offline.
  *
  * Server component: reads the fixture from disk at request time and parses it
@@ -18,7 +18,8 @@ import { AppShell } from "@/components/shell";
 import { ReportView } from "@/components/report/ReportView";
 import { getConfig } from "@/config/env";
 import { FundamentalsChartGrid, TechnicalsChartPanel } from "@/components/charts/lazy";
-import { syntheticFundamentals, syntheticMarketData } from "@/components/charts/synthetic";
+import sampleCharts from "../../../../fixtures/report/DEMO-current-charts.json";
+import type { ComponentProps } from "react";
 import { ReportSchema, type Report } from "@/report/schema";
 import { prepareSampleReport } from "@/report/scenarioPresentation";
 
@@ -36,7 +37,7 @@ function loadSampleReport(): LoadResult {
       process.cwd(),
       "fixtures",
       "report",
-      "DEMO-sample.json",
+      "DEMO-current.json",
     );
     const raw = readFileSync(filePath, "utf8");
     const parsed = ReportSchema.safeParse(JSON.parse(raw));
@@ -90,8 +91,8 @@ export default function ReportSamplePage() {
 
   // Synthetic, deterministic chart data so the full UI (price/RS/fundamentals
   // charts) is viewable offline without a live pipeline or API key.
-  const market = syntheticMarketData(report?.meta.symbol ?? "DEMO");
-  const fundamentals = syntheticFundamentals();
+  const market = sampleCharts.market as ComponentProps<typeof TechnicalsChartPanel>;
+  const fundamentals = sampleCharts.fundamentals;
 
   return (
     <AppShell sidebar={<Sidebar />}>
