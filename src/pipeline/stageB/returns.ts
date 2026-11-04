@@ -1707,7 +1707,9 @@ export function computeRote(
     const prior = findPriorAnnualBalance(bal, cur, priorDate, "rote", notes, gaps);
     const tce = tangibleCommonEquity(cur);
     const tcePrior = prior ? tangibleCommonEquity(prior) : null;
-    const avg = tce !== null && tcePrior !== null ? (tce + tcePrior) / 2 : tce;
+    const capitalRefusal = preferredCapitalRefusal(cur) ?? preferredCapitalRefusal(prior);
+    const avg = capitalRefusal ? null : tce !== null && tcePrior !== null ? (tce + tcePrior) / 2 : tce;
+    if (capitalRefusal) notes.push(`${row.date}: ROTE withheld: ${capitalRefusal}`);
 
     // Numerator is net income available to COMMON. The denominator already
     // excludes preferred, so crediting preferred earnings to common would

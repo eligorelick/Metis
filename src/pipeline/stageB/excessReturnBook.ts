@@ -6,18 +6,19 @@ import type { ReturnsBalanceRow } from "./returns";
 
 /** Same-date filed claims only; par, authorized shares and per-share preferences are not capital amounts. */
 export function resolvePreferredCapital(row: FmpBalanceSheetRow, facts: CompanyFacts | null, cutoff: string): FmpBalanceSheetRow {
-  if (!facts || row.preferredStock !== 0 || (row.cik && Number(row.cik) !== facts.cik)) return row;
+  if (row.preferredStock !== 0 || (facts && row.cik && Number(row.cik) !== facts.cik)) return row;
   const date = row.date, currency = row.reportedCurrency;
   if (!date || !currency || !Number.isFinite(Date.parse(cutoff))) return row;
   const points = (tag: string, unit: string): FactPoint[] => {
-    const concept = facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
+    const concept = facts?.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
     return parseFactPoints(concept?.units?.[unit] ?? []).filter(p => p.end === date && p.val >= 0 && CORE_FACT_FORMS.has(p.form) &&
       /^\d{4}-\d{2}-\d{2}$/.test(p.filed) && p.filed >= date && p.filed <= cutoff.slice(0, 10))
       .sort((a,b) => b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn));
   };
   const carryingTags = ["PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount", "PreferredStockIncludingAdditionalPaidInCapital"];
   const shares = points("PreferredStockSharesOutstanding", "shares")[0]?.val ?? row.preferredStockSharesOutstanding ?? 0;
-  const dividends = points("PaymentsOfDividendsPreferredStockAndPreferenceStock", currency)[0]?.val ?? 0;
+  const dividends = Math.max(points("PaymentsOfDividendsPreferredStockAndPreferenceStock", currency)[0]?.val ?? 0,
+    typeof row.preferredDividendsPaid === "number" && Number.isFinite(row.preferredDividendsPaid) ? Math.abs(row.preferredDividendsPaid) : 0);
   const preference = points("PreferredStockLiquidationPreferenceValue", currency).find(p => p.start === undefined);
   const carrying = carryingTags.flatMap(tag => {
     const p = points(tag, currency).find(p => p.start === undefined && p.val > 0);
@@ -32,7 +33,7 @@ export function resolvePreferredCapital(row: FmpBalanceSheetRow, facts: CompanyF
       fieldProvenance: { ...row.fieldProvenance, preferredStock: { source: "edgar", unit: currency, periodStart: null, periodEnd: date,
         observedAt: cutoff, tags: [`us-gaap/${tag}`], filings: [{ accn: p.accn, form: p.form, filed: p.filed }] } } };
   }
-  const reason = `Preferred capital at ${date} is unresolved: zero par with ${shares} preferred shares and ${currency} ${dividends} filed preferred dividends does not establish zero capital. No usable filed carrying amount or liquidation preference for the same balance date is retained; another date is not carried forward. Common book and dependent values are withheld.`;
+  const reason = `Preferred capital at ${date} is unresolved: zero par with ${shares} preferred shares and ${currency} ${dividends} preferred-dividend evidence does not establish zero capital. No usable filed carrying amount or liquidation preference for the same balance date is retained; another date is not carried forward. Common book and dependent values are withheld.`;
   return { ...row, preferredStock: undefined, preferredCapitalWithheldReason: reason,
     fieldConflicts: { ...row.fieldConflicts, preferredStock: { vendorValue: 0, secValue: null, usable: false, reason } } };
 }

@@ -2032,11 +2032,17 @@ function preferredCapitalView(bundle: DataBundle): DataBundle {
   const acquired = bundle.edgar?.companyFacts;
   const facts = acquired?.ok && Number.isFinite(Date.parse(acquired.value.fetchedAt)) && Date.parse(acquired.value.fetchedAt) <= Date.parse(bundle.builtAt)
     ? confirmedIssuerFacts(bundle.symbol, bundle.edgar) : null;
-  if (!facts) return bundle;
   const gaps = [...bundle.gaps];
+  const cash = [bundle.statements.cashflowAnnual, bundle.statements.cashflowQuarterly].flatMap(f => f.ok &&
+    Number.isFinite(Date.parse(f.value.fetchedAt)) && Date.parse(f.value.fetchedAt) <= Date.parse(bundle.builtAt) ? f.value.data.rows : []);
   const normalize = (input: DataBundle["statements"]["balanceAnnual"]) => !input.ok ? input : { ...input,
     value: { ...input.value, data: { ...input.value.data, rows: input.value.data.rows.map(row => {
-      const selected = resolvePreferredCapital(row, facts, bundle.builtAt);
+      const preferredCash = cash.filter(cf => cf.date === row.date && cf.reportedCurrency === row.reportedCurrency &&
+        cf.fieldConflicts?.preferredDividendsPaid?.usable !== false && (!cf.filingDate || cf.filingDate <= bundle.builtAt.slice(0,10)))
+        .map(cf => num(cf.preferredDividendsPaid)).filter((v): v is number => v !== null).map(Math.abs);
+      const evidenceRow = preferredCash.some(v => v > 0) ? { ...row, preferredDividendsPaid: Math.max(...preferredCash) } : row;
+      const resolved = resolvePreferredCapital(evidenceRow, facts, bundle.builtAt);
+      const selected = resolved === evidenceRow ? row : resolved;
       if (selected !== row) gaps.push({ field: `statements.balance.${row.date}.preferredCapital`,
         reason: selected.preferredCapitalWithheldReason ?? selected.preferredCapitalBasis!, severity: selected.preferredCapitalWithheldReason ? "warn" : "info" });
       return selected;

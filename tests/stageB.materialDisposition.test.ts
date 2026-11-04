@@ -42,6 +42,15 @@ describe("material disposal gains need placement, materiality and the matching w
   it("leaves a material gain recorded below operating income untouched", () => {
     expect(read(facts(), [section({ below: true })])?.value ?? 0).toBe(0);
   });
+  it("does not mistake a cash-flow reconciliation for below-operating placement", () => {
+    const s = section();
+    s.statementsText = "Consolidated Statements of Operations (Dollars in millions) Total revenues 1,000 Operating income 200 " +
+      "Other income 10 Net income 180 Consolidated Statements of Cash Flows Gain on dispositions, net 100 0";
+    expect((read(facts(), [s]) as { dcfRefusal?: string })?.dcfRefusal).toMatch(/placement/i);
+  });
+  it("recognizes a fully placed gain even when reported operating income is zero", () => {
+    expect((read(facts(), [section()], 0) as { dcfRefusal?: string })?.dcfRefusal).toBeUndefined();
+  });
   it("refuses the DCF when a material disposal has no retained placement evidence", () => {
     const result = read(facts(), []) as { dcfRefusal?: string } | null;
     expect(result?.dcfRefusal).toMatch(/material.*dispos.*placement/i);
@@ -55,11 +64,22 @@ describe("material disposal gains need placement, materiality and the matching w
     const result = read(facts(), [section({ date: "September 1, 2025" })]);
     expect(result?.value ?? 0).toBe(0);
   });
+  it("uses the admitted period start instead of assuming 365 days", () => {
+    const result = unusualOperatingItemsTtm(facts(), { ...window, ...{ periodStart: "2025-11-01", operatingIncome: 250 * M, sections: [section()] } });
+    expect(result?.value ?? 0).toBe(0);
+  });
   it("does not use filing evidence acquired after the analysis cutoff", () => {
     expect((read(facts(), [section({ filed: "2026-12-01" })]) as { dcfRefusal?: string })?.dcfRefusal).toMatch(/placement/i);
   });
   it("requires the individual event to be material even when the aggregate tag is large", () => {
     expect(read(facts(), [section({ amount: 5 })])?.value ?? 0).toBe(0);
+  });
+  it("refuses another unresolved material tag even after one sale has been placed", () => {
+    const f = facts();
+    f.facts["us-gaap"]!.GainLossOnSaleOfOtherAssets = structuredClone(f.facts["us-gaap"]!.GainLossOnDispositionOfAssets);
+    const other = f.facts["us-gaap"]!.GainLossOnSaleOfOtherAssets as { units: { USD: ReturnType<typeof point>[] } };
+    other.units.USD = other.units.USD.map(p => ({ ...p, val: p.val ? 150 * M : 0 }));
+    expect((read(f) as { dcfRefusal?: string })?.dcfRefusal).toMatch(/placement/i);
   });
 });
 

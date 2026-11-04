@@ -3,6 +3,8 @@ import { runStageB } from "@/pipeline/compute";
 import { quarterlyOpeningBook } from "@/pipeline/stageB/excessReturnBook";
 import { buildSyntheticRouteBundle } from "./helpers/researchRoutePanel";
 import type { CompanyFacts } from "@/edgar/xbrl";
+import { computeTtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
+import { computeRote } from "@/pipeline/stageB/returns";
 
 const M = 1e6;
 type Fact = { tag: string; val: number; end?: string; unit?: string; filed?: string };
@@ -35,6 +37,9 @@ describe("zero par does not establish zero preferred capital", () => {
     if (c.valuation.kind !== "excess-return") throw new Error("fixture");
     expect(c.valuation.excessReturn.openingBookValue.value).toBeNull();
     expect(c.valuation.gaps.map(g => g.reason).join(" ")).toMatch(/preferred.*2026-03-31.*same.*date/i);
+    expect(c.fairValue.reasons.map(g => g.reason).join(" ")).toMatch(/preferred.*2026-03-31.*same.*date/i);
+    expect(c.scenarioTargets.missingReasons.map(g => g.reason).join(" ")).toMatch(/preferred.*2026-03-31.*same.*date/i);
+    expect(c.returns.commonReturnTtm?.withheldReason).toMatch(/preferred.*same.*date/i);
   });
   it("uses a same-date filed carrying amount before the liquidation preference", () => {
     const c = runStageB(fixture([outstanding,
@@ -60,6 +65,13 @@ describe("zero par does not establish zero preferred capital", () => {
     const c = runStageB(fixture([{ tag: "PaymentsOfDividendsPreferredStockAndPreferenceStock", val: M }]));
     expect(c.fairValue.perShare).toBeNull();
   });
+  it("does not ignore a retained preferred-dividend cash flow when companyfacts are unavailable", () => {
+    const b = fixture([]);
+    b.edgar.companyFacts = { ok: false, gap: { field: "edgar.companyFacts", reason: "Synthetic missing facts", severity: "info" } };
+    if (!b.statements.cashflowQuarterly.ok) throw new Error("fixture");
+    b.statements.cashflowQuarterly.value.data.rows[0]!.preferredDividendsPaid = -M;
+    expect(runStageB(b).fairValue.perShare).toBeNull();
+  });
   it("does not use a preference filed after cutoff or denominated in another currency", () => {
     for (const extra of [{ filed: "2026-08-01" }, { unit: "EUR" }]) {
       const c = runStageB(fixture([outstanding, { tag: "PreferredStockLiquidationPreferenceValue", val: 50 * M, ...extra }]));
@@ -77,5 +89,17 @@ describe("zero par does not establish zero preferred capital", () => {
     annualAsOf: "2025-12-31", basis: "common-equity", currency: "USD", cutoff: "2026-07-06T00:00:00Z",
     shareRow: { date: "2026-03-31", filingDate: "2026-05-01", reportedCurrency: "USD" }, dilutedShares: 100 * M });
     expect(result).toHaveProperty("reason");
+  });
+  it("does not replace an explicitly unresolved opening common balance with the closing one", () => {
+    const current = { date: "2026-03-31", totalStockholdersEquity: 520 * M, preferredStock: 50 * M };
+    const opening = { date: "2025-03-31", totalStockholdersEquity: 500 * M,
+      preferredCapitalWithheldReason: "Preferred capital at 2025-03-31 requires a same-date amount" };
+    const result = computeTtmCommonReturn({ income: { netIncomeAvailableToCommon: 40 * M, netIncome: null },
+      asOf: current.date, periodStart: "2025-04-01", balances: [current, opening], basis: "common-equity" });
+    expect(result.returnPct).toBeNull();
+    expect(result.withheldReason).toMatch(/preferred/i);
+    const annual = computeRote([{ date: "2025-12-31", netIncomeAvailableToCommon: 40 * M }, { date: "2024-12-31", netIncomeAvailableToCommon: 30 * M }],
+      [{ ...current, date: "2025-12-31" }, { ...opening, date: "2024-12-31" }]);
+    expect(annual.latestRotePct).toBeNull();
   });
 });

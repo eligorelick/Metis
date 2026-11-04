@@ -42,7 +42,7 @@ export interface OperatingDispositionRead {
   basis: string;
 }
 type UnusualWindow = { ttmEnd: string; fiscalYearEnd: string | null; unit: string | null; observedAt: string;
-  operatingIncome?: number | null; sections?: readonly ExtractedSection[] };
+  periodStart?: string | null; operatingIncome?: number | null; sections?: readonly ExtractedSection[] };
 
 const DAY_MS = 86_400_000;
 const dayMs = (d: string): number => Date.parse(`${d}T00:00:00Z`);
@@ -123,7 +123,7 @@ export function materialOperatingDispositions(facts: CompanyFacts | null | undef
   });
   if (!candidates.length) return none;
   const events = new Map<string, OperatingDispositionEvent>();
-  let placedOutside = false;
+  const accounted = new Map<string, Map<string, number>>();
   for (const section of q.sections ?? []) {
     if (!validDay(section.filingDate) || section.filingDate > cutoff || !CORE_FACT_FORMS.has(section.form) ||
       !section.accession || !section.statementsText || !section.documentUrl.includes(`/data/${facts.cik}/`)) continue;
@@ -139,7 +139,7 @@ export function materialOperatingDispositions(facts: CompanyFacts | null | undef
       const at = Date.parse(dated[1] + " UTC");
       if (!Number.isFinite(at)) continue;
       const date = new Date(at).toISOString().slice(0, 10);
-      if (date <= shiftDays(q.ttmEnd, -365) || date > q.ttmEnd) continue;
+      if (date < (q.periodStart ?? shiftDays(q.ttmEnd, -364)) || date > q.ttmEnd) continue;
       const body = chunk.slice(dated.index, dated.index + 1600);
       if (!/\b(?:closed|completed|sold)\b[\s\S]{0,900}?\b(?:sale|divestiture|business)\b/i.test(body)) continue;
       const gain = /\bgain of\s*\$\s*([\d,]+(?:\.\d+)?)\s*(billion|million)?\s*(?:was\s+)?(?:recorded|recognized|included) in\s+(.+?)\s+in\s+(?:the\s+)?(?:Consolidated\s+)?Statements? of (?:Operations|Income|Earnings)/i.exec(body);
@@ -147,30 +147,39 @@ export function materialOperatingDispositions(facts: CompanyFacts | null | undef
       const value = Number(gain[1].replaceAll(",", "")) * (gain[2]?.toLowerCase() === "billion" ? 1e9 : gain[2] ? 1e6 : scale);
       if (!(value > 0 && value >= threshold)) continue;
       const label = gain[3].trim();
-      const sourceCandidate = candidates.find(c => value <= c.magnitude + Math.max(1, c.magnitude * .01) && c.points.some(p =>
+      const sourceCandidates = candidates.filter(c => value <= c.magnitude + Math.max(1, c.magnitude * .01) && c.points.some(p =>
         p.accn === section.accession && p.end === section.reportDate));
-      if (!sourceCandidate) continue;
-      const sourceGain = sourceCandidate.points.filter(p => p.accn === section.accession && p.end === section.reportDate);
       const sourceOperating = durationPoints(facts, "OperatingIncomeLoss", unit, cutoff).filter(p => p.accn === section.accession && p.end === section.reportDate);
-      // TOC headings cannot qualify: both same-column monetary rows must tie.
-      for (const part of statement.split(/(?:Consolidated\s+)?Statements? of (?:Operations|Income|Earnings)/i).slice(1)) {
-        const subtotal = operatingSubtotal.exec(part);
-        const lineAt = part.toLowerCase().indexOf(label.toLowerCase());
-        if (!subtotal || lineAt < 0) continue;
-        const lineValue = firstAmount(part.slice(lineAt + label.length));
-        const opValue = firstAmount(part.slice(subtotal.index + subtotal[0].length));
-        if (!sourceGain.some(p => equalAmount(lineValue === null ? null : lineValue * scale, p.val) &&
-          sourceOperating.some(op => op.start === p.start && equalAmount(opValue === null ? null : opValue * scale, op.val)))) continue;
-        if (lineAt > subtotal.index) { placedOutside = true; continue; }
-        const name = chunk.slice(0, dated.index).trim().slice(0, 160) || "business divestiture";
-        events.set(`${date}|${value}|${name}`, { date, name, value, tag: sourceCandidate.tag, accession: section.accession });
+      for (const sourceCandidate of sourceCandidates) {
+        const sourceGain = sourceCandidate.points.filter(p => p.accn === section.accession && p.end === section.reportDate);
+        // TOC headings and subsequent cash-flow tables cannot establish placement.
+        for (const rawPart of statement.split(/(?:Consolidated\s+)?Statements? of (?:Operations|Income|Earnings)/i).slice(1)) {
+          const part = rawPart.split(/\b(?:Consolidated\s+)?(?:Statements? of|Balance Sheets?)\b/i)[0];
+          const subtotal = operatingSubtotal.exec(part);
+          const lineAt = part.toLowerCase().indexOf(label.toLowerCase());
+          if (!subtotal || lineAt < 0) continue;
+          const lineValue = firstAmount(part.slice(lineAt + label.length));
+          const opValue = firstAmount(part.slice(subtotal.index + subtotal[0].length));
+          if (!sourceGain.some(p => equalAmount(lineValue === null ? null : lineValue * scale, p.val) &&
+            sourceOperating.some(op => op.start === p.start && equalAmount(opValue === null ? null : opValue * scale, op.val)))) continue;
+          const name = chunk.slice(0, dated.index).trim().slice(0, 160) || "business divestiture";
+          const key = `${date}|${value}|${name}`;
+          const amounts = accounted.get(sourceCandidate.tag) ?? new Map<string, number>();
+          amounts.set(key, lineAt > subtotal.index ? sourceCandidate.magnitude : value);
+          accounted.set(sourceCandidate.tag, amounts);
+          if (lineAt < subtotal.index) events.set(key, { date, name, value, tag: sourceCandidate.tag, accession: section.accession });
+        }
       }
     }
   }
   const admitted = [...events.values()];
   const basis = admitted.map(e => `${e.name}: completed ${e.date}, gain ${unit} ${millions(e.value)} inside operating income; ${e.accession}`).join("; ");
-  if (admitted.length || placedOutside) return { events: admitted, refusal: null, basis };
-  return { events: [], basis: "", refusal: `Material disposition gain candidate (${candidates.map(c => `us-gaap/${c.tag} ${unit} ${millions(c.magnitude)}`).join("; ")}) exceeds ${OPERATING_DISPOSITION_MATERIALITY_PCT}% of absolute operating income for the window ending ${q.ttmEnd}; retained filing evidence does not establish the completed sale's amount, date and operating placement. DCF withheld.` };
+  const unresolved = candidates.filter(c => {
+    const remainder = c.magnitude - [...(accounted.get(c.tag)?.values() ?? [])].reduce((sum, value) => sum + value, 0);
+    return remainder > 0 && remainder >= threshold;
+  });
+  if (!unresolved.length) return { events: admitted, refusal: null, basis };
+  return { events: admitted, basis, refusal: `Material disposition gain candidate (${unresolved.map(c => `us-gaap/${c.tag} ${unit} ${millions(c.magnitude)}`).join("; ")}) exceeds ${OPERATING_DISPOSITION_MATERIALITY_PCT}% of absolute operating income for the window ending ${q.ttmEnd}; retained filing evidence does not establish the completed sale's amount, date and operating placement. DCF withheld.` };
 }
 
 export function unusualOperatingItemsTtm(

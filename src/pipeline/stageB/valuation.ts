@@ -5744,7 +5744,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   let bv0 = inputs.bookValueRefusal ? null : posOrNull(inputs.bookValue);
   if (bv0 === null) {
     gaps.push(
-      gapEntry("valuation.excessReturn.bookValue", inputs.bookValueRefusal ?? "totalStockholdersEquity missing or non-positive — excess-return model not computable", "critical"),
+      gapEntry(inputs.bookValueRefusal ? "valuation.excessReturn.preferredCapital" : "valuation.excessReturn.bookValue", inputs.bookValueRefusal ?? "totalStockholdersEquity missing or non-positive — excess-return model not computable", "critical"),
     );
     return {
       equityValue: null,

@@ -183,6 +183,11 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
     perShareValue = valuation.excessReturn.perShare;
   }
 
+  // D-198: carry the specific senior-capital refusal to the financial headline.
+  const preferredBook = valuation.kind === "excess-return"
+    ? valuation.gaps.find(g => g.field === "valuation.excessReturn.preferredCapital") : undefined;
+  if (preferredBook) return suppressed([preferredBook], [`Common-book intrinsic value unavailable: ${preferredBook.reason}`]);
+
   // Audit 2026-10-22 B-29: a DCF outside its domain is not a fair value.
   if (valuation.kind === "dcf" && valuation.dcf?.domain !== undefined) {
     const domain = valuation.dcf.domain;

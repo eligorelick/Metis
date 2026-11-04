@@ -91,6 +91,8 @@ function financialScenarioTargets(inputs: ScenarioTargetsInputs, valuation: Extr
     missingReasons: [{ field: `valuation.scenarioTargets.${field}`, reason, severity: "warn" }],
   });
   const er = valuation.excessReturn;
+  const preferredBook = valuation.gaps.find(g => g.field === "valuation.excessReturn.preferredCapital");
+  if (preferredBook) return refuse("openingBook", preferredBook.reason);
   const coe = er.costOfEquityPct.value;
   const book = er.openingBookValue.value;
   if (!isNum(coe) || coe <= 0) return refuse("costOfEquity", "cost of equity unavailable or non-positive; no discount rate is defaulted");
