@@ -88,7 +88,7 @@ describe("source-derived annual appendix index (synthetic markup)", () => {
     expect(result?.evidence).toMatchObject({ coordinateSystem: "original-html-characters", notes: { target: "notes", page: { namespace: "F", number: 8 } }, schedule: { target: "schedule", page: { namespace: "S", number: 1 } } });
     expect(result?.statementsText).toContain("STATEMENTS_START");
     expect(result?.statementsText).not.toMatch(/SIGNATURE|Item 15|Item 16/);
-    expect(html.slice(result!.evidence.notes.start, result!.evidence.schedule.start)).toContain("LATER_NOTE_SENTINEL");
+    expect(html.slice(result!.evidence.notes.start, result!.evidence.schedule!.start)).toContain("LATER_NOTE_SENTINEL");
   });
 
   const refusals: [string, (html: string) => string][] = [

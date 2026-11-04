@@ -129,7 +129,7 @@ describe("normal annual filing acquisition retains debt presentation evidence", 
     if (!bundle.edgar.tenKNotes?.ok) throw new Error("Annual appendix missing");
     const result = bundle.edgar.tenKNotes.value;
     expect(result).toMatchObject({ source: "edgar", asOf: "2025-12-31", fetchedAt: "2026-03-01T00:00:00.000Z",
-      endpoint: `${documentUrl} (10-K notes via Item 15 same-document index)`,
+      endpoint: `${documentUrl} (10-K notes via same-document financial index)`,
       data: { form: "10-K", accession, filingDate: "2026-03-01", reportDate: "2025-12-31", documentUrl,
         method: "annual-notes-index-redirect", text: expect.stringContaining("LATER_NOTE_SENTINEL"),
         annualNotesRedirect: { notes: { page: { namespace: "F", number: 8 } }, schedule: { page: { namespace: "S", number: 1 } } } } });
