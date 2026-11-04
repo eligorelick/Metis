@@ -19,6 +19,30 @@ function fixture() {
   return b;
 }
 
+function syntheticInterimFixture() {
+  const b = completeCurrencyBundle({ symbol: "EQUAL" });
+  b.builtAt = "2026-11-03T18:00:00Z";
+  if (!b.profile.ok || !b.quote.ok) throw Error("fixture");
+  Object.assign(b.profile.value.data.rows[0]!, { symbol: b.symbol, cik: "0000000042", isAdr: false });
+  b.quote.value.data.rows[0]!.timestamp = Date.parse("2026-11-03T17:00:00Z") / 1000;
+  b.edgar.registrant = { cik10: "0000000042", name: "Example", tickers: [b.symbol], exchanges: ["NYSE"],
+    sic: "3021", sicDescription: null, fiscalYearEnd: "0531", stateOfIncorporation: null, forms: ["10-K", "10-Q"] };
+  const source = (form: string, accession: string, filingDate: string) => ({ form, accession, filingDate,
+    documentUrl: `https://www.sec.gov/Archives/edgar/data/42/${accession.replaceAll("-", "")}/example.htm`, hash: accession });
+  const annual = source("10-K", "0000000042-26-000001", "2026-07-15");
+  const interim = source("10-Q", "0000000042-26-000002", "2026-10-02");
+  const observations = (s: typeof annual, asOf: string) => ["A", "B"].map((c, i) => ({ classId: `us-gaap:CommonClass${c}Member`,
+    shares: 100 + i * 100, asOf, contextId: `c${i}`, sourceId: `${s.documentUrl}#f${i}` }));
+  b.edgar.economicShareInventory = [annual, interim].map((s, i) => ({ source: s, classes: [], evidence: null,
+    observations: observations(s, i === 0 ? "2026-07-08" : "2026-09-28"), reason: "unresolved cover", passages: { inventory: "", rights: null } }));
+  const notes = (s: typeof annual, reportDate: string, text: string) => ({ ok: true as const, value: { source: "edgar" as const,
+    endpoint: s.documentUrl, asOf: reportDate, fetchedAt: b.builtAt, data: { ...s, reportDate, text, chars: text.length,
+      sectionName: s.form === "10-K" ? "tenKNotes" as const : "tenQNotes" as const, method: "header-regex" as const } } });
+  b.edgar.tenKNotes = notes(annual, "2026-05-31", "The holders of Class A and Class B common stock have identical liquidation and dividend rights.");
+  b.edgar.tenQNotes = notes(interim, "2026-08-31", "Common stock at stated value: Class A convertible — 100 shares outstanding; Class B — 200 shares outstanding Capital in excess");
+  return b;
+}
+
 describe("D-186 equally participating class coverage", () => {
   it("reads the filed no-differences sentence as equal economic rights", () => {
     expect(identicalClassRights(rights)).toEqual(["class a common stock", "class b common stock"]);
@@ -33,6 +57,24 @@ describe("D-186 equally participating class coverage", () => {
     expect(scope.sourceIds).toContain(filed.tenKNotes.value.data.documentUrl);
     expect(scope.sourceIds).toContain(filed.tenQNotes.value.data.documentUrl);
     expect(JSON.stringify(b)).toBe(before);
+  });
+  it("replaces expired annual evidence with a fully proved current interim cover", () => {
+    const b = syntheticInterimFixture();
+    b.economicShareEvidence = [{ issuerId: "0000000042", securityId: b.symbol, asOf: "2026-07-08",
+      filed: "2026-07-15", effectiveFrom: "2026-07-15", effectiveTo: "2026-10-02", complete: true,
+      sourceHash: "annual", sourceIds: ["annual"], classes: [
+        { classId: "class a common stock", shares: 280, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "economic-equivalence-proxy" },
+        { classId: "class b common stock", shares: 1200, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "economic-equivalence-proxy" },
+      ] }];
+    const before = JSON.stringify(b);
+    const evidence = retainedClassEconomicEvidence(b);
+    expect(evidence[0]?.asOf).toBe("2026-09-28");
+    expect(evidence[0]?.classes.reduce((n, c) => n + c.shares, 0)).toBe(300);
+    expect(JSON.stringify(b)).toBe(before);
+    b.edgar.economicShareInventory![1]!.observations!.pop();
+    const refused = retainedClassEconomicEvidence(b);
+    expect(resolveEconomicEquityScope({ price: 50, marketCap: 1, issuerId: "0000000042", securityId: b.symbol,
+      currency: "USD", priceAsOf: "2026-11-03", isAdr: false }, refused, "2026-11-03").status).toBe("unresolved");
   });
   it("refuses a split after the cover date rather than using pre-split counts", () => {
     const b = fixture();

@@ -22,6 +22,18 @@ function inputs(scope:"annual"|"quarter" = "annual"): KeylessInputs {
     yahoo:{dailyHistory:failed,meta:failed,quote:failed,splitHistory:async()=>sourced({status:"retrieved",source:"retained splits",events:[],coverage:[{from:"2020-01-01",to:"2026-07-06"}]})} as unknown as YahooClient};
 }
 describe("N3 whole filed statement rows",()=>{
+  it("withholds an unreconciled parent total without calling a contract-revenue note the consolidated total", async () => {
+    const i = inputs("quarter");
+    if (!i.edgar.companyFacts.ok) throw Error("fixture");
+    const f = i.edgar.companyFacts.value.data.facts["us-gaap"]!;
+    f.RevenueFromContractWithCustomerIncludingAssessedTax = f.Revenues;
+    delete f.Revenues;
+    delete f.CostsAndExpenses;
+    const out = await applyKeylessFallbacks(i);
+    expect(out.members.incomeQuarterly.ok && out.members.incomeQuarterly.value.data.rows[0]!.revenue).toBeNull();
+    expect(out.gaps.find(g => g.field === "statements.income.2025-09-30.revenue")?.reason)
+      .toMatch(/contract.revenue.*not established as consolidated/i);
+  });
   it.each(["annual","quarter"] as const)("switches a reconciled %s row including its EPS, without vendor-only fields",async scope=>{
     const i=inputs(scope), original=structuredClone(i.fmp);
     const out=await applyKeylessFallbacks(i), member=scope==="annual"?"incomeAnnual":"incomeQuarterly";

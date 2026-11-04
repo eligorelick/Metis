@@ -5,6 +5,8 @@ import type { FmpIncomeStatementRow, FmpPayload } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
 import { runStageB } from "@/pipeline/compute";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
+import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 
 const at = "2026-10-19T00:00:00Z";
 function facts(extra: Record<string, number> = {}): CompanyFacts {
@@ -24,6 +26,29 @@ function admit(row: Partial<FmpIncomeStatementRow> = {}, source = facts()) {
   return { row: result.income.value.data.rows[0]!, result, original };
 }
 describe("same-definition income classification", () => {
+  it("explains the original contract-scope refusal in an immutable frozen calculation view", () => {
+    const f = facts();
+    f.facts["us-gaap"]!.RevenueFromContractWithCustomerIncludingAssessedTax = f.facts["us-gaap"]!.Revenues;
+    delete f.facts["us-gaap"]!.Revenues;
+    const result = admit({ revenue: 7000 }, f);
+    result.row.fieldConflicts!.revenue!.reason = "Income classification conflict for revenue: vendor 7000, filed 6618 USD";
+    const b = withIssuerFacts(completeCurrencyBundle({}), f);
+    b.builtAt = at;
+    b.statements.incomeQuarterly = result.result.income;
+    const before = JSON.stringify(b);
+    const replay = withIncomeOperatingBasis(b).statements.incomeQuarterly;
+    expect(replay.ok && replay.value.data.rows[0]!.revenue).toBeNull();
+    expect(replay.ok && replay.value.data.rows[0]!.fieldConflicts?.revenue?.reason).toMatch(/contract.revenue.*not established as consolidated/i);
+    expect(JSON.stringify(b)).toBe(before);
+  });
+  it("identifies a contract-revenue scope disagreement without substituting it for a parent total", () => {
+    const f = facts();
+    f.facts["us-gaap"]!.RevenueFromContractWithCustomerIncludingAssessedTax = f.facts["us-gaap"]!.Revenues;
+    delete f.facts["us-gaap"]!.Revenues;
+    const result = admit({ revenue: 7000 }, f);
+    expect(result.row.revenue).toBeNull();
+    expect(result.row.fieldConflicts?.revenue?.reason).toMatch(/contract.revenue.*not established as consolidated/i);
+  });
   it("does not let a reconciled EBIT prove vendor expense placement", () => {
     const result = admit();
     expect(result.row).toMatchObject({ costOfRevenue: null, grossProfit: null, operatingExpenses: null, operatingIncome: 2000 });

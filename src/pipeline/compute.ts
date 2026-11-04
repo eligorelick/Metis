@@ -2631,6 +2631,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     profile,
     quote,
   });
+  if (foreignResolution.reason !== null && valuation.gaps.some(g => g.field === "valuation.dcf.currency")) {
+    valuation.gaps.push({ field: "valuation.currencyConversion", reason: foreignResolution.reason, severity: "warn" });
+  }
 
   const sbcConcentration = capital.current?.sbcConcentration;
   if (sbcConcentration) {
@@ -4779,6 +4782,14 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     );
   }
   if (excessReturn !== null) {
+    const payoutGap = result.gaps.find(g => g.field === "valuation.excessReturn.payout");
+    if (payoutGap) {
+      const missingEarnings = commonPayoutRows.slice(0, 3).filter(row => num(row.netIncome) === null || row.netIncome! <= 0)
+        .map(row => isoDay(row.date) ?? "undated fiscal year");
+      payoutGap.reason += missingEarnings.length
+        ? ` Common earnings aligned with payout are unavailable or non-positive for ${missingEarnings.join(", ")}; at least 2 of the latest 3 fiscal years need positive common earnings and compatible common cash payouts. Total net income cannot substitute for unresolved common-holder earnings.`
+        : " At least 2 of the latest 3 fiscal years need compatible common cash dividends or repurchases and positive common earnings; missing or refused cash payouts cannot be assumed zero.";
+    }
     const bookNote = quarterlyBook
       ? `Quarterly opening book admitted at ${quarterlyBook.asOf}, with equity, adjustments and diluted shares on that date. The ${ttmStart ? "trailing" : "fiscal-year"} return remains a forward rate; historical earnings already included in opening book are not added again. The forecast begins after opening book; roll-forward starts only at that book date.`
       : `Quarterly opening book not admitted: ${"reason" in openingBook ? openingBook.reason : "unavailable"}; retaining the fiscal-year opening-book calculation.`;
@@ -4812,6 +4823,10 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     const refusals = bundle.gaps.filter(g => /^keyless\.income(?:Quarterly|Annual)\.shareBasis$/.test(g.field));
     const upstream = refusals.map(g => g.reason).join("; ");
     if (upstream) for (const gap of result.gaps) if (gap.field === "valuation.dcf.dilutedShares") gap.reason += ` Source share admission: ${upstream}`;
+  }
+  if (ctx.revenueEligibilityReason) {
+    const revenueGap = result.gaps.find(g => g.field === "valuation.dcf.startRevenue");
+    if (revenueGap) revenueGap.reason += ` ${ctx.revenueEligibilityReason}`;
   }
   return result;
 }
