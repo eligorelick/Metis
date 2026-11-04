@@ -5686,7 +5686,8 @@ unchanged.
   reads a true sentence as ambiguous when the amount recurs. Real filings write
   dates out and use a dollar sign, so both forms are accepted: JPM's 10-Q
   sentence on its USD 50 billion authorization replays through this route once
-  a tenure start is supplied. The event must fall within an evidenced office
+  a tenure start is supplied. The event date is the sentence's only date or its
+  opening "On <date>", never an effective date, and must fall within an evidenced office
   tenure, from explicit `titleSince` or an exact retained appointment sentence. Unknown/conflicting dates and divisional,
   deputy or staff authority fail closed. The assessment concerns decisions and
   outcomes during that tenure, not personal skill. A completed authorization

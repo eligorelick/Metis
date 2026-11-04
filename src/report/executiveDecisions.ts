@@ -39,6 +39,14 @@ function statedDays(text: string): string[] {
   return days.filter((d): d is string => d !== undefined);
 }
 
+/** The date of a sentence's decision: its only date, or its opening "On <date>". An effective date cannot stand in for it. */
+function decisionDay(text: string): string | undefined {
+  const days = [...new Set(statedDays(text))];
+  if (days.length === 1) return days[0];
+  const opening = /^On (\d{4}-\d{2}-\d{2}|\d{1,2} [A-Za-z]+ \d{4}|[A-Za-z]+ \d{1,2},? \d{4})\b/.exec(text)?.[1];
+  return opening ? statedDays(opening)[0] : undefined;
+}
+
 /** Whitespace, case and the report's USD spelling of a filing's dollar sign do not change a quotation. */
 function normalized(text: string): string {
   return text.toLowerCase().replace(/(?:\bus)?\$\s*/g, "usd ").replace(/\s+/g, " ").trim();
@@ -102,8 +110,8 @@ function officeAction(e: Executive, a: ManagementAction): boolean {
 /** A proposal/authorization is a decision, not proof of its eventual return. */
 function decisionAction(a: ManagementAction): boolean {
   return ["capital-allocation", "acquisition-divestiture", "strategy", "leadership-change"].includes(a.category) &&
-    a.action.some(c => /\b(?:authori[sz]ed|approved|announced|acquired|purchased|repurchased|redeemed|issued|elected|appointed|launched|closed)\b/i.test(c.text)) &&
-    !a.action.some(c => /\b(?:not|never|may|might|could|would|will|plans? to|expects? to)\s+(?:\w+\s+){0,2}(?:authori[sz]e[ds]?|approve[ds]?|announce[ds]?|acquire[ds]?|purchase[ds]?|repurchase[ds]?|redeem(?:ed)?|issue[ds]?|elect(?:ed)?|appoint(?:ed)?|launch(?:ed)?|close[ds]?)\b|\bannounced\s+(?:(?:a|the)\s+)?(?:no|proposed|plans?|proposal)\b/i.test(c.text));
+    a.action.some(c => /\b(?:authori[sz]ed|approved|announced|acquired|purchased|repurchased|redeemed|issued|elected|appointed|launched|closed|declared|completed|sold|divested)\b/i.test(c.text)) &&
+    !a.action.some(c => /\b(?:not|never|may|might|could|would|will|plans? to|expects? to)\s+(?:\w+\s+){0,2}(?:authori[sz]e[ds]?|approve[ds]?|announce[ds]?|acquire[ds]?|purchase[ds]?|repurchase[ds]?|redeem(?:ed)?|issue[ds]?|elect(?:ed)?|appoint(?:ed)?|launch(?:ed)?|close[ds]?|declare[ds]?|complete[ds]?|sell|sold|divest(?:ed)?)\b|\bannounced\s+(?:(?:a|the)\s+)?(?:no|proposed|plans?|proposal)\b/i.test(c.text));
 }
 
 export function validatedExecutiveDecisions(e: Executive, index: number, leadership: Leadership, log: readonly VerificationLogEntry[], context: ExecutiveDecisionEvidence): ManagementAction[] {
@@ -123,7 +131,7 @@ export function validatedExecutiveDecisions(e: Executive, index: number, leaders
         // a whole sentence of the cited retained source proves figures, wording
         // and qualifications together.
         return c.label === "FACT" && c.asOf && isFilingOrTranscriptSource(citationSourceId(c) ?? "") && entry !== undefined &&
-          statedDays(c.text).includes(occurred) && quotedInRetainedSource(c.text, citationSourceId(c), context);
+          decisionDay(c.text) === occurred && quotedInRetainedSource(c.text, citationSourceId(c), context);
       });
   });
 }

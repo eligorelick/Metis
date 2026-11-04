@@ -7323,8 +7323,10 @@ factual claim in that action must quote a whole sentence exactly as the cited
 retained filing or transcript writes it, including the event date and every
 qualification, and pass the existing consistency checks. An exact quotation proves both figures and wording,
 so a repeated amount that leaves the numeric check ambiguous does not refuse it;
-only a dollar sign may be read as the report's USD spelling. The event date must
-fall between an established tenure start and the report date. Tenure comes from
+only a dollar sign may be read as the report's USD spelling. The event date is
+the sentence's only date or its opening "On <date>", so an effective date cannot
+stand in for it, and it must fall between an established tenure start and the
+report date. Tenure comes from
 the roster's explicit `titleSince`, or an exact retained filing appointment
 sentence in the card's reasoning; unknown or conflicting dates fail closed. Divisional,
 deputy and staff titles do not confer company-wide authority. An authorization

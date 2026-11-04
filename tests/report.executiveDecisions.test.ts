@@ -237,6 +237,29 @@ describe("executive decision verification boundaries", () => {
     expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed" });
   });
 
+  it("binds the decision date to the sentence's own date, not an effective date inside it", async () => {
+    const effective = quotedLeadership(QUOTED);
+    effective.managementActions![0]!.occurredOn = "2026-07-01";
+    const a = await runVerifyPass({} as PassDeps, quotedPayload(QUOTED), { leadership: effective });
+    expect(a.verifiedReport.leadership.executives[0]!.grade).toBe("not-assessed");
+    const noOpening = "The Board authorized a new $50 billion program on June 24, 2026, effective July 1, 2026.";
+    const b = await runVerifyPass({} as PassDeps, quotedPayload(noOpening), { leadership: quotedLeadership(noOpening) });
+    expect(b.verifiedReport.leadership.executives[0]!.grade).toBe("not-assessed");
+    const single = "The Board authorized a new $50 billion program on June 24, 2026.";
+    const c = await runVerifyPass({} as PassDeps, quotedPayload(single), { leadership: quotedLeadership(single) });
+    expect(c.verifiedReport.leadership.executives[0]!.grade).toBe("B");
+  });
+
+  it.each([
+    ["On June 24, 2026, the Board declared a quarterly cash dividend of $1 per common share.", "B"],
+    ["On June 24, 2026, the Company completed the sale of its payments business for $2 billion.", "B"],
+    ["On June 24, 2026, the Board said it may declare a special dividend of $1 per common share.", "not-assessed"],
+    ["On June 24, 2026, the Company said it will not complete the sale of its payments business for $2 billion.", "not-assessed"],
+  ])("reads a completed decision and refuses a possible one: %s", async (sentence, grade) => {
+    const result = await runVerifyPass({} as PassDeps, quotedPayload(sentence), { leadership: quotedLeadership(sentence) });
+    expect(result.verifiedReport.leadership.executives[0]!.grade).toBe(grade);
+  });
+
   it("refuses a quotation that drops the start or the end of its sentence", async () => {
     const full = "Subject to regulatory approval, on June 24, 2026, the Board authorized a $50 billion share repurchase program, conditional on a shareholder vote that has not been held.";
     for (const partial of ["On June 24, 2026, the Board authorized a $50 billion share repurchase program.",
