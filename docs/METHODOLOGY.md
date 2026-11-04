@@ -337,7 +337,10 @@ tax and net-income family when the three reconcile on a stated ownership
 basis. Preserve vendor observations in resolved `fieldConflicts`, with filed
 provenance on adopted values. Parent/consolidated/common alternatives and
 separately filed equity-method income remain distinct scopes. Repeated
-comparatives do not hide an available original same-filing family.
+comparatives do not hide an available original same-filing family: resolve
+that candidate before concluding there is no conflict. SEC-built restatements
+retain their own field-level filing provenance rather than reverting to the
+row's first-reporter date.
 
 If a reconciled filed family is unavailable, retain the vendor family with a
 note showing both values only when every disagreement is same-sign and no
@@ -354,6 +357,10 @@ aliases and dependent margins. A pretax-derived aggregate invalidated by the
 new family uses compatible filed operands or is qualified individually.
 Direct filed EPS is adopted only when an already admitted raw count proves
 the same unchanged share unit; it is never computed from net income.
+Direct EPS is rechecked after share admission even when monetary earnings
+already reconcile. If monetary admission establishes a previously missing
+period start, deferred share admission and the direct EPS check run again so
+fresh acquisition and frozen replay converge.
 
 Weighted shares are checked after an exact interval is established from filed
 provenance, a unique same-filing duration, or the existing month-end calendar
@@ -391,7 +398,9 @@ other industries through a securities revenue policy.
 
 Historical balance-sheet cash is compared with the observation from the
 vendor row's original filing date, even when a later filing repeats that
-balance. Conflicts retain both observations and withhold cash, dependent
+balance. An SEC-built or already sourced cash field instead uses its compatible
+field-level accession, form and filing date, preserving a genuine restatement
+when the row still carries its first reporter's date. Conflicts retain both observations and withhold cash, dependent
 combined liquidity and net debt. Selection of newer cash or a changed
 definition is not a substitute for a same-filing comparison. These admissions
 also run in an immutable calculation view of frozen inputs; stored reports

@@ -21,6 +21,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 ## Unreleased - Filed figures over vendor conflicts (2026-11-04)
 
 - Adopt reconciled filed earnings families and aliases with provenance; retain minor incomplete-family differences with both observations, and withhold only incomplete material or sign conflicts. Preserve ownership and equity-method bridges.
+- Recover original-filing earnings before declaring no dispute, preserve SEC-built cash restatements on their field provenance, and reconcile deferred shares/EPS independently of pass order.
 - Reconcile weighted shares on the established filed interval, distinguish YTD counts from quarterly counts, and retain split and share-unit safeguards.
 - Check foreign annual EPS in native currency on the established ADS ratio; qualify growth when that ratio or same-period annual evidence is unavailable.
 - Keep historical EPS growth with a moved endpoint out of the current score, so missing recent evidence cannot expose an old favorable scoring window.
