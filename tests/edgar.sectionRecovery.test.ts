@@ -309,15 +309,14 @@ describe("failed annual section recovery from filing structure", () => {
     expect(extractSection(html, { form: "10-K", item: "7" }).ok).toBe(false);
   });
 
-  it("withholds INTC business when MD&A also claims its endpoint page 18", () => {
-    expect(extractSection(sample("q6-intc-sections.html"), { form: "10-K", item: "1" }).ok).toBe(false);
+  it("admits business pages explicitly incorporated into MD&A too (D-191)", () => {
+    expect(extractSection(sample("q6-intc-sections.html"), { form: "10-K", item: "1" }).ok).toBe(true);
   });
 
-  it("withholds business when another item claims a page strictly inside its mapped range", () => {
-    // PR #88 review: Item 1A on page 4 lies inside Business pages 3-5 without touching either endpoint.
+  it("admits an explicitly mapped business page also incorporated into another item (D-191)", () => {
     const html = safeIndex().replace("<td>Pages 37 - 51</td>", "<td>Page 4</td>");
     expect(extractSection(safeIndex(), { form: "10-K", item: "1" }).ok).toBe(true);
-    expect(extractSection(html, { form: "10-K", item: "1" }).ok).toBe(false);
+    expect(extractSection(html, { form: "10-K", item: "1" }).ok).toBe(true);
   });
 
   it.each([
@@ -330,9 +329,9 @@ describe("failed annual section recovery from filing structure", () => {
     expect(extractSection(html, { form: "20-F", item: "3D" }).ok).toBe(false);
   });
 
-  it("withholds Item 7 when Item 7A also claims its last liquidity page", () => {
+  it("admits Item 7 pages explicitly incorporated into Item 7A too (D-191)", () => {
     const html = safeIndex().replace('Page 33</td>', 'Page 32</td>');
-    expect(extractSection(html, { form: "10-K", item: "7" }).ok).toBe(false);
+    expect(extractSection(html, { form: "10-K", item: "7" }).ok).toBe(true);
   });
 
   it("accepts an empty page target immediately before its page break", () => {

@@ -2563,7 +2563,7 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   const out: TextExcerpt[] = [];
   const annualEnd = latestAnnualPeriod(bundle.edgar);
   const add = (
-    res: { ok: boolean; value?: { data: { text: string; reportDate: string; filingDate?: string; form: string; accession: string; marker?: string } } } | undefined,
+    res: { ok: boolean; value?: { data: { text: string; reportDate: string; filingDate?: string; form: string; accession: string; marker?: string; method?: string } } } | undefined,
     title: (form: string) => string,
     budget: number | ((sourceChars: number) => number),
     source: (form: string) => string,
@@ -2580,7 +2580,8 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
     // AI-507: a 10-Q whose reporting period ended before the 10-K's is the older
     // word (periods, never filing dates; an equal end is not older).
     const older = sec.form === "10-Q" && annualEnd !== null && reportingPeriod !== null && isIsoDate(reportingPeriod) && reportingPeriod < annualEnd;
-    const markerNote = (sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "") +
+    const markerNote = (sec.method === "reference-table-pages" ? " [mapped-page excerpts; complete item not recovered]" : "") +
+      (sec.marker === "unchanged_from_10k" ? " [10-Q Item 1A: unchanged from the 10-K]" : "") +
       (older ? ` [older than the 10-K for the period ended ${annualEnd}]` : "") +
       (kept.length === 0 ? "" : ` [kept first: passages updating the 10-K's figures for ${kept.join(", ")}]`);
     const filingDate = isoDay(sec.filingDate);
