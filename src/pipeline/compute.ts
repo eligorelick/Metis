@@ -4439,27 +4439,20 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     shareRow: dilutedSharesRow, dilutedShares: valuationDilutedShares,
   });
   const quarterlyBook = "bookValue" in openingBook ? openingBook : null;
-  const tangibleOpening = quarterlyBook ? quarterlyOpeningBook({
-    row: balQ ? { ...balQ, ...toReturnsBalance(balQ) } : null,
-    annualAsOf: commonReturns.asOf, basis: "tangible-common-equity", currency: ctx.modelCurrency,
-    cutoff: bundle.builtAt, shareRow: dilutedSharesRow, dilutedShares: valuationDilutedShares,
-  }) : null;
-  const openingBalance = quarterlyBook ? balQ : fiscalYearBalance;
-  const openingConvertibles = readConvertibles(openingBalance ?? { date: commonReturns.asOf ?? undefined });
+  const fiscalYearConvertibles = readConvertibles(fiscalYearBalance ?? { date: commonReturns.asOf ?? undefined });
+  const quarterlyConvertibles = quarterlyBook ? readConvertibles(balQ ?? { date: quarterlyBook.asOf }) : null;
   const excessReturn: ExcessReturnInputs | null =
     financialRoute
       ? {
-          bookValue: quarterlyBook?.bookValue ?? commonReturns.latestTangibleCommonEquity,
+          bookValue: quarterlyBook?.bookValue ?? ttmStart?.bookValue ?? commonReturns.latestTangibleCommonEquity,
           bookValueBasis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
           currentRoePct: ttmStart?.roePct ?? commonReturns.latestRotePct,
           currentRoeBasis: ttmStart !== null ? (route.base === "bank" ? "ttm-rote" : "ttm-common-roe") : fyBasis,
           currentRoeAsOf: ttmStart?.asOf ?? commonReturns.asOf,
           startAlternative: ttmStart !== null && commonReturns.latestRotePct !== null && commonReturns.latestTangibleCommonEquity !== null && commonReturns.latestTangibleCommonEquity > 0
-            ? { roePct: commonReturns.latestRotePct, basis: fyBasis, asOf: commonReturns.asOf,
-              bookValue: quarterlyBook?.bookValue ?? commonReturns.latestTangibleCommonEquity,
-              ...(quarterlyBook ? { bookAsOf: quarterlyBook.asOf } : {}),
-              convertiblePreferredClaim: openingConvertibles.convertiblePreferredClaim,
-              permanentPreferred: num(openingBalance?.preferredStock), preferredSeriesDistinct: openingConvertibles.preferredSeriesDistinct }
+            ? { roePct: commonReturns.latestRotePct, basis: fyBasis, asOf: commonReturns.asOf, bookValue: commonReturns.latestTangibleCommonEquity,
+              convertiblePreferredClaim: fiscalYearConvertibles.convertiblePreferredClaim,
+              permanentPreferred: num(fiscalYearBalance?.preferredStock), preferredSeriesDistinct: fiscalYearConvertibles.preferredSeriesDistinct }
             : null,
           // Audit M5: null CoE SUPPRESSES the model inside excessReturnModel
           // (critical gap) — never a silent 10% default.
@@ -4468,20 +4461,20 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // the annual cash-flow statements; null suppresses the valuation.
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
           dilutedShares: valuationDilutedShares,
-          convertibles: instrumentsOnEconomicBasis(quarterlyBook ? openingConvertibles : financialConvertibles),
-          convertiblePreferredClaim: quarterlyBook ? openingConvertibles.convertiblePreferredClaim : financialConvertibles.convertiblePreferredClaim,
-          permanentPreferred: num((quarterlyBook ? openingBalance : balPoint)?.preferredStock),
-          preferredSeriesDistinct: quarterlyBook ? openingConvertibles.preferredSeriesDistinct : financialConvertibles.preferredSeriesDistinct,
-          totalDebt: num((quarterlyBook ? openingBalance : balPoint)?.totalDebt),
+          convertibles: instrumentsOnEconomicBasis(quarterlyConvertibles ?? financialConvertibles),
+          convertiblePreferredClaim: (quarterlyConvertibles ?? financialConvertibles).convertiblePreferredClaim,
+          permanentPreferred: num((quarterlyBook ? balQ : balPoint)?.preferredStock),
+          preferredSeriesDistinct: (quarterlyConvertibles ?? financialConvertibles).preferredSeriesDistinct,
+          totalDebt: num((quarterlyBook ? balQ : balPoint)?.totalDebt),
           marketCap,
           price: currentPrice,
-          asOf: quarterlyBook?.asOf ?? commonReturns.asOf,
+          asOf: quarterlyBook?.asOf ?? ttmStart?.asOf ?? commonReturns.asOf,
           valuationDate: quotePriceObservationDay(quote),
           // WS5: P/TBV is read against ROTE, both on the tangible base the
           // returns block already computes — never against plain book equity.
           // A bank's trailing ROTE and the tangible equity at its end pair the same way (C-10).
-          tangibleCommonEquity: quarterlyBook ? tangibleOpening && "bookValue" in tangibleOpening ? tangibleOpening.bookValue : null : ctx.rote?.latestTangibleCommonEquity ?? null,
-          tangibleCommonEquityAsOf: quarterlyBook?.asOf ?? ctx.rote?.asOf ?? null,
+          tangibleCommonEquity: route.base === "bank" && quarterlyBook ? quarterlyBook.bookValue : route.base === "bank" && ttmStart !== null ? ttmStart.bookValue : ctx.rote?.latestTangibleCommonEquity ?? null,
+          tangibleCommonEquityAsOf: route.base === "bank" && quarterlyBook ? quarterlyBook.asOf : route.base === "bank" && ttmStart !== null ? ttmStart.asOf : ctx.rote?.asOf ?? null,
           rotePct: route.base === "bank" && ttmStart !== null ? ttmStart.roePct : ctx.rote?.latestRotePct ?? null,
           roteAsOf: route.base === "bank" && ttmStart !== null ? ttmStart.asOf : ctx.rote?.asOf ?? null,
           roteSource: route.base === "bank" && ttmStart !== null ? "computed.returns.commonReturnTtm" : "computed.returns.rote",

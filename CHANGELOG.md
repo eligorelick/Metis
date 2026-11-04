@@ -23,7 +23,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Open financial excess-return values from the latest complete, filed quarterly
   common book with matching-date shares, independently of trailing-return
   availability. Keep return, discount and terminal assumptions unchanged; use
-  the selected book date for roll-forward, P/TBV, grids and return alternatives.
+  the selected book date for roll-forward and grids, and for a bank's P/TBV.
   Disclose refused quarterly operands and retain the annual fallback (D-189).
 - Bind plain headline score, financial valuation, provider EPS, Beneish, RSI
   and insider-count wording to each producing record. Check score grades and

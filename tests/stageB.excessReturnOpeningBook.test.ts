@@ -74,13 +74,24 @@ describe("D-189: opening book is independent of return availability", () => {
     expect(c.valuation.gaps.some(g => g.field === "valuation.excessReturn.openingBook")).toBe(true);
   });
 
-  it("uses the admitted quarter in the fiscal-return alternative and its grid too", () => {
+  it("keeps the fiscal-return alternative on its own fiscal-year book (C-10)", () => {
     const { b } = fixture("bank", true);
     const { er } = result(b);
     expect(er.roePathPct.basis).toMatch(/TTM ROTE/);
-    expect(er.startAlternative!.bookValue).toBe(er.openingBookValue.value);
-    expect(er.startAlternative!.asOf).toBe("2025-12-31"); // return date remains explicit
+    expect(er.startAlternative!.bookValue).toBeLessThan(er.openingBookValue.value!);
+    expect(er.startAlternative!.asOf).toBe("2025-12-31");
     expect(er.startAlternative!.label).toMatch(/FY 2025-12-31/);
-    expect(er.startCoeGrid!.rows.every(row => row.bookValue === er.openingBookValue.value)).toBe(true);
+    expect(er.startCoeGrid!.rows.some(row => row.bookValue === er.startAlternative!.bookValue)).toBe(true);
+  });
+
+  it("keeps a refused quarter on a trailing start's own dated book", () => {
+    const f = fixture("bank", true);
+    delete f.balance.filingDate;
+    delete f.balance.acceptedDate;
+    const { c, er } = result(f.b);
+    expect(c.valuation.notes.join(" ")).toMatch(/quarterly opening book.*not admitted/i);
+    expect(er.roePathPct.basis).toMatch(/TTM ROTE/);
+    expect(er.asOf).toBe("2026-03-31");
+    expect(er.openingBookValue.value).toBe(500 * M);
   });
 });

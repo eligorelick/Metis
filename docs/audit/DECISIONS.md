@@ -5582,12 +5582,13 @@ reason: a newer complete trailing return is more representative than a
 distorted fiscal year. Return selection, CAPM, terminal evidence, carry, payout
 fade and grid assumptions do not change. Historical earnings set a forward
 rate; they are not added to a book that already includes them. Forecasts and
-the existing 1-200-day CoE roll start at the selected book. The fiscal-return
-alternative and its grid row use that same quarterly book and share basis,
-with return and book dates separate; this narrowly replaces C-10's old-book
-alternative when a quarter is admitted, avoiding an old book/new divisor mix.
-P/TBV uses the selected balance, retains the return's own date, and withholds
-an incomplete tangible basis. Stored reports remain immutable.
+the existing 1-200-day CoE roll start at the selected book. C-10's fiscal-return
+alternative keeps its own fiscal-year book, date and preferred claims. A bank's
+P/TBV reads the selected balance and retains the return's own date; other routes
+keep their fiscal tangible balance. If the quarterly book is refused, the prior
+path stands exactly, including a trailing start's own dated book (integration
+review: the first version fell back to the older annual book and moved the
+alternative; nine existing regressions caught it). Stored reports remain immutable.
 
 **Offline evidence.** All 77 saved bundles across the four supplied databases
 were replayed read-only; JPM is the only excess-return issuer (two snapshots).
@@ -5654,4 +5655,4 @@ Beneish interpretation and unsupported completeness or multiple figures.
 
 **Stamps.** Stage B, fair value and scenario targets `LATEST_BOOK_46`, payload
 1.68.0, pipeline stage-c-1.6.27. Score bands and the report schema are
-unchanged; the optional alternative book date needs no schema migration.
+unchanged.

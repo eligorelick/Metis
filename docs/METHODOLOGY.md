@@ -2702,16 +2702,14 @@ with, all printed as assumptions in their own right:
   conflict-free, on that exact date and in the model currency, with filing
   available at the analysis cutoff and admitted diluted shares ending on the
   same date. Field provenance must agree on date, unit and filing cutoff.
-  Missing adjustments are not zero. Otherwise retain the fiscal-year book
-  calculation and disclose the specific refusal. The historical return remains
+  Missing adjustments are not zero. Otherwise the prior path stands, including
+  a trailing start's own dated book, and the specific refusal is disclosed. The historical return remains
   a forward-rate assumption: earnings already inside opening book are never
   added again. Forecast years begin after that book date; the existing 200-day
-  quote roll-forward limit runs from it. P/TBV reads that balance too, with its
-  return's historical date separately disclosed (or is withheld if the tangible
-  operands are incomplete). When the trailing return is used, the fiscal-year
-  return alternative uses the same admitted quarterly book, dated share basis,
-  fade target, carry and payout path. Its fiscal-year return date stays explicit;
-  without an admitted quarter it keeps the fiscal-year book calculation.
+  quote roll-forward limit runs from it. A bank's P/TBV reads that balance too,
+  with its return's historical date separately disclosed; other routes keep their
+  fiscal tangible balance. When the trailing return is used, the fiscal-year return
+  alternative keeps its own fiscal-year book, date and preferred claims.
   Whenever the two starts are more than
   **5pp** apart (house convention) that value is printed beside the headline
   and in the fair-value basis. COF's FY2025 ROTE of 4.2% (the Day-1 allowance on

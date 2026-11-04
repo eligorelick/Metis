@@ -1228,7 +1228,7 @@ function computedSections(
     const alt = val.excessReturn.startAlternative;
     if (alt !== undefined) {
       valFigures.push({ label: `excess-return per share from the ${alt.label}`, value: alt.perShare, unit: "currency/share", currency: currencies.model,
-        source: "computed.valuation.excessReturn.startAlternative", asOf: val.excessReturn.valuationDate?.value ?? alt.bookAsOf ?? alt.asOf });
+        source: "computed.valuation.excessReturn.startAlternative", asOf: val.excessReturn.valuationDate?.value ?? alt.asOf });
     }
   } else if (val.kind === "reit") {
     valFigures.push(
