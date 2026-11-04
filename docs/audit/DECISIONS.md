@@ -5735,3 +5735,77 @@ unchanged.
   executive-grade meaning and the Stage C pipeline stamp for prompt/verifier
   behavior. No payload shape, Stage B, valuation method or score-band change is
   needed. This implementation intentionally changes no version constants.
+
+
+## D-192 - Officer tenure from annual filings (2026-11-04)
+
+- **Problem and measurement.** The read-only frozen 33-company panel has 34
+  CEO and 31 CFO rows under the existing issuer-office classifier, with zero
+  roster `titleSince` values. Its 32 available annual primary documents were
+  read from the frozen SEC document cache; the successor XOM registrant has no
+  annual. Manual source review finds dated current-office wording for 22 CEO
+  and 20 CFO rows across 24 filers, including forms whose names, chronology or
+  multiple dates the strict parser cannot safely bind. This is a wording
+  census, not 42 established tenure starts. JPM is an additional check outside
+  the panel, from its separate read-only saved-run database.
+- **Decision.** Retain bounded officer/governance passages from the annual
+  document already fetched and parsed for the financial sections, plus explicit
+  issuer-qualified appointment footnotes. Extract a start only for the same
+  roster person and issuer-wide office. Optional middle initials are safe;
+  conflicting initials, nicknames, missing full middle names, another employer,
+  divisional authority and ambiguous surnames fail closed. A surname biography
+  needs the full named officer in the bounded passage and no competing person.
+  The existing `executiveOffice` and issuer qualification rules remain the
+  authority for the office. A bare divisional suffix is also refused locally.
+- **Precision.** Preserve the full date or original month/year wording. Use the
+  stated period's last day for overlap checks, not an invented exact start.
+  Compatible repeated periods may supply a tighter explicit date; conflicting
+  supported periods or roster starts and future filing/report dates fail closed.
+  A joining year, director or general executive-officer year, signature,
+  statement approval, current title, pay or rounded tenure is insufficient.
+  Proxy incorporation references remain references and are disclosed as such.
+- **Integration and readers.** Leadership context carries deterministic tenure
+  with its retained quotation, annual URL and filing date. Verification and
+  final assembly pass it to `executiveTenureStart`. Pipeline-owned optional
+  `officeTenure` is persisted even for an unassessed officer, and model-written
+  tenure is discarded. Live, Markdown and print display the start and source;
+  partial dates keep their wording. The existing decision and typed metric
+  gates still decide grades; no letter or claim binding is manufactured.
+  Stored reports retain their bytes, grades and compatibility.
+- **Offline evidence.** The conservative parser establishes 13 CEO and 10 CFO
+  starts in 16 panel filers, plus both JPM officers. JPM, ASML and NVO source
+  wording, together with MSFT, AMZN, WMT, LLY, HD and BA, was read against the
+  cached annual. Saved judges 2/3/6/7/8 were replayed with generation-matched
+  inputs, original fetched-URL telemetry and no model/provider. Tenure appears
+  on ASML's CEO, both JPM cards and both NVO cards. Grades do not change; NVO's
+  CEO C remains under the prior typed gate. The other saved judges do not bind
+  the requisite quoted dated decision to a proposed grade. New grade proposals
+  and the judge's response to enriched context require a separately authorized
+  paid run; this branch makes none.
+- **Deliberate limits.** Unsupported appointment chronology, inception/same-year
+  references, full-middle-name aliases, non-Latin parentheticals, suffix
+  punctuation and surname biographies beyond the bounded span stay withheld.
+  Microsoft CFO wording gives two dates for the same office and fails closed.
+  Director timelines and first-election-to-officer tables are not inferred into
+  an issuer office start. All scratch filings, source readings, census rows
+  and before/after replay artifacts remain under `tmp/officer-tenure/`; no real
+  filing text is committed. No credential was opened and no live/paid endpoint
+  was called.
+- **Validation and stamps.** Synthetic regressions were observed failing first
+  for extraction, conservative bounds, matching, context/gate integration,
+  persisted reader presentation, conflicts and the real-source-shaped joining
+  year/approval-date traps. Negative controls include other people/offices,
+  former and divisional officers, director biographies, contents, ambiguous
+  surnames, invalid/future dates and conflicting dates. The new source is in
+  both risk inventories. Integration must advance report spec (optional field
+  and assessment evidence), payload (retained evidence/context) and pipeline
+  (deterministic extraction/assembly behavior); version constants are unchanged
+  here. No paid-output grade change is claimed.
+
+  Final Node 24 checks passed: typecheck, changed-file ESLint (zero warnings),
+  the changed product selection (492 files, 11,873 passed, one skipped),
+  `tests/risk.coverage.test.ts` (11 passed) and the five-report offline replay.
+  Focused new-source coverage is 97.87% statements, 92.59% branches and 100%
+  functions/lines. The initial changed run caught a new judge-schema optional
+  field; omitting pipeline-owned tenure from that request schema fixed it.
+  The full `npm run verify` was not run, as required by the brief.

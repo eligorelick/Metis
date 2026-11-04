@@ -7327,11 +7327,39 @@ only a dollar sign may be read as the report's USD spelling. The event date is
 the sentence's only date or its opening "On <date>", so an effective date cannot
 stand in for it, and it must fall between an established tenure start and the
 report date. Tenure comes from
-the roster's explicit `titleSince`, or an exact retained filing appointment
-sentence in the card's reasoning; unknown or conflicting dates fail closed. Divisional,
+the roster's explicit `titleSince`, the filing-sourced officer context described
+below, or an exact retained filing appointment sentence in the card's reasoning; unknown or conflicting dates fail closed. Divisional,
 deputy and staff titles do not confer company-wide authority. An authorization
 is a decision, not an executed purchase or a realized return; its suspension
 qualifications remain. The gate retains a proposed grade, never creates one.
+
+**Officer tenure from annual filings (D-192, 2026-11-04).** The existing annual
+EDGAR document fetch retains bounded executive-officer/governance passages and
+issuer-qualified appointment footnotes, separately from the financial excerpts.
+A deterministic parser binds an explicit current-office statement to a roster
+CEO or CFO. Given and family names must match; optional middle initials are
+safe, while a different initial, nickname, omitted full middle name or an
+unresolved surname is refused. A surname biography needs a fully named officer
+in the same bounded passage and no competing named person. The issuer-office
+rules exclude divisional, deputy and former roles; another employer's office,
+director service, joining dates, signatures and statement-approval dates do not
+establish the issuer CEO/CFO start. A table must state a date for the current
+office, not merely the first year as an executive officer. A proxy incorporation
+reference is disclosed without treating the reference as a biography.
+
+A day is retained as stated. Month-only and year-only wording is displayed
+verbatim, and overlap checks use the last day of that month or year, never an
+invented appointment day. Compatible repeated periods can be reconciled to an
+explicit tighter date; disjoint supported periods, conflicting roster starts,
+and dates beyond the filing or report cutoff fail closed. The pipeline supplies
+`officeTenure`, with the quotation, source URL and filing date, independently
+of the judge; model-written tenure is discarded. Live, Markdown and print
+cards show the supported start even when both grades remain unassessed. The
+new tenure evidence feeds `executiveTenureStart` and the existing decision
+gate; it supplies neither a decision nor a grade. Rounded `tenureYears`, pay
+and a current title remain insufficient. Saved reports without this optional
+field still parse and display, and their stored bytes and grades stay immutable.
+No new source, SEC request, paid call or proxy retrieval is introduced.
 
 The existing typed guidance-versus-actual contract remains: credibility requires
 a validated prior-guidance/later-actual comparison for the same metric, period

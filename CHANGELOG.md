@@ -18,6 +18,18 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Officer tenure from filings (2026-11-04)
+
+- CEO/CFO cards show filing-sourced office starts with the original date
+  precision, filing citation and filing date across live, Markdown and print.
+- The existing annual EDGAR read retains bounded officer biographies and
+  appointment footnotes. Strict person and issuer-office matching, conservative
+  period-end overlap bounds and conflicting-date refusal feed the existing
+  executive decision gate; title, pay and rounded tenure remain insufficient.
+- Frozen-panel review and saved-judge replay are offline. Stored reports remain
+  immutable and compatible. No version constants are changed in this branch;
+  report, payload and pipeline stamps require a coordinated integration bump.
+
 ## Unreleased - Executive cards reflect dated management decisions (2026-11-04)
 
 - CEO/CFO cards show the report's dated office decisions, existing judgments and
