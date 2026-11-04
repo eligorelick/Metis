@@ -331,15 +331,29 @@ the WACC's market-value weights. Same-currency checks do not independently
 resolve ADR ordinary-share/receipt ratios: established share basis remains a
 separate prerequisite.
 
-**Filed figures over vendor conflicts (D-200).** An exact-period, same-currency,
-same-filing earnings contradiction refuses pretax income, income tax and net
-income together, including bottom-line, continuing, consolidated and common
-aliases and dependent margins. Missing aliases also carry the refusal, so a
-later completion cannot reintroduce the contradicted family. Independently
-filed parent/consolidated/common alternatives remain distinct valid scopes;
-pretax before equity-method income is compared after adding the separately
-filed same-scope equity-method result when appropriate. Arithmetic consistency
-within a provider row alone does not establish that its earnings were reported.
+**Filed figures over vendor conflicts (D-200).** For an exact-period,
+same-currency earnings disagreement, first adopt the complete filed pretax,
+tax and net-income family when the three reconcile on a stated ownership
+basis. Preserve vendor observations in resolved `fieldConflicts`, with filed
+provenance on adopted values. Parent/consolidated/common alternatives and
+separately filed equity-method income remain distinct scopes. Repeated
+comparatives do not hide an available original same-filing family.
+
+If a reconciled filed family is unavailable, retain the vendor family with a
+note showing both values only when every disagreement is same-sign and no
+larger than **1% of the larger absolute observation**. The independent panel
+census contains a minor cluster ending at 0.907% and the next disagreement at
+1.544%; the 1% cutoff lies in that gap and applies only after filed-family
+recovery fails. It is an operational minor-restatement allowance, not a claim
+that a small vendor value equals the filing. An incomplete family with a
+material or sign conflict is withheld with the specific contradictory values.
+Arithmetic consistency within a provider row alone does not verify it.
+
+Adoption also reconciles bottom-line, continuing, consolidated and common
+aliases and dependent margins. A pretax-derived aggregate invalidated by the
+new family uses compatible filed operands or is qualified individually.
+Direct filed EPS is adopted only when an already admitted raw count proves
+the same unchanged share unit; it is never computed from net income.
 
 Weighted shares are checked after an exact interval is established from filed
 provenance, a unique same-filing duration, or the existing month-end calendar
@@ -364,6 +378,9 @@ the annual series is qualified rather than presented as independently checked.
 The foreign security resolver's other identity, count, split and date gates
 remain in force. Missing quarterly coverage with an established ratio does
 not itself contradict an otherwise retained provider observation.
+An EPS CAGR whose known endpoint precedes the latest annual income period
+remains historical context and cannot contribute to the current score. Losing
+recent evidence must not expose an old favorable growth endpoint as current.
 
 For SIC 6211 securities firms only, directly filed
 `RevenuesNetOfInterestExpense` replaces a conflicting gross-interest revenue

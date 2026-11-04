@@ -6378,227 +6378,317 @@ BABA, SONY, PGR and BRK.B for the specific scope/model reasons above.
 
 ## D-200 - Filed figures over vendor conflicts (2026-11-04)
 
-Implements source-data audit findings 1-5 and 8, starting from fair-value
-coverage commit `7ffa9fde`. The requested remote branch was fetched explicitly
-because the checkout's origin refspec fetched only main, then merged with
-`--ff-only`. No other engineer's reserved source area was edited.
+Implements source-data findings 1-5 and 8 from fair-value coverage baseline
+`7ffa9fde`, on branch `t3/verify-data-fix`, implementation `0c9d8a9d`.
+The remote branch was fetched and
+merged with `--ff-only` before implementation. No parallel engineer's reserved
+source area was edited. The earnings policy below is the final ordered rule.
 
-- **Finding 1, earnings:** arithmetic-consistent vendor observations were
-  previously unchecked. Exact same-period, currency and filing conflicts now
-  refuse pretax, tax, net income and every continuing/ownership alias together,
-  including absent aliases that a later completion could otherwise restore.
-  Field conflicts preserve vendor and filed observations. Parent/consolidated
-  alternatives and the separately filed equity-method pretax bridge remain
-  admissible. AIG Q3 2026's -2,251M / -540M / -1,711M is withheld rather than
-  printed as reported. Its source-fact summary explicitly says the operands
-  are unavailable. The filed comparison is 1,119M pretax / 270M tax / 849M
-  consolidated profit (844M to common), not an ownership explanation for the
-  vendor loss.
-- **Findings 3/4, shares:** the old comparison ran before off-calendar period
-  evidence existed and used a 3% unit band as a numerical acceptance band.
-  The later pass establishes exact intervals and uses a separate 0.01% count
-  allowance (at least one share). The independent panel's 76 latest numeric
-  pairs contain 50 exact matches, rounding of 0.0034% and 0.0088%, and a next
-  discrepancy of 0.0170%. Matching another duration in the same filing is a
-  period mismatch even within that band. INTC FY2025 becomes 4,530M rather
-  than 4,856M; BAC Q3 2026 becomes 7,222.2M rather than the nine-month 7,312.5M.
-  Exact thousand/million scaling still needs the existing independently
-  corroborated unit repair. Previously guarded split histories are preserved.
-- **Finding 2, foreign EPS:** the blanket ADR exclusion is replaced by an
-  exact-period native-currency comparison on the existing corroborated ratio.
-  Ratio resolution is independent of FX, and conversion provenance retains
-  the ratio and source ids. SAP FY2025 becomes 6.10 EUR rather than 6.24.
-  TSM's frozen companyfacts stop at FY2024: FY2025 EPS and its annual growth
-  are qualified as unavailable, not called verified. The independent saved
-  primary filing shows 65.47 TWD per ordinary share, or about 327.35 per ADS
-  at five ordinary shares each. No unproven ratio is guessed for TM, SONY or
-  BABA. NVO's matching FY2025 EPS and ASML's observations remain unchanged.
-- **Finding 5, securities revenue:** SIC 6211 alone admits a directly filed
-  net-interest revenue total. GS FY2025 revenue becomes 58.283B instead of
-  125.097B; MS becomes 70.645B instead of 114.983B. Incompatible gross-revenue
-  cost, gross-profit and operating subtotals and margins are withheld. Growth
-  and capex/revenue use the same net revenue definition. No other industry is
-  routed through this policy.
-- **Finding 8, cash:** selecting the newest repeated balance could hide the
-  vendor row's original filing. Cash admission now selects that same-filing
-  observation, refuses contradictory cash and dependent combined liquidity
-  and net debt, and preserves both observations. Current unrestricted-cash
-  definitions and independent current/noncurrent restrictions are unchanged.
+### Earnings admission and provenance
 
-The same admissions apply to fresh bundles and immutable frozen calculation
-views. This branch does not rewrite snapshots or saved reports. Tests use
-small synthetic fixtures, never committed filing text. Each regression was
-observed failing first; negative controls cover a real parent/consolidated
-bridge without a parent tag, separately filed equity-method income, rounded
-counts, split-adjusted history, missing ADR ratio, native EPS without FX,
-unresolved million scaling and a non-securities gross-revenue observation.
+1. For an exact issuer, period, currency and compatible filing set, adopt the
+   **complete reconciled filed pretax, tax and net-income family** on a stated
+   parent or consolidated basis, regardless of discrepancy size or sign. Keep
+   the original vendor values in `fieldConflicts`, marked `usable: true` and
+   `resolution: "filed-family"`, with filed provenance on each adopted field.
+   Repeated later comparatives cannot conceal a complete original filing:
+   reconstruct the original same-filing family before declaring it incomplete.
+2. If that complete family cannot be recovered, keep the vendor family only
+   when every exact-period conflict is same-sign and at most **1% of the larger
+   absolute observation** (denominator floored at one currency unit). Notes
+   give both observations; `resolution: "minor-retained"` distinguishes this
+   allowance from filed verification. Do not attach filed provenance to the
+   retained vendor amount.
+3. Only an incomplete or unreconciled family with a discrepancy above 1%, or a
+   sign conflict, is withheld. Name the conflicting field, both values and the
+   incomplete-family reason. Refuse aliases and dependent earnings margins so
+   later completion cannot restore the contradicted family.
 
-All scratch evidence, before/after panel details, row-level deltas, independent
-rounding census and test logs are under ignored `tmp/data/` and
-`tmp/int/panel/`. The frozen database is opened only read-only with
-`fileMustExist: true`. There were no live data-provider/model calls, credential
-reads, owner .env reads or owner application-data reads.
+Ownership alternatives and independently filed equity-method bridges remain
+valid. A filed pretax line excluding equity-method income is bridged only with
+the separately filed compatible equity-method amount. A separately filed
+nonzero discontinued result prevents a continuing pretax/tax family from being
+called a complete total-profit family. Consolidated, parent and common profit
+are not interchangeable labels. Adoption reconciles their aliases and ratios;
+continuing/discontinued aliases may be inferred only from the complete filed
+continuing-pretax/tax-to-total-profit identity, with calculation provenance.
 
-Release integration must increment the Stage B implementation identity and
-payload version for the changed admission semantics. No report-schema or
-score-band shape changed; no score-band or scenario-method coefficient changed.
-Version constants were deliberately not edited here. Recovering TSM FY2025
-instead of qualifying it would require admitting its newer annual IFRS facts
-at filing intake; that adjacent acquisition work is not made in the area
-reserved for the filing-section engineer.
+Dependent provider operating/nonoperating, cost, EBIT and EBITDA aggregates
+that no longer reconcile use compatible filed operands or are qualified
+individually, following the revenue admission rule. No balancing plug is
+invented. Direct filed EPS can be adopted only when an already admitted raw
+share count proves the same unchanged share unit and filing interval. No EPS
+is inferred from profit; ADR conversions, split-adjusted counts and unresolved
+million scaling cannot pass that direct ordinary-share check.
 
+AIG Q3 2026 now admits **1,119M pretax - 270M tax = 849M consolidated profit**, with
+**844M to common** and 5M noncontrolling profit. The immutable calculation view
+and source-fact summary expose those available operands, with zero arithmetic
+residual. Vendor -2,251M / -540M / -1,711M remains in the audit trail.
+CAT FY2025 uses 11,541M pretax excluding equity-method profit plus 109M =
+11,650M total pretax; less 2,768M tax gives 8,882M consolidated profit (8,884M
+to common, NCI -2M). Its direct diluted EPS is 18.81, with 472.3M filed diluted
+shares. USB uses 9,517M - 1,921M = 7,596M consolidated profit, preserving
+7,570M parent and 7,194M common observations. ORCL FY2026 uses the reconciled
+parent family 19,554M - 2,467M = 17,087M, with 16,984M to common.
 
-### D-200 panel validation and before/after observations
+### Empirical incomplete-family threshold
 
-Branch `t3/verify-data-fix`, implementation commit `19c20c8e`, compared with `7ffa9fde`. The supplied 49-company replay passed before and after; the 50th snapshot is SPY, whose identical unsupported-ETF error is excluded from the issuer count. Final replay: 354.36 seconds, no new errors. The separate immutable row-admission measurement passed for all 49 issuers.
+The independent exact-period/currency census inspected **660 operand pairs**
+across 49 issuers, excluding admitted ownership and equity-method bridges from
+the conflict set: 25 disagreements in 18 rows, including five sign conflicts.
+The 20 same-sign disagreements have this distribution. Bounds are percentages
+of the larger absolute observation; lower bounds are exclusive.
 
-The following 24 companies change a complete fair-value, full scenario-target or composite object. Monetary figures are USD per quoted share; target order is bull / base / bear. `withheld` preserves the actual refusal, not a zero.
+| Relative difference | Observations |
+| --- | ---: |
+| 0% to 0.01% | 0 |
+| 0.01% to 0.1% | 1 |
+| 0.1% to 0.3% | 5 |
+| 0.3% to 0.5% | 0 |
+| 0.5% to 1% | 2 |
+| 1% to 3% | 2 |
+| 3% to 5% | 1 |
+| 5% to 10% | 3 |
+| 10% to 25% | 4 |
+| 25% to 50% | 0 |
+| 50% to 100% | 2 |
 
-| Company | Fair value before -> after | Targets before -> after | Composite before -> after | Reason |
+The minor cluster is USB 0.079197%, CAT net income 0.123818%, CAT pretax
+0.190262%, BA historical net income 0.225145%, ORCL pretax 0.275398%, AMZN
+pretax 0.282522%, WFC net income 0.699433%, and PG Q3 net income 0.907258%.
+The next same-sign disagreement is PG Q4 at 1.544021%, then BABA pretax at
+2.107103%. A simple 1% cutoff lies in that observed gap; it was selected from
+the source differences without valuation or score inputs. It accommodates
+rounding and minor restatements without calling them filed equality. This is
+an operational allowance from a finite panel, not proof of the economic cause
+of every small difference. It never overrides a recoverable complete family.
+
+Final actions: **12 rows adopt complete families, three retain minor incomplete
+differences with both values, and three withhold material incomplete families**.
+All 18 affected rows appear below. Monetary values are native millions, in
+pretax / tax / net-income order. A change to consolidated profit is stated in
+the action; common observations remain separately traced.
+
+| Issuer | Family / period end | Vendor family before | Admitted family after | Action / basis |
 | --- | --- | --- | --- | --- |
-| PG | 110.54 -> 110.48 | 118.42 / 110.54 / 103.13 -> 118.36 / 110.48 / 103.08 | 59.68 -> 58.87 | Unreconciled historical earnings family withheld. |
+| AMZN | Quarter / 2020-12-31 | 7787 / 565 / 7222 | 7787 / 565 / 7222 | Retain minor difference; both values noted |
+| PG | Quarter / 2026-06-30 | 3933 / 851 / 2997 | unavailable / unavailable / unavailable | Withhold incomplete material conflict |
+| PG | Quarter / 2026-03-31 | 4989 / 1039 / 3968 | 4989 / 1039 / 3968 | Retain minor difference; both values noted |
+| CAT | Annual / 2025-12-31 | 11563 / 2768 / 8873 | 11650 / 2768 / 8882 | Adopt consolidated basis |
+| CAT | Quarter / 2026-06-30 | 4558 / 965 / 3593 | 4648 / 1055 / 3593 | Adopt consolidated basis |
+| ORCL | Annual / 2026-05-31 | 19608 / 2468 / 17087 | 19554 / 2467 / 17087 | Adopt parent basis |
+| ORCL | Annual / 2018-05-31 | 12424 / 8837 / 3587 | 12891 / 9066 / 3825 | Adopt parent basis |
+| TSLA | Quarter / 2020-12-31 | 379 / 83 / 239 | unavailable / unavailable / unavailable | Withhold incomplete material conflict |
+| BA | Quarter / 2026-06-30 | -365 / -63 / -444 | -365 / 63 / -428 | Adopt consolidated basis |
+| BA | Quarter / 2020-12-31 | -8625 / -186 / -8439 | -8625 / -186 / -8439 | Retain minor difference; both values noted |
+| EXPE | Quarter / 2026-06-30 | 1258 / 383 / 878 | 1027 / 152 / 875 | Adopt consolidated basis |
+| BABA | Annual / 2026-03-31 | 132172 / 30045 / 103592 | unavailable / unavailable / unavailable | Withhold incomplete material conflict |
+| WFC | Quarter / 2026-03-31 | 5981 / 728 / 5290 | 5981 / 691 / 5290 | Adopt consolidated basis |
+| USB | Annual / 2025-12-31 | 9517 / 1921 / 7576 | 9517 / 1921 / 7596 | Adopt consolidated basis |
+| AIG | Quarter / 2026-09-30 | -2251 / -540 / -1711 | 1119 / 270 / 849 | Adopt consolidated basis |
+| O | Annual / 2025-12-31 | 1078.6 / 20 / 1058.6 | 1155.129 / 85.346 / 1069.783 | Adopt consolidated basis |
+| O | Quarter / 2026-06-30 | 396.321 / 25.808 / 397.071 | 396.321 / 25.808 / 370.513 | Adopt consolidated basis |
+| O | Quarter / 2025-12-31 | 246.907 / -43.546 / 296.095 | 323.436 / 21.8 / 301.636 | Adopt consolidated basis |
+
+The three minor notes are AMZN Q4 2020 pretax 7,787M versus filed 7,765M;
+BA Q4 2020 net loss -8,439M versus -8,420M; and PG Q3 2026 net income 3,968M
+versus 3,932M. PG Q4 2026 has no compatible complete pretax family and net
+income 2,997M versus 3,044M (1.544%); TSLA Q4 2020 has 239M versus 270M
+(11.481%) without a complete compatible family; BABA FY2026 pretax is
+132,172M versus 129,387M (2.107%) and pretax less tax reconciles to neither
+filed parent nor consolidated total without an unestablished equity-method
+bridge. These three material incomplete cases remain qualified. None loses
+an available fair value or target set on the replay.
+
+### Accepted share, foreign EPS, revenue and cash rules
+
+- Shares: compare after establishing the filed interval, including off-calendar
+  fiscal years. The independent latest-count census has 76 numeric pairs, 50
+  exact matches, rounding differences 0.0034% and 0.0088%, then 0.0170%.
+  Permit at most 0.01% (at least one share), separately from the existing 3%
+  unit/split test. Matching a different YTD duration is a period mismatch even
+  inside that band. INTC FY2025 becomes 4,530M instead of 4,856M; BAC Q3 2026
+  becomes 7,222.2M instead of the nine-month 7,312.5M. Existing corroborated
+  scale repair and split-history protections remain.
+- Foreign EPS: compare exact-period native currency using only the established
+  ADS ratio, with conversion provenance and no FX dependency. SAP FY2025 uses
+  6.10 EUR instead of 6.24. Frozen TSM facts stop at FY2024, so FY2025 is
+  qualified; the saved primary filing's 65.47 TWD per ordinary share implies
+  327.35 per ADS at five ordinary shares. No ratio is guessed for TM, SONY or
+  BABA. NVO FY2025 23.03 DKK and ASML 24.71 EUR remain unchanged.
+- Securities revenue: SIC 6211 admits directly filed net-interest revenue.
+  GS FY2025 is 58.283B instead of 125.097B; MS is 70.645B instead of 114.983B.
+  Capex/revenue changes 1.649920% -> 3.541341% and 2.520373% -> 4.102201%,
+  respectively. Conflicting gross-basis subtotals/margins are qualified;
+  revenue growth uses the same admitted net definition. Other industries do
+  not use this rule. CAT capex with leased equipment and NVO capex with
+  intangibles are untouched.
+- Cash: repeated newer balances cannot suppress the original same-filing
+  comparison. Conflicting cash and dependent combined liquidity/net debt are
+  qualified, preserving both observations. The audited annual comparisons
+  remain CRWV 3,946M versus 3,127M, EXPE 6,976M versus 5,413M, FIGR 1,266.778M
+  versus 1,198.141M, and LLY 7,163M versus 7,268M.
+
+The independent immutable admission census changes 67 diluted-count rows
+across 27 companies, 93 diluted-EPS rows across seven, ten revenue rows (only
+GS/MS), 44 cash rows across 12, and 12 numeric net-income rows across ten.
+Retained minor observations also carry notes even when no number changes.
+
+### Full replay against 7ffa9fde
+
+The supplied frozen replay passed for all 49 issuers in 215.89 seconds. The
+50th snapshot, SPY, has the identical unsupported-ETF refusal. Figures below
+are USD per quoted share; targets are bull / base / bear. Unavailable values
+and absent target sets remain explicit rather than printed as zero.
+
+| Company | Fair value before -> after | Targets before -> after | Composite before -> after | One-line reason |
+| --- | --- | --- | --- | --- |
+| AAPL | 153.90 -> 153.90 | 209.59 / 153.90 / 111.55 -> 209.59 / 153.90 / 111.55 | 61.88 -> 61.88 | Identical core outputs. |
+| MSFT | 464.50 -> 464.50 | 503.88 / 464.50 / 425.61 -> 503.88 / 464.50 / 425.61 | 61.43 -> 61.43 | Identical core outputs. |
+| NVDA | 232.80 -> 232.80 | 396.23 / 232.80 / 127.65 -> 396.23 / 232.80 / 127.65 | 77.10 -> 77.10 | Identical core outputs. |
+| GOOGL | 248.19 -> 248.19 | 308.03 / 248.19 / 200.44 -> 308.03 / 248.19 / 200.44 | 59.69 -> 59.69 | Identical core outputs. |
+| AMZN | 127.12 -> 127.12 | 152.24 / 127.12 / 107.47 -> 152.24 / 127.12 / 107.47 | 55.42 -> 55.42 | Minor incomplete historical earnings difference retained with both values. |
+| META | 610.47 -> 610.47 | 871.67 / 610.47 / 425.28 -> 871.67 / 610.47 / 425.28 | 59.99 -> 59.99 | Identical core outputs. |
+| JNJ | 154.82 -> 154.82 | 170.44 / 154.82 / 140.64 -> 170.44 / 154.82 / 140.64 | 52.10 -> 52.10 | Identical core outputs. |
+| PG | 110.54 -> 110.48 | 118.42 / 110.54 / 103.13 -> 118.36 / 110.48 / 103.08 | 59.68 -> 58.87 | Minor Q3 difference retained; material incomplete Q4 family qualified. |
+| KO | 42.72 -> 42.72 | 56.48 / 42.72 / 31.10 -> 56.48 / 42.72 / 31.10 | 56.31 -> 56.31 | Identical core outputs. |
+| PEP | 110.04 -> 110.04 | 122.58 / 110.04 / 97.37 -> 122.58 / 110.04 / 97.37 | 55.57 -> 55.57 | Identical core outputs. |
+| WMT | 43.80 -> 43.80 | 45.69 / 43.80 / 41.99 -> 45.69 / 43.80 / 41.99 | 52.93 -> 52.93 | Identical core outputs. |
+| COST | 338.72 -> 338.72 | 361.39 / 338.72 / 318.28 -> 361.39 / 338.72 / 318.28 | 61.42 -> 61.42 | Identical core outputs. |
 | HD | 197.05 -> 197.05 | 239.22 / 197.05 / 156.99 -> 239.22 / 197.05 / 156.99 | 53.87 -> 53.88 | Filed annual share denominator corrects dilution history. |
-| CAT | 287.52 -> withheld | 415.19 / 287.52 / 190.55 -> none | 55.74 -> 59.25 | Unreconciled annual earnings family withheld; filed share counts. |
-| UNH | 354.82 -> 354.82 | 379.56 / 354.82 / 330.74 -> 379.56 / 354.82 / 330.74 | 53.47 -> 53.50 | Filed annual share denominator; equity ownership is unchanged. |
-| LLY | 779.10 -> 779.10 | 1193.04 / 779.10 / 479.48 -> 1193.04 / 779.10 / 479.48 | 61.06 -> 61.49 | Filed share counts and same-filing historical cash admission. |
-| ORCL | withheld -> withheld | none -> none | 50.66 -> 47.80 | Unreconciled annual earnings family and filed share counts. |
+| MCD | 182.16 -> 182.16 | 249.43 / 182.16 / 120.33 -> 249.43 / 182.16 / 120.33 | 58.31 -> 58.31 | Identical core outputs. |
+| XOM | 94.87 -> 94.87 | 155.67 / 94.87 / 42.32 -> 155.67 / 94.87 / 42.32 | 52.55 -> 52.55 | Identical core outputs. |
+| CAT | 287.52 -> 286.73 | 415.19 / 287.52 / 190.55 -> 414.13 / 286.73 / 189.98 | 55.74 -> 55.70 | Filed complete earnings families, equity-method bridge, direct EPS and share counts. |
+| UNH | 354.82 -> 354.82 | 379.56 / 354.82 / 330.74 -> 379.56 / 354.82 / 330.74 | 53.47 -> 53.50 | Filed annual shares; valid earnings ownership bridge retained. |
+| LLY | 779.10 -> 779.10 | 1193.04 / 779.10 / 479.48 -> 1193.04 / 779.10 / 479.48 | 61.06 -> 61.49 | Filed shares and original-filing historical cash admission. |
+| ORCL | unavailable -> unavailable | none -> none | 50.66 -> 50.62 | Filed complete parent-basis annual families and share counts. |
 | NKE | 28.74 -> 28.74 | 37.17 / 28.74 / 21.57 -> 37.17 / 28.74 / 21.57 | 53.47 -> 53.48 | Filed annual share count corrects dilution history. |
-| INTC | withheld -> withheld | none -> none | 40.26 -> 41.31 | Off-calendar FY2025 diluted shares 4,856M -> 4,530M. |
-| BA | 145.69 -> 130.61 | 245.98 / 145.69 / 59.07 -> 223.20 / 130.61 / 52.94 | 44.31 -> 44.33 | Filed quarterly shares and historical earnings admission. |
-| EXPE | 256.54 -> 261.61 | 473.85 / 256.54 / 113.27 -> 482.75 / 261.61 / 115.35 | 61.63 -> 60.44 | Quarter/YTD share mismatch, earnings refusal and same-filing cash. |
-| TSM | 409.26 -> 409.26 | 594.34 / 409.26 / 275.67 -> 594.34 / 409.26 / 275.67 | 74.20 -> 74.15 | Annual EPS qualified/corrected on the established 5:1 ADS basis. |
-| TM | withheld -> withheld | none -> none | 48.99 -> 47.75 | Unestablished ADS ratio; EPS cannot enter verified growth. |
-| SAP | 106.29 -> 106.29 | 114.72 / 106.29 / 98.70 -> 114.72 / 106.29 / 98.70 | 56.46 -> 56.41 | Filed native annual EPS 6.24 -> 6.10 EUR; filed share counts. |
-| SONY | withheld -> withheld | none -> none | 56.90 -> 59.17 | Unestablished ADS ratio; EPS cannot enter verified growth. |
-| BABA | withheld -> withheld | none -> none | 49.38 -> 49.94 | Earnings conflict, unresolved ADS/split basis and cash admission. |
-| BAC | 38.45 -> 38.93 | 40.03 / 38.45 / 37.12 -> 40.53 / 38.93 / 37.59 | 54.97 -> 55.00 | Q3 count is 7,222.2M, replacing nine-month 7,312.5M; history admission. |
-| WFC | 67.26 -> 67.26 | 68.93 / 67.26 / 63.35 -> 68.93 / 67.26 / 63.35 | 51.80 -> 51.78 | Filed share counts and historical earnings admission. |
-| C | 91.26 -> 91.26 | none -> none | 44.25 -> 44.23 | Filed annual weighted share count corrects dilution history. |
-| USB | 55.78 -> withheld | 57.88 / 55.78 / 52.73 -> none | 58.91 -> 50.78 | FY2025 parent net income 7,576M contradicts filed 7,570M; family refused. |
-| MET | 51.89 -> 52.60 | 52.63 / 51.89 / 48.42 -> 53.34 / 52.60 / 49.08 | 43.93 -> 43.90 | Filed annual/quarterly share counts and same-filing cash admission. |
-| AIG | 71.98 -> 72.95 | none -> none | 43.82 -> 43.94 | Contradicted Q3 earnings family refused; filed diluted denominator. |
-| O | withheld -> withheld | none -> none | 52.43 -> 51.42 | Annual pretax/tax conflict and filed counts; Q3 parent income retained. |
-| NEE | withheld -> withheld | none -> none | 51.90 -> 52.01 | Filed annual weighted share count corrects dilution history. |
-| CRWV | withheld -> withheld | none -> none | 50.44 -> 50.91 | Filed share counts and same-filing cash admission. |
+| DIS | 66.52 -> 66.52 | 68.22 / 66.52 / 60.96 -> 68.22 / 66.52 / 60.96 | 58.23 -> 58.23 | Identical core outputs. |
+| INTC | unavailable -> unavailable | none -> none | 40.26 -> 41.31 | FY2025 diluted shares 4,856M -> 4,530M. |
+| VZ | 57.16 -> 57.16 | 60.21 / 57.16 / 53.05 -> 60.21 / 57.16 / 53.05 | 55.97 -> 55.97 | Identical core outputs. |
+| TSLA | unavailable -> unavailable | none -> none | 58.70 -> 58.70 | Material incomplete 2020 Q4 family qualified; core outputs identical. |
+| BA | 145.69 -> 142.58 | 245.98 / 145.69 / 59.07 -> 240.94 / 142.58 / 57.80 | 44.31 -> 44.08 | Complete Q2 earnings adopted; minor historical difference retained; quarterly shares. |
+| EXPE | 256.54 -> 266.19 | 473.85 / 256.54 / 113.27 -> 490.39 / 266.19 / 117.08 | 61.63 -> 62.05 | Complete Q2 earnings adopted; quarter/YTD share mismatch and historical cash. |
+| TSM | 409.26 -> 409.26 | 594.34 / 409.26 / 275.67 -> 594.34 / 409.26 / 275.67 | 74.20 -> 72.77 | FY2025 native EPS absent; older EPS endpoint excluded from current score. |
+| ASML | 896.85 -> 896.85 | 1159.02 / 896.85 / 689.47 -> 1159.02 / 896.85 / 689.47 | 67.16 -> 67.16 | Identical core outputs. |
+| TM | unavailable -> unavailable | none -> none | 48.99 -> 48.22 | Unproved ADS ratio; unsupported EPS growth removed from current score. |
+| NVO | 76.83 -> 76.83 | 109.36 / 76.83 / 52.53 -> 109.36 / 76.83 / 52.53 | 68.54 -> 68.54 | Identical core outputs. |
+| SAP | 106.29 -> 106.29 | 114.72 / 106.29 / 98.70 -> 114.72 / 106.29 / 98.70 | 56.46 -> 56.41 | Native filed EPS 6.24 -> 6.10 EUR and filed shares. |
+| SONY | unavailable -> unavailable | none -> none | 56.90 -> 56.90 | Unproved ADS ratio qualified; old 2016 endpoint cannot create a score increase. |
+| BABA | unavailable -> unavailable | none -> none | 49.38 -> 49.94 | Material incomplete earnings and unproved ADS basis; +0.56 score remains a defect (see handoff). |
+| JPM | 232.19 -> 232.19 | 259.10 / 232.19 / 222.20 -> 259.10 / 232.19 / 222.20 | 55.10 -> 55.10 | Identical core outputs. |
+| BAC | 38.45 -> 38.93 | 40.03 / 38.45 / 37.12 -> 40.53 / 38.93 / 37.59 | 54.97 -> 55.00 | Quarterly 7,222.2M replaces YTD 7,312.5M; annual share history. |
+| WFC | 67.26 -> 67.26 | 68.93 / 67.26 / 63.35 -> 68.93 / 67.26 / 63.35 | 51.80 -> 51.78 | Complete filed consolidated earnings family and annual shares. |
+| GS | 591.93 -> 591.93 | none -> none | 51.02 -> 51.02 | Filed net revenue replaces gross revenue; core outputs identical. |
+| MS | 99.99 -> 99.99 | 103.88 / 99.99 / 85.30 -> 103.88 / 99.99 / 85.30 | 53.59 -> 53.59 | Filed net revenue replaces gross revenue; core outputs identical. |
+| C | 91.26 -> 91.26 | none -> none | 44.25 -> 44.23 | Filed annual weighted shares. |
+| USB | 55.78 -> 55.78 | 57.88 / 55.78 / 52.73 -> 57.88 / 55.78 / 52.73 | 58.91 -> 58.91 | Complete filed consolidated earnings adopted; valuation and composite identical. |
+| PGR | unavailable -> unavailable | none -> none | 56.67 -> 56.67 | Identical core outputs. |
+| TRV | 359.61 -> 359.61 | 403.38 / 359.61 / 229.41 -> 403.38 / 359.61 / 229.41 | 62.05 -> 62.05 | Identical core outputs. |
+| MET | 51.89 -> 52.60 | 52.63 / 51.89 / 48.42 -> 53.34 / 52.60 / 49.08 | 43.93 -> 43.90 | Filed shares and same-filing historical cash. |
+| AIG | 71.98 -> 72.95 | none -> none | 43.82 -> 43.94 | Filed Q3 profit family adopted; 844M to common and corrected shares. |
+| O | unavailable -> unavailable | none -> none | 52.43 -> 52.86 | Filed complete historical families; current valid parent bridge retained. |
+| NEE | unavailable -> unavailable | none -> none | 51.90 -> 52.01 | Filed annual weighted shares. |
+| BRK.B | unavailable -> unavailable | none -> none | 55.26 -> 55.26 | Identical core outputs. |
+| FIGR | unavailable -> unavailable | none -> none | 53.42 -> 53.42 | Identical core outputs. |
+| CRWV | unavailable -> unavailable | none -> none | 50.44 -> 50.91 | Filed shares and original-filing cash; accrual denominator changes. |
 
-The other 25 issuer objects are byte-identical, including full target status, basis, assumptions and rows, not only rounded headline prices: AAPL, MSFT, NVDA, GOOGL, AMZN, META, JNJ, KO, PEP, WMT, COST, MCD, XOM, DIS, VZ, TSLA, ASML, NVO, JPM, GS, MS, PGR, TRV, BRK.B, FIGR. Their ordered before and after SHA-256 values both equal `9486e7918e5c274bd24e7d8b8137fcd174e46cc40301038cf4e90fbfaf5b1df1`. This includes the NVDA/WMT split controls and NVO/ASML matching EPS controls. Separate field comparisons preserve VZ/UNH equity scope and O's current parent income; UNH's composite changes through its share-count history.
+**No issuer loses an available fair value or targets**, for either minor or
+material differences. USB retains 55.78 and 57.88 / 55.78 / 52.73 with composite
+58.91. CAT retains its valuation and targets; ORCL's absent valuation/targets
+were already absent at baseline. The 27 complete core objects
+(full fair-value objects, target status/basis/assumptions/rows and composites)
+are byte-identical for AAPL, MSFT, NVDA, GOOGL, AMZN, META, JNJ, KO, PEP, WMT, COST, MCD, XOM, DIS, VZ, TSLA, ASML, NVO, SONY, JPM, GS, MS, USB, PGR, TRV, BRK.B, FIGR.
+Their ordered before and after SHA-256 values both equal
+`4a61bccf60c1d0da66a43d246ef72ff61c064e17a34810c7f442c500dac87533`.
+This includes NVDA/WMT split and NVO/ASML matching-EPS controls. Separate
+ownership checks retain O's current valid parent basis and VZ/UNH bridges.
 
-Numeric earnings-family admission changes 18 rows across 12 issuers. Every affected net-income row is listed below in native millions. The whole pretax/tax/net family and aliases become unavailable; no individual filed amount is transplanted into a vendor earnings identity.
+### Composite moves and remaining scoring handoff
 
-| Company | Family / period end | Net income before -> after (native M) | Filed contradiction triggering family refusal |
-| --- | --- | --- | --- |
-| AMZN | incomeQuarterly / 2020-12-31 | 7222.00 -> withheld | Filed earnings conflict for incomeBeforeTax: vendor 7787000000, filed 7765000000 USD, 2020-10-01 through 2020-12-31 |
-| PG | incomeQuarterly / 2026-06-30 | 2997.00 -> withheld | Filed earnings conflict for netIncome: vendor 2997000000, filed 3044000000 USD, 2026-04-01 through 2026-06-30 |
-| PG | incomeQuarterly / 2026-03-31 | 3968.00 -> withheld | Filed earnings conflict for netIncome: vendor 3968000000, filed 3932000000 USD, 2026-01-01 through 2026-03-31 |
-| CAT | incomeAnnual / 2025-12-31 | 8873.00 -> withheld | Filed earnings conflict for incomeBeforeTax: vendor 11563000000, filed 11541000000 USD, 2025-01-01 through 2025-12-31 |
-| CAT | incomeQuarterly / 2026-06-30 | 3593.00 -> withheld | Filed earnings conflict for incomeTaxExpense: vendor 965000000, filed 1055000000 USD, 2026-04-01 through 2026-06-30 |
-| ORCL | incomeAnnual / 2026-05-31 | 17087.00 -> withheld | Filed earnings conflict for incomeBeforeTax: vendor 19608000000, filed 19554000000 USD, 2025-06-01 through 2026-05-31 |
-| ORCL | incomeAnnual / 2018-05-31 | 3587.00 -> withheld | Filed earnings conflict for incomeBeforeTax: vendor 12424000000, filed 12891000000 USD, 2017-06-01 through 2018-05-31 |
-| TSLA | incomeQuarterly / 2020-12-31 | 239.00 -> withheld | Filed earnings conflict for netIncome: vendor 239000000, filed 270000000 USD, 2020-10-01 through 2020-12-31 |
-| BA | incomeQuarterly / 2026-06-30 | -444.00 -> withheld | Filed earnings conflict for incomeTaxExpense: vendor -63000000, filed 63000000 USD, 2026-04-01 through 2026-06-30 |
-| BA | incomeQuarterly / 2020-12-31 | -8439.00 -> withheld | Filed earnings conflict for netIncome: vendor -8439000000, filed -8420000000 USD, 2020-10-01 through 2020-12-31 |
-| EXPE | incomeQuarterly / 2026-06-30 | 878.00 -> withheld | Filed earnings conflict for incomeBeforeTax: vendor 1258000000, filed 1027000000 USD, 2026-04-01 through 2026-06-30 |
-| BABA | incomeAnnual / 2026-03-31 | 103592.00 -> withheld | Filed earnings conflict for incomeBeforeTax: vendor 132172000000, filed 129387000000 CNY, 2025-04-01 through 2026-03-31 |
-| WFC | incomeQuarterly / 2026-03-31 | 5290.00 -> withheld | Filed earnings conflict for incomeTaxExpense: vendor 728000000, filed 691000000 USD, 2026-01-01 through 2026-03-31 |
-| USB | incomeAnnual / 2025-12-31 | 7576.00 -> withheld | Filed earnings conflict for netIncome: vendor 7576000000, filed 7570000000 USD, 2025-01-01 through 2025-12-31 |
-| AIG | incomeQuarterly / 2026-09-30 | -1711.00 -> withheld | Filed earnings conflict for incomeBeforeTax: vendor -2251000000, filed 1119000000 USD, 2026-07-01 through 2026-09-30 |
-| O | incomeAnnual / 2025-12-31 | 1058.60 -> withheld | Filed earnings conflict for incomeBeforeTax: vendor 1078600000, filed 1155129000 USD, 2025-01-01 through 2025-12-31 |
-| O | incomeQuarterly / 2026-06-30 | 397.07 -> withheld | Filed earnings conflict for netIncome: vendor 397071000, filed 343955000 USD, 2026-04-01 through 2026-06-30 |
-| O | incomeQuarterly / 2025-12-31 | 296.10 -> withheld | Filed earnings conflict for incomeBeforeTax: vendor 246907000, filed 323436000 USD, 2025-10-01 through 2025-12-31 |
+Exactly two composite moves exceed one point:
 
-Diluted-count admission changes 67 rows across 27 companies. Latest-family changes, in millions of quoted share units:
+- **INTC 40.26 -> 41.31 (+1.05):** the same 4,232M starting count and corrected
+  4,530M ending count replace 4,856M. Annualized diluted-count growth becomes
+  1.370247909% from 2.788991204%. The existing share-count signal remains;
+  its contribution changes -1.079597926 -> -0.027377930 (+1.052219996).
+  This is a corrected operand, with no vanished signal or changed band.
+- **TSM 74.20 -> 72.77 (-1.43):** the unverified FY2025 EPS endpoint had supplied
+  a five-year CAGR of 28.309313% and +1.430214361 composite points. With no
+  admitted FY2025 native EPS, that favorable contribution is removed.
+  Revenue growth, margin slope and FCF growth contributions remain exactly
+  2.172404949, 1.354214144 and 1.034089623. The historical FY2024 EPS endpoint
+  remains context and cannot masquerade as current scoring evidence.
 
-| Company | Family / period end | Before -> after (M) |
-| --- | --- | --- |
-| HD | incomeAnnual / 2026-02-01 | 997.00 -> 995.00 |
-| CAT | incomeAnnual / 2025-12-31 | 469.00 -> 472.30 |
-| UNH | incomeAnnual / 2025-12-31 | 910.00 -> 911.00 |
-| LLY | incomeAnnual / 2025-12-31 | 898.00 -> 899.30 |
-| ORCL | incomeAnnual / 2026-05-31 | 2915.00 -> 2914.00 |
-| NKE | incomeAnnual / 2026-05-31 | 1482.90 -> 1481.00 |
-| INTC | incomeAnnual / 2025-12-27 | 4856.00 -> 4530.00 |
-| BA | incomeQuarterly / 2026-09-30 | 781.00 -> 792.70 |
-| EXPE | incomeQuarterly / 2026-06-30 | 123.76 -> 122.55 |
-| BAC | incomeAnnual / 2025-12-31 | 7546.90 -> 7680.90 |
-| BAC | incomeQuarterly / 2026-09-30 | 7312.50 -> 7222.20 |
-| WFC | incomeAnnual / 2025-12-31 | 3217.40 -> 3242.30 |
-| MS | incomeAnnual / 2025-12-31 | 1593.00 -> 1592.00 |
-| C | incomeAnnual / 2025-12-31 | 1862.60 -> 1873.10 |
-| USB | incomeAnnual / 2025-12-31 | 1556.00 -> 1558.00 |
-| PGR | incomeAnnual / 2025-12-31 | 588.20 -> 588.10 |
-| MET | incomeAnnual / 2025-12-31 | 664.96 -> 673.30 |
-| MET | incomeQuarterly / 2026-06-30 | 655.70 -> 646.90 |
-| AIG | incomeQuarterly / 2026-09-30 | 534.30 -> 527.22 |
-| O | incomeAnnual / 2025-12-31 | 904.79 -> 908.33 |
-| O | incomeQuarterly / 2026-09-30 | 948.80 -> 946.12 |
-| NEE | incomeAnnual / 2025-12-31 | 2089.00 -> 2070.60 |
-| CRWV | incomeAnnual / 2025-12-31 | 435.00 -> 436.00 |
+SONY's old favorable CAGR ending 2016 is likewise excluded from the current
+score; its composite is identical to baseline at 56.90. Missing recent EPS
+must not expose an older favorable endpoint. No scoring-band coefficient is
+changed. A failing-first regression covers that endpoint substitution.
 
-INTC five-year dilution becomes 7.041588% (1.370248% annualized), from the original 14.744802% (2.788991% annualized), with the same 4,232M starting count. The filed ending count is 4,530M. Its score operand follows that count.
+**BABA 49.38 -> 49.94 (+0.56) remains a scoring defect, not an improvement.**
+Removing unsupported EPS removes a -0.856024644 contribution. The reduced
+Piotroski evidence battery changes its contribution -0.976 -> -0.650666667
+(+0.325333333); losing Beneish removes +0.624777334. Net effect is +0.556580643.
+The admissions are correct, but neutral shrinkage of lost negative evidence
+mechanically improves the number. Resolving this without scoring a rejected
+vendor metric as verified requires an explicit evidence-loss scoring guard
+and pre-admission sensitivity operands passed into `computeScores` at
+`src/pipeline/compute.ts` around line 2789. That integration area is reserved
+to another engineer by the task instruction; no edit was made there. The
+coordinator must resolve this handoff before treating the scoring requirement
+as complete. No outcome-selected band, arbitrary penalty or stored-score cap
+has been added to disguise it.
 
-Diluted EPS admission changes 91 annual/quarter rows across 5 companies (TSM, TM, SAP, SONY, BABA). These are corrections/qualifications, not FX conversions. SAP one-year annual diluted EPS growth changes from 135.471698% to 130.188679%; TSM FY2025 annual growth is unavailable until the missing same-period native filed observations are acquired. NVO FY2025 diluted EPS remains 23.03 DKK and ASML remains 24.71 EUR.
+Other positive moves were inspected at signal level. LLY (+0.43) and CRWV
+(+0.47) retain the accruals signal: original-filing cash qualification changes
+the existing denominator fallback from net operating assets to average assets,
+making ratios 0.301622 -> 0.158146 and 0.319097 -> 0.179997. They describe a
+measurement-basis change, not improved business quality. EXPE (+0.42), AIG
+(+0.12), O (+0.43) and the share-history changes retain their contributing
+signals with corrected operands. BABA is the identified residual disappearance
+defect; it is not counted as a successful outcome.
 
-| Securities firm, FY2025 | Revenue before -> after (USD B) | Capex / revenue before -> after |
-| --- | --- | --- |
-| GS | 125.097 -> 58.283 | 1.649920% -> 3.541341% |
-| MS | 114.983 -> 70.645 | 2.520373% -> 4.102201% |
+### Verification, scope and release stamps
 
-Ten same-period revenue rows change, all GS/MS. Neither firm changes fair value, targets or composite on this replay. Correct CAT capex with leased equipment and NVO capex with intangibles are untouched.
+Synthetic failing-first controls cover complete small adoption, incomplete
+small retention with both values, incomplete material refusal, incomplete sign
+refusal, AIG sign-reversal adoption with common profit, equity-method adoption,
+dependent-identity repair, direct EPS/share-unit proof, aliases, replay
+idempotence and stale EPS scoring. Existing ownership, rounding-size share,
+split-adjusted history, missing ADR ratio, no-FX native EPS, unresolved scaling
+and non-securities gross-revenue negative controls remain. No filing text was
+committed.
 
-Cash-definition admission changes 44 rows across 12 companies. The four audited latest annual balances are refused, with filed comparisons retained (USD M):
+Final checks used Node 24.11.1 from Program Files first on PATH, with
+`npm_execpath` set to its npm CLI:
 
-| Company | Vendor cash -> admitted cash | Same-filing unrestricted comparison |
-| --- | --- | --- |
-| CRWV | 3,946 -> withheld | 3,127 |
-| EXPE | 6,976 -> withheld | 5,413 |
-| FIGR | 1,266.778 -> withheld | 1,198.141 |
-| LLY | 7,163 -> withheld | 7,268 |
-
-All field-level before/after values, exact intervals, filing provenance and refusal/correction reasons are retained in `tmp/data/admission-deltas.json`. The sample review included the AIG sign reversal, AMZN equity-method bridge, O parent-versus-consolidated quarter, USB 6M parent-income disagreement, CAT/ORCL annual pretax differences, BAC and EXPE YTD share matches, and the four original-filing cash comparisons.
-
-TSM's displayed one-year EPS CAGR moves from 43.522530% ending FY2025 to
-35.981735% ending FY2024, carrying the explicit note that the latest period
-is missing and the endpoint moved to 2024-12-31. FY2025 growth is not verified.
-The observed FY2024 endpoint is 223.35 TWD per ADS, replacing vendor 230.80.
-
-A separate four-company counterfactual disabled only the new cash admission,
-keeping the other fixes identical. All four retained byte-identical fair-value
-and target objects. EXPE and FIGR composites also stayed identical. LLY's
-composite moved 61.05 -> 61.49 and CRWV's 50.44 -> 50.91: refusing cash makes
-the existing cash-flow-accrual calculation fall back from net operating assets
-to average total assets, reducing that ratio and increasing the mechanical
-quality score. This is an evidence/denominator change, not improved business
-quality. EXPE loses its unverified balance-sheet TATA diagnostic; FIGR loses
-an unverified annual net-debt observation. Detailed numeric differences and
-the 38.55-second passing probe are in `tmp/data/cash-only-impact.json` and
-`tmp/data/cash-only.log`. This is more reader impact than the original audit's
-EXPE-only correction experiment; it is reported rather than assumed absent.
-
-Final required verification (Node 24.11.1, Program Files Node first on PATH):
-
-- `npm ci --offline --no-audit --no-fund`: 489 packages installed offline.
-- `npm run typecheck`: exit 0. An initial closure-narrowing type error was
-  corrected before final verification.
-- ESLint over every changed TS/TSX file relative to `7ffa9fde`: exit 0.
+- `npm run typecheck`: exit 0.
+- ESLint on every changed TS/TSX file relative to `7ffa9fde`: exit 0.
 - `node node_modules/vitest/vitest.mjs run --config vitest.config.ts --changed origin/main --passWithNoTests --maxWorkers 4`:
-  515 files passed, 12,613 tests passed, one skipped, exit 0 (587.23 seconds).
-  No filenames narrowed the changed-test selection.
-- Separately, `tests/risk.coverage.test.ts`, `tests/repository.release.test.ts`
-  and `tests/docs.lint.test.ts`: 43 passed, exit 0. An interim release check
-  correctly rejected an unrecorded D-200 reference before this record existed.
-- Focused admission, foreign security and legacy unit-repair checks: 139
-  passed; the final three-file recheck after edge-case refinements passed 101.
-  Failing-first logs cover earnings, cash, shares, securities revenue,
-  calculation-view integration, split preservation, FX independence, missing
-  annual evidence, absent aliases and unresolved scaling.
-- Supplied frozen-panel replay: baseline and final passed; final 49 issuer
-  outputs plus the unchanged SPY refusal accounted for, exact comparison exit
-  0. Immutable admission census: 49 issuers passed, 223.10 seconds.
-- `git diff --check`: clean. Source diff self-reviewed for issuer/period/unit
-  scope, ownership and equity-method bridges, refusal aliases, original cash
-  filing selection, scaling, split history and immutable input preservation.
+  515 files passed, 12,622 tests passed, one skipped, 307.69 seconds. No filenames
+  narrowed the changed-test command.
+- Focused earnings, grading, bank-routing and share-admission checks: 159 passed.
+- Separate risk coverage, repository release and docs lint: 43 passed, exit 0.
+- Frozen panel replay: 49 issuer results plus identical SPY refusal; comparison
+  finds no lost valuation/target set and proves 27 identical core objects.
+- Immutable admission census: 49 issuers passed, 138.71 seconds. The independent
+  difference census passed separately. Source inputs remain byte-identical.
+- `git diff --check`: clean. Source diff self-reviewed for exact period/unit/
+  filing, ownership/equity-method scope, dependent identities, aliases, share
+  scaling, split history, current scoring endpoint and input immutability.
 
-No full `npm run verify` was run. No new source or docs file was introduced,
-so risk/release source manifests need no new entries. The required Stage B
-and payload stamps are left for coordinated integration; report schema,
-scenario formula and score bands retain their existing constants.
+No full `npm run verify` was run. No new source/docs file was introduced, so
+the risk/release manifests need no new entry. Scratch reproductions, red/green
+logs, complete before/after report objects and distribution are under ignored
+`tmp/revision/`, `tmp/data/` and `tmp/int/panel/`. Frozen SQLite was opened
+only with `readonly: true, fileMustExist: true`. There were no paid/provider/
+model calls, credential or owner .env reads, or owner app-data reads.
+
+Saved reports and stored snapshots stay immutable and retain their original
+display bytes. Release integration must increment the **Stage B implementation
+identity and payload version**; version constants were deliberately untouched.
+Report schema, scenario formula and score-band coefficients are unchanged.
+TSM FY2025 recovery still needs its newer annual IFRS facts at filing intake;
+that adjacent work is reported rather than edited in the reserved filing area.
+The BABA scoring handoff above is also explicitly outstanding.
