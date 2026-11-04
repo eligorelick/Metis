@@ -1421,7 +1421,8 @@ const FIRST_NOTE_RE = /^[\s\S]{0,300}?(?:\bNote\s+(?:1|A|One)\b|\b1\s*[.:–—-
  * its first note, to the end of the item. The statements before it are tables
  * the payload already carries as typed figures. `start` is the offset in the
  * item text; null when no substantive opening is found. The caller supplies
- * an already bounded item and must withhold unrecognized notes.
+ * an already bounded item. A null result leaves the caller to retain that
+ * proved financial item with its broader identity, or report a specific gap.
  */
 export function notesToFinancialStatements(itemText: string, source?: ParsedDocument, currentItem = 1): { text: string; start: number } | null {
   for (const match of itemText.matchAll(NOTES_HEADING_RE)) {
@@ -1433,8 +1434,82 @@ export function notesToFinancialStatements(itemText: string, source?: ParsedDocu
     if (first && new RegExp(NOTES_HEADING_RE.source, "i").test(after.slice(0, first.index))) continue;
     if (FIRST_NOTE_RE.test(after) && !notesContentsOpening(after) && !notesReferenceOpening(after)) return sourceNotesBoundary(boundFinancialNotes({ text: itemText.slice(match.index), start: match.index }), source, currentItem);
   }
-  const recognized = recognizeAnnualNotes(itemText);
+  const recognized = recognizeAnnualNotes(itemText) ?? recognizeSourceNotes(itemText, source);
   return recognized === null ? null : sourceNotesBoundary(boundFinancialNotes(recognized), source, currentItem);
+}
+
+/** Recovery only: original standalone blocks prove typography and first-note
+ * bodies that the legacy title grammar misses. Existing successful text wins. */
+function recognizeSourceNotes(itemText: string, source?: ParsedDocument): { text: string; start: number } | null {
+  if (!source) return null;
+  let structure = annualRecoveryStructures.get(source);
+  if (structure === undefined) {
+    structure = appendixStructure(source.pre, true);
+    annualRecoveryStructures.set(source, structure);
+  }
+  if (!structure) return null;
+  const blocks = structure.elements.filter(n => !n.hidden && !n.blockChild && /^(?:p|div|h[1-6]|td|th)$/.test(n.tag));
+  for (const node of blocks) {
+    if (source.pre.slice(node.start, node.end).length > 30_000) continue;
+    const caption = structure.text(node.start, node.end).trim();
+    if (caption.length > 220) continue;
+    let linked = /<a\b[^>]*href\s*=/i.test(source.pre.slice(node.start, node.end));
+    for (let p = node.parent; p && !linked; p = p.parent) linked = p.tag === "a" && p.attrs.has("href");
+    if (linked) continue;
+    const key = caption.replace(/[\s()]/g, "");
+    const title = /^Notesto(?:the)?(?:(?:Unaudited|Interim|Condensed|Consolidated))*Financial(?:Statements|Information)(?:Unaudited)?$/i.test(key);
+    const firstNote = /^NOTE\s+1\s*[-–—:.]\s+[A-Z]/i.test(caption) && !/\d\s*$/.test(caption);
+    if (!title && !firstNote) continue;
+    const after = structure.text(node.end, Math.min(source.pre.length, node.end + 50_000)).trim();
+    if (notesContentsOpening(after.slice(0, 400)) || notesReferenceOpening(after)) continue;
+    const first = /(?:^|\s)(?:Note\s+1\s*[-–—:.]|1\s*[.():–—-])\s*[A-Z]/i.exec(after.slice(0, 1_600));
+    const basis = blocks.some(n => n.start >= node.end && n.start < node.end + 50_000 &&
+      /^Basis of Presentation$/i.test(structure!.text(n.start, n.end)) && after.indexOf("Basis of Presentation") < 1_600);
+    if (title && !first && !basis) continue;
+    // A first-note contents row is followed by a page/another label, not prose.
+    if (firstNote && (/^(?:\d{1,4}\b|F\s*-\s*\d+\b|Note\s+2\b)/i.test(after) || after.length < 120)) continue;
+    const witnessed = `${caption} ${after.slice(0, 160)}`;
+    const start = itemText.indexOf(witnessed);
+    if (start < 0 || itemText.indexOf(witnessed, start + 1) !== -1 || detectStub(itemText.slice(start)).isStub) continue;
+    return { text: itemText.slice(start), start };
+  }
+  return null;
+}
+
+/** The caller has established Item 1/8 (or a closed foreign Item 18). Retain
+ * its broader financial identity when a notes-only opening cannot be proved. */
+export function financialStatementsAndNotes(itemText: string, source?: ParsedDocument, currentItem = 1): { text: string; start: number } | null {
+  let start = 0;
+  const itemHeader = new RegExp(`(?:^|\\bTable of Contents\\s+)Item\\s+${currentItem}\\b[\\s\\S]{0,80}Financial\\s+St\\s*atements\\b`, "i");
+  let provedOpening = itemHeader.test(itemText.slice(0, 250));
+  const report = EXTERNAL_FINANCIAL_REPORT_RE.exec(itemText);
+  // Annual Item 8 can put the audit opinion before the statements. A visible,
+  // standalone statement caption proves where the financial body resumes.
+  if (source && (report || !provedOpening)) {
+    let structure = annualRecoveryStructures.get(source);
+    if (structure === undefined) {
+      structure = appendixStructure(source.pre, true);
+      annualRecoveryStructures.set(source, structure);
+    }
+    if (structure) for (const n of structure.elements) {
+      if (n.hidden || n.blockChild || !/^(?:p|div|h[1-6]|td)$/.test(n.tag)) continue;
+      const caption = structure.text(n.start, n.end);
+      if (!/^(?:(?:Unaudited|Interim|Condensed|Consolidated)\s+)*(?:Balance Sheets?|Statements? of (?:Financial Position|Income|Operations|Earnings|Cash Flows))$/i.test(caption)) continue;
+      if (/<a\b[^>]*href\s*=/i.test(source.pre.slice(n.start, n.end))) continue;
+      let linked = false;
+      for (let p = n.parent; p; p = p.parent) if (p.tag === "a" && p.attrs.has("href")) linked = true;
+      if (linked) continue;
+      const following = structure.text(n.end, Math.min(source.pre.length, n.end + 50_000)).trim();
+      const witnessed = `${caption} ${following.slice(0, 160)}`, at = itemText.indexOf(witnessed);
+      if (at < 0 || itemText.indexOf(witnessed, at + 1) !== -1) continue;
+      if (at <= 250) provedOpening = true;
+      if (report && at > report.index) { start = at; provedOpening = true; }
+      break;
+    }
+  }
+  if (!provedOpening) return null;
+  const bounded = sourceNotesBoundary(boundFinancialNotes({ text: itemText.slice(start), start }), source, currentItem);
+  return detectStub(bounded.text).isStub ? null : bounded;
 }
 
 /** A source heading closes notes; the same words inside a note never do.
@@ -1529,11 +1604,12 @@ function notesContentsOpening(after: string): boolean {
  * after the notes begin. Item 15 carries all three after the last note.
  */
 const ANNUAL_NOTES_END_RE = /\bSchedule [IVX]+\s*[-–—:]?\s*(?:Consolidated\s+)?(?:Valuation and Qualifying Accounts|Supplementary Insurance Information|Reinsurance|Summary of Investments|Condensed Financial Information)\b|\bExhibit Index\b|\bItem 16\.?\s+Form 10-K Summary\b|\bSupplementary Information:\s+Distribution\b/gi;
+const EXTERNAL_FINANCIAL_REPORT_RE = /\bREPORT OF INDEPENDENT REGIST\s*ERED PUBLIC ACCOUNTING FIRM(?: on Financial Statement Schedules)?\s+To the (?:Stockholders|Shareholders|Shareowners|Board of Directors)\b[\s\S]{0,350}?(?:Opinions? on the (?:Consolidated )?Financial Statements|Results of Review of Interim Financial Information|We have (?:audited|reviewed)|Our audits of the consolidated financial statements)\b/i;
 
 /** All notes paths share the same external-report stop; a prose mention is insufficient. */
 function boundFinancialNotes(notes: { text: string; start: number }, textAppendices = true): { text: string; start: number } {
   const stops: number[] = [];
-  const auditor = /\bREPORT OF INDEPENDENT REGIST\s*ERED PUBLIC ACCOUNTING FIRM(?: on Financial Statement Schedules)?\s+To the (?:Stockholders|Shareholders|Shareowners|Board of Directors)\b[\s\S]{0,350}?(?:Opinions? on the (?:Consolidated )?Financial Statements|Results of Review of Interim Financial Information|We have (?:audited|reviewed)|Our audits of the consolidated financial statements)\b/i.exec(notes.text);
+  const auditor = EXTERNAL_FINANCIAL_REPORT_RE.exec(notes.text);
   if (auditor) stops.push(auditor.index);
   const signatures = /\bSIGNATURES\s+Pursuant to the requirements of the Securities Exchange Act\b/i.exec(notes.text);
   if (signatures) stops.push(signatures.index);
@@ -2268,13 +2344,32 @@ export function extractAnnualNotesFromIndex(html: string, source?: ParsedDocumen
 }
 
 export type ForeignAnnualNotesResult =
-  | { ok: true; text: string; method: "structured-item"; statementsText?: string }
+  | { ok: true; text: string; method: "structured-item"; statementsText?: string; financialTextScope?: "statements-and-notes" }
   | { ok: false; reason: string; exhibit?: { filename: string; reference: string } };
 
 /** Financial appendices require their own source and closing-boundary proof. */
 export function extractForeignAnnualNotes(html: string): ForeignAnnualNotesResult {
-  const missing = (reason: string): ForeignAnnualNotesResult => ({ ok: false, reason: `20-F notes: ${reason}` });
   const structure = appendixStructure(html, true);
+  const notes = extractProvedForeignNotes(html, structure);
+  if (notes.ok || !structure) return notes;
+  const blocks = structure.elements.filter(n => !n.hidden && (!n.blockChild || n.tag === "tr") && /^(?:p|div|h[1-6]|td|tr)$/.test(n.tag));
+  const unlinked = (n: AppendixElement) => {
+    if (/<a\b[^>]*href\s*=/i.test(html.slice(n.start, n.end))) return false;
+    for (let p = n.parent; p; p = p.parent) if (p.tag === "a" && p.attrs.has("href")) return false;
+    return true;
+  };
+  const innermost = (nodes: AppendixElement[]) => nodes.filter(n => !nodes.some(other => other !== n && other.start >= n.start && other.end <= n.end));
+  const heads = innermost(blocks.filter(n => /^Item\s+18\.?\s+Financial Statements$/i.test(structure.text(n.start, n.end)) && unlinked(n)));
+  const ends = innermost(blocks.filter(n => /^Item\s+19\.?\s+Exhibits$/i.test(structure.text(n.start, n.end)) && unlinked(n)));
+  if (heads.length === 1 && ends.length === 1 && heads[0]!.end < ends[0]!.start) {
+    const item = financialStatementsAndNotes(structure.text(heads[0]!.start, ends[0]!.start), parseDocument(html), 18);
+    if (item) return { ok: true, text: item.text, method: "structured-item", financialTextScope: "statements-and-notes" };
+  }
+  return notes;
+}
+
+function extractProvedForeignNotes(html: string, structure: ReturnType<typeof appendixStructure>): ForeignAnnualNotesResult {
+  const missing = (reason: string): ForeignAnnualNotesResult => ({ ok: false, reason: `20-F notes: ${reason}` });
   if (!structure) return missing("primary document markup is not closed; financial appendix boundaries cannot be proved");
   const { elements, text } = structure;
   const nt = (n: AppendixElement) => text(n.start, n.end).replace(/[\u200b\u00ad]/g, "").trim();
@@ -2289,7 +2384,7 @@ export function extractForeignAnnualNotes(html: string): ForeignAnnualNotesResul
     return match && /^[A-Z0-9 &.,’()\-]*$/.test(value.slice(0, match.index)) && !linked(n);
   });
   const openings = headings.filter(n => {
-    const next = text(n.end, Math.min(html.length, n.end + 50_000));
+    const next = text(n.end, Math.min(html.length, n.end + 50_000)).replace(/^\s*[A-Z][A-Za-z0-9 &.,’()\-]{0,150}\s+and Consolidated Subsidiaries\s+/i, "");
     return !notesContentsOpening(next.slice(0,400)) &&
       /^(?:\s*(?:FOR THE YEARS ENDED\b.{0,100}?)?)\s*(?:\(?IN\.1\)?\s+Basis for Preparation|(?:Note\s+)?1\s*[.():–—-]?\s+[A-Z])/i.test(next);
   });

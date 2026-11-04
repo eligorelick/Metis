@@ -1,10 +1,62 @@
 import { describe, expect, it } from "vitest";
-import { annualNotesToFinancialStatements, extractForeignAnnualNotes, extractSection, notesToFinancialStatements, parseDocument } from "@/edgar/extract";
+import { annualNotesToFinancialStatements, extractForeignAnnualNotes, extractSection, financialStatementsAndNotes, notesToFinancialStatements, parseDocument } from "@/edgar/extract";
 
 const prose = "The company consolidates subsidiaries and eliminates intercompany balances. ".repeat(45);
 const opening = "Notes to Consolidated Financial Statements Note 1 - Basis of presentation ";
 
 describe("substantive notes boundaries", () => {
+  it("does not relabel a later-note fragment as the complete financial item", () => {
+    const source = parseDocument(`<html><body><h2>Note 21: Employee Benefits</h2><p>${prose}</p><h2>Note 22: Debt</h2><p>${prose}</p></body></html>`);
+    expect(financialStatementsAndNotes(source.fullText, source, 8)).toBeNull();
+  });
+  it.each([
+    "Notes to Consolidated Condensed Financial Statements",
+    "Notes to the Interim Condensed Consolidated Financial Statements (Unaudited)",
+    "NOTES TO CONDENSED CONSOLID ATED FINANCIAL STATEMENTS",
+  ])("recognizes the standalone %s title in original markup", title => {
+    const body = `${title} Note 1: Basis of Presentation ${prose}`;
+    const source = parseDocument(`<html><body><p>STATEMENTS BEFORE NOTES</p><h2>${title}</h2><h3>Note 1: Basis of Presentation</h3><p>${prose}</p></body></html>`);
+    expect(notesToFinancialStatements(source.fullText, source)?.text).toBe(body.trimEnd());
+  });
+
+  it("starts at the real first-note body after a complete notes contents list", () => {
+    const contents = "Note 1 Summary of Significant Accounting Policies 61 Note 2 Property and Equipment 67 Note 3 Debt 70";
+    const body = `NOTE 1 — SUMMARY OF SIGNIFICANT ACCOUNTING POLICIES DESCRIPTION OF BUSINESS ${prose}`;
+    const source = parseDocument(`<html><body><h2>NOTES TO THE UNAUDITED CONDENSED CONSOLIDATED FINANCIAL STATEMENTS</h2><table><tr><td>${contents}</td></tr></table><h2>NOTE 1 — SUMMARY OF SIGNIFICANT ACCOUNTING POLICIES</h2><h3>DESCRIPTION OF BUSINESS</h3><p>${prose}</p></body></html>`);
+    expect(annualNotesToFinancialStatements(source.fullText, source)?.text).toBe(body.trimEnd());
+  });
+
+  it("rejects a real contents list with no substantive first-note body after it", () => {
+    const source = parseDocument(`<html><body><h2>NOTES TO THE UNAUDITED CONDENSED CONSOLIDATED FINANCIAL STATEMENTS</h2><table><tr><td>Note 1 Summary of Significant Accounting Policies 61</td></tr><tr><td>Note 2 Property and Equipment 67</td></tr></table><p>${prose}</p></body></html>`);
+    expect(annualNotesToFinancialStatements(source.fullText, source)).toBeNull();
+  });
+
+  it.each([true, false])("retains a proved notes title and introductory prose before its first subsection (%s)", numbered => {
+    const intro = "The accompanying condensed consolidated financial statements are unaudited and include all normal recurring adjustments. ".repeat(5);
+    const first = numbered ? "1. Revenue from Contracts with Customers" : "Basis of Presentation";
+    const title = "NOTES TO CONDENSED CONSOLIDATED FINANCIAL STATEMENTS (UNAUDITED)";
+    const source = parseDocument(`<html><body><h2>${title}</h2><p>${intro}</p><h3>${first}</h3><p>${prose}</p></body></html>`);
+    expect(notesToFinancialStatements(source.fullText, source)?.text).toBe(`${title} ${intro}${first} ${prose}`.trimEnd());
+  });
+
+  it("allows an issuer banner after a foreign notes title without accepting the index", () => {
+    const html = `<html><body><h2>Item 18 Financial Statements</h2><h2>Notes to Consolidated Financial Statements</h2><p>Example Corporation and Consolidated Subsidiaries</p><h3>1. Reporting entity</h3><p>${prose}</p><h2>Item 19 Exhibits</h2></body></html>`;
+    const result = extractForeignAnnualNotes(html);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.text).toContain("1. Reporting entity");
+  });
+
+  it("treats nested table markup as one proved foreign financial-item boundary", () => {
+    const html = `<html><body><table><tr><td><h2>Item 18 Financial Statements</h2></td></tr></table><p>${prose}</p><table><tr><td><h2>Item 19 Exhibits</h2></td></tr></table><p>OUTSIDE_ITEM</p></body></html>`;
+    const result = extractForeignAnnualNotes(html);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.financialTextScope).toBe("statements-and-notes");
+      expect(result.text).toContain(prose.trim());
+      expect(result.text).not.toContain("OUTSIDE_ITEM");
+    }
+  });
+
   it.each([annualNotesToFinancialStatements, notesToFinancialStatements])("stops every recognition path at an external auditor or reviewer report", extract => {
     const body = opening + prose;
     for (const conclusion of ["Opinion on the Financial Statements", "Results of Review of Interim Financial Information"]) {

@@ -174,10 +174,13 @@ describe("normal annual filing acquisition retains debt presentation evidence", 
     expect(section.text).toBe(notes);
   });
 
-  it("keeps the disclosed annual-notes gap when neither item contains a notes heading", async () => {
+  it("retains a proved annual financial item with combined scope when the notes heading is unproved", async () => {
     const { bundle } = await acquireAnnual("8", { omitNotes: true });
-    expect(bundle.edgar.tenKNotes?.ok).toBe(false);
-    if (bundle.edgar.tenKNotes?.ok === false) expect(bundle.edgar.tenKNotes.gap.reason).toMatch(/no notes.*Item 8|no notes.*Item 15/);
-    expect(debtPresentationSections(bundle.edgar)).toEqual([]);
+    expect(bundle.edgar.tenKNotes?.ok).toBe(true);
+    if (bundle.edgar.tenKNotes?.ok) {
+      expect(bundle.edgar.tenKNotes.value.data.financialTextScope).toBe("statements-and-notes");
+      expect(bundle.edgar.tenKNotes.value.data.text).toContain(balance.replace(/\s+/g, " ").trim());
+    }
+    expect(debtPresentationSections(bundle.edgar)).toEqual([expect.objectContaining({ financialTextScope: "statements-and-notes" })]);
   });
 });

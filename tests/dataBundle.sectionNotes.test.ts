@@ -42,10 +42,33 @@ it.each([true, false])("follows only an explicit incorporated exhibit and retain
   else expect(bundle.edgar.tenKNotes?.gap.reason).toMatch(/annual-exhibit.htm.*(?:fetch|404)|(?:fetch|404).*annual-exhibit.htm/i);
 });
 
-it("withholds a quarterly whole-item fallback without a substantive notes opening", async () => {
-  const bundle = await acquire("10-Q", `<html><body><h2>Item 1. Financial Statements</h2><p>${prose}</p><h2>Item 2. Management's Discussion and Analysis</h2><p>${prose}</p><h2>Item 3. Quantitative and Qualitative Disclosures</h2></body></html>`);
+it.each(["10-Q", "10-K", "20-F"] as const)("retains a bounded %s financial item with accurate combined scope when the notes opening is unproved", async form => {
+  const item = form === "10-Q" ? "1. Financial Statements" : form === "10-K" ? "8. Financial Statements and Supplementary Data" : "18. Financial Statements";
+  const next = form === "10-Q" ? "2. Management's Discussion and Analysis" : form === "10-K" ? "9. Changes in and Disagreements with Accountants on Accounting and Financial Disclosure" : "19. Exhibits";
+  const bundle = await acquire(form, `<html><body><h2>Item ${item}</h2><p>${prose}</p><p>Report of Independent Registered Public Accounting Firm To the Board of Directors and Shareholders We have reviewed AUDITOR_OUTSIDE</p><h2>Item ${next}</h2><p>FOLLOWING_ITEM ${prose}</p></body></html>`);
+  const section = form === "10-Q" ? bundle.edgar.tenQNotes : bundle.edgar.tenKNotes;
+  expect(section?.ok).toBe(true);
+  if (section?.ok) {
+    expect(section.value.data).toMatchObject({ financialTextScope: "statements-and-notes" });
+    expect(section.value.data.text).toContain(prose.trim());
+    expect(section.value.data.text).not.toMatch(/AUDITOR_OUTSIDE|FOLLOWING_ITEM/);
+  }
+});
+
+it("keeps a gap when neither a substantive notes opening nor an enclosing financial item is established", async () => {
+  const bundle = await acquire("10-Q", `<html><body><h2>Item 1. Financial Statements</h2><p>See the Annual Report.</p></body></html>`);
   expect(bundle.edgar.tenQNotes?.ok).toBe(false);
-  if (bundle.edgar.tenQNotes && !bundle.edgar.tenQNotes.ok) expect(bundle.edgar.tenQNotes.gap.reason).toMatch(/substantive notes.*opening/i);
+  if (bundle.edgar.tenQNotes && !bundle.edgar.tenQNotes.ok) expect(bundle.edgar.tenQNotes.gap.reason).toMatch(/boundar|stub|reference/i);
+});
+
+it("retains the financial body after a leading annual auditor report without carrying that report", async () => {
+  const bundle = await acquire("10-K", `<html><body><h2>Item 8. Financial Statements and Supplementary Data</h2><h2>Report of Independent Registered Public Accounting Firm</h2><p>To the Board of Directors and Shareholders We have audited AUDITOR_BEFORE</p><h2>Consolidated Balance Sheets</h2><p>${prose}</p><h2>Item 9. Changes in and Disagreements with Accountants on Accounting and Financial Disclosure</h2><p>FOLLOWING_ITEM</p></body></html>`);
+  expect(bundle.edgar.tenKNotes?.ok).toBe(true);
+  if (bundle.edgar.tenKNotes?.ok) {
+    expect(bundle.edgar.tenKNotes.value.data).toMatchObject({ financialTextScope: "statements-and-notes" });
+    expect(bundle.edgar.tenKNotes.value.data.text).toMatch(/^Consolidated Balance Sheets/);
+    expect(bundle.edgar.tenKNotes.value.data.text).not.toMatch(/AUDITOR_BEFORE|FOLLOWING_ITEM/);
+  }
 });
 
 it.each(["10-K", "10-Q"] as const)("uses original source blocks to keep a glossary out of %s notes", async form => {
