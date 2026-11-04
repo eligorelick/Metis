@@ -2797,6 +2797,66 @@ and each one is named in a `verify.check.returnPath` warning in the
 missing-data manifest. A sentence that has returns rise to a level above or
 exceeding the cost of equity is not flagged. The sentence itself is not rewritten.
 
+#### Bull, base and bear excess-return targets (D-193)
+
+Financial scenarios use `excess-return-history`, with the same residual-income
+engine as fair value. **Base equals the existing rounded fair value.** Before
+publishing a range, the retained return/payout paths, opening book, diluted
+divisor and valuation-date roll must reproduce the existing base equity and
+per-share values. No WACC or FCFF enters this calculation. Banks stress ROTE;
+insurers and mortgage REITs stress common-equity ROE, matching the common-book
+basis of their existing model. An insurer's returns are not silently applied
+to tangible book merely to make it resemble a bank.
+
+Use the latest five annual returns, or four if only four exist. Dates must be
+unique, valid and 330-400 days apart; every observation and the current return
+must be positive and finite. Missing, loss and acquisition years are never
+dropped to improve the sample. The **house starting-return bounds** are the
+25th and 75th percentiles, interpolated at rank `(n-1)*p`: bear starts at the
+lesser of current return and Q25; bull at the greater of current return and
+Q75. These are observed-return bounds, not forecast quantiles. An unusual
+current return stays within the fan without a price-fitted adjustment.
+
+The **house persistence stresses** change the speed of convergence over the
+same explicit horizon N to the same terminal return T. At interval fraction
+`u=t/(N-1)`, the remaining deviation from T is `(1-u)^0.5` for the slow fade
+and `(1-u)^2` for the fast fade. Bull fades a positive deviation slowly and a
+negative deviation quickly; bear reverses these choices. Half the starting
+deviation disappears at 75% or 29.29% of the explicit interval, versus 50%
+for the existing linear base. Thus bull remains pointwise above base and
+bear below even on a recovery path. The exponents are disclosed assumption
+stresses, not estimates of franchise duration or calibrated probabilities.
+
+Opening book, diluted shares, cost of equity, complete payout path, terminal
+return and continuing-growth/carry rules stay fixed. Payout is not stressed:
+historical returns do not establish a changed regulatory distribution
+capacity. Continuing value changes through the closing book the return path
+generates, not a new terminal premium. The existing gross-of-distributions
+valuation-date roll applies identically to all three paths.
+
+Refuse with a specific reason for fewer than four returns, nonconsecutive or
+duplicate dates, unavailable returns, loss/zero years, a refused opening
+book, missing/non-positive CoE, absent payout or per-share bridge, invalid
+retained assumptions, failure to reproduce base, a non-positive/non-finite
+scenario or failure to bracket base. If every path stays at/below CoE there
+is no evidenced excess-return fan. Convertible claims are withheld until
+each scenario can establish its own conversion choice. Existing fair values
+remain unchanged even when the stricter new scenario evidence gate refuses.
+Opening-book operands and recent annual book operands must be explicit,
+unconflicted and in the model currency; undisclosed goodwill, intangibles
+and preferred claims do not become zero. A missing tangible adjustment on an
+insurer does not invalidate its common-book model, but does withhold P/TBV.
+
+The existing scenarioTargets shape carries the method, targets, full return
+and payout paths, history and percentile bounds, fixed-input disclosures,
+value/book dates and target P/TBV on the admitted diluted divisor. DCF
+dispersion is null and unused revenue/margin deltas are zero. An unavailable
+tangible book explicitly withholds P/TBV; ordinary book is never relabelled
+tangible. Live, Markdown and print show these computed model outputs on
+stated assumptions with an "explicit excess-return horizon" label, no target
+weights and no twelve-month forecast implication. DCF construction and
+stored reports are unchanged.
+
 #### P/TBV against ROTE
 
 The multiple a financial is actually read on is price to **tangible** book, and
@@ -3755,10 +3815,11 @@ per-share card in this implementation. The published card floors a negative
 model value at zero and discloses the raw result; raw valuation arithmetic
 can remain negative. Upside uses the published rounded per-share divided by
 the comparable positive current price, minus one. Unknown/unmatched price
-currency prevents upside. Scenario targets are present-value DCF
-sensitivities, not twelve-month analyst forecasts. The horizon label beside
+currency prevents upside. Scenario targets are present-value DCF or
+excess-return business sensitivities, not twelve-month analyst forecasts. The horizon label beside
 each target is set in code (`SCENARIO_TARGET_HORIZON` in `passes.ts`):
-"explicit DCF horizon" when that scenario's computed per-share target is
+"explicit DCF horizon" (general route) or "explicit excess-return horizon"
+(financial route) when that scenario's computed per-share target is
 non-null and "n/a" otherwise (including a null target inside an available
 block), on AI and data-only reports alike; the judge does not set it.
 `verified: true` on these
@@ -4704,7 +4765,7 @@ deterministic numeric scores and A–F bands when applicable evidence supports
 them; AI reports additionally carry model-authored qualitative grades. Data-only
 reports do not invent narrative assessments, and unsupported aspects can remain
 unscored. Bull, base and bear scenario price targets are deterministic model
-outputs only when the DCF and dispersion evidence support them; otherwise the
+outputs only when DCF/dispersion or financial return/persistence evidence supports them; otherwise the
 target block is suppressed with reasons. Neither kind of grade is a
 recommendation. The report contains no
 buy, sell or hold recommendation, no allocation directive, and no price target

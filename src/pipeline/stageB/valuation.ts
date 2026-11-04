@@ -5219,6 +5219,12 @@ export function multiplesFramework(
 // ---------------------------------------------------------------------------
 
 export interface ExcessReturnInputs {
+  /** Scenario-only admission; leaves the existing forward fair value untouched. */
+  scenarioBookEvidence?: {
+    openingBookRefusal: string | null;
+    tangibleBookRefusal: string | null;
+    historyRefusal: string | null;
+  };
   valuationDate?: string | null;
   convertibles?: ConvertibleInstrument[];
   totalDebt?: number | null;
@@ -5380,6 +5386,15 @@ export const EXCESS_RETURN_GRID_START_STEP_PP = 5;
 export const EXCESS_RETURN_GRID_COE_STEP_PP = 1;
 
 export interface ExcessReturnResult {
+  /** D-193: own-record evidence retained for deterministic financial scenarios. */
+  scenarioEvidence?: {
+    bookEvidence?: ExcessReturnInputs["scenarioBookEvidence"];
+    bookValueBasis: ExcessReturnInputs["bookValueBasis"] | null;
+    returnHistory: DcfRoicYear[];
+    dilutedShares: number | null;
+    tangibleBookPerShare: number | null;
+    tangibleBookAsOf: string | null;
+  };
   valuationDate?: { value: string; elapsedYears: number; basis: string };
   convertibles?: ConvertibleReading[];
   equityValue: number | null;
@@ -5436,7 +5451,7 @@ export function steadyStatePayoutPct(terminalRoePct: number, gPct: number): numb
  * CV_N = (ROE_T − CoE) · BV_N / (CoE − g), discounted N years. The payout is
  * given per year (it fades to the steady state).
  */
-function excessReturnValue(
+export function excessReturnValue(
   bv0: number,
   roePathPct: number[],
   coePct: number,
@@ -6077,6 +6092,16 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   return {
     equityValue: equityValue * (roll?.factor ?? 1),
     perShare: perShare === null ? null : perShare * (roll?.factor ?? 1),
+    scenarioEvidence: {
+      ...(inputs.scenarioBookEvidence ? { bookEvidence: inputs.scenarioBookEvidence } : {}),
+      bookValueBasis: inputs.bookValueBasis ?? null,
+      returnHistory: inputs.roeHistory?.map(row => ({ ...row })) ?? [],
+      dilutedShares: shares,
+      tangibleBookPerShare: shares === null || inputs.scenarioBookEvidence?.tangibleBookRefusal ? null : inputs.bookValueBasis === "tangible-common-equity"
+        ? bv0 / shares : isNum(inputs.tangibleCommonEquity) && inputs.tangibleCommonEquity > 0
+          ? inputs.tangibleCommonEquity / shares : null,
+      tangibleBookAsOf: inputs.bookValueBasis === "tangible-common-equity" ? inputs.asOf ?? null : inputs.tangibleCommonEquityAsOf ?? null,
+    },
     ...(valuationDate ? { valuationDate } : {}),
     ...(readings ? { convertibles: readings } : {}),
     impliedPToBv,

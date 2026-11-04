@@ -18,6 +18,20 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Scenario targets for banks and insurers (2026-11-04)
+
+- Financial routes can show bull, base and bear excess-return targets. Base
+  stays equal to fair value; company return history sets starting-return
+  bounds and disclosed house rules stress persistence. CoE, payout and
+  terminal assumptions remain fixed. Thin/loss histories and unavailable
+  inputs refuse with specific reasons.
+- Live, Markdown and print show model assumptions, the excess-return horizon
+  and implied P/TBV where tangible book is established. Insurers retain their
+  common-book model; missing tangible evidence withholds the multiple.
+- DCF results and stored reports stay unchanged. Integration must advance
+  Stage B, scenario-target/presentation, payload and Stage C pipeline stamps; this branch
+  changes no version constants. See D-193 and the methodology.
+
 ## Unreleased - Officer tenure from filings (2026-11-04)
 
 - CEO/CFO cards show filing-sourced office starts with the original date

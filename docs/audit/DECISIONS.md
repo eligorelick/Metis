@@ -5922,8 +5922,77 @@ would layer a second unsupported franchise assumption onto the existing
 terminal-evidence convention. The chosen finite-path stresses make the
 business sensitivity visible while preserving that existing judgment.
 
-**Stamps required, not applied.** Advance Stage B and scenario-target method
-stamps, payload (new registered computed scenario numbers) and Stage C
+**Stamps required, not applied.** Advance Stage B, scenario-target and
+scenario-presentation method stamps, payload (new registered computed scenario numbers) and Stage C
 pipeline (horizon/assumption presentation). No fair-value formula, report
 schema, score-band or historical-report rewrite is required. This branch
 intentionally changes no version constants.
+
+**Implementation evidence.** The scenario-only book gate additionally checks
+explicit, unconflicted operands in the model currency at the selected opening
+book and the annual closing/opening books used by the sampled returns. It
+preserves the pre-existing fair value even where that stricter gate refuses.
+An undisclosed insurer intangible withholds P/TBV while its evidenced common
+book can still support common-equity scenarios. The existing return helper's
+average-book convention (closing book alone when no prior annual balance
+exists) is retained; it is not replaced with a fabricated opening balance.
+
+Offline frozen-input results (USD; target P/TBV uses the model's admitted
+diluted divisor and 2026-09-30 tangible book):
+
+| Saved bank observation | Price | Fair value | Bull | Base | Bear | Bull/base/bear P/TBV | Refusal |
+| --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
+| JPM qpaid, 2026-11-03 | 337.98 | 231.55 | 258.35 | 231.55 | 221.63 | 2.4197x / 2.1687x / 2.0758x | None |
+| JPM final84, 2026-11-02 | 340.58 | 231.78 | 258.62 | 231.78 | 221.83 | 2.4223x / 2.1709x / 2.0777x | None |
+
+The qpaid fair-value block is byte-identical to its pre-change replay; the
+final84 base agrees with D-189's existing USD 231.78. Both formerly had empty
+targets with the generic non-DCF suppression. Every one of the 33 census2
+non-financial Stage B outputs is JSON-byte-identical before/after; validation
+and input bundles are identical too. Per-company SHA-256 proofs and all replay
+artifacts remain under `tmp/excess-return-scenarios/`.
+
+**Analyst sanity check, not calibration.** Both saved observations have the
+same USD 373.36 consensus (low 312, high 425). The newer bull is still 23.56%
+below price and below even that consensus low. This is a large disagreement,
+not an attractive-looking target range. Investigation finds a 20.6961% current
+ROTE, 20.6961%/22.9195% history quartiles, 9.4595% CoE, 14.4595% terminal ROTE
+and a fixed 60.3950%-82.7103% payout fade. Even bull must converge to that
+terminal return. The existing reverse solve needs 36.5051% starting ROTE to
+match price under the base dynamics, versus a 23.3413% maximum in the five-year
+record. This is franchise-persistence/return disagreement; it is not a reason
+to fit a wider fan to the quote or consensus. No assumption was tuned.
+
+Retrospective fiscal-end market-cap/TCE observations from the same frozen
+record are 2.3268x (2021), 1.9470x (2022), 2.0998x (2023), 2.5979x (2024) and
+3.1490x (2025), using the last trading date at/before each year end. The new
+2.0758x-2.4197x target band sits inside that historical range, below its recent
+upper end. These are accounting-date cross-checks, not a trading backtest.
+Today's quote divided by the model's diluted TBV/share is 3.1656x; the separate
+market-cap/TCE card is 3.1363x because market cap and the model's diluted count
+use different share measures. Target multiples consistently use the latter
+model divisor. No real insurer or second bank is claimed as validated: only
+JPM exists in the supplied frozen snapshots; synthetic insurer/bank fixtures
+exercise both bases and refusals. Stored qpaid reports are read-only, still
+parse and render on all three surfaces, and their saved JSON stays unchanged.
+
+**Validation.** Seventeen initial regressions failed before implementation,
+including thin history, loss years, a refused opening book, missing CoE and
+returns at/below CoE. Later regressions failed before fixes for an absent
+retained payout path, missing bank/insurer tangible operands and an unsupported
+opening annual book in the oldest sampled return. All 24 focused tests pass,
+including base/fair-value equality, recovery paths, four-year interpolation,
+conversion refusal, price/WACC independence and all three report surfaces.
+Node 24 typecheck and changed-file ESLint pass. The required unfiltered
+`--changed origin/main --passWithNoTests` selection first passed 11,154 tests
+and hit one Windows EPERM cleanup error in the corrected-CLI import subprocess
+at its 10-second boundary. Its seven tests passed in isolation; the complete
+same changed selection with `--maxWorkers 2` then passed all 467 files and
+11,155 tests. No product or test was weakened for that host failure. Separate
+`tests/risk.coverage.test.ts` (11 tests) and `tests/repository.release.test.ts`
+(18 tests) pass. The release inventory initially caught the new test before
+it was staged; staging it resolved that inventory mismatch. No new source or
+documentation file requires an inventory entry. The full `npm run verify`
+was not run. No external network/provider/model/paid call or credential read
+was made; frozen-source database opens used the supplied paths with
+readonly/fileMustExist (the prescribed tests create their own temporary DBs).
