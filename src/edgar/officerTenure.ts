@@ -135,7 +135,11 @@ export function extractOfficerTenures(text: string, roster: readonly { name: str
           if (/^[\s,]*(?:until|through)\b/i.test(after)) continue;
           const employer = /^[\s,]*(?:at|with|of|for)\s+([^.,;]+)/i.exec(after)?.[1];
           if (employer && issuerScopedRole(`x of ${employer}`, filing.issuer) !== "x") continue;
-          const effective = new RegExp(`^[^.;]*?\\b(?:effective(?: as of)?|with effect from)\\s+(${DATE})`, "i").exec(after)?.[1];
+          // Only an effective date attached to this date moves the start. One elsewhere keeps the
+          // start when it plainly belongs to another office, and otherwise leaves the date unproved.
+          const effective = new RegExp(`^[\\s,]*(?:(?:to be|to become|and became|which became|becoming)\\s+)?(?:effective(?: as of)?|with effect from)\\s+(${DATE})`, "i").exec(after)?.[1];
+          if (!effective && new RegExp(`\\b(?:effective(?: as of)?|with effect from)\\s+${DATE}`, "i").test(after) &&
+            !/\b(?:chair\w*|president|director|member|treasurer|secretary)\b/i.test(after)) continue;
           const wording = effective ?? match[3]!;
           const datePrefix = match[0].slice(0, match[0].lastIndexOf(match[3]!));
           if (/\b(?:in|on)\s+$/i.test(datePrefix) && !/\b(?:became|was appointed|was promoted|succeeded)\b/i.test(prefix)) continue;

@@ -40,6 +40,15 @@ describe("filing officer tenure, bound to a current roster person and office", (
       .toMatchObject({ start: "2024-05-01", wording: "May 1, 2024" });
   });
 
+  it("does not move the start for an effective date that belongs to another office", () => {
+    expect(read("Information About Our Executive Officers Alex Smith has served as CEO since 2014, and his appointment as Chairman became effective May 1, 2024.")[0])
+      .toMatchObject({ start: "2014-12-31", wording: "2014" });
+  });
+
+  it("withholds the date when an effective date elsewhere could be this office's", () => {
+    expect(read("Information About Our Executive Officers Alex Smith was appointed CEO of the Company on April 24, 2024, and the appointment became effective May 1, 2024.")).toEqual([]);
+  });
+
   it("keeps the issuer's own name after the date", () => {
     expect(read("Information About Our Executive Officers Alex Smith has served as Chief Executive Officer since 2014 at Example Holdings.")[0]).toMatchObject({ start: "2014-12-31" });
   });
