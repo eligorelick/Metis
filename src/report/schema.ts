@@ -164,7 +164,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // leadership section, and the fresh-filing caution in the key data. Stored reports keep their bytes.
 // 1.61.0 (D-190): the meaning of an executive execution grade widens to an exactly quoted dated decision during an evidenced tenure, and cards show dated office context. Stored reports keep their bytes.
 // 1.62.0 (D-192): an executive card may carry pipeline-owned filing evidence of office tenure. Stored reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.62.0" as const;
+// 1.63.0 (D-193): banks and insurers can carry scenario targets from the excess-return route. Stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.63.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

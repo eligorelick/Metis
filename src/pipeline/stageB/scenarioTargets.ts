@@ -55,7 +55,7 @@ export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
 // D-135 (audit 2026-10-27 B4a): the bridge each target re-runs changed (redeemable equity and debt-like obligations counted once, after tax), so every target is recomputed.
 // FIN-401 / FIN-401-V1: every target re-runs the corrected stake/operating-income bridge.
 // D-178 / D-179: every target re-runs the FX-converted, completed-debt bridge.
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_LATEST_BOOK_46" as const;
+export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_EXCESS_RETURN_SCENARIOS_47" as const;
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;
@@ -170,7 +170,7 @@ function financialScenarioTargets(inputs: ScenarioTargetsInputs, valuation: Extr
       growthDeltaPp: 0, marginDeltaPp: 0 };
     }),
     basis: [
-      "Computed-derived excess-return model outputs on stated assumptions, not analyst targets, calibrated probabilities or future-price forecasts. Base equals the existing fair value; revenue-growth/margin deltas and DCF dispersion do not apply.",
+      "Computed-derived excess-return model outputs on stated assumptions, not analyst targets, calibrated probabilities or future-price forecasts. The bear case is not a floor on the downside. Base equals the existing fair value; revenue-growth/margin deltas and DCF dispersion do not apply.",
       `Own ${label} record (%): ${rows.map(row => `${row.date}: ${display(row.roicPct as number)}`).join("; ")}. Latest ${rows.length} consecutive annual observations, including acquisition years; no missing or loss years removed. House bounds: interpolated 25th percentile ${display(low)}%, 75th percentile ${display(high)}%; bear start=min(current,Q25), bull start=max(current,Q75).`,
       `House persistence rule: remaining starting deviation from terminal return is (1-u)^0.5 for the slow fade and (1-u)^2 for the fast fade, u=t/(N-1). Bull fades positive deviations slowly and negative deviations quickly; bear reverses this; base keeps its existing path. Half-fade at 75%, 29.29% and 50% of the explicit interval respectively; these are assumption stresses, not estimated persistence.`,
       `Fixed base inputs: cost of equity ${display(coe)}% fixed; opening ${evidence.bookValueBasis} ${display(book)} at ${er.asOf}; diluted shares ${display(evidence.dilutedShares)}; ${n}-year explicit horizon; terminal ${label} ${display(terminal)}%; continuing growth ${a.terminalGrowthPct === null ? "not carried" : `${display(a.terminalGrowthPct)}%`}. Terminal excess and continuing-value rule remain fixed; continuing value changes only through modeled closing book.`,
