@@ -161,6 +161,7 @@ import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanati
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
+import { executiveOfficeContext } from "@/report/executiveDecisions";
 import {
   REPORT_SECTION_MANIFEST,
   reportSection,
@@ -708,7 +709,8 @@ function sectionTechnicals(report: Report): string {
 
 function sectionLeadership(l: Leadership, report: Report): string {
   // D-67: one card per assessed officer; the not-assessed officers share one line.
-  const groups = executiveGroups(l.executives);
+  const contexts = new Map(l.executives.map(e => [e, executiveOfficeContext(e, l, report.appendix.verificationLog, report.outlook.guidanceCredibility)]));
+  const groups = executiveGroups(l.executives, l.executives.filter(e => contexts.get(e) !== undefined));
   const execs = groups.assessed
     .map((e) => {
       const evidence = EXECUTIVE_EVIDENCE_GROUPS.map((descriptor) => {
@@ -716,8 +718,10 @@ function sectionLeadership(l: Leadership, report: Report): string {
         if (!claims || claims.length === 0) return "";
         return `<h4>${esc(descriptor.label)}</h4>${claimList(claims)}`;
       }).join("");
+      const context = contexts.get(e), reason = context?.note ?? executiveAssessmentNote(e);
+      const decisions = context ? `<h4>Office decision context</h4>${context.actions.map(a => `<p><strong>${esc(a.occurredOn!)} &middot; ${esc(MANAGEMENT_ACTOR_LABELS[a.actor])}</strong></p><p>${esc(a.verificationNote)}</p>${claimList(a.action)}${claimList(a.assessment)}`).join("")}${context.guidance.length ? `<h4>Company guidance context</h4>${claimList(context.guidance)}` : ""}` : "";
       return `<div class="exec"><h4>${esc(e.name)} &mdash; ${esc(e.title)}</h4>
-        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span>${e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`}</p>${executiveAssessmentNote(e) ? `<p>${prose(executiveAssessmentNote(e)!)}</p>` : ""}${claimList(e.reasoning)}${evidence}</div>`;
+        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span>${e.tenureYears === null ? "" : ` &middot; tenure ${e.tenureYears.toFixed(1)}y`}</p>${reason ? `<p>${prose(reason)}</p>` : ""}${claimList(e.reasoning)}${evidence}${decisions}</div>`;
     })
     .join("");
   const others = groups.notAssessed.length > 0

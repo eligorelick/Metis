@@ -3865,7 +3865,10 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
 
   const executiveRoot = verifiedReport as {leadership?: Report["leadership"]};
   if (executiveRoot.leadership && Array.isArray(executiveRoot.leadership.executives)) {
-    executiveRoot.leadership = assessExecutiveEvidence(executiveRoot.leadership,log);
+    executiveRoot.leadership = assessExecutiveEvidence(executiveRoot.leadership, log, false, {
+      notes: payload.leadership?.notes, filings: payload.filings,
+      asOf: reportRoot.meta?.generatedAt ?? payload.quote?.figures?.find(f => f.asOf)?.asOf,
+    });
   }
   const result = {
     verifiedReport,
@@ -4523,6 +4526,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
   // rendered destination here as well; provisional assembly retains the raw
   // reference until verification attaches its trusted payload-backed summary.
   let assembled = candidate;
+  let executivePayload: ContextPayload | undefined;
   if (!args.provisionalVerification) {
     const quarterly = args.bundle.statements?.incomeQuarterly;
     // Legacy adapters can supply statement rows with only { gaps: [] } for
@@ -4538,13 +4542,17 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     const guarded = guardEarningsReferences(candidate, candidate.sourceFactSummary?.earningsReconciliation.status === "available");
     const scheduleNote = nextEarningsNote(args.bundle);
     const schedulePayload = payloadContextReady ? assembleContextPayload(args.bundle, args.computed, { checks: [], flags: [], gaps: args.validationGaps ?? [] }) : undefined;
+    executivePayload = schedulePayload;
     const scheduleGuard = guardEarningsSchedule(guarded.report, scheduleNote === null ? [] : [scheduleNote], schedulePayload?.citationRegistry,
       (schedulePayload?.filings ?? []).filter(entry => entry.sourceEvidence?.kind === "issuer-statement").map(entry => entry.source),
       schedulePayload ? { issuerName: schedulePayload.companyName, newsNotes: schedulePayload.news?.notes ?? [], passages: schedulePayload.filings ?? [] } : undefined);
     scheduleGuard.report.appendix.verificationLog = [...(candidate.appendix.verificationLog ?? []), ...guarded.log, ...scheduleGuard.log];
     assembled = scheduleGuard.report;
   }
-  const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(assembled, args.computed, args.bundle, {pendingVerification:args.provisionalVerification===true}));
+  const parsed = ReportSchema.safeParse(applyFinancialDiagnostics(assembled, args.computed, args.bundle, {
+    pendingVerification: args.provisionalVerification === true,
+    executiveEvidence: { notes: executivePayload?.leadership.notes, filings: executivePayload?.filings, asOf: assembled.meta.generatedAt },
+  }));
   if (!parsed.success) {
     throw new ReportValidationError(
       `assembled report failed ReportSchema validation`,
