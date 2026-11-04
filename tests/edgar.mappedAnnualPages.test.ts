@@ -42,10 +42,30 @@ describe("explicit integrated-report page excerpts", () => {
     ["a target on the wrong printed page", (h: string) => h.replace('href="#p50"', 'href="#p6"')],
     ["an external reference", (h: string) => h.replace('href="#p50"', 'href="another.htm#p50"')],
     ["a contents page", (h: string) => h.replace("<h2>Accounting policies</h2>", "<h2>Table of Contents</h2>")],
+    ["a contents heading inside a layout table", (h: string) => h.replace("<h2>Accounting policies</h2>", "<table><tr><td><h2>Table of Contents</h2></td></tr></table>")],
+    ["an unaccounted table inside the item mapping", (h: string) => h.replace(`</table><table>${columns}${mapping("Accounting policies", 50)}`,
+      `</table><table><tr><td>Reference note</td><td>See page 50</td></tr></table><table>${columns}${mapping("Accounting policies", 50)}`)],
+    ["a headerless continuation with a missing destination", (h: string) => h.replace('id="p50"', 'id="missing"').replace(`</table><table>${columns}${mapping("Accounting policies", 50)}`,
+      `</table><table>${mapping("Accounting policies", 50)}</table><table>${columns}`)],
     ["an unclosed item mapping", (h: string) => h.replace('<tr><td>6</td><td colspan="2">Directors, Senior Management and Employees</td><td></td></tr>', "")],
     ["an unmapped nonempty continuation row", (h: string) => h.replace(mapping("Accounting policies", 50), '<tr><td></td><td></td><td>See the annual report exhibit</td><td></td></tr>')],
   ] as const)("withholds the entire Item 5 for %s", (_label, change) => {
     expect(extractSection(change(integrated()), { form: "20-F", item: "5" }).ok).toBe(false);
+  });
+
+  it("reads a headerless continuation table and a page footer between index tables", () => {
+    const html = integrated().replace(`</table><table>${columns}${mapping("Accounting policies", 50)}`,
+      `</table><table><tr><td>Example Annual Report 2025</td><td>292</td></tr></table><table>${mapping("Accounting policies", 50)}</table><table>${columns}`);
+    const result = extractSection(html, { form: "20-F", item: "5" });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.text).toContain("POLICIES");
+  });
+
+  it("keeps a page whose only Contents text is a running back-link", () => {
+    const html = integrated().replace("<h2>Accounting policies</h2>", '<h2>Accounting policies</h2><div><a href="#p6">Contents</a></div>');
+    const result = extractSection(html, { form: "20-F", item: "5" });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.text).toContain("POLICIES");
   });
 
   it("reports the unresolved reference rather than a generic missing section", () => {

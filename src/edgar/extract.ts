@@ -1861,10 +1861,24 @@ function recoverAnnualSection(
     let active = false, closedItem = false, starts = 0;
     const mapped: { title: string; page: number; cell: AppendixElement; row: AppendixElement }[] = [];
     let problem: string | undefined;
-    for (const [, trs] of indexTables) {
+    // A table between two header-bearing tables may be a page footer or a
+    // headerless continuation. Anything else leaves the mapping unaccounted for.
+    const isPageFurniture = (row: AppendixElement) => {
+      const ts = cells(row).map(nodeText).filter(Boolean);
+      return ts.length === 0 || (ts.length >= 2 && ts.slice(0, -1).some(t => /\bAnnual Report\s+\d{4}$/i.test(t)) && /^\d{1,4}$/.test(ts.at(-1)!));
+    };
+    const headerTables = new Set(indexTables.map(([table]) => table));
+    const firstIndex = indexTables[0]?.[0], lastIndex = indexTables.at(-1)?.[0];
+    const spanned = firstIndex && lastIndex
+      ? [...tableRows].filter(([table]) => table.start >= firstIndex.start && table.start <= lastIndex.start).sort(([a], [b]) => a.start - b.start)
+      : [];
+    for (const [table, trs] of spanned) {
+      const continuation = !headerTables.has(table);
+      if (continuation && !active) continue;
       for (const row of trs) {
+        if (continuation && isPageFurniture(row)) continue;
         const cs = grid(row);
-        if (!cs) { if (active) problem = "malformed reference-table row"; continue; }
+        if (!cs) { if (active) problem = continuation ? "an unaccounted table interrupts the item mapping" : "malformed reference-table row"; continue; }
         const ts = cs.map(c => c.value);
         if (ts.every(t => t === "") || /^(?:item|item number)$/i.test(ts[0]!)) continue;
         if (/^\d{1,2}[A-Z]?$/i.test(ts[0]!)) {
@@ -1933,11 +1947,14 @@ function recoverAnnualSection(
           }
         }
         if (!page || page.box.end >= mapping.row.start || (boxNumbers.get(page.box)?.size ?? 0) > 1) return unresolved(`page ${mapping.page} has no unique preceding printed page`);
-        const pageHeads = headings.filter(h => h.start >= page.box.start && h.end <= page.box.end);
+        // Layout tables can hold a page's own heading. A linked "Contents" is a
+        // running back-link on every page of some reports, not this page's title.
+        const pageLinks = elements.filter(n => n.tag === "a" && n.attrs.has("href") && n.start > page.box.start && n.end < page.box.end);
+        const pageHeads = elements.filter(n => !n.hidden && n.start >= page.box.start && n.end <= page.box.end &&
+          /^(?:h[1-6]|p|div|td|th|span|b|strong)$/.test(n.tag) && !ancestor(n, "a") && !pageLinks.some(a => a.start >= n.start && a.end <= n.end));
         if (pageHeads.some(h => /^(?:tableofcontents|contents|(?:appendix)?referencetable20f(?:continued)?)$/.test(key(nodeText(h))))) {
           return unresolved(`page ${mapping.page} is contents or a reference index`);
         }
-        const pageLinks = elements.filter(n => n.tag === "a" && n.attrs.has("href") && n.start > page.box.start && n.end < page.box.end);
         const without = (omit: AppendixElement[]) => {
           let at = page.box.start;
           const parts: string[] = [];
