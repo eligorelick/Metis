@@ -18,6 +18,19 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Foreign annual report sections (2026-11-04)
+
+- Recover explicit 10-K page ranges even when the filing incorporates the same
+  pages into several items. Keep complete range, link and printed-page proof.
+- Read dispersed 20-F point-page mappings as labelled excerpts, with a permanent
+  payload-title disclosure that the complete item was not recovered. Exclude
+  navigation pages and refuse unresolved, ambiguous or wrong-page references.
+- Disclose unresolved financial-statement index references and exhibit-based
+  40-F structure instead of unexplained item failures. Frozen-panel evidence,
+  limits and verification are recorded in [D-191's audit](docs/audit/2026-11-04-foreign-sections.md).
+- Version constants remain unchanged. Release needs a payload-version advance;
+  stored reports remain immutable.
+
 ## Unreleased - Bank valuation from the latest filed book; headline claim wording (2026-11-03)
 
 - Open financial excess-return values from the latest complete, filed quarterly
