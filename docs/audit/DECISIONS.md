@@ -5563,3 +5563,72 @@ evidence and verification are in [the evidence report](2026-11-03-valuation-inpu
   revenue off for euro reporters. Known limit: at this rate the DCF is still far
   above the quote for NVO (USD 76.85 against 40.105), because the model holds
   its roughly 42% margin at a 7.03% WACC; the report's reverse DCF shows the gap.
+
+## D-190 - Executive cards reflect dated management decisions (2026-11-04)
+
+- **Evidence and root cause.** The saved judge and verification artifacts for
+  reports 6 (ASML), 7 (JPM) and 8 (NVO) separate three problems. JPM's judge
+  proposed B execution grades for both officers on a validated five-year
+  diluted-share-count trend; the narrow typed-metric gate discarded that
+  metric and overwrote the more specific reasons. ASML's judge and NVO's CFO
+  supplied no execution evidence and no tenure start, so their unassessed
+  grades were honest. NVO's CEO retained C because typed operating cash flow
+  and repurchases qualified under the earlier result-only rule. None of the
+  cards consumed `leadership.managementActions` or the company outlook
+  discussion. Fetched SEC archive URLs in ASML/NVO guidance were additionally
+  refused when absent from the payload citation registry, despite D-182's
+  source-class correction. Many action figures were genuinely still unchecked.
+- **Decision.** Relevant dated office decisions and the retained company
+  guidance discussion appear on each CEO/CFO card across live, Markdown and
+  print views. Original company/board attribution and JUDGMENT claims remain;
+  unchecked context is labelled and rejected claims are excluded. The card
+  states the missing tenure, decision or guidance comparison. This is useful
+  context, not proof of the person's contribution or a new personal record.
+- **Execution admission.** A proposed letter can use a dated management action
+  when the card repeats its FACT and citation in reasoning or capital-allocation
+  evidence, all action facts validate without failed checks, and their exact
+  dated wording is present in retained filing/transcript spans. The event must
+  fall within an evidenced office tenure, from explicit `titleSince` or an
+  exact retained appointment sentence. Unknown/conflicting dates and divisional,
+  deputy or staff authority fail closed. The assessment concerns decisions and
+  outcomes during that tenure, not personal skill. A completed authorization
+  retains its suspension qualification and is never presented as an executed
+  repurchase or realized return. No letter is manufactured if the judge left
+  the evidence ungraded. The new admission is additive: if it refuses a
+  candidate, the existing typed-metric gate and its original reasons remain
+  exactly as before. No additional fallback is introduced.
+- **Reasons retained.** D-59 made an unreachable gate usable; D-63 admitted
+  company guidance during an evidenced CEO/CFO tenure; D-66 barred pay and
+  unknown metric semantics from unlocking grades; D-163 distinguished company
+  outcomes from a personal record; D-177 retained dated company/board actions.
+  Those protections and the existing typed execution admission remain. A
+  share-count trend does not satisfy the new decision contract. Historical
+  grades and verification marks remain immutable. Withheld grade rationales
+  stay withheld when ungraded office-context cards are expanded.
+- **Credibility.** The typed guidance comparison contract remains. Issuance or
+  revision alone, unmatched accounting bases and a partial year plus a Q4
+  forecast cannot establish a completed guidance record. A known fetched SEC
+  archive document is now an eligible filing citation without needing a second
+  payload-registry row; neither the URL nor that eligibility validates its
+  contents. The named-person restriction remains.
+- **Offline result.** Saved judges, their generation-matched frozen bundles and
+  saved fetched-URL telemetry were replayed through current-code calculation,
+  assembly and deterministic verification for reports 2, 3, 6, 7 and 8. No model
+  ran. JPM's cards each expose 7 relevant actions, ASML's expose 7/6, NVO's 5/4;
+  the company guidance discussion is carried with its original status. No new
+  letters are supportable from these saved outputs. NVO's CEO C remains under
+  the unchanged typed execution gate, in both the replay and the stored report.
+  Reports 2 and 3 still parse and export. All stored JSON was re-read unchanged.
+- **Validation and limits.** Test-first regressions cover title/pay-only,
+  company-result-only decision candidates, missing/outside tenure,
+  rejected/unchecked claims, wrong office,
+  no later actual, invented wording/date, unbound grades, SEC lookalikes and
+  authorization qualifications. Typecheck, changed-file ESLint and related
+  tests and the integrator's `--changed origin/main --passWithNoTests` sweep
+  are the gate; the full `npm run verify` is deliberately omitted.
+  Future model compliance with exact dated decision/card binding and tenure
+  instructions requires a paid run. No paid/provider/network calls were made.
+- **Stamps required at integration.** Advance the report spec for the changed
+  executive-grade meaning and the Stage C pipeline stamp for prompt/verifier
+  behavior. No payload shape, Stage B, valuation method or score-band change is
+  needed. This implementation intentionally changes no version constants.

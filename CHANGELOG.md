@@ -18,6 +18,20 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Executive cards reflect dated management decisions (2026-11-04)
+
+- CEO/CFO cards show the report's dated office decisions, existing judgments and
+  company guidance context, with unchecked figures labelled and company/board
+  attribution retained. Historical reports keep their saved grades and marks.
+- Added execution admission requires a validated dated decision bound to the
+  card and an evidenced tenure; a company result alone cannot satisfy this new
+  rule. Refused candidates leave existing gates and reasons unchanged.
+  Guidance credibility still needs a later actual on the same period and basis.
+- Known fetched SEC archive documents are eligible credibility sources even
+  when absent from the payload citation registry; a URL alone validates no fact.
+- Offline saved-judge replay and limits are recorded in D-190. No paid run or
+  version-constant changes were made in this branch.
+
 ## Unreleased - Valuation inputs: foreign consensus, operating income basis, filer unit errors (2026-11-03)
 
 - Admit foreign-issuer analyst revenue totals only when past-year estimates
