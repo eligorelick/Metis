@@ -18,6 +18,15 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - A fuller sample report (2026-11-04)
+
+- Expand the wholly fictional visitor sample with a complete thesis, market economics, named rivals, dated catalysts and risks, and evidence-backed management actions and executive assessments.
+- Cite authored synthetic filing excerpts and exact computed figures, retain the real verification and grading rules, and guard report breadth in the current-sample tests.
+- Bind the sample's tables to their registered sources as the real pipeline does, so its
+  verification rate reads on the same basis as a real report.
+- Show readers no internal decision numbers in report text, and plain wording on executive cards.
+- Add screenshots of the fictional sample to the README.
+
 ## Unreleased - Foreign annual report sections (2026-11-04)
 
 - Recover explicit 10-K page ranges even when the filing incorporates the same

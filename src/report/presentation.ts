@@ -1573,8 +1573,15 @@ export function readerPrecision(text: string, source?: string): string {
 }
 
 /** Stored prose for a reader: registry ids under reader labels, figures at reader precision. */
+/** Decision numbers are internal references. The rule's own explanation stays. */
+export function withoutDecisionNumbers(text: string): string {
+  return text
+    .replace(/\b([Hh])ouse rule D-\d+\b/g, "$1ouse rule")
+    .replace(/\s*\(D-\d+(?:\s+disclosure)?\)/g, "");
+}
+
 export function displayProse(text: string, source?: string): string {
-  const readable = readerBaseUnits(readerConventionText(text, source))
+  const readable = readerBaseUnits(readerConventionText(withoutDecisionNumbers(text), source))
     .replace(/(\bevidence completeness (?:was|is) )((?:0(?:\.\d+)?|1(?:\.0+)?))(?![\d%]|\.\d)/gi, (_, lead: string, value: string) => `${lead}${ratioPercentText(Number(value))}`)
     .replace(/(Self-assessed case strength[^:]*: bull )(\d)(, bear )(\d)(?!\s*(?:\/|of))/g, "$1$2 of 5$3$4 of 5");
   return readerPrecision(humanizeInlineCitations(readable), source);
@@ -2115,7 +2122,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band === null ? "—" : withNeutral(aspect.band, aspect.score),
         `${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}%`,
         evidencePercentText(aspect.dataCompleteness),
-        aspect.notApplicableReason ?? aspect.note,
+        withoutDecisionNumbers(aspect.notApplicableReason ?? aspect.note),
       ];
     }),
     note: `Evidence here uses each aspect's full configured signal weight. The reliability table's applicable evidence excludes route-inapplicable inputs. ${limited.map((key) => {

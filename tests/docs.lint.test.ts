@@ -120,7 +120,7 @@ describe("the README's prose", () => {
    * that stops promising a manifest entry the sample does not carry (F5).
    */
   it("stays short enough to be read", () => {
-    expect(readme().trimEnd().split("\n").length).toBeLessThanOrEqual(270);
+    expect(readme().trimEnd().split("\n").length).toBeLessThanOrEqual(280);
   });
 
   it("links only to files that exist", () => {

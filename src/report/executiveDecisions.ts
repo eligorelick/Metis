@@ -192,10 +192,10 @@ export function executiveOfficeContext(e: Executive, leadership: Leadership, log
   const outlook = guidance.filter((c, i) => executiveClaimEntry(c, `outlook.guidanceCredibility[${i}]`, log)?.validationStatus !== undefined);
   const execution = e.grade === "not-assessed"
     ? "Execution is not assessed: this card has no validated record of dated decisions within an established tenure."
-    : "The saved execution grade is retained; company decisions and outcomes do not measure personal skill.";
+    : "The execution grade rests on company results and decisions during the tenure, not on a measure of personal skill.";
   const credibility = e.credibilityGrade === "not-assessed"
     ? "Credibility is not assessed: no validated comparison of earlier guidance with a later actual for the same period and basis."
-    : "The saved credibility assessment is retained.";
+    : "The credibility grade rests on the evidence on this card.";
   const specific = /^(?:Execution is not assessed:|Execution assesses decisions|Validated dated decisions)/.test(e.assessmentReason ?? "") ? e.assessmentReason : undefined;
   return { actions, guidance: outlook, note: `${specific ?? `${execution} ${credibility}`} The decisions below are the company's and the board's. They give context for the office and do not measure this person's own record.` };
 }
