@@ -6,6 +6,22 @@ import { withFilerShareUnits } from "@/pipeline/shareUnits";
 import { discoverStockSplits } from "@/edgar/splits";
 
 describe("foreign valuation security evidence", () => {
+  it("admits a proved one-for-one ordinary listing with the same independent count checks", () => {
+    const b = foreignBundle("EUR", 1);
+    if (!b.profile.ok) throw Error("fixture");
+    b.profile.value.data.rows[0]!.isAdr = false;
+    const result = resolveForeignValuation(b, "EUR");
+    expect(result.basis?.ratio).toBe(1);
+    expect(result.basis?.securityEvidence.every(e => e.quoteUnit === "ordinary")).toBe(true);
+    expect(result.basis?.note).toMatch(/one-for-one ordinary listing/);
+    expect(result.basis?.note).not.toMatch(/per ADS|1 ADS/);
+  });
+  it("refuses a non-ADR listing whose two count constructions imply a receipt ratio", () => {
+    const b = foreignBundle("EUR", 5);
+    if (!b.profile.ok) throw Error("fixture");
+    b.profile.value.data.rows[0]!.isAdr = false;
+    expect(resolveForeignValuation(b, "EUR").basis).toBeNull();
+  });
   it("reconciles native-currency EPS without requiring an FX rate", () => {
     const b = foreignBundle();
     delete b.valuationFx;

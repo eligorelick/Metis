@@ -218,7 +218,7 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
   if (valuation.kind !== "dcf") {
     const unresolvedReason = valuation.kind === "ineligible"
       ? valuation.gaps[0]?.reason ?? "valuation applicability is unresolved"
-      : null;
+      : valuation.gaps.find(g => g.field === "valuation.dcf.regulatedUtility")?.reason ?? null;
     return suppressed(
       [
         {

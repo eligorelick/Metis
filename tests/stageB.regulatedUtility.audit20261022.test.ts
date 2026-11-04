@@ -24,6 +24,7 @@ import { deriveRoutingEvidence } from "@/pipeline/stageB/routingEvidence";
 import { metricPolicy, routeCompany, type RoutingProfile, type RoutingStatements } from "@/pipeline/stageB/sectorRouting";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import type { FetchResult } from "@/types/core";
+import { compositeNote } from "@/report/assessment";
 
 const pt = (end: string, val: number, form = "10-Q", filed = "2026-05-05", start?: string) =>
   ({ end, val, accn: `0001326160-26-${filed.slice(5, 7)}${filed.slice(8)}`, fy: 2026, fp: "Q1", form, filed, ...(start ? { start } : {}) });
@@ -78,7 +79,7 @@ describe("B-13: regulated-utility evidence and routing", () => {
   });
 
   it("puts a utility SIC with regulatory evidence on the regulated-utility overlay of the general route", () => {
-    for (const sic of ["4911", "4931", "4932", "4941", "4924 NATURAL GAS DISTRIBUTION"]) {
+    for (const sic of ["4911", "4922", "4923", "4931", "4932", "4941", "4924 NATURAL GAS DISTRIBUTION"]) {
       const r = routeCompany(profile(sic), statements, { today: TODAY, evidence: deriveRoutingEvidence(fetched(DUK_FACTS), { today: TODAY }) });
       expect(r.base).toBe("general");
       expect(r.overlays).toEqual(["regulated-utility"]);
@@ -99,12 +100,46 @@ describe("B-13: regulated-utility evidence and routing", () => {
   it("withholds Altman Z from a regulated utility", () => {
     const p = metricPolicy({ base: "general", overlays: ["regulated-utility"], evidence: { sector: null, industry: null } });
     expect(p.suppress).toContain("altmanZ");
+    expect(p.suppress).toContain("fcfDcf");
     expect(metricPolicy({ base: "general", overlays: [], evidence: { sector: null, industry: null } }).suppress).not.toContain("altmanZ");
     // A-3: the forensic table does not print a Z'' either.
     const utility = selectAltmanVariant({ base: "general", overlays: ["regulated-utility"], evidence: { sector: "Utilities", industry: null, sic: "4931" } });
     expect(utility.variant).toBeNull();
     expect(utility.notes[0]).toMatch(/not computed for a regulated utility/);
     expect(selectAltmanVariant({ base: "general", overlays: [], evidence: { sector: "Utilities", industry: null, sic: "4931" } }).variant).toBe("z2");
+  });
+});
+
+describe("D-204: regulated utilities retain relative valuation without an FCFF target", () => {
+  function utility(regulated = true) {
+    const b = completeCurrencyBundle({ sic: "4911" });
+    b.builtAt = `${TODAY}T00:00:00Z`;
+    b.edgar.cik = { ok: true, value: { source: "edgar", endpoint: "company_tickers.json", fetchedAt: b.builtAt, asOf: TODAY,
+      data: { cik: 1326160, cik10: "0001326160", ticker: b.symbol, title: "TEST" } } };
+    b.edgar.companyFacts = fetched(regulated ? DUK_FACTS : facts({}));
+    return runStageB(b);
+  }
+
+  it("withholds the fair value, reverse DCF and fan with the utility reason, preserving multiples", () => {
+    const c = utility();
+    expect(c.route.overlays).toContain("regulated-utility");
+    expect(c.valuation.kind).toBe("dcf-suppressed");
+    expect(c.fairValue).toMatchObject({ status: "suppressed", perShare: null });
+    expect(c.fairValue.reasons[0]?.reason).toMatch(/regulated utility.*external capital.*allowed return/i);
+    expect(c.scenarioTargets.status).toBe("suppressed");
+    expect(c.scenarioTargets.targets).toEqual([]);
+    expect(c.scenarioTargets.missingReasons[0]?.reason).toMatch(/regulated utility/i);
+    expect(c.valuation).not.toHaveProperty("reverseDcf");
+    expect(c.valuation.multiples?.multiples.find(m => m.key === "peTtm")?.current).toBeGreaterThan(0);
+    expect(c.valuation.multiples?.multiples.find(m => m.key === "evToEbitda")?.current).toBeGreaterThan(0);
+    expect(c.scores.aspects.valuation.score).toBeNull();
+    expect(compositeNote(c.scores)).toMatch(/Valuation.*counts as neutral.*Not directly comparable/);
+  });
+
+  it("keeps an independent generator without regulatory evidence on the FCFF route", () => {
+    const c = utility(false);
+    expect(c.route.overlays).not.toContain("regulated-utility");
+    expect(c.valuation.kind).toBe("dcf");
   });
 });
 

@@ -90,7 +90,9 @@ function excessReturnWithheldReason(gaps: readonly ManifestEntry[]): string {
     gaps.find(g => g.field === "valuation.excessReturn.dilutedShares");
   const shares = model?.field === "valuation.excessReturn.dilutedShares"
     ? gaps.find(g => g.field === "valuation.perShare.economicClassBasis" || g.field === "valuation.perShare.securityBasis") : undefined;
-  return model ? `${model.reason}${shares ? ` ${shares.reason}` : ""}`
+  const conversion = model?.field === "valuation.excessReturn.currency"
+    ? gaps.find(g => g.field === "valuation.currencyConversion") : undefined;
+  return model ? `${model.reason}${shares ? ` ${shares.reason}` : ""}${conversion ? `. ${conversion.reason}` : ""}`
     : "Excess-return intrinsic value per share is unavailable; no model-specific refusal was recorded.";
 }
 
@@ -245,7 +247,8 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
               "deterministic intrinsic per-share unavailable — the model was not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge";
     // Not-applicable routes are info; a suppressed bridge on a modellable route is a warn.
     const severity: ManifestEntry["severity"] =
-      valuation.kind === "reit" || valuation.kind === "pre-revenue" ? "info" : "warn";
+      valuation.kind === "reit" || valuation.kind === "pre-revenue" ||
+        valuation.gaps.some(g => g.field === "valuation.dcf.regulatedUtility") ? "info" : "warn";
     return suppressed(
       [{ field: valuation.kind === "excess-return" ? "valuation.excessReturn.perShare" : "valuation.dcf.perShare", reason, severity }],
       [`Intrinsic value per share unavailable: ${reason}.`],
