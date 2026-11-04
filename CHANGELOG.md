@@ -18,6 +18,19 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Unknown tickers, regulated utilities and foreign banks (2026-11-04)
+
+- Unknown and unclassified jobs end as unsupported, saving no report and admitting
+  no paid AI request. Confirmed empty results distinguish invalid/delisted tickers
+  from a source outage; malformed symbols stop before acquisition.
+- Filed rate-regulation evidence with a utility SIC withholds FCFF values and DCF
+  targets while retaining multiples and the existing neutral missing-score rule.
+- Foreign financial routes use the dated FX and independently established quoted
+  share basis, including verified one-for-one ordinary listings. Refusals name the
+  missing rate or share evidence. An unusable vendor beta can use an independently
+  retained monthly SPY regression only after observation and fit checks pass.
+- Decision and methodology: D-204. No version constants or saved reports changed.
+
 ## Unreleased - Scores that lost an aspect say so (2026-11-04)
 
 - The composite note now names any unscored aspect that carries weight, says its
