@@ -6203,8 +6203,8 @@ evidence databases are immutable.
 Offline replay of the five saved reports catches all 59 original mutations;
 the catch assertion requires the exact changed figure in the note at the exact
 field path, including the opening-book age mutation from 307 to 407 days.
-Unmodified reports still produce 105 field warnings: human review classifies
-44 as false alarms, 18 as mixed supported/unsupported readings and 43 as
+Unmodified reports still produce 107 field warnings: human review classifies
+44 as false alarms, 18 as mixed supported/unsupported readings and 45 as
 appropriate conservative admission warnings. False alarms remain high,
 especially for technical horizon labels and comparative model prose. No
 source, dimension, metric or period restriction is relaxed to lower that count.
