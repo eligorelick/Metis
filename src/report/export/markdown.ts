@@ -165,7 +165,7 @@ import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
 import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeHeading, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
-import { executiveOfficeContext } from "@/report/executiveDecisions";
+import { executiveCardClaims, executiveOfficeContext } from "@/report/executiveDecisions";
 import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
@@ -788,12 +788,12 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
       `Grade **${executiveGradeText(e.grade)}** · credibility **${executiveGradeText(e.credibilityGrade)}**${e.tenureYears === null ? "" : ` · tenure ${e.tenureYears.toFixed(1)}y`}`,
       "",
     );
-    if (e.reasoning.length > 0) lines.push(claimList(e.reasoning), "");
+    if (e.reasoning.length > 0) lines.push(claimList(executiveCardClaims(e, e.reasoning)), "");
     const context = contexts.get(e);
     const reason = context?.note ?? executiveAssessmentNote(e);
     if (reason) lines.push(prose(reason), "");
     for (const descriptor of EXECUTIVE_EVIDENCE_GROUPS) {
-      const claims = e.evidence[descriptor.key];
+      const claims = executiveCardClaims(e, e.evidence[descriptor.key] ?? []);
       if (!claims || claims.length === 0) continue;
       lines.push(`##### ${descriptor.label}`, "", claimList(claims), "");
     }

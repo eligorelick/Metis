@@ -509,7 +509,7 @@ describe("factual prose numeric validation", () => {
     expect(result.log[0]).toMatchObject({ validationStatus: "validated" });
   });
 
-  it.each(["capitalAllocation", "guidanceVsActuals"] as const)("keeps a company result numerically validated without inventing a decision grade from the %s bucket", async (field) => {
+  it.each(["capitalAllocation", "guidanceVsActuals"] as const)("retains a validated execution grade independently of the %s bucket", async (field) => {
     const record = { id: "payload.statements.cash-flow-annual.2026-01-25.operating-cash-flow", label: "operating cash flow", kind: "provider" as const,
       value: 102.718e9, unit: "currency" as const, currency: "USD", period: "2026-01-25", fiscalPeriod: "FY2026", asOf: "2026-01-25",
       origin: "fmp:cash-flow(annual)", formulaVersion: null, displayPrecision: 4 };
@@ -522,8 +522,8 @@ describe("factual prose numeric validation", () => {
     };
     const result = await runVerifyPass({} as PassDeps, { provenanceRegistry: [record], citationRegistry: [], filings: [] } as unknown as ContextPayload, { leadership });
     expect(result.log.find(entry => entry.path === `leadership.executives[0].evidence.${field}[0]`)).toMatchObject({ validationStatus: "validated", executiveEvidenceKind: "execution" });
-    // D-190: matching cash flow does not establish a dated officer decision.
-    expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "not-assessed", credibilityGrade: "not-assessed" });
+    // Execution is evidenced; guidance credibility is not, so only that grade is withdrawn.
+    expect(result.verifiedReport.leadership.executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed" });
   });
 
   it.each(["guidanceVsActuals", "capitalAllocation"] as const)("does not treat validated compensation in %s as an executive performance record", async (field) => {

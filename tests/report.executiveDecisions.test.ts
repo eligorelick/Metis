@@ -4,6 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { assessExecutiveEvidence } from "@/report/financialDiagnostics";
 import { executiveOfficeContext } from "@/report/executiveDecisions";
+import { CREDIBILITY_NOT_ASSESSED_REASON, EXECUTIVE_NOT_ASSESSED_REASON } from "@/report/executiveAssessment";
 import { LeadershipSection } from "@/components/report/sections";
 import { runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
 import type { ContextPayload } from "@/pipeline/stageC/payload";
@@ -41,11 +42,19 @@ describe("executive decisions bound to a validated action and dated tenure", () 
     expect(result.assessmentReason).toContain("judge left execution ungraded");
   });
 
-  it("distinguishes missing tenure from unchecked decision evidence", () => {
+  it("preserves the existing assessment reason when the new decision rule is refused", () => {
     const l = leadership(), log = actionLog();
     log[0]!.validationStatus = "unchecked";
-    expect(assessExecutiveEvidence(l, log, false, context()).executives[0]!.assessmentReason).toContain("wording or figures remain unchecked");
-    expect(assessExecutiveEvidence(l, log, false, { ...context(), notes: [] }).executives[0]!.assessmentReason).toContain("tenure start is not established");
+    expect(assessExecutiveEvidence(l, log, false, context()).executives[0]!.assessmentReason).toBe(EXECUTIVE_NOT_ASSESSED_REASON);
+    expect(assessExecutiveEvidence(l, log, false, { ...context(), notes: [] }).executives[0]!.assessmentReason).toBe(EXECUTIVE_NOT_ASSESSED_REASON);
+  });
+
+  it("preserves an existing typed execution assessment when the new decision rule is refused", () => {
+    const l = leadership(), log = actionLog();
+    const claim = fact("Alex Smith: operating cash flow was USD 50 billion.", "payload.statements.cash-flow-quarterly.2026-06-24.operating-cash-flow");
+    l.executives[0]!.evidence.capitalAllocation = [claim];
+    log.push({ path: "leadership.executives[0].evidence.capitalAllocation[0]", claim: claim.text, source: claim.source, outcome: "unverified", validationStatus: "validated", executiveEvidenceKind: "execution" });
+    expect(assessExecutiveEvidence(l, log, false, { ...context(), notes: [] }).executives[0]).toMatchObject({ grade: "B", credibilityGrade: "not-assessed", assessmentReason: CREDIBILITY_NOT_ASSESSED_REASON });
   });
 
   it.each(["title only", "pay only", "outside tenure", "rejected claim", "unchecked amount", "no tenure", "non-filing source", "company result", "wrong office"])("withholds execution for %s", (control) => {
@@ -61,12 +70,12 @@ describe("executive decisions bound to a validated action and dated tenure", () 
       l.managementActions = [];
       const claim = fact("Alex Smith: operating cash flow was USD 50 billion.", "payload.statements.cash-flow-quarterly.2026-06-24.operating-cash-flow");
       l.executives[0]!.evidence.capitalAllocation = [claim];
-      log.push({ path: "leadership.executives[0].evidence.capitalAllocation[0]", claim: claim.text, source: claim.source, outcome: "unverified", validationStatus: "validated", executiveEvidenceKind: "execution" });
+      log.push({ path: "leadership.executives[0].evidence.capitalAllocation[0]", claim: claim.text, source: claim.source, outcome: "unverified", validationStatus: "validated" });
     }
     if (control === "wrong office") l.executives[0]!.title = "CEO of Consumer Banking";
     const e = assessExecutiveEvidence(l, log, false, c).executives[0]!;
     expect(e).toMatchObject({ grade: "not-assessed", credibilityGrade: "not-assessed" });
-    expect(e.assessmentReason).toMatch(/decision|tenure/);
+    expect(e.assessmentReason).toBe(EXECUTIVE_NOT_ASSESSED_REASON);
   });
 
   it("does not admit a dated action with an additional rejected or unchecked factual clause", () => {
@@ -99,7 +108,7 @@ describe("executive decisions bound to a validated action and dated tenure", () 
     const log = [{ ...actionLog()[0]!, claim: l.managementActions![0]!.action[0]!.text }];
     const e = assessExecutiveEvidence(l, log, false, context()).executives[0]!;
     expect(e.credibilityGrade).toBe("not-assessed");
-    expect(e.assessmentReason).toContain("later actual");
+    expect(e.assessmentReason).toBe(EXECUTIVE_NOT_ASSESSED_REASON);
   });
 
   it("does not promote numeric-only support of different wording or an invented event date into a decision grade", () => {
@@ -125,6 +134,8 @@ describe("stored executive cards show the report's existing decision context", (
     report.leadership = leadership();
     report.leadership.executives[0] = { ...report.leadership.executives[0]!, grade: "not-assessed", credibilityGrade: "not-assessed",
       assessmentReason: "No attributable, validated execution or guidance-versus-actual record. A citation, rejected claim, compensation or job title alone cannot establish an assessment." };
+    report.leadership.executives[0]!.reasoning.push({ ...fact("This warrants an A execution grade."), label: "JUDGMENT" });
+    report.leadership.executives[0]!.evidence.capitalAllocation = [{ ...fact("This warrants a B personal grade."), label: "JUDGMENT" }];
     report.appendix.verificationLog = actionLog();
     const before = JSON.stringify(report);
     const surfaces = [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(LeadershipSection, { leadership: report.leadership, report, index: 7 }))];
@@ -134,6 +145,8 @@ describe("stored executive cards show the report's existing decision context", (
       expect(text).toContain("tenure overlap");
       expect(text).toContain("not an executed purchase");
       expect(text).not.toContain("A citation, rejected claim, compensation or job title alone");
+      expect(text).not.toContain("This warrants an A execution grade.");
+      expect(text).not.toContain("This warrants a B personal grade.");
     }
     expect(JSON.stringify(report)).toBe(before);
   });

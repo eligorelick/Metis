@@ -149,7 +149,7 @@ import { RecordedSensitivity } from "./RecordedSensitivity";
 import { ValuationSensitivityTables } from "./ValuationSensitivityTables";
 import { ProjectionFanChart } from "@/components/charts/lazy";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
-import { executiveOfficeContext, type ExecutiveOfficeContext } from "@/report/executiveDecisions";
+import { executiveCardClaims, executiveOfficeContext, type ExecutiveOfficeContext } from "@/report/executiveDecisions";
 import {
   MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_ACTOR_LABELS, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
   SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
@@ -1540,10 +1540,10 @@ function ExecutiveCard({ exec, context }: { exec: Executive; context?: Executive
       </div>
       <div className="flex flex-col gap-2 px-2.5 py-2">
         {reason && <p className="text-[11px] text-muted">{displayProse(reason)}</p>}
-        <ClaimList claims={exec.reasoning} />
+        <ClaimList claims={executiveCardClaims(exec, exec.reasoning)} />
         {EXECUTIVE_EVIDENCE_GROUPS.map((descriptor) => ({
           descriptor,
-          claims: exec.evidence[descriptor.key],
+          claims: executiveCardClaims(exec, exec.evidence[descriptor.key] ?? []),
         })).filter((group) => group.claims && group.claims.length > 0).map((group) => (
           <SubBlock
             key={group.descriptor.id}

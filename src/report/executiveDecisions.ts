@@ -95,18 +95,15 @@ export function validatedExecutiveDecisions(e: Executive, index: number, leaders
   });
 }
 
-export function executiveDecisionGap(e: Executive, index: number, leadership: Leadership, log: readonly VerificationLogEntry[], context: ExecutiveDecisionEvidence): string {
-  const start = executiveTenureStart(e, index, log, context);
-  if (!start) return "Execution is not assessed: the office tenure start is not established in the retained evidence.";
-  const actions = (leadership.managementActions ?? []).filter(a => officeAction(e, a) && day(a.occurredOn) && a.occurredOn! >= start && context.asOf && a.occurredOn! <= context.asOf.slice(0, 10));
-  if (!actions.length) return "Execution is not assessed: no relevant dated decision is established within the evidenced tenure.";
-  return "Execution is not assessed: dated office decisions are retained, but their decision wording or figures remain unchecked or fail the evidence requirements.";
-}
-
 export interface ExecutiveOfficeContext {
   actions: (ManagementAction & { verificationNote: string })[];
   guidance: SourcedClaim[];
   note: string;
+}
+
+/** Withheld grade rationales stay withheld when a context-only card is expanded. */
+export function executiveCardClaims(e: Executive, claims: SourcedClaim[]): SourcedClaim[] {
+  return e.grade === "not-assessed" && e.credibilityGrade === "not-assessed" ? claims.filter(c => c.label === "FACT") : claims;
 }
 
 /** Read-time context only: retains original claims and never changes a saved grade or verification mark. */

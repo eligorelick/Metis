@@ -5,7 +5,7 @@ import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { executiveAssessmentReason } from "@/report/executiveAssessment";
 import { reasoningClaims } from "@/report/presentation";
-import { executiveDecisionGap, validatedExecutiveDecisions, type ExecutiveDecisionEvidence } from "@/report/executiveDecisions";
+import { validatedExecutiveDecisions, type ExecutiveDecisionEvidence } from "@/report/executiveDecisions";
 
 /** Positive contracts for pipeline-owned metric families, never the model's evidence bucket. */
 export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidance-track-record" | "execution" | undefined {
@@ -22,9 +22,9 @@ export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidanc
 }
 
 /**
- * Preserve proposed grades only for a typed guidance comparison in the card's
- * attributable evidence, or a validated dated office decision within an
- * evidenced tenure. Company results alone cannot establish personal execution.
+ * Preserve the existing typed performance/guidance contracts and additionally
+ * admit a validated dated office decision within an evidenced tenure.
+ * Company results alone do not establish a measured personal record.
  * The verify pass never marks prose `verified`: numeric validation and exact
  * retained decision wording are checked separately from personal contribution.
  */
@@ -48,18 +48,15 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
       ...(executive.evidence.capitalAllocation ?? []).map((claim,i)=>admissible(claim,"capitalAllocation",i))];
     const credibility = kinds.includes("guidance-track-record");
     const decisions = validatedExecutiveDecisions(executive, index, leadership, log, context);
-    // A company result by itself is not an officer's decision record. Keep the
-    // typed guidance comparison contract, and admit validated dated decisions
-    // separately without relying on a model-selected evidence bucket.
-    const execution = credibility || decisions.length > 0;
+    // Decision admission is additive. A refused candidate leaves the existing
+    // typed-metric gate and its reasons exactly as they were.
+    const execution = credibility || kinds.includes("execution") || decisions.length > 0;
     const grade = execution ? executive.grade : "not-assessed";
     // FIGR extra-high audit B2-09: name which assessment is missing.
     const missingCredibility = "Credibility is not assessed: no validated comparison of earlier guidance with a later actual for the same period and basis.";
     const reason = decisions.length > 0
       ? `${grade === "not-assessed" ? "Validated dated decisions are available during the evidenced tenure; the judge left execution ungraded. Assessments concern decisions and outcomes during the tenure, not personal skill." : "Execution assesses decisions and outcomes during the evidenced tenure, not personal skill."}${!credibility ? ` ${missingCredibility}` : ""}`
-      : !execution
-        ? `${executiveDecisionGap(executive, index, leadership, log, context)} ${missingCredibility}`
-        : executiveAssessmentReason({ execution, credibility }, grade);
+      : executiveAssessmentReason({ execution, credibility }, grade);
     return {...executive, grade, credibilityGrade:credibility ? executive.credibilityGrade : "not-assessed",
       ...(reason ? {assessmentReason:reason} : {}),
     };
