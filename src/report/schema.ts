@@ -162,7 +162,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // Stored reports keep their bytes.
 // 1.60.0 (D-175 to D-181, Q round): optional dated recent developments in the verdict and management actions in the
 // leadership section, and the fresh-filing caution in the key data. Stored reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.60.0" as const;
+// 1.61.0 (D-190): the meaning of an executive execution grade widens to an exactly quoted dated decision during an evidenced tenure, and cards show dated office context. Stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.61.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

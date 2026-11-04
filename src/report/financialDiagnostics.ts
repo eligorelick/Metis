@@ -5,6 +5,7 @@ import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { executiveAssessmentReason } from "@/report/executiveAssessment";
 import { reasoningClaims } from "@/report/presentation";
+import { validatedExecutiveDecisions, type ExecutiveDecisionEvidence } from "@/report/executiveDecisions";
 
 /** Positive contracts for pipeline-owned metric families, never the model's evidence bucket. */
 export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidance-track-record" | "execution" | undefined {
@@ -21,15 +22,13 @@ export function executiveEvidenceKind(record: NumericProvenanceRecord): "guidanc
 }
 
 /**
- * Individual grades require an attributable validated factual track record: a
- * FACT naming the executive, in that executive's own evidence, whose figures
- * the verify pass matched to an eligible typed performance metric with no
- * failing check. Unknown/excerpt-only metric semantics stay unassessed. The
- * verify pass never marks prose `verified` (a numeric match
- * does not adjudicate the whole sentence), so requiring that outcome made the
- * gate unreachable (NVDA report 34: every executive "not-assessed").
+ * Preserve the existing typed performance/guidance contracts and additionally
+ * admit a validated dated office decision within an evidenced tenure.
+ * Company results alone do not establish a measured personal record.
+ * The verify pass never marks prose `verified`: numeric validation and exact
+ * retained decision wording are checked separately from personal contribution.
  */
-export function assessExecutiveEvidence(leadership: Leadership, log: readonly VerificationLogEntry[], pendingVerification = false): Leadership {
+export function assessExecutiveEvidence(leadership: Leadership, log: readonly VerificationLogEntry[], pendingVerification = false, context: ExecutiveDecisionEvidence = {}): Leadership {
   return {...leadership, executives:leadership.executives.map((executive, index)=>{
     const admissible = (claim:SourcedClaim, field:string, claimIndex:number): VerificationLogEntry["executiveEvidenceKind"] => {
       if (claim.label !== "FACT" || !claim.asOf || !claim.source.trim() || /^(?:unknown|memory|assumed)$/i.test(claim.source.trim())) return undefined;
@@ -48,10 +47,16 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
     const kinds = [...(executive.evidence.guidanceVsActuals ?? []).map((claim,i)=>admissible(claim,"guidanceVsActuals",i)),
       ...(executive.evidence.capitalAllocation ?? []).map((claim,i)=>admissible(claim,"capitalAllocation",i))];
     const credibility = kinds.includes("guidance-track-record");
-    const execution = credibility || kinds.includes("execution");
+    const decisions = validatedExecutiveDecisions(executive, index, leadership, log, context);
+    // Decision admission is additive. A refused candidate leaves the existing
+    // typed-metric gate and its reasons exactly as they were.
+    const execution = credibility || kinds.includes("execution") || decisions.length > 0;
     const grade = execution ? executive.grade : "not-assessed";
     // FIGR extra-high audit B2-09: name which assessment is missing.
-    const reason = executiveAssessmentReason({ execution, credibility }, grade);
+    const missingCredibility = "Credibility is not assessed: no validated comparison of earlier guidance with a later actual for the same period and basis.";
+    const reason = decisions.length > 0
+      ? `${grade === "not-assessed" ? "Validated dated decisions are available during the evidenced tenure; the judge left execution ungraded. Assessments concern decisions and outcomes during the tenure, not personal skill." : "Execution assesses decisions and outcomes during the evidenced tenure, not personal skill."}${!credibility ? ` ${missingCredibility}` : ""}`
+      : executiveAssessmentReason({ execution, credibility }, grade);
     return {...executive, grade, credibilityGrade:credibility ? executive.credibilityGrade : "not-assessed",
       ...(reason ? {assessmentReason:reason} : {}),
     };
@@ -59,7 +64,7 @@ export function assessExecutiveEvidence(leadership: Leadership, log: readonly Ve
 }
 
 /** Pipeline-owned reconciliations are shared by AI and data-only reports. */
-export function applyFinancialDiagnostics(report: Report, computed: ComputedMetrics, bundle?: DataBundle, options: {pendingVerification?:boolean} = {}): Report {
+export function applyFinancialDiagnostics(report: Report, computed: ComputedMetrics, bundle?: DataBundle, options: {pendingVerification?:boolean; executiveEvidence?: ExecutiveDecisionEvidence} = {}): Report {
   const next = structuredClone(report);
   // structuredClone preserves internal aliases: grade keyNumbers may be the
   // same array as score.drivers. Diagnostic rows are not new grading signals.
@@ -155,6 +160,9 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
     // A report assembled before D-68 carried these as "low" flags; never both.
     next.quality.flags = next.quality.flags.filter((f) => !(f.source === "computed.forensics.accruals" && f.severity === "low" && notes.includes(f.text)));
   }
-  next.leadership = assessExecutiveEvidence(next.leadership,next.appendix.verificationLog ?? [],options.pendingVerification);
+  // Final assembly and fallback assembly use the same retained tenure and
+  // filing context as verification; neither trusts a model-authored reason.
+  next.leadership = assessExecutiveEvidence(next.leadership,next.appendix.verificationLog ?? [],options.pendingVerification,
+    options.executiveEvidence);
   return next;
 }

@@ -35,7 +35,7 @@
 // ---------------------------------------------------------------------------
 
 export interface SectionSpec {
-  form: "10-K" | "10-Q" | "20-F";
+  form: "10-K" | "10-Q" | "20-F" | "40-F";
   /**
    * 10-K: "1" (Business), "1A" (Risk Factors), "7" (MD&A), "8" (Financial
    *       Statements and Supplementary Data) or "15" (Exhibits and Financial
@@ -59,6 +59,7 @@ export type ExtractMethod =
   | "page-header-redirect"
   | "structured-item"
   | "reference-table-redirect"
+  | "reference-table-pages"
   | "linked-index-redirect"
   | "annual-notes-index-redirect"
   | "crossref-toc"
@@ -74,7 +75,7 @@ export interface ExtractDiagnostics {
   stub?: { chars: number; excerpt: string };
 }
 
-export type ExtractionErrorKind = "no_section_found" | "stub_detected" | "not_required" | "exhibit_redirect";
+export type ExtractionErrorKind = "no_section_found" | "stub_detected" | "not_required" | "exhibit_redirect" | "unresolved_reference";
 
 export interface ExhibitRedirect {
   /** Section titles quoted inside the stub (e.g. "Financial Review"). */
@@ -1227,6 +1228,11 @@ export function parseDocument(html: string): ParsedDocument {
 // ---------------------------------------------------------------------------
 
 export function extractSection(html: string, spec: SectionSpec, opts: ExtractOptions = {}): ExtractResult {
+  if (spec.form === "40-F") {
+    return { ok: false, error: new ExtractionError("unresolved_reference",
+      "Form 40-F supplies annual disclosures through annual-report exhibits rather than numbered 10-K/20-F items; resolve the referenced annual report from the filing index before extracting narrative"),
+    diagnostics: { layersTried: ["form-structure"], tocEntryCount: 0, itemEntryCount: 0, notes: [] } };
+  }
   const minChars = opts.stubMinChars ?? STUB_MIN_CHARS;
   const notes: string[] = [];
   const layersTried: string[] = [];
@@ -1375,6 +1381,12 @@ export function extractSection(html: string, spec: SectionSpec, opts: ExtractOpt
 
   const recovered = recoverAnnualSection(parsed, spec, minChars, diagnostics, opts.recoveryDeadlineMs);
   if (recovered !== null) return recovered;
+
+  if (spec.form === "10-K" && ["8", "15"].includes(spec.item) &&
+      /\b(?:index|Item\s+15\b)/i.test(sectionText) && /\bFinancial Statement(?:s| Schedules)\b/i.test(sectionText)) {
+    return fail(diagnostics, new ExtractionError("unresolved_reference",
+      `${spec.form} Item ${spec.item} points to a same-document financial-statement index; no complete financial-statement section boundaries were proved. Source reference: ${sectionText.slice(0, 400)}`));
+  }
 
   // Layer 4 — loud hard-fail. NEVER return a stub silently.
   layersTried.push("layer4-hard-fail");
@@ -1825,6 +1837,156 @@ function recoverAnnualSection(
     }
   }
 
+  if (spec.form === "20-F" && ["4", "5"].includes(spec.item)) {
+    // A point-page reference does NOT prove the extent of its named chapter.
+    // Recover the explicitly mapped pages as labelled excerpts, never as a
+    // purported complete item or by guessing the next chapter's boundary.
+    const markers = headings.filter(n => /(?:reference\s+table\s+20-f|form\s+20-f\s+cross[- ]reference\s+table)/i.test(nodeText(n)));
+    const grid = (row: AppendixElement): { node: AppendixElement; value: string }[] | null => {
+      const result: { node: AppendixElement; value: string }[] = [];
+      for (const cell of cells(row)) {
+        const span = cell.attrs.get("colspan") ?? "1";
+        if (!/^[1-4]$/.test(span)) return null;
+        result.push({ node: cell, value: nodeText(cell) });
+        for (let i = 1; i < Number(span); i++) result.push({ node: cell, value: "" });
+      }
+      return result.length === 4 ? result : null;
+    };
+    const indexTables = [...tableRows].filter(([table, trs]) => markers.some(m => m.end <= table.start && table.start - m.end < 250_000) &&
+      trs.some(r => {
+        const ts = grid(r)?.map(c => key(c.value));
+        return ts && /^(?:item|itemnumber)$/.test(ts[0]!) && /^form20f(?:caption|description)$/.test(ts[1]!) &&
+          /^locationinthis(?:document|report)$/.test(ts[2]!) && /^pages?$/.test(ts[3]!);
+      })).sort(([a], [b]) => a.start - b.start);
+    let active = false, closedItem = false, starts = 0;
+    const mapped: { title: string; page: number; cell: AppendixElement; row: AppendixElement }[] = [];
+    let problem: string | undefined;
+    // A table between two header-bearing tables may be a page footer or a
+    // headerless continuation. Anything else leaves the mapping unaccounted for.
+    const isPageFurniture = (row: AppendixElement) => {
+      const ts = cells(row).map(nodeText).filter(Boolean);
+      return ts.length === 0 || (ts.length >= 2 && ts.slice(0, -1).some(t => /\bAnnual Report\s+\d{4}$/i.test(t)) && /^\d{1,4}$/.test(ts.at(-1)!));
+    };
+    const headerTables = new Set(indexTables.map(([table]) => table));
+    const firstIndex = indexTables[0]?.[0], lastIndex = indexTables.at(-1)?.[0];
+    const spanned = firstIndex && lastIndex
+      ? [...tableRows].filter(([table]) => table.start >= firstIndex.start && table.start <= lastIndex.start).sort(([a], [b]) => a.start - b.start)
+      : [];
+    for (const [table, trs] of spanned) {
+      const continuation = !headerTables.has(table);
+      if (continuation && !active) continue;
+      for (const row of trs) {
+        if (continuation && isPageFurniture(row)) continue;
+        const cs = grid(row);
+        if (!cs) { if (active) problem = continuation ? "an unaccounted table interrupts the item mapping" : "malformed reference-table row"; continue; }
+        const ts = cs.map(c => c.value);
+        if (ts.every(t => t === "") || /^(?:item|item number)$/i.test(ts[0]!)) continue;
+        if (/^\d{1,2}[A-Z]?$/i.test(ts[0]!)) {
+          if (active) closedItem = true;
+          active = ts[0]!.toUpperCase() === spec.item;
+          if (active) {
+            starts++;
+            if (!closed[spec.item]?.test(key(ts[1]!))) problem = "item caption does not match the requested section";
+          }
+        }
+        if (!active) continue;
+        if (ts[2] === "" && ts[3] === "") continue; // Item caption / subsection caption.
+        if (/^(?:not applicable|none)$/i.test(ts[2]!) && ts[3] === "") continue;
+        if (ts[2] === "" || !/^\d{1,4}$/.test(ts[3]!) || Number(ts[3]) < 1) {
+          problem = `unresolved location reference: ${ts[2] || ts[1]}`;
+          continue;
+        }
+        mapped.push({ title: ts[2]!, page: Number(ts[3]), cell: cs[3]!.node, row });
+      }
+    }
+    if (starts > 0) {
+      const unresolved = (reason: string): ExtractResult => ({ ok: false, diagnostics,
+        error: new ExtractionError("unresolved_reference", `20-F Item ${spec.item} reference table: ${reason}; no partial mapping returned`) });
+      if (starts !== 1 || !closedItem || !mapped.length || problem) return unresolved(problem ?? "item mapping is duplicated, empty or lacks a closing item");
+      // Fixed-layout pages have explicit closed boxes AND printed page numbers.
+      // Source order alone, a nearby anchor or an inferred page sequence is not
+      // page evidence. This route does not change the strict notes parser.
+      const pageBoxes = elements.filter(n => !n.hidden && n.tag === "div" &&
+        /(?:^|;)\s*position\s*:\s*relative\s*(?:;|$)/i.test(n.attrs.get("style") ?? "") &&
+        /(?:^|;)\s*height\s*:\s*[\d.]+(?:pt|px)\s*(?:;|$)/i.test(n.attrs.get("style") ?? "") &&
+        /(?:^|;)\s*width\s*:\s*[\d.]+(?:pt|px)\s*(?:;|$)/i.test(n.attrs.get("style") ?? "") &&
+        /(?:^|;)\s*overflow\s*:\s*hidden\s*(?:;|$)/i.test(n.attrs.get("style") ?? ""));
+      const boxes = new Set(pageBoxes);
+      const owner = (n: AppendixElement) => {
+        for (let p: AppendixElement | undefined = n; p; p = p.parent) if (boxes.has(p)) return p;
+        return undefined;
+      };
+      const pages = new Map<number, { box: AppendixElement; furniture: AppendixElement } | null>();
+      const boxNumbers = new Map<AppendixElement, Set<number>>();
+      for (const row of rows) {
+        const box = owner(row);
+        if (!box) continue;
+        const ts = cells(row).map(nodeText).filter(Boolean);
+        if (ts.length < 2 || !ts.slice(0, -1).some(t => /\bAnnual Report\s+\d{4}$/i.test(t)) || !/^\d{1,4}$/.test(ts.at(-1)!)) continue;
+        const number = Number(ts.at(-1));
+        const numbers = boxNumbers.get(box) ?? new Set<number>();
+        numbers.add(number); boxNumbers.set(box, numbers);
+        pages.set(number, pages.has(number) ? null : { box, furniture: row });
+      }
+      const selected = new Map<number, { box: AppendixElement; body: string; titles: Set<string> }>();
+      const navigationPages = new Set<number>();
+      for (const mapping of mapped) {
+        if (expired()) return null;
+        let page: { box: AppendixElement; furniture?: AppendixElement } | null | undefined = pages.get(mapping.page);
+        const links = elements.filter(n => n.tag === "a" && !n.hidden && n.start > mapping.cell.start && n.end < mapping.cell.end);
+        // The unnumbered Form 20-F cover can be explicitly named as page 1.
+        if (page === undefined && mapping.page === 1 && key(mapping.title) === "coverpage" && links.length === 0) {
+          const cover = pageBoxes[0];
+          if (cover && /\bForm\s+20-F\b/i.test(nodeText(cover)) && /\bANNUAL REPORT\b/.test(nodeText(cover))) page = { box: cover };
+        } else {
+          const href = links[0]?.attrs.get("href");
+          const dest = href?.startsWith("#") ? target(href.slice(1)) : null;
+          if (links.length !== 1 || nodeText(links[0]!) !== String(mapping.page) || !dest || !page || owner(dest) !== page.box ||
+              ancestor(dest, "table") || ancestor(dest, "a")?.attrs.has("href")) {
+            return unresolved(`page ${mapping.page} destination is missing, ambiguous or disagrees with its printed page`);
+          }
+        }
+        if (!page || page.box.end >= mapping.row.start || (boxNumbers.get(page.box)?.size ?? 0) > 1) return unresolved(`page ${mapping.page} has no unique preceding printed page`);
+        // Layout tables can hold a page's own heading. A linked "Contents" is a
+        // running back-link on every page of some reports, not this page's title.
+        const pageLinks = elements.filter(n => n.tag === "a" && n.attrs.has("href") && n.start > page.box.start && n.end < page.box.end);
+        const pageHeads = elements.filter(n => !n.hidden && n.start >= page.box.start && n.end <= page.box.end &&
+          /^(?:h[1-6]|p|div|td|th|span|b|strong)$/.test(n.tag) && !ancestor(n, "a") && !pageLinks.some(a => a.start >= n.start && a.end <= n.end));
+        if (pageHeads.some(h => /^(?:tableofcontents|contents|(?:appendix)?referencetable20f(?:continued)?)$/.test(key(nodeText(h))))) {
+          return unresolved(`page ${mapping.page} is contents or a reference index`);
+        }
+        const without = (omit: AppendixElement[]) => {
+          let at = page.box.start;
+          const parts: string[] = [];
+          for (const n of omit.sort((a, b) => a.start - b.start)) {
+            if (n.start > at) parts.push(text(at, n.start));
+            at = Math.max(at, n.end);
+          }
+          parts.push(text(at, page.box.end));
+          return parts.filter(Boolean).join(" ");
+        };
+        // A chapter divider may itself be a linked mini-contents page, with
+        // no Contents title. Links plus bare labels are not narrative evidence.
+        const furniture = page.furniture ? [page.furniture] : [];
+        if (pageLinks.length >= 3 && !/[.!?\d]/.test(without([...furniture, ...pageLinks]))) {
+          navigationPages.add(mapping.page);
+          continue;
+        }
+        const previous = selected.get(mapping.page);
+        if (previous) previous.titles.add(mapping.title);
+        else selected.set(mapping.page, { box: page.box, body: without(furniture), titles: new Set([mapping.title]) });
+      }
+      const pieces = [...selected].sort(([, a], [, b]) => a.box.start - b.box.start).map(([number, page]) => {
+        return `Page ${number} — ${[...page.titles].join("; ")}\n${page.body}`;
+      });
+      // Apply the stub gate to source text, not to our coverage labels.
+      if (detectStub([...selected.values()].map(p => p.body).join("\n"), minChars).isStub) return unresolved("mapped source pages are only navigation or a truncated stub");
+      const omitted = navigationPages.size ? ` Navigation-only mapped pages omitted: ${[...navigationPages].join(", ")}.` : "";
+      return accept(`20-F Item ${spec.item}: mapped-page excerpts. Chapters may continue beyond the referenced pages; these excerpts are not the complete item.${omitted}\n\n${pieces.join("\n\n")}`,
+        "reference-table-pages", `all ${mapped.length} point-page references resolved; ${selected.size} unique source-bound pages retained.${omitted} Chapter completeness is explicitly withheld`);
+    }
+  }
+
   if (expired() || spec.form !== "10-K" || !["1", "7"].includes(spec.item)) return null;
   // A linked cross-reference index can explicitly incorporate disjoint pages.
   // Require every mapped range, every link and every printed page. A partial
@@ -1858,8 +2020,10 @@ function recoverAnnualSection(
     }
   }
   if (!closedItem || !mapped.length) return null;
-  // Other items may claim a range endpoint too. Whole-page slicing cannot
-  // prove which portion belongs here, even when both links resolve correctly.
+  // An issuer can expressly incorporate the same whole pages into several
+  // items (business/segment results/MD&A/financial notes). These are positive
+  // page references, not exclusive ownership claims. Retain the overlap for
+  // disclosure; it cannot override an otherwise complete, proved mapping.
   const otherClaims: [number, number][] = [];
   let owner = "";
   for (const [table, claimRows] of tableRows) {
@@ -1908,11 +2072,8 @@ function recoverAnnualSection(
     let linkAt = 0;
     for (const [rangeIndex, [a, b]] of ranges.entries()) {
       if (a < 1 || b < a || b - a > 200) return null;
-      // Whole pages are assembled, so any page another item claims (an endpoint
-      // or one strictly inside the range) is ambiguous (PR #88 review).
       if (otherClaims.some(([lo, hi]) => a <= hi && lo <= b)) {
-        diagnostics.notes.push(`linked index withheld: pages ${a}-${b} overlap pages claimed by another item`);
-        return null;
+        diagnostics.notes.push(`linked index: explicitly incorporated pages ${a}-${b} are shared with another item`);
       }
       const first = pages.get(a), last = pages.get(b);
       if (!first || !last) return null;

@@ -734,7 +734,7 @@ export function executiveGradeText(grade: ExecutiveRecord["grade"]): string {
 }
 
 export interface ExecutiveGroups {
-  /** Officers with at least one assessed grade: one card each. */
+  /** Officers with a grade or dated office context: one card each. */
   assessed: ExecutiveRecord[];
   /** Officers with neither grade assessed: one line lists them. */
   notAssessed: ExecutiveRecord[];
@@ -749,8 +749,8 @@ export interface ExecutiveGroups {
  * the same grade line and reason) collapse into one line per distinct reason
  * listing those officers; their cited facts stay beneath it.
  */
-export function executiveGroups(executives: readonly ExecutiveRecord[]): ExecutiveGroups {
-  const notAssessed = executives.filter((e) => e.grade === "not-assessed" && e.credibilityGrade === "not-assessed");
+export function executiveGroups(executives: readonly ExecutiveRecord[], withContext: readonly ExecutiveRecord[] = []): ExecutiveGroups {
+  const notAssessed = executives.filter((e) => e.grade === "not-assessed" && e.credibilityGrade === "not-assessed" && !withContext.includes(e));
   const assessed = executives.filter((e) => !notAssessed.includes(e));
   const byReason = new Map<string, ExecutiveRecord[]>();
   for (const e of notAssessed) {

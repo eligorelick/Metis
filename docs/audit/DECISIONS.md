@@ -5656,3 +5656,127 @@ Beneish interpretation and unsupported completeness or multiple figures.
 **Stamps.** Stage B, fair value and scenario targets `LATEST_BOOK_46`, payload
 1.68.0, pipeline stage-c-1.6.27. Score bands and the report schema are
 unchanged.
+
+## D-190 - Executive cards reflect dated management decisions (2026-11-04)
+
+- **Evidence and root cause.** The saved judge and verification artifacts for
+  reports 6 (ASML), 7 (JPM) and 8 (NVO) separate three problems. JPM's judge
+  proposed B execution grades for both officers on a validated five-year
+  diluted-share-count trend; the narrow typed-metric gate discarded that
+  metric and overwrote the more specific reasons. ASML's judge and NVO's CFO
+  supplied no execution evidence and no tenure start, so their unassessed
+  grades were honest. NVO's CEO retained C because typed operating cash flow
+  and repurchases qualified under the earlier result-only rule. None of the
+  cards consumed `leadership.managementActions` or the company outlook
+  discussion. Fetched SEC archive URLs in ASML/NVO guidance were additionally
+  refused when absent from the payload citation registry, despite D-182's
+  source-class correction. Many action figures were genuinely still unchecked.
+- **Decision.** Relevant dated office decisions and the retained company
+  guidance discussion appear on each CEO/CFO card across live, Markdown and
+  print views. Original company/board attribution and JUDGMENT claims remain;
+  unchecked context is labelled and rejected claims are excluded. The card
+  states the missing tenure, decision or guidance comparison. This is useful
+  context, not proof of the person's contribution or a new personal record.
+- **Execution admission.** A proposed letter can use a dated management action
+  when the card repeats its FACT and citation in reasoning or capital-allocation
+  evidence, and each action fact quotes a whole sentence exactly as the cited
+  retained filing/transcript writes it, with no failed check. A whole-sentence
+  quotation proves figures, wording and qualifications together, so one that
+  drops a trailing condition does not match; the numeric check alone cannot, and it
+  reads a true sentence as ambiguous when the amount recurs. Real filings write
+  dates out and use a dollar sign, so both forms are accepted: JPM's 10-Q
+  sentence on its USD 50 billion authorization replays through this route once
+  a tenure start is supplied. The event date is the sentence's only date or its
+  opening "On <date>", never an effective date, and must fall within an evidenced office
+  tenure, from explicit `titleSince` or an exact retained appointment sentence. Unknown/conflicting dates and divisional,
+  deputy or staff authority fail closed. The assessment concerns decisions and
+  outcomes during that tenure, not personal skill. A completed authorization
+  retains its suspension qualification and is never presented as an executed
+  repurchase or realized return. No letter is manufactured if the judge left
+  the evidence ungraded. The new admission is additive: if it refuses a
+  candidate, the existing typed-metric gate and its original reasons remain
+  exactly as before. No additional fallback is introduced.
+- **Reasons retained.** D-59 made an unreachable gate usable; D-63 admitted
+  company guidance during an evidenced CEO/CFO tenure; D-66 barred pay and
+  unknown metric semantics from unlocking grades; D-163 distinguished company
+  outcomes from a personal record; D-177 retained dated company/board actions.
+  Those protections and the existing typed execution admission remain. A
+  share-count trend does not satisfy the new decision contract. Historical
+  grades and verification marks remain immutable. Withheld grade rationales
+  stay withheld when ungraded office-context cards are expanded.
+- **Credibility.** The typed guidance comparison contract remains. Issuance or
+  revision alone, unmatched accounting bases and a partial year plus a Q4
+  forecast cannot establish a completed guidance record. A known fetched SEC
+  archive document is now an eligible filing citation without needing a second
+  payload-registry row; neither the URL nor that eligibility validates its
+  contents. The named-person restriction remains.
+- **Offline result.** Saved judges, their generation-matched frozen bundles and
+  saved fetched-URL telemetry were replayed through current-code calculation,
+  assembly and deterministic verification for reports 2, 3, 6, 7 and 8. No model
+  ran. JPM's cards each expose 7 relevant actions, ASML's expose 7/6, NVO's 5/4;
+  the company guidance discussion is carried with its original status. No new
+  letters are supportable from these saved outputs. NVO's CEO C remains under
+  the unchanged typed execution gate, in both the replay and the stored report.
+  Reports 2 and 3 still parse and export. All stored JSON was re-read unchanged.
+- **Validation and limits.** Test-first regressions cover title/pay-only,
+  company-result-only decision candidates, missing/outside tenure,
+  rejected/unchecked claims, wrong office,
+  no later actual, invented wording/date, unbound grades, SEC lookalikes and
+  authorization qualifications. Typecheck, changed-file ESLint and related
+  tests and the integrator's `--changed origin/main --passWithNoTests` sweep
+  are the gate; the full `npm run verify` is deliberately omitted.
+  Future model compliance with exact dated decision/card binding and tenure
+  instructions requires a paid run. No paid/provider/network calls were made.
+  The roster supplied no tenure start for any of the three reports, so this
+  route stays closed for most officers until tenure is read from filings. The
+  judge keeps its typed-metric instructions, the only route that has produced a
+  letter in a saved report.
+- **Stamps required at integration.** Advance the report spec for the changed
+  executive-grade meaning and the Stage C pipeline stamp for prompt/verifier
+  behavior. No payload shape, Stage B, valuation method or score-band change is
+  needed. This implementation intentionally changes no version constants.
+
+## D-191 - Recover explicit annual-report page references with honest coverage (2026-11-04)
+
+The frozen 33-company panel retained four missing business/MD&A sections:
+INTC 10-K Items 1/7 and ASML 20-F Items 4/5. PEP, DIS and EXPE retained
+underlying financial-note item failures; MSFT, MCD and ORCL had separate
+notes-recognition gaps after successful item extraction. The full census, source URLs, before/after lengths and
+first lines are in the [evidence report](2026-11-04-foreign-sections.md).
+
+- **Shared pages revise D-184/D-185.** A filing's explicit incorporation of
+  the same pages into two items is not an exclusive-ownership conflict. Admit
+  the requested ranges only when every endpoint link, intervening printed
+  page and closing item row is proved. Merge repeated/overlapping ranges;
+  disclose shared pages in extraction diagnostics. INTC explicitly incorporates
+  segment results into Business and MD&A, and financial-note pages into MD&A.
+- **Point pages are excerpts, not complete chapters.** For dispersed 20-F
+  mappings, resolve every reference across repeated column headers and merged
+  item-caption cells. Each destination must uniquely identify its printed,
+  closed physical page before the index. The unnumbered cover is admitted only
+  when explicitly mapped as Cover page 1 and its form/annual-report text agrees.
+  Keep only mapped pages; never infer a chapter end from an unrelated link or
+  slice to EOF. Label the returned text and payload title as mapped-page
+  excerpts with the complete item not recovered. This is an explicit partial
+  evidence route, not a relaxation of the complete-section proof.
+- **Wrong text remains withheld.** Reject contents/index pages, wrong-page,
+  duplicate, missing or external destinations, malformed/open mappings and
+  truncated source stubs. Resolve but omit navigation-only chapter dividers,
+  disclosing their page numbers. Missing references refuse the whole mapping;
+  no subset can silently stand in for it. Existing EX-13 precedence, hidden
+  markup handling, ordinary extraction and deadline checks remain.
+- **Absence reasons.** Unresolved 10-K financial-statement index stubs now
+  retain the actual source reference and explain that complete section bounds
+  were not proved. A 40-F is no longer sent through a purported 10-K item job:
+  it explicitly requires the annual-report exhibit from the filing index.
+  Automated 40-F exhibit selection is not added.
+- **Effect.** INTC recovers both complete mapped-range assemblies. ASML
+  supplies 11/13 unique mapped pages for Items 4/5; its Item 4 navigation page
+  13 is omitted. ASML's complete chapters remain unproved. PEP, DIS and EXPE
+  notes remain gaps with specific reference reasons; the other three domestic
+  notes-recognition gaps are unchanged. In 146 real-document
+  section checks, successes increase from 137 to 141 and all 137 previous
+  successes are byte-identical. No stored report or input was rewritten.
+- **Stamps required, not applied.** Advance the payload version for changed
+  filing evidence and coverage labels. No Stage B/fair-value/scenario-target,
+  pipeline-orchestration or report-schema stamp change is needed.
