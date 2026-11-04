@@ -18,6 +18,12 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Public polish (2026-11-04)
+
+- Make the complete fictional sample easy to find and distinguish its dataset from the company examples.
+- Clarify audit download availability, scoring labels, saved-report valuation prose and Chrome sign-in requirements.
+- Refresh setup, caching, reservation and release guidance; add community conduct and archive context.
+
 ## Unreleased - Financial statement notes from filing indexes (2026-11-04)
 
 - Recover annual notes through proved numeric/F-prefixed financial indexes and

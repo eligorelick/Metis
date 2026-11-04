@@ -1,6 +1,6 @@
 # Research validation status
 
-Updated 2026-10-31 for the D-139 prospective study workflow. No new matured-outcome
+Updated 2026-10-31 for the prospective study workflow. No new matured-outcome
 accuracy estimate or grade calibration is established by this implementation.
 
 The [report study commands](REPORT-EVALUATION.md#prospective-report-studies)
@@ -15,7 +15,7 @@ enrolled in a new prospective protocol.
 The following historical verification entries were last updated 2026-10-16 for
 report 1.19.4 / payload 1.24.2; their dates and version claims remain unchanged.
 
-D-77 separates saved research from live acquisition. A readable saved company
+Saved research opens independently of live acquisition. A readable saved company
 report opens directly from the database; live analysis is an explicit,
 non-prefetched navigation. Watchlist views read eligible cached responses only,
 including on historical report pages. Cached quotes retain their dates and
@@ -24,10 +24,10 @@ changing scores, weights or stored reports. FMP quota failures establish a
 bounded credential/provider cooldown while successful cached data remains
 available. Failing-first regressions cover the no-network navigation boundary,
 cache admission, explicit live links, and quota behavior; full gate and release
-CI outcomes are recorded in the associated release PR and local manifest.
+CI outcomes are recorded with the associated release.
 Report, payload and Stage B conventions are unchanged.
 
-D-76 distinguishes an explicitly printed cash-dividend total from its per-share
+Cash-dividend validation distinguishes an explicitly printed cash-dividend total from its per-share
 restatement, preserving conservative unit and source ambiguity checks. Output
 guards withhold unsupported internally derived historical EV against same-date
 debt evidence and label EDGAR coverage partial when retained sources coexist
@@ -48,33 +48,33 @@ are separate from the earlier counts above; final outcomes are recorded in
 PR #25 and the local release manifest. These final checks are pending at this
 documentation freeze.
 
-D-74 corrects deterministic principal summaries: an included financing option
+Deterministic principal summaries enforce a conservative boundary: an included financing option
 cannot be added to its offering total. Computed sums require proven distinct
 named issuance tranches; unsupported wording withholds the sum. Legacy views
 and exports remove the exact earlier generated annotation with an informational
 correction disclosure. Original stored reports, model output, usage and analysis
 conventions remain preserved; no paid analyst or judge rerun is involved. The
-actual frozen CRWV analyst payload is byte-identical (fingerprint
-`1.24.2:71b55ac7`; exact SHA-256 recorded in D-74), so only the report convention
+frozen analyst payload is byte-identical (fingerprint
+`1.24.2:71b55ac7`; exact SHA-256 recorded in the [audit log](audit/DECISIONS.md)), so only the report convention
 stamp changes.
 
-D-75 additionally binds plain table scales immediately preceding explicit date
+Table-scale validation additionally binds plain table scales immediately preceding explicit date
 columns. Conflicting declarations and unsupported qualifiers remain unchecked.
-Frozen CRWV replay corrects only `balanceSheet.coverage.numbers[2]` and
+Frozen-input replay corrects only `balanceSheet.coverage.numbers[2]` and
 `balanceSheet.coverage.commentary[2]`; commentary remains numeric-only support.
 The original report, snapshot, computation and analyst payload are unchanged,
 with no paid rerun. Corrected exports preserve the original report 1.19.2
 convention; that correction used 1.19.3, while payload and Stage B remained unchanged.
-The complete combined D-74/D-75 local `npm run verify` passed: 6,418 product
+The complete combined principal-summary/table-scale local `npm run verify` passed: 6,418 product
 tests (three skipped), four database integration tests, both configured coverage
 gates, production build and zero-vulnerability security audit. Independent source
 review found no remaining reviewed blocker. PR #24 subsequently merged after
 both required full and Windows CI checks passed;
 these checks do not establish forecast accuracy or calibrated grades.
 
-The NVDA audit recovery (D-65 through D-72) changes consensus calendarization,
+The [valuation audit recovery](audit/DECISIONS.md) changes consensus calendarization,
 the non-operating investment bridge and valuation date. The subsequent debt
-completeness correction (D-73) stamps Stage B
+completeness correction stamps Stage B
 `STAGE_B_2026_10_DEBT_COMPLETENESS_1`. Older snapshots require their original engine;
 saved reports retain their original conventions. The recovery also adds typed
 filing and governance disclosures and conservative numeric-claim matching.
@@ -83,7 +83,7 @@ do not establish institutional readiness, forecast accuracy or an independent
 model-family review. Release verification and live-run results are recorded
 in the recovery plan and decisions log.
 
-D-72 follows the PR review with exhibit-bound financial facts, amended-release
+Financial-evidence admission includes exhibit-bound financial facts, amended-release
 collection, whole-row quarterly selection, current reporting-currency evidence,
 and guards against unsupported EPS, acquisition double counting, segment-history
 relabeling and incomplete analyst distributions. Source `47a43dd` passed its fresh
@@ -93,16 +93,16 @@ and Windows CI passed. A post-merge Windows export I/O test exceeded its implici
 five-second deadline; PR #21 then aligned the direct I/O cases to explicit
 15-second deadlines and merged after both push and PR full/Windows checks passed.
 
-D-73 follows source-data preflight with conservative debt completeness and
+Source-data preflight includes conservative debt completeness and
 filing-presentation reconciliation. Its changed context cannot resume earlier
 analyst artifacts as equivalent. Cross-date or impossible free-float percentages
 are withheld while the float measurement retains its own date; valuation share
 counts are unchanged. The subsequent test-only Windows SQLite timing policy in
-PR #23 passed both required full and Windows checks on main. D-74/D-75 then
-passed their local gate and required PR #24 CI; D-76 requires fresh evidence.
+PR #23 passed both required full and Windows checks on main. The principal-summary and table-scale corrections then
+passed their local gate and required PR #24 CI; the dividend correction requires fresh evidence.
 
 The fresh NVDA output and its explicitly labeled corrected replay are recorded
-in D-71. Independent arithmetic reconciled the valuation and score; the source
+in the [audit log](audit/DECISIONS.md). Independent arithmetic reconciled the valuation and score; the source
 review repaired omitted disclosures and verifier false positives. The corrected
 artifact leaves six numeric and 14 qualitative claims unvalidated. Its one
 source-bound editorial wording correction is disclosed, with the original

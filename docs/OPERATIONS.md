@@ -106,10 +106,10 @@ a newer save. `npm run settings:reset` previews stored rows;
 stamp and settings revision counter. `--db <path>` targets another database.
 This command does not reset the separate AI connection store or appearance.
 
-AI selection is independently persisted in the connection store. Before that
-store exists, an Anthropic key chooses Claude API; otherwise the default is
-Data only. Beginning account setup creates a store initially selecting Data only,
-so an existing API user may need to select Claude explicitly again. A saved
+AI selection is independently persisted in the connection store. Until an explicit
+choice is saved, the default follows the saved or environment Anthropic key:
+Claude API when a key is configured, Data only otherwise. Beginning account
+setup preserves that implicit default. A saved
 unavailable selection does not fall back to paid Claude when authorization fails;
 explicitly disconnecting its selected account resets the choice to Data only.
 ChatGPT/Gemini model choices are separate from `ANALYSIS_MODEL`; ChatGPT has
@@ -196,25 +196,25 @@ one rejected-output repair and, on plan connections, up to three zero-cost
 dropped-request resends. Repair feedback is preserved across a dropped repair;
 a newly rejected output starts a whole-case repair without continuation.
 
-JOB-301: Fresh pages observe active work first. Otherwise, the newest job is
+Fresh pages observe active work first. Otherwise, the newest job is
 offered only when terminal and eligible for Retry. Discovery is read-only and
 never resurrects an older lineage or starts work.
 
-JOB-207: A verify-reuse Retry carries the frozen snapshot of the effective
+A verify-reuse Retry carries the frozen snapshot of the effective
 successful verification artifact, including its original capture time. It does
 not substitute lineage-root inputs when that artifact has no snapshot.
 
-JOB-205: Exhausted judge transport attempts are disclosed as cut-off requests,
+Exhausted judge transport attempts are disclosed as cut-off requests,
 with the actual attempt count, rather than report-schema validation failures.
 Received-invalid-output controls retain schema wording and unchanged costs.
 
-JOB-214: Successful stream opens clear reconnect warnings. CLOSED streams
+Successful stream opens clear reconnect warnings. CLOSED streams
 reopen after 1, 2, 5, 10 and 30 seconds. After those attempts fail, the client
 stops reopening, reads job status once with GET and shows Live connection lost.
 Observation never posts work. Replacement streams retain
 monotonic revision checks; cancellation and unmount clear pending timers.
 
-JOB-215: Completion observed after a running frame or an explicit start/Retry updates surrounding research once per job. A live-view
+Completion observed after a running frame or an explicit start/Retry updates surrounding research once per job. A live-view
 completion navigates to saved research instead of rebuilding live inputs;
 subsequent settlement revisions still update progress without another refresh.
 Attaching to a job already done on load does not navigate or refresh.
@@ -276,7 +276,7 @@ Invoke-RestMethod -Uri 'http://127.0.0.1:3000/api/report' -Method Post `
   -Body '{"symbol":"AAPL"}'
 ```
 
-PERF-202: SSE polls read the canonical revision before building a full snapshot.
+SSE polls read the canonical revision before building a full snapshot.
 Unchanged revisions skip artifact and report work; nonterminal snapshots omit
 resume-plan folding. Settlement revisions still emit through the same fences.
 
@@ -371,7 +371,7 @@ truthful `EDGAR_CONTACT`; it does not permit other providers. The fetch guard
 is process-local, not a sandbox for arbitrary subprocess traffic.
 
 `npm run verify` matches the Linux release sequence: dependency shape, types,
-lint, product tests, integration tests, both coverage contracts, build and
+lint, integration tests, both coverage contracts (which run the product suite), build and
 security audit. The audit invokes npm with production/dev dependencies and
 `--audit-level=low`, so it requires registry access and fails on any listed
 severity. Windows CI runs product tests with one worker and the CLI integration
@@ -397,11 +397,11 @@ ownership. A reused PID or EPERM does not block sign-in. Exit or crash releases
 the lock automatically; never delete it while servers run. Stop all servers
 before upgrading: older binaries use only the saved PID protocol.
 
-Implementation anchors: `src/app/api/`, `src/app/requestSecurity.ts`,
+Implementation references: `src/app/api/`, `src/app/requestSecurity.ts`,
 `src/pipeline/jobRunner.ts`, `jobStore.ts`, `jobScheduler.ts`, `events.ts`,
 `src/settings/`, `src/appearance/preference.ts`, `src/db/`, `src/cache/`,
 `src/report/history.ts`, `src/report/export/`, `src/ai/`, `scripts/`,
-`Start-Thesis.ps1`, `Stop-Thesis.ps1`, `vitest.shared.ts` and
+`vitest.shared.ts` and
 `.github/workflows/ci.yml`.
 
 
@@ -479,7 +479,7 @@ the public report endpoint continues to use the user's selected connection.
 
 This contract reproduces Stage B calculations and preserves the evidence acquired for the run. It does not reproduce nondeterministic model prose or turn a recently acquired restatement into point-in-time historical evidence. Information availability and historical outcome evaluation require the separate evaluation contracts.
 
-P0 L-4: Complete schema-rejected answers persist only as rejectedText. partialText remains reserved for partial/truncated section recovery, so identical later carried sections cannot credit a rejected complete attempt in the cost breakdown.
+Complete schema-rejected answers persist only as rejectedText. partialText remains reserved for partial/truncated section recovery, so identical later carried sections cannot credit a rejected complete attempt in the cost breakdown.
 
 Corrected exports retain recorded completeness. An absent record stays absent when no legacy EDGAR/XBRL entry is added. Added legacy entries recount under a confirmed original convention, or use the current count when no convention is confirmable. The summary includes recordedDataCompleteness beside dataCompleteness.
 

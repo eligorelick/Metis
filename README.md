@@ -1,5 +1,7 @@
 # Metis
 
+[![CI](https://github.com/eligorelick/Metis/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/eligorelick/Metis/actions/workflows/ci.yml) ![Node 24](https://img.shields.io/badge/Node-24-339933) [![source-available](https://img.shields.io/badge/licence-source--available-blue)](LICENSE)
+
 ![Metis equity research](public/brand/metis-lockup.svg)
 
 **Metis writes equity research reports on US-listed companies from primary sources (SEC filings, market data, consensus estimates and macro series), with every cited figure traced to its record.** It runs on your own machine, computes the financial analysis in deterministic TypeScript, and can have two AI analysts argue the bull and bear cases before a judge writes the report. It is for individual investors and equity researchers who want to inspect the evidence and assumptions behind a report. The name comes from the Greek Titan of wisdom and planning ([brand guide](docs/BRAND.md)).
@@ -31,8 +33,6 @@ From `/report/sample`: a fictional company, with real code outputs on invented i
 
 Node.js 24 or newer and npm are required (`package.json`); use Node 24 for development. CI tests Node 24. Windows is the primary development platform. macOS/Linux use the npm commands below; CI runs the full gate on Linux and product/integration smoke checks on Windows.
 
-Some existing Windows installations have `Start-Thesis.ps1` and `Stop-Thesis.ps1` local launchers. They are not shipped in this repository and require an already-built installation; see [launcher details](docs/OPERATIONS.md#installation-and-startup). A fresh clone uses npm.
-
 ```powershell
 git clone https://github.com/eligorelick/Metis.git
 cd Metis
@@ -45,20 +45,18 @@ On macOS/Linux, use `cp .env.example .env`. Production: `npm run build`, then `n
 
 Open <http://127.0.0.1:3000>; development and production both bind to `127.0.0.1`. Every provider key is optional: with no `FMP_API_KEY`, set
 `EDGAR_CONTACT` to a truthful "Name email" identity and real US-listed tickers
-come from SEC EDGAR and Yahoo. With no key at all, `/report/sample` renders a fictional report,
+come from SEC EDGAR and Yahoo. With no key at all, **[View sample report](http://127.0.0.1:3000/report/sample)** for a complete fictional report,
 and `/company/DEMO` and `/company/DBNK` are reserved strings
 served from `fixtures/fmp` whatever keys are set. None reaches a market-data provider: the company slices disclose fixtures and the sample is synthetic.
 Other symbols use live/cache data; generating fixture reports can still call selected AI.
 
-No paid API key is required to try the app. For real keyless research, SEC EDGAR requires `EDGAR_CONTACT` (a contact identity, not a key). Optional keys: `FMP_API_KEY` for vendor data, `FRED_API_KEY` for macro requests, `FINNHUB_API_KEY` for Finnhub, and `ANTHROPIC_API_KEY` only for Claude API analysis. `ANTHROPIC_ADMIN_KEY` is only for optional cost reconciliation. Configure provider keys and the SEC contact in `.env` or Settings; keep the optional admin key in the private environment. See the configuration table below for limits and defaults.
+No paid API key is required to try the app. For real keyless research, SEC EDGAR requires `EDGAR_CONTACT` (a contact identity, not a key). Optional keys: `FMP_API_KEY` for vendor data, `FRED_API_KEY` for macro requests, `FINNHUB_API_KEY` for Finnhub, and `ANTHROPIC_API_KEY` only for Claude API analysis. `ANTHROPIC_ADMIN_KEY` is only for optional cost reconciliation. Configure provider keys and the SEC contact in `.env` or Settings; Settings also supports Save, Test and Remove saved for the optional admin key in protected local storage. See the configuration table below for limits and defaults.
 
-Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps. Measured complete runs in November 2026 cost $1.62 (Haiku 4.5 analysts at medium effort with the Sonnet 5.5 judge), $2.28 (Sonnet 5.5 at high), $4.71 (Opus 5.5 at high) and $12.27 (Opus 5.5 at extra high), so expect more than the estimate at higher effort. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) and the detailed pricing table below.
+Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps. Measured complete runs in November 2026 cost $1.62 (Haiku 4.5 analysts at medium effort with the Sonnet 5.5 judge), $2.28 (Sonnet 5.5 at high), $4.71 (Opus 5.5 at high), $12.27 (Opus 5.5 at extra high), $3.08 (Claude Sonnet on JPM) and $6.30 (Claude Opus on NVO), so expect more than the estimate at higher effort. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) and the detailed pricing table below.
 
 ## AI connections
 
-In **Settings → AI connections**, connect ChatGPT through official plan OAuth
-or Google through the separately installed Gemini CLI **0.36.x**, then save.
-ChatGPT supports account model refresh, GPT-6.1 Sol with an access notice,
+In **Settings → AI connections**, connect ChatGPT through official plan OAuth or Google through the separately installed Gemini CLI **0.36.x**, then save. ChatGPT supports account model refresh, GPT-6.1 Sol with an access notice,
 reasoning choices and opt-in Fast speed. Reports retain actual execution details.
 Sign-in runs no inference; failures never switch to paid API usage. Claude API
 remains separately billed. Plan allowances and credit settings apply; API dollar
@@ -128,6 +126,7 @@ estimates, price targets, peers, insider trades (SEC Form 4), institutional
 ownership, news, transcripts, executive compensation and segment revenue have
 no implemented keyless source; IFRS-only facts also remain disclosed gaps.
 See [License and data rights](docs/DATA-RIGHTS.md) for what each allows.
+
 ## What the numbers mean
 
 [Methodology](docs/METHODOLOGY.md) defines the conventions and sources. Sector
@@ -144,6 +143,7 @@ coefficients, estimation populations and limits; the source cites it by section.
 With AI off or unavailable, reports retain deterministic results and disclose
 missing analysis. Failed AI runs may retain charges and produce such a report: it has no analyst assessment, and any letter grade is a deterministic score band.
 Plan-run recovery files in `<data dir>/recovery/sections` stay until deleted with Metis stopped. If the AI connection store cannot be read, saved reports stay readable but new jobs do not start. Settings follows a saved Claude key unless a connection was chosen explicitly. LAN mode disables credential and connection management.
+
 ## AI analysis
 
 Two analysts independently build bull and bear cases without seeing each other's output; the bear prompt forbids assuming a bull case exists. They share evidence, so agreement is not independent factual corroboration.
@@ -195,10 +195,10 @@ reservations. A cut-off request is presumed at its worst case until reconciled.
 
 The estimated run is a calculation, not a measurement: the fixture shape at effort
 `high` and registry rates, with assumed research and writing token splits and three synthesis sections; Haiku's synthesize figures are those of Claude Sonnet 5.5
-because that pass is raised to it. It does NOT scale with effort — usage at
-other levels has not been measured. Higher effort can consume more tokens;
-these examples are neither minimum nor maximum prices. New model quality and
-end-to-end costs have not been measured in live Metis runs for this update.
+because that pass is raised to it. The estimate does not scale with effort.
+Measured whole-report costs at several effort levels are listed above.
+Higher effort can consume more tokens; these examples are neither minimum nor
+maximum prices, and the measurements do not establish model quality.
 
 <!-- END GENERATED: pricing -->
 

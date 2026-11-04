@@ -24,6 +24,8 @@ const trackedFiles = (root = ROOT) =>
 const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
+  "CODE_OF_CONDUCT.md",
+  "docs/internal/README.md",
   "docs/audit/2026-11-03-valuation-inputs.md",
   "docs/audit/2026-11-03-valuation-coverage.md",
   "docs/audit/2026-11-04-foreign-sections.md",
@@ -83,6 +85,8 @@ const REQUIRED_RELEASE_FILES = [
  * record supersedes them.
  */
 const ALLOWED_MARKDOWN = new Set([
+  "CODE_OF_CONDUCT.md",
+  "docs/internal/README.md",
   "docs/audit/2026-11-03-valuation-inputs.md",
   "docs/audit/2026-11-03-valuation-coverage.md",
   "docs/audit/2026-11-04-foreign-sections.md",
@@ -866,7 +870,7 @@ it("P4-8 keeps lifecycle decisions and operating notes under their owning headin
   expect(decisions.indexOf("Entries are dated design history")).toBeLessThan(decisions.indexOf("## D-143 - P4:"));
   expect(decisions).toMatch(/## D-143 - P4:.*2026-11-02/);
   const ops = read("docs/OPERATIONS.md");
-  expect(blockBetween(ops, "## Report lifecycle and recovery", "## Local HTTP API")).toContain("JOB-301:");
+  expect(blockBetween(ops, "## Report lifecycle and recovery", "## Local HTTP API")).toContain("Fresh pages observe active work first.");
   expect(blockBetween(ops, "## Verification and troubleshooting", "## Immutable run inputs")).toContain("runtime.lock");
   const privacy = read("docs/PRIVACY.md");
   expect(privacy.indexOf("AI-115:")).toBeLessThan(privacy.indexOf("## Limited FMP access"));
