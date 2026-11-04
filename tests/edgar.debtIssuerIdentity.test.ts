@@ -63,7 +63,7 @@ describe("late debt admission requires independent issuer identity", () => {
     expect(debtValue(bundle)).toBe(22724 * M);
   });
 
-  it.each(["missing-facts", "zero-cik", "padded-mismatch", "missing-facts-body", "non-sec-facts", "blank-symbol", "ticker-alias"] as const)("withholds incomplete identity evidence (%s)", (mode) => {
+  it.each(["missing-facts", "zero-cik", "padded-mismatch", "missing-facts-body", "non-sec-facts", "blank-symbol", "sibling-class"] as const)("withholds incomplete identity evidence (%s)", (mode) => {
     const bundle = candidate("edgar");
     if (!bundle.edgar.cik.ok || !bundle.edgar.companyFacts.ok) throw new Error("fixture missing");
     const mapping = bundle.edgar.cik.value.data;
@@ -75,7 +75,7 @@ describe("late debt admission requires independent issuer identity", () => {
     if (mode === "missing-facts-body") Reflect.set(facts, "data", null);
     if (mode === "non-sec-facts") facts.source = "fmp";
     if (mode === "blank-symbol") symbol = " ";
-    if (mode === "ticker-alias") { mapping.ticker = "CRWV.A"; symbol = "CRWV-A"; }
+    if (mode === "sibling-class") { mapping.ticker = "CRWV.A"; symbol = "CRWV-B"; }
     expect(confirmedIssuerFacts(symbol, bundle.edgar)).toBeNull();
   });
   it("does not require a registrant object when the exact SEC mapping and facts CIK match", () => {

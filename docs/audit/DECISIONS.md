@@ -6162,6 +6162,220 @@ at display time, with patterns anchored to those labels so that company text is
 left alone. Stage B output text changes, so the Stage B and payload stamps
 advance.
 
+## D-196 - Fair-value coverage from reconciled inputs and specific refusals (2026-11-04)
+
+**Scope and baseline.** Branch `t3/fair-value-coverage` starts from `a26c55bc`,
+after fetching and fast-forwarding `origin/t3/public-polish-fixes`. The frozen
+`app-data-final50/live.db` was opened read-only with `fileMustExist: true`;
+Stage B and validation were replayed at each snapshot's original clock and
+configuration. There are 50 symbols: 49 companies and the unsupported SPY ETF
+control. Source snapshots and stored reports are immutable. No owner database,
+environment file, credential, paid provider or model was read or called.
+
+**Lease scope.** A provider zero without filed provenance is undisclosed,
+not proof that leases do not exist. Extend the existing same-filing completion
+to that case only when both operating and finance lease families are proved
+(including explicit filed zeros), borrowings reconcile, and the vendor total
+equals its stated components. Taxonomy silence cannot prove a missing family
+zero. A vendor long-term amount may embed noncurrent operating leases only
+when it equals the proved financing amount plus those exact lease components.
+Rebuild debt and count leases once, then apply the existing common convention
+to the equity bridge, EBITDA/EV, WACC, invested capital and ROIC. The integrity
+check is unchanged. Unproved completions retain their prior admission decision;
+they do not introduce a new debt refusal that changes unrelated scores.
+
+- **AAPL.** At 2026-09-26, the vendor has debt 80,111M USD, short debt 11,903M,
+  long debt 68,208M and a zero lease line. Filed operating leases are 12,912M
+  and finance leases 1,456M. One filing proves current maturities 9,906M plus
+  commercial paper 1,997M, and noncurrent borrowing 68,208M. Completed debt is
+  94,479M; the default operating-lease exclusion leaves 81,567M financing debt
+  and 24,845M net debt after 56,722M liquidity. Finance leases stay in debt.
+  [The 2026 10-K](https://www.sec.gov/Archives/edgar/data/320193/000032019326000026/aapl-20260926.htm)
+  and retained same-accession facts establish the amounts, rather than the
+  refusal's wording.
+- **ORCL.** At 2026-08-31, vendor long debt 148,306M equals filed financing
+  117,712M plus noncurrent operating leases 30,594M. The separate lease line
+  is zero. Current financing is 7,625M; total operating and finance leases
+  are 34,621M and 9,185M. A complete composition is 169,143M, with 134,522M
+  financing debt after operating leases leave it. This is the same general
+  completion rule, not an issuer exception. The existing outside-domain
+  refusal remains authoritative; no terminal or explicit-PV rule is relaxed.
+
+**Current class evidence.** The earlier NKE census snapshot has no retained
+`economicShareEvidence`, so D-186's interim-cover fallback is evaluated. The
+newer snapshot instead contains annual evidence ending 2026-10-02. Its
+nonempty array returned before that fallback, even though no inventory was
+active on the quote date. Evaluate the independently proved current cover
+only after all retained evidence expires; never extend the expired counts.
+The 2026-09-28 cover counts are 281,387,752 and 1,203,921,077, totaling
+1,485,308,829. The same-filing balance sheet enumerates those two classes,
+and the retained annual rights sentence establishes equal economic rights.
+The disclosed same-price approximation is retained. The diluted denominator
+remains the separately admitted 1,484,200,000 weighted shares, not that cover
+sum. [The current 10-Q](https://www.sec.gov/Archives/edgar/data/320187/000032018726000193/nke-20260831.htm)
+supports the class inventory. Missing current class data still refuses.
+
+**Revenue scope, not a subsidiary substitution.** NEE's standard
+`RevenueFromContractWithCustomerIncludingAssessedTax` observations are rounded
+contract-revenue disclosures. They are not established consolidated operating
+totals. The parent reports 8,090M for Q3 2026 versus the 8,100M contract fact;
+the note separately identifies FPL. The annual vendor total is 27,476M versus
+25,800M contract revenue. Explain this unresolved scope and carry it into the
+DCF headline instead of asserting a proved consolidated-total conflict.
+Keep revenue withheld until a same-registrant full statement reconciles;
+do not restore vendor rows wholesale. A second check supports caution:
+the [Q2 parent statement](https://www.sec.gov/Archives/edgar/data/753308/000075330826000060/nee-20260630.htm)
+reports six-month revenue 14,235M less Q2 7,534M = 6,701M for Q1, while the
+frozen vendor standalone Q1 says 6,958M. The
+[Q3 combined filing](https://www.sec.gov/Archives/edgar/data/753308/000075330826000081/nee-20260930.htm)
+does distinguish the parent from FPL; the earlier 4,100M complaint is not
+evidence of a subsidiary leak. Neither rounded contract amounts nor
+subsidiary facts authorize a parent valuation. Full historical parent-row
+recovery remains unimplemented; this branch supplies the accurate refusal.
+
+**Other refusals and identity.**
+
+- TM has 13,033,931,974 filed ordinary shares versus 1,184,184,620 provider
+  quoted units: about 11.0067 ordinary shares per quoted unit, not an admitted
+  standard ADS ratio within 1%. The matching-FX observation alone is
+  insufficient. BABA has an unresolved 2019 ordinary split versus quoted-price
+  history, and current cover/weighted-share/declared-ratio evidence is not a
+  consistent single basis. Both stay withheld; their headline now carries the
+  failed security evidence. TSM, NVO, ASML and SAP pass the same two-count,
+  market-cap/price, dated-FX and split checks; their numbers are unchanged.
+- SONY's trailing net loss is genuine: JPY 342.161B + 82.870B - 1,008.612B +
+  361.968B = -221.613B. Its
+  [2026 20-F](https://www.sec.gov/Archives/edgar/data/313838/000119312526274893/d28719d20f.htm)
+  reports a 326.865B parent loss for the fiscal year, including 1,357.758B
+  discontinued-operations loss after the financial-services spin-off. This is
+  not a sign or currency repair. Retain the overlay: removing a real one-off
+  loss would require a separately supported normalization model.
+- PGR's common cash distributions exist, but compatible common earnings for
+  2025 and 2024 are unavailable; only one of the latest three fiscal years
+  establishes the payout denominator. At least two are required. Total net
+  income does not resolve preferred/common allocation. The headline now names
+  the excess-return payout refusal and missing fiscal years, with no DCF
+  explanation or fabricated payout assumption.
+- BRK.B's SEC mapping and registrant use BRK-B. Exact string comparison
+  incorrectly excluded its facts despite matching CIK 1067983. Reuse the
+  existing dot/hyphen class-alias rule, retaining sibling-class and all CIK
+  checks. A common-unit diluted denominator remains unproved; the headline
+  now states the excess-return share refusal and its class-basis cause. No
+  ratio or unsegmented diluted count is manufactured.
+
+**Analyst checks.** AAPL's restored 153.90 USD value is 56.47% below the frozen
+353.55 price and well below 344.46 consensus. This is a material model/market
+disagreement, not a small precision fix. The bridge independently ties:
+2,213.058B enterprise value - 24.845B net debt + 63.368B after-tax nonoperating
+investments = 2,251.581B equity / 14.630318B diluted shares. Current P/E is
+39.41x and EV/EBITDA 30.23x. WACC is 9.5064%, consensus growth starts at
+10.05%, margins rise 33.01% to 34.90%, and terminal growth is 2.5%. The existing
+sales-to-capital cap applies 5x to a raw 8.4413x; no coefficient was tuned.
+Terminal PV is about 48.81% of EV. Reverse DCF requires 41.59% initial growth
+under the same path family, versus 10.05% in the base. Flat-margin sensitivity
+is 146.78. The large gap persists after currency, share units, lease treatment,
+bridge arithmetic and forecast inputs are checked; it remains a conditional
+house-model result, not a claim of market mispricing.
+
+NKE's restored 28.74 is 29.32% below 40.665 price and below 37.15 consensus.
+P/E is 19.46x, EV/EBITDA 13.25x. WACC is 8.8554%; the forecast starts at
+-7.38% consensus growth, with a declining-margin regime holding 8.31%, rather
+than the older D-186 historical-margin fallback. EV 42.188B plus net cash
+0.475B = equity 42.663B / 1.4842B diluted shares. Terminal PV is about 55.33%
+of EV; reverse DCF requires 7.51% initial growth on the same path family.
+The current margin/consensus assumptions explain why the recovered value is
+below the earlier D-186 replay's 41.09; no target was tuned to price.
+
+**Regression evidence.** Observed failing tests precede every new behavior:
+undisclosed zero completion; embedded noncurrent operating leases; refusing
+unfiled finance-family zero assumptions; preserving prior decisions after an
+unproved completion; expired class fallback; SEC punctuation aliases;
+contract-scope producer and immutable replay wording; DCF upstream revenue
+and ADR reasons; and route-specific excess-return reasons. Controls include a
+true zero with no filed leases, a filed zero, incomplete or mixed-filing
+leases, contradictory vendor splits, current notes of unresolved scope,
+unreconciled debt, refused components, sibling classes/CIKs, incomplete real
+two-class shapes, a combined filing with no parent revenue facts, and a
+genuine trailing loss with positive operating cash flow. New test data is
+synthetic; existing filing fixtures are unchanged. The broad changed suite
+first exposed one old assertion expecting the generic contract-conflict
+wording; its exact amount and withholding assertions remain, with the new
+scope wording asserted explicitly.
+
+**Release boundary.** Advance the Stage B implementation, fair-value method,
+scenario-target method and payload stamps together before release. Their
+current values remain unchanged in this branch. No report-schema or pipeline
+orchestration advance is needed, and no saved report is recalculated or
+migrated. The net-debt resolver and statement-builder math are unchanged.
+No new source or documentation file requires risk/release-inventory entries.
+
+**Final replay and verification.** The full `npm run verify` was deliberately
+not run. Final required checks used Node 24.11.1:
+
+- `npm run typecheck`: exit 0.
+- ESLint on all 18 changed TypeScript files: exit 0, no findings.
+- `node node_modules/vitest/vitest.mjs run --config vitest.config.ts --changed origin/main --passWithNoTests --maxWorkers 4`:
+  exit 0, 513 files, 12,494 passed and one existing skip. At this run,
+  `origin/main` was `1b0fb4ab`, the merge of the requested public-polish base;
+  another worktree's fetch had advanced the shared remote-tracking ref.
+- Separate `tests/risk.coverage.test.ts`: 11 passed;
+  `tests/repository.release.test.ts`: 18 passed;
+  `tests/docs.lint.test.ts`: 14 passed, each exit 0.
+- Final lease completion controls: 59 passed across the completion and legacy
+  lease-line suites. Final equal-class controls: 19 passed. `git diff --check`
+  is clean. The frozen replay test passed and the independent comparison
+  command exited 0; all expected 50 outputs were present.
+
+The ordinary Vite configuration warning about future native config loading
+remains; it is not a test or lint failure. The source diff was self-reviewed
+for incomplete lease families, embedded leases, contradictory vendor splits,
+unproved completions, expired/current class precedence, sibling identity,
+revenue scope, immutable snapshots and route-specific refusal precedence.
+
+The final 50-symbol replay has no new errors; SPY retains the identical
+unsupported-ETF error. Available fair values rise from 35 to 37 of the 49
+companies. Only these three symbols change in fair value, complete scenario
+target rows/status, raw DCF per share or composite:
+
+| Symbol | Frozen price | Consensus target | Fair value before -> after | Bull / base / bear before -> after | Composite before -> after |
+| --- | ---: | ---: | --- | --- | --- |
+| AAPL | 353.55 | 344.46 | withheld -> 153.90 | none -> 209.59 / 153.90 / 111.55 | 59.90 -> 61.88 |
+| NKE | 40.665 | 37.15 | withheld -> 28.74 | none -> 37.17 / 28.74 / 21.57 | 53.89 -> 53.47 |
+| ORCL | 126.31 | 230.19 | outside-domain -> outside-domain | none -> none | 50.83 -> 50.66 |
+
+All monetary figures in this table are USD per quoted share. Oracle's corrected
+lease basis leaves terminal PV 427.12B, or 101.72% of 419.92B EV, and explicit
+PV -7.21B; that domain refusal is still correct. Its lease-integrity gap is
+gone. The score change reflects the corrected debt basis, not valuation from
+an outside-domain DCF.
+
+The other 47 symbols are byte-identical in the compared output objects:
+MSFT, NVDA, GOOGL, AMZN, META, JNJ, PG, KO, PEP, WMT, COST, HD, MCD, CAT,
+XOM, UNH, LLY, DIS, INTC, VZ, TSLA, BA, EXPE, TSM, ASML, TM, NVO, SAP,
+SONY, BABA, JPM, BAC, WFC, GS, MS, C, USB, PGR, TRV, MET, AIG, O, NEE,
+BRK.B, FIGR, CRWV and SPY. Identical before/after SHA-256 for their ordered
+fair-value objects, raw DCF per share, full target rows/status and complete
+composites:
+`9a9910ee0024ec460fcf68ed4729a41f5bf000d5cd828a12921334c184b51578`.
+The comparison script explicitly fails on any changed symbol outside
+AAPL/NKE/ORCL. It also checks all 50 entries and equality of the unsupported
+control. Full inputs, outputs, source diagnostics, failing/passing logs and
+the comparison are under ignored `tmp/int/panel/` in this worktree.
+
+The older census's saved NKE report remains suppressed and immutable; a current
+replay of its different frozen inputs returns 28.05 with the present preexisting
+margin policy. Its empty evidence array allows the interim-cover rule to run,
+whereas the newer snapshot's expired evidence array formerly short-circuited
+it. The older D-186 41.09 result used an earlier historical-margin fallback;
+no model assumption or forecast coefficient was changed in this branch.
+
+Public filing checks used readable sec.gov pages, with retained evidence under
+`tmp/int/sec/`. A direct archive download with the app's declared User-Agent
+convention returned 403 and was not retried. No live FMP, Finnhub, FRED or model
+call was made. Stored source facts are used as evidence, not refreshed through
+paid APIs. Numerical recovery remains deliberately incomplete for NEE, TM,
+BABA, SONY, PGR and BRK.B for the specific scope/model reasons above.
+
 ## D-198 - Material operating sales, preferred capital and independent trailing earnings (2026-11-04)
 
 The independent frozen-input audit found three input-admission defects. This

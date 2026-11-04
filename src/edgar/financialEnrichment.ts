@@ -662,12 +662,31 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       // noncurrent finance lease, also when that lease is zero (PR #86 review).
       if (pure !== null && combined !== null && !eq(combined, pure + fin.noncurrent)) throw new Error("ambiguous noncurrent finance-lease overlap");
       const noncurrent = pure ?? (combined === null ? null : combined - fin.noncurrent);
-      if (noncurrent === null || noncurrent < 0 || !(vendorAgreesWithFiled(row.longTermDebt as number, noncurrent) ||
-          combined !== null && vendorAgreesWithFiled(row.longTermDebt as number, combined))) continue;
       const line = row.capitalLeaseObligations as number;
-      if (![op.total, op.noncurrent, op.total + fin.total, op.noncurrent + fin.noncurrent].some(v => eq(line, v))) continue;
+      // An unproven provider zero is undisclosed when the same filing shows
+      // real leases. Complete the debt composition below; never merely ignore
+      // the contradictory zero or subtract leases from borrowings-only debt.
+      const undisclosedZero = line === 0 && op.total + fin.total > 0;
+      // A missing vendor lease line cannot attest to an unfiled family being
+      // zero. This new completion path needs primary coverage of both kinds;
+      // explicit filed zeros qualify, taxonomy silence does not.
+      if (undisclosedZero && !["Operating", "Finance"].every(prefix => used.includes(`${prefix}LeaseLiability`) ||
+        used.includes(`${prefix}LeaseLiabilityCurrent`) && used.includes(`${prefix}LeaseLiabilityNoncurrent`))) continue;
+      const operatingInLong = undisclosedZero && op.noncurrent > 0 && noncurrent !== null &&
+        [noncurrent + op.noncurrent, noncurrent + op.noncurrent + fin.noncurrent].some(v => eq(row.longTermDebt as number, v));
+      if (noncurrent === null || noncurrent < 0 || !(vendorAgreesWithFiled(row.longTermDebt as number, noncurrent) ||
+          combined !== null && vendorAgreesWithFiled(row.longTermDebt as number, combined) || operatingInLong)) continue;
+      if (!undisclosedZero && ![op.total, op.noncurrent, op.total + fin.total, op.noncurrent + fin.noncurrent].some(v => eq(line, v))) continue;
       const refuse = (why: string): LeaseLineCompletion<T> => ({ status: "refused", reason: `incomplete debt carrying value: same-filing completion refused: ${why}` });
-      refusal = line < op.total + fin.total ? refuse("current debt or vendor composition cannot be reconciled") : none;
+      // An unsuccessful zero-line repair keeps the prior admission decision;
+      // the independent lease-integrity guard still withholds its bridge.
+      // It must not introduce a new debt-field refusal and alter other scores.
+      refusal = !undisclosedZero && line < op.total + fin.total ? refuse("current debt or vendor composition cannot be reconciled") : none;
+      if (undisclosedZero && ([row.capitalLeaseObligationsCurrent, row.capitalLeaseObligationsNonCurrent]
+        .some(v => v != null && (!finite(v) || v !== 0)) || !notesScope &&
+        ["NotesPayableCurrent", "NotesAndLoansPayableCurrent"].some(tag => (own(tag) ?? 0) > 0))) {
+        throw new Error("vendor zero has a contradictory lease split or unresolved current notes");
+      }
       const ltd = own("LongTermDebtCurrent") ?? (notesScope ? own("NotesAndLoansPayableCurrent") ?? own("NotesPayableCurrent") : null), dc = own("DebtCurrent"), both = own(COMBINED_CURRENT_DEBT_TAG);
       const stb = own("ShortTermBorrowings"), cp = own("CommercialPaper");
       const borrowing = stb ?? cp ?? 0;
@@ -701,7 +720,7 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
         vendorNetDebt: row.vendorNetDebt ?? row.netDebt ?? row.fieldConflicts?.netDebt?.vendorValue ?? null,
         fieldConflicts, fieldProvenance: { ...row.fieldProvenance, ...Object.fromEntries(fields.map(f => [f, evidence])) } } as T,
         admission: { kind: "filing-completion", date: row.date!, summary: `${millions(totalDebt)} (vendor ${millions(vendorTotal)}; ${filing.accn})`,
-          detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: current financing debt ${millions(current)} + noncurrent financing debt ${millions(noncurrent)} + operating leases ${millions(op.total)} + finance leases ${millions(fin.total)} = total debt ${millions(totalDebt)} ${unit}; vendor component scopes reconciled exactly; ${[...new Set(used)].join(", ")}` } };
+          detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: current financing debt ${millions(current)} + noncurrent financing debt ${millions(noncurrent)} + operating leases ${millions(op.total)} + finance leases ${millions(fin.total)} = total debt ${millions(totalDebt)} ${unit}; ${undisclosedZero ? "undisclosed vendor lease zero replaced by filed liabilities; " : ""}${operatingInLong ? "noncurrent operating leases inside vendor long-term debt counted once; " : ""}vendor component scopes reconciled exactly; ${[...new Set(used)].join(", ")}` } };
     } catch { /* Ambiguous or incomplete facts never authorize a completion. */ }
   }
   return refusal;

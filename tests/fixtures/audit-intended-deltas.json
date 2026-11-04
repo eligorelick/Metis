@@ -10135,22 +10135,22 @@
         {
           "path": "report.fairValue.methodVersion",
           "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_PLAIN_READER_WORDING_48"
+          "after": "FAIR_VALUE_2026_11_FAIR_VALUE_COVERAGE_49"
         },
         {
           "path": "report.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_PLAIN_READER_WORDING_48"
+          "after": "SCENARIO_TARGETS_2026_11_FAIR_VALUE_COVERAGE_49"
         },
         {
           "path": "stageB.fairValue.methodVersion",
           "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_PLAIN_READER_WORDING_48"
+          "after": "FAIR_VALUE_2026_11_FAIR_VALUE_COVERAGE_49"
         },
         {
           "path": "stageB.scenarioTargets.methodVersion",
           "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_PLAIN_READER_WORDING_48"
+          "after": "SCENARIO_TARGETS_2026_11_FAIR_VALUE_COVERAGE_49"
         },
         {
           "path": "stageB.valuation.notes.7",
