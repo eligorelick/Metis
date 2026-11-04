@@ -10091,12 +10091,12 @@
         "D-140",
         "D-141"
       ],
-      "reason": "D-140 established workflow/source-scope conventions. the Q round advances the report to 1.60.0 (D-175 to D-181), after the priority fixes moved it to 1.59.0 (D-168 to D-172), after the FIGR extra-high audit fixes moved it to 1.58.0 (D-163 to D-167), the FIGR paid-run fixes moved it to 1.57.0 (D-156 to D-161) and P0 M-1/M-2/L-2 to 1.56.0 (D-142); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
+      "reason": "D-140 established workflow/source-scope conventions. D-190 advances the report to 1.61.0. the Q round advances the report to 1.60.0 (D-175 to D-181), after the priority fixes moved it to 1.59.0 (D-168 to D-172), after the FIGR extra-high audit fixes moved it to 1.58.0 (D-163 to D-167), the FIGR paid-run fixes moved it to 1.57.0 (D-156 to D-161) and P0 M-1/M-2/L-2 to 1.56.0 (D-142); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
       "deltas": [
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.60.0"
+          "after": "1.61.0"
         },
         {
           "path": "report.technicals.read.trend",
