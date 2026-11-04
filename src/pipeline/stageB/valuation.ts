@@ -2337,15 +2337,17 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // FCX-1 partial-coverage path above is unchanged and runs first.
   const leaseOut = leaseExcluded || bal === null ? { amount: 0, note: null, clause: null } : operatingLeaseOutOfDebt(bal, inputs.includeLeasesInEv === true);
   const leaseBasis = { fcx1Excluded: leaseExcluded, includeLeasesInEv: inputs.includeLeasesInEv === true, currentRowExcludesLease: leaseOut.note === null };
-  const icDebt = bal && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : leaseOut.amount) : null;
+  const icDebt = bal && bal.fieldConflicts?.totalDebt?.usable !== false && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : leaseOut.amount) : null;
+  const admittedLiquidity = bal?.fieldConflicts?.cashAndShortTermInvestments?.usable !== false &&
+    bal?.fieldConflicts?.cashAndCashEquivalents?.usable !== false && isNum(bal?.cashAndShortTermInvestments);
   const equity = resolveConsolidatedEquity(bal ?? {});
   // FIN-119-V1: temporary equity (redeemable preferred and redeemable NCI) is financing capital. A refused operand leaves
   // the capital unknown, never zero (D-87): the DCF is withheld as it is for missing equity.
   const temporary = temporaryEquityClaims(bal);
   const temporaryText = temporary !== null && temporary.capitalTotal !== 0 ? ` + temporaryEquity ${fmtMoney(temporary.capitalTotal)} [${temporary.capitalBasis}]` : "";
   const ic =
-    bal && icDebt !== null && equity.value !== null && isNum(bal.cashAndShortTermInvestments)
-      ? icDebt + equity.value + (temporary === null ? 0 : temporary.capitalTotal) - bal.cashAndShortTermInvestments
+    bal && icDebt !== null && equity.value !== null && admittedLiquidity
+      ? icDebt + equity.value + (temporary === null ? 0 : temporary.capitalTotal) - bal.cashAndShortTermInvestments!
       : null;
   const mainCapitalGap = (lead: string): ManifestEntry => gapEntry(
     "valuation.dcf.salesToCapital",
@@ -2353,7 +2355,13 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     "critical",
   );
   if (bal === null || ic === null) {
-    gaps.push(mainCapitalGap("balance-sheet fields missing for invested capital"));
+    const operand = (field: string) => `${field}${bal?.fieldConflicts?.[field]?.usable === false ? ` withheld (${bal.fieldConflicts[field]!.reason ?? "source conflict"})` : ""}`;
+    const missing = bal === null ? ["balance row"] : [
+      ...(icDebt === null ? [operand("totalDebt")] : []),
+      ...(equity.value === null ? ["consolidated equity (totalEquity / totalStockholdersEquity)"] : []),
+      ...(!admittedLiquidity ? [operand("cashAndShortTermInvestments"), ...(bal.fieldConflicts?.cashAndCashEquivalents?.usable === false ? [operand("cashAndCashEquivalents")] : [])] : []),
+    ];
+    gaps.push(mainCapitalGap(`balance-sheet fields missing for invested capital: ${missing.join(", ")}${bal ? ` at ${bal.date}` : ""}`));
     return { assumptions: null, notes, gaps };
   }
   // FIN-303 (pre-flight I6): invested capital that the lease subtraction itself emptied (positive lease-inclusive, not
@@ -6998,11 +7006,18 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
           ? inputs.operatingLeaseLiability
           : null;
       const financeLeaseLiability =
-        totalLeaseLiability !== null && leaseLiability !== null
+        isNum(bridgeBalance?.financeLeaseLiability) && bridgeBalance.financeLeaseLiability >= 0 ? bridgeBalance.financeLeaseLiability
+        : totalLeaseLiability !== null && leaseLiability !== null
           ? Math.max(0, totalLeaseLiability - leaseLiability)
           : null;
       const includeLeases = inputs.includeLeasesInEv === true;
+      const bridgeEvidence = { ...bridgeBalance, fieldProvenance: { ...bridgeBalance?.fieldProvenance },
+        capitalLeaseObligations: inputs.leaseLiability ?? bridgeBalance?.capitalLeaseObligations,
+        operatingLeaseLiability: inputs.operatingLeaseLiability ?? bridgeBalance?.operatingLeaseLiability };
+      if (inputs.leaseLiability != null && inputs.leaseLiability !== bridgeBalance?.capitalLeaseObligations) delete bridgeEvidence.fieldProvenance.capitalLeaseObligations;
+      if (inputs.operatingLeaseLiability != null && inputs.operatingLeaseLiability !== bridgeBalance?.operatingLeaseLiability) delete bridgeEvidence.fieldProvenance.operatingLeaseLiability;
       const leaseConflict = leaseDebtConflict({
+        ...bridgeEvidence,
         totalDebt: bridgeBalance?.totalDebt,
         capitalLeaseObligations: inputs.leaseLiability,
         operatingLeaseLiability: inputs.operatingLeaseLiability,
@@ -7019,11 +7034,6 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       const netDebtForBridge = includeLeases ? netDebtIncludingLeases : netDebtExcludingLeases;
       // A caller override is not the filed observation the row's provenance describes.
       // This only limits prose; the guard and bridge arithmetic above remain unchanged.
-      const bridgeEvidence = { ...bridgeBalance, fieldProvenance: { ...bridgeBalance?.fieldProvenance },
-        capitalLeaseObligations: inputs.leaseLiability ?? bridgeBalance?.capitalLeaseObligations,
-        operatingLeaseLiability: inputs.operatingLeaseLiability ?? bridgeBalance?.operatingLeaseLiability };
-      if (inputs.leaseLiability != null && inputs.leaseLiability !== bridgeBalance?.capitalLeaseObligations) delete bridgeEvidence.fieldProvenance.capitalLeaseObligations;
-      if (inputs.operatingLeaseLiability != null && inputs.operatingLeaseLiability !== bridgeBalance?.operatingLeaseLiability) delete bridgeEvidence.fieldProvenance.operatingLeaseLiability;
       if (isNum(netDebtIncludingLeases)) {
         notes.push(
           `DCF equity bridge: EV − net debt − minority interest − preferred equity. ` +

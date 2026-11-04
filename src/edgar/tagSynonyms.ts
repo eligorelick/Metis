@@ -528,6 +528,8 @@ export const LINE_ITEM_TAGS = {
   longTermDebtRevolverCurrent: entry(["LinesOfCreditCurrent"]),
   /** Completeness evidence only: this aggregate can be gross principal, not carrying debt. */
   debtInstrumentAggregate: entry(["DebtInstrumentCarryingAmount"]),
+  /** Signed premium/discount and issuance-cost bridge; never itself a debt total. */
+  debtCarryingAdjustment: entry(["DebtInstrumentUnamortizedDiscountPremiumAndDebtIssuanceCostsNet"]),
   /** Noncurrent carrying subtype: completeness evidence, never an additive synonym. */
   convertibleNoncurrentCarrying: entry(["ConvertibleLongTermNotesPayable"]),
   /** Scope evidence for a fiscal maturity schedule; never a carrying-debt stand-in. */

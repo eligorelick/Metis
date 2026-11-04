@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { admitDebtFields } from "@/edgar/financialEnrichment";
+import { admitBalanceCash, admitDebtFields, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { leaseDebtConflict } from "@/pipeline/stageB/netDebt";
+import { leaseDebtScopeRefusal } from "@/pipeline/stageB/leaseScope";
 import type { FmpBalanceSheetRow } from "@/providers/fmp";
+import type { FetchResult } from "@/types/core";
 import { ACCN, companyFacts, M, OBSERVED, Q2 } from "./helpers/amzn51LeaseShape";
 
 const tagged: Record<string, number> = { LongTermDebtNoncurrent: 100, LongTermDebtCurrent: 4,
@@ -13,6 +15,59 @@ const row = (over: Partial<FmpBalanceSheetRow> = {}): FmpBalanceSheetRow => ({ d
 const admit = (tags = tagged, vendor = row()) => admitDebtFields(vendor, companyFacts({ [Q2]: tags }), "USD", OBSERVED);
 
 describe("exact same-filing debt completion", () => {
+  it("reconciles debt independently of a cash refusal in either pass order and retains that refusal", () => {
+    const facts = companyFacts({ [Q2]: { ...tagged, CashAndCashEquivalentsAtCarryingValue: 9 } });
+    const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M });
+    const cashFirst = admitDebtFields(admitBalanceCash(vendor, facts, 'quarter', OBSERVED).row, facts, 'USD', OBSERVED).row;
+    const debtFirst = admitBalanceCash(admitDebtFields(vendor, facts, 'USD', OBSERVED).row, facts, 'quarter', OBSERVED).row;
+    for (const out of [cashFirst, debtFirst]) {
+      expect(out.totalDebt).toBe(130 * M);
+      expect(out.cashAndCashEquivalents).toBeNull();
+      expect(out.netDebt).toBeNull();
+      expect(out.fieldConflicts?.netDebt?.reason).toMatch(/cashAndCashEquivalents conflict/);
+    }
+    expect(cashFirst.fieldProvenance?.totalDebt).toEqual(debtFirst.fieldProvenance?.totalDebt);
+    const stale = admitBalanceCash(vendor, facts, 'quarter', OBSERVED).row;
+    const oldDebtReason = 'incomplete debt carrying value: the vendor lease line was incomplete';
+    Object.assign(stale, { totalDebt: null, netDebt: null, fieldConflicts: { ...stale.fieldConflicts,
+      totalDebt: { usable: false, vendorValue: 104 * M, secValue: null, reason: oldDebtReason },
+      netDebt: { usable: false, vendorValue: 94 * M, secValue: null, reason: oldDebtReason } } });
+    const recovered = admitDebtFields(stale, facts, 'USD', OBSERVED).row;
+    expect(recovered.totalDebt).toBe(130 * M);
+    expect(recovered.fieldConflicts?.netDebt?.reason).toMatch(/cashAndCashEquivalents conflict/);
+  });
+  it("uses the vendor row's original filing in both direct replay and acquisition enrichment", () => {
+    const facts = companyFacts({ [Q2]: Object.fromEntries(Object.entries(tagged).filter(([tag]) => !tag.startsWith('Finance'))) });
+    for (const [tag, concept] of Object.entries(facts.facts['us-gaap']!)) {
+      if (tag.includes('LeaseLiability') && !tag.endsWith('Noncurrent')) continue;
+      const ps = (concept as { units: { USD: Record<string, unknown>[] } }).units.USD;
+      ps.push({ ...ps[0], accn: '0000000042-26-000099', filed: '2026-10-01' });
+    }
+    const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M, filingDate: '2026-07-31' });
+    const balance = { ok: true as const, value: { source: 'fmp' as const, endpoint: 'test', asOf: OBSERVED, fetchedAt: OBSERVED, data: { rows: [vendor], raw: [] } } };
+    const missing: FetchResult<never> = { ok: false, gap: { field: 'test', reason: 'not needed', severity: 'info' } };
+    const fresh = enrichFinancialFields(balance, missing, facts, 'quarter', OBSERVED).balance;
+    if (!fresh.ok) throw new Error('fixture');
+    const replay = admitDebtFields(vendor, facts, 'USD', OBSERVED).row;
+    expect(replay.totalDebt).toBe(124 * M);
+    expect(fresh.value.data.rows[0]?.totalDebt).toBe(replay.totalDebt);
+    expect(fresh.value.data.rows[0]?.fieldProvenance?.totalDebt?.filings).toEqual(replay.fieldProvenance?.totalDebt?.filings);
+  });
+  it.each([false, true])("cancels a proved noncurrent operating portion with %s vendor-zero borrowings", zero => {
+    const tags: Record<string, number> = zero ? { OperatingLeaseLiabilityNoncurrent: 18 } : {
+      OperatingLeaseLiabilityNoncurrent: 18, LongTermDebtAndCapitalLeaseObligations: 100, DebtCurrent: 4 };
+    const vendor = row({ shortTermDebt: (zero ? 0 : 4) * M, longTermDebt: (zero ? 0 : 100) * M,
+      capitalLeaseObligations: 18 * M,
+      fieldConflicts: { totalDebt: { usable: false, vendorValue: (zero ? 18 : 122) * M, secValue: null,
+        reason: 'incomplete debt carrying value: the vendor lease line 18M but no total operating-lease liability' } } });
+    Object.assign(vendor, { totalDebt: null, netDebt: null });
+    const out = admit(tags, vendor);
+    expect(out.row.totalDebt).toBe((zero ? 18 : 122) * M);
+    expect(leaseDebtConflict(out.row)).toBeNull();
+    expect(leaseDebtScopeRefusal(out.row, false)).toBeNull();
+    expect(leaseDebtScopeRefusal(out.row, true)).toMatch(/unverified/);
+    expect(out.row.fieldProvenance?.financeLeaseLiability).toBeUndefined();
+  });
   it("completes an undisclosed vendor lease zero from reconciled same-filing borrowings and leases", () => {
     const vendor = row({ shortTermDebt: 7 * M, capitalLeaseObligations: 0, totalDebt: 107 * M,
       operatingLeaseLiability: 20 * M, financeLeaseLiability: 6 * M });
@@ -38,14 +93,63 @@ describe("exact same-filing debt completion", () => {
     expect(out.row.totalDebt).toBe(104 * M);
     expect(out.admissions).toEqual([]);
   });
-  it("does not complete an undisclosed lease zero by assuming an unfiled finance-lease family is zero", () => {
+  it("admits reconciled borrowings with an undisclosed finance family, explicitly as an assumption", () => {
     const onlyOperating = Object.fromEntries(Object.entries(tagged).filter(([tag]) => !tag.startsWith("FinanceLease")));
     const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M,
       operatingLeaseLiability: 20 * M });
     const out = admit(onlyOperating, vendor);
-    expect(out.row.totalDebt).toBe(104 * M);
+    expect(out.row.totalDebt).toBe(124 * M);
+    expect(out.admissions[0]?.detail).toMatch(/finance leases.*not separately material.*assum/i);
+    expect(out.row.fieldProvenance?.financeLeaseLiability).toBeUndefined();
+    expect(leaseDebtConflict(out.row)).toBeNull();
+  });
+  it("uses a filed current-debt aggregate instead of double-counting its maturities", () => {
+    const out = admit({ ...tagged, DebtCurrent: 7 }, row({ shortTermDebt: 7 * M, capitalLeaseObligations: 0, totalDebt: 107 * M }));
+    expect(out.row).toMatchObject({ shortTermDebt: 7 * M, totalDebt: 133 * M });
+  });
+  it("admits an operating-only lease line beside a filed finance total with no maturity split", () => {
+    const tags = { ...tagged, FinanceLeaseLiability: 6 };
+    delete (tags as Record<string, number>).FinanceLeaseLiabilityCurrent;
+    delete (tags as Record<string, number>).FinanceLeaseLiabilityNoncurrent;
+    const out = admit(tags, row({ shortTermDebt: 4 * M, capitalLeaseObligations: 20 * M, totalDebt: 124 * M }));
+    expect(out.row.totalDebt).toBe(130 * M);
+    expect(out.row.financeLeaseLiability).toBe(6 * M);
+    expect(leaseDebtConflict(out.row)).toBeNull();
+  });
+  it("leaves a reconciled full operating-only total unchanged when no numeric completion is needed", () => {
+    const tags = { LongTermDebtNoncurrent: 100, LongTermDebtCurrent: 4, OperatingLeaseLiability: 20 };
+    const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 20 * M, totalDebt: 124 * M,
+      operatingLeaseLiability: 20 * M });
+    const out = admit(tags, vendor);
+    expect(out.row).toBe(vendor);
     expect(out.admissions).toEqual([]);
-    expect(leaseDebtConflict(out.row)).toMatch(/do not reconcile/);
+  });
+  it("recognizes a vendor operating-only line from complete operating evidence without asserting a finance maturity split", () => {
+    const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 20 * M, totalDebt: 124 * M,
+      operatingLeaseLiability: 20 * M, financeLeaseLiability: 6 * M,
+      fieldProvenance: { operatingLeaseLiability: { source: 'edgar', unit: 'USD', periodStart: null, periodEnd: Q2,
+        observedAt: OBSERVED, tags: ['us-gaap/OperatingLeaseLiability'], filings: [{ accn: ACCN, filed: '2026-07-31', form: '10-Q' }] } } });
+    expect(leaseDebtConflict(vendor)).toBeNull();
+    expect(leaseDebtConflict({ ...vendor, financeLeaseLiability: 30 * M })).toBeNull();
+    expect(leaseDebtConflict({ ...vendor, fieldProvenance: { operatingLeaseLiability: {
+      ...vendor.fieldProvenance!.operatingLeaseLiability!, periodEnd: '2025-12-31' } } })).not.toBeNull();
+    expect(leaseDebtConflict({ ...vendor, capitalLeaseObligations: 19 * M })).not.toBeNull();
+    expect(leaseDebtConflict({ ...vendor, fieldProvenance: {} })).not.toBeNull();
+    expect(leaseDebtConflict({ ...vendor, totalDebt: 25 * M })).not.toBeNull();
+    expect(leaseDebtConflict({ ...vendor, date: undefined, fieldProvenance: { operatingLeaseLiability: {
+      ...vendor.fieldProvenance!.operatingLeaseLiability!, periodEnd: undefined } } })).not.toBeNull();
+  });
+  it("recognizes a gross combined debt fact only when the same filing's signed discount ties to carrying debt", () => {
+    const tags = { LongTermDebtNoncurrent: 100, LongTermDebtCurrent: 4, LongTermDebt: 104,
+      DebtLongtermAndShorttermCombinedAmount: 108, DebtInstrumentUnamortizedDiscountPremiumAndDebtIssuanceCostsNet: -4 };
+    const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M });
+    expect(admit(tags, vendor).row.totalDebt).toBe(104 * M);
+    expect(admit(tags, { ...vendor, cik: '99' }).row.totalDebt).toBeNull();
+    expect(admit({ ...tags, DebtInstrumentUnamortizedDiscountPremiumAndDebtIssuanceCostsNet: -3 }, vendor).row.totalDebt).toBeNull();
+    const facts = companyFacts({ [Q2]: tags });
+    const discount = facts.facts['us-gaap']!.DebtInstrumentUnamortizedDiscountPremiumAndDebtIssuanceCostsNet as { units: { USD: { accn: string }[] } };
+    discount.units.USD[0]!.accn = '0000000042-26-000099';
+    expect(admitDebtFields(vendor, facts, 'USD', OBSERVED).row.totalDebt).toBeNull();
   });
   it("leaves an unproved zero-line composition to the existing integrity guard without adding a debt refusal", () => {
     const vendor = row({ shortTermDebt: 9 * M, capitalLeaseObligations: 0, totalDebt: 109 * M,

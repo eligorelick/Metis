@@ -13,6 +13,7 @@
 export const NET_DEBT_RESOLVER_VERSION = "NET_DEBT_V3" as const;
 
 export interface LeaseDebtInputs {
+  date?: string | null;
   totalDebt?: number | null;
   capitalLeaseObligations?: number | null;
   operatingLeaseLiability?: number | null;
@@ -24,7 +25,8 @@ export interface LeaseDebtInputs {
    */
   capitalLeaseObligationsCurrent?: number | null;
   capitalLeaseObligationsNonCurrent?: number | null;
-  fieldProvenance?: Readonly<Record<string, { readonly tags: readonly string[] } | undefined>>;
+  fieldProvenance?: Readonly<Record<string, { readonly tags: readonly string[]; readonly source?: string;
+    readonly periodEnd?: string | null; readonly periodStart?: string | null; readonly filings?: readonly { readonly accn?: string }[] } | undefined>>;
 }
 
 /** An amount in millions with grouped digits ("96,320M"); the refusal names the values it compared. */
@@ -103,12 +105,21 @@ export function leaseDebtConflict(inputs: LeaseDebtInputs): string | null {
   if (operating !== null && finance !== null && exceeds(operating + finance, debt)) {
     return `${operatingText(operating)} and ${financeText(finance)} together exceed total debt ${millions(debt!)}`;
   }
-  const overLine = exceeds(operating, total) ? operatingText(operating!) : exceeds(finance, total) ? financeText(finance!) : null;
+  // A vendor line equal to a complete filed operating liability describes
+  // operating leases only. A separate finance liability is not part of that
+  // line; it remains in financing debt. Never reinterpret a filed combined line.
+  const opProof = inputs.fieldProvenance?.operatingLeaseLiability;
+  const opTags = opProof?.tags ?? [];
+  const operatingOnly = inputs.fieldProvenance?.capitalLeaseObligations === undefined && total !== null && operating !== null &&
+    typeof inputs.date === "string" && opProof?.source === "edgar" && opProof.periodStart === null && opProof.periodEnd === inputs.date && !!opProof.filings?.length &&
+    Math.abs(total - operating) <= Math.max(1, Math.abs(operating) * 1e-6) &&
+    (opTags.includes("us-gaap/OperatingLeaseLiability") || opTags.includes("us-gaap/OperatingLeaseLiabilityCurrent") && opTags.includes("us-gaap/OperatingLeaseLiabilityNoncurrent"));
+  const overLine = exceeds(operating, total) ? operatingText(operating!) : !operatingOnly && exceeds(finance, total) ? financeText(finance!) : null;
   if (overLine !== null) {
     return `${overLine} exceeds ${leaseLineText(inputs, total!)} - the lease inputs are on different scopes and do not reconcile`;
   }
   if (total !== null && operating !== null && finance !== null &&
-      Math.abs(operating + finance - total) > Math.max(1, Math.abs(total) * 1e-6)) {
+      !operatingOnly && Math.abs(operating + finance - total) > Math.max(1, Math.abs(total) * 1e-6)) {
     return `${operatingText(operating)} plus ${financeText(finance)} (${millions(operating + finance)}) do not reconcile to ${leaseLineText(inputs, total)}`;
   }
   return null;

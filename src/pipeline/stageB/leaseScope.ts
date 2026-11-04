@@ -163,7 +163,8 @@ export function leaseDebtScopeRefusal(row: LeaseScopeRow | null | undefined, inc
   const sameSource = first?.source === "edgar" && !!first.unit && first.periodEnd === row.date &&
     first.filings?.some(f => !!f.accn && provenance.every(p => p !== undefined && p.source === first.source && p.unit === first.unit && p.periodEnd === row.date && p.filings?.some(a => a.accn === f.accn)));
   const short = row.shortTermDebt, long = row.longTermDebt, total = row.totalDebt;
-  const completeFinancing = provenance[0]?.tags.includes("us-gaap/LongTermDebtCurrent") && provenance[1]?.tags.includes("us-gaap/LongTermDebtNoncurrent");
+  const completeFinancing = provenance[0]?.tags.includes("us-gaap/LongTermDebtCurrent") && provenance[1]?.tags.includes("us-gaap/LongTermDebtNoncurrent") ||
+    row.fieldProvenance?.totalDebt?.calculation === "same-filing-debt-completed";
   if (sameSource && completeFinancing && typeof short === "number" && Number.isFinite(short) && short >= 0 && typeof long === "number" && Number.isFinite(long) && long >= 0 &&
     typeof op === "number" && Number.isFinite(op) && op >= 0 && typeof total === "number" && Number.isFinite(total) &&
     Number.isFinite(finance) && finance >= 0 && Math.abs(total - short - long - op - finance) <= Math.max(1, Math.abs(total) * 1e-9)) return null;

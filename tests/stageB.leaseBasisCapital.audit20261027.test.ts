@@ -52,6 +52,32 @@ const noLeaseBalance = {
 const dcfInput = (balance: DcfBalanceRow, extra: Partial<DcfAssumptionInputs> = {}): DcfAssumptionInputs => ({ ...base, balance, ...extra });
 
 describe("FIN-303: sales-to-capital removes the operating lease the bridge removes (D-25)", () => {
+  it("retains an operating-only vendor line and its filed finance liability throughout the equity bridge", () => {
+    const balance: DcfBalanceRow = { ...withLeaseBalance, financeLeaseLiability: 10e6,
+      fieldProvenance: { operatingLeaseLiability: { source: 'edgar', unit: 'USD', periodStart: null, periodEnd: withLeaseBalance.date,
+        tags: ['us-gaap/OperatingLeaseLiability'], filings: [{ accn: '0000000042-26-000001', filed: '2026-05-01', form: '10-Q' }] } } };
+    const valued = valueCompany(route, { dcfInputs: dcfInput(balance), waccPct: 10, netDebt: 200e6, dilutedShares: 100e6,
+      leaseLiability: 200e6, operatingLeaseLiability: 200e6, currentPrice: 10, excessReturn: null, reit: null,
+      multiples: { quote: { price: 10, marketCap: 1e9, currency: 'USD' }, reportedCurrency: 'USD',
+        incomeTtm: { ...base.incomeTtm, netIncome: 144e6, epsDiluted: 1.44 }, cashFlowTtm: null,
+        balance: { ...balance, goodwill: 0, intangibleAssets: 0, minorityInterest: 0, preferredStock: 0 } } });
+    expect(valued.gaps.some(g => g.field === 'valuation.dcf.leaseIntegrity')).toBe(false);
+    expect(valued.kind === 'dcf' ? valued.dcf?.perShare : null).not.toBeNull();
+    expect(valued.notes.join(' ')).toContain('finance-lease amount of 10000000');
+  });
+  it.each(['totalDebt', 'totalStockholdersEquity', 'cashAndShortTermInvestments'] as const)("names the missing %s capital operand instead of zero-filling it", field => {
+    const built = buildDcfAssumptions(dcfInput({ ...noLeaseBalance, [field]: null }));
+    expect(built.assumptions).toBeNull();
+    expect(built.gaps.find(g => g.field === 'valuation.dcf.salesToCapital')?.reason).toContain(field);
+    expect(built.gaps.some(g => /invested capital <= 0/.test(g.reason))).toBe(false);
+  });
+  it.each(['totalDebt', 'cashAndShortTermInvestments'] as const)("keeps a refused %s audit observation out of invested capital", field => {
+    const built = buildDcfAssumptions(dcfInput({ ...noLeaseBalance,
+      fieldConflicts: { [field]: { usable: false, reason: 'same-period source conflict retained for audit' } } }));
+    expect(built.assumptions).toBeNull();
+    expect(built.gaps.find(g => g.field === 'valuation.dcf.salesToCapital')?.reason).toContain(field);
+    expect(built.gaps.find(g => g.field === 'valuation.dcf.salesToCapital')?.reason).toContain('same-period source conflict');
+  });
   it("a fully covered operating lease leaves sales-to-capital's invested capital", () => {
     const withLease = buildDcfAssumptions(dcfInput(withLeaseBalance));
     const noLease = buildDcfAssumptions(dcfInput(noLeaseBalance));

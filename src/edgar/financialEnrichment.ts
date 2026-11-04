@@ -556,6 +556,33 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     } } };
   }
   const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date, observedAt);
+  // A gross/principal combined observation is not a missing carrying
+  // component when one filing explicitly bridges it to the inclusive carrying
+  // total. The adjustment is signed; neither its magnitude nor its sign is guessed.
+  const carrying = instant(facts, "LongTermDebt", currency, row.date, observedAt);
+  const gross = instant(facts, "DebtLongtermAndShorttermCombinedAmount", currency, row.date, observedAt);
+  const carryingFiling = carrying?.evidence.filings[0];
+  const adjustments = tagsFor("debtCarryingAdjustment").flatMap(tag => points(facts, tag, currency, observedAt)
+    .filter(p => !p.start && p.end === row.date && p.accn === carryingFiling?.accn && p.filed === carryingFiling.filed && p.form === carryingFiling.form));
+  const adjustment = unambiguousNewest(adjustments);
+  const financing = typeof out.shortTermDebt === "number" && typeof out.longTermDebt === "number" ? out.shortTermDebt + out.longTermDebt : null;
+  const grossReconciled = (row.cik == null || Number(row.cik) === facts.cik) && carrying !== null && gross !== null && adjustment !== null && adjustment.val !== 0 &&
+    gross.evidence.filings.some(f => f.accn === carryingFiling?.accn && f.filed === carryingFiling.filed && f.form === carryingFiling.form) &&
+    financing !== null && vendorAgreesWithFiled(financing, carrying.value) &&
+    Math.abs(gross.value + adjustment.val - carrying.value) <= Math.max(1, Math.abs(carrying.value) * 1e-6);
+  if (grossReconciled) {
+    const reason = `same-filing gross debt ${millions(gross!.value)} plus signed discount/premium and issuance costs ${millions(adjustment!.val)} reconciles to carrying debt ${millions(carrying!.value)} ${currency}; the gross amount is not an omitted borrowing`;
+    gaps.push({ field: `statements.balance.${row.date}.totalDebt`, reason, severity: "info", expected: true });
+    const conflict = out.fieldConflicts?.totalDebt;
+    if (conflict?.usable === false && conflict.reason.startsWith("incomplete debt carrying value: same-period DebtLongtermAndShorttermCombinedAmount ") &&
+        typeof conflict.vendorValue === "number" && vendorAgreesWithFiled(conflict.vendorValue, financing! + (typeof out.capitalLeaseObligations === "number" ? out.capitalLeaseObligations : 0))) {
+      const fieldConflicts = { ...out.fieldConflicts };
+      delete fieldConflicts.totalDebt;
+      if (fieldConflicts.netDebt?.reason === conflict.reason) delete fieldConflicts.netDebt;
+      const cash = out.fieldConflicts?.cashAndCashEquivalents?.usable === false ? null : out.cashAndCashEquivalents;
+      out = { ...out, totalDebt: conflict.vendorValue, netDebt: typeof cash === "number" ? conflict.vendorValue - cash : null, fieldConflicts };
+    }
+  }
   const inclusiveTotal = splitOnly ? instant(facts, "LongTermDebt", currency, row.date, observedAt)?.value ?? null : null;
   const convertibleReason = omittedConvertibleCarryingReason({ longTermDebt: splitOnly ? inclusiveTotal : out.longTermDebt }, instant(facts, "ConvertibleLongTermNotesPayable", currency, row.date, observedAt)?.value ?? null, vendorAgreesWithFiled);
   // A vendor short-term debt of 0 beside a filed current debt (D-133); a field the SEC statements built carries its tags.
@@ -574,7 +601,8 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     // never pass through it: a same-period total above the composed components
     // shows one is missing. A kept inclusive total has no split to compose.
     (splitOnly ? null : uncomposedDebtReason({ shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability },
-      DEBT_AGGREGATE_TAGS.map((tag) => ({ tag, value: instant(facts, tag, currency, row.date!, observedAt)?.value ?? null }))));
+      DEBT_AGGREGATE_TAGS.filter(tag => !(grossReconciled && tag === "DebtLongtermAndShorttermCombinedAmount"))
+        .map((tag) => ({ tag, value: instant(facts, tag, currency, row.date!, observedAt)?.value ?? null }))));
   for (const field of ["totalDebt", "netDebt"] as const) {
     const prior = out.fieldConflicts?.[field];
     if (reason === null && prior?.usable !== false) continue;
@@ -641,15 +669,24 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
   // Only our incomplete-scope refusals may be revisited. Collapse,
   // plausibility, vendor/SEC conflicts and refused components stay refused.
   const recoverable = /^incomplete debt carrying value: (?:the vendor (?:lease line|short-term debt)|same-period )/;
+  const refusedCash = row.fieldConflicts?.cashAndCashEquivalents;
+  const cashOnlyNetRefusal = refusedCash?.usable === false && row.fieldConflicts?.netDebt?.usable === false &&
+    row.fieldConflicts.netDebt.reason === refusedCash.reason;
   for (const field of ["totalDebt", "netDebt"]) {
     const conflict = row.fieldConflicts?.[field];
+    if (field === "netDebt" && cashOnlyNetRefusal) continue;
     if (conflict?.usable === false && !recoverable.test(conflict.reason)) return none;
   }
   const vendorTotal = row.totalDebt ?? row.fieldConflicts?.totalDebt?.vendorValue;
   const at = (tag: string) => points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined && p.val >= 0);
-  const anchors = ["LongTermDebtNoncurrent", "LongTermNotesAndLoans", "LongTermDebtAndCapitalLeaseObligations"];
+  const zeroBorrowings = row.longTermDebt === 0 && row.shortTermDebt === 0 &&
+    [...tagsFor("longTermDebt"), ...CURRENT_DEBT_TAGS, COMBINED_CURRENT_DEBT_TAG, ...DEBT_AGGREGATE_TAGS, "DebtInstrumentCarryingAmount"]
+      .every(tag => at(tag).every(p => p.val === 0));
+  const anchors = ["LongTermDebtNoncurrent", "LongTermNotesAndLoans", "LongTermDebtAndCapitalLeaseObligations",
+    ...(zeroBorrowings ? ["OperatingLeaseLiabilityNoncurrent"] : [])];
   const filings = [...new Map(anchors.flatMap(at).sort((a, b) => b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn))
-    .map(p => [p.accn, { accn: p.accn, filed: p.filed, form: p.form }] as const)).values()];
+    .map(p => [p.accn, { accn: p.accn, filed: p.filed, form: p.form }] as const)).values()]
+    .sort((a, b) => Number(b.filed === row.filingDate) - Number(a.filed === row.filingDate));
   let refusal: LeaseLineCompletion<T> = none;
   for (const filing of filings) {
     const used: string[] = [];
@@ -668,29 +705,31 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
         const tag = `${prefix}LeaseLiability`;
         const total = own(tag), current = own(`${tag}Current`), noncurrent = own(`${tag}Noncurrent`);
         if (total !== null && current !== null && noncurrent !== null && !eq(total, current + noncurrent)) throw new Error(`contradictory ${tag}`);
-        if (total !== null && current !== null) return { total, current, noncurrent: total - current };
-        if (current !== null && noncurrent !== null) return { total: current + noncurrent, current, noncurrent };
-        if (total === 0 && (current === null || current === 0) && (noncurrent === null || noncurrent === 0)) return { total: 0, current: 0, noncurrent: 0 };
+        if (total !== null && current !== null) return { total, current, noncurrent: total - current, split: true, assumed: false };
+        if (current !== null && noncurrent !== null) return { total: current + noncurrent, current, noncurrent, split: true, assumed: false };
+        if (total === 0 && (current === null || current === 0) && (noncurrent === null || noncurrent === 0)) return { total: 0, current: 0, noncurrent: 0, split: true, assumed: false };
+        if (total !== null && current === null && noncurrent === null) return { total, current: 0, noncurrent: 0, split: false, assumed: false };
+        if (prefix === "Operating" && total === null && current === null && noncurrent !== null) {
+          return { total: noncurrent, current: 0, noncurrent, split: false, assumed: false, partial: true };
+        }
         const synonyms = tagsFor(prefix === "Finance" ? "financeLeaseLiability" : "operatingLeaseLiability");
-        if ([...new Set([tag, ...synonyms].flatMap(t => [t, `${t}Current`, `${t}Noncurrent`]))].every(t => at(t).length === 0)) return { total: 0, current: 0, noncurrent: 0 };
+        const family = [...new Set([...synonyms.flatMap(t => [t, `${t}Current`, `${t}Noncurrent`]),
+          ...tagsFor(prefix === "Finance" ? "financeLeaseLiabilityParts" : "operatingLeaseLiabilityParts")])];
+        if (family.every(t => at(t).length === 0)) return { total: 0, current: 0, noncurrent: 0, split: true, assumed: true };
         throw new Error(`incomplete ${tag}`);
       };
       const op = lease("Operating"), fin = lease("Finance");
       const pure = own("LongTermDebtNoncurrent") ?? own("LongTermNotesAndLoans"), combined = own("LongTermDebtAndCapitalLeaseObligations");
+      if (combined !== null && !fin.split) continue;
       // Both scopes filed: debt including finance leases must equal pure debt plus the
       // noncurrent finance lease, also when that lease is zero (PR #86 review).
       if (pure !== null && combined !== null && !eq(combined, pure + fin.noncurrent)) throw new Error("ambiguous noncurrent finance-lease overlap");
-      const noncurrent = pure ?? (combined === null ? null : combined - fin.noncurrent);
+      const noncurrent = pure ?? (combined === null ? zeroBorrowings ? 0 : null : combined - fin.noncurrent);
       const line = row.capitalLeaseObligations as number;
       // An unproven provider zero is undisclosed when the same filing shows
       // real leases. Complete the debt composition below; never merely ignore
       // the contradictory zero or subtract leases from borrowings-only debt.
       const undisclosedZero = line === 0 && op.total + fin.total > 0;
-      // A missing vendor lease line cannot attest to an unfiled family being
-      // zero. This new completion path needs primary coverage of both kinds;
-      // explicit filed zeros qualify, taxonomy silence does not.
-      if (undisclosedZero && !["Operating", "Finance"].every(prefix => used.includes(`${prefix}LeaseLiability`) ||
-        used.includes(`${prefix}LeaseLiabilityCurrent`) && used.includes(`${prefix}LeaseLiabilityNoncurrent`))) continue;
       const operatingInLong = undisclosedZero && op.noncurrent > 0 && noncurrent !== null &&
         [noncurrent + op.noncurrent, noncurrent + op.noncurrent + fin.noncurrent].some(v => eq(row.longTermDebt as number, v));
       if (noncurrent === null || noncurrent < 0 || !(vendorAgreesWithFiled(row.longTermDebt as number, noncurrent) ||
@@ -708,9 +747,17 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       }
       const ltd = own("LongTermDebtCurrent") ?? (notesScope ? own("NotesAndLoansPayableCurrent") ?? own("NotesPayableCurrent") : null), dc = own("DebtCurrent"), both = own(COMBINED_CURRENT_DEBT_TAG);
       const stb = own("ShortTermBorrowings"), cp = own("CommercialPaper");
+      // Without a pure maturity line the combined current debt/finance line
+      // cannot be assigned beside other current-debt observations. Their
+      // overlap remains unresolved, even when the vendor calls one a total.
+      if (ltd === null && both !== null && (dc !== null || stb !== null || cp !== null)) continue;
       const borrowing = stb ?? cp ?? 0;
       if (stb !== null && cp !== null && cp > stb && !eq(cp, stb)) throw new Error("commercial paper exceeds inclusive short-term borrowings");
-      const current = ltd !== null ? ltd + borrowing : both !== null ? both - fin.current + borrowing : dc ?? (stb !== null || cp !== null ? borrowing : null);
+      const components = ltd !== null ? ltd + borrowing : both !== null ? both - fin.current + borrowing : stb !== null || cp !== null ? borrowing : null;
+      // DebtCurrent is the inclusive balance-sheet line; maturities are a
+      // subset, not another amount to add to it. A smaller aggregate contradicts.
+      const current = dc !== null && (components === null || dc >= components) ? dc : components ?? (zeroBorrowings || undisclosedZero && row.shortTermDebt === 0 &&
+        CURRENT_DEBT_TAGS.every(tag => at(tag).length === 0) && at(COMBINED_CURRENT_DEBT_TAG).length === 0 ? 0 : null);
       if (current === null) {
         if (eq(line, op.total + fin.total)) refusal = none;
         continue;
@@ -727,19 +774,23 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
         if (row[field] != null && !eq(row[field] as number, value)) throw new Error(`contradictory ${field}`);
       }
       const leases = op.total + fin.total, totalDebt = current + noncurrent + leases;
-      if (eq(totalDebt, vendorTotal) && eq(line, leases) && eq(short, current) && eq(row.longTermDebt as number, noncurrent)) return none;
+      if (row.fieldConflicts?.totalDebt?.usable !== false && !("partial" in op) && eq(totalDebt, vendorTotal) && eq(line, leases) && eq(short, current) && eq(row.longTermDebt as number, noncurrent)) return none;
       const evidence: StatementFieldProvenance = { source: "edgar", unit, observedAt, periodStart: null, periodEnd: row.date!,
         tags: [...new Set(used)].map(t => `us-gaap/${t}`), filings: [filing], calculation: "same-filing-debt-completed" };
       const fieldConflicts = { ...row.fieldConflicts };
-      delete fieldConflicts.totalDebt; delete fieldConflicts.netDebt;
-      const fields = ["shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability", "totalDebt"];
+      delete fieldConflicts.totalDebt;
+      if (!cashOnlyNetRefusal) delete fieldConflicts.netDebt;
+      if (refusedCash?.usable === false) fieldConflicts.netDebt = { ...refusedCash, secValue: null,
+        vendorValue: row.fieldConflicts?.netDebt?.vendorValue ?? (finite(row.netDebt) ? row.netDebt : null) };
+      const fields = ["shortTermDebt", "longTermDebt", "capitalLeaseObligations", "totalDebt",
+        ...(!op.assumed ? ["operatingLeaseLiability"] : []), ...(!fin.assumed ? ["financeLeaseLiability"] : [])];
       return { status: "completed", row: { ...row, shortTermDebt: current, longTermDebt: noncurrent, capitalLeaseObligations: leases,
         operatingLeaseLiability: op.total, financeLeaseLiability: fin.total, totalDebt,
         netDebt: finite(row.cashAndCashEquivalents) && row.fieldConflicts?.cashAndCashEquivalents?.usable !== false ? totalDebt - row.cashAndCashEquivalents : null,
         vendorNetDebt: row.vendorNetDebt ?? row.netDebt ?? row.fieldConflicts?.netDebt?.vendorValue ?? null,
         fieldConflicts, fieldProvenance: { ...row.fieldProvenance, ...Object.fromEntries(fields.map(f => [f, evidence])) } } as T,
         admission: { kind: "filing-completion", date: row.date!, summary: `${millions(totalDebt)} (vendor ${millions(vendorTotal)}; ${filing.accn})`,
-          detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: current financing debt ${millions(current)} + noncurrent financing debt ${millions(noncurrent)} + operating leases ${millions(op.total)} + finance leases ${millions(fin.total)} = total debt ${millions(totalDebt)} ${unit}; ${undisclosedZero ? "undisclosed vendor lease zero replaced by filed liabilities; " : ""}${operatingInLong ? "noncurrent operating leases inside vendor long-term debt counted once; " : ""}vendor component scopes reconciled exactly; ${[...new Set(used)].join(", ")}` } };
+          detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: current financing debt ${millions(current)} + noncurrent financing debt ${millions(noncurrent)} + operating leases ${millions(op.total)} + finance leases ${millions(fin.total)} = total debt ${millions(totalDebt)} ${unit}; ${"partial" in op ? "only the disclosed noncurrent operating portion is embedded and cancels on the lease-excluded basis; full operating-lease coverage remains unverified; " : ""}${zeroBorrowings ? "vendor zero borrowings retained with no separately disclosed borrowing; not a filed zero; " : ""}${fin.assumed ? "finance leases not separately material is an assumption from absent separate ASC 842 disclosure, not a filed zero; " : ""}${undisclosedZero ? "undisclosed vendor lease zero replaced by filed liabilities; " : ""}${operatingInLong ? "noncurrent operating leases inside vendor long-term debt counted once; " : ""}vendor component scopes reconciled exactly; ${[...new Set(used)].join(", ")}` } };
     } catch { /* Ambiguous or incomplete facts never authorize a completion. */ }
   }
   return refusal;
