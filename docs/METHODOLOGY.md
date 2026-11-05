@@ -521,7 +521,9 @@ These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 ## Incomplete preliminary balance sheets
 
 D-207 checks annual and quarterly vendor rows against their original retained
-observations, before field enrichment and calculations. A row is incomplete
+observations, after filed-field admission and before calculations or AI statement
+extracts. Assess dates oldest first against the latest row that did not fail;
+consecutive stubs cannot validate each other. A row is incomplete
 when receivables, inventory, net property and equipment, and long-term
 investments are **all explicitly zero**, at least two of those classes each
 exceeded 1% of assets in the preceding same-issuer, same-currency balance, and
@@ -551,8 +553,36 @@ operands, preventing an older year from silently becoming the latest year.
 Acquired snapshots and stored reports are unchanged.
 
 This detects a broad disappearing breakdown, not every possible vendor error.
-Income and cash-flow rows require their own duration and component identities;
-sharing an earnings-release timestamp does not establish that they are wrong.
+For an income or cash-flow row from that exact rejected balance's preliminary
+release, apply the same disappearing-breakdown rule. Its period, issuer,
+currency and acceptance timestamp must match (filing date only when acceptance
+is absent). Retained headlines with all core components explicitly zero, after
+at least two components exceeded 1% of the largest absolute prior component,
+are incomplete. Income components are cost of revenue, gross profit and
+operating income; cash-flow components are operating, investing and financing
+subtotals. Complete companions and different releases are retained. Rejected
+quarters remain dated placeholders with unknown amounts, so they cannot enter
+TTM partial sums or AI cells as zeros. Sharing a timestamp alone never proves
+that a populated income or cash-flow row is wrong.
+
+On financial routes, an integrity-rejected newest balance uses the same latest
+complete anchor for opening book. Require the matching dated share row under
+the existing divisor, class and filing checks. Measure a complete trailing
+common return through that book date on the same common/tangible-common basis;
+later earnings cannot be paired with the older book. If no such return is
+available, retain the explicitly dated annual forward-rate convention. Payout
+history matches common cash distributions to common earnings within each
+eligible fiscal year ending by opening book. On this integrity fallback, a
+common-dividend field duplicating aggregate cash dividends with preferred
+capital outstanding requires independently established common cash or a
+compatible total/preferred cash split. Use the existing filed cash builder;
+declared dividends and earnings allocations cannot establish cash paid.
+Without enough eligible years, retain the existing payout-history refusal.
+A measured return on the admitted book still supplies the quality spread;
+missing payout history cannot erase that independent observation or manufacture
+a forecast return path. Its scoring evidence names the measured return and date.
+A known preferred-capital refusal
+on the selected book withholds value and targets; an older year cannot cure it.
 
 ## WACC inputs
 

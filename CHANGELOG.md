@@ -26,6 +26,11 @@ original versions and bytes; source merge does not deploy or publish a release.
   used by the equity bridge. Ratios that need the rejected date stay unavailable.
 - Apply the decision before every balance consumer. Original source snapshots
   and saved reports remain immutable. See D-207 for the census and limits.
+- Consecutive preliminary rows compare with the latest accepted breakdown.
+  Matching income/cash-flow skeletons are withheld from TTM sums and AI cells
+  under the same rule. Financial opening book, diluted shares and an available
+  trailing common return use the admitted balance date; known preferred-capital
+  refusals cannot be bypassed through an older annual book.
 - Integration must advance the Stage B implementation, fair-value method,
   scenario-target method and payload stamps; this change leaves constants intact.
 
