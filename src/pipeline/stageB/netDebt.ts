@@ -19,9 +19,9 @@ export interface LeaseDebtInputs {
   operatingLeaseLiability?: number | null;
   financeLeaseLiability?: number | null;
   /**
-   * Wording only (audit 2026-10-29, AMZN #51 VAL-4): the vendor's own current
-   * and noncurrent split of its lease line, and each field's filed tags, let
-   * the refusal state every operand's scope. They never change the decision.
+   * The vendor's own current/noncurrent split words the observed scope (VAL-4).
+   * Field evidence also establishes D-202's operating-only vendor line; an
+   * unproved or differently dated operating observation cannot establish it.
    */
   capitalLeaseObligationsCurrent?: number | null;
   capitalLeaseObligationsNonCurrent?: number | null;
@@ -82,7 +82,7 @@ function leaseLineText(inputs: LeaseDebtInputs, total: number): string {
  * not. The reason names the amounts compared and, where the inputs state it,
  * each operand's current/noncurrent scope, so it describes the inputs and never
  * reads as a fault of the issuer's own balance sheet (audit 2026-10-29, AMZN
- * #51 VAL-4). The tests and their order are unchanged.
+ * #51 VAL-4). A proved operating-only line is compared on its declared scope.
  */
 export function leaseDebtConflict(inputs: LeaseDebtInputs): string | null {
   const debt = finite(inputs.totalDebt);

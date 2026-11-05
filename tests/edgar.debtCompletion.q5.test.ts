@@ -68,6 +68,14 @@ describe("exact same-filing debt completion", () => {
     expect(leaseDebtScopeRefusal(out.row, true)).toMatch(/unverified/);
     expect(out.row.fieldProvenance?.financeLeaseLiability).toBeUndefined();
   });
+  it("cancels partial operating leases beside reconciled combined current maturities and separate short-term borrowings", () => {
+    const out = admit({ OperatingLeaseLiabilityNoncurrent: 18, LongTermDebtAndCapitalLeaseObligations: 100,
+      LongTermDebtAndCapitalLeaseObligationsCurrent: 3, ShortTermBorrowings: 1 },
+      row({ shortTermDebt: 4 * M, capitalLeaseObligations: 18 * M, totalDebt: 122 * M }));
+    expect(out.row.totalDebt).toBe(122 * M);
+    expect(out.row.operatingLeaseLiability).toBe(18 * M);
+    expect(leaseDebtScopeRefusal(out.row, false)).toBeNull();
+  });
   it("completes an undisclosed vendor lease zero from reconciled same-filing borrowings and leases", () => {
     const vendor = row({ shortTermDebt: 7 * M, capitalLeaseObligations: 0, totalDebt: 107 * M,
       operatingLeaseLiability: 20 * M, financeLeaseLiability: 6 * M });

@@ -52,6 +52,20 @@ const noLeaseBalance = {
 const dcfInput = (balance: DcfBalanceRow, extra: Partial<DcfAssumptionInputs> = {}): DcfAssumptionInputs => ({ ...base, balance, ...extra });
 
 describe("FIN-303: sales-to-capital removes the operating lease the bridge removes (D-25)", () => {
+  it("passes operating-only lease evidence through Stage B's net-debt adapter", () => {
+    const bundle = completeCurrencyBundle({ debt: 300, siblingQuarterCurrencies: ['USD', 'USD', 'USD', 'USD'] });
+    for (const family of [bundle.statements.balanceAnnual, bundle.statements.balanceQuarterly]) {
+      if (!family.ok) throw new Error('fixture');
+      for (const row of family.value.data.rows) Object.assign(row, { shortTermDebt: 20 * M, longTermDebt: 80 * M,
+        totalDebt: 300 * M, capitalLeaseObligations: 200 * M, operatingLeaseLiability: 200 * M, financeLeaseLiability: 10 * M,
+        fieldProvenance: { operatingLeaseLiability: { source: 'edgar', unit: 'USD', periodStart: null, periodEnd: row.date,
+          tags: ['us-gaap/OperatingLeaseLiability'], filings: [{ accn: '0000000042-26-000001', filed: '2026-05-01', form: '10-Q' }] } } });
+    }
+    const out = runStageB(bundle, { evIncludeLeases: false });
+    expect(out.fairValue.status).toBe('available');
+    expect(out.capital.netDebtToEbitda.value, JSON.stringify(out.capital.netDebtToEbitda.resolution)).not.toBeNull();
+    expect(out.gaps.some(g => g.field === 'valuation.dcf.leaseIntegrity')).toBe(false);
+  });
   it("retains an operating-only vendor line and its filed finance liability throughout the equity bridge", () => {
     const balance: DcfBalanceRow = { ...withLeaseBalance, financeLeaseLiability: 10e6,
       fieldProvenance: { operatingLeaseLiability: { source: 'edgar', unit: 'USD', periodStart: null, periodEnd: withLeaseBalance.date,

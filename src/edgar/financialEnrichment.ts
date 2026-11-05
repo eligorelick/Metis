@@ -747,10 +747,11 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       }
       const ltd = own("LongTermDebtCurrent") ?? (notesScope ? own("NotesAndLoansPayableCurrent") ?? own("NotesPayableCurrent") : null), dc = own("DebtCurrent"), both = own(COMBINED_CURRENT_DEBT_TAG);
       const stb = own("ShortTermBorrowings"), cp = own("CommercialPaper");
-      // Without a pure maturity line the combined current debt/finance line
-      // cannot be assigned beside other current-debt observations. Their
-      // overlap remains unresolved, even when the vendor calls one a total.
-      if (ltd === null && both !== null && (dc !== null || stb !== null || cp !== null)) continue;
+      // A separate finance family or competing inclusive current total leaves
+      // this overlap unresolved without pure maturities. Otherwise the stated
+      // finance-materiality assumption applies and the vendor current amount
+      // must still reconcile to combined maturities plus separate borrowings.
+      if (ltd === null && both !== null && (dc !== null || stb !== null || cp !== null) && (!fin.assumed || dc !== null)) continue;
       const borrowing = stb ?? cp ?? 0;
       if (stb !== null && cp !== null && cp > stb && !eq(cp, stb)) throw new Error("commercial paper exceeds inclusive short-term borrowings");
       const components = ltd !== null ? ltd + borrowing : both !== null ? both - fin.current + borrowing : stb !== null || cp !== null ? borrowing : null;

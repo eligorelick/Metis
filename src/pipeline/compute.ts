@@ -4975,6 +4975,7 @@ function netDebtFromBalance(
     marketableEquitySecurities: bal ? num(bal.marketableEquitySecurities) : null,
     vendorNetDebt: bal ? num(bal.vendorNetDebt !== undefined ? bal.vendorNetDebt : bal.netDebt) : null,
     fieldConflicts: bal?.fieldConflicts,
+    fieldProvenance: bal?.fieldProvenance,
   });
 }
 
