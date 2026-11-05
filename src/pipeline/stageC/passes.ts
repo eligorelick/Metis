@@ -35,6 +35,7 @@
  * unit-testable in a plain node environment.
  */
 
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { metisEnv } from "@/config/namespace";
 import type { ManifestEntry } from "@/types/core";
 import { returnPathLanguageManifestEntries } from "@/pipeline/stageC/returnPathLanguage";
@@ -4432,6 +4433,7 @@ function retainedDecisionSources(payload: ContextPayload): { source: string; tex
 }
 
 export function assembleReport(args: AssembleReportArgs, generatedAt?: string): Report {
+  args = { ...args, bundle: balanceIntegrityView(args.bundle) };
   const companyName = firstProfileName(args.bundle) ?? args.symbol;
   const coverage: ProvenanceCoverage = args.verify.coverage ?? {
     numeric: { supported: 0, total: 0, rate: null },

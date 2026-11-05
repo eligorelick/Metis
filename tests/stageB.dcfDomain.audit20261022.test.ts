@@ -115,8 +115,8 @@ describe("B-29: DCF domain gate", () => {
     expect(targets.missingReasons[0]?.reason).toMatch(/outside its domain/i);
     // D-102 changes both resolutions, so their method stamps move (Codex review, PR #49).
     // FIN-401 / FIN-401-V1: method stamps move with the repaired bridge; domain refusal stays unchanged.
-    expect(fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_SHARE_CLASS_ECONOMICS_54");
-    expect(targets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_SHARE_CLASS_ECONOMICS_54");
+    expect(fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_BALANCE_ROW_INTEGRITY_55");
+    expect(targets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_BALANCE_ROW_INTEGRITY_55");
   });
 
   it("explicit-period PV below zero (terminal value over 100% of EV) withholds a positive per-share too", () => {

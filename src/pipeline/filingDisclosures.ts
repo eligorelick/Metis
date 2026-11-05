@@ -19,6 +19,7 @@ import { dividendFrequencyFromFacts } from "@/edgar/dividendFrequency";
  * Pure: no network, no clock.
  */
 import type { DataBundle, ExtractedSection } from "@/pipeline/types";
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
@@ -757,6 +758,7 @@ export function residualNote(axisLabel: string, cells: number): string {
 
 /** Null when the bundle carries none of this evidence (old bundles, fixtures). */
 export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability?: { reason: string }): FilingDisclosures | undefined {
+  bundle = balanceIntegrityView(bundle);
   const reports = currentReportsOf(bundle);
   const materialEventItems = MaterialEventItemsSchema.safeParse(reports?.materialEventItems);
   const segmentsRes = bundle.edgar?.quarterlySegments;

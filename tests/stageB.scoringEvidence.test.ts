@@ -4,6 +4,7 @@ import { computeScores, type ScoringInputs } from "@/pipeline/stageB/grading";
 import { runStageB } from "@/pipeline/compute";
 import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { excessReturnModel } from "@/pipeline/stageB/valuation";
 
 function inputs(bank = false): ScoringInputs {
   const c = runStageB(completeCurrencyBundle({ bank }), { evIncludeLeases: false });
@@ -14,6 +15,20 @@ function inputs(bank = false): ScoringInputs {
 const operand = (result: ReturnType<typeof describeScoreEvidence>, name: string) => result.operands.find(o => o.name === name)!;
 
 describe("score evidence follows the actual metric basis", () => {
+  it("retains the input return period separately from the opening-book date", () => {
+    const er = excessReturnModel({ bookValue: 100, currentRoePct: 15, costOfEquityPct: 10, payoutRatioPct: 50,
+      currentRoeAsOf: "2025-12-31", asOf: "2026-06-30" });
+    expect((er as { currentRoeAsOf?: string }).currentRoeAsOf).toBe("2025-12-31");
+  });
+  it.each(["equityReturnVsCoeSpread", "roeImpliedVsAchievable"])("dates %s at the annual return rather than the quarterly opening book", id => {
+    const i = inputs(true);
+    if (i.valuation.kind !== "excess-return") throw new Error("fixture");
+    i.valuation.excessReturn.asOf = "2026-06-30";
+    Object.assign(i.valuation.excessReturn, { currentRoeAsOf: "2025-12-31" });
+    const evidence = describeScoreEvidence(i, "quality", id);
+    expect(evidence.endDate).toBe("2025-12-31");
+    expect(evidence.operands[0]?.asOf).toBe("2025-12-31");
+  });
   it.each(["2025-02-29", "provider USD date", "2026-06-30T00:00:00Z"])("keeps an invalid cap date unknown without borrowing a quote date: %s", date => {
     const i = inputs();
     i.forensics.altman!.variant = "original";
@@ -66,6 +81,7 @@ describe("score evidence follows the actual metric basis", () => {
     i.valuation.excessReturn.roePathPct.value[0] = 18;
     i.valuation.excessReturn.costOfEquityPct.value = 9;
     i.valuation.excessReturn.asOf = "2026-03-31";
+    i.valuation.excessReturn.currentRoeAsOf = "2026-03-31";
     i.roic.asOf = "2020-12-31";
     const result = describeScoreEvidence(i, "quality", "equityReturnVsCoeSpread");
     expect(result.family).toBe("capital-returns");

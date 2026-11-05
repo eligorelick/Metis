@@ -25,6 +25,69 @@ function result(b: ReturnType<typeof fixture>["b"]) {
 }
 
 describe("D-189: opening book is independent of return availability", () => {
+  it.each(["bank", "insurer"] as const)("%s uses a lagging feed's book and matching shares without pairing later earnings", route => {
+    const f = rejectedNewest(route, true);
+    if (!f.b.statements.balanceQuarterly.ok) throw new Error("fixture");
+    f.b.statements.balanceQuarterly.value.data.rows.shift();
+    const { c, er } = result(f.b);
+    expect(er.asOf).toBe("2026-03-31");
+    expect(er.scenarioEvidence?.dilutedShares).toBe(120 * M);
+    expect(er.perShare).toBeTypeOf("number");
+    expect(c.returns.commonReturnTtm?.returnPct).toBeNull();
+    expect(c.returns.commonReturnTtm?.withheldReason).toMatch(/no balance sheet within 45 days.*2026-06-30/);
+    expect(er.roePathPct.basis).toMatch(/FY 2025-12-31/);
+  });
+
+  it("uses the existing payout treatment after rejecting a balance", () => {
+    const f = rejectedNewest("bank", true);
+    if (!f.b.statements.cashflowAnnual.ok) throw new Error("fixture");
+    for (const row of f.b.statements.cashflowAnnual.value.data.rows) row.netDividendsPaid = row.commonDividendsPaid;
+    expect(result(f.b).er.perShare).toBeTypeOf("number");
+  });
+  function rejectedNewest(route: "bank" | "insurer", trailing = false) {
+    const f = fixture(route, trailing);
+    if (!f.b.statements.balanceQuarterly.ok || !f.b.statements.incomeQuarterly.ok) throw new Error("fixture");
+    Object.assign(f.balance, { netReceivables: 200 * M, inventory: 100 * M, propertyPlantEquipmentNet: 500 * M, longTermInvestments: 200 * M });
+    const stub = { ...f.balance, date: "2026-06-30", filingDate: "2026-07-01", acceptedDate: "2026-07-01 16:00:00",
+      netReceivables: 0, inventory: 0, propertyPlantEquipmentNet: 0, longTermInvestments: 0 };
+    f.b.statements.balanceQuarterly.value.data.rows.unshift(stub);
+    f.b.statements.incomeQuarterly.value.data.rows.unshift({ ...f.income, date: stub.date, weightedAverageShsOutDil: 140 * M,
+      filingDate: stub.filingDate, acceptedDate: stub.acceptedDate });
+    return f;
+  }
+
+  it.each(["bank", "insurer"] as const)("%s uses the admitted newer book and its own dated shares after rejecting a stub", route => {
+    const f = rejectedNewest(route);
+    const { c, er } = result(f.b);
+    expect(er.asOf).toBe("2026-03-31");
+    expect(er.openingBookValue.value).toBe((route === "bank" ? 500 : 550) * M);
+    expect(er.scenarioEvidence?.dilutedShares).toBe(120 * M);
+    expect(er.valuationDate?.value).toBe("2026-07-05");
+    expect(c.fairValue.perShare?.asOf).toBe("2026-07-05");
+    expect(er.roePathPct.basis).toMatch(/FY 2025-12-31/);
+    expect(er.payoutRatioPct.value).toBe(result(fixture(route).b).er.payoutRatioPct.value);
+    expect(c.valuation.notes.join(" ")).toMatch(/opening book admitted at 2026-03-31/);
+  });
+
+  it("states the older book's specific share refusal when its matching count is absent", () => {
+    const f = rejectedNewest("bank");
+    f.income.weightedAverageShsOutDil = undefined;
+    const { c, er } = result(f.b);
+    expect(er.asOf).toBe("2025-12-31");
+    expect(c.valuation.notes.join(" ")).toMatch(/no admitted diluted share count.*2026-03-31/);
+  });
+
+  it.each(["bank", "insurer"] as const)("%s preserves a preferred-capital refusal at the admitted older book", route => {
+    const f = rejectedNewest(route);
+    f.balance.preferredCapitalWithheldReason = "Preferred capital unresolved at 2026-03-31";
+    f.balance.preferredStock = undefined;
+    const { c, er } = result(f.b);
+    expect(er.perShare).toBeNull();
+    expect(c.fairValue.perShare).toBeNull();
+    expect(c.scores.aspects.quality.signals?.find(signal => signal.id === "equityReturnVsCoeSpread")?.raw ?? null).toBeNull();
+    expect(c.valuation.notes.join(" ")).toMatch(/Preferred capital unresolved at 2026-03-31/);
+    expect(c.fairValue.reasons.some(g => g.field === "valuation.excessReturn.preferredCapital" && /2026-03-31/.test(g.reason))).toBe(true);
+  });
   it.each(["bank", "insurer"] as const)("%s opens from the filed quarter while retaining the annual return", route => {
     const { b } = fixture(route);
     const { c, er } = result(b);

@@ -8303,3 +8303,134 @@ Revenue, margins, balance-row admission and general perimeter-change handling
 remain outside this branch. Commits stay local without push, PR or merge.
 
 **Pull request review.** Two further corrections: a sentence stating that a class has dividend, distribution or liquidation rights that are not equal to, or differ from, another class now counts as a conflict, while a voting difference does not; and stated per-share dividends are compared per economic unit, so a dividend matching a supported class weight such as 1:1,500 is not a conflict, and one that does not match refuses.
+
+## D-207 - Balance rows that do not add up (2026-11-05)
+
+**Rule.** Compare original vendor rows in date order with the latest accepted
+same-issuer/currency row. For receivables, inventory, net PP&E and long-term
+investments, a material line exceeds 1% of prior assets and collapses below 20%
+of its prior value. At least two lines, or the sole material class, must collapse;
+their combined loss exceeds 5% of prior assets and total assets retain at least
+80%. Unclassified residual growth absorbing 80% of that loss, an unexplained gap
+above 1% after a near-total breakdown collapse, or a negative current-asset
+offset corroborates incompleteness. Accounted classified presentations remain
+admitted. Liquid growth explains the loss only without a negative offset.
+Null/absent lines count as empty. Thresholds are independent of valuation.
+
+A failing balance stays if available same-date, same-currency filed evidence
+corroborates assets, equity, nonzero book adjustments and every liquid amount
+that grew, within existing rounding agreement and compatible filing provenance.
+A negative current-asset offset prohibits that override. This **keeps the
+existing row**; it constructs no replacement or field splice. Without proof,
+use the latest remaining balance until the vendor corrects its observation.
+Rows already sourced from SEC statements, including whole replacements inside
+vendor families, are exempt from the vendor check. No held-for-sale field branch
+is needed; filed disposals use the same corroboration rule.
+
+Income and cash-flow cores are checked independently of balance or timestamp.
+After a populated material prior core, all components at or below 1% of the
+largest absolute prior component, profit or revenue are empty/near-zero evidence.
+Income checks cost, gross profit and operating income; cash flow checks operating,
+investing and financing subtotals. Current TTM windows refuse rather than shift.
+Specific observations are excluded, preserving complete same-date siblings,
+original evidence and plain dated gaps. Consecutive failures never validate each
+other. Ordinary field-level scope refusals remain in force.
+
+The same admission view covers calculations, peer comparisons, AI extracts,
+full/data-only reports, charts, direct filing disclosures and direct market data.
+Dependent provider EV rows are excluded with rejected balances. Both envelope
+dates and the observation-date map follow retained rows. The timing helper gets
+the view from report roots; source facts get the admitted payload. No other
+production reader publishes raw statement rows. Validation, source-manifest and
+snapshot evidence intentionally retain original observations; saved reports
+remain immutable. Peers lack retained companyfacts, so a collapse has no filing
+override: use an older admitted balance, or refuse if existing date/scope checks
+fail. Their incomplete current income window is not shifted backwards.
+
+The checks read a copy of each raw observation under the provider's numeric rule, so
+a vendor amount sent as text is judged like the admitted row. The raw evidence stays
+untouched. An excluded current income quarter refuses the subject's and each peer's
+trailing earnings comparison instead of shifting it to older quarters, unless a
+complete same-date observation stayed.
+
+**Census.** All 105 inputs: 3,367 vendor balance rows and 6,748 flow rows; no
+annual observation fails. Exactly ten September 30, 2026 observations trigger the
+raw check. Their final treatment is:
+
+| Company | Family | Treatment and evidence |
+| --- | --- | --- |
+| WFC | Balance | Keep. 10-Q 0000072971-26-000327 corroborates assets 2,253,291M, equity 175,760M, goodwill 24,963M and preferred 17,098M; no liquid plug. Main value 68.69 remains. |
+| AIG | Balance | Keep. 10-Q 0000005272-26-000104 corroborates assets 161,861M, equity 38,883M and goodwill 3,423M; no liquid plug. Main value 75.25 remains. |
+| O | Cash flow | Keep its whole SEC replacement, with operating cash flow 925.975M. Raw vendor zeros are evidence, not the admitted row. Entire computation matches main. |
+| CVX | Balance | Exclude. Missing same-date filed corroboration and a negative current-asset offset beside the 20,730M investment plug. Filed totals alone cannot cure it. |
+| MS | Balance | Exclude. Collapsed named assets and no same-date filed corroboration. June book remains the latest admitted book. |
+| MET | Balance | Exclude. Same failure; June exposes D-198's existing preferred-capital refusal. |
+| MS | Cash flow | Exclude. Empty core after material prior flows; a one-unit operating cash flow still fails. |
+| C | Cash flow | Exclude independently of its complete balance; current TTM refused. |
+| USB | Cash flow | Exclude independently of its complete balance; current TTM refused. |
+| MET | Income | Exclude the empty core and unusable share cells; June is the latest retained quarter. |
+
+O's December 2020 and ABNB's March 2026 balances remain accounted classified
+presentations. AIG's retained September income is **not complete**: raw vendor
+revenue is 1,100M against 7,443M filed. Existing field admission still applies;
+this fix does not certify that income row. Peer collections contain 20 failing
+subject/peer observations, representing 14 distinct peer/family/date rows. Their
+unverified collapses are excluded without claiming their filings are wrong.
+
+**Financial dates.** Quarterly book uses its matching admitted shares. Existing
+return selection, payout and roll-forward rules are unchanged; no older TTM
+return window is manufactured. The selected return's actual period is retained
+separately from opening book and used in scoring evidence: C, USB and MS now
+date their annual return December 31, 2025. MS uses June tangible common book
+83,601M, diluted shares 1,569M, FY2025 ROTE 21.557832%, CoE 10.064133%, existing
+90% capped payout and 127-day roll factor 1.033905, giving 100.82. Its model is
+48% below the 193.99 price and below 212 consensus; no coefficient is tuned.
+MET's main 44.03 existed because the stub hid June's unresolved preferred claim;
+main itself invokes D-198 when only that balance is removed. This is no new rule.
+
+**Replay.** All 105 frozen inputs ran with `PANEL_BOTH=true`; both pass orders
+agree on every numeric/null operand, signal, value, target and composite. Against
+the required frozen main baseline, 55 values / 48 company refusals become 54 / 49,
+with two identical unsupported controls. Only the preferred-capital first-refusal
+count increases, from zero to one; every other refusal cause is unchanged.
+
+| Company | Price / consensus | Fair value main to final | Composite main to final | Change |
+| --- | --- | --- | --- | --- |
+| MS | 193.99 / 212.00 | 99.62 to 100.82 | 53.94 to 53.94 | June book/shares; annual return date corrected; incomplete cash-flow window refused. |
+| MET | 102.89 / 108.25 | 44.03 to unavailable | 44.98 to 52.99 | Existing D-198 refusal; unsupported book/return signals removed, not improved fundamentals. |
+| CVX | 217.01 / 218.25 | unavailable to unavailable | 53.73 to 53.73 | June net debt 28.545B replaces zero; WACC 7.685691% to 7.655948%, EV/EBITDA 11.80x to 12.58x. Revenue refusal remains. |
+| C | 124.75 / 151.50 | 91.13 to 91.13 | 44.19 to 44.19 | Current cash-flow TTM refused, return date and peer exclusion notes corrected. |
+| USB | 61.03 / 69.53 | 55.51 to 55.51 | 58.80 to 58.80 | Current cash-flow TTM refused, return date corrected; P/B peer median 1.27656 to 1.28345, P/TBV 1.79020 to 1.78651. |
+| JPM | 352.11 / 373.36 | 245.30 to 245.30 | 55.88 to 55.88 | Uncorroborated peer WFC uses June: P/B median 1.48470 to 1.45369; P/TBV median withheld below four eligible peers. |
+| BAC | 51.63 / 66.00 | 39.70 to 39.70 | 55.41 to 55.41 | Same peer correction: P/B median 1.70245 to 1.67144. |
+| WFC | 87.43 / 101.43 | 68.69 to 68.69 | 52.05 to 52.05 | Filed balance retained. Only explicit return-period metadata added. |
+| AIG | 81.71 / 87.14 | 75.25 to 75.25 | 44.67 to 44.67 | Filed balance retained. Only explicit return-period metadata added. |
+| GS | 928.00 / 1,130.75 | 590.14 to 590.14 | 50.25 to 50.25 | Only explicit return-period metadata added. |
+| TRV | 409.25 / 356.18 | 357.69 to 357.69 | 61.88 to 61.88 | Only explicit return-period metadata added. |
+| BRK.B | 579.09 / unavailable | unavailable to unavailable | 54.90 to 54.90 | Only explicit return-period metadata added; existing refusal unchanged. |
+
+Targets change only for MS (bull/base/bear 103.50/99.62/84.98 to
+104.74/100.82/86.00) and MET (45.54/44.03/31.73 to withheld). All 91 other
+companies' entire computed objects are identical to main, including O, BABA,
+LMT and ABNB. Stable sorted-object SHA-256:
+`6e31563f6084c3d05678a628b9a7b4fef46f78ed1a2f4a28330c10b501f98f7c`.
+The supplied signal-diff finds only MET losing `quality.equityReturnVsCoeSpread`,
+`valuation.priceToTbvOwnHistoryRank` and `valuation.roeImpliedVsAchievable`;
+none gained. All three depended on unsupported common book.
+
+**Verification.** Failing-first tests reproduce filed-row retention, the three
+specified plugs/retained-PP&E cases, one-unit flow, the whole SEC replacement,
+false return dates, peer-book admission, direct disclosure/market-data bypasses
+and observation-map dates. Negative controls cover wrong book amounts, issuer,
+availability, negative offsets, unconfirmed liquid growth, ordinary classified
+presentations, genuine cash/investment disposals and complete duplicates.
+Node 24 typecheck and changed-file ESLint pass; focused tests 160, required
+unrestricted changed run 492 files / 11,883 tests, five separate gate suites 60
+tests. Frozen report checks cover the same reader/date and peer-median outcomes.
+No full verify, paid/model calls, credentials or new filing element names.
+
+**Release boundary.** Constants remain unchanged. Advance
+`STAGE_B_IMPLEMENTATION_VERSION`, `FAIR_VALUE_METHOD_VERSION`,
+`SCENARIO_TARGET_METHOD_VERSION` and `PAYLOAD_VERSION` at integration. No score-band,
+report-schema or Stage C orchestration stamp is needed. Stored reports retain
+their bytes. The owner will verify replay before merge.

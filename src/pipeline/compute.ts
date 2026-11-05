@@ -22,6 +22,7 @@ import { buildFilingDisclosures, newerPeriodicFiling, newerResultsRelease, nextP
 import { newerFilingSentence, newerResultsSentence } from "@/report/filingDisclosurePresentation";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { withFilerShareUnits } from "@/pipeline/shareUnits";
 import { filedAnnualNciEarnings } from "@/pipeline/nciEarnings";
@@ -887,8 +888,10 @@ function normalizeStatementQuarters<T extends FiscalDatedRow>(
   rows: readonly T[],
   family: "income" | "cashFlow" | "balance",
   gaps?: ManifestEntry[],
+  source?: FmpFetch<FmpRawRow>,
 ): NormalizedQuarterSet<T> {
   const normalized = normalizeQuarterRows(rows);
+  if (source?.ok) normalized.rejected.push(...(source.value.data.rejectedPeriods ?? []));
   const disclosure = quarterRowsGap(family, normalized.rejected);
   if (disclosure) gaps?.push(disclosure);
   return normalized;
@@ -1630,9 +1633,9 @@ export function statementCurrencies(bundle: DataBundle): StatementCurrencies {
   // A degraded bundle may lack a member; missing rows are simply no evidence.
   const rows = <TRow extends FmpRawRow>(f: FmpFetch<TRow> | undefined): TRow[] => (f === undefined ? [] : rowsOf(f));
   const statements: Partial<DataBundle["statements"]> = bundle.statements ?? {};
-  const income = normalizeStatementQuarters(rows(statements.incomeQuarterly), "income");
+  const income = normalizeStatementQuarters(rows(statements.incomeQuarterly), "income", undefined, statements.incomeQuarterly);
   const balance = normalizeStatementQuarters(rows(statements.balanceQuarterly), "balance");
-  const cashflow = normalizeStatementQuarters(rows(statements.cashflowQuarterly), "cashFlow");
+  const cashflow = normalizeStatementQuarters(rows(statements.cashflowQuarterly), "cashFlow", undefined, statements.cashflowQuarterly);
   const incomeWindow = ttmIncomeFromNormalized(income, undefined, [...balance.rows, ...cashflow.rows]);
   return resolveStatementCurrencies(
     bundle.profile === undefined ? undefined : firstRow(bundle.profile)?.currency,
@@ -2071,7 +2074,7 @@ function preferredCapitalView(bundle: DataBundle): DataBundle {
 export function operatingDispositionView(bundle: DataBundle): { bundle: DataBundle; read: OperatingDispositionRead } {
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const annual = rowsOf(bundle.statements.incomeAnnual);
-  const quarters = normalizeStatementQuarters(rowsOf(bundle.statements.incomeQuarterly), "income");
+  const quarters = normalizeStatementQuarters(rowsOf(bundle.statements.incomeQuarterly), "income", undefined, bundle.statements.incomeQuarterly);
   const trailing = ttmIncomeFromNormalized(quarters, undefined,
     [...rowsOf(bundle.statements.balanceQuarterly), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt);
   const seed = trailing?.revenue != null ? trailing : annual[0];
@@ -2133,6 +2136,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
   bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle)));
+  bundle = balanceIntegrityView(bundle);
   bundle = preferredCapitalView(bundle);
   const operatingDispositions = operatingDispositionView(bundle);
   bundle = operatingDispositions.bundle;
@@ -2162,6 +2166,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     rowsOf(bundle.statements.incomeQuarterly),
     "income",
     ttmGaps,
+    bundle.statements.incomeQuarterly,
   );
   // L2: a vendor quarter can omit a filed common numerator while retaining
   // otherwise usable income. Reuse the SEC normalizer's additive-flow rules;
@@ -2196,6 +2201,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     rowsOf(bundle.statements.cashflowQuarterly),
     "cashFlow",
     ttmGaps,
+    bundle.statements.cashflowQuarterly,
   );
   const incomeQuarterly = incomeQuarterSet.rows;
   const balanceQuarterlyReported = balanceQuarterSet.rows;
@@ -2260,7 +2266,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...incomeQuarterSet.rows,
     ...balanceQuarterSet.rows,
   ]);
-  const latestCash = cashflowQuarterSet.rows[0];
+  const latestCash = rejectedAffectsCurrentWindow(cashflowQuarterSet) ? undefined : cashflowQuarterSet.rows[0];
   const filedCfo = companyFacts && latestCash?.date && latestCash.reportedCurrency
     ? filedCfoTtm(companyFacts, latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
   const useFiledCfo = filedCfo && (!ttmCf || ttmCf.operatingCashFlow === null || !vendorAgreesWithDerived(ttmCf.operatingCashFlow, filedCfo.value, filedCfo.operands));
@@ -3870,11 +3876,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // must not beat a fresher annual row. A literal 0 is FMP's
   // zero-for-undisclosed sentinel, not a real count (missing ≠ zero).
   const posShares = (v: number | null): number | null => (v !== null && v > 0 ? v : null);
+  const financialRoute = route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage";
+  // Financial opening book and its diluted count share one instant, including an ordinary feed lag.
+  const shareIncomeQuarterly = financialRoute && balQ
+    ? incomeQuarterly.filter(row => rowDate(row) <= rowDate(balQ)) : incomeQuarterly;
   // FIN-404: a loss period's count is its basic count; `incomeDivisors` restores the award dilution.
-  const divisors = incomeDivisors(incomeQuarterly, inc0, confirmedIssuerFacts(bundle.symbol, bundle.edgar));
+  const divisors = incomeDivisors(shareIncomeQuarterly, inc0, confirmedIssuerFacts(bundle.symbol, bundle.edgar));
   const sharesQuarterly = divisors.quarter.shares;
   const sharesAnnual = divisors.annual.shares;
-  const quarterlySharesFresh = rowDate(incomeQuarterly[0]) >= rowDate(inc0);
+  const quarterlySharesFresh = rowDate(shareIncomeQuarterly[0]) >= rowDate(inc0);
   const dilutedShares = quarterlySharesFresh ? (sharesQuarterly ?? sharesAnnual) : (sharesAnnual ?? sharesQuarterly);
   const dilutedSharesBasis: "quarter" | "annual" | null =
     dilutedShares === null
@@ -4372,7 +4382,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           depreciationAndAmortization: num(ctx.cashflowAnnual[0].depreciationAndAmortization),
         }
       : null;
-  const dilutedSharesRow = dilutedSharesBasis === "quarter" ? incomeQuarterly[0] : dilutedSharesBasis === "annual" ? inc0 : undefined;
+  const dilutedSharesRow = dilutedSharesBasis === "quarter" ? shareIncomeQuarterly[0] : dilutedSharesBasis === "annual" ? inc0 : undefined;
   const readConvertibles = (row: FmpBalanceSheetRow | null | undefined) => convertibleInstrumentsAt(
     confirmedIssuerFacts(bundle.symbol, bundle.edgar),
     { end: isoDay(dilutedSharesRow?.date) ?? "", basis: dilutedSharesBasis === "quarter" ? "quarter" : "annual" },
@@ -4490,7 +4500,6 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // Market cap and diluted shares belong to COMMON. Keep opening equity,
   // earnings and payout on that ownership basis and the same fiscal year.
   // A vendor total-equity ROE cannot be applied to common or tangible equity.
-  const financialRoute = route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage";
   const financialCashByDate = new Map(ctx.cashflowAnnual.map((row) => [String(row.date ?? ""), row]));
   const financialIncome = ctx.incomeAnnual.map((row) => toReturnsIncome(row, financialCashByDate,
     [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],

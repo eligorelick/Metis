@@ -42,6 +42,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/providers/yahoo.ts",
   "src/providers/treasury.ts",
   "src/providers/splitEvents.ts",
+  "src/providers/vendorNumber.ts",
   // Decides how long a cached quote stays fresh, so a slip serves an old price.
   "src/providers/usSession.ts",
   "src/providers/historyCache.ts",
@@ -75,6 +76,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/pipeline/shareUnits.ts",
   "src/pipeline/nciEarnings.ts",
   "src/pipeline/cashFlowBasis.ts",
+  "src/pipeline/balanceIntegrity.ts",
   "src/pipeline/keyless.ts",
   "src/pipeline/riskFreeFallback.ts",
   "src/pipeline/riskFreeSeries.ts",

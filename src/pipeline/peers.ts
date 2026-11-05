@@ -1,6 +1,7 @@
 /** Optional, bounded peer inputs. Never builds a report or invokes keyless providers. */
 import type { FmpBalanceSheetRow, FmpClient, FmpIncomeStatementRow, FmpProfileRow, FmpQuoteRow, FmpRawRow, FmpStockPeerRow } from "@/providers/fmp";
 import type { FmpFetch } from "@/pipeline/types";
+import { statementIntegrityRows } from "@/pipeline/balanceIntegrity";
 import { establishedIsoCode as isoCode, ownRowCurrency } from "@/pipeline/estimateCurrency";
 import { PEER_PROVIDER_TERMINAL } from "@/pipeline/peerProviderFailure";
 import type { MultipleKey, MultiplesFrameworkInputs, PeerMultiples } from "@/pipeline/stageB/valuation";
@@ -289,9 +290,12 @@ function evidenceForObservation(evidence: PeerEconomicEvidence | undefined, peri
 }
 
 /** Common-earnings proof is per quarter; latest balance alone cannot establish older preferred claims. */
-function commonIncome(income: FmpIncomeStatementRow[], balances: FmpBalanceSheetRow[], currency: string, quoteDate: number): { value: number | null; date: string | null; reason: string | null; nonOperatingShare: number | null } {
+function commonIncome(income: FmpIncomeStatementRow[], balances: FmpBalanceSheetRow[], currency: string, quoteDate: number, rejected: Array<{ period: string }> = []): { value: number | null; date: string | null; reason: string | null; nonOperatingShare: number | null } {
   const normalized = normalizeQuarterRows(income);
   const inc = normalized.rows.slice(0, 4);
+  // A complete same-date observation that stayed leaves no gap in the window.
+  if (rejected.some(row => row.period >= (inc[3]?.date ?? inc[0]?.date ?? "") && !income.some(kept => kept.date === row.period))) return {
+    value: null, date: null, reason: "current trailing income window contains an excluded incomplete observation", nonOperatingShare: null };
   const violation = normalized.rejected.length ? "ambiguous/invalid quarterly periods" : quarterWindowViolation(inc, normalized.rows[4]);
   if (violation) return { value: null, date: null, reason: violation, nonOperatingShare: null };
   const normalizedBalances = normalizeQuarterRows(balances).rows;
@@ -360,7 +364,7 @@ export function comparePeerFundamentals(opts: {
   const subjectEvidenceContrary = subject.subjectEconomicEvidence !== undefined && out.subjectEconomicEvidence === undefined;
   if (subjectEvidenceContrary) exclude(symbol, "subject economic evidence does not describe the compared observation's period, currency or availability; no peer median is published");
   const subjectCommon = opts.subjectIncomeQuarterly && opts.subjectBalanceQuarterly && !sourceReason(opts.subjectIncomeQuarterly, symbol, now, targetCik) && !sourceReason(opts.subjectBalanceQuarterly, symbol, now, targetCik)
-    ? commonIncome(rows(opts.subjectIncomeQuarterly), rows(opts.subjectBalanceQuarterly), currency, targetQuoteMs)
+    ? commonIncome(rows(opts.subjectIncomeQuarterly), rows(opts.subjectBalanceQuarterly), currency, targetQuoteMs, opts.subjectIncomeQuarterly.ok ? opts.subjectIncomeQuarterly.value.data.rejectedPeriods : undefined)
     : { value: null, date: null, reason: "subject four-quarter common earnings source/identity unavailable", nonOperatingShare: null };
   const targetIncomeEnd = day(subjectCommon.date);
   const commonValid = targetIncomeEnd !== null && targetIncomeEnd <= now && now - targetIncomeEnd <= MAX_STATEMENT_AGE && subjectCommon.value !== null;
@@ -399,7 +403,10 @@ export function comparePeerFundamentals(opts: {
     const peerQuote = rows(candidate.quote)[0]; const quoteMs = (peerQuote.timestamp as number) * 1000;
     const sizeReason = peerSizeExclusion(sizeCap, peerQuote.marketCap);
     if (sizeReason !== null) { exclude(peerSymbol, sizeReason); continue; }
-    const normalizedBalance = normalizeQuarterRows(rows(candidate.balanceQuarterly));
+    const admittedBalance = candidate.balanceQuarterly.ok && candidate.balanceQuarterly.value.source !== "edgar"
+      ? statementIntegrityRows(candidate.balanceQuarterly.value.data, "balance") : { rows: rows(candidate.balanceQuarterly), rejected: [] };
+    for (const rejected of admittedBalance.rejected) exclude(peerSymbol, `Balance observation ${rejected.period} excluded: ${rejected.reason} Same-date filing corroboration is unavailable for this peer.`);
+    const normalizedBalance = normalizeQuarterRows(admittedBalance.rows);
     const bal = normalizedBalance.rows[0]; const balanceEnd = day(bal?.date);
     const balReason = bal ? statementReason(bal, currency, quoteMs) : "quarterly balance missing";
     if (normalizedBalance.rejected.length || balReason || balanceEnd === null || now - balanceEnd > MAX_STATEMENT_AGE || Math.abs(balanceEnd - subjectBalanceEnd) > MAX_PERIOD_DIFFERENCE) {
@@ -431,7 +438,10 @@ export function comparePeerFundamentals(opts: {
       else exclude(peerSymbol, "priceToTbv: positive tangible common equity required");
     } else exclude(peerSymbol, "priceToTbv: goodwill, intangibles or preferred equity not explicitly disclosed");
     const incomeSourceReason = sourceReason(candidate.incomeQuarterly, peerSymbol, now, candidateCik);
-    const common = incomeSourceReason ? { value: null, date: null, reason: incomeSourceReason, nonOperatingShare: null } : commonIncome(rows(candidate.incomeQuarterly), normalizedBalance.rows, currency, quoteMs);
+    const admittedIncome = candidate.incomeQuarterly.ok && candidate.incomeQuarterly.value.source !== "edgar"
+      ? statementIntegrityRows(candidate.incomeQuarterly.value.data, "income") : { rows: rows(candidate.incomeQuarterly), rejected: [] };
+    const common = incomeSourceReason ? { value: null, date: null, reason: incomeSourceReason, nonOperatingShare: null }
+      : commonIncome(admittedIncome.rows, normalizedBalance.rows, currency, quoteMs, admittedIncome.rejected);
     const incomeEnd = day(common.date);
     const commonEligible = commonValid && common.value !== null && incomeEnd !== null && now - incomeEnd <= MAX_STATEMENT_AGE && Math.abs(incomeEnd - (targetIncomeEnd as number)) <= MAX_PERIOD_DIFFERENCE;
     const commonEvidence = evidenceForObservation(candidate.economicEvidence, common.date, currency, quoteMs);

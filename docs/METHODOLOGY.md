@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.64.0 / payload 1.80.0, Stage B `STAGE_B_2026_11_SHARE_CLASS_ECONOMICS_54` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.64.0 / payload 1.81.0, Stage B `STAGE_B_2026_11_BALANCE_ROW_INTEGRITY_55` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications
 
@@ -517,6 +517,68 @@ These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 `tests/currency.annualCompatibility.test.ts`,
 `tests/currency.priceComparison.test.ts` and
 `tests/currency.analystEstimates.test.ts`.
+
+## Incomplete statement breakdowns
+
+D-207 checks original annual and quarterly vendor observations against the
+latest accepted same-issuer/currency row in date order. Consecutive stubs cannot
+validate each other. Check receivables, inventory, net property and equipment,
+and long-term investments separately: a material line exceeds 1% of prior
+assets and collapses below 20% of its prior amount. At least two lines, or all
+material lines when only one exists, must collapse; their loss exceeds 5% of
+prior assets while total assets retain at least 80%. Null/absent lines count as
+empty. Unclassified residual growth absorbing at least 80% of that loss, an
+unexplained gap above 1% after a near-total breakdown collapse, or a negative
+current-asset offset corroborates the failure. Classified presentations can
+explain ordinary changes. Liquid-asset growth covering 80% of the loss explains
+the movement only without a negative offset. Thresholds are independent of
+valuation; overlapping categories prevent a universal asset identity.
+
+Income and cash flow are checked independently of the balance or release
+timestamp. An empty or near-zero core after a fully populated prior core with a
+material component is incomplete. Materiality is 1% of the largest absolute
+prior core component, profit or revenue. Income uses cost of revenue, gross
+profit and operating income; cash flow uses operating, investing and financing
+subtotals. Ordinary missing-field histories retain existing field-level checks.
+
+Remove the rejected observation from admitted rows; a complete same-date sibling
+survives. Keep raw evidence and a dated gap. A collapse candidate stays when an
+available same-date, same-currency filing corroborates total assets, equity,
+nonzero book adjustments and each liquid amount that grew, using the existing
+rounding agreement and compatible filing provenance. Negative current-asset
+offsets prohibit this override. This retains an existing observation and builds
+no field-by-field replacement. Whole SEC-sourced rows are exempt from vendor
+checks, including SEC replacements inside vendor families. Without corroboration
+the older admitted balance remains a disclosed limit until a vendor correction.
+Peers use the same row check; their bounded collection lacks companyfacts, so
+an uncorroborated collapse is excluded and the latest remaining balance is used.
+Calculations, reports, charts and AI extracts share the same immutable view at
+their entrypoints. Dependent provider EV observations on rejected balance dates
+are also excluded. Source snapshots and saved reports retain their original
+bytes. Envelopes and the observation-date map use the latest retained row's date.
+
+Existing balance selection, WACC, ratio and forensic date checks now see the
+remaining rows normally. Removing a partial flow records its rejected period
+for existing TTM refusal and continuity checks: a rejected current quarter
+cannot shift the trailing window backwards or be cured by older filed CFO.
+No partial sum or rejected AI cell is published.
+
+For financial quarterly opening book, choose the share observation through the
+latest quarterly balance date before the existing divisor, class and filing
+checks. This also applies when a vendor feed simply lags. The existing trailing
+return guard requires a closing balance within 45 days of its earnings window;
+it cannot pair September earnings with a June balance. If that return is
+unavailable, the existing explicitly dated annual forward-rate convention
+remains. Scoring evidence dates that return at its actual measurement period,
+separately from opening book. D-198's preferred-capital refusal on the latest remaining balance still
+withholds common-book value and targets.
+
+Payout treatment is unchanged. Existing filed parsing can derive common cash
+from compatible aggregate and preferred cash dividends; explicit parser
+refusals remain refused. Vendor common-labelled dividend fields can include
+preferred amounts, so that payout estimate is an approximation where the split
+is not established. A rejected balance does not introduce a different payout
+admission rule or a new whole-value refusal.
 
 ## WACC inputs
 
@@ -3828,8 +3890,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_SHARE_CLASS_ECONOMICS_54 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_SHARE_CLASS_ECONOMICS_54. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_BALANCE_ROW_INTEGRITY_55 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_BALANCE_ROW_INTEGRITY_55. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 

@@ -25,6 +25,7 @@
  * pulling in a provider client.
  */
 
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import {
   establishedCurrencyOn,
   routeMetricsBlock,
@@ -873,7 +874,8 @@ export interface EnrichDataOnlyReportArgs {
  * the LLM path attaches them after the judge.
  */
 export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArgs): Report {
-  const { bundle, computed } = args;
+  const { computed } = args;
+  const bundle = balanceIntegrityView(args.bundle);
   const baseRouteMetrics = routeMetricsBlock(computed);
   const routeMetrics = baseRouteMetrics && computed.valuation.kind === "excess-return"
     ? { ...baseRouteMetrics, notes: [...new Set([...baseRouteMetrics.notes, describeFinancialValuation(computed.valuation.excessReturn.financialAssumptions)])] }

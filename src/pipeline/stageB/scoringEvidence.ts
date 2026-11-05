@@ -81,7 +81,7 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
   } else if (id === "equityReturnVsCoeSpread" || id === "roeImpliedVsAchievable") {
     const er = i.valuation.kind === "excess-return" ? i.valuation.excessReturn : null;
     result.family = id === "equityReturnVsCoeSpread" ? "capital-returns" : "valuation";
-    dates(null, er?.asOf);
+    dates(null, er?.currentRoeAsOf ?? er?.asOf);
     operand(i.route.base === "bank" ? "current ROTE" : "current common ROE", er?.roePathPct?.value?.[0], "computed.valuation.excessReturn.roePathPct.value[0]", result.endDate);
     if (id === "equityReturnVsCoeSpread") {
       operand("cost of equity", er?.costOfEquityPct?.value, "computed.valuation.excessReturn.costOfEquityPct.value", rateDate);

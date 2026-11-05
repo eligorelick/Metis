@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.64.0** and
-payload **1.80.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.81.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -25,6 +25,29 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Read issued class rows and equity/capital-stock headings without colons; refuse participation-only admission if the statement cannot be read, and refuse parsed cover/balance-sheet conflicts. Exclude voting-only counts only for unconditional denials without economic grants, within the same size limit.
 - Keep the conversion explanation at fair value, DCF and targets, with a shorter WACC caveat; identify unquoted shares in count gaps, remove unsupported date claims, and print singular class units correctly.
 - D-206 records the 105-input replay, held-out measurement and whole retained-section audit, including its three unmapped issuer exclusions and SHOP's missing statement inventory. Version constants and stored reports are unchanged.
+
+## Unreleased - Balance rows that do not add up (2026-11-05)
+
+- Exclude vendor balances whose major named asset lines collapse into an
+  unclassified residual or unexplained gap while total assets remain. Retain
+  movements explained by liquid assets without negative offsets or classified
+  presentations. The normal consumers use the remaining dated balances; this
+  check does not reconstruct a statement from filed anchors.
+- Keep collapse candidates corroborated by same-date filed book and grown liquid
+  amounts. Preserve whole SEC replacements, apply admission to peer statements,
+  and date return evidence separately from opening book.
+- Compare with the latest accepted breakdown and reject specific observations,
+  preserving complete same-date siblings. Independently exclude empty income/
+  cash-flow cores; current trailing windows refuse rather than shift backwards.
+- Apply one admission view to calculations, reports, charts and AI extracts,
+  including envelope dates and dependent provider EV observations. Retain raw
+  evidence and plain dated gaps.
+- Financial quarterly opening book uses its matching dated share observation,
+  including ordinary feed lag. Existing trailing-return date and preferred-
+  capital guards retain precedence. Payout treatment is unchanged.
+- Source snapshots and saved reports remain immutable. Integration must advance
+  Stage B implementation, fair-value method, scenario-target method and payload
+  stamps; constants remain unchanged here. See D-207 for evidence and limits.
 
 ## Unreleased - Unknown tickers, regulated utilities and foreign banks (2026-11-04)
 

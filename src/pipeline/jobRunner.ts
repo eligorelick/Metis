@@ -30,6 +30,7 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { ProviderFailureSchema } from "@/ai/providerFailure";
 import { analysisOutcomeFromSteps } from "@/report/analysisCompletion";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
@@ -3092,6 +3093,8 @@ export async function runJob<TPayload = unknown>(
     let computed: ComputedMetrics;
     try {
       computed = runStageB(bundle, stageBConfig, validation);
+      // Preserve the captured raw snapshot; all later Stage C consumers receive admitted rows.
+      bundle = balanceIntegrityView(bundle);
     } catch (err) {
       // Compute is pure; a throw here is a programming error, but degrade
       // rather than crash the app: finish compute with error and continue to
@@ -5407,7 +5410,8 @@ interface DataOnlyInput {
  * ever filled in that the pipeline did not compute.
  */
 export function buildDataOnlyReport(input: DataOnlyInput): Report {
-  const { symbol, bundle, validation, computed } = input;
+  const { symbol, validation, computed } = input;
+  const bundle = balanceIntegrityView(input.bundle);
   const asOfMap = input.sterileManifest ? {} : { ...bundle.asOf };
   // The letter beside this claim is the deterministic score band when Stage B
   // ran and a schema placeholder when it did not; "ungraded" (before the
