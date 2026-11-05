@@ -355,6 +355,37 @@ describe("computeWacc — happy path and research anchor", () => {
   });
 });
 
+describe("D-204: independently retained monthly beta fallback", () => {
+  const fit = { beta: 0.8, months: 60, windowStart: "2021-06-30", windowEnd: "2026-06-30", rSquared: 0.3,
+    standardError: 0.16, basis: "dividend-adjusted close", benchmark: "SPY" };
+  it.each([-0.22, 0, 4.1, null])("uses an adequate issuer regression for unusable vendor beta %s", beta => {
+    const w = computeWacc({ ...waccBase, beta, betaRegression: fit, betaSource: "vendor profile beta" });
+    expect(w.betaRaw).toBe(0.8);
+    expect(w.betaFinal).toBeCloseTo(2 / 3 * 0.8 + 1 / 3);
+    expect(w.betaSource).toMatch(/monthly OLS.*fallback.*vendor/i);
+    expect(w.costOfEquityPct).not.toBeNull();
+    expect(w.gaps).toContainEqual(expect.objectContaining({ field: "returns.wacc.betaFallback", severity: "warn" }));
+  });
+  it.each([
+    { months: 23 }, { standardError: 0.4 }, { standardError: null }, { standardError: -0.1 },
+    { rSquared: null }, { rSquared: 0 }, { beta: -0.1 }, { beta: 4.1 }, { windowEnd: null }, { benchmark: "OTHER" },
+    { windowEnd: "2026-08-31" }, { windowStart: "invalid" }, { windowEnd: "2026-06-31" },
+  ])("refuses an unusable independent fit: %j", bad => {
+    const w = computeWacc({ ...waccBase, beta: -0.22, betaRegression: { ...fit, ...bad } });
+    expect(w.costOfEquityPct).toBeNull();
+    expect(w.gaps.find(g => g.field === "returns.wacc.beta")?.reason).toMatch(/regression.*unusable/i);
+  });
+  it("leaves every plausible vendor beta unchanged", () => {
+    for (const beta of [0.1, 1, 4]) {
+      const before = computeWacc({ ...waccBase, beta });
+      const after = computeWacc({ ...waccBase, beta, betaRegression: fit });
+      expect(after.waccPct).toBe(before.waccPct);
+      expect(after.betaRaw).toBe(beta);
+      expect(after.gaps).toEqual(before.gaps);
+    }
+  });
+});
+
 describe("computeWacc — fallback disclosure (audit 2026-07-11 #5)", () => {
   it("suppresses WACC when beta is unavailable instead of inventing a sector default", () => {
     const res = computeWacc({ ...waccBase, beta: null });

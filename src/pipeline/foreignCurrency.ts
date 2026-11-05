@@ -30,7 +30,7 @@ export function resolveForeignValuation(bundle: DataBundle, reportingCurrency: s
   const fx = selected.rate;
   const note = `Valuation translated at one spot rate (constant currency): all reporting-currency monetary valuation inputs and historical levels use ${fx.usdPerReportingUnit} USD per ${fx.reportingCurrency}; ` +
     `FRED ${fx.series}, ${fx.observation.date}, native value ${fx.observation.value}, quote date ${quoteDate}. Source statements and source amounts in basis notes remain in ${fx.reportingCurrency}. Historical growth rates are unchanged by translation. ` +
-    security.basis.note + ` USD cash flows are discounted at the USD-based rate; intrinsic values are USD per ADS. Analyst rows without an established currency/share basis remain withheld. Historical price-multiple bands require their own dated FX/security evidence and remain withheld.`;
+    security.basis.note + ` USD cash flows are discounted at the USD-based rate; intrinsic values are USD per ${security.basis.securityEvidence[0]?.quoteUnit === "ordinary" ? "quoted common share" : "ADS"}. Analyst rows without an established currency/share basis remain withheld. Historical price-multiple bands require their own dated FX/security evidence and remain withheld.`;
   return { basis: { ...security.basis, fx, note }, reason: null };
 }
 
@@ -43,9 +43,10 @@ export function resolveForeignShareRatio(bundle: DataBundle): { basis: Omit<Fore
   if (!quoteDate) return refuse("dated quote is absent");
   if (!bundle.builtAt || !validDay(bundle.builtAt.slice(0, 10))) return refuse("analysis cutoff is not established");
   if (quoteDate! > bundle.builtAt.slice(0, 10)) return refuse("quote date is after the analysis cutoff");
-  // Non-ADR foreign listings need explicit security evidence too: country or
-  // a matching count alone never proves that a US quote is an ordinary share.
-  if (profile?.isAdr !== true) return refuse("foreign quoted-unit identity is not established as an ADS");
+  // A directly listed ordinary share requires the same two independent count
+  // constructions, and both must prove 1:1. An unknown listing is never guessed.
+  if (profile?.isAdr !== true && profile?.isAdr !== false) return refuse("foreign quoted-unit identity is not established as an ADS or an ordinary listing");
+  const ordinaryListing = profile.isAdr === false;
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   if (!facts) return refuse("independent SEC issuer/share evidence is absent");
   if (bundle.economicShareEvidence?.length || bundle.edgar.economicShareInventory?.some(i => i.classes.length > 1)) return refuse("common-class economic coverage needs separate resolution");
@@ -85,7 +86,10 @@ export function resolveForeignShareRatio(bundle: DataBundle): { basis: Omit<Fore
   const issued = points("ifrs-full", "NumberOfSharesIssued").filter(p => !p.start && p.end === cover.end &&
     p.accn === cover.accn && p.filed === cover.filed && p.form === cover.form);
   const issuedCover = ratio === null && issued.length > 0 && issued.every(p => agrees(cover.val, p.val, 0.001));
-  if (ratio === null && !issuedCover) return refuse("filed ordinary / quoted outstanding counts do not establish a standard ADS ratio within 1%");
+  if (ratio === null && !issuedCover) return refuse(ordinaryListing
+    ? "filed ordinary / quoted outstanding counts do not establish one-for-one ordinary units within 1%"
+    : "filed ordinary / quoted outstanding counts do not establish a standard ADS ratio within 1%");
+  if (ordinaryListing && ratio !== 1) return refuse("non-ADR ordinary listing requires independently corroborated one-for-one share units");
   const annual = bundle.statements.incomeAnnual;
   if (!annual.ok || annual.value.source !== "fmp") return refuse("independent provider weighted-average count evidence is absent");
   const weighted = [
@@ -115,15 +119,17 @@ export function resolveForeignShareRatio(bundle: DataBundle): { basis: Omit<Fore
     { fact: cover, provider: quotedShares, endpoint: bundle.sharesFloat.ok ? bundle.sharesFloat.value.endpoint : "", label: issuedCover ? "issued-cover identity; ratio from independent weighted count" : "outstanding" },
     { fact: weightedMatch.fact, provider: weightedMatch.provider, endpoint: annual.value.endpoint, label: "weighted-average" },
   ].map(({ fact, provider, endpoint, label }): SecurityBasisEvidence => ({ issuerId: String(facts.cik).padStart(10, "0"), securityId: bundle.symbol,
-    ordinaryClassId: "ordinary", quoteUnit: "ADS", ordinarySharesPerQuotedUnit: ratio!, effectiveFrom: fact.end, effectiveTo: null,
+    ordinaryClassId: "ordinary", quoteUnit: ordinaryListing ? "ordinary" : "ADS", ordinarySharesPerQuotedUnit: ratio!, effectiveFrom: fact.end, effectiveTo: null,
     sourceHash: createHash("sha256").update(JSON.stringify({ fact, provider, endpoint, label })).digest("hex"),
     sourceIds: [`https://www.sec.gov/Archives/edgar/data/${facts.cik}/${fact.accn.replaceAll("-", "")}/`, `${endpoint} (${label} count ${provider})`],
   }));
   if (!resolveSecurityBasis(evidence, quoteDate!)) return refuse("security identity or effective-dated ratios disagree");
-  const note = (issuedCover
+  const note = (ordinaryListing
+      ? "Verified one-for-one ordinary listing: 1 quoted common share = 1 filed ordinary share, corroborated by independent filed/provider outstanding and weighted-average counts (1% tolerance); "
+      : issuedCover
       ? `1 ADS = ${ratio} ordinary shares: the cover count equals same-filing issued shares within 0.1%, so it may include treasury; the independent filed/provider weighted-average ratio establishes the standard ratio within 1%. The issued cover is not treated as outstanding; `
       : `1 ADS = ${ratio} ordinary shares, corroborated by filed ordinary/provider quoted outstanding and independently matched weighted-average counts (1% tolerance); `) +
-    `market cap / price = ${cap / price} ADS versus provider ${quotedShares}. ` +
+    `market cap / price = ${cap / price} ${ordinaryListing ? "ordinary shares" : "ADS"} versus provider ${quotedShares}. ` +
     `Sources: ${evidence.flatMap(e => e.sourceIds).join("; ")}.`;
   return { basis: { ratio, securityEvidence: evidence, quotedShares, marketCapUsd: cap, note }, reason: null };
 }

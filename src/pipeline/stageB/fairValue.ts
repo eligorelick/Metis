@@ -37,7 +37,7 @@ import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/prov
 // D-135 (audit 2026-10-27 B4a): the bridge every target re-runs counts redeemable equity and the debt-like obligations once, and the DCF reads the covered operating lease in sales-to-capital.
 // FIN-401 / FIN-401-V1: the DCF bridge and its operating margin/capital inputs now share the stake reading.
 // D-178 / D-179: the per-share value converts at one dated FX rate per ADS ratio; completed debt and WACC reach more issuers.
-export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_11_FILED_FIGURES_51" as const;
+export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_11_UTILITY_AND_FOREIGN_ROUTES_52" as const;
 
 export interface FairValueInputs {
   /** The route-dispatched valuation result (carries the per-route per-share). */
@@ -90,7 +90,9 @@ function excessReturnWithheldReason(gaps: readonly ManifestEntry[]): string {
     gaps.find(g => g.field === "valuation.excessReturn.dilutedShares");
   const shares = model?.field === "valuation.excessReturn.dilutedShares"
     ? gaps.find(g => g.field === "valuation.perShare.economicClassBasis" || g.field === "valuation.perShare.securityBasis") : undefined;
-  return model ? `${model.reason}${shares ? ` ${shares.reason}` : ""}`
+  const conversion = model?.field === "valuation.excessReturn.currency"
+    ? gaps.find(g => g.field === "valuation.currencyConversion") : undefined;
+  return model ? `${model.reason}${shares ? ` ${shares.reason}` : ""}${conversion ? `. ${conversion.reason}` : ""}`
     : "Excess-return intrinsic value per share is unavailable; no model-specific refusal was recorded.";
 }
 
@@ -245,7 +247,8 @@ export function computeFairValue(inputs: FairValueInputs): FairValue {
               "deterministic intrinsic per-share unavailable — the model was not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge";
     // Not-applicable routes are info; a suppressed bridge on a modellable route is a warn.
     const severity: ManifestEntry["severity"] =
-      valuation.kind === "reit" || valuation.kind === "pre-revenue" ? "info" : "warn";
+      valuation.kind === "reit" || valuation.kind === "pre-revenue" ||
+        valuation.gaps.some(g => g.field === "valuation.dcf.regulatedUtility") ? "info" : "warn";
     return suppressed(
       [{ field: valuation.kind === "excess-return" ? "valuation.excessReturn.perShare" : "valuation.dcf.perShare", reason, severity }],
       [`Intrinsic value per share unavailable: ${reason}.`],

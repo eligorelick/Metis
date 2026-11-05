@@ -6798,20 +6798,21 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     const erReported = inputs.multiples.reportedCurrency;
     const erQuote = inputs.multiples.quote.currency;
     if (!quoteComparison.comparable && quoteComparison.mismatch) {
+      const currencyReason = `Currency translation not admitted: statements in ${erReported}, quote in ${erQuote}`;
       notes.push(
-        `${quoteComparison.reason} — excess-return per-share and reverse solve suppressed; ` +
+        `${currencyReason} — excess-return per-share and reverse solve suppressed; ` +
           "See multiples (flagged) for relative valuation.",
       );
       gaps.push(
         gapEntry(
           "valuation.excessReturn.currency",
-          `${quoteComparison.reason} — excess-return per-share suppressed rather than comparing a per-share value in one currency with a price in another`,
+          `${currencyReason} — excess-return per-share suppressed rather than comparing a per-share value in one currency with a price in another`,
           "critical",
         ),
       );
       const guarded: ExcessReturnResult = {
         ...er,
-        priceToTangibleBookVsRote: withholdPriceToTangibleBook(er.priceToTangibleBookVsRote, quoteComparison.reason),
+        priceToTangibleBookVsRote: withholdPriceToTangibleBook(er.priceToTangibleBookVsRote, currencyReason),
         perShare: null,
         startAlternative: undefined,
         startCoeGrid: undefined,
@@ -6914,6 +6915,17 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     // FIN-404: FFO and AFFO per share divide by the same count; said once, where one is published.
     divisorDisclosure(reit.ffoPerShare ?? reit.affoPerShare);
     return { kind: "reit", route: route.base, reit, multiples, notes, gaps };
+  }
+
+  // D-204: the existing filed rate-regulation overlay establishes applicability.
+  // Utility capex is financed with external capital earning an allowed return;
+  // this FCFF model does not represent that rate-base funding cycle.
+  if (route.overlays.includes("regulated-utility")) {
+    const reason = "Regulated utility: large capital spending is funded with external capital that earns an allowed return. " +
+      "The FCFF model does not capture that regulated rate-base funding cycle; intrinsic per-share value, reverse DCF and DCF scenario targets are withheld. " +
+      "Use the retained P/E, dividend yield and EV/EBITDA multiples and peer comparisons for valuation context; no rate-base value is estimated.";
+    gaps.push(gapEntry("valuation.dcf.regulatedUtility", reason, "info"));
+    return { kind: "dcf-suppressed", route: route.base, multiples, suppressionReason: reason, notes: [...notes, reason], gaps };
   }
 
   // General route: DCF + sensitivity + reverse DCF + multiples — unless

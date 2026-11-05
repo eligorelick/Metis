@@ -7398,6 +7398,207 @@ The replay uses only the retained panel inventory and cached filing HTML under t
 
 Review validation on Node 24.11.1: typecheck (`--incremental false`) and ESLint pass; the required changed run with no filename arguments and `--maxWorkers 4` passes **539 files / 13,268 tests**, with one platform skip. The focused regression suites pass **195 tests**. Separate risk coverage, repository release, docs lint, tag-synonym and P8-agreement runs pass **11, 18, 14, 9 and 8 tests**, respectively. The live build and existing servers are left unchanged.
 
+## D-204 - Unknown tickers, regulated utilities, foreign financials and independent beta (2026-11-04)
+
+**Boundary and evidence.** This work changes instrument/job admission, the
+regulated-utility valuation rule, foreign financial valuation and beta selection.
+Lease/debt, revenue admission and economic share-class implementations are
+outside this change. Frozen `app-data-round2/live.db` is opened read-only with
+`fileMustExist: true`; source snapshots and saved reports stay immutable. The
+inventory includes 104 attempted company symbols (including unknown ZZZZQ) plus
+the QQQ ETF control. No live FMP, Finnhub, FRED or model call is made. No owner's
+environment, credential or application database is read.
+
+**Unknown tickers.** The runner classified a missing profile as unconfirmed, then
+explicitly persisted a completed data-only report if nothing analyzable existed.
+Remove that exception: every unsupported/unconfirmed instrument ends
+`unsupported`, saves no report and stops before model resolution, payload
+assembly, pass preflight, paid lease and provider-model request admission.
+Affirmative empty profile results, or a missing key plus a confirmed SEC ticker
+table miss, say the ticker was not found and may be invalid or delisted.
+Transport failure alone only leaves classification unestablished. An unknown
+symbol ending in Q is not assumed delisted from its spelling. Malformed symbols
+stop before data acquisition, including a company-shaped injected bundle. ETF
+and fund refusals retain their existing typed reason. Supported-company
+data-only reports remain available.
+
+**Regulated utilities.** The existing overlay already requires utility SIC and
+recent filed regulatory assets or regulated revenue. Use that proved overlay,
+including transmission/distribution SIC 4922 and 4923 alongside 4911, 4924, 4931,
+4932 and 4941. Keep its 24-month and filed-by-cutoff rules. SIC alone is not
+enough: an independent power producer without regulation evidence stays on the
+general route. No industry-name shortcut or issuer exception is added.
+
+The owner's methodology decision is to treat these utilities like equity REITs
+for intrinsic valuation. A regulated utility funds large capex with external
+capital earning an allowed return; this FCFF model does not represent the
+rate-base funding cycle. Withhold per-share FCFF, reverse DCF, grids and DCF
+scenario targets with that reason. Retain P/E, dividend yield, EV/EBITDA and
+available peer context. Do not fabricate a rate-base model or change the
+Moody's credit calculation. Valuation can still use available own-history
+multiple ranks. Without them its score is null, with the existing neutral
+composite treatment; the report prints D-201's note that the missing valuation
+weight counts as neutral and can raise or lower the composite. That is not an
+improvement in the investment conclusion.
+
+**Foreign financials.** D-178's monetary translator already includes the
+excess-return operands. Acquisition also already retains CAD/GBP H.10 rates.
+The blockers are security evidence and a headline that discards the specific
+conversion refusal. Permit an explicitly non-ADR, independently corroborated
+one-for-one ordinary listing through the same SEC identity, two-count, 1%,
+dated capitalization, split and class guards. Label its evidence `ordinary`.
+It cannot admit a non-unit ratio or an unknown listing type. ADS rules are
+unchanged. Convert book, alternative book, preferred/convertible claims and
+debt at the same dated rate; share and conversion units use the same proved
+ratio. ROTE/ROE and payout remain ratios of matching native-currency amounts;
+the financial route discounts USD equity cash flows at USD cost of equity and
+uses no WACC. P/TBV, reverse valuation and scenario inputs share this basis.
+Refusals now carry the specific missing FX or security evidence into the
+financial fair-value headline. No stale-rate or ratio tolerance is relaxed.
+
+**Independent beta.** A plausible provider raw beta in (0, 4] remains unchanged.
+Only a missing or implausible beta may use the retained issuer/SPY monthly OLS.
+Require the existing 24-return floor, real ordered dates before the analysis
+day, a slope in (0, 4], finite R² in (0, 1], nonnegative finite standard error,
+and slope greater than 2.1 standard errors. This house admission bar exceeds
+the two-sided 95% t critical value at the minimum 22 residual degrees of freedom;
+it assesses the evidence for a positive market sensitivity, not the proportion
+of business risk explained by SPY. Retain the estimator's 60-month, completed-
+month and common-price-basis rules and the existing Blume adjustment/clamps.
+The source and warning name the refused provider value, slope, window, count,
+price basis, R² and standard error. An unusable regression still refuses.
+
+BP's retained slope 0.169952 with SE 0.235573 (R² 0.009049) and SHEL's 0.082718
+with SE 0.184809 (R² 0.003502), each from 59 returns, do not pass. Both stay
+withheld for a stated weak regression, rather than accepting a positive but
+uninformative slope. TM's ordinary/quoted count ratio and BABA's unresolved
+split evidence remain the D-196 refusals; no FX or beta change repairs those
+security defects.
+
+**Tests and release boundary.** Failing synthetic regressions precede changes
+for unknown/outage/delisted-style jobs, malformed symbols, utility admission and
+FCFF/target suppression, ordinary quoted units, bank refusal provenance, and
+beta fit/date fallback. Negative controls preserve supported companies, typed
+ETFs/funds, unregulated generators, non-unit ordinary listings, disputed/missing
+counts and rates, weak/short/future regressions, and plausible provider betas.
+CAD/GBP acquisition doubles retain the rate and agree with serialized frozen
+replay on fair value, targets and composite; no live provider refresh is claimed.
+Utility report assembly retains current multiples and prints the refusal and
+D-201 note. Before release, advance Stage B implementation, fair-value method,
+scenario-target method, payload and pipeline orchestration stamps together.
+No report-schema or score-band change is required. No version constants are
+changed here and no stored report is recalculated.
+
+### Complete frozen-panel result and analyst checks
+
+All 105 snapshot symbols were replayed at their original clocks/configurations:
+103 established companies, unknown ZZZZQ and the QQQ ETF control. The 104 saved
+company-attempt cohort includes ZZZZQ; QQQ is the extra unsupported control.
+Baseline Stage B already rejected ZZZZQ; its incorrect saved-report outcome was
+in the job runner and is reproduced separately with the paid-path test double.
+There are no new replay errors. Available values fall from **48 to 44** because
+four regulated-utility FCFF values are deliberately withdrawn. No company gains
+a numerical intrinsic value. Outside-domain refusals stay at five; other
+suppressed values rise from 50 to 54. The two unsupported controls are identical
+in the Stage B replay.
+
+The following mutually exclusive primary causes describe the headline refusal,
+not a claim that every other required input is available. TD moves from a
+currency refusal to its existing payout refusal after translation is admitted.
+DUK and NEE move from revenue refusal to the prior utility applicability rule;
+their revenue source issues are not repaired by this change.
+
+| Result / primary cause | Before | After |
+| --- | ---: | ---: |
+| Available | 48 | 44 |
+| Outside domain | 5 | 5 |
+| Debt/lease basis | 20 | 20 |
+| Unprofitable/model applicability | 9 | 9 |
+| Regulated utility | 0 | 6 |
+| Equity REIT | 5 | 5 |
+| Currency/security basis | 5 | 4 |
+| Revenue | 5 | 3 |
+| Payout | 1 | 2 |
+| Share basis | 2 | 2 |
+| Beta | 2 | 2 |
+| Invested capital | 1 | 1 |
+| Unsupported ETF | 1 | 1 |
+| Unconfirmed ticker | 1 | 1 |
+
+Every changed company is below. All prices and retained consensus figures are
+USD per quoted share as labelled by the frozen feeds; consensus is comparison
+context, not an admitted forecast or proof of its share/currency basis. A dash
+means withheld, not zero. Bull/base/bear targets are empty before and after for
+all eleven; the six utility target-refusal objects now state the utility reason.
+The other five retain byte-identical target and composite objects.
+
+| Company | Price | Retained consensus | Fair value before → after | Composite before → after | Analyst check and reason |
+| --- | ---: | ---: | --- | --- | --- |
+| NEE | 88.45 | 91.20 | — → — | 52.13 → 52.49 | Regulated utility supersedes the revenue-based DCF refusal. P/E 26.80x and EV/EBITDA 20.15x remain; no rate-base value is inferred. |
+| DUK | 129.59 | 130.30 | — → — | 50.50 → 50.59 | Regulated utility supersedes the revenue-based DCF refusal. P/E 20.54x and EV/EBITDA 13.07x provide context near the retained consensus. |
+| SO | 93.12 | 93.94 | 48.14 → — | 48.07 → 51.09 | Withdraw the FCFF result 48.3% below price. P/E 22.49x and EV/EBITDA 13.37x remain; the allowed-return funding cycle is outside this model. |
+| AEP | 129.24 | 140.81 | 44.59 → — | 50.09 → 53.45 | Withdraw the FCFF result 65.5% below price. P/E 20.97x remains. EV/EBITDA is independently withheld; this branch does not repair its debt basis. |
+| D | 69.75 | 70.22 | 3.27 → — | 46.59 → 49.37 | Withdraw the FCFF result 95.3% below price. P/E 23.25x and EV/EBITDA 19.02x remain as relative context. |
+| EXC | 46.24 | 46.40 | 22.22 → — | 48.21 → 51.26 | Withdraw the FCFF result 51.9% below price. P/E 17.92x and EV/EBITDA 11.07x remain. |
+| TD | 128.20 | 89.52 | — → — | 55.38 → 55.38 | One-for-one ordinary units and dated CAD translation pass. P/book 2.65x and P/TBV 3.31x now stand; compatible common earnings/payout and ROTE remain unavailable, so no value or justified P/TBV is published. |
+| RY | 209.79 | 225.00 | — → — | 54.72 → 54.72 | The headline now names the failed one-for-one ordinary count evidence. The 1.01012 filed/current count ratio exceeds 1%; neither rate availability nor an older count repairs it. |
+| BCS | 23.70 | 20.00 | — → — | 52.84 → 52.84 | The headline now names the failed ADS count evidence. Current outstanding implies about 4.119 ordinary per quoted unit; the latest matched annual weighted count implies about 4.089, neither within 1% of four. |
+| BP | 45.61 | 53.06 | — → — | 57.66 → 57.66 | Negative vendor beta and weak independent fit still refuse. Positive slope/SE is only 0.72; accepting it would invent precision. |
+| SHEL | 101.86 | 103.62 | — → — | 59.27 → 59.27 | Negative vendor beta and weak independent fit still refuse. Positive slope/SE is only 0.45. |
+
+For TD, FRED DEXCAUS dated 2026-10-30 retains native 1.3957 CAD/USD for the
+2026-11-04 quote, five days old. CAD 91.364138B tangible common book becomes
+USD 65.461158B; USD 216.5939B market cap / USD 65.461158B = 3.30874x. Cap/price
+equals 1.6895B quoted ordinary shares, agreeing with the retained dated count.
+Cost of equity stays 8.80776%; WACC remains absent. The high book multiple, the
+128.20 quote versus 89.52 retained consensus, and missing ROTE are reasons to
+withhold an investment conclusion, not inputs to tune. A compatible payout
+requires positive common earnings and compatible common cash flows in at least
+two of the latest three fiscal years; all three frozen TD years fail that
+existing rule. RY and BCS also carry that independent payout gap underneath
+their specific security refusals.
+
+The six utility composites rise after unsupported DCF evidence leaves their
+applicable evidence weight; the neutral rule and bands are unchanged. The
+report warns under D-201 that these scores are not directly comparable with a
+company scored on valuation. No analyst target, coefficient, rate or tolerance
+was chosen to recover coverage or move a value toward price.
+
+**No collateral change.** The comparison asserts equality of complete fair-value
+objects, complete scenario-target objects and complete composites for every
+symbol outside the rule-selected change set. The other **92 companies** are
+byte-identical on all three objects; QQQ and ZZZZQ retain identical typed
+unsupported outcomes. Their ordered comparison data share SHA-256
+`c77132678c5bc4c9c294bc2ce5e5826e4054a6d0fec9b53840ac0e2193781aeb`.
+This includes unchanged TM and BABA. The broad replay is supplemented by a
+final nine-symbol recheck of every utility and foreign financial affected by
+the last disclosure/policy correction. Scratch inputs, output objects, exact
+comparison code, analyst operands and red/green logs are under ignored
+`tmp/int/panel/` in this worktree. Live reacquisition of the 104-symbol cohort
+was not performed because this brief prohibits the providers it would require;
+the CAD/GBP synthetic Stage A acquisition tests provide the fresh/replay check.
+
+**Verification.** Node 24.11.1: `npm run typecheck` and ESLint on all changed
+TypeScript files pass. The required changed run, with no filename arguments,
+`node node_modules/vitest/vitest.mjs run --config vitest.config.ts --changed origin/main --passWithNoTests --maxWorkers 4`,
+passes **512 files / 12,322 tests**, with one existing platform skip. Its first
+run had 12,318 passes and one scheduler concurrency test failure: race workers
+did not reach their startup barrier within its timeout. The isolated recheck
+passes, and the complete final changed run passes. Separate required suites
+pass: risk coverage 11, repository release 18, docs lint 14, tag synonyms 9 and
+P8 agreement 8. Foreign currency/acquisition suites pass 34 tests; the utility
+suite passes 13, including report text; the beta/returns suite passes 150.
+The unsupported/malformed job subset passes 23 cases and asserts zero provider
+boundaries, model resolution, preflight, paid leases, costs and saved reports.
+Both broad panel replay assertions pass. Their original PowerShell wrappers
+return 1 after classifying Vite's native-config-loader stderr warning as a
+`NativeCommandError`; this is not a replay assertion failure. The final
+nine-symbol replay and exact full-panel comparison explicitly propagate the
+child exit status and exit 0. ESLint also prints Babel's existing large-test-file
+formatting notice; it exits 0 with no lint findings.
+No full `npm run verify`, build, server/port action, paid call, push, PR or merge
+is performed. Release stamps remain the integrator's required follow-up above.
+
 ## D-202 - Lease and debt admission beyond the test panel (2026-11-04)
 
 Implementation commits: `6e825122` and `979e3e73` on
