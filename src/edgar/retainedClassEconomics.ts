@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { identicalClassRights } from "@/edgar/economicShares";
+import { identicalClassRights, participatingClassRights, shareForShareClassRights } from "@/edgar/economicShares";
+import { sameEntitySymbol } from "@/symbol";
 import type { DataBundle } from "@/pipeline/types";
 import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 import { quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
@@ -12,6 +13,25 @@ const dated = (text: string): string | null => {
   const ms = Date.parse(`${text} UTC`);
   return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : null;
 };
+
+/** A conversion option without a ratio proves no weight. A filed rollforward
+ * can establish one-for-one units when its two conversion rows reconcile in
+ * every column and the filing says conversion is available at any time. */
+function conversionRollforward(text: string, names: readonly string[]): string | null {
+  if (names.length !== 2) return null;
+  const option = /\bClass ([A-Z0-9]{1,8}) shares(?: are primarily held by (?:(?!\bClass\b)[^.]){1,240}, and these shares)? are fully convertible into class ([A-Z0-9]{1,8}) shares at any time\./i.exec(text);
+  if (!option || !names.includes(option[1]!.toLowerCase()) || !names.includes(option[2]!.toLowerCase()) || option[1]!.toLowerCase() === option[2]!.toLowerCase()) return null;
+  const number = "(?:\\(\\s*[\\d,]+\\s*\\)|[\\d,]+|[—–-])";
+  const rows = [...text.matchAll(new RegExp(`Conversions of class ${option[1]} to class ${option[2]} common stock\\s+((?:${number}\\s*)+)`, "gi"))];
+  if (!rows.length || rows.length % 2 !== 0) return null;
+  const amounts = rows.map(m => [...m[1]!.matchAll(/\(\s*([\d,]+)\s*\)|([\d,]+)|([—–-])/g)]
+    .map(n => n[1] ? -Number(n[1].replaceAll(",", "")) : n[2] ? Number(n[2].replaceAll(",", "")) : 0));
+  for (let i = 0; i < amounts.length; i += 2) {
+    if (!amounts[i]!.length || amounts[i]!.length !== amounts[i + 1]!.length || !amounts[i]!.some(n => n < 0) ||
+        amounts[i]!.some((n, j) => n > 0 || n !== -amounts[i + 1]![j]!)) return null;
+  }
+  return `${option[0]} Filed Class ${option[1]} and Class ${option[2]} conversion rollforward rows have equal and opposite counts in every column (${amounts[1]!.join(", ")}), establishing a one-for-one conversion-unit approximation.`;
+}
 
 /**
  * N2: a deliberately narrow alternative to the inline cover layouts.
@@ -152,7 +172,7 @@ function retainedEqualCoverEvidence(bundle: DataBundle): EconomicShareEvidence[]
   const reg = bundle.edgar.registrant, cutoff = bundle.builtAt.slice(0, 10);
   if (!profile || !reg || profile.isAdr !== false || profile.symbol !== bundle.symbol ||
     !/^\d{10}$/.test(reg.cik10) || Number(profile.cik) !== Number(reg.cik10) ||
-    !reg.tickers.includes(bundle.symbol) || !validDay(cutoff) || bundle.edgar.shareBasis?.splits.unresolved.length) return [];
+    !reg.tickers.some(t => sameEntitySymbol(bundle.symbol, t)) || !validDay(cutoff) || bundle.edgar.shareBasis?.splits.unresolved.length) return [];
   const primary = (d: { form: string; accession: string; filingDate: string; documentUrl: string }) => {
     if (!/^(?:10-K|10-Q)(?:\/A)?$/.test(d.form) || !validDay(d.filingDate) || d.filingDate > cutoff || !/^\d{10}-\d{2}-\d{6}$/.test(d.accession)) return false;
     try {
@@ -170,31 +190,61 @@ function retainedEqualCoverEvidence(bundle: DataBundle): EconomicShareEvidence[]
     (i.source.accession !== latest.accession || i.source.documentUrl !== latest.documentUrl))) return [];
   const covers = inventories.filter(i => i.source.accession === latest.accession && i.source.documentUrl === latest.documentUrl && i.source.filingDate === latest.filingDate);
   if (covers.length !== 1 || !primary(covers[0]!.source) || !covers[0]!.source.hash) return [];
-  const observed = covers[0]!.observations ?? [];
-  const names = observed.map(o => /^us-gaap:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId)?.[1]?.toLowerCase() ?? "");
+  const allObserved = covers[0]!.observations ?? [];
+  if (new Set(allObserved.map(o => o.classId)).size !== allObserved.length) return [];
+  // A separately counted voting-only security can leave the economic sum
+  // only when a retained, issuer-bound filing explicitly denies economic rights.
+  const rightsSources = [...notes, ...[bundle.edgar.item1a, bundle.edgar.business].flatMap(m => m?.ok && m.value.source === "edgar" && primary(m.value.data) ? [m.value.data] : [])];
+  const nonEconomic = allObserved.flatMap(o => {
+    const custom = /^(?!us-gaap:)[A-Za-z][\w-]*:([A-Za-z][A-Za-z0-9]*)Member$/.exec(o.classId);
+    if (!custom) return [];
+    const name = custom[1]!.replace(/([a-z])([A-Z])/g, "$1 $2");
+    const candidates = rightsSources.filter(d => Date.parse(latest.filingDate) - Date.parse(d.filingDate) <= 400 * 86_400_000);
+    const source = candidates.find(d => [...d.text.matchAll(/\bThere are no economic rights associated with the ([^,.]{1,80})(?:, and [^.]{1,500})?\./gi)]
+      .some(m => m[1]!.toLowerCase() === name.toLowerCase()));
+    const denied = source && candidates.some(d => d.filingDate >= source.filingDate && new RegExp(`\\b${name} (?:has|carries|possesses|receives|is entitled to)[^.]{0,160}\\b(?:economic|dividend|liquidation|distribution|participation) rights\\b`, "i").test(d.text));
+    return source && !denied ? [{ observation: o, name, source }] : [];
+  });
+  const observed = allObserved.filter(o => !nonEconomic.some(n => n.observation === o));
+  const names = observed.map(o => /^[A-Za-z][\w-]*:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId)?.[1]?.toLowerCase() ?? "");
   const asOf = observed[0]?.asOf;
   if (!asOf || !validDay(asOf) || asOf < latest.reportDate || asOf > latest.filingDate || names.length < 2 ||
-    names.some(n => !n) || new Set(names).size !== names.length || observed.some(o => o.asOf !== asOf || !o.contextId ||
+    names.some(n => !n) || new Set(names).size !== names.length || allObserved.some(o => o.asOf !== asOf || !o.contextId ||
       !Number.isSafeInteger(o.shares) || o.shares < 0 || !o.sourceId.startsWith(latest.documentUrl + "#"))) return [];
-  if (covers[0]!.classes.some(c => !observed.some(o => c.classId === o.classId && c.asOf === o.asOf && c.shares === o.shares)) ||
+  if (covers[0]!.classes.some(c => !allObserved.some(o => c.classId === o.classId && c.asOf === o.asOf && c.shares === o.shares)) ||
     bundle.edgar.shareBasis?.splits.events.some(e => e.date > asOf && e.date <= cutoff)) return [];
   // Explicit balance-sheet rows establish the complete class set. Flattened
   // statements may scale these counts; only unscaled inline cover facts count.
   const statementNames = (d: typeof latest): string[] => {
     const s = d.statementsText ?? d.text;
     const section = /\bcommon stock at stated value:\s*([\s\S]*?)\bcapital in excess/i.exec(s)?.[1] ?? "";
-    return [...section.matchAll(/\bClass ([A-Z0-9]{1,8})(?: convertible)?\s*[\u2014\u2013-][^;]{0,160}?shares outstanding/gi)].map(m => m[1]!.toLowerCase());
+    const original = [...section.matchAll(/\bClass ([A-Z0-9]{1,8})(?: convertible)?\s*[\u2014\u2013-][^;]{0,160}?shares outstanding/gi)].map(m => m[1]!.toLowerCase());
+    if (original.length) return original;
+    const equity = /\b(?:stockholders[’']?|shareholders[’']?|shareowners[’']?)\s+equity\s*:/i.exec(s) ??
+      (/\bBALANCE SHEETS?\b/i.test(s) ? /\bEquity\s*:/i.exec(s) : null);
+    if (!equity) return [];
+    const capital = s.slice(equity.index).split(/\b(?:Additional paid[ -]in capital|Capital in excess|Retained earnings|Treasury stock)\b/i)[0]!;
+    if (!/\bcommon stock\b/i.test(capital)) return [];
+    const rows = [...capital.matchAll(/\bClass ([A-Z0-9]{1,8})\b/gi)];
+    return rows.flatMap((m, i) => {
+      const row = capital.slice(m.index! + m[0].length, rows[i + 1]?.index);
+      // Authorized-only classes and expressly zero outstanding classes do not
+      // establish an outstanding inventory. Treasury classes stay excluded.
+      if (!/\b(?:issued|outstanding)\b/i.test(row) || /\bzero shares (?:issued\s*(?:&|and)\s*)?outstanding\b/i.test(row)) return [];
+      return [m[1]!.toLowerCase()];
+    });
   };
   const sameSet = (ns: string[]) => ns.length === names.length && new Set(ns).size === names.length && names.every(n => ns.includes(n));
-  if (!sameSet(statementNames(latest))) return [];
   const classNames = names.map(n => `class ${n} common stock`);
+  const participation = participatingClassRights(latest.text);
+  if (!sameSet(statementNames(latest)) && !(participation && participation.length === classNames.length && classNames.every(n => participation.includes(n)))) return [];
   const sentences = (text: string) => text.split(/(?<=\.)\s+(?=[A-Z])/).map(s => s.trim());
   const equal = (s: string) => {
-    const ns = identicalClassRights(s);
+    const ns = identicalClassRights(s) ?? shareForShareClassRights(s);
     return ns !== null && ns.length === classNames.length && classNames.every(n => ns.includes(n));
   };
   const source = notes.find(d => Date.parse(latest.filingDate) - Date.parse(d.filingDate) <= 400 * 86_400_000 &&
-    sentences(d.text).some(equal));
+    (sentences(d.text).some(equal) || conversionRollforward(d.text, names)));
   if (!source) return [];
   // Existing full-sentence equality cannot be qualified by a later contrary
   // entitlement. Omission alone neither changes rights nor removes a class.
@@ -204,14 +254,18 @@ function retainedEqualCoverEvidence(bundle: DataBundle): EconomicShareEvidence[]
     /\b(?:different|differ|unequal|not equal|not identical|preferen\w*|priority|senior|subordinat\w*|not entitled|non-?participating|times|twice|half|percent|greater|less than|equal to)\b|\d\s?%|\b\d+\/\d+\b/i.test(s)))) return [];
   const annualInventory = inventories.find(i => i.source.accession === source.accession && i.source.documentUrl === source.documentUrl);
   if (source !== latest && (!annualInventory || !primary(annualInventory.source) || !sameSet((annualInventory.observations ?? []).map(o =>
-    /^us-gaap:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId)?.[1]?.toLowerCase() ?? "")))) return [];
-  const relation = sentences(source.text).find(equal)!;
+    /^[A-Za-z][\w-]*:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId)?.[1]?.toLowerCase() ?? "")))) return [];
+  const relation = sentences(source.text).find(equal) ?? conversionRollforward(source.text, names)!;
+  const relationBasis = identicalClassRights(relation)
+    ? `Filed equal economics (${source.form} ${source.accession}, filed ${source.filingDate}): "${relation}" `
+    : `Filed economic-unit evidence (${source.form} ${source.accession}, filed ${source.filingDate}): ${relation} `;
   return [{ issuerId: reg.cik10, securityId: bundle.symbol, asOf, filed: latest.filingDate,
     effectiveFrom: latest.filingDate, effectiveTo: null, complete: true,
-    sourceHash: createHash("sha256").update(JSON.stringify({ covers, rights: source, statement: latest.statementsText ?? latest.text, profile: bundle.profile })).digest("hex"),
-    sourceIds: [...new Set([latest.documentUrl, source.documentUrl, ...observed.map(o => o.sourceId)])],
+    sourceHash: createHash("sha256").update(JSON.stringify({ covers, rights: source, ...(nonEconomic.length ? { nonEconomic } : {}), statement: latest.statementsText ?? latest.text, profile: bundle.profile })).digest("hex"),
+    sourceIds: [...new Set([latest.documentUrl, source.documentUrl, ...allObserved.map(o => o.sourceId), ...nonEconomic.map(n => n.source.documentUrl)])],
     basis: `Filed cover counts at ${asOf} span the same complete Class ${names.map(n => n.toUpperCase()).join(" / Class ")} balance-sheet inventory. ` +
-      `Filed equal economics (${source.form} ${source.accession}, filed ${source.filingDate}): "${relation}" ` +
+      relationBasis +
+      nonEconomic.map(n => `${n.name}: ${n.observation.shares} counted voting share(s) excluded because the ${n.source.form} ${n.source.accession} explicitly states no economic rights. `).join("") +
       `The quoted class is not identified; every equally participating class uses the same-price approximation at the issuer's non-ADR common quote. Voting-price differences are not modelled.`,
     classes: observed.map((o, i) => ({ classId: classNames[i]!, shares: o.shares, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "economic-equivalence-proxy" })) }];
 }

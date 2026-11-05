@@ -81,7 +81,8 @@ function dcfWithheldReason(gaps: readonly ManifestEntry[]): string | null {
   if (refusedClaim !== undefined) return refusedClaim.reason;
   const bridge = gaps.find((g) => g.field === "valuation.dcf.netDebt" || g.field === "valuation.dcf.dilutedShares");
   if (bridge === undefined) return null;
-  const upstream = bridge.field === "valuation.dcf.netDebt" ? gaps.find((g) => g.field === "valuation.netDebt")?.reason : undefined;
+  const upstream = bridge.field === "valuation.dcf.netDebt" ? gaps.find((g) => g.field === "valuation.netDebt")?.reason
+    : gaps.find(g => g.field === "valuation.perShare.economicClassBasis" || g.field === "valuation.perShare.securityBasis")?.reason;
   return upstream === undefined ? bridge.reason : `${bridge.reason}: ${upstream}`;
 }
 

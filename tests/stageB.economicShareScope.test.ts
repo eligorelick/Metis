@@ -106,6 +106,22 @@ describe("issuer economic-share scope", () => {
     expect(result.valuation.dcf?.perShare ?? null).toBeNull();
     expect(result.valuation.gaps.some(gap => gap.field === "valuation.perShare.economicClassBasis")).toBe(true);
   });
+  it("names an unsupported voting-share class in the scope refusal and fair-value headline", () => {
+    const b = completeCurrencyBundle({});
+    b.edgar.economicShareInventory = [{ source: { form: "10-Q", accession: "0000000042-26-000001", filingDate: "2026-05-06", documentUrl: "https://www.sec.gov/filing.htm", hash: "fixture" },
+      classes: [], evidence: null, passages: { inventory: "", rights: null }, reason: "unresolved rights", observations: [
+        { classId: "us-gaap:CommonClassAMember", shares: 100, asOf: "2026-04-30", contextId: "a", sourceId: "filing#a" },
+        { classId: "example:FounderShareMember", shares: 1, asOf: "2026-04-30", contextId: "f", sourceId: "filing#f" },
+      ] }];
+    expect(retainedCommonClassAmbiguity(b)?.reason).toContain("Founder Share");
+    const result = runStageB(b);
+    expect(result.fairValue.reasons.map(r => r.reason).join(" ")).toContain("Founder Share");
+    b.edgar.economicShareInventory![0]!.observations![1]!.classId = "example:CommonClassHMember";
+    b.edgar.economicShareInventory![0]!.observations![1]!.shares = 9_200_000;
+    b.edgar.tenQNotes = { ok: true, value: { source: "edgar", endpoint: "https://www.sec.gov/filing.htm", fetchedAt: b.builtAt, asOf: "2026-03-31", data: {
+      form: "10-Q", accession: "0000000042-26-000001", filingDate: "2026-05-06", documentUrl: "https://www.sec.gov/filing.htm", reportDate: "2026-03-31", sectionName: "tenQNotes", method: "header-regex", chars: 10, text: "Capital stock", statementsText: "Consolidated Balance Sheets Common stock: Class A - 100 shares outstanding; Class H - 9 shares issued and zero shares outstanding. Additional paid-in capital 10" } } };
+    expect(retainedCommonClassAmbiguity(b)?.reason).toMatch(/Class H.*9200000.*zero shares outstanding/i);
+  });
 
   // Audit 2026-10-22 B-8, left by batch 3a: the AI context states the quote's cap with the same caveat as the report.
   it("caveats the quote section's market cap when a second common class leaves the scope unresolved", () => {

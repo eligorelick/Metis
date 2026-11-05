@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { economicEvidenceFromInventories, parsePrimaryEconomicShares } from "@/edgar/economicShares";
 import { parseDocument } from "@/edgar/extract";
-import { resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
+import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 
 // Audit 2026-10-22 B-8: a cover that tags each class's count with a class
 // member, binds the trading symbol to one class and states every class's
@@ -32,6 +32,14 @@ const brkLike = (body = `<p>${brkRights}</p>`) => coverHtml({ symbol: "BRK.B", t
   counts: { A: "488,450", B: "1,408,035,161" }, body });
 
 describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)", () => {
+  it("names the filed class weights without turning outstanding counts into a missing diluted average", () => {
+    const parsed = parse(brkLike(`<p>${brkRights.replaceAll("fifteen", "twelve").replaceAll("1,500", "1,200")}</p>`), "BRK-B");
+    const evidence = economicEvidenceFromInventories([parsed]);
+    const scope = resolveEconomicEquityScope(quote("BRK-B", 500), evidence, "2026-10-15");
+    const result = issuerEconomicDilutedShares(scope, evidence, { basic: null, diluted: null, periodEnd: "2026-06-30" });
+    expect(result?.shares).toBeNull();
+    expect(result && "reason" in result && result.reason).toMatch(/no diluted.*Class A.*1200/i);
+  });
   it("values equal classes at the quoted price, even under a heading", () => {
     const parsed = parse(metaLike(), "META");
     expect(parsed.evidence?.classes).toEqual([

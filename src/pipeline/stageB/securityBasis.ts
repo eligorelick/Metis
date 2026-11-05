@@ -201,7 +201,11 @@ export function issuerEconomicDilutedShares(
   const priceDay = scope.priceAsOf;
   if (!finite(total) || total <= 0 || !countDay || !priceDay) return refuse("the resolved class inventory carries no dated economic share total");
   const { basic, diluted, periodEnd } = counts;
-  if (!finite(diluted) || diluted <= 0) return refuse("no diluted weighted-average count is filed");
+  if (!finite(diluted) || diluted <= 0) return refuse("no diluted weighted-average count is filed; outstanding class weights " +
+    evidence.flatMap(row => row.classes.map(cls => {
+      const name = /:CommonClass([A-Z0-9]{1,8})Member$/.exec(cls.classId)?.[1];
+      return `${name ? `Class ${name}` : cls.classId} = ${cls.economicUnitsPerQuotedShare ?? "unknown"}`;
+    })).join(", ") + " establish economic units only, not a period-average diluted denominator");
   if (!finite(basic) || basic <= 0) return refuse("no basic weighted-average count is filed for the same period, so the diluted count cannot be shown to span every class");
   if (!periodEnd || !day(periodEnd) || Math.abs(Date.parse(periodEnd) - Date.parse(countDay)) / 86_400_000 > ECONOMIC_COUNT_WINDOW_DAYS) {
     return refuse(`the weighted counts for the period ending ${periodEnd ?? "on an unknown date"} are more than ${ECONOMIC_COUNT_WINDOW_DAYS} days from the class inventory at ${countDay}`);

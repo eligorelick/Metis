@@ -6696,7 +6696,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   if (economicScope.status === "unresolved" ||
     (multiclassEvidence && inputs.dilutedShareSecurityBasis !== "issuer-economic")) {
     const reason = "Per-share intrinsic valuation withheld: common-class coverage or the economic basis of weighted-average diluted shares is unresolved. Outstanding class counts do not establish the diluted denominator; no class ratio is guessed." +
-      (economicScope.status === "resolved" && inputs.dilutedShareEconomicBasis ? ` ${inputs.dilutedShareEconomicBasis}` : "");
+      (economicScope.status === "resolved" && inputs.dilutedShareEconomicBasis ? ` ${inputs.dilutedShareEconomicBasis}` : ` ${economicScope.basis}`);
     notes.push(reason);
     gaps.push(gapEntry("valuation.perShare.economicClassBasis", reason, "warn"));
     inputs = { ...inputs, dilutedShares: null,

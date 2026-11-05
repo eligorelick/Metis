@@ -33,10 +33,24 @@ export function identicalClassRights(sentence: string): string[] | null {
   const forms = [
     new RegExp(`^There are no differences in the (?:dividend and liquidation|liquidation and dividend) preferences or participation rights of the holders of (${list}) ${stock}\\.$`, "i"),
     new RegExp(`^(?:The )?holders of (?:our |its )?(${list}) ${stock}(?: \\([^)]{0,120}\\))? have identical ${rights}(?:,? but different voting rights)?\\.$`, "i"),
-    new RegExp(`^(?:In accordance with (?:our|its) (?:amended and restated )?certificate of incorporation, )?the rights, including the ${rights}, of the holders of (?:our |its )?(${list}) ${stock} are identical(?:, except with respect to voting)?\\.$`, "i"),
+    new RegExp(`^(?:In accordance with (?:our|its) (?:amended and restated )?certificate of incorporation, )?the rights, including the ${rights}, of the holders of (?:our |its )?(${list}) ${stock} are identical(?:, except with respect to voting(?: and conversion)?)?\\.$`, "i"),
   ];
   const matched = forms.map(form => form.exec(sentence)?.[1]).find(Boolean);
-  return matched ? [...matched.matchAll(/Class ([A-Z][A-Z0-9]{0,3})/gi)].map(m => `class ${m[1]!.toLowerCase()} common stock`) : null;
+  if (matched) return [...matched.matchAll(/Class ([A-Z][A-Z0-9]{0,3})/gi)].map(m => `class ${m[1]!.toLowerCase()} common stock`);
+  return participatingClassRights(sentence);
+}
+
+/** A complete two-class EPS declaration, not equal votes or equal par value. */
+export function participatingClassRights(text: string): string[] | null {
+  const m = /\bThe Company applies the two-class method to calculate its basic and diluted net income per share as Class ([A-Z0-9]{1,8}) subordinate voting shares and Class ([A-Z0-9]{1,8}) restricted voting shares are participating securities with equal participation rights and are entitled to receive dividends on a share for share basis\./i.exec(text);
+  return m && m[1]!.toLowerCase() !== m[2]!.toLowerCase() ? [m[1]!, m[2]!].map(n => `class ${n.toLowerCase()} common stock`) : null;
+}
+
+/** A stated share-for-share conversion establishes the economic-unit proxy;
+ * the mere word convertible, or equal voting/par values, establishes none. */
+export function shareForShareClassRights(sentence: string): string[] | null {
+  const m = /^(?:Our |The |Each share of (?:our )?)?Class ([A-Z0-9]{1,8}) common stock is convertible, share for share, into Class ([A-Z0-9]{1,8}) common stock(?:, subject to certain restrictions)?\.$/i.exec(sentence);
+  return m && m[1]!.toLowerCase() !== m[2]!.toLowerCase() ? [m[1]!, m[2]!].map(n => `class ${n.toLowerCase()} common stock`) : null;
 }
 
 /** Deliberately narrow cover inventory parser. No class-name-to-economic-rights inference. */
