@@ -491,7 +491,8 @@ export interface ContextPayload {
 // 1.76.0 (D-200): filed earnings, share counts, native ADS earnings and same-filing cash replace conflicting vendor values
 // 1.77.0 (D-199): filing notes have proved boundaries, combined items are labelled as such, and 20-F notes are read where provable
 // 1.78.0 (D-204): regulated utilities carry no FCFF value, foreign financials convert on proved units, and beta may use a qualified regression
-export const PAYLOAD_VERSION = "1.78.0" as const;
+// 1.79.0 (D-202): debt and lease scope is reconciled from filed components beyond the test panel
+export const PAYLOAD_VERSION = "1.79.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

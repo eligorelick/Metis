@@ -55,7 +55,7 @@ export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
 // D-135 (audit 2026-10-27 B4a): the bridge each target re-runs changed (redeemable equity and debt-like obligations counted once, after tax), so every target is recomputed.
 // FIN-401 / FIN-401-V1: every target re-runs the corrected stake/operating-income bridge.
 // D-178 / D-179: every target re-runs the FX-converted, completed-debt bridge.
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_UTILITY_AND_FOREIGN_ROUTES_52" as const;
+export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_DEBT_AND_LEASE_ADMISSION_53" as const;
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;

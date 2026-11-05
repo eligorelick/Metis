@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.64.0 / payload 1.78.0, Stage B `STAGE_B_2026_11_UTILITY_AND_FOREIGN_ROUTES_52` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.64.0 / payload 1.79.0, Stage B `STAGE_B_2026_11_DEBT_AND_LEASE_ADMISSION_53` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications
 
@@ -3828,8 +3828,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_UTILITY_AND_FOREIGN_ROUTES_52 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_UTILITY_AND_FOREIGN_ROUTES_52. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_DEBT_AND_LEASE_ADMISSION_53 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_DEBT_AND_LEASE_ADMISSION_53. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
