@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { classEconomicContradiction, filingSentences, isSecClassFiling } from "@/edgar/classEvidence";
+export { classEconomicContradiction } from "@/edgar/classEvidence";
 import { decodeEntities, htmlToText, type ParsedDocument } from "@/edgar/extract";
 import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 
@@ -18,8 +20,22 @@ const classLabels = (text: string): string[] => [...text.toLowerCase().matchAll(
 const classLabel = (text: string): string | null => { const labels = classLabels(text); return labels.length === 1 ? labels[0] : null; };
 const validDay = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 
+const commonSecurity = "(?:(?:common|ordinary) (?:stock|shares?)|(?:subordinate|restricted) voting shares|stock|shares?)";
+const oneForOne = "(?:share[ -]for[ -]share|one[ -]for[ -]one)";
+
+/** Expand a fully enumerated legal subject, including shared security nouns. */
+function namedCommonClasses(subject: string): string[] | null {
+  const value = subject.replace(/^(?:our|its|the) /i, "").trim();
+  const member = `Class [A-Z0-9]{1,8}(?: ${commonSecurity})?`;
+  if (!new RegExp(`^${member}(?:(?:,? and |, )${member})+$`, "i").test(value) ||
+      !new RegExp(`${commonSecurity}$`, "i").test(value)) return null;
+  const names = [...value.matchAll(/Class ([A-Z0-9]{1,8})/gi)].map(m => `class ${m[1]!.toLowerCase()} common stock`);
+  return new Set(names).size === names.length ? names : null;
+}
+
 /** Whole-sentence equality only; class labels never establish economics on their own. */
 export function identicalClassRights(sentence: string): string[] | null {
+  sentence = sentence.replace(/^(?:Earnings|Net Income) per Share (?=(?:The )?earnings per share amounts)/i, "");
   const label = "(?:Class [A-Z0-9]{1,8}|[A-Z][A-Z-]{0,30}) common stock";
   const fullyNamed = /^The rights, including the (?:liquidation and dividend|dividend and liquidation) rights(?: and sharing of losses)?, of the (.+) are identical, (?:other than|except with respect to) voting rights\.$/i.exec(sentence);
   if (fullyNamed) {
@@ -33,10 +49,58 @@ export function identicalClassRights(sentence: string): string[] | null {
   const forms = [
     new RegExp(`^There are no differences in the (?:dividend and liquidation|liquidation and dividend) preferences or participation rights of the holders of (${list}) ${stock}\\.$`, "i"),
     new RegExp(`^(?:The )?holders of (?:our |its )?(${list}) ${stock}(?: \\([^)]{0,120}\\))? have identical ${rights}(?:,? but different voting rights)?\\.$`, "i"),
-    new RegExp(`^(?:In accordance with (?:our|its) (?:amended and restated )?certificate of incorporation, )?the rights, including the ${rights}, of the holders of (?:our |its )?(${list}) ${stock} are identical(?:, except with respect to voting)?\\.$`, "i"),
+    new RegExp(`^(?:In accordance with (?:our|its) (?:amended and restated )?certificate of incorporation, )?the rights, including the ${rights}, of the holders of (?:our |its )?(${list}) ${stock} are identical(?:, except with respect to voting(?: and conversion)?)?\\.$`, "i"),
   ];
   const matched = forms.map(form => form.exec(sentence)?.[1]).find(Boolean);
-  return matched ? [...matched.matchAll(/Class ([A-Z][A-Z0-9]{0,3})/gi)].map(m => `class ${m[1]!.toLowerCase()} common stock`) : null;
+  if (matched) return [...matched.matchAll(/Class ([A-Z][A-Z0-9]{0,3})/gi)].map(m => `class ${m[1]!.toLowerCase()} common stock`);
+  const currentRights = [
+    /^The rights of (?:the holders of )?(.+?) are identical(?:,? (?:except with respect to|other than) voting(?: rights)?(?: and conversion(?: rights)?)?)?\.$/i,
+    /^(?:The )?holders of (.+?) are entitled to equal dividends per share and share equally in liquidation\.$/i,
+    /^(?:The )?earnings per share amounts are the same for (.+?) (?:as|because) the holders of each class are (?:legally )?entitled to equal per[ -]share distributions whether through dividends or in liquidation\.$/i,
+    /^(?:The )?(.+?) have (?:the same|identical|equal) (?:dividend and liquidation|liquidation and dividend) rights\.$/i,
+    /^(?:The )?holders of (.+?) have identical rights except with respect to voting, conversion and transfer rights and therefore share equally in (?:our|the Company's) net income or losses\.$/i,
+  ];
+  for (const form of currentRights) {
+    const subject = form.exec(sentence)?.[1];
+    const names = subject && namedCommonClasses(subject);
+    if (names) return names;
+  }
+  return participatingClassRights(sentence);
+}
+
+/** Equal participation plus explicit per-share dividends; EPS introductory prose is immaterial. */
+export function participatingClassRights(text: string): string[] | null {
+  const declaration = new RegExp(`^(.+?) are participating securities with equal participation rights and (?:are entitled to receive|receive) dividends on a ${oneForOne} basis\\.$`, "i");
+  for (const sentence of filingSentences(text)) {
+    // Only the optional accounting introduction may precede the class subject.
+    const value = sentence.trim().replace(/^(?:(?:(?:Net Income|Earnings) per Share )?(?:The Company|We) (?:applies|apply|uses|use) the two-class method (?:to calculate|for) (?:its |our )?(?:basic and diluted )?net income per share as )/i, "");
+    const subject = declaration.exec(value)?.[1];
+    const names = subject && namedCommonClasses(subject);
+    if (names) return names;
+  }
+  return null;
+}
+
+/** A stated conversion ratio supports a disclosed proxy, not equal current rights. */
+export function shareForShareClassRights(sentence: string): string[] | null {
+  const value = sentence.replace(/ at any time(?: by the holder)?/gi, "")
+    .replace(/ at the option of (?:the|its) (?:holder|stockholder)/gi, "");
+  const source = `(?:Our |The |Shares of (?:our )?|Each share of (?:our )?|Each )?Class ([A-Z0-9]{1,8}) ${commonSecurity}`;
+  const action = "(?:is convertible|are convertible|may be converted)";
+  const target = `Class ([A-Z0-9]{1,8}) ${commonSecurity}`;
+  const forms = [
+    new RegExp(`^${source} ${action}, ${oneForOne}, into ${target}(?:, subject to certain restrictions)?\\.$`, "i"),
+    new RegExp(`^${source} ${action} into ${target} on a ${oneForOne} basis\\.$`, "i"),
+    new RegExp(`^Each (?:share of (?:our )?Class ([A-Z0-9]{1,8}) ${commonSecurity}|Class ([A-Z0-9]{1,8}) share) ${action} into (?:one share of Class ([A-Z0-9]{1,8}) ${commonSecurity}|one Class ([A-Z0-9]{1,8}) share)\\.$`, "i"),
+    new RegExp(`^${source} ${action} into an equivalent number of shares of (?:our )?${target}\\.$`, "i"),
+  ];
+  for (const form of forms) {
+    const matched = form.exec(value);
+    if (!matched) continue;
+    const names = matched.slice(1).filter(Boolean).map(n => `class ${n.toLowerCase()} common stock`);
+    if (names.length === 2 && names[0] !== names[1]) return names;
+  }
+  return null;
 }
 
 /** Deliberately narrow cover inventory parser. No class-name-to-economic-rights inference. */
@@ -45,14 +109,9 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     hash: createHash("sha256").update(html).digest("hex") };
   const result: FilingEconomicShares = { source, classes: [], evidence: null, reason: "No eligible complete inline cover-share inventory", passages: { inventory: "", rights: null } };
   if (!/^(?:10-K|10-Q)(?:\/A)?$/.test(identity.form) || !validDay(identity.filingDate) || !validDay(cutoff) || identity.filingDate > cutoff || !/^\d+$/.test(identity.issuerId) || !identity.securityId || !identity.documentUrl) return result;
-  try {
-    const url = new URL(identity.documentUrl);
-    const expectedPath = `/Archives/edgar/data/${Number(identity.issuerId)}/${identity.accession.replaceAll("-", "")}/${identity.primaryDocument}`;
-    if (url.protocol !== "https:" || !["www.sec.gov", "sec.gov"].includes(url.hostname) || url.port || url.username || url.password || url.search || url.hash ||
-      !/^\d{10}-\d{2}-\d{6}$/.test(identity.accession) || !/^[a-zA-Z0-9_.-]+\.html?$/.test(identity.primaryDocument) || url.pathname !== expectedPath) {
-      result.reason = "Primary source URL is not bound to SEC Archives issuer, accession and primary document"; return result;
-    }
-  } catch { result.reason = "Invalid primary source URL"; return result; }
+  if (!isSecClassFiling(identity, identity.issuerId, cutoff)) {
+    result.reason = "Primary source URL is not bound to SEC Archives issuer, accession and primary document"; return result;
+  }
   const issuerContexts = new Set<string>();
   const issuerInstantDates = new Map<string, string>();
   const contexts = new Map<string, { date: string; member: string }>();
@@ -137,9 +196,8 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
     // A block end also ends a sentence, so a heading never prefixes the statement under it.
     const sentences = (parsed?.pre ?? html).replace(/<ix:header\b[\s\S]*?<\/ix:header>/gi, "")
       .split(/<\/(?:p|div|h[1-6]|td|th|tr|li)>|<br\s*\/?>/i).map(block => htmlToText(block))
-      .flatMap(block => block.split(/(?<=\.)\s+(?=[A-Z])/)).map(sentence => sentence.trim()).filter(Boolean);
+      .flatMap(block => filingSentences(block)).map(sentence => sentence.trim()).filter(Boolean);
     const ratioForm = /^(?:Each share of )?Class ([A-Z][A-Z0-9]{0,3}) common (?:stock|shares?) possess(?:es)? dividend and distribution rights equal to [a-z-]+ \(1\/(\d{1,3}(?:,\d{3})+|\d+)\) of (?:such|the) rights of (?:a share of )?Class ([A-Z][A-Z0-9]{0,3}) common (?:stock|shares?)\.$/i;
-    const listed = (value: string): string[] => [...value.matchAll(/Class ([A-Z][A-Z0-9]{0,3})/gi)].map(match => match[1]!.toUpperCase());
     const relations: { sentence: string; equal?: string[]; ratio?: { cls: string; per: number; of: string } }[] = [];
     for (const sentence of sentences) {
       const equal = identicalClassRights(sentence);
@@ -147,15 +205,6 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
       const ratio = ratioForm.exec(sentence);
       if (ratio) relations.push({ sentence, ratio: { cls: ratio[1]!.toUpperCase(), per: Number(ratio[2]!.replaceAll(",", "")), of: ratio[3]!.toUpperCase() } });
     }
-    // A statement that the classes differ economically, or an unparsed relative
-    // entitlement (a percent, multiple, fraction or priority), refuses the scope.
-    // A sentence reporting the dividends each class was paid states no relation.
-    const supported = new Set(relations.map(relation => relation.sentence));
-    const conflicting = sentences.find(sentence => !supported.has(sentence) && /\b(?:dividends?|distributions?|liquidation)\b/i.test(sentence) &&
-      listed(sentence).some(key => keys.includes(key)) &&
-      (/\b(?:different|differ|unequal|not (?:identical|equal|the same)|preferential|preference|not entitled|no right|non-?participating|times|multiple|twice|double|triple|quadruple|half|(?:one|two|three)-(?:thirds?|quarters?|fourths?|fifths?|tenths?)|percent|priority|prior to|senior|subordinat\w*|premium|greater|more than|less than|in excess of|equal to)\b/i.test(sentence) ||
-        /\d\s?%|\b\d+\/\d+\b/.test(sentence)));
-    if (conflicting) return refuse(`Class-tagged cover counts retained; an economic statement is not one Métis reads as a class relation: "${conflicting.slice(0, 300)}"`);
     const weight = new Map<string, number>([[quotedKey, 1]]);
     let conflict = false;
     const assign = (key: string, value: number) => {
@@ -173,6 +222,14 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
         if (weight.has(cls)) assign(of, weight.get(cls)! * per);
       }
     }
+    // A statement that the classes differ economically, or an unparsed relative
+    // entitlement (a percent, multiple, fraction or priority), refuses the scope.
+    // A dividend that matches the stated class weights states no conflict.
+    const supported = relations.map(relation => relation.sentence);
+    const classNames = keys.map(key => `class ${key!.toLowerCase()} common stock`);
+    const unitsPerShare = Object.fromEntries(keys.flatMap((key, index) => weight.has(key!) ? [[classNames[index]!, weight.get(key!)!]] : []));
+    const dividendConflict = sentences.map(sentence => classEconomicContradiction(sentence, classNames, supported, unitsPerShare)).find(Boolean);
+    if (dividendConflict) return refuse(`Class-tagged cover counts retained; ${dividendConflict}`);
     const named = relations.flatMap(relation => relation.equal ?? [relation.ratio!.cls, relation.ratio!.of]);
     if (conflict || named.some(key => !keys.includes(key))) return refuse("Class-tagged cover counts retained; the stated class relations conflict or name a class with no tagged count");
     if (keys.some(key => !weight.has(key!))) return refuse("Class-tagged cover counts retained; the filing states no supported economic relation for every outstanding class");
@@ -289,7 +346,7 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
       else if (value) all.push({ text: value, boundary: strongAccountingBoundary(value), row });
       return all;
     }, []);
-    const blockSentences = (block: typeof blocks[number]): string[] => block.row ? [block.text] : block.text.split(/[.!?]\s+/);
+    const blockSentences = (block: typeof blocks[number]): string[] => block.row ? [block.text] : filingSentences(block.text);
     const statements = blocks.flatMap((block, blockIndex) => block.boundary ? [] : blockSentences(block).map(sentence => ({ sentence, blockIndex })));
     const sentences = statements.map(statement => statement.sentence);
     const supportedCurrentEquality = (sentence: string): boolean => {

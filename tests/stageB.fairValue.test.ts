@@ -79,6 +79,14 @@ function makeInputs(over: Partial<FairValueInputs> = {}): FairValueInputs {
 }
 
 describe("route-specific withholding reasons", () => {
+  it("quotes the named common class behind a missing DCF diluted count", () => {
+    const valuation = dcfValuation();
+    if (valuation.kind !== "dcf" || !valuation.dcf) throw Error("fixture");
+    valuation.dcf.perShare = null;
+    valuation.gaps = [{ field: "valuation.dcf.dilutedShares", reason: "diluted share count missing", severity: "info" },
+      { field: "valuation.perShare.economicClassBasis", reason: "Class H common shares have unresolved economic or treasury scope.", severity: "warn" }];
+    expect(computeFairValue(makeInputs({ valuation })).reasons[0]!.reason).toContain("Class H");
+  });
   it.each(["payout", "dilutedShares"])("quotes the excess-return %s refusal", field => {
     const valuation = excessReturnValuation();
     if (valuation.kind !== "excess-return") throw Error("fixture");

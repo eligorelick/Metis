@@ -274,6 +274,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/edgar/segmentFacts.ts",
   "src/edgar/segmentPerformance.ts",
   "src/edgar/economicShares.ts",
+  "src/edgar/classEvidence.ts",
   "src/edgar/guidanceTables.ts",
   "src/edgar/htmlHidden.ts",
   "src/edgar/annualGeography.ts",

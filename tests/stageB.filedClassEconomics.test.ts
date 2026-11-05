@@ -128,6 +128,19 @@ function coverFixture() {
 }
 
 describe("L1 retained cover counts with same-filing class rights", () => {
+  it("checks non-lettered class conflicts in every retained section", () => {
+    const b = coverFixture();
+    if (!b.edgar.tenQNotes?.ok) throw Error("fixture");
+    b.edgar.item1a = structuredClone(b.edgar.tenQNotes);
+    b.edgar.item1a.value.data.text = "Alternate common stock has preferential dividend rights over Class A common stock.";
+    expect(runStageB(b).valuation.multiples!.enterpriseValue.equityScope!.status).toBe("unresolved");
+  });
+  it("rejects an outstanding non-lettered class omitted from the cover", () => {
+    const b = coverFixture();
+    if (!b.edgar.tenQNotes?.ok) throw Error("fixture");
+    b.edgar.tenQNotes.value.data.statementsText = b.edgar.tenQNotes.value.data.statementsText!.replace("Total stockholders' equity", "Reserve common stock - 50 shares outstanding. Total stockholders' equity");
+    expect(runStageB(b).valuation.multiples!.enterpriseValue.equityScope!.status).toBe("unresolved");
+  });
   it("admits the one-to-one cover class set at its own date, with provider quote binding", () => {
     const b = coverFixture(), before = JSON.stringify(b);
     const scope = runStageB(b).valuation.multiples!.enterpriseValue.equityScope!;

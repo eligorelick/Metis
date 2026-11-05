@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.64.0 / payload 1.79.0, Stage B `STAGE_B_2026_11_DEBT_AND_LEASE_ADMISSION_53` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.64.0 / payload 1.80.0, Stage B `STAGE_B_2026_11_SHARE_CLASS_ECONOMICS_54` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications
 
@@ -3890,8 +3890,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_DEBT_AND_LEASE_ADMISSION_53 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_DEBT_AND_LEASE_ADMISSION_53. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_SHARE_CLASS_ECONOMICS_54 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_SHARE_CLASS_ECONOMICS_54. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -7831,27 +7831,75 @@ treasury stock are not substitutes. The same issuer, filing/cutoff, 400-day
 age, 1% agreement, second independent weighted-average construction and split
 guards still apply; an established DEI path is unchanged.
 
-For a non-ADR common quote, a complete set of unscaled, same-date primary cover
-class observations can establish economic capitalization when the latest
-balance sheet enumerates exactly those classes and filed wording establishes
-equal dividend, liquidation and participation rights. The whole sentence
-"There are no differences in the dividend and liquidation preferences or
-participation rights of the holders of Class A and Class B Common Stock."
-establishes equality; qualifications or contrary entitlements do not. Every
-class is priced at the same common quote, explicitly labelled a same-price
-approximation with voting-price differences unmodelled. The quoted class need
-not be named when all admitted units have identical economics. This extends
-the quote-class binding rule only for this equal-unit case; it never supplies
-an ADS ratio or unequal-class conversion.
+**Multi-class economics (D-206, 2026-11-05).** A non-ADR common quote
+requires complete, unique, same-date, unscaled outstanding class observations.
+The balance-sheet class inventory must be readable before the participation
+fallback can run. Equity/capital-stock headings need no colon; issued classes
+also require reconciliation. An issued or outstanding statement class missing
+from the cover, or a positive cover count for a class shown at zero outstanding,
+refuses by name. Unmapped cover labels are described as unbound, not as omitted
+shares. Participation wording cannot reconcile a conflict or an unreadable
+statement.
 
-Annual rights can remain in force through an interim filing for at most 400
-days when its primary cover has the same complete class set and no newer
-retained terms contradict equality. Counts come from the latest filing's
-cover at their own date, with the same-filing balance-sheet class inventory;
-older counts and scaled balance-sheet counts never replace them. Missing or
-extra classes, mixed dates, duplicate observations, a newer unresolved filing,
-unresolved splits or a subsequent split refuse this fallback. All source URLs
-remain bound to the issuer and accession. Existing admitted paths are preferred.
+One unit requires affirmative equal current rights or one current per-share
+dividend rate explicitly applied to a coordinated class list. The latter is
+labelled dividend parity only; it establishes no equal liquidation rights.
+A stated conversion ratio alone proves no equal current rights.
+The limited alternative is a disclosed small-class conversion approximation:
+the unquoted class must convert one-for-one into the uniquely quote-bound
+reference class, and its assumed units plus excluded voting-only units must be
+at most **0.5% of reference shares**. The reference class is bound by a unique
+cover-count match within 1% of quote-implied shares. Equal and opposite filed
+conversion rows can corroborate an unnumbered conversion option, subject to
+the same limits. Material or unbound conversion-only classes refuse by name.
+
+The half-percent policy caps nominal inclusion/exclusion sensitivity at one
+part in 200 of per-share value, holding common equity fixed. It is independent
+of an issuer's result. It does not bound an unknown preferential entitlement,
+enterprise value or WACC. The actual affected count, reference count and
+percentage travel with the evidence. The plain conversion explanation appears
+beside fair value, DCF and scenario targets, with a short caveat at WACC; generic
+multiples/count notes do not repeat that paragraph. A diluted-count comparison
+does not prove current rights. Equal votes, par value, EPS alone and conversion without
+a ratio establish no economic weight.
+
+Every retained issuer/accession-bound SEC text section in the 400-day window
+is considered, including older annual filings and Item 1A, business and MD&A
+sections. The contradiction measure requires at least two mapped common-class
+labels; an unmapped class set is unmeasured, not a negative finding.
+A contradiction requires a named class entitlement with negation,
+a ratio/multiple, priority/preference, or unequal per-share rates for a
+recognized common payment period. Complete denial clauses are anchored; a
+prefix about no dividends payable at a date is not a denial of entitlement.
+The refusal quotes its evidence and states its conflict with
+the one-unit assumption. This grammar has measured misses and is not a complete
+legal-language interpreter. Different historical payment periods, aggregate
+class payments, warrant yields, purchase-plan limits, equity distribution
+agreements and ratable-liquidation boilerplate do not establish inequality.
+An independently evidenced non-unit weight, such as Berkshire's 1:1,500,
+remains a separate supported basis.
+
+A counted voting-only security leaves the economic sum only with an
+unconditional, unexpired denial of economic rights, no retained grant of
+dividends or other economics, and the same aggregate 0.5% nominal count limit.
+An end date or condition prevents exclusion. Repeated denials are not grants.
+
+All included classes use the same common quote, labelled a same-price
+approximation with voting-price differences unmodelled. Proven equal-unit
+rights need no identification of the traded class; the conversion exception
+requires the reference binding above. Neither supplies an ADS ratio or an
+unequal-class weight. Outstanding economic units remain distinct from an
+independently admitted diluted period average. Active weights print once,
+with the quoted class named as such and singular units formatted correctly.
+
+Rights and conversion evidence can carry through an interim filing for at most
+400 days only
+with the same complete class set and no contrary retained terms. Counts come
+from the latest filing's cover at their own date. Missing/extra classes, mixed
+dates, duplicate observations, newer unresolved filings, unresolved splits
+or a subsequent split refuse the fallback. Older or scaled statement counts
+never replace those cover observations. Source URLs remain bound to the
+issuer and accession through one shared check.
 
 When a value stays withheld, its headline reason carries the refused debt
 behind missing invested capital, the failed currency/ADS evidence, or the
