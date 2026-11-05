@@ -20,19 +20,18 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Balance rows that do not add up (2026-11-05)
 
-- Withhold preliminary vendor balances whose entire major asset breakdown
-  disappears beside a largely unchanged asset total. Prefer a complete
-  same-period filed balance; otherwise disclose the older complete balance
-  used by the equity bridge. Ratios that need the rejected date stay unavailable.
-- Apply the decision before every balance consumer. Original source snapshots
-  and saved reports remain immutable. See D-207 for the census and limits.
-- Consecutive preliminary rows compare with the latest accepted breakdown.
-  Matching income/cash-flow skeletons are withheld from TTM sums and AI cells
-  under the same rule. Financial opening book, diluted shares and an available
-  trailing common return use the admitted balance date; known preferred-capital
-  refusals cannot be bypassed through an older annual book.
-- Integration must advance the Stage B implementation, fair-value method,
-  scenario-target method and payload stamps; this change leaves constants intact.
+- Exclude preliminary balances whose entire major asset breakdown disappears
+  beside a largely unchanged asset total. Prefer a complete same-period filed
+  row; otherwise the normal consumers see the remaining dated balances.
+- Compare consecutive stubs with the latest accepted breakdown. Apply the same
+  rule to matching income/cash-flow skeletons, removing them from calculations
+  and AI extracts while retaining raw evidence and dated gaps.
+- Financial quarterly opening book uses its matching dated share observation,
+  including ordinary feed lag. Existing trailing-return date and preferred-
+  capital guards retain precedence. Payout treatment is unchanged.
+- Source snapshots and saved reports remain immutable. Integration must advance
+  Stage B implementation, fair-value method, scenario-target method and payload
+  stamps; constants remain unchanged here. See D-207 for evidence and limits.
 
 ## Unreleased - Unknown tickers, regulated utilities and foreign banks (2026-11-04)
 

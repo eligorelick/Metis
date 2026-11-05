@@ -8237,132 +8237,113 @@ in any company's output, so these corrections alter no value in this panel.
 
 ## D-207 - Balance rows that do not add up (2026-11-05)
 
-**Cause and evidence.** The vendor's September 2026 records are preliminary
-release skeletons. Chevron's original response already contains the 20,730M
-investment plug and its negative current-asset offset; our code incorrectly
-admitted it as a complete balance. Its timestamp matches the October 30 8-K
-(0000093410-26-000196), while retained quarterly facts end in June. MS and MET
-have the same disappearing balance breakdown, with October 14 and November 4
-release timestamps. This is vendor incompleteness/mapping around preliminary
-releases, admitted by our missing check; the vendor's internal mapping process
-is not observable. A public exhibit request returned 403 and reads stopped.
-No September amount is claimed as verified from an unread exhibit.
+**Cause and admission.** September 2026 vendor rows for CVX, MS and MET are
+preliminary release skeletons, admitted by our missing integrity check. CVX's
+original response contains the investment plug; it is not created by our
+bridge. Its timestamp matches the October 30 8-K (0000093410-26-000196), while
+retained quarterly facts end in June. MS and MET have matching preliminary
+release timestamps. Vendor internal mapping is not observable; a public exhibit
+request returned 403 and reads stopped. No unread September exhibit is claimed
+as verified.
 
-**One admission rule.** In each annual/quarterly family, assess original vendor
-observations oldest first against the latest observation that did not fail,
-on the same issuer/currency scope. Failed rows never become comparators, so
-consecutive stubs cannot validate each other. A balance fails when receivables,
-inventory, net PP&E and long-term investments are all explicitly zero, at least
-two previously exceeded 1% of assets, and asset totals differ by at most 20% of
-the larger total. Missing lines, an isolated zero, a small negative residual
-and a genuine major disposal do not establish this failure.
+Assess original annual/quarterly observations oldest first against the latest
+same-issuer/currency observation that did not fail. A balance fails when
+receivables, inventory, net PP&E and long-term investments are all explicitly
+zero, at least two previously exceeded 1% of assets, and total assets differ by
+at most 20% of the larger total. Consecutive failures never become comparators.
+Missing lines, isolated zeros, small negative residuals and major disposals are
+negative controls. All 105 inputs contain 3,367 original balances (976 annual,
+2,391 quarterly), or 3,507 after enrichment. Only these three September balances
+fail; no annual balance fails. Materiality 0.5%-2% and retained-total ratios
+50%-90% identify the same cases. Overlapping/unclassified asset categories do
+not support a universal subtotal identity.
 
-Apply that same missing-breakdown decision to a companion statement only when
-period, issuer/currency and acceptance timestamp match a rejected balance's
-release (matching filing dates only when acceptance timestamps are absent).
-The companion must retain a nonzero headline while its entire core breakdown
-becomes explicitly zero, with at least two previously material components.
-Income uses cost of revenue, gross profit and operating income; cash flow uses
-the operating, investing and financing subtotals. Materiality is 1% of the
-largest absolute prior component, accommodating signed flows. A complete
-companion and a different release are negative controls.
+Apply the same disappearing-breakdown rule to an income/cash-flow companion
+only on the same period, issuer/currency and acceptance timestamp (filing date
+when acceptance is absent). It must retain a nonzero headline while all core
+components become explicitly zero, after at least two were material. Income
+uses cost, gross profit and operating income; cash flow uses operating,
+investing and financing subtotals. Materiality is 1% of the largest absolute
+prior component. This identifies MS cash flow and MET income. Complete
+companions and different releases remain admitted.
 
-A whole same-period filed replacement wins only on exact issuer, currency,
-instant/duration and compatible one-accession field/operand proof acquired by
-cutoff. Otherwise preserve the date and diagnostic but withhold all numeric
-operands. Both Stage B and the AI payload use this same immutable admission
-view after filed-field admission. Later balance enrichment cannot restore a
-rejected row. Original snapshots and saved reports remain unchanged.
+A whole filed replacement requires exact period, issuer/currency and compatible
+one-accession field/operand proof observed by cutoff. Otherwise **drop the row
+from calculation rows**, retaining the raw observation and dated gap. Stage B
+and AI statement extracts share this immutable view after filed-field admission.
+Ordinary balance selection, WACC, ratios and forensic date guards see the
+remaining rows; an older statement keeps its date. Source snapshots and stored
+reports remain unchanged.
 
-Use the existing complete-balance anchor across annual and quarterly history;
-known filed/ownership refusals retain precedence. WACC excludes failed rows
-under its existing rule. Ratios that need the missing date stay unavailable;
-an older flow cannot fill a missing quarter. Annual forensic placeholders keep
-their dates, preventing an older year from silently becoming the latest year.
+**Financial dates and payout.** The general quarterly share selection uses
+observations through the latest quarterly balance date, then the existing
+award, class, filing and matching-date checks. Without this alignment, the
+opening-book guard reports ?no admitted diluted share count on the quarterly
+book date 2026-06-30? when September income arrives before the balance. The
+same regression covers an ordinary lagging feed with no rejected row.
 
-The census inspects all 105 frozen inputs: 3,367 original balances (976 annual,
-2,391 quarterly), and 3,507 enriched balances. The balance rule identifies only
-CVX, MS and MET at 2026-09-30; no annual balance fails. Asset totals remain
-330.135B to 333.786B, 1,675.057B to 1,692.273B, and 759.372B to 744.608B,
-respectively. Materiality 0.5% to 2% and retained-total ratios 50% to 90% yield
-those same three cases. Negative lines/universal subtotal sums alone were not
-adopted: overlapping and unclassified categories make them unsafe whole-row
-rules. Linked companion failures are MS cash flow and MET income.
+The existing trailing-return guard requires a closing balance within 45 days
+of the earnings-window end. September earnings therefore cannot be paired with
+June book. The existing explicitly dated annual forward-rate convention remains
+when that latest trailing return is unavailable; an older TTM window is not
+manufactured to fit the balance.
 
-**Financial opening book, return and payout.** An integrity-rejected newest row
-cannot send the financial route straight to an older annual book. Use the
-shared complete-balance anchor, then the income/share row on that exact book
-date through the existing divisor, class-scope, filing-cutoff and book guards.
-Measure an available trailing common return on that same balance date, using
-only quarters through it and the existing common-income/average-equity rules.
-The model and its P/TBV/ROTE comparison consume this dated return. When that
-window is unavailable, the existing explicitly dated annual forward-rate
-convention remains; no later earnings are paired with an older balance.
-Payout history includes only fiscal years through opening book, with each
-common cash distribution matched to that year's common earnings. On this
-integrity fallback, a common-dividend field identical to aggregate cash
-dividends with preferred capital outstanding needs independent common cash
-or a compatible total/preferred cash split. Consult the existing filed cash
-builder; aggregate-only provenance cannot prove common cash. Unresolved
-years use the existing incomplete-payout refusal, not a guessed zero. A missing
-matching share count is explained; it cannot be bypassed through a trailing
-start. A known preferred-capital refusal at the selected book withholds value
-and targets, rather than restoring an older year. Its refusal date is retained.
+Payout code is unchanged from main and applies equally to every company.
+Compatible filed aggregate and preferred cash dividends can already establish
+common cash by subtraction. Where the vendor common-labelled dividend field
+includes preferred amounts, its payout estimate remains approximate; that is
+a disclosed input limitation, not a new whole-value refusal. Existing explicit
+parser refusals still apply.
 
-MS's retained June 10-Q (0000895421-26-000212, filed August 4) and admitted row
-establish equity 116,329M, goodwill 17,105M, other intangibles 5,873M and preferred
-capital 9,750M: tangible common opening book is **83,601M**. The matching
-April-June diluted count is **1,569M**, not September's 1,566M or the six-month
-1,573M count. Four quarters ending June earn **19,547M to common**, divided by
-average tangible common equity **79,558M** (June 2025 and June 2026), giving
-**24.569496% ROTE**. Return, closing book, adjustments and shares therefore share
-June's scope/date. The existing roll-forward would start on June 30, 127 days
-before the quote, rather than on December 31; synthetic admitted-payout cases
-verify that behavior. No coefficient is tuned.
+MS's June 10-Q (0000895421-26-000212, filed August 4) supports equity 116,329M,
+goodwill 17,105M, other intangibles 5,873M and preferred capital 9,750M: tangible
+common book **83,601M**, with matching April-June diluted shares **1,569M**.
+The latest September TTM return has no matching closing balance. The model
+uses FY2025 ROTE **21.557832%** as its stated forward rate, cost of equity
+**10.064133%**, and the existing payout convention. It rolls June book forward
+127 days to November 4 (factor 1.033905), yielding **100.82** per quoted share.
+No September earnings are added to June book.
 
-MS's **payout is not admissible**. In all three latest fiscal years, the vendor
-common-dividend field duplicates aggregate cash dividends: 6,593M, 6,138M and
-5,763M. Preferred capital is outstanding, yet no independent common/preferred
-cash split is retained. The 2025 note's table is headed "Dividends": its 6,147M
-common and 612M preferred amounts do not identify the common cash-paid
-measurement or reconcile to aggregate cash 6,593M. Those amounts and earnings
-allocations cannot repair the cash line. The existing requirement for at least two
-eligible common-payout years therefore withholds value and targets. June's
-book, diluted shares and trailing return remain admitted and dated June; the
-reason is payout scope, not an obsolete opening book. The 127-day roll cannot
-produce a per-share value until that cash evidence exists.
-The quality return-spread signal still uses this measured June ROTE and names
-that source/date; it does not require payout or a manufactured forecast path.
+MS's common-labelled dividends duplicate aggregate dividends, 6,593M / 6,138M /
+5,763M. With net repurchases and matching common earnings, the existing three-
+year payout is 99.076932%, capped at 90% by the existing model. For scale only,
+subtracting the retained preferred earnings allocations 612M / 590M / 557M as
+a cash proxy gives 94.108380%, still capped at 90%; it leaves this valuation
+unchanged. This sensitivity does not certify cash-payment timing. The retained
+2025 ?Dividends? table (6,147M common / 612M preferred) does not reconcile to
+aggregate cash 6,593M. The primary result retains main's payout treatment and
+states that limit rather than inventing an exact cash split.
 
-MET's June common book is not admissible: 24,572,200 preferred shares and 76M preferred
-dividends do not establish a same-date aggregate preferred carrying/liquidation
-claim. The existing preferred-capital rule refuses common book, common return,
-value and targets at June. The December claim cannot repair June. This also
-explains the justified loss of its current common-book multiple/rank.
+**MET is the existing D-198 refusal.** Main's 44.03 exists because the September
+stub hides June's unresolved preferred capital. Running main's own Stage B on
+the frozen input produces 44.03; removing only that September balance makes
+main itself refuse value under `valuation.excessReturn.preferredCapital` at
+June 30. The 24,572,200 preferred shares and 76M dividend evidence do not
+establish a same-date carrying/liquidation claim. This is D-198 operating as
+already written, not a new rule. Its common-book multiple/rank and dependent
+values cannot use the stub or an older December claim to cure June.
 
-**Companion-statement reach and proof.**
+**Companion reach.** Dropping a latest partial flow exposes only an older,
+dated complete window; existing continuity checks still reject a missing
+middle quarter. Rejected AI cells are absent.
 
-| Source defect | Before correction | Final treatment and evidence |
-| --- | --- | --- |
-| CVX cash endpoints differ by 296M | Beginning 8,763M + movement 4,337M differs from ending 12,804M. These fields have no calculation consumer or payload line item. | Changing beginning/end/movement to 1/2/3 leaves the entire computed object and AI payload identical, with baseline validation held fixed. The core flows reconcile: 16,014 - 2,307 - 9,388 + 18 FX = 4,337M. Retain those flows; no unsupported cash-scope repair. |
-| MS zero cash-flow skeleton | The zero quarter enters a -12,255M trailing CFO sum and publishes zero operating/investing/capex/FCF cells to AI. Industrial cash-flow scores are already inapplicable on the bank route; this row does not supply the financial targets. | Withhold the linked row. Four-quarter CFO, capex and D&A become unavailable instead of partial sums; its AI cells are unknown. September income remains independently admitted. |
-| MET income/share skeleton | September's 2,397M profit and zero operating income enter trailing net income 5,127M and operating income 4,344M. Those values do not produce an admitted trailing return because closing book is already refused; P/E already falls back to annual EPS. AI still receives the partial income, EPS and share cells. | Withhold the linked row, including positive headline fields. The earnings/operating sums and every affected AI cell become unavailable. The further value/target refusal is caused by June preferred capital, not by manufacturing an income adjustment. |
+| Source issue | Published reach and final treatment |
+| --- | --- |
+| CVX cash endpoints differ by 296M | Beginning 8,763M + movement 4,337M differs from ending 12,804M. These fields have no calculation or AI line-item consumer: perturbing them to 1/2/3 leaves the entire computation and payload identical with validation fixed. Core cash flows reconcile, so they remain admitted; no cash-scope repair is invented. |
+| MS cash-flow skeleton | It entered September TTM CFO -12,255M and AI zero cells. Exclusion gives the complete June TTM CFO -15,587M, labelled June; capex -97M and D&A 4,402M also retain that date. Financial valuation uses annual payout, and industrial cash-flow scores are inapplicable. |
+| MET income/share skeleton | It entered September TTM profit 5,127M and operating income 4,344M, plus AI income/share cells. Exclusion gives June TTM profit 3,626M and operating income 5,554M; revenue remains incomplete. P/E remains the existing annual fallback, 21.85x. June's preferred-capital refusal blocks common return, value and targets independently. |
 
-The retained CVX June 10-Q Note 3 separately reports cash 8,527M and restricted
-cash 236M current plus 819M noncurrent (total 9,582M); it does not prove the
-September cash perimeter. The cash-scope perturbation, complete-companion and
-mismatched-release controls are automated; provider/model calls are disabled.
-
-**Final replay and verification.** All 105 frozen inputs run with
+**Final replay and analyst check.** All 105 frozen inputs run with
 `PANEL_BOTH=true` in three disjoint 35-input partitions. Replay and acquisition
-order agree on every numeric/null computed operand, scoring signal, fair value,
-target and composite. Inputs remain immutable; there are no new errors.
+order agree on every numeric/null computed operand, scoring signal, value,
+target and composite. Inputs remain immutable; both control errors are unchanged.
+Against the required main baseline, 55 admitted values / 48 company refusals
+become 54 / 49, with two unsupported controls in both runs.
 
-| Coverage / first refusal cause | Prior D-207 | Final |
+| First refusal cause | Main | Final |
 | --- | ---: | ---: |
-| Fair value available | 55 | 53 |
 | Unprofitable overlay | 9 | 9 |
-| Regulated-utility model exclusion | 6 | 6 |
+| Regulated-utility exclusion | 6 | 6 |
 | Equity REIT relative-valuation route | 5 | 5 |
 | DCF outside its domain | 5 | 5 |
 | Foreign quoted-unit / currency scope | 4 | 4 |
@@ -8371,68 +8352,51 @@ target and composite. Inputs remain immutable; there are no new errors.
 | Diluted/common-class denominator missing | 4 | 4 |
 | Debt / lease admission | 2 | 2 |
 | Beta evidence unavailable | 2 | 2 |
-| Common payout history unavailable | 2 | 3 |
-| Preferred common-capital scope unresolved | 0 | 1 |
+| Common payout history unavailable | 2 | 2 |
 | Nonpositive invested capital | 1 | 1 |
 | Lending cash-flow / model applicability | 1 | 1 |
-| Unsupported QQQ / unclassified ZZZZQ controls | 2 | 2 |
+| D-198 preferred common-capital refusal | 0 | 1 |
 
-There are 103 companies: 53 admitted values and 50 company refusals, plus two
-controls. Every changed company is below; before means commit `5f54c93f`, the
-prior D-207 result. Targets are bull/base/bear, in USD per quoted share.
+Every company with any computed change is below. Monetary values are USD per
+quoted share; targets are bull/base/bear.
 
-| Company | Price / consensus | Fair value before to final | Targets before to final | Composite before to final | Analyst check |
+| Company | Price / consensus | Fair value main to final | Targets main to final | Composite main to final | Reason / check |
 | --- | --- | --- | --- | --- | --- |
-| CVX | 217.01 / 218.25 | unavailable to unavailable | none to none | 53.73 to 53.73 | June net debt 28.545B, WACC 7.655948% and EV/EBITDA 12.58x remain unchanged from prior D-207. Unreconciled revenue still prevents DCF; rejected balance cells now also stay out of AI. |
-| MS | 193.99 / 212.00 | 92.50 to unavailable | 96.09 / 92.50 / 78.90 to none | 53.94 D to 59.26 C | June P/B 2.87x and P/TBV 3.66x use the admitted book; current P/E remains 15.41x. June ROTE supports quality, but unresolved common cash payout prevents a justified value/target comparison with market or consensus. |
-| MET | 102.89 / 108.25 | 44.03 to unavailable | 45.54 / 44.03 / 31.73 to none | 50.10 to 52.99 | June's unresolved preferred claim prevents common-book valuation; the old annual target cannot establish current value. P/E's annual fallback remains 21.85x. |
+| CVX | 217.01 / 218.25 | unavailable to unavailable | none to none | 53.73 to 53.73 | June net debt 28.545B replaces September's zero bridge. WACC 7.685691% to 7.655948%; EV/EBITDA 11.80x to 12.58x. Independent unreconciled revenue still prevents DCF. |
+| MS | 193.99 / 212.00 | 99.62 to 100.82 | 103.50 / 99.62 / 84.98 to 104.74 / 100.82 / 86.00 | 53.94 to 53.94 | June replaces unestablished September book. P/E 15.41x, June P/B 2.87x and P/TBV 3.66x remain. Value is 48.03% below price and below consensus: a disclosed conditional model/market disagreement, with no coefficient tuned. |
+| MET | 102.89 / 108.25 | 44.03 to unavailable | 45.54 / 44.03 / 31.73 to none | 44.98 to 52.99 | Removing the stub exposes June's existing D-198 refusal. The higher score reflects lost unsupported evidence and completeness weighting, not improved fundamentals. |
 
-The higher financial composites reflect removed unsupported valuation evidence
-and completeness weighting, with MS additionally using the valid June return;
-they are not evidence of improved underlying businesses. Against the required
-main baseline, MS's old value/targets were 99.62 and 103.50 / 99.62 / 84.98, and
-MET's composite was 44.98. The same three companies change against either
-baseline. All 100 unrelated companies' entire computed objects are identical
-to both baselines; both controls retain identical errors. Stable sorted-object
-SHA-256 is `d0387009cb9a645fc2b08273bc24da2143984b24a761ed728b92f4f7817ac27a`.
-
-The supplied signal-diff reports, against prior D-207:
+All 100 unrelated companies' entire computed objects remain identical to main,
+including JPM, BAC, C, WFC, USB and GS. Their stable sorted-object SHA-256 is
+`d0387009cb9a645fc2b08273bc24da2143984b24a761ed728b92f4f7817ac27a`.
+The supplied signal-diff reports:
 
 ```text
-signals lost, by signal: {'valuation.roeImpliedVsAchievable': 2, 'quality.equityReturnVsCoeSpread': 1}
+signals lost, by signal: {'quality.equityReturnVsCoeSpread': 1, 'valuation.priceToTbvOwnHistoryRank': 1, 'valuation.roeImpliedVsAchievable': 1}
 signals gained, by signal: {}
-companies losing any signal: 2 | gaining: 0
-  MET LOST ['quality.equityReturnVsCoeSpread', 'valuation.roeImpliedVsAchievable'] | gained [] | new withheld 8
-  MS LOST ['valuation.roeImpliedVsAchievable'] | gained [] | new withheld 4
+companies losing any signal: 1 | gaining: 0
+  MET LOST ['quality.equityReturnVsCoeSpread', 'valuation.priceToTbvOwnHistoryRank', 'valuation.roeImpliedVsAchievable'] | gained [] | new withheld 3
 ```
 
-MET loses the quality spread because June common equity is unresolved. Both
-companies lose the reverse-implied-return signal because its payout/book model
-is unestablished. MS retains its quality spread, now 14.505363pp on June ROTE
-24.569496% versus cost of equity 10.064133%, with the observed-return source
-and June date in its operands. Against main, signal-diff additionally reports
-one lost `valuation.priceToTbvOwnHistoryRank`, MET's already-justified stub-book
-rank; there are no gains or other companies losing signals.
+All three lost MET signals depended on an unestablished current common book or
+its valuation. MS and CVX lose no signals. Source diff against main is **142
+added / 4 removed lines, 146 touched** (versus 403 touched at `43335760`);
+`compute.ts` is 9 added / 4 removed, with payout and grading logic unchanged.
 
-Synthetic regressions failed first for consecutive stubs, the financial book
-and share date, trailing common-income admission outside the newest four rows,
-preferred refusal/date, common-cash scope, companion leaks and the independent
-quality spread. Negative controls cover genuine major disposals, populated or
-different-release companions, independently proven common cash and preferred
-refusals. All 52 focused tests pass. The frozen-data companion isolation also
-proves that restoring only the rejected MS/MET companion leaves all scores,
-fair value and targets identical: their leaks were TTM amounts and AI cells.
+**Verification.** Failing-first tests reproduced row retention, the lagging-feed
+share mismatch and the fallback-only payout refusal. All 48 focused tests pass,
+including consecutive-stub, major-disposal, same-period filed replacement,
+issuer/currency/cutoff, populated/different-release companion, forensic-date,
+retained-refusal and ordinary-lag controls. The frozen-data companion check
+confirms excluded AI cells and retained raw evidence; main's own MET control
+proves D-198 without D-207 code. Node 24 typecheck and changed-file ESLint pass.
+The unrestricted required `--changed origin/main --passWithNoTests --maxWorkers 4`
+run passes 454 files / 11,095 tests; the five separate risk/release/docs/tag/stamp
+suites pass 60 tests. `git diff --check` is clean. No full `npm run verify`, paid
+calls, model calls, credential access, new element tags or committed filing text.
 
-Node 24: typecheck, ESLint on all changed TypeScript, the required unrestricted
-`--changed origin/main --passWithNoTests --maxWorkers 4` run (454 files,
-11,099 tests), and the five separate risk/release/docs/tag/stamp suites (60
-tests) pass. `git diff --check` is clean. The full `npm run verify` was not run.
-No paid/provider/model calls, filing text, new element tags or version changes
-are included. Self-review covered ordering, exact release identity, whole-row
-provenance, common ownership, date alignment and retained refusal precedence.
-
-**Release boundary.** Advance Stage B implementation, fair-value method,
-scenario-target method and payload stamps together at integration; constants
-remain unchanged here. No report-schema or Stage C orchestration stamp is
-needed. Stored reports remain displayable and immutable. Independent review
-with a different model is still required before merge.
+**Release boundary.** Constants remain unchanged. Integration must advance
+Stage B implementation, fair-value method, scenario-target method and payload
+stamps together. No score-band, report-schema or Stage C orchestration stamp
+changes are needed. Independent review with a different model remains required
+before merge.

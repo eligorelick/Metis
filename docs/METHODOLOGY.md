@@ -520,69 +520,53 @@ These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 
 ## Incomplete preliminary balance sheets
 
-D-207 checks annual and quarterly vendor rows against their original retained
-observations, after filed-field admission and before calculations or AI statement
-extracts. Assess dates oldest first against the latest row that did not fail;
-consecutive stubs cannot validate each other. A row is incomplete
-when receivables, inventory, net property and equipment, and long-term
-investments are **all explicitly zero**, at least two of those classes each
-exceeded 1% of assets in the preceding same-issuer, same-currency balance, and
-the two asset totals differ by at most 20% of the larger total. These are
-conservative input-materiality allowances, independent of valuation. A missing
-line, one zero investment line, or a negative residual alone does not satisfy
-the rule. Unclassified financial-company presentations and overlapping provider
-categories make a universal sum of all asset lines unsafe.
+D-207 checks original annual and quarterly vendor observations after filed-field
+admission and before calculations or AI statement extracts. Assess dates oldest
+first against the latest same-issuer, same-currency row that did not fail;
+consecutive stubs cannot validate each other. A balance fails when receivables,
+inventory, net property and equipment, and long-term investments are all
+explicitly zero, at least two previously exceeded 1% of assets, and the totals
+differ by at most 20% of the larger total. These materiality allowances are
+independent of valuation. Missing lines, isolated zeros, a small negative
+residual and a genuine major disposal do not establish this failure. Overlapping
+or unclassified asset categories make a universal subtotal identity unsafe.
 
-A complete same-period filed balance takes precedence only with exact issuer,
-instant and currency, no refused anchor operands, and one filing establishing
-assets, parent equity, debt and liquidity (including the operands of derived
-totals). Filed facts observed after the report cutoff cannot repair it. The
-whole filed row replaces the vendor row; unsupported details remain unknown.
-Otherwise retain the rejected date and diagnostic, withhold its numeric
-operands, and reuse the existing complete-balance anchor across annual and
-quarterly history. The equity bridge and market EV disclose the selected date.
-Known filing refusals retain their existing precedence and cannot be cured by
-moving to an older date. No complete eligible balance means no bridge.
+The same disappearing-breakdown rule covers a companion from the rejected
+balance's exact release: matching period, issuer/currency and acceptance
+timestamp (filing date when acceptance is absent). Retained nonzero headlines
+with entirely zero core components, after at least two components exceeded 1%
+of the largest absolute prior component, are incomplete. Income uses cost of
+revenue, gross profit and operating income; cash flow uses operating, investing
+and financing subtotals. A timestamp alone cannot reject a populated companion.
 
-WACC excludes the rejected balance under its existing complete-balance rules.
-Current leverage, current ratio, forensic tests, returns and financial common
-book cannot consume rejected cash or investments. A ratio or book/share pairing
-requiring the rejected date stays unavailable; an older balance is never
-relabeled as current. Annual forensic rows retain their dates with unknown
-operands, preventing an older year from silently becoming the latest year.
-Acquired snapshots and stored reports are unchanged.
+A complete same-period filed statement wins only with exact issuer, currency,
+instant/duration and compatible one-accession field/operand proof observed by
+cutoff. Otherwise remove the rejected row from calculation rows. Keep the raw
+observation and a dated integrity gap as evidence. Calculations and AI extracts
+share this immutable admission view; source snapshots and saved reports retain
+their original bytes. No marker or special fallback route is needed.
 
-This detects a broad disappearing breakdown, not every possible vendor error.
-For an income or cash-flow row from that exact rejected balance's preliminary
-release, apply the same disappearing-breakdown rule. Its period, issuer,
-currency and acceptance timestamp must match (filing date only when acceptance
-is absent). Retained headlines with all core components explicitly zero, after
-at least two components exceeded 1% of the largest absolute prior component,
-are incomplete. Income components are cost of revenue, gross profit and
-operating income; cash-flow components are operating, investing and financing
-subtotals. Complete companions and different releases are retained. Rejected
-quarters remain dated placeholders with unknown amounts, so they cannot enter
-TTM partial sums or AI cells as zeros. Sharing a timestamp alone never proves
-that a populated income or cash-flow row is wrong.
+Existing balance selection, WACC, ratio and forensic date checks now see the
+remaining rows normally. An older statement retains its own date. Removing a
+latest partial flow can expose an older complete four-quarter window, which is
+labelled with that older end date; a missing middle quarter still fails the
+existing continuity checks. No partial sum or rejected AI cell is published.
 
-On financial routes, an integrity-rejected newest balance uses the same latest
-complete anchor for opening book. Require the matching dated share row under
-the existing divisor, class and filing checks. Measure a complete trailing
-common return through that book date on the same common/tangible-common basis;
-later earnings cannot be paired with the older book. If no such return is
-available, retain the explicitly dated annual forward-rate convention. Payout
-history matches common cash distributions to common earnings within each
-eligible fiscal year ending by opening book. On this integrity fallback, a
-common-dividend field duplicating aggregate cash dividends with preferred
-capital outstanding requires independently established common cash or a
-compatible total/preferred cash split. Use the existing filed cash builder;
-declared dividends and earnings allocations cannot establish cash paid.
-Without enough eligible years, retain the existing payout-history refusal.
-A measured return on the admitted book still supplies the quality spread;
-missing payout history cannot erase that independent observation or manufacture
-a forecast return path. Its scoring evidence names the measured return and date.
-A known preferred-capital refusal
-on the selected book withholds value and targets; an older year cannot cure it.
+For financial quarterly opening book, choose the share observation through the
+latest quarterly balance date before the existing divisor, class and filing
+checks. This also applies when a vendor feed simply lags. The existing trailing
+return guard requires a closing balance within 45 days of its earnings window;
+it cannot pair September earnings with a June balance. If that return is
+unavailable, the existing explicitly dated annual forward-rate convention
+remains. D-198's preferred-capital refusal on the latest remaining balance still
+withholds common-book value and targets.
+
+Payout treatment is unchanged. Existing filed parsing can derive common cash
+from compatible aggregate and preferred cash dividends; explicit parser
+refusals remain refused. Vendor common-labelled dividend fields can include
+preferred amounts, so that payout estimate is an approximation where the split
+is not established. A rejected balance does not introduce a different payout
+admission rule or a new whole-value refusal.
 
 ## WACC inputs
 
