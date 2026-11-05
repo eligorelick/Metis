@@ -518,39 +518,42 @@ These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 `tests/currency.priceComparison.test.ts` and
 `tests/currency.analystEstimates.test.ts`.
 
-## Incomplete preliminary balance sheets
+## Incomplete statement breakdowns
 
-D-207 checks original annual and quarterly vendor observations after filed-field
-admission and before calculations or AI statement extracts. Assess dates oldest
-first against the latest same-issuer, same-currency row that did not fail;
-consecutive stubs cannot validate each other. A balance fails when receivables,
-inventory, net property and equipment, and long-term investments are all
-explicitly zero, at least two previously exceeded 1% of assets, and the totals
-differ by at most 20% of the larger total. These materiality allowances are
-independent of valuation. Missing lines, isolated zeros, a small negative
-residual and a genuine major disposal do not establish this failure. Overlapping
-or unclassified asset categories make a universal subtotal identity unsafe.
+D-207 checks original annual and quarterly vendor observations against the
+latest accepted same-issuer/currency row in date order. Consecutive stubs cannot
+validate each other. A balance candidate loses more than 80% of receivables,
+inventory, net property and equipment, and long-term investments in aggregate,
+after those lines exceeded 5% of prior assets, while retaining at least 80% of
+total assets. Null and absent components count as empty; one material class
+suffices. Rejection also requires unclassified other-asset growth or an
+unexplained asset gap above 1% of current assets. Classified residuals can
+explain presentation changes. An increase in cash/short-term investments or
+held-for-sale assets covering at least 80% of the lost breakdown retains the
+row. These materiality allowances are independent of valuation. Overlapping
+asset categories make a universal subtotal identity unsafe.
 
-The same disappearing-breakdown rule covers a companion from the rejected
-balance's exact release: matching period, issuer/currency and acceptance
-timestamp (filing date when acceptance is absent). Retained nonzero headlines
-with entirely zero core components, after at least two components exceeded 1%
-of the largest absolute prior component, are incomplete. Income uses cost of
-revenue, gross profit and operating income; cash flow uses operating, investing
-and financing subtotals. A timestamp alone cannot reject a populated companion.
+Income and cash flow are checked independently of the balance or release
+timestamp. An entirely empty core after a fully populated prior core with a
+material component is incomplete. Materiality is 1% of the largest absolute
+prior core component, profit or revenue. Income uses cost of revenue, gross
+profit and operating income; cash flow uses operating, investing and financing
+subtotals. Ordinary missing-field histories retain existing field-level checks.
 
-A complete same-period filed statement wins only with exact issuer, currency,
-instant/duration and compatible one-accession field/operand proof observed by
-cutoff. Otherwise remove the rejected row from calculation rows. Keep the raw
-observation and a dated integrity gap as evidence. Calculations and AI extracts
-share this immutable admission view; source snapshots and saved reports retain
-their original bytes. No marker or special fallback route is needed.
+Remove the rejected observation from admitted rows; a complete same-date sibling
+survives. Keep raw evidence and a dated gap. Four filed anchors do not prove a
+whole replacement, so this check builds none. A later vendor correction can
+restore the row; until then, older retained balances remain a disclosed limit.
+Calculations, reports, charts and AI extracts share the same immutable view at
+their entrypoints. Dependent provider EV observations on rejected balance dates
+are also excluded. Source snapshots and saved reports retain their original
+bytes. Envelopes use the latest retained row's date.
 
 Existing balance selection, WACC, ratio and forensic date checks now see the
-remaining rows normally. An older statement retains its own date. Removing a
-latest partial flow can expose an older complete four-quarter window, which is
-labelled with that older end date; a missing middle quarter still fails the
-existing continuity checks. No partial sum or rejected AI cell is published.
+remaining rows normally. Removing a partial flow records its rejected period
+for existing TTM refusal and continuity checks: a rejected current quarter
+cannot shift the trailing window backwards or be cured by older filed CFO.
+No partial sum or rejected AI cell is published.
 
 For financial quarterly opening book, choose the share observation through the
 latest quarterly balance date before the existing divisor, class and filing

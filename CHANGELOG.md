@@ -20,12 +20,17 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Balance rows that do not add up (2026-11-05)
 
-- Exclude preliminary balances whose entire major asset breakdown disappears
-  beside a largely unchanged asset total. Prefer a complete same-period filed
-  row; otherwise the normal consumers see the remaining dated balances.
-- Compare consecutive stubs with the latest accepted breakdown. Apply the same
-  rule to matching income/cash-flow skeletons, removing them from calculations
-  and AI extracts while retaining raw evidence and dated gaps.
+- Exclude vendor balances whose major named asset lines collapse into an
+  unclassified residual or unexplained gap while total assets remain. Retain
+  movements explained by liquid assets, held-for-sale assets or classified
+  presentations. The normal consumers use the remaining dated balances; this
+  check does not reconstruct a statement from filed anchors.
+- Compare with the latest accepted breakdown and reject specific observations,
+  preserving complete same-date siblings. Independently exclude empty income/
+  cash-flow cores; current trailing windows refuse rather than shift backwards.
+- Apply one admission view to calculations, reports, charts and AI extracts,
+  including envelope dates and dependent provider EV observations. Retain raw
+  evidence and plain dated gaps.
 - Financial quarterly opening book uses its matching dated share observation,
   including ordinary feed lag. Existing trailing-return date and preferred-
   capital guards retain precedence. Payout treatment is unchanged.
