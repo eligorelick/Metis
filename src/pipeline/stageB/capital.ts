@@ -734,6 +734,7 @@ export function computeCapital(
       marketableEquitySecurities: latestBal?.marketableEquitySecurities,
       vendorNetDebt: latestBal?.netDebt,
       fieldConflicts: latestBal?.fieldConflicts,
+      fieldProvenance: latestBal?.fieldProvenance,
     });
     // Audit 2026-10-19 FCX-1: with only an operating-lease maturity missing
     // and the financing components proven, net debt is stated excluding

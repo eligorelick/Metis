@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.64.0** and
-payload **1.78.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.79.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -30,6 +30,15 @@ original versions and bytes; source merge does not deploy or publish a release.
   missing rate or share evidence. An unusable vendor beta can use an independently
   retained monthly SPY regression only after observation and fit checks pass.
 - Decision and methodology: D-204. No version constants or saved reports changed.
+
+## Unreleased - Lease and debt admission beyond the test panel (2026-11-04)
+
+- Reconcile vendor borrowing scopes independently of an undisclosed lease line. Operating leases leave debt under the house convention; finance leases stay in debt. Missing separate finance-lease disclosure is an explicit materiality assumption, never a filed zero.
+- Recognize operating-only lease lines and permit a proved partial operating portion to cancel without inventing its missing maturity. Preserve debt contradictions and the lease-inclusive refusal when full coverage is unavailable.
+- Reconcile gross debt to carrying debt only with a same-filing signed adjustment. Prefer the vendor row's original filing when completing its debt; identify missing or refused invested-capital operands explicitly.
+- After independent debt-scope proof, admit vendor-total/component-sum differences up to 0.5% using reconciled components and a persistent basis naming both values. Larger differences still refuse. D-202 records the raw 105-snapshot census, the follow-up company comparisons, and IBM's unresolved D-199 statement-extraction gap.
+- Count a current finance lease once when the filed current-debt line already holds it, and keep the refusal when vendor zero borrowings sit beside positive instrument-level debt such as notes, loans or convertibles.
+- D-202 records the wider frozen-input audit and release requirements. Saved reports and version constants remain unchanged.
 
 ## Unreleased - Scores that lost an aspect say so (2026-11-04)
 

@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.64.0 / payload 1.78.0, Stage B `STAGE_B_2026_11_UTILITY_AND_FOREIGN_ROUTES_52` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.64.0 / payload 1.79.0, Stage B `STAGE_B_2026_11_DEBT_AND_LEASE_ADMISSION_53` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications
 
@@ -3828,8 +3828,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_UTILITY_AND_FOREIGN_ROUTES_52 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_UTILITY_AND_FOREIGN_ROUTES_52. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_DEBT_AND_LEASE_ADMISSION_53 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_DEBT_AND_LEASE_ADMISSION_53. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -7829,6 +7829,67 @@ leases stay in debt. A filed zero, a contradictory vendor lease split,
 unresolved current notes, incomplete or mixed-filing lease evidence, and
 independent debt refusals never authorize completion. A failed zero-line
 repair preserves the prior admission decision and its integrity guard.
+
+**Lease and debt admission beyond the test panel (D-202, 2026-11-04).** This
+supersedes D-196's requirement that both lease families be separately filed
+before completing an undisclosed vendor lease zero. Reconciled borrowings
+establish their scope independently of the vendor lease line. The calculation
+view includes the proved operating portion once, then removes that same amount
+from the equity bridge, WACC and invested capital on the default convention.
+Finance leases remain in debt. When no recognized finance-liability element is
+filed for that instant, assume finance leases are not separately material under
+ASC 842's separate-disclosure requirement. State the assumption in the basis;
+never label that zero as filed or attach finance-liability provenance to it.
+A disclosed but incomplete finance family still cannot establish a total.
+
+A vendor lease line equal to a complete, same-date filed operating liability
+is operating-only; it need not equal operating plus finance liabilities. The
+separate finance observation remains available, and negative amounts or lease
+components exceeding total debt still contradict. A filed combined line cannot
+be reinterpreted as a vendor operating-only line. Current debt uses the filed
+inclusive `DebtCurrent` rather than adding its maturity subset twice.
+
+For an embedded noncurrent operating portion, one filing must reconcile the
+vendor debt composition and all disclosed financing scopes. The same partial
+operating amount may then cancel on the lease-excluded basis; its missing
+current maturity stays unknown and the lease-inclusive convention refuses.
+Vendor zero borrowings may be retained where no recognized borrowing fact
+contradicts them, labelled as retained vendor observations, not filed zeros.
+Contradictory vendor components, mixed filings, refused components and separate
+collapse/plausibility refusals cannot be cleared by this completion.
+
+Once the current/noncurrent borrowing and lease scopes are established, compare
+the untouched vendor total with the sum of its own current debt, noncurrent
+debt and lease line. A difference of at most **0.5% of the larger absolute
+observation** is retained as a qualification. Use the reconciled components,
+including the separately proved lease-scope completion; print the vendor total
+and its original component sum in the basis, and retain them through acquisition
+and replay. The difference is not filed equality and no balancing plug is
+inserted. Above 0.5%, withhold debt and name both amounts. There is no absolute
+monetary floor, and two zero totals agree exactly. This allowance never proves
+an overlapping current-debt scope, overrides a contradictory filed lease family,
+or clears another admission refusal. The cutoff was selected from the raw
+vendor census across 105 snapshots: the scoped small-difference cluster ends at
+0.205050%, and the next scoped observation is 0.866513%; removing RTX leaves
+that gap unchanged. D-202 records the full distribution and its finite-panel
+limitations.
+
+Prefer a vendor row's original filing when completing its debt, so an incomplete
+later comparative does not make acquisition and replay select different
+scopes. A gross combined debt observation is not an omitted carrying component
+only when its signed premium/discount and issuance-cost adjustment, inclusive
+carrying total and reconciled borrowing components all tie in one filing,
+instant and currency. Never use an absolute adjustment or substitute principal
+for carrying debt. Missing or refused invested-capital debt, equity and cash
+operands remain unavailable; the refusal names them rather than zero-filling
+them. An older valid valuation cannot validate a newer incomplete balance.
+The interest-plausibility test also retains a reconciled unclassified lease
+line in debt: without a lease-family split it cannot assume that all of the
+line is operating debt whose expense lies outside interest. A separately
+identified operating portion still leaves the interest-bearing denominator.
+Cash-driven net-debt refusals do not prevent an independent borrowing
+reconciliation; the cash and net-debt qualifications remain in either pass
+order, including when an older debt qualification has been resolved.
 
 Existing class evidence is preferred while active on the quote date. If every
 retained inventory has expired, the fully evidenced interim-cover rule above

@@ -61,6 +61,27 @@ describe("collapsedDebtReason (audit 2026-10-22 B-16)", () => {
 const USD = ["USD", "USD", "USD", "USD"] as const;
 
 describe("Stage B withholds implausible debt before any consumer reads it", () => {
+  it("keeps unclassified leases in the interest-bearing debt test instead of assuming they are operating leases", () => {
+    const bundle = currencyBundle({ debt: 300, siblingQuarterCurrencies: USD });
+    for (const key of ['balanceAnnual', 'balanceQuarterly'] as const) {
+      const family = bundle.statements[key];
+      if (!family.ok) throw new Error('fixture');
+      for (const row of family.value.data.rows) Object.assign(row, { shortTermDebt: 50 * M, longTermDebt: 0,
+        capitalLeaseObligations: 250 * M, operatingLeaseLiability: null, financeLeaseLiability: null });
+    }
+    const source = JSON.stringify(bundle);
+    const out = runStageB(bundle);
+    expect(out.gaps.some(g => /annual interest expense.*on resolved financing debt/.test(g.reason))).toBe(false);
+    expect(JSON.stringify(bundle)).toBe(source);
+    // Actual operating evidence excludes that portion from the interest-bearing
+    // debt test; its operating expense cannot explain the interest numerator.
+    for (const key of ['balanceAnnual', 'balanceQuarterly'] as const) {
+      const family = bundle.statements[key];
+      if (!family.ok) throw new Error('fixture');
+      for (const row of family.value.data.rows) row.operatingLeaseLiability = 250 * M;
+    }
+    expect(runStageB(bundle).gaps.some(g => /annual interest expense.*on resolved financing debt/.test(g.reason))).toBe(true);
+  });
   it("drops total and net debt, and EV, when interest implies a rate above 25%", () => {
     // 15 of annual interest (16 trailing) on 50 of debt is 30%.
     const out = runStageB(currencyBundle({ debt: 50, siblingQuarterCurrencies: USD }));

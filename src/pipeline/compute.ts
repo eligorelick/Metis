@@ -1981,6 +1981,15 @@ function cashFlowBetween(field: "netDebtIssuance" | "debtRepayment", quarters: r
 function withholdImplausibleDebt(rows: FmpBalanceSheetRow[], interestFor: (date: string) => number | null, gaps: ManifestEntry[], interim: readonly FmpBalanceSheetRow[] = [],
   cashFlow: (field: "netDebtIssuance" | "debtRepayment", from: string, to: string) => number | null = () => null): FmpBalanceSheetRow[] {
   const financingDebt = (row: FmpBalanceSheetRow): number | null => {
+    const leases = num(row.capitalLeaseObligations), total = num(row.totalDebt);
+    const current = num(row.shortTermDebt), noncurrent = num(row.longTermDebt);
+    // An unclassified vendor lease line may be interest-bearing (notably
+    // under IFRS). Removing all of it silently treats it as operating leases
+    // and can manufacture an implausible interest rate. Retain the reconciled
+    // total unless the lease split actually identifies the operating portion.
+    if (leases !== null && leases > 0 && num(row.operatingLeaseLiability) === null && num(row.financeLeaseLiability) === null &&
+        current !== null && noncurrent !== null && total !== null &&
+        Math.abs(total - current - noncurrent - leases) <= Math.max(1, Math.abs(total) * 1e-6)) return total;
     // Long-term debt tagged with its finance leases already holds them.
     const financeLeases = row.fieldProvenance?.longTermDebt?.calculation !== "same-filing-debt-completed" && longTermDebtHoldsFinanceLeases(row.fieldProvenance?.longTermDebt?.tags) ? null : num(row.financeLeaseLiability);
     const parts = [num(row.shortTermDebt), num(row.longTermDebt), financeLeases];
@@ -4967,6 +4976,7 @@ function netDebtFromBalance(
     marketableEquitySecurities: bal ? num(bal.marketableEquitySecurities) : null,
     vendorNetDebt: bal ? num(bal.vendorNetDebt !== undefined ? bal.vendorNetDebt : bal.netDebt) : null,
     fieldConflicts: bal?.fieldConflicts,
+    fieldProvenance: bal?.fieldProvenance,
   });
 }
 
