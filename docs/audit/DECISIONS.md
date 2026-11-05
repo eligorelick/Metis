@@ -8238,233 +8238,76 @@ in any company's output, so these corrections alter no value in this panel.
 
 ## D-206 - Multi-class share economics (2026-11-05)
 
-**Scope and rule.** This isolates the class changes from `8ad9ba1d` on current
-main; revenue, operating income, margins and balance-row admission are unchanged.
-The earlier class matchers depended on individual issuers' complete sentences.
-Read fully enumerated class subjects with shared security nouns and standard
-current-rights or conversion predicates instead. Support share-for-share,
-one-for-one and one-share conversions, equal participation with per-share
-dividends, and neutral EPS headings. Equal votes, par value, EPS alone and a
-conversion without a ratio still prove no weight. All added fixtures are
-synthetic; no additional filing text is committed.
+**Final rule.** Complete, unique, same-date cover observations require either
+affirmative equal current rights/shared per-share dividends, or a bounded
+small-class conversion approximation. Conversion proves no equal current
+rights. The unquoted class must convert one-for-one into the uniquely
+quote-bound reference class; assumed unquoted units plus voting-only
+exclusions cannot exceed 0.5% of reference shares. The policy limits nominal
+inclusion/exclusion sensitivity to one part in 200 of per-share value at fixed
+common equity. It does not bound unknown preferential claims, EV or WACC.
+Material or unbound conversion-only classes refuse by name.
 
-A conversion ratio supports a **disclosed unit proxy**, not a claim of equal
-current dividend or liquidation rights. Equal and opposite filed conversion
-rows can corroborate an unnumbered option, but cannot establish those current
-rights either. Unequal same-period per-share dividends or an adverse economic
-entitlement override the one-unit proxy and name the affected classes. Shared
-per-share rates, unequal aggregate payments to differently sized classes and
-different years' rates do not establish unequal current economics. The contradiction rule is
-shared by the retained-evidence and primary class-tagged paths. An outstanding
-class weight never substitutes for an independently admitted diluted period
-average.
+Every retained issuer/accession-bound SEC text section within 400 days is
+checked, including older annual filings and Item 1A. Structured class
+entitlements, exclusions and same-period per-share rates establish conflicts;
+the refusal quotes the evidence and names its conflict with one-unit treatment.
+Cross-year declared/payable dates do not exempt a rate comparison. Aggregate
+payments, unrelated percentages/yields, distribution agreements and ratable
+liquidation clauses are not unequal class rates. The sentence splitter and SEC
+source binding are each shared once. Synthetic fixtures cover the legal forms
+and the review's counterexamples, including older-section conflicts.
 
-A counted voting-only security leaves the sum only after an issuer-bound filing
-explicitly denies its economic rights, with no contrary current grant. Repeating
-the denial is not a grant. Current covers must still have complete, unique,
-same-date, unscaled outstanding observations. Issuer/accession/URL, split,
-newer-filing and 400-day carry-forward guards remain. The same-price
-approximation continues to leave voting-price differences unmodelled.
+No evidence path overrides a statement class outstanding but omitted from the
+cover, or a positive cover count whose statement row is zero outstanding.
+Participation does not settle either conflict. Voting-only exclusion requires
+an unconditional denial, no retained economic grant (including receipt of
+dividends), and the same aggregate size limit. Complete inventories, source
+binding, dates, splits and independent diluted-average admission still apply.
 
-**Actual evidence and reader text.**
+The conversion caveat accompanies fair value, DCF, visible WACC and targets.
+Count notes distinguish unquoted shares from residual dilution/transaction
+differences and do not present the conversion assumption as proven rights.
+Unresolved-class text makes no unsupported measurement-date claim. Existing
+weighted evidence prints each class once, with singular units correctly.
 
-- [CMCSA's annual filing](https://www.sec.gov/Archives/edgar/data/1166691/000162828026004994/cmcsa-20251231.htm)
-  supplies B-to-A share-for-share conversion, subject to restrictions. Its
-  retained quarterly disclosure states a $0.33 dividend per common share, with
-  no unequal A/B rate found. The complete cover has 3,541,561,960 A and 9,444,375
-  B shares, or 3,551,006,335 units. The basis calls this a conversion proxy and
-  says equal current dividend/liquidation rights were not independently proved.
-- [UPS's quarterly filing](https://www.sec.gov/Archives/edgar/data/1090727/000162828026070246/ups-20260930.htm)
-  expressly states equal per-share distributions through dividends and in
-  liquidation, and its dividend footnote confirms the same rate for both
-  classes. Read that stronger current equality, rather than describe UPS as
-  conversion-only. Its cover totals 851,469,372 units. The annual conversion
-  rollforward remains a supported fallback, with synthetic unequal-column and
-  missing-ratio controls.
-- [SHOP's quarterly participation declaration](https://www.sec.gov/Archives/edgar/data/1594805/000159480526000068/shop-20260930.htm)
-  enumerates its A/B participating securities and equal share-for-share
-  dividends. Its annual ownership risk denies economic rights to the counted
-  Founder Share. Include 1,208,456,928 A and 78,065,084 B, totaling 1,286,522,012;
-  disclose the one voting share's exclusion. The basis names the participation
-  declaration as the inventory proof; it makes no balance-sheet-inventory claim.
-- BRK.B's missing diluted-count refusal lists each active class weight once,
-  calls the quote-bound security the quoted class, and groups numeric weights.
-  Its outstanding economic weights remain insufficient for a diluted average.
+**Issuer checks.** CMCSA's cover contains 3,541,561,960 A and 9,444,375 B.
+B-to-A conversion supports the small-class exception: B/A is 0.2667%, about
+$0.1222 at the retained $45.81 value for nominal inclusion/exclusion at fixed
+common equity. Equal current rights remain unproved. Its trailing revenue
+includes Versant and Sky Germany until separation; the retained trailing
+period and the current business perimeter differ. General perimeter-change
+disclosure is a separate task. UPS's current filing affirmatively gives both
+classes equal per-share dividend/liquidation distributions; it needs no
+conversion exception. Its value remains withheld for unallocated NCI profit.
+SHOP's participation declaration proves equal A/B dividends; its one Founder
+Share has an unconditional no-economic-rights denial and no retained grant.
+ABNB's Class H cover/statement conflict continues to refuse.
 
-**Fifteen issuers outside the panel.** A direct public SEC request using the
-app's declared-contact convention returned 403; direct requests stopped.
-Readable SEC search/cache pages supplied the additional passages, retained only
-under ignored `tmp/int/sec/` with URLs and line locations. The measurement runs
-the actual rights recognizers and contradiction check on those passages: **one
-recognized and fourteen refused on main; four recognized and eleven refused
-here**. This is a rights-parser audit, not fifteen complete acquisitions or
-fifteen new capitalization approvals: raw inline counts were unavailable through
-the blocked transport. The manual judgments and reproducible ledger distinguish
-valid refusals from remaining coverage gaps.
+**Verification and limits.** The 105 frozen inputs pass replay and the supplied
+acquisition-order simulation without input mutation. Available values remain
+57/103 companies (main: 55/103), with five outside-domain, 41 suppressed and
+two unchanged unsupported-instrument controls. CMCSA $45.81 and SHOP $33.37,
+all other numerical calculations, targets and scores are unchanged by this
+follow-up. No scored signal is lost. Compared with main, the original two
+valuation-signal pairs and UPS ROIC/WACC spread remain gained.
 
-| Issuer | Rights result | Evidence and assessment |
-| --- | --- | --- |
-| [FOXA](https://www.sec.gov/Archives/edgar/data/1754301/000162828025038077/fox-20250630.htm) | Refused | Shared paid dividends and a qualified ratable-liquidation clause are not the supported complete current-rights declaration. Conservative refusal; no unit inferred. |
-| [NWSA](https://www.sec.gov/Archives/edgar/data/1564708/000156470825000419/nws-20250630.htm) | Refused | Equal payments and ratable liquidation are in separate clauses. Combining them remains a coverage gap. |
-| [LEN](https://www.sec.gov/Archives/edgar/data/920760/000162828026003870/len-20251130.htm) | Refused | A voting difference described as the only significant difference and equal payments do not supply the supported complete-rights predicate. Conservative refusal. |
-| [HEI](https://www.sec.gov/Archives/edgar/data/46619/000004661925000082/hei-20251031.htm) | Refused | Virtually identical rights, plain Common Stock and Class A require additional class mapping and clause interpretation. Coverage gap. |
-| [MKC](https://www.sec.gov/Archives/edgar/data/63754/000006375426000037/mkc-20251130.htm) | Refused | The share-for-share conversion is contingent on a future control threshold; the non-lettered classes are unmapped. Correct not to treat that future trigger as a current option. |
-| [BIO](https://www.sec.gov/Archives/edgar/data/12208/000001220826000010/bio-20251231.htm) | Refused | Class A may receive cash dividends without Class B despite one-for-one conversion. Correct refusal of equal current economics. |
-| [PINS](https://www.sec.gov/Archives/edgar/data/1506293/000150629326000021/pins-20251231.htm) | Recognized | Identical rights except voting, conversion and transfer; correct current-rights recognition. Newly recognized. |
-| [SNAP](https://www.sec.gov/Archives/edgar/data/1564408/000156440826000013/snap-20251231.htm) | Refused | Three-class pro-rata dividend and liquidation clauses and extended conversion sentences remain outside the grammar. Coverage gap. |
-| [RBLX](https://www.sec.gov/Archives/edgar/data/1315098/000131509826000024/rblx-20251231.htm) | Refused | The explicit ratio sits inside longer listing and automatic-conversion clauses. Coverage gap. |
-| [ZM](https://www.sec.gov/Archives/edgar/data/1585521/000158552126000030/zm-20260131.htm) | Recognized | Explicit same dividend and liquidation rights; correct recognition. Newly recognized. |
-| [Z](https://www.sec.gov/Archives/edgar/data/1617640/000161764026000015/z-20251231.htm) | Refused | Class C capital stock and the cross-page combined EPS declaration require a broader class mapping. Coverage gap. |
-| [DASH](https://www.sec.gov/Archives/edgar/data/1792789/000179278926000013/dash-20251231.htm) | Recognized | The explicit identical A/B rights sentence is supported; the qualified three-class sentence alone is insufficient. Correct rights recognition. |
-| [DUOL](https://www.sec.gov/Archives/edgar/data/1562088/000162828026012494/duol-20251231.htm) | Recognized | Explicit identical dividend/liquidation rights except voting and conversion; correct recognition. Newly recognized. |
-| [AFRM](https://www.sec.gov/Archives/edgar/data/1820953/000182095325000080/afrm-20250630.htm) | Refused | Conversion wording attaches to each holder amid voting terms rather than each source share. Coverage gap. |
-| [LEVI](https://www.sec.gov/Archives/edgar/data/94845/000009484526000008/lvis-20251130.htm) | Refused | The measured passage has shared dividends and optional conversion without a stated ratio or complete liquidation equality. Correct refusal on that limited passage. |
+All 18 multi-class panel issuers were checked on their whole retained text:
+119 sections, 9,606,222 characters including separately retained statements
+and META's 10-K. The former gate's 17 hits contained 16 false alarms; the
+replacement has one real hit,
+Berkshire's 1:1,500 dividend/distribution rights, which its supported weights
+already represent. This is retained-section coverage, not complete filing
+HTML. No whole retained filing sections were available for the prior 15
+outside-panel issuers. Their selected passages are not a whole-text false-alarm
+measurement or proof of capitalization coverage; direct SEC transport had
+returned 403 and requests stopped. Unsupported class forms still refuse.
 
-**Release boundary.** Advance `STAGE_B_IMPLEMENTATION_VERSION`,
+**Release boundary.** Integration must advance `STAGE_B_IMPLEMENTATION_VERSION`,
 `FAIR_VALUE_METHOD_VERSION`, `SCENARIO_TARGET_METHOD_VERSION` and `PAYLOAD_VERSION`
-together before release. This branch does not change them. No report-schema,
-score-band or orchestration version change is required. Existing reports and
-snapshots remain immutable and display through their existing adapters. No new
-source or documentation file requires a risk/release-inventory entry. Independent
-review by a different model remains required before merge; this implementation
-branch is neither pushed nor merged.
-
-
-**Frozen replay and collateral proof.** All 105 inputs in the supplied main
-baseline were replayed at their retained clock through Stage B and validation,
-opening the database with `readonly: true, fileMustExist: true`. The second pass
-applied the supplied acquisition-order balance enrichment before Stage B. Every
-input bundle remained unchanged. Both orders agree on all fair-value objects,
-complete scenario-target objects, composites, scoring-signal values and numeric
-calculation outputs. EXPE/AMD WACC annotations and CRM's debt-gap list differ
-between orders exactly as they already do in the supplied baseline; their
-calculation values do not differ. This is an offline order simulation, not a
-claim of a new paid-provider acquisition.
-
-| Primary outcome/cause | Main | This branch |
-| --- | ---: | ---: |
-| Available fair value | 55 | 57 |
-| Class scope or all-class diluted average | 7 | 4 |
-| NCI earnings allocation | 0 | 1 |
-| Outside the existing DCF domain | 5 | 5 |
-| Unprofitable overlay | 9 | 9 |
-| Regulated utility | 6 | 6 |
-| REIT multiple-only route | 5 | 5 |
-| Currency or quoted-unit basis | 5 | 5 |
-| Revenue definition | 3 | 3 |
-| Common-payout history | 2 | 2 |
-| Debt/lease evidence | 2 | 2 |
-| Unusable beta | 2 | 2 |
-| Non-positive invested capital | 1 | 1 |
-| Securitized-lending model | 1 | 1 |
-| Unsupported-instrument controls | 2 | 2 |
-
-There are 103 companies and two unsupported-instrument controls. Available
-values rise from 55/103 to 57/103; outside-domain remains five, suppressed falls
-from 43 to 41, and both control errors remain identical. UPS moves from a class
-refusal to its preexisting NCI-earnings refusal; no NCI assumption is supplied.
-The following are **all eight changes** to complete fair-value, target or
-composite objects. All figures are frozen USD per quoted share; targets are
-bull / base / bear. A text-only change does not alter a value or score.
-
-| Company | Price | Fair value before -> after | Targets before -> after | Composite before -> after | Reason/check |
-| --- | ---: | --- | --- | --- | --- |
-| BRK.B | 579.09 | withheld -> withheld | none -> none | 54.90 -> 54.90 | Text only: unique active weights and quoted-class label; diluted average still unproved. |
-| CMCSA | 24.85 | withheld -> 45.81 | none -> 55.15 / 45.81 / 35.31 | 57.44 -> 63.01 | Complete outstanding units plus disclosed conversion proxy restore WACC and the DCF; analyst check below. |
-| UPS | 114.30 | withheld -> withheld | none -> none | 57.88 -> 59.86 | Equal current economics restore capitalization, WACC and the ROIC spread; unproved NCI profit allocation still withholds fair value. |
-| SHOP | 153.03 | withheld -> 33.37 | none -> 51.35 / 33.37 / 22.13 | 62.32 -> 57.42 | Complete participating A/B scope, excluding the proved voting-only share; analyst check below. |
-| ABNB | 176.37 | withheld -> withheld | none -> none | 63.28 -> 63.28 | Text only: named Class H and its cover-versus-treasury ambiguity; no class sum inferred. |
-| PLTR | 171.70 | withheld -> withheld | none -> none | 68.66 -> 68.66 | Text only: explicit unresolved class/denominator evidence reaches the headline. |
-| BF.B | 30.68 | withheld -> withheld | none -> none | 56.23 -> 56.23 | Text only: the nonvoting-class rights/count refusal reaches the headline. |
-| INFY | 12.24 | withheld -> withheld | none -> none | 63.99 -> 63.99 | Text only: the existing quoted-unit security refusal reaches the missing-denominator headline. |
-
-The other 97 complete core output objects are byte-equivalent under canonical
-JSON. Their identical before/after SHA-256 is
-`ee7a60afb11cf4e1178e4569dacd02983e387561188e48514d42a6dcca378bf5`.
-No existing scored signal changes its transformed score. The required
-`signal-diff.py` reports:
-
-```text
-signals lost, by signal: {}
-signals gained, by signal: {'valuation.dcfUpside': 2, 'valuation.reverseImpliedVsAchievable': 2, 'quality.roicVsWaccSpread': 1}
-companies losing any signal: 0 | gaining: 3
-```
-
-CMCSA and SHOP each gain the two valuation signals; UPS gains the ROIC/WACC
-spread. Comparing the two orders reports no lost or gained signal. Full
-results, detail objects, comparison scripts, numerical order comparison and
-filing-passage ledger remain under ignored `tmp/int/` in this branch's worktree.
-
-**Analyst checks.** CMCSA's 45.81 is 84.35% above its frozen 24.85 quote and
-75.85% above 26.05 consensus, a substantial model/market disagreement. Current
-EV/EBITDA is 5.01x; compatible common-earnings P/E is unavailable. The bridge
-independently ties: 236.8756B enterprise value - 79.7700B net debt - 0.1380B
-book NCI + 6.2094B after-tax nonoperating assets = 163.1770B common equity /
-3.5620B diluted weighted shares. The 3.5510B outstanding cover units establish
-capitalization, not that diluted divisor. The existing 6.0527% WACC (about half
-debt), 14.7173% operating margin and 64.60% terminal share of enterprise value
-make this result sensitive to its financing and terminal assumptions. First-year
-growth is -6.47%, not an invented recovery. The premium warrants investigation,
-not a claim of proved mispricing: issuer, currency, cover units, the independent
-diluted count and bridge arithmetic reconcile. No forecast or discount-rate
-coefficient was tuned.
-
-SHOP's 33.37 is 78.19% below its frozen 153.03 quote and 81.07% below 176.26
-consensus. P/E is 92.75x and EV/EBITDA 91.63x. Its bridge ties: 33.2688B EV +
-4.7270B net cash + 5.07705B after-tax investments = 43.0729B equity /
-1.290726742B diluted weighted shares, separately admitted from the 1.286522012B
-cover units. The existing model starts at 26.72% growth and 14.6044% margin,
-uses 13.41% WACC, and has a 43.25% terminal share. The large discount survives
-currency, share-unit and bridge checks; this is the existing house forecast's
-conditional result, not a share-scaling repair chosen to move it toward price.
-UPS remains unpriced despite 114.30 quote, 115.79 consensus, 21.98x P/E and
-11.19x EV/EBITDA: the 32M NCI balance has no admitted share of profit. Its new
-8.1588% WACC improves a scored spread without inventing that allocation.
-
-
-**Regression and verification.** The first synthetic legal-form/integration run
-failed 15 assertions before the fixes. Additional red runs covered the four
-broader current-rights/conversion forms, EPS headings, per-class dividends,
-historical-year and par-value controls, named refusals, repeated non-economic
-denials, duplicate active weights, and grouped count text. Final scoped coverage
-passes 131 tests across four files. Conversion without a ratio, unequal or
-conditional rights, voting/par-only statements, missing/duplicate/mixed-date
-covers, future/split/stale sources, real economic grants to the voting security,
-and unequal conversion columns remain negative controls.
-
-Final checks used Node 24.11.1 with the required Node installation first on
-PATH and the specified npm entrypoint. No full `npm run verify` was run.
-
-- `npm run typecheck`: exit 0.
-- ESLint on every changed TypeScript file: exit 0, no findings.
-- `node node_modules/vitest/vitest.mjs run --config vitest.config.ts --changed origin/main --passWithNoTests --maxWorkers 4`:
-  exit 0; 504 files, 12,251 passed, one existing skip.
-- Separate from that changed run, the required `tests/risk.coverage.test.ts`,
-  `tests/repository.release.test.ts`, `tests/docs.lint.test.ts`,
-  `tests/edgar.tagSynonyms.test.ts` and `tests/docs.p8Agreement.test.ts`:
-  five files and 60 tests passed, exit 0.
-- All four disjoint frozen-panel groups pass the supplied `PANEL_BOTH=true`
-  harness. The final count-formatting replay also passes both orders. The
-  merged output has all 105 input keys and all 103 computed detail objects.
-- Required baseline `signal-diff.py`, same-input order comparison, existing
-  signal-score comparison, canonical core comparison and `git diff --check`:
-  exit 0, with the results above. Version-constant declarations are unchanged.
-
-The initial changed run hit the existing scheduler's ten-second process-race
-barrier while the four replay groups were also running; its isolated rerun
-passed all 90 tests, followed by the successful complete changed run above.
-The first release-inventory check ran before the new test file was staged and
-saw a tracked/filesystem inventory mismatch; staging that file resolved it, and
-the final required suite passes. No unrelated production code or test timeout
-was changed. Existing Vite native-config and temporary-file line-ending warnings
-remain non-failing.
-
-**Remaining limits.** The fifteen-passage ledger explicitly retains unsupported
-legal forms and non-lettered/capital-stock mappings; it is not evidence of
-universal ticker coverage. Unequal economics need independently supported
-non-unit weights or their own class prices, not this equal-unit fallback.
-UPS's NCI allocation, the named unresolved common classes and quoted-unit
-refusals, and the other engineers' revenue/balance areas remain unfixed here
-for their stated source or scope reasons. No paid provider or model call was
-made, no owner environment or live application database was accessed, and no
-filing text is committed.
+together. This branch changes no version constants. No report-spec, score-band
+or orchestration stamp change is required. Existing reports remain immutable
+and supported. The new shared source is in both risk manifests. Revenue,
+operating income, margins, balance-row admission and general perimeter-change
+handling are outside this change. Independent review remains required before
+merge; this branch is committed locally without push, PR or merge.

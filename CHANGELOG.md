@@ -20,10 +20,11 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Multi-class share economics (2026-11-05)
 
-- Read standard one-for-one conversion and equal-participation legal forms with synthetic positive and negative controls. Conversion is labelled as a unit proxy when current equal dividend and liquidation rights were not independently established.
-- Refuse unequal per-share class dividends despite one-for-one conversion, name the affected classes, and distinguish historical rates and aggregate payments. Repeated denials of a voting-only security's economic rights do not create a grant.
-- Name the actual class-inventory evidence, prefer explicit equal rights over a conversion proxy, and print each active class weight once. Outstanding weights remain separate from diluted period averages.
-- D-206 records the 105-input replay, the separate 15-issuer rights audit and its remaining coverage gaps. Version constants and stored reports are unchanged.
+- Require affirmative current equality or a shared per-share rate for equal class units. Conversion alone is admitted only as a disclosed small-class approximation within a 0.5% nominal count limit; large classes refuse by name.
+- Compare class entitlements and explicit per-share rates across every retained SEC section in the 400-day window. Quote actual conflicts, distinguish payment periods and aggregate amounts, and remove false refusals from unrelated filing text.
+- Refuse cover/balance-sheet class conflicts before every evidence path. Exclude voting-only counts only for unconditional denials without economic grants, within the same size limit.
+- Put the conversion caveat beside fair value, DCF, WACC and targets; identify unquoted shares in count gaps, remove unsupported date claims, and print singular class units correctly.
+- D-206 records the 105-input replay and whole retained-section audit of all 18 multi-class panel issuers, including META's annual filing. Version constants and stored reports are unchanged.
 
 ## Unreleased - Unknown tickers, regulated utilities and foreign banks (2026-11-04)
 
