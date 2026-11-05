@@ -22,9 +22,12 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - Exclude vendor balances whose major named asset lines collapse into an
   unclassified residual or unexplained gap while total assets remain. Retain
-  movements explained by liquid assets, held-for-sale assets or classified
+  movements explained by liquid assets without negative offsets or classified
   presentations. The normal consumers use the remaining dated balances; this
   check does not reconstruct a statement from filed anchors.
+- Keep collapse candidates corroborated by same-date filed book and grown liquid
+  amounts. Preserve whole SEC replacements, apply admission to peer statements,
+  and date return evidence separately from opening book.
 - Compare with the latest accepted breakdown and reject specific observations,
   preserving complete same-date siblings. Independently exclude empty income/
   cash-flow cores; current trailing windows refuse rather than shift backwards.

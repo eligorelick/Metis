@@ -522,32 +522,40 @@ These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 
 D-207 checks original annual and quarterly vendor observations against the
 latest accepted same-issuer/currency row in date order. Consecutive stubs cannot
-validate each other. A balance candidate loses more than 80% of receivables,
-inventory, net property and equipment, and long-term investments in aggregate,
-after those lines exceeded 5% of prior assets, while retaining at least 80% of
-total assets. Null and absent components count as empty; one material class
-suffices. Rejection also requires unclassified other-asset growth or an
-unexplained asset gap above 1% of current assets. Classified residuals can
-explain presentation changes. An increase in cash/short-term investments or
-held-for-sale assets covering at least 80% of the lost breakdown retains the
-row. These materiality allowances are independent of valuation. Overlapping
-asset categories make a universal subtotal identity unsafe.
+validate each other. Check receivables, inventory, net property and equipment,
+and long-term investments separately: a material line exceeds 1% of prior
+assets and collapses below 20% of its prior amount. At least two lines, or all
+material lines when only one exists, must collapse; their loss exceeds 5% of
+prior assets while total assets retain at least 80%. Null/absent lines count as
+empty. Unclassified residual growth absorbing at least 80% of that loss, an
+unexplained gap above 1% after a near-total breakdown collapse, or a negative
+current-asset offset corroborates the failure. Classified presentations can
+explain ordinary changes. Liquid-asset growth covering 80% of the loss explains
+the movement only without a negative offset. Thresholds are independent of
+valuation; overlapping categories prevent a universal asset identity.
 
 Income and cash flow are checked independently of the balance or release
-timestamp. An entirely empty core after a fully populated prior core with a
+timestamp. An empty or near-zero core after a fully populated prior core with a
 material component is incomplete. Materiality is 1% of the largest absolute
 prior core component, profit or revenue. Income uses cost of revenue, gross
 profit and operating income; cash flow uses operating, investing and financing
 subtotals. Ordinary missing-field histories retain existing field-level checks.
 
 Remove the rejected observation from admitted rows; a complete same-date sibling
-survives. Keep raw evidence and a dated gap. Four filed anchors do not prove a
-whole replacement, so this check builds none. A later vendor correction can
-restore the row; until then, older retained balances remain a disclosed limit.
+survives. Keep raw evidence and a dated gap. A collapse candidate stays when an
+available same-date, same-currency filing corroborates total assets, equity,
+nonzero book adjustments and each liquid amount that grew, using the existing
+rounding agreement and compatible filing provenance. Negative current-asset
+offsets prohibit this override. This retains an existing observation and builds
+no field-by-field replacement. Whole SEC-sourced rows are exempt from vendor
+checks, including SEC replacements inside vendor families. Without corroboration
+the older admitted balance remains a disclosed limit until a vendor correction.
+Peers use the same row check; their bounded collection lacks companyfacts, so
+an uncorroborated collapse is excluded and the latest remaining balance is used.
 Calculations, reports, charts and AI extracts share the same immutable view at
 their entrypoints. Dependent provider EV observations on rejected balance dates
 are also excluded. Source snapshots and saved reports retain their original
-bytes. Envelopes use the latest retained row's date.
+bytes. Envelopes and the observation-date map use the latest retained row's date.
 
 Existing balance selection, WACC, ratio and forensic date checks now see the
 remaining rows normally. Removing a partial flow records its rejected period
@@ -561,7 +569,8 @@ checks. This also applies when a vendor feed simply lags. The existing trailing
 return guard requires a closing balance within 45 days of its earnings window;
 it cannot pair September earnings with a June balance. If that return is
 unavailable, the existing explicitly dated annual forward-rate convention
-remains. D-198's preferred-capital refusal on the latest remaining balance still
+remains. Scoring evidence dates that return at its actual measurement period,
+separately from opening book. D-198's preferred-capital refusal on the latest remaining balance still
 withholds common-book value and targets.
 
 Payout treatment is unchanged. Existing filed parsing can derive common cash
