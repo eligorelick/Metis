@@ -55,6 +55,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/providers/yahoo.ts",
   "src/providers/treasury.ts",
   "src/providers/splitEvents.ts",
+  "src/providers/vendorNumber.ts",
   // Decides how long a cached quote stays fresh, so a slip serves an old price.
   "src/providers/usSession.ts",
   "src/providers/historyCache.ts",

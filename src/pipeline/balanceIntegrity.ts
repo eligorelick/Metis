@@ -1,5 +1,6 @@
 import type { DataBundle } from "@/pipeline/types";
-import { coerceVendorNumber, type FmpBalanceSheetRow, type FmpStatementRow } from "@/providers/fmp";
+import type { FmpBalanceSheetRow, FmpStatementRow } from "@/providers/fmp";
+import { coerceVendorNumber } from "@/providers/vendorNumber";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";

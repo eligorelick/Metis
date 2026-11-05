@@ -27,6 +27,7 @@
 
 import "server-only";
 import { quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
+import { coerceVendorNumber } from "@/providers/vendorNumber";
 import { buildEstimateTiming, type EstimateTiming } from "@/report/estimateTiming";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getProviderCredential } from "@/ai/store";
@@ -883,13 +884,6 @@ export const FMP_TTLS = {
 
 export type FmpMethodName = keyof typeof FMP_TTLS;
 
-export const coerceVendorNumber = (value: unknown): unknown => {
-  if (value === null || value === undefined || value === "") return undefined;
-  if (typeof value === "string" && /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(value.trim())) {
-    return Number(value);
-  }
-  return value;
-};
 const numericVendorField = z.preprocess(coerceVendorNumber, z.number().finite().optional());
 const requiredNumericVendorField = z.preprocess(coerceVendorNumber, z.number().finite());
 
