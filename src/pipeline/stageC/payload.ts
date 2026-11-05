@@ -1738,7 +1738,7 @@ function statementExtracts(bundle: DataBundle, cashFlowApplicability?: CompanyRo
   const currencyEvidence = statementCurrencyEvidence(bundle);
   // Stage B may admit an old/raw snapshot locally. Repeat the same immutable
   // admission before raw statement cells can enter the analyst or verifier registry.
-  const balances = (rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => facts === null ? rows : rows.map((row) => row.balanceIntegrityReason ? row :
+  const balances = (rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => facts === null ? rows : rows.map((row) =>
     admitDebtFields(row, facts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar)).row);
   const push = (b: StatementExtractBlock | null, notes: readonly string[] = []): void => {
     if (b) blocks.push(notes.length > 0 ? { ...b, notes: [...notes, ...b.notes] } : b);

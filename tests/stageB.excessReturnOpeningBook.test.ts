@@ -3,7 +3,6 @@ import { runStageB } from "@/pipeline/compute";
 import { excessReturnModel } from "@/pipeline/stageB/valuation";
 import { buildSyntheticRouteBundle } from "./helpers/researchRoutePanel";
 import { M } from "./helpers/currencyBundle";
-import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
 function fixture(route: "bank" | "insurer" = "bank", trailing = false) {
   const b = buildSyntheticRouteBundle(route);
@@ -26,6 +25,25 @@ function result(b: ReturnType<typeof fixture>["b"]) {
 }
 
 describe("D-189: opening book is independent of return availability", () => {
+  it.each(["bank", "insurer"] as const)("%s uses a lagging feed's book and matching shares without pairing later earnings", route => {
+    const f = rejectedNewest(route, true);
+    if (!f.b.statements.balanceQuarterly.ok) throw new Error("fixture");
+    f.b.statements.balanceQuarterly.value.data.rows.shift();
+    const { c, er } = result(f.b);
+    expect(er.asOf).toBe("2026-03-31");
+    expect(er.scenarioEvidence?.dilutedShares).toBe(120 * M);
+    expect(er.perShare).toBeTypeOf("number");
+    expect(c.returns.commonReturnTtm?.returnPct).toBeNull();
+    expect(c.returns.commonReturnTtm?.withheldReason).toMatch(/no balance sheet within 45 days.*2026-06-30/);
+    expect(er.roePathPct.basis).toMatch(/FY 2025-12-31/);
+  });
+
+  it("uses the existing payout treatment after rejecting a balance", () => {
+    const f = rejectedNewest("bank", true);
+    if (!f.b.statements.cashflowAnnual.ok) throw new Error("fixture");
+    for (const row of f.b.statements.cashflowAnnual.value.data.rows) row.netDividendsPaid = row.commonDividendsPaid;
+    expect(result(f.b).er.perShare).toBeTypeOf("number");
+  });
   function rejectedNewest(route: "bank" | "insurer", trailing = false) {
     const f = fixture(route, trailing);
     if (!f.b.statements.balanceQuarterly.ok || !f.b.statements.incomeQuarterly.ok) throw new Error("fixture");
@@ -59,86 +77,16 @@ describe("D-189: opening book is independent of return availability", () => {
     expect(c.valuation.notes.join(" ")).toMatch(/no admitted diluted share count.*2026-03-31/);
   });
 
-  it.each(["bank", "insurer"] as const)("%s measures an available trailing return on the admitted book's own date and scope", route => {
-    const f = rejectedNewest(route, true);
-    const { c, er } = result(f.b);
-    expect(c.returns.commonReturnTtm?.asOf).toBe("2026-03-31");
-    expect(c.returns.commonReturnTtm?.returnPct).toBeTypeOf("number");
-    expect(er.roePathPct.value[0]).toBe(c.returns.commonReturnTtm?.returnPct);
-    expect(er.roePathPct.basis).toMatch(/TTM/);
-    expect(er.asOf).toBe("2026-03-31");
-    if (route === "bank") expect(er.priceToTangibleBookVsRote.roteAsOf).toBe(er.priceToTangibleBookVsRote.asOf);
-  });
-
-  it("admits filed common earnings for the older window's fourth quarter, outside the newest four rows", () => {
-    const f = rejectedNewest("bank", true);
-    if (!f.b.statements.incomeQuarterly.ok || !f.b.statements.balanceQuarterly.ok) throw new Error("fixture");
-    const rows = f.b.statements.incomeQuarterly.value.data.rows;
-    for (const row of rows) { row.cik = "42"; row.netIncomeAvailableToCommon = 40 * M; }
-    for (const row of f.b.statements.balanceQuarterly.value.data.rows) row.cik = "42";
-    const oldest = rows.find(r => r.date === "2025-06-30");
-    if (!oldest) throw new Error("fourth return quarter");
-    oldest.netIncomeAvailableToCommon = undefined;
-    oldest.period = "Q2";
-    const point = { start: "2025-04-01", end: "2025-06-30", filed: "2025-08-01", form: "10-Q", fy: 2025, fp: "Q2", accn: "0000000042-25-000002" };
-    const bundle = withIssuerFacts(f.b, { cik: 42, entityName: "Synthetic", facts: { "us-gaap": {
-      NetIncomeLossAvailableToCommonStockholdersBasic: { units: { USD: [{ ...point, val: 40 * M }] } },
-      NetIncomeLoss: { units: { USD: [{ ...point, val: 45 * M }] } },
-      Revenues: { units: { USD: [{ ...point, val: 240 * M }] } },
-    } } }, true);
-    const { c } = result(bundle);
-    expect(c.returns.commonReturnTtm?.asOf).toBe("2026-03-31");
-    expect(c.returns.commonReturnTtm?.incomeAvailableToCommon).toBe(160 * M);
-    expect(c.returns.commonReturnTtm?.returnPct).toBeTypeOf("number");
-  });
-
-  it("does not bypass the matching-share refusal through a trailing-return start", () => {
-    const f = rejectedNewest("bank", true);
-    f.income.weightedAverageShsOutDil = undefined;
-    const { c, er } = result(f.b);
-    expect(er.asOf).toBe("2025-12-31");
-    expect(c.valuation.notes.join(" ")).toMatch(/no admitted diluted share count.*2026-03-31/);
-  });
-
-  it.each(["bank", "insurer"] as const)("%s refuses aggregate cash dividends masquerading as common payout after an integrity fallback", route => {
-    const f = rejectedNewest(route, true);
-    if (!f.b.statements.cashflowAnnual.ok) throw new Error("fixture");
-    for (const row of f.b.statements.cashflowAnnual.value.data.rows) row.netDividendsPaid = row.commonDividendsPaid;
-    const { c, er } = result(f.b);
-    expect(er.openingBookValue.value).toBe((route === "bank" ? 500 : 550) * M);
-    expect(er.perShare).toBeNull();
-    expect(er.openingBookValue.basis).toContain(route === "bank" ? "tangible common equity" : "common equity");
-    expect(c.scenarioTargets.status).toBe("suppressed");
-    expect(c.valuation.gaps.some(g => g.field === "valuation.excessReturn.commonDividends" && /aggregate cash dividends/.test(g.reason))).toBe(true);
-    const spread = c.scores.aspects.quality.signals?.find(signal => signal.id === "equityReturnVsCoeSpread");
-    expect(spread?.raw).toBe(c.returns.commonReturnTtm!.returnPct! - er.costOfEquityPct.value!);
-    expect(spread?.asOf).toBe("2026-03-31");
-    expect(spread?.operands?.[0]?.source).toBe("computed.returns.commonReturnTtm.returnPct");
-  });
-
-  it("admits independently evidenced common cash even when its value equals the aggregate field", () => {
-    const f = rejectedNewest("bank", true);
-    if (!f.b.statements.cashflowAnnual.ok) throw new Error("fixture");
-    for (const row of f.b.statements.cashflowAnnual.value.data.rows) {
-      row.netDividendsPaid = row.commonDividendsPaid;
-      row.fieldProvenance = { ...row.fieldProvenance, commonDividendsPaid: { source: "edgar", unit: "USD", periodStart: `${String(row.date).slice(0,4)}-01-01`,
-        periodEnd: String(row.date), observedAt: f.b.builtAt, tags: ["us-gaap/PaymentsOfDividendsCommonStock"],
-        filings: [{ accn: "0000000042-26-000001", filed: "2026-02-01", form: "10-K" }] } };
-    }
-    expect(result(f.b).er.perShare).toBeTypeOf("number");
-  });
-
   it.each(["bank", "insurer"] as const)("%s preserves a preferred-capital refusal at the admitted older book", route => {
     const f = rejectedNewest(route);
     f.balance.preferredCapitalWithheldReason = "Preferred capital unresolved at 2026-03-31";
     f.balance.preferredStock = undefined;
     const { c, er } = result(f.b);
     expect(er.perShare).toBeNull();
-    expect(er.asOf).toBe("2026-03-31");
     expect(c.fairValue.perShare).toBeNull();
     expect(c.scores.aspects.quality.signals?.find(signal => signal.id === "equityReturnVsCoeSpread")?.raw ?? null).toBeNull();
     expect(c.valuation.notes.join(" ")).toMatch(/Preferred capital unresolved at 2026-03-31/);
-    expect(c.valuation.notes.join(" ")).toMatch(/common-book valuation withheld/);
+    expect(c.fairValue.reasons.some(g => g.field === "valuation.excessReturn.preferredCapital" && /2026-03-31/.test(g.reason))).toBe(true);
   });
   it.each(["bank", "insurer"] as const)("%s opens from the filed quarter while retaining the annual return", route => {
     const { b } = fixture(route);

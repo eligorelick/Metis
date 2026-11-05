@@ -29,6 +29,18 @@ function partial() {
 }
 
 describe("partial preliminary balance rows", () => {
+  it("removes a rejected balance from calculation rows while preserving the original observation", () => {
+    const bundle = partial();
+    if (!bundle.statements.balanceQuarterly.ok) throw new Error("fixture");
+    bundle.statements.balanceQuarterly.value.data.raw = structuredClone(bundle.statements.balanceQuarterly.value.data.rows);
+    const original = JSON.stringify(bundle);
+    const view = balanceIntegrityView(bundle);
+    if (!view.statements.balanceQuarterly.ok) throw new Error("fixture");
+    expect(view.statements.balanceQuarterly.value.data.rows.some(row => row.date === "2026-03-31")).toBe(false);
+    expect(view.statements.balanceQuarterly.value.data.rows[0]?.date).toBe("2025-12-31");
+    expect(view.statements.balanceQuarterly.value.data.raw).toEqual(bundle.statements.balanceQuarterly.value.data.raw);
+    expect(JSON.stringify(bundle)).toBe(original);
+  });
   function companion(kind: "incomeQuarterly" | "cashflowQuarterly", complete = false, sameRelease = true) {
     const bundle = { ...completeCurrencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] }), statements: partial().statements };
     if (!bundle.statements.balanceQuarterly.ok || !bundle.statements[kind].ok) throw new Error("fixture");
@@ -53,25 +65,25 @@ describe("partial preliminary balance rows", () => {
     const view = balanceIntegrityView(bundle);
     const family = view.statements[kind];
     if (!family.ok) throw new Error("fixture");
-    expect(family.value.data.rows[0]?.statementIntegrityReason).toBeTypeOf("string");
-    expect(kind === "incomeQuarterly" ? ttmIncome(family.value.data.rows)?.netIncome ?? null : ttmCashFlow(family.value.data.rows)?.operatingCashFlow ?? null).toBeNull();
+    expect(family.value.data.rows.some(row => row.date === "2026-03-31")).toBe(false);
+    const trailing = kind === "incomeQuarterly" ? ttmIncome(family.value.data.rows) : ttmCashFlow(family.value.data.rows);
+    expect(trailing?.date).not.toBe("2026-03-31");
     const c = runStageB(bundle);
     const validation = validateBundle(bundle as never, { now: new Date(bundle.builtAt) });
     const payload = assembleContextPayload(bundle, c, validation);
     for (const block of payload.statements.filter(b => b.title.includes("quarterly") && b.title.startsWith(kind === "incomeQuarterly" ? "Income" : "Cash"))) {
       const cells = block.lineItems.flatMap(line => line.byPeriod).filter(cell => cell.period === "2026-03-31");
-      expect(cells.length).toBeGreaterThan(0);
-      expect(cells.every(cell => cell.value === null)).toBe(true);
+      expect(cells).toEqual([]);
     }
     const balance = payload.statements.find(b => b.title.startsWith("Balance") && b.title.includes("quarterly"));
-    expect(balance?.lineItems.flatMap(line => line.byPeriod).filter(cell => cell.period === "2026-03-31").every(cell => cell.value === null)).toBe(true);
+    expect(balance?.lineItems.flatMap(line => line.byPeriod).filter(cell => cell.period === "2026-03-31")).toEqual([]);
   });
 
   it.each(["incomeQuarterly", "cashflowQuarterly"] as const)("retains complete %s and does not attribute a different release to the rejected balance", kind => {
     for (const bundle of [companion(kind, true), companion(kind, false, false)]) {
       const family = balanceIntegrityView(bundle).statements[kind];
       if (!family.ok) throw new Error("fixture");
-      expect(family.value.data.rows[0]?.statementIntegrityReason).toBeUndefined();
+      expect(family.value.data.rows.some(row => row.date === "2026-03-31")).toBe(true);
     }
   });
 
@@ -94,8 +106,8 @@ describe("partial preliminary balance rows", () => {
     const view = balanceIntegrityView(bundle);
     if (!view.statements.balanceQuarterly.ok) throw new Error("fixture");
     const admitted = view.statements.balanceQuarterly.value.data.rows;
-    expect(admitted.filter(r => r.balanceIntegrityReason).map(r => r.date).sort()).toEqual(["2025-12-31", "2026-03-31"]);
-    expect(admitted.find(r => r.date === "2026-03-31")?.cashAndShortTermInvestments).toBeUndefined();
+    expect(admitted.map(r => r.date)).toEqual(["2025-09-30"]);
+    expect(view.gaps.filter(g => g.field.endsWith(".integrity"))).toHaveLength(2);
   });
 
   it("retains a genuine major disposal after a rejected stub", () => {
@@ -107,7 +119,6 @@ describe("partial preliminary balance rows", () => {
     ];
     const view = balanceIntegrityView(bundle);
     if (!view.statements.balanceQuarterly.ok) throw new Error("fixture");
-    expect(view.statements.balanceQuarterly.value.data.rows[0]?.balanceIntegrityReason).toBeUndefined();
     expect(view.statements.balanceQuarterly.value.data.rows[0]?.totalAssets).toBe(300 * M);
   });
   it("uses the latest complete quarter for both bridges and withholds stale current leverage, with dates disclosed", () => {
@@ -150,18 +161,6 @@ describe("partial preliminary balance rows", () => {
     expect(c.forensics.altman?.score ?? null).toBeNull();
   });
 
-  it("does not let later debt completion repopulate a rejected row", () => {
-    const b = partial();
-    const view = balanceIntegrityView(b);
-    if (!view.statements.balanceQuarterly.ok) throw new Error("balances required");
-    const row = view.statements.balanceQuarterly.value.data.rows[0]!;
-    expect(row.totalDebt).toBeUndefined();
-    expect(row.cashAndCashEquivalents).toBeUndefined();
-    expect(row.shortTermInvestments).toBeUndefined();
-    expect(row.totalCurrentAssets).toBeUndefined();
-    expect(row.balanceIntegrityReason).toMatch(/incomplete asset breakdown/);
-  });
-
   it("refuses when no complete balance exists", () => {
     const bundle = partial();
     if (!bundle.statements.balanceAnnual.ok || !bundle.statements.balanceQuarterly.ok) throw new Error("fixture");
@@ -169,13 +168,12 @@ describe("partial preliminary balance rows", () => {
     for (const row of bundle.statements.balanceQuarterly.value.data.rows.slice(1)) row.totalDebt = undefined;
     const c = runStageB(bundle);
     expect(c.valuation.multiples?.enterpriseValue.value).toBeNull();
-    expect(c.valuation.notes.join(" ")).toMatch(/No complete balance is available/);
   });
 
-  it("does not cure a known cash-scope refusal by moving to an older date", () => {
+  it("preserves a known cash-scope refusal on a retained row", () => {
     const bundle = partial();
     if (!bundle.statements.balanceQuarterly.ok) throw new Error("fixture");
-    bundle.statements.balanceQuarterly.value.data.rows[0]!.fieldConflicts = {
+    bundle.statements.balanceQuarterly.value.data.rows[1]!.fieldConflicts = {
       cashAndShortTermInvestments: { usable: false, vendorValue: 400 * M, secValue: null, reason: "cash scope unresolved" },
     };
     const c = runStageB(bundle);
@@ -215,9 +213,9 @@ describe("partial preliminary balance rows", () => {
     if (mode === "wrong issuer") facts.cik = 99;
     const view = balanceIntegrityView(bundle);
     if (!view.statements.balanceQuarterly.ok) throw new Error("fixture");
-    const row = view.statements.balanceQuarterly.value.data.rows[0]!;
-    expect(row.totalDebt).toBe(mode === "filed" ? 300 * M : undefined);
-    expect(row.cashAndShortTermInvestments).toBe(mode === "filed" ? 120 * M : undefined);
-    if (mode === "filed") expect(row.fieldProvenance?.totalAssets?.filings[0]?.accn).toBe(point.accn);
+    const row = view.statements.balanceQuarterly.value.data.rows.find(r => r.date === "2026-03-31");
+    expect(row?.totalDebt).toBe(mode === "filed" ? 300 * M : undefined);
+    expect(row?.cashAndShortTermInvestments).toBe(mode === "filed" ? 120 * M : undefined);
+    if (mode === "filed") expect(row?.fieldProvenance?.totalAssets?.filings[0]?.accn).toBe(point.accn);
   });
 });

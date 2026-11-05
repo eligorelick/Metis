@@ -187,8 +187,6 @@ export interface StatementFieldConflict {
 }
 
 export interface FmpStatementRow extends FmpRawRow {
-  /** D-207 calculation/payload view: a preliminary row's amounts are unavailable. */
-  statementIntegrityReason?: string;
   date?: string;
   symbol?: string;
   reportedCurrency?: string | null;
@@ -245,8 +243,6 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
 }
 
 export interface FmpBalanceSheetRow extends FmpStatementRow {
-  /** D-207 calculation view only: the row's amounts were withheld as an incomplete breakdown. */
-  balanceIntegrityReason?: string;
   /** Legacy estimates derived from the identity cannot independently validate it. */
   identityDerivedFields?: string[];
   cashAndCashEquivalents?: number;

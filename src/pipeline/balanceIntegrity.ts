@@ -42,12 +42,6 @@ export function balanceBreakdownFailure(row: FmpBalanceSheetRow, previous: FmpBa
   return missingBreakdown(row, previous, "balance");
 }
 
-/** Keep the instant and audit metadata; no consumer may read the rejected amounts. */
-function withoutAmounts<T extends FmpStatementRow>(row: T, reason: string, kind: StatementKind): T {
-  return { ...Object.fromEntries(Object.entries(row).filter(([, value]) => typeof value !== "number")),
-    statementIntegrityReason: reason, ...(kind === "balance" ? { balanceIntegrityReason: reason } : {}) } as T;
-}
-
 /** Assess oldest first; a failed observation never becomes the next comparator. */
 function breakdownFailures(rows: readonly FmpStatementRow[], kind: StatementKind, eligible: (row: FmpStatementRow) => boolean = () => true): Map<string, string> {
   const accepted: FmpStatementRow[] = [];
@@ -123,14 +117,14 @@ export function balanceIntegrityView(bundle: DataBundle): DataBundle {
   for (const name of families) {
     const family = statements[name];
     if (!family.ok) continue;
-    statements[name] = { ...family, value: { ...family.value, data: { ...family.value.data, rows: family.value.data.rows.map(row => {
+    statements[name] = { ...family, value: { ...family.value, data: { ...family.value.data, rows: family.value.data.rows.flatMap(row => {
       const failure = failures.get(row);
-      if (!failure) return row;
+      if (!failure) return [row];
       const { reason, kind } = failure;
       const replacement = filedReplacement(row, filed?.[name].rows ?? [], kind);
       gaps.push({ field: `statements.${kind}.${row.date}.integrity`, severity: replacement ? "info" : "warn", reason: reason +
-        (replacement ? " A complete same-period filed statement replaces the vendor row." : " No complete same-period filed statement is retained; these amounts are withheld. Any older balance used is dated separately; an older flow cannot replace a missing current period.") });
-      return replacement ?? withoutAmounts(row, reason, kind);
+        (replacement ? " A complete same-period filed statement replaces the vendor row." : " No complete same-period filed statement is retained; the incomplete row is excluded from calculations and AI statement extracts. Any older statement used retains its own date.") });
+      return replacement ? [replacement] : [];
     }) } } };
   }
   return { ...bundle, statements, gaps };

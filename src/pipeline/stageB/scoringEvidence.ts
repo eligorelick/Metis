@@ -15,15 +15,6 @@ const HISTORY_KEY_LABEL: Record<string, string> = {
 };
 type Evidence = Pick<ScoreSignal, "family" | "asOf" | "period" | "startDate" | "endDate" | "windowYears" | "fallbackReason" | "operands">;
 
-/** A payout refusal does not erase a measured return on the admitted opening book. */
-export function qualityEquityReturn(i: ScoringInputs): { value: number | null; asOf: string | null; source: string } {
-  const er = i.valuation.kind === "excess-return" ? i.valuation.excessReturn : null;
-  const observed = i.admittedCommonReturn;
-  return er && observed && finite(observed.returnPct) && observed.asOf === er.asOf && finite(er.openingBookValue.value)
-    ? { value: observed.returnPct, asOf: observed.asOf, source: "computed.returns.commonReturnTtm.returnPct" }
-    : { value: er?.roePathPct.value[0] ?? null, asOf: er?.asOf ?? null, source: "computed.valuation.excessReturn.roePathPct.value[0]" };
-}
-
 /** Metadata only: mirror each grader's selected operand and never change its numeric score. */
 export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id: string): Evidence {
   const result: Evidence = { family: aspect, asOf: null, period: null, startDate: null, endDate: null, windowYears: null, fallbackReason: null, operands: [] };
@@ -89,11 +80,9 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     }
   } else if (id === "equityReturnVsCoeSpread" || id === "roeImpliedVsAchievable") {
     const er = i.valuation.kind === "excess-return" ? i.valuation.excessReturn : null;
-    const observed = id === "equityReturnVsCoeSpread" ? qualityEquityReturn(i) : null;
     result.family = id === "equityReturnVsCoeSpread" ? "capital-returns" : "valuation";
-    dates(null, observed?.asOf ?? er?.asOf);
-    operand(i.route.base === "bank" ? "current ROTE" : "current common ROE", observed ? observed.value : er?.roePathPct?.value?.[0],
-      observed?.source ?? "computed.valuation.excessReturn.roePathPct.value[0]", result.endDate);
+    dates(null, er?.asOf);
+    operand(i.route.base === "bank" ? "current ROTE" : "current common ROE", er?.roePathPct?.value?.[0], "computed.valuation.excessReturn.roePathPct.value[0]", result.endDate);
     if (id === "equityReturnVsCoeSpread") {
       operand("cost of equity", er?.costOfEquityPct?.value, "computed.valuation.excessReturn.costOfEquityPct.value", rateDate);
       result.period = `Equity-return period end ${result.endDate ?? "unavailable"}; cost-of-equity observation ${rateDate ?? "unavailable"}`;
