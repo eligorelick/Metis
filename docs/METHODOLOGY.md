@@ -518,6 +518,42 @@ These contracts are covered by `tests/stageB.quarterWindows.test.ts`,
 `tests/currency.priceComparison.test.ts` and
 `tests/currency.analystEstimates.test.ts`.
 
+## Incomplete preliminary balance sheets
+
+D-207 checks annual and quarterly vendor rows against their original retained
+observations, before field enrichment and calculations. A row is incomplete
+when receivables, inventory, net property and equipment, and long-term
+investments are **all explicitly zero**, at least two of those classes each
+exceeded 1% of assets in the preceding same-issuer, same-currency balance, and
+the two asset totals differ by at most 20% of the larger total. These are
+conservative input-materiality allowances, independent of valuation. A missing
+line, one zero investment line, or a negative residual alone does not satisfy
+the rule. Unclassified financial-company presentations and overlapping provider
+categories make a universal sum of all asset lines unsafe.
+
+A complete same-period filed balance takes precedence only with exact issuer,
+instant and currency, no refused anchor operands, and one filing establishing
+assets, parent equity, debt and liquidity (including the operands of derived
+totals). Filed facts observed after the report cutoff cannot repair it. The
+whole filed row replaces the vendor row; unsupported details remain unknown.
+Otherwise retain the rejected date and diagnostic, withhold its numeric
+operands, and reuse the existing complete-balance anchor across annual and
+quarterly history. The equity bridge and market EV disclose the selected date.
+Known filing refusals retain their existing precedence and cannot be cured by
+moving to an older date. No complete eligible balance means no bridge.
+
+WACC excludes the rejected balance under its existing complete-balance rules.
+Current leverage, current ratio, forensic tests, returns and financial common
+book cannot consume rejected cash or investments. A ratio or book/share pairing
+requiring the rejected date stays unavailable; an older balance is never
+relabeled as current. Annual forensic rows retain their dates with unknown
+operands, preventing an older year from silently becoming the latest year.
+Acquired snapshots and stored reports are unchanged.
+
+This detects a broad disappearing breakdown, not every possible vendor error.
+Income and cash-flow rows require their own duration and component identities;
+sharing an earnings-release timestamp does not establish that they are wrong.
+
 ## WACC inputs
 
 The discount rate is never printed as a bare percentage. Every input is named

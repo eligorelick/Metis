@@ -18,6 +18,17 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Balance rows that do not add up (2026-11-05)
+
+- Withhold preliminary vendor balances whose entire major asset breakdown
+  disappears beside a largely unchanged asset total. Prefer a complete
+  same-period filed balance; otherwise disclose the older complete balance
+  used by the equity bridge. Ratios that need the rejected date stay unavailable.
+- Apply the decision before every balance consumer. Original source snapshots
+  and saved reports remain immutable. See D-207 for the census and limits.
+- Integration must advance the Stage B implementation, fair-value method,
+  scenario-target method and payload stamps; this change leaves constants intact.
+
 ## Unreleased - Unknown tickers, regulated utilities and foreign banks (2026-11-04)
 
 - Unknown and unclassified jobs end as unsupported, saving no report and admitting
