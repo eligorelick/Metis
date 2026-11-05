@@ -7397,3 +7397,294 @@ Both reported defects reproduced with failing synthetic tests: foreign Item 18 a
 The replay uses only the retained panel inventory and cached filing HTML under the section scratch directories. It opens no frozen/live database or live-run directory. All **484** slots keep the same found status and text hash as the preceding report; **397** originally clean successful slots are also compared directly against the retained original strings and remain byte-identical. There are **zero changed slots** to list. TSM, SAP, TM and BABA remain identical, as do annual-index redirects DIS (Item 15 authority), PEP and EXPE (printed-page proof without an assumed current item). Availability remains **435/484**; the notes census remains **one auditor-related prose mention and zero signature headings**. Complete before/after passages, hashes and test logs are retained in `tmp/section-boundary-review-105/`. No build command, existing-server or port operation, push or PR action is performed for this correction.
 
 Review validation on Node 24.11.1: typecheck (`--incremental false`) and ESLint pass; the required changed run with no filename arguments and `--maxWorkers 4` passes **539 files / 13,268 tests**, with one platform skip. The focused regression suites pass **195 tests**. Separate risk coverage, repository release, docs lint, tag-synonym and P8-agreement runs pass **11, 18, 14, 9 and 8 tests**, respectively. The live build and existing servers are left unchanged.
+
+## D-202 - Lease and debt admission beyond the test panel (2026-11-04)
+
+Implementation commits: `6e825122` and `979e3e73` on
+`t3/balance-round2-fix`, based on `e6110f17`.
+
+The default model excludes operating leases from financing debt and retains
+finance leases. D-196's requirement for separate filings of both lease families
+was too strict for an undisclosed vendor lease zero: reconciled borrowing
+components establish their scope independently of that line. The calculation
+view composes the proved amounts once, then applies the same lease treatment
+to net debt, WACC and invested capital. No valuation coefficient is calibrated.
+
+### Admission rules and root causes
+
+1. **Undisclosed finance leases.** If no recognized separate finance-liability
+   element is filed at the instant, assume that family is not separately
+   material under ASC 842. State the assumption, never call it a filed zero,
+   and do not attach finance-liability provenance to it. An actually disclosed
+   finance total is used; its maturity split is required only where an overlap
+   calculation needs that split. A disclosed but incomplete family still
+   refuses an unsupported total. Vendor borrowing components, total and
+   embedded operating portions must reconcile in one filing and currency.
+2. **Operating-only vendor lines.** A vendor line equal to a complete filed
+   operating liability is operating-only. It need not equal operating plus
+   finance liabilities. The separate finance observation stays available on
+   both conventions, including the equity-bridge explanation. Retain all
+   negative-input and total-debt checks. A filed combined lease line, a missing
+   or different instant, or an unproved operating scope cannot use this rule.
+3. **Partial operating leases and zero borrowings.** Where one filing proves
+   the retained composition, the disclosed noncurrent operating portion can
+   cancel without inventing its current maturity. Full lease-inclusive debt
+   remains unavailable. Retained vendor zero borrowings with no contradictory
+   recognized borrowing disclosure are labelled vendor observations, not
+   filed zeros. This fixes the cause of T/PLTR's missing debt operand;
+   independent security/class or valuation-domain guards remain authoritative.
+   Without separate finance-liability disclosure, combined current maturities
+   plus separately disclosed short-term borrowing can establish current debt
+   when the vendor amount reconciles: RTX's 5,679M + 210M = 5,889M current
+   borrowing is established. Its actual latest vendor total remains
+   contradictory: 5,889M + 31,490M + 1,495M = 38,874M, versus the supplied
+   38,884M. The unexplained 10M is not inserted as a balancing plug; its latest
+   debt and DCF remain withheld. A separately
+   filed finance family or competing inclusive current total still leaves an
+   overlap without pure maturities unresolved. IBM's vendor current debt also
+   fails the independent component sum; the retained quarterly financial text
+   is only 18 characters of contents-page residue, supplying no independent
+   carrying-line reconciliation. HOOD's 2025 vendor current debt is 11,626M
+   beside zero filed noncurrent debt and no compatible current borrowing
+   observation; it cannot be treated as proved borrowing merely by repairing
+   the zero lease line. Its annual debt/WACC refusal remains.
+4. **Gross versus carrying debt.** AVGO's August 2026 same-filing combined
+   gross amount 61,079M plus the signed discount/issuance-cost amount -1,660M
+   equals inclusive carrying debt 59,419M: current 2,252M plus noncurrent
+   57,167M. At November 2025, 67,120M - 1,984M = 65,136M. The old completeness
+   check called those costs missing borrowings. Exempt only that proved gross
+   observation; an incorrect sign, unmatched amount, different filing or issuer
+   still refuses. No principal amount replaces carrying debt.
+5. **Unclassified leases in the interest test.** INFY's vendor debt has an
+   unclassified lease component. The completeness test dropped that entire
+   component while retaining its interest, then reported a 33.3% implied rate
+   on the small remaining borrowing balance. Retain a reconciled published
+   total in this test when neither lease family is classified. A proved
+   operating portion still leaves the interest-bearing denominator; the
+   implausible-rate and unexplained-collapse controls remain. No FX, ADR,
+   beta, utility routing, revenue or share-class rule is changed here.
+6. **Cash and filing order.** A cash-driven net-debt refusal prevented debt
+   completion when cash admission ran first, although the same debt completed
+   when debt ran first. Reconcile debt independently and preserve the cash/net
+   refusal, including a snapshot carrying an older debt refusal. Prefer the
+   vendor row's original filing for debt completion; a later partial
+   comparative must not replace the complete original in replay while
+   acquisition retains it. Missing/refused invested-capital operands are
+   named and never zero-filled, even when an audit observation remains numeric.
+
+The wider replay additionally exposed two consumer omissions. Stage B's main
+net-debt adapter and the annual capital adapter discarded field provenance,
+so FDX's correctly recognized operating-only line was refused again downstream.
+Both now retain its evidence; a full Stage B synthetic case failed first and
+now admits the bridge and leverage ratio. The partial-operating/combined-current
+RTX shape also failed first, then passed with the explicit finance-materiality
+assumption and the reconciled current-borrowing sum. Existing controls with a
+filed finance family retain their current-scope refusal.
+
+### EXPE: different inputs, plus independent pass-order defects
+
+The earlier frozen panel still returns **266.19** on this implementation. Its
+latest balance is June 2026: financing debt 5,459M + consolidated equity
+2,471M - liquidity 7,127M = **803M** invested capital on the lease-excluded
+basis. Removing 1,804M long-term investments then invokes the existing house
+sales-to-capital cap of 5. The 226M partial operating portion cancels once.
+
+The wider fresh run has a newly published September balance: vendor debt
+975M (749M current + 226M noncurrent), equity 2,916M and liquidity 7,110M.
+That is **-3,219M** invested capital. Retained companyfacts and financial
+notes stop at June; the new 226M vendor long-term debt equals June's
+noncurrent operating lease observation, a suspicious feed shape rather than
+proof of a genuine repayment. No same-period filing reconciliation establishes
+the new borrowing amount. The old 266.19 cannot validate this newer balance.
+The wider run's price also differs (315.88 versus 322.48 in the earlier panel).
+Keep the current DCF withheld rather than reuse the June book or invent debt.
+
+The December 2025 cash conflict remains separate: vendor 6,976M versus filed
+5,413M; qualified cash, combined liquidity and net debt are not treated as zero.
+Synthetic tests independently reproduced and fixed the cash/debt ordering and
+original-versus-later-partial-filing defects above. The different EXPE outcomes
+are reproducible with the two different frozen input sets, not a remaining
+claim that replay validates fresh provider observations.
+
+### Full frozen census and preservation
+
+Base source and `origin/main`: `e6110f17954c78f7ca3469d6be9c92eb7307872a`. The read-only round-2 database contains **104 saved-report symbols: 103 companies plus the unknown-security ZZZZQ control**. Its 105 snapshots add QQQ, an unsupported ETF control. Every snapshot was evaluated using its original clock/configuration. No source/report database was written.
+
+Available fair values increase **48 -> 58 of the 104 saved-report symbols** (48 -> 58 of 103 companies). Ten recover; no available value or target set is lost. Causes below group the first binding headline reason; the extra QQQ control is unchanged and excluded from the 104-symbol denominator.
+
+| Outcome / refusal cause | Before | After |
+| --- | ---: | ---: |
+| Available fair value | 48 | 58 |
+| Outside DCF domain | 5 | 5 |
+| Real unprofitable overlay | 9 | 9 |
+| Nonpositive invested capital | 1 | 1 |
+| Currency / security unit | 5 | 5 |
+| Financial common-capital / earnings | 1 | 1 |
+| Shares / class scope | 10 | 12 |
+| Lease / debt scope | 15 | 4 |
+| Other WACC evidence | 3 | 3 |
+| Debt completeness / plausibility | 6 | 5 |
+| Unknown-security control | 1 | 1 |
+
+Exactly **23 companies** change full fair-value, scenario-target or composite content: **21 numerical changes and two wording-only changes (RTX, IBM)**. Every other **80 company core objects are byte-identical**, with no method-stamp exclusions. Both error controls are identical. Ordered SHA-256 of the 80 unchanged full core objects:
+
+`492bcca4f4e9ab7eed22a1c3cf125f16826786aae58606930df25ac7ed26ef5f`.
+
+The unchanged companies are AAPL, MSFT, NVDA, GOOGL, AMZN, META, JNJ, PG, KO, PEP, WMT, COST, HD, MCD, XOM, CAT, ORCL, NKE, DIS, INTC, VZ, TSLA, BA, EXPE, TSM, ASML, TM, NVO, SAP, SONY, BABA, JPM, BAC, WFC, GS, MS, C, USB, PGR, TRV, MET, AIG, O, NEE, BRK.B, FIGR, CRWV, DUK, SO, D, EXC, PLD, SPG, EQIX, CMCSA, PFE, ABBV, CVX, COP, SLB, GM, LMT, HON, ADBE, SHOP, UBER, ABNB, SNOW, HOOD, RIVN, BF.B, GOOG, TD, RY, BCS, UL, BP, SHEL, RKLB, ASTS.
+
+RTX and IBM also retain identical numerical observations: **82 companies** retain their fair-value observations, target rows/status and complete composites; ordered SHA-256 `b166995a1a987683d59b19c3129c3e07b03c2d24779bec312504deae70f69645`. The comparison separately fails on an unexplained changed company, a missing result, a lost available fair value/target set, or changed control.
+
+The production acquisition enrichment was also re-executed offline before Stage B on the identical retained sources. Three disjoint paired partitions cover all 105 symbols. Their tests assert original-bundle byte immutability and exact replay/acquisition equality. An independent combined comparison finds **103 identical complete company core objects and two identical errors, zero differences**. This exercises acquisition pass order; it does not claim a new live provider refresh or any paid acquisition.
+
+### Every changed company
+
+USD per quoted share. Composite changes reflect admitted evidence and its existing weights, not an improvement in the business.
+
+| Symbol | Price | Consensus | Fair value before -> after | Composite before -> after | Source / analyst explanation |
+| --- | ---: | ---: | --- | --- | --- |
+| UNH | 409.38 | 478.68 | 353.08 -> 393.37 | 53.45 -> 56.61 | Annual lease/debt scope restores ROIC history and activates the existing terminal excess-return rule. |
+| LLY | 1417.72 | 1442.61 | 774.28 -> 774.28 | 61.44 -> 63.46 | Historical debt/lease admission restores the ROIC floor and own-history valuation comparison; fair value and targets stay fixed. |
+| AEP | 129.24 | 140.81 | 44.59 -> 43.91 | 50.09 -> 49.41 | Filed finance-lease capital changes the historical sales-to-capital floor. The separate utility-model handoff remains. |
+| AMT | 194.86 | 203.67 | unavailable -> unavailable | 55.58 -> 54.36 | Operating-only lease evidence reaches the annual leverage adapter; REIT intrinsic value remains unavailable. |
+| T | 21.84 | 26.39 | unavailable -> 28.88 | 55.92 -> 58.80 | Proved current/noncurrent borrowing and the embedded noncurrent operating portion reconcile; the partial operating portion cancels. |
+| MRK | 150.34 | 160.47 | unavailable -> unavailable | 54.46 -> 59.35 | Inclusive DebtCurrent and the vendor current operating portion reconcile; ROIC/leverage recover while the revenue refusal remains. |
+| F | 12.67 | 15.56 | unavailable -> unavailable | 47.15 -> 46.04 | Historical lease scopes change valuation comparison; the genuine trailing loss still withholds the DCF. |
+| UPS | 114.30 | 115.79 | unavailable -> unavailable | 57.25 -> 57.88 | Same-filing financing/lease overlap is reconciled in history; the independent class/capitalization refusal remains. |
+| FDX | 329.40 | 301.85 | unavailable -> 238.20 | 54.13 -> 50.08 | Complete operating-only lease evidence survives both net-debt adapters; filed finance leases remain in debt. |
+| RTX | 198.43 | 232.18 | unavailable -> unavailable | 56.69 -> 56.69 | Wording only: missing totalDebt is named. The supplied total exceeds its own components by 10M; no balancing plug is invented. |
+| GE | 329.45 | 385.00 | unavailable -> 136.51 | 57.73 -> 52.75 | Filed borrowing scopes reconcile independently of the vendor zero lease line; operating leases are excluded consistently. |
+| MMM | 193.95 | 188.13 | unavailable -> 79.25 | 50.18 -> 44.26 | Reconciled borrowings and operating leases use the disclosed finance-materiality assumption. |
+| IBM | 254.32 | 271.07 | unavailable -> unavailable | 55.35 -> 55.35 | Wording only: totalDebt is named; current borrowing scopes remain unreconciled without a usable primary statement. |
+| CSCO | 103.61 | 131.42 | unavailable -> 54.83 | 55.07 -> 56.23 | Inclusive current borrowing reconciles and the undisclosed lease zero is completed; historical capital returns recover. |
+| CRM | 227.11 | 274.18 | unavailable -> 103.04 | 62.06 -> 59.67 | The operating-only line and separately filed finance total are admitted without an unnecessary maturity split. |
+| AMD | 488.78 | 649.74 | unavailable -> unavailable | 61.32 -> 60.36 | Historical lease/debt evidence changes own-history valuation comparison; the outside-domain DCF refusal stays. |
+| QCOM | 173.19 | 209.94 | unavailable -> 80.66 | 55.12 -> 55.30 | DebtCurrent covers the maturity subset; borrowing scopes and the undisclosed lease zero reconcile. |
+| AVGO | 325.48 | 514.37 | unavailable -> 288.59 | 65.95 -> 66.77 | Signed same-filing discount/issuance costs reconcile gross combined debt to carrying debt. |
+| NFLX | 66.39 | 86.21 | unavailable -> 42.54 | 64.03 -> 66.31 | Filed short-term and noncurrent borrowing reconcile; the missing separate finance family is an explicit assumption. |
+| PYPL | 60.20 | 55.88 | unavailable -> 81.22 | 58.80 -> 70.69 | Inclusive current borrowing, filed finance leases and operating leases reconcile exactly once. |
+| PLTR | 171.70 | 218.89 | unavailable -> unavailable | 66.44 -> 68.66 | Vendor zero borrowing and the partial operating portion are admitted; the diluted-denominator/class refusal remains. |
+| COIN | 151.50 | 203.04 | unavailable -> unavailable | 54.39 -> 57.30 | Historical borrowing/lease admission restores capital-return evidence; the real trailing-loss refusal remains. |
+| INFY | 12.24 | 11.65 | unavailable -> unavailable | 56.77 -> 63.99 | The interest test retains unclassified leases instead of dropping their denominator; the quoted-share/ADR refusal remains. |
+
+Scenario targets are bull / base / bear. Every changed fair-value observation with an available value is included; all other changed-company target sets remain unavailable.
+
+| Symbol | Targets before | Targets after |
+| --- | --- | --- |
+| UNH | 377.63 / 353.08 / 329.15 | 422.21 / 393.37 / 365.51 |
+| LLY | 1185.28 / 774.28 / 476.62 | 1185.28 / 774.28 / 476.62 |
+| AEP | none | none |
+| T | none | 36.72 / 28.88 / 17.49 |
+| FDX | none | 291.30 / 238.20 / 188.69 |
+| GE | none | 229.83 / 136.51 / 75.99 |
+| MMM | none | 105.20 / 79.25 / 54.28 |
+| CSCO | none | 62.87 / 54.83 / 47.90 |
+| CRM | none | 118.42 / 103.04 / 90.35 |
+| QCOM | none | 124.73 / 80.66 / 48.86 |
+| AVGO | none | 369.74 / 288.59 / 224.26 |
+| NFLX | none | 54.47 / 42.54 / 33.22 |
+| PYPL | none | 93.97 / 81.22 / 69.74 |
+
+### Analyst checks on every available changed-company value
+
+The observed current P/E and EV/EBITDA below are comparisons, not calibration targets. The independent diagnostic re-runs each base enterprise value, checks equity per share against the sourced bridge denominator, and confirms **zero equity-bridge residual for all 13 rows**. No growth, margin, discount-rate or terminal-return coefficient is tuned.
+
+| Symbol | Current P/E | Current EV/EBITDA | Value vs price | Year-one growth | Operating margin start -> end | WACC |
+| --- | ---: | ---: | ---: | ---: | --- | ---: |
+| UNH | 23.37x | 14.93x | -3.91% | 1.82% | 5.32% -> 5.32% | 7.58% |
+| LLY | 46.01x | 32.81x | -45.39% | 13.56% | 46.07% -> 46.07% | 7.66% |
+| AEP | 20.97x | unavailable | -66.02% | 3.98% | 23.43% -> 23.43% | 6.15% |
+| T | 11.87x | 7.15x | 32.23% | 0.99% | 18.30% -> 19.32% | 6.00% |
+| FDX | unavailable | 8.16x | -27.69% | -9.41% | 5.71% -> 6.92% | 9.09% |
+| GE | 38.06x | 30.98x | -58.56% | 1.19% | 19.24% -> 19.24% | 10.28% |
+| MMM | 28.90x | 18.00x | -59.14% | 4.58% | 18.75% -> 18.76% | 8.90% |
+| CSCO | 31.02x | 23.58x | -47.08% | 13.67% | 24.27% -> 24.27% | 9.07% |
+| CRM | 20.70x | 17.02x | -54.63% | 10.15% | 19.88% -> 19.88% | 9.07% |
+| QCOM | 13.64x | 18.04x | -53.43% | 3.81% | 20.08% -> 20.08% | 11.32% |
+| AVGO | 41.57x | 30.81x | -11.33% | 79.63% | 48.05% -> 39.89% | 10.69% |
+| NFLX | 19.19x | 8.46x | -35.92% | 10.48% | 31.30% -> 31.69% | 10.90% |
+| PYPL | 11.49x | 7.83x | 34.92% | 3.58% | 16.99% -> 16.99% | 9.09% |
+
+UNH is 3.91% below price and below 478.68 consensus. Its 40.29 increase is entirely the existing historical excess-return rule: terminal ROIC rises from WACC 7.58% to 12.58%. Holding that terminal ROIC at WACC independently reproduces **353.08**, while all other operands stay fixed. This is a material conditional forecast effect of restored capital history.
+
+AEP looks unreliable as a regulated-utility DCF: 43.91 is 66.02% below price and below 140.81 consensus, with **89.43% of EV in terminal PV**. Its small change is the historical sales-to-capital floor 0.309533x -> 0.306674x after finance-lease capital is admitted. Utility-model treatment belongs to the parallel engineer; this branch does not change it or endorse that market gap.
+
+GE, MMM, CSCO, CRM and QCOM remain materially below both price and consensus. Their bridge identities, quoted-share units and financing scopes tie; the table shows the existing growth/margin/WACC assumptions producing the gaps. GE holds its margin with only 1.19% year-one growth; QCOM uses 11.32% WACC; CRM retains a low 0.790650x sales-to-capital ratio. MMM also retains the existing senior-claim deductions. These are conditional house-model results, not evidence that the observed market/consensus is wrong. LLY remains at 774.28, with its valuation/target bytes unchanged.
+
+T is 32.23% above price and 9.44% above consensus: growth starts at 0.99%, margin rises 18.30% -> 19.32%, and the existing 6% WACC floor applies. FDX is 27.69% below price and below 301.85 consensus; its existing -9.41% year-one revenue anchor and 5.71% -> 6.92% margin path explain the discount. Its P/E remains unavailable rather than being manufactured from incomplete EPS. NFLX is 35.92% below price and below 86.21 consensus with 10.90% WACC; its price, share and bridge units tie.
+
+AVGO is 11.33% below price and below 514.37 consensus despite an aggressive existing 79.63% year-one revenue anchor. Its margin fades 48.05% -> 39.89%, sales-to-capital is 0.659375x and terminal PV is 76.37% of EV. The signed carrying-debt reconciliation is exact; no coefficient is moved to close the consensus gap. PYPL is about 35% above price and 45% above consensus, supported conditionally by the existing 3.58% growth, 16.99% margin and 9.09% WACC path. Removing the existing terminal excess-return assumption still gives **76.26**, above both comparisons. That premium is disclosed, not tuned away.
+
+The largest score moves are restored/changed signals, not disappearing negative signals. PYPL gains contributions from DCF upside (+2.906), ROIC/WACC spread (+2.395), ROIC level (+2.302), reverse DCF (+2.147) and leverage (+1.569). INFY regains ROIC level (+3.038), return spread (+2.205) and leverage (+2.040), with offsetting forensic changes. GE and MMM acquire negative DCF/reverse contributions (-2.8 and -2.1 each); FDX gains negative DCF/reverse readings and its historical P/E comparison worsens. LLY restores its ROIC-floor contribution (+1.626) and changes its P/E-history contribution (+0.397). These explain the large movements without treating data availability as business improvement.
+
+Remaining named limitations are RTX's real 10M vendor-component contradiction; IBM's unresolved current-debt overlap and absent primary statement; HOOD's unreconciled annual vendor borrowing; PLTR/INFY/UPS's separate denominator/class issues; MRK's revenue conflict; and EXPE's newer unproved balance. These are handed back with their actual evidence requirements. No ticker-specific admission or forecast is added.
+
+### Failing-first tests, controls and verification
+
+Observed synthetic failures preceded the changes: missing separate finance
+disclosure left 104M instead of 124M; a current aggregate left 107M instead of
+133M; a filed finance total without a maturity split left 124M instead of 130M;
+the gross-to-carrying case withheld a proved 104M; a later partial filing gave
+122M instead of the original filing's 124M; cash-first admission left 104M
+while debt-first gave 130M; an older debt refusal lost the cash/net-debt
+qualification after recovery; partial operating and vendor-zero-borrowing
+cases stayed unavailable; and unclassified leases manufactured a >25% debt
+rate. Missing invested-capital fields were unnamed and refused numeric audit
+observations still entered assumptions. Full bridge tests also reproduced the
+lost operating-only evidence in the two net-debt adapters. No filing text or
+provider row was added to a fixture.
+
+Negative controls keep filed finance amounts, wrong-issuer/mixed-filing and
+unmatched signed adjustments, supplied debt/lease contradictions, refused
+components/collapse observations, unknown current-maturity overlaps with a
+filed finance family, and lease-inclusive partial-coverage refusals. A proved
+operating lease still leaves the interest-bearing denominator and exposes an
+implausible borrowing rate. A vendor line already correctly composed is
+returned unchanged; a failed zero-line repair preserves its prior decision.
+
+Final verification uses **Node 24.11.1**, Program Files first on PATH, and its
+npm CLI in `npm_execpath`:
+
+| Command / check | Result |
+| --- | --- |
+| `npm ci --offline --no-audit --no-fund` | Installed the missing local dependencies; no paid request. |
+| `npm run typecheck` | Passed. |
+| ESLint on all ten changed TypeScript source/test files | Passed, no findings. |
+| `node node_modules/vitest/vitest.mjs run --config vitest.config.ts --changed origin/main --passWithNoTests --maxWorkers 4` | **551 files, 13,220 passed, one platform skip**; final explicit Vitest exit code 0, 318.93 seconds. No filename argument narrowed the changed run. |
+| Focused debt/lease, capital and truthful-refusal suites | **305 tests** across ten files pass. |
+| Separate `tests/risk.coverage.test.ts` | 11 passed, exit 0. |
+| Separate `tests/repository.release.test.ts` | 18 passed, exit 0. |
+| Separate `tests/docs.lint.test.ts` | 14 passed, exit 0. |
+| Separate `tests/edgar.tagSynonyms.test.ts` | 9 passed, exit 0. |
+| Separate `tests/docs.p8Agreement.test.ts` | 8 passed, exit 0. |
+| Three paired frozen-input partitions | Each passes its replay/acquisition/immutability assertions; 105 distinct symbols accounted for, including both controls. Durations 491.79 / 520.48 / 436.12 seconds. |
+| Independent comparison and analyst diagnostics | All preservation assertions pass; 103 exact acquisition/replay core matches, two equal errors; 13 base-EV/share/bridge checks pass. |
+| `git diff --check` | Clean. |
+
+The initial broad run exposed overbroad current-zero/current-overlap completion
+and a bridge fixture/provenance gap; those were corrected and the affected
+controls rerun. One scheduler-concurrency timeout in that heavily concurrent
+run did not recur in the final two full changed runs. The first monolithic
+final panel produced all 105 results but exceeded its old 900-second test limit;
+the final paired partitions use a 1,800-second limit and pass. The ordinary
+Vite future-loader warning is informational; the final broad command records
+the actual Vitest exit explicitly. No full `npm run verify` was run.
+
+Scratch evidence is under ignored `tmp/int/panel/`: immutable snapshots stay
+in the supplied read-only databases; before/final core details, each paired
+partition, `final-comparison.json`, `order-comparison.json`,
+`preservation-proof.json`, `analyst.json`, `analyst-sensitivity.json`, signal
+contribution differences and red/green/check logs are retained. No FMP,
+Finnhub, FRED, model or other paid call, credential/owner-environment read,
+owner app-data access, push, PR or merge was performed. The diff was
+self-reviewed for double counting, zero/unknown distinction, filing/issuer
+identity, cash dependencies, pass order, unchanged controls and honest
+remaining refusals.
+
+### Release boundary
+
+Advance the Stage B implementation identity, fair-value method, scenario-target
+method and payload stamps together before release. The lease/net-debt semantic
+change also requires a new net-debt resolver identity. This branch changes no
+version constants. No report schema or pipeline-orchestration advance is needed;
+stored reports and source snapshots remain immutable and retain their display.
+No new source or documentation file is introduced.

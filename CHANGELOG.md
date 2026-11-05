@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Lease and debt admission beyond the test panel (2026-11-04)
+
+- Reconcile vendor borrowing scopes independently of an undisclosed lease line. Operating leases leave debt under the house convention; finance leases stay in debt. Missing separate finance-lease disclosure is an explicit materiality assumption, never a filed zero.
+- Recognize operating-only lease lines and permit a proved partial operating portion to cancel without inventing its missing maturity. Preserve debt contradictions and the lease-inclusive refusal when full coverage is unavailable.
+- Reconcile gross debt to carrying debt only with a same-filing signed adjustment. Prefer the vendor row's original filing when completing its debt; identify missing or refused invested-capital operands explicitly.
+- D-202 records the wider frozen-input audit and release requirements. Saved reports and version constants remain unchanged.
+
 ## Unreleased - Scores that lost an aspect say so (2026-11-04)
 
 - The composite note now names any unscored aspect that carries weight, says its

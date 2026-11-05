@@ -7768,6 +7768,51 @@ unresolved current notes, incomplete or mixed-filing lease evidence, and
 independent debt refusals never authorize completion. A failed zero-line
 repair preserves the prior admission decision and its integrity guard.
 
+**Lease and debt admission beyond the test panel (D-202, 2026-11-04).** This
+supersedes D-196's requirement that both lease families be separately filed
+before completing an undisclosed vendor lease zero. Reconciled borrowings
+establish their scope independently of the vendor lease line. The calculation
+view includes the proved operating portion once, then removes that same amount
+from the equity bridge, WACC and invested capital on the default convention.
+Finance leases remain in debt. When no recognized finance-liability element is
+filed for that instant, assume finance leases are not separately material under
+ASC 842's separate-disclosure requirement. State the assumption in the basis;
+never label that zero as filed or attach finance-liability provenance to it.
+A disclosed but incomplete finance family still cannot establish a total.
+
+A vendor lease line equal to a complete, same-date filed operating liability
+is operating-only; it need not equal operating plus finance liabilities. The
+separate finance observation remains available, and negative amounts or lease
+components exceeding total debt still contradict. A filed combined line cannot
+be reinterpreted as a vendor operating-only line. Current debt uses the filed
+inclusive `DebtCurrent` rather than adding its maturity subset twice.
+
+For an embedded noncurrent operating portion, one filing must reconcile the
+vendor debt composition and all disclosed financing scopes. The same partial
+operating amount may then cancel on the lease-excluded basis; its missing
+current maturity stays unknown and the lease-inclusive convention refuses.
+Vendor zero borrowings may be retained where no recognized borrowing fact
+contradicts them, labelled as retained vendor observations, not filed zeros.
+Contradictory vendor components, mixed filings, refused components and separate
+collapse/plausibility refusals cannot be cleared by this completion.
+
+Prefer a vendor row's original filing when completing its debt, so an incomplete
+later comparative does not make acquisition and replay select different
+scopes. A gross combined debt observation is not an omitted carrying component
+only when its signed premium/discount and issuance-cost adjustment, inclusive
+carrying total and reconciled borrowing components all tie in one filing,
+instant and currency. Never use an absolute adjustment or substitute principal
+for carrying debt. Missing or refused invested-capital debt, equity and cash
+operands remain unavailable; the refusal names them rather than zero-filling
+them. An older valid valuation cannot validate a newer incomplete balance.
+The interest-plausibility test also retains a reconciled unclassified lease
+line in debt: without a lease-family split it cannot assume that all of the
+line is operating debt whose expense lies outside interest. A separately
+identified operating portion still leaves the interest-bearing denominator.
+Cash-driven net-debt refusals do not prevent an independent borrowing
+reconciliation; the cash and net-debt qualifications remain in either pass
+order, including when an older debt qualification has been resolved.
+
 Existing class evidence is preferred while active on the quote date. If every
 retained inventory has expired, the fully evidenced interim-cover rule above
 is evaluated independently. Expired counts are never extended, and incomplete
