@@ -140,6 +140,7 @@ import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseOutOfDebt, resolveNetDebt, type LeaseDebtInputs, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, type DivisorResult, type DivisorRow } from "@/pipeline/stageB/dilutedDivisor";
 import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
@@ -1877,8 +1878,8 @@ function totalDebtSnapshot(
   const yearEarlier = balancesQuarterly.find(row => Math.abs(quarterEndMs - Date.parse(String(row.date)) - 365.25 * SPREAD_DAYS) <= 45 * SPREAD_DAYS);
   const quarterPair = interestBasis === "ttm" && quarterEnd && yearEarlier && num(quarterEnd.totalDebt) !== null && num(yearEarlier.totalDebt) !== null ? [quarterEnd, yearEarlier] : null;
   const annualPair = [balancesAnnual[0], balancesAnnual[1]].filter((row): row is FmpBalanceSheetRow => row !== undefined);
-  const refusal = (row: FmpBalanceSheetRow): string | null => row.fieldConflicts?.totalDebt?.usable === false
-    ? row.fieldConflicts.totalDebt.reason : leaseDebtScopeRefusal(row, includeOperatingLeases) ?? leaseDebtConflict(row);
+  const refusal = (row: FmpBalanceSheetRow): string | null => row.balanceIntegrityReason ?? (row.fieldConflicts?.totalDebt?.usable === false
+    ? row.fieldConflicts.totalDebt.reason : leaseDebtScopeRefusal(row, includeOperatingLeases) ?? leaseDebtConflict(row));
   const complete = (row: FmpBalanceSheetRow): boolean => refusal(row) === null && bookDebtOnLeaseBasis(row, includeOperatingLeases).value !== null;
   // Preserve the existing complete annual-pair fallback for lease scope. Other
   // refused dates are excluded individually; they cannot veto clean balances.
@@ -1919,7 +1920,8 @@ function totalDebtSnapshot(
   const latest = latestComplete && latestCurrency !== null && latestCurrency === currency ? {
     latest: bookDebtOnLeaseBasis(latestComplete, includeOperatingLeases).value,
     latestBasis: "book totalDebt on the retained calculation basis, the latest " + (excluded.length ? "complete " : "") + "balance (" + isoDay(latestComplete.date) + ")" +
-      (latestComplete === newest ? ", the one the EV bridge nets" : "; the newer withheld balance is not used; its EV bridge remains withheld") +
+      (latestComplete === newest ? ", the one the EV bridge nets" : newest?.balanceIntegrityReason
+        ? "; the newer incomplete balance is not used in the EV bridge" : "; the newer withheld balance is not used; its EV bridge remains withheld") +
       " (lease evidence: " + leaseEvidenceNote({ ...latestComplete, leaseEvidenceContext },
         { removed: bookDebtOnLeaseBasis(latestComplete, includeOperatingLeases).leaseRemoved ? num(latestComplete.operatingLeaseLiability) : null }).replace(/\.$/, "") +
       (incompleteLeaseCoverage(latestComplete) ? "; " + incompleteLeaseCoverage(latestComplete)!.note.replace(/\.$/, "") : "") + ")" + exclusion,
@@ -2046,6 +2048,7 @@ function preferredCapitalView(bundle: DataBundle): DataBundle {
     Number.isFinite(Date.parse(f.value.fetchedAt)) && Date.parse(f.value.fetchedAt) <= Date.parse(bundle.builtAt) ? f.value.data.rows : []);
   const normalize = (input: DataBundle["statements"]["balanceAnnual"]) => !input.ok ? input : { ...input,
     value: { ...input.value, data: { ...input.value.data, rows: input.value.data.rows.map(row => {
+      if (row.balanceIntegrityReason) return row;
       const preferredCash = cash.filter(cf => {
         const proof = cf.fieldProvenance?.preferredDividendsPaid;
         return cf.date === row.date && cf.reportedCurrency === row.reportedCurrency &&
@@ -2132,6 +2135,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
+  bundle = balanceIntegrityView(bundle);
   bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle)));
   bundle = preferredCapitalView(bundle);
   const operatingDispositions = operatingDispositionView(bundle);
@@ -2316,6 +2320,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
   const balanceAdmissions: BalanceAdmission[] = [];
   const admitBalance = (vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
+    if (row.balanceIntegrityReason) return row;
     row = withTangibleBookClassification(row, bundle, companyFacts);
     if (companyFacts === null) return row;
     const currency = establishedCurrencyOn([row], isoDay(row.date), currencyEvidence);
@@ -2531,8 +2536,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     const values = cashflowQuarterly.slice(0,4).map(row => num(row[field]));
     return values.every((v): v is number => v !== null) ? values.reduce((sum,v)=>sum+v,0) : null;
   };
-  const currentBalance = [balanceQuarterly[0], balanceAnnual[0]].filter((r): r is FmpBalanceSheetRow => r !== undefined)
-    .sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
+  const newestCurrentBalance = newestBalanceRow(balanceQuarterly[0], balanceAnnual[0]);
+  const currentBalance = newestCurrentBalance?.balanceIntegrityReason
+    ? pickBalanceAnchor(balanceQuarterly[0], balanceAnnual[0], { quarterly: balanceQuarterly, annual: balanceAnnual }).row ?? undefined
+    : newestCurrentBalance;
   const capital = attachCurrentCapital(annualCapital, {
     trailingCashFlow: cashflowQuarterly.slice(0,4).map(toCapitalCashFlow),
     periodStart: ttmInc && ttmCf && currencies.ttmIncomeUsable && currencies.ttmCashFlowUsable ? ttmInc.periodStart : incomeAnnual[0]?.fieldProvenance?.revenue?.periodStart ?? null,
@@ -3852,7 +3859,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // lagging quarterly feed must not beat a fresher annual row, and fields are
   // never mixed across periods. Same pattern runway already uses.
   const balQ = balanceQuarterly[0] ?? null;
-  const balanceAnchor = pickBalanceAnchor(balQ, bal0);
+  const balanceAnchor = pickBalanceAnchor(balQ, bal0, { quarterly: balanceQuarterly, annual: balanceAnnual });
   const balPoint = balanceAnchor.row;
   const balPointBasis = balanceAnchor.basis;
   const ratiosTtm = rowsOf(bundle.ratiosTtm)[0] ?? rowsOf(bundle.ratios)[0];
@@ -5085,6 +5092,7 @@ export interface BalanceAnchor<TRow> {
 export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Record<(typeof BALANCE_ANCHOR_FIELDS)[number], unknown>>>(
   quarterlyRow: TRow | null | undefined,
   annualRow: TRow | null | undefined,
+  history?: { quarterly: readonly TRow[]; annual: readonly TRow[] },
 ): BalanceAnchor<TRow> {
   const quarterly = quarterlyRow ?? null;
   const annual = annualRow ?? null;
@@ -5098,6 +5106,16 @@ export function pickBalanceAnchor<TRow extends { date?: unknown } & Partial<Reco
   // integrity or ownership refusal cannot be cured by changing the date:
   // doing so would restore EV/DCF inputs that the current filing withholds.
   if (balanceRowRefused(newer)) return { row: newer, basis: basisOf(newer), fallback: null };
+  const integrityReason = (newer as FmpBalanceSheetRow).balanceIntegrityReason;
+  if (integrityReason && history) {
+    const candidates = [...history.quarterly.map(row => ({ row, basis: "quarter" as const })),
+      ...history.annual.map(row => ({ row, basis: "annual" as const }))]
+      .filter(c => date(c.row) <= date(newer) && balanceRowWhole(c.row) && !balanceRowBlocksBridge(c.row))
+      .sort((a, b) => date(b.row).localeCompare(date(a.row)));
+    const complete = candidates[0];
+    return complete ? { ...complete, fallback: `${integrityReason} The equity bridge uses the latest complete ${complete.basis} balance as of ${date(complete.row)}. Ratios requiring a matching current balance remain unavailable.` }
+      : { row: newer, basis: basisOf(newer), fallback: `${integrityReason} No complete balance is available; the affected calculations are withheld.` };
+  }
   const lacking = missing(newer);
   if (older !== null && lacking.length > 0 && missing(older).length === 0) {
     const list = lacking.length === 1 ? lacking[0] : `${lacking.slice(0, -1).join(", ")} and ${lacking[lacking.length - 1]}`;
@@ -5155,7 +5173,7 @@ export function dcfBridgeRow<TRow extends { date?: unknown } & Partial<Record<(t
   const blocked = candidates.find((c) => balanceRowBlocksBridge(c.row, includeLeases));
   if (blocked !== undefined) return keep("statement-row-refused", balanceRowBlockReason(blocked.row, includeLeases));
   const incomplete = candidates[0];
-  if (incomplete !== undefined) return keep("incomplete", balanceRowMissing(incomplete.row).join(", "));
+  if (incomplete !== undefined) return keep("incomplete", (incomplete.row as FmpBalanceSheetRow).balanceIntegrityReason ?? balanceRowMissing(incomplete.row).join(", "));
   return keep("none-filed", null);
 }
 

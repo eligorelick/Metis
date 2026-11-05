@@ -89,6 +89,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/shareUnits.ts",
   "src/pipeline/nciEarnings.ts",
   "src/pipeline/cashFlowBasis.ts",
+  "src/pipeline/balanceIntegrity.ts",
   "src/pipeline/keyless.ts",
   "src/pipeline/riskFreeFallback.ts",
   "src/pipeline/riskFreeSeries.ts",
