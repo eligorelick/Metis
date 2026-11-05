@@ -702,6 +702,16 @@ function minorDebtTotalNote(vendor: number, components: number): string {
   return vendor === components ? "" : `${debtTotalComparison(vendor, components)}; minor difference retained as a qualification, not filed equality; reconciled components used with no balancing plug; `;
 }
 
+/** Current instrument-level borrowings. A positive one means current debt exists
+ * even when a filer tags none of the aggregates. */
+const INSTRUMENT_CURRENT_DEBT_TAGS: readonly string[] = (["longTermNotesAndLoansCurrent", "longTermDebtNotesCurrent", "longTermDebtLoansCurrent",
+  "longTermDebtSecuredCurrent", "longTermDebtConvertibleCurrent", "longTermDebtRevolverCurrent"] as const).flatMap(tagsFor);
+/** Every supported borrowing family beyond the aggregates. Vendor zero borrowings
+ * are not accepted while any of these reports a positive amount. */
+const INSTRUMENT_DEBT_TAGS: readonly string[] = [...INSTRUMENT_CURRENT_DEBT_TAGS,
+  ...(["longTermNotesAndLoans", "debtCombinedTotal", "longTermDebtNotes", "longTermDebtLoans", "longTermDebtSecured",
+    "longTermDebtConvertible", "longTermDebtRevolver", "debtInstrumentAggregate"] as const).flatMap(tagsFor)];
+
 /** Scoped component completion, never a principal-total or historical substitute.
  * The older D-133 path remains first. This path also recognizes operating-only
  * vendor lease lines and explicitly tagged debt-and-finance-lease scopes. */
@@ -725,7 +735,7 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
   const vendorTotal = row.totalDebt ?? row.fieldConflicts?.totalDebt?.vendorValue;
   const at = (tag: string) => points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined && p.val >= 0);
   const zeroBorrowings = row.longTermDebt === 0 && row.shortTermDebt === 0 &&
-    [...tagsFor("longTermDebt"), ...CURRENT_DEBT_TAGS, COMBINED_CURRENT_DEBT_TAG, ...DEBT_AGGREGATE_TAGS, "DebtInstrumentCarryingAmount"]
+    [...tagsFor("longTermDebt"), ...CURRENT_DEBT_TAGS, COMBINED_CURRENT_DEBT_TAG, ...DEBT_AGGREGATE_TAGS, ...INSTRUMENT_DEBT_TAGS]
       .every(tag => at(tag).every(p => p.val === 0));
   const anchors = ["LongTermDebtNoncurrent", "LongTermNotesAndLoans", "LongTermDebtAndCapitalLeaseObligations",
     ...(zeroBorrowings ? ["OperatingLeaseLiabilityNoncurrent"] : [])];
@@ -787,7 +797,7 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       refusal = !undisclosedZero && line < op.total + fin.total ? refuse("current debt or vendor composition cannot be reconciled") : none;
       if (undisclosedZero && ([row.capitalLeaseObligationsCurrent, row.capitalLeaseObligationsNonCurrent]
         .some(v => v != null && (!finite(v) || v !== 0)) || !notesScope &&
-        ["NotesPayableCurrent", "NotesAndLoansPayableCurrent"].some(tag => (own(tag) ?? 0) > 0))) {
+        INSTRUMENT_CURRENT_DEBT_TAGS.some(tag => (own(tag) ?? 0) > 0))) {
         throw new Error("vendor zero has a contradictory lease split or unresolved current notes");
       }
       const ltd = own("LongTermDebtCurrent") ?? (notesScope ? own("NotesAndLoansPayableCurrent") ?? own("NotesPayableCurrent") : null), dc = own("DebtCurrent"), both = own(COMBINED_CURRENT_DEBT_TAG);
@@ -802,14 +812,17 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       const components = ltd !== null ? ltd + borrowing : both !== null ? both - fin.current + borrowing : stb !== null || cp !== null ? borrowing : null;
       // DebtCurrent is the inclusive balance-sheet line; maturities are a
       // subset, not another amount to add to it. A smaller aggregate contradicts.
-      const current = dc !== null && (components === null || dc >= components) ? dc : components ?? (zeroBorrowings || undisclosedZero && row.shortTermDebt === 0 &&
+      // When it equals the pure amount plus the current finance lease, that lease
+      // is inside it and already counted in the finance total, so keep the pure amount.
+      const dcHoldsFinanceLease = dc !== null && components !== null && fin.current > 0 && eq(dc, components + fin.current);
+      const current = dc !== null && !dcHoldsFinanceLease && (components === null || dc >= components) ? dc : components ?? (zeroBorrowings || undisclosedZero && row.shortTermDebt === 0 &&
         CURRENT_DEBT_TAGS.every(tag => at(tag).length === 0) && at(COMBINED_CURRENT_DEBT_TAG).length === 0 ? 0 : null);
       if (current === null) {
         if (eq(line, op.total + fin.total)) refusal = none;
         continue;
       }
       if (current < 0) continue;
-      if (dc !== null && !eq(dc, current) && !(both !== null && eq(dc, current + fin.current))) continue;
+      if (dc !== null && !eq(dc, current) && !dcHoldsFinanceLease) continue;
       if (ltd !== null && both !== null && !eq(both, ltd + fin.current)) continue;
       const short = row.shortTermDebt as number;
       const currentScopes = current > 0 && (ltd !== null || both !== null || dc !== null)

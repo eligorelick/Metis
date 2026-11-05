@@ -183,6 +183,44 @@ describe("exact same-filing debt completion", () => {
     const out = admit({ ...tagged, DebtCurrent: 7 }, row({ shortTermDebt: 7 * M, capitalLeaseObligations: 0, totalDebt: 107 * M }));
     expect(out.row).toMatchObject({ shortTermDebt: 7 * M, totalDebt: 133 * M });
   });
+  it.each([[true, "beside the combined current tag"], [false, "by exact arithmetic alone"]])("counts current finance leases once when DebtCurrent holds them, %s (%s)", combinedFiled => {
+    const tags: Record<string, number> = { ...tagged, DebtCurrent: 5, ...(combinedFiled ? { LongTermDebtAndCapitalLeaseObligationsCurrent: 5 } : {}) };
+    const out = admit(tags, row({ shortTermDebt: 0, capitalLeaseObligations: 20 * M, totalDebt: 120 * M }));
+    expect(out.row).toMatchObject({ shortTermDebt: 4 * M, longTermDebt: 100 * M, capitalLeaseObligations: 26 * M, totalDebt: 130 * M });
+  });
+  it("keeps a DebtCurrent that exceeds the maturities by something other than the current finance lease", () => {
+    const out = admit({ ...tagged, DebtCurrent: 6 }, row({ shortTermDebt: 0, capitalLeaseObligations: 20 * M, totalDebt: 120 * M }));
+    expect(out.row).toMatchObject({ shortTermDebt: 6 * M, totalDebt: 132 * M });
+  });
+  it.each(["NotesPayable", "LongTermNotesPayable", "SeniorNotes", "SeniorLongTermNotes", "LoansPayable", "LongTermLoansPayable",
+    "SecuredDebt", "SecuredLongTermDebt", "ConvertibleNotesPayable", "ConvertibleDebtNoncurrent", "ConvertibleLongTermNotesPayable", "LongTermLineOfCredit",
+    "NotesPayableCurrent", "SeniorNotesCurrent", "LongTermNotesPayableCurrent", "LoansPayableCurrent", "LongTermLoansPayableCurrent", "SecuredDebtCurrent",
+    "ConvertibleDebtCurrent", "ConvertibleNotesPayableCurrent", "LinesOfCreditCurrent", "NotesAndLoansPayableCurrent"])("does not accept vendor zero borrowings when the filing reports positive %s", tag => {
+    const reason = 'incomplete debt carrying value: the vendor lease line 18M but no total operating-lease liability';
+    const vendor = row({ shortTermDebt: 0, longTermDebt: 0, capitalLeaseObligations: 18 * M,
+      fieldConflicts: { totalDebt: { usable: false, vendorValue: 18 * M, secValue: null, reason } } });
+    Object.assign(vendor, { totalDebt: null, netDebt: null });
+    const out = admit({ OperatingLeaseLiabilityNoncurrent: 18, [tag]: 100 }, vendor);
+    expect(out.row.totalDebt).toBeNull();
+    expect(out.row.fieldConflicts?.totalDebt?.usable).toBe(false);
+    expect(out.row.fieldConflicts?.totalDebt?.reason).toMatch(/^incomplete debt carrying value/);
+    expect(out.admissions).toEqual([]);
+  });
+  it("still accepts vendor zero borrowings when an instrument-level element is filed as zero", () => {
+    const vendor = row({ shortTermDebt: 0, longTermDebt: 0, capitalLeaseObligations: 18 * M,
+      fieldConflicts: { totalDebt: { usable: false, vendorValue: 18 * M, secValue: null,
+        reason: 'incomplete debt carrying value: the vendor lease line 18M but no total operating-lease liability' } } });
+    Object.assign(vendor, { totalDebt: null, netDebt: null });
+    const out = admit({ OperatingLeaseLiabilityNoncurrent: 18, NotesPayable: 0 }, vendor);
+    expect(out.row.totalDebt).toBe(18 * M);
+    expect(leaseDebtScopeRefusal(out.row, false)).toBeNull();
+  });
+  it("does not complete an undisclosed lease zero over positive instrument-level current debt", () => {
+    const out = admit({ LongTermDebtNoncurrent: 100, OperatingLeaseLiabilityCurrent: 2, OperatingLeaseLiabilityNoncurrent: 18, ConvertibleDebtCurrent: 50 },
+      row({ shortTermDebt: 0, capitalLeaseObligations: 0, totalDebt: 100 * M }));
+    expect(out.admissions).toEqual([]);
+    expect(out.row.fieldProvenance?.totalDebt?.calculation).not.toBe('same-filing-debt-completed');
+  });
   it("admits an operating-only lease line beside a filed finance total with no maturity split", () => {
     const tags = { ...tagged, FinanceLeaseLiability: 6 };
     delete (tags as Record<string, number>).FinanceLeaseLiabilityCurrent;

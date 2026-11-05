@@ -8212,3 +8212,25 @@ immutable. IBM's extraction/consumer gap, HOOD's current-scope evidence and
 EXPE's newer unproved balance remain explicit. No extractor fix, forecast
 tuning, owner environment/credential/app-data access, FMP/Finnhub/FRED/model or paid call,
 full `npm run verify`, push, PR or merge was performed.
+
+### Review corrections before merge
+
+Pull request review found two defects in the completion path, both corrected
+with tests that failed first:
+
+1. **Current finance leases inside `DebtCurrent`.** When `DebtCurrent` equals the
+   pure current debt plus the current finance lease to the tolerance, that lease
+   is inside the aggregate and is already counted in the finance total. The pure
+   amount is kept, so the lease counts once. With 4M pure current debt, 5M
+   `DebtCurrent`, 100M noncurrent, 20M operating and 6M finance leases (1M
+   current), total debt is 130M, not 131M. A `DebtCurrent` that exceeds the pure
+   amount by anything else remains the inclusive line.
+2. **Vendor zero borrowings beside instrument-level debt.** The zero-borrowing
+   rule also scans every supported instrument family: notes, loans, secured,
+   convertible and revolver, noncurrent and current, plus notes-and-loans, the
+   combined debt total and the instrument aggregate. A positive amount in any of
+   them keeps the refusal. Explicit zeros still pass. The undisclosed-lease-zero
+   path applies the same check to the current instrument families.
+
+Replay and acquisition-order comparison on all 105 frozen inputs show no change
+in any company's output, so these corrections alter no value in this panel.
