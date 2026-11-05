@@ -29,6 +29,76 @@ function partial() {
 }
 
 describe("partial preliminary balance rows", () => {
+  it.each(["classified plug", "larger liquid plug", "retained PP&E"])("rejects lost material lines with %s", mode => {
+    const bundle = partial();
+    if (!bundle.statements.balanceQuarterly.ok) throw new Error("fixture");
+    const row = bundle.statements.balanceQuarterly.value.data.rows[0]!;
+    if (mode === "classified plug") Object.assign(row, { otherNonCurrentAssets: 1980 * M, otherAssets: 0 });
+    if (mode === "larger liquid plug") Object.assign(row, { cashAndShortTermInvestments: 2000 * M, shortTermInvestments: 1930 * M, otherCurrentAssets: -1930 * M });
+    if (mode === "retained PP&E") Object.assign(row, { propertyPlantEquipmentNet: 1000 * M, otherAssets: 980 * M });
+    const admitted = balanceIntegrityView(bundle).statements.balanceQuarterly;
+    expect(admitted.ok && admitted.value.data.rows[0]?.date).toBe("2025-12-31");
+  });
+
+  function corroborated() {
+    const b = partial();
+    if (!b.statements.balanceQuarterly.ok) throw new Error("fixture");
+    Object.assign(b.statements.balanceQuarterly.value.data.rows[0]!, { cik: "42", cashAndCashEquivalents: 70 * M, cashAndShortTermInvestments: 120 * M,
+      shortTermInvestments: 50 * M, otherCurrentAssets: 0, totalStockholdersEquity: 520 * M, goodwill: 12 * M, intangibleAssets: 0, preferredStock: 8 * M });
+    const point = { end: "2026-03-31", filed: "2026-05-01", form: "10-Q", fy: 2026, fp: "Q1", accn: "0000000042-26-000001" };
+    const facts: CompanyFacts = { cik: 42, entityName: "Synthetic", facts: { "us-gaap": Object.fromEntries([
+      ["Assets", 2050], ["StockholdersEquity", 520], ["Goodwill", 12], ["PreferredStockValue", 8],
+      ["CashAndCashEquivalentsAtCarryingValue", 70], ["ShortTermInvestments", 50],
+    ].map(([tag, value]) => [tag, { units: { USD: [{ ...point, val: Number(value) * M }] } }])) } };
+    return withIssuerFacts(b, facts);
+  }
+
+  it("keeps the existing observation when the same-date filing corroborates its book and liquid amounts", () => {
+    const b = corroborated();
+    if (!b.statements.balanceQuarterly.ok) throw new Error("fixture");
+    const original = b.statements.balanceQuarterly.value.data.rows[0];
+    const admitted = balanceIntegrityView(b).statements.balanceQuarterly;
+    expect(admitted.ok && admitted.value.data.rows[0]).toBe(original);
+  });
+
+  it.each(["negative offset", "unconfirmed liquid growth", "wrong goodwill", "wrong preferred", "wrong equity", "wrong issuer", "future facts"])("does not use filed totals to cure %s", mode => {
+    const b = corroborated();
+    if (!b.statements.balanceQuarterly.ok || !b.edgar.companyFacts.ok) throw new Error("fixture");
+    const row = b.statements.balanceQuarterly.value.data.rows[0]!;
+    if (mode === "negative offset") Object.assign(row, { shortTermInvestments: 300 * M, cashAndShortTermInvestments: 370 * M, otherCurrentAssets: -300 * M });
+    if (mode === "unconfirmed liquid growth") Object.assign(row, { shortTermInvestments: 100 * M, cashAndShortTermInvestments: 170 * M });
+    if (mode === "wrong goodwill") row.goodwill = 13 * M;
+    if (mode === "wrong preferred") row.preferredStock = 9 * M;
+    if (mode === "wrong equity") row.totalStockholdersEquity = 530 * M;
+    if (mode === "wrong issuer") row.cik = "99";
+    if (mode === "future facts") b.edgar.companyFacts.value.fetchedAt = "2030-01-01T00:00:00Z";
+    const admitted = balanceIntegrityView(b).statements.balanceQuarterly;
+    expect(admitted.ok && admitted.value.data.rows[0]?.date).toBe("2025-12-31");
+  });
+
+  it("retains a filed disposal whose assets moved to a residual category", () => {
+    const b = corroborated();
+    const admitted = balanceIntegrityView(b).statements.balanceQuarterly;
+    expect(admitted.ok && admitted.value.data.rows[0]?.date).toBe("2026-03-31");
+  });
+
+  it("does not discard a whole SEC cash-flow replacement because the retained vendor observation is empty", () => {
+    const b = companion("cashflowQuarterly");
+    if (!b.statements.cashflowQuarterly.ok) throw new Error("fixture");
+    const d = b.statements.cashflowQuarterly.value.data;
+    d.raw = structuredClone(d.rows);
+    Object.assign(d.rows[0]!, { source: "edgar", operatingCashFlow: 55 * M, netCashProvidedByInvestingActivities: -10 * M, netCashProvidedByFinancingActivities: 20 * M });
+    const admitted = balanceIntegrityView(b).statements.cashflowQuarterly;
+    expect(admitted.ok && admitted.value.data.rows[0]?.operatingCashFlow).toBe(55 * M);
+    expect(runStageB(b).route.asOf.cashflowTtm).toBe("2026-03-31");
+  });
+
+  it("rejects a near-zero cash-flow skeleton with one currency unit of operating cash flow", () => {
+    const b = companion("cashflowQuarterly");
+    if (!b.statements.cashflowQuarterly.ok) throw new Error("fixture");
+    b.statements.cashflowQuarterly.value.data.rows[0]!.operatingCashFlow = 1;
+    expect(runStageB(b).route.asOf.cashflowTtm).toBeNull();
+  });
   it.each(["small residual", "null", "absent", "one material class"])("rejects a collapsed breakdown with %s instead of requiring exact zeros", mode => {
     const previous = { date: "2026-06-30", reportedCurrency: "USD", totalAssets: 1000, netReceivables: 200, inventory: 100, propertyPlantEquipmentNet: 500, longTermInvestments: 0 };
     const row: typeof previous & { otherAssets: number } = { ...previous, date: "2026-09-30", netReceivables: 0, inventory: 0, propertyPlantEquipmentNet: 0, otherAssets: 1000 };
@@ -39,17 +109,16 @@ describe("partial preliminary balance rows", () => {
     expect(balanceBreakdownFailure(row, previous)).toBeTypeOf("string");
   });
 
-  it.each(["cash", "short-term investments", "held for sale"])("retains a genuine disposal into %s while total assets hold", destination => {
+  it.each(["cash", "short-term investments"])("retains a genuine disposal into %s while total assets hold", destination => {
     const previous = { date: "2026-06-30", reportedCurrency: "USD", totalAssets: 1000, netReceivables: 200, inventory: 100, propertyPlantEquipmentNet: 500, longTermInvestments: 0, cashAndShortTermInvestments: 100 };
     const row = { ...previous, date: "2026-09-30", netReceivables: 0, inventory: 0, propertyPlantEquipmentNet: 0,
-      cashAndShortTermInvestments: destination === "held for sale" ? 100 : 900,
+      cashAndShortTermInvestments: 900,
       cashAndCashEquivalents: destination === "cash" ? 900 : 100,
-      shortTermInvestments: destination === "short-term investments" ? 800 : 0,
-      assetsHeldForSale: destination === "held for sale" ? 800 : 0 };
+      shortTermInvestments: destination === "short-term investments" ? 800 : 0 };
     expect(balanceBreakdownFailure(row, previous)).toBeNull();
   });
 
-  it("retains a fully accounted classified presentation change", () => {
+  it("retains an accounted classified presentation change without a negative offset", () => {
     const previous = { date: "2025-12-31", reportedCurrency: "USD", totalAssets: 1000, netReceivables: 300, inventory: 0, propertyPlantEquipmentNet: 10, longTermInvestments: 0,
       cashAndShortTermInvestments: 500, taxAssets: 100, goodwillAndIntangibleAssets: 50, otherCurrentAssets: 20, otherNonCurrentAssets: 20 };
     const row = { ...previous, date: "2026-03-31", totalAssets: 1200, netReceivables: 10, propertyPlantEquipmentNet: 0, cashAndShortTermInvestments: 550, otherCurrentAssets: 470 };

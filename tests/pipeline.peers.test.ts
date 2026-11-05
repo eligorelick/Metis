@@ -57,6 +57,15 @@ function unresolvedTarget() {
 }
 
 describe("subject capitalization scope in the peer row", () => {
+  it("uses the last admitted peer balance when no filed corroboration is available", () => {
+    const p = candidate("P2");
+    delete p.economicEvidence;
+    if (!p.balanceQuarterly.ok) throw new Error("fixture");
+    for (const row of p.balanceQuarterly.value.data.rows) Object.assign(row, { totalAssets: 1000, netReceivables: 200, inventory: 100, propertyPlantEquipmentNet: 500, longTermInvestments: 0, otherAssets: 0 });
+    Object.assign(p.balanceQuarterly.value.data.rows[0]!, { netReceivables: 0, inventory: 0, propertyPlantEquipmentNet: 0, totalStockholdersEquity: 400, otherAssets: 1000 });
+    const result = run({ P2: p });
+    expect(result.peers.find(peer => peer.symbol === "P2")?.multiples.priceToBook).toBe(2);
+  });
   const four = () => ({ P2: candidate("P2", 1000), P3: candidate("P3", 1500), P4: candidate("P4", 2000), P5: candidate("P5", 2500) });
   const twoClass = (): EconomicShareEvidence => ({ issuerId: "1", securityId: "ROOT", asOf: "2026-06-30", filed: "2026-08-01",
     effectiveFrom: "2026-06-30", effectiveTo: null, complete: true, sourceIds: ["filing:share-capital"], sourceHash: "synthetic-hash",

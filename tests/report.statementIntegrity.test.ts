@@ -3,6 +3,8 @@ import { runStageB } from "@/pipeline/compute";
 import { buildDataOnlyReport } from "@/pipeline/jobRunner";
 import { assembleReport } from "@/pipeline/stageC/passes";
 import { fundamentalsChartDataFromBundle } from "@/components/charts/map";
+import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { buildMarketData } from "@/pipeline/marketData";
 import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 import { loadTask28Fixture } from "./helpers/task28Report";
 
@@ -27,6 +29,22 @@ function reports(b: ReturnType<typeof fixture>) {
 }
 
 describe("admitted statements on reader surfaces", () => {
+  it("admits rows when filing disclosures are built directly from the raw bundle", () => {
+    expect(buildFilingDisclosures(fixture())?.quarterlyTrend[0]).toMatchObject({ operatingCashFlow: null, freeCashFlow: null });
+  });
+
+  it("excludes dependent provider EV when market data is built directly from the raw bundle", () => {
+    expect(buildMarketData(fixture())?.enterpriseValue?.periodEnd).not.toBe("2026-03-31");
+  });
+
+  it("dates the observation rail from admitted statement rows", () => {
+    const b = fixture();
+    b.asOf = { ...b.asOf, "statements.balanceQuarterly": "2026-03-31", "statements.cashflowQuarterly": "2026-03-31" };
+    for (const report of reports(b)) {
+      expect(report.meta.asOfMap["statements.balanceQuarterly"]).toBe("2025-12-31");
+      expect(report.meta.asOfMap["statements.cashflowQuarterly"]).toBe("2025-12-31");
+    }
+  });
   it("publishes missing cash flow rather than zeros in both quarterly report tables", () => {
     for (const report of reports(fixture())) {
       expect(report.filingDisclosures?.quarterlyTrend[0]).toMatchObject({ periodEnd: "2026-03-31", operatingCashFlow: null, freeCashFlow: null });

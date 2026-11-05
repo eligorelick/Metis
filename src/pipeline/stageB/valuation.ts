@@ -5411,6 +5411,8 @@ export const EXCESS_RETURN_GRID_START_STEP_PP = 5;
 export const EXCESS_RETURN_GRID_COE_STEP_PP = 1;
 
 export interface ExcessReturnResult {
+  /** Measurement period of the selected return, distinct from opening book. */
+  currentRoeAsOf?: string | null;
   /** D-193: own-record evidence retained for deterministic financial scenarios. */
   scenarioEvidence?: {
     bookEvidence?: ExcessReturnInputs["scenarioBookEvidence"];
@@ -6131,6 +6133,7 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
     ...(readings ? { convertibles: readings } : {}),
     impliedPToBv,
     roePathPct: { value: roePath, basis: roeBasis },
+    currentRoeAsOf: inputs.currentRoeAsOf ?? null,
     payoutRatioPct: { value: payout, basis: `${payoutBasis}; the year-1 payout, which fades linearly to the steady-state ${fmtNum(steadyPayout)}% by year ${years} (1 − g / terminal ROE)` },
     horizonYears: {
       value: years,

@@ -15,6 +15,7 @@ import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies }
 import { admitHistoricalEnterpriseValue, DERIVED_EV_ENDPOINT } from "@/report/enterpriseValueSafety";
 import { inheritedIssuerCurrency, providerRowCurrency } from "@/pipeline/estimateCurrency";
 import type { DataBundle } from "@/pipeline/types";
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { readEstimateTiming } from "@/report/estimateTiming";
 import type { MarketData } from "@/report/schema";
 import { quotePriceObservationDay } from "@/providers/fmp";
@@ -87,6 +88,7 @@ function providerEnterpriseValueRefusal(ev: NonNullable<MarketData["enterpriseVa
 }
 
 export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; cashFlowApplicability?: { reason: string }; stageBGaps?: readonly { field: string; severity?: string; reason?: string }[] } = {}): MarketData | undefined {
+  bundle = balanceIntegrityView(bundle);
   const profile = rows(bundle.profile)[0];
   let currencies: { trading: string | null; model: string | null };
   try {

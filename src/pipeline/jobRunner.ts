@@ -5410,7 +5410,8 @@ interface DataOnlyInput {
  * ever filled in that the pipeline did not compute.
  */
 export function buildDataOnlyReport(input: DataOnlyInput): Report {
-  const { symbol, bundle, validation, computed } = input;
+  const { symbol, validation, computed } = input;
+  const bundle = balanceIntegrityView(input.bundle);
   const asOfMap = input.sterileManifest ? {} : { ...bundle.asOf };
   // The letter beside this claim is the deterministic score band when Stage B
   // ran and a schema placeholder when it did not; "ungraded" (before the
