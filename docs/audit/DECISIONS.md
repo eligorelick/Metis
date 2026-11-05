@@ -7436,15 +7436,18 @@ to net debt, WACC and invested capital. No valuation coefficient is calibrated.
    Without separate finance-liability disclosure, combined current maturities
    plus separately disclosed short-term borrowing can establish current debt
    when the vendor amount reconciles: RTX's 5,679M + 210M = 5,889M current
-   borrowing is established. Its actual latest vendor total remains
-   contradictory: 5,889M + 31,490M + 1,495M = 38,874M, versus the supplied
-   38,884M. The unexplained 10M is not inserted as a balancing plug; its latest
-   debt and DCF remain withheld. A separately
+   borrowing is established. Its latest vendor component sum is
+   5,889M + 31,490M + 1,495M = 38,874M, versus the supplied 38,884M. Under
+   the final materiality rule below, the 0.025718% difference is qualified and
+   the reconciled components are used; the unexplained 10M is never inserted
+   as a balancing plug or described as filed equality. A separately
    filed finance family or competing inclusive current total still leaves an
-   overlap without pure maturities unresolved. IBM's vendor current debt also
-   fails the independent component sum; the retained quarterly financial text
-   is only 18 characters of contents-page residue, supplying no independent
-   carrying-line reconciliation. HOOD's 2025 vendor current debt is 11,626M
+   overlap without pure maturities unresolved. IBM's vendor total agrees with
+   its own components, but the overlap of current borrowing tags is unresolved
+   by the debt reader. Its retained statement interval is only 18 characters
+   of contents-page residue. The follow-up below distinguishes that extractor
+   gap from the substantive borrowing disclosure already present in its notes.
+   HOOD's 2025 vendor current debt is 11,626M
    beside zero filed noncurrent debt and no compatible current borrowing
    observation; it cannot be treated as proved borrowing merely by repairing
    the zero lease line. Its annual debt/WACC refusal remains.
@@ -7506,7 +7509,7 @@ original-versus-later-partial-filing defects above. The different EXPE outcomes
 are reproducible with the two different frozen input sets, not a remaining
 claim that replay validates fresh provider observations.
 
-### Full frozen census and preservation
+### Initial frozen census and preservation, before the materiality follow-up
 
 Base source and `origin/main`: `e6110f17954c78f7ca3469d6be9c92eb7307872a`. The read-only round-2 database contains **104 saved-report symbols: 103 companies plus the unknown-security ZZZZQ control**. Its 105 snapshots add QQQ, an unsupported ETF control. Every snapshot was evaluated using its original clock/configuration. No source/report database was written.
 
@@ -7536,7 +7539,7 @@ RTX and IBM also retain identical numerical observations: **82 companies** retai
 
 The production acquisition enrichment was also re-executed offline before Stage B on the identical retained sources. Three disjoint paired partitions cover all 105 symbols. Their tests assert original-bundle byte immutability and exact replay/acquisition equality. An independent combined comparison finds **103 identical complete company core objects and two identical errors, zero differences**. This exercises acquisition pass order; it does not claim a new live provider refresh or any paid acquisition.
 
-### Every changed company
+### Initial changed-company table, before the materiality follow-up
 
 USD per quoted share. Composite changes reflect admitted evidence and its existing weights, not an improvement in the business.
 
@@ -7616,7 +7619,7 @@ AVGO is 11.33% below price and below 514.37 consensus despite an aggressive exis
 
 The largest score moves are restored/changed signals, not disappearing negative signals. PYPL gains contributions from DCF upside (+2.906), ROIC/WACC spread (+2.395), ROIC level (+2.302), reverse DCF (+2.147) and leverage (+1.569). INFY regains ROIC level (+3.038), return spread (+2.205) and leverage (+2.040), with offsetting forensic changes. GE and MMM acquire negative DCF/reverse contributions (-2.8 and -2.1 each); FDX gains negative DCF/reverse readings and its historical P/E comparison worsens. LLY restores its ROIC-floor contribution (+1.626) and changes its P/E-history contribution (+0.397). These explain the large movements without treating data availability as business improvement.
 
-Remaining named limitations are RTX's real 10M vendor-component contradiction; IBM's unresolved current-debt overlap and absent primary statement; HOOD's unreconciled annual vendor borrowing; PLTR/INFY/UPS's separate denominator/class issues; MRK's revenue conflict; and EXPE's newer unproved balance. These are handed back with their actual evidence requirements. No ticker-specific admission or forecast is added.
+After the materiality follow-up below, RTX's small total discrepancy no longer withholds debt. Remaining named limitations are IBM's unresolved current-debt reader overlap and missing extracted statement interval; HOOD's unreconciled annual vendor borrowing; PLTR/INFY/UPS's separate denominator/class issues; MRK's revenue conflict; and EXPE's newer unproved balance. These are handed back with their actual evidence requirements. No ticker-specific admission or forecast is added.
 
 ### Failing-first tests, controls and verification
 
@@ -7688,3 +7691,323 @@ change also requires a new net-debt resolver identity. This branch changes no
 version constants. No report schema or pipeline-orchestration advance is needed;
 stored reports and source snapshots remain immutable and retain their display.
 No new source or documentation file is introduced.
+
+
+### Materiality follow-up: final vendor-total rule (2026-11-04)
+
+Implementation: `7c48c3125546e93c3bc9fccb6d7fe5ea073ae357` and
+`18ea3137b97cc73230ccc78133fdf240d95b6370` on the same branch.
+
+The preceding 23-company table and preservation proof are the initial D-202
+result at `6ac103b9`. This follow-up compares against that result, not against
+the earlier 48-value baseline. It supersedes the initial refusal of RTX's 10M
+difference. No balancing plug is introduced.
+
+#### Measurement before the rule
+
+All **105 retained snapshots** were inspected, including the 103 companies,
+unknown-security control and extra QQQ control. The census uses each balance
+family's untouched vendor `data.raw` observations, not the enriched rows: SEC
+completion can already have replaced a vendor total and made a comparison look
+exact. There are **3,357** finite nonnegative vendor total/current/noncurrent/lease
+quadruples. Of these, **1,057 observations across 63 symbols and 903
+symbol-period ends** independently establish the current/noncurrent borrowing
+and lease scopes in the same filing, instant, issuer and currency before the
+numerical total test. Annual and quarterly observations remain separate: their
+provider components can differ even for the same date. The other **2,300**
+quadruples lack this independent component-scope proof and cannot gain scope
+from a small numerical difference. The unknown/ETF controls provide no eligible
+borrowing composition. Collapse, interest plausibility, cash and other admission
+checks remain separate from this scope census.
+
+The scratch diagnostic copied the pre-review admission code, recorded only
+after its borrowing/lease scope checks, and bypassed the total equality only
+for measurement. It never supplied those diagnostic results to Stage B.
+No fair value, target, composite or price was used to select the threshold.
+Relative difference is `abs(vendor total - vendor component sum) /
+max(abs(vendor total), abs(vendor component sum))`; two zeros agree exactly.
+
+| Relative difference | All raw quadruples (context only) | Independently scoped observations |
+| --- | ---: | ---: |
+| Exactly zero | 3264 | 1043 |
+| 0% to 0.01% | 29 | 0 |
+| 0.01% to 0.1% | 22 | 7 |
+| 0.1% to 0.3% | 16 | 6 |
+| 0.3% to 0.5% | 7 | 0 |
+| 0.5% to 1% | 4 | 1 |
+| Above 1% | 15 | 0 |
+
+The scoped **14 nonzero observations** are the complete exception ledger.
+Amounts below are native reporting-currency millions; these scoped exceptions
+are USD. Bounds in the distribution table are upper-inclusive.
+
+| Issuer | Family / period end | Vendor total | Original vendor component sum | Absolute relative difference | Final numerical decision |
+| --- | --- | ---: | ---: | ---: | --- |
+| BA | Quarter / 2026-06-30 | 45,890 | 45,900 | 0.021786% | Within minor band; independent guards still apply |
+| RTX | Quarter / 2026-09-30 | 38,884 | 38,874 | 0.025718% | Within minor band; independent guards still apply |
+| ORCL | Annual / 2024-05-31 | 94,469 | 94,414 | 0.058220% | Within minor band; independent guards still apply |
+| AVGO | Quarter / 2024-08-04 | 69,959 | 70,003 | 0.062854% | Within minor band; independent guards still apply |
+| AVGO | Quarter / 2024-05-05 | 74,016 | 74,068 | 0.070206% | Within minor band; independent guards still apply |
+| AVGO | Quarter / 2024-02-04 | 75,901 | 75,960 | 0.077672% | Within minor band; independent guards still apply |
+| AVGO | Quarter / 2022-01-30 | 39,505 | 39,538 | 0.083464% | Within minor band; independent guards still apply |
+| AVGO | Quarter / 2020-11-01 | 41,689 | 41,637 | 0.124733% | Within minor band; independent guards still apply |
+| AVGO | Quarter / 2023-07-30 | 39,341 | 39,391 | 0.126933% | Within minor band; independent guards still apply |
+| AVGO | Quarter / 2023-04-30 | 39,311 | 39,363 | 0.132104% | Within minor band; independent guards still apply |
+| AVGO | Quarter / 2021-08-01 | 40,457 | 40,515 | 0.143157% | Within minor band; independent guards still apply |
+| AVGO | Annual / 2020-11-01 | 41,689 | 41,757 | 0.162847% | Within minor band; independent guards still apply |
+| AEP | Quarter / 2025-09-30 | 47,890 | 47,988.4 | 0.205050% | Within minor band; independent guards still apply |
+| MRK | Annual / 2019-12-31 | 27,351 | 27,114 | 0.866513% | Above band; refuse |
+
+The small-difference cluster ends at **0.205050%** (AEP); the next scoped
+observation is **0.866513%** (MRK). A simple **0.5%** boundary lies in that
+observed gap. Removing RTX leaves both endpoints and the selected boundary
+unchanged. The unproved raw pairs are reported for completeness, not used to
+turn ambiguous scopes into eligible ones. This is an operational materiality
+allowance from a finite sample, not proof that any specific discrepancy was
+rounding or reclassification, and not an estimate of a universal error rate.
+
+#### Final admission and disclosure
+
+At or below **0.5% of the larger absolute observation**, use the independently
+reconciled components, including any separately proved lease completion. Do
+not retain the vendor total merely to preserve its number. The basis prints
+both the original vendor total and its original component sum, explicitly calls
+the minor difference a qualification rather than filed equality, and says
+that reconciled components are used with no balancing plug. The accepted
+comparison stays on the calculation row and is re-emitted in one bounded
+manifest entry per company even when acquisition completed the row before
+Stage B. Raw vendor observations and stored reports remain immutable.
+
+Above 0.5%, debt and net debt remain withheld and the refusal names both
+amounts and their percentage difference. There is no absolute monetary floor.
+The allowance applies only to the total-versus-components comparison, in both
+the older noncurrent-lease completion and broader D-202 completion paths. It
+does not relax individual filed lease identities, current-debt overlap checks,
+filed/issuer/currency identity, absent maturity splits or independent
+collapse/plausibility/cash refusals. The 237M MRK historical difference stays
+above the band; it cannot be inserted as missing borrowing.
+
+An old refusal created solely by the vendor-total/component-sum guard may be
+re-evaluated against its retained original vendor observation, including beside
+an already sourced noncurrent component. That candidate is never admitted by
+itself: the same-filing completion and current scope must succeed first. Only
+that refusal and net-debt refusals directly dependent on it can clear; an
+independent cash refusal still withholds net debt. The older completion path
+cannot extend the minor band to a positive vendor current-debt amount for
+which no filed current scope is established.
+
+The final census therefore excludes three observations that the legacy path
+had retained with an explicitly unverified positive vendor current amount.
+One is FIGR at 2026-03-31: vendor total **1,322.541M** versus component sum
+**1,323.907M** differs by **0.103179%**, but its **1,057.790M** current debt
+has no compatible recognized current-borrowing tag in the retained facts.
+The **10.790M** next-fiscal-bucket amount and **44.053M** remainder-of-year
+amount are not a current carrying-debt reconciliation. The small total
+difference cannot establish that scope. FIGR remains withheld; the initial
+diagnostic classification treating its legacy path as fully proved was
+corrected before the final census. This does not change either endpoint of
+the observed gap or the selected 0.5% threshold.
+
+RTX's observed **38,884M** total versus **38,874M** original component sum
+is **0.025718%**. The completed calculation uses **38,874M**: current financing
+5,889M + noncurrent financing 31,490M + the disclosed noncurrent operating
+lease portion 1,495M. That proved operating portion then cancels, leaving
+**37,379M** financing debt under the house convention. The missing current
+operating maturity stays unknown; no earlier period's maturity is imported.
+A complete lease-inclusive total remains unavailable. Finance leases not
+separately material remains an explicit assumption, never a filed zero.
+
+#### IBM: D-199 does not recover the missing statement interval
+
+A fresh public SEC request to the same quarterly primary document returned
+**403**. Live reads stopped immediately, as required; no successful fresh
+network acquisition is claimed. The original successfully acquired primary
+HTML was recovered from the supplied isolated database's SEC cache, opened
+read-only with `fileMustExist`. Its cached acquisition time is
+`2026-11-04T22:53:31.148Z`, its length is **3,647,686 characters**, and its
+SHA-256 is `283c7e6839c3c8dbfdcc7451e72cd3c483939a46b984173fb36ef2d7e851bcbd`.
+That hash also matches the retained filing evidence. The source is IBM's
+[2026-09-30 10-Q](https://www.sec.gov/Archives/edgar/data/51143/000005114326000095/ibm-20260930.htm),
+accession `0000051143-26-000095`, filed 2026-10-22.
+
+Re-running the acquisition's exact `parseDocument -> extractSection(10-Q,
+Part I, Item 1) -> notesToFinancialStatements` path reproduces the gap on
+current D-199 code. `src/edgar/extract.ts` is byte-identical to local
+`origin/main` at `e6110f17` (Git blob
+`2548be4fc443fddb0bc4e944d12b5d7b39a17ff5`). Layer 1's 42-character Item 1
+stub redirects through the mini-TOC. The returned financial item is **94,854
+characters**, beginning at the notes rather than the financial statements;
+notes start at offset **18** and contain **94,836 characters**. The retained
+pre-notes `statementsText` is exactly `Table of Contents `, 18 characters.
+The fresh extraction is identical to the retained notes and statement residue.
+
+This is a **real statement-extraction gap that D-199 does not fix**, not an
+issuer's missing disclosure. The full source has a substantive consolidated
+balance sheet on printed page 6: short-term debt **7,013M**, current operating
+leases **749M**, long-term debt **56,804M**, and noncurrent operating leases
+**2,574M**. The already retained Note 12 also explicitly states total short-term
+debt **7,013M**, primarily current maturities, while its long-term debt schedule
+shows current maturities **7,009M**. Thus the notes do supply independent
+economic scope evidence; the initial wording implying no useful independent
+disclosure was too broad. The **4M** is the difference between an inclusive
+current debt line and its maturity subset, not an amount to add twice.
+
+IBM's vendor current debt **7,762M = 7,013M + 749M** includes the current
+operating lease, and its raw total **67,140M = 7,762M + 56,804M + 2,574M**
+agrees exactly with its own components. The new total-tolerance rule therefore
+cannot fix IBM: there is no total difference to tolerate. The debt reader still
+cannot mechanically prove the overlap from its retained statement interval,
+and its existing narrow note reconciler does not consume this note shape.
+Report the extractor's mini-TOC statement loss and the current-overlap consumer
+gap to the relevant engineer. No extractor or new note parser was implemented
+here, no manual slice was injected, and IBM's DCF remains withheld.
+
+HOOD's raw annual total also agrees with its own components; that does not
+establish its unproved 11,626M annual borrowing scope. Its refusal stands.
+EXPE's newer unproved balance and its refusal stay unchanged.
+
+#### Company results relative to the last D-202 table
+
+Exactly **one company** changes its full fair-value, scenario-target or
+composite result relative to `6ac103b9`. Dollar amounts are per quoted share.
+The scenario-target column reports the model's bear/base/bull target set, not
+the retained consensus target.
+
+| Company | Price | Consensus target | Fair value before -> after | Scenario targets before -> after | Composite before -> after | Analyst check |
+| --- | ---: | ---: | --- | --- | --- | --- |
+| RTX | 198.43 | 232.18 | unavailable -> 45.59 | unavailable -> unavailable | 56.69 -> 54.70 | 77.0% below price and 80.4% below consensus; the existing 11.77% to 8.10% margin fade and 0.974 sales-to-capital drive the low value. The bridge reconciles; the bull scenario still fails its explicit-period cash-flow guard. |
+
+Coverage is **58 -> 59 available** among the 104 saved securities (103
+companies plus the unknown control), or **48 -> 59** relative to the original
+wider-panel baseline. By the previous refusal-cause census, lease/debt-scope
+refusals decrease **4 -> 3**; every other cause count stays unchanged. The
+extra QQQ snapshot remains outside the saved-symbol denominator and unchanged.
+No available fair value or scenario-target set is lost.
+
+| Refusal cause / status | Previous D-202 | Final rule |
+| --- | ---: | ---: |
+| Available fair value | 58 | 59 |
+| Outside valuation domain | 5 | 5 |
+| Genuine unprofitable overlay | 9 | 9 |
+| Nonpositive invested capital | 1 | 1 |
+| Currency / security basis | 5 | 5 |
+| Financial common-capital / earnings basis | 1 | 1 |
+| Share / class scope | 12 | 12 |
+| Lease / debt scope | 4 | 3 |
+| Other WACC inputs | 3 | 3 |
+| Debt completeness / plausibility | 5 | 5 |
+| Unknown-security control | 1 | 1 |
+
+The other within-band observations were checked too. BA's 2026-06-30 total
+normalizes from **45,890M to 45,900M**, and ORCL's 2024-05-31 total from
+**94,469M to 94,414M**. AEP's 2025-09-30 completed total stays **47,890M**
+after the independent component/lease normalization; the original vendor
+component sum **47,988.4M** is now explicitly qualified. AVGO's historical
+observations receive the same rule and retain the independent carrying-debt
+checks. None of these companies changes its full fair-value, target or
+composite result. A within-band label in the source ledger does not clear an
+independent component, overlap, carrying-value or cash refusal.
+
+In particular, AVGO's 2022-01-30 retained row still fails the current/vendor
+component reconciliation. Its 2021-08-01 row still has a same-period combined
+debt tag **41,499M** above financing components **40,515M**; the minor vendor
+sum allowance cannot clear that separate carrying-debt check. MRK's retained
+2019-12-31 row also has composed current debt **1,900M** versus filed inclusive
+`DebtCurrent` **3,610M**. These older rows remain refused in addition to the
+raw-ledger materiality decision; they do not gain a numerical balancing item.
+
+RTX's value looks implausibly low against both observed benchmarks and deserves
+a forecast-methodology review before being treated as an investment conclusion.
+The inputs and bridge were checked rather than adjusted to improve the answer:
+first-year growth **6.5325%**, WACC **7.1048%**, margin **11.7714% -> 8.0978%**
+by year five, sales-to-capital **0.973795**, and terminal ROIC equal to WACC.
+Its retained market P/E is **32.21x** and EV/EBITDA **18.99x**. The DCF's
+enterprise value is **93.958289B**; subtract net debt **28.206B**, NCI
+**1.714B** and net non-operating adjustments **1.669270B** to reach equity
+**62.369019B**, divided by **1.3681B** diluted shares = **45.588056**. The
+equity-bridge residual is zero. Terminal present value is **74.6932%** of EV.
+The 10M discrepancy by itself is only **0.007309/share** in the equity bridge;
+it cannot explain the market gap. A separate deterministic diagnostic re-runs
+the base enterprise value and equity/share identities from the saved final
+assumptions, and tests the existing margin fade's sensitivity without altering
+the production forecast. Holding the first-year **11.7714%** margin flat raises
+the value to **82.99**, still **58.2% below price**. Thus the margin fade
+explains part of the discount, while the retained reinvestment/terminal-return
+conventions and capital base also matter. No coefficient was tuned to either
+benchmark.
+
+The targets remain suppressed for a different, specific reason: the bull
+scenario's terminal present value **135.7B** is **153.15%** of its enterprise
+value **88.61B**, because explicit-period present value is **-47.09B**. The
+existing domain guard is retained. No target is fabricated from the base value.
+
+All **102 other company full core objects are byte-identical**: the complete
+fair-value object, complete scenario-target object, and complete composite,
+without metadata or method-stamp exclusions. Both error controls are identical.
+Ordered SHA-256 of the unchanged company cores:
+`b6843750d13c6f3b438e9d536862956cb92c9e98ccf4cf77642a6d9632f30946`.
+The independent comparison checks all 105 symbols, fails on an omitted or
+duplicated symbol, and checks replay against acquisition-order enrichment
+using the same retained sources. Source bundles are asserted byte-immutable.
+
+
+#### Final follow-up verification and release boundary
+
+Failing-first synthetic controls cover within-band differences in both
+directions, the inclusive boundary and just-above-band refusals with both
+amounts, retention after acquisition and manifest merging, old total-sum
+refusals beside sourced components, cash/debt pass order, and unproved positive
+current debt. The older noncurrent-lease path is exercised with its actual
+combined noncurrent lease scope. Existing different-issuer/filing,
+contradictory lease, current-overlap, negative input, collapse and interest
+plausibility controls stay active. A row-level diagnostic identified the
+unproved-current legacy case, so the census and admission guard explicitly
+exclude it. No small difference is allowed to create missing scope.
+
+All final checks use Node 24.11.1 with the specified Node directory first on
+PATH. The final source is the two implementation commits identified above.
+
+| Command / check | Final result |
+| --- | --- |
+| `npm run typecheck` | Passed, exit 0. A fixture initially used a vendor input type for runtime-null refused fields; its construction was corrected before this final check. |
+| ESLint on all TypeScript source/test files differing from `origin/main`, including all ten files from this work | Passed, no findings, exit 0. The later comparison includes 31 files because the tracking ref advanced; Babel's large-file styling note for an unchanged test is informational. |
+| `node node_modules/vitest/vitest.mjs run --config vitest.config.ts --changed origin/main --passWithNoTests --maxWorkers 4` | **551 files, 13,230 tests passed; one existing platform skip**, explicit exit 0; 449.87 seconds. No filename argument narrowed this command. |
+| Focused debt completion, plausibility and lease-capital suites | **94 tests in three files** passed; the admission file separately passes all **37** cases. |
+| Separate `tests/risk.coverage.test.ts` | 11 passed, exit 0. |
+| Separate `tests/repository.release.test.ts` | 18 passed, exit 0. |
+| Separate `tests/docs.lint.test.ts` | 14 passed, exit 0. |
+| Separate `tests/edgar.tagSynonyms.test.ts` | 9 passed, exit 0. |
+| Separate `tests/docs.p8Agreement.test.ts` | 8 passed, exit 0. |
+| Final paired frozen-input partitions | Three tests passed, exit 0; durations **739.59 / 786.90 / 651.04 seconds**. All 103 company core results match between replay and acquisition-order enrichment, plus two equal unsupported controls; input immutability assertions pass. |
+| Independent RTX enterprise-value, equity/share, bridge and sensitivity diagnostic | Passed. The final report contains both 38,884M and 38,874M in its persistent minor-difference basis. |
+| Raw vendor census and IBM current-main extraction reproduction | Passed offline; the sole fresh SEC request returned 403 and live reads stopped. |
+| `git diff --check` | Clean. |
+
+The acquisition comparison is an offline production-enrichment ordering check
+on the same retained inputs, not a successful new provider refresh. The SEC
+extraction reproduction uses the actual cached primary HTML and current-main
+extractor, not a manually repaired section. Evidence databases were opened
+only read-only with `fileMustExist`. All scratch evidence stays under ignored
+`tmp/int/panel/`: `debt-census-raw.json`, `census-enrichment.ts`,
+`ibm-extraction-current.json`, source/notes/statement files, the three
+`review-verified-*` partitions, `review-verified-comparison.json`,
+`review-observations.json`, `review-rtx-analyst.json` and red/green/check logs.
+The final raw census SHA-256 is `851363102e480d2d5049249c61f82a8c080cae3e9271e12cff7200ba52bc6fb6`.
+
+The branch remains based on `e6110f17`. During validation the local
+`origin/main` tracking ref advanced to `640b6579`; no upstream merge or
+version-stamp change was performed on this branch. The required changed-suite
+command was run without filenames, and the final lint comparison includes the
+additional upstream divergence rather than omitting this work's files.
+The advanced tracking ref still has the same extractor blob
+`2548be4fc443fddb0bc4e944d12b5d7b39a17ff5`, so the IBM extraction finding also
+holds against that version of main.
+
+The five release identity requirements are unchanged: advance Stage B,
+fair-value method, scenario-target method, payload, and the net-debt resolver
+identity before release. No version constant is changed here; no report schema
+or orchestration advance is needed. Stored reports and source snapshots stay
+immutable. IBM's extraction/consumer gap, HOOD's current-scope evidence and
+EXPE's newer unproved balance remain explicit. No extractor fix, forecast
+tuning, owner environment/credential/app-data access, FMP/Finnhub/FRED/model or paid call,
+full `npm run verify`, push, PR or merge was performed.

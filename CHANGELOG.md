@@ -23,6 +23,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Reconcile vendor borrowing scopes independently of an undisclosed lease line. Operating leases leave debt under the house convention; finance leases stay in debt. Missing separate finance-lease disclosure is an explicit materiality assumption, never a filed zero.
 - Recognize operating-only lease lines and permit a proved partial operating portion to cancel without inventing its missing maturity. Preserve debt contradictions and the lease-inclusive refusal when full coverage is unavailable.
 - Reconcile gross debt to carrying debt only with a same-filing signed adjustment. Prefer the vendor row's original filing when completing its debt; identify missing or refused invested-capital operands explicitly.
+- After independent debt-scope proof, admit vendor-total/component-sum differences up to 0.5% using reconciled components and a persistent basis naming both values. Larger differences still refuse. D-202 records the raw 105-snapshot census, the follow-up company comparisons, and IBM's unresolved D-199 statement-extraction gap.
 - D-202 records the wider frozen-input audit and release requirements. Saved reports and version constants remain unchanged.
 
 ## Unreleased - Scores that lost an aspect say so (2026-11-04)

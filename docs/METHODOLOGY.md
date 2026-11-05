@@ -7796,6 +7796,22 @@ contradicts them, labelled as retained vendor observations, not filed zeros.
 Contradictory vendor components, mixed filings, refused components and separate
 collapse/plausibility refusals cannot be cleared by this completion.
 
+Once the current/noncurrent borrowing and lease scopes are established, compare
+the untouched vendor total with the sum of its own current debt, noncurrent
+debt and lease line. A difference of at most **0.5% of the larger absolute
+observation** is retained as a qualification. Use the reconciled components,
+including the separately proved lease-scope completion; print the vendor total
+and its original component sum in the basis, and retain them through acquisition
+and replay. The difference is not filed equality and no balancing plug is
+inserted. Above 0.5%, withhold debt and name both amounts. There is no absolute
+monetary floor, and two zero totals agree exactly. This allowance never proves
+an overlapping current-debt scope, overrides a contradictory filed lease family,
+or clears another admission refusal. The cutoff was selected from the raw
+vendor census across 105 snapshots: the scoped small-difference cluster ends at
+0.205050%, and the next scoped observation is 0.866513%; removing RTX leaves
+that gap unchanged. D-202 records the full distribution and its finite-panel
+limitations.
+
 Prefer a vendor row's original filing when completing its debt, so an incomplete
 later comparative does not make acquisition and replay select different
 scopes. A gross combined debt observation is not an omitted carrying component
