@@ -31,6 +31,7 @@ import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import type { MetricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { scoringMargin, windowCagr, type GrowthResult } from "@/pipeline/stageB/growth";
 import type { RoicResult, RoicVsWaccSpread, RoteResult, WaccResult } from "@/pipeline/stageB/returns";
+import type { TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
 import { sbcExceedsAllFcf, type CapitalResult } from "@/pipeline/stageB/capital";
 import type { FinancialMetricsResult } from "@/pipeline/stageB/financialMetrics";
 import type { UtilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
@@ -45,7 +46,7 @@ import type {
   TracedNumber,
   ScoreSignal,
 } from "@/report/schema";
-import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
+import { describeScoreEvidence, qualityEquityReturn } from "@/pipeline/stageB/scoringEvidence";
 
 /** Versioned band-table id, stamped into the report for auditability. */
 // D-136: route evidence bookkeeping changes; numerical band thresholds do not.
@@ -770,6 +771,8 @@ export interface ScoringInputs {
   roic: RoicResult;
   /** Return on tangible common equity — the financial-route capital-return measure. */
   rote: RoteResult;
+  /** D-207: observed return through an older admitted book; independent of payout forecasting. */
+  admittedCommonReturn?: TtmCommonReturn | null;
   roicVsWacc: RoicVsWaccSpread;
   wacc: WaccResult;
   capital: CapitalResult;
@@ -937,7 +940,7 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   // Piotroski battery alone (~7% of intended evidence), which swung JPM to F and
   // WFC to A on the same thin basis (2026-10-12 sweep).
   const er = valuation.kind === "excess-return" ? valuation.excessReturn : null;
-  const equityReturn = er?.roePathPct?.value?.[0];
+  const equityReturn = qualityEquityReturn(inputs).value;
   const equityCoe = er?.costOfEquityPct?.value;
   // It REPLACES the ROIC − WACC signal (never added beside it), so the aspect's
   // weights still sum to 1 like every other aspect's.

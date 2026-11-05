@@ -36,6 +36,7 @@ import { quotePriceObservationDay, type FmpInsiderTradeStatisticsRow } from "@/p
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
@@ -1737,7 +1738,7 @@ function statementExtracts(bundle: DataBundle, cashFlowApplicability?: CompanyRo
   const currencyEvidence = statementCurrencyEvidence(bundle);
   // Stage B may admit an old/raw snapshot locally. Repeat the same immutable
   // admission before raw statement cells can enter the analyst or verifier registry.
-  const balances = (rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => facts === null ? rows : rows.map((row) =>
+  const balances = (rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => facts === null ? rows : rows.map((row) => row.balanceIntegrityReason ? row :
     admitDebtFields(row, facts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar)).row);
   const push = (b: StatementExtractBlock | null, notes: readonly string[] = []): void => {
     if (b) blocks.push(notes.length > 0 ? { ...b, notes: [...notes, ...b.notes] } : b);
@@ -3759,6 +3760,7 @@ export function assembleContextPayload(
   validation: ValidationReport,
 ): ContextPayload {
   bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle)));
+  bundle = balanceIntegrityView(bundle);
   const profile = firstRow(bundle.profile);
   // Trading (listing), annual and model currencies, resolved exactly as Stage B
   // resolved them. Each figure below takes only the one its evidence supports.

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { runStageB } from "@/pipeline/compute";
+import { runStageB, ttmIncome, ttmCashFlow } from "@/pipeline/compute";
+import { assembleContextPayload } from "@/pipeline/stageC/payload";
+import { validateBundle } from "@/pipeline/stageA/validate";
 import { balanceBreakdownFailure, balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
-import { currencyBundle, M } from "./helpers/currencyBundle";
+import { completeCurrencyBundle, currencyBundle, M } from "./helpers/currencyBundle";
 
 function fixture() {
   const bundle = currencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
@@ -27,6 +29,87 @@ function partial() {
 }
 
 describe("partial preliminary balance rows", () => {
+  function companion(kind: "incomeQuarterly" | "cashflowQuarterly", complete = false, sameRelease = true) {
+    const bundle = { ...completeCurrencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] }), statements: partial().statements };
+    if (!bundle.statements.balanceQuarterly.ok || !bundle.statements[kind].ok) throw new Error("fixture");
+    const filing = { filingDate: "2026-05-01", acceptedDate: "2026-05-01 16:00:00", cik: "1" };
+    Object.assign(bundle.statements.balanceQuarterly.value.data.rows[0]!, filing);
+    const rows = bundle.statements[kind].value.data.rows;
+    Object.assign(rows[0]!, filing, sameRelease ? {} : { acceptedDate: "2026-05-01 18:00:00" });
+    if (kind === "incomeQuarterly") {
+      Object.assign(rows[1]!, { costOfRevenue: 150 * M, grossProfit: 90 * M, operatingIncome: 48 * M, cik: "1" });
+      Object.assign(rows[0]!, { costOfRevenue: complete ? 180 * M : 0, grossProfit: complete ? 120 * M : 0,
+        operatingIncome: complete ? 60 * M : 0, weightedAverageShsOut: complete ? 100 * M : 0, weightedAverageShsOutDil: complete ? 100 * M : 0 });
+    } else {
+      Object.assign(rows[1]!, { operatingCashFlow: 55 * M, netCashProvidedByInvestingActivities: -10 * M, netCashProvidedByFinancingActivities: 20 * M, cik: "1" });
+      Object.assign(rows[0]!, { operatingCashFlow: complete ? 55 * M : 0,
+        netCashProvidedByInvestingActivities: complete ? -10 * M : 0, netCashProvidedByFinancingActivities: complete ? 20 * M : 0 });
+    }
+    return bundle;
+  }
+
+  it.each(["incomeQuarterly", "cashflowQuarterly"] as const)("withholds a disappearing %s breakdown from the same preliminary release, including TTM and payload", kind => {
+    const bundle = companion(kind);
+    const view = balanceIntegrityView(bundle);
+    const family = view.statements[kind];
+    if (!family.ok) throw new Error("fixture");
+    expect(family.value.data.rows[0]?.statementIntegrityReason).toBeTypeOf("string");
+    expect(kind === "incomeQuarterly" ? ttmIncome(family.value.data.rows)?.netIncome ?? null : ttmCashFlow(family.value.data.rows)?.operatingCashFlow ?? null).toBeNull();
+    const c = runStageB(bundle);
+    const validation = validateBundle(bundle as never, { now: new Date(bundle.builtAt) });
+    const payload = assembleContextPayload(bundle, c, validation);
+    for (const block of payload.statements.filter(b => b.title.includes("quarterly") && b.title.startsWith(kind === "incomeQuarterly" ? "Income" : "Cash"))) {
+      const cells = block.lineItems.flatMap(line => line.byPeriod).filter(cell => cell.period === "2026-03-31");
+      expect(cells.length).toBeGreaterThan(0);
+      expect(cells.every(cell => cell.value === null)).toBe(true);
+    }
+    const balance = payload.statements.find(b => b.title.startsWith("Balance") && b.title.includes("quarterly"));
+    expect(balance?.lineItems.flatMap(line => line.byPeriod).filter(cell => cell.period === "2026-03-31").every(cell => cell.value === null)).toBe(true);
+  });
+
+  it.each(["incomeQuarterly", "cashflowQuarterly"] as const)("retains complete %s and does not attribute a different release to the rejected balance", kind => {
+    for (const bundle of [companion(kind, true), companion(kind, false, false)]) {
+      const family = balanceIntegrityView(bundle).statements[kind];
+      if (!family.ok) throw new Error("fixture");
+      expect(family.value.data.rows[0]?.statementIntegrityReason).toBeUndefined();
+    }
+  });
+
+  it("does not publish cash-scope endpoints or let them change otherwise complete flow results", () => {
+    const bundle = companion("cashflowQuarterly", true);
+    const changed = structuredClone(bundle);
+    if (!changed.statements.cashflowQuarterly.ok) throw new Error("fixture");
+    Object.assign(changed.statements.cashflowQuarterly.value.data.rows[0]!, { cashAtBeginningOfPeriod: 1, cashAtEndOfPeriod: 2, netChangeInCash: 3 });
+    const validation = validateBundle(bundle as never, { now: new Date(bundle.builtAt) });
+    const control = runStageB(bundle, undefined, validation), result = runStageB(changed, undefined, validation);
+    expect(result).toEqual(control);
+    expect(assembleContextPayload(changed, result, validation)).toEqual(assembleContextPayload(bundle, control, validation));
+  });
+  it("rejects consecutive stubs against the latest accepted breakdown, regardless of input order", () => {
+    const bundle = partial();
+    if (!bundle.statements.balanceQuarterly.ok) throw new Error("fixture");
+    const rows = bundle.statements.balanceQuarterly.value.data.rows;
+    const olderStub = { ...rows[0]!, date: "2025-12-31" };
+    bundle.statements.balanceQuarterly.value.data.rows = [rows[2]!, rows[0]!, olderStub];
+    const view = balanceIntegrityView(bundle);
+    if (!view.statements.balanceQuarterly.ok) throw new Error("fixture");
+    const admitted = view.statements.balanceQuarterly.value.data.rows;
+    expect(admitted.filter(r => r.balanceIntegrityReason).map(r => r.date).sort()).toEqual(["2025-12-31", "2026-03-31"]);
+    expect(admitted.find(r => r.date === "2026-03-31")?.cashAndShortTermInvestments).toBeUndefined();
+  });
+
+  it("retains a genuine major disposal after a rejected stub", () => {
+    const bundle = partial();
+    if (!bundle.statements.balanceQuarterly.ok) throw new Error("fixture");
+    const rows = bundle.statements.balanceQuarterly.value.data.rows;
+    bundle.statements.balanceQuarterly.value.data.rows = [
+      { ...rows[0]!, totalAssets: 300 * M }, { ...rows[0]!, date: "2025-12-31" }, rows[2]!,
+    ];
+    const view = balanceIntegrityView(bundle);
+    if (!view.statements.balanceQuarterly.ok) throw new Error("fixture");
+    expect(view.statements.balanceQuarterly.value.data.rows[0]?.balanceIntegrityReason).toBeUndefined();
+    expect(view.statements.balanceQuarterly.value.data.rows[0]?.totalAssets).toBe(300 * M);
+  });
   it("uses the latest complete quarter for both bridges and withholds stale current leverage, with dates disclosed", () => {
     const bundle = partial();
     const frozen = JSON.stringify(bundle);

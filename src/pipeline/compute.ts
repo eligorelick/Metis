@@ -2127,6 +2127,35 @@ export function operatingDispositionView(bundle: DataBundle): { bundle: DataBund
     gaps: [...bundle.gaps, { field: "compute.operatingDispositions", reason, severity: "info" }] } };
 }
 
+/** Same common-earnings admission for the current and an explicitly dated older four-quarter window. */
+function withQuarterCommonEarnings(
+  rows: FmpIncomeStatementRow[], facts: CompanyFacts | null, observedAt: string | undefined, builtAt: string, notes: string[],
+  periods = { annual: 2, quarterly: 5 },
+): { rows: FmpIncomeStatementRow[]; supplemented: boolean } {
+  const tags = tagsFor("netIncomeAvailableToCommon");
+  if (!facts || !rows.slice(0, 4).some(row => num(row.netIncomeAvailableToCommon) === null) ||
+    !tags.some(tag => facts.facts["us-gaap"]?.[tag] !== undefined) || !observedAt ||
+    !Number.isFinite(Date.parse(observedAt)) || Date.parse(observedAt) > Date.parse(builtAt)) return { rows, supplemented: false };
+  const filed = buildStatementsFromCompanyFacts(facts, { symbol: rows[0]?.symbol ?? "", cik: String(facts.cik),
+    annualPeriods: periods.annual, quarterlyPeriods: periods.quarterly, asOf: builtAt.slice(0, 10), factsObservedAt: observedAt,
+    vendorSplits: { status: "unavailable", source: "retained-common-earnings", reason: "only additive common-income amounts are used; no share or EPS inference" } });
+  let supplemented = false;
+  const admitted = rows.map((row, index) => {
+    if (row.statementIntegrityReason || index >= 4 || num(row.netIncomeAvailableToCommon) !== null ||
+      row.fieldConflicts?.netIncomeAvailableToCommon?.usable === false || Number(row.cik) !== facts.cik) return row;
+    const sec = filed.incomeQuarterly.rows.find(r => r.date === row.date && r.period === row.period && r.reportedCurrency === row.reportedCurrency);
+    const proof = sec?.fieldProvenance?.netIncomeAvailableToCommon;
+    if (!sec || num(sec.netIncomeAvailableToCommon) === null || sec.fieldConflicts?.netIncomeAvailableToCommon?.usable === false || !proof ||
+      !proof.tags.some(tag => tags.some(name => tag === `us-gaap/${name}`))) return row;
+    supplemented = true;
+    notes.push(`Aggregate common earnings: ${row.date} uses filed net income available to common ${sec.netIncomeAvailableToCommon} ${proof.unit}` +
+      ` (${proof.derivation ?? "direct filed flow"}; ${proof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}). No per-share EPS is inferred.`);
+    return { ...row, netIncomeAvailableToCommon: sec.netIncomeAvailableToCommon,
+      fieldProvenance: { ...row.fieldProvenance, netIncomeAvailableToCommon: proof } };
+  });
+  return { rows: admitted, supplemented };
+}
+
 export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig, suppliedValidation?: ValidationReport): ComputedMetrics {
   const notes: string[] = [];
   const suppressed: SuppressedMetric[] = [];
@@ -2135,8 +2164,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
-  bundle = balanceIntegrityView(bundle);
   bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle)));
+  bundle = balanceIntegrityView(bundle);
   bundle = preferredCapitalView(bundle);
   const operatingDispositions = operatingDispositionView(bundle);
   bundle = operatingDispositions.bundle;
@@ -2170,27 +2199,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // L2: a vendor quarter can omit a filed common numerator while retaining
   // otherwise usable income. Reuse the SEC normalizer's additive-flow rules;
   // never infer a common allocation from total income or rebuild IPO EPS.
-  let commonEarningsSupplemented = false;
-  const commonTagNames = tagsFor("netIncomeAvailableToCommon");
-  if (companyFacts && admittedFacts?.ok && incomeQuarterSet.rows.slice(0, 4).some(r => num(r.netIncomeAvailableToCommon) === null) &&
-    commonTagNames.some(tag => companyFacts.facts["us-gaap"]?.[tag] !== undefined) &&
-    Number.isFinite(Date.parse(admittedFacts.value.fetchedAt)) && Date.parse(admittedFacts.value.fetchedAt) <= Date.parse(bundle.builtAt)) {
-    const filed = buildStatementsFromCompanyFacts(companyFacts, { symbol: bundle.symbol, cik: String(companyFacts.cik), annualPeriods: 2, quarterlyPeriods: 5,
-      asOf: bundle.builtAt.slice(0, 10), factsObservedAt: admittedFacts.value.fetchedAt,
-      vendorSplits: { status: "unavailable", source: "retained-common-earnings", reason: "only additive common-income amounts are used; no share or EPS inference" } });
-    incomeQuarterSet.rows = incomeQuarterSet.rows.map((row, index) => {
-      if (index >= 4 || num(row.netIncomeAvailableToCommon) !== null || row.fieldConflicts?.netIncomeAvailableToCommon?.usable === false || Number(row.cik) !== companyFacts.cik) return row;
-      const sec = filed.incomeQuarterly.rows.find(r => r.date === row.date && r.period === row.period && r.reportedCurrency === row.reportedCurrency);
-      const evidence = sec?.fieldProvenance?.netIncomeAvailableToCommon;
-      if (!sec || num(sec.netIncomeAvailableToCommon) === null || sec.fieldConflicts?.netIncomeAvailableToCommon?.usable === false || !evidence ||
-        !evidence.tags.some(tag => commonTagNames.some(name => tag === `us-gaap/${name}`))) return row;
-      commonEarningsSupplemented = true;
-      notes.push(`Aggregate common earnings: ${row.date} uses filed net income available to common ${sec.netIncomeAvailableToCommon} ${evidence.unit}` +
-        ` (${evidence.derivation ?? "direct filed flow"}; ${evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}). No per-share EPS is inferred.`);
-      return { ...row, netIncomeAvailableToCommon: sec.netIncomeAvailableToCommon,
-        fieldProvenance: { ...row.fieldProvenance, netIncomeAvailableToCommon: evidence } };
-    });
-  }
+  const commonEarnings = withQuarterCommonEarnings(incomeQuarterSet.rows, companyFacts,
+    admittedFacts?.ok ? admittedFacts.value.fetchedAt : undefined, bundle.builtAt, notes);
+  incomeQuarterSet.rows = commonEarnings.rows;
+  const commonEarningsSupplemented = commonEarnings.supplemented;
   const balanceQuarterSet = normalizeStatementQuarters(
     withMarketableEquity(rowsOf(bundle.statements.balanceQuarterly), companyFacts, bundle.builtAt),
     "balance",
@@ -2466,6 +2478,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     currencies.ttmIncomeUsable,
     foreignBasis,
     trailingIncome,
+    incomeQuarterly,
   );
   if (lendingCashFlow) {
     returns.roic = { series: [], latestRoicPct: null, asOf: returns.roic.asOf, notes: [lendingCashFlow.reason], gaps: [] };
@@ -2906,6 +2919,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     growth,
     roic: returns.roic,
     rote: returns.rote,
+    admittedCommonReturn: newestCurrentBalance?.balanceIntegrityReason ? returns.commonReturnTtm : null,
     roicVsWacc: returns.roicVsWacc,
     wacc: returns.wacc,
     capital,
@@ -3296,6 +3310,7 @@ function computeReturns(
   foreignBasis: ForeignValuationBasis | null,
   /** Same admitted quarter window, independently of revenue completeness. */
   earningsTtm: TtmIncome | null,
+  incomeQuarterly: FmpIncomeStatementRow[],
 ): ReturnsBlock {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
@@ -3607,10 +3622,24 @@ function computeReturns(
   // from the quarterly rows already fetched. A window in another currency than
   // the annual statement is withheld here as it is from the valuation: its
   // earnings cannot be set against balances in the model currency.
-  const commonIncomeTtm = earningsTtm?.reportedCurrency === modelCurrency ? earningsTtm : null;
+  const newestCommonBalance = newestBalanceRow(balanceQuarterly[0], balanceAnnual[0]);
+  const returnBalanceDate = isFinancial && newestCommonBalance?.balanceIntegrityReason
+    ? isoDay(pickBalanceAnchor(balanceQuarterly[0], balanceAnnual[0], { quarterly: balanceQuarterly, annual: balanceAnnual }).row?.date) : null;
+  const returnIncomeRows = returnBalanceDate && returnBalanceDate !== earningsTtm?.date
+    ? withQuarterCommonEarnings(incomeQuarterly.filter(row => String(row.date) <= returnBalanceDate), confirmedIssuerFacts(bundle.symbol, bundle.edgar),
+      bundle.edgar.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : undefined, bundle.builtAt, notes,
+      { annual: Math.ceil(incomeQuarterly.length / 4) + 2, quarterly: incomeQuarterly.length + 4 }).rows : incomeQuarterly;
+  const measuredEarnings = returnBalanceDate && returnBalanceDate !== earningsTtm?.date
+    ? ttmIncomeFromNormalized(normalizeStatementQuarters(returnIncomeRows, "income"),
+      gaps, [...balanceQuarterly, ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt)
+    : earningsTtm;
+  const commonIncomeTtm = measuredEarnings?.reportedCurrency === modelCurrency && (!returnBalanceDate || measuredEarnings.date === returnBalanceDate)
+    ? measuredEarnings : null;
+  if (returnBalanceDate && returnBalanceDate !== isoDay(newestCommonBalance?.date)) notes.push(
+    `The newest balance at ${isoDay(newestCommonBalance?.date)} is incomplete. The trailing common return is measured through the admitted balance date ${returnBalanceDate}; later earnings are not paired with that older book.`);
   const commonReturnTtm = isFinancial
     ? computeTtmCommonReturn({
-        // The same earnings evidence the TTM P/E admits common income from.
+        // The same common-income admission as TTM P/E, on this explicit return window.
         income: commonIncomeTtm === null ? null : {
           netIncome: commonIncomeTtm.netIncome,
           netIncomeAvailableToCommon: commonIncomeTtm.netIncomeAvailableToCommon ?? null,
@@ -3624,7 +3653,7 @@ function computeReturns(
             [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
             [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)]),
         },
-        asOf: commonIncomeTtm?.date ?? null,
+        asOf: returnBalanceDate ?? commonIncomeTtm?.date ?? null,
         periodStart: commonIncomeTtm?.commonIncomeScope?.periodStart ?? commonIncomeTtm?.incomeScope?.periodStart ?? null,
         balances: [...balanceQuarterly, ...balanceAnnual].map(toReturnsBalance),
         basis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
@@ -4376,9 +4405,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         }
       : null;
   const dilutedSharesRow = dilutedSharesBasis === "quarter" ? incomeQuarterly[0] : dilutedSharesBasis === "annual" ? inc0 : undefined;
-  const readConvertibles = (row: FmpBalanceSheetRow | null | undefined) => convertibleInstrumentsAt(
+  const readConvertibles = (row: FmpBalanceSheetRow | null | undefined, shareRow = dilutedSharesRow, shareBasis = dilutedSharesBasis) => convertibleInstrumentsAt(
     confirmedIssuerFacts(bundle.symbol, bundle.edgar),
-    { end: isoDay(dilutedSharesRow?.date) ?? "", basis: dilutedSharesBasis === "quarter" ? "quarter" : "annual" },
+    { end: isoDay(shareRow?.date) ?? "", basis: shareBasis === "quarter" ? "quarter" : "annual" },
     isoDay(row?.date) ?? "", ctx.modelCurrency ?? "USD",
     bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : bundle.builtAt,
     { permanentPreferred: num(row?.preferredStock), totalDebt: num(row?.totalDebt) });
@@ -4494,17 +4523,47 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // earnings and payout on that ownership basis and the same fiscal year.
   // A vendor total-equity ROE cannot be applied to common or tangible equity.
   const financialRoute = route.base === "bank" || route.base === "insurer" || route.base === "reit-mortgage";
-  const financialCashByDate = new Map(ctx.cashflowAnnual.map((row) => [String(row.date ?? ""), row]));
-  const financialIncome = ctx.incomeAnnual.map((row) => toReturnsIncome(row, financialCashByDate,
+  const integrityBookFallback = financialRoute && !!balQ?.balanceIntegrityReason;
+  const openingBookBalance = integrityBookFallback ? balanceAnchor.row : balQ;
+  const openingBookDate = isoDay(openingBookBalance?.date);
+  const atOpeningBook = <T extends { date?: unknown }>(rows: readonly T[]): T[] => integrityBookFallback && openingBookDate
+    ? rows.filter(row => { const day = isoDay(row.date); return day !== null && day <= openingBookDate; }) : [...rows];
+  const financialCashRows = atOpeningBook(ctx.cashflowAnnual);
+  const financialBalanceRows = atOpeningBook(ctx.balanceAnnual);
+  const financialCashByDate = new Map(financialCashRows.map((row) => [String(row.date ?? ""), row]));
+  const financialIncome = atOpeningBook(ctx.incomeAnnual).map((row) => toReturnsIncome(row, financialCashByDate,
     [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)],
     [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt));
-  const commonReturns = route.base === "bank" ? ctx.rote : computeRote(
+  const commonReturns = route.base === "bank" && !integrityBookFallback ? ctx.rote : computeRote(
     financialIncome,
     // Reuse the same dated common-earnings/average-equity calculation without
     // deducting intangibles: insurers and mortgage REITs use common book equity.
-    ctx.balanceAnnual.map((row) => ({ ...toReturnsBalance(row), goodwill: 0, intangibleAssets: 0 })),
+    financialBalanceRows.map((row) => route.base === "bank" ? toReturnsBalance(row) : { ...toReturnsBalance(row), goodwill: 0, intangibleAssets: 0 }),
   );
-  const commonPayoutRows = ctx.cashflowAnnual.map((row) => {
+  const independentCommonCash = (row: FmpCashFlowRow): boolean => {
+    const proof = row.fieldProvenance?.commonDividendsPaid;
+    const has = (field: "commonDividendsPaid" | "preferredDividendsPaid" | "netDividendsPaid") => tagsFor(field).some(tag => proof?.tags.includes(`us-gaap/${tag}`));
+    return !!proof && proof.source === "edgar" && proof.unit === row.reportedCurrency && proof.periodEnd === row.date && proof.periodStart !== null &&
+      Number.isFinite(Date.parse(proof.observedAt)) && Date.parse(proof.observedAt) <= Date.parse(bundle.builtAt) &&
+      proof.filings.length > 0 && proof.filings.every(f => f.filed >= String(row.date) && f.filed <= bundle.builtAt.slice(0, 10)) &&
+      (has("commonDividendsPaid") || (has("netDividendsPaid") && has("preferredDividendsPaid")));
+  };
+  const ambiguousCommonCash = (row: FmpCashFlowRow): boolean => {
+    const balance = financialBalanceRows.find(bal => bal.date === row.date);
+    const common = num(row.commonDividendsPaid), total = num(row.netDividendsPaid);
+    return integrityBookFallback && (num(balance?.preferredStock) ?? 0) > 0 && common !== null && common !== 0 &&
+      total !== null && Math.abs(common) === Math.abs(total) && !independentCommonCash(row);
+  };
+  const payoutFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const payoutObservedAt = bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : null;
+  const filedPayoutRows = financialCashRows.slice(0, 3).some(ambiguousCommonCash) && payoutFacts && payoutObservedAt &&
+    Number.isFinite(Date.parse(payoutObservedAt)) && Date.parse(payoutObservedAt) <= Date.parse(bundle.builtAt)
+    ? buildStatementsFromCompanyFacts(payoutFacts, { symbol: bundle.symbol, cik: String(payoutFacts.cik), asOf: bundle.builtAt.slice(0, 10),
+      factsObservedAt: payoutObservedAt, annualPeriods: financialCashRows.length + 2, quarterlyPeriods: 1,
+      vendorSplits: { status: "unavailable", source: "common-payout", reason: "only common cash distributions are used" } }).cashflowAnnual.rows : [];
+  const payoutScopeRefusals: string[] = [];
+  const commonPayoutRows = financialCashRows.map((original, index) => {
+    let row = original;
     // A known total cash payout with an unknown common portion cannot be
     // treated as zero common dividends merely because repurchases are known.
     // An explicit parser refusal also survives a zero aggregate: contradictory
@@ -4512,6 +4571,16 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     if (row.fieldConflicts?.commonDividendsPaid?.usable === false ||
       (num(row.commonDividendsPaid) === null && num(row.netDividendsPaid) !== null && row.netDividendsPaid !== 0)) {
       return { ...row, netIncome: undefined };
+    }
+    if (index < 3 && ambiguousCommonCash(row)) {
+      const filed = filedPayoutRows.find(cf => cf.date === row.date && cf.reportedCurrency === row.reportedCurrency &&
+        cf.fieldConflicts?.commonDividendsPaid?.usable !== false && num(cf.commonDividendsPaid) !== null && independentCommonCash(cf));
+      if (filed) row = { ...row, commonDividendsPaid: filed.commonDividendsPaid,
+        fieldProvenance: { ...row.fieldProvenance, commonDividendsPaid: filed.fieldProvenance!.commonDividendsPaid! } };
+      else {
+        payoutScopeRefusals.push(`Common payout at ${row.date}: common dividends duplicate aggregate cash dividends while preferred capital is outstanding; no independently established common or preferred cash split is retained. Earnings allocations and declared dividends cannot establish cash paid.`);
+        return { ...row, netIncome: undefined };
+      }
     }
     const income = matchByDate(new Map(financialIncome.map(inc => [inc.date, inc])), String(row.date ?? ""));
     const balance = ctx.balanceAnnual.find((bal) => bal.date === row.date);
@@ -4528,47 +4597,63 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // is the per-share denominator only when the basic count from the same row
   // spans every class (`issuerEconomicDilutedShares`); it is then restated in
   // quoted-share units.
-  const economicDiluted = issuerEconomicDilutedShares(
-    resolveEconomicEquityScope(multiplesQuote, bundle.economicShareEvidence ?? [], bundle.builtAt.slice(0, 10)),
+  const economicEquityScope = resolveEconomicEquityScope(multiplesQuote, bundle.economicShareEvidence ?? [], bundle.builtAt.slice(0, 10));
+  const economicDivisor = (shareRow: FmpIncomeStatementRow | undefined, shares: number | null, divisor: DivisorResult | null) => issuerEconomicDilutedShares(
+    economicEquityScope,
     bundle.economicShareEvidence ?? [],
-    { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) },
+    { basic: posShares(num(shareRow?.weightedAverageShsOut)), diluted: shares, periodEnd: isoDay(shareRow?.date) },
     // FIN-404: a substituted count, or a loss period's basic count, is not the filed diluted count; the not-restored case divides by the filed count.
-    { countNotFiled: dilutedShareDivisor !== null && (dilutedShareDivisor.basis === "loss-period-substituted" || dilutedShareDivisor.basis === "loss-period-basic"),
-      combinedClassEps: retainedCombinedClassEpsBasis(bundle, { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) }) },
+    { countNotFiled: divisor !== null && (divisor.basis === "loss-period-substituted" || divisor.basis === "loss-period-basic"),
+      combinedClassEps: retainedCombinedClassEpsBasis(bundle, { basic: posShares(num(shareRow?.weightedAverageShsOut)), diluted: shares, periodEnd: isoDay(shareRow?.date) }) },
   );
+  const economicDiluted = economicDivisor(dilutedSharesRow, dilutedShares, dilutedShareDivisor);
   const valuationDilutedShares = economicDiluted?.shares ?? dilutedShares;
   const bridgeConvertibles = readConvertibles(bridgePoint);
   const financialConvertibles = readConvertibles(balPoint);
-  const instrumentsOnEconomicBasis = (read: typeof bridgeConvertibles) => {
+  const instrumentsOnEconomicBasis = (read: typeof bridgeConvertibles, divisor = dilutedShareDivisor, economic = economicDiluted, shares = dilutedShares) => {
     // A substituted loss count already excludes conversion shares. An unresolved class count cannot be repaired here.
-    if (dilutedShareDivisor && dilutedShareDivisor.basis !== "filed") return [];
-    const factor = economicDiluted?.shares != null && dilutedShares ? economicDiluted.shares / dilutedShares : 1;
+    if (divisor && divisor.basis !== "filed") return [];
+    const factor = economic?.shares != null && shares ? economic.shares / shares : 1;
     return read.instruments.map(i => ({ ...i, conversionShares: i.conversionShares * factor,
       conversionPrice: i.conversionPrice === null ? null : i.conversionPrice / factor }));
   };
 
 
-  const ttmReturn = ctx.commonReturnTtm;
+  const ttmReturn = integrityBookFallback && openingBookDate && ctx.commonReturnTtm?.asOf && ctx.commonReturnTtm.asOf > openingBookDate
+    ? null : ctx.commonReturnTtm;
   const fyBasis = route.base === "bank" ? "fiscal-year-rote" as const : "fiscal-year-common-roe" as const;
-  const ttmStart = ttmReturn !== null && ttmReturn.returnPct !== null && ttmReturn.closingEquity !== null && ttmReturn.closingEquity > 0 &&
-    ttmReturn.asOf !== null && (commonReturns.asOf === null || ttmReturn.asOf > commonReturns.asOf)
-    ? { roePct: ttmReturn.returnPct, bookValue: ttmReturn.closingEquity, asOf: ttmReturn.asOf }
-    : null;
   const combinationYears = financialRoute
     ? businessCombinationYears(confirmedIssuerFacts(bundle.symbol, bundle.edgar), ctx.balanceAnnual.map(toReturnsBalance), ctx.modelCurrency)
     : new Map<string, string>();
   const fiscalYearBalance = ctx.balanceAnnual.find(row => isoDay(row.date) === commonReturns.asOf);
+  const openingIncomeRows = atOpeningBook(incomeQuarterly);
+  const openingShareRow = integrityBookFallback ? openingIncomeRows.find(row => isoDay(row.date) === openingBookDate) : dilutedSharesRow;
+  const openingDivisor = integrityBookFallback
+    ? incomeDivisors(openingShareRow ? [openingShareRow, ...openingIncomeRows.filter(row => row !== openingShareRow)] : [],
+      atOpeningBook(incomeAnnual)[0], confirmedIssuerFacts(bundle.symbol, bundle.edgar)).quarter : dilutedShareDivisor;
+  const openingShares = integrityBookFallback ? openingDivisor?.shares ?? null : dilutedShares;
+  const openingEconomic = integrityBookFallback ? economicDivisor(openingShareRow, openingShares, openingDivisor) : economicDiluted;
+  const openingEconomicShares = openingEconomic?.shares ?? openingShares;
   const openingBook = quarterlyOpeningBook({
-    row: balQ ? { ...balQ, ...toReturnsBalance(balQ) } : null,
+    row: openingBookBalance ? { ...openingBookBalance, ...toReturnsBalance(openingBookBalance) } : null,
     annualAsOf: commonReturns.asOf,
     basis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
     currency: ctx.modelCurrency, cutoff: bundle.builtAt,
-    shareRow: dilutedSharesRow, dilutedShares: valuationDilutedShares,
+    shareRow: openingShareRow, dilutedShares: openingEconomicShares,
   });
   const quarterlyBook = "bookValue" in openingBook ? openingBook : null;
-  const currentBookPreferredRefusal = preferredCapitalRefusal(newestBalanceRow(ctx.balanceQuarterly[0], ctx.balanceAnnual[0]));
+  const ttmStart = ttmReturn !== null && ttmReturn.returnPct !== null && ttmReturn.closingEquity !== null && ttmReturn.closingEquity > 0 &&
+    ttmReturn.asOf !== null && (commonReturns.asOf === null || ttmReturn.asOf > commonReturns.asOf) && (!integrityBookFallback || quarterlyBook !== null)
+    ? { roePct: ttmReturn.returnPct, bookValue: ttmReturn.closingEquity, asOf: ttmReturn.asOf }
+    : null;
+  const currentBookPreferredRefusal = preferredCapitalRefusal(integrityBookFallback ? openingBookBalance : newestBalanceRow(ctx.balanceQuarterly[0], ctx.balanceAnnual[0]));
   const fiscalYearConvertibles = readConvertibles(fiscalYearBalance ?? { date: commonReturns.asOf ?? undefined });
-  const quarterlyConvertibles = quarterlyBook ? readConvertibles(balQ ?? { date: quarterlyBook.asOf }) : null;
+  const quarterlyConvertibles = quarterlyBook ? readConvertibles(openingBookBalance ?? { date: quarterlyBook.asOf }, openingShareRow,
+    integrityBookFallback ? "quarter" : dilutedSharesBasis) : null;
+  const financialDivisor = integrityBookFallback && quarterlyBook ? openingDivisor : dilutedShareDivisor;
+  const financialEconomic = integrityBookFallback && quarterlyBook ? openingEconomic : economicDiluted;
+  const financialShares = integrityBookFallback && quarterlyBook ? openingShares : dilutedShares;
+  const financialDilutedShares = integrityBookFallback && quarterlyBook ? openingEconomicShares : valuationDilutedShares;
   // D-193/D-198: scenario evidence requires the dated book adjustments. An
   // explicit preferred-capital refusal also blocks the headline common book.
   const scenarioBookRefusal = (date: string | null, tangible: boolean): string | null => {
@@ -4604,7 +4689,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           },
           bookValue: currentBookPreferredRefusal ? null : quarterlyBook?.bookValue ?? ttmStart?.bookValue ?? commonReturns.latestTangibleCommonEquity,
           bookValueRefusal: currentBookPreferredRefusal,
-          bookValueBasisDetail: (quarterlyBook ? balQ : fiscalYearBalance)?.preferredCapitalBasis,
+          bookValueBasisDetail: (quarterlyBook ? openingBookBalance : fiscalYearBalance)?.preferredCapitalBasis,
           bookValueBasis: route.base === "bank" ? "tangible-common-equity" : "common-equity",
           currentRoePct: ttmStart?.roePct ?? commonReturns.latestRotePct,
           currentRoeBasis: ttmStart !== null ? (route.base === "bank" ? "ttm-rote" : "ttm-common-roe") : fyBasis,
@@ -4620,15 +4705,15 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           // Audit L4: (dividends + net buybacks) / net income, 3y average, from
           // the annual cash-flow statements; null suppresses the valuation.
           payoutRatioPct: payoutRatioPct3y(commonPayoutRows),
-          dilutedShares: valuationDilutedShares,
-          convertibles: instrumentsOnEconomicBasis(quarterlyConvertibles ?? financialConvertibles),
+          dilutedShares: financialDilutedShares,
+          convertibles: instrumentsOnEconomicBasis(quarterlyConvertibles ?? financialConvertibles, financialDivisor, financialEconomic, financialShares),
           convertiblePreferredClaim: (quarterlyConvertibles ?? financialConvertibles).convertiblePreferredClaim,
-          permanentPreferred: num((quarterlyBook ? balQ : balPoint)?.preferredStock),
+          permanentPreferred: num((quarterlyBook ? openingBookBalance : balPoint)?.preferredStock),
           preferredSeriesDistinct: (quarterlyConvertibles ?? financialConvertibles).preferredSeriesDistinct,
-          totalDebt: num((quarterlyBook ? balQ : balPoint)?.totalDebt),
+          totalDebt: num((quarterlyBook ? openingBookBalance : balPoint)?.totalDebt),
           marketCap,
           price: currentPrice,
-          asOf: quarterlyBook?.asOf ?? ttmStart?.asOf ?? commonReturns.asOf,
+          asOf: integrityBookFallback && currentBookPreferredRefusal ? openingBookDate : quarterlyBook?.asOf ?? ttmStart?.asOf ?? commonReturns.asOf,
           valuationDate: quotePriceObservationDay(quote),
           // WS5: P/TBV is read against ROTE, both on the tangible base the
           // returns block already computes — never against plain book equity.
@@ -4910,17 +4995,24 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     );
   }
   if (excessReturn !== null) {
+    if (integrityBookFallback && quarterlyBook && result.kind === "excess-return") {
+      result.excessReturn.openingBookValue.basis = `Admitted ${route.base === "bank" ? "tangible common equity" : "common equity"} at ${quarterlyBook.asOf}; opening book and diluted shares are on that date.`;
+    }
+    if (payoutScopeRefusals.length) result.gaps.push({ field: "valuation.excessReturn.commonDividends", severity: "warn", reason: payoutScopeRefusals.join(" ") });
     const payoutGap = result.gaps.find(g => g.field === "valuation.excessReturn.payout");
     if (payoutGap) {
       const missingEarnings = commonPayoutRows.slice(0, 3).filter(row => num(row.netIncome) === null || row.netIncome! <= 0)
         .map(row => isoDay(row.date) ?? "undated fiscal year");
-      payoutGap.reason += missingEarnings.length
+      payoutGap.reason += payoutScopeRefusals.length
+        ? " Common cash payout scope is unresolved; valid common earnings do not establish the cash allocation. " + payoutScopeRefusals.join(" ")
+        : missingEarnings.length
         ? ` Common earnings aligned with payout are unavailable or non-positive for ${missingEarnings.join(", ")}; at least 2 of the latest 3 fiscal years need positive common earnings and compatible common cash payouts. Total net income cannot substitute for unresolved common-holder earnings.`
         : " At least 2 of the latest 3 fiscal years need compatible common cash dividends or repurchases and positive common earnings; missing or refused cash payouts cannot be assumed zero.";
     }
     const bookNote = quarterlyBook
       ? `Quarterly opening book admitted at ${quarterlyBook.asOf}, with equity, adjustments and diluted shares on that date. The ${ttmStart ? "trailing" : "fiscal-year"} return remains a forward rate; historical earnings already included in opening book are not added again. The forecast begins after opening book; roll-forward starts only at that book date.`
-      : `Quarterly opening book not admitted: ${"reason" in openingBook ? openingBook.reason : "unavailable"}; retaining the fiscal-year opening-book calculation.`;
+      : `Quarterly opening book not admitted: ${"reason" in openingBook ? openingBook.reason : "unavailable"}; ` +
+        (integrityBookFallback && currentBookPreferredRefusal ? "common-book valuation withheld." : "retaining the fiscal-year opening-book calculation.");
     result.notes.push(bookNote);
     if (!quarterlyBook) result.gaps.push({ field: "valuation.excessReturn.openingBook", reason: bookNote, severity: "info" });
     result.notes.push(

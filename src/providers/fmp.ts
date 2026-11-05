@@ -187,6 +187,8 @@ export interface StatementFieldConflict {
 }
 
 export interface FmpStatementRow extends FmpRawRow {
+  /** D-207 calculation/payload view: a preliminary row's amounts are unavailable. */
+  statementIntegrityReason?: string;
   date?: string;
   symbol?: string;
   reportedCurrency?: string | null;
