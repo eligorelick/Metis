@@ -613,6 +613,14 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     } } };
     if (reason !== null) gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "warn" });
   }
+  // Acquisition can complete a row before Stage B sees it. Retain the minor
+  // comparison in a bounded manifest entry in either order, rather than lose
+  // its qualification when the completed field already carries provenance.
+  const retainedTotal = out.fieldConflicts?.totalDebt;
+  if (retainedTotal?.usable === true && retainedTotal.resolution === "filed-family" &&
+      retainedTotal.reason.startsWith("vendor total ") && retainedTotal.reason.includes("minor difference retained")) {
+    admissions.push({ kind: "minor-debt-total", date: row.date!, detail: retainedTotal.reason, summary: retainedTotal.reason });
+  }
   return { row: out, gaps, admissions };
 }
 
@@ -623,7 +631,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
  * the per-row entries were 51 entries and about 25K characters in every LLM pass.
  */
 export interface BalanceAdmission {
-  kind: "completion" | "filing-completion" | "stakes";
+  kind: "completion" | "filing-completion" | "minor-debt-total" | "stakes";
   date: string;
   /** The row's full explanation; the merged entry quotes the latest date's. */
   detail: string;
@@ -635,7 +643,7 @@ export interface BalanceAdmission {
 /** One info entry per kind (completion, stakes), newest date first, a date counted once across the annual and quarterly families. */
 export function balanceAdmissionEntries(admissions: readonly BalanceAdmission[]): ManifestEntry[] {
   const entries: ManifestEntry[] = [];
-  for (const kind of ["completion", "filing-completion", "stakes"] as const) {
+  for (const kind of ["completion", "filing-completion", "minor-debt-total", "stakes"] as const) {
     const byDate = new Map<string, BalanceAdmission>();
     for (const admission of admissions) if (admission.kind === kind && !byDate.has(admission.date)) byDate.set(admission.date, admission);
     const dated = [...byDate.values()].sort((a, b) => b.date.localeCompare(a.date));
@@ -648,6 +656,8 @@ export function balanceAdmissionEntries(admissions: readonly BalanceAdmission[])
         reason: `vendor lease line held only the noncurrent lease liabilities at ${dates}; total debt completed from each date's filing, the vendor total retained in the raw row: ${list}. Latest: ${dated[0]!.detail}` }
       : kind === "filing-completion" ? { field: "statements.balance.totalDebt", severity: "info", expected: true,
         reason: `vendor debt scopes completed from one same-period filing at each of ${dates}; raw vendor values retained: ${list}. Latest: ${dated[0]!.detail}` }
+      : kind === "minor-debt-total" ? { field: "statements.balance.totalDebt.minorDifference", severity: "info", expected: true,
+        reason: `minor vendor-total differences after debt-scope reconciliation at ${dates}: ${list}` }
       : { field: "statements.balance.longTermInvestments", severity: "info", expected: true,
         reason: `vendor longTermInvestments read as undisclosed at ${dates}; filled with the D-98 chain from the same-period filing, the vendor value retained in the raw row: ${list}. Latest: ${dated[0]!.detail}`,
         ...(sources.length > 0 ? { attemptedSources: sources } : {}) });
@@ -657,7 +667,23 @@ export function balanceAdmissionEntries(admissions: readonly BalanceAdmission[])
 
 type LeaseLineCompletion<T> = { status: "none" } | { status: "completed"; row: T; admission: BalanceAdmission } | { status: "refused"; reason: string };
 
-/** Exact component completion, never a principal-total or historical substitute.
+/** D-202: measured after scope proof, independently of valuation outcomes.
+ * The scoped panel's minor cluster ends at 0.2051%; the next gap is 0.8665%.
+ * No absolute monetary floor: a small issuer gets the same relative boundary. */
+const MINOR_DEBT_TOTAL_SHARE = 0.005;
+const debtTotalAgrees = (vendor: number, components: number): boolean =>
+  Math.abs(vendor - components) <= MINOR_DEBT_TOTAL_SHARE * Math.max(Math.abs(vendor), Math.abs(components));
+function debtTotalComparison(vendor: number, components: number): string {
+  const [vendorText, componentsText] = millionsPair(vendor, components);
+  const pct = Math.max(Math.abs(vendor), Math.abs(components)) === 0 ? 0
+    : 100 * Math.abs(vendor - components) / Math.max(Math.abs(vendor), Math.abs(components));
+  return `vendor total ${vendorText} versus component sum ${componentsText} (${pct.toFixed(6)}% difference; 0.5% minor-difference limit)`;
+}
+function minorDebtTotalNote(vendor: number, components: number): string {
+  return vendor === components ? "" : `${debtTotalComparison(vendor, components)}; minor difference retained as a qualification, not filed equality; reconciled components used with no balancing plug; `;
+}
+
+/** Scoped component completion, never a principal-total or historical substitute.
  * The older D-133 path remains first. This path also recognizes operating-only
  * vendor lease lines and explicitly tagged debt-and-finance-lease scopes. */
 function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, observedAt: string): LeaseLineCompletion<T> {
@@ -770,16 +796,24 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       const currentScopes = current > 0 && (ltd !== null || both !== null || dc !== null)
         ? [current, current + op.current, current + fin.current, current + op.current + fin.current] : [current];
       if (short !== 0 && !currentScopes.some(v => eq(short, v))) continue;
-      if (!finite(vendorTotal) || !eq(vendorTotal, short + (row.longTermDebt as number) + line)) continue;
+      if (!finite(vendorTotal)) continue;
       for (const [field, value] of [["operatingLeaseLiability", op.total], ["financeLeaseLiability", fin.total]] as const) {
         if (row[field] != null && !eq(row[field] as number, value)) throw new Error(`contradictory ${field}`);
       }
+      const vendorComponents = short + (row.longTermDebt as number) + line;
+      if (!debtTotalAgrees(vendorTotal, vendorComponents)) {
+        refusal = refuse(`${debtTotalComparison(vendorTotal, vendorComponents)} exceeds the minor-difference limit; total and net debt withheld`);
+        continue;
+      }
+      const totalNote = minorDebtTotalNote(vendorTotal, vendorComponents);
       const leases = op.total + fin.total, totalDebt = current + noncurrent + leases;
-      if (row.fieldConflicts?.totalDebt?.usable !== false && !("partial" in op) && eq(totalDebt, vendorTotal) && eq(line, leases) && eq(short, current) && eq(row.longTermDebt as number, noncurrent)) return none;
+      if (row.fieldConflicts?.totalDebt?.usable !== false && !("partial" in op) && totalDebt === vendorTotal && eq(line, leases) && eq(short, current) && eq(row.longTermDebt as number, noncurrent)) return none;
       const evidence: StatementFieldProvenance = { source: "edgar", unit, observedAt, periodStart: null, periodEnd: row.date!,
         tags: [...new Set(used)].map(t => `us-gaap/${t}`), filings: [filing], calculation: "same-filing-debt-completed" };
       const fieldConflicts = { ...row.fieldConflicts };
       delete fieldConflicts.totalDebt;
+      if (totalNote) fieldConflicts.totalDebt = { usable: true, vendorValue: vendorTotal, secValue: totalDebt,
+        resolution: "filed-family", reason: `${totalNote}completed debt ${millions(totalDebt)} ${unit}` };
       if (!cashOnlyNetRefusal) delete fieldConflicts.netDebt;
       if (refusedCash?.usable === false) fieldConflicts.netDebt = { ...refusedCash, secValue: null,
         vendorValue: row.fieldConflicts?.netDebt?.vendorValue ?? (finite(row.netDebt) ? row.netDebt : null) };
@@ -791,7 +825,7 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
         vendorNetDebt: row.vendorNetDebt ?? row.netDebt ?? row.fieldConflicts?.netDebt?.vendorValue ?? null,
         fieldConflicts, fieldProvenance: { ...row.fieldProvenance, ...Object.fromEntries(fields.map(f => [f, evidence])) } } as T,
         admission: { kind: "filing-completion", date: row.date!, summary: `${millions(totalDebt)} (vendor ${millions(vendorTotal)}; ${filing.accn})`,
-          detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: current financing debt ${millions(current)} + noncurrent financing debt ${millions(noncurrent)} + operating leases ${millions(op.total)} + finance leases ${millions(fin.total)} = total debt ${millions(totalDebt)} ${unit}; ${"partial" in op ? "only the disclosed noncurrent operating portion is embedded and cancels on the lease-excluded basis; full operating-lease coverage remains unverified; " : ""}${zeroBorrowings ? "vendor zero borrowings retained with no separately disclosed borrowing; not a filed zero; " : ""}${fin.assumed ? "finance leases not separately material is an assumption from absent separate ASC 842 disclosure, not a filed zero; " : ""}${undisclosedZero ? "undisclosed vendor lease zero replaced by filed liabilities; " : ""}${operatingInLong ? "noncurrent operating leases inside vendor long-term debt counted once; " : ""}vendor component scopes reconciled exactly; ${[...new Set(used)].join(", ")}` } };
+          detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: current financing debt ${millions(current)} + noncurrent financing debt ${millions(noncurrent)} + operating leases ${millions(op.total)} + finance leases ${millions(fin.total)} = total debt ${millions(totalDebt)} ${unit}; ${"partial" in op ? "only the disclosed noncurrent operating portion is embedded and cancels on the lease-excluded basis; full operating-lease coverage remains unverified; " : ""}${zeroBorrowings ? "vendor zero borrowings retained with no separately disclosed borrowing; not a filed zero; " : ""}${fin.assumed ? "finance leases not separately material is an assumption from absent separate ASC 842 disclosure, not a filed zero; " : ""}${undisclosedZero ? "undisclosed vendor lease zero replaced by filed liabilities; " : ""}${operatingInLong ? "noncurrent operating leases inside vendor long-term debt counted once; " : ""}${totalNote || "vendor component scopes reconciled exactly; "}${[...new Set(used)].join(", ")}` } };
     } catch { /* Ambiguous or incomplete facts never authorize a completion. */ }
   }
   return refusal;
@@ -925,9 +959,7 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   const vendorTotal = row.totalDebt;
   const vendorShort = row.shortTermDebt;
   if (vendorShort != null && (!finite(vendorShort) || vendorShort < 0)) return refuse("the vendor short-term debt is not a valid amount");
-  if (!finite(vendorTotal) || Math.abs(vendorTotal - ((vendorShort ?? 0) + longTerm + line)) > tolerance(vendorTotal)) {
-    return refuse(`the vendor total debt ${finite(vendorTotal) ? millions(vendorTotal) : "(unavailable)"} is not its short-term debt + long-term debt + lease line, so its composition is unknown`);
-  }
+  if (!finite(vendorTotal)) return refuse("the vendor total debt is unavailable, so its composition is unknown");
   const currentTags = ["LongTermDebtCurrent", "ShortTermBorrowings", "CommercialPaper"];
   const taggedParts = currentTags.map((tag) => [tag, inFiling(tag)] as const);
   if (taggedParts.some(([, value]) => value === "elsewhere")) return refuse("the current debt is not established in that one filing");
@@ -992,6 +1024,9 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
       "total debt and net debt are withheld rather than published with a current debt the filing does not establish");
   }
   const currentDebt = keepVendorShort ? vendorShort : filedCurrent!;
+  const vendorComponents = (vendorShort ?? 0) + longTerm + line;
+  if (!debtTotalAgrees(vendorTotal, vendorComponents)) return refuse(`${debtTotalComparison(vendorTotal, vendorComponents)} exceeds the minor-difference limit`);
+  const totalNote = minorDebtTotalNote(vendorTotal, vendorComponents);
   const totalDebt = currentDebt + longTerm + leases;
   const cash = row.fieldConflicts?.cashAndCashEquivalents ? null : row.cashAndCashEquivalents;
   const netDebt = finite(cash) ? totalDebt - cash : null;
@@ -1006,6 +1041,8 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   // Review m8: the vendor's own netDebt, captured before the rewrite, for the vendor-convention diagnostic.
   const vendorNetDebt = row.vendorNetDebt !== undefined ? row.vendorNetDebt : finite(row.netDebt) ? row.netDebt : null;
   const out = { ...row, capitalLeaseObligations: leases, totalDebt, netDebt, vendorNetDebt,
+    ...(totalNote ? { fieldConflicts: { ...row.fieldConflicts, totalDebt: { usable: true, vendorValue: vendorTotal,
+      secValue: totalDebt, resolution: "filed-family" as const, reason: `${totalNote}completed debt ${millions(totalDebt)} ${currency}` } } } : {}),
     ...(keepVendorShort ? {} : { shortTermDebt: currentDebt }),
     ...(row.operatingLeaseLiability == null ? { operatingLeaseLiability: operating.value } : {}),
     ...(financeNoncurrent !== null && row.financeLeaseLiability == null ? { financeLeaseLiability: finance.value } : {}),
@@ -1017,7 +1054,7 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
       `current debt ${millions(currentDebt)} (${keepVendorShort ? checkedCurrent === null ? `the vendor's short-term debt, kept; ${noCurrentTag} to check it against`
         : `the vendor's short-term debt, kept; it equals the filed current debt (${checkedCurrent.tags})` : filedCurrentTags.join(" + ") + paperNote}), ` +
       `total debt ${millions(currentDebt)} + noncurrent debt ${millions(longTerm)} + leases ${millions(leases)} = ${millions(totalDebt)} ${currency}; ` +
-      `vendor total ${finite(vendorTotal) ? millions(vendorTotal) : "absent"} retained in the raw row` } };
+      `${totalNote}vendor total ${millions(vendorTotal)} retained in the raw row` } };
 }
 
 /** A missing taxonomy class is recoverable; unrelated refusals remain authoritative. */

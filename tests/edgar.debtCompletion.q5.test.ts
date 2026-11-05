@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { admitBalanceCash, admitDebtFields, enrichFinancialFields } from "@/edgar/financialEnrichment";
+import { admitBalanceCash, admitDebtFields, balanceAdmissionEntries, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { leaseDebtConflict } from "@/pipeline/stageB/netDebt";
 import { leaseDebtScopeRefusal } from "@/pipeline/stageB/leaseScope";
+import { mergeManifest } from "@/pipeline/stageA/manifest";
 import type { FmpBalanceSheetRow } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
 import { ACCN, companyFacts, M, OBSERVED, Q2 } from "./helpers/amzn51LeaseShape";
@@ -15,6 +16,47 @@ const row = (over: Partial<FmpBalanceSheetRow> = {}): FmpBalanceSheetRow => ({ d
 const admit = (tags = tagged, vendor = row()) => admitDebtFields(vendor, companyFacts({ [Q2]: tags }), "USD", OBSERVED);
 
 describe("exact same-filing debt completion", () => {
+  it.each([103.48, 104.52])("uses reconciled components for a minor vendor-total difference (%sM), with both observations disclosed", total => {
+    const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: total * M });
+    const before = JSON.stringify(vendor);
+    const out = admit(tagged, vendor);
+    expect(out.row.totalDebt).toBe(130 * M);
+    expect(out.row.netDebt).toBe(120 * M);
+    expect(out.admissions[0]?.detail).toContain(`vendor total ${total.toLocaleString('en-US')}M`);
+    expect(out.admissions[0]?.detail).toContain('component sum 104M');
+    expect(out.admissions[0]?.detail).toMatch(/minor difference.*not filed equality.*no balancing plug/);
+    expect(JSON.stringify(vendor)).toBe(before);
+  });
+  it("applies the same boundary to the older noncurrent-only lease completion", () => {
+    const out = admit(tagged, row({ totalDebt: 117.41 * M }));
+    expect(out.row.totalDebt).toBe(130 * M);
+    expect(out.admissions[0]?.detail).toContain('vendor total 117.41M');
+    expect(out.admissions[0]?.detail).toContain('component sum 118M');
+  });
+  it("keeps both minor-difference observations visible after acquisition has already completed the row", () => {
+    const out = admit(tagged, row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 103.48 * M }));
+    const repeated = admit(tagged, out.row);
+    expect(repeated.row.totalDebt).toBe(130 * M);
+    const basis = mergeManifest([{ field: 'statements.balance.totalDebt', reason: 'older annual lease completion',
+      severity: 'info', expected: true }], balanceAdmissionEntries(repeated.admissions)).map(entry => entry.reason).join(' ');
+    expect(basis).toContain('vendor total 103.48M');
+    expect(basis).toContain('component sum 104M');
+    expect(basis).toContain('reconciled components used');
+  });
+  it.each([103.479, 104.523])("refuses above the minor-total band and names both amounts (%sM)", total => {
+    const out = admit(tagged, row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: total * M }));
+    expect(out.row.totalDebt).toBeNull();
+    expect(out.row.fieldConflicts?.totalDebt?.reason).toContain(`${total.toLocaleString('en-US')}M`);
+    expect(out.row.fieldConflicts?.totalDebt?.reason).toContain('104M');
+  });
+  it("does not let a minor total difference establish overlapping current borrowing scopes", () => {
+    const out = admit({ OperatingLeaseLiabilityCurrent: 2, OperatingLeaseLiabilityNoncurrent: 18,
+      LongTermDebtNoncurrent: 100, LongTermDebtAndCapitalLeaseObligationsCurrent: 4,
+      ShortTermBorrowings: 4.001, DebtCurrent: 4.001 },
+      row({ shortTermDebt: 6.001 * M, capitalLeaseObligations: 18 * M, totalDebt: 124.002 * M }));
+    expect(out.row.totalDebt).toBeNull();
+    expect(out.admissions).toEqual([]);
+  });
   it("reconciles debt independently of a cash refusal in either pass order and retains that refusal", () => {
     const facts = companyFacts({ [Q2]: { ...tagged, CashAndCashEquivalentsAtCarryingValue: 9 } });
     const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M });
