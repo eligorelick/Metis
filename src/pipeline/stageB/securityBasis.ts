@@ -148,7 +148,7 @@ export function resolveEconomicEquityScope(
       classPriceDates: row.classes.flatMap(cls => cls.observedPrice ? [{ classId: cls.classId, asOf: cls.observedPrice.asOf }] : []),
       sourceIds: [...new Set(active.flatMap(item => [...item.sourceIds, ...item.classes.flatMap(cls => cls.observedPrice?.sourceIds ?? [])]))],
       sourceHashes: [...new Set(active.flatMap(item => [item.sourceHash, ...item.classes.flatMap(cls => cls.observedPrice ? [cls.observedPrice.sourceHash] : [])]))], shareCountAsOf: row.asOf,
-      basis: `Issuer-common equity = sum of each class's outstanding count x its admitted class price (${totals[0]} economic share units at ${row.asOf}); ` +
+      basis: `Issuer-common equity = sum of each class's outstanding count x its admitted class price (${totals[0].toLocaleString("en-US")} economic share units at ${row.asOf}); ` +
         (!approximate ? "quoted common-class price basis. "
           : active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy" && cls.economicUnitsPerQuotedShare !== 1))
             ? "economic-weight approximation: each class without its own admitted quote is valued at its filed economic units per quoted share x the main quote price, not a traded quote for those classes. "
@@ -202,10 +202,12 @@ export function issuerEconomicDilutedShares(
   if (!finite(total) || total <= 0 || !countDay || !priceDay) return refuse("the resolved class inventory carries no dated economic share total");
   const { basic, diluted, periodEnd } = counts;
   if (!finite(diluted) || diluted <= 0) return refuse("no diluted weighted-average count is filed; outstanding class weights " +
-    evidence.flatMap(row => row.classes.map(cls => {
+    [...new Set(evidence.filter(row => day(row.effectiveFrom) && row.effectiveFrom <= priceDay &&
+      (row.effectiveTo === null || row.effectiveTo > priceDay)).flatMap(row => row.classes.map(cls => {
       const name = /:CommonClass([A-Z0-9]{1,8})Member$/.exec(cls.classId)?.[1];
-      return `${name ? `Class ${name}` : cls.classId} = ${cls.economicUnitsPerQuotedShare ?? "unknown"}`;
-    })).join(", ") + " establish economic units only, not a period-average diluted denominator");
+      const label = name ? `Class ${name}` : cls.classId === row.securityId ? `quoted class (${row.securityId})` : cls.classId;
+      return `${label}: ${cls.economicUnitsPerQuotedShare?.toLocaleString("en-US") ?? "unknown"} units per quoted share`;
+    })))].join(", ") + " establish economic units only, not a period-average diluted denominator");
   if (!finite(basic) || basic <= 0) return refuse("no basic weighted-average count is filed for the same period, so the diluted count cannot be shown to span every class");
   if (!periodEnd || !day(periodEnd) || Math.abs(Date.parse(periodEnd) - Date.parse(countDay)) / 86_400_000 > ECONOMIC_COUNT_WINDOW_DAYS) {
     return refuse(`the weighted counts for the period ending ${periodEnd ?? "on an unknown date"} are more than ${ECONOMIC_COUNT_WINDOW_DAYS} days from the class inventory at ${countDay}`);

@@ -38,7 +38,11 @@ describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)"
     const scope = resolveEconomicEquityScope(quote("BRK-B", 500), evidence, "2026-10-15");
     const result = issuerEconomicDilutedShares(scope, evidence, { basic: null, diluted: null, periodEnd: "2026-06-30" });
     expect(result?.shares).toBeNull();
-    expect(result && "reason" in result && result.reason).toMatch(/no diluted.*Class A.*1200/i);
+    expect(result && "reason" in result && result.reason).toMatch(/no diluted.*Class A.*1,200/i);
+    const repeated = issuerEconomicDilutedShares(scope, [...evidence, ...evidence], { basic: null, diluted: null, periodEnd: "2026-06-30" });
+    const reason = repeated && "reason" in repeated ? repeated.reason : "";
+    expect(reason.match(/Class A/g)).toHaveLength(1);
+    expect(reason).toContain("quoted class (BRK-B)");
   });
   it("values equal classes at the quoted price, even under a heading", () => {
     const parsed = parse(metaLike(), "META");
@@ -49,6 +53,7 @@ describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)"
     expect(parsed.passages.rights).toBe(metaRights);
     const scope = resolveEconomicEquityScope(quote("META", 700), economicEvidenceFromInventories([parsed]), "2026-10-15");
     expect(scope).toMatchObject({ status: "resolved", economicShares: 2_547_506_225, shareCountAsOf: "2026-07-24" });
+    expect(scope.basis).toContain("2,547,506,225 economic share units");
     expect(scope.marketCap).toBeCloseTo(2_547_506_225 * 700, 0);
   });
 

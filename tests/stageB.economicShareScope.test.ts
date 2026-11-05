@@ -120,7 +120,7 @@ describe("issuer economic-share scope", () => {
     b.edgar.economicShareInventory![0]!.observations![1]!.shares = 9_200_000;
     b.edgar.tenQNotes = { ok: true, value: { source: "edgar", endpoint: "https://www.sec.gov/filing.htm", fetchedAt: b.builtAt, asOf: "2026-03-31", data: {
       form: "10-Q", accession: "0000000042-26-000001", filingDate: "2026-05-06", documentUrl: "https://www.sec.gov/filing.htm", reportDate: "2026-03-31", sectionName: "tenQNotes", method: "header-regex", chars: 10, text: "Capital stock", statementsText: "Consolidated Balance Sheets Common stock: Class A - 100 shares outstanding; Class H - 9 shares issued and zero shares outstanding. Additional paid-in capital 10" } } };
-    expect(retainedCommonClassAmbiguity(b)?.reason).toMatch(/Class H.*9200000.*zero shares outstanding/i);
+    expect(retainedCommonClassAmbiguity(b)?.reason).toMatch(/Class H.*9,200,000.*zero shares outstanding/i);
   });
 
   // Audit 2026-10-22 B-8, left by batch 3a: the AI context states the quote's cap with the same caveat as the report.

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { identicalClassRights, participatingClassRights, shareForShareClassRights } from "@/edgar/economicShares";
+import { classEconomicContradiction, identicalClassRights, participatingClassRights, shareForShareClassRights } from "@/edgar/economicShares";
 import { sameEntitySymbol } from "@/symbol";
 import type { DataBundle } from "@/pipeline/types";
 import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
@@ -7,7 +7,6 @@ import { quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
 
 const labelPattern = "(?:Class [A-Z0-9]{1,8}|[A-Z][A-Z-]{0,30}) common stock";
 const labels = (text: string): string[] => [...text.matchAll(new RegExp(`\\b(${labelPattern})\\b`, "gi"))].map(m => m[1]!.toLowerCase());
-const contraryLabels = (text: string): string[] => [...labels(text), ...[...text.matchAll(/\b(Class [A-Z0-9]{1,8}) (?:common )?shares?\b/gi)].map(m => `${m[1]!.toLowerCase()} common stock`)];
 const validDay = (v: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v)) && new Date(v).toISOString().slice(0, 10) === v;
 const dated = (text: string): string | null => {
   const ms = Date.parse(`${text} UTC`);
@@ -132,8 +131,7 @@ function retainedStatementEconomicEvidence(bundle: DataBundle): EconomicShareEvi
     const related = identicalClassRights(s);
     return related && related.length === names.length && names.every(n => related.includes(n));
   });
-  if (!relation || sentences.some(s => s !== relation && contraryLabels(s).some(n => names.includes(n)) && /\b(?:dividends?|distributions?|liquidation)\b/i.test(s) &&
-    /\b(?:different|unequal|not equal|not identical|preferen\w*|priority|senior|subordinat\w*|not entitled|non-?participating|times|twice|half|percent|greater|less than|equal to)\b|\d\s?%|\b\d+\/\d+\b/i.test(s))) return existing;
+  if (!relation || classEconomicContradiction(d.text, names)) return existing;
   const total = counts.reduce((n, count) => n + count, 0);
   const provider = bundle.sharesFloat.ok ? bundle.sharesFloat.value.data.rows.find(r => r.symbol === bundle.symbol && r.source === d.documentUrl &&
     typeof r.outstandingShares === "number" && Number.isSafeInteger(r.outstandingShares) && r.outstandingShares > 0) : undefined;
@@ -200,9 +198,12 @@ function retainedEqualCoverEvidence(bundle: DataBundle): EconomicShareEvidence[]
     if (!custom) return [];
     const name = custom[1]!.replace(/([a-z])([A-Z])/g, "$1 $2");
     const candidates = rightsSources.filter(d => Date.parse(latest.filingDate) - Date.parse(d.filingDate) <= 400 * 86_400_000);
-    const source = candidates.find(d => [...d.text.matchAll(/\bThere are no economic rights associated with the ([^,.]{1,80})(?:, and [^.]{1,500})?\./gi)]
-      .some(m => m[1]!.toLowerCase() === name.toLowerCase()));
-    const denied = source && candidates.some(d => d.filingDate >= source.filingDate && new RegExp(`\\b${name} (?:has|carries|possesses|receives|is entitled to)[^.]{0,160}\\b(?:economic|dividend|liquidation|distribution|participation) rights\\b`, "i").test(d.text));
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const denial = new RegExp(`^(?:There are no economic rights associated with the ${escaped}(?:, and [^.]{1,500})?|(?:The )?${escaped} (?:has|carries|possesses) no economic rights)\\.$`, "i");
+    const sentences = (text: string) => text.split(/(?<=\.)\s+(?=[A-Z])/).map(s => s.trim());
+    const source = candidates.find(d => sentences(d.text).some(s => denial.test(s)));
+    const denied = source && candidates.some(d => d.filingDate >= source.filingDate && sentences(d.text).some(s => !denial.test(s) &&
+      new RegExp(`\\b${escaped} (?:has|carries|possesses|receives|is entitled to)[^.]{0,160}\\b(?:economic|dividend|liquidation|distribution|participation) rights\\b`, "i").test(s)));
     return source && !denied ? [{ observation: o, name, source }] : [];
   });
   const observed = allObserved.filter(o => !nonEconomic.some(n => n.observation === o));
@@ -237,7 +238,8 @@ function retainedEqualCoverEvidence(bundle: DataBundle): EconomicShareEvidence[]
   const sameSet = (ns: string[]) => ns.length === names.length && new Set(ns).size === names.length && names.every(n => ns.includes(n));
   const classNames = names.map(n => `class ${n} common stock`);
   const participation = participatingClassRights(latest.text);
-  if (!sameSet(statementNames(latest)) && !(participation && participation.length === classNames.length && classNames.every(n => participation.includes(n)))) return [];
+  const hasStatementInventory = sameSet(statementNames(latest));
+  if (!hasStatementInventory && !(participation && participation.length === classNames.length && classNames.every(n => participation.includes(n)))) return [];
   const sentences = (text: string) => text.split(/(?<=\.)\s+(?=[A-Z])/).map(s => s.trim());
   const equal = (s: string) => {
     const ns = identicalClassRights(s) ?? shareForShareClassRights(s);
@@ -249,23 +251,24 @@ function retainedEqualCoverEvidence(bundle: DataBundle): EconomicShareEvidence[]
   // Existing full-sentence equality cannot be qualified by a later contrary
   // entitlement. Omission alone neither changes rights nor removes a class.
   const relevant = notes.filter(d => d.filingDate >= source.filingDate);
-  if (relevant.some(d => sentences(d.text).some(s => !equal(s) && /\bClass [A-Z0-9]{1,8}\b/i.test(s) &&
-    /\b(?:dividends?|distributions?|liquidation|participation)\b/i.test(s) &&
-    /\b(?:different|differ|unequal|not equal|not identical|preferen\w*|priority|senior|subordinat\w*|not entitled|non-?participating|times|twice|half|percent|greater|less than|equal to)\b|\d\s?%|\b\d+\/\d+\b/i.test(s)))) return [];
+  if (relevant.some(d => classEconomicContradiction(d.text, classNames))) return [];
   const annualInventory = inventories.find(i => i.source.accession === source.accession && i.source.documentUrl === source.documentUrl);
   if (source !== latest && (!annualInventory || !primary(annualInventory.source) || !sameSet((annualInventory.observations ?? []).map(o =>
     /^[A-Za-z][\w-]*:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId)?.[1]?.toLowerCase() ?? "")))) return [];
-  const relation = sentences(source.text).find(equal) ?? conversionRollforward(source.text, names)!;
+  const relation = sentences(source.text).find(s => {
+    const ns = identicalClassRights(s);
+    return ns?.length === classNames.length && classNames.every(n => ns.includes(n));
+  }) ?? sentences(source.text).find(equal) ?? conversionRollforward(source.text, names)!;
   const relationBasis = identicalClassRights(relation)
     ? `Filed equal economics (${source.form} ${source.accession}, filed ${source.filingDate}): "${relation}" `
-    : `Filed economic-unit evidence (${source.form} ${source.accession}, filed ${source.filingDate}): ${relation} `;
+    : `Filed conversion evidence (${source.form} ${source.accession}, filed ${source.filingDate}): ${relation} Conversion supports a one-for-one unit proxy; equal current dividend and liquidation rights are not independently established. `;
   return [{ issuerId: reg.cik10, securityId: bundle.symbol, asOf, filed: latest.filingDate,
     effectiveFrom: latest.filingDate, effectiveTo: null, complete: true,
     sourceHash: createHash("sha256").update(JSON.stringify({ covers, rights: source, ...(nonEconomic.length ? { nonEconomic } : {}), statement: latest.statementsText ?? latest.text, profile: bundle.profile })).digest("hex"),
     sourceIds: [...new Set([latest.documentUrl, source.documentUrl, ...allObserved.map(o => o.sourceId), ...nonEconomic.map(n => n.source.documentUrl)])],
-    basis: `Filed cover counts at ${asOf} span the same complete Class ${names.map(n => n.toUpperCase()).join(" / Class ")} balance-sheet inventory. ` +
+    basis: `Filed cover counts at ${asOf} span Class ${names.map(n => n.toUpperCase()).join(" / Class ")}, ${hasStatementInventory ? "the complete class set enumerated in the same filing's balance sheet" : "the participating class set explicitly enumerated in the same filing's participation statement"}. ` +
       relationBasis +
       nonEconomic.map(n => `${n.name}: ${n.observation.shares} counted voting share(s) excluded because the ${n.source.form} ${n.source.accession} explicitly states no economic rights. `).join("") +
-      `The quoted class is not identified; every equally participating class uses the same-price approximation at the issuer's non-ADR common quote. Voting-price differences are not modelled.`,
+      `The quoted class is not identified; all included classes use the same-price approximation at the issuer's non-ADR common quote. Voting-price differences are not modelled.`,
     classes: observed.map((o, i) => ({ classId: classNames[i]!, shares: o.shares, countBasis: "outstanding", economicUnitsPerQuotedShare: 1, priceBasis: "economic-equivalence-proxy" })) }];
 }

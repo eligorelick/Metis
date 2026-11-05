@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { identicalClassRights } from "@/edgar/economicShares";
 import { retainedClassEconomicEvidence } from "@/edgar/retainedClassEconomics";
 import { resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
+import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import type { DataBundle } from "@/pipeline/types";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import filed from "./fixtures/valuation-coverage-equal-classes.json";
@@ -51,11 +52,12 @@ describe("D-186 equally participating class coverage", () => {
   it("admits complete inline counts with a share-for-share conversion and an ordinary balance-sheet layout", () => {
     const b = syntheticInterimFixture();
     if (!b.edgar.tenKNotes?.ok || !b.edgar.tenQNotes?.ok) throw Error("fixture");
-    b.edgar.tenKNotes.value.data.text = "Our Class B common stock is convertible, share for share, into Class A common stock, subject to certain restrictions.";
+    b.edgar.tenKNotes.value.data.text = "Each share of Class B common stock is convertible into Class A common stock on a one-for-one basis.";
     b.edgar.tenQNotes.value.data.text = "Consolidated Balance Sheets Equity: Class A common stock, authorized 1,000 shares; 100 shares issued and outstanding. Class B common stock, authorized 1,000 shares; 200 shares issued and outstanding. Additional paid-in capital 30. Consolidated Statements of Income";
     const evidence = retainedClassEconomicEvidence(b);
     expect(evidence[0]?.classes.map(c => [c.shares, c.economicUnitsPerQuotedShare])).toEqual([[100, 1], [200, 1]]);
-    expect(evidence[0]?.basis).toMatch(/convertible, share for share/);
+    expect(evidence[0]?.basis).toMatch(/one-for-one/);
+    expect(evidence[0]?.basis).toContain("equal current dividend and liquidation rights are not independently established");
     b.edgar.tenQNotes.value.data.text += " Class B common stock has preferential dividend rights.";
     expect(retainedClassEconomicEvidence(b)).toEqual([]);
   });
@@ -65,15 +67,32 @@ describe("D-186 equally participating class coverage", () => {
     b.edgar.tenKNotes.value.data.text = "Class A common stock is convertible into Class B common stock.";
     expect(retainedClassEconomicEvidence(b)).toEqual([]);
   });
+  it("refuses unequal current per-share dividends despite a one-for-one conversion", () => {
+    const b = syntheticInterimFixture();
+    if (!b.edgar.tenKNotes?.ok || !b.edgar.tenQNotes?.ok) throw Error("fixture");
+    b.edgar.tenKNotes.value.data.text = "Class B common stock is convertible, share for share, into Class A common stock.";
+    b.edgar.tenQNotes.value.data.text += " Class A common stock receives a dividend of $0.44 per share and Class B common stock receives a dividend of $0.28 per share.";
+    expect(retainedClassEconomicEvidence(b)).toEqual([]);
+    expect(retainedCommonClassAmbiguity(b)?.reason).toMatch(/unequal per-share dividends.*Class A.*Class B/i);
+  });
+  it("does not let a repeated denial grant economic rights to a voting-only security", () => {
+    const b = syntheticInterimFixture();
+    if (!b.edgar.tenKNotes?.ok || !b.edgar.tenQNotes?.ok) throw Error("fixture");
+    const q = b.edgar.economicShareInventory![1]!;
+    q.observations!.push({ classId: "example:ControlShareMember", shares: 1, asOf: "2026-09-28", contextId: "control", sourceId: `${q.source.documentUrl}#control` });
+    b.edgar.tenKNotes.value.data.text = "The Control Share has no economic rights.";
+    b.edgar.tenQNotes.value.data.text += ". Holders of Class A and Class B common stock are entitled to equal dividends per share and share equally in liquidation. The Control Share has no economic rights.";
+    expect(retainedClassEconomicEvidence(b)[0]?.classes.map(c => c.shares)).toEqual([100, 200]);
+  });
   it("establishes one-for-one conversion from both sides of the filed class rollforward", () => {
     const b = syntheticInterimFixture();
     if (!b.edgar.tenKNotes?.ok) throw Error("fixture");
-    b.edgar.tenKNotes.value.data.text = "Class A shares are primarily held by employees and retirees, and these shares are fully convertible into class B shares at any time. " +
-      "Class A Common Stock: Balance at beginning of year 121 127 134 Conversions of class A to class B common stock (18) (11) (14) Class A shares issued at end of year 106 121 127 " +
-      "Class B Common Stock: Balance at beginning of year 733 726 725 Conversions of class A to class B common stock 18 11 14 Class B shares issued at end of year 743 733 726";
-    b.edgar.tenKNotes.value.data.text += " Prior table Class A Common Stock: Conversions of class A to class B common stock (1) — — Class B Common Stock: Conversions of class A to class B common stock 1 — — ";
+    b.edgar.tenKNotes.value.data.text = "Class A shares are fully convertible into class B shares at any time. " +
+      "Class A Common Stock: Balance at beginning of year 80 90 100 Conversions of class A to class B common stock (8) (5) (4) Class A shares issued at end of year 72 85 96 " +
+      "Class B Common Stock: Balance at beginning of year 300 310 320 Conversions of class A to class B common stock 8 5 4 Class B shares issued at end of year 308 315 324";
+    b.edgar.tenKNotes.value.data.text += " Prior table Class A Common Stock: Conversions of class A to class B common stock (3) — — Class B Common Stock: Conversions of class A to class B common stock 3 — — ";
     expect(retainedClassEconomicEvidence(b)[0]?.classes.every(c => c.economicUnitsPerQuotedShare === 1)).toBe(true);
-    b.edgar.tenKNotes.value.data.text = b.edgar.tenKNotes.value.data.text.replace("stock 18 11 14", "stock 36 22 28");
+    b.edgar.tenKNotes.value.data.text = b.edgar.tenKNotes.value.data.text.replace("stock 8 5 4", "stock 16 10 8");
     expect(retainedClassEconomicEvidence(b)).toEqual([]);
   });
   it("uses the filed two-class participation statement and excludes only a proved non-economic voting share", () => {
@@ -81,12 +100,16 @@ describe("D-186 equally participating class coverage", () => {
     if (!b.edgar.tenKNotes?.ok || !b.edgar.tenQNotes?.ok) throw Error("fixture");
     const q = b.edgar.economicShareInventory![1]!;
     q.observations!.push({ classId: "example:FounderShareMember", shares: 1, asOf: "2026-09-28", contextId: "founder", sourceId: `${q.source.documentUrl}#founder` });
-    b.edgar.tenKNotes.value.data.text = "There are no economic rights associated with the Founder Share, and its holder has variable voting rights.";
-    b.edgar.tenQNotes.value.data.text = "The Company applies the two-class method to calculate its basic and diluted net income per share as Class A subordinate voting shares and Class B restricted voting shares are participating securities with equal participation rights and are entitled to receive dividends on a share for share basis.";
+    b.edgar.tenKNotes.value.data.text = "The Founder Share carries no economic rights.";
+    b.edgar.tenQNotes.value.data.text = "Class A common stock and Class B common stock are participating securities with equal participation rights and receive dividends on a one-for-one basis.";
     const evidence = retainedClassEconomicEvidence(b);
     expect(evidence[0]?.classes.map(c => c.shares)).toEqual([100, 200]);
     expect(evidence[0]?.basis).toMatch(/Founder Share.*no economic rights|no economic rights.*Founder Share/i);
+    expect(evidence[0]?.basis).not.toContain("balance-sheet inventory");
     const text = b.edgar.tenQNotes.value.data.text;
+    b.edgar.tenQNotes.value.data.text += " The Founder Share has no economic rights.";
+    expect(retainedClassEconomicEvidence(b)[0]?.classes.map(c => c.shares)).toEqual([100, 200]);
+    b.edgar.tenQNotes.value.data.text = text;
     b.edgar.tenQNotes.value.data.text += " The Founder Share has dividend rights.";
     expect(retainedClassEconomicEvidence(b)).toEqual([]);
     b.edgar.tenQNotes.value.data.text = text;

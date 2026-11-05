@@ -1,6 +1,6 @@
 import type { DataBundle } from "@/pipeline/types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
-import { identicalClassRights } from "@/edgar/economicShares";
+import { classEconomicContradiction, identicalClassRights } from "@/edgar/economicShares";
 import { parseFactPoints } from "@/edgar/xbrl";
 import type { CombinedClassEpsBasis, WeightedShareCounts } from "./securityBasis";
 
@@ -64,6 +64,14 @@ export function retainedCommonClassAmbiguity(bundle: DataBundle): CommonClassAmb
   const cutoff = bundle.builtAt.slice(0, 10);
   const observed = [...(bundle.edgar.economicShareInventory ?? [])].filter(row => row.source.filingDate <= cutoff &&
     new Set(row.observations?.map(o => o.classId) ?? []).size > 1).sort((a, b) => b.source.filingDate.localeCompare(a.source.filingDate))[0];
+  const classNames = observed?.observations?.flatMap(o => {
+    const cls = /^[A-Za-z][\w-]*:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId)?.[1];
+    return cls ? [`class ${cls.toLowerCase()} common stock`] : [];
+  }) ?? [];
+  const economicConflict = [bundle.edgar.tenQNotes, bundle.edgar.tenKNotes].flatMap(m =>
+    m?.ok && m.value.source === "edgar" && m.value.data.filingDate <= cutoff && observed &&
+      Date.parse(observed.source.filingDate) - Date.parse(m.value.data.filingDate) <= 400 * 86_400_000
+      ? [classEconomicContradiction(m.value.data.text, classNames)] : []).find(Boolean);
   const treasuryScope = observed ? [bundle.edgar.tenQNotes, bundle.edgar.tenKNotes].flatMap(m => {
     if (!m?.ok || m.value.data.accession !== observed.source.accession || m.value.data.documentUrl !== observed.source.documentUrl ||
         !/\bBALANCE SHEETS?\b/i.test(m.value.data.statementsText ?? "")) return [];
@@ -73,14 +81,14 @@ export function retainedCommonClassAmbiguity(bundle: DataBundle): CommonClassAmb
       const body = text.slice(row.index! + row[0].length, rows[i + 1]?.index);
       const cover = observed.observations?.find(o => o.classId.toLowerCase().endsWith(`:commonclass${row[1]!.toLowerCase()}member`) && o.shares > 0);
       return cover && /\bzero shares (?:issued\s*(?:&|and)\s*)?outstanding\b/i.test(body)
-        ? [`Class ${row[1]} cover observation ${cover.shares} at ${cover.asOf} requires reconciliation with the ${m.value.data.reportDate} balance-sheet class row stating zero shares outstanding; the cover's treasury scope is not established.`] : [];
+        ? [`Class ${row[1]} cover observation ${cover.shares.toLocaleString("en-US")} at ${cover.asOf} requires reconciliation with the ${m.value.data.reportDate} balance-sheet class row stating zero shares outstanding; the cover's treasury scope is not established.`] : [];
     });
   }) : [];
   if (observed && !observed.evidence) return {
     reason: `Primary ${observed.source.form} ${observed.source.accession} retains outstanding common-class observations at ${[...new Set(observed.observations!.map(o => o.asOf))].sort().join(", ")}. Classes requiring complete count, treasury and economic-rights resolution: ${observed.observations!.map(o => {
       const standard = /^[A-Za-z][\w-]*:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId);
       return standard ? `Class ${standard[1]} common stock` : o.classId.replace(/^[^:]+:|Member$/g, "").replace(/([a-z])([A-Z])/g, "$1 $2");
-    }).join(", ")}. ${treasuryScope.join(" ")}${treasuryScope.length ? " " : ""}Complete inventory, aligned measurement dates and economic rights remain unresolved; no class sum or current issuer capitalization is inferred.`,
+    }).join(", ")}. ${economicConflict ? `${economicConflict} ` : ""}${treasuryScope.join(" ")}${treasuryScope.length ? " " : ""}Complete inventory, aligned measurement dates and economic rights remain unresolved; no class sum or current issuer capitalization is inferred.`,
     sourceIds: observed.observations!.map(o => o.sourceId),
   };
   const inventory = [...(bundle.edgar.economicShareInventory ?? [])].filter(row => row.source.filingDate <= cutoff && row.classes.length > 1).sort((a, b) => b.source.filingDate.localeCompare(a.source.filingDate))[0];
