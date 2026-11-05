@@ -293,7 +293,8 @@ function evidenceForObservation(evidence: PeerEconomicEvidence | undefined, peri
 function commonIncome(income: FmpIncomeStatementRow[], balances: FmpBalanceSheetRow[], currency: string, quoteDate: number, rejected: Array<{ period: string }> = []): { value: number | null; date: string | null; reason: string | null; nonOperatingShare: number | null } {
   const normalized = normalizeQuarterRows(income);
   const inc = normalized.rows.slice(0, 4);
-  if (rejected.some(row => row.period >= (inc[3]?.date ?? inc[0]?.date ?? ""))) return {
+  // A complete same-date observation that stayed leaves no gap in the window.
+  if (rejected.some(row => row.period >= (inc[3]?.date ?? inc[0]?.date ?? "") && !income.some(kept => kept.date === row.period))) return {
     value: null, date: null, reason: "current trailing income window contains an excluded incomplete observation", nonOperatingShare: null };
   const violation = normalized.rejected.length ? "ambiguous/invalid quarterly periods" : quarterWindowViolation(inc, normalized.rows[4]);
   if (violation) return { value: null, date: null, reason: violation, nonOperatingShare: null };
@@ -363,7 +364,7 @@ export function comparePeerFundamentals(opts: {
   const subjectEvidenceContrary = subject.subjectEconomicEvidence !== undefined && out.subjectEconomicEvidence === undefined;
   if (subjectEvidenceContrary) exclude(symbol, "subject economic evidence does not describe the compared observation's period, currency or availability; no peer median is published");
   const subjectCommon = opts.subjectIncomeQuarterly && opts.subjectBalanceQuarterly && !sourceReason(opts.subjectIncomeQuarterly, symbol, now, targetCik) && !sourceReason(opts.subjectBalanceQuarterly, symbol, now, targetCik)
-    ? commonIncome(rows(opts.subjectIncomeQuarterly), rows(opts.subjectBalanceQuarterly), currency, targetQuoteMs)
+    ? commonIncome(rows(opts.subjectIncomeQuarterly), rows(opts.subjectBalanceQuarterly), currency, targetQuoteMs, opts.subjectIncomeQuarterly.ok ? opts.subjectIncomeQuarterly.value.data.rejectedPeriods : undefined)
     : { value: null, date: null, reason: "subject four-quarter common earnings source/identity unavailable", nonOperatingShare: null };
   const targetIncomeEnd = day(subjectCommon.date);
   const commonValid = targetIncomeEnd !== null && targetIncomeEnd <= now && now - targetIncomeEnd <= MAX_STATEMENT_AGE && subjectCommon.value !== null;

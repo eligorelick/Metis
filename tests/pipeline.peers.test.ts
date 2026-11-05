@@ -134,6 +134,19 @@ describe("one gain test for both sides of the peer comparison", () => {
     expect(both.comparisons[0].currentWithheldReason).toMatch(/^Issuer-common economic share scope unresolved.*; non-operating income 66\.7%/);
     expect(both.exclusions.filter(e => e.symbol === "ROOT" && e.reason.startsWith("Company figure withheld:"))).toHaveLength(1);
   });
+  it("refuses the subject's trailing earnings when a current quarter was excluded, without shifting to older quarters", () => {
+    const income = earning(candidate("ROOT"), 30, 28).incomeQuarterly;
+    if (!income.ok) throw new Error("fixture");
+    const withRejected = (period: string) => ({ ...income, value: { ...income.value, data: { ...income.value.data, rejectedPeriods: [{ period, reason: "incomplete" }] } } });
+    const rows = income.value.data.rows;
+    const newest = rows.map(row => String(row.date)).sort().at(-1)!;
+    const later = `${Number(newest.slice(0, 4)) + 1}${newest.slice(4)}`;
+    const refused = runSubject(withRejected(later)).peerCoverage;
+    expect(refused.comparisons[0].current).toBeNull();
+    expect(refused.exclusions.find(e => e.symbol === "ROOT")?.reason).toMatch(/current trailing income window contains an excluded incomplete observation/);
+    expect(runSubject(withRejected("2001-03-31")).peerCoverage.comparisons[0].current).toBe(runSubject(income).peerCoverage.comparisons[0].current);
+    expect(runSubject(withRejected(newest)).peerCoverage.comparisons[0].current).toBe(runSubject(income).peerCoverage.comparisons[0].current);
+  });
   it("respects the strict threshold and requires all four quarterly operands", () => {
     const count = (pretax: number, operating?: number) => run({ ...four(), P5: earning(candidate("P5", 2500), pretax, operating) }).peerCoverage.comparisons[0].peerCount;
     expect(count(40, 30)).toBe(4);

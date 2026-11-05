@@ -883,7 +883,7 @@ export const FMP_TTLS = {
 
 export type FmpMethodName = keyof typeof FMP_TTLS;
 
-const coerceVendorNumber = (value: unknown): unknown => {
+export const coerceVendorNumber = (value: unknown): unknown => {
   if (value === null || value === undefined || value === "") return undefined;
   if (typeof value === "string" && /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(value.trim())) {
     return Number(value);

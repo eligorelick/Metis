@@ -8347,6 +8347,12 @@ remain immutable. Peers lack retained companyfacts, so a collapse has no filing
 override: use an older admitted balance, or refuse if existing date/scope checks
 fail. Their incomplete current income window is not shifted backwards.
 
+The checks read a copy of each raw observation under the provider's numeric rule, so
+a vendor amount sent as text is judged like the admitted row. The raw evidence stays
+untouched. An excluded current income quarter refuses the subject's and each peer's
+trailing earnings comparison instead of shifting it to older quarters, unless a
+complete same-date observation stayed.
+
 **Census.** All 105 inputs: 3,367 vendor balance rows and 6,748 flow rows; no
 annual observation fails. Exactly ten September 30, 2026 observations trigger the
 raw check. Their final treatment is:

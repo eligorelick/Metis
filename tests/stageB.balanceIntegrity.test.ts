@@ -339,6 +339,29 @@ describe("partial preliminary balance rows", () => {
     expect(() => balanceIntegrityView(bundle)).not.toThrow();
   });
 
+  const asVendorStrings = (row: object) => Object.fromEntries(Object.entries(row).map(([field, value]) => [field, typeof value === "number" ? String(value) : value]));
+  it("rejects a skeleton whose retained raw amounts are numeric strings", () => {
+    const bundle = partial();
+    if (!bundle.statements.balanceQuarterly.ok) throw new Error("fixture");
+    const data = bundle.statements.balanceQuarterly.value.data;
+    data.raw = data.rows.map(asVendorStrings);
+    const admitted = balanceIntegrityView(bundle).statements.balanceQuarterly;
+    expect(admitted.ok && admitted.value.data.rows[0]?.date).toBe("2025-12-31");
+    expect(data.raw).toEqual(data.rows.map(asVendorStrings));
+  });
+  it("keeps a complete row whose retained raw amounts are strings beside numeric older rows", () => {
+    const bundle = fixture();
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("fixture");
+    const data = bundle.statements.incomeQuarterly.value.data;
+    const rows = data.rows.map(row => ({ ...row, costOfRevenue: 60 * M, grossProfit: 40 * M, operatingIncome: 20 * M, revenue: 100 * M, netIncome: 15 * M }));
+    const newest = rows[0]!.date;
+    data.rows = rows;
+    data.raw = rows.map((row, index) => index === 0 ? asVendorStrings(row) : row);
+    const admitted = balanceIntegrityView(bundle).statements.incomeQuarterly;
+    expect(admitted.ok && admitted.value.data.rows.map(row => row.date)).toContain(newest);
+    expect(admitted.ok && admitted.value.data.rejectedPeriods).toBeUndefined();
+  });
+
   it.each(["no prior", "unclassified", "disposal", "different currency", "different issuer", "two retained lines"])("does not reject %s evidence", mode => {
     const row = { date: "2026-03-31", reportedCurrency: "USD", cik: "1", totalAssets: 1000, netReceivables: 0, inventory: 0, propertyPlantEquipmentNet: 0, longTermInvestments: 0 };
     const previous = { ...row, date: "2025-12-31", netReceivables: 100, propertyPlantEquipmentNet: 500 };

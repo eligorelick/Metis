@@ -1,5 +1,5 @@
 import type { DataBundle } from "@/pipeline/types";
-import type { FmpBalanceSheetRow, FmpStatementRow } from "@/providers/fmp";
+import { coerceVendorNumber, type FmpBalanceSheetRow, type FmpStatementRow } from "@/providers/fmp";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
@@ -102,8 +102,11 @@ function breakdownFailures(rows: readonly FmpStatementRow[], kind: StatementKind
   return failures;
 }
 
+/** The raw response keeps vendor strings. Read a copy under the rule the admitted rows passed. */
 function originalRows(input: { rows: FmpStatementRow[]; raw: unknown }): FmpStatementRow[] {
-  return Array.isArray(input.raw) ? input.raw.filter(row => row !== null && typeof row === "object" && typeof row.date === "string") : input.rows;
+  if (!Array.isArray(input.raw)) return input.rows;
+  return input.raw.filter(row => row !== null && typeof row === "object" && typeof row.date === "string")
+    .map(row => Object.fromEntries(Object.entries(row).map(([field, value]) => [field, coerceVendorNumber(value)])) as FmpStatementRow);
 }
 
 /** Match the observation, not just its date. A complete same-date sibling survives. */
