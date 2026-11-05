@@ -483,10 +483,29 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     : `incomplete debt carrying value: ${refusedComponent} is unavailable (${row.fieldConflicts![refusedComponent]!.reason})`;
   // D-133: a noncurrent-only vendor lease line is completed from its filing, or total debt is withheld.
   let leaseLineReason: string | null = null;
-  if (componentReason === null && row.fieldConflicts?.totalDebt?.usable !== false) {
-    const completion = completeNoncurrentLeaseLine(out, facts, currency, observedAt);
+  const oldSumRefusal = row.fieldConflicts?.totalDebt;
+  const revisitVendorSum = oldSumRefusal?.usable === false && typeof oldSumRefusal.vendorValue === "number" &&
+    Number.isFinite(oldSumRefusal.vendorValue) && oldSumRefusal.vendorValue >= 0 &&
+    (row.cik == null || Number(row.cik) === facts.cik) &&
+    /^incomplete debt carrying value: the vendor lease line .*?, but the vendor total debt .* is not its short-term debt \+ long-term debt \+ lease line, so its composition is unknown;/.test(oldSumRefusal.reason);
+  if (componentReason === null && (row.fieldConflicts?.totalDebt?.usable !== false || revisitVendorSum)) {
+    // Re-evaluate only this guard's old refusal. The original observed total
+    // is a candidate for scope proof, never a fallback admitted by itself.
+    const candidate = revisitVendorSum ? { ...out, totalDebt: oldSumRefusal!.vendorValue } : out;
+    const completion = completeNoncurrentLeaseLine(candidate, facts, currency, observedAt);
     if (completion.status === "completed") {
       out = completion.row;
+      if (revisitVendorSum) {
+        const fieldConflicts = { ...out.fieldConflicts };
+        for (const field of ["totalDebt", "netDebt"]) {
+          if (fieldConflicts[field]?.usable === false && fieldConflicts[field]!.reason === oldSumRefusal!.reason) delete fieldConflicts[field];
+        }
+        const cashRefusal = row.fieldConflicts?.cashAndCashEquivalents;
+        if (cashRefusal?.usable === false && fieldConflicts.netDebt?.usable !== false) {
+          fieldConflicts.netDebt = { ...cashRefusal, secValue: null, vendorValue: row.fieldConflicts?.netDebt?.vendorValue ?? null };
+        }
+        out = { ...out, fieldConflicts };
+      }
       admissions.push(completion.admission);
     } else if (completion.status === "refused") leaseLineReason = completion.reason;
   }
@@ -1026,6 +1045,9 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   const currentDebt = keepVendorShort ? vendorShort : filedCurrent!;
   const vendorComponents = (vendorShort ?? 0) + longTerm + line;
   if (!debtTotalAgrees(vendorTotal, vendorComponents)) return refuse(`${debtTotalComparison(vendorTotal, vendorComponents)} exceeds the minor-difference limit`);
+  if (Math.abs(vendorTotal - vendorComponents) > tolerance(vendorTotal) && keepVendorShort && checkedCurrent === null) {
+    return refuse(`the current debt scope is unproven (${noCurrentTag}); ${debtTotalComparison(vendorTotal, vendorComponents)} cannot establish it`);
+  }
   const totalNote = minorDebtTotalNote(vendorTotal, vendorComponents);
   const totalDebt = currentDebt + longTerm + leases;
   const cash = row.fieldConflicts?.cashAndCashEquivalents ? null : row.cashAndCashEquivalents;

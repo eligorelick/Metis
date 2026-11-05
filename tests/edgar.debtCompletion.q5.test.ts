@@ -5,7 +5,7 @@ import { leaseDebtScopeRefusal } from "@/pipeline/stageB/leaseScope";
 import { mergeManifest } from "@/pipeline/stageA/manifest";
 import type { FmpBalanceSheetRow } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
-import { ACCN, companyFacts, M, OBSERVED, Q2 } from "./helpers/amzn51LeaseShape";
+import { ACCN, companyFacts, enriched, M, OBSERVED, Q2 } from "./helpers/amzn51LeaseShape";
 
 const tagged: Record<string, number> = { LongTermDebtNoncurrent: 100, LongTermDebtCurrent: 4,
   OperatingLeaseLiabilityCurrent: 2, OperatingLeaseLiabilityNoncurrent: 18,
@@ -28,10 +28,11 @@ describe("exact same-filing debt completion", () => {
     expect(JSON.stringify(vendor)).toBe(before);
   });
   it("applies the same boundary to the older noncurrent-only lease completion", () => {
-    const out = admit(tagged, row({ totalDebt: 117.41 * M }));
+    const out = admit(tagged, row({ shortTermDebt: 4 * M, capitalLeaseObligations: 23 * M, totalDebt: 126.365 * M }));
     expect(out.row.totalDebt).toBe(130 * M);
-    expect(out.admissions[0]?.detail).toContain('vendor total 117.41M');
-    expect(out.admissions[0]?.detail).toContain('component sum 118M');
+    expect(out.row.fieldProvenance?.totalDebt?.calculation).toBe('noncurrent-lease-line-completed');
+    expect(out.admissions[0]?.detail).toContain('vendor total 126.365M');
+    expect(out.admissions[0]?.detail).toContain('component sum 127M');
   });
   it("keeps both minor-difference observations visible after acquisition has already completed the row", () => {
     const out = admit(tagged, row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 103.48 * M }));
@@ -56,6 +57,31 @@ describe("exact same-filing debt completion", () => {
       row({ shortTermDebt: 6.001 * M, capitalLeaseObligations: 18 * M, totalDebt: 124.002 * M }));
     expect(out.row.totalDebt).toBeNull();
     expect(out.admissions).toEqual([]);
+  });
+  it.each([false, true])("re-evaluates its own stale total-sum refusal beside a filed noncurrent component, preserving cash refusal %s", cashRefused => {
+    const reason = 'incomplete debt carrying value: the vendor lease line 23M USD is noncurrent, but the vendor total debt 122.5M is not its short-term debt + long-term debt + lease line, so its composition is unknown; the row is not completed from that filing, so total debt and net debt are withheld';
+    const facts = companyFacts({ [Q2]: { ...tagged, ...(cashRefused ? { CashAndCashEquivalentsAtCarryingValue: 9 } : {}) } });
+    let vendor = row({ capitalLeaseObligations: 23 * M,
+      fieldProvenance: { longTermDebt: enriched(Q2, 'LongTermDebtNoncurrent') },
+      fieldConflicts: { totalDebt: { usable: false, vendorValue: 122.5 * M, secValue: null, reason },
+        netDebt: { usable: false, vendorValue: 112.5 * M, secValue: null, reason } } });
+    Object.assign(vendor, { totalDebt: null, netDebt: null });
+    if (cashRefused) vendor = admitBalanceCash(vendor, facts, 'quarter', OBSERVED).row;
+    const out = admitDebtFields(vendor, facts, 'USD', OBSERVED);
+    expect(out.row.totalDebt).toBe(130 * M);
+    expect(out.row.fieldConflicts?.totalDebt?.usable).toBe(true);
+    expect(out.row.netDebt).toBe(cashRefused ? null : 120 * M);
+    if (cashRefused) expect(out.row.fieldConflicts?.netDebt?.reason).toMatch(/cashAndCashEquivalents conflict/);
+    expect(balanceAdmissionEntries(out.admissions).map(e => e.reason).join(' ')).toContain('component sum 123M');
+  });
+  it("does not use a minor total difference to establish positive vendor current debt with no filed current scope", () => {
+    const tags = { ...tagged };
+    delete (tags as Record<string, number>).LongTermDebtCurrent;
+    const out = admit(tags, row({ shortTermDebt: 4 * M, capitalLeaseObligations: 23 * M, totalDebt: 126.5 * M }));
+    expect(out.row.totalDebt).toBeNull();
+    expect(out.row.fieldConflicts?.totalDebt?.reason).toMatch(/current.*scope.*unproven/);
+    expect(out.row.fieldConflicts?.totalDebt?.reason).toContain('126.5M');
+    expect(out.row.fieldConflicts?.totalDebt?.reason).toContain('127M');
   });
   it("reconciles debt independently of a cash refusal in either pass order and retains that refusal", () => {
     const facts = companyFacts({ [Q2]: { ...tagged, CashAndCashEquivalentsAtCarryingValue: 9 } });
