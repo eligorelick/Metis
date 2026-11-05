@@ -7771,22 +7771,43 @@ guards still apply; an established DEI path is unchanged.
 
 For a non-ADR common quote, a complete set of unscaled, same-date primary cover
 class observations can establish economic capitalization when the latest
-balance sheet enumerates exactly those classes and filed wording establishes
-equal dividend, liquidation and participation rights. The whole sentence
-"There are no differences in the dividend and liquidation preferences or
-participation rights of the holders of Class A and Class B Common Stock."
-establishes equality; qualifications or contrary entitlements do not. Every
-class is priced at the same common quote, explicitly labelled a same-price
-approximation with voting-price differences unmodelled. The quoted class need
-not be named when all admitted units have identical economics. This extends
-the quote-class binding rule only for this equal-unit case; it never supplies
-an ADS ratio or unequal-class conversion.
+balance sheet enumerates exactly those classes, or an explicit same-filing
+participation statement enumerates the complete participating set. The basis
+names which evidence established that set. A separately counted voting-only
+security is excluded only with an issuer-bound filing's explicit denial of
+economic rights and no contrary grant; repeating that denial is not a grant.
+
+**Multi-class economics (D-206, 2026-11-05).** Current equal dividend and
+liquidation rights, or explicit equal participation with share-for-share
+dividends, establish equal units. Standard class lists may share a security
+noun; the accounting introduction to a participation declaration is immaterial.
+A stated share-for-share, one-for-one or one-share conversion can instead
+support a disclosed conversion-unit proxy. Equal and opposite conversion
+rollforward counts can corroborate an otherwise unnumbered conversion option.
+Conversion alone does not prove equal current dividend or liquidation rights;
+the basis says when those rights were not independently established. Unequal
+same-period per-share dividends or contrary economic entitlements refuse the
+one-unit proxy and name the affected classes. Aggregate payments to differently
+sized classes and different years' dividends are not unequal current rates.
+Equal votes, par value, EPS alone or an unspecified conversion ratio establish
+no economic weight.
+
+All included classes use the same common quote, explicitly labelled a
+same-price approximation with voting-price differences unmodelled. The quoted
+class need not be identified for this equal-unit approximation. It supplies no
+ADS ratio or unequal-class conversion. Outstanding weights are not diluted
+weighted-average denominators; an independently admitted period-average count
+is still required. Duplicate annual/interim evidence is not printed as extra
+classes, and the quoted class is identified as such rather than given a weight
+as its name.
 
 Annual rights can remain in force through an interim filing for at most 400
 days when its primary cover has the same complete class set and no newer
 retained terms contradict equality. Counts come from the latest filing's
-cover at their own date, with the same-filing balance-sheet class inventory;
-older counts and scaled balance-sheet counts never replace them. Missing or
+cover at their own date, with the same-filing balance-sheet class inventory or
+the explicit participating-class declaration described above. An economic-unit
+proxy does not remove these count checks. Older counts and scaled balance-sheet
+counts never replace them. Missing or
 extra classes, mixed dates, duplicate observations, a newer unresolved filing,
 unresolved splits or a subsequent split refuse this fallback. All source URLs
 remain bound to the issuer and accession. Existing admitted paths are preferred.

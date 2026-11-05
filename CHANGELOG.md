@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Multi-class share economics (2026-11-05)
+
+- Read standard one-for-one conversion and equal-participation legal forms with synthetic positive and negative controls. Conversion is labelled as a unit proxy when current equal dividend and liquidation rights were not independently established.
+- Refuse unequal per-share class dividends despite one-for-one conversion, name the affected classes, and distinguish historical rates and aggregate payments. Repeated denials of a voting-only security's economic rights do not create a grant.
+- Name the actual class-inventory evidence, prefer explicit equal rights over a conversion proxy, and print each active class weight once. Outstanding weights remain separate from diluted period averages.
+- D-206 records the 105-input replay, the separate 15-issuer rights audit and its remaining coverage gaps. Version constants and stored reports are unchanged.
+
 ## Unreleased - Unknown tickers, regulated utilities and foreign banks (2026-11-04)
 
 - Unknown and unclassified jobs end as unsupported, saving no report and admitting
