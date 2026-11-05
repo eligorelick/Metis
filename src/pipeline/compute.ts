@@ -3059,6 +3059,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     currency: projectionCurrency,
     asOf: asOfDay,
   });
+  const classApproximation = bundle.economicShareEvidence?.find(e => e.approximation && e.effectiveFrom <= asOfDay && (e.effectiveTo === null || e.effectiveTo > asOfDay))?.approximation;
+  if (classApproximation) scenarioTargets.basis.push(classApproximation.basis);
 
   // Deterministic intrinsic per-share fair value (2026-07-11 DCF-credibility
   // checkpoint). Route-appropriate (FCFF DCF / excess-return), reused from
@@ -3082,6 +3084,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       valuationGaps: valuation.gaps,
     }),
   );
+  if (classApproximation) fairValue.basis.push(classApproximation.basis);
 
   // --- Metric-policy suppression sweep (disclose, don't silently drop) -------
   // Forensics Z / M already suppressed inside runForensics for financials; we
@@ -3526,6 +3529,7 @@ function computeReturns(
   });
 
   if (foreignBasis) wacc.notes.push(foreignBasis.note);
+  if (equityScope.approximation) wacc.notes.push(equityScope.approximation.basis);
 
   if (route.overlays.includes("recent-ipo") && wacc.costOfEquityPct === null && betaFit.beta === null &&
     wacc.gaps.some(gap => gap.field === "returns.wacc.beta")) {
@@ -3638,6 +3642,7 @@ function computeReturns(
     { seriesId: WACC_HISTORY_RF_SERIES_ID },
   );
   const waccInputs = waccDisclosure(wacc);
+  if (equityScope.approximation) waccInputs.summary += ` ${equityScope.approximation.basis}`;
   notes.push(waccInputs.summary);
   notes.push(...waccHistory.notes);
   // N8: the CURRENT WACC's risk-free rate is FRED DGS10 when available (D-60)

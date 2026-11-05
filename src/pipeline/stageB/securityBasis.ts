@@ -35,8 +35,18 @@ export function resolveSecurityBasis(evidence: SecurityBasisEvidence[], asOf: st
   return first;
 }
 
+export interface ClassCountApproximation {
+  quotedClassId: string;
+  unprovenClassIds: string[];
+  affectedShares: number;
+  referenceShares: number;
+  maxFixedEquityPerShareErrorPct: number;
+  basis: string;
+}
+
 /** Retained filing evidence, never inferred from class names or raw share-count sums. */
 export interface EconomicShareEvidence {
+  approximation?: ClassCountApproximation;
   issuerId: string;
   securityId: string;
   asOf: string;
@@ -62,6 +72,7 @@ export interface EconomicShareEvidence {
 }
 
 export interface EconomicEquityScope {
+  approximation?: ClassCountApproximation;
   status: "resolved" | "unresolved" | "unverified-vendor-scope";
   marketCap: number | null;
   economicShares: number | null;
@@ -142,7 +153,7 @@ export function resolveEconomicEquityScope(
     if (!finite(totals[0]) || totals[0] <= 0 || active.some(item => item.asOf !== row.asOf || signature(item) !== signature(row))) return unresolved();
     const approximate = active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy"));
     const weighted = active.some(item => item.classes.some(cls => cls.economicUnitsPerQuotedShare !== 1));
-    return { status: "resolved", ...(row.classes.length > 1 ? { multiClass: true as const } : {}), marketCap: classValues[0], economicShares: totals[0], approximate, ...(weighted ? { weightedClasses: true as const } : {}),
+    return { status: "resolved", ...(row.approximation ? { approximation: row.approximation } : {}), ...(row.classes.length > 1 ? { multiClass: true as const } : {}), marketCap: classValues[0], economicShares: totals[0], approximate, ...(weighted ? { weightedClasses: true as const } : {}),
       currency: quote.currency ?? null,
       priceAsOf: priceDay,
       classPriceDates: row.classes.flatMap(cls => cls.observedPrice ? [{ classId: cls.classId, asOf: cls.observedPrice.asOf }] : []),
@@ -206,7 +217,7 @@ export function issuerEconomicDilutedShares(
       (row.effectiveTo === null || row.effectiveTo > priceDay)).flatMap(row => row.classes.map(cls => {
       const name = /:CommonClass([A-Z0-9]{1,8})Member$/.exec(cls.classId)?.[1];
       const label = name ? `Class ${name}` : cls.classId === row.securityId ? `quoted class (${row.securityId})` : cls.classId;
-      return `${label}: ${cls.economicUnitsPerQuotedShare?.toLocaleString("en-US") ?? "unknown"} units per quoted share`;
+      return `${label}: ${cls.economicUnitsPerQuotedShare?.toLocaleString("en-US") ?? "unknown"} ${cls.economicUnitsPerQuotedShare === 1 ? "unit" : "units"} per quoted share`;
     })))].join(", ") + " establish economic units only, not a period-average diluted denominator");
   if (!finite(basic) || basic <= 0) return refuse("no basic weighted-average count is filed for the same period, so the diluted count cannot be shown to span every class");
   if (!periodEnd || !day(periodEnd) || Math.abs(Date.parse(periodEnd) - Date.parse(countDay)) / 86_400_000 > ECONOMIC_COUNT_WINDOW_DAYS) {
@@ -245,7 +256,8 @@ export function issuerEconomicDilutedShares(
   return { shares: diluted * unit,
     basis: `Diluted shares on the issuer-economic basis: the basic weighted-average count ${count(basic)}${scaled} for the period ending ${periodEnd} ` +
       `matches the all-class economic share total of ${count(total)} quoted-share units at ${countDay} within ${pct}, so the ${options.countNotFiled === true ? "" : "filed "}diluted count ` +
-      `${count(diluted)}${scaled}${unit === 1 ? "" : ` = ${count(diluted * unit)} quoted-share units`} spans every class (audit 2026-10-22 B-37).` };
+      `${count(diluted)}${scaled}${unit === 1 ? "" : ` = ${count(diluted * unit)} quoted-share units`} ${scope.approximation ? "is used on the admitted conversion-unit approximation; the count comparison does not prove equal current class rights" : "spans every class (audit 2026-10-22 B-37)"}.` +
+      (scope.approximation ? ` ${scope.approximation.basis}` : "") };
 }
 
 /** The economic flow interval, independent of a nearby display date. */

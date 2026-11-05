@@ -6693,6 +6693,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   const economicScope = resolveEconomicEquityScope(inputs.multiples.quote,
     inputs.multiples.economicShareEvidence ?? [], inputs.multiples.securityBasisAsOf ?? "");
   const multiclassEvidence = inputs.multiples.economicShareEvidence?.some(row => row.classes.length > 1) === true;
+  if (economicScope.approximation) {
+    notes.push(economicScope.approximation.basis);
+  }
   if (economicScope.status === "unresolved" ||
     (multiclassEvidence && inputs.dilutedShareSecurityBasis !== "issuer-economic")) {
     const reason = "Per-share intrinsic valuation withheld: common-class coverage or the economic basis of weighted-average diluted shares is unresolved. Outstanding class counts do not establish the diluted denominator; no class ratio is guessed." +
@@ -7221,6 +7224,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         const entries = convertibleReadingGaps(dcf.bridge.convertibles ?? [], original.dilutedShares);
         gaps.push(...entries); notes.push(...entries.map(e => e.reason));
       }
+      if (economicScope.approximation) dcf.notes.push(economicScope.approximation.basis);
 
       // D-188: a small stale filed allocation can only authorize a book claim.
       // Its absolute earnings share and book / consolidated equity must both
@@ -7341,7 +7345,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
               ? `Per-share values divide by the latest period's basic count, ${fmtMoney(dcf.bridge.dilutedShares)}, which carries no option or RSU dilution (the latest period is a loss and no profitable period among the last four quarters or the latest fiscal year shows any)`
               : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(dcf.bridge.dilutedShares)}`;
           // A loss period's filed count equals its basic count (ASC 260-10-45-17), so the not-restored case carries no award dilution either.
-          const tail = basicOnly || divisor?.basis === "loss-period-withheld"
+          const tail = economicScope.multiClass
+            ? `The quoted market-cap count may cover only the quoted class; the diluted denominator uses the admitted all-class units. ${economicScope.approximation ? `${fmtMoney(economicScope.approximation.affectedShares)} of the difference is the unquoted ${economicScope.approximation.unprovenClassIds.join(", ")}, not option or RSU dilution. ` : ""}The remaining difference can reflect period averaging, awards and share transactions; this comparison alone does not attribute it.`
+            : basicOnly || divisor?.basis === "loss-period-withheld"
             ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
             : substituted !== null
               ? "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the restored award dilution is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure)."

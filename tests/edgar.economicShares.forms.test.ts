@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classEconomicContradiction, identicalClassRights, participatingClassRights, shareForShareClassRights } from "@/edgar/economicShares";
+import { nonEconomicDenial } from "@/edgar/classEvidence";
 
 const classes = ["class q common stock", "class r common stock"];
 
@@ -78,15 +79,35 @@ describe("synthetic legal forms of class economics", () => {
     "Class Q shares may receive a cash dividend without paying a cash dividend on Class R shares.",
     "Class R common stock has preferential dividend rights.",
     "Class R shares receive 110% of the dividend payable on Class Q shares.",
+    "No dividends are paid on Class R common stock.",
+    "The board declared $0.50 per share of Class Q common stock and $0.45 per share of Class R common stock in December 2025, payable January 2026.",
+    "Class Q common stock receives 1.5 times the dividend on Class R common stock.",
+    "Class Q common stock receives a lower dividend than Class R common stock.",
+    "Class Q common stock holders receive $0.80 for each $1.00 of dividends paid to Class R common stock holders.",
+    "The Class Q common stock dividend was $0.40 per share in 2025. The Class R common stock dividend was $0.30 per share in 2025.",
+    "Dividends paid on Class Q common stock exceed dividends paid on Class R common stock by $0.03 per share.",
+    "The board may declare dividends on Class Q common stock alone.",
+    "The rights of Class Q common stock and Class R common stock are identical. After 2027, the low-vote class will receive twice the dividend.",
   ])("names the classes whose current economics contradict a one-unit proxy: %s", text => {
     const reason = classEconomicContradiction(text, classes);
     expect(reason).toMatch(/Class [QR]/);
   });
+  it("quotes both operands when equal-period class rates are in separate sentences", () => {
+    const reason = classEconomicContradiction("The Class Q common stock dividend was $0.40 per share in 2025. The Class R common stock dividend was $0.30 per share in 2025.", classes);
+    expect(reason).toContain("$0.40 per share");
+    expect(reason).toContain("$0.30 per share");
+  });
 
   it.each([
     "Class Q and Class R common stock received dividends of $0.44 per share.",
+    "No dividends are paid on Class Q and Class R common stock.",
     "During 2025 and 2024 we paid dividends of $0.44 and $0.28 per share, respectively, on Class Q and Class R common stock.",
     "Class Q received a dividend of $0.44 per share in 2025 and Class R received a dividend of $0.28 per share in 2024.",
+    "Employees purchase Class Q common stock through a stock purchase plan with participation limited to 15% of salary.",
+    "Class Q and Class R common stock share ratably in liquidation after payment of senior liabilities.",
+    "Class Q warrants: Dividend yield 0% and expected life 5 years.",
+    "We signed an Equity Distribution Agreement to issue Class Q common stock.",
+    "We paid 33 cents per share; Class Q and Class R received $880 million and $3 million, respectively.",
     "The dividend was $0.44 per share for Class Q stock, par value $0.01 per share, and Class R stock, par value $0.02 per share.",
     "Class Q common stock received dividends of $0.44 per share and Class R common stock received dividends of $0.44 per share.",
     "We paid a dividend of $0.44 per common share, totaling $88 million for Class Q common stock and $44 million for Class R common stock.",
@@ -94,5 +115,17 @@ describe("synthetic legal forms of class economics", () => {
     "Class Q shares are convertible into Class R shares on a one-for-one basis.",
   ])("does not confuse shared rates, aggregate payments or votes with unequal economics: %s", text => {
     expect(classEconomicContradiction(text, classes)).toBeNull();
+  });
+  it.each([
+    "There are no economic rights associated with the Control Share.",
+    "There are no economic rights associated with the Control Share, and in certain circumstances, the controller could have voting power greater than the percentage of shares held.",
+  ])("reads an unconditional no-economic-rights declaration: %s", text => {
+    expect(nonEconomicDenial(text, "Control Share")).toBe(true);
+  });
+  it.each([
+    "There are no economic rights associated with the Control Share until January 2027.",
+    "There are no economic rights associated with the Control Share, and that ends on January 1, 2027.",
+  ])("does not turn a qualified denial into a permanent exclusion: %s", text => {
+    expect(nonEconomicDenial(text, "Control Share")).toBe(false);
   });
 });
