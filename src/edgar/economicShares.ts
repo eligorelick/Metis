@@ -205,12 +205,6 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
       const ratio = ratioForm.exec(sentence);
       if (ratio) relations.push({ sentence, ratio: { cls: ratio[1]!.toUpperCase(), per: Number(ratio[2]!.replaceAll(",", "")), of: ratio[3]!.toUpperCase() } });
     }
-    // A statement that the classes differ economically, or an unparsed relative
-    // entitlement (a percent, multiple, fraction or priority), refuses the scope.
-    // A sentence reporting the dividends each class was paid states no relation.
-    const supported = new Set(relations.map(relation => relation.sentence));
-    const dividendConflict = sentences.map(sentence => classEconomicContradiction(sentence, keys.map(key => `class ${key!.toLowerCase()} common stock`), [...supported])).find(Boolean);
-    if (dividendConflict) return refuse(`Class-tagged cover counts retained; ${dividendConflict}`);
     const weight = new Map<string, number>([[quotedKey, 1]]);
     let conflict = false;
     const assign = (key: string, value: number) => {
@@ -228,6 +222,14 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
         if (weight.has(cls)) assign(of, weight.get(cls)! * per);
       }
     }
+    // A statement that the classes differ economically, or an unparsed relative
+    // entitlement (a percent, multiple, fraction or priority), refuses the scope.
+    // A dividend that matches the stated class weights states no conflict.
+    const supported = relations.map(relation => relation.sentence);
+    const classNames = keys.map(key => `class ${key!.toLowerCase()} common stock`);
+    const unitsPerShare = Object.fromEntries(keys.flatMap((key, index) => weight.has(key!) ? [[classNames[index]!, weight.get(key!)!]] : []));
+    const dividendConflict = sentences.map(sentence => classEconomicContradiction(sentence, classNames, supported, unitsPerShare)).find(Boolean);
+    if (dividendConflict) return refuse(`Class-tagged cover counts retained; ${dividendConflict}`);
     const named = relations.flatMap(relation => relation.equal ?? [relation.ratio!.cls, relation.ratio!.of]);
     if (conflict || named.some(key => !keys.includes(key))) return refuse("Class-tagged cover counts retained; the stated class relations conflict or name a class with no tagged count");
     if (keys.some(key => !weight.has(key!))) return refuse("Class-tagged cover counts retained; the filing states no supported economic relation for every outstanding class");

@@ -8301,3 +8301,5 @@ ROIC/WACC spread remain gained. No other financial numerical outcome changes.
 constant or stored report is changed here. Existing adapters remain supported.
 Revenue, margins, balance-row admission and general perimeter-change handling
 remain outside this branch. Commits stay local without push, PR or merge.
+
+**Pull request review.** Two further corrections: a sentence stating that a class has dividend, distribution or liquidation rights that are not equal to, or differ from, another class now counts as a conflict, while a voting difference does not; and stated per-share dividends are compared per economic unit, so a dividend matching a supported class weight such as 1:1,500 is not a conflict, and one that does not match refuses.

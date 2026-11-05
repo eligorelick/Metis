@@ -29,6 +29,29 @@ describe("synthetic legal forms of class economics", () => {
     expect(classEconomicContradiction(text, classes)).toContain(text);
   });
   it.each([
+    "Class Q common stock has dividend rights that are not equal to those of Class R common stock.",
+    "Class R common stock has different dividend rights from Class Q common stock.",
+    "The dividend rights of Class Q common stock are not the same as those of Class R common stock.",
+    "Holders of Class Q and Class R common stock have different liquidation rights.",
+  ])("reads an explicit denial of equal economics: %s", text => {
+    expect(classEconomicContradiction(text, classes)).toContain(text);
+  });
+  it.each([
+    "Holders of Class Q and Class R common stock have identical dividend rights but different voting rights.",
+    "Class Q common stock has identical dividend rights to Class R common stock but different voting rights.",
+    "Class Q common stock has different voting rights from Class R common stock.",
+  ])("does not read a voting difference as an economic one: %s", text => {
+    expect(classEconomicContradiction(text, classes)).toBeNull();
+  });
+  it("compares stated dividend rates through supported class weights", () => {
+    const units = { "class q common stock": 1500, "class r common stock": 1 };
+    const matching = "Dividends were $150.00 per share of Class Q common stock and $0.10 per share of Class R common stock.";
+    const unequal = "Dividends were $150.00 per share of Class Q common stock and $0.20 per share of Class R common stock.";
+    expect(classEconomicContradiction(matching, classes)).toContain(matching);
+    expect(classEconomicContradiction(matching, classes, [], units)).toBeNull();
+    expect(classEconomicContradiction(unequal, classes, [], units)).toContain(unequal);
+  });
+  it.each([
     "Class Q common stock has no dividends payable at quarter end.",
     "Class Q common stock does not receive dividends until declared by directors.",
     "Dividends are payable only on Class Q and Class R common stock.",

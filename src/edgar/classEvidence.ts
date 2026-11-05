@@ -103,6 +103,12 @@ export function sharedClassDividendRate(text: string, names: readonly string[], 
   return null;
 }
 
+const UNEQUAL_TERMS = "(?:not (?:equal|identical|the same)|unequal|different|differs?)";
+const ECONOMIC_TERMS = "(?:dividends?|distributions?|liquidation)";
+/** A stated difference in dividends, distributions or liquidation. A voting difference does not count. */
+const statesUnequalEconomics = new RegExp(
+  `\\b${UNEQUAL_TERMS}\\b(?! voting)[^.;]{0,60}\\b${ECONOMIC_TERMS}\\b|\\b${ECONOMIC_TERMS}\\b[^.;]{0,60}\\b${UNEQUAL_TERMS}\\b(?! voting)`, "i");
+
 /** A complete class entitlement clause, rather than arbitrary nearby words. */
 function contraryEntitlement(sentence: string, names: readonly string[]): boolean {
   const refs = names.map(classReference).join("|");
@@ -120,13 +126,16 @@ function contraryEntitlement(sentence: string, names: readonly string[]): boolea
   ];
   if (exclusions.some(f => { const m = f.exec(sentence); return m && subset(m[1]!); })) return true;
   const verbs = "(?:receives?|earns?|has|have|possesses?|carries?|carry|(?:is|are)(?: entitled to)?|ranks?|must be|(?:will|may) receive|exceeds?|dividends? (?:is|are))";
-  const clause = new RegExp(`\\b${holders}(${list})(?: (?:holders|stockholders))? (${verbs}\\b.+)\\.$`, "i").exec(sentence) ??
-    new RegExp(`^(?:The |Cash )?(?:dividends?|dividend rate|distributions?) (?:paid )?(?:on|of|for) (${list}) (${verbs}\\b.+)\\.$`, "i").exec(sentence);
+  const termClause = new RegExp(`^(?:The |Cash )?(?:dividends?|dividend (?:rate|rights)|distributions?|distribution rights|liquidation rights) (?:paid )?(?:on|of|for) (${list}) (${verbs}\\b.+)\\.$`, "i").exec(sentence);
+  const clause = termClause ?? new RegExp(`\\b${holders}(${list})(?: (?:holders|stockholders))? (${verbs}\\b.+)\\.$`, "i").exec(sentence);
   if (!clause) return false;
   const predicate = clause[2]!;
+  // A term clause's subject already names the dividend or liquidation term.
+  if (termClause && new RegExp(`\\b${UNEQUAL_TERMS}\\b`, "i").test(predicate)) return true;
   // Limit modifiers to an entitlement assertion; plans, yields and debt covenants
   // have different subjects or predicates. Status/date tails are not denials.
   if (!/\b(?:dividends?|distributions?|liquidation)\b/i.test(predicate)) return false;
+  if (statesUnequalEconomics.test(predicate)) return true;
   const priority = /^(?:(?:has|have|possesses?|carries?|carry) (?:a |an )?[^.]*\b(?:preferen\w*|preferred|priority|senior)\b|(?:ranks?|is|are) (?:senior|junior|subordinat\w*)\b|[^.]*\bpaid (?:before|after|first)\b|[^.]*\breceives? [^.]*\bonly after\b)/i.test(predicate);
   const ratio = /\b(?:\d+(?:\.\d+)?\s*(?:%|percent|times)|(?:one|two|three|four|five|six|seven|eight|nine|ten)(?:-[a-z]+)+|(?:one|two|three|four|five|six|seven|eight|nine|ten) times|twice|half|double|triple|for (?:each|every))(?!\w)/i.test(predicate);
   const comparative = names.filter(n => new RegExp(`\\b${classReference(n)}\\b`, "i").test(sentence)).length > 1 &&
@@ -136,20 +145,29 @@ function contraryEntitlement(sentence: string, names: readonly string[]): boolea
 }
 
 /** Entitlement clauses compare class payouts or directly exclude a class.
- * A percentage elsewhere in a sentence is not an economic comparison. */
-export function classEconomicContradiction(text: string, names: readonly string[], supportedRelations: readonly string[] = []): string | null {
+ * A percentage elsewhere in a sentence is not an economic comparison.
+ * Rates are compared per economic unit, so a dividend that matches a supported
+ * class weight is not a conflict; rounded published rates get 0.5%. */
+export function classEconomicContradiction(text: string, names: readonly string[], supportedRelations: readonly string[] = [],
+  unitsPerShare: Readonly<Record<string, number>> = {}): string | null {
   if (new Set(names).size < 2) return null;
+  const differ = (a: Rate, b: Rate): boolean => {
+    const [unitsA, unitsB] = [unitsPerShare[a.name] ?? 1, unitsPerShare[b.name] ?? 1];
+    if (unitsA === unitsB) return a.value !== b.value;
+    const [perUnitA, perUnitB] = [a.value / unitsA, b.value / unitsB];
+    return Math.abs(perUnitA - perUnitB) > 0.005 * Math.max(perUnitA, perUnitB);
+  };
   const datedRates: Rate[] = [];
   for (const sentence of filingSentences(text)) {
     if (supportedRelations.includes(sentence)) continue;
     const rates = dividendRates(sentence, names);
     const comparedRates = [...rates, ...datedRates];
-    const unequal = rates.some(a => comparedRates.some(b => a.name !== b.name && a.period === b.period && a.value !== b.value));
+    const unequal = rates.some(a => comparedRates.some(b => a.name !== b.name && a.period === b.period && differ(a, b)));
     datedRates.push(...rates.filter(r => r.period !== null));
     const mentioned = names.filter(n => new RegExp(`\\b${classReference(n)}\\b`, "i").test(sentence));
     if (unequal || contraryEntitlement(sentence, names)) {
       const classes = [...new Set([...mentioned, ...comparedRates.map(r => r.name)])].map(displayClassName).join(" and ");
-      const evidence = unequal ? [...new Set(comparedRates.filter(r => rates.some(a => a.period === r.period && a.name !== r.name && a.value !== r.value)).map(r => r.sentence).concat(sentence))].join(" ") : sentence;
+      const evidence = unequal ? [...new Set(comparedRates.filter(r => rates.some(a => a.period === r.period && a.name !== r.name && differ(a, r))).map(r => r.sentence).concat(sentence))].join(" ") : sentence;
       return `The one-unit assumption for ${classes} conflicts with this ${unequal ? "per-share dividend comparison" : "class-specific dividend or liquidation entitlement"}: "${evidence}"`;
     }
   }

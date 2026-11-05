@@ -44,6 +44,13 @@ describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)"
     expect(reason.match(/Class A/g)).toHaveLength(1);
     expect(reason).toContain("quoted class (BRK-B)");
   });
+  it("keeps supported class weights when stated dividends match them, and refuses when they do not", () => {
+    const paid = (classB: string) => `<p>${brkRights}</p><p>Dividends were $150.00 per share of Class A common stock and ${classB} per share of Class B common stock.</p>`;
+    expect(parse(brkLike(paid("$0.10")), "BRK.B").evidence?.classes.find(cls => cls.classId === "us-gaap:CommonClassAMember")?.economicUnitsPerQuotedShare).toBe(1500);
+    const refused = parse(brkLike(paid("$0.20")), "BRK.B");
+    expect(refused.evidence).toBeNull();
+    expect(refused.reason).toContain("$0.20");
+  });
   it("values equal classes at the quoted price, even under a heading", () => {
     const parsed = parse(metaLike(), "META");
     expect(parsed.evidence?.classes).toEqual([
