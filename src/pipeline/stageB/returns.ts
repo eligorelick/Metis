@@ -23,7 +23,7 @@
  */
 
 import type { ManifestEntry } from "@/types/core";
-import { BLUME_MARKET_WEIGHT, BLUME_RAW_WEIGHT } from "@/pipeline/stageB/betaEstimate";
+import { BETA_MIN_MONTHS, BLUME_MARKET_WEIGHT, BLUME_RAW_WEIGHT } from "@/pipeline/stageB/betaEstimate";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
 import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, operatingLeaseOutOfDebt, resolveNetDebt } from "@/pipeline/stageB/netDebt";
@@ -392,7 +392,32 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
   const variant: SpreadTableVariant = inputs.isFinancial ? "financial" : "nonFinancial";
 
   // --- Beta: raw → Blume → clamp; fail closed if unavailable ------------------
-  const betaRaw = isFiniteNumber(inputs.beta) ? inputs.beta : null;
+  const vendorBeta = isFiniteNumber(inputs.beta) ? inputs.beta : null;
+  let betaRaw = vendorBeta;
+  let betaSource = inputs.betaSource;
+  const usableBeta = (beta: number | null): beta is number => beta !== null && beta > 0 && beta <= BETA_RAW_MAX;
+  if (!usableBeta(vendorBeta)) {
+    const fit = inputs.betaRegression;
+    const validFitDay = (value: string | null | undefined): value is string => {
+      const epoch = isoDayEpoch(value ?? undefined);
+      return epoch !== null && new Date(epoch).toISOString().slice(0, 10) === value;
+    };
+    // D-204: use the estimator's existing 24-month floor. A positive slope
+    // exceeding 2.1 standard errors clears the two-sided 95% t critical value
+    // even at 22 residual degrees of freedom; an R² floor would ignore n.
+    const adequate = fit && fit.benchmark === "SPY" && Number.isInteger(fit.months) && fit.months >= BETA_MIN_MONTHS &&
+      validFitDay(fit.windowStart) && validFitDay(fit.windowEnd) && validFitDay(inputs.analysisDate) &&
+      fit.windowStart < fit.windowEnd && fit.windowEnd < inputs.analysisDate &&
+      isFiniteNumber(fit.beta) && usableBeta(fit.beta) && isFiniteNumber(fit.rSquared) && fit.rSquared > 0 && fit.rSquared <= 1 &&
+      isFiniteNumber(fit.standardError) && fit.standardError >= 0 && fit.beta > 2.1 * fit.standardError;
+    if (adequate) {
+      betaRaw = fit.beta;
+      betaSource = `retained issuer/SPY monthly OLS regression fallback; vendor raw beta ${vendorBeta ?? "missing"} unusable (${inputs.betaSource ?? "profile"}); ` +
+        `${fit.months} observations, ${fit.windowStart} to ${fit.windowEnd}, ${fit.basis}, R² ${fit.rSquared}, standard error ${fit.standardError}; positive slope exceeds 2.1 standard errors`;
+      notes.push(betaSource);
+      gaps.push({ field: "returns.wacc.betaFallback", reason: betaSource, severity: "warn", attemptedSources: ["computed:beta(monthly OLS vs SPY)"] });
+    }
+  }
   let betaAdjusted: number | null = null;
   let betaFinal: number | null = null;
   if (betaRaw === null || betaRaw <= 0 || betaRaw > BETA_RAW_MAX) {
@@ -406,7 +431,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       field: "returns.wacc.beta",
       reason: `raw beta ${
         betaRaw === null ? "missing" : `${fmt(betaRaw)} implausible (≤0 or >${BETA_RAW_MAX})`
-      } — no evidence-backed sector beta was available, so cost of equity and WACC were suppressed`,
+      } — independent issuer/SPY monthly regression is unavailable or unusable (requires at least ${BETA_MIN_MONTHS} observations, a dated window, a plausible positive slope, finite R² and standard error, and slope > 2.1 standard errors); no evidence-backed sector beta was available, so cost of equity and WACC were suppressed`,
       severity: "critical",
     });
   } else {
@@ -528,7 +553,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     taxRateBasis: taxRateUsed === null ? null : (inputs.effectiveTaxRateBasis ?? null),
     debtBasis: inputs.totalDebtBasis ?? null,
     ...(isFiniteNumber(inputs.totalDebtLatest) && inputs.totalDebtLatest >= 0 && inputs.totalDebtLatestBasis ? { debtWeightBasis: inputs.totalDebtLatestBasis } : {}),
-    ...(inputs.betaSource !== undefined ? { betaSource: inputs.betaSource } : {}),
+    ...(betaSource !== undefined ? { betaSource } : {}),
     ...(inputs.betaRegression !== undefined ? { betaRegression: inputs.betaRegression } : {}),
     ...(inputs.betaRegressionUnavailable !== undefined ? { betaRegressionUnavailable: inputs.betaRegressionUnavailable } : {}),
     ...(withheld !== undefined ? { withheld } : {}),

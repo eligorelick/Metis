@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { resolveForeignValuation, translateProjectionInputs, translateValuationInputs } from "@/pipeline/foreignCurrency";
 import type { ValuationBundleInputs } from "@/pipeline/stageB/valuation";
 import { foreignBundle } from "./helpers/foreignBundle";
+import { valueCompany } from "@/pipeline/stageB/valuation";
 import { runStageB } from "@/pipeline/compute";
 
 const M = 1e6;
@@ -45,6 +46,33 @@ function inputs(): ValuationBundleInputs {
 }
 
 describe("monetary valuation translation", () => {
+  it("values a foreign bank on one USD/ADS basis, preserving payout and CAPM rates", () => {
+    const raw = inputs();
+    raw.excessReturn = { ...raw.excessReturn!, payoutRatioPct: 60, asOf: "2025-12-31", valuationDate: "2026-07-02" };
+    const t = translateValuationInputs(raw, basis());
+    const route = { base: "bank" as const, overlays: ["adr" as const], evidence: { sector: "Financial Services", industry: "Banks - Diversified" } };
+    const native = valueCompany(route, { ...raw, multiples: { ...raw.multiples, reportedCurrency: "USD", quote: { ...raw.multiples.quote, currency: "USD", isAdr: false } } });
+    const translated = valueCompany(route, t);
+    expect(translated.kind).toBe("excess-return");
+    if (native.kind !== "excess-return" || translated.kind !== "excess-return") throw Error("route");
+    expect(translated.excessReturn.perShare).toBeCloseTo(native.excessReturn.perShare! / 32 * 5);
+    expect(translated.excessReturn.priceToTangibleBookVsRote?.pTbv).toBeCloseTo(10_000 / 90);
+    expect(t.excessReturn?.payoutRatioPct).toBe(60);
+    expect(t.excessReturn?.costOfEquityPct).toBe(8);
+    expect(t.excessReturn?.startAlternative?.bookValue).toBe(90 * M);
+  });
+  it.each(["fx", "ratio"])("a foreign bank headline names missing %s evidence", missing => {
+    const b = foreignBundle();
+    if (!b.profile.ok) throw Error("fixture");
+    Object.assign(b.profile.value.data.rows[0]!, { sector: "Financial Services", industry: "Banks - Diversified" });
+    if (missing === "fx") delete b.valuationFx;
+    else b.sharesFloat = { ok: false, gap: { field: "sharesFloat", reason: "unavailable", severity: "warn" } };
+    const c = runStageB(b);
+    expect(c.valuation.kind).toBe("excess-return");
+    expect(c.fairValue.perShare).toBeNull();
+    expect(c.fairValue.reasons.map(r => r.reason).join(" ")).toMatch(missing === "fx" ? /FRED DEXTAUS observation missing/ : /dated quoted shares/);
+    expect(c.valuation.gaps).toContainEqual(expect.objectContaining({ field: "valuation.currencyConversion" }));
+  });
   it("labels the translated bridge balance in USD (PR #86 review)", () => {
     const input = inputs();
     const out = translateValuationInputs({ ...input, bridgeBalance: { ...input.bridgeBalance!, reportedCurrency: "TWD" } }, basis());

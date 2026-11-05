@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.64.0 / payload 1.77.0, Stage B `STAGE_B_2026_11_FILED_FIGURES_51` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.64.0 / payload 1.78.0, Stage B `STAGE_B_2026_11_UTILITY_AND_FOREIGN_ROUTES_52` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 ## Saved-report scope qualifications
 
@@ -227,10 +227,21 @@ promise of one provider for an entire period. See
 **Instrument boundary.** `classifyInstrumentSupport` in
 `src/pipeline/stageB/instrumentSupport.ts` rejects a profile explicitly marked
 `isEtf` or `isFund`. Company loading, report admission and Stage B enforce that
-boundary; the workflow supports individual companies. False, absent or unknown
-flags do not prove that a security is a company: the classifier permits those
-inputs, so identification still depends on provider evidence. ADRs are a
-company overlay, not an unsupported-instrument classification.
+boundary; the workflow supports individual companies. Explicit equity type or
+both negative fund flags with no conflicting type establish a company. Missing,
+null or unfamiliar classification is unsupported with an unconfirmed reason;
+ADRs still need company classification.
+
+D-204 removes the empty-data exception that saved an unclassified ticker as a
+completed data-only report. Every unclassified job ends `unsupported`, with no
+saved report, model resolution, payload assembly, paid lease, provider model
+request or cost. An affirmative empty company-profile response, or a keyless
+profile miss accompanied by a confirmed SEC ticker-table miss, says the ticker
+was not found and may be invalid or delisted. An outage, cooldown or source
+failure only says the company/security type could not be established; it does
+not establish nonexistence. Malformed symbols stop before acquisition. Typed
+fund and ETF refusals remain. A confirmed company with usable data may still
+produce the existing data-only report when AI is disabled or unavailable.
 
 **Whole rows and restatements.** Annual and quarterly statement normalization
 uses `src/pipeline/stageB/quarterWindows.ts`. A period end must be a real,
@@ -517,11 +528,27 @@ rate)` row) and in the report's computed-returns notes.
 | --- | --- | --- |
 | Risk-free rate | **FRED `DGS10`** (latest finite observation; keyed API, then `fredgraph.csv`), else FMP treasury rates (`year10`), else the last good cached `DGS10` observation if it is at most 10 business days old, else the U.S. Treasury daily par yield curve 10 Yr | The source and the observation date are both stated. D-60: DGS10 comes first so the current WACC and every per-year WACC share one series; the other three are fallbacks, and any of them is disclosed as a substitution. With every source down the WACC is withheld. |
 | Equity risk premium | FMP market-risk-premium `totalEquityRiskPremium` for the issuer's domicile, with country-code/name alias matching; an absent or conflicting domicile row falls back to the unambiguous US row with disclosure, then the dated **Damodaran US** implied-ERP fallback if the selected input is missing or implausible | Conflicting distinct premiums for one country are not chosen by array order. The static fallback is 4.18%, dated 2026-07-01 in `returns.ts`; it requires a valid analysis date, cannot post-date that analysis, and expires after 210 days. A value outside [3%, 25%] falls back. This domicile rule is a house assumption, not an estimate of geographic revenue exposure. D-60: the vendor row carries no vintage, so its date is printed as the acquisition date with "vintage not published by the vendor", beside the dated Damodaran reference. |
-| Beta | Provider profile beta, **mean-reversion adjusted** (0.667·raw + 0.333 — the Bloomberg 2/3–1/3 weighting of Blume's finding, not his fitted 0.371 + 0.635·β; see [RESEARCH §7.1](RESEARCH.md)), clamped to [0.6, 2.0] | Raw beta outside (0, 4] is unusable and the WACC fails closed rather than inventing market exposure. One set of constants serves the WACC and the keyless beta estimate, so a report prints one adjusted beta. D-60: a vendor beta publishes no window or fit, so the basis also prints the same 60-month OLS the keyless route uses, run on the bundle's own daily prices against SPY (completed months before the analysis day): observation count, window, price basis, slope, R² and standard error. The WACC keeps the beta it used; no bottom-up beta is built without an industry data source. |
+| Beta | Provider profile beta, **mean-reversion adjusted** (0.667·raw + 0.333 — the Bloomberg 2/3–1/3 weighting of Blume's finding, not his fitted 0.371 + 0.635·β; see [RESEARCH §7.1](RESEARCH.md)), clamped to [0.6, 2.0] | A plausible provider beta in (0, 4] is unchanged. D-204: a missing or implausible raw beta may use the independently retained issuer/SPY monthly OLS only when its observation and fit checks pass (below); otherwise cost of equity and WACC remain withheld. One set of constants serves the WACC and the keyless beta estimate. D-60: the basis prints the same 60-month OLS the keyless route uses, run on the bundle's own daily prices against SPY (completed months before the analysis day): observation count, window, price basis, slope, R² and standard error. No bottom-up beta is built without an industry data source. |
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
 | Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
 | Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60, extended for incomplete dates: the weight uses the latest complete balance in the selected window; a refused newer balance remains refused in its own EV bridge. Effective cost of debt divides a year of interest by the complete quarter-end balances of the trailing-twelve-month window when interest is TTM, else by the complete latest two fiscal-year ends; a single complete balance can stand in, and exclusions are named | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
+
+**Independent beta fallback (D-204).** Only a missing or implausible provider
+beta activates this fallback. The retained issuer/SPY monthly regression must
+have at least `BETA_MIN_MONTHS` (24) shared returns, real ordered window dates
+ending before the analysis day, a raw slope in (0, 4], finite R² in (0, 1],
+and a finite nonnegative standard error. The positive slope must exceed 2.1
+standard errors. This house admission rule clears the two-sided 95% Student t
+critical value even at 22 residual degrees of freedom (24 observations); an
+arbitrary R² threshold would ignore sample size. It does not make R² a measure
+of overall business predictability. The existing estimator's completed-month,
+60-calendar-month, common-price-basis rules remain. Apply the same Blume
+adjustment and clamp to the admitted slope, label the fallback with the refused
+provider value, window, count, price basis, R² and standard error, and retain a
+`returns.wacc.betaFallback` warning. A failed fit keeps cost of equity and WACC
+withheld and says the regression was unavailable or unusable. A plausible
+provider beta is never replaced.
 
 For the weights above, "complete" means complete on the selected operating-
 lease basis. D-186 permits a proved partial operating-lease observation to
@@ -3699,7 +3726,8 @@ coverage, not proof of a recent listing. The overlays replace or suppress
 inapplicable long-history and valuation sections with disclosed reasons.
 
 **Regulated utility** (audit 2026-10-22 B-13, an owner decision) applies on the
-general route when the SEC SIC is 4911 (electric services), 4924 (natural gas
+general route when the SEC SIC is 4911 (electric services), 4922 (natural gas
+transmission), 4923 (natural gas transmission and distribution), 4924 (natural gas
 distribution), 4931 (electric and other services combined), 4932 (gas and
 other services combined) or 4941 (water supply), and the issuer's companyfacts
 show rate regulation: `RegulatoryAssets`, `RegulatoryAssetsCurrent`,
@@ -3709,9 +3737,24 @@ filed by the run date and ending within 24 months of it (a period re-filed after
 the next year's comparative column, is read as it was first filed). The SIC alone also covers merchant
 generators and energy marketers, so without the evidence the overlay is not
 applied and the note says why. `RegulatedAndUnregulatedOperatingRevenue` is a
-total and evidences neither. The overlay changes no base route and no
-valuation: the DCF still values a utility. It withholds Altman Z and scores
-the balance sheet on Moody's ranges.
+total and evidences neither. D-204 retains this evidence requirement, including
+for 4922 and 4923: transmission or electric-services SIC alone does not establish
+regulated operations. Independent power producers without the filed regulation
+evidence stay on the general FCFF route. The overlay retains the general base,
+withholds Altman Z and scores the balance sheet on Moody's ranges.
+
+**Utility valuation (D-204, owner methodology decision).** Like equity REITs,
+proved regulated utilities publish no FCFF per-share value, reverse DCF,
+sensitivity grid or DCF scenario targets. Large capital spending is funded with
+external capital earning an allowed return; the model does not capture that
+regulated rate-base funding cycle. The reason appears in the fair-value card,
+scenario refusal and `valuation.dcf.regulatedUtility` manifest entry. P/E,
+dividend yield and EV/EBITDA, including available peer context, remain usable
+relative-valuation evidence; no rate-base valuation is invented. The valuation
+score may use admitted own-history multiple ranks. With no rank, it has no
+score and its composite weight remains neutral under the existing rule. D-201's
+reader note names that unscored valuation weight and warns that the composite
+is not directly comparable; withholding a poor DCF can raise the number.
 
 Runway uses the newest whole quarterly/annual balance as its liquidity anchor,
 cash plus short-term investments (with supported balance-sheet fallbacks), and
@@ -3785,8 +3828,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_FILED_FIGURES_51 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_FILED_FIGURES_51. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_UTILITY_AND_FOREIGN_ROUTES_52 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_UTILITY_AND_FOREIGN_ROUTES_52. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -7699,6 +7742,25 @@ observed within 7 days of the quote and no later than the analysis cutoff (the
 provider re-stamps the row on each refresh). Unresolved split or
 share-class evidence refuses the ratio, and the valuation stays withheld with
 `valuation.currencyConversion` naming the reason.
+
+D-204 applies the same translation discipline to bank, insurer and mortgage-REIT
+excess-return valuation. Opening common/tangible book, the alternative fiscal
+book, preferred and convertible claims, debt and conversion prices are in USD;
+diluted and conversion shares are in the established quoted unit. ROE/ROTE and
+payout ratios remain the dimensionless ratios of the original same-currency
+amounts, and cost of equity remains the USD CAPM rate. Financial routes use no
+WACC or cost of debt. The reverse solve, P/TBV check and scenario model consume
+that same translated view. A missing/stale dated rate or missing/disputed
+quoted-unit evidence withholds the value with the specific failed item in its
+headline, rather than claiming no FX conversion was attempted.
+
+A provider explicitly identifying a non-ADR listing may establish one ordinary
+share per quoted share through the same two independent count constructions,
+SEC issuer identity, split/class checks and 1% tolerances. Both constructions
+must support exactly 1:1; a non-unit ratio is never admitted as an ordinary
+listing. Retained security evidence is labelled `ordinary`, not `ADS`.
+Unknown listing types remain refused. This does not relax the ADS checks or
+repair conflicting period/share counts by choosing an older match.
 
 **Valuation coverage follow-up (D-186, 2026-11-03).** Outstanding ordinary
 shares may also be established by IFRS `NumberOfSharesOutstanding` when no

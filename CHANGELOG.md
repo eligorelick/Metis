@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.64.0** and
-payload **1.77.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.78.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,19 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Unknown tickers, regulated utilities and foreign banks (2026-11-04)
+
+- Unknown and unclassified jobs end as unsupported, saving no report and admitting
+  no paid AI request. Confirmed empty results distinguish invalid/delisted tickers
+  from a source outage; malformed symbols stop before acquisition.
+- Filed rate-regulation evidence with a utility SIC withholds FCFF values and DCF
+  targets while retaining multiples and the existing neutral missing-score rule.
+- Foreign financial routes use the dated FX and independently established quoted
+  share basis, including verified one-for-one ordinary listings. Refusals name the
+  missing rate or share evidence. An unusable vendor beta can use an independently
+  retained monthly SPY regression only after observation and fit checks pass.
+- Decision and methodology: D-204. No version constants or saved reports changed.
 
 ## Unreleased - Scores that lost an aspect say so (2026-11-04)
 

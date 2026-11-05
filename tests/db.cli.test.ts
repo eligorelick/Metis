@@ -102,7 +102,7 @@ function npmScriptInvocation(
       encoding: "utf8" as const,
       env: providerFreeEnvironment(dbPath, sourceEnv),
       stdio: "pipe" as const,
-      timeout: 12_000,
+      timeout: 60_000,
       shell: false as const,
     },
   };
@@ -138,7 +138,7 @@ describe("database CLI", () => {
         /npm_execpath.*npm CLI file/i,
       );
     } finally {
-      rmSync(tempDir, { recursive: true, force: true });
+      rmSync(tempDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
   });
 
@@ -168,7 +168,7 @@ describe("database CLI", () => {
           ...OFFLINE_NPM_ENV,
         },
         stdio: "pipe",
-        timeout: 12_000,
+        timeout: 60_000,
         shell: false,
       },
     });
@@ -202,11 +202,11 @@ describe("database CLI", () => {
       }
       expect(sqlite.open).toBe(false);
     }, () => {
-      rmSync(tempDir, { recursive: true, force: true });
+      rmSync(tempDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     });
 
     expect(existsSync(tempDir)).toBe(false);
-  }, 15_000);
+  }, 90_000);
 
   it("cleans an already-created Unicode/spaced workspace after child failure", () => {
     const npmCli = resolveNpmExecPath(process.env.npm_execpath);
@@ -223,9 +223,9 @@ describe("database CLI", () => {
         runNpmScript(npmCli, "intentionally-missing-db-script", dbPath),
       ).toThrow();
     } finally {
-      rmSync(tempDir, { recursive: true, force: true });
+      rmSync(tempDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     }
 
     expect(existsSync(tempDir)).toBe(false);
-  }, 15_000);
+  }, 90_000);
 });

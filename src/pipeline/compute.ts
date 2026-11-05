@@ -2729,7 +2729,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     profile,
     quote,
   });
-  if (foreignResolution.reason !== null && valuation.gaps.some(g => g.field === "valuation.dcf.currency")) {
+  if (foreignResolution.reason !== null && valuation.gaps.some(g => g.field === "valuation.dcf.currency" || g.field === "valuation.excessReturn.currency")) {
     valuation.gaps.push({ field: "valuation.currencyConversion", reason: foreignResolution.reason, severity: "warn" });
   }
 
@@ -3066,7 +3066,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       asOf: asOfDay,
     }),
     degradedInputsReason({
-      betaUsesRegression: returns.wacc.betaFinal !== null && /keyless profile regression/.test(returns.wacc.betaSource ?? ""),
+      betaUsesRegression: returns.wacc.betaFinal !== null && /keyless profile regression|monthly OLS regression fallback/.test(returns.wacc.betaSource ?? ""),
       riskFree: riskFreePct(bundle),
       waccHistoryCurrentOnly: valuation.kind === "dcf" && riskFreeObservations(bundle).length === 0 && returns.waccHistory.missing.length > 0,
       bundleGaps: bundle.gaps,
@@ -3414,7 +3414,8 @@ function computeReturns(
   // D-60: the beta's regression window, frequency and fit. A vendor beta
   // publishes none, so the same 60-month OLS the keyless route uses runs on the
   // bundle's own daily prices (bars before the analysis day only) and is
-  // disclosed beside it; the WACC keeps the beta it already used.
+  // disclosed beside it. D-204 retains a plausible provider beta; computeWacc
+  // may use this independent fit only when the provider beta is unusable.
   const betaFit = estimateBeta(
     betaClosePoints(rowsOf(bundle.eodPrices)),
     betaClosePoints(bundle.benchmarkPrices ? rowsOf(bundle.benchmarkPrices.spy) : []),
