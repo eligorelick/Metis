@@ -1,10 +1,40 @@
 import { describe, expect, it } from "vitest";
 import { classEconomicContradiction, identicalClassRights, participatingClassRights, shareForShareClassRights } from "@/edgar/economicShares";
-import { nonEconomicDenial } from "@/edgar/classEvidence";
+import { nonEconomicDenial, sharedClassDividendRate } from "@/edgar/classEvidence";
 
 const classes = ["class q common stock", "class r common stock"];
 
 describe("synthetic legal forms of class economics", () => {
+  it.each([
+    "We declared dividends of $0.42 per share on Class Q and Class R common stock.",
+    "Dividends of $0.42 per share were declared on Class Q common stock and Class R common stock.",
+    "Class Q and Class R common stock each received dividends of $0.42 per share.",
+  ])("requires one rate explicitly applied to a coordinated class list: %s", text => {
+    expect(sharedClassDividendRate(text, classes, "2026-09-30")).toBe(text);
+  });
+  it.each([
+    "Dividends of $0.42 per share were declared on Class Q common stock and none on Class R common stock.",
+    "Before the 2022 reorganization, dividends of $0.42 per share were paid on Class Q and Class R common stock.",
+    "If approved, dividends of $0.42 per share would be paid on Class Q and Class R common stock.",
+    "Dividends of $0.42 per share were paid on Class Q and Class R common stock in 2023.",
+  ])("does not turn mentions or historical/conditional payments into current parity: %s", text => {
+    expect(sharedClassDividendRate(text, classes, "2026-09-30")).toBeNull();
+  });
+  it.each([
+    "Class Q common stock does not participate in liquidation distributions.",
+    "Class R common stock carries a preferred dividend entitlement.",
+    "Class Q common stock is entitled to three times the distributions on Class R common stock.",
+    "Class R common stock is junior to Class Q common stock for dividends.",
+  ])("reads a named class entitlement with negation, a multiple or priority: %s", text => {
+    expect(classEconomicContradiction(text, classes)).toContain(text);
+  });
+  it.each([
+    "Class Q common stock has no dividends payable at quarter end.",
+    "Class Q common stock does not receive dividends until declared by directors.",
+    "Dividends are payable only on Class Q and Class R common stock.",
+  ])("requires a complete entitlement clause rather than its prefix: %s", text => {
+    expect(classEconomicContradiction(text, classes)).toBeNull();
+  });
   it.each([
     "Class Q common stock is convertible, share-for-share, into Class R common stock.",
     "Each share of Class Q common stock is convertible into Class R common stock on a share-for-share basis.",
@@ -87,7 +117,6 @@ describe("synthetic legal forms of class economics", () => {
     "The Class Q common stock dividend was $0.40 per share in 2025. The Class R common stock dividend was $0.30 per share in 2025.",
     "Dividends paid on Class Q common stock exceed dividends paid on Class R common stock by $0.03 per share.",
     "The board may declare dividends on Class Q common stock alone.",
-    "The rights of Class Q common stock and Class R common stock are identical. After 2027, the low-vote class will receive twice the dividend.",
   ])("names the classes whose current economics contradict a one-unit proxy: %s", text => {
     const reason = classEconomicContradiction(text, classes);
     expect(reason).toMatch(/Class [QR]/);
@@ -96,6 +125,9 @@ describe("synthetic legal forms of class economics", () => {
     const reason = classEconomicContradiction("The Class Q common stock dividend was $0.40 per share in 2025. The Class R common stock dividend was $0.30 per share in 2025.", classes);
     expect(reason).toContain("$0.40 per share");
     expect(reason).toContain("$0.30 per share");
+  });
+  it("does not guess a class identity from an unbound voting label", () => {
+    expect(classEconomicContradiction("The rights of Class Q common stock and Class R common stock are identical. After 2027, the low-vote class will receive twice the dividend.", classes)).toBeNull();
   });
 
   it.each([

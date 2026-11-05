@@ -7771,14 +7771,18 @@ guards still apply; an established DEI path is unchanged.
 
 **Multi-class economics (D-206, 2026-11-05).** A non-ADR common quote
 requires complete, unique, same-date, unscaled outstanding class observations.
-The basis names whether the same-filing balance sheet or an explicit
-participating-class declaration established the inventory. An outstanding
-statement class missing from the cover, or a positive cover count for a class
-shown at zero outstanding in the statement, always refuses and names the class.
-Participation wording cannot reconcile those conflicts.
+The balance-sheet class inventory must be readable before the participation
+fallback can run. Equity/capital-stock headings need no colon; issued classes
+also require reconciliation. An issued or outstanding statement class missing
+from the cover, or a positive cover count for a class shown at zero outstanding,
+refuses by name. Unmapped cover labels are described as unbound, not as omitted
+shares. Participation wording cannot reconcile a conflict or an unreadable
+statement.
 
-One unit requires affirmative equal current rights or a shared per-share
-dividend rate. A stated conversion ratio alone proves no equal current rights.
+One unit requires affirmative equal current rights or one current per-share
+dividend rate explicitly applied to a coordinated class list. The latter is
+labelled dividend parity only; it establishes no equal liquidation rights.
+A stated conversion ratio alone proves no equal current rights.
 The limited alternative is a disclosed small-class conversion approximation:
 the unquoted class must convert one-for-one into the uniquely quote-bound
 reference class, and its assumed units plus excluded voting-only units must be
@@ -7791,18 +7795,23 @@ The half-percent policy caps nominal inclusion/exclusion sensitivity at one
 part in 200 of per-share value, holding common equity fixed. It is independent
 of an issuer's result. It does not bound an unknown preferential entitlement,
 enterprise value or WACC. The actual affected count, reference count and
-percentage travel with the evidence; this approximation appears beside fair
-value, DCF, WACC and scenario targets. A diluted-count comparison does not
-prove current rights. Equal votes, par value, EPS alone and conversion without
+percentage travel with the evidence. The plain conversion explanation appears
+beside fair value, DCF and scenario targets, with a short caveat at WACC; generic
+multiples/count notes do not repeat that paragraph. A diluted-count comparison
+does not prove current rights. Equal votes, par value, EPS alone and conversion without
 a ratio establish no economic weight.
 
 Every retained issuer/accession-bound SEC text section in the 400-day window
-is checked, including older annual filings and Item 1A, business and MD&A
-sections. A contradiction is an explicit comparison of class entitlements,
-a class-specific dividend exclusion or unequal per-share rates for the same
-payment period. The refusal quotes its evidence and states its conflict with
-the one-unit assumption. Declared/payable dates crossing calendar years do
-not exempt a comparison. Different historical payment periods, aggregate
+is considered, including older annual filings and Item 1A, business and MD&A
+sections. The contradiction measure requires at least two mapped common-class
+labels; an unmapped class set is unmeasured, not a negative finding.
+A contradiction requires a named class entitlement with negation,
+a ratio/multiple, priority/preference, or unequal per-share rates for a
+recognized common payment period. Complete denial clauses are anchored; a
+prefix about no dividends payable at a date is not a denial of entitlement.
+The refusal quotes its evidence and states its conflict with
+the one-unit assumption. This grammar has measured misses and is not a complete
+legal-language interpreter. Different historical payment periods, aggregate
 class payments, warrant yields, purchase-plan limits, equity distribution
 agreements and ratable-liquidation boilerplate do not establish inequality.
 An independently evidenced non-unit weight, such as Berkshire's 1:1,500,
@@ -7821,7 +7830,8 @@ unequal-class weight. Outstanding economic units remain distinct from an
 independently admitted diluted period average. Active weights print once,
 with the quoted class named as such and singular units formatted correctly.
 
-Annual rights can carry through an interim filing for at most 400 days only
+Rights and conversion evidence can carry through an interim filing for at most
+400 days only
 with the same complete class set and no contrary retained terms. Counts come
 from the latest filing's cover at their own date. Missing/extra classes, mixed
 dates, duplicate observations, newer unresolved filings, unresolved splits

@@ -151,7 +151,7 @@ import { retainedClassEconomicEvidence } from "@/edgar/retainedClassEconomics";
 import { applyLenderCapitalApplicability, lenderCashFlowApplicability } from "@/pipeline/stageB/lenderCashFlow";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { preferredCapitalRefusal, commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
-import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
+import { conversionRightsNote, issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
@@ -3529,7 +3529,6 @@ function computeReturns(
   });
 
   if (foreignBasis) wacc.notes.push(foreignBasis.note);
-  if (equityScope.approximation) wacc.notes.push(equityScope.approximation.basis);
 
   if (route.overlays.includes("recent-ipo") && wacc.costOfEquityPct === null && betaFit.beta === null &&
     wacc.gaps.some(gap => gap.field === "returns.wacc.beta")) {
@@ -3642,7 +3641,7 @@ function computeReturns(
     { seriesId: WACC_HISTORY_RF_SERIES_ID },
   );
   const waccInputs = waccDisclosure(wacc);
-  if (equityScope.approximation) waccInputs.summary += ` ${equityScope.approximation.basis}`;
+  if (equityScope.approximation) waccInputs.summary += ` ${conversionRightsNote(equityScope.approximation)}`;
   notes.push(waccInputs.summary);
   notes.push(...waccHistory.notes);
   // N8: the CURRENT WACC's risk-free rate is FRED DGS10 when available (D-60)

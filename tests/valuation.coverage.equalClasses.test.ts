@@ -49,6 +49,47 @@ describe("D-186 equally participating class coverage", () => {
     expect(identicalClassRights("The rights, including the liquidation and dividend rights, of the holders of Class A and Class B common stock are identical, except with respect to voting and conversion."))
       .toEqual(["class a common stock", "class b common stock"]);
   });
+  it("labels a shared current rate as dividend parity without proving liquidation rights", () => {
+    const b = syntheticInterimFixture();
+    if (!b.edgar.tenKNotes?.ok || !b.edgar.tenQNotes?.ok) throw Error("fixture");
+    b.edgar.tenKNotes.value.data.text = "No rights declaration is retained.";
+    b.edgar.tenQNotes.value.data.text += ". We declared dividends of $0.42 per share on Class A and Class B common stock.";
+    expect(retainedClassEconomicEvidence(b)[0]?.basis).toMatch(/dividend parity.*not.*liquidation/i);
+  });
+  it("does not use conversion evidence outside the same 400-day scan window", () => {
+    const b = syntheticInterimFixture();
+    if (!b.edgar.tenKNotes?.ok || !b.quote.ok) throw Error("fixture");
+    const annual = b.edgar.economicShareInventory![0]!;
+    annual.source.filingDate = "2025-07-01";
+    annual.observations!.forEach(o => { o.asOf = "2025-06-25"; });
+    Object.assign(b.edgar.tenKNotes.value.data, { filingDate: "2025-07-01", reportDate: "2025-05-31",
+      text: "Class B common stock is convertible, share for share, into Class A common stock. Class A common stock receives 1.5 times the dividend on Class B common stock." });
+    b.edgar.economicShareInventory!.forEach(i => { i.observations![0]!.shares = 100_000; });
+    b.quote.value.data.rows[0]!.marketCap = b.quote.value.data.rows[0]!.price! * 100_000;
+    expect(retainedClassEconomicEvidence(b)).toEqual([]);
+  });
+  it.each(["Equity", "Shareholders' equity", "Capital stock"])("checks issued classes under %s without requiring a colon", heading => {
+    const b = syntheticInterimFixture();
+    if (!b.edgar.tenQNotes?.ok) throw Error("fixture");
+    b.edgar.tenQNotes.value.data.statementsText = `Consolidated Balance Sheets ${heading} Class A common stock - 100 shares issued; Class B common stock - 200 shares issued; Class C common stock - 400 shares issued. Additional paid-in capital 1`;
+    b.edgar.tenQNotes.value.data.text = "Class A and Class B common stock are participating securities with equal participation rights and receive dividends on a share-for-share basis.";
+    expect(retainedClassEconomicEvidence(b)).toEqual([]);
+    expect(retainedCommonClassAmbiguity(b)?.reason).toMatch(/Class C.*issued.*cover/i);
+  });
+  it("refuses participation-only admission when the statement cannot be read", () => {
+    const b = syntheticInterimFixture();
+    if (!b.edgar.tenQNotes?.ok) throw Error("fixture");
+    b.edgar.tenQNotes.value.data.statementsText = "Capital information is not retained.";
+    b.edgar.tenQNotes.value.data.text = "Class A and Class B common stock are participating securities with equal participation rights and receive dividends on a share-for-share basis.";
+    expect(retainedClassEconomicEvidence(b)).toEqual([]);
+    expect(retainedCommonClassAmbiguity(b)?.reason).toMatch(/statement.*cannot be read/i);
+  });
+  it("does not turn ordinary capital-description words into extra class names", () => {
+    const b = syntheticInterimFixture();
+    if (!b.edgar.tenQNotes?.ok) throw Error("fixture");
+    b.edgar.tenQNotes.value.data.statementsText = "Equity Class A common stock - 100 shares issued; Class B common stock - 200 shares issued. Shares of common stock outstanding include both classes. A class action suit is outstanding. Additional paid-in capital 1";
+    expect(retainedClassEconomicEvidence(b)[0]?.complete).toBe(true);
+  });
   it("admits complete inline counts with a share-for-share conversion and an ordinary balance-sheet layout", () => {
     const b = syntheticInterimFixture();
     if (!b.edgar.tenKNotes?.ok || !b.edgar.tenQNotes?.ok) throw Error("fixture");
@@ -61,6 +102,8 @@ describe("D-186 equally participating class coverage", () => {
     expect(evidence[0]?.classes.map(c => [c.shares, c.economicUnitsPerQuotedShare])).toEqual([[100_000, 1], [200, 1]]);
     expect(evidence[0]?.basis).toMatch(/one-for-one/);
     expect(evidence[0]?.approximation?.maxFixedEquityPerShareErrorPct).toBe(0.2);
+    expect(evidence[0]?.approximation?.basis).toContain("Class B (200 shares, 0.20% of Class A)");
+    expect(evidence[0]?.approximation?.basis).not.toMatch(/nominal denominator|quote-implied|class b common stock/);
     b.edgar.tenQNotes.value.data.text += " Class B common stock has preferential dividend rights.";
     expect(retainedClassEconomicEvidence(b)).toEqual([]);
   });
@@ -107,7 +150,7 @@ describe("D-186 equally participating class coverage", () => {
   it("checks separately retained statement text as well as the notes narrative", () => {
     const b = syntheticInterimFixture();
     if (!b.edgar.tenQNotes?.ok) throw Error("fixture");
-    b.edgar.tenQNotes.value.data.statementsText += " Class A common stock receives 1.5 times the dividend on Class B common stock.";
+    b.edgar.tenQNotes.value.data.statementsText = b.edgar.tenQNotes.value.data.text + ". Class A common stock receives 1.5 times the dividend on Class B common stock.";
     expect(retainedClassEconomicEvidence(b)).toEqual([]);
     expect(retainedCommonClassAmbiguity(b)?.reason).toContain("1.5 times");
   });
@@ -172,6 +215,7 @@ describe("D-186 equally participating class coverage", () => {
   it("uses the filed two-class participation statement and excludes only a proved non-economic voting share", () => {
     const b = syntheticInterimFixture();
     if (!b.edgar.tenKNotes?.ok || !b.edgar.tenQNotes?.ok) throw Error("fixture");
+    b.edgar.tenQNotes.value.data.statementsText = b.edgar.tenQNotes.value.data.text;
     const q = b.edgar.economicShareInventory![1]!;
     q.observations!.push({ classId: "example:FounderShareMember", shares: 1, asOf: "2026-09-28", contextId: "founder", sourceId: `${q.source.documentUrl}#founder` });
     b.edgar.tenKNotes.value.data.text = "The Founder Share carries no economic rights.";

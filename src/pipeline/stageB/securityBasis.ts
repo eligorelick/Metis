@@ -1,4 +1,5 @@
 /** Security and common-holder admission helpers. Pure: no inferred ADR ratios. */
+import { commonClassName, displayClassName } from "@/edgar/classEvidence";
 export interface SecurityBasisEvidence {
   issuerId: string;
   securityId: string;
@@ -42,6 +43,10 @@ export interface ClassCountApproximation {
   referenceShares: number;
   maxFixedEquityPerShareErrorPct: number;
   basis: string;
+}
+
+export function conversionRightsNote(approximation: ClassCountApproximation): string {
+  return `${approximation.unprovenClassIds.map(displayClassName).join(", ")} is counted one-for-one using conversion; equal dividend and liquidation rights are not confirmed.`;
 }
 
 /** Retained filing evidence, never inferred from class names or raw share-count sums. */
@@ -163,6 +168,7 @@ export function resolveEconomicEquityScope(
         (!approximate ? "quoted common-class price basis. "
           : active.some(item => item.classes.some(cls => cls.priceBasis === "economic-equivalence-proxy" && cls.economicUnitsPerQuotedShare !== 1))
             ? "economic-weight approximation: each class without its own admitted quote is valued at its filed economic units per quoted share x the main quote price, not a traded quote for those classes. "
+            : row.approximation ? "same-price assumption for classes counted using conversion, rather than confirmed equal rights. "
             : "same-price approximation for equivalent classes without an admitted quote (a separately traded class's own price was not used). ") +
         `Price policy: every separately observed class price must share the main quote valuation day ${priceDay}; report/fetch dates do not substitute for that session. ` +
         `Evidence: ${active.flatMap(item => item.sourceIds).join(", ")}.` +
@@ -215,8 +221,8 @@ export function issuerEconomicDilutedShares(
   if (!finite(diluted) || diluted <= 0) return refuse("no diluted weighted-average count is filed; outstanding class weights " +
     [...new Set(evidence.filter(row => day(row.effectiveFrom) && row.effectiveFrom <= priceDay &&
       (row.effectiveTo === null || row.effectiveTo > priceDay)).flatMap(row => row.classes.map(cls => {
-      const name = /:CommonClass([A-Z0-9]{1,8})Member$/.exec(cls.classId)?.[1];
-      const label = name ? `Class ${name}` : cls.classId === row.securityId ? `quoted class (${row.securityId})` : cls.classId;
+      const name = commonClassName(cls.classId);
+      const label = name ? displayClassName(name) : cls.classId === row.securityId ? `quoted class (${row.securityId})` : displayClassName(cls.classId);
       return `${label}: ${cls.economicUnitsPerQuotedShare?.toLocaleString("en-US") ?? "unknown"} ${cls.economicUnitsPerQuotedShare === 1 ? "unit" : "units"} per quoted share`;
     })))].join(", ") + " establish economic units only, not a period-average diluted denominator");
   if (!finite(basic) || basic <= 0) return refuse("no basic weighted-average count is filed for the same period, so the diluted count cannot be shown to span every class");
@@ -256,8 +262,7 @@ export function issuerEconomicDilutedShares(
   return { shares: diluted * unit,
     basis: `Diluted shares on the issuer-economic basis: the basic weighted-average count ${count(basic)}${scaled} for the period ending ${periodEnd} ` +
       `matches the all-class economic share total of ${count(total)} quoted-share units at ${countDay} within ${pct}, so the ${options.countNotFiled === true ? "" : "filed "}diluted count ` +
-      `${count(diluted)}${scaled}${unit === 1 ? "" : ` = ${count(diluted * unit)} quoted-share units`} ${scope.approximation ? "is used on the admitted conversion-unit approximation; the count comparison does not prove equal current class rights" : "spans every class (audit 2026-10-22 B-37)"}.` +
-      (scope.approximation ? ` ${scope.approximation.basis}` : "") };
+      `${count(diluted)}${scaled}${unit === 1 ? "" : ` = ${count(diluted * unit)} quoted-share units`} ${scope.approximation ? "is used with the conversion assumption; matching counts do not prove equal current class rights" : "spans every class (audit 2026-10-22 B-37)"}.` };
 }
 
 /** The economic flow interval, independent of a nearby display date. */

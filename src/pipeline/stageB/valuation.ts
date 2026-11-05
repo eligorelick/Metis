@@ -19,6 +19,7 @@
 
 import { convertibleVariants, convertibleReadingGaps, foldConvertiblePreferred, type ConvertibleInstrument, type ConvertibleReading } from "@/pipeline/stageB/convertibles";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { displayClassName } from "@/edgar/classEvidence";
 import { parseIssuerGrowthEffect } from "@/edgar/currentReports";
 import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf, periodDays, fiscalYearEndFor, snapToFiscalYearEnd, type FiscalYearRule } from "./fiscalCalendar";
 import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
@@ -6693,9 +6694,6 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   const economicScope = resolveEconomicEquityScope(inputs.multiples.quote,
     inputs.multiples.economicShareEvidence ?? [], inputs.multiples.securityBasisAsOf ?? "");
   const multiclassEvidence = inputs.multiples.economicShareEvidence?.some(row => row.classes.length > 1) === true;
-  if (economicScope.approximation) {
-    notes.push(economicScope.approximation.basis);
-  }
   if (economicScope.status === "unresolved" ||
     (multiclassEvidence && inputs.dilutedShareSecurityBasis !== "issuer-economic")) {
     const reason = "Per-share intrinsic valuation withheld: common-class coverage or the economic basis of weighted-average diluted shares is unresolved. Outstanding class counts do not establish the diluted denominator; no class ratio is guessed." +
@@ -7346,7 +7344,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
               : `Per-share values divide by the latest weighted-average diluted share count, ${fmtMoney(dcf.bridge.dilutedShares)}`;
           // A loss period's filed count equals its basic count (ASC 260-10-45-17), so the not-restored case carries no award dilution either.
           const tail = economicScope.multiClass
-            ? `The quoted market-cap count may cover only the quoted class; the diluted denominator uses the admitted all-class units. ${economicScope.approximation ? `${fmtMoney(economicScope.approximation.affectedShares)} of the difference is the unquoted ${economicScope.approximation.unprovenClassIds.join(", ")}, not option or RSU dilution. ` : ""}The remaining difference can reflect period averaging, awards and share transactions; this comparison alone does not attribute it.`
+            ? `The quoted market-cap count may cover only the quoted class; the diluted denominator uses the admitted all-class units. ${economicScope.approximation ? `${fmtMoney(economicScope.approximation.affectedShares)} of the difference is the unquoted ${economicScope.approximation.unprovenClassIds.map(displayClassName).join(", ")}, not option or RSU dilution. ` : ""}The remaining difference can reflect period averaging, awards and share transactions; this comparison alone does not attribute it.`
             : basicOnly || divisor?.basis === "loss-period-withheld"
             ? "The gap is repurchases or issuance since the quarter, and the per-share value does not carry the option and RSU dilution the market cap omits (D-60 disclosure)."
             : substituted !== null

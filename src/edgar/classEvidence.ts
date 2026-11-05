@@ -17,9 +17,15 @@ export function isSecClassFiling(source: { form: string; accession: string; fili
 }
 
 const classNoun = "Class ([A-Z0-9]{1,8})(?: (?:common (?:stock|shares?)|stock|shares?))?";
-const money = "(?:\\$\\s*(\\d+(?:\\.\\d+)?)|(\\d+(?:\\.\\d+)?) cents)";
+const money = "(?:\\$\\s*(\\d*\\.\\d+|\\d+)|(\\d+(?:\\.\\d+)?) cents)";
 const canonical = (key: string): string => `class ${key.toLowerCase()} common stock`;
-const title = (name: string): string => name.replace(/^class ([a-z0-9]+) common stock$/, (_m, k: string) => `Class ${k.toUpperCase()}`);
+export const displayClassName = (name: string): string => name.replace(/^class ([a-z0-9]+) common stock$/, (_m, k: string) => `Class ${k.toUpperCase()}`).replace(/^./, c => c.toUpperCase());
+export function commonClassName(classId: string): string | null {
+  const key = /^[A-Za-z][\w-]*:CommonClass([A-Z0-9]{1,8})Member$/.exec(classId)?.[1];
+  if (key) return canonical(key);
+  const custom = /^(?!us-gaap:)[A-Za-z][\w-]*:([A-Z][A-Za-z-]{0,30})CommonStockMember$/.exec(classId)?.[1];
+  return custom ? `${custom.toLowerCase()} common stock` : null;
+}
 interface Rate { name: string; value: number; period: string | null; sentence: string }
 
 /** The observed inventory supplies class names, including non-lettered classes. */
@@ -55,7 +61,7 @@ function dividendRates(sentence: string, names: readonly string[]): Rate[] {
     if (names.includes(name)) rates.push({ name, value: dollars ? Number(dollars) : Number(cents) / 100, period: /\bpayable\b/i.test(sentence) ? null : paymentPeriod(context), sentence });
   };
   // Unit followed by the class: "$x per share of Class A" / "$x per Class A share".
-  const directed = new RegExp(`${money}\\s+per (?:share\\s+(?:of|on|for)\\s+Class ([A-Z0-9]{1,8})|Class ([A-Z0-9]{1,8}) share)`, "gi");
+  const directed = new RegExp(`${money}\\s+per (?:share\\s+(?:of|on|for)\\s+Class ([A-Z0-9]{1,8})|Class ([A-Z0-9]{1,8}) (?:common )?share)`, "gi");
   const direct = [...payout.matchAll(directed)];
   direct.forEach((m, i) => add(m[3] ?? m[4]!, m[1], m[2], payout.slice(m.index! + m[0].length, direct[i + 1]?.index)));
   if (/^Dividends per share (?:were|are) /i.test(payout)) {
@@ -65,15 +71,9 @@ function dividendRates(sentence: string, names: readonly string[]): Rate[] {
   const mentions = [...payout.matchAll(new RegExp(classNoun, "gi"))];
   mentions.forEach((m, i) => {
     const tail = payout.slice(m.index! + m[0].length, mentions[i + 1]?.index);
-    const paid = new RegExp(`^[^$;]{0,120}?\\b(?:receives?|received|paid|dividends?|declared)\\b[^$;]{0,70}?${money}\\s+per[ -](?:common )?share\\b`, "i").exec(tail);
+    const paid = new RegExp(`^[^$;]{0,120}?\\b(?:receives?|received|paid|dividends?|declared|was|were|is|are)\\b[^$;]{0,70}?${money}\\s+per[ -](?:common )?share\\b`, "i").exec(tail);
     if (paid && !/\bpar(?: value)?\b/i.test(paid[0])) add(m[1]!, paid[1], paid[2], tail.slice(paid.index + paid[0].length));
   });
-  // A single rate explicitly shared by the named classes.
-  const units = [...payout.matchAll(new RegExp(`${money}\\s+per[ -](?:common )?share\\b`, "gi"))];
-  if (!rates.length && units.length === 1 && mentions.length >= 2 && !/\bpar(?: value)?\b/i.test(payout) &&
-      !/\b(?:in|for|during) (?:19|20)\d{2} and (?:19|20)\d{2}\b/i.test(payout)) {
-    for (const m of mentions) add(m[1]!, units[0]![1], units[0]![2], "");
-  }
   // A parallel list whose shared unit and "respectively" explicitly bind amounts to classes.
   const parallel = new RegExp(`dividends of \\$\\s*(\\d+(?:\\.\\d+)?) and \\$\\s*(\\d+(?:\\.\\d+)?) per share (?:were declared )?(?:on|for) (.+?), respectively[.]?$`, "i").exec(payout);
   if (parallel && !/^(?:During|For) (?:19|20)\d{2} and (?:19|20)\d{2}\b/i.test(payout)) {
@@ -83,12 +83,56 @@ function dividendRates(sentence: string, names: readonly string[]): Rate[] {
   return rates;
 }
 
-export function sharedClassDividendRate(text: string, names: readonly string[]): string | null {
+export function sharedClassDividendRate(text: string, names: readonly string[], reportDate?: string): string | null {
+  const list = `(?<classes>${classNoun}(?:(?:,? and |, )${classNoun})+)`;
+  const rate = `(?:a )?(?:(?:quarterly|cash) )?dividends? of ${money} per (?:common )?share`;
+  const period = "(?: in (?:each quarter|(?:[A-Za-z]+ )?(?:19|20)\\d{2}))?";
+  const forms = [
+    new RegExp(`^(?:We|The (?:Company|board)) (?:declared|paid) ${rate} (?:on|of|for) (?:each of )?${list}${period}\\.$`, "i"),
+    new RegExp(`^${rate} (?:was|were) (?:declared|paid) (?:on|of|for) (?:each of )?${list}${period}\\.$`, "i"),
+    new RegExp(`^(?:Holders of )?${list} (?:each )?(?:receive|received) ${rate}${period}\\.$`, "i"),
+  ];
   for (const sentence of filingSentences(text)) {
-    const rates = dividendRates(sentence, names);
-    if (names.length > 1 && names.every(n => rates.some(r => r.name === n)) && new Set(rates.map(r => r.value)).size === 1 && new Set(rates.map(r => r.period)).size === 1) return sentence;
+    const subject = forms.map(f => f.exec(sentence)?.groups?.classes).find(Boolean);
+    if (!subject) continue;
+    const classes = classListAtStart(subject);
+    const years = sentence.match(/\b(?:19|20)\d{2}\b/g) ?? [];
+    if (years.some(y => y !== reportDate?.slice(0, 4))) continue;
+    if (names.length > 1 && classes.length === names.length && names.every(n => classes.includes(n))) return sentence;
   }
   return null;
+}
+
+/** A complete class entitlement clause, rather than arbitrary nearby words. */
+function contraryEntitlement(sentence: string, names: readonly string[]): boolean {
+  const refs = names.map(classReference).join("|");
+  const member = `(?:${refs})`;
+  const list = `${member}(?:(?:,? and |, | or )${member})*`;
+  const holders = "(?:(?:The )?holders of |Each |The )?";
+  const object = "(?:any |cash )?(?:dividends?|distributions?|liquidation)(?: (?:and|or) (?:dividends?|distributions?|liquidation))?(?: rights| distributions)?(?: (?:on|in) liquidation)?";
+  const subset = (subject: string) => !names.every(n => new RegExp(`\\b${classReference(n)}\\b`, "i").test(subject));
+  const exclusions = [
+    new RegExp(`^No (?:cash )?dividends? (?:are |may be |shall be )?(?:paid|payable|declared) (?:on|to|for) (${list})\\.$`, "i"),
+    new RegExp(`^Only ${holders}(${list})(?: holders)? (?:participates? in|(?:is|are) entitled to) ${object}\\.$`, "i"),
+    new RegExp(`^Dividends? (?:are )?payable only on (${list})\\.$`, "i"),
+    new RegExp(`^The board may declare dividends on (${list}) alone\\.$`, "i"),
+    new RegExp(`^${holders}(${list})(?: holders)? (?:(?:does? not|will not) (?:receive|participate in)|(?:is|are) not entitled to|(?:has|have|carries|carry|receives|receive) no(?: rights? to)?) ${object}(?: (?:declared|paid|payable) (?:on|to|for) ${list})?\\.$`, "i"),
+  ];
+  if (exclusions.some(f => { const m = f.exec(sentence); return m && subset(m[1]!); })) return true;
+  const verbs = "(?:receives?|earns?|has|have|possesses?|carries?|carry|(?:is|are)(?: entitled to)?|ranks?|must be|(?:will|may) receive|exceeds?|dividends? (?:is|are))";
+  const clause = new RegExp(`\\b${holders}(${list})(?: (?:holders|stockholders))? (${verbs}\\b.+)\\.$`, "i").exec(sentence) ??
+    new RegExp(`^(?:The |Cash )?(?:dividends?|dividend rate|distributions?) (?:paid )?(?:on|of|for) (${list}) (${verbs}\\b.+)\\.$`, "i").exec(sentence);
+  if (!clause) return false;
+  const predicate = clause[2]!;
+  // Limit modifiers to an entitlement assertion; plans, yields and debt covenants
+  // have different subjects or predicates. Status/date tails are not denials.
+  if (!/\b(?:dividends?|distributions?|liquidation)\b/i.test(predicate)) return false;
+  const priority = /^(?:(?:has|have|possesses?|carries?|carry) (?:a |an )?[^.]*\b(?:preferen\w*|preferred|priority|senior)\b|(?:ranks?|is|are) (?:senior|junior|subordinat\w*)\b|[^.]*\bpaid (?:before|after|first)\b|[^.]*\breceives? [^.]*\bonly after\b)/i.test(predicate);
+  const ratio = /\b(?:\d+(?:\.\d+)?\s*(?:%|percent|times)|(?:one|two|three|four|five|six|seven|eight|nine|ten)(?:-[a-z]+)+|(?:one|two|three|four|five|six|seven|eight|nine|ten) times|twice|half|double|triple|for (?:each|every))(?!\w)/i.test(predicate);
+  const comparative = names.filter(n => new RegExp(`\\b${classReference(n)}\\b`, "i").test(sentence)).length > 1 &&
+    /\b(?:higher|lower|larger|smaller|additional|exceeds?|without)\b/i.test(predicate);
+  const relatesClasses = subset(clause[1]!) || names.some(n => new RegExp(`\\b${classReference(n)}\\b`, "i").test(predicate));
+  return relatesClasses && (priority || ratio || comparative);
 }
 
 /** Entitlement clauses compare class payouts or directly exclude a class.
@@ -96,7 +140,6 @@ export function sharedClassDividendRate(text: string, names: readonly string[]):
 export function classEconomicContradiction(text: string, names: readonly string[], supportedRelations: readonly string[] = []): string | null {
   if (new Set(names).size < 2) return null;
   const datedRates: Rate[] = [];
-  let previousPayoutClasses: string[] = [];
   for (const sentence of filingSentences(text)) {
     if (supportedRelations.includes(sentence)) continue;
     const rates = dividendRates(sentence, names);
@@ -104,31 +147,11 @@ export function classEconomicContradiction(text: string, names: readonly string[
     const unequal = rates.some(a => comparedRates.some(b => a.name !== b.name && a.period === b.period && a.value !== b.value));
     datedRates.push(...rates.filter(r => r.period !== null));
     const mentioned = names.filter(n => new RegExp(`\\b${classReference(n)}\\b`, "i").test(sentence));
-    const noDividendSubject = /^No dividends? (?:are |may be |shall be )?(?:paid|payable|declared) (?:on|to|for) (.+)/i.exec(sentence)?.[1];
-    const excludedClasses = noDividendSubject ? classListAtStart(noDividendSubject) : [];
-    const exclusion = excludedClasses.some(n => names.includes(n)) && !names.every(n => excludedClasses.includes(n)) ||
-      new RegExp(`^(?:(?:The )?${classNoun} (?:does not receive|do not receive|is excluded from|has no|is not entitled to) dividends?|Dividends? (?:are )?payable only on ${classNoun}|Only ${classNoun} participates in dividends|The board may declare dividends on ${classNoun} alone)`, "i").test(sentence);
-    const subject = sentence.replace(/^(?:In liquidation, |Holders of |Each )/i, "");
-    const entitlement = new RegExp(`\\b(${names.map(classReference).join("|")})(?: holders)? (?:receives?|has|possesses|(?:is|are) entitled to|dividends? (?:is|are)) (.+)`, "i").exec(subject);
-    const predicate = (entitlement?.[2] ?? "").replace(/^receive /i, "");
-    const comparative = mentioned.length >= 2 && (
-      /^(?:a (?:higher|lower|larger|smaller) dividend than|an additional dividend|(?:\d+(?:\.\d+)?|one-half|twice|half) (?:times |of |per |for each )?(?:the )?dividend|\d+(?:\.\d+)?% of)/i.test(predicate) ||
-      /\b(?:than|over|for each|whenever|per each)\b[\s\S]*\bClass\b/i.test(predicate) && /\bdividends?\b/i.test(predicate) ||
-      /^dividends? (?:at )?\d+(?:\.\d+)? per each dividend on Class\b/i.test(predicate) ||
-      /^dividend and distribution rights equal to one-[a-z-]+(?: \(1\/\d[\d,]*\))? of (?:such|the) rights of (?:a )?Class\b/i.test(predicate) ||
-      /^(?:a |an )?(?:preferential|senior|priority) (?:dividend|liquidation)/i.test(predicate) ||
-      /\bdividends?\b[^.]*\bwithout\b[^.]*\bClass\b/i.test(sentence) ||
-      /\bClass\b[^.]*\bpaid first\b[^.]*\bClass\b[^.]*\bresidual\b/i.test(sentence) ||
-      new RegExp(`^Dividends? paid on ${classNoun} exceed dividends? paid on ${classNoun}`, "i").test(sentence));
-    const linked = entitlement && /^one-half of that amount/i.test(predicate) && previousPayoutClasses.some(n => !mentioned.includes(n));
-    const referencedClass = previousPayoutClasses.length >= 2 && /\bthe [a-z-]+ class (?:will )?receive(?:s)? (?:twice|half|\d+(?:\.\d+)? times) the dividends?\b/i.test(sentence);
-    const specific = entitlement && /^(?:preferential|priority|senior) dividend rights/i.test(predicate);
-    if (unequal || exclusion || comparative || specific || linked || referencedClass) {
-      const classes = [...new Set([...mentioned, ...comparedRates.map(r => r.name), ...(linked || referencedClass ? previousPayoutClasses : [])])].map(title).join(" and ");
+    if (unequal || contraryEntitlement(sentence, names)) {
+      const classes = [...new Set([...mentioned, ...comparedRates.map(r => r.name)])].map(displayClassName).join(" and ");
       const evidence = unequal ? [...new Set(comparedRates.filter(r => rates.some(a => a.period === r.period && a.name !== r.name && a.value !== r.value)).map(r => r.sentence).concat(sentence))].join(" ") : sentence;
       return `The one-unit assumption for ${classes} conflicts with this ${unequal ? "per-share dividend comparison" : "class-specific dividend or liquidation entitlement"}: "${evidence}"`;
     }
-    previousPayoutClasses = mentioned;
   }
   return null;
 }

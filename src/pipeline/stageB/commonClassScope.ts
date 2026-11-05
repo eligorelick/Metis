@@ -1,7 +1,7 @@
 import type { DataBundle } from "@/pipeline/types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { identicalClassRights } from "@/edgar/economicShares";
-import { filingSentences, isSecClassFiling } from "@/edgar/classEvidence";
+import { commonClassName, displayClassName, filingSentences, isSecClassFiling } from "@/edgar/classEvidence";
 import { retainedClassEconomicRefusal } from "@/edgar/retainedClassEconomics";
 import { parseFactPoints } from "@/edgar/xbrl";
 import type { CombinedClassEpsBasis, WeightedShareCounts } from "./securityBasis";
@@ -65,8 +65,8 @@ export function retainedCommonClassAmbiguity(bundle: DataBundle): CommonClassAmb
   const evidenceRefusal = retainedClassEconomicRefusal(bundle);
   if (observed && (!observed.evidence || evidenceRefusal)) return {
     reason: `Primary ${observed.source.form} ${observed.source.accession} retains outstanding common-class observations at ${[...new Set(observed.observations!.map(o => o.asOf))].sort().join(", ")}. Classes requiring complete count, treasury and economic-rights resolution: ${observed.observations!.map(o => {
-      const standard = /^[A-Za-z][\w-]*:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId);
-      return standard ? `Class ${standard[1]} common stock` : o.classId.replace(/^[^:]+:|Member$/g, "").replace(/([a-z])([A-Z])/g, "$1 $2");
+      const name = commonClassName(o.classId);
+      return name ? displayClassName(name) : o.classId.replace(/^[^:]+:|Member$/g, "").replace(/([a-z])([A-Z])/g, "$1 $2");
     }).join(", ")}. ${evidenceRefusal ? `${evidenceRefusal} ` : ""}Complete economic class coverage is not established; no class sum or current issuer capitalization is inferred.`,
     sourceIds: observed.observations!.map(o => o.sourceId),
   };

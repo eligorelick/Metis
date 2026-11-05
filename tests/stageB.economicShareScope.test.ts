@@ -64,10 +64,10 @@ describe("issuer economic-share scope", () => {
     const r = runStageB(b);
     if (convertible) expect(r.valuation.kind === "dcf" && r.valuation.dcf?.bridge.convertibles).toHaveLength(1);
     expect(r.fairValue.basis.join(" ")).toContain("Small-class conversion approximation");
-    expect(r.valuation.notes.join(" ")).toContain("Small-class conversion approximation");
     expect(r.valuation.kind === "dcf" && r.valuation.dcf?.notes.join(" ")).toContain("Small-class conversion approximation");
-    expect(r.returns.wacc.notes.join(" ")).toContain("Small-class conversion approximation");
-    expect(r.returns.waccInputs.summary).toContain("Small-class conversion approximation");
+    expect(r.returns.waccInputs.summary).toContain("equal dividend and liquidation rights are not confirmed");
+    expect(r.valuation.notes.join(" ")).not.toContain(e.approximation.basis);
+    expect(r.returns.wacc.notes.join(" ")).not.toContain(e.approximation.basis);
     expect(r.scenarioTargets.basis.join(" ")).toContain("Small-class conversion approximation");
     expect(r.valuation.notes.join(" ")).not.toMatch(/diluted count[^.]*spans every class/);
   });

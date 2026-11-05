@@ -20,11 +20,11 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Multi-class share economics (2026-11-05)
 
-- Require affirmative current equality or a shared per-share rate for equal class units. Conversion alone is admitted only as a disclosed small-class approximation within a 0.5% nominal count limit; large classes refuse by name.
-- Compare class entitlements and explicit per-share rates across every retained SEC section in the 400-day window. Quote actual conflicts, distinguish payment periods and aggregate amounts, and remove false refusals from unrelated filing text.
-- Refuse cover/balance-sheet class conflicts before every evidence path. Exclude voting-only counts only for unconditional denials without economic grants, within the same size limit.
-- Put the conversion caveat beside fair value, DCF, WACC and targets; identify unquoted shares in count gaps, remove unsupported date claims, and print singular class units correctly.
-- D-206 records the 105-input replay and whole retained-section audit of all 18 multi-class panel issuers, including META's annual filing. Version constants and stored reports are unchanged.
+- Require affirmative current equality or a single current per-share rate applied to a coordinated class list; label the latter dividend parity without claiming liquidation equality. Conversion alone is admitted only as a disclosed small-class approximation within a 0.5% nominal count limit; large classes refuse by name.
+- Read complete named-class entitlement clauses and explicit per-share rates across retained SEC sections in the 400-day window; the conversion source uses the same window. Quote actual conflicts, distinguish payment periods and aggregate amounts, and remove false refusals from unrelated filing text.
+- Read issued class rows and equity/capital-stock headings without colons; refuse participation-only admission if the statement cannot be read, and refuse parsed cover/balance-sheet conflicts. Exclude voting-only counts only for unconditional denials without economic grants, within the same size limit.
+- Keep the conversion explanation at fair value, DCF and targets, with a shorter WACC caveat; identify unquoted shares in count gaps, remove unsupported date claims, and print singular class units correctly.
+- D-206 records the 105-input replay, held-out measurement and whole retained-section audit, including its three unmapped issuer exclusions and SHOP's missing statement inventory. Version constants and stored reports are unchanged.
 
 ## Unreleased - Unknown tickers, regulated utilities and foreign banks (2026-11-04)
 

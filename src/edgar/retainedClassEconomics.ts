@@ -4,13 +4,14 @@ import { sameEntitySymbol } from "@/symbol";
 import type { DataBundle } from "@/pipeline/types";
 import type { EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 import { quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
-import { filingSentences, grantsSecurityEconomics, isSecClassFiling, nonEconomicDenial, sharedClassDividendRate } from "@/edgar/classEvidence";
+import { commonClassName as coverName, displayClassName, filingSentences, grantsSecurityEconomics, isSecClassFiling, nonEconomicDenial, sharedClassDividendRate } from "@/edgar/classEvidence";
 
 /** Half a percent is the maximum nominal denominator error at fixed equity value.
  * This is not a bound on unknown preferences, enterprise value or discount rates. */
 export const MAX_CLASS_COUNT_ERROR = 0.005;
 
 interface ClassSection { form: string; accession: string; filingDate: string; documentUrl: string; reportDate: string; text: string; statementsText?: string }
+const inEvidenceWindow = (filed: string, cutoff: string) => Date.parse(cutoff) - Date.parse(filed) <= 400 * 86_400_000;
 export function retainedClassSections(bundle: DataBundle): ClassSection[] {
   const cutoff = bundle.builtAt.slice(0, 10), cik = bundle.edgar.registrant?.cik10;
   if (!cik) return [];
@@ -24,7 +25,7 @@ export function retainedClassSections(bundle: DataBundle): ClassSection[] {
     const fields = data as Record<string, unknown>;
     if (!["form", "accession", "filingDate", "documentUrl", "reportDate", "text"].every(k => typeof fields[k] === "string")) continue;
     const section = fields as unknown as ClassSection;
-    if (isSecClassFiling(section, cik, cutoff) && Date.parse(cutoff) - Date.parse(section.filingDate) <= 400 * 86_400_000) {
+    if (isSecClassFiling(section, cik, cutoff) && inEvidenceWindow(section.filingDate, cutoff)) {
       const statement = section.statementsText;
       sections.push(statement && !section.text.includes(statement) ? { ...section, text: `${section.text} ${statement}` } : section);
     }
@@ -33,25 +34,21 @@ export function retainedClassSections(bundle: DataBundle): ClassSection[] {
 }
 
 /** The statement can qualify a cover even when it cannot establish a count. */
-function statementClasses(text: string): { name: string; zero: boolean; outstanding: boolean }[] {
-  const opening = /\bcommon stock at stated value:|\b(?:stockholders['\u2019]?|shareholders['\u2019]?|shareowners['\u2019]?)\s+equity\s*:|\bEquity\s*:|\bCommon stock:/i.exec(text);
-  if (!opening) return [];
+function statementClasses(text: string): { name: string; zero: boolean; outstanding: boolean }[] | null {
+  const opening = /\bcommon stock at stated value\b|\b(?:stockholders['\u2019]?|shareholders['\u2019]?|shareowners['\u2019]?)\s+equity\b|\bEquity\b|\bCapital stock\b|\bCommon stock:/i.exec(text);
+  if (!opening) return null;
   const capital = text.slice(opening.index).split(/\b(?:Additional paid[ -]in capital|Capital in excess|Retained earnings|Treasury stock|CONSOLIDATED STATEMENTS)\b/i)[0]!;
-  const rows = [...capital.matchAll(/\b(?:Class ([A-Z0-9]{1,8})\b|([A-Z][A-Za-z-]{0,30}) common stock\b)/gi)];
-  return rows.flatMap((m, i) => {
+  const rows = [...capital.matchAll(/\b(?:[Cc]lass ([A-Z0-9]{1,8})\b|([A-Z][A-Za-z-]{0,30}) common stock\b)/g)];
+  const classes = rows.flatMap((m, i) => {
     const tail = capital.slice(m.index! + m[0].length, rows[i + 1]?.index);
+    if (m[1] && !/^(?:\s*[-—,:;]|\s+(?:common|convertible|shares?|stock)\b)/i.test(tail)) return [];
     if (!/\b(?:issued|outstanding)\b/i.test(tail)) return [];
-    const count = /\b([\d,]+|zero|no)(?:\s+and\s+(?:[\d,]+|zero|no))?\s+shares\s+(?:issued\s*(?:&|and)\s*)?outstanding\b/i.exec(tail)?.[1];
+    const count = /\b([\d,]+|zero|no)(?:\s+and\s+(?:[\d,]+|zero|no))?\s+shares\s+(?:issued\s*(?:&|and)\s*)?outstanding\b/i.exec(tail)?.[1] ??
+      /\b([\d,]+|zero|no)(?:\s+and\s+(?:[\d,]+|zero|no))?\s+shares issued\b/i.exec(tail)?.[1];
     const name = m[1] ? `class ${m[1].toLowerCase()} common stock` : `${m[2]!.toLowerCase()} common stock`;
     return [{ name, outstanding: /\boutstanding\b/i.test(tail), zero: count !== undefined && /^(?:0|zero|no)$/i.test(count) }];
   });
-}
-
-function coverName(classId: string): string | null {
-  const key = /^[A-Za-z][\w-]*:CommonClass([A-Z0-9]{1,8})Member$/.exec(classId)?.[1];
-  if (key) return `class ${key.toLowerCase()} common stock`;
-  const custom = /^(?!us-gaap:)[A-Za-z][\w-]*:([A-Z][A-Za-z-]{0,30})CommonStockMember$/.exec(classId)?.[1];
-  return custom ? `${custom.toLowerCase()} common stock` : null;
+  return classes.length ? classes : null;
 }
 
 function retainedClassConflict(bundle: DataBundle): string | null {
@@ -61,11 +58,14 @@ function retainedClassConflict(bundle: DataBundle): string | null {
   if (!cover) return null;
   const observations = cover.observations ?? [];
   const names = observations.flatMap(o => coverName(o.classId) ?? []);
+  const unboundCommon = observations.some(o => !coverName(o.classId) && /common|stock/i.test(o.classId));
   for (const s of retainedClassSections(bundle).filter(s => s.accession === cover.source.accession && s.documentUrl === cover.source.documentUrl)) {
-    for (const row of statementClasses(s.statementsText ?? s.text)) {
+    for (const row of statementClasses(s.statementsText ?? s.text) ?? []) {
       const count = observations.find(o => coverName(o.classId) === row.name);
-      if (row.outstanding && !row.zero && !count) return `${row.name} is outstanding in the balance sheet but omitted from the cover; participation wording cannot reconcile the conflicting inventory.`;
-      if (row.zero && count && count.shares > 0) return `${row.name} has ${count.shares.toLocaleString("en-US")} cover shares but zero shares outstanding in the balance sheet; treasury scope requires reconciliation.`;
+      if (!row.zero && !count) return unboundCommon
+        ? `${displayClassName(row.name)} cannot be matched to the retained cover class labels; the inventory requires reconciliation.`
+        : `${displayClassName(row.name)} is listed as ${row.outstanding ? "outstanding" : "issued"} in the balance sheet but omitted from the cover; participation wording cannot reconcile the conflicting inventory.`;
+      if (row.zero && count && count.shares > 0) return `${displayClassName(row.name)} has ${count.shares.toLocaleString("en-US")} cover shares but zero shares ${row.outstanding ? "outstanding" : "issued"} in the balance sheet; the counts require reconciliation.`;
     }
   }
   const weighted = bundle.economicShareEvidence?.some(e => e.classes.some(c => c.economicUnitsPerQuotedShare !== 1));
@@ -247,7 +247,7 @@ function retainedEqualCoverEvidence(bundle: DataBundle, refuse: (reason: string)
     !reg.tickers.some(t => sameEntitySymbol(bundle.symbol, t)) || !validDay(cutoff) || bundle.edgar.shareBasis?.splits.unresolved.length) return [];
   const primary = (d: ClassSection | NonNullable<DataBundle["edgar"]["economicShareInventory"]>[number]["source"]) => isSecClassFiling(d, reg.cik10, cutoff);
   const notes = [bundle.edgar.tenQNotes, bundle.edgar.tenKNotes].flatMap(m => m?.ok && m.value.source === "edgar" ? [m.value.data] : [])
-    .filter(d => primary(d) && validDay(d.reportDate) && d.reportDate <= d.filingDate).sort((a, b) => b.filingDate.localeCompare(a.filingDate));
+    .filter(d => primary(d) && inEvidenceWindow(d.filingDate, cutoff) && validDay(d.reportDate) && d.reportDate <= d.filingDate).sort((a, b) => b.filingDate.localeCompare(a.filingDate));
   const latest = notes[0];
   if (!latest || [bundle.edgar.latestTenK, bundle.edgar.latestTenQ].some(m => m?.ok && m.value.data.filingDate <= cutoff && m.value.data.filingDate > latest.filingDate)) return [];
   const inventories = (bundle.edgar.economicShareInventory ?? []).filter(i => i.source.filingDate <= cutoff);
@@ -275,9 +275,10 @@ function retainedEqualCoverEvidence(bundle: DataBundle, refuse: (reason: string)
   if (exclusionRefusal) return refuse(exclusionRefusal);
   const excluded = nonEconomic.reduce((n, c) => n + c.observation.shares, 0);
   const remaining = allObserved.reduce((n, c) => n + c.shares, 0) - excluded;
-  if (excluded > remaining * MAX_CLASS_COUNT_ERROR) return refuse(`The counted voting-only securities (${nonEconomic.map(n => n.name).join(", ")}) exceed the 0.5% nominal count-error limit; a denial alone cannot remove this material count.`);
+  if (excluded > remaining * MAX_CLASS_COUNT_ERROR) return refuse(`The counted voting-only securities (${nonEconomic.map(n => n.name).join(", ")}) exceed 0.5% of the remaining economic shares; a denial alone cannot remove a count this large.`);
   const observed = allObserved.filter(o => !nonEconomic.some(n => n.observation === o));
-  const names = observed.map(o => /^[A-Za-z][\w-]*:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId)?.[1]?.toLowerCase() ?? "");
+  const classNames = observed.map(o => coverName(o.classId) ?? "");
+  const names = classNames.map(n => /^class ([a-z0-9]+) common stock$/.exec(n)?.[1] ?? "");
   const asOf = observed[0]?.asOf;
   if (!asOf || !validDay(asOf) || asOf < latest.reportDate || asOf > latest.filingDate || names.length < 2 ||
     names.some(n => !n) || new Set(names).size !== names.length || allObserved.some(o => o.asOf !== asOf || !o.contextId ||
@@ -285,15 +286,21 @@ function retainedEqualCoverEvidence(bundle: DataBundle, refuse: (reason: string)
   if (covers[0]!.classes.some(c => !allObserved.some(o => c.classId === o.classId && c.asOf === o.asOf && c.shares === o.shares)) ||
     bundle.edgar.shareBasis?.splits.events.some(e => e.date > asOf && e.date <= cutoff)) return [];
   const sameSet = (ns: string[]) => ns.length === names.length && new Set(ns).size === names.length && names.every(n => ns.includes(n));
-  const classNames = names.map(n => `class ${n} common stock`);
-  const hasStatementInventory = sameSet(statementClasses(latest.statementsText ?? latest.text).filter(r => !r.zero).map(r => r.name.split(" ")[1]!));
+  const statement = statementClasses(latest.statementsText ?? latest.text);
+  if (!statement) return refuse("The balance-sheet class statement cannot be read; participation wording alone cannot establish a complete inventory.");
+  const hasStatementInventory = sameSet(statement.filter(r => !r.zero).map(r => r.name.split(" ")[1]!));
   const participation = participatingClassRights(latest.text);
   if (!hasStatementInventory && !(participation && participation.length === classNames.length && classNames.every(n => participation.includes(n)))) return [];
-  const currentRights = (text: string) => filingSentences(text).find(s => {
-    const ns = identicalClassRights(s);
-    return ns?.length === classNames.length && classNames.every(n => ns.includes(n));
-  }) ?? sharedClassDividendRate(text, classNames);
-  const currentSource = [...rightsSources].sort((a, b) => b.filingDate.localeCompare(a.filingDate)).find(d => currentRights(d.text));
+  const currentRights = (source: ClassSection) => {
+    const rights = filingSentences(source.text).find(s => {
+      const ns = identicalClassRights(s);
+      return ns?.length === classNames.length && classNames.every(n => ns.includes(n));
+    });
+    if (rights) return { text: rights, dividendOnly: false };
+    const parity = sharedClassDividendRate(source.text, classNames, source.reportDate);
+    return parity ? { text: parity, dividendOnly: true } : null;
+  };
+  const currentSource = [...rightsSources].sort((a, b) => b.filingDate.localeCompare(a.filingDate)).find(d => currentRights(d));
   const converted = (text: string): ConversionRelation | null => {
     for (const sentence of filingSentences(text)) {
       const ns = shareForShareClassRights(sentence);
@@ -305,9 +312,10 @@ function retainedEqualCoverEvidence(bundle: DataBundle, refuse: (reason: string)
   if (!source) return [];
   const annualInventory = inventories.find(i => i.source.accession === source.accession && i.source.documentUrl === source.documentUrl);
   if (source.accession !== latest.accession && (!annualInventory || !primary(annualInventory.source) || !sameSet((annualInventory.observations ?? []).map(o =>
-    /^[A-Za-z][\w-]*:CommonClass([A-Z0-9]{1,8})Member$/.exec(o.classId)?.[1]?.toLowerCase() ?? "")))) return [];
+    coverName(o.classId)?.split(" ")[1] ?? "")))) return [];
   const conversion = currentSource ? null : converted(source.text);
-  const relation = currentSource ? currentRights(source.text)! : conversion!.text;
+  const current = currentSource ? currentRights(currentSource)! : null;
+  const relation = current ? current.text : conversion!.text;
   let approximation: EconomicShareEvidence["approximation"];
   if (!currentSource) {
     const quote = bundle.quote.ok ? bundle.quote.value.data.rows[0] : null;
@@ -316,14 +324,14 @@ function retainedEqualCoverEvidence(bundle: DataBundle, refuse: (reason: string)
     const quoted = matching.length === 1 ? matching[0] : null;
     const unproven = observed.filter(o => o !== quoted);
     const affected = unproven.reduce((n, o) => n + o.shares, 0);
-    if (!quoted || conversion?.to !== coverName(quoted.classId) || affected + excluded > quoted.shares * MAX_CLASS_COUNT_ERROR) return refuse(`Equal current rights or a shared per-share rate are not established for ${unproven.map(o => coverName(o.classId) ?? o.classId).join(", ")}; conversion alone cannot assign one unit to a material or unbound unquoted class. The small class must convert into the quote-bound reference class, within the aggregate nominal denominator error limit of 0.5% including voting-only exclusions.`);
+    if (!quoted || conversion?.to !== coverName(quoted.classId) || affected + excluded > quoted.shares * MAX_CLASS_COUNT_ERROR) return refuse(`Equal current rights or a shared per-share rate are not established for ${unproven.map(o => displayClassName(coverName(o.classId) ?? o.classId)).join(", ")}; conversion alone cannot assign one unit to a large class or a class whose quoted reference is unconfirmed. Unquoted shares plus voting-only exclusions must not exceed 0.5% of the reference class.`);
     approximation = { quotedClassId: coverName(quoted.classId)!, unprovenClassIds: unproven.map(o => coverName(o.classId)!), affectedShares: affected, referenceShares: quoted.shares,
       maxFixedEquityPerShareErrorPct: affected / quoted.shares * 100,
-      basis: `Small-class conversion approximation: ${unproven.map(o => coverName(o.classId)).join(", ")} contributes ${affected.toLocaleString("en-US")} assumed one-unit shares. Equal current economics are unproved. The quote-implied count identifies ${coverName(quoted.classId)} within 1%. The nominal denominator uncertainty is at most ${(affected / quoted.shares * 100).toFixed(4)}% at fixed common equity, below the 0.5% policy limit; this does not bound unknown preferential claims or changes to enterprise value or WACC.` };
+      basis: `${unproven.map(o => displayClassName(coverName(o.classId)!)).join(", ")} (${affected.toLocaleString("en-US")} shares, ${(affected / quoted.shares * 100).toFixed(2)}% of ${displayClassName(coverName(quoted.classId)!)}) is counted one-for-one because it converts share for share into ${displayClassName(coverName(quoted.classId)!)}. Filings do not confirm equal dividend or liquidation rights.` };
   }
   const relationBasis = currentSource
-    ? `Filed affirmative current economics (${source.form} ${source.accession}, filed ${source.filingDate}): "${relation}" `
-    : `Filed conversion evidence (${source.form} ${source.accession}, filed ${source.filingDate}): ${relation} ${approximation!.basis} `;
+    ? `Filed ${current!.dividendOnly ? "current dividend parity only" : "affirmative current economics"} (${source.form} ${source.accession}, filed ${source.filingDate}): "${relation}" ${current!.dividendOnly ? "This does not establish equal liquidation rights. " : ""}`
+    : `Filed conversion evidence (${source.form} ${source.accession}, filed ${source.filingDate}): ${relation} Equal current dividend or liquidation rights are not confirmed. `;
   return [{ issuerId: reg.cik10, securityId: bundle.symbol, asOf, filed: latest.filingDate,
     effectiveFrom: latest.filingDate, effectiveTo: null, complete: true,
     ...(approximation ? { approximation } : {}),
