@@ -8234,3 +8234,72 @@ with tests that failed first:
 
 Replay and acquisition-order comparison on all 105 frozen inputs show no change
 in any company's output, so these corrections alter no value in this panel.
+
+
+## D-206 - Multi-class share economics (2026-11-05)
+
+**Final rules.** Complete same-date cover counts require affirmative current
+equal rights, or one current per-share rate applied to a coordinated class
+list. A shared rate proves dividend parity only, not liquidation parity.
+Historical/conditional payments and mere class mentions do not qualify.
+Conversion alone supports only the disclosed small-class exception: the
+unquoted class converts one-for-one into the bound reference class, with
+assumed units plus voting-only exclusions at most 0.5% of reference shares.
+This limits count inclusion/exclusion sensitivity to one part in 200 at fixed
+common equity; it does not bound unknown preferences, EV or WACC.
+
+All retained issuer/accession-bound sections within 400 days are considered,
+including Item 1A and separate statement text. The conversion source uses that
+same window. A contradiction is a named class entitlement with negation,
+relative amount or priority/preference, or an unequal explicit per-share rate
+for a recognized common payment period. Refusals quote the actual evidence.
+Complete denial clauses prevent prefix-only false alarms. No sentence-specific
+anaphora rule assigns a class from an unbound voting label. This is a limited
+grammar, not complete legal-language recognition.
+
+Statement checks accept equity/capital-stock headings without colons and
+issued-only rows. Missing issued/outstanding classes and positive-cover/zero-
+statement conflicts refuse before admission. Participation-only admission
+requires a readable statement inventory; missing retained text is not proof
+of agreement. Unmapped cover labels are not asserted to be omitted shares.
+Voting-only exclusion still requires an unconditional denial, no retained
+economic grant, and the aggregate size cap. Dates, splits and independent
+diluted-average admission remain required. Member-name decoding is shared.
+
+Reader text uses Class A/B labels and plain counts. The conversion explanation
+appears at fair value, DCF and targets; WACC has a short caveat. Generic multiples
+and share-count notes do not repeat the paragraph or claim proven equal rights.
+
+**Evidence and limits.** CMCSA retains the conversion exception: 9,444,375 B /
+3,541,561,960 A = 0.2667%, about $0.1222 nominal sensitivity at fixed equity
+at $45.81. Its trailing figure includes Versant and Sky Germany until separation.
+UPS uses affirmative current equality and remains withheld for NCI profit
+allocation. SHOP's conditional $33.37 calculation is unchanged, but the frozen
+input lacks a readable balance-sheet class inventory; the fail-closed rule
+withholds it. Participation and the one non-economic Founder Share do not
+replace that missing check. General perimeter disclosure is a separate task.
+
+The measurement-only reviewer set yields 18/25 must-refuse detections, zero
+false alarms on 12 benign sentences, and zero false parity on 10 traps. Seven
+held-out misses remain reported, without fitting new patterns to them. Across
+119 retained sections (9,606,222 characters) for 18 issuers, only 15 issuers
+have two mapped common-class labels: 99 sections are eligible for the
+contradiction measure. Its one hit is Berkshire's real 1:1,500 rights, already
+represented by supported weights; there are no false hits. F, BF.B and EXPE
+are unmeasured by this guard, not negative results. META's 10-K is included.
+No whole retained text was available for the prior 15 outside-panel issuers.
+
+The 105-input replay and acquisition-order simulation agree without input
+mutation. Final available values are 56/103 companies (main 55, pre-review 57),
+with five outside-domain, 42 suppressed and two unchanged instrument controls.
+SHOP loses the two valuation signals whose admission lacked the statement
+check; no signal is lost against main. CMCSA's two valuation signals and UPS's
+ROIC/WACC spread remain gained. No other financial numerical outcome changes.
+
+**Release.** Advance `STAGE_B_IMPLEMENTATION_VERSION`, `FAIR_VALUE_METHOD_VERSION`,
+`SCENARIO_TARGET_METHOD_VERSION` and `PAYLOAD_VERSION` at integration. No version
+constant or stored report is changed here. Existing adapters remain supported.
+Revenue, margins, balance-row admission and general perimeter-change handling
+remain outside this branch. Commits stay local without push, PR or merge.
+
+**Pull request review.** Two further corrections: a sentence stating that a class has dividend, distribution or liquidation rights that are not equal to, or differ from, another class now counts as a conflict, while a voting difference does not; and stated per-share dividends are compared per economic unit, so a dividend matching a supported class weight such as 1:1,500 is not a conflict, and one that does not match refuses.

@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.64.0** and
-payload **1.79.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.80.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,14 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Multi-class share economics (2026-11-05)
+
+- Require affirmative current equality or a single current per-share rate applied to a coordinated class list; label the latter dividend parity without claiming liquidation equality. Conversion alone is admitted only as a disclosed small-class approximation within a 0.5% nominal count limit; large classes refuse by name.
+- Read complete named-class entitlement clauses and explicit per-share rates across retained SEC sections in the 400-day window; the conversion source uses the same window. Quote actual conflicts, distinguish payment periods and aggregate amounts, and remove false refusals from unrelated filing text.
+- Read issued class rows and equity/capital-stock headings without colons; refuse participation-only admission if the statement cannot be read, and refuse parsed cover/balance-sheet conflicts. Exclude voting-only counts only for unconditional denials without economic grants, within the same size limit.
+- Keep the conversion explanation at fair value, DCF and targets, with a shorter WACC caveat; identify unquoted shares in count gaps, remove unsupported date claims, and print singular class units correctly.
+- D-206 records the 105-input replay, held-out measurement and whole retained-section audit, including its three unmapped issuer exclusions and SHOP's missing statement inventory. Version constants and stored reports are unchanged.
 
 ## Unreleased - Unknown tickers, regulated utilities and foreign banks (2026-11-04)
 

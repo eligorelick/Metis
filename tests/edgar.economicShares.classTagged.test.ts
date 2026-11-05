@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { economicEvidenceFromInventories, parsePrimaryEconomicShares } from "@/edgar/economicShares";
 import { parseDocument } from "@/edgar/extract";
-import { resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
+import { issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 
 // Audit 2026-10-22 B-8: a cover that tags each class's count with a class
 // member, binds the trading symbol to one class and states every class's
@@ -32,6 +32,25 @@ const brkLike = (body = `<p>${brkRights}</p>`) => coverHtml({ symbol: "BRK.B", t
   counts: { A: "488,450", B: "1,408,035,161" }, body });
 
 describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)", () => {
+  it("names the filed class weights without turning outstanding counts into a missing diluted average", () => {
+    const parsed = parse(brkLike(`<p>${brkRights.replaceAll("fifteen", "twelve").replaceAll("1,500", "1,200")}</p>`), "BRK-B");
+    const evidence = economicEvidenceFromInventories([parsed]);
+    const scope = resolveEconomicEquityScope(quote("BRK-B", 500), evidence, "2026-10-15");
+    const result = issuerEconomicDilutedShares(scope, evidence, { basic: null, diluted: null, periodEnd: "2026-06-30" });
+    expect(result?.shares).toBeNull();
+    expect(result && "reason" in result && result.reason).toMatch(/no diluted.*Class A.*1,200/i);
+    const repeated = issuerEconomicDilutedShares(scope, [...evidence, ...evidence], { basic: null, diluted: null, periodEnd: "2026-06-30" });
+    const reason = repeated && "reason" in repeated ? repeated.reason : "";
+    expect(reason.match(/Class A/g)).toHaveLength(1);
+    expect(reason).toContain("quoted class (BRK-B)");
+  });
+  it("keeps supported class weights when stated dividends match them, and refuses when they do not", () => {
+    const paid = (classB: string) => `<p>${brkRights}</p><p>Dividends were $150.00 per share of Class A common stock and ${classB} per share of Class B common stock.</p>`;
+    expect(parse(brkLike(paid("$0.10")), "BRK.B").evidence?.classes.find(cls => cls.classId === "us-gaap:CommonClassAMember")?.economicUnitsPerQuotedShare).toBe(1500);
+    const refused = parse(brkLike(paid("$0.20")), "BRK.B");
+    expect(refused.evidence).toBeNull();
+    expect(refused.reason).toContain("$0.20");
+  });
   it("values equal classes at the quoted price, even under a heading", () => {
     const parsed = parse(metaLike(), "META");
     expect(parsed.evidence?.classes).toEqual([
@@ -41,6 +60,7 @@ describe("class-tagged cover with stated class economics (audit 2026-10-22 B-8)"
     expect(parsed.passages.rights).toBe(metaRights);
     const scope = resolveEconomicEquityScope(quote("META", 700), economicEvidenceFromInventories([parsed]), "2026-10-15");
     expect(scope).toMatchObject({ status: "resolved", economicShares: 2_547_506_225, shareCountAsOf: "2026-07-24" });
+    expect(scope.basis).toContain("2,547,506,225 economic share units");
     expect(scope.marketCap).toBeCloseTo(2_547_506_225 * 700, 0);
   });
 

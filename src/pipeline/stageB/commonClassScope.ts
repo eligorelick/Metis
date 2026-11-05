@@ -1,6 +1,8 @@
 import type { DataBundle } from "@/pipeline/types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { identicalClassRights } from "@/edgar/economicShares";
+import { commonClassName, displayClassName, filingSentences, isSecClassFiling } from "@/edgar/classEvidence";
+import { retainedClassEconomicRefusal } from "@/edgar/retainedClassEconomics";
 import { parseFactPoints } from "@/edgar/xbrl";
 import type { CombinedClassEpsBasis, WeightedShareCounts } from "./securityBasis";
 
@@ -18,17 +20,13 @@ export function retainedCombinedClassEpsBasis(bundle: DataBundle, counts: Weight
     if (!member?.ok || member.value.source !== "edgar") continue;
     const source = member.value.data;
     if (source.reportDate !== counts.periodEnd || source.filingDate > cutoff || !/^10-[QK](?:\/A)?$/.test(source.form)) continue;
-    try {
-      const url = new URL(source.documentUrl);
-      if (url.protocol !== "https:" || !["sec.gov", "www.sec.gov"].includes(url.hostname) || url.search || url.hash || url.username || url.password ||
-        !new RegExp(`^/Archives/edgar/data/${Number(facts.cik)}/${source.accession.replaceAll("-", "")}/[a-zA-Z0-9_.-]+\\.html?$`).test(url.pathname)) continue;
-    } catch { continue; }
+    if (!isSecClassFiling(source, String(facts.cik), cutoff)) continue;
     const combined = /same for (.{1,500}?) on an individual or combined basis, and they have been combined as common shares below\./i.exec(source.text);
     if (!combined) continue;
     const names = labels(combined[1]!);
     const remainder = combined[1]!.replace(labelPattern, "").replace(/\b(?:and|the)\b|[,\s]/gi, "");
     if (remainder || names.length < 2 || new Set(names).size !== names.length || !names.includes(quoted[0]!)) continue;
-    const rights = source.text.slice(Math.max(0, combined.index - 1500), combined.index).split(/(?<=\.)\s+/).some(sentence => {
+    const rights = filingSentences(source.text.slice(Math.max(0, combined.index - 1500), combined.index)).some(sentence => {
       const related = identicalClassRights(sentence.trim());
       return related && related.length === names.length && names.every(name => related.includes(name));
     });
@@ -64,8 +62,12 @@ export function retainedCommonClassAmbiguity(bundle: DataBundle): CommonClassAmb
   const cutoff = bundle.builtAt.slice(0, 10);
   const observed = [...(bundle.edgar.economicShareInventory ?? [])].filter(row => row.source.filingDate <= cutoff &&
     new Set(row.observations?.map(o => o.classId) ?? []).size > 1).sort((a, b) => b.source.filingDate.localeCompare(a.source.filingDate))[0];
-  if (observed && !observed.evidence) return {
-    reason: `Primary ${observed.source.form} ${observed.source.accession} retains outstanding common-class observations at ${[...new Set(observed.observations!.map(o => o.asOf))].sort().join(", ")}. Complete inventory, aligned measurement dates and economic rights remain unresolved; no class sum or current issuer capitalization is inferred.`,
+  const evidenceRefusal = retainedClassEconomicRefusal(bundle);
+  if (observed && (!observed.evidence || evidenceRefusal)) return {
+    reason: `Primary ${observed.source.form} ${observed.source.accession} retains outstanding common-class observations at ${[...new Set(observed.observations!.map(o => o.asOf))].sort().join(", ")}. Classes requiring complete count, treasury and economic-rights resolution: ${observed.observations!.map(o => {
+      const name = commonClassName(o.classId);
+      return name ? displayClassName(name) : o.classId.replace(/^[^:]+:|Member$/g, "").replace(/([a-z])([A-Z])/g, "$1 $2");
+    }).join(", ")}. ${evidenceRefusal ? `${evidenceRefusal} ` : ""}Complete economic class coverage is not established; no class sum or current issuer capitalization is inferred.`,
     sourceIds: observed.observations!.map(o => o.sourceId),
   };
   const inventory = [...(bundle.edgar.economicShareInventory ?? [])].filter(row => row.source.filingDate <= cutoff && row.classes.length > 1).sort((a, b) => b.source.filingDate.localeCompare(a.source.filingDate))[0];

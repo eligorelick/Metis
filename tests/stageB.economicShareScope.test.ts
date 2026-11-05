@@ -6,6 +6,7 @@ import { multiplesFramework, type MultiplesFrameworkInputs } from "@/pipeline/st
 import { commonHolderCapital, type EconomicShareEvidence } from "@/pipeline/stageB/securityBasis";
 import { runStageB } from "@/pipeline/compute";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 import { retainedCommonClassAmbiguity } from "@/pipeline/stageB/commonClassScope";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -36,6 +37,40 @@ const evidence = (): EconomicShareEvidence => ({
 });
 
 describe("issuer economic-share scope", () => {
+  it.each([false, true])("carries the bounded conversion approximation beside every supported value (convertible: %s)", convertible => {
+    const b = completeCurrencyBundle({});
+    b.edgar.registrant = { cik10: "0000000042", name: "Synthetic", tickers: [b.symbol], exchanges: ["NYSE"], sic: "3571", sicDescription: null, fiscalYearEnd: "1231", stateOfIncorporation: null, forms: ["10-K"] };
+    if (!b.quote.ok) throw Error("fixture");
+    b.quote.value.data.rows[0]!.timestamp = Date.parse("2026-07-05T16:00:00Z") / 1000;
+    const e = evidence();
+    e.issuerId = "0000000042"; e.securityId = b.symbol;
+    e.filed = "2026-06-30"; e.effectiveFrom = "2026-06-30";
+    e.classes[0]!.classId = b.symbol; e.classes[0]!.shares = 100_000_000;
+    e.classes[1]!.shares = 10_000;
+    e.approximation = { quotedClassId: b.symbol, unprovenClassIds: ["class-b"], affectedShares: 10_000, referenceShares: 100_000_000,
+      maxFixedEquityPerShareErrorPct: 0.01, basis: "Small-class conversion approximation: equal current economics are unproved; at most 0.01% nominal denominator uncertainty at fixed equity." };
+    b.economicShareEvidence = [e];
+    for (const key of ["incomeAnnual", "incomeQuarterly"] as const) if (b.statements[key].ok) for (const row of b.statements[key].value.data.rows) {
+      row.weightedAverageShsOut = 100_010_000; row.weightedAverageShsOutDil = 100_110_000;
+    }
+    if (convertible) {
+      const instant = { end: "2026-03-31", accn: "synthetic", form: "10-Q", filed: "2026-04-30" };
+      withIssuerFacts(b, { cik: 42, entityName: "Synthetic", facts: { "us-gaap": {
+        ConvertibleNotesPayable: { units: { USD: [{ ...instant, val: 50_000_000 }] } },
+        IncrementalCommonSharesAttributableToConversionOfDebtSecurities: { units: { shares: [{ ...instant, start: "2026-01-01", val: 1_000_000 }] } },
+        DebtInstrumentConvertibleConversionPrice1: { units: { "USD/shares": [{ ...instant, val: 50 }] } },
+      } } });
+    }
+    const r = runStageB(b);
+    if (convertible) expect(r.valuation.kind === "dcf" && r.valuation.dcf?.bridge.convertibles).toHaveLength(1);
+    expect(r.fairValue.basis.join(" ")).toContain("Small-class conversion approximation");
+    expect(r.valuation.kind === "dcf" && r.valuation.dcf?.notes.join(" ")).toContain("Small-class conversion approximation");
+    expect(r.returns.waccInputs.summary).toContain("equal dividend and liquidation rights are not confirmed");
+    expect(r.valuation.notes.join(" ")).not.toContain(e.approximation.basis);
+    expect(r.returns.wacc.notes.join(" ")).not.toContain(e.approximation.basis);
+    expect(r.scenarioTargets.basis.join(" ")).toContain("Small-class conversion approximation");
+    expect(r.valuation.notes.join(" ")).not.toMatch(/diluted count[^.]*spans every class/);
+  });
   it.each(["resolved", "unresolved", "class-ambiguous", "unverified"])("keeps page-one values on the admitted %s economic scope", (status) => {
     const args = base();
     if (status !== "unverified") args.quote = { ...args.quote, issuerId: "issuer", securityId: "common", marketCapSecurityBasis: "quoted-security" };
@@ -105,6 +140,23 @@ describe("issuer economic-share scope", () => {
     if (result.valuation.kind !== "dcf") throw new Error("Expected DCF route");
     expect(result.valuation.dcf?.perShare ?? null).toBeNull();
     expect(result.valuation.gaps.some(gap => gap.field === "valuation.perShare.economicClassBasis")).toBe(true);
+  });
+  it("names an unsupported voting-share class in the scope refusal and fair-value headline", () => {
+    const b = completeCurrencyBundle({});
+    b.edgar.registrant = { cik10: "0000000042", name: "Synthetic", tickers: [b.symbol], exchanges: ["NYSE"], sic: "3571", sicDescription: null, fiscalYearEnd: "1231", stateOfIncorporation: null, forms: ["10-Q"] };
+    b.edgar.economicShareInventory = [{ source: { form: "10-Q", accession: "0000000042-26-000001", filingDate: "2026-05-06", documentUrl: "https://www.sec.gov/Archives/edgar/data/42/000000004226000001/example.htm", hash: "fixture" },
+      classes: [], evidence: null, passages: { inventory: "", rights: null }, reason: "unresolved rights", observations: [
+        { classId: "us-gaap:CommonClassAMember", shares: 100, asOf: "2026-04-30", contextId: "a", sourceId: "filing#a" },
+        { classId: "example:FounderShareMember", shares: 1, asOf: "2026-04-30", contextId: "f", sourceId: "filing#f" },
+      ] }];
+    expect(retainedCommonClassAmbiguity(b)?.reason).toContain("Founder Share");
+    const result = runStageB(b);
+    expect(result.fairValue.reasons.map(r => r.reason).join(" ")).toContain("Founder Share");
+    b.edgar.economicShareInventory![0]!.observations![1]!.classId = "example:CommonClassHMember";
+    b.edgar.economicShareInventory![0]!.observations![1]!.shares = 9_200_000;
+    b.edgar.tenQNotes = { ok: true, value: { source: "edgar", endpoint: "https://www.sec.gov/Archives/edgar/data/42/000000004226000001/example.htm", fetchedAt: b.builtAt, asOf: "2026-03-31", data: {
+      form: "10-Q", accession: "0000000042-26-000001", filingDate: "2026-05-06", documentUrl: "https://www.sec.gov/Archives/edgar/data/42/000000004226000001/example.htm", reportDate: "2026-03-31", sectionName: "tenQNotes", method: "header-regex", chars: 10, text: "Capital stock", statementsText: "Consolidated Balance Sheets Common stock: Class A - 100 shares outstanding; Class H - 9 shares issued and zero shares outstanding. Additional paid-in capital 10" } } };
+    expect(retainedCommonClassAmbiguity(b)?.reason).toMatch(/Class H.*9,200,000.*zero shares outstanding/i);
   });
 
   // Audit 2026-10-22 B-8, left by batch 3a: the AI context states the quote's cap with the same caveat as the report.
