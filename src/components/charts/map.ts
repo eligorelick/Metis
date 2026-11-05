@@ -12,6 +12,7 @@
  * arrays — the charts render their own "no data" placeholder rather than crashing.
  */
 
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import type { DataBundle } from "@/pipeline/types";
 import type { ComputedMetrics } from "@/pipeline/compute";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
@@ -264,6 +265,7 @@ export function fundamentalsChartDataFromBundle(
   bundle: DataBundle,
   computed: ComputedMetrics,
 ): FundamentalsChartData {
+  bundle = balanceIntegrityView(bundle);
   const incomeAnnual = rowsOf<FmpIncomeStatementRow>(bundle.statements.incomeAnnual);
   const cashflowAnnual = rowsOf<FmpCashFlowRow>(bundle.statements.cashflowAnnual);
   return {

@@ -888,8 +888,10 @@ function normalizeStatementQuarters<T extends FiscalDatedRow>(
   rows: readonly T[],
   family: "income" | "cashFlow" | "balance",
   gaps?: ManifestEntry[],
+  source?: FmpFetch<FmpRawRow>,
 ): NormalizedQuarterSet<T> {
   const normalized = normalizeQuarterRows(rows);
+  if (source?.ok) normalized.rejected.push(...(source.value.data.rejectedPeriods ?? []));
   const disclosure = quarterRowsGap(family, normalized.rejected);
   if (disclosure) gaps?.push(disclosure);
   return normalized;
@@ -1631,9 +1633,9 @@ export function statementCurrencies(bundle: DataBundle): StatementCurrencies {
   // A degraded bundle may lack a member; missing rows are simply no evidence.
   const rows = <TRow extends FmpRawRow>(f: FmpFetch<TRow> | undefined): TRow[] => (f === undefined ? [] : rowsOf(f));
   const statements: Partial<DataBundle["statements"]> = bundle.statements ?? {};
-  const income = normalizeStatementQuarters(rows(statements.incomeQuarterly), "income");
+  const income = normalizeStatementQuarters(rows(statements.incomeQuarterly), "income", undefined, statements.incomeQuarterly);
   const balance = normalizeStatementQuarters(rows(statements.balanceQuarterly), "balance");
-  const cashflow = normalizeStatementQuarters(rows(statements.cashflowQuarterly), "cashFlow");
+  const cashflow = normalizeStatementQuarters(rows(statements.cashflowQuarterly), "cashFlow", undefined, statements.cashflowQuarterly);
   const incomeWindow = ttmIncomeFromNormalized(income, undefined, [...balance.rows, ...cashflow.rows]);
   return resolveStatementCurrencies(
     bundle.profile === undefined ? undefined : firstRow(bundle.profile)?.currency,
@@ -2072,7 +2074,7 @@ function preferredCapitalView(bundle: DataBundle): DataBundle {
 export function operatingDispositionView(bundle: DataBundle): { bundle: DataBundle; read: OperatingDispositionRead } {
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const annual = rowsOf(bundle.statements.incomeAnnual);
-  const quarters = normalizeStatementQuarters(rowsOf(bundle.statements.incomeQuarterly), "income");
+  const quarters = normalizeStatementQuarters(rowsOf(bundle.statements.incomeQuarterly), "income", undefined, bundle.statements.incomeQuarterly);
   const trailing = ttmIncomeFromNormalized(quarters, undefined,
     [...rowsOf(bundle.statements.balanceQuarterly), ...rowsOf(bundle.statements.cashflowQuarterly)], bundle.builtAt);
   const seed = trailing?.revenue != null ? trailing : annual[0];
@@ -2164,6 +2166,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     rowsOf(bundle.statements.incomeQuarterly),
     "income",
     ttmGaps,
+    bundle.statements.incomeQuarterly,
   );
   // L2: a vendor quarter can omit a filed common numerator while retaining
   // otherwise usable income. Reuse the SEC normalizer's additive-flow rules;
@@ -2198,6 +2201,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     rowsOf(bundle.statements.cashflowQuarterly),
     "cashFlow",
     ttmGaps,
+    bundle.statements.cashflowQuarterly,
   );
   const incomeQuarterly = incomeQuarterSet.rows;
   const balanceQuarterlyReported = balanceQuarterSet.rows;
@@ -2262,7 +2266,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...incomeQuarterSet.rows,
     ...balanceQuarterSet.rows,
   ]);
-  const latestCash = cashflowQuarterSet.rows[0];
+  const latestCash = rejectedAffectsCurrentWindow(cashflowQuarterSet) ? undefined : cashflowQuarterSet.rows[0];
   const filedCfo = companyFacts && latestCash?.date && latestCash.reportedCurrency
     ? filedCfoTtm(companyFacts, latestCash.reportedCurrency, latestCash.date, bundle.builtAt) : null;
   const useFiledCfo = filedCfo && (!ttmCf || ttmCf.operatingCashFlow === null || !vendorAgreesWithDerived(ttmCf.operatingCashFlow, filedCfo.value, filedCfo.operands));

@@ -1,3 +1,4 @@
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 /**
  * /company/[symbol] — saved research first, live analysis on request.
@@ -132,7 +133,7 @@ async function loadCompany(symbol: string): Promise<PageData | null> {
   } catch {
     latestReport = null;
   }
-  return { status: "supported", bundle, validation, computed, support, latestReport };
+  return { status: "supported", bundle: balanceIntegrityView(bundle), validation, computed, support, latestReport };
 }
 
 const coordinatedCompanyLoad = createCompanyLoadCoordinator<PageData>({

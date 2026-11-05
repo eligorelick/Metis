@@ -787,6 +787,8 @@ export interface FmpPlanLimit {
 }
 
 export interface FmpPayload<TRow extends FmpRawRow = FmpRawRow> {
+  /** Local admission metadata; raw provider observations remain unchanged. */
+  rejectedPeriods?: Array<{ period: string; reason: string }>;
   rows: TRow[];
   raw: unknown;
   planLimit?: FmpPlanLimit;

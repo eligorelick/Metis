@@ -30,6 +30,7 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
+import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { ProviderFailureSchema } from "@/ai/providerFailure";
 import { analysisOutcomeFromSteps } from "@/report/analysisCompletion";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
@@ -3092,6 +3093,8 @@ export async function runJob<TPayload = unknown>(
     let computed: ComputedMetrics;
     try {
       computed = runStageB(bundle, stageBConfig, validation);
+      // Preserve the captured raw snapshot; all later Stage C consumers receive admitted rows.
+      bundle = balanceIntegrityView(bundle);
     } catch (err) {
       // Compute is pure; a throw here is a programming error, but degrade
       // rather than crash the app: finish compute with error and continue to
