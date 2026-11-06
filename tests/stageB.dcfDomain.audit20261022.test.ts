@@ -28,7 +28,7 @@ import { task28SentinelReport } from "./helpers/task28Report";
 const route: CompanyRoute = { base: "general", overlays: [], evidence: { sector: null, industry: null } };
 
 const multiples: MultiplesFrameworkInputs = {
-  quote: { price: 100, marketCap: 10000, currency: "USD" },
+  quote: { priceAsOf: "2025-12-31", price: 100, marketCap: 10000, currency: "USD" },
   reportedCurrency: "USD",
   incomeTtm: { date: "2025-12-31", revenue: 1000, operatingIncome: 200, depreciationAndAmortization: 50, netIncome: 144, epsDiluted: 1.44 },
   cashFlowTtm: { date: "2025-12-31", operatingCashFlow: 180, capitalExpenditure: -30, depreciationAndAmortization: 50 },
@@ -102,7 +102,7 @@ describe("B-29: DCF domain gate", () => {
     expect(gap?.severity).toBe("critical");
     expect(gap?.reason).toMatch(/equity value/i);
 
-    const fairValue = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
+    const fairValue = computeFairValue({ quoteAsOf: "2025-12-31", valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
     expect(fairValue.status).toBe("outside-domain");
     expect(fairValue.method).toBe("fcff-dcf");
     expect(fairValue.perShare).toBeNull();
@@ -110,13 +110,13 @@ describe("B-29: DCF domain gate", () => {
     expect(fairValue.reasons[0]).toMatchObject({ field: "valuation.dcf.domain", severity: "critical" });
     expect(fairValue.basis.join(" ")).toMatch(/outside its domain/i);
 
-    const targets = computeScenarioTargets({ route: { base: "general", overlays: [], evidence: { sector: null, industry: null } } as never, valuation, waccPct: 9, incomeHistory: [], currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
+    const targets = computeScenarioTargets({ route: { base: "general", overlays: [], evidence: { sector: null, industry: null } } as never, valuation, valuationUse: fairValue.currentUse, waccPct: 9, incomeHistory: [], currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
     expect(targets.status).toBe("suppressed");
     expect(targets.missingReasons[0]?.reason).toMatch(/outside its domain/i);
     // D-102 changes both resolutions, so their method stamps move (Codex review, PR #49).
     // FIN-401 / FIN-401-V1: method stamps move with the repaired bridge; domain refusal stays unchanged.
-    expect(fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_BALANCE_ROW_INTEGRITY_55");
-    expect(targets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_BALANCE_ROW_INTEGRITY_55");
+    expect(fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_CURRENT_VALUATION_USE_58");
+    expect(targets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_CURRENT_VALUATION_USE_58");
   });
 
   it("explicit-period PV below zero (terminal value over 100% of EV) withholds a positive per-share too", () => {
@@ -131,7 +131,7 @@ describe("B-29: DCF domain gate", () => {
     expect(gap?.severity).toBe("critical");
     expect(gap?.reason).toMatch(/terminal value/i);
     expect(gap?.reason).toMatch(/explicit-period/i);
-    const fairValue = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
+    const fairValue = computeFairValue({ quoteAsOf: "2025-12-31", valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
     expect(fairValue.status).toBe("outside-domain");
     expect(fairValue.perShare).toBeNull();
   });
@@ -164,14 +164,14 @@ describe("B-29: DCF domain gate", () => {
     expect(valuation.sensitivity).not.toBeNull();
     expect(valuation.reverseDcf).not.toBeNull();
     expect(valuation.gaps.some((entry) => entry.field === "valuation.dcf.domain")).toBe(false);
-    expect(computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" }).status).toBe("available");
+    expect(computeFairValue({ quoteAsOf: "2025-12-31", valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" }).status).toBe("available");
   });
 });
 
 describe("B-29: every surface says the model is outside its domain", () => {
   const outsideDomain = (): FairValue => {
     const { valuation } = outside(reinvesting, -500);
-    return computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
+    return computeFairValue({ quoteAsOf: "2025-12-31", valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
   };
   const reportWith = (fairValue: FairValue) => {
     const report = task28SentinelReport();
@@ -193,7 +193,8 @@ describe("B-29: every surface says the model is outside its domain", () => {
 
   it("keeps the suppressed wording for other withheld fair values", () => {
     const fairValue: FairValue = { status: "suppressed", method: null, methodVersion: "x", perShare: null, upsidePct: null, basis: ["basis line"], reasons: [{ field: "valuation.dcf.perShare", reason: "no shares", severity: "warn" }] };
-    expect(fairValueWithheldText(fairValue)).toBe("Intrinsic value per share suppressed — no shares");
+    // Source/bridge basis must survive alongside the immediate refusal.
+    expect(fairValueWithheldText(fairValue)).toBe("Intrinsic value per share suppressed — no shares basis line");
     expect(fairValueWithheldText({ ...fairValue, reasons: [] })).toBe("Intrinsic value per share suppressed — basis line");
     const report = reportWith(fairValue);
     expect(keyDataRows(report).some((r) => r.label === "Model fair value (DCF)")).toBe(false);

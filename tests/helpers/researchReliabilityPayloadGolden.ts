@@ -21,11 +21,17 @@ export function restoreResearchReliabilityGolden(input: { computed: ComputedMetr
   const computed = restoreCapexBasisGolden(restoreN2(input.computed), 1);
   const payload = restoreCapexBasisGolden(restoreN2(input.payload), 1);
   restoreFigInsiderLabels(payload);
+  // D-203 round 2 adds one forecast-basis disclosure, with no financial or
+  // registry change. Pin its exact text before restoring the old byte contract.
+  const valuation = payload.computed.find(section => section.title === "Valuation (computed)")!;
+  const marginNotes = valuation.notes.filter(note => note.startsWith("Operating-margin forecast basis: "));
+  expect(marginNotes).toEqual(["Operating-margin forecast basis: fade current 31.48% (TTM) -> 30.29% by year 5 under stable dated-margin regime (5y median 30.29%, slope 0.27pp/year), flat thereafter; Unverified provider quarters: 2026-03-28, 2025-12-28, 2025-09-27, 2025-06-28"]);
+  valuation.notes = valuation.notes.filter(note => !marginNotes.includes(note));
   // F-01/F-02: this valid-issuer fixture changes only its payload stamp.
   // Restore the previous stamp before every existing financial/byte/hash pin.
   // P0 M-1/L-2 and AI-407: 1.59.0 -> 1.60.0, the FIGR paid-run round 1.60.0 -> 1.61.0 and the extra-high audit
-  // round 1.61.0 -> 1.62.0 the priority fixes 1.62.0 -> 1.63.0 D-173 1.63.0 -> 1.64.0 the Q round 1.64.0 -> 1.65.0 D-184 1.65.0 -> 1.66.0 D-188 1.66.0 -> 1.67.0 D-189 1.67.0 -> 1.68.0 D-191 1.68.0 -> 1.69.0 D-192 1.69.0 -> 1.70.0 D-194 1.70.0 -> 1.71.0 D-193 1.71.0 -> 1.72.0 D-195 1.72.0 -> 1.73.0 D-196 1.73.0 -> 1.74.0 D-198 1.74.0 -> 1.75.0 D-200 1.75.0 -> 1.76.0 D-199 1.76.0 -> 1.77.0 D-204 1.77.0 -> 1.78.0 D-202 1.78.0 -> 1.79.0 D-206 1.79.0 -> 1.80.0 and D-207 1.80.0 -> 1.81.0 are stamp-only here.
-  expect(payload.payloadVersion).toBe("1.81.0");
+  // round 1.61.0 -> 1.62.0 the priority fixes 1.62.0 -> 1.63.0 D-173 1.63.0 -> 1.64.0 the Q round 1.64.0 -> 1.65.0 D-184 1.65.0 -> 1.66.0 D-188 1.66.0 -> 1.67.0 D-189 1.67.0 -> 1.68.0 D-191 1.68.0 -> 1.69.0 D-192 1.69.0 -> 1.70.0 D-194 1.70.0 -> 1.71.0 D-193 1.71.0 -> 1.72.0 D-195 1.72.0 -> 1.73.0 D-196 1.73.0 -> 1.74.0 D-198 1.74.0 -> 1.75.0 D-200 1.75.0 -> 1.76.0 D-199 1.76.0 -> 1.77.0 D-204 1.77.0 -> 1.78.0 D-202 1.78.0 -> 1.79.0 D-206 1.79.0 -> 1.80.0 D-207 1.80.0 -> 1.81.0 and D-203 1.81.0 -> 1.82.0 are stamp-only here.
+  expect(payload.payloadVersion).toBe("1.83.0");
   payload.payloadVersion = "1.56.0";
   // D-140: retain every older pin.
   expect(payloadFingerprint(payload)).toBe("1.56.0:f9b1277c");

@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 import { describe, expect, it } from "vitest";
 import { summarizeSensitivity, summarizeExcessReturnGrid, applyScenarioPresentation, comparableScenarioPrice, buildScenarioPresentation } from "@/report/scenarioPresentation";
 import type { DataBundle } from "@/pipeline/types";
@@ -17,7 +18,7 @@ function narrativeValuation(): Valuation {
 }
 
 function computedFixture(): ComputedMetrics {
-  const computed = runStageB(completeCurrencyBundle({}));
+  const computed = runStageB(withFixtureQuoteDay(completeCurrencyBundle({}), "2026-03-31"));
   if (computed.valuation.kind !== "dcf" || !computed.valuation.assumptions || !computed.valuation.dcf || computed.scenarioTargets.status !== "available") {
     throw new Error("fixture requires complete DCF scenarios");
   }
@@ -198,15 +199,15 @@ describe("modeled-grid sensitivity conclusions", () => {
 
   it("withholds a failed quote request and a suppressed or incomplete fair value", () => {
     const computed = computedFixture();
-    const bundle = completeCurrencyBundle({});
+    const bundle = withFixtureQuoteDay(completeCurrencyBundle({}), "2026-03-31");
     expect(comparableScenarioPrice(computed, { quote: { ok: false, gap: { field: "quote", reason: "offline", severity: "warn" } } })).toBeNull();
     if (bundle.quote.ok) bundle.quote.value.data.rows = [];
     expect(comparableScenarioPrice(computed, bundle)).toBeNull();
     computed.fairValue.status = "suppressed";
-    expect(comparableScenarioPrice(computed, completeCurrencyBundle({}))).toBeNull();
+    expect(comparableScenarioPrice(computed, withFixtureQuoteDay(completeCurrencyBundle({}), "2026-03-31"))).toBeNull();
     computed.fairValue.status = "available";
     computed.fairValue.perShare = null;
-    expect(comparableScenarioPrice(computed, completeCurrencyBundle({}))).toBeNull();
+    expect(comparableScenarioPrice(computed, withFixtureQuoteDay(completeCurrencyBundle({}), "2026-03-31"))).toBeNull();
   });
 
   it.each([true, false])("keeps displayed paths, fixed inputs and qualitative commentary distinct (midyear %s)", (midYear) => {

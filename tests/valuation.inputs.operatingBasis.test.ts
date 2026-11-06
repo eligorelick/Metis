@@ -16,14 +16,16 @@ function fixture() {
 }
 
 describe("D-188 proved provider operating income", () => {
-  it("uses retained provider revenue to prove its numerator's row basis", () => {
+  it("does not use retained revenue agreement to prove a conflicting numerator", () => {
     const b = fixture();
     if (!b.statements.incomeQuarterly.ok) throw Error("fixture");
     const row = b.statements.incomeQuarterly.value.data.rows[0]!;
     row.operatingIncome = 210e6;
     b.statements.incomeQuarterly.value.data.raw = [{ ...row, fieldProvenance: undefined }];
     const out = withIncomeOperatingBasis(b).statements.incomeQuarterly;
-    expect(out.ok && out.value.data.rows[0]!.operatingIncome).toBe(210e6);
+    // Same revenue cannot prove 210 when the scoped filed EBIT is 190 + 10.
+    expect(out.ok && out.value.data.rows[0]!.operatingIncome).toBeUndefined();
+    expect(out.ok && out.value.data.rows[0]!.fieldConflicts?.operatingIncome?.usable).toBe(false);
   });
   it.each(["raw-period", "raw-revenue", "direct-filed-conflict", "raw-numerator"])("does not admit a retained row with %s", mode => {
     const b = fixture();

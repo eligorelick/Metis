@@ -4,9 +4,11 @@
 
 ![Metis equity research](public/brand/metis-lockup.svg)
 
-**Metis writes equity research reports on US-listed companies from primary sources (SEC filings, market data, consensus estimates and macro series), with every cited figure traced to its record.** It runs on your own machine, computes the financial analysis in deterministic TypeScript, and can have two AI analysts argue the bull and bear cases before a judge writes the report. It is for individual investors and equity researchers who want to inspect the evidence and assumptions behind a report. The name comes from the Greek Titan of wisdom and planning ([brand guide](docs/BRAND.md)).
+**Metis turns SEC filings, issuer disclosures and market data into equity research you can inspect.** It runs on your own computer, computes financial analysis in deterministic TypeScript, and can add AI bull and bear cases with a judge's synthesis. Source records, assumptions, verification results and data gaps stay alongside the report. It is built for individual investors and equity researchers reviewing US-listed companies ([brand guide](docs/BRAND.md)).
 
 > **Informational only — not investment advice.** Grades and price targets are model outputs from disclosed data and assumptions, not human recommendations. Market data and AI output can be delayed, incomplete, or wrong.
+
+[Try the sample](#see-a-sample-report) · [Get started](#quick-start) · [Methodology](docs/METHODOLOGY.md) · [Validation](docs/VALIDATION-STATUS.md) · [Contribute](CONTRIBUTING.md)
 
 ## What a report covers
 
@@ -107,12 +109,10 @@ Claude model/effort settings beat environment/defaults; reset with `npm run sett
 
 ## Where the numbers come from
 
-With an FMP key, FMP is primary unless the statement policy selects EDGAR.
-Metis reads history limits from FMP's rejection and retries within them;
-restricted endpoints and symbols use available fallbacks or disclosed gaps.
-Some plans return five periods; that depth can support annual calculations,
-subject to each module's input gates. The own-history multiple rank needs eight
-compatible quarterly observations and waits for them.
+With an FMP key, FMP is the default provider unless the statement policy selects EDGAR.
+Restricted endpoints and history limits use bounded retries, available fallbacks or
+disclosed gaps. Five annual periods can support some calculations; the own-history
+multiple rank still needs eight compatible quarterly observations.
 
 Configure `EDGAR_CONTACT` even with a free FMP key. Metis learns explicit access
 restrictions and skips repeat refusals for 15 minutes; see [fallback limits](docs/PRIVACY.md#limited-fmp-access).
@@ -122,19 +122,18 @@ With no FMP key, set `EDGAR_CONTACT` for real US filers' research: supported sta
 Where a filer uses an extension tag the field is `null` rather than a guess,
 and each stand-in is named in the manifest with the periods it served. Analyst
 estimates, price targets, peers, insider trades (SEC Form 4), institutional
-ownership, news, transcripts, executive compensation and segment revenue have
-no implemented keyless source; IFRS-only facts also remain disclosed gaps.
+ownership, news, transcripts and executive compensation have no implemented
+keyless source. SEC quarterly segment coverage is partial; IFRS-only facts remain gaps.
 See [License and data rights](docs/DATA-RIGHTS.md) for what each allows.
 
 ## What the numbers mean
 
-[Methodology](docs/METHODOLOGY.md) defines the conventions and sources. Sector
-routing weighs XBRL evidence, SIC and industry labels, disclosing contradictions.
-Banks, insurers and mortgage REITs use excess returns to equity instead of
-inapplicable industrial-company valuation and forensic models. Growth shows
-supported methods and their range; free cash flow shows before/after stock-based
-compensation. Historical multiple ranks show sample size. Project-specific
-choices are labelled house conventions beside the affected figures.
+[Methodology](docs/METHODOLOGY.md) defines sources, sector eligibility and house
+conventions. Banks, insurers and mortgage REITs use applicable equity models;
+unsupported industrial metrics stay excluded. Growth shows supported methods;
+free cash flow shows before/after stock-based compensation; history ranks show sample size.
+Grades are **Provisional** when key applicable evidence is missing or limited.
+Supported older values may appear as dated references, with no current upside or targets.
 
 [`docs/RESEARCH.md`](docs/RESEARCH.md) documents the forensic scores' papers,
 coefficients, estimation populations and limits; the source cites it by section.

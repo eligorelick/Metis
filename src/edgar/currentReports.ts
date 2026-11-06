@@ -698,6 +698,66 @@ export interface FreeCashFlowFact {
 
 const MONTH_WORDS: Record<string, 3 | 6 | 9 | 12> = { three: 3, six: 6, nine: 9, twelve: 12 };
 
+export interface OperatingRevenueBridge {
+  currency: "USD";
+  periodEnd: string;
+  months: 3 | 6 | 9 | 12;
+  sales: number;
+  affiliateIncome: number;
+  otherIncome: number;
+  total: number;
+}
+
+/** A complete consolidated income-table reconciliation, never a segment table
+ * or a headline. Every column must bind to a printed date and reconcile. */
+export function parseOperatingRevenueBridge(rawText: string): OperatingRevenueBridge[] {
+  const text = normalizeFilingText(rawText);
+  const cells = String.raw`((?:\$?\s*\(?\s*-?\s*\d[\d,]*(?:\.\d+)?\s*\)?\s*){1,8})`;
+  const sales = String.raw`(?:Sales(?: and other operating revenues?)?|Net sales|Operating revenues?)`;
+  const affiliate = String.raw`(?:Income(?:\s*\(loss\))? from (?:equity|unconsolidated) affiliates|Equity (?:income|earnings)(?: from affiliates)?)`;
+  const other = String.raw`Other income(?:\s*\((?:loss|expense)\))?(?:,? net)?`;
+  const total = String.raw`Total revenues? and other income`;
+  const pattern = new RegExp(String.raw`\b${sales}\s+${cells}${affiliate}\s+${cells}${other}\s+${cells}${total}\s+${cells}`, "gi");
+  const out: OperatingRevenueBridge[] = [];
+  for (const match of text.matchAll(pattern)) {
+    const before = text.slice(Math.max(0, match.index! - 800), match.index);
+    if (!/\bconsolidated (?:income |statements?)/i.test(before) || /\bsegments?\b/i.test(before)) continue;
+    const captionStart = [...before.matchAll(/\bconsolidated (?:income |statements?)/gi)].at(-1)!.index!;
+    const caption = before.slice(captionStart);
+    // The caption must establish USD independently: a matching USD total
+    // cannot denominate an unqualified "$" or "dollars" sales table.
+    if (!/\bUSD\b|\bU\.?S\.?\s+dollars?\b|\bUnited States dollars?\b|\bUS\s*\$/i.test(caption) ||
+      /\b(?:Canadian|Australian|Hong Kong|Singapore|New Zealand) dollars?\b|\b(?:CAD|AUD|HKD|SGD|NZD|EUR|GBP|JPY|CNY|RMB|euros?|yuan|yen|pounds)\b|\b(?:CA|C|AU|A|HK|SG|S|NZ|NT|MX|R)\$/i.test(caption)) continue;
+    const headers = [...before.matchAll(new RegExp(String.raw`\b(Three|Six|Nine|Twelve) Months Ended\s+(${MONTHS.join("|")})\s+(\d{1,2}),?`, "gi"))];
+    if (headers.length < 1 || headers.length > 2) continue;
+    const last = headers.at(-1)!;
+    const tail = before.slice(last.index! + last[0].length);
+    const years = [...tail.matchAll(/\b(20\d{2})\b/g)].map(m => m[1]!);
+    const n = years.length;
+    if (n !== 2 && n !== 4 || n === 4 && headers.length !== 2) continue;
+    const scale = /\b(?:in|of) millions\b/i.test(before) ? 1e6 : /\b(?:in|of) thousands\b/i.test(before) ? 1e3 : null;
+    if (scale === null) continue;
+    const rows = [1, 2, 3, 4].map(i => [...match[i]!.matchAll(/\(?\s*-?\s*\d[\d,]*(?:\.\d+)?\s*\)?/g)].map(m => {
+      const v = m[0].replace(/[\s(),$]/g, "");
+      return (m[0].includes("(") ? -1 : 1) * Number(v);
+    }));
+    // A statement's note-reference column is not an amount. Accept it only
+    // when removing that one cell leaves the entire reconciliation exact.
+    if (rows[0]!.length === n + 1 && rows[0]![0]! < 100) rows[0]!.shift();
+    if (rows.some(r => r.length !== n || r.some(v => !Number.isFinite(v))) ||
+        rows[3]!.some((v, i) => Math.abs(rows[0]![i]! + rows[1]![i]! + rows[2]![i]! - v) > 0.5)) continue;
+    const columns = years.map((year, i) => {
+      const h = headers.length === 1 ? headers[0]! : headers[i < n / 2 ? 0 : 1]!;
+      const periodEnd = isoFromMonthDate(`${h[2]} ${h[3]}, ${year}`);
+      return periodEnd ? { periodEnd, months: MONTH_WORDS[h[1]!.toLowerCase()]! } : null;
+    });
+    if (columns.some(c => c === null)) continue;
+    out.push(...columns.map((column, i) => ({ ...column!, currency: "USD" as const, sales: rows[0]![i]! * scale, affiliateIncome: rows[1]![i]! * scale,
+      otherIncome: rows[2]![i]! * scale, total: rows[3]![i]! * scale })));
+  }
+  return out;
+}
+
 /**
  * The issuer's own free-cash-flow row from its GAAP-to-non-GAAP
  * reconciliation table. Columns are bound to dates only when the header

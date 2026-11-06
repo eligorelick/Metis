@@ -1,3 +1,4 @@
+import { withValuationUseSafety } from "@/report/valuationUseSafety";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -366,9 +367,13 @@ describe("read-only legacy export safety", () => {
       expect(first?.withheldCount).toBe(0);
       expect(first?.issues).toEqual([]);
       const original = ReportSchema.parse(JSON.parse(insertedJson));
+      const expected = withValuationUseSafety(original);
       const content = structuredClone(first!.report);
+      expect(content.scores?.composite).toEqual(original.scores?.composite);
       for (const { key, sectionKey } of GRADE_SURFACES) {
         const section = sectionKey === "competitive" ? content.competitive.moatGraded : content[sectionKey].graded;
+        const expectedSection = sectionKey === "competitive" ? expected.competitive.moatGraded : expected[sectionKey].graded;
+        for (const block of [expected.verdict.gradeStrip[key], expectedSection]) if (block) { delete block.gradeContract; delete block.assessmentStatus; }
         for (const block of [content.verdict.gradeStrip[key], section]) {
           if (!block) continue;
           expect(block.gradeContract).toBeDefined();
@@ -376,7 +381,7 @@ describe("read-only legacy export safety", () => {
           delete block.assessmentStatus;
         }
       }
-      expect(content).toEqual(original);
+      expect(content).toEqual(expected);
       expect(JSON.stringify(ReportSchema.parse(report))).toBe(insertedJson);
       expect(second?.report).toEqual(first?.report);
       expect(second?.withheldCount).toBe(0);

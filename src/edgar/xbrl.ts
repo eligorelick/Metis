@@ -22,7 +22,10 @@
  */
 
 import { z } from "zod";
+import { filedRevenueLines, preferredRevenueLine } from "./revenuePresentation";
+import type { FiledIncomeLine } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
+import { BROAD_REVENUE_TOTAL_TAGS, COSTS_AND_EXPENSES_TAG, CONTRACT_REVENUE_TAGS, GROSS_PROFIT_COST_TAGS, REVENUE_COMPONENT_TAGS, tagsFor } from "@/edgar/tagSynonyms";
 
 // ---------------------------------------------------------------------------
 // Types & schemas
@@ -118,7 +121,8 @@ export const CONCEPT_CHAINS: Record<ConceptName, ChainStep[]> = {
     // with like only when the total comes first. Resolution is period-scoped,
     // so an issuer whose `Revenues` stops at FY2018 (AAPL) still falls through
     // to the ASC-606 tag for every later period.
-    t("Revenues"),
+    ...BROAD_REVENUE_TOTAL_TAGS.map(tag => t(tag)),
+    { kind: "sum", tags: [...REVENUE_COMPONENT_TAGS], label: "Goods+Services" },
     // Post-ASC-606 industrials (AAPL).
     t("RevenueFromContractWithCustomerExcludingAssessedTax"),
     t("RevenueFromContractWithCustomerIncludingAssessedTax"),
@@ -453,25 +457,34 @@ export function getConcept(
   const conceptLabel = Array.isArray(chain) ? "customChain" : chain;
   const q = opts.period;
   const attempted: string[] = [];
+  if (chain === "revenue" && opts.bankRevenue !== true) {
+    const lines: Record<string, FiledIncomeLine> = {};
+    const observations = new Map<string, NonNullable<ReturnType<typeof resolveTagStep>>>();
+    const tags = [...BROAD_REVENUE_TOTAL_TAGS, ...REVENUE_COMPONENT_TAGS, ...CONTRACT_REVENUE_TAGS, ...tagsFor("grossProfit"), ...GROSS_PROFIT_COST_TAGS, COSTS_AND_EXPENSES_TAG, ...tagsFor("operatingIncome")];
+    for (const tag of tags) {
+      const r = resolveTagStep(facts, tag, undefined, q);
+      if (r) observations.set(tag, r);
+      if (r) lines[tag] = { value: r.point.val, proof: { source: "edgar", unit: r.unit, periodStart: r.point.start ?? null,
+        periodEnd: r.point.end, observedAt: "", tags: [`us-gaap/${tag}`], filings: [{ accn: r.point.accn, filed: r.point.filed, form: r.point.form }] } };
+    }
+    const selected = preferredRevenueLine(filedRevenueLines(lines), lines);
+    if (selected) {
+      const p = selected.proof, f = p.filings[0]!;
+      const observation = observations.get(p.tags[0]!.replace(/^us-gaap\//, ""));
+      return ok(conceptLabel, { value: selected.value, tag: p.tags.map(tag => tag.replace(/^us-gaap\//, "")).join("+"),
+        computed: p.tags.length > 1, unit: p.unit, period: { start: p.periodStart ?? undefined, end: p.periodEnd },
+        accn: f.accn, form: f.form, filed: f.filed, fy: observation?.point.fy ?? null, fp: observation?.point.fp ?? null, note: observation?.note });
+    }
+  }
 
   for (const step of steps) {
     if (step.kind === "tag") {
       attempted.push(step.tag);
       const r = resolveTagStep(facts, step.tag, step.unit, q);
       if (r === null) continue;
-      return ok(conceptLabel, {
-        value: r.point.val,
-        tag: step.tag,
-        computed: false,
-        unit: r.unit,
-        period: { start: r.point.start, end: r.point.end },
-        accn: r.point.accn,
-        form: r.point.form,
-        filed: r.point.filed,
-        fy: r.point.fy ?? null,
-        fp: r.point.fp ?? null,
-        note: r.note,
-      });
+      return ok(conceptLabel, { value: r.point.val, tag: step.tag, computed: false, unit: r.unit,
+        period: { start: r.point.start, end: r.point.end }, accn: r.point.accn, form: r.point.form, filed: r.point.filed,
+        fy: r.point.fy ?? null, fp: r.point.fp ?? null, note: r.note });
     } else {
       attempted.push(`sum(${step.tags.join("+")})`);
       const parts: { tag: string; value: number; unit: string; point: FactPoint }[] = [];

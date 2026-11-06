@@ -47,7 +47,7 @@ const sensitivity = (s: Scoring) => scoreAuditTables(s).find(t => t.heading === 
 function inputs(): ScoringInputs {
   const c = runStageB(completeCurrencyBundle({}), { evIncludeLeases: false });
   return { route: c.route, policy: metricPolicy(c.route), growth: c.growth, ...c.returns, capital: c.capital,
-    forensics: c.forensics, technicals: c.technicals, valuation: c.valuation, currentPrice: 100, asOf: "2026-10-17" };
+    forensics: c.forensics, technicals: c.technicals, valuationUse: c.fairValue.currentUse!, valuation: c.valuation, currentPrice: 100, asOf: "2026-10-17" };
 }
 
 describe("factor contribution sensitivity", () => {

@@ -77,6 +77,7 @@ import {
   extractSection,
   notesToFinancialStatements,
   financialStatementsAndNotes,
+  financialStatementText,
   annualNotesToFinancialStatements,
   extractForeignAnnualNotes,
   extractAnnualNotesFromIndex,
@@ -1056,9 +1057,9 @@ function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>,
   }
   // D-66: the statements before the heading stay beside the notes (bounded)
   // for the lines no typed statement carries.
-  const statementsText = result.value.data.text.slice(0, notes.start).slice(0, PERIODIC_STATEMENTS_CHARS);
+  const statements = financialStatementText(result.value.data.text.slice(0, notes.start), PERIODIC_STATEMENTS_CHARS, source);
   return { ...result, value: { ...result.value, data: { ...result.value.data, text: notes.text, chars: notes.text.length,
-    ...(statementsText.trim() === "" ? {} : { statementsText }) } } };
+    ...statements } } };
 }
 
 /**
@@ -1107,10 +1108,10 @@ async function annualNotes(
       }
       continue;
     }
-    const statementsText = section.value.data.text.slice(0, notes.start).slice(0, PERIODIC_STATEMENTS_CHARS);
+    const statements = financialStatementText(section.value.data.text.slice(0, notes.start), PERIODIC_STATEMENTS_CHARS, sources.get(section.value.data.documentUrl));
     return { ...section, value: { ...section.value, endpoint: `${docUrl} (10-K Item ${item} notes)`,
       data: { ...section.value.data, text: notes.text, chars: notes.text.length,
-        ...(statementsText.trim() === "" ? {} : { statementsText }) } } };
+        ...statements } } };
   }
   const redirect = extractAnnualNotesFromIndex(html, parsed);
   if (redirect !== null) {
@@ -1120,7 +1121,7 @@ async function annualNotes(
       data: { sectionName: "tenKNotes", text: redirect.text, chars: redirect.text.length, method: redirect.method,
         accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reportDate: asOf,
         documentUrl: docUrl, annualNotesRedirect: redirect.evidence,
-        ...(redirect.statementsText ? { statementsText: redirect.statementsText } : {}) } } };
+        ...financialStatementText(redirect.statementsText ?? "", PERIODIC_STATEMENTS_CHARS, parsed) } } };
   }
   if (financialItem) return financialItem;
   return gapResult(`edgar.tenKNotes(${symbol})`, `neither substantive notes nor a substantive bounded financial-statement item were established in 10-K Item 8 or Item 15 (${tried.join("; ")})`, "warn", [docUrl]);
@@ -2612,6 +2613,13 @@ export async function buildDataBundle(
   const recordedGaps = mergeManifest(
     [
       ...allResults.filter((r): r is { ok: false; gap: ManifestEntry } => !r.ok).map((r) => r.gap),
+      ...(["tenKNotes", "tenQNotes"] as const).flatMap((member): ManifestEntry[] => {
+        const result = edgarBundle[member];
+        return result?.ok && result.value.data.statementsTextGap
+          ? [{ field: `edgar.${member}.statementsText(${sym})`, reason: result.value.data.statementsTextGap,
+              severity: "warn", attemptedSources: [result.value.data.documentUrl] }]
+          : [];
+      }),
       ...Object.entries(resultRegistry).flatMap(([name, result]): ManifestEntry[] =>
         result.ok && isPlanLimited(result.value.data)
           ? [planLimitManifestEntry(name, { endpoint: result.value.endpoint, data: result.value.data })]

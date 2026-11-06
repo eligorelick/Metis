@@ -8434,3 +8434,1219 @@ No full verify, paid/model calls, credentials or new filing element names.
 `SCENARIO_TARGET_METHOD_VERSION` and `PAYLOAD_VERSION` at integration. No score-band,
 report-schema or Stage C orchestration stamp is needed. Stored reports retain
 their bytes. The owner will verify replay before merge.
+
+## D-205 - Statement text that fails no longer passes silently (2026-11-04)
+
+### Failure and rule
+
+IBM's latest saved 10-Q reproduced an 18-character statement excerpt. Its TOC
+uses full item titles with linked statement and notes children. The item-only
+TOC parser did not assign item numbers to those full titles; title navigation
+closed Item 1 at its first child. The stub redirect then selected the notes
+because their title contains the financial-statements synonym. Acquisition
+accepted the tiny prefix before those genuine notes as statement text.
+
+Keep existing substantive financial slices unchanged. When a financial slice
+has genuine notes but no proved statement rows, retry bounded item headings
+and full-titled parent-item anchors. Child statement/note links do not close
+that parent; the next item or part does. Accept a recovery only when its notes
+interval is byte-identical to the original interval. This prevents a repeated
+page heading from silently losing later notes. The header retry selects the
+last candidate enclosing that complete interval, rather than a running header
+inside it. An uncertain retry leaves the
+genuine notes available and records a separate statement-text gap.
+
+All domestic statement-prefix paths, including annual-index redirects, require
+at least two recognizable comparative monetary rows in the retained excerpt.
+This is an extraction check, not a debt-admission rule. The 12,000-character
+cap remains. When long front matter consumes that cap, a following statement
+heading with nearby monetary rows can supply the excerpt instead. Headings,
+company metadata, contents lists, audit prose and exhibits alone cannot pass.
+An unproved prefix is absent, carries `statementsTextGap`, and contributes a
+warn-level `edgar.tenKNotes.statementsText(SYMBOL)` or quarterly equivalent to
+the bundle's acquisition gaps. The source manifest continues to describe
+available sources; no successful source is fabricated for missing text.
+
+The full census also exposed two short Other Information failures: INTC's
+page-list mini contents and MS's group anchor landing in Legal Proceedings.
+Page-only contents without a body now fail the stub check even above the
+short-section minimum. A title-only group target whose body proves a different
+child title is excluded from both initial navigation and the mini-TOC retry.
+Genuine short narrative, absence statements and narrative page references keep
+their existing treatment.
+
+### Frozen evidence and scope
+
+The audit reads all 105 round-two snapshots using a read-only, file-must-exist
+SQLite connection. Saved SEC primary documents and the prior audit cache are
+the only filing sources; no live SEC retry is attempted after the recorded
+403. A normal-acquisition replay uses the saved filing identities and HTML,
+empty unrelated financial inputs and offline transports. It compares main's
+producer with this branch and compares the main replay against the frozen
+strings. Direct string equality supplements SHA-256 for unchanged slots.
+Full extracted passages, first/last passages, lengths, found status, hashes,
+every threshold candidate and every changed slot remain under the ignored
+`tmp/ibm-statement-text/` directory; no filing text is committed.
+
+The initial stored census has 930 present or explicitly collected slots, 802
+successful. Nineteen of 142 statement prefixes are only 18–61 characters:
+NVDA annual; WMT, MCD, TSLA quarterly; MS annual and quarterly; TRV annual;
+MET, CRWV, COP and RTX quarterly; IBM annual and quarterly; AVGO quarterly;
+SNOW and COIN annual and quarterly; RIVN quarterly. Of 66 other sections below
+2,000 characters, the INTC and MS quarterly slots are wrong; the other 64 are
+substantive short Other Information disclosures. Reviewing statement content
+also identifies 19 annual prefixes whose 12,000-character cap holds front
+matter or nonstatement text: META, PG, NKE, INTC, TSLA, JPM, AIG, NEE, SO, EXC,
+SPG, CMCSA, RTX, MMM, CSCO, CRM, UBER, BF.B and ASTS. Availability and length
+alone therefore do not establish successful extraction. CAT's cap already
+contains real results-of-operations rows and remains byte-identical.
+
+The resumed work preserves the cancelled work in `7098e429`, then merges main
+`7102a583` in `6dfaf16b`, retaining both documentation sides. On this merged
+code, the complete producer census enumerates 2,940 slots including absent
+optional fields. Availability moves from 802 to 794. Exactly 45 slots change:
+27 defective prefixes recover substantive statements, 11 become explicit
+statement gaps, five previously absent prefixes recover, and two wrong Other
+Information sections become gaps. All 762 unaffected successful strings and
+all 163 existing notes bodies are directly byte-identical, with SHA-256 as a
+second check. Previously sound slots changed: **zero**. The 930 stored slots
+also match the main producer after the application's existing snapshot
+redaction; its public bearer-share wording affects ASML business, SAP notes
+and FIGR risks identically before and after this change.
+
+Four existing auditor-phrase-bearing fields remain unchanged. DUK and AEP are
+labelled combined financial items containing report references; PLD and LMT
+quarterly notes retain actual reviewer-report tails. Those two pre-existing
+boundary defects are not repaired by this statement-prefix change. Signature
+headings remain absent. The exact changed-slot table and source passages are
+in the ignored `tmp/int/d205-report.md` and its linked census artifacts.
+
+IBM's recovered 12,000-character quarterly statement excerpt includes its
+two-date balance sheet and liabilities. At September 30, 2026, short-term debt
+is $7.013 billion and long-term debt is $56.804 billion, totaling $63.817
+billion. Note 12 reconciles $63.813 billion including current maturities less
+$7.009 billion of current maturities to the same $56.804 billion noncurrent
+line. The $4 million difference between total short-term debt and those
+current maturities remains distinct. Operating lease liabilities are separately
+presented at $0.749 billion current and $2.574 billion noncurrent.
+
+The retained vendor total reconciles independently: $63.817 billion financing
+debt plus $3.323 billion operating leases equals $67.140 billion. Its $7.762
+billion current component already includes the $0.749 billion current
+operating lease liability; its $2.574 billion lease field is the noncurrent
+operating liability. Adding all operating leases to that current component
+again would double count the current lease amount.
+
+The evidence needed for independent human reconciliation is now present.
+Re-running unchanged debt admission on both retained raw and normalized IBM
+rows gives byte-identical decisions: total and net debt remain withheld over
+current-debt/vendor-composition scope. A separate direct call to the existing
+debt-presentation parser also returns `unestablished`: IBM's split headings
+put scale and dates outside its supported grammar. Neither policy nor parser
+is changed here. Fair-value eligibility and the frozen snapshots are unchanged;
+the evidence repair does not override those refusals.
+
+### Verification and integration stamps
+
+Synthetic tests first reproduce lost statement children, notes-only title
+navigation, a successful page-only section, a wrong shared group destination,
+accepted residue prefixes, page columns masquerading as monetary rows, and a
+cap consumed by front matter. Negative controls reject contents without bodies
+and preserve short real rows, short narrative with page references, the full
+later-notes sentinel and the real following-item stop. Existing annual-prefix
+fixtures now contain actual monetary rows rather than expecting audit prose
+or sentinel-only headings to count as statements.
+
+### Merged downstream verification (2026-11-05)
+
+The monetary-row grammar, source-caption grammar and original-markup search
+are named separately. Existing excerpt preservation and recovery beyond front
+matter are explicit steps. The ambiguous Results of Operations title requires
+a statement-period caption: CAT's real dated heading passes, while a synthetic
+MD&A discussion fails first. No issuer names or issuer-specific patterns are
+added. No class, debt-admission or valuation rule is changed.
+
+The requested unchanged-snapshot harness writes all 105 summaries and both
+orders, but exceeds its 30-minute test budget under concurrent replay load.
+The completed artifacts are independently verified against final207. A
+companion replay applies the re-extracted text and owned gaps in memory across
+all 105 snapshots, in four partitions, passing the full acquisition/replay
+comparison without mutation. It supplies the retained filing presentations
+and cash/equity evidence to the acquisition enrichment call. Both comparisons
+have **zero fair-value, target, composite or scoring-signal changes**. The 103
+calculated detail records match; the other two inputs retain their identical
+unsupported-input errors. The supplied signal-diff script and an additional
+full signal-value comparison both report zero changes.
+
+The broader comparison does expose a WACC availability change: SNOW moves
+from 10.680858410647733% to unavailable, with a new critical
+`returns.wacc.weights` gap and completeness moving from degraded to blocked.
+Its restored annual statement carries historical Class A/B rows and explicitly
+states that Class B was eliminated and Class A renamed to common stock. The
+existing class rule treats the retained labels as unresolved multiple-class
+coverage; this change does not resolve that historical/renamed-class case.
+CRWV and ASTS also lose the old unreadable-statement clause in their WACC
+refusal text, while economic coverage remains unestablished. These disclosure
+changes do not change fair values, targets, composites or signals.
+
+Acquisition order agrees on those requested core results, scoring signals and
+numeric WACC results. It is not a byte-identical disclosure state: EXPE and AMD
+retain existing lease-coverage wording differences, and CRM's older
+2021-07-31 debt-warning presence differs. Exactly the same three order
+differences occur on the unchanged control and after re-extraction; D-205
+introduces no new order difference. They remain outside this extraction fix.
+
+SHOP, COIN and ASTS now retain readable quarterly balance-sheet class rows
+from offline re-extraction: respectively 9,991, 11,770 and 12,000 characters
+of statement prefix. RIVN's recovered 8,129-character quarterly statement
+has an aggregate common-stock row; its Class A/B mentions are EPS references,
+not a balance-sheet class-count inventory. Their frozen quarterly prefixes
+were absent, 40 characters, absent and 24 characters, respectively.
+CRWV's annual prefix already retains
+its class rows; its 18-character quarterly residue becomes a specific gap.
+The unchanged class parser reads ASTS's separate A/B/C rows, but not SHOP's
+qualified class labels or COIN's combined A/B row. RIVN's EPS references do
+not establish class counts and cannot be admitted by widening a row grammar.
+CRWV's notes fallback exposes a Class A mention rather than a readable current
+balance-sheet inventory. Restored text is not a claim of class-rule admission.
+
+No version constants are changed. Integration requires a **payload version**
+advance for corrected source evidence and acquisition-gap disclosures. No
+Stage B implementation, pipeline orchestration, valuation-method, scenario
+target or report-schema version advance is required. Existing stored reports
+remain immutable and supported. No model or paid-provider calls, build,
+server action, push or PR is performed.
+
+### D-205 post-review correction (2026-11-05)
+
+The following is the commit-specific receipt for `5aacc5e7`. Its global
+row-string proof was rejected at `05e7f257`; the round-2 correction below
+supersedes its proof and HOOD claims. Its 795-slot availability count is not
+a measurement of the round-2 final code.
+
+Independent OpenAI review of `491e69a7` rejected integration: COIN's annual
+index/auditor prefix passed because its page column joined the next note
+number after flattening. Paired numbers alone no longer establish statement
+text. The first cap and later recovery both require a caption witnessed in
+the saved source, plus comparative values inside an original row or text
+block. Plain-text caption lines, source formatting and issuer-labelled
+captions retain genuine statements. Ambiguous repeated captions can preserve
+the existing cap; moving the opening requires a unique source match.
+
+The repaired producer, using only the same 105 saved inputs, compares all
+2,940 explicitly enumerated slots. Availability is 795, rather than 794 at
+the reviewed commit. All 163 existing notes bodies remain byte-identical;
+CAT's existing annual cap is byte-identical. Seven annual statement prefixes
+differ from the reviewed commit: PG gains 8,175 characters, BAC retains an
+11,382-character statement opening, D becomes a gap, EXC changes its
+12,000-character opening, RTX gains 9,530 characters, COIN recovers 10,869
+characters of actual statements, and HOOD retains 8,452 characters. No other
+slot string changes. D's rejected prefix starts at Note 1 and contains
+restatement tables; it is not a primary statement opening. Source hashes and
+passages for every changed prefix are retained in the local evidence ledger.
+The HOOD excerpt starts with a balance-sheet title followed by comprehensive
+income/equity rows and does not establish a balance-sheet class inventory;
+the EXC source is a combined filing. Neither is certified here as a complete
+or issuer-exclusive table inventory.
+
+The earlier local census field `previouslySoundChanged: 0` was hardcoded.
+Hashes and successful-extraction flags establish byte comparisons, not
+semantic soundness. The figures above are measured producer results; source
+reading and an independent re-review are still necessary for substantive
+claims. They supersede the blanket recovery/soundness labels above.
+
+Five initial regression cases reproduced the false approvals; an additional
+test reproduced row-boundary joining even under an unlinked caption. The
+repaired extraction, acquisition and corrected-CLI/runtime-replay selection
+passes 118 tests, and the saved-source producer test passes all 105 inputs.
+Typecheck, changed-file ESLint and diff whitespace checks pass. This is not
+new evidence of final valuation/signal equality: the previous downstream
+comparison belongs to `491e69a7`, and a new comparison is pending.
+
+SNOW's recovered zero/eliminated Class B and renamed Class A still trigger
+the unchanged current-class ambiguity detector. The separate consumer repair,
+payload/version assessment, independent re-review and final release gates
+remain open. IBM's debt remains withheld: its readable Note 12 includes
+finance leases even though an old structured-admission reason says no finance
+lease is filed. That wording/parser limitation and the unchanged PLD/LMT
+reviewer-report tails are retained follow-ups, not claims that the source
+evidence is absent. No paid inference or remote git action was performed.
+
+### D-205 separately scoped historical-class consumer repair (2026-11-05)
+
+The OpenAI review's finding 2 was independently reproduced on clean parent
+repair `5aacc5e7`: the frozen SNOW bundle has no class ambiguity, the verified
+producer overlay introduces it, and restoring only the old annual prefix
+removes it. The annual footnote's eliminated/renamed class names were being
+treated as current multiplicity without consulting dates or outstanding rows.
+
+The fallback now excludes only proved historical footnote mentions from an
+analysis copy. A same-filing, unconditional dated elimination/rename requires
+an issuer-labelled balance sheet with current-first comparison dates matching
+the report date, a positive common-stock outstanding row, and zero outstanding
+for the eliminated class at both dates. Its two authorization clauses must be
+consistent with the event. Issuer/profile/symbol, primary SEC URL/accession,
+provider and cutoff are checked; the event must precede the report and known
+price date. Later retained reports each require a dated positive plain-common
+row. A positive cover observation after the event, another named common-class
+assertion, an unresolved rights/count conflict or unproved syntax keeps the
+refusal. Existing inventory and annual-risk guards still run. No extracted
+bytes, share counts, equality evidence, vendor verification or stored report
+are changed. The supported compound-row grammar is intentionally limited;
+separate rows, other event wording and ambiguous dates remain conservative.
+
+SNOW's annual 2026-01-31 filing (2026-03-20, 0001640147-26-000008) states
+zero Class B outstanding at January 31, 2026 and 2025, a July 3, 2025
+elimination/rename, and 343,918 / 333,865 common shares outstanding in thousands.
+The 2026-07-31 quarterly filing (2026-09-04, 0001640147-26-000037) gives
+352,455 / 343,918 in thousands. One new frozen in-memory calculation with
+`producer-reviewfix-verified` restores WACC from unavailable to
+10.680858410647733% and completeness from blocked to degraded, with zero
+critical gaps. Fair value, target and score objects match the saved controls.
+Fair value remains suppressed by the unprofitable-overlay rule. Economic
+capitalization retains `unverified-vendor-scope`; no complete inventory is
+inferred. Source hashes and row/event containment were checked against both
+saved HTML documents, and input nonmutation was asserted.
+
+Review finding 1 (source/table proof) and finding 3 (RIVN's aggregate common
+balance row versus A/B EPS references) retain the parent's corrections at
+`5aacc5e7`; neither is independently approved by this consumer task. The
+parent's final producer census is 2,940 slots, 795 available, 163 unchanged
+notes, seven annual-prefix changes versus the reviewed producer. No extraction
+code or proof tests change here, and that census was not repeated. Finding 2
+is locally repaired with synthetic red/green consumer and downstream checks;
+all three dispositions still require independent re-review.
+
+Focused verification passes 399 tests in 15 files, including 37 new synthetic
+consumer cases, existing class/security/currency checks, runtime replay,
+corrected CLI and documentation checks. Node 24 typecheck, changed-file ESLint
+and diff whitespace checks pass. The saved-source SNOW test passes once after
+a helper-only source-field typo was corrected before calculation. No panel,
+whole/changed full suite, live acquisition or model/provider call was run.
+
+**Combined integration requirements.** Advance `STAGE_B_IMPLEMENTATION_VERSION`
+for changed deterministic scope/WACC admission, `FAIR_VALUE_METHOD_VERSION`
+and `SCENARIO_TARGET_METHOD_VERSION` because the generic valuation prerequisites
+consume that scope, and `PAYLOAD_VERSION` for corrected source evidence and
+qualifications. This supersedes the extraction-only version assessment above
+for the combined work. Leave accepted constants unchanged until the parent
+coordinates the combined stamp; no completed integration identity is asserted.
+No report-schema or orchestration change is introduced. Full-panel and
+whole/changed-suite validation remain the parent's coordinated final gates.
+Local receipts and limitations: `tmp/int/reviews/d205-historical-classes-repair-report.md`.
+
+### D-205 round 2: caption-owned source units (2026-11-05)
+
+The second review reproduced an unlinked balance caption above an index table
+borrowing intact monetary rows from a separately headed table. A global set
+of source row strings was the wrong proof authority. The initial cap and a
+later recovery now match a contiguous source-owned unit: visible unlinked
+caption, its period/unit/issuer context and at least two family-compatible
+original rows. Its containing or first adjacent data table owns those rows;
+a second table, index or unrelated heading cannot lend them. Caption-only
+layout tables may carry a nonnumeric issuer/unit header. A label-column
+subgroup with explicit empty amount cells preserves the existing column grid;
+a standalone or spanning heading remains a boundary. Original following
+context distinguishes repeated captions without supplying rows across the
+unit boundary. Neither the cap nor the notes-equality/source guards change.
+
+HOOD annual 2025-12-31, accession `0001783879-26-000023`, now has a truthful
+statement gap. The source's visible balance caption precedes 2023/2024/2025
+comprehensive-income rows, its operations caption precedes operating cash
+flows, and its cash-flow captions precede equity rollforwards. Earlier actual
+balance assets are dated December 31, 2024/2025, in USD millions: cash
+4,332/4,261 and user receivables 8,239/17,994. They follow the auditor's footer
+without a visible balance caption. Those useful rows remain in saved HTML;
+the extractor cannot certify their caption binding or invent a corrected
+heading. The old 12,000-character excerpt contained those assets; the prior
+8,452-character repair omitted them while exposing the mislabeled table.
+Neither is silently represented as a complete proved balance statement now.
+
+Exactly one new saved-response producer census, `captionbinding-r2`, completed
+105 inputs and all 2,940 slot keys (exit 0, 181.99 seconds). All 163 old notes
+were byte-identical. It measured 771 available slots and 30 prefix changes
+versus `reviewfix-verified`; these are **prefinal** results. The census exposed
+valid issuer/unit/period metadata and table subgroups being mistaken for peer
+boundaries. Generic preservation corrections followed, with new red/green
+regressions. No second full census ran under the one-run authorization.
+
+Final-code pure section/notes/helper checks cover all 36 slots changed against
+either prior repair baseline, plus six CAT/SNOW/RIVN controls: 42 slots, all
+notes byte-identical, 41 previous excerpts byte-identical and HOOD annual a
+gap. The 29 incidental census changes are restored, including BRK.B's useful
+balance assets and SO's parent-company opening. This is focused final-code
+evidence, **not** a final all-105 producer availability count or downstream
+calculation. COIN retains its actual 10,869-character 2025/2024 USD-thousands
+balance opening and refuses the old note-index/auditor prefix. PG, BAC, D,
+EXC and RTX retain the prior repair outcomes. EXC still crosses Exelon and
+Commonwealth Edison within its cap; no issuer-exclusive inventory is claimed.
+
+The historical-class code and tests are unchanged. Final direct consumer
+checks on the newest focused source outputs preserve SNOW's historical-class
+clearance and HOOD's independent current A/B cover-observation refusal. RIVN's
+quarterly balance row remains aggregate common stock; A/B mentions are EPS
+references. No class/debt policy, valuation calculation or stored report was
+changed. HOOD loses annual prefix evidence and gains a warning disclosure;
+existing unproved prefixes receive the more precise ownership-gap wording.
+Debt/valuation/completeness effects beyond the direct class checks are not
+measured. The earlier full downstream equality belongs only to `491e69a7`.
+
+Combined integration still requires advances to `STAGE_B_IMPLEMENTATION_VERSION`,
+`FAIR_VALUE_METHOD_VERSION`, `SCENARIO_TARGET_METHOD_VERSION` and `PAYLOAD_VERSION`.
+This extraction/disclosure repair adds no separate schema or arithmetic version
+category. Constants remain unchanged for the parent's combined reconciliation.
+Independent scoped re-review and final-code combined validation remain required;
+this entry approves neither integration nor release. Full receipts, source
+identities and command exits are in
+`tmp/int/reviews/d205-caption-binding-repair-report.md`; older receipts remain
+in `tmp/int/reviews/d205-proof-repair-report.md`.
+
+### D-205 round 3: internal headings and hyperlink roles (2026-11-05)
+
+The scoped round-2 review addresses the original cross-table/HOOD P1 in its
+specific reproduction, but finds two new false admissions. A bold label with
+empty amount cells was assumed to be a harmless subgroup; an unmarked cell
+heading was ignored. Entirely linked navigation rows could also provide the
+two comparative pairs. This round checks original table rows independently
+of font. Unknown text-only rows end caption ownership, including an incidental
+year or `Other:` alone. Recognized periods/units, financial account categories,
+cash-flow reconciliations and explicit business/industry subgroups preserve
+their original structure. A blank amount-column grid alone proves no role.
+The vocabulary is generic financial terminology, without issuer exceptions.
+
+Visible hyperlink content cannot prove a row unless it is a short marker in
+an explicit superscript. Such footnotes are masked only for proof at unchanged
+normalized offsets; the excerpt retains its original text. This prevents
+partial linked digits or labels from creating new proof tokens. Other linked
+formats remain conservative gaps, not an assertion that their source values
+are false. The rule establishes an opening, not complete financial evidence
+or an issuer-exclusive inventory.
+
+Initial regression evidence has 14 intended failures in the two cap paths;
+further partial-link, generic-heading and financial-metadata controls are in
+`tests/edgar.extract.test.ts`. Final focused validation passes 13 files/582
+tests, typecheck and changed-file ESLint. The initial round-3 census was
+prefinal: 105 inputs/2,940 keys, 163 byte-identical notes, 779 available slots
+versus 794. Its 19 changed prefixes exposed ordinary period/unit/subsection
+preservation defects; targeted source-hash-checked helpers restore all 19.
+No initial-census number is represented as final-code availability.
+
+The next intermediate census, named `captionbinding-r3-final`, kept 794
+available slots but displaced EXC's cash-flow opening with a later balance
+opening. Its working-capital subsection `Changes in assets and liabilities`
+needed the same financial-role preservation as other cash reconciliations;
+two new red cases support that correction. Despite its name, this intermediate
+run is not the final receipt. The final `captionbinding-r3-final2` producer
+passes in 172.53 seconds: all 105 inputs/2,940 keys, 953 saved response
+attempts/no missing responses, all 794 available strings byte-identical to
+`c7d32677`, including all 163 notes. BRK.B and EXC retain their exact prior
+excerpts; HOOD remains a gap. This is producer/string preservation, not a
+full downstream financial calculation or primary-fact certification.
+
+The parent had separately closed the preceding round-2 final-census gap on
+unchanged `c7d32677`: 105 inputs/2,940 keys, 794 available, 163 byte-identical
+notes, only HOOD annual changed versus `reviewfix-verified`. Historical
+prefinal receipts above remain intact. All source artifacts, stored reports,
+accepted class tests/code and version constants are preserved. Combined D-203
+integration, reporting-policy implementation, version reconciliation, final
+financial replay and unchanged release gates remain pending. This entry is
+not integration or release approval. Exact red/green receipts and final
+producer addenda: `tmp/int/reviews/d205-r3-repair-report.md`.
+
+### D-205 inherited follow-up: superscript label semantics (2026-11-05)
+
+The independent round-3 review at `66d8ee6a` accepts both scoped findings and
+establishes no new important fix-diff breakage. It separately reproduces an
+inherited ambiguity on both base and reviewed code: a superscript between
+`Cash` and `flows` interrupts the negative label qualifier, allowing two
+cash-flow rows to count as balance-sheet proof. This is a synthetic source
+admission defect, not a demonstrated issuer financial error.
+
+The parent reproduces eight failures covering linked, unlinked, alphabetic
+and repeated short superscripts in both cap paths; two genuine-cash controls
+pass. The shared cash-label recognizer now understands proof-only footnote
+placeholders. All supported short explicit superscripts receive identical
+masking regardless of hyperlink status; original output text and normalized
+offsets remain unchanged. Arbitrary links still cannot certify rows. No class,
+valuation arithmetic, version constant or stored source/report is changed.
+This bounded follow-up is separate from the accepted round-3 scope. Receipts
+and preservation limits: `tmp/int/reviews/d205-superscript-repair-report.md`.
+
+Verification on the final source:183 extraction tests and11 focused files/570
+tests pass, as do typecheck and changed-file ESLint. The saved-response producer
+passes in151.18s with105 inputs/all2,940 keys and953 attempts/no missing saved
+responses. All794 available strings, including163 notes, are byte-identical
+to the accepted base. Class/version files are unchanged. This preservation
+receipt does not certify primary facts or replace the final combined financial
+replay, independent review, version reconciliation and unchanged release gates.
+
+
+## D-203 - Operating revenue and income basis (2026-11-05)
+
+The round-1 execution receipts and panel counts in this section are historical
+at `61fd3583` / `04741e49`, not final evidence for round 2. The round-2 disposition
+below supersedes their incomplete HON/SLB scope and alternate-bridge conclusions.
+
+The independent-review repair starts at `795f1f5f2937029c250593dfbd74fbfb515eddbd`
+on the existing `t3/fix-revenue-shares` checkout. Main at `7102a583` already
+includes D-206 and D-207; the old class/balance integration dependencies and
+pre-integration coverage/value counts below this decision are superseded.
+Frozen inputs and saved reports remain unchanged. No remote write or paid
+inference is part of this repair.
+
+A later same-concept, duration and currency core filing supersedes a conflicting
+older revenue observation. Retained provider restoration cannot undo that
+recast. Filed scope and lineage replace vendor-distance selection. The issuer,
+currency, period, cutoff, component and independent-refusal safeguards remain.
+Company sales scope requires an independent filed bridge or directly dated
+primary consolidated sales evidence. Exact vendor equality is not an escape
+for an unsupported broader total; a lone old anomaly cannot set that policy.
+A provider-quarter sum is not proof of its discrete quarters. The aggregate
+window inference is removed, and the retained narrow parser rejects segment
+context. Unsupported table shapes remain uncorroborated.
+
+Every evidenced operating numerator is checked, including unreviewed revenue
+rows and Q4 derived from FY less nine months. An operating-income tag cannot
+override a complete contradicting revenue/expense/pretax reconciliation.
+Costs require actual same-scope pretax completeness; an independent operating-
+expense subtotal OR complete disjoint primary components must establish interest
+membership before an add-back. A particular subtotal tag is not mandatory.
+Separately evidenced nonservice benefit expense is excluded consistently,
+independent of vendor agreement. Unresolved contradictory operating scope is
+refused for margin and non-margin uses. Undisproved previously usable standalone
+observations may remain explicitly unverified, with no margin denominator.
+
+Reviewed gross profit needs directly filed gross profit or compatible filed
+revenue/cost evidence. A vendor-only classification cannot acquire a verified
+signal. An interior missing margin blocks its regression slope and improving-
+margin regime. Charts preserve dated missing points; incomplete projection
+history is withheld with its missing periods disclosed. Scenario dispersion
+still describes observed levels, not a time trend. Trailing basis text names
+corroborated and unverified quarters separately.
+
+D-65 annual fallback and its 200-day roll-forward limit are unchanged. Annual
+bases are labelled as annual. The displayed revenue assumption carries the
+statement, quote and balance dates, age and uncertainty about later balance
+changes into the narrative payload, report, Markdown and print exports.
+Unchanged revenue admission emits no new gap. False generic claims about a
+broader total are removed. `revenueBasis`, the unused `operatingCosts` path,
+the vendor-distance scan and unused chart parameter are removed; the aligned
+annual-cash safeguard remains.
+
+Independent targeted checkpoints (USD millions):
+
+- MMM FY2022 retains the later 26,161 revenue / 4,369 operating result; T FY2020
+  retains 143,050 / 8,372. Superseded provider observations no longer restore.
+- ABBV Q4-2025 uses 15,075 minus 10,531 = 4,544, replacing 5,809. Filed trailing
+  operating income is 15,075 + 16,689 - 10,531 = 21,233.
+- MET FY2023's tagged 5,723 is the note's adjusted earnings. The filed bridge
+  66,905 - 64,743 = 2,162 (3,207 with reported interest) contradicts it; operating
+  scope is refused for all uses. HON Q1-2025 does not restore 9,822 / 2,258 over
+  the later presentation; unresolved revenue is withheld and its untested
+  standalone provider result is not represented as a filed margin.
+- ASTS's old +76.2497pp/year slope becomes unavailable. Inserting the provider
+  FY2024 observation (-242.762 on 4.418) gives -266.0442pp/year, demonstrating
+  selection sensitivity rather than proving that perimeter. The actual filing
+  has Revenues 4.4 and contract revenue 13.825. FY2025 vendor gross profit
+  +37.886 contradicts the sum of its quarters, -53.091; it is withheld.
+- NEE, DUK and UPS vendor-only gross profits are withheld on reviewed rows;
+  LMT's compatible filed gross profit survives. CVX's differing cost/depreciation
+  presentation is no longer retained without a compatible bridge.
+- COP FY2025 sales remain 58,944 after a +0.1% provider perturbation. Shifted XOM
+  Q1/Q2 observations gain no aggregate-window corroboration.
+
+The round-1 parser withheld CVX/XOM cost-derived margins, but this was not proof
+that the retained primary statements lacked interest-membership evidence.
+Round 2 recognizes the complete CVX Q2-2026 and XOM Q3-2026 itemized statements.
+MRK's round-1 historical seed was not corroborated by that implementation;
+round 2 corrects FY2025 operating income from its complete primary costs. These
+source corrections do not promise a fair value or change D-65. Original annual
+and quarterly reporting perimeters may remain different after a recast. The
+current frozen excerpt parser is deliberately incomplete. Broader peer-input
+scope and acquisitions of missing filings are outside this repair.
+
+Failing-first synthetic regressions cover recast precedence/restoration,
+missing pretax or interest membership, conflicting tagged/standalone results,
+consistent pension treatment, derived Q4, sales-policy escapes, segment/window
+proof, gross classification, interior gaps and export qualifications. Targeted
+runtime replay and corrected-report CLI tests retain the production import
+boundary. A 15-company row check passed, including repeated-view equality.
+The final implementation report holds commands, red/green receipts, financial
+evidence and the separately authorized final replay comparisons. Changed-test
+validation passed 587 files / 14,302 tests, with three skipped; typecheck and
+changed-file lint passed. No whole-suite command was run.
+
+The serial panel at source `61fd3583` initially failed after 70 complete company
+pairs: the Vitest fork worker exited unexpectedly after 843.93 seconds, without
+a reported timeout. The two-hour test timeout was configured. Its failure log
+is preserved. A continuation reused those 140 saved details without running
+their Stage B calculations again and calculated only the unfinished records;
+that continuation passed. Completed-artifact verification is not a passed
+original full-panel command. All 140 earlier detail hashes and the four saved
+baseline summary hashes are unchanged.
+
+Each final order covers 105 inputs: 103 calculated details, QQQ unsupported as
+an ETF and ZZZZQ withheld because security type is not established. Across the
+full computed outputs there are no numeric or date differences between orders.
+Eighteen companies retain text/gap differences whose semantic differences are
+identical in both saved baselines and the repaired output; full output identity
+is not claimed. Acquisition order means balance enrichment of the frozen
+bundle before calculation, not acquisition of new provider evidence.
+
+| Historical round-1 comparison (same counts in both orders) | Main final207 | Reviewed 795f1f5f |
+| --- | ---: | ---: |
+| Fair values available before / after | 55 / 50 | 58 / 50 |
+| Fair values lost / gained | 6 / 1 | 8 / 0 |
+| Fair values changed, including availability | 16 | 19 |
+| Published scenario prices changed | 19 | 21 |
+| Composite scores / bands changed | 47 / 4 | 46 / 3 |
+| Available signals lost / gained | 76 / 30 | 88 / 0 |
+| Retained signals with raw or transformed changes | 111 | 111 |
+| Companies with changed aspect completeness or available signals | 41 | 39 |
+| Companies with a changed WACC percentage | 7 | 7 |
+
+At round-1 source `61fd3583`, relative to the reviewed output, fair values were withheld for COP,
+CVX, GE, JNJ, LLY, MRK, NKE and PFE because no corroborated EBIT-margin seed
+remains. Main already withheld CVX/MRK; LMT retains the supported gain over
+main. Material retained values include ABBV 91.58 to 90.06, CAT 284.77 to
+234.03, CMCSA 45.81 to 61.25, FDX 238.20 to 199.76, HON 273.33 to 263.72,
+MMM 84.87 to 79.25, SLB 40.90 to 47.11, UBER 58.49 to 52.28 and XOM 117.87
+to 94.11. These are observed results, not pinned targets. The report and its
+four full comparison artifacts quantify every company, signal, target, WACC,
+completeness, date, basis and manifest change. Lower evidence coverage can
+raise a completeness-adjusted composite; an improved band is not proof of
+better fundamentals. Annual fallback remains a material dated limitation.
+
+Historical round-1 source stamps: `STAGE_B_2026_11_OPERATING_BASIS_56`,
+`FAIR_VALUE_2026_11_OPERATING_BASIS_56`,
+`SCENARIO_TARGETS_2026_11_OPERATING_BASIS_56`, pipeline `stage-c-1.6.36`,
+payload `1.82.0`, tag review `2026-11-05`. Report schema and score-band versions
+are unchanged. Reconcile these stamps with concurrent D-205 only at the parent
+integration step. This checkout does not integrate D-205. Independent OpenAI
+review and the parent's integration decision remain required; local validation
+alone is not a mergeability claim.
+
+
+### D-203 round 2 - consolidated proof and qualification transport
+
+Round 2 starts from clean `04741e49` and follows the independent R1-R5 re-review.
+Production source ends at `30dbe605`; the detailed follow-up contract is
+`tmp/int/reviews/d203-proof-followup-report.md`. The old round-1 panel above is
+not final output evidence for this code. No full/changed suite or 105-company
+panel was run in this round.
+
+Complete duration-bound primary statements replace incompatible operating tags
+before historical seeds, standalone use and one-off normalization. HON FY2025
+8,127 is the note's Total Segment profit: consolidated operating income is
+37,442 - 23,613 - 1,812 - 5,450 - 724 - 270 = 5,573, then +1,247 -1,344 = 5,476
+pretax. Its corrected annual FY2024/FY2023 values are 6,449/6,110. SLB's later
+complete comparative proves FY2023 5,443 +342 -503 =5,282 pretax; the old 6,523
+is contradicted without an unsupported segment-profit claim. Its corrected
+FY2025/FY2024 values are 4,368/5,804. Historical tag-only 2021/22 rows from the
+conflicting families are withheld without an independent reconciliation.
+
+HON Q3-2026 is supported new presentation: 4,994 sales, 740 operating and
+4,929 comparative sales. The documented discontinued/deconsolidated perimeter
+makes the older annual base incompatible with a matched current DCF; that
+fallback is withheld. The primary 986 before-equity pretax does not overwrite
+the separate 839 after-equity earnings operand. This is a factual scope guard,
+not the parent's separate stale-reference policy.
+
+Complete disjoint components prove CVX Q2-2026 14,276 and XOM Q3-2026 18,738
+under the selected interest/nonservice exclusion definition. A separate
+OperatingExpenses subtotal and provider equality are not prerequisites.
+XOM's preliminary release identity and later core duration corroboration remain
+separate. LLY FY2025 26,302, JNJ Q3 5,845, MRK FY2025 21,218, NKE Q1 FY2027 888
+and PFE Q3 3,672 follow complete independent proofs; PFE's 1-million printed
+rounding residual remains explicit under the existing allowance. NKE FY2026
+19,911 GP -16,114 SG&A =3,797, +50 signed net interest +53 other =3,900 pretax.
+Cash interest paid cannot establish accrued operating expense; the old 3,892
+WACC shortcut is rejected. Signed net interest is indexed, retained and used
+once, without adding gross-income children again.
+
+COP's compact eight-amount supplemental primary statement independently
+supports 10,907 operating / 12,656 pretax, but automatic admission still refuses
+that unsupported table shape. Do not call its primary proof absent. The former
+12,206 standalone WACC shortcut has incompatible 1,176/855 interest scopes and
+is refused. IBM 12,042 remains explicitly derived/unverified, not a direct filed
+operating result or a numerically disproved observation. Source qualifications
+reach payload, report and exports, including the mixed-period WACC path.
+
+GP refusal and the causal missing D-60 ceiling appear beside affected flat
+margin assumptions. CAT/UBER's improving observed trends did not disappear.
+Historical support names actual counts/dates/unsupported years and travels into
+the analyst payload as well as report exports. A wholly absent interior fiscal
+slot withholds the affected slope/history; explicit fiscal identity and an
+established cadence are required. Charts mark intervals, not invented filing
+dates or zero financial observations. Genuine 52/53-week and transition controls
+remain. Existing score calculation, D-60/D-65 eligibility and dispersion rules,
+source/share/spending guards, MMM/T recasts, ABBV and MET decisions remain.
+
+The scoped 19-case frozen calculation passed at `006f550c` in 383.45 seconds.
+The closing check at `786119e1` passed in 232.98 seconds: NKE/ABBV were freshly
+calculated; 17 computed artifacts were reused only after exact admission and
+validation equality and source-delta verification. Later changes are one WACC
+qualification string and payload transport of the existing margin basis; their
+source-delta and actual-consumer receipts are separate. Neither a reused artifact
+nor a consumer-only check is called a fresh financial calculation. The initial
+180-second synchronous diagnostic overrun/termination remains a failed command;
+no artifact completed. All original evidence and baseline hashes are preserved.
+
+Within these 19 selected cases, fair values are 9 versus main final207's 14,
+reviewed 795f1f5f's 17 and round 1's 9. Relative to round 1: HON 263.72 becomes
+unavailable, NKE gains 28.57, SLB 47.11 becomes 30.78. Available signals lost /
+gained / retained numeric changes are 53/11/57 versus main, 67/0/63 versus the
+reviewed output, and 21/10/22 versus round 1. Every value, target, score, WACC,
+completeness, date/basis and refusal difference is in the three closed comparison
+artifacts. These are observed outcomes, not acceptance targets. No unsupported
+input is in this selection; QQQ/ZZZZQ remain separately unsupported in the saved
+105-input baselines. No coverage claim is made for the untested remainder.
+
+Final focused runtime/report/golden validation passed 459 tests. Later targeted
+mixed-WACC/consumer/golden checks passed 16 tests and payload/consumer/golden
+checks passed 334 tests, with overlap explicitly not counted as unique tests.
+Typecheck and changed-file lint passed. The one added payload disclosure is
+pinned exactly before the old byte/hash contracts; numeric pins remain intact.
+The report carries all red/green and failed-command receipts.
+
+Local identities are PRIMARY_OPERATING_PROOF_57 for Stage B/fair value/targets,
+`stage-c-1.6.37`, payload `1.83.0`; report and score-band schema versions remain
+unchanged. Parent must reconcile/advance these with D-205 and policy integration.
+D-205 was neither edited nor integrated. No subagent, paid/provider/model call,
+live financial acquisition, protected app access, PR, push or merge was used.
+
+The owner selected unchanged score calculation with provisional grades. Parent
+research selected separate dated references for genuinely unrolled annual values,
+excluded from current headline/upside/scoring; justified historical margins may
+still support a coherent current model. That readiness/presentation layer is
+pending separate parent implementation. Old D-65 headline treatment is not
+permanently accepted final behavior. Independent scoped OpenAI review and the
+parent-coordinated combined replay remain required; this is not a merge approval.
+
+
+### D-203 round 3 parent repairs: current proof, roles and conflicts (2026-11-05)
+
+Independent review at c0c788e7 requires changes: F1 older retained proof can
+reverse a later recast; F2 other operating expense is treated as nonoperating;
+F3 conflicting aliases disappear before complete certification. It also finds
+F4 no-DCF history support missing, F5 unsupported perimeter conclusions and F6
+a remote fiscal cadence veto. R3's original selected standalone/WACC cases are
+accepted, without waiving the shared admission defects. Integration stays held.
+
+Parent repairs F1/F2/F3/F5 in a bounded batch. Superseded primary evidence is
+retained historically but excluded from current adoption; unchanged repetitions
+remain usable. The anchor set excludes domestic-only pretax observations.
+Operating other-income/expense retains its sign role. Alias selection carries
+explicit complete/unavailable/conflict states; unresolved required conflicts
+refuse margins, standalone and WACC uses instead of falling through. Supported
+complete aggregates still replace their children once. Perimeter findings now
+follow affirmative financial rows in their own period, not document-wide words,
+and require coherent comparable sales rather than a mismatching broader total.
+
+Meaningful failing-first cases and the original review probes are preserved.
+The saved HON/SLB admission checks retain their independently reconciled annual
+figures and HON's genuine changed-perimeter refusal. These checks do not rerun
+Stage B financial calculations or establish final105-input equality. F4/F6,
+new scoped independent review, combined D-205/policy/versions and unchanged
+release gates remain pending. Full receipts: tmp/int/reviews/d203-r3-parent-repairs.md.
+No gate, numeric target, old golden pin or financial tolerance was weakened.
+
+### D-203 round 4: comparable sales and rejected-period transport (2026-11-05)
+
+Fresh combined review at c5ddb22b accepts the scoped F1-F4 mechanisms and keeps
+two P2 findings open. A smaller contract-revenue component can replace an
+unchanged consolidated total in the perimeter comparison. Growth preserves
+normalization-rejected identities, but valuation/projection adapters lose them
+and can call a recorded ambiguous year absent.
+
+Parent reproduces both through five failing assertions, including actual
+annual admission and actual valuation/projection consumers. Perimeter proof
+now compares the primary line's anchored concept and rejects conflicting
+same-filing operating-sales scope. A shared identity-only barrier transport
+keeps rejected/excluded records separate from financial history in every margin
+consumer. Trend/history withholds name recorded unavailable periods; no missing
+date, filing or financial zero is synthesized. First-stage projection rejection
+warnings are retained rather than lost through a second normalization pass.
+
+F1-F4's accepted mechanisms, current source/refusal guards, score math and
+financial tolerances remain. These local changes require focused regression,
+type/lint, saved HON/SLB admission checks and a scoped independent re-review.
+Combined D-205 integration, reporting policy, coordinated identities, all-company
+replay and unchanged release gates remain pending. FIGR/Opus live stays held.
+
+### D-203 round 5: distinguish sales anchors and preserve undated identities (2026-11-05)
+
+Scoped review at a0533260 confirms the original round-four reproductions are
+repaired but finds adjacent P2 paths. Statement binding can use total income
+instead of operating sales; treating its tag as a sales anchor is unsound. The
+contract conflict check also omits the including-assessed-tax concept. Source
+adapters lose undated annual rows at the earlier currency/date filter, before
+the new normalization barriers can see their recorded fiscal identities.
+
+Parent reproduces five failures with one positive alias control. Sales
+comparability now needs an actual core observation matching the printed sales
+line, bound to the same filing and duration; statement-total proof remains
+separate. Both supported contract concepts retain scope checks. Identity-only
+undated periods are collected from the reported source rows and passed through
+the valuation context and projection adapter, preserving the existing financial
+currency/date exclusions. Tests inspect actual adapter inputs and nonempty
+forward fans while checking that excluded financial observations stay excluded.
+
+This is a local source repair awaiting scoped independent verification, not
+source approval, company-model equality or release readiness. Accepted F1-F4
+mechanisms, explicit COP/IBM limits, score math, versions and all unchanged
+release gates remain. Combined source/policy integration and FIGR live stay held.
+
+## D-208 - Current valuation admission and evidence-qualified grades (2026-11-05)
+
+The owner selected unchanged grade arithmetic with a Provisional label when key
+evidence is missing, and delegated the valuation-date policy to the research
+quality objective. The local implementation keeps existing weights, score bands,
+shrinkage and stronger letter withholds. Missing or limited route-applicable
+weighted aspects and material financial/current-model gaps qualify the grade;
+75% multi-signal coverage alone and route-inapplicable omissions do not.
+
+One typed date classifier admits a current value only at the actual compared
+quote observation, using the existing supported roll of at most 200 days.
+Supported unrolled older values become dated references, with no current upside,
+target fan or inverse score signal. Valid older normalization history remains.
+Financial, currency, class, bridge and domain refusals cannot become references.
+The actual selected unverified operating derivation qualifies valuation/quality
+when it supplies the discount rate without changing its otherwise permitted use.
+
+Pipeline-owned qualifications and reference provenance survive AI/data-only
+assembly and verification. Shared readers/exports display the same limits.
+Legacy views preserve original bytes and scores, disclose unknown qualification,
+and retain original target/inverse diagnostics separately. A saved roll factor
+without typed elapsed-time/rate authority is conservatively unestablished.
+Source and method qualifications are retained beside the date notice.
+
+Accepted source heads f1591be5 (D-203) and ef24ac95 (D-205) are locally combined;
+policy commits 839c78f1, fe281d60 and d332878a close their bounded implementation
+checks. Coordinated identities advance to Stage B/fair-value/targets 58, payload
+1.84.0, Stage C 1.6.38 and report 1.65.0; score bands do not change. Final105-input
+saved-source replay, unchanged npm verify and fresh combined review remain
+pending. FIGR/Opus live, paid inference, PR/push/shared-main merge and publication
+remain held. Tests and citation matches do not establish factual truth.
+
+Closing release-gate repairs retain original model currency and bridge endpoint
+provenance as audit diagnostics after current headlines are withheld. Live company
+DCF/excess-return cards use owned current admission instead of recomputing upside
+from raw models. Legacy numeric-only reports receive an explicit refusal reason.
+Synthetic positive controls declare their actual model-day quote observations;
+generic source fixtures remain unchanged. Exact historical delta records retain
+all forward-financial pins and explicitly show the unchanged formula can raise
+60.97 to 65.87 when adverse valuation signals become unavailable; that assessment
+is provisional. Original failed release receipts remain preserved. Combined
+release gates, saved-source replay and independent review still control readiness.
+
+The fresh combined review at `fcc2ed09` found four Important groups despite a
+passing release gate. The closing pass requires explicit USD caption evidence
+for the legacy sales bridge; an unqualified dollar symbol or matching USD total
+cannot denominate the table. Selected TTM WACC evidence now composes its actual
+quarterly observations and qualifies only a used unverified derivation. Date-only
+refusals retain the financially admitted trace with its own value date; diagnostic
+payload units use that trace or the dated reference. Legacy readers retain cached
+sensitivity and trigger records in audit data, withhold current-price conclusions
+and inverse-derived triggers, and preserve independent guidance checkpoints.
+Original stored bytes and all financial arithmetic remain independently pinned.
+These parent repairs require new final-code gates and justified offline replay;
+the earlier passing gate and panel remain receipts for their original source.
+
+### D-208 closing local verification (2026-11-05)
+
+Final production source `871b6250` passes the unchanged Node24 `npm run verify`:
+integration4; core and risk each713 files/16,508 passing tests/three existing
+skips; production build; zero known dependency vulnerabilities. Coverage remains
+above the unchanged floors. Core/risk executions overlap. All five original
+independent-review reproductions pass as parent verification, with separate
+output names preserving their original failing artifacts. This is not a second
+independent approval of the changed source. The gate additionally exposed lost
+entity-DCF/operating-path availability in dated reader views; that production
+regression is fixed from retained entity/forecast/projection evidence without
+restoring current-price conclusions. Failed gate receipts remain preserved.
+
+The new final producer preserves all794 available strings/163 notes across
+105 inputs/2,940 unique slots, using953 saved requests with none missing. The
+final both-order panel passes all105 inputs per order:103 calculated and the
+same expected QQQ/ZZZZQ refusals. Complete scores, fair values and scenario
+targets agree. Fresh data-only report/payload/Markdown/print checks run once per
+calculated company in replay order. The balance-only acquisition simulation now
+retains the real enrichment gaps/admissions; it is not fresh full acquisition.
+Remaining AMD/EXPE and GOOG/GOOGL differences are exactly21 conservative text
+leaves; the full difference artifact remains, and no report-byte parity is
+claimed. All financial admissions and numeric leaves agree.
+
+The final review repairs change only25 selected filed four-quarter WACC evidence
+objects in computed results versus the prior final panel. No financial number,
+date, basis, score or target changes. Against archived integrated-source control
+`0e600617`, raw forward calculations are unchanged; differences are31 WACC
+evidence objects and16 route-policy labels. That inherited control has its own
+execution and356 verified source blobs; it is not a comparison to original main.
+All103 full-precision composite sums are independently checked. Grade arithmetic
+still permits UL/XOM D-to-C changes when dated adverse evidence is removed;
+their grades remain provisional. The final panel has47 current values,3 dated
+references,32 unestablished and21 route-policy cases;93 provisional composites
+and10 supported. Those are saved-panel classifications, not accuracy estimates.
+
+Fresh independent retained-primary arithmetic matches HON/SLB's six annual
+operating bridges, pretax reconciliations and resulting final margin series.
+Actual-date slopes and seven explicit missing2016-22 years per series are
+preserved. IBM's63.817bn financing debt plus3.323bn operating leases reconciles
+to67.140bn USD, but scope admission remains refused. All pinned database,
+inventory, accepted-source and final358 source-file hashes remain unchanged.
+
+The [per-ID ledger](#d-208-per-id-reconciliation) closes228 historical
+implementation/regression IDs and supersedes2 of the230-ID cohort. It retains
+historical states,205 documented disposition rows,218 mapped tracked test files,
+fresh versus inherited verification boundaries and local receipt hashes. Eight
+research/readiness limits remain separate; no financial truth or universal
+absence-of-defects claim follows from the closed implementation count.
+FIGR retains13 monthly beta observations against the24 minimum, and the live
+account/model canary is unproved. FIGR/Opus live stays HOLD. The root checkout
+and freshly fetched main remain7102a583; both repair branches and all original
+work/evidence are preserved. Only the isolated candidate receives local commits;
+no paid report, push, PR, shared-main merge, deployment or publication occurs.
+
+
+### D-208 per-ID reconciliation
+
+This table records implementation/regression closure at production source `871b6250`, under the verification and research limits above. Historical states are retained; mapped current tests passed in the final unchanged gate. Original per-ID source reproductions are inherited, not newly executed for every row. Full titles, all disposition rows, test-file hashes and receipt hashes remain in the preserved local `reconciled-audit-final.json` evidence record. Two superseded items reflect resolved methodology/documentation, not unimplemented fixes.
+
+| ID | Historical state | Current disposition | Mapped regression files | Disposition source |
+| --- | --- | --- | --- | --- |
+| AI-106 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts)<br>[stageC.latestFiscalLabels.test.ts](../../tests/stageC.latestFiscalLabels.test.ts) | Earlier adjudication; mapped current regression |
+| AI-117 | fixed-verified | fixed-and-verified | [report.legacyPayloadRecords.test.ts](../../tests/report.legacyPayloadRecords.test.ts)<br>[stageC.deterministicInjection.test.ts](../../tests/stageC.deterministicInjection.test.ts)<br>[stageC.insiderStatistics.test.ts](../../tests/stageC.insiderStatistics.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 49) |
+| AI-302 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-302-V1 | fixed-verified | fixed-and-verified | [currentReports.test.ts](../../tests/currentReports.test.ts)<br>[stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-303 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-303-V1 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-303-V3 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-303-V4 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-101 | fixed-verified | fixed-and-verified | [evidenceSelection.eventReferent.test.ts](../../tests/evidenceSelection.eventReferent.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 55) |
+| AI-103 | still-reproducible | fixed-and-verified | [stageC.entities.lly.test.ts](../../tests/stageC.entities.lly.test.ts)<br>[stageC.judgeProtocol.test.ts](../../tests/stageC.judgeProtocol.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 13) |
+| AI-116 | still-reproducible | fixed-and-verified | [report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts)<br>[stageC.insiderRoles.test.ts](../../tests/stageC.insiderRoles.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 12) |
+| AI-304-V1 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.tokens.test.ts](../../tests/stageC.claimEvidence.tokens.test.ts) | Earlier adjudication; mapped current regression |
+| AI-304-V2 | fixed-verified | fixed-and-verified | [stageC.verifyChecks.test.ts](../../tests/stageC.verifyChecks.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 102) |
+| AI-305-V1 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.ownDescription.test.ts](../../tests/stageC.claimEvidence.ownDescription.test.ts) | Earlier adjudication; mapped current regression |
+| AI-407 | still-reproducible | fixed-and-verified | [stageC.excerptCurrencyScale.test.ts](../../tests/stageC.excerptCurrencyScale.test.ts)<br>[stageC.tracedNumberDescription.test.ts](../../tests/stageC.tracedNumberDescription.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 7) |
+| AI-408 | partially-fixed | fixed-and-verified | [report.p3Records.test.ts](../../tests/report.p3Records.test.ts)<br>[stageC.metricRowPeriod.test.ts](../../tests/stageC.metricRowPeriod.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 8) |
+| AI-501 | still-reproducible | fixed-and-verified | [stageC.claimEvidence.recordMetric.test.ts](../../tests/stageC.claimEvidence.recordMetric.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 116)<br>[2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 9) |
+| AI-502 | still-reproducible | fixed-and-verified | [stageC.claimEvidence.recordMetric.test.ts](../../tests/stageC.claimEvidence.recordMetric.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 117)<br>[2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 10) |
+| AI-511 | fixed-verified | fixed-and-verified | [report.legacyPayloadRecords.test.ts](../../tests/report.legacyPayloadRecords.test.ts)<br>[stageC.gradedFcfConversion.test.ts](../../tests/stageC.gradedFcfConversion.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 53) |
+| AI-512 | fixed-verified | fixed-and-verified | [stageC.releaseFiscalLabel.test.ts](../../tests/stageC.releaseFiscalLabel.test.ts) | Earlier adjudication; mapped current regression |
+| SEC-203 | fixed-verified | fixed-and-verified | [stageC.numberScanLinearity.test.ts](../../tests/stageC.numberScanLinearity.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 99) |
+| AI-104 | still-reproducible | fixed-and-verified | [stageC.excessReturnVisibility.audit20261022.test.ts](../../tests/stageC.excessReturnVisibility.audit20261022.test.ts)<br>[stageC.returnPathOrigin.test.ts](../../tests/stageC.returnPathOrigin.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 14) |
+| AI-111 | still-reproducible | fixed-and-verified | [report.schema.test.ts](../../tests/report.schema.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 15) |
+| AI-409 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.bounds.test.ts](../../tests/stageC.claimEvidence.bounds.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 106) |
+| AI-410 | fixed-verified | fixed-and-verified | [report.legacyPayloadRecords.test.ts](../../tests/report.legacyPayloadRecords.test.ts)<br>[stageB.capexToDaAverage.test.ts](../../tests/stageB.capexToDaAverage.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 50) |
+| AI-504 | still-reproducible | fixed-and-verified | [stageC.claimEvidence.recordMetric.test.ts](../../tests/stageC.claimEvidence.recordMetric.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 121)<br>[2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 11) |
+| AI-509 | fixed-verified | fixed-and-verified | [report.legacyPayloadRecords.test.ts](../../tests/report.legacyPayloadRecords.test.ts)<br>[stageA.validate.test.ts](../../tests/stageA.validate.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts)<br>[stageC.providerGeography.test.ts](../../tests/stageC.providerGeography.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 52) |
+| FIN-119 | fixed-verified | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.redeemableNciCashOwnership.test.ts](../../tests/stageB.redeemableNciCashOwnership.test.ts)<br>[stageB.temporaryEquity.audit20261027.test.ts](../../tests/stageB.temporaryEquity.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-302 | still-reproducible | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.convertibleReader.audit20261027.test.ts](../../tests/stageB.convertibleReader.audit20261027.test.ts)<br>[stageB.convertibles.audit20261027.test.ts](../../tests/stageB.convertibles.audit20261027.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 17) |
+| FIN-302-V1 | still-reproducible | fixed-and-verified | [stageB.convertibles.audit20261027.test.ts](../../tests/stageB.convertibles.audit20261027.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 18) |
+| FIN-305 | fixed-verified | fixed-and-verified | [edgar.sic.test.ts](../../tests/edgar.sic.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.debtLikeObligations.audit20261027.test.ts](../../tests/stageB.debtLikeObligations.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-401 | still-reproducible | fixed-and-verified | [edgar.equityMethodPlacement.audit20261027.test.ts](../../tests/edgar.equityMethodPlacement.audit20261027.test.ts)<br>[report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.countEveryClaimOnce.audit20261027.test.ts](../../tests/stageB.countEveryClaimOnce.audit20261027.test.ts)<br>[stageB.dcfDomain.audit20261022.test.ts](../../tests/stageB.dcfDomain.audit20261022.test.ts)<br>[stageB.equityMethodReview.audit20261027.test.ts](../../tests/stageB.equityMethodReview.audit20261027.test.ts)<br>[stageB.equityMethodStake.audit20261027.test.ts](../../tests/stageB.equityMethodStake.audit20261027.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 15) |
+| FIN-509 | fixed-verified | fixed-and-verified | [edgar.derivedLines.audit20261027.test.ts](../../tests/edgar.derivedLines.audit20261027.test.ts)<br>[edgar.statements.test.ts](../../tests/edgar.statements.test.ts)<br>[edgar.tagSynonyms.test.ts](../../tests/edgar.tagSynonyms.test.ts)<br>[report.legacyEdgarDerivedLines.test.ts](../../tests/report.legacyEdgarDerivedLines.test.ts) | [2026-10-27-audit-batch-b13-edgar-derived-lines.md](2026-10-27-audit-batch-b13-edgar-derived-lines.md) (line 120) |
+| FIN-510 | fixed-verified | fixed-and-verified | [edgar.derivedLines.audit20261027.test.ts](../../tests/edgar.derivedLines.audit20261027.test.ts)<br>[report.legacyEdgarDerivedLines.test.ts](../../tests/report.legacyEdgarDerivedLines.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-120 | fixed-verified | fixed-and-verified | [stageB.bankDisclosure.audit20261027.test.ts](../../tests/stageB.bankDisclosure.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 25) |
+| FIN-121 | fixed-verified | fixed-and-verified | [stageB.finOtherOverlay.audit20261027.test.ts](../../tests/stageB.finOtherOverlay.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 27) |
+| FIN-122 | fixed-verified | fixed-and-verified | [stageB.financialMetricsRestatement.audit20261027.test.ts](../../tests/stageB.financialMetricsRestatement.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 24) |
+| FIN-123 | fixed-verified | fixed-and-verified | [stageB.ineligibleValuationGrade.audit20261027.test.ts](../../tests/stageB.ineligibleValuationGrade.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 29) |
+| FIN-124 | fixed-verified | fixed-and-verified | [stageB.unresolvedEligibilityForensics.audit20261027.test.ts](../../tests/stageB.unresolvedEligibilityForensics.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 28) |
+| FIN-305-V1 | fixed-verified | fixed-and-verified | [stageB.debtLikeObligations.audit20261027.test.ts](../../tests/stageB.debtLikeObligations.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-306 | still-reproducible | fixed-and-verified | [report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts)<br>[stageB.forensics.test.ts](../../tests/stageB.forensics.test.ts)<br>[stageB.grading.test.ts](../../tests/stageB.grading.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 30)<br>[2026-11-02-p9-methodology.md](2026-11-02-p9-methodology.md) (line 8) |
+| FIN-307 | partially-fixed | superseded | [audit.dcfOwnership.test.ts](../../tests/audit.dcfOwnership.test.ts)<br>[stageB.adrMarketEquityScope.audit20261027.test.ts](../../tests/stageB.adrMarketEquityScope.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 32)<br>[2026-11-02-p9-methodology.md](2026-11-02-p9-methodology.md) (line 9) |
+| FIN-308 | still-reproducible | fixed-and-verified | [audit.issuerPipeline.test.ts](../../tests/audit.issuerPipeline.test.ts)<br>[report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts)<br>[stageB.grading.test.ts](../../tests/stageB.grading.test.ts)<br>[stageB.routingEvidence.test.ts](../../tests/stageB.routingEvidence.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 31)<br>[2026-11-02-p9-methodology.md](2026-11-02-p9-methodology.md) (line 10) |
+| FIN-401-V1 | still-reproducible | fixed-and-verified | [edgar.equityMethodPlacement.audit20261027.test.ts](../../tests/edgar.equityMethodPlacement.audit20261027.test.ts)<br>[report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.dcfDomain.audit20261022.test.ts](../../tests/stageB.dcfDomain.audit20261022.test.ts)<br>[stageB.equityMethodStake.audit20261027.test.ts](../../tests/stageB.equityMethodStake.audit20261027.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 16) |
+| FIN-403 | fixed-verified | fixed-and-verified | [stageB.successorObligations.audit20261027.test.ts](../../tests/stageB.successorObligations.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-503 | fixed-verified | fixed-and-verified | [report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 39) |
+| FIN-302-V2 | still-reproducible | fixed-and-verified | [stageB.convertibleForecastEps.audit20261027.test.ts](../../tests/stageB.convertibleForecastEps.audit20261027.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 19) |
+| FIN-305-V2 | fixed-verified | fixed-and-verified | [stageB.debtLikeObligations.audit20261027.test.ts](../../tests/stageB.debtLikeObligations.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-309 | still-reproducible | fixed-and-verified | [audit.issuerPipeline.test.ts](../../tests/audit.issuerPipeline.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.excessReturnValuationDate.audit20261027.test.ts](../../tests/stageB.excessReturnValuationDate.audit20261027.test.ts)<br>[stageC.excessReturnVisibility.audit20261022.test.ts](../../tests/stageC.excessReturnVisibility.audit20261022.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 20)<br>[2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 22) |
+| FIN-311 | fixed-verified | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.financialValuation.test.ts](../../tests/stageB.financialValuation.test.ts)<br>[stageB.reitOneMarketCap.audit20261027.test.ts](../../tests/stageB.reitOneMarketCap.audit20261027.test.ts)<br>[stageB.valuation.test.ts](../../tests/stageB.valuation.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-312 | fixed-verified | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 33) |
+| FIN-313 | fixed-verified | fixed-and-verified | [stageB.adrDisclosure.audit20261027.test.ts](../../tests/stageB.adrDisclosure.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 26) |
+| FIN-407 | still-reproducible | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.multiclassForecastEps.audit20261027.test.ts](../../tests/stageB.multiclassForecastEps.audit20261027.test.ts)<br>[stageB.projections.test.ts](../../tests/stageB.projections.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 20) |
+| FIN-505 | fixed-verified | fixed-and-verified | [stageB.peRankConstruction.audit20261027.test.ts](../../tests/stageB.peRankConstruction.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 40) |
+| FIN-506 | fixed-verified | fixed-and-verified | [report.legacyImpliedReturnShareBasis.test.ts](../../tests/report.legacyImpliedReturnShareBasis.test.ts)<br>[stageB.excessReturnReverseShareBasis.audit20261027.test.ts](../../tests/stageB.excessReturnReverseShareBasis.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 21) |
+| FIN-510-V1 | partially-fixed | fixed-and-verified | [edgar.derivedLines.audit20261027.test.ts](../../tests/edgar.derivedLines.audit20261027.test.ts)<br>[edgar.statements.test.ts](../../tests/edgar.statements.test.ts) | [2026-11-02-p9-methodology.md](2026-11-02-p9-methodology.md) (line 11) |
+| RPT-101 | fixed-verified | fixed-and-verified | [report.assessment.test.ts](../../tests/report.assessment.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 37) |
+| FIN-510-V2 | fixed-verified | fixed-and-verified | [stageB.reitFfoTotalDa.audit20261027.test.ts](../../tests/stageB.reitFfoTotalDa.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-301 | fixed-verified | fixed-and-verified | [stageB.periodLength.test.ts](../../tests/stageB.periodLength.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 16) |
+| FIN-301-V1 | fixed-verified | fixed-and-verified | [stageB.seasonalGuidance.test.ts](../../tests/stageB.seasonalGuidance.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 17) |
+| FIN-101-V1 | fixed-verified | fixed-and-verified | [stageC.reverseDcfContext.test.ts](../../tests/stageC.reverseDcfContext.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 19) |
+| FIN-102 | still-reproducible | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[stageB.terminalOperatingLoss.test.ts](../../tests/stageB.terminalOperatingLoss.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 15) |
+| FIN-111 | still-reproducible | fixed-and-verified | [stageB.seasonalGuidance.test.ts](../../tests/stageB.seasonalGuidance.test.ts)<br>[stageB.transitionPeriod.test.ts](../../tests/stageB.transitionPeriod.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 16) |
+| FIN-114 | still-reproducible | fixed-and-verified | [stageB.erpCountryLabel.test.ts](../../tests/stageB.erpCountryLabel.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 22) |
+| FIN-116 | still-reproducible | fixed-and-verified | [stageB.debtAdmission.test.ts](../../tests/stageB.debtAdmission.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 19) |
+| FIN-127 | still-reproducible | fixed-and-verified | [stageB.projectionFiscalLabels.test.ts](../../tests/stageB.projectionFiscalLabels.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 21) |
+| FIN-402 | still-reproducible | fixed-and-verified | [stageB.oneOperatingIncome.test.ts](../../tests/stageB.oneOperatingIncome.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 11) |
+| FIN-402-V1 | still-reproducible | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 12) |
+| FIN-402-V2 | still-reproducible | fixed-and-verified | [incomeBasis.standaloneProof.test.ts](../../tests/incomeBasis.standaloneProof.test.ts)<br>[incomeBasis.retainedOperating.test.ts](../../tests/incomeBasis.retainedOperating.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 13) |
+| FIN-405 | still-reproducible | fixed-and-verified | [stageB.latestGrowth.test.ts](../../tests/stageB.latestGrowth.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 20) |
+| FIN-501 | still-reproducible | fixed-and-verified | [stageB.reverseDcfDomain.test.ts](../../tests/stageB.reverseDcfDomain.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 17) |
+| FIN-502 | still-reproducible | fixed-and-verified | [report.legacyValuationNotes.test.ts](../../tests/report.legacyValuationNotes.test.ts)<br>[stageB.taxSeedOneOff.test.ts](../../tests/stageB.taxSeedOneOff.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 14) |
+| FIN-104 | still-reproducible | fixed-and-verified | [stageB.reverseDcfDomain.test.ts](../../tests/stageB.reverseDcfDomain.test.ts)<br>[stageB.valuation.test.ts](../../tests/stageB.valuation.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 18) |
+| FIN-113 | still-reproducible | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[stageB.currentCapital.test.ts](../../tests/stageB.currentCapital.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 23) |
+| FIN-115 | still-reproducible | fixed-and-verified | [stageB.waccPriorYearCostOfDebt.test.ts](../../tests/stageB.waccPriorYearCostOfDebt.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 24) |
+| FIN-118 | still-reproducible | fixed-and-verified | [fairValue.degradedInputs.test.ts](../../tests/fairValue.degradedInputs.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 25) |
+| FIN-301-V2 | fixed-verified | fixed-and-verified | [stageB.seasonalGuidance.test.ts](../../tests/stageB.seasonalGuidance.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 21) |
+| FIN-301-V3 | fixed-verified | fixed-and-verified | [stageB.fiscalCalendar.test.ts](../../tests/stageB.fiscalCalendar.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 22) |
+| FIN-406 | still-reproducible | fixed-and-verified | [stageB.lossTaxShield.test.ts](../../tests/stageB.lossTaxShield.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 26) |
+| FIN-512 | still-reproducible | fixed-and-verified | [report.legacyValuationNotes.test.ts](../../tests/report.legacyValuationNotes.test.ts)<br>[stageB.projections.test.ts](../../tests/stageB.projections.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 27) |
+| RPT-502 | still-reproducible | fixed-and-verified | [report.scenarioPresentation.test.ts](../../tests/report.scenarioPresentation.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 28) |
+| FIN-101-V2 | fixed-verified | fixed-and-verified | [stageB.seasonalGuidance.test.ts](../../tests/stageB.seasonalGuidance.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 20) |
+| AI-108 | fixed-verified | fixed-and-verified | [stageC.judgeProtocol.test.ts](../../tests/stageC.judgeProtocol.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 39)<br>[2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 54) |
+| DB-001 | fixed-verified | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-10-29-audit-fix-08a-retry-data-only-fallback.md](2026-10-29-audit-fix-08a-retry-data-only-fallback.md) (line 21) |
+| AI-110 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts)<br>[repository.release.test.ts](../../tests/repository.release.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 50) |
+| AI-115 | still-reproducible | fixed-and-verified | [ai.mutex.test.ts](../../tests/ai.mutex.test.ts)<br>[ai.store.test.ts](../../tests/ai.store.test.ts)<br>[repository.release.test.ts](../../tests/repository.release.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 51) |
+| AI-307 | fixed-verified | fixed-and-verified | [requestAdmission.test.ts](../../tests/requestAdmission.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 61) |
+| AI-308 | fixed-verified | fixed-and-verified | [requestAdmission.test.ts](../../tests/requestAdmission.test.ts) | Earlier adjudication; mapped current regression |
+| AI-510 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 47) |
+| JOB-201 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 48) |
+| JOB-202 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 43) |
+| JOB-206 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 44) |
+| JOB-208 | fixed-verified | fixed-and-verified | [degradation.providers.test.ts](../../tests/degradation.providers.test.ts)<br>[degradation.outage.simulation.test.ts](../../tests/degradation.outage.simulation.test.ts) | Earlier adjudication; mapped current regression |
+| JOB-213 | still-reproducible | fixed-and-verified | [api.routes.report.test.ts](../../tests/api.routes.report.test.ts)<br>[company.generateReport.persistence.test.ts](../../tests/company.generateReport.persistence.test.ts)<br>[db.jobs.migration.test.ts](../../tests/db.jobs.migration.test.ts)<br>[jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 45) |
+| JOB-301 | unverified | fixed-and-verified | [company.generateReport.stream.test.ts](../../tests/company.generateReport.stream.test.ts)<br>[companyJobIdentity.test.ts](../../tests/companyJobIdentity.test.ts)<br>[jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 49) |
+| AI-109 | fixed-verified | fixed-and-verified | [stageC.judgeProtocol.test.ts](../../tests/stageC.judgeProtocol.test.ts) | Earlier adjudication; mapped current regression |
+| AI-112 | fixed-verified | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 43)<br>[2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 64) |
+| AI-113-V1 | fixed-verified | fixed-and-verified | [anthropic.test.ts](../../tests/anthropic.test.ts)<br>[requestAdmission.test.ts](../../tests/requestAdmission.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 38) |
+| AI-114 | fixed-verified | fixed-and-verified | [anthropic.test.ts](../../tests/anthropic.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 60) |
+| JOB-204 | fixed-verified | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 65) |
+| JOB-205 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 53) |
+| JOB-207 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 52) |
+| JOB-214 | still-reproducible | fixed-and-verified | [company.generateReport.persistence.test.ts](../../tests/company.generateReport.persistence.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 54) |
+| JOB-215 | still-reproducible | fixed-and-verified | [company.generateReport.persistence.test.ts](../../tests/company.generateReport.persistence.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 55) |
+| PERF-202 | still-reproducible | fixed-and-verified | [api.routes.stream.test.ts](../../tests/api.routes.stream.test.ts)<br>[risk.runtime.coverage.test.ts](../../tests/risk.runtime.coverage.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 56) |
+| RPT-210 | fixed-verified | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts)<br>[report.markdownCostTotal.test.ts](../../tests/report.markdownCostTotal.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 55) |
+| AI-202-V1 | still-reproducible | fixed-and-verified | [currentReports.guidanceRanges.test.ts](../../tests/currentReports.guidanceRanges.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 8) |
+| AI-506 | still-reproducible | fixed-and-verified | [adbeReportAudit.regressions.test.ts](../../tests/adbeReportAudit.regressions.test.ts)<br>[currentReports.compactFreeCashFlow.test.ts](../../tests/currentReports.compactFreeCashFlow.test.ts)<br>[currentReports.resultsNarrative.test.ts](../../tests/currentReports.resultsNarrative.test.ts)<br>[currentReports.retention.test.ts](../../tests/currentReports.retention.test.ts)<br>[report.keyDataDividendCurrency.audit20261027.test.ts](../../tests/report.keyDataDividendCurrency.audit20261027.test.ts)<br>[stageC.releaseFiscalLabel.test.ts](../../tests/stageC.releaseFiscalLabel.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 14) |
+| AI-508 | still-reproducible | fixed-and-verified | [segmentFacts.presentation.test.ts](../../tests/segmentFacts.presentation.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 7) |
+| AI-512-V1 | still-reproducible | fixed-and-verified | [currentReports.newerResults.test.ts](../../tests/currentReports.newerResults.test.ts)<br>[filingDisclosures.integrity.test.ts](../../tests/filingDisclosures.integrity.test.ts)<br>[filingDisclosures.releaseLabels.test.ts](../../tests/filingDisclosures.releaseLabels.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 16) |
+| DATA-101 | still-reproducible | fixed-and-verified | [edgar.temporaryEquityEnrichment.test.ts](../../tests/edgar.temporaryEquityEnrichment.test.ts)<br>[report.completeness.test.ts](../../tests/report.completeness.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 17) |
+| DATA-103 | still-reproducible | fixed-and-verified | [financialIncomeClassification.bankRouting.test.ts](../../tests/financialIncomeClassification.bankRouting.test.ts)<br>[financialIncomeClassification.test.ts](../../tests/financialIncomeClassification.test.ts)<br>[pipeline.peerFilings.test.ts](../../tests/pipeline.peerFilings.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 5) |
+| DATA-104 | still-reproducible | fixed-and-verified | [edgar.statements.presentationCurrency.test.ts](../../tests/edgar.statements.presentationCurrency.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 6) |
+| DATA-107 | still-reproducible | fixed-and-verified | [currentReports.eventItems.test.ts](../../tests/currentReports.eventItems.test.ts)<br>[currentReports.materialEventScope.test.ts](../../tests/currentReports.materialEventScope.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 15) |
+| DATA-111 | still-reproducible | fixed-and-verified | [companyEvents.dateGrammar.test.ts](../../tests/companyEvents.dateGrammar.test.ts)<br>[filingDisclosures.timeZone.test.ts](../../tests/filingDisclosures.timeZone.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 13) |
+| DATA-112 | still-reproducible | fixed-and-verified | [db.cache.test.ts](../../tests/db.cache.test.ts)<br>[providers.usSession.test.ts](../../tests/providers.usSession.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 11) |
+| DATA-113 | still-reproducible | fixed-and-verified | [keyless.test.ts](../../tests/keyless.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 12) |
+| DATA-114 | still-reproducible | fixed-and-verified | [db.cache.test.ts](../../tests/db.cache.test.ts)<br>[fmp.client.test.ts](../../tests/fmp.client.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 10) |
+| RPT-201 | still-reproducible | fixed-and-verified | [currentReports.dividendFrequency.test.ts](../../tests/currentReports.dividendFrequency.test.ts)<br>[currentReports.resultsNarrative.test.ts](../../tests/currentReports.resultsNarrative.test.ts)<br>[report.presentation.dividendYield.test.ts](../../tests/report.presentation.dividendYield.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 9) |
+| RPT-202 | fixed-verified | fixed-and-verified | [estimateTiming.test.ts](../../tests/estimateTiming.test.ts)<br>[estimateTiming.integration.test.ts](../../tests/estimateTiming.integration.test.ts) | Earlier adjudication; mapped current regression |
+| DATA-102 | still-reproducible | fixed-and-verified | [pipeline.peerFilings.test.ts](../../tests/pipeline.peerFilings.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 9)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 18) |
+| DATA-106 | still-reproducible | fixed-and-verified | [settings.credentials.test.ts](../../tests/settings.credentials.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 5)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 19) |
+| DATA-108 | still-reproducible | fixed-and-verified | [currentReports.eventItems.test.ts](../../tests/currentReports.eventItems.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 20) |
+| DATA-109 | still-reproducible | fixed-and-verified | [currentReports.eventItems.test.ts](../../tests/currentReports.eventItems.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 21) |
+| DATA-110 | still-reproducible | fixed-and-verified | [edgar.filingFacts.test.ts](../../tests/edgar.filingFacts.test.ts)<br>[filingDisclosures.composition.test.ts](../../tests/filingDisclosures.composition.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 10)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 22) |
+| DATA-115 | still-reproducible | fixed-and-verified | [dataBundle.providerCache.test.ts](../../tests/dataBundle.providerCache.test.ts)<br>[db.cache.test.ts](../../tests/db.cache.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 8)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 23) |
+| DATA-116 | still-reproducible | fixed-and-verified | [fmp.access.test.ts](../../tests/fmp.access.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 6)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 24) |
+| PERF-101 | still-reproducible | fixed-and-verified | [fmp.access.test.ts](../../tests/fmp.access.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 7)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 25) |
+| AI-201 | still-reproducible | fixed-and-verified | [stageC.dataOnlyMacro.test.ts](../../tests/stageC.dataOnlyMacro.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 5) |
+| DB-002 | still-reproducible | fixed-and-verified | [report.history.export.test.ts](../../tests/report.history.export.test.ts)<br>[report.revisionDigest.test.ts](../../tests/report.revisionDigest.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 6) |
+| RPT-206 | still-reproducible | fixed-and-verified | [report.completeness.test.ts](../../tests/report.completeness.test.ts)<br>[report.snapshotResearch.test.ts](../../tests/report.snapshotResearch.test.ts)<br>[report.surface.client.test.ts](../../tests/report.surface.client.test.ts)<br>[report.surface.completeness.test.ts](../../tests/report.surface.completeness.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 20) |
+| RPT-501 | still-reproducible | fixed-and-verified | [currency.companyPage.test.ts](../../tests/currency.companyPage.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 7) |
+| DB-003 | still-reproducible | fixed-and-verified | [report.executionMetadata.test.ts](../../tests/report.executionMetadata.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 15) |
+| DB-004 | still-reproducible | fixed-and-verified | [report.completeness.test.ts](../../tests/report.completeness.test.ts)<br>[report.correctedCli.test.ts](../../tests/report.correctedCli.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 17) |
+| DB-005 | still-reproducible | fixed-and-verified | [report.history.export.test.ts](../../tests/report.history.export.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 8) |
+| DB-006 | still-reproducible | fixed-and-verified | [report.revisionDigest.test.ts](../../tests/report.revisionDigest.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 16) |
+| RPT-001 | still-reproducible | fixed-and-verified | [company.report.presentation.test.ts](../../tests/company.report.presentation.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 17) |
+| RPT-102 | still-reproducible | fixed-and-verified | [charts.missingObservations.test.ts](../../tests/charts.missingObservations.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 9) |
+| RPT-103 | still-reproducible | fixed-and-verified | [stageB.technicals.test.ts](../../tests/stageB.technicals.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 18) |
+| RPT-203 | still-reproducible | fixed-and-verified | [report.presentation.d67.test.ts](../../tests/report.presentation.d67.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 10) |
+| RPT-204 | still-reproducible | fixed-and-verified | [report.format.shared.test.ts](../../tests/report.format.shared.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 19) |
+| RPT-205 | still-reproducible | fixed-and-verified | [report.presentation.labels.test.ts](../../tests/report.presentation.labels.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 11) |
+| RPT-207 | still-reproducible | fixed-and-verified | [report.issuerGapFallback.test.ts](../../tests/report.issuerGapFallback.test.ts)<br>[report.presentation.d67.test.ts](../../tests/report.presentation.d67.test.ts)<br>[report.refinement.trust.test.ts](../../tests/report.refinement.trust.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 21) |
+| RPT-208 | still-reproducible | fixed-and-verified | [report.publicReadiness.test.ts](../../tests/report.publicReadiness.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 20) |
+| RPT-209 | still-reproducible | fixed-and-verified | [report.completeness.test.ts](../../tests/report.completeness.test.ts)<br>[report.legacyEntitySafety.test.ts](../../tests/report.legacyEntitySafety.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 18) |
+| RPT-211 | still-reproducible | fixed-and-verified | [report.auditSurfaces.test.ts](../../tests/report.auditSurfaces.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 22) |
+| RPT-212 | still-reproducible | fixed-and-verified | [report.providerFallback.test.ts](../../tests/report.providerFallback.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 19) |
+| RPT-213 | still-reproducible | fixed-and-verified | [report.capitalBridge.test.ts](../../tests/report.capitalBridge.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 12) |
+| RPT-214 | still-reproducible | fixed-and-verified | [report.researchReview.test.ts](../../tests/report.researchReview.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 21) |
+| RPT-215 | still-reproducible | fixed-and-verified | [report.capitalBridge.test.ts](../../tests/report.capitalBridge.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 13) |
+| RPT-216 | still-reproducible | fixed-and-verified | [report.capitalBridge.test.ts](../../tests/report.capitalBridge.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 22) |
+| RPT-217 | still-reproducible | fixed-and-verified | [report.presentation.labels.test.ts](../../tests/report.presentation.labels.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 14) |
+| RPT-503 | partially-fixed | fixed-and-verified | [report.modelEvidence.test.ts](../../tests/report.modelEvidence.test.ts)<br>[report.runDisclosure.test.ts](../../tests/report.runDisclosure.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 23) |
+| RPT-504 | still-reproducible | fixed-and-verified | [company.generateReport.stream.test.ts](../../tests/company.generateReport.stream.test.ts)<br>[report.computedMark.test.ts](../../tests/report.computedMark.test.ts)<br>[report.surface.client.test.ts](../../tests/report.surface.client.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 16) |
+| DOC-203 | still-reproducible | fixed-and-verified | [env.exampleAliases.test.ts](../../tests/env.exampleAliases.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 46) |
+| SEC-201 | still-reproducible | fixed-and-verified | [api.routes.sameOrigin.test.ts](../../tests/api.routes.sameOrigin.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 7) |
+| SEC-202 | still-reproducible | fixed-and-verified | [api.localOnly.test.ts](../../tests/api.localOnly.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 8) |
+| SEC-204 | still-reproducible | fixed-and-verified | [ai.storeUnreadable.test.ts](../../tests/ai.storeUnreadable.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 9) |
+| SEC-206 | still-reproducible | fixed-and-verified | [ai.settingsSelection.test.ts](../../tests/ai.settingsSelection.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 10) |
+| SEC-207 | still-reproducible | fixed-and-verified | [privacy.recovery.test.ts](../../tests/privacy.recovery.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 11) |
+| DOC-101 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 7) |
+| DOC-102 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 9) |
+| DOC-201 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 10) |
+| DOC-202 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 11) |
+| DOC-204 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 12) |
+| DOC-205 | superseded | superseded | Historical documentation freeze | [Current validation status](../VALIDATION-STATUS.md) |
+| DOC-301 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 17) |
+| JOB-212 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 8) |
+| PERF-201 | still-reproducible | fixed-and-verified | [ai.storeCache.test.ts](../../tests/ai.storeCache.test.ts)<br>[ai.storeFailures.test.ts](../../tests/ai.storeFailures.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 12) |
+| SEC-205 | still-reproducible | fixed-and-verified | [ai.selection.test.ts](../../tests/ai.selection.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 13) |
+| TEST-201 | still-reproducible | fixed-and-verified | [risk.coverage.test.ts](../../tests/risk.coverage.test.ts)<br>[stageB.economicShareScope.test.ts](../../tests/stageB.economicShareScope.test.ts)<br>[stageB.forensicsD61.test.ts](../../tests/stageB.forensicsD61.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 13) |
+| TEST-202 | still-reproducible | fixed-and-verified | [sourceScope.p8.test.ts](../../tests/sourceScope.p8.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 14) |
+| TEST-203 | still-reproducible | fixed-and-verified | [setup.nodeNetwork.p8.test.ts](../../tests/setup.nodeNetwork.p8.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 15) |
+| TEST-204 | still-reproducible | fixed-and-verified | [scripts.reportReading.test.ts](../../tests/scripts.reportReading.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 16) |
+| AI-301 | fixed-verified | fixed-and-verified | [pipeline.peerDiscoveryScreen.test.ts](../../tests/pipeline.peerDiscoveryScreen.test.ts)<br>[report.legacyPayloadRecords.test.ts](../../tests/report.legacyPayloadRecords.test.ts)<br>[stageC.gapCitations.test.ts](../../tests/stageC.gapCitations.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts)<br>[stageC.peerConventionClosed.test.ts](../../tests/stageC.peerConventionClosed.test.ts)<br>[stageC.peerCurrency.test.ts](../../tests/stageC.peerCurrency.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 48) |
+| AI-113 | fixed-verified | fixed-and-verified | [anthropic.test.ts](../../tests/anthropic.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 37)<br>[2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 59) |
+| AI-202 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.d66.test.ts](../../tests/stageC.claimEvidence.d66.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 100) |
+| AI-304 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.tokens.test.ts](../../tests/stageC.claimEvidence.tokens.test.ts)<br>[stageC.numberScanLinearity.test.ts](../../tests/stageC.numberScanLinearity.test.ts) | Earlier adjudication; mapped current regression |
+| AI-305 | fixed-verified | fixed-and-verified | [currentReports.test.ts](../../tests/currentReports.test.ts)<br>[edgar.filingFacts.test.ts](../../tests/edgar.filingFacts.test.ts)<br>[stageC.claimEvidence.ownDescription.test.ts](../../tests/stageC.claimEvidence.ownDescription.test.ts)<br>[stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 88)<br>[2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 89) |
+| AI-401 | fixed-verified | fixed-and-verified | [stageC.factualValidation.test.ts](../../tests/stageC.factualValidation.test.ts) | Earlier adjudication; mapped current regression |
+| AI-401-V1 | fixed-verified | fixed-and-verified | [stageC.factualValidation.test.ts](../../tests/stageC.factualValidation.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 105) |
+| AI-402 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-503 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.comparisonBase.test.ts](../../tests/stageC.claimEvidence.comparisonBase.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 118) |
+| AI-503-V1 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.comparisonBase.test.ts](../../tests/stageC.claimEvidence.comparisonBase.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 119) |
+| FIN-101 | fixed-verified | fixed-and-verified | [stageB.seasonalGuidance.test.ts](../../tests/stageB.seasonalGuidance.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 18) |
+| FIN-105 | fixed-verified | fixed-and-verified | [stageB.ptbvCurrency.audit20261027.test.ts](../../tests/stageB.ptbvCurrency.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 16) |
+| FIN-303 | fixed-verified | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.leaseBasisCapital.audit20261027.test.ts](../../tests/stageB.leaseBasisCapital.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-507 | fixed-verified | fixed-and-verified | [edgar.derivedLines.audit20261027.test.ts](../../tests/edgar.derivedLines.audit20261027.test.ts)<br>[edgar.presentationLineage.audit20261027.test.ts](../../tests/edgar.presentationLineage.audit20261027.test.ts)<br>[edgar.statements.test.ts](../../tests/edgar.statements.test.ts)<br>[keyless.test.ts](../../tests/keyless.test.ts)<br>[report.legacyEdgarDerivedLines.test.ts](../../tests/report.legacyEdgarDerivedLines.test.ts) | [2026-10-27-audit-batch-b13-edgar-derived-lines.md](2026-10-27-audit-batch-b13-edgar-derived-lines.md) (line 118) |
+| FIN-511 | fixed-verified | fixed-and-verified | [edgar.financialEnrichment.q4Basis.audit20261027.test.ts](../../tests/edgar.financialEnrichment.q4Basis.audit20261027.test.ts)<br>[edgar.presentationLineage.audit20261027.test.ts](../../tests/edgar.presentationLineage.audit20261027.test.ts) | [2026-10-27-audit-batch-b13-edgar-derived-lines.md](2026-10-27-audit-batch-b13-edgar-derived-lines.md) (line 122) |
+| AI-306 | fixed-verified | fixed-and-verified | [stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts)<br>[stageC.shareCountWindow.test.ts](../../tests/stageC.shareCountWindow.test.ts) | Earlier adjudication; mapped current regression |
+| AI-309 | fixed-verified | fixed-and-verified | [anthropic.test.ts](../../tests/anthropic.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 40)<br>[2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 53) |
+| AI-310 | fixed-verified | fixed-and-verified | [finra.fred.test.ts](../../tests/finra.fred.test.ts)<br>[report.legacyPayloadRecords.test.ts](../../tests/report.legacyPayloadRecords.test.ts) | Earlier adjudication; mapped current regression |
+| AI-402-V1 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-403 | fixed-verified | fixed-and-verified | [stageC.excerptCurrencyScale.test.ts](../../tests/stageC.excerptCurrencyScale.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 103) |
+| AI-404 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-405 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-406 | fixed-verified | fixed-and-verified | [segmentGrowthColumns.test.ts](../../tests/segmentGrowthColumns.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 54) |
+| AI-503-V2 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.comparisonBase.test.ts](../../tests/stageC.claimEvidence.comparisonBase.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 120) |
+| AI-505 | fixed-verified | fixed-and-verified | [stageC.statementRestatements.test.ts](../../tests/stageC.statementRestatements.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 57) |
+| FIN-105-V1 | fixed-verified | fixed-and-verified | [report.keyDataDividendCurrency.audit20261027.test.ts](../../tests/report.keyDataDividendCurrency.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 17) |
+| FIN-112 | fixed-verified | fixed-and-verified | [stageB.currentCapital.test.ts](../../tests/stageB.currentCapital.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 22) |
+| FIN-117 | fixed-verified | fixed-and-verified | [stageB.buybackWindowCoverage.audit20261027.test.ts](../../tests/stageB.buybackWindowCoverage.audit20261027.test.ts)<br>[stageB.forensicsD61.test.ts](../../tests/stageB.forensicsD61.test.ts)<br>[stageB.growth.returns.capital.test.ts](../../tests/stageB.growth.returns.capital.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 23) |
+| FIN-119-V1 | fixed-verified | fixed-and-verified | [stageB.temporaryEquity.audit20261027.test.ts](../../tests/stageB.temporaryEquity.audit20261027.test.ts)<br>[stageB.temporaryEquityCapital.audit20261027.test.ts](../../tests/stageB.temporaryEquityCapital.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-126 | fixed-verified | fixed-and-verified | [pipeline.peers.test.ts](../../tests/pipeline.peers.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 34) |
+| FIN-303-V1 | fixed-verified | fixed-and-verified | [lease.partialOperating.test.ts](../../tests/lease.partialOperating.test.ts)<br>[stageB.growth.returns.capital.test.ts](../../tests/stageB.growth.returns.capital.test.ts)<br>[stageB.leaseBasisCapital.audit20261027.test.ts](../../tests/stageB.leaseBasisCapital.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-304 | fixed-verified | fixed-and-verified | [stageB.investmentsAboveCapital.audit20261027.test.ts](../../tests/stageB.investmentsAboveCapital.audit20261027.test.ts)<br>[stageB.leaseBasisCapital.audit20261027.test.ts](../../tests/stageB.leaseBasisCapital.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-404 | fixed-verified | fixed-and-verified | [stageB.issuerEconomicDilutedShares.audit20261022.test.ts](../../tests/stageB.issuerEconomicDilutedShares.audit20261022.test.ts)<br>[stageB.lossPeriodDivisor.audit20261027.test.ts](../../tests/stageB.lossPeriodDivisor.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-504 | fixed-verified | fixed-and-verified | [pipeline.peers.test.ts](../../tests/pipeline.peers.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 38) |
+| FIN-508 | fixed-verified | fixed-and-verified | [edgar.derivedLines.audit20261027.test.ts](../../tests/edgar.derivedLines.audit20261027.test.ts)<br>[edgar.presentationLineage.audit20261027.test.ts](../../tests/edgar.presentationLineage.audit20261027.test.ts)<br>[report.legacyEdgarDerivedLines.test.ts](../../tests/report.legacyEdgarDerivedLines.test.ts) | [2026-10-27-audit-batch-b13-edgar-derived-lines.md](2026-10-27-audit-batch-b13-edgar-derived-lines.md) (line 119) |
+| FIN-509-V1 | fixed-verified | fixed-and-verified | [report.legacyEdgarDerivedLines.test.ts](../../tests/report.legacyEdgarDerivedLines.test.ts)<br>[stageB.forensics.oneTimeGap.audit20261027.test.ts](../../tests/stageB.forensics.oneTimeGap.audit20261027.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-10-27-audit-batch-b13-edgar-derived-lines.md](2026-10-27-audit-batch-b13-edgar-derived-lines.md) (line 121) |
+| FIN-511-V1 | fixed-verified | fixed-and-verified | [filingDisclosures.trendBasis.audit20261027.test.ts](../../tests/filingDisclosures.trendBasis.audit20261027.test.ts)<br>[report.legacyEdgarDerivedLines.test.ts](../../tests/report.legacyEdgarDerivedLines.test.ts) | [2026-10-27-audit-batch-b13-edgar-derived-lines.md](2026-10-27-audit-batch-b13-edgar-derived-lines.md) (line 124) |
+| JOB-203 | fixed-verified | fixed-and-verified | [scheduler.presumedSpend.test.ts](../../tests/scheduler.presumedSpend.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 41)<br>[2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 62) |
+| JOB-209 | fixed-verified | fixed-and-verified | [requestAdmission.test.ts](../../tests/requestAdmission.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 42)<br>[2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 63) |
+| FIN-107 | fixed-verified | fixed-and-verified | [stageB.priceCurrency.minorUnit.audit20261027.test.ts](../../tests/stageB.priceCurrency.minorUnit.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 15) |
+| AI-102 | fixed-verified | fixed-and-verified | [stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts)<br>[stageC.plainSectionProviderText.test.ts](../../tests/stageC.plainSectionProviderText.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 59) |
+| AI-117-V1 | fixed-verified | fixed-and-verified | [stageC.insiderStatistics.test.ts](../../tests/stageC.insiderStatistics.test.ts) | Earlier adjudication; mapped current regression |
+| AI-301-V1 | fixed-verified | fixed-and-verified | [pipeline.peerDiscoveryScreen.test.ts](../../tests/pipeline.peerDiscoveryScreen.test.ts) | Earlier adjudication; mapped current regression |
+| AI-304-V3 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.tokens.test.ts](../../tests/stageC.claimEvidence.tokens.test.ts) | Earlier adjudication; mapped current regression |
+| AI-402-V2 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| AI-507 | fixed-verified | fixed-and-verified | [stageC.interimRecency.test.ts](../../tests/stageC.interimRecency.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 58) |
+| FIN-103 | fixed-verified | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.bridgeBalance.audit20261027.test.ts](../../tests/stageB.bridgeBalance.audit20261027.test.ts)<br>[stageB.temporaryEquity.audit20261027.test.ts](../../tests/stageB.temporaryEquity.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-106 | fixed-verified | fixed-and-verified | [stageB.routeMetricDates.audit20261027.test.ts](../../tests/stageB.routeMetricDates.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 18) |
+| FIN-108 | fixed-verified | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.reitOneMarketCap.audit20261027.test.ts](../../tests/stageB.reitOneMarketCap.audit20261027.test.ts)<br>[stageB.valuation.test.ts](../../tests/stageB.valuation.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-109 | fixed-verified | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.financeLeaseOnly.audit20261027.test.ts](../../tests/stageB.financeLeaseOnly.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-110 | fixed-verified | fixed-and-verified | [audit.scoringEligibility.test.ts](../../tests/audit.scoringEligibility.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 36) |
+| FIN-119-V2 | fixed-verified | fixed-and-verified | [stageB.reitOneMarketCap.audit20261027.test.ts](../../tests/stageB.reitOneMarketCap.audit20261027.test.ts)<br>[stageB.temporaryEquity.audit20261027.test.ts](../../tests/stageB.temporaryEquity.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-125 | fixed-verified | fixed-and-verified | [pipeline.peers.test.ts](../../tests/pipeline.peers.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 35) |
+| FIN-310 | fixed-verified | fixed-and-verified | [stageB.routeMetricDates.audit20261027.test.ts](../../tests/stageB.routeMetricDates.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 19) |
+| FIN-507-V1 | fixed-verified | fixed-and-verified | [edgar.derivedLines.audit20261027.test.ts](../../tests/edgar.derivedLines.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
+| FIN-511-V2 | fixed-verified | fixed-and-verified | [edgar.financialEnrichment.q4Basis.audit20261027.test.ts](../../tests/edgar.financialEnrichment.q4Basis.audit20261027.test.ts)<br>[financialQuarterBoundaries.test.ts](../../tests/financialQuarterBoundaries.test.ts) | [2026-10-27-audit-batch-b13-edgar-derived-lines.md](2026-10-27-audit-batch-b13-edgar-derived-lines.md) (line 123) |
+
+## D-209 - Continue through public-copy readiness (2026-11-05)
+
+The owner clarified that the verified D-208 repair milestone was not the stopping
+condition: continue justified fixes and polish toward the best public repository
+copy. New work starts from `73227ebb`; originals, failed receipts, source branches,
+private databases/reports and accepted model work remain preserved. No live
+FIGR/Opus report, financial acquisition or paid inference is authorized by this
+continuation. The earlier explicit PR/push/merge restriction remains a separate
+publication boundary until the concrete candidate is ready for that decision.
+
+Two reproducible evidence losses remained after the previous scoped closure.
+Same-filing debt completion copied a union of debt/lease tags and a calculation
+onto directly filed lease fields, concealing their noncurrent-only/partial scope.
+Repeated admission could also alternate a specific filed-current-debt refusal
+with a generic failed-composition message. Lease fields now retain their own
+total or maturity tags; debt aggregates retain their calculation proof. The
+generic composition failure is an internal fallback beneath independently
+established causes. Existing completion/refusal conditions are retained. The
+final review additionally reproduced incompatible lease facts receiving complete
+proof: current or noncurrent exceeded its total, or a full split failed to sum.
+A shared guard now rejects these shapes before direct-liability proof and both
+older noncurrent-line and broader debt-completion entry points. Comparison uses the total's own accession/date/form/unit, so another
+filing cannot falsely contradict or corroborate it. Eight failing-first cases
+cover both lease families, zero contradictions and both maturity directions;
+the final focused six-file selection passes 154 tests. This adds a real source
+consistency guard; unchanged numbers on valid inputs are a separate measured
+claim. The first release attempt stopped at a synthetic normalized-refusal
+fixture's null typing; runtime null is retained with an explicit test-only cast.
+Final all-company and release results remain separately recorded.
+
+The COP compact-table assessment established a precise evidence limit rather
+than a safe new admission. Printed annual arithmetic reconciles 10,907 operating
+and 12,656 pretax in the table's units, but the retained headings establish only
+`$ Millions`/`Millions of Dollars`, without an independent native USD row/unit
+trace. Missing future-quarter cells also make inferred quarterly dates unsafe;
+generic expense-role membership needs its own proof. No compact parser expansion,
+USD assumption or EBIT/model value is introduced. Source/proof controls: 55 pass;
+the speculative unfinished support tests remain private, outside product tests.
+This limitation remains open evidence/coverage work.
+
+Public review found the current visitor fixture still on report 1.61.0. Current
+legacy safety correctly refused its unproved roll, while old screenshots showed
+unqualified grades and admitted values. The existing offline generator rebuilds
+the fictional current fixture under owned dates/qualifications, preserving its
+66.17/C score, 35.47 USD/share value and authored inputs. The sample now displays
+Provisional and withholds executive grades without established office starts;
+validated company facts alone do not establish personal tenure. A new failing-
+first regression checks the actual immutable reader view and supported July2
+quote admission. Historical DEMO-sample bytes remain unchanged. Screenshots are
+rendered from the current sample/full shell with existing compiled CSS using an
+isolated headless file capture; no live app/server, provider or model is used.
+
+README now distinguishes primary SEC/issuer evidence from vendor inputs, reports
+partial SEC quarterly-segment coverage and explains current grade/date limits.
+The static publication audit found no broken relative links/assets or recognizable
+credential/private-data filenames in its bounded range scan. Removed internal
+design documents still occur in private branch history; a clean publication
+commit can preserve the final tree while retaining original local history.
+This is hygiene, not a confirmed credential leak or authorization to rewrite it.
+
+Advance Stage B implementation to 59, payload 1.85.0, Stage C 1.6.39 and report 1.66.0
+for corrected source/reader meaning. Fair-value/target method identities remain 58
+and score bands stay unchanged: their formulas, domains and numeric conventions
+are not revised. Frozen legacy cutoffs remain frozen. Prior payload 1.84 resume
+is explicitly rejected; exact golden normalization changes only the checked
+payload stamp and preserves every financial pin. Final review/gates and exact
+publication readiness follow from the new receipts, not the old milestone.
+
+Final verification on 2026-11-06: production source `5a5ab138`, test-only closure
+`d3661483`, unchanged `npm run verify` exit 0 under Node 24.11.1. Four integration
+tests pass; core and risk each run 714 files, 16,530 passes and three existing
+skips (overlapping selections). Core coverage is 97.57/93.22/99.11/98.70%, risk
+96.13/91.52/98.37/98.17%; build passes and dependency audit reports zero known
+vulnerabilities. Initial null-typing and stale current-version expectation
+failures remain preserved; neither is relabeled a passing command.
+
+The final source's fresh four-partition replay passes all 105 inputs in both
+orders, 103 calculations plus the same two expected unsupported instruments per
+order, without reused calculations. Entire computed results agree between
+orders. Against the prior verified candidate, 15 issuers improve categorical
+lease-evidence coverage/disclosures with no numeric/null/boolean financial leaf
+changes; current/reference/unestablished/route counts remain 47/3/32/21 and
+supported/provisional composites 10/93. All 103 composite totals independently
+reconcile within existing rounding tolerance. Source and original database
+custody pins remain unchanged. Four affected issuers have fresh data-only
+payload/report/Markdown/print checks; the current sample and shared paths have
+separate regressions. This does not establish full acquisition/report-byte
+equality or financial equality to original main. The failed earlier worker,
+its successful 11-record continuation and a cancelled intermediate replay
+remain separate from this fresh passing final-source run.
+
+The earlier 230-ID implementation reconciliation remains a dated milestone;
+these checks do not certify every historical financial input or AI sentence.
+The public contact audit also found private vulnerability reporting disabled
+behind its advertised GitHub link. It is now enabled with readback confirmation;
+no advisory/message was submitted and branch protection was left unchanged.
+No code push, PR or shared-main merge is implied by this verification.
+
+Independent final OpenAI review: ready within the incremental public-copy scope,
+no unresolved Important finding after correction of the maturity mechanism.
+Fresh bounded probes and 76 native-source component proofs across 53 balance
+dates supplement inspected parent-run final replay/release receipts; the
+reviewer did not rerun those full executions. The reviewed change does not
+recertify every original audit finding, subsequent publication or live provider.

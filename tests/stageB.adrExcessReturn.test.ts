@@ -99,7 +99,7 @@ describe("ADR currency guard on the excess-return route", () => {
       reit: null,
     });
 
-    const fv = computeFairValue({
+    const fv = computeFairValue({ quoteAsOf: null,
       valuation: r,
       currentPrice: 100,
       currency: "USD",

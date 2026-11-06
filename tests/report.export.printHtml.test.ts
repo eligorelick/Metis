@@ -1,3 +1,4 @@
+import { currentValuationUseFixture } from "./helpers/valuationUse";
 /**
  * Coverage for the print/PDF HTML renderer (src/report/export/printHtml.ts),
  * previously untested (full-codebase-audit-2026-07-09 test-gap finding).
@@ -313,10 +314,15 @@ describe("reportToPrintBody — optional sections absent", () => {
     const clone = JSON.parse(JSON.stringify(base)) as Report;
     clone.valuation.dcf.assumptions = [];
     clone.valuation.dcf.sensitivityGrid = [];
+    // This control represents no recorded model, rather than a retained
+    // historical numeric endpoint whose current use is unestablished.
+    clone.valuation.dcf.perShare = null;
+    clone.valuation.dcf.upsidePct = null;
+    clone.valuation.reverseDcf.impliedValue = null;
     const body = reportToPrintBody(ReportSchema.parse(clone));
     expect(body).not.toContain("undefined");
     expect(body).not.toContain("NaN");
-    expect(body).toContain("<h3>DCF</h3>");
+    expect(body).toContain("DCF, reverse DCF, scenario targets and weighted projections are unavailable");
   });
 
   it("renders the deterministic DCF assumptions with their computed basis", () => {
@@ -345,6 +351,7 @@ describe("reportToPrintBody — optional sections absent", () => {
       status: "available",
       method: "excess-return",
       methodVersion: "FAIR_VALUE_2026_07",
+      currentUse: currentValuationUseFixture("2026-07-06"),
       perShare: { value: 55, unit: "USD/share", source: "computed.valuation.excessReturn.perShare", asOf: "2026-07-06", verified: true },
       upsidePct: 3,
       basis: ["Intrinsic value per share = the deterministic book-value excess-return fair value (no WACC/FCFF)."],
@@ -368,6 +375,9 @@ describe("reportToPrintBody — optional sections absent", () => {
   it("discloses the computed-derived method / suppression reason for the scenario targets", () => {
     const base = loadReport();
     const available = JSON.parse(JSON.stringify(base)) as Report;
+    available.fairValue = { status: "available", method: "fcff-dcf", methodVersion: "Synthetic current model",
+      perShare: available.valuation.dcf.perShare, upsidePct: available.valuation.dcf.upsidePct, basis: ["Synthetic source-admitted model"], reasons: [],
+      currentUse: currentValuationUseFixture("2026-07-05") };
     available.scenarioTargets = {
       status: "available",
       method: "dcf-dispersion",

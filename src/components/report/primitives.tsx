@@ -1,3 +1,4 @@
+import { qualificationText } from "@/report/assessment";
 /**
  * Report-specific presentational primitives — the provenance
  * layer of the full report UI. Every LLM claim and every figure renders WITH
@@ -278,6 +279,8 @@ const CONFIDENCE_TONE: Record<GradeBlock["confidence"], Tone> = {
  */
 export function HeadlineGrade({ block, aspect }: { block: GradeBlock; aspect?: AspectEvidence | null }) {
   const grade = gradeForDisplay(block);
+  const qualification = grade === null ? null : block.qualification?.status === "provisional" ? "Provisional"
+    : block.qualification?.status === "unknown" ? "Qualification unknown" : null;
   if (grade === null && block.assessmentStatus === "limited-evidence" && hasLimitedEvidence(aspect)) {
     return (
       <span className="mono text-[10px] text-warn" aria-label="not assessed — limited evidence" title={gradeDisplayLabel(block, aspect)}>
@@ -290,11 +293,12 @@ export function HeadlineGrade({ block, aspect }: { block: GradeBlock; aspect?: A
     return (
       <span className="flex items-center gap-1" title={gradeDisplayLabel(block, aspect)}>
         <GradeChip grade={grade} />
+        {qualification && <span className="mono text-[10px] text-warn">{qualification}</span>}
         <span className="mono text-[9px] text-faint">neutral</span>
       </span>
     );
   }
-  return <GradeChip grade={grade} />;
+  return qualification ? <span className="flex items-center gap-1"><GradeChip grade={grade} /><span className="mono text-[10px] text-warn">{qualification}</span></span> : <GradeChip grade={grade} />;
 }
 
 /**
@@ -349,6 +353,7 @@ export function GradeReasoning({
       </div>
       <div className="px-2.5 py-2">
         <p className="text-[12px] leading-snug text-fg">{displayProse(block.oneLineWhy)}</p>
+        {qualificationText(block.qualification) && <p className="mt-1 text-[11px] text-warn">{displayProse(qualificationText(block.qualification)!)}</p>}
           {readerGradeContractText(block) && <details className="grade-admission-details"><summary>Grade admission details</summary><p className="mono mt-1 text-[12px] text-faint">{displayProse(readerGradeContractText(block)!)}</p></details>}
         {block.confidenceCap && (
           <p className="mono mt-1 text-[10px] text-faint">

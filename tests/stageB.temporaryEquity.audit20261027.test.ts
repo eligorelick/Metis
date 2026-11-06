@@ -1,3 +1,4 @@
+import { currentValuationUseFixture } from "./helpers/valuationUse";
 /**
  * Audit 2026-10-27 FIN-119 (High) and FIN-119-V2, mezzanine half: redeemable
  * preferred and redeemable noncontrolling interests are carried in temporary
@@ -223,7 +224,7 @@ describe("FIN-119: the bridge surfaces name the redeemable part", () => {
   });
 
   it("a withheld claim suppresses the fair value with its own reason, and an earlier gate keeps its own", () => {
-    const fair = (v: ReturnType<typeof valueOf>) => computeFairValue({ valuation: v, currentPrice: 100, currency: "USD", asOf: "2026-10-29" });
+    const fair = (v: ReturnType<typeof valueOf>) => computeFairValue({ quoteAsOf: null, valuation: v, currentPrice: 100, currency: "USD", asOf: "2026-10-29" });
     const refused = valueOf({ temporaryEquity: { ...claims({}), refusal: "temporary-equity operand refused: temporaryEquity (two filings disagree)" } });
     expect(refused.dcf!.perShare).toBeNull();
     expect(fair(refused)).toMatchObject({ status: "suppressed" });
@@ -291,7 +292,7 @@ describe("FIN-119: the unsplit rule holds on the scenario paths", () => {
     { date: "2025-12-31", revenue: 1000, ebit: 300, netIncome: 214, epsDiluted: 2.1 },
   ];
   const targetsOf = (valuation: ReturnType<typeof dcfOf>) =>
-    computeScenarioTargets({ route: { ...route, notes: [], gaps: [], asOf: { today: "2026-07-06", incomeTtm: null, incomeAnnual: null, cashflowTtm: null, cashflowAnnual: null } }, valuation, waccPct: 9, incomeHistory: history, currentPrice: 100, currency: "USD", asOf: "2025-12-31" });
+    computeScenarioTargets({ route: { ...route, notes: [], gaps: [], asOf: { today: "2026-07-06", incomeTtm: null, incomeAnnual: null, cashflowTtm: null, cashflowAnnual: null } }, valuation, valuationUse: currentValuationUseFixture(), waccPct: 9, incomeHistory: history, currentPrice: 100, currency: "USD", asOf: "2025-12-31" });
 
   it("a path that flips to the earnings share is withheld and says why; the base and a no-unsplit control are not", () => {
     const probe = dcfOf({ minorityInterest: 1, noncontrollingEarnings: KEY });

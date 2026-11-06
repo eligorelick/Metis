@@ -172,7 +172,15 @@ export const DISTRESS_SPREAD_WARN_PCT = 3.21;
 // computeWacc
 // ---------------------------------------------------------------------------
 
+export type WaccOperatingEvidence = {
+  status: "filed-or-reconciled" | "unverified-derivation";
+  asOf: string | null; field: string; usedInDiscountRate: boolean;
+  /** Typed source observations composing a selected trailing numerator. */
+  observations?: Array<{ status: "filed-or-reconciled" | "unverified-derivation"; asOf: string | null; field: string }>;
+};
+
 export interface WaccInputs {
+  operatingIncomeEvidence?: WaccOperatingEvidence;
   /** Raw levered beta (FMP profile.beta). */
   beta: number | null;
   /** Risk-free rate in percent, from FRED DGS10 (e.g. 4.48). */
@@ -306,6 +314,7 @@ export type CostOfDebtMethod = "effective" | "historical" | "synthetic" | "none"
  * fiscal year before the latest annual row.
  */
 export interface PriorYearCostOfDebt {
+  operatingIncomeEvidence?: WaccOperatingEvidence;
   coverageBasis?: string;
   pct: number;
   fiscalYearEnd: string;
@@ -325,6 +334,7 @@ export interface PriorYearCostOfDebt {
 export const PRIOR_YEAR_COST_OF_DEBT_MAX_YEARS_BACK = 3;
 
 export interface WaccResult {
+  operatingIncomeEvidence?: WaccOperatingEvidence;
   /** Final WACC in percent (clamped). Null when rf or weights are unavailable. */
   waccPct: number | null;
   /** Pre-clamp WACC in percent. */
@@ -529,6 +539,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     gaps.push({ field: "returns.wacc", reason: withheld, severity: "info", expected: true });
   }
 
+  let selectedOperatingEvidence: WaccOperatingEvidence | undefined;
   const base: Omit<
     WaccResult,
     "waccPct" | "waccRawPct" | "costOfEquityPct" | "costOfDebtPct" | "costOfDebtMethod" | "weightEquity" | "weightDebt"
@@ -840,14 +851,15 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       const currentBasis = inputs.currentCoverageBasis ?? "TTM";
       const coverageBasis =
         intExp !== null && intExp > 0
-          ? { interest: intExp, ebit: inputs.ebitTtm, label: currentBasis }
+          ? { interest: intExp, ebit: inputs.ebitTtm, label: currentBasis, evidence: inputs.operatingIncomeEvidence }
           : priorUsable && isFiniteNumber(prior.ebit) && prior.interestExpense > 0
-            ? { interest: prior.interestExpense, ebit: prior.ebit, label: prior.coverageBasis ?? `FY ${prior.fiscalYearEnd} (latest fiscal year with disclosed interest expense)` }
+            ? { interest: prior.interestExpense, ebit: prior.ebit, evidence: prior.operatingIncomeEvidence, label: prior.coverageBasis ?? `FY ${prior.fiscalYearEnd} (latest fiscal year with disclosed interest expense)` }
             : null;
       if (coverageBasis === null) {
         costOfDebtMethod = "unavailable";
         deMinimisNote("no synthetic rating computable (no positive interest expense to score coverage on)");
       } else if (isFiniteNumber(coverageBasis.ebit)) {
+        selectedOperatingEvidence = coverageBasis.evidence;
         interestCoverageRatio = coverageBasis.ebit / coverageBasis.interest;
         const band = lookupSyntheticSpread(interestCoverageRatio, variant);
         costOfDebtPct = rf + band.spreadPct;
@@ -1038,6 +1050,8 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
 
   return {
     ...base,
+    ...(selectedOperatingEvidence ? { operatingIncomeEvidence: { ...selectedOperatingEvidence,
+      usedInDiscountRate: weightDebt > 0 && Number.isFinite(waccPct) } } : {}),
     waccPct,
     waccRawPct,
     costOfEquityPct: re,

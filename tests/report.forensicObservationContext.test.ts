@@ -14,6 +14,7 @@ import { reportToPrintBody } from "@/report/export/printHtml";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { restoreN4aPeerWordingGolden } from "./helpers/n4aPeerWordingGolden";
 import { restoreCapexBasisGolden } from "./helpers/capexBasisGolden";
+import { restoreForensicCurrentUseGolden } from "./helpers/forensicCurrentUseGolden";
 
 function fixture(amounts: (number | null | undefined)[] = [-50e6, 32e6, 0, undefined]) {
   const bundle = completeCurrencyBundle({ sic: "3571" });
@@ -158,13 +159,20 @@ describe("retained forensic observation context on real data-only exports", () =
     // FIN-401 / FIN-401-V1 (B4b) moved only the fair-value and scenario-target method stamps on
     // this fixture: a leaf diff against integration d4802acb (hash 50ef4b29…) found these two
     // stamps and no value, so the hash is re-pinned for them alone.
-    expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_BALANCE_ROW_INTEGRITY_55");
-    expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_BALANCE_ROW_INTEGRITY_55");
+    expect(computed.fairValue.methodVersion).toBe("FAIR_VALUE_2026_11_CURRENT_VALUATION_USE_58");
+    expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_CURRENT_VALUATION_USE_58");
     // The FIGR paid-run round (D-159) renamed only these two stamps on this fixture; restore
     // them so the pin keeps checking every value byte.
-    const restored = restoreP2ComputedGolden(restorePublicPolishGolden(computed));
+    const restored = restoreP2ComputedGolden(restorePublicPolishGolden(restoreForensicCurrentUseGolden(computed)));
     restored.fairValue.methodVersion = "FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39";
     restored.scenarioTargets.methodVersion = "SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39";
+    // D-203 adds only this explicit TTM evidence qualification in the control.
+    // Check its exact content, then preserve the complete preceding value pin.
+    if (restored.valuation.kind !== "dcf" || !restored.valuation.assumptions) throw Error("DCF fixture required");
+    const margin = restored.valuation.assumptions.ebitMarginPath;
+    const prior = "held flat at current 20% (TTM) under stable dated-margin regime (5y median 20%, slope 0pp/year)";
+    expect(margin.basis).toBe(prior + "; Unverified provider quarters: 2026-03-31, 2025-12-31, 2025-09-30, 2025-06-30");
+    margin.basis = prior;
     // FIN-402-V1/FIN-102/FIN-113: separately asserted metadata restoration; old numeric pin remains.
     expect(invariantHash(restored)).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
   });

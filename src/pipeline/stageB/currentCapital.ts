@@ -141,12 +141,22 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   currency: string | null; annualCashFlow?: CapitalCashFlowRow | null; annualBalance?: CapitalBalanceRow | null;
   route?: SectorRoute;
   modelEligibilityReason?: string;
+  /** Revenue admission alone must not replace a complete annual cash basis
+   * with a newly available income window whose cash capex is unknown. */
+  preserveAnnualCashBasis?: boolean;
   /** AMZN audit 2026-10-20, finding 20 (b): the enterprise value's lease basis, for the leverage ratio. */
   evIncludeLeases?: boolean;
 }): CapitalResult {
   const { income, cashFlow, balance } = input;
+  const industrialMetricsApplicable = !input.modelEligibilityReason && !["bank", "insurer", "reit-mortgage"].includes(input.route ?? "general");
+  const completeCashPair = finite(cashFlow?.operatingCashFlow) !== null && finite(cashFlow?.capitalExpenditure) !== null;
+  const annualCash = input.annualCashFlow;
+  const annualCashTime = periodEndTime(annualCash?.date), annualTime = periodEndTime(annual.asOf);
+  const completeAnnualCash = annualCashTime !== null && annualTime !== null && Math.abs(annualCashTime - annualTime) <= 5 * 86400000 &&
+    finite(annualCash?.operatingCashFlow) !== null && finite(annualCash?.capitalExpenditure) !== null;
+  const preferCompleteAnnual = input.preserveAnnualCashBasis === true && industrialMetricsApplicable && !completeCashPair && completeAnnualCash;
   const usable = income !== null && cashFlow !== null && input.currency !== null && income.date === cashFlow.date &&
-    (annual.asOf === null || income.date >= annual.asOf) && periodEndTime(income.date) !== null;
+    !preferCompleteAnnual && (annual.asOf === null || income.date >= annual.asOf) && periodEndTime(income.date) !== null;
   const basis = usable ? "ttm" : "annual";
   const asOf = usable ? income.date : annual.asOf;
   const aligns = (date: string | null | undefined): boolean => {
@@ -155,7 +165,6 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   };
   // A stale balance cannot supply a current leverage numerator.
   const sameBalance = balance && aligns(balance.date) ? balance : null;
-  const industrialMetricsApplicable = !input.modelEligibilityReason && !["bank", "insurer", "reit-mortgage"].includes(input.route ?? "general");
   const snapshot = usable ? computeCapital([income], [cashFlow], sameBalance ? [sameBalance] : [], [], { price: null }, {route:input.route, modelEligibilityReason: input.modelEligibilityReason, evIncludeLeases: input.evIncludeLeases}) : annual;
   const bridgeRow = usable ? cashFlow : input.annualCashFlow && aligns(input.annualCashFlow.date) ? input.annualCashFlow : null;
   const bridgeBalance = usable ? sameBalance : input.annualBalance && aligns(input.annualBalance.date) ? input.annualBalance : null;
@@ -165,7 +174,7 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
   const netIncome = industrialMetricsApplicable && bridgeRow ? finite(bridgeRow.netIncome) ?? finite(annualFcf?.netIncome) : null;
   const fcf = bridge.standardizedFcf, sbc = bridge.stockBasedCompensation;
   const startTime = periodEndTime(input.periodStart);
-  const exactStart = startTime !== null && asOf !== null && startTime <= (periodEndTime(asOf) ?? 0) ? input.periodStart! : null;
+  const exactStart = usable && startTime !== null && asOf !== null && startTime <= (periodEndTime(asOf) ?? 0) ? input.periodStart! : null;
   const current: CurrentCapitalSnapshot = {
     industrialMetricsApplicable,
     basis, asOf, periodStart: exactStart ?? yearStart(asOf),

@@ -12,6 +12,7 @@ import {
   extractFromExhibit,
   extractSection,
   findHeaderCandidates,
+  financialStatementText,
   htmlToText,
   mergedAnchors,
   normalizeTitle,
@@ -51,6 +52,340 @@ const citiRow = (href: string, title: string, page: number): string =>
   `<tr><td colspan="3" style="padding:0 1pt"/><td colspan="3"><span style="font-weight:700">${title}</span></td><td colspan="3"><div style="text-align:right"><a href="#${href}">${page}</a></div></td></tr>`;
 
 const partRow = (label: string): string => `<tr><td colspan="6"><span>${label}</span></td></tr>`;
+
+describe("financial item contents hierarchy", () => {
+  describe("caption-owned statement proof", () => {
+    const balanceRows = "<tr><td>Cash</td><td>12</td><td>11</td></tr><tr><td>Total assets</td><td>30</td><td>28</td></tr>";
+    describe.each(["", "Audit context. ".repeat(1000)])("internal proof boundaries with front matter %s", front => {
+      it.each([
+        '<tr><td><b>Other information</b></td><td></td><td></td></tr>',
+        '<tr><td>Other information</td></tr>',
+        '<tr><td><b>Other information:</b></td><td></td><td></td></tr>',
+        '<tr><td><b>Other:</b></td><td></td><td></td></tr>',
+        '<tr><td>Unrelated section 2025</td></tr>',
+      ])("refuses rows after an unrelated internal heading: %s", heading => {
+        const source = parseDocument(`<p>${front}</p><h2>Consolidated Balance Sheets</h2><table><tr><th>December 31, 2025 2024</th></tr>${heading}${balanceRows}</table>`);
+        const result = financialStatementText(source.fullText, 12_000, source);
+        expect(result.statementsText).toBeUndefined();
+        expect(result.statementsTextGap).toBeDefined();
+      });
+      it.each([
+        '<tr><td><a href="#x">Cash</a></td><td><a href="#x">12</a></td><td><a href="#x">11</a></td></tr><tr><td><a href="#x">Total assets</a></td><td><a href="#x">30</a></td><td><a href="#x">28</a></td></tr>',
+        '<tr><td><a href="#x">Cash</a></td><td>12</td><td>11</td></tr><tr><td><a href="#x">Total assets</a></td><td>30</td><td>28</td></tr>',
+        '<tr><td>Cash</td><td><a href="#x">12</a></td><td><a href="#x">11</a></td></tr><tr><td>Total assets</td><td><a href="#x">30</a></td><td><a href="#x">28</a></td></tr>',
+        '<tr><td>Cash</td><td><a href="#x">1</a>2</td><td>11</td></tr><tr><td>Total assets</td><td><a href="#x">3</a>0</td><td>28</td></tr>',
+        '<tr><td>Cash <a href="#x">flows</a></td><td>12</td><td>11</td></tr><tr><td>Total assets</td><td>30</td><td>28</td></tr>',
+      ])("does not use linked labels or amounts as proof: %s", rows => {
+        const source = parseDocument(`<p>${front}</p><h2>Consolidated Balance Sheets</h2><table><tr><th>December 31, 2025 2024</th></tr>${rows}</table>`);
+        const result = financialStatementText(source.fullText, 12_000, source);
+        expect(result.statementsText).toBeUndefined();
+        expect(result.statementsTextGap).toBeDefined();
+      });
+      it("keeps original proof and cap behavior with inline footnote links", () => {
+        const source = parseDocument(`<p>${front}</p><h2>Consolidated Balance Sheets</h2><table><tr><th>December 31, 2025 2024</th></tr><tr><td>Cash<sup><a href="#note1">1</a></sup></td><td>12</td><td>11</td></tr><tr><td>Total assets<sup><a href="#note2">(a)</a></sup></td><td>30</td><td>28</td></tr></table>`);
+        const result = financialStatementText(source.fullText, 12_000, source);
+        expect(result.statementsText).toContain("Cash 1 12 11");
+        expect(result.statementsText).toContain("Total assets (a) 30 28");
+        expect(result.statementsTextGap).toBeUndefined();
+      });
+    });
+    it.each(["Insurance and Other:", "Regional businesses:"])("preserves an explicit business subgroup in the amount-column grid: %s", label => {
+      const source = parseDocument(`<h2>Consolidated Balance Sheets</h2><table><tr><th>December 31, 2025 2024</th></tr><tr><td><b>${label}</b></td><td></td><td></td></tr>${balanceRows}</table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    describe.each(["", "Audit context. ".repeat(1000)])("superscript label semantics with front matter %s", front => {
+      it.each([
+        '<sup><a href="#n">1</a></sup>', '<sup>1</sup>', '<sup>(a)</sup>',
+        '<sup><a href="#n">1</a></sup><sup><a href="#n2">2</a></sup>',
+      ])("does not mistake footnoted cash flows for balance cash: %s", marker => {
+        const source = parseDocument(`<p>${front}</p><h2>Consolidated Balance Sheets</h2><table><tr><td>Cash${marker} flows</td><td>12</td><td>11</td></tr><tr><td>Cash${marker} flows</td><td>30</td><td>28</td></tr></table>`);
+        const result = financialStatementText(source.fullText, 12_000, source);
+        expect(result.statementsText).toBeUndefined();
+        expect(result.statementsTextGap).toBeDefined();
+      });
+      it("retains a real cash row with an unlinked superscript footnote", () => {
+        const source = parseDocument(`<p>${front}</p><h2>Consolidated Balance Sheets</h2><table><tr><td>Cash<sup>1</sup> and cash equivalents</td><td>12</td><td>11</td></tr><tr><td>Total assets</td><td>30</td><td>28</td></tr></table>`);
+        const result = financialStatementText(source.fullText, 12_000, source);
+        expect(result.statementsText).toContain("Cash 1 and cash equivalents 12 11");
+        expect(result.statementsText).toContain("Total assets 30 28");
+        expect(result.statementsTextGap).toBeUndefined();
+      });
+    });
+    it.each([
+      "Jul 26, 2026 Jan 25, 2026",
+      "Years Ended (In Millions, Except Per Share Amounts) Dec 27, 2025 Dec 28, 2024",
+      "(Stated in millions, except per share amounts)",
+      "(Dollars in millions, except per share amount) December 31, 2025 December 31, 2024",
+    ])("keeps financial period and units rows as metadata: %s", context => {
+      const title = context.startsWith("Years Ended") ? "Statements of Income" : "Balance Sheets";
+      const rows = title === "Balance Sheets" ? balanceRows : '<tr><td>Revenue</td><td>12</td><td>11</td></tr><tr><td>Net income</td><td>3</td><td>2</td></tr>';
+      const source = parseDocument(`<h2>Consolidated ${title}</h2><table><tr><td>${context}</td></tr>${rows}</table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    it.each([
+      "Investments:", "Inventories:", "Available-for-sale securities, at fair value:",
+      "Equity securities, at fair value:", "Fixed maturity securities:",
+      "Real estate held for investment, at cost:", "Short-term financing receivables:",
+      "Accounts receivable", "Deferred credits and other liabilities", "Collateralized agreements:",
+      "Assets (unaudited)", "Railroad, Utilities and Energy:",
+    ])("preserves a financial label-column subgroup: %s", label => {
+      const source = parseDocument(`<h2>Consolidated Balance Sheets</h2><table><tr><td>${label}</td><td></td><td></td></tr>${balanceRows}</table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    it.each(["Revenues and Other Income", "Cost of revenues (1)(2):"])("preserves an income-statement subgroup: %s", label => {
+      const source = parseDocument(`<h2>Consolidated Statements of Income</h2><table><tr><td>${label}</td><td></td><td></td></tr><tr><td>Revenue</td><td>12</td><td>11</td></tr><tr><td>Net income</td><td>3</td><td>2</td></tr></table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    it.each([
+      "Adjustments", "Adjustments to net income:",
+      "Adjustments to reconcile net income (loss) to net cash provided by (used in) operating activities:",
+      "Adjustments to reconcile net earnings to net cash used for operating activities:",
+      "Adjustments to reconcile net income including noncontrolling interest to net cash provided by operating activities",
+      "Adjustments to reconcile net income to net cash flows provided by operating activities:",
+      "Changes in assets and liabilities:", "Changes in assets and liabilities, net of business combinations:",
+      "Sales, maturities and repayments of:",
+    ])("preserves a cash-flow reconciliation subgroup: %s", label => {
+      const source = parseDocument(`<h2>Consolidated Statements of Cash Flows</h2><table><tr><td>${label}</td><td></td><td></td></tr><tr><td>Net income</td><td>12</td><td>11</td></tr><tr><td>Net cash provided by operating activities</td><td>30</td><td>28</td></tr></table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    it.each([
+      ["a second uncaptioned table", `<table><tr><td>Index</td><td>1</td></tr></table><table>${balanceRows}</table>`],
+      ["two incomplete tables", "<table><tr><td>Cash</td><td>12</td><td>11</td></tr></table><table><tr><td>Total assets</td><td>30</td><td>28</td></tr></table>"],
+      ["a peer heading before the first table", `<h3>Other information</h3><table>${balanceRows}</table>`],
+      ["a heading inside the table", `<table><tr><th><h3>Other information</h3></th></tr>${balanceRows}</table>`],
+      ["a bold peer block", `<div><b>Other information</b></div><table>${balanceRows}</table>`],
+      ["plain blocks after a peer heading", "<h3>Other information</h3><p>Cash 12 11 Total assets 30 28</p>"],
+      ["plain blocks after an unmarked peer", "<p>Other information</p><p>Cash 12 11 Total assets 30 28</p>"],
+      ["a bold table boundary", `<table><tr><th><b>Other information</b></th></tr>${balanceRows}</table>`],
+      ["a heading spanning the table columns", `<table><tr><td colspan="3"><b>Other information</b></td></tr>${balanceRows}</table>`],
+      ["an index with two page columns", `<table><tr><td>Index: Page</td><td>Current</td><td>Prior</td></tr>${balanceRows}</table>`],
+      ["duplicate row strings elsewhere", `<table><tr><td>Cash</td><td>12</td></tr><tr><td>11</td><td>Total assets</td><td>30</td></tr><tr><td>28</td></tr></table><h3>Other information</h3><table>${balanceRows}</table>`],
+    ])("does not borrow proof from %s", (_name, body) => {
+      const source = parseDocument(`<h2>Consolidated Balance Sheets</h2>${body}`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBeUndefined();
+    });
+    it.each([
+      ["Balance Sheets", "Year ended December 31, 2025 2024", "Net income 12 11 Total comprehensive income 30 28"],
+      ["Balance Sheets", "Year ended December 31, 2025 2024", "Operating activities: Accounts receivable 12 11 Accounts payable 30 28 Net cash provided by operating activities 42 39"],
+      ["Statements of Operations", "Year ended December 31, 2025 2024", "Operating activities: Net income 12 11 Adjustments to reconcile net income to net cash provided by operating activities: Accounts payable 30 28"],
+      ["Statements of Cash Flows", "December 31, 2025 2024", "Cash 12 11 Total assets 30 28"],
+    ])("refuses incompatible data under %s", (title, period, rows) => {
+      const source = parseDocument(`<h2>Consolidated ${title}</h2><table><tr><th>${period}</th></tr><tr><td>${rows}</td></tr></table>`);
+      const result = financialStatementText(source.fullText, 12_000, source);
+      expect(result.statementsText).toBeUndefined();
+      expect(result.statementsTextGap).toBeDefined();
+    });
+    it("does not substitute another table's period even when its row values match", () => {
+      const source = parseDocument(`<h2>Consolidated Balance Sheets</h2><table><tr><th>December 31, 2025 2024</th></tr>${balanceRows}</table><h2>Other information</h2><table><tr><th>December 31, 2023 2022</th></tr>${balanceRows}</table>`);
+      expect(financialStatementText("Consolidated Balance Sheets December 31, 2023 2022 Cash 12 11 Total assets 30 28", 12_000, source).statementsText).toBeUndefined();
+    });
+    it("stops at an unrelated plain-text line", () => {
+      const source = parseDocument("Consolidated Balance Sheets\nDecember 31, 2025 2024\nOther information\nCash 12 11\nTotal assets 30 28");
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBeUndefined();
+    });
+    it.each([
+      "<p>(In millions, except number of shares, which are reflected in thousands, and par value)</p>",
+      "<p>Example Corporation and Subsidiaries</p><p>(Dollars and shares in millions, except per-share data)</p>",
+      "<p>Example Corporation (Parent Company)</p><p>(millions)</p>",
+      "<p>(Expressed in US $ millions, except share amounts)</p>",
+      "<p>(unaudited; in thousands, except share and per share values)</p>",
+    ])("preserves adjacent issuer and units context: %s", context => {
+      const source = parseDocument(`<h2>Consolidated Balance Sheets</h2>${context}<table><tr><th>December 31, 2025 2024</th></tr>${balanceRows}</table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    it("binds spelled-out interim periods and financial subheadings inside one table", () => {
+      const source = parseDocument(`<h2>Consolidated Statements of Income</h2><table><tr><th>Three Months Ended June 30, 2026 2025</th></tr><tr><td>Revenue</td><td>12</td><td>11</td></tr><tr><th>Costs and expenses:</th></tr><tr><td>Net income</td><td>3</td><td>2</td></tr></table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    it("treats indentation around the same physical plain caption as formatting", () => {
+      const source = parseDocument(`<div>\n  Consolidated Statements of Cash Flows\n  (In millions)\n</div><table><tr><th>Years ended 2025 2024</th></tr><tr><td>Net income</td><td>12</td><td>11</td></tr><tr><td>Net cash provided by operating activities</td><td>30</td><td>28</td></tr></table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    it("distinguishes repeated captions using their original following boundary", () => {
+      const good = `<h2>Consolidated Balance Sheets</h2><p>December 31, 2025 2024</p><table>${balanceRows}</table>`;
+      const source = parseDocument(`${good}<h2>Consolidated Balance Sheets</h2><p>December 31, 2025 2024</p><h3>Other information</h3><p>Nothing to report.</p>`);
+      expect(financialStatementText(parseDocument(good).fullText, 12_000, source).statementsText).toBe(parseDocument(good).fullText);
+    });
+    it.each(["Example Corporation and Subsidiaries", "ExampleSystems"])("binds a caption-only layout table with source-owned issuer %s", issuer => {
+      const source = parseDocument(`<p><ix:nonNumeric name="dei:EntityRegistrantName">${issuer}</ix:nonNumeric></p><table><tr><th>Consolidated Balance Sheets</th><td>${issuer}</td></tr></table><table>${balanceRows}</table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    it("does not skip a caption table carrying page numbers", () => {
+      const source = parseDocument(`<table><tr><th>Consolidated Balance Sheets</th><td>12</td></tr></table><table>${balanceRows}</table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBeUndefined();
+    });
+    it.each([
+      `<h2>Consolidated Balance Sheets</h2><table><tr><th>December 31, 2025 2024 (in millions)</th></tr>${balanceRows}</table>`,
+      "<p>Consolidated Balance Sheets Cash 12 11 Total assets 30 28</p>",
+      "Consolidated Balance Sheets\nDecember 31, 2025 2024\nCash 12 11\nTotal assets 30 28",
+      `<table><tr><th>Consolidated Balance Sheets</th></tr><tr><th>December 31, 2025 2024</th></tr>${balanceRows}</table>`,
+      `<h2>Consolidated Balance Sheets</h2><table>${balanceRows}<tr><td>Accumulated other comprehensive income</td><td>2</td><td>1</td></tr></table>`,
+      `<div><span style="font-weight:700">Consolidated Balance Sheets</span><div>(in millions, except per share amounts) (unaudited)</div></div><table>${balanceRows}</table>`,
+      `<div><table><tr><th>Consolidated Balance Sheets</th></tr><tr><td>(in millions)</td></tr></table></div><table>${balanceRows}</table>`,
+      `<div>Consolidated Balance Sheets<table>${balanceRows}</table></div>`,
+      `<h2>Consolidated Balance Sheets</h2><table><tr><th>December 31, 2025 2024</th></tr><tr><td><b>Regional businesses:</b></td><td></td><td></td></tr>${balanceRows}</table>`,
+      "<h2>Consolidated Statements of Cash Flows</h2><table><tr><th>Years ended 2025 2024</th></tr><tr><td>Net cash provided by operating activities</td><td>12</td><td>11</td></tr><tr><td>Net cash used in investing activities</td><td>30</td><td>28</td></tr></table>",
+      "<h2>Consolidated Statements of Income</h2><table><tr><th>Sales and revenues:</th></tr><tr><td>Sales</td><td>12</td><td>11</td></tr><tr><td>Net income</td><td>3</td><td>2</td></tr></table>",
+      "<h2>Consolidated Statements of Income</h2><table><tr><th>Net interest income</th></tr><tr><th>Interest income</th></tr><tr><td>Total interest income</td><td>12</td><td>11</td></tr><tr><td>Interest expense</td><td>3</td><td>2</td></tr></table>",
+    ])("preserves a source-owned short statement: %s", html => {
+      const source = parseDocument(html);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    it("preserves repeated genuine captions inside the cap", () => {
+      const html = `<h2>Consolidated Balance Sheets</h2><table>${balanceRows}</table>`;
+      const source = parseDocument(html + html);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+    });
+    it.each([`<a href="#contents">Consolidated Balance Sheets</a>`, '<span hidden>Consolidated Balance Sheets</span>'])("refuses a linked or hidden caption: %s", title => {
+      const source = parseDocument(`<h2>${title}</h2><table>${balanceRows}</table>`);
+      expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBeUndefined();
+    });
+  });
+  it.each(["", "Audit context. ".repeat(1000)])("does not borrow rows from a separately headed table after a statement caption", front => {
+    const source = parseDocument(`<p>${front}</p><h2>Consolidated Balance Sheets</h2>
+      <table><tr><td>Index</td><td>1</td></tr></table><h2>Other information</h2>
+      <table><tr><td>Net income</td><td>12</td><td>11</td></tr><tr><td>Total assets</td><td>30</td><td>28</td></tr></table>`);
+    const result = financialStatementText(source.fullText, 12_000, source);
+    expect(result.statementsText).toBeUndefined();
+    expect(result.statementsTextGap).toBeDefined();
+  });
+  it.each([
+    ["note index", "Notes index Accounts Receivable, Net 140 8. Other notes Long-Term Debt 143 12. Derivatives"],
+    ["short management discussion", "Consolidated Results of Operations This section provides a comparative discussion of our results. Net income 120 110 Total assets 300 280"],
+    ["segment discussion", "Segment performance: North segment Net income 120 110 South segment Total assets 300 280"],
+    ["year references", "Net income in years 2026 2025 is discussed below. Total assets in years 2026 2025 are discussed below."],
+  ])("does not treat paired numbers in %s as consolidated statement proof", (_name, text) => {
+    const result = financialStatementText(text, 12_000, parseDocument(`<p>${text}</p>`));
+    expect(result.statementsText).toBeUndefined();
+    expect(result.statementsTextGap).toMatch(/no substantive financial-statement rows/);
+  });
+  it("does not recover an item from note titles and page numbers before genuine notes", () => {
+    const html = `<table>${titleOnlyRow("notes", "Notes to Consolidated Financial Statements")}${titleOnlyRow("next", "Management's Discussion and Analysis")}</table>
+      <h2>Item 1. Financial Statements</h2>
+      <table><tr><td>7</td><td>Accounts Receivable, Net</td><td>140</td></tr><tr><td>8</td><td>Long-Term Debt</td><td>143</td></tr><tr><td>12</td><td>Net Income Per Share</td><td>162</td></tr></table>
+      <h3 id="notes">Notes to Consolidated Financial Statements</h3><p>Note 1 - Organization. ${"Substantive accounting policies. ".repeat(100)}</p>
+      <h2 id="next">Item 2. Management's Discussion and Analysis</h2>${para(2600, "OUTSIDE_ITEM")}`;
+    const parsed = parseDocument(html);
+    const result = extractSection(html, { form: "10-Q", item: "1", part: 1 }, { preparsed: parsed });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    const notes = notesToFinancialStatements(result.text, parsed);
+    expect(notes?.text).toContain("Substantive accounting policies.");
+    expect(financialStatementText(result.text.slice(0, notes!.start), 12_000, parsed).statementsText).toBeUndefined();
+    expect(result.text).not.toContain("OUTSIDE_ITEM");
+  });
+  it("does not join a page column to the next note number beneath an unlinked caption", () => {
+    const source = parseDocument(`<h2>Consolidated Balance Sheets</h2><table>
+      <tr><td>7</td><td>Accounts Receivable, Net</td><td>140</td></tr>
+      <tr><td>8</td><td>Long-Term Debt</td><td>143</td></tr>
+      <tr><td>12</td><td>Net Income Per Share</td><td>162</td></tr></table>`);
+    expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBeUndefined();
+    const genuine = parseDocument(`<h2>Consolidated Balance Sheets</h2><table>
+      <tr><td>Cash</td><td>12</td><td>11</td></tr>
+      <tr><td>Total assets</td><td>30</td><td>28</td></tr></table>`);
+    expect(financialStatementText(genuine.fullText, 12_000, genuine).statementsText).toBe(genuine.fullText);
+  });
+  it.each([
+    "<h2>Example and Subsidiaries Consolidated Balance Sheets</h2>",
+    '<div><span style="font-weight:700">Consolidated Balance Sheets</span><span> (in millions)</span></div>',
+  ])("preserves genuine source captions with issuer labels or inline formatting: %s", heading => {
+    const source = parseDocument(`${heading}<table><tr><td>Cash</td><td>12</td><td>11</td></tr><tr><td>Total assets</td><td>30</td><td>28</td></tr></table>`);
+    expect(financialStatementText(source.fullText, 12_000, source).statementsText).toBe(source.fullText);
+  });
+  it("rejects financial statement titles with page columns instead of monetary rows", () => {
+    expect(financialStatementText("Consolidated Statements of Cash Flows 7 8 Consolidated Statements of Income 3 4").statementsText).toBeUndefined();
+    expect(financialStatementText("Table of Contents Example Company ".repeat(100)).statementsText).toBeUndefined();
+    expect(financialStatementText("Consolidated statements of cash flows for the years ended December 31, 2025, 2024 and 2023 ".repeat(2)).statementsText).toBeUndefined();
+  });
+  it("finds statement rows after long nonfinancial front matter rather than returning the front matter cap", () => {
+    const body = "Consolidated Balance Sheets Cash 120 110 Total assets 300 280 Long-term debt 90 80 ";
+    const prefix = "Annual audit context. ".repeat(650) + body;
+    expect(financialStatementText(prefix, 12_000, parseDocument(`<p>${"Annual audit context. ".repeat(650)}</p><h2>Consolidated Balance Sheets</h2><p>Cash 120 110 Total assets 300 280 Long-term debt 90 80</p>`)).statementsText).toBe(body);
+    expect(financialStatementText(prefix).statementsText).toBeUndefined();
+    expect(financialStatementText("Front matter. ".repeat(1000) + "off-balance sheet lending commitments Net income 120 110 Total assets 300 280").statementsText).toBeUndefined();
+    const prose = "Front matter. ".repeat(1000) + "Consolidated Balance Sheets and Cash Flows Analysis Net income 120 110 Total assets 300 280";
+    expect(financialStatementText(prose, 12_000, parseDocument(`<p>${prose}</p>`)).statementsText).toBeUndefined();
+  });
+  it("recognizes results/earnings rows under a proved financial heading and preserves an existing capped beginning", () => {
+    const title = "Consolidated Results of Operations for the Years Ended December 31,";
+    const body = `${title} Sales 120 110 Revenues of financial products 30 20 Total sales and revenues 150 130 `;
+    const front = "Management report context. ".repeat(430);
+    const text = front + body + "Additional financial detail. ".repeat(100);
+    const source = parseDocument(`<p>${front}</p><h2>${title}</h2><p>${body.slice(title.length + 1)}${"Additional financial detail. ".repeat(100)}</p>`);
+    expect(financialStatementText(text, 12_000, source).statementsText).toBe(text.slice(0, 12_000));
+    const earnings = "Consolidated Statements of Earnings Net sales 120 110 Net earnings 30 20 ";
+    expect(financialStatementText("Front matter. ".repeat(1000) + earnings, 12_000,
+      parseDocument(`<h2>Consolidated Statements of Earnings</h2><p>Net sales 120 110 Net earnings 30 20</p>`)).statementsText).toBe(earnings);
+    expect(financialStatementText("Audit report. ".repeat(1000) + "Sales 120 110 Revenues of financial products 30 20", 12_000,
+      parseDocument("<h2>Report of Independent Registered Public Accounting Firm</h2><p>Sales 120 110 Revenues of financial products 30 20</p>")).statementsText).toBeUndefined();
+  });
+  it("rejects a results-of-operations discussion rather than recovering it as statements", () => {
+    const front = "Annual report context. ".repeat(650);
+    const discussion = "Consolidated Results of Operations This section provides a comparative discussion of our results. Net income 120 110 Total assets 300 280";
+    expect(financialStatementText(front + discussion, 12_000, parseDocument(`<p>${front}</p><h2>Consolidated Results of Operations</h2><p>${discussion.slice("Consolidated Results of Operations ".length)}</p>`)).statementsText).toBeUndefined();
+  });
+  const contents = `<table>${partRow("Part I. Financial Information")}
+    ${titleOnlyRow("item1", "Item 1. Consolidated Financial Statements (Unaudited):")}
+    ${titleOnlyRow("income", "Consolidated Statement of Income")}
+    ${titleOnlyRow("balance", "Consolidated Balance Sheet")}
+    ${titleOnlyRow("notes", "Notes to Consolidated Financial Statements")}
+    ${titleOnlyRow("item2", "Item 2. Management's Discussion and Analysis")}</table>`;
+  it("keeps child statement links inside a full-titled Item 1 until the next item", () => {
+    const html = `${contents}<h2 id="item1">Item 1. Consolidated Financial Statements (Unaudited)</h2>
+      <h2 id="income">Consolidated Statement of Income</h2>${para(2600, "INCOME_BODY")}
+      <h2 id="balance">Consolidated Balance Sheet</h2><p>BALANCE_BODY Cash 120 110 Long-term debt 90 80</p>
+      <h2 id="notes">Notes to Consolidated Financial Statements</h2><p>Note 1 - Organization. ${"Real notes describe the business. ".repeat(100)}</p>
+      <h2 id="item2">Item 2. Management's Discussion and Analysis</h2>${para(2600, "OUTSIDE_ITEM")}`;
+    const result = extractSection(html, { form: "10-Q", item: "1", part: 1 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.text).toContain("INCOME_BODY");
+    expect(result.text).toContain("BALANCE_BODY");
+    expect(result.text).toContain("Real notes describe the business.");
+    expect(result.text).not.toContain("OUTSIDE_ITEM");
+  });
+  it("does not turn a contents list without bodies into financial statements", () => {
+    const html = `${contents}<h2 id="item1">Item 1. Consolidated Financial Statements</h2>
+      <h2 id="income">Consolidated Statement of Income</h2><p>3</p>
+      <h2 id="balance">Consolidated Balance Sheet</h2><p>5</p>
+      <h2 id="notes">Notes to Consolidated Financial Statements</h2><p>10</p>
+      <h2 id="item2">Item 2. Management's Discussion and Analysis</h2>${para(2600, "OUTSIDE_ITEM")}`;
+    expect(extractSection(html, { form: "10-Q", item: "1", part: 1 }).ok).toBe(false);
+  });
+  it("recovers a real item body when a financial title link points directly to notes", () => {
+    const html = `<table>${titleOnlyRow("notes", "Notes to Consolidated Financial Statements")}${titleOnlyRow("next", "Management's Discussion and Analysis")}</table>
+      <h2>Item 1. Financial Statements</h2><h3>Consolidated Balance Sheets</h3><p>Cash 120 110 Total assets 300 280 Long-term debt 90 80</p>
+      <h3 id="notes">Notes to Consolidated Financial Statements</h3><p>Note 1 - Organization. ${"Substantive accounting policies. ".repeat(100)}</p>
+      <h2 id="next">Item 2. Management's Discussion and Analysis</h2>${para(2600, "OUTSIDE_ITEM")}`;
+    const result = extractSection(html, { form: "10-Q", item: "1", part: 1 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.text).toContain("Cash 120 110");
+    expect(result.text).not.toContain("OUTSIDE_ITEM");
+  });
+  it("does not accept a page-only mini contents list above a short-section threshold", () => {
+    const html = `<h2>Part II</h2><h2>Item 5. Other Information</h2><p>Rule 10b5-1 Trading Arrangements Page 46 Disclosure Pursuant to Section 13(r) of the Securities Exchange Act of 1934 Page 46</p><h2>Item 6. Exhibits</h2><p>Outside</p>`;
+    const result = extractSection(html, { form: "10-Q", item: "5", part: 2 }, { stubMinChars: 120 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toMatch(/contents|page.*list/i);
+  });
+  it("preserves a real short narrative with page references", () => {
+    const text = "No director or officer adopted or terminated a trading arrangement during the quarter. Further information is on Page 46 and Page 47.";
+    expect(detectStub(text, 120).isStub).toBe(false);
+  });
+  it("resolves duplicate title-only links to their own section rather than a shared group anchor", () => {
+    const html = `<table>${titleOnlyRow("legal", "Other Information")}${titleOnlyRow("legal", "Legal Proceedings")}
+      ${titleOnlyRow("risk", "Risk Factors")}${titleOnlyRow("other", "Other Information")}${titleOnlyRow("exhibits", "Exhibits")}</table>
+      <h2 id="legal">Legal Proceedings</h2><p>${"LEGAL_WRONG_SECTION ".repeat(12)}</p>
+      <h2 id="risk">Risk Factors</h2><p>Risk body</p><h2 id="other">Other Information</h2>
+      <p>${"No officer adopted a trading arrangement during this quarter. ".repeat(3)}</p><h2 id="exhibits">Exhibits</h2>`;
+    const result = extractSection(html, { form: "10-Q", item: "5", part: 2 }, { stubMinChars: 120 });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error(result.error.message);
+    expect(result.text).toContain("No officer adopted");
+    expect(result.text).not.toContain("LEGAL_WRONG_SECTION");
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Text / preprocessing utilities

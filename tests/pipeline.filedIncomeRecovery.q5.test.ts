@@ -25,7 +25,7 @@ function fixture(nciTag = "NetIncomeLossAttributableToNoncontrollingInterest") {
     filings: [{ accn: "0000000042-26-000001", filed: "2026-02-01", form: "10-K" }], tags: ["us-gaap/Revenues"] };
   row.fieldProvenance = { revenue };
   // No same-source operating-income numerator for a margin; its standalone
-  // filed EBIT can still score interest coverage without inventing a margin.
+  // primary-derived EBIT can still score coverage with its unverified scope disclosed.
   row.interestExpense = 1 * M;
   row.operatingIncome = undefined;
   for (const statement of [bundle.statements.incomeQuarterly]) if (statement.ok) {
@@ -34,14 +34,17 @@ function fixture(nciTag = "NetIncomeLossAttributableToNoncontrollingInterest") {
   return { bundle, facts };
 }
 
-describe("filed annual operating-income coverage fallback", () => {
-  it("uses the latest filed fiscal-year EBIT for synthetic coverage and discloses it", () => {
+describe("primary-derived annual operating-income coverage fallback", () => {
+  it("uses the retained fiscal-year derivation for synthetic coverage and discloses unverified scope", () => {
     const { bundle } = fixture();
-    const wacc = runStageB(bundle).returns.wacc;
+    const computed = runStageB(bundle), wacc = computed.returns.wacc;
     expect(wacc.costOfDebtMethod).toBe("synthetic");
     expect(wacc.waccPct).not.toBeNull();
     expect(wacc.interestCoverageRatio).toBe(200);
-    expect(wacc.notes.join(" ")).toMatch(/FY 2025-12-31.*filed.*operating income/);
+    expect(wacc.notes.join(" ")).toMatch(/FY 2025-12-31.*derived from filed pretax\/nonoperating operands.*unverified consolidated operating scope/);
+    expect(wacc.notes.join(" ")).not.toContain("filed operating income for standalone interest coverage");
+    expect(wacc.operatingIncomeEvidence).toMatchObject({ status: "unverified-derivation", asOf: "2025-12-31", usedInDiscountRate: true });
+    expect(computed.scores.qualification?.aspects.valuation.reasons.some(reason => reason.code === "selected-operating-scope-unverified")).toBe(true);
   });
   it("does not turn a refused EBIT or another issuer's figure into coverage", () => {
     for (const otherIssuer of [false, true]) {

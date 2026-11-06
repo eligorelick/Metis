@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /**
  * The AI context payload and its provenance registry state each monetary
  * figure in the currency ITS OWN evidence establishes — never a universal
@@ -39,7 +40,7 @@ interface Assembled {
 }
 
 function assemble(opts: CurrencyBundleOptions): Assembled {
-  const bundle = payloadBundle(opts);
+  const bundle = withFixtureQuoteDay(payloadBundle(opts), "2026-03-31");
   const computed = runStageB(bundle);
   return { bundle, computed, payload: assembleContextPayload(bundle, computed, VALIDATION) };
 }

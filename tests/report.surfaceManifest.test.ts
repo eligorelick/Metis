@@ -151,7 +151,7 @@ const TRACE_ORDER = [
   "periodContext",
 ] as const;
 
-const SCORING_ORDER = ["aspects", "composite", "bandsVersion", "assessments", "factorExposure"] as const;
+const SCORING_ORDER = ["aspects", "composite", "bandsVersion", "assessments", "factorExposure", "qualification"] as const;
 const ASPECT_SCORE_ORDER = [
   "score",
   "band",

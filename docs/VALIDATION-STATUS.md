@@ -1,5 +1,144 @@
 # Research validation status
 
+## Public-copy candidate verified 2026-11-06
+
+This entry supersedes the dated local milestone below. Production source
+`5a5ab138` preserves filed lease-component provenance, stabilizes specific debt
+refusals through repeated enrichment and rejects internally inconsistent lease
+maturities before evidence certification or debt completion. Twenty new
+regressions include eight failing-first contradiction cases. The current
+fictional sample and three public screenshots now show supported valuation
+dates, provisional grades and unassessed personal grades where tenure evidence
+is missing. README claims distinguish primary and vendor evidence and partial
+keyless SEC segment coverage.
+
+Current identities are Stage B `EVIDENCE_DISCLOSURE_59`, payload 1.85.0,
+Stage C 1.6.39 and report 1.66.0. Fair-value/target methods remain
+`CURRENT_VALUATION_USE_58`; score bands and frozen historical cutoffs are unchanged.
+Test-only commit `d3661483` follows the owning current report version in a
+current-builder control; it does not change production source or historical
+version expectations.
+
+Unchanged `npm run verify` passed on this candidate under Node 24.11.1:
+four database integration tests; core and risk each ran 714 files with 16,530
+passing tests and three existing skips. These overlapping executions must not
+be added as unique tests. Core coverage was 97.57/93.22/99.11/98.70%; risk was
+96.13/91.52/98.37/98.17% (statements/branches/functions/lines). The production
+build passed and the dependency audit found zero known vulnerabilities. Earlier
+failed commands and a cancelled intermediate replay retain separate receipts.
+
+The final-source replay freshly calculated both orders of all 105 saved inputs:
+103 calculations and the same two expected unsupported instruments per order.
+Entire computed results agree between orders, closing the four disclosure-order
+differences described in the previous milestone. Against that prior verified
+candidate, 15 issuers have more precise categorical lease-coverage evidence or
+disclosures; no numeric, null or boolean financial leaf changes. This is not a
+claim of financial equality against original main. The 47 current values, three
+dated references, 32 unestablished cases and 21 route exclusions are unchanged;
+93 composites remain provisional and ten supported. All 103 aggregate scores
+were independently added from full-precision signals and effective weights
+within the existing rounding tolerance. Original database and retained-source
+custody pins remain unchanged.
+
+The independent final OpenAI review found no unresolved Important defect within
+this incremental public-copy scope after the maturity-consistency repair. It
+ran bounded consumer probes and checked 76 component proofs across 53 retained
+balance dates against native USD/source/period evidence. It inspected the final
+replay and release receipts rather than rerunning those full executions. This
+does not reopen or independently recertify all 230 historical audit findings.
+
+Fresh payload/report/Markdown/print checks cover the four previously differing
+issuers; the current fictional sample and shared report paths have separate
+regressions. Complete fresh acquisition, full report-byte parity, universal
+source truth and forecast accuracy are not established. COP compact-table
+currency/role proof, IBM automated scope admission and honest filing gaps remain
+explicit coverage limits. FIGR/Opus live remains **HOLD**.
+
+GitHub private vulnerability reporting was enabled and verified to match the
+advertised security contact. Required `full`/`windows-smoke` checks, administrator
+enforcement and force-push protection remain unchanged. This is a locally
+verified publication candidate; code publication and required remote CI are
+separate steps. Dated historical records below retain their original scope.
+
+## Local audit candidate verified 2026-11-05
+
+Final production source `871b6250` combines the accepted D-203/D-205 repairs
+and D-208 reporting policy. It uses Stage B/fair-value/target conventions 58,
+payload 1.84.0, Stage C 1.6.38 and report 1.65.0. The score-band table is unchanged.
+This is a local candidate; main remains `7102a583` after a fresh fetch.
+
+The [per-ID reconciliation](audit/DECISIONS.md#d-208-per-id-reconciliation) replaces the
+stale outstanding count. Of 230 historical audit IDs, 228 are closed within
+their implementation and mapped regression scope; two are superseded. The
+historical record had 117 unresolved IDs and one already superseded, alongside
+112 prior closures. Current verification links 218 tracked test files and 205
+documented disposition rows. Historical per-ID reproductions are inherited;
+the final gate is fresh. These counts do not certify every original saved
+report, company input or AI sentence.
+
+Unchanged `npm run verify` passed under Node 24.11.1 on the final production
+source: four database integration tests; core and risk each ran 713 files with
+16,508 passing tests and three existing skips. Those executions overlap and
+must not be added as unique tests. Core coverage was
+97.57/93.20/99.11/98.70%; risk coverage was 96.13/91.51/98.39/98.17%
+(statements/branches/functions/lines). The production build passed; the
+dependency security audit reported zero known vulnerabilities. Failed earlier
+commands and their receipts remain preserved.
+
+The final saved-response producer covers 105 inputs and 2,940 unique slots:
+all 794 available strings, including 163 notes bodies, remain byte-identical;
+953 saved SEC requests have no missing responses. Both financial replay orders
+cover all 105 inputs, with 103 calculations and the same two expected unsupported
+instruments. Fair values, scenario targets and complete scores agree between
+orders. There are 47 current values, three dated references, 32 unestablished
+cases and 21 route exclusions; 93 composites are provisional and ten supported.
+All 103 composite totals were independently added from full-precision signal
+scores and effective weights within the existing published rounding tolerance.
+
+The final review fixes add 25 selected, filed four-quarter WACC evidence records
+without changing numeric financial values, dates, bases, scores or targets in
+this panel. Against the exact archived integrated-source control `0e600617`,
+raw forward financial calculations are unchanged; the enumerated differences
+are 31 WACC evidence objects and 16 route-policy labels. That control is not
+original-main financial equality. Current-date admission removes unsupported
+inverse/valuation signals under the existing score formula. In particular,
+UL and XOM can move from D to C after adverse dated evidence is removed; their
+grades remain provisional. That is not improved financial evidence.
+
+The corrected balance-enrichment replay preserves real gap/admission metadata.
+Four existing disclosure differences remain: AMD/EXPE use a less specific lease
+coverage summary while retaining the noncurrent-only/current-maturity warning;
+GOOG/GOOGL retain debt refusal using a general completion reason. Every differing
+leaf is an asserted conservative text substitution; no numeric value, financial
+admission, grade or target differs. Fresh data-only payload/report/Markdown/print
+assembly ran once per calculated issuer in replay order. Complete acquisition
+report-byte equality and fresh full acquisition are not established.
+
+Independent retained-primary arithmetic reproduces HON operating income of
+5,573/6,449/6,110 and SLB 4,368/5,804/5,443 USD millions for FY2025/2024/2023,
+reconciling all six pretax totals. The six resulting margins and two slopes on
+actual elapsed-day dates match the final calculations; seven missing 2016-2022
+years per series remain explicit. IBM financing debt of 63.817bn plus operating
+leases of 3.323bn reconciles to 67.140bn USD, while automated scope admission
+remains refused. Source and original database custody hashes are unchanged.
+
+One fresh independent OpenAI combined review found four Important groups.
+Parent repairs pass all five original reproductions, meaningful tracked
+regressions and the final gate. No second independent approval of the changed
+final source is claimed. The ledger preserves that distinction and eight
+remaining research/readiness limits, including unsupported COP compact tables,
+IBM scope, honest filing gaps and four disclosure-order cases. FIGR retains
+13 usable monthly beta observations versus the existing 24-observation minimum;
+account/model acceptance and a bounded live canary remain unproved.
+
+FIGR/Opus live remains **HOLD**. No paid report, PR, push, shared-main merge or
+publication follows from these checks. Predictive accuracy, grade calibration
+and the truth of every substantive research claim are not established by
+passing tests or matching citations. Original reports, snapshots, accepted
+model work, repair branches and failed receipts remain preserved.
+
+## Earlier validation records
+
 Updated 2026-10-31 for the prospective study workflow. No new matured-outcome
 accuracy estimate or grade calibration is established by this implementation.
 

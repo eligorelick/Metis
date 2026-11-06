@@ -27,6 +27,7 @@ import { describeFinancialValuation } from "@/pipeline/stageB/valuationAssumptio
 const history: DcfRoicYear[] = [2021, 2022, 2023, 2024, 2025].map((y) => ({ date: `${y}-12-31`, roicPct: 18, waccPct: 10 }));
 
 const CARRIED = {
+  asOf: "2025-12-31", quoteAsOf: "2025-12-31",
   bookValue: 1_000,
   currentRoePct: 20,
   costOfEquityPct: 10,

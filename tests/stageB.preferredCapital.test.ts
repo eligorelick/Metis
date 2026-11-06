@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { quarterlyOpeningBook, resolvePreferredCapital } from "@/pipeline/stageB/excessReturnBook";
@@ -9,7 +10,7 @@ import { computeRote } from "@/pipeline/stageB/returns";
 const M = 1e6;
 type Fact = { tag: string; val: number; end?: string; unit?: string; filed?: string };
 function fixture(evidence: Fact[], route: "general" | "insurer" = "insurer") {
-  const b = buildSyntheticRouteBundle(route);
+  const b = withFixtureQuoteDay(buildSyntheticRouteBundle(route), "2026-03-31");
   for (const result of [b.statements.balanceAnnual, b.statements.balanceQuarterly]) {
     if (!result.ok) throw new Error("fixture");
     for (const row of result.value.data.rows) row.preferredStock = 0;

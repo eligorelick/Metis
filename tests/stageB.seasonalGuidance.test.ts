@@ -314,7 +314,7 @@ describe("guidance on a seasonal and period-comparable basis", () => {
     const baseRow = bundle.statements.incomeQuarterly.value.data.rows[1];
     bundle.statements.incomeQuarterly.value.data.rows = Array.from({ length: 11 }, (_, n) => {
       const date = plus("2026-09-27", -91 * n);
-      return { ...baseRow, date, revenue: 100e6 * 1.05 ** (11 - n), fieldProvenance: { revenue: { source: "edgar", unit: "USD", periodStart: plus(date, -90), periodEnd: date, observedAt: bundle.builtAt, tags: ["Revenues"], filings: [] } } };
+      return { ...baseRow, date, revenue: 100e6 * 1.05 ** (11 - n), fieldProvenance: { revenue: { source: "edgar", unit: "USD", periodStart: plus(date, -90), periodEnd: date, observedAt: bundle.builtAt, tags: ["Revenues"], filings: [{accn:"synthetic",filed:bundle.builtAt.slice(0,10),form:"10-Q"}] }, operatingIncome: {source:"edgar",unit:"USD",periodStart:plus(date,-90),periodEnd:date,observedAt:bundle.builtAt,tags:["us-gaap/OperatingIncomeLoss"],filings:[{accn:"synthetic",filed:bundle.builtAt.slice(0,10),form:"10-Q"}]} } };
     });
     bundle.statements.balanceQuarterly.value.data.rows[0].date = "2026-09-27";
     const c = runStageB(bundle);

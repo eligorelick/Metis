@@ -79,7 +79,7 @@ export function scoreAuditTables(scores: Scoring): ReportAuditTable[] {
   return tables;
 }
 
-export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
+export function valuationAuditTables(dcf: Dcf, recordedPerShare: Dcf["perShare"] = dcf.perShare): ReportAuditTable[] {
   const result: ReportAuditTable[] = [];
   if (dcf.sensitivityNotes?.length) result.push({ heading: "Sensitivity conventions", headers: ["Convention"], rows: dcf.sensitivityNotes.map(note => [note]), note: "These are the conventions used in the displayed grids; no alternative arithmetic is substituted." });
   const b = dcf.bridge;
@@ -121,7 +121,7 @@ export function valuationAuditTables(dcf: Dcf): ReportAuditTable[] {
   // C-11: the excess-return route's start-return × cost-of-equity grid.
   const er = dcf.excessReturnGrid;
   // The headline's established currency: its ISO field, else the code its traced unit names ("USD/share").
-  const erCurrency = dcf.perShare ? establishedCurrency(dcf.perShare.unit, dcf.perShare.currency) : null;
+  const erCurrency = recordedPerShare ? establishedCurrency(recordedPerShare.unit, recordedPerShare.currency) : null;
   if (er && er.perShare.length) result.push({heading:"Sensitivity (per share — rows = starting return, cols = cost of equity)",
     headers:["Starting return / cost of equity",...er.costOfEquityPcts.map(c=>`CoE ${c.toFixed(1)}%`)],
     rows:er.perShare.map((row,i)=>[er.rows[i]?.label ?? "—",...row.map(v=>v===null?"withheld":formatFinancialValue(v,"currency/share",erCurrency))]),

@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /**
  * Audit 2026-10-22 C-11: the excess-return route gave the reader no trailing
  * return and no start-ROTE sensitivity, so COF's report said returns would
@@ -58,7 +59,7 @@ const bank = (over: Partial<ExcessReturnInputs> = {}): ExcessReturnInputs => ({
 
 describe("C-11: the start-return × cost-of-equity grid", () => {
   it("FIN-309: headline, alternative and grid citations use their rolled value date", () => {
-    const bundle = buildSyntheticRouteBundle("bank");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("bank"), "2026-03-31");
     if (!bundle.quote.ok) throw new Error("fixture quote");
     bundle.quote.value.data.rows[0].timestamp = Date.parse("2026-07-05T20:00:00Z") / 1000;
     const computed = runStageB(bundle);
@@ -110,7 +111,7 @@ describe("C-11: the start-return × cost-of-equity grid", () => {
   });
 
   it("reaches the report display and renders as a valuation table", () => {
-    const { computed, report, surfaces } = runResearchRoutePanel(buildSyntheticRouteBundle("bank"));
+    const { computed, report, surfaces } = runResearchRoutePanel(withFixtureQuoteDay(buildSyntheticRouteBundle("bank"), "2026-03-31"));
     if (computed.valuation.kind !== "excess-return") throw new Error("expected the bank route");
     const display = computeDcfDisplay(computed.valuation, "USD");
     expect(display.excessReturnGrid?.perShare).toHaveLength(3);
@@ -137,7 +138,7 @@ describe("C-11: trailing return rows", () => {
     { route: "bank", payloadLabel: "ROTE (trailing four quarters)", rowLabel: "Return on tangible common equity (trailing four quarters)" },
     { route: "insurer", payloadLabel: "common-equity ROE (trailing four quarters)", rowLabel: "Return on common equity (trailing four quarters)" },
   ] as const)("$route: the payload and the data-only returns block carry the trailing return", ({ route, payloadLabel, rowLabel }) => {
-    const bundle = buildSyntheticRouteBundle(route);
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle(route), "2026-03-31");
     const { computed, report, surfaces } = runResearchRoutePanel(bundle);
     const ttm = computed.returns.commonReturnTtm!;
     expect(ttm.returnPct).not.toBeNull();
@@ -158,7 +159,7 @@ describe("C-11: trailing return rows", () => {
 
 describe("C-10: the Stage B note names the start the model used", () => {
   it("names the trailing window, not a fiscal year, when the model starts from it", () => {
-    const computed = runStageB(buildSyntheticRouteBundle("bank"));
+    const computed = runStageB(withFixtureQuoteDay(buildSyntheticRouteBundle("bank"), "2026-03-31"));
     if (computed.valuation.kind !== "excess-return") throw new Error("expected the bank route");
     expect(computed.valuation.excessReturn.roePathPct.basis).toMatch(/TTM/);
     const note = computed.valuation.notes.find((n) => n.startsWith("Common-share valuation uses")) ?? "";
@@ -240,7 +241,7 @@ describe("C-11: base-case language about returns recovering toward the cost of e
   });
 
   it("puts a warning in the assembled report's missing-data manifest", () => {
-    const bundle = buildSyntheticRouteBundle("bank");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("bank"), "2026-03-31");
     const computed = runStageB(bundle);
     if (computed.valuation.kind !== "excess-return") throw new Error("expected the bank route");
     const target = computed.valuation.excessReturn.financialAssumptions!.terminalRoePct;
@@ -261,7 +262,7 @@ describe("C-11: base-case language about returns recovering toward the cost of e
   });
 
   it("reads only the scenario text the report keeps: commentary, else the legacy assumptions", () => {
-    const computed = runStageB(buildSyntheticRouteBundle("bank"));
+    const computed = runStageB(withFixtureQuoteDay(buildSyntheticRouteBundle("bank"), "2026-03-31"));
     const judge = loadTask28Fixture() as JudgeOutput;
     const base = judge.valuation.scenarios.find((s) => s.name === "base")!;
     // Presentation keeps the commentary and replaces the assumptions, so a sentence only there is never shown.
@@ -276,7 +277,7 @@ describe("C-11: base-case language about returns recovering toward the cost of e
   });
 
   it("compares the language with the start the model used, not an unused trailing return", () => {
-    const computed = runStageB(buildSyntheticRouteBundle("bank"));
+    const computed = runStageB(withFixtureQuoteDay(buildSyntheticRouteBundle("bank"), "2026-03-31"));
     if (computed.valuation.kind !== "excess-return") throw new Error("expected the bank route");
     const er = computed.valuation.excessReturn;
     const target = er.financialAssumptions!.terminalRoePct;
@@ -300,7 +301,7 @@ describe("C-11: base-case language about returns recovering toward the cost of e
 
 describe("C-10: the trailing start uses only a currency-compatible window", () => {
   it("starts from the fiscal year when the four quarters are in another currency than the annual statement", () => {
-    const bundle = buildSyntheticRouteBundle("bank");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("bank"), "2026-03-31");
     for (const result of [bundle.statements.incomeAnnual, bundle.statements.balanceAnnual, bundle.statements.cashflowAnnual]) {
       if (!result.ok) throw new Error("synthetic fixture requires annual statements");
       for (const row of result.value.data.rows) row.reportedCurrency = "USD";

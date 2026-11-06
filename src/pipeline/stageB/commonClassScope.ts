@@ -1,10 +1,12 @@
-import type { DataBundle } from "@/pipeline/types";
+import type { DataBundle, ExtractedSection } from "@/pipeline/types";
+import type { Sourced } from "@/types/core";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { identicalClassRights } from "@/edgar/economicShares";
 import { commonClassName, displayClassName, filingSentences, isSecClassFiling } from "@/edgar/classEvidence";
 import { retainedClassEconomicRefusal } from "@/edgar/retainedClassEconomics";
 import { parseFactPoints } from "@/edgar/xbrl";
 import type { CombinedClassEpsBasis, WeightedShareCounts } from "./securityBasis";
+import { quotePriceObservationDay } from "./priceCurrency";
 
 /** R9: narrowly admit an explicitly combined EPS note with matching filed counts. */
 export function retainedCombinedClassEpsBasis(bundle: DataBundle, counts: WeightedShareCounts): CombinedClassEpsBasis | null {
@@ -57,6 +59,102 @@ export interface CommonClassAmbiguity {
   sourceIds: string[];
 }
 
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const MONTH_DAY = `(?:${MONTHS.join("|")}) \\d{1,2},`;
+const FULL_DATE = `${MONTH_DAY} \\d{4}`;
+const DATE_PAIR = `${FULL_DATE} and (?:${MONTH_DAY} )?\\d{4}`;
+const validDay = (day: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day;
+
+function classDate(text: string): string | null {
+  const m = /^(\w+) (\d{1,2}), (\d{4})$/.exec(text);
+  if (!m) return null;
+  const month = MONTHS.findIndex(name => name.toLowerCase() === m[1]!.toLowerCase()) + 1;
+  const day = `${m[3]}-${String(month).padStart(2, "0")}-${m[2]!.padStart(2, "0")}`;
+  return validDay(day) ? day : null;
+}
+
+function classDates(text: string): (string | null)[] {
+  const [first, second] = text.split(/ and /i);
+  return [classDate(first!), classDate(/^\d{4}$/.test(second ?? "") ? first!.replace(/\d{4}$/, second!) : second ?? "")];
+}
+
+/** Only a dated balance-sheet common row, not a zero or count elsewhere in a cap. */
+function datedCommonRow(section: ExtractedSection, issuerName: string): { row: string; dates: string[] } | null {
+  const text = (section.statementsText ?? "").slice(0, 12_000).replace(/\s+/g, " ");
+  const headings = [...text.matchAll(new RegExp(`\\b(?:CONSOLIDATED )?BALANCE SHEETS\\s*(?:\\([^)]{0,100}\\)\\s*)*(${FULL_DATE}) (${FULL_DATE}) Assets\\b`, "gi"))];
+  if (headings.length !== 1) return null;
+  const heading = headings[0]!, dates = [classDate(heading[1]!), classDate(heading[2]!)];
+  const issuer = issuerName.replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const preceding = text.slice(0, heading.index).replace(/\bCONDENSED\s*$/i, "").trimEnd();
+  if (!issuer || !preceding.replace(/[^a-z0-9]/gi, "").toLowerCase().endsWith(issuer)) return null;
+  if (!dates[0] || !dates[1] || dates[0] !== section.reportDate || dates[1] >= dates[0]) return null;
+  const balance = text.slice(heading.index! + heading[0].length).split(/\b(?:CONSOLIDATED STATEMENTS|See accompanying notes)\b/i)[0]!;
+  const rows = [...balance.matchAll(/\bCommon stock[;:]/gi)];
+  if (rows.length !== 1) return null;
+  const row = balance.slice(rows[0]!.index).split(/\b(?:Treasury stock|Additional paid[ -]in capital|Retained earnings)\b/i)[0]!;
+  // A numbered class prefix would make this a named row, not the renamed common.
+  if (/\bClass\s+\w+\s*$/i.test(balance.slice(0, rows[0]!.index))) return null;
+  const counts = [...row.matchAll(new RegExp(`\\b([\\d,]+) and ([\\d,]+) shares outstanding as of (${DATE_PAIR}),? respectiv\\s*ely\\b`, "gi"))];
+  if (counts.length !== 1 || Number(counts[0]![1]!.replaceAll(",", "")) <= 0) return null;
+  if (classDates(counts[0]![3]!).some((d, i) => d !== dates[i])) return null;
+  return { row, dates: [dates[0], dates[1]] };
+}
+
+/**
+ * D-205: remove only proved historical footnote mentions from the fallback's
+ * analysis copy. This is not a class inventory or economic-rights admission.
+ * Supported form: one compound common row, current-first comparative dates,
+ * zero outstanding at BOTH dates, and an unconditional dated elimination /
+ * rename in the same primary filing. Unsupported forms keep the old refusal.
+ */
+function currentClassStatement(bundle: DataBundle, source: Sourced<ExtractedSection>, notes: Sourced<ExtractedSection>[], evidenceRefusal: string | null): string {
+  const original = (source.data.statementsText ?? "").slice(0, 12_000);
+  const cutoff = bundle.builtAt.slice(0, 10), registrant = bundle.edgar.registrant;
+  const profile = bundle.profile.ok ? bundle.profile.value.data.rows[0] : null;
+  if (evidenceRefusal || !registrant || !profile || !validDay(cutoff) || !/^\d{10}$/.test(registrant.cik10) ||
+      Number(profile.cik) !== Number(registrant.cik10) || profile.symbol !== bundle.symbol || !registrant.tickers.includes(bundle.symbol)) return original;
+  const eligible = (s: Sourced<ExtractedSection>) => s.source === "edgar" && /^10-[KQ](?:\/A)?$/.test(s.data.form) &&
+    validDay(s.data.reportDate) && s.data.reportDate <= s.data.filingDate && isSecClassFiling(s.data, registrant.cik10, cutoff);
+  if (!eligible(source)) return original;
+  // The fallback's cutoff filter may omit an unparseable report date. Such a
+  // retained filing cannot silently become evidence that no later class exists.
+  if ([bundle.edgar.tenQNotes, bundle.edgar.tenKNotes].some(m => m?.ok && m.value.data.filingDate <= cutoff &&
+      (!validDay(m.value.data.reportDate) || m.value.data.reportDate > m.value.data.filingDate))) return original;
+  const statement = original.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, " ");
+  const owner = "(?:the Company's )?";
+  const events = [...statement.matchAll(new RegExp(`(?:^|[.] |\\(\\d+\\) )On (${FULL_DATE}), all authorized shares of ${owner}Class ([A-Z0-9]{1,8}) common stock were eliminated and ${owner}Class ([A-Z0-9]{1,8}) common stock was renamed to "?common stock,?"?(?:,? pursuant to the terms of ${owner}amended and restated certificate of incorporation)?\\.`, "gi"))];
+  if (events.length !== 1) return original;
+  const event = events[0]!, effective = classDate(event[1]!), removed = event[2]!, renamed = event[3]!;
+  const priceDay = quotePriceObservationDay(bundle.quote.ok ? bundle.quote.value.data.rows[0] : null);
+  if (!effective || effective > source.data.reportDate || (priceDay !== null && effective > priceDay) || removed.toUpperCase() === renamed.toUpperCase()) return original;
+  const proof = datedCommonRow(source.data, registrant.name);
+  if (!proof) return original;
+  // The named portions must be the two authorization clauses in this single
+  // common row. Separate/combined live-class rows are deliberately not inferred.
+  const mentions = [...proof.row.matchAll(/\bClass ([A-Z0-9]{1,8})\b/gi)];
+  if (mentions.length !== 2 || mentions[0]![1]!.toUpperCase() !== renamed.toUpperCase() || mentions[1]![1]!.toUpperCase() !== removed.toUpperCase()) return original;
+  if (!new RegExp(`\\bClass ${renamed} shares authorized;`, "i").test(proof.row)) return original;
+  const zero = new RegExp(`\\b(?:zero|0) and [\\d,]+ Class ${removed} shares authorized as of (${DATE_PAIR}), respectively, (?:zero|0) shares issued and outstanding as of each of (${DATE_PAIR})\\b`, "i").exec(proof.row);
+  if (!zero || [zero[1]!, zero[2]!].some(pair => classDates(pair).some((d, i) => d !== proof.dates[i]))) return original;
+  if (!/^\s*(?:\(\d+\)\s*)?[\d,\s$—–-]*$/.test(proof.row.slice(zero.index + zero[0].length))) return original;
+  // Later omission is insufficient: every retained report at or after this
+  // period must independently carry a current positive plain-common row.
+  for (const later of notes.filter(s => s.data.reportDate >= source.data.reportDate && s !== source)) {
+    const current = eligible(later) ? datedCommonRow(later.data, registrant.name) : null;
+    if (!current || /\bClass\s+[A-Z0-9]+\b/i.test(later.data.statementsText ?? "")) return original;
+  }
+  // Even one positive cover observation contradicts elimination. The existing
+  // multi-class, count/cover and rights guards continue to run independently.
+  if ((bundle.edgar.economicShareInventory ?? []).some(inventory => inventory.source.filingDate <= cutoff &&
+      [...(inventory.observations ?? []), ...inventory.classes].some(o => o.shares !== null && o.shares > 0 && o.asOf >= effective &&
+        commonClassName(o.classId) === `class ${removed.toLowerCase()} common stock`))) return original;
+  const alias = new RegExp(`Unless otherwise noted, all references herein to ${owner}common stock refer to (?:the (?:Company's )?)?Class ${renamed} common stock prior to the effectiveness of the certificate\\.`, "gi");
+  const current = statement.replace(event[0], " ").replace(alias, " ");
+  // Any other named common-class assertion is unclassified, not historical by
+  // association. Retain the refusal even if only one such mention remains.
+  return /\bClass\s+[A-Z0-9]+\s+(?:(?:non-?voting|voting)\s+)?common\s+(?:stock|shares)\b/i.test(current) ? original : current;
+}
+
 /** Detect scope ambiguity only. Filing class labels do not establish counts or economic equivalence. */
 export function retainedCommonClassAmbiguity(bundle: DataBundle): CommonClassAmbiguity | null {
   const cutoff = bundle.builtAt.slice(0, 10);
@@ -77,7 +175,7 @@ export function retainedCommonClassAmbiguity(bundle: DataBundle): CommonClassAmb
   // An omitted capital description never proves a previously filed class disappeared.
   notes.sort((a, b) => b.data.filingDate.localeCompare(a.data.filingDate));
   for (const latest of notes) {
-    const statement = (latest.data.statementsText ?? "").slice(0, 12_000);
+    const statement = currentClassStatement(bundle, latest, notes, evidenceRefusal);
     const classPattern = /\bclass\s+([a-z0-9]{1,8})\s+(?:(?:voting|nonvoting|non-voting)\s+)?(?:common\s+(?:stock|shares)|ordinary\s+shares)\b/gi;
     const classes = new Set([...statement.matchAll(classPattern)].map(match => match[1].toUpperCase()));
     const unqualified = statement.replace(classPattern, "");

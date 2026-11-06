@@ -33,8 +33,12 @@ describe("B5a then B6: independently versioned stored disclosures", () => {
     for (const [key, applies] of [["quarterLength", quarter], ["impliedReturnShareBasis", shares]] as const) {
       expect(view.appendix.missingData.filter(g => g.field === `presentation.legacyValuation.${key}`)).toHaveLength(applies ? 1 : 0);
     }
-    expect(view.scores).toEqual(report.scores);
-    expect(view.valuation.dcf).toEqual(report.valuation.dcf);
+    const numericScores = structuredClone(view.scores!); delete numericScores.qualification;
+    expect(numericScores).toEqual(report.scores);
+    expect(view.scores?.qualification).toBeDefined();
+    const recorded = { ...view.valuation.dcf, perShare: view.fairValue?.auditValue ?? null, upsidePct: report.valuation.dcf.upsidePct };
+    expect(recorded).toEqual(report.valuation.dcf);
+    expect(view.valuation.dcf.perShare).toBeNull(); expect(view.valuation.dcf.upsidePct).toBeNull();
     expect(parseStoredReportWithSafety(JSON.stringify(view))!.report).toEqual(view);
     const texts = [renderToStaticMarkup(createElement(ReportView, { report })),
       renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" })),

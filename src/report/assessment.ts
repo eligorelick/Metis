@@ -1,4 +1,6 @@
-import type { AspectScore, GradeBlock, Report, Scoring } from "@/report/schema";
+import { ScoreAspectSchema, type AspectScore, type GradeBlock, type GradeQualification, type Report, type Scoring, type ScoreAspect, type ValuationUse } from "@/report/schema";
+import type { ManifestEntry } from "@/types/core";
+import type { WaccOperatingEvidence } from "@/pipeline/stageB/returns";
 import { formatScore } from "@/report/scoreText";
 import { GRADE_SURFACES } from "@/report/surfaceManifest";
 import type { Grade } from "@/types/core";
@@ -50,6 +52,7 @@ export function evidencePercentText(share: number): string {
 type CompositeEvidence = {
   composite: Pick<Scoring["composite"], "score" | "band">;
   assessments?: { evidenceCompleteness?: number } | null;
+  qualification?: Scoring["qualification"];
 };
 
 export function compositeDisplay(scores: CompositeEvidence): {
@@ -68,13 +71,14 @@ export function compositeDisplay(scores: CompositeEvidence): {
 /** Reader formatting is separate so generation/prompt consumers retain their exact contract. */
 export function compositeDisplayForReader(scores: CompositeEvidence): ReturnType<typeof compositeDisplay> {
   const view = compositeDisplay(scores);
-  return view.evidence !== null && view.evidence < MIN_HEADLINE_EVIDENCE && view.label !== "—"
+  const shown = view.evidence !== null && view.evidence < MIN_HEADLINE_EVIDENCE && view.label !== "—"
     ? { ...view, label: `Not graded: evidence ${evidencePercentText(view.evidence)}` }
     : view;
+  return shown.grade === null ? shown : { ...shown, label: qualifiedGradeLabel(shown.label, scores.qualification?.composite) };
 }
 
 /** "B (71/100)", or "Not graded: evidence 5% (score 51/100)" under the floor. */
-export function compositeText(scores: Pick<Scoring, "composite" | "assessments">): string {
+export function compositeText(scores: Pick<Scoring, "composite" | "assessments" | "qualification">): string {
   const view = compositeDisplayForReader(scores);
   const score = scores.composite.score;
   if (score === null) return view.label;
@@ -84,12 +88,13 @@ export function compositeText(scores: Pick<Scoring, "composite" | "assessments">
 }
 
 /** The evidence share and the band thresholds, printed beside the composite. */
-export function compositeNote(scores: Pick<Scoring, "composite" | "assessments"> & Partial<Pick<Scoring, "aspects">>): string {
+export function compositeNote(scores: Pick<Scoring, "composite" | "assessments" | "qualification"> & Partial<Pick<Scoring, "aspects">>): string {
   const { evidence } = compositeDisplay(scores);
   const floor = `a letter needs ${Math.round(MIN_HEADLINE_EVIDENCE * 100)}%`;
   const note = `${evidence === null ? "" : `evidence for ${evidencePercentText(evidence)} of the route-applicable signal weight (${floor}); `}bands ${BAND_THRESHOLDS_TEXT}`;
   const unscored = unscoredAspectsText(scores);
-  return unscored === null ? note : `${note}. ${unscored}`;
+  const qualification = qualificationText(scores.qualification?.composite);
+  return [note, unscored, qualification].filter(Boolean).join(". ");
 }
 
 const COMPOSITE_ASPECT_LABEL: Readonly<Record<keyof Scoring["aspects"], string>> = {
@@ -128,6 +133,9 @@ export function applyReportAssessmentStatus(report: Report): Report {
     const aspect = report.scores.aspects[key];
     const strip = normalized.verdict.gradeStrip[key];
     const section = sectionKey === "competitive" ? normalized.competitive.moatGraded : normalized[sectionKey].graded;
+    const qualification = report.scores.qualification?.aspects[key] ?? legacyQualification(key);
+    if (strip !== undefined) strip.qualification = structuredClone(qualification);
+    if (section !== undefined) section.qualification = structuredClone(qualification);
     const statuses = [strip?.assessmentStatus, section?.assessmentStatus];
     const unavailable = aspect == null || aspect.score === null || aspect.band === null;
     // Existing withheld assessments can become more restrictive, never less.
@@ -214,7 +222,7 @@ function shownLetter(block: GradeBlock, aspect?: AspectEvidence | null): string 
 }
 
 export function gradeDisplayLabel(block: GradeBlock, aspect?: AspectEvidence | null): string {
-  if (gradeForDisplay(block) !== null) return shownLetter(block, aspect);
+  if (gradeForDisplay(block) !== null) return qualifiedGradeLabel(shownLetter(block, aspect), block.qualification);
   const limited = block.assessmentStatus === "limited-evidence" || /on (\d+)% of intended signals/.test(block.oneLineWhy);
   if (!limited) return "Not assessed";
   return aspect && aspect.score !== null && aspect.band !== null
@@ -224,5 +232,74 @@ export function gradeDisplayLabel(block: GradeBlock, aspect?: AspectEvidence | n
 
 /** "Grade A", or the not-assessed label: the heading of a graded section. */
 export function gradeHeading(block: GradeBlock, aspect?: AspectEvidence | null): string {
-  return gradeForDisplay(block) !== null ? `Grade ${shownLetter(block, aspect)}` : gradeDisplayLabel(block, aspect);
+  return gradeForDisplay(block) !== null ? `Grade ${gradeDisplayLabel(block, aspect)}` : gradeDisplayLabel(block, aspect);
+}
+
+export type FinancialEvidenceQualification = {
+  code: "financial-evidence-blocked" | "selected-operating-scope-unverified";
+  field: string; detail: string; affectedAspects: ScoreAspect[];
+};
+
+export function financialEvidenceQualifications(gaps: readonly ManifestEntry[], operatingEvidence: WaccOperatingEvidence | null): FinancialEvidenceQualification[] {
+  const affected: Record<string, ScoreAspect[]> = {
+    statements: ["fundamentals", "valuation", "quality", "balanceSheet"], returns: ["valuation", "quality"],
+    capital: ["valuation", "balanceSheet", "leadership"], valuation: ["valuation"],
+  };
+  const result: FinancialEvidenceQualification[] = [];
+  for (const gap of gaps) {
+    const aspects = affected[gap.field.split(".")[0]!];
+    if (gap.severity === "critical" && gap.expected !== true && aspects) result.push({
+      code: "financial-evidence-blocked", field: gap.field, detail: gap.reason, affectedAspects: aspects,
+    });
+  }
+  if (operatingEvidence?.status === "unverified-derivation" && operatingEvidence.usedInDiscountRate) result.push({
+    code: "selected-operating-scope-unverified", field: operatingEvidence.field, affectedAspects: ["valuation", "quality"],
+    detail: `The selected operating-income derivation (${operatingEvidence.asOf ?? "date unavailable"}) has unverified consolidated operating scope and was used in the discount rate.`,
+  });
+  return result;
+}
+
+function legacyQualification(aspect: ScoreAspect | null): GradeQualification {
+  return { status: "unknown", reasons: [{ code: "legacy-qualification-unknown", aspect, field: null,
+    detail: "This stored assessment has no recorded evidence qualification; its grade is retained for audit." }] };
+}
+
+/** Annotation only. No score, band, weight, signal or arithmetic is recalculated. */
+export function withAssessmentQualification(scores: Scoring, context: {
+  valuationUse: ValuationUse; financialEvidence: readonly FinancialEvidenceQualification[];
+}): Scoring {
+  const result = structuredClone(scores);
+  const aspects = {} as Record<ScoreAspect, GradeQualification>;
+  for (const key of ScoreAspectSchema.options) {
+    const aspect = scores.aspects[key], coverage = aspect.applicableCompleteness;
+    if (scores.composite.weights[key] <= 0 || coverage === null) { aspects[key] = { status: "not-applicable", reasons: [] }; continue; }
+    const reasons: GradeQualification["reasons"] = [];
+    if (aspect.score === null || aspect.band === null || coverage === 0) reasons.push({
+      code: "missing-applicable-aspect", aspect: key, field: `scores.aspects.${key}`, detail: `${COMPOSITE_ASPECT_LABEL[key]} has no route-applicable score evidence.`,
+    });
+    else if (hasLimitedEvidence(aspect)) reasons.push({ code: "limited-applicable-evidence", aspect: key,
+      field: `scores.aspects.${key}`, detail: `${COMPOSITE_ASPECT_LABEL[key]} has limited evidence (${limitedEvidenceText(aspect)}).` });
+    if (key === "valuation" && context.valuationUse.status !== "current" && context.valuationUse.status !== "not-applicable") reasons.push({
+      code: "current-valuation-unavailable", aspect: key, field: "valuation.currentUse", detail: "Current valuation evidence is unavailable or its alignment with the quote date is unestablished.",
+    });
+    for (const evidence of context.financialEvidence) if (evidence.affectedAspects.includes(key)) reasons.push({
+      code: evidence.code, aspect: key, field: evidence.field, detail: evidence.detail,
+    });
+    aspects[key] = reasons.length ? { status: "provisional", reasons } : coverage === undefined
+      ? legacyQualification(key) : { status: "supported", reasons: [] };
+  }
+  const reasons = ScoreAspectSchema.options.flatMap(key => aspects[key].reasons);
+  result.qualification = { aspects, composite: { status: Object.values(aspects).some(a => a.status === "provisional") ? "provisional"
+    : Object.values(aspects).some(a => a.status === "unknown") ? "unknown" : "supported", reasons } };
+  return result;
+}
+
+export function qualifiedGradeLabel(letter: string, qualification: GradeQualification | undefined): string {
+  return qualification?.status === "provisional" ? `${letter} — Provisional`
+    : qualification?.status === "unknown" ? `${letter} — Qualification unknown` : letter;
+}
+
+export function qualificationText(qualification: GradeQualification | undefined): string | null {
+  if (!qualification || qualification.status === "supported" || qualification.status === "not-applicable") return null;
+  return `${qualification.status === "provisional" ? "Provisional" : "Qualification unknown"}: ${[...new Set(qualification.reasons.map(r => r.detail))].join(" ")}`;
 }

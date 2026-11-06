@@ -82,6 +82,7 @@ export function withReaderConventions(report: Report): Report {
 }
 
 export function unavailableCashFlowModel(report: Pick<Report, "valuation" | "fairValue" | "projections">): boolean {
+  if (report.fairValue?.auditValue || report.fairValue?.reference) return false;
   return report.valuation.dcf.perShare === null && report.valuation.dcf.sensitivityGrid.length === 0 &&
     !report.valuation.dcf.forecastRows?.length && !report.valuation.dcf.excessReturnGrid &&
     report.valuation.reverseDcf.impliedValue === null &&

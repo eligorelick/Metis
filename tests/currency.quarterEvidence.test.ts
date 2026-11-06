@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /**
  * The currency of a trailing four-quarter window, established from evidence.
  *
@@ -32,7 +33,7 @@ const TTM_COST_OF_DEBT = (16 / 300) * 100;
 const ANNUAL_COST_OF_DEBT = (15 / 300) * 100;
 
 function run(opts: CurrencyBundleOptions): ComputedMetrics {
-  return runStageB(currencyBundle(opts));
+  return runStageB(withFixtureQuoteDay(currencyBundle(opts), "2026-03-31"));
 }
 
 function startRevenue(c: ComputedMetrics): number | undefined {
@@ -176,7 +177,7 @@ describe("forecast operating EPS interest uses the DCF anchor's currency and per
     ["the latest quarter is in EUR", ["EUR", "USD", "USD", "USD"]],
     ["the latest quarter is USD but a prior quarter invalidates the TTM", ["USD", "EUR", "USD", "USD"]],
   ] as const)("keeps annual USD interest when %s", (_, quarterCurrencies) => {
-    const bundle = currencyBundle({ quarterCurrencies, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+    const bundle = withFixtureQuoteDay(currencyBundle({ quarterCurrencies, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] }), "2026-03-31");
     const original = runStageB(bundle);
     const changed = structuredClone(bundle);
     if (!changed.statements.incomeQuarterly.ok) throw new Error("quarterly fixture required");

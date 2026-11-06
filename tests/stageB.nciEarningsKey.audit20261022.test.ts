@@ -132,7 +132,7 @@ describe("E-5: NCI on the earnings key", () => {
       const valuation = valueCompany(route, bundle({ minorityInterest: 0.2 * consolidated, noncontrollingEarnings: earnings }));
       const gap = valuation.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey");
       expect(gap?.reason).toMatch(/noncontrolling/i);
-      const fairValue = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
+      const fairValue = computeFairValue({ quoteAsOf: null, valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
       expect(fairValue.perShare).toBeNull();
       expect(fairValue.reasons[0]).toMatchObject({ field: "valuation.dcf.noncontrollingEarningsKey" });
     }
@@ -159,7 +159,7 @@ describe("E-5: NCI on the earnings key", () => {
     const valuation = valueCompany(route, bundle({ netDebt: consolidated + NET_DEBT + 1, minorityInterest: 0.2 * consolidated, noncontrollingEarnings: null }));
     expect(valuation.gaps.some((g) => g.field === "valuation.dcf.domain")).toBe(true);
     expect(valuation.gaps.some((g) => g.field === "valuation.dcf.noncontrollingEarningsKey")).toBe(false);
-    expect(computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" }).status).toBe("outside-domain");
+    expect(computeFairValue({ quoteAsOf: null, valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" }).status).toBe("outside-domain");
   });
 
   it("needs no earnings key without a noncontrolling interest", () => {
@@ -207,7 +207,7 @@ describe("E-5 review fixes", () => {
     expect(valuation.gaps.some((g) => g.field === "valuation.dcf.domain")).toBe(false);
     const gap = valuation.gaps.find((g) => g.field === "valuation.dcf.noncontrollingEarningsKey");
     expect(gap?.reason).toMatch(/trailing profit attributable to noncontrolling interests 60 exceeds consolidated profit 10, so the parent's own share is negative/);
-    const fairValue = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
+    const fairValue = computeFairValue({ quoteAsOf: null, valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
     expect(fairValue.perShare).toBeNull();
     expect(fairValue.reasons[0]).toMatchObject({ field: "valuation.dcf.noncontrollingEarningsKey" });
   });
@@ -216,7 +216,7 @@ describe("E-5 review fixes", () => {
     const valuation = valueCompany(route, bundle({ dilutedShares: null, minorityInterest: 0.2 * consolidated, noncontrollingEarnings: null }));
     if (valuation.kind !== "dcf") throw new Error("expected the DCF route");
     expect(valuation.dcf).not.toBeNull();
-    const fairValue = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
+    const fairValue = computeFairValue({ quoteAsOf: null, valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
     expect(fairValue.perShare).toBeNull();
     expect(fairValue.reasons[0]?.field).not.toBe("valuation.dcf.noncontrollingEarningsKey");
   });

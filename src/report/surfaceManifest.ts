@@ -298,6 +298,7 @@ export const SCORING_FIELD_ORDER = [
   "bandsVersion",
   "assessments",
   "factorExposure",
+  "qualification",
 ] as const satisfies readonly ScoringFieldKey[];
 export const SCORING_FIELDS = [
   { id: "scoring-field:aspects", key: "aspects", label: "Aspect scores", optional: false },
@@ -305,6 +306,7 @@ export const SCORING_FIELDS = [
   { id: "scoring-field:bandsVersion", key: "bandsVersion", label: "Score bands version", optional: false },
   { id: "scoring-field:assessments", key: "assessments", label: "Assessment dimensions", optional: true },
   { id: "scoring-field:factorExposure", key: "factorExposure", label: "Factor-family exposure", optional: true },
+  { id: "scoring-field:qualification", key: "qualification", label: "Evidence qualification", optional: true },
 ] as const satisfies readonly FieldDescriptor<ScoringFieldKey>[];
 export const SCORING_FIELD_BY_KEY = {
   aspects: SCORING_FIELDS[0],
@@ -312,6 +314,7 @@ export const SCORING_FIELD_BY_KEY = {
   bandsVersion: SCORING_FIELDS[2],
   assessments: SCORING_FIELDS[3],
   factorExposure: SCORING_FIELDS[4],
+  qualification: SCORING_FIELDS[5],
 } as const satisfies Record<ScoringFieldKey, FieldDescriptor<ScoringFieldKey>>;
 
 export type AspectScoreFieldKey = keyof AspectScore;

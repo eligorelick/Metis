@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 import { describe, expect, it } from "vitest";
 import { assembleContextPayload, reverseDcfContextFigures } from "@/pipeline/stageC/payload";
 import { runStageB } from "@/pipeline/compute";
@@ -48,7 +49,7 @@ describe("like-for-like reverse-DCF context (D136/R2)", () => {
     expect(reverseDcfContextFigures(undefined, null, null).figures).toEqual([]);
   });
   it("names the guided YoY in the assembled context note", () => {
-    const bundle = completeCurrencyBundle({});
+    const bundle = withFixtureQuoteDay(completeCurrencyBundle({}), "2026-03-31");
     const computed = runStageB(bundle);
     if (computed.valuation.kind !== "dcf" || !computed.valuation.assumptions || !computed.valuation.reverseDcf) throw new Error("DCF fixture");
     computed.valuation.reverseDcf.impliedRevenueGrowthPct = 12;

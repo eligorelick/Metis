@@ -1,3 +1,5 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
+import { buildSyntheticRouteBundle, runResearchRoutePanel } from "./helpers/researchRoutePanel";
 /**
  * Report history + Markdown export tests.
  *
@@ -349,16 +351,8 @@ describe("reportToMarkdown", () => {
   });
 
   it("discloses the deterministic method (computed-derived, not analyst targets) when targets are available", () => {
-    const r = clone(report);
-    r.scenarioTargets = {
-      status: "available",
-      method: "dcf-dispersion",
-      methodVersion: "SCENARIO_TARGETS_2026_07",
-      basis: ["base target = the deterministic FCFF-DCF fair value per share.", "bull/bear shift growth and margin ±1σ of the company's own history."],
-      dispersion: { growthSigmaPp: 8, marginSigmaPp: 3, sigmaSource: "own-history" },
-      targets: [],
-      missingReasons: [],
-    };
+    const r = runResearchRoutePanel(withFixtureQuoteDay(buildSyntheticRouteBundle("general"), "2026-03-31")).report;
+    expect(r.scenarioTargets?.status).toBe("available");
     const out = reportToMarkdown(ReportSchema.parse(r));
     expect(out).toMatch(/computed-derived/i);
     expect(out).toContain("deterministic FCFF-DCF fair value");

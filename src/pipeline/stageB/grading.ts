@@ -41,6 +41,7 @@ import type { Grade } from "@/types/core";
 import type {
   AspectScore,
   Scoring,
+  ValuationUse,
   ScoreAspect,
   TracedNumber,
   ScoreSignal,
@@ -776,6 +777,8 @@ export interface ScoringInputs {
   forensics: ForensicsReport;
   technicals: TechnicalsResult;
   valuation: ValuationResult;
+  /** Shared pipeline-owned current-use admission, resolved after financial guards. */
+  valuationUse: ValuationUse;
   /**
    * Route metrics from financialMetrics.ts. The bank balance sheet (D-46) is
    * graded on four of them; absent ⇒ that aspect is unscored for lack of data.
@@ -832,11 +835,11 @@ export function computeScores(inputs: ScoringInputs): Scoring {
   if (valuation.kind === "dcf") {
     const perShare = valuation.dcf?.perShare ?? null;
     const upside =
-      isNum(perShare) && isNum(inputs.currentPrice) && inputs.currentPrice > 0
+      inputs.valuationUse?.status === "current" && isNum(perShare) && isNum(inputs.currentPrice) && inputs.currentPrice > 0
         ? (perShare / inputs.currentPrice - 1) * 100
         : null;
     valuationSignals.push({ name: "dcfUpside", raw: upside, unit: "%", weight: 0.4, band: UPSIDE_BAND, suppressedBy: "fcfDcf" });
-    const impliedG = valuation.reverseDcf?.impliedRevenueGrowthPct ?? null;
+    const impliedG = inputs.valuationUse?.status === "current" ? valuation.reverseDcf?.impliedRevenueGrowthPct ?? null : null;
     // The reverse solve and this anchor must describe the SAME path family.
     // A historical CAGR is not an achievable constant-horizon forecast.
     const achievable = isStartingGrowthFamily(valuation.reverseDcf?.growthPathFamily)
@@ -846,14 +849,14 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     // growth search range is graded at that range end: the implied gap is at
     // least (at most) the bound's, so the expensive case scores the band floor
     // and the cheap case at least the bound's score. Missing, it read neutral.
-    const outside = valuation.reverseDcf?.growthOutsideRange;
+    const outside = inputs.valuationUse?.status === "current" ? valuation.reverseDcf?.growthOutsideRange : undefined;
     const impliedVsAchievable = isNum(impliedG) && isNum(achievable) ? impliedG - achievable
       : outside && isNum(outside.boundPct) && isNum(achievable) ? outside.boundPct - achievable : null;
     valuationSignals.push({ name: "reverseImpliedVsAchievable", raw: impliedVsAchievable, unit: "pp", weight: 0.3, band: IMPLIED_VS_ACHIEVABLE_BAND, suppressedBy: "fcfDcf" });
     valuationSignals.push({ name: "peOwnHistoryRank", raw: multipleOwnHistoryRank(valuation, ["peTtm", "evToEbitda", "priceToFcf"]), unit: "rank", weight: 0.3, band: MULTIPLE_OWN_HISTORY_RANK_BAND });
   } else if (valuation.kind === "excess-return") {
     const cur = valuation.excessReturn?.roePathPct?.value?.[0] ?? null; // current/achievable ROE (path start)
-    const implied = valuation.excessReturn?.reverseSolve?.impliedCurrentRoePct ?? null;
+    const implied = inputs.valuationUse?.status === "current" ? valuation.excessReturn?.reverseSolve?.impliedCurrentRoePct ?? null : null;
     // Match IMPLIED_VS_ACHIEVABLE_BAND's convention: (market-implied − achievable).
     // When the market implies a LOWER starting ROE than the bank actually earns,
     // it is too pessimistic ⇒ cheap ⇒ high score (negative input → high).

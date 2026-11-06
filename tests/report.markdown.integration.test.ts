@@ -1,3 +1,4 @@
+import { currentValuationUseFixture } from "./helpers/valuationUse";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createElement } from "react";
@@ -390,11 +391,12 @@ function addOptionalValuationSurfaces(report: Report): void {
     missingReasons: [],
   };
   report.fairValue = {
-    status: "suppressed",
-    method: null,
+    status: "available",
+    method: "fcff-dcf",
+    currentUse: currentValuationUseFixture("2026-07-05"),
     methodVersion: "P30_FAIR_VALUE_VERSION",
-    perShare: null,
-    upsidePct: null,
+    perShare: report.valuation.dcf.perShare,
+    upsidePct: report.valuation.dcf.upsidePct,
     basis: ["P30 fair-value fallback basis"],
     reasons: [{
       field: "valuation.fairValue",
@@ -682,6 +684,7 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     const report = consumerReport(false);
     report.fairValue = {
       status: "available",
+      currentUse: currentValuationUseFixture("2026-07-05"),
       method: "fcff-dcf",
       methodVersion: "P30_FAIR_VALUE_AVAILABLE_VERSION",
       perShare: report.valuation.dcf.perShare,

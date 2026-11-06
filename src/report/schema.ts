@@ -166,7 +166,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.62.0 (D-192): an executive card may carry pipeline-owned filing evidence of office tenure. Stored reports keep their bytes.
 // 1.63.0 (D-193): banks and insurers can carry scenario targets from the excess-return route. Stored reports keep their bytes.
 // 1.64.0 (D-197): verification log records figure-check outcomes for reader prose; the model no longer writes executive tenure
-export const REPORT_SPEC_VERSION = "1.64.0" as const;
+// 1.65.0 (D-208): optional owned valuation dates, reference/audit diagnostics and grade qualification; stored bytes remain immutable.
+// 1.66.0: preserve source-owned lease scope and specific debt refusals through enrichment.
+export const REPORT_SPEC_VERSION = "1.66.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -466,11 +468,32 @@ export type TracedNumber = z.infer<typeof TracedNumberSchema>;
  * A graded section: grade + one-line why + full reasoning + confidence + the
  * numbers behind the grade. `oneLineWhy` is rating-safe free text.
  */
+export const ScoreAspectSchema = z.enum([
+  "fundamentals",
+  "valuation",
+  "quality",
+  "balanceSheet",
+  "moat",
+  "leadership",
+  "technicals",
+]);
+export type ScoreAspect = z.infer<typeof ScoreAspectSchema>;
+
+export const GradeQualificationSchema = z.object({
+  status: z.enum(["supported", "provisional", "unknown", "not-applicable"]),
+  reasons: z.array(z.object({
+    code: z.enum(["missing-applicable-aspect", "limited-applicable-evidence", "current-valuation-unavailable", "financial-evidence-blocked", "selected-operating-scope-unverified", "legacy-qualification-unknown"]),
+    aspect: ScoreAspectSchema.nullable(), field: z.string().nullable(), detail: z.string(),
+  }).strict()),
+}).strict();
+export type GradeQualification = z.infer<typeof GradeQualificationSchema>;
+
 export const GradeBlockSchema = z
   .object({
     grade: GradeSchema,
     /** Pipeline-owned evidence limit for headline grades; raw letters remain auditable. */
     assessmentStatus: z.enum(["not-assessed", "limited-evidence", "deterministic"]).optional(),
+    qualification: GradeQualificationSchema.optional(),
     /** Explicit model proposal; sources must identify admitted section reasoning. */
     overrideRationale: z.object({
       reason: ratingSafeString(),
@@ -1879,16 +1902,7 @@ export type Disagreement = z.infer<typeof DisagreementSchema>;
  * defaulted.
  * ------------------------------------------------------------------------ */
 
-export const ScoreAspectSchema = z.enum([
-  "fundamentals",
-  "valuation",
-  "quality",
-  "balanceSheet",
-  "moat",
-  "leadership",
-  "technicals",
-]);
-export type ScoreAspect = z.infer<typeof ScoreAspectSchema>;
+
 
 export const ScoreSignalSchema = z.object({
   id: z.string(), raw: z.number(), unit: z.string(), transformedScore: z.number().min(0).max(100),
@@ -1974,6 +1988,10 @@ export const ScoringSchema = z
       evidenceCompleteness: z.number().min(0).max(1),
       calibration: z.literal("unbacktested-house-rules"),
     }).strict().optional(),
+    qualification: z.object({ composite: GradeQualificationSchema, aspects: z.object({
+      fundamentals: GradeQualificationSchema, valuation: GradeQualificationSchema, quality: GradeQualificationSchema,
+      balanceSheet: GradeQualificationSchema, moat: GradeQualificationSchema, leadership: GradeQualificationSchema, technicals: GradeQualificationSchema,
+    }).strict() }).strict().optional(),
     factorExposure: z.array(z.object({ family: z.string(), weightPct: z.number(), aboveNeutralPoints: z.number() }).strict()).optional(),
   })
   .strict();
@@ -2164,10 +2182,29 @@ export type ScenarioTargets = z.infer<typeof ScenarioTargetsSchema>;
  * NOT a factual-correctness claim. Optional for backward-compat.
  * ------------------------------------------------------------------------ */
 
+export const ValuationUseSchema = z.object({
+  status: z.enum(["current", "dated-reference", "unestablished", "not-applicable"]),
+  statementDate: z.string().nullable(),
+  valueDate: z.string().nullable(),
+  quoteDate: z.string().nullable(),
+  reason: z.enum(["same-date", "supported-roll-forward", "not-rolled-to-quote", "quote-date-missing", "value-date-missing",
+    "invalid-roll-forward", "future-value-date", "model-unavailable", "route-policy"]),
+}).strict();
+export type ValuationUse = z.infer<typeof ValuationUseSchema>;
+
 export const FairValueSchema = z
   .object({
     // "outside-domain": audit 2026-10-22 B-29, the DCF failed a domain test; no per-share is published.
-    status: z.enum(["available", "suppressed", "outside-domain"]),
+    status: z.enum(["available", "suppressed", "outside-domain", "dated-reference"]),
+    /** Pipeline-owned admission; absent only on older stored reports. */
+    auditValuation: z.object({ scenarios: z.array(ScenarioSchema), reverseDcf: ReverseDcfSchema,
+      scenarioTargets: ScenarioTargetsSchema.optional(),
+      scenarioPresentation: z.lazy(() => ScenarioPresentationSchema).optional(),
+      thesisTriggers: z.array(z.lazy(() => ThesisTriggerSchema)).optional() }).strict().optional(),
+    auditValue: TracedNumberSchema.optional(),
+    currentUse: ValuationUseSchema.optional(),
+    /** Supported model value at its own date, separate from any current headline. */
+    reference: z.object({ perShare: TracedNumberSchema, valuationDate: z.string(), quoteDate: z.string(), basis: z.array(z.string()) }).strict().optional(),
     /** "fcff-dcf" (general route) | "excess-return" (banks/insurers) | null when suppressed. */
     method: z.enum(["fcff-dcf", "excess-return"]).nullable(),
     /** Versioned method prior (e.g. "FAIR_VALUE_2026_07"). */
@@ -3373,12 +3410,13 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       if ("grade" in props && "oneLineWhy" in props && "assessmentStatus" in props) {
         // A deterministic data-only display decision, never model-authored.
         delete props.assessmentStatus;
+        delete props.qualification;
         // D-50: the confidence ceiling is applied at assembly, never model-authored.
         delete props.confidenceCap;
         delete props.gradeContract;
         if (Array.isArray(obj.required)) {
           obj.required = (obj.required as string[]).filter(
-            (key) => key !== "assessmentStatus" && key !== "confidenceCap" && key !== "gradeContract",
+            (key) => key !== "qualification" && key !== "assessmentStatus" && key !== "confidenceCap" && key !== "gradeContract",
           );
         }
       }

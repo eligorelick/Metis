@@ -57,7 +57,8 @@
  * no environment. The companyfacts JSON comes from src/providers/edgar.ts.
  */
 
-import type { EquityMethodIncomePlacement, FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
+import { filedRevenueLines, preferredRevenueLine } from "./revenuePresentation";
+import type { FiledIncomeLine, EquityMethodIncomePlacement, FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 import { commercialPaperInsideBorrowings, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
@@ -75,17 +76,20 @@ import { VENDOR_SEC_TOLERANCE } from "@/edgar/vendorAgreement";
 import { unavailableSplitEvidence, type VendorSplitEvidence } from "@/providers/splitEvents";
 import {
   BALANCE_SHEET_SHARES_TAG,
-  COSTS_AND_EXPENSES_TAG,
+  COSTS_AND_EXPENSES_TAG, TOTAL_INCOME_EXPENSE_TAGS,
   COMBINED_CURRENT_DEBT_TAG,
   EBIT_AGGREGATE_MAY_HOLD_INTEREST,
   EBIT_OTHER_MAY_HOLD_INTEREST,
   EBIT_INTEREST_INSIDE_AGGREGATE,
-  EBIT_NON_OPERATING_ADJUSTMENTS,
+  EBIT_NON_OPERATING_ADJUSTMENTS, NONSERVICE_BENEFIT_EXPENSE_TAG,
   INCOME_BEFORE_TAX_TAGS,
+  NET_INTEREST_NONOPERATING_TAG,
   PRETAX_EXCLUDING_EQUITY_METHOD_TAG,
   DEPRECIATION_COMPONENT_TAGS, INCOME_BEFORE_TAX_COMPONENT_TAGS, EBIT_INTEREST_NOT_FILED_WITH_AGGREGATE,
   MATURITIES_NEXT_YEAR_TAG,
   REVENUE_TAGS,
+  REVENUE_COMPONENT_TAGS,
+  BROAD_REVENUE_TOTAL_TAGS,
   GROSS_PROFIT_REVENUE_TAGS,
   GROSS_PROFIT_COST_TAGS,
   floorsFor,
@@ -518,6 +522,8 @@ export type ChainSpec =
        * presentation must not be re-derived from operands a reclassification moved.
        */
       stopOnRefusal?: true;
+      /** Revenue only: a later complete gross-profit presentation can supersede a discontinued total tag. */
+      preferLaterRevenuePresentation?: true;
     };
 
 /** One `first` step per stand-in so each tag carries its own disclosure wording. */
@@ -588,7 +594,11 @@ function lineItemChain(item: Parameters<typeof tagsFor>[0], unit: UnitKind): Cha
  * manifest) and appended to the progress notes.
  */
 
-const REVENUE_SPEC: ChainSpec = { kind: "first", tags: [...REVENUE_TAGS], unit: "money" };
+const REVENUE_SPEC: ChainSpec = { kind: "chain", unit: "money", preferLaterRevenuePresentation: true, steps: [
+  { kind: "first", tags: [...BROAD_REVENUE_TOTAL_TAGS], unit: "money" },
+  { kind: "sum", tags: [...REVENUE_COMPONENT_TAGS], unit: "money" },
+  { kind: "first", tags: REVENUE_TAGS.filter(tag => !BROAD_REVENUE_TOTAL_TAGS.some(total => total === tag)), unit: "money" },
+] };
 
 /**
  * Net income attributable to the parent. `NetIncomeLoss` is that figure. A
@@ -1401,7 +1411,11 @@ function collectTags(spec: ChainSpec, into: Set<string>): void {
 const NEEDED_US_GAAP_TAGS: ReadonlySet<string> = (() => {
   const tags = new Set<string>(FY_ANCHOR_DURATION_TAGS);
   tags.add("Assets");
-  tags.add(COSTS_AND_EXPENSES_TAG); // FIN-401: arithmetic scope of a before-equity-method pretax base.
+  tags.add(NONSERVICE_BENEFIT_EXPENSE_TAG);
+  // Independent operating reconciliation reads the signed aggregate without
+  // substituting gross interest income or cash interest paid.
+  tags.add(NET_INTEREST_NONOPERATING_TAG);
+  for (const tag of TOTAL_INCOME_EXPENSE_TAGS) tags.add(tag);
   // Not in any chain: the share-count fallback below reads it directly.
   tags.add(BALANCE_SHEET_SHARES_TAG);
   for (const table of [INCOME_CHAINS, BALANCE_CHAINS, CASHFLOW_CHAINS]) {
@@ -1827,6 +1841,13 @@ function resolveComponents(
   return { present, absent };
 }
 
+function filedIncomeLine(r: Resolved, observedAt: string): FiledIncomeLine {
+  return { value: r.value, proof: { source: "edgar", unit: r.unit, periodStart: r.periodStart ?? r.point.start ?? null,
+    periodEnd: r.point.end, observedAt, tags: r.tags.map(tag => `us-gaap/${tag}`),
+    filings: [...new Map((r.evidencePoints ?? [r.point]).map(p => [`${p.accn}|${p.filed}`, filingRef(p)])).values()],
+    ...(r.derivation ? { derivation: r.derivation } : {}) } };
+}
+
 function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, label: string, at?: ResolveAt): Resolved | null {
   const disclosed = (r: Resolved | null): Resolved | null => {
     if (r === null || !("disclose" in spec) || spec.disclose === undefined) return r;
@@ -1839,11 +1860,34 @@ function resolveSpec(spec: ChainSpec, resolve: TagResolver, notes: NoteSink, lab
   };
   switch (spec.kind) {
     case "chain": {
+      if (spec.preferLaterRevenuePresentation) {
+        // Preserve the canonical chain's filing-lineage refusals and their
+        // explanations before comparing the available revenue presentations.
+        for (const step of spec.steps) {
+          const before = notes.presentationRefusals.length;
+          const first = resolveSpec(step, resolve, notes, label, at);
+          if (notes.presentationRefusals.length > before) return null;
+          if (first) break;
+        }
+        const resolved = new Map<string, Resolved>();
+        const lines: Record<string, FiledIncomeLine> = {};
+        for (const tag of [...REVENUE_TAGS, ...REVENUE_COMPONENT_TAGS, ...tagsFor("grossProfit"), ...GROSS_PROFIT_COST_TAGS, COSTS_AND_EXPENSES_TAG, ...tagsFor("operatingIncome")]) {
+          const r = notes.quietly(() => resolve(tag, "money"));
+          if (r) { resolved.set(tag, r); lines[tag] = filedIncomeLine(r, ""); }
+        }
+        const selected = preferredRevenueLine(filedRevenueLines(lines), lines);
+        if (!selected) return null;
+        const parts = selected.proof.tags.map(tag => resolved.get(tag.replace(/^us-gaap\//, ""))!);
+        return { ...parts[0]!, value: selected.value, tags: selected.proof.tags.map(tag => tag.replace(/^us-gaap\//, "")),
+          evidencePoints: parts.flatMap(r => r.evidencePoints ?? [r.point]) };
+      }
       for (const step of spec.steps) {
         const refusalsBefore = notes.refusals.length;
         const presentationBefore = notes.presentationRefusals.length;
         const r = resolveSpec(step, resolve, notes, label, at);
-        if (r !== null) return r;
+        if (r !== null) {
+          return r;
+        }
         // A presentation refusal ends the field in every chain: no stand-in, derivation or other tag list may serve
         // it (FIN-511 C1). Other refusal kinds end only the chains that ask (`stopOnRefusal`).
         if (notes.presentationRefusals.length > presentationBefore) return null;
@@ -3659,6 +3703,17 @@ function buildStatementRows<TRow>(
     }
     if (def.statement === "income" && values.grossProfit != null && !resolutions.has("grossProfit") && fieldProvenance.revenue && fieldProvenance.costOfRevenue) {
       fieldProvenance.grossProfit = { ...fieldProvenance.revenue, tags: [...fieldProvenance.revenue.tags, ...fieldProvenance.costOfRevenue.tags], calculation: "revenue-minus-cost" };
+    }
+    if (def.statement === "income") {
+      const lines: Record<string, FiledIncomeLine> = {};
+      for (const tag of [...REVENUE_TAGS, ...REVENUE_COMPONENT_TAGS, ...tagsFor("grossProfit"), ...GROSS_PROFIT_COST_TAGS,
+        ...TOTAL_INCOME_EXPENSE_TAGS, NONSERVICE_BENEFIT_EXPENSE_TAG, ...tagsFor("operatingIncome"), ...tagsFor("operatingExpenses"), ...tagsFor("interestExpense"),
+      ...tagsFor("sellingGeneralAndAdministrativeExpenses"), ...tagsFor("researchAndDevelopmentExpenses"), NET_INTEREST_NONOPERATING_TAG,
+        ...EBIT_NON_OPERATING_ADJUSTMENTS.flatMap(a => a.tags)]) {
+        const r = notes.quietly(() => sameRowEvidence(tag, "money"));
+        if (r) lines[tag] = filedIncomeLine(r, opts.factsObservedAt ?? "");
+      }
+      row.filedIncomeLines = lines;
     }
     row.fieldProvenance = fieldProvenance;
     if (def.statement === "income") {

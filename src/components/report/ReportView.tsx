@@ -1,3 +1,4 @@
+import { withValuationUseSafety } from "@/report/valuationUseSafety";
 import { RunNotices } from "./RunNotices";
 /**
  * ReportView — the centerpiece renderer for a persisted {@link Report}
@@ -191,7 +192,7 @@ export function ReportView({
   selectedReportId?: number;
   selectedReportStatus?: string;
 }) {
-  const report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(withReaderConventions(withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport)))))))))));
+  const report = withValuationUseSafety(withPlainFigureNotes(withClassifiedDataOnlyGapCount(withReaderConventions(withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport))))))))))));
   const lenderTables = lenderConventionTables(sourceReport);
   const scopeQualifications = legacyScopeQualifications(report);
   // F-21: the claim chips below read each claim's verification status.

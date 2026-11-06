@@ -168,13 +168,15 @@ export interface StatementFieldProvenance {
   /** Native per-ordinary-share facts converted to the independently established quoted ADS unit. */
   shareUnitConversion?: { ordinarySharesPerQuotedUnit: number; sourceIds: string[] };
   filings: { accn: string; filed: string; form: string }[];
+  documents?: { accession: string; filed: string; form: string; url: string }[];
   /** Quarter reconstruction; absent for a directly reported field. */
   derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
   /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */
   calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash" | "cash-ppe-plus-hardware" | "cfo-minus-cash-ppe-and-hardware" | "nci-inferred-zero" | "basic-shares-equal-eps" | "equity-statement-nci" | "total-equity-less-equity-statement-nci"
     /** D-133: a vendor total debt recomposed from one filing because its lease line was the noncurrent lease liabilities only. */
     | "noncurrent-lease-line-completed" | "same-filing-debt-completed"
-    | "pretax-plus-equity-method" | "parent-plus-nci" | "operating-income-as-ebit" | "operating-income-plus-da" | "earnings-identity";
+    | "pretax-plus-equity-method" | "parent-plus-nci" | "operating-income-as-ebit" | "operating-income-plus-da" | "earnings-identity"
+    | "revenue-less-noninterest-costs" | "filed-sales-line" | "complete-operating-reconciliation";
 }
 
 export interface StatementFieldConflict {
@@ -182,10 +184,14 @@ export interface StatementFieldConflict {
   secValue: number | null;
   /** False refuses the operand; true retains the observation as an audit trail after resolution. */
   usable: boolean;
-  resolution?: "filed-family" | "minor-retained";
+  resolution?: "filed-family" | "minor-retained" | "filed-line";
+  cause?: "revenue-scope" | "operating-basis" | "operating-scope";
   reason: string;
   secEvidence?: StatementFieldProvenance;
 }
+
+/** Calculation evidence retained by the SEC statement resolver. */
+export interface FiledIncomeLine { value: number; proof: StatementFieldProvenance; role?: "operating-sales" | "admitted-revenue" }
 
 export interface FmpStatementRow extends FmpRawRow {
   date?: string;
@@ -208,6 +214,10 @@ export interface EquityMethodIncomePlacement {
 }
 
 export interface FmpIncomeStatementRow extends FmpStatementRow {
+  /** Complete retained consolidated statement with duration-bound operands. */
+  primaryIncomeProof?: import("@/edgar/primaryIncome").BoundPrimaryIncome;
+  operatingTagScopeUnresolved?: boolean;
+  operatingPerimeterRefusal?: string;
   revenue?: number;
   costOfRevenue?: number;
   grossProfit?: number;
@@ -215,6 +225,12 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   sellingGeneralAndAdministrativeExpenses?: number;
   operatingExpenses?: number;
   operatingIncome?: number;
+  filedIncomeLines?: Record<string, FiledIncomeLine>;
+  /** A numerator lacking a common margin basis, retained only when not disproved. */
+  nonMarginOperatingIncome?: number | null;
+  operatingIncomeBasis?: string;
+  /** Calculation-view revenue admission requires a separate operating bridge. */
+  operatingBasisReview?: boolean;
   /** Calculation-view-only filed FY operating income for standalone interest coverage.
    * Does not establish a vendor revenue/operating-margin basis. */
   waccOperatingIncome?: number;

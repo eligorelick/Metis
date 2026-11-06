@@ -50,7 +50,7 @@ function quarters(): FmpIncomeStatementRow[] {
     incomeTaxExpense: Number(revenue) * B * 0.04, netIncome: Number(revenue) * B * 0.14,
     interestExpense: 1.4 * B, reportedCurrency: "USD", weightedAverageShsOutDil: B,
     fieldProvenance: { revenue: { source: "edgar", unit: "USD", periodStart: String(start), periodEnd: String(date),
-      observedAt: "2026-10-01T00:00:00.000Z", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax"], filings: [] } },
+      observedAt: "2026-10-01T00:00:00.000Z", tags: ["RevenueFromContractWithCustomerExcludingAssessedTax"], filings: [{accn:"synthetic",filed:"2026-09-30",form:"10-Q"}] } },
   }));
 }
 
@@ -147,7 +147,7 @@ describe("week counts (FIN-301)", () => {
     const bundle = completeCurrencyBundle({ estimates: false });
     bundle.builtAt = "2026-10-01T00:00:00.000Z";
     if (!bundle.statements.incomeQuarterly.ok) throw new Error("fixture missing income");
-    bundle.statements.incomeQuarterly.value.data.rows = quarters();
+    bundle.statements.incomeQuarterly.value.data.rows = quarters().map(row=>({...row,fieldProvenance:{...row.fieldProvenance,operatingIncome:{...row.fieldProvenance!.revenue!,tags:["us-gaap/OperatingIncomeLoss"]}}}));
     if (!bundle.statements.balanceQuarterly.ok) throw new Error("fixture missing balance");
     bundle.statements.balanceQuarterly.value.data.rows[0].date = "2026-09-03";
     const computed = runStageB(bundle);

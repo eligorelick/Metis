@@ -109,6 +109,16 @@ function bundleWithSale(retainPlacement = true) {
   return b;
 }
 describe("disposal normalization reaches all shared operating-income consumers", () => {
+  it("also removes a completed sale from a separately retained non-margin operating income", () => {
+    const b = bundleWithSale();
+    if (!b.statements.incomeAnnual.ok) throw Error("fixture");
+    const row = b.statements.incomeAnnual.value.data.rows[0]!;
+    row.nonMarginOperatingIncome = 200 * M;
+    row.operatingIncome = undefined;
+    const result = operatingDispositionView(b).bundle.statements.incomeAnnual;
+    expect(result.ok && result.value.data.rows[0]!.nonMarginOperatingIncome).toBe(100 * M);
+  });
+
   it("normalizes historical margins and withholds earnings multiples without a sale tax allocation", () => {
     const b = bundleWithSale(), before = structuredClone(b);
     const c = runStageB(b);

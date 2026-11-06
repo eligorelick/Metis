@@ -1,9 +1,10 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 function fixture() {
-  const b = completeCurrencyBundle({});
+  const b = withFixtureQuoteDay(completeCurrencyBundle({}), "2026-03-31");
   if (!b.quote.ok || !b.profile.ok) throw Error("fixture");
   b.profile.value.data.rows[0]!.isAdr = false;
   b.quote.value.data.rows[0]!.marketCap = b.quote.value.data.rows[0]!.price! * 100e6;

@@ -1,3 +1,5 @@
+import { restoreCurrentValuationPolicyGolden } from "./helpers/currentValuationPolicyGolden";
+import { unavailableValuationUseFixture } from "./helpers/valuationUse";
 import { restorePublicPolishGolden } from "./helpers/publicPolishGolden";
 import { restoreP2DcfInputsGolden } from "./helpers/p2DcfInputsGolden";
 import { restoreR2FigurePayloadGolden } from "./helpers/r2FigurePayloadGolden";
@@ -942,7 +944,7 @@ describe("payload determinism + provenance", () => {
     // R9 changes SBC basis labels and their semantic ids; preserve all earlier byte/stamp pins.
     // R8 restores only its reviewed evidence qualifications before the R6 pin.
     // Q1 restores only its per-person Form 4 summary first.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(restorePublicPolishGolden(buildInputs()))))))))))));
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(restorePublicPolishGolden(restoreCurrentValuationPolicyGolden(buildInputs())))))))))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>
@@ -1851,7 +1853,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.81.0");
+    expect(first.payloadVersion).toBe("1.85.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2106,7 +2108,7 @@ describe("payload determinism + provenance", () => {
     ).toBe(false);
   });
 
-  it("retains timeless computed figures with deterministic computation snapshot identity", () => {
+  it("retains snapshot dates for timeless figures and the actual value date for model figures", () => {
     const { payload } = buildInputs();
 
     expect(payload.provenanceRegistry).toEqual(
@@ -2131,7 +2133,7 @@ describe("payload determinism + provenance", () => {
           id: "computed.valuation.dcf-per-share",
           kind: "computed",
           currency: "USD",
-          asOf: "2026-07-06",
+          asOf: "2026-07-05",
           origin: "computed.valuation.dcf",
           formulaVersion: "stage-b-v1",
         }),
@@ -3217,7 +3219,7 @@ describe("final assembled report verification", () => {
     const result = await pipelinePasses.runVerifyPass({ analysisModel: "claude-opus-4-8", payload }, judgeOutput(), { fetchedUrls: [] });
     const triggers = result.verifiedReport.thesisTriggers ?? [];
     const reverse = triggers.find((trigger) => trigger.id === `reverse-${method}`);
-    expect(reverse?.threshold).toMatchObject({ value: method === "growth" ? 12.5 : 27.25, verified: true, asOf: "2026-07-06" });
+    expect(reverse?.threshold).toMatchObject({ value: method === "growth" ? 12.5 : 27.25, verified: true, asOf: "2026-07-05" });
     // Re-pinned for D-60: first-year projection milestones restated the base path and are no longer emitted.
     expect(triggers.some((trigger) => trigger.id.startsWith("projection-"))).toBe(false);
   });
@@ -3434,6 +3436,8 @@ describe("assembleReport", () => {
     output.quality.graded.grade = output.verdict.gradeStrip.quality.grade = "A";
     output.balanceSheet.graded = { ...output.quality.graded, grade: "C" };
     output.verdict.gradeStrip.balanceSheet = { ...output.balanceSheet.graded };
+    output.leadership.graded.qualification = { status: "supported", reasons: [] };
+    output.verdict.gradeStrip.leadership.qualification = { status: "supported", reasons: [] };
     const original = JSON.stringify(output);
     computed.scores!.aspects.quality = { ...computed.scores!.aspects.quality, score: 96, band: "A", dataCompleteness: 0.05, applicableCompleteness: 0.05 };
     computed.scores!.aspects.balanceSheet = { ...computed.scores!.aspects.balanceSheet, score: null, band: null, dataCompleteness: 0, applicableCompleteness: 0 };
@@ -3442,8 +3446,10 @@ describe("assembleReport", () => {
     // D-50: the sparse aspect also caps the model's "medium" confidence at "low".
     const cap = { from: "medium", to: "low", reason: "the deterministic quality score rests on under half of the inputs its route supports" };
     const gradeContract = { version: "GRADE_OVERRIDE_1", originalBand: "A", proposedGrade: "A", distance: 0, status: "unchanged", reason: "matches-deterministic-band" };
-    expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, gradeContract, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
-    expect(report.quality.graded).toEqual({ ...output.quality.graded, gradeContract, keyNumbers: expect.arrayContaining(output.quality.graded.keyNumbers), assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
+    expect(report.verdict.gradeStrip.quality).toEqual({ ...output.verdict.gradeStrip.quality, qualification: computed.scores.qualification?.aspects.quality, gradeContract, assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
+    expect(report.quality.graded).toEqual({ ...output.quality.graded, qualification: computed.scores.qualification?.aspects.quality, gradeContract, keyNumbers: expect.arrayContaining(output.quality.graded.keyNumbers), assessmentStatus: "limited-evidence", confidence: "low", confidenceCap: cap });
+    expect(report.leadership.graded.qualification).toEqual(computed.scores.qualification?.aspects.leadership);
+    expect(report.leadership.graded.qualification?.status).toBe("provisional");
     expect(report.balanceSheet.graded?.assessmentStatus).toBe("not-assessed");
     expect(report.verdict.gradeStrip.balanceSheet?.assessmentStatus).toBe("not-assessed");
     expect(ReportSchema.safeParse(report).success).toBe(true);
@@ -3512,7 +3518,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.64.0"); // the Q round moved the shared report stamp
+    expect(report.meta.specVersion).toBe("1.66.0"); // the Q round moved the shared report stamp
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -3912,7 +3918,7 @@ describe("common-holder compute adapters", () => {
       keyMetricsHistory: Array.from({ length: 8 }, (_, i) => ({ date: `2025-${i + 1}`, priceToBookRatio: 5 })),
     });
     const route = { ...computed.route, base: "bank" as const };
-    const scores = computeScores({ route, policy: metricPolicy(route), growth: computed.growth,
+    const scores = computeScores({ route, policy: metricPolicy(route), valuationUse: unavailableValuationUseFixture, growth: computed.growth,
       roic: computed.returns.roic, rote: computed.returns.rote, roicVsWacc: computed.returns.roicVsWacc, wacc: computed.returns.wacc,
       capital: computed.capital, forensics: computed.forensics, technicals: computed.technicals, currentPrice: 50, asOf: BUILT_AT.slice(0, 10),
       valuation: { kind: "excess-return", route: "bank", multiples, excessReturn: excessReturnModel({ bookValue: null, currentRoePct: null, costOfEquityPct: null }), notes: [], gaps: [] },

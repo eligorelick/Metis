@@ -1,3 +1,4 @@
+import { fairValueReferenceText, fairValueWithheldText } from "@/report/fairValueText";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 /**
@@ -58,7 +59,7 @@ import { ReportSnapshotHeader } from "@/components/report/ReportSnapshotHeader";
 import { WatchlistSidebar } from "@/components/watchlist/Sidebar";
 import { getLatestDoneReport, type LatestReport } from "@/report/query";
 
-import { fmtBig, fmtFractionPct, fmtMoney, fmtNum, fmtPct, fmtSignedPct, fmtX, upsidePct } from "./format";
+import { fmtBig, fmtFractionPct, fmtMoney, fmtNum, fmtPct, fmtSignedPct, fmtX } from "./format";
 import { GenerateReport } from "./GenerateReport";
 import { describeAnalysisRoute } from "@/ai/connections";
 import { ReportTabs } from "./ReportTabs";
@@ -576,6 +577,7 @@ function TechnicalsPanel({
 
 function ValuationPanel({ computed, bundle }: { computed: ComputedMetrics; bundle: DataBundle }) {
   const v = computed.valuation;
+  const fairValue = computed.fairValue.status === "available" && computed.fairValue.currentUse?.status === "current" ? computed.fairValue : null;
   const quote = bundle.quote.ok ? bundle.quote.value.data.rows[0] : undefined;
   // Per-share values use the model's admitted FX basis when translated.
   // They are set against the quote only when both are in one known currency.
@@ -589,8 +591,12 @@ function ValuationPanel({ computed, bundle }: { computed: ComputedMetrics; bundl
   return (
     <Panel title={`valuation · ${v.route} (${v.kind})`}>
       {computed.valuationTranslation ? <p className="mb-2 text-[11px] leading-snug text-muted">{computed.valuationTranslation.note}</p> : null}
-      {v.kind === "dcf" ? <DcfBlock v={v} price={price} currency={modelCurrency} /> : null}
-      {v.kind === "excess-return" ? <ExcessReturnBlock v={v} price={price} currency={modelCurrency} /> : null}
+      {!fairValue && (v.kind === "dcf" || v.kind === "excess-return") ? <p className="mb-2 text-[11px] leading-snug text-warn">
+        {fairValueReferenceText(computed.fairValue) ?? fairValueWithheldText(computed.fairValue)}
+        {" Raw model paths and sensitivity below are audit diagnostics, not current values or targets."}
+      </p> : null}
+      {v.kind === "dcf" ? <DcfBlock v={v} price={price} currency={modelCurrency} fairValue={fairValue} /> : null}
+      {v.kind === "excess-return" ? <ExcessReturnBlock v={v} price={price} currency={modelCurrency} fairValue={fairValue} /> : null}
       {v.kind === "reit" ? <ReitBlock v={v} currency={modelCurrency} /> : null}
       {v.kind === "pre-revenue" ? (
         <div className="text-[11px] text-muted">
@@ -615,20 +621,22 @@ function DcfBlock({
   v,
   price,
   currency,
+  fairValue,
 }: {
   v: Extract<ComputedMetrics["valuation"], { kind: "dcf" }>;
   price: number | null;
   currency: string | null;
+  fairValue: ComputedMetrics["fairValue"] | null;
 }) {
-  const perShare = v.dcf?.perShare ?? null;
-  const up = upsidePct(perShare, price);
-  const reverse = v.reverseDcf;
+  const perShare = fairValue?.perShare?.value ?? null;
+  const up = perShare !== null && price !== null ? fairValue?.upsidePct ?? null : null;
+  const reverse = fairValue ? v.reverseDcf : null;
 
   return (
     <div>
       <div className="flex flex-wrap items-stretch divide-x divide-edge border border-edge">
         <StatCell label="dcf / share" value={fmtMoney(perShare, currency)} tone="accent" />
-        <StatCell label="vs price" value={up === null ? "n/a" : fmtSignedPct(up)} tone={up === null ? "muted" : up >= 0 ? "pos" : "neg"} />
+        {fairValue ? <StatCell label="vs price" value={up === null ? "n/a" : fmtSignedPct(up)} tone={up === null ? "muted" : up >= 0 ? "pos" : "neg"} /> : null}
         <StatCell label="terminal %" value={v.dcf ? fmtPct(v.dcf.gTermUsedPct) : "n/a"} tone="muted" />
         <StatCell label="terminal share" value={v.dcf && v.dcf.terminalShare !== null ? fmtPct(v.dcf.terminalShare * 100) : "n/a"} tone="muted" />
       </div>
@@ -701,21 +709,24 @@ function ExcessReturnBlock({
   v,
   price,
   currency,
+  fairValue,
 }: {
   v: Extract<ComputedMetrics["valuation"], { kind: "excess-return" }>;
   price: number | null;
   currency: string | null;
+  fairValue: ComputedMetrics["fairValue"] | null;
 }) {
   const er = v.excessReturn;
-  const up = upsidePct(er.perShare, price);
+  const perShare = fairValue?.perShare?.value ?? null;
+  const up = perShare !== null && price !== null ? fairValue?.upsidePct ?? null : null;
   return (
     <div className="flex flex-wrap items-stretch divide-x divide-edge border border-edge">
-      <StatCell label="value / share" value={fmtMoney(er.perShare, currency)} tone="accent" />
-      <StatCell label="vs price" value={up === null ? "n/a" : fmtSignedPct(up)} tone={up === null ? "muted" : up >= 0 ? "pos" : "neg"} />
-      <StatCell label="implied P/BV" value={fmtX(er.impliedPToBv)} tone="muted" />
+      <StatCell label="value / share" value={fmtMoney(perShare, currency)} tone="accent" />
+      {fairValue ? <StatCell label="vs price" value={up === null ? "n/a" : fmtSignedPct(up)} tone={up === null ? "muted" : up >= 0 ? "pos" : "neg"} /> : null}
+      <StatCell label="implied P/BV" value={fmtX(fairValue ? er.impliedPToBv : null)} tone="muted" />
       <StatCell
         label="reverse implied ROE"
-        value={fmtPct(er.reverseSolve.impliedCurrentRoePct)}
+        value={fmtPct(fairValue ? er.reverseSolve.impliedCurrentRoePct : null)}
         tone="muted"
       />
     </div>

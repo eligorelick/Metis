@@ -103,10 +103,15 @@ describe("assessment presentation", () => {
       expect(renderToStaticMarkup(createElement(GradeReasoning, { title: "Assessment", block: section! }))).toContain('aria-label="not assessed"');
     }
     const gradeContract = { version: "GRADE_OVERRIDE_1", originalBand: "A", proposedGrade: "A", distance: 0, status: "unchanged", reason: "matches-deterministic-band" };
-    expect(safe.quality.graded).toEqual({ ...report.quality.graded, gradeContract, assessmentStatus: "limited-evidence" });
-    expect(safe.verdict.gradeStrip.quality).toEqual({ ...report.verdict.gradeStrip.quality, gradeContract, assessmentStatus: "limited-evidence" });
+    expect(safe.quality.graded.qualification?.status).toBe("provisional");
+    expect(safe.quality.graded.qualification?.reasons.some(r => r.code === "limited-applicable-evidence")).toBe(true);
+    const quality = structuredClone(safe.quality.graded); delete quality.qualification;
+    const strip = structuredClone(safe.verdict.gradeStrip.quality); delete strip.qualification;
+    expect(quality).toEqual({ ...report.quality.graded, gradeContract, assessmentStatus: "limited-evidence" });
+    expect(strip).toEqual({ ...report.verdict.gradeStrip.quality, gradeContract, assessmentStatus: "limited-evidence" });
     expect(safe.balanceSheet.graded?.assessmentStatus).toBe("not-assessed");
-    expect(safe.scores).toEqual(report.scores);
+    const scores = structuredClone(safe.scores!); delete scores.qualification;
+    expect(scores).toEqual(report.scores);
     expect(extractGradeStrip(safe).filter((cell) => ["quality", "balanceSheet", "moat"].includes(cell.key)).every((cell) => cell.grade === null)).toBe(true);
     for (const text of [reportToMarkdown(safe), reportToPrintBody(safe)]) {
       expect(text).toContain("Not assessed — limited evidence");

@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { buildDataOnlyReport } from "@/pipeline/jobRunner";
@@ -10,7 +11,7 @@ import { withIssuerFacts } from "./helpers/confirmedIssuer";
 const point = (val: number) => ({ units: { USD: [{ end: "2025-12-31", val, accn: "0000000001-26-000001",
   form: "10-K", filed: "2026-02-15", fy: 2025, fp: "FY" }] } });
 function run(conflict: boolean) {
-  const b = completeCurrencyBundle({ symbol: "CREDIT" });
+  const b = withFixtureQuoteDay(completeCurrencyBundle({ symbol: "CREDIT" }), "2026-03-31");
   if (!b.profile.ok) throw new Error("fixture profile missing");
   Object.assign(b.profile.value.data.rows[0]!, { sector: "Financial Services", industry: "Credit Services" });
   withIssuerFacts(b, { cik: 1, entityName: "Synthetic deposit-funded credit company", facts: { "us-gaap": conflict ? {

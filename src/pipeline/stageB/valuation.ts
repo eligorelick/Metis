@@ -35,11 +35,13 @@ import { leaseDebtConflict, millions, operatingLeaseOutOfDebt, operatingLeaseSco
 import { LEASE_EMPTIED_CAPITAL_LEAD, TEMPORARY_EQUITY_REFUSAL_LEAD, temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
 import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
 import { metricPolicy, type ReitSubmap } from "@/pipeline/stageB/sectorRouting";
-import { CAGR_SPAN_TOLERANCE_YEARS, linearRegressionSlope, yearsBetweenDates } from "@/pipeline/stageB/growth";
+import { CAGR_SPAN_TOLERANCE_YEARS, interiorMissingDates, missingAnnualIntervals, unavailableAnnualPeriods, linearRegressionSlope, yearsBetweenDates } from "@/pipeline/stageB/growth";
+import { classifyValuationDateUse, MAX_ROLL_FORWARD_DAYS, valuationUseExplanation } from "@/pipeline/stageB/valuationUse";
 import {
   contiguousQuarterWindows,
   normalizeQuarterRows,
   quarterWindowViolation,
+  type FiscalDatedRow,
 } from "@/pipeline/stageB/quarterWindows";
 
 // ---------------------------------------------------------------------------
@@ -752,7 +754,12 @@ export interface ConsensusPathRow {
 }
 
 /** Income-statement slice used by the DCF builder (FMP field names). */
-export interface DcfIncomeRow {
+export interface DcfIncomeRow extends FiscalDatedRow {
+  /** Whole operating statement projection; separate from a reported total that
+   * can include equity-affiliate earnings and other non-operating income. */
+  operatingBasis?: string;
+  grossProfitBasis?: string;
+  operatingPerimeterRefusal?: string;
   unusualOperatingItems?: number | null;
   date: string;
   /** Inclusive filed duration, or the gap to the preceding period end. */
@@ -892,6 +899,8 @@ export interface DcfAssumptionInputs {
   equityBridgePreferredRefusal?: string | null;
   /** Annual income history (any order; used for 5y median margin + trend). */
   incomeHistory: DcfIncomeRow[];
+  /** Identities of recorded periods excluded from financial history. */
+  incomeCadenceBarriers?: FiscalDatedRow[];
   recurringOperatingItemsBasis?: string;
   /** Unambiguous weekday year-end rule established from filed annual ends. */
   fiscalCalendar?: FiscalYearRule | null;
@@ -1354,7 +1363,7 @@ export interface DcfAssumptions {
  * rolled forward: a stale statement is a data problem, not a timing one, and
  * the bridge's balance sheet would be older still.
  */
-export const MAX_ROLL_FORWARD_DAYS = 200;
+export { MAX_ROLL_FORWARD_DAYS } from "@/pipeline/stageB/valuationUse";
 
 /**
  * D-60: operating margin = gross margin − operating-expense ratio, so no
@@ -1395,6 +1404,7 @@ function analystTwoYearGrowthPct(
   rows: AnalystEstimateRow[] | null,
   ttmRevenue: number | null,
   ttmDate: string | null,
+  periodBasis: string,
 ): { value: number | null; asOf: string | null; notes: string[]; legs: string[] } {
   const notes: string[] = [];
   const legs: string[] = [];
@@ -1418,18 +1428,18 @@ function analystTwoYearGrowthPct(
     ) {
       // Aligned full fiscal year (or no day-count derivable): raw ratio is the annual rate.
       growths.push((ratio - 1) * 100);
-      legs.push(`FY ending ${future[0].date} over TTM ${fmtNum((ratio - 1) * 100)}%`);
+      legs.push(`FY ending ${future[0].date} over ${periodBasis} ${fmtNum((ratio - 1) * 100)}%`);
     } else if (days < ANALYST_LEG_MIN_DAYS) {
       notes.push(
-        `analyst year-1 growth leg skipped: TTM end ${ttmDate} to FY1 end ${future[0].date} spans only ${days} days (< ${ANALYST_LEG_MIN_DAYS}) — too noisy to annualize; FY1→FY2 leg used alone`,
+        `analyst year-1 growth leg skipped: ${periodBasis} end ${ttmDate} to FY1 end ${future[0].date} spans only ${days} days (< ${ANALYST_LEG_MIN_DAYS}) — too noisy to annualize; FY1→FY2 leg used alone`,
       );
     } else {
       const annualized = (Math.pow(ratio, DAYS_PER_YEAR / days) - 1) * 100;
       notes.push(
-        `analyst year-1 growth leg annualized by day-count: ${fmtNum((ratio - 1) * 100)}% over ${days} days (TTM end ${ttmDate} → FY1 end ${future[0].date}) → ${fmtNum(annualized)}%/yr`,
+        `analyst year-1 growth leg annualized by day-count: ${fmtNum((ratio - 1) * 100)}% over ${days} days (${periodBasis} end ${ttmDate} → FY1 end ${future[0].date}) → ${fmtNum(annualized)}%/yr`,
       );
       growths.push(annualized);
-      legs.push(`FY ending ${future[0].date} over TTM ${fmtNum((ratio - 1) * 100)}% in ${days} days, annualized ${fmtNum(annualized)}%`);
+      legs.push(`FY ending ${future[0].date} over ${periodBasis} ${fmtNum((ratio - 1) * 100)}% in ${days} days, annualized ${fmtNum(annualized)}%`);
     }
   }
   if (future.length === 2) {
@@ -1854,6 +1864,8 @@ export const MID_YEAR_DISCOUNTING_BASIS =
 export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssumptionsResult {
   const notes: string[] = [];
   const gaps: ManifestEntry[] = [];
+  if(inputs.incomeTtm?.operatingPerimeterRefusal) return {assumptions:null,notes:[inputs.incomeTtm.operatingPerimeterRefusal],
+    gaps:[gapEntry("valuation.dcf.operatingPerimeter",inputs.incomeTtm.operatingPerimeterRefusal,"critical")]};
   if (inputs.equityBridgePreferredRefusal) return { assumptions: null, notes: [inputs.equityBridgePreferredRefusal],
     gaps: [gapEntry("valuation.dcf.preferredCapital", inputs.equityBridgePreferredRefusal, "critical")] };
   const normalizationRefusal = inputs.operatingNormalizationRefusal ?? inputs.unusualOperatingItems?.dcfRefusal;
@@ -1906,7 +1918,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   // analyst-consensus case when estimates exist — and takes the MEDIAN, with
   // the full range shown. Each method's value, and every method that was
   // unavailable, is named in the basis.
-  const analyst = analystTwoYearGrowthPct(inputs.analystEstimates, startRev, ttm?.date ?? null);
+  const analyst = analystTwoYearGrowthPct(inputs.analystEstimates, startRev, ttm?.date ?? null, periodBasis);
   notes.push(...analyst.notes);
 
   const methods: GrowthAnchorMethod[] = [];
@@ -2087,19 +2099,24 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const normalizedYears = inputs.incomeHistory.filter(row => row.unusualOperatingItems).map(row => `${row.date}: ${row.unusualOperatingItems}`).join(", ");
   if (normalizedYears) notes.push(`EBIT margin history excludes tagged one-off items (${normalizedYears}); the scenario ceiling reads the same rows.`);
   if (inputs.recurringOperatingItemsBasis) notes.push(inputs.recurringOperatingItemsBasis);
-  const histMarginPoints = normalizedHistory
+  const marginWindow = normalizedHistory
     .slice()
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 5)
-    .flatMap((r) => {
+    .map((r) => {
       const margin = safeDiv(r.operatingIncome, posOrNull(zeroAsNull(r.revenue)));
-      return margin === null ? [] : [{ date: r.date, marginPct: margin * 100 }];
+      return { date: r.date, marginPct: margin === null ? null : margin * 100 };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
+  const marginHistory=normalizedHistory.filter(r=>marginWindow.some(p=>p.date===r.date));
+  const absentMargins=missingAnnualIntervals([...marginHistory,...(inputs.incomeCadenceBarriers ?? [])]);
+  const interiorMargins = [...interiorMissingDates(marginWindow.map(p=>({date:p.date,value:p.marginPct}))),...absentMargins.map(p=>p.label),
+    ...unavailableAnnualPeriods(marginHistory,inputs.incomeCadenceBarriers)];
+  const histMarginPoints = marginWindow.filter((p):p is {date:string;marginPct:number}=>p.marginPct!==null);
   const histMargins = histMarginPoints.map((point) => point.marginPct);
   const median5y = medianOf(histMargins);
   const oldestMarginDate = histMarginPoints[0]?.date;
-  const marginSlope = linearRegressionSlope(
+  const marginSlope = interiorMargins.length ? null : linearRegressionSlope(
     histMarginPoints.map((point) => ({
       x: oldestMarginDate === undefined ? null : yearsBetweenDates(oldestMarginDate, point.date),
       y: point.marginPct,
@@ -2178,6 +2195,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   let slopeBasis = "unavailable";
   let targetMargin = m0;
   let improvingBound: string | null = null;
+  let missingImprovingCeiling = false;
   if (median5y === null) {
     gaps.push(gapEntry("valuation.dcf.marginTarget", "no annual margin history — margin held flat", "info"));
   } else {
@@ -2199,6 +2217,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       : null;
     const trendTarget = marginSlope !== null ? m0 + IMPROVING_MARGIN_TREND_SHARE * marginSlope * fadeYears : m0;
     const improvingTarget = improvingCeiling === null ? m0 : Math.min(trendTarget, improvingCeiling.pct);
+    missingImprovingCeiling = regime === "improving" && improvingCeiling === null && trendTarget > m0;
     targetMargin = regime === "improving"
       ? Math.max(m0, median5y, improvingTarget)
       : regime === "declining"
@@ -2237,6 +2256,17 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     ? `held flat at ${m0Source === "5y median" ? "historical seed" : "current"} ${fmtNum(m0)}% (${m0Source}) under ${regimeText}${capText}`
     : `fade ${m0Source === "5y median" ? "historical seed" : "current"} ${fmtNum(m0)}% (${m0Source}) -> ${fmtNum(cappedTarget)}% by year ${fadeYears} under ${regimeText}` +
       `${improvingBound !== null ? `; the improving target is ${improvingBound}` : ""}${capText}, flat thereafter`;
+  if (interiorMargins.length) marginBasis += `; trend withheld across interior unavailable periods: ${interiorMargins.join(", ")}`;
+  if (missingImprovingCeiling) {
+    const cause = [...new Set([ttm?.grossProfitBasis,...normalizedHistory.map(r=>r.grossProfitBasis)].filter((s):s is string=>!!s))].join(" ");
+    const reason = `Improving-trend uplift is withheld because a supported gross-profit ceiling is unavailable (D-60)${cause ? `. ${cause}` : "."}`;
+    marginBasis += `; ${reason}`;
+    gaps.push(gapEntry("valuation.dcf.marginCeiling",reason,"info"));
+  }
+  if (histMarginPoints.length < marginWindow.length || m0Source === "5y median") {
+    const missing=marginWindow.filter(p=>p.marginPct===null).map(p=>p.date);
+    marginBasis += `; historical support: ${histMarginPoints.length} observed annual margins${histMarginPoints.length ? ` from ${histMarginPoints[0]!.date} to ${histMarginPoints.at(-1)!.date}` : ""} in the latest ${marginWindow.length} available annual rows${missing.length ? `; unsupported annual margins: ${missing.join(", ")}` : ""}`;
+  }
   if (inputs.equityMethodStake?.incomePlacement === "in-operating-income") marginBasis += `; ${inputs.equityMethodStake.basis}`;
   if (marginPath.some((m) => m < MARGIN_WARN_BAND_PP[0] || m > MARGIN_WARN_BAND_PP[1])) {
     notes.push(
@@ -2513,6 +2543,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         : `${lead}; ${bridgeBalanceText}`, "info"));
   }
   const elapsedDays = statementDate !== null && inputs.valuationDate ? daysBetween(statementDate, inputs.valuationDate) : null;
+  const annualFallbackBasis = ttm?.basis === "annual"
+    ? `Annual fallback: statement ${statementDate}; price ${inputs.valuationDate ?? "date unavailable"}; equity-bridge balance ${bridgeDate}` +
+      (elapsedDays === null ? "." : `; statement age at price ${elapsedDays} days.`) +
+      ` Balance changes after ${bridgeDate} are not reflected in this equity bridge; the dated annual fallback carries that uncertainty (D-65).`
+    : null;
+  if (annualFallbackBasis) notes.push(annualFallbackBasis);
   let valuationDate: DcfAssumptions["valuationDate"] | undefined;
   if (elapsedDays !== null && elapsedDays > 0 && elapsedDays <= MAX_ROLL_FORWARD_DAYS) {
     const elapsedYears = elapsedDays / DAYS_PER_YEAR;
@@ -2537,6 +2573,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       anchorStartDate: forecastYearPeriod(ttm.date, 0, "rolling-12-month")?.startDate ?? null,
     } } : {}),
     startRevenue: { value: startRev, basis: `${periodBasis} revenue as of ${ttm?.date ?? "?"}` +
+      (annualFallbackBasis ? `. ${annualFallbackBasis}` : "") +
       (baseFactor === 1 ? "" : `; 53-week ${periodBasis} on a 52-week basis (× 52/53), all base-period flows and tagged one-offs scaled together`) },
     years,
     wacc: {
@@ -2572,7 +2609,8 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
           : "") +
         "The year-one revenue anchor and the near-term growth rows state their own bases.",
     },
-    ebitMarginPath: { value: marginPath, basis: marginBasis + (inputs.operatingNormalizationBasis ? `; excludes ${inputs.operatingNormalizationBasis}` : "") },
+    ebitMarginPath: { value: marginPath, basis: marginBasis + (ttm?.operatingBasis ? `; ${ttm.operatingBasis}` : "") +
+      (inputs.operatingNormalizationBasis ? `; excludes ${inputs.operatingNormalizationBasis}` : "") },
     ...(improvingBound !== null && cappedTarget > m0 ? { improvingMarginFade: { currentPct: m0, targetPct: cappedTarget } } : {}),
     taxRatePath: { value: taxRatePath, basis: taxBasis },
     salesToCapital: { value: s2c, basis: s2cBasis },
@@ -5243,6 +5281,8 @@ export function multiplesFramework(
 // ---------------------------------------------------------------------------
 
 export interface ExcessReturnInputs {
+  /** Actual quote observation for the reverse solve, separate from requested model dating. */
+  quoteAsOf?: string | null;
   /** Scenario-only admission; leaves the existing forward fair value untouched. */
   scenarioBookEvidence?: {
     openingBookRefusal: string | null;
@@ -6053,8 +6093,14 @@ export function excessReturnModel(inputs: ExcessReturnInputs): ExcessReturnResul
   const usePrice = price !== null && shares !== null;
   const quoteTarget = usePrice ? price : mcap;
   const target = quoteTarget === null ? null : quoteTarget / (roll?.factor ?? 1);
+  const reverseUse = classifyValuationDateUse({ statementDate: inputs.asOf ?? null, quoteDate: inputs.quoteAsOf ?? null,
+    rolledTo: valuationDate?.value ?? null, elapsedYears: valuationDate?.elapsedYears ?? null });
   if (target === null) {
     reverseNotes.push("skipped: market cap not provided (price or diluted shares unavailable)");
+  } else if (reverseUse.status !== "current") {
+    const reason = valuationUseExplanation(reverseUse);
+    reverseNotes.push(reason);
+    gaps.push(gapEntry("valuation.excessReturn.reverseSolve.currentUse", reason, "warn"));
   } else {
     reverseBasis = usePrice ? "price-per-diluted-share" : "market-cap";
     const targetLabel = usePrice ? "the price per diluted share" : "market cap";
@@ -6514,6 +6560,7 @@ export type ValuationResult =
       kind: "dcf-suppressed";
       /** Specific disclosure when prior suppression is retained for unsupported FIN-OTHER inputs. */
       suppressionReason?: string;
+      suppressionKind?: "route-policy" | "input-evidence";
       route: SectorRoute;
       multiples: MultiplesResult;
       notes: string[];
@@ -6788,7 +6835,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       notes.push("mortgage REIT routed to the book-value (excess-return) map (docs/METHODOLOGY.md, Financial-company routes)");
     }
     const er = inputs.excessReturn
-      ? excessReturnModel(inputs.excessReturn)
+      ? excessReturnModel({ ...inputs.excessReturn, quoteAsOf: inputs.multiples.quote.priceAsOf ?? null })
       : excessReturnModel({ bookValue: null, currentRoePct: null, costOfEquityPct: null });
     if (!inputs.excessReturn) {
       gaps.push(gapEntry("valuation.excessReturn", "excess-return inputs not provided by caller", "critical"));
@@ -6929,7 +6976,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       "The FCFF model does not capture that regulated rate-base funding cycle; intrinsic per-share value, reverse DCF and DCF scenario targets are withheld. " +
       "Use the retained P/E, dividend yield and EV/EBITDA multiples and peer comparisons for valuation context; no rate-base value is estimated.";
     gaps.push(gapEntry("valuation.dcf.regulatedUtility", reason, "info"));
-    return { kind: "dcf-suppressed", route: route.base, multiples, suppressionReason: reason, notes: [...notes, reason], gaps };
+    return { kind: "dcf-suppressed", suppressionKind: "route-policy", route: route.base, multiples, suppressionReason: reason, notes: [...notes, reason], gaps };
   }
 
   // General route: DCF + sensitivity + reverse DCF + multiples — unless
@@ -6940,7 +6987,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   if (metricPolicy(route).suppress.includes("fcfDcf")) {
     if (cashFlowApplicability?.status === "not-applicable") {
       const reason = cashFlowApplicability.reason;
-      return { kind: "dcf-suppressed", route: route.base, multiples, suppressionReason: reason, notes: [...notes, reason], gaps };
+      return { kind: "dcf-suppressed", suppressionKind: "route-policy", route: route.base, multiples, suppressionReason: reason, notes: [...notes, reason], gaps };
     }
     const reason = "DCF suppressed for unprofitable overlay — house rule: net income or operating cash flow is negative on the selected TTM/annual basis. " +
       "A separately supported normalization/turnaround forecast is required; see relative multiples and scenario/runway framing.";
@@ -6952,7 +6999,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         "info",
       ),
     );
-    return { kind: "dcf-suppressed", route: route.base, multiples, suppressionReason: reason, notes, gaps };
+    return { kind: "dcf-suppressed", suppressionKind: "route-policy", route: route.base, multiples, suppressionReason: reason, notes, gaps };
   }
   let assumptions: DcfAssumptions | null = null;
   let dcf: DcfResult | null = null;
@@ -7360,7 +7407,11 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       // needs the quote and the model in one known currency; the DCF and its
       // grid are price-free and stand either way.
       if (quoteComparison.comparable) {
-        reverse = reverseDcf(inputs.currentPrice, assumptions, runOpts);
+        const use = classifyValuationDateUse({ statementDate: assumptions.asOf.statements ?? null,
+          quoteDate: inputs.multiples.quote.priceAsOf ?? null, rolledTo: assumptions.valuationDate?.value ?? null,
+          elapsedYears: assumptions.valuationDate?.elapsedYears ?? null });
+        if (use.status === "current") reverse = reverseDcf(inputs.currentPrice, assumptions, runOpts);
+        else gaps.push(gapEntry("valuation.reverseDcf.currentUse", valuationUseExplanation(use), "warn"));
       } else {
         gaps.push(
           gapEntry(

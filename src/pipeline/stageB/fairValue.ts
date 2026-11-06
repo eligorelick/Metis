@@ -31,13 +31,15 @@ import { LEASE_EMPTIED_CAPITAL_LEAD, TEMPORARY_EQUITY_REFUSAL_LEAD } from "@/pip
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 import { FAIR_VALUE_DEGRADED_FIELD } from "@/report/fairValueText";
 import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/providerFallback";
+import { classifyValuationUse, valuationUseExplanation } from "./valuationUse";
+import type { ValuationUse } from "@/report/schema";
 
 /** Versioned method prior — bump when the resolution changes. */
 // D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
 // D-135 (audit 2026-10-27 B4a): the bridge every target re-runs counts redeemable equity and the debt-like obligations once, and the DCF reads the covered operating lease in sales-to-capital.
 // FIN-401 / FIN-401-V1: the DCF bridge and its operating margin/capital inputs now share the stake reading.
 // D-178 / D-179: the per-share value converts at one dated FX rate per ADS ratio; completed debt and WACC reach more issuers.
-export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_11_BALANCE_ROW_INTEGRITY_55" as const;
+export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_11_CURRENT_VALUATION_USE_58" as const;
 
 export interface FairValueInputs {
   /** The route-dispatched valuation result (carries the per-route per-share). */
@@ -47,6 +49,8 @@ export interface FairValueInputs {
   /** Currency label for the per-share unit. */
   currency: string | null;
   asOf: string;
+  /** Actual quote observation day; analysis time cannot substitute for it. */
+  quoteAsOf: string | null;
 }
 
 const isNum = (v: number | null | undefined): v is number =>
@@ -158,9 +162,9 @@ export function degradedInputsReason(inputs: DegradedInputs): ManifestEntry | nu
   };
 }
 
-/** The available fair value with its degraded-inputs reason; any other status, or no reason, unchanged. */
-export function withDegradedInputs(fairValue: FairValue, reason: ManifestEntry | null): FairValue {
-  if (reason === null || fairValue.status !== "available") return fairValue;
+/** Preserve limitations beside a current value or supported dated reference. */
+export function withDegradedInputs<T extends FairValue>(fairValue: T, reason: ManifestEntry | null): T {
+  if (reason === null || fairValue.status !== "available" && fairValue.status !== "dated-reference") return fairValue;
   return { ...fairValue, reasons: [...fairValue.reasons, reason] };
 }
 
@@ -175,7 +179,29 @@ export function perShareUnit(currency: string | null): string {
     : "per share (currency unknown)";
 }
 
-export function computeFairValue(inputs: FairValueInputs): FairValue {
+export function computeFairValue(inputs: FairValueInputs): FairValue & { currentUse: ValuationUse } {
+  const fairValue = resolveFairValue(inputs);
+  const currentUse = classifyValuationUse(inputs.valuation, fairValue.status === "available" && fairValue.perShare !== null, inputs.quoteAsOf);
+  const owned = { ...fairValue, currentUse };
+  if (fairValue.status !== "available") return owned;
+  if (currentUse.status === "current") {
+    return { ...owned, perShare: fairValue.perShare === null ? null : { ...fairValue.perShare, asOf: currentUse.valueDate } };
+  }
+  // Fiscal-start alternatives also use their own dates; retain those raw
+  // calculations in valuation, never leak them through a current headline.
+  delete owned.alternative;
+  const explanation = valuationUseExplanation(currentUse);
+  const reasons: ManifestEntry[] = [...owned.reasons, { field: "valuation.currentUse", reason: explanation, severity: "warn" }];
+  if (currentUse.status === "dated-reference" && fairValue.perShare !== null && currentUse.valueDate !== null && currentUse.quoteDate !== null) {
+    return { ...owned, status: "dated-reference", perShare: null, upsidePct: null, reasons, basis: [...owned.basis, explanation],
+      reference: { perShare: { ...fairValue.perShare, asOf: currentUse.valueDate }, valuationDate: currentUse.valueDate,
+        quoteDate: currentUse.quoteDate, basis: [...owned.basis, explanation] } };
+  }
+  return { ...owned, status: "suppressed", perShare: null, upsidePct: null, reasons, basis: [...owned.basis, explanation],
+    ...(fairValue.perShare ? { auditValue: { ...fairValue.perShare, asOf: currentUse.valueDate } } : {}) };
+}
+
+function resolveFairValue(inputs: FairValueInputs): FairValue {
   const { valuation, currency, asOf } = inputs;
 
   // Resolve the route-appropriate deterministic per-share, its method + source tag.

@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 import { isDeltaRecord, labelOperands } from "@/pipeline/stageC/consistency";
 import { expect, it } from "vitest";
 import { validateClaimNumericSupport } from "@/pipeline/stageC/claimEvidence";
@@ -74,7 +75,7 @@ it("AI-502 pins every percentage-point record in the synthetic helper payload", 
  const { completeCurrencyBundle } = await import("./helpers/currencyBundle");
  const { runStageB } = await import("@/pipeline/compute");
  const { assembleContextPayload } = await import("@/pipeline/stageC/payload");
- const bundle = completeCurrencyBundle({ debt: 300 });
+ const bundle = withFixtureQuoteDay(completeCurrencyBundle({ debt: 300 }), "2026-03-31");
  const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
  const kinds = Object.fromEntries(payload.provenanceRegistry!.filter(r => r.unit === "percentage-points" || r.unit === "percentage-points-per-year").map(r => [r.id, isDeltaRecord(r)]));
  expect(kinds).toEqual({

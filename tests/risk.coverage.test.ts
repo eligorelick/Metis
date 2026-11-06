@@ -53,6 +53,9 @@ const EXPECTED_RISK_SOURCES = [
   "src/edgar/filedPresentation.ts",
   "src/edgar/instanceFacts.ts",
   "src/edgar/retainedClassEconomics.ts",
+  "src/edgar/revenueAdmission.ts",
+  "src/edgar/revenuePresentation.ts",
+  "src/edgar/primaryIncome.ts",
   "src/edgar/cashInvestment.ts",
   "src/edgar/shareUnitRepair.ts",
   // WS4 review N3: the versioned tag table and the successor hop were carved
@@ -131,6 +134,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/claimMatching.ts",
   "src/report/verificationMarks.ts",
   "src/report/legacyEntitySafety.ts",
+  "src/report/valuationUseSafety.ts",
   "src/report/principalAggregationSafety.ts",
   "src/report/enterpriseValueSafety.ts",
   "src/report/legacyPayloadRecordSafety.ts",

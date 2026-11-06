@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /**
  * The live company page's money cells: the quote in its TRADING currency, the
  * model's per-share values in the currency the model ran in (the statements'),
@@ -48,7 +49,7 @@ function elementsWithin(node: ReactNode): ReactElement<Props>[] {
 }
 
 /** Render the named live panels of the company page for a bundle. */
-async function panels(opts: CurrencyBundleOptions, bundle = currencyBundle(opts)): Promise<Record<string, string>> {
+async function panels(opts: CurrencyBundleOptions, bundle = withFixtureQuoteDay(currencyBundle(opts), "2026-03-31")): Promise<Record<string, string>> {
   harness.buildDataBundle.mockResolvedValue(bundle);
   const tree = await CompanyBody({ symbol: opts.symbol ?? (opts.bank ? "BNK" : "GEN") });
   const out: Record<string, string> = {};
@@ -78,8 +79,26 @@ function heatmapAmounts(html: string): string[] {
 beforeEach(() => harness.buildDataBundle.mockReset());
 
 describe("company page money cells", () => {
+  it.each([false, true])("withholds a live current-price comparison when its quote date is unestablished (bank=%s)", async bank => {
+    const bundle = withFixtureQuoteDay(currencyBundle({ bank }), "2026-03-31");
+    if (!bundle.quote.ok) throw new Error("quote fixture");
+    delete bundle.quote.value.data.rows[0]!.timestamp;
+    const p = await panels({ bank }, bundle);
+    expect(p.ValuationPanel?.includes("vs price")).toBe(false);
+    expect(p.ValuationPanel?.includes("quote observation date is missing")).toBe(true);
+  });
+  it.each([false, true])("shows a dated reference without current upside in the live card (bank=%s)", async bank => {
+    const bundle = withFixtureQuoteDay(currencyBundle({ bank }), "2026-03-31");
+    if (!bundle.quote.ok) throw new Error("quote fixture");
+    bundle.builtAt = "2026-11-05T22:00:00Z";
+    bundle.quote.value.data.rows[0]!.timestamp = Date.parse("2026-11-04T20:00:00Z") / 1000;
+    const p = await panels({ bank }, bundle);
+    expect(p.ValuationPanel?.includes("vs price")).toBe(false);
+    expect(p.ValuationPanel?.includes("Dated reference value")).toBe(true);
+    expect(p.ValuationPanel?.includes("2026-11-04")).toBe(true);
+  });
   it.each(["unresolved", "bank", "standard"])("labels the actual Piotroski variant in the live forensics panel (%s)", async variant => {
-    const bundle = currencyBundle({ bank: variant === "bank", ...(variant === "unresolved" ? { sic: "6199" } : {}) });
+    const bundle = withFixtureQuoteDay(currencyBundle({ bank: variant === "bank", ...(variant === "unresolved" ? { sic: "6199" } : {}) }), "2026-03-31");
     if (variant === "unresolved" && bundle.profile.ok) {
       bundle.profile.value.data.rows[0] = { ...bundle.profile.value.data.rows[0]!, sector: null, industry: null };
     }
@@ -143,7 +162,7 @@ describe("company page money cells", () => {
     expect(cell(usd.ValuationPanel!, "vs price")).toMatch(/^[+-]\d+\.\d%$/);
     const unknownModel = await panels({ debt: 0, annualCurrency: null, quarterCurrencies: [null, null, null, null] });
     expect(cell(unknownModel.ValuationPanel!, "dcf / share")).toBe("n/a");
-    expect(cell(unknownModel.ValuationPanel!, "vs price")).toBe("n/a");
+    expect(unknownModel.ValuationPanel?.includes("vs price")).toBe(false);
     const unknownQuote = await panels({ debt: 0, profileCurrency: null });
     expect(cell(unknownQuote.ValuationPanel!, "vs price")).toBe("n/a");
   });
@@ -162,7 +181,7 @@ describe("company page returns panel on an equity-only route (audit 2026-10-22, 
   async function returnsPanel(opts: CurrencyBundleOptions, dossier: boolean): Promise<string> {
     if (dossier) process.env.METIS_UI_REDESIGN = "1";
     resetConfigCache();
-    harness.buildDataBundle.mockResolvedValue(currencyBundle(opts));
+    harness.buildDataBundle.mockResolvedValue(withFixtureQuoteDay(currencyBundle(opts), "2026-03-31"));
     const tree = await CompanyBody({ symbol: opts.bank ? "BNK" : "GEN" });
     const panel = elementsWithin(tree).find(e => typeof e.type === "function" && (e.type as FunctionComponent).name === "ReturnsPanel");
     if (!panel) throw new Error("ReturnsPanel not rendered");

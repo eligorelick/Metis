@@ -43,6 +43,22 @@ const prior = {
 };
 
 describe("computeWacc with a prior-year cost of debt", () => {
+  it("tracks only the operating operand selected for a successful synthetic discount rate", () => {
+    const unverified = { status: "unverified-derivation" as const, asOf: "2023-09-30", field: "statements.income.2023-09-30.waccOperatingIncome", usedInDiscountRate: false };
+    const effective = computeWacc({ ...base, priorYearCostOfDebt: { ...prior, operatingIncomeEvidence: unverified } });
+    expect(effective.operatingIncomeEvidence?.usedInDiscountRate ?? false).toBe(false);
+    const selected = computeWacc({ ...base, priorYearCostOfDebt: { ...prior, pct: .1, operatingIncomeEvidence: unverified } });
+    expect(selected.costOfDebtMethod).toBe("synthetic");
+    expect(selected.operatingIncomeEvidence).toEqual({ ...unverified, usedInDiscountRate: true });
+    const current = computeWacc({ ...base, interestExpenseTtm: 1, operatingIncomeEvidence: { ...unverified, asOf: "2026-03-31", field: "current" },
+      priorYearCostOfDebt: { ...prior, pct: .1, operatingIncomeEvidence: unverified } });
+    expect(current.costOfDebtMethod).toBe("synthetic");
+    expect(current.operatingIncomeEvidence?.field).toBe("current");
+    expect(current.operatingIncomeEvidence?.usedInDiscountRate).toBe(true);
+    const refused = computeWacc({ ...base, marketCap: null, priorYearCostOfDebt: { ...prior, pct: .1, operatingIncomeEvidence: unverified } });
+    expect(refused.waccPct).toBeNull();
+    expect(refused.operatingIncomeEvidence?.usedInDiscountRate ?? false).toBe(false);
+  });
   it("fails closed without the fallback, exactly as before", () => {
     const res = computeWacc(base);
     expect(res.waccPct).toBeNull();

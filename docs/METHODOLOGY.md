@@ -3,7 +3,48 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.64.0 / payload 1.81.0, Stage B `STAGE_B_2026_11_BALANCE_ROW_INTEGRITY_55` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.66.0 / payload 1.85.0, Stage B `STAGE_B_2026_11_EVIDENCE_DISCLOSURE_59` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+
+## Current valuation use and grade qualification (D-208)
+
+Grades retain the existing score weights, shrinkage, bands and evidence floors.
+An otherwise eligible letter is **Provisional** when a weighted, route-applicable
+aspect is missing or has limited evidence under the existing rules, or material
+financial or current-valuation evidence is unavailable. The report names the
+missing evidence. A score can rise when adverse evidence disappears; that is
+not evidence of an improvement in the company. Evidence below the existing
+50% floor, a single partial signal and rejected grade overrides retain their
+stronger letter withholds. Seventy-five percent coverage from multiple signals
+alone does not trigger Provisional. Zero-weight and route-inapplicable aspects
+do not create missing-evidence qualifications.
+
+Current intrinsic value, upside, scenario targets and price-implied growth or
+returns require the model value date to match the actual quote observation.
+The existing supported roll-forward is limited to 200 days from the statement
+base. Analysis, acquisition and report-generation times cannot replace the
+quote observation date. A supported but unrolled older value is shown separately
+as a **dated reference**, with both dates, and supplies no current upside,
+scenario target or inverse signal. Unknown, malformed or future timing is
+unestablished. Existing currency, share-class, accounting-scope, financial,
+bridge and model-domain refusals remain closed; a refusal cannot be relabeled
+as a reference to bypass those guards.
+
+Older compatible annual observations can still support normalization and
+historical diagnostics. The 200-day rule is not a blanket ban on margin or
+return history. A permitted unverified operating-income derivation is qualified
+when it actually supplies the synthetic discount rate; unrelated historical
+warnings do not qualify a selected operand. This annotation does not change
+its permitted numerical use or call it directly filed operating income.
+
+AI and data-only reports use the same pipeline-owned qualification and date
+metadata. Reader views and exports preserve original stored report bytes and
+scores. A legacy report without sufficient recorded qualification stays
+**Qualification unknown**, or Provisional where a known evidence gap is
+established. Legacy roll factors without typed time/rate authority cannot alone
+certify current use. Original suppressed values, targets and inverse outputs
+remain separate historical audit diagnostics. Existing source and method
+qualifications remain visible beside the date limit. Passing tests, source
+hashes and matching citations do not by themselves establish primary-fact truth.
 
 ## Saved-report scope qualifications
 
@@ -372,6 +413,97 @@ Direct EPS is rechecked after share admission even when monetary earnings
 already reconcile. If monetary admission establishes a previously missing
 period start, deferred share admission and the direct EPS check run again so
 fresh acquisition and frozen replay converge.
+
+**Operating revenue and income admission (D-203).** Use one operating-revenue
+line across annual, quarterly and trailing statements, growth, margins,
+multiples and DCF. A provider figure needs credible filed scope; proximity to
+an amount does not establish that scope. A later same-concept, same-duration,
+same-currency core filing supersedes a conflicting older observation, including
+one retained from a provider substitution. Rounding-compatible corroborations
+of the unchanged line may remain. Issuer, currency, duration, filing lineage,
+cutoff, component completeness and independent refusals remain binding.
+
+A sales policy requires independent filed operating-result/expense or
+gross-profit/cost reconciliation, or a directly dated consolidated sales line.
+One anomalous net-sales tag and provider agreement do not establish a
+company-wide policy. Exact provider equality cannot admit an otherwise
+unsupported broader total. Contract revenue alone may omit non-contract
+transactions and is not automatically the consolidated operating line.
+
+A retained primary consolidated statement can establish a directly dated sales
+line only when its total reconciles and independently matches the SEC duration.
+A sum of provider quarters matching a filed year-to-date total does not prove
+any individual quarter. That window inference is removed. The retained text
+parser deliberately supports a narrow table shape and rejects segment context;
+unsupported labels, units and table shapes cannot create new corroboration.
+
+Operating income is checked wherever the admitted revenue has filed evidence,
+including rows whose revenue did not request review. A derived Q4 numerator
+may carry the FY and nine-month lineage beside direct Q4 revenue, provided
+unit, duration and the supporting revenue filing agree. A tag name alone
+cannot override a contradicting complete revenue/expense/pretax reconciliation.
+Such unresolved scope is refused for margin and non-margin consumers.
+
+A cost-derived operating result requires actual same-scope filed pretax proof
+that total revenue less total expenses reconciles. Interest is excluded only
+when an independent filed operating-expense subtotal or a complete set of
+disjoint primary components proves it is inside those expenses. Every component
+must have an established role and the complete statement must reconcile to
+pretax income; an aggregate excludes its children. Printed-unit rounding uses
+the existing filed-operand allowance and retains the actual residual. The definition also excludes separately evidenced nonservice benefit
+expense consistently; vendor agreement never chooses the adjustment. A missing
+pretax figure, cash interest paid, or an unproved interest location cannot
+supply a bridge. This may reduce coverage until sufficient filing evidence is
+available. A directly tagged operating result remains eligible subject to consolidated
+scope checks. A complete contrary primary proof replaces the incompatible
+result for margins, historical seeds, normalization and standalone uses. Older
+tag-only numerators from the demonstrated conflicting family require independent
+reconciliation. Independent unrelated refusals are never reopened. Cash-paid
+interest and conflicting interest concepts cannot rehabilitate a WACC operand.
+A permitted untested pretax/nonoperating derivation is identified as derived
+and unverified, never as a directly filed operating result.
+
+Reviewed gross profit requires compatible directly filed gross profit or a
+same-scope revenue/cost reconciliation; the vendor's classification alone is
+not corroboration. Previously usable but undisproved standalone operating
+observations may remain explicitly unverified for non-margin measures. They
+cannot supply margin history, a DCF seed or a trend. Trailing basis text names
+which quarters are corroborated and which remain unverified.
+
+An interior missing margin remains in the calculation series. An incomplete
+projection history is withheld with its missing periods disclosed. Its dates withhold the affected regression slope and improving-margin regime;
+finite endpoints cannot silently bridge the gap. Scenario dispersion remains
+a dispersion of observed levels, not a claimed time trend. Charts use only the
+computed margin series. A wholly absent fiscal slot requires explicit fiscal
+labels, actual annual durations and an independently established annual cadence;
+a long date gap alone is insufficient. Charts label the missing interval without
+inventing a date or zero. Revenue refusals still clear dependent margin operands.
+
+Gross-profit refusal causes reach the manifest and affected forecast assumption.
+An improving trend with no supported gross-profit ceiling cannot receive the
+D-60 trend uplift; that missing bound is stated explicitly. Historical seeds
+state the observed count, actual dates and unsupported recent annual margins.
+A later primary comparative with an explicit discontinued/deconsolidated
+presentation can establish a changed perimeter. An incompatible old annual or
+mixed quarterly base is refused as a factual scope mismatch.
+
+D-65 annual fallback remains: a missing trailing operating numerator may use a
+complete annual basis and its dated balance. Growth and reverse-DCF labels name
+the annual base. The displayed start-revenue assumption carries statement,
+price and balance dates, elapsed days and the uncertainty from later balance
+changes, including in Markdown and print exports. The 200-day roll-forward
+limit is unchanged in R1-R5; a value beyond it remains dated at the statement
+date. The owner-authorized provisional-grade and separate dated-reference
+policy is implemented separately in D-208 above; the source repair itself
+does not change score arithmetic.
+
+Source bundles and saved reports stay immutable. Fresh classification and
+frozen replay use the same calculation view. Independently admitted earnings,
+EPS, share counts, monetary guards and spending safeguards remain protected.
+Affiliate and other income do not become operating sales or extra FCFF. The
+existing equity-method exclusions and investment add-back apply once. If a new
+operating basis exposes an incomplete trailing cash window, keep the complete
+aligned annual cash pair rather than mixing annual FCF with trailing earnings.
 
 Weighted shares are checked after an exact interval is established from filed
 provenance, a unique same-filing duration, or the existing month-end calendar
@@ -1010,6 +1142,40 @@ before accepting text; the existing elapsed gates still govern later sections.
 The existing 2,500-character minimum, incorporation-stub check and payload character
 limits remain in force. Successor issuers still use
 their own annual filings for section text.
+
+**Statement caption ownership (D-205, 2026-11-05).** A retained statement prefix
+needs an unlinked, visible source caption and comparative rows compatible with
+its statement family. The caption owns its containing table, its first
+adjacent data table, or a bounded sequence of plain blocks/lines. Only period
+and unit metadata may bridge an external caption to that table. A compact
+caption-only layout wrapper may supply the title; an index or separate data
+table cannot lend rows. Peer headings and unrelated plain blocks end the unit.
+Inside a table, unknown text-only rows also end ownership, whether bold,
+unmarked, or followed by empty cells. Recognized financial section labels
+remain inside it. Explicit business/segment labels and named industry subgroups
+require a label column and empty amount columns; a blank grid alone does not
+establish a subgroup. Comparative data rows retain their original column grid.
+The retained caption, intervening context and supporting rows must match one
+contiguous source unit, with each numerical pair inside an original row/block.
+Hyperlinked labels or amounts cannot supply proof rows. Short markers inside
+explicit superscripts can be treated as footnotes without invalidating
+otherwise unlinked labels and comparative amounts. Their link status cannot
+change a compound label's meaning: a footnote between `cash` and `flows` does
+not establish balance-sheet cash. Other linked row content
+does not supply proof. The retained source excerpt is unchanged. Duplicate row
+strings elsewhere cannot certify it. Cash-flow activity rows
+and comprehensive-income totals do not prove a balance sheet; accumulated
+other comprehensive income remains an ordinary balance-sheet equity line.
+
+This proof applies both inside the initial 12,000-character cap and when
+moving past long front matter. Keep useful existing coverage when its proof
+fits; an ambiguous repeated opening cannot move the cap. Short statements
+without explicit dates remain excerpts, not assertions of a dated inventory.
+Missing or incompatible captions produce a specific gap, even when useful
+unlabelled data exists elsewhere in the saved filing. Source titles are never
+rewritten to resolve a mismatch. Notes and source bytes remain unchanged.
+The proof establishes an opening, not completeness of every retained table,
+economic rights or issuer-exclusive ownership within combined filings.
 
 **Annual-note appendix redirects (D-138, report-53 Task 7, unreleased).** Ordinary annual Item 8/15 extraction keeps priority and its existing stub and next-item bounds. When it fails, a notes-only route can follow one Item 15 table bounded by the real Item 16 heading. Exactly one notes row with an F-page label and one Schedule II row with an S-page label must resolve to unique forward same-document targets and matching standalone headings, with a first note and at least the existing 2,500-character substantive-body threshold. F-8 and S-1 remain distinct namespaces. Raw HTML character bounds are validated before flattening their actual text nodes; signatures before the appendix, the linked schedule and exhibits do not enter the result. Repeated notes headers and prose references, including paragraphs beginning with full schedule/exhibit/Item 16 titles, do not terminate the validated interval. A first-12,000-character statement prefix is optional and requires a separately proved Consolidated Balance Sheets target from that same index, after Item 16 and before notes, without intervening signature/appendix headings.
 
@@ -3890,8 +4056,8 @@ only when it moves with its scenario: the bull's is never a cut and the
 bear's never a gain; otherwise that scenario's margin stays at base (AMZN
 audit 2026-10-20 finding 11, where a correlation of −0.38 gave the bull a
 1.17pp margin cut). The scenario paths and targets carry the method stamps
-SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_BALANCE_ROW_INTEGRITY_55 (D-102 added
-the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_BALANCE_ROW_INTEGRITY_55. Missing correlation leaves
+SHARED_SCENARIO_PATHS_2026_10_D99 and SCENARIO_TARGETS_2026_11_PRIMARY_OPERATING_PROOF_57 (D-102 added
+the domain test on each run; FIN-401 / FIN-401-V1 moved the bridge each target re-runs; D-159 the filed operating-income and SBC bases), and the fair value FAIR_VALUE_2026_11_PRIMARY_OPERATING_PROOF_57. Missing correlation leaves
 scenario margins at base with disclosure. Neither sigma nor the band is a
 fitted confidence interval.
 
@@ -7748,15 +7914,12 @@ uses the existing one-spot translation, D-65 breadth/dispersion gates, D-60
 precedence, calendarization and clamps. Stage C labels only the calibrated
 revenue in the established reporting currency and discloses the same proof.
 
-A source-label difference alone does not refuse operating income. A provider
-numerator may agree with SEC-derived EBIT on the exact filed revenue basis,
-or its retained original row may prove the pair: same issuer, currency,
-fiscal interval and filing date, exact retained numerator, and provider
-revenue agreeing with filed revenue. An explicit field conflict or contrary
-directly tagged operating numerator still refuses; FIGR's pre-interest
-numerator is not restored. This establishes the provider operating
-presentation, not gross-profit/expense placement. All downstream metrics and
-scores consume admitted operating income. Guidance and the admitted trailing
+A source-label difference alone does not refuse operating income. Existing
+compatible observations retain their admission; a newly admitted revenue
+basis requires the D-203 operating bridge above. Independent field conflicts
+remain refused, including FIGR's pre-interest numerator. Operating admission
+does not establish gross-profit or expense placement. Each consumer uses the
+admitted figure on its required scope. Guidance and the admitted trailing
 margin lead; when unavailable, the latest admitted annual margin ending
 within 15 calendar months of cutoff precedes the five-year median. A median
 seed is described as historical, not current. This revises the D-58/D-60
@@ -7830,6 +7993,28 @@ eligible DEI cover count exists. Issued shares, authorized shares and monetary
 treasury stock are not substitutes. The same issuer, filing/cutoff, 400-day
 age, 1% agreement, second independent weighted-average construction and split
 guards still apply; an established DEI path is unchanged.
+
+**Historical class labels (D-205 consumer repair, 2026-11-05).** Retained
+class names alone need not describe the current capital structure. The fallback
+ambiguity detector can disregard a dated elimination/rename footnote only when
+the same issuer-bound primary filing has a dated common-stock balance row with
+positive current outstanding shares and explicit zero outstanding shares for
+the eliminated class at both comparison dates. Current-first dates must match
+the filing report date; the completed event must precede that date and the
+known quote date. The issuer-labelled table, SEC document/accession, provider,
+profile CIK, symbol and filing cutoff must agree. Every later retained report
+must supply its own dated positive plain-common row; omission is insufficient.
+
+This limited grammar supports a compound common row with two class authorization
+clauses, an unconditional completed elimination/rename, and its explicit backward
+reference. An older zero, authorization alone, issued-only zero, conversion
+option, conditional/future event, contradictory cover observation, other named
+common-class assertion or unsupported date/layout retains the refusal. Only the
+analysis copy of those historical footnotes is excluded; retained evidence is
+unchanged. No class counts, equal economic rights or verified vendor scope are
+created. Independent cover, rights, currency, security-basis and valuation
+prerequisites still apply. This is a local repair awaiting combined verification
+and independent re-review, not a valuation release.
 
 **Multi-class economics (D-206, 2026-11-05).** A non-ADR common quote
 requires complete, unique, same-date, unscaled outstanding class observations.
@@ -8017,3 +8202,38 @@ refusals name the excess-return model's missing assumption or common-share
 denominator, including missing compatible common earnings behind an unusable
 payout history. ADR refusals carry the failed security/FX evidence. These
 disclosures do not relax numeric admission or create a new valuation model.
+
+
+**Primary operating-proof boundaries (D-203 follow-up, 2026-11-05).** A complete
+retained statement remains historical evidence when later eligible core facts
+change the same concept and duration. It cannot override that recast in the
+revenue or operating fast paths. Unchanged later repetitions do not revoke
+independent primary proof. Consolidated pretax anchors use the existing global
+pretax concept set; a domestic-only observation is not a consolidated anchor.
+Explicitly operating other-income/expense rows retain their printed sign role
+inside operating income before any one-off normalization.
+
+A fact bridge distinguishes absent roles from conflicting same-scope aliases.
+Required unresolved conflicts close proof and all dependent operating uses;
+they cannot become zero or disappear through a GP fallback. An independently
+complete full operating/nonoperating or net-interest aggregate may replace its
+established children once. Compatible scopes and the existing tolerances remain
+required. A perimeter refusal additionally needs affirmative changed-operations
+results in the statement's own period column and revised comparable sales.
+Nearby prose, negated/remote mentions, another statement, zero results or a
+broader revenue total beside unchanged sales cannot establish that finding.
+These are bounded supported forms; missing proof is not proof of no change.
+
+Comparative operating sales require a core fact matching the printed sales
+line in the bound filing and duration. A statement's income-total anchor does
+not establish that sales comparison. Both supported contract-revenue concepts
+receive the same scope-conflict checks. A narrower contract component cannot
+stand in for a consolidated sales total;
+same-filing disagreement about that historical operating-sales scope cannot
+establish a recast. Recorded periods rejected by annual-history normalization
+remain identity-only barriers in growth, valuation and projections. Their
+financial values stay excluded. An affected trend or historical projection line
+is withheld with a recorded-period explanation, rather than asserting that the
+year is absent or inventing a valid date for a malformed source record.
+Undated source-row identities are retained before the model-currency/date
+filter can discard them; their financial values remain subject to that filter.

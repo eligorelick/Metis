@@ -20,7 +20,7 @@ import type { CompanyRoute } from "@/types/core";
 import { task28SentinelReport } from "./helpers/task28Report";
 
 const multiples: MultiplesFrameworkInputs = {
-  quote: { price: 100, marketCap: 10000, currency: "USD" },
+  quote: { priceAsOf: "2025-12-31", price: 100, marketCap: 10000, currency: "USD" },
   reportedCurrency: "USD",
   incomeTtm: { date: "2025-12-31", revenue: 1000, operatingIncome: 200, depreciationAndAmortization: 50, netIncome: 144, epsDiluted: 1.44 },
   cashFlowTtm: { date: "2025-12-31", operatingCashFlow: 180, capitalExpenditure: -30, depreciationAndAmortization: 50 },
@@ -57,7 +57,7 @@ describe("B-30: the house DCF base rate beside the headline", () => {
 
   it("puts the base rate in the Key data note of a general-route DCF headline and the markdown export", () => {
     const valuation = valueCompany(general, { currentPrice: 100, waccPct: 9, netDebt: 200, dilutedShares: 100, dcfInputs: steady, multiples, excessReturn: null, reit: null });
-    const fairValue = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
+    const fairValue = computeFairValue({ quoteAsOf: "2025-12-31", valuation, currentPrice: 100, currency: "USD", asOf: "2026-10-22" });
     expect(fairValue.method).toBe("fcff-dcf");
     const report = reportWith(fairValue);
     const row = keyDataRows(report).find((r) => r.label === "Model fair value (DCF)");

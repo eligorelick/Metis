@@ -149,7 +149,7 @@ describe("excessReturnModel — evidenced excess returns (D-41)", () => {
   });
 
   it("reverse-solves against the same terminal, so a book-priced issuer needs a lower starting ROE", () => {
-    const priced = { ...BASE, marketCap: 1_500 };
+    const priced = { ...BASE, asOf: "2026-03-31", quoteAsOf: "2026-03-31", marketCap: 1_500 };
     const plain = excessReturnModel(priced).reverseSolve.impliedCurrentRoePct!;
     const carried = excessReturnModel({ ...priced, roeHistory: durable, riskFreePct: 4 }).reverseSolve.impliedCurrentRoePct!;
     expect(carried).toBeLessThan(plain);

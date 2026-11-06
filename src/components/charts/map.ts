@@ -1,3 +1,5 @@
+import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { withFilerShareUnits } from "@/pipeline/shareUnits";
 /**
  * Chart-data mapping — pure, server-safe adapters that turn the pipeline's rich
  * types (DataBundle, ComputedMetrics) and persisted Report tables into the small
@@ -179,42 +181,19 @@ export function revenueRowsFromStatements(
 
 /**
  * Margin lines (gross / operating / net), oldest→newest. Prefers the computed
- * growth margin series (already percent, house-ruled) and falls back to deriving
- * from the raw income statements when growth is empty.
+ * calculation-view margin series. Missing computed series stay missing; raw
+ * source rows cannot establish a replacement operating basis.
  */
 export function marginRowsFromComputed(
   computed: ComputedMetrics,
-  incomeAnnual: readonly FmpIncomeStatementRow[],
 ): MarginRow[] {
   const g = computed.growth.margins;
-  // The three series share the same dates (built from the same rows); index-align.
-  const gross = g.gross.series;
-  const operating = g.operating.series;
-  const net = g.net.series;
-  if (gross.length > 0) {
-    return gross.map((p, i) => ({
-      period: isoDay(p.date),
-      grossPct: p.pct,
-      operatingPct: operating[i]?.pct ?? null,
-      netPct: net[i]?.pct ?? null,
-    }));
-  }
-  // Fallback: derive straight from the statements.
-  const asc = ascByDate(incomeAnnual);
-  return asc.map((r) => {
-    const rev = num(r.revenue);
-    const gp = num(r.grossProfit);
-    const oi = num(r.operatingIncome);
-    const ni = num(r.netIncome);
-    const pctOf = (x: number | null): number | null =>
-      x !== null && rev !== null && rev !== 0 ? (x / rev) * 100 : null;
-    return {
-      period: isoDay(r.date),
-      grossPct: pctOf(gp),
-      operatingPct: pctOf(oi),
-      netPct: pctOf(ni),
-    };
-  });
+  const dates = [...new Set([g.gross, g.operating, g.net].flatMap(m => m.series.map(p => p.date)))].sort();
+  const byDate = (points: { date: string; pct: number | null }[]) => new Map(points.map(p => [p.date, p.pct]));
+  const gross = byDate(g.gross.series), operating = byDate(g.operating.series), net = byDate(g.net.series);
+  const intervals=[...new Map([g.gross,g.operating,g.net].flatMap(m=>m.missingIntervals??[]).map(p=>[p.label,p])).values()];
+  return dates.flatMap(date => [...intervals.filter(p=>p.before===date).map(p=>({period:`${p.fiscalYears.map(y=>`FY ${y}`).join(", ")} (missing; between ${p.after} and ${p.before})`,grossPct:null,operatingPct:null,netPct:null})),
+    { period: isoDay(date), grossPct: gross.get(date) ?? null, operatingPct: operating.get(date) ?? null, netPct: net.get(date) ?? null }]);
 }
 
 /** FCF bars + conversion (FCF / net income) line, oldest→newest. */
@@ -265,12 +244,13 @@ export function fundamentalsChartDataFromBundle(
   bundle: DataBundle,
   computed: ComputedMetrics,
 ): FundamentalsChartData {
+  bundle = bundle.edgar ? withIncomeOperatingBasis(withFilerShareUnits(bundle)) : bundle;
   bundle = balanceIntegrityView(bundle);
   const incomeAnnual = rowsOf<FmpIncomeStatementRow>(bundle.statements.incomeAnnual);
   const cashflowAnnual = rowsOf<FmpCashFlowRow>(bundle.statements.cashflowAnnual);
   return {
     revenue: revenueRowsFromStatements(incomeAnnual),
-    margins: marginRowsFromComputed(computed, incomeAnnual),
+    margins: marginRowsFromComputed(computed),
     fcf: fcfRowsFromStatements(cashflowAnnual, incomeAnnual),
     shareCount: shareCountRowsFromStatements(incomeAnnual),
     currency: statementsCurrency([...incomeAnnual, ...cashflowAnnual]),

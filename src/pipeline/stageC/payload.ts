@@ -1,3 +1,6 @@
+import { fairValueReferenceText } from "@/report/fairValueText";
+import { qualificationText } from "@/report/assessment";
+import { valuationUseExplanation } from "@/pipeline/stageB/valuationUse";
 import { extractOfficerTenures, type OfficerTenure } from "@/edgar/officerTenure";
 import { fiscalLabelContradicted } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
@@ -44,6 +47,7 @@ import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, 
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
+import { operatingHistorySupport } from "@/pipeline/stageB/growth";
 import { incompleteLeaseCoverage, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { calibratedRevenueCurrency, establishedIsoCode, inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
@@ -60,6 +64,7 @@ import { consensusYearsText, type RevenueAnchor } from "@/pipeline/stageB/valuat
 import { isoFromMonthDate, materialCreditSupportClauses } from "@/edgar/currentReports";
 import { periodicControlsText, periodicSignatureText } from "@/edgar/extract";
 import { buildScenarioPresentation, comparableScenarioPrice } from "@/report/scenarioPresentation";
+import { recordedFairValueTrace } from "@/report/fairValueText";
 import { BAND_THRESHOLDS_TEXT, compositeDisplay, evidencePct, isNeutralScore, MIN_HEADLINE_EVIDENCE, NEUTRAL_SCORE_BAND } from "@/report/assessment";
 import { fairValueDegradedText } from "@/report/fairValueText";
 import { providerFallbackNotice } from "@/report/providerFallback";
@@ -495,7 +500,10 @@ export interface ContextPayload {
 // 1.79.0 (D-202): debt and lease scope is reconciled from filed components beyond the test panel
 // 1.80.0 (D-206): multi-class share evidence requires affirmative equal rights or a shared rate; a conversion ratio supports only a class under 0.5% of units; the caveat travels with the value
 // 1.81.0 (D-207): vendor statement rows that lost their core breakdown and are not corroborated by a same-date filing are excluded from calculations, reports and peers
-export const PAYLOAD_VERSION = "1.81.0" as const;
+// 1.82.0 (D-203): scoped operating inputs, interior margin gaps and annual-base dates.
+// 1.83.0 (D-203 round 2): complete primary operating proofs and forecast-cause transport.
+// 1.84.0 (D-205/D-208): source-owned filing statements, current-use dates, separate references and deterministic grade qualification.
+export const PAYLOAD_VERSION = "1.85.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -529,13 +537,13 @@ type PayloadFigureInput = Omit<PayloadFigure, "currency" | "period"> &
 /** D136/R2: a guided-quarter level is not growth over the next twelve months. */
 type ReverseDcfCaveats = { guided: readonly string[]; latestQuarter: readonly string[] };
 export function reverseDcfContextFigures(anchor: RevenueAnchor | undefined, startRevenue: number | null, asOf: string | null,
-  caveats: ReverseDcfCaveats = { guided: [], latestQuarter: [] }): { figures: PayloadFigureInput[]; notes: string[] } {
+  caveats: ReverseDcfCaveats = { guided: [], latestQuarter: [] }, baseLabel = "TTM"): { figures: PayloadFigureInput[]; notes: string[] } {
   const overStart = (level: number | null | undefined): number | null =>
     startRevenue !== null && startRevenue > 0 && typeof level === "number" && Number.isFinite(level) ? (level / startRevenue - 1) * 100 : null;
   const figures = ([
-    { label: "DCF base-case year-one revenue growth over TTM", value: anchor?.yearOneGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.baseYearOne", asOf },
+    { label: `DCF base-case year-one revenue growth over ${baseLabel}`, value: anchor?.yearOneGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.baseYearOne", asOf },
     { label: "guided-quarter revenue growth, year over year", value: anchor?.evidence?.guidedYoyPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.guidedYoy", asOf },
-    { label: "consensus year-one revenue growth over TTM", value: overStart(anchor?.evidence?.consensusYearOne), unit: "%", source: "computed.valuation.reverseDcfContext.consensusYearOne", asOf },
+    { label: `consensus year-one revenue growth over ${baseLabel}`, value: overStart(anchor?.evidence?.consensusYearOne), unit: "%", source: "computed.valuation.reverseDcfContext.consensusYearOne", asOf },
     { label: "latest-quarter revenue growth, year over year", value: anchor?.runRate?.yoyPct ?? null, unit: "%", source: "computed.valuation.reverseDcfContext.latestQuarterYoy", asOf },
   ] satisfies PayloadFigureInput[]).filter(figure => typeof figure.value === "number" && Number.isFinite(figure.value));
   const notes = figures.flatMap(figure => {
@@ -846,7 +854,9 @@ function computedSections(
   if (lastGross) growthFigures.push({ label: "gross margin (latest)", value: lastGross.pct, unit: "%", source: "computed.growth.margins.gross", asOf: lastGross.date, ...fiscalYearOf(annualLabels, lastGross.date, lastGross.date) });
   if (lastOper) growthFigures.push({ label: "operating margin (latest)", value: lastOper.pct, unit: "%", source: "computed.growth.margins.operating", asOf: lastOper.date, ...fiscalYearOf(annualLabels, lastOper.date, lastOper.date) });
   if (lastNet) growthFigures.push({ label: "net margin (latest)", value: lastNet.pct, unit: "%", source: "computed.growth.margins.net", asOf: lastNet.date, ...fiscalYearOf(annualLabels, lastNet.date, lastNet.date) });
-  sections.push(payloadSection({ title: "Growth & margins (computed)", figures: growthFigures, notes: g.notes }));
+  const operatingSupport=operatingHistorySupport(g.margins.operating,annualLabels);
+  sections.push(payloadSection({ title: "Growth & margins (computed)", figures: growthFigures,
+    notes: [...g.notes,...(operatingSupport ? [operatingSupport] : [])] }));
 
   // --- Returns (WACC / ROIC / DuPont) --------------------------------------
   const r = computed.returns;
@@ -1197,16 +1207,19 @@ function computedSections(
 
   // --- Valuation -----------------------------------------------------------
   const val = computed.valuation;
+  const currentValue = computed.fairValue?.currentUse?.status === "current";
+  const dcfBaseLabel = val.kind === "dcf" && val.assumptions?.forecastPeriod?.basis === "fiscal-year"
+    ? `annual FY ending ${val.assumptions.asOf.statements}` : "TTM";
   const reverseContext = val.kind === "dcf"
-    ? reverseDcfContextFigures(val.assumptions?.revenueAnchor, val.assumptions?.startRevenue.value ?? null, val.assumptions?.asOf.statements ?? null, caveats)
+    ? reverseDcfContextFigures(val.assumptions?.revenueAnchor, val.assumptions?.startRevenue.value ?? null, val.assumptions?.asOf.statements ?? null, caveats, dcfBaseLabel)
     : { figures: [], notes: [] };
   const valFigures: PayloadFigureInput[] = [{ label: "valuation model", value: val.kind, unit: "", source: "computed.valuation.kind", asOf: null }];
   if (val.kind === "dcf") {
     valFigures.push(
-      { label: "DCF per share", value: val.dcf?.perShare ?? null, unit: "currency/share", currency: currencies.model, source: "computed.valuation.dcf", asOf: null },
-      { label: "DCF terminal value share", value: val.dcf?.terminalShare ?? null, unit: "fraction", source: "computed.valuation.dcf.terminalShare", asOf: null },
-      { label: "reverse-DCF implied revenue growth", value: val.reverseDcf?.impliedRevenueGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcf", asOf: null },
-      { label: "reverse-DCF implied terminal margin", value: val.reverseDcf?.impliedTerminalMarginPct ?? null, unit: "%", source: "computed.valuation.reverseDcf", asOf: null },
+      { label: "DCF per share", value: currentValue ? val.dcf?.perShare ?? null : null, unit: "currency/share", currency: currencies.model, source: "computed.valuation.dcf", asOf: computed.fairValue?.currentUse?.valueDate ?? null },
+      { label: "DCF terminal value share", value: val.dcf?.terminalShare ?? null, unit: "fraction", source: "computed.valuation.dcf.terminalShare", asOf: val.assumptions?.asOf.statements ?? null },
+      { label: "reverse-DCF implied revenue growth", value: val.reverseDcf?.impliedRevenueGrowthPct ?? null, unit: "%", source: "computed.valuation.reverseDcf", asOf: computed.fairValue?.currentUse?.quoteDate ?? null },
+      { label: "reverse-DCF implied terminal margin", value: val.reverseDcf?.impliedTerminalMarginPct ?? null, unit: "%", source: "computed.valuation.reverseDcf", asOf: computed.fairValue?.currentUse?.quoteDate ?? null },
     );
     // D-60 (P0-E): the price-implied year-one growth beside the evidence it
     // must be read against, with guided and latest quarters on a YoY basis, so
@@ -1218,7 +1231,7 @@ function computedSections(
     // one number from a model whose horizon, discount rate and opening book
     // value were only inferable from prose.
     valFigures.push(
-      { label: "excess-return per share", value: val.excessReturn.perShare ?? null, unit: "currency/share", currency: currencies.model, source: "computed.valuation.excessReturn", asOf: val.excessReturn.valuationDate?.value ?? val.excessReturn.asOf },
+      { label: "excess-return per share", value: currentValue ? val.excessReturn.perShare ?? null : null, unit: "currency/share", currency: currencies.model, source: "computed.valuation.excessReturn", asOf: val.excessReturn.valuationDate?.value ?? val.excessReturn.asOf },
       { label: "excess-return horizon (years)", value: val.excessReturn.horizonYears.value, unit: "years", source: "computed.valuation.excessReturn.horizonYears", asOf: null },
       { label: "cost of equity (the model's only discount rate)", value: val.excessReturn.costOfEquityPct.value, unit: "%", source: "computed.valuation.excessReturn.costOfEquityPct", asOf: null },
       { label: "opening book equity (BV0)", value: val.excessReturn.openingBookValue.value, unit: "currency", currency: currencies.model, source: "computed.valuation.excessReturn.openingBookValue", asOf: val.excessReturn.asOf },
@@ -1303,13 +1316,17 @@ function computedSections(
   // Audit 2026-10-22 F-13: the model is told which inputs were substituted.
   const degradedInputs = fairValueDegradedText(computed.fairValue);
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
+    ...(val.kind === "dcf" && val.assumptions ? [`Operating-margin forecast basis: ${val.assumptions.ebitMarginPath.basis}`] : []),
     ...val.notes,
+    ...(computed.fairValue?.currentUse && !currentValue ? [valuationUseExplanation(computed.fairValue.currentUse),
+      "Forward paths and sensitivity cells are dated audit diagnostics only. They cannot supply current fair value, upside, targets or a current-price inverse."] : []),
+    ...(computed.scores?.qualification ? [qualificationText(computed.scores.qualification.composite)].filter((text): text is string => text !== null) : []),
     ...(degradedInputs === null ? [] : [`${degradedInputs} Say so wherever the model value is cited.`]),
     ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => stat.basis?.trim() ? [`${stat.key}: ${stat.basis}`] : [])),
     ...(val.kind === "pre-revenue" ? [] : val.multiples.multiples.flatMap(stat => [stat.ownershipScope, stat.historyScope].filter((scope): scope is string => typeof scope === "string"))),
     ...consensusNote,
     ...(val.kind === "dcf" && val.reverseDcf?.impliedRevenueGrowthPct != null
-      ? ["Reverse-DCF context (D-60, D136): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided quarter's year-over-year growth, consensus year one and the latest quarter's year-over-year growth rows. The base and consensus levels are measured over the same TTM revenue; each quarter is compared with its own year-ago quarter. Describe the price as demanding only relative to those figures."]
+      ? [`Reverse-DCF context (D-60, D136): the implied rate is year-one revenue growth over ${dcfBaseLabel} on the base path's convergent family. Read it against the base-case year one, the guided quarter's year-over-year growth, consensus year one and the latest quarter's year-over-year growth rows. The base and consensus levels are measured over the same ${dcfBaseLabel} revenue; each quarter is compared with its own year-ago quarter. Describe the price as demanding only relative to those figures.`]
       : []),
     ...reverseContext.notes,
     ...(val.kind === "excess-return" ? [describeFinancialValuation(val.excessReturn.financialAssumptions)] : []),
@@ -1318,6 +1335,12 @@ function computedSections(
         "Describe the base path from where returns start and where they fade to; do not call it a recovery toward the cost of equity when the trailing return is already above the terminal target."]
       : []),
   ] }));
+
+  const reference = computed.fairValue?.status === "dated-reference" ? computed.fairValue.reference : undefined;
+  if (reference) sections.push(payloadSection({ title: "Dated valuation reference (computed)", figures: [{
+    label: "dated reference value per share (not current fair value)", value: reference.perShare.value, unit: reference.perShare.unit,
+    currency: currencies.model, source: "computed.fairValue.reference.perShare", asOf: reference.valuationDate,
+  }], notes: [fairValueReferenceText(computed.fairValue)!] }));
 
   const peerCoverage = val.kind === "pre-revenue" ? undefined : val.multiples.peerCoverage;
   if (peerCoverage) {
@@ -1476,12 +1499,13 @@ function computedSections(
 
   const scenarioPresentation = buildScenarioPresentation(computed, currentPrice);
   const sensitivity = scenarioPresentation.sensitivity;
+  const diagnosticTrace = recordedFairValueTrace(computed.fairValue);
   sections.push(payloadSection({
     title: "Deterministic scenario interpretation",
     figures: [
       { label: "sensitivity conclusion within the modeled grid", value: sensitivity.conclusion, unit: "", source: "computed.scenarioPresentation.sensitivity", asOf: null },
-      { label: "minimum available sensitivity-grid value", value: sensitivity.minPerShare, unit: computed.fairValue?.perShare?.unit ?? "per share (currency unknown)", source: "computed.scenarioPresentation.sensitivity.minPerShare", asOf: computed.fairValue?.perShare?.asOf ?? null },
-      { label: "maximum available sensitivity-grid value", value: sensitivity.maxPerShare, unit: computed.fairValue?.perShare?.unit ?? "per share (currency unknown)", source: "computed.scenarioPresentation.sensitivity.maxPerShare", asOf: computed.fairValue?.perShare?.asOf ?? null },
+      { label: "minimum available sensitivity-grid value", value: sensitivity.minPerShare, unit: diagnosticTrace?.unit ?? "per share (currency unknown)", currency: diagnosticTrace?.currency ?? null, source: "computed.scenarioPresentation.sensitivity.minPerShare", asOf: diagnosticTrace?.asOf ?? computed.fairValue?.currentUse?.valueDate ?? null },
+      { label: "maximum available sensitivity-grid value", value: sensitivity.maxPerShare, unit: diagnosticTrace?.unit ?? "per share (currency unknown)", currency: diagnosticTrace?.currency ?? null, source: "computed.scenarioPresentation.sensitivity.maxPerShare", asOf: diagnosticTrace?.asOf ?? computed.fairValue?.currentUse?.valueDate ?? null },
     ],
     notes: [scenarioPresentation.weightBasis, scenarioPresentation.interpretation],
   }));
@@ -1584,7 +1608,7 @@ function plausibleFiscalLabel(label: string, day: string): boolean {
 }
 
 /** The issuer's FY label ("FY2025") of each annual income row, keyed by ISO period end, kept only where plausible for that end; the provably latest row per period (normalizeQuarterRows, D-13). */
-function annualFiscalLabels(bundle: DataBundle): ReadonlyMap<string, string> {
+export function annualFiscalLabels(bundle: DataBundle): ReadonlyMap<string, string> {
   // Reads incomeAnnual unfiltered where Stage B uses rowsInModelCurrency: a foreign-currency row sharing an end date can make this group differ from Stage B's; the lookup then fails closed (a tie drops the label) or is harmless (the date is never one Stage B states).
   const labels = new Map<string, string>();
   for (const row of normalizeQuarterRows(rowsOf(bundle.statements.incomeAnnual)).rows) {
@@ -3717,6 +3741,11 @@ function attachProvenanceRegistry(
       fairValue.methodVersion,
     );
   }
+
+  if (fairValue?.status === "dated-reference" && fairValue.reference) registerStageBNumber(
+    "computed.fairValue.reference.perShare", { ...fairValue.reference.perShare, source: "computed.fairValue.reference.perShare" },
+    null, fairValue.methodVersion,
+  );
 
   // Deterministic aspect-score DRIVERS (feature 1.1.0) are TracedNumbers the
   // pipeline COMPUTED (source "computed.scores.<aspect>.<signal>") and attaches

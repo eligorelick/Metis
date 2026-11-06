@@ -31,7 +31,8 @@
  */
 
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
-import { yearsBetweenDates } from "@/pipeline/stageB/growth";
+import { missingAnnualIntervals, unavailableAnnualPeriods, yearsBetweenDates } from "@/pipeline/stageB/growth";
+import type { FiscalDatedRow } from "./quarterWindows";
 import {
   consensusYearsText,
   forecastYearPeriod,
@@ -100,7 +101,7 @@ function correlation(pairs: Array<{ x: number; y: number }>): number | null {
  * Inputs
  * ------------------------------------------------------------------------ */
 
-export interface ProjectionIncomeRow {
+export interface ProjectionIncomeRow extends FiscalDatedRow {
   fiscalYear?: string | null;
   date: string;
   revenue: number | null;
@@ -134,6 +135,8 @@ export interface ProjectionsInputs {
   forecastEpsWithheldReason?: string | null;
   /** Annual income history (any order). */
   incomeHistory: ProjectionIncomeRow[];
+  /** Identities of recorded periods excluded from financial history. */
+  incomeCadenceBarriers?: FiscalDatedRow[];
   /** Annual FCF history (any order) — for the FCF fan's historical half. */
   fcfHistory: ProjectionFcfRow[];
   /** Annualised share-count change (percent; negative = buybacks). */
@@ -192,7 +195,7 @@ function tn(value: number, unit: string, metric: ProjectionMetric, scenario: str
     unit,
     source: `computed.projections.${metric}.${scenario}`,
     asOf,
-    verified: true, // deterministic, computed from sourced inputs (not model memory)
+    verified: true,
   };
 }
 
@@ -553,13 +556,15 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
 
   // Operating margin (percent)
   const marginHist = incomeAsc
-    .filter((r) => isNum(r.ebit) && isNum(r.revenue) && (r.revenue as number) > 0)
-    .map((r) => ({ period: fyLabel(r, incomeAsc), value: ((r.ebit as number) / (r.revenue as number)) * 100 }));
+    .map((r) => ({ period: fyLabel(r, incomeAsc), value: isNum(r.ebit) && isNum(r.revenue) && r.revenue > 0 ? r.ebit / r.revenue * 100 : null }));
+  const absentMarginIntervals=missingAnnualIntervals([...incomeAsc,...(inputs.incomeCadenceBarriers ?? [])]);
+  const unavailableMargins=unavailableAnnualPeriods(incomeAsc,inputs.incomeCadenceBarriers);
   series.push(
     buildSeries(
       "operatingMargin",
       "%",
-      histTail(marginHist),
+      absentMarginIntervals.length || unavailableMargins.length ? [...histTail(marginHist),
+        ...absentMarginIntervals.map(p=>({period:p.label,value:null})),...unavailableMargins.map(period=>({period,value:null}))] : histTail(marginHist),
       bullRows.slice(0, H).map((r) => r.ebitMarginPct),
       baseRows.slice(0, H).map((r) => r.ebitMarginPct),
       bearRows.slice(0, H).map((r) => r.ebitMarginPct),
@@ -658,7 +663,7 @@ export function computeProjections(inputs: ProjectionsInputs): AuditableProjecti
 function buildSeries(
   metric: ProjectionMetric,
   unit: string,
-  historical: { period: string; value: number }[],
+  historical: { period: string; value: number | null }[],
   bull: number[],
   base: number[],
   bear: number[],
@@ -668,18 +673,24 @@ function buildSeries(
   asOf: string,
 ): ProjectionSeries {
   const weighted = weightedPath(bull, base, bear);
+  const missing = historical.filter(h => h.value === null).map(h => h.period);
+  // Projection traces require finite numbers. Withhold the incomplete history
+  // explicitly rather than joining the points on either side of a refusal.
+  const historyGap: ManifestEntry | null = missing.length ? { field: `projections.${metric}.historical`,
+    reason: `Historical projection line withheld: missing ${metric} observations at ${missing.join(", ")}; the chart must not bridge these periods.`,
+    severity: "info", attemptedSources: ["computed.growth.margins"] } : null;
   const mk = (arr: number[], scenario: string): ProjectionPoint[] =>
     arr.map((v, i) => point(fwdPeriod(i + 1), v, unit, metric, scenario, asOf));
   return {
     metric,
     unit,
-    historical: historical.map((h) => point(h.period, h.value, unit, metric, "historical", asOf)),
+    historical: historyGap ? [] : historical.map((h) => point(h.period, h.value!, unit, metric, "historical", asOf)),
     bull: mk(bull, "bull"),
     base: mk(base, "base"),
     bear: mk(bear, "bear"),
     weighted: mk(weighted, "weighted"),
     assumptions,
-    disclosures: [...disclosures],
+    disclosures: [...disclosures, ...(historyGap ? [historyGap] : [])],
   };
 }
 

@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 import { describe, expect, it } from "vitest";
 
 import { priorYearCostOfDebt, runStageB } from "@/pipeline/compute";
@@ -6,7 +7,7 @@ import { currencyBundle, M } from "./helpers/currencyBundle";
 
 /** Synthetic issuer: positive non-operating gains make vendor EBIT exceed operating income. */
 function operatingBundle(broadVendorEbit: boolean): DataBundle {
-  const bundle = currencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+  const bundle = withFixtureQuoteDay(currencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] }), "2026-03-31");
   for (const result of [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly]) {
     if (!result.ok) throw new Error("expected income fixture");
     for (const row of result.value.data.rows) {

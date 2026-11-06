@@ -144,6 +144,8 @@ describe("fair value degraded inputs (F-13)", () => {
 describe("degraded inputs end to end: Stage B, both layouts, the exports and the AI context", () => {
   function degradedBundle(): DataBundle {
     const bundle = completeCurrencyBundle({ debt: 300 });
+    if (!bundle.quote.ok) throw new Error("quote fixture");
+    bundle.quote.value.data.rows[0]!.timestamp = Date.parse("2026-07-05T20:00:00Z") / 1000;
     // FRED DGS10 down, FMP treasury serving: the rate comes from the fallback.
     bundle.macro = { ...bundle.macro, core: { DGS10: { ok: false, gap: { field: "macro.DGS10", reason: "FRED API returned a maintenance/HTML page (HTTP 200)", severity: "warn" } } } };
     bundle.analystEstimates = { ok: false, gap: { field: "fmp.analystEstimates", reason: "FMP quota/rate limit (HTTP 429): Limit Reach", severity: "warn" } };
@@ -182,6 +184,8 @@ describe("degraded inputs end to end: Stage B, both layouts, the exports and the
 
   it("adds nothing to a run whose rate is DGS10 and whose estimates arrived", () => {
     const bundle = completeCurrencyBundle({ debt: 300 });
+    if (!bundle.quote.ok) throw new Error("quote fixture");
+    bundle.quote.value.data.rows[0]!.timestamp = Date.parse("2026-07-05T20:00:00Z") / 1000;
     bundle.macro = { ...bundle.macro, core: { DGS10: { ok: true, value: { data: [{ date: "2026-07-02", value: 4.0 }], asOf: "2026-07-02", source: "fred", endpoint: "series/DGS10", fetchedAt: "2026-07-06T00:00:00Z" } } } };
     const computed = runStageB(bundle);
     expect(computed.fairValue.reasons.some((r) => r.field === FAIR_VALUE_DEGRADED_FIELD)).toBe(false);

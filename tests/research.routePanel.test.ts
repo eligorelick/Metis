@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /** Synthetic offline integration controls; these are not live-provider or forecast-accuracy evidence. */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -20,7 +21,7 @@ afterEach(() => {
 
 describe("synthetic accounting-route integration panel", () => {
   it.each(SYNTHETIC_ROUTES)("%s: retains immutable inputs and deterministic reports on every surface", (route) => {
-    const bundle = buildSyntheticRouteBundle(route);
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle(route), "2026-03-31");
     const before = structuredClone(bundle);
     const first = runResearchRoutePanel(bundle);
     expect(bundle).toEqual(before);
@@ -45,7 +46,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("general: retains real USD FCFF computation and explicitly unbacktested projection priors", () => {
-    const { computed, report, surfaces } = runResearchRoutePanel(buildSyntheticRouteBundle("general"));
+    const { computed, report, surfaces } = runResearchRoutePanel(withFixtureQuoteDay(buildSyntheticRouteBundle("general"), "2026-03-31"));
     expect(computed.route).toMatchObject({ base: "general", overlays: [] });
     expect(computed.returns.wacc.costOfEquityPct).toBeCloseTo(8.5, 10);
     expect(computed.valuation.kind).toBe("dcf");
@@ -67,7 +68,7 @@ describe("synthetic accounting-route integration panel", () => {
     { route: "bank", book: 400 * M, roe: 140 / 375 * 100, basis: /tangible common equity/, unavailable: "nim" },
     { route: "insurer", book: 450 * M, roe: 140 / 425 * 100, basis: /common equity/, unavailable: "combinedRatio" },
   ] as const)("$route: values common claims on the correct equity base and withholds unavailable named metrics", ({ route, book, roe, basis, unavailable }) => {
-    const { computed, report, surfaces } = runResearchRoutePanel(buildSyntheticRouteBundle(route));
+    const { computed, report, surfaces } = runResearchRoutePanel(withFixtureQuoteDay(buildSyntheticRouteBundle(route), "2026-03-31"));
     expect(computed.route.base).toBe(route);
     expect(computed.valuation.kind).toBe("excess-return");
     if (computed.valuation.kind !== "excess-return") throw new Error("expected financial valuation");
@@ -104,7 +105,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("REIT: keeps fiscal-year FFO/AFFO distinct from trailing earnings and suppresses FCFF forecasts", () => {
-    const { computed, report, surfaces } = runResearchRoutePanel(buildSyntheticRouteBundle("reit"));
+    const { computed, report, surfaces } = runResearchRoutePanel(withFixtureQuoteDay(buildSyntheticRouteBundle("reit"), "2026-03-31"));
     expect(computed.route).toMatchObject({ base: "reit", reitSubmap: "equity" });
     expect(computed.valuation.kind).toBe("reit");
     if (computed.valuation.kind !== "reit") throw new Error("expected REIT valuation");
@@ -125,7 +126,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("same-currency ADR: withholds quoted-share valuation when retained ADS evidence is absent", () => {
-    const { computed, report } = runResearchRoutePanel(buildSyntheticRouteBundle("adr"));
+    const { computed, report } = runResearchRoutePanel(withFixtureQuoteDay(buildSyntheticRouteBundle("adr"), "2026-03-31"));
     expect(computed.route.overlays).toContain("adr");
     expect(computed.valuation.kind).toBe("dcf");
     if (computed.valuation.kind !== "dcf") throw new Error("expected ADR DCF route");
@@ -138,7 +139,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it.each(["loss-making", "pre-revenue"] as const)("%s: computes liquidity and cash-burn runway and suppresses FCFF reports", (route) => {
-    const { computed, report, surfaces } = runResearchRoutePanel(buildSyntheticRouteBundle(route));
+    const { computed, report, surfaces } = runResearchRoutePanel(withFixtureQuoteDay(buildSyntheticRouteBundle(route), "2026-03-31"));
     expect(computed.route.overlays).toContain("unprofitable");
     if (route === "pre-revenue") expect(computed.route.overlays).toContain("pre-revenue");
     expect(computed.valuation.kind).toBe(route === "pre-revenue" ? "pre-revenue" : "dcf-suppressed");
@@ -155,7 +156,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("ADR currency conflict: keeps local-currency operating evidence while withholding quote comparisons", () => {
-    const bundle = buildSyntheticRouteBundle("adr");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("adr"), "2026-03-31");
     for (const result of [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly, bundle.statements.balanceAnnual,
       bundle.statements.balanceQuarterly, bundle.statements.cashflowAnnual, bundle.statements.cashflowQuarterly]) {
       if (!result.ok) throw new Error("fixture requires statements");
@@ -178,7 +179,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it.each(["bank", "insurer"] as const)("%s missing common earnings: does not substitute total earnings beside preferred claims", (route) => {
-    const bundle = buildSyntheticRouteBundle(route);
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle(route), "2026-03-31");
     for (const result of [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly]) {
       if (!result.ok) throw new Error("fixture requires income");
       for (const row of result.value.data.rows) delete row.netIncomeAvailableToCommon;
@@ -195,7 +196,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("bank missing risk-free evidence: preserves book inputs and discloses suppressed intrinsic value", () => {
-    const bundle = buildSyntheticRouteBundle("bank");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("bank"), "2026-03-31");
     bundle.treasury = { ok: false, gap: { field: "treasury", reason: "Synthetic missing risk-free observation", severity: "warn" } };
     const { computed, report, surfaces } = runResearchRoutePanel(bundle);
     expect(computed.returns.wacc.costOfEquityPct).toBeNull();
@@ -208,7 +209,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("REIT missing depreciation: withholds FFO/AFFO instead of treating the defining add-back as zero", () => {
-    const bundle = buildSyntheticRouteBundle("reit");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("reit"), "2026-03-31");
     if (!bundle.statements.incomeAnnual.ok) throw new Error("fixture requires income");
     delete bundle.statements.incomeAnnual.value.data.rows[0]!.depreciationAndAmortization;
     const { computed, report, surfaces } = runResearchRoutePanel(bundle);
@@ -226,7 +227,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("undetermined REIT subtype: withholds FFO metrics until equity-versus-mortgage identity is supported", () => {
-    const bundle = buildSyntheticRouteBundle("reit");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("reit"), "2026-03-31");
     if (!bundle.profile.ok) throw new Error("fixture requires profile");
     delete bundle.profile.value.data.rows[0]!.industry;
     bundle.edgar.sic = "6798";
@@ -242,7 +243,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("equity REIT with twelve quarters: retains nine usable FFO/AFFO history windows", () => {
-    const { computed, report } = runResearchRoutePanel(buildSyntheticRouteBundle("reit", { quarterHistory: true }));
+    const { computed, report } = runResearchRoutePanel(withFixtureQuoteDay(buildSyntheticRouteBundle("reit", { quarterHistory: true }), "2026-03-31"));
     expect(computed.valuation.kind).toBe("reit");
     if (computed.valuation.kind !== "reit") throw new Error("expected REIT route");
     for (const key of ["priceToFfo", "priceToAffo"]) {
@@ -255,7 +256,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("undetermined REIT with twelve quarters: withholds current and historical equity-REIT multiples", () => {
-    const bundle = buildSyntheticRouteBundle("reit", { quarterHistory: true });
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("reit", { quarterHistory: true }), "2026-03-31");
     if (!bundle.profile.ok) throw new Error("fixture requires profile");
     delete bundle.profile.value.data.rows[0]!.industry;
     bundle.edgar.sic = "6798";
@@ -275,7 +276,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("mortgage REIT with twelve quarters: keeps its common-book model and omits equity-REIT multiples", () => {
-    const bundle = buildSyntheticRouteBundle("reit", { quarterHistory: true });
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("reit", { quarterHistory: true }), "2026-03-31");
     if (!bundle.profile.ok) throw new Error("fixture requires profile");
     bundle.profile.value.data.rows[0]!.industry = "REIT - Mortgage";
     const { computed, report } = runResearchRoutePanel(bundle);
@@ -291,7 +292,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("cash-burn currency conflict: withholds runway rather than mixing liquidity and burn currencies", () => {
-    const bundle = buildSyntheticRouteBundle("loss-making");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("loss-making"), "2026-03-31");
     if (!bundle.statements.balanceQuarterly.ok) throw new Error("fixture requires quarter balances");
     for (const row of bundle.statements.balanceQuarterly.value.data.rows) row.reportedCurrency = "EUR";
     const { computed, report, surfaces } = runResearchRoutePanel(bundle);
@@ -301,7 +302,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("failed Stage A identity: carries the 25% discrepancy through the parsed report and all surfaces", () => {
-    const bundle = buildSyntheticRouteBundle("general");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("general"), "2026-03-31");
     if (!bundle.statements.balanceAnnual.ok) throw new Error("fixture requires annual balances");
     bundle.statements.balanceAnnual.value.data.rows[0]!.totalAssets = 1_600 * M;
     const { validation, report, surfaces } = runResearchRoutePanel(bundle);
@@ -312,7 +313,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("missing Stage A denominator: reports an uncheckable balance identity rather than a pass", () => {
-    const bundle = buildSyntheticRouteBundle("general");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("general"), "2026-03-31");
     if (!bundle.statements.balanceAnnual.ok) throw new Error("fixture requires annual balances");
     delete bundle.statements.balanceAnnual.value.data.rows[0]!.totalAssets;
     const { validation, report, surfaces } = runResearchRoutePanel(bundle);
@@ -323,7 +324,7 @@ describe("synthetic accounting-route integration panel", () => {
   });
 
   it("malformed latest quarter: rejects the impossible date and uses coherent annual DCF inputs", () => {
-    const bundle = buildSyntheticRouteBundle("general");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("general"), "2026-03-31");
     if (!bundle.statements.incomeQuarterly.ok) throw new Error("fixture requires quarters");
     Object.assign(bundle.statements.incomeQuarterly.value.data.rows[0]!, { date: "2026-02-31", revenue: 9_999 * M });
     const { computed, report, surfaces } = runResearchRoutePanel(bundle);

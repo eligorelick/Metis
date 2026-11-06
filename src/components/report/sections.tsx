@@ -1,3 +1,4 @@
+import { recordedValuationTrace } from "@/report/fairValueText";
 import { reverseDcfValueText } from "@/report/presentation";
 import { macroDisplayRows, type MacroDisplayRow } from "@/report/presentation";
 import { shownDataState } from "@/report/completeness";
@@ -447,6 +448,8 @@ export function CompositeScorecard({ scores, mode = "default" }: { scores: Scori
             ? <span className="mono text-[10px] text-warn">{shown.label}</span>
             : <span className="flex items-center gap-1">
                 <GradeChip grade={shown.grade} />
+                {scores.qualification?.composite.status === "provisional" && <span className="mono text-[10px] text-warn">Provisional</span>}
+                {scores.qualification?.composite.status === "unknown" && <span className="mono text-[10px] text-warn">Qualification unknown</span>}
                 {isNeutralScore(c.score) && <span className="mono text-[10px] text-faint">neutral</span>}
               </span>)}
         </div>
@@ -476,6 +479,7 @@ export function CompositeScorecard({ scores, mode = "default" }: { scores: Scori
                     </span>
                   )}
                 </div>
+                {!hasLimitedEvidence(a) && scores.qualification?.aspects[descriptor.key].status === "provisional" && <span className="text-[9px] text-warn">Provisional</span>}
                 {mode === "cover" && <span className="scorecard-weight">{a.weightPct}% weight</span>}
               </a>
             );
@@ -913,7 +917,7 @@ export function BalanceSheetSection({
  * §7.5 Valuation (graded)
  * ======================================================================== */
 
-function SensitivityGrid({ dcf }: { dcf: Valuation["dcf"] }) {
+function SensitivityGrid({ dcf, recordedPerShare = dcf.perShare }: { dcf: Valuation["dcf"]; recordedPerShare?: Valuation["dcf"]["perShare"] }) {
   const cells = dcf.sensitivityGrid;
   if (cells.length === 0) {
     return <div className="text-[11px] text-faint">no sensitivity grid</div>;
@@ -930,7 +934,7 @@ function SensitivityGrid({ dcf }: { dcf: Valuation["dcf"] }) {
       cells={cells}
       baseWacc={baseWacc}
       baseG={baseG}
-      currency={dcf.perShare ? establishedCurrency(dcf.perShare.unit, dcf.perShare.currency) : null}
+      currency={recordedPerShare ? establishedCurrency(recordedPerShare.unit, recordedPerShare.currency) : null}
     />
   );
 }
@@ -1085,6 +1089,7 @@ export function ValuationSection({
 } & ValuationReviewInputs) {
   const { dcf, reverseDcf } = valuation;
   const noModel = report ? unavailableCashFlowModel(report) : false;
+  const recordedPerShare = recordedValuationTrace(dcf, fairValue);
   const modelLabel = presentation === "classic" ? (fairValue?.method === "excess-return" ? "Excess-return \u00b7 model value / share" : "DCF \u00b7 intrinsic value / share")
     : fairValue?.method === "excess-return" ? "Excess-return · model value / share"
       : fairValue?.method === "fcff-dcf" ? "FCFF DCF · model value / share" : "Recorded model value / share";
@@ -1101,7 +1106,7 @@ export function ValuationSection({
       />
 
       {/* DCF headline + reverse-DCF callout */}
-      {noModel ? <><p className="text-[11px] leading-snug text-muted">{cashFlowModelExplanation(report!)}</p><ExtraAuditTables tables={unavailableModelInputTables(report!)} /></> : <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      {noModel ? <><p className="text-[11px] leading-snug text-muted">{cashFlowModelExplanation(report!)}</p>{fairValue && <p className="text-[11px] leading-snug text-faint">{displayProse(fairValueWithheldText(fairValue))}</p>}<ExtraAuditTables tables={unavailableModelInputTables(report!)} /></> : <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="flex flex-col gap-2 border border-edge bg-raised px-3 py-2.5">
           <div className="text-[9px] uppercase tracking-[0.1em] text-faint">
             {modelLabel}
@@ -1185,10 +1190,10 @@ export function ValuationSection({
         </SubBlock>
       </div>}
 
-      {!noModel && presentation === "dossier" && <CapitalBridge dcf={dcf} />}
+      {!noModel && presentation === "dossier" && <CapitalBridge dcf={dcf} recordedPerShare={recordedPerShare} />}
       {!noModel && <SubBlock label={presentation === "dossier" ? "Recorded sensitivity cases" : fairValue?.method === "excess-return" ? "sensitivity \u00b7 per share" : "sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low"}>
-        {presentation === "dossier" ? dcf.sensitivityGrid.length > 0 ? <RecordedSensitivity key={JSON.stringify([dcf.sensitivityGrid, dcf.perShare?.currency, dcf.perShare?.unit])} cells={dcf.sensitivityGrid} currency={dcf.perShare ? establishedCurrency(dcf.perShare.unit, dcf.perShare.currency) : null} /> : <p className="text-muted">No WACC × terminal growth grid was recorded for this valuation method.</p> : <SensitivityGrid dcf={dcf} />}
-        {presentation === "dossier" ? <ValuationSensitivityTables dcf={dcf} /> : <ExtraAuditTables tables={valuationAuditTables(dcf)} />}
+        {presentation === "dossier" ? dcf.sensitivityGrid.length > 0 ? <RecordedSensitivity key={JSON.stringify([dcf.sensitivityGrid, dcf.perShare?.currency, dcf.perShare?.unit])} cells={dcf.sensitivityGrid} currency={recordedPerShare ? establishedCurrency(recordedPerShare.unit, recordedPerShare.currency) : null} /> : <p className="text-muted">No WACC × terminal growth grid was recorded for this valuation method.</p> : <SensitivityGrid dcf={dcf} recordedPerShare={recordedPerShare} />}
+        {presentation === "dossier" ? <ValuationSensitivityTables dcf={dcf} recordedPerShare={recordedPerShare} /> : <ExtraAuditTables tables={valuationAuditTables(dcf, recordedPerShare)} />}
       </SubBlock>}
 
       <SubBlock label="multiples vs peers & own 5-yr history">

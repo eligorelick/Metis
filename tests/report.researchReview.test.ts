@@ -8,15 +8,19 @@ import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdow
 import { reportToPrintBody } from "@/report/export/printHtml";
 import type { Report } from "@/report/schema";
 import { valuationReviewBlocks } from "@/report/researchReview";
+import { buildSyntheticRouteBundle, runResearchRoutePanel } from "./helpers/researchRoutePanel";
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 
 function fixture(): Report {
-  const report = JSON.parse(readFileSync("fixtures/report/DEMO-sample.json", "utf8"));
+  // Positive presentation controls use an actually admitted same-day model;
+  // the separate legacy cases retain their original missing-date authority.
+  const report = runResearchRoutePanel(withFixtureQuoteDay(buildSyntheticRouteBundle("general"), "2026-03-31")).report;
   report.scenarioPresentation = {
     methodVersion: "test", weightBasis: "Fixed display prior; not calibrated odds.",
     interpretation: "Sensitivity values describe present intrinsic value.",
     sensitivity: { status: "sensitive", conclusion: "The valuation conclusion changes within the modeled grid.", validCells: 25, totalCells: 25, minPerShare: 70, maxPerShare: 180 },
   };
-  report.thesisTriggers = [{ id: "reverse-growth", metric: "Supported constant annual revenue growth", comparator: "below", threshold: { value: 7.25, unit: "%", source: "computed.valuation.reverseDcf", asOf: null }, horizon: "Across 10 explicit forecast years", fixedAssumptions: ["Discount rate and margin path held fixed."], consequence: "Reassess the valuation when evidence no longer supports this threshold." }];
+  report.thesisTriggers = [{ id: "reverse-growth", metric: "Supported constant annual revenue growth", comparator: "below", threshold: { value: 7.25, unit: "%", source: "computed.valuation.reverseDcf", asOf: null, verified: null }, horizon: "Across 10 explicit forecast years", fixedAssumptions: ["Discount rate and margin path held fixed."], consequence: "Reassess the valuation when evidence no longer supports this threshold." }];
   report.valuation.peerCoverage = { methodology: ["Same industry; comparable reporting currency."], candidates: 6, evaluated: 5, eligible: ["PEERA", "PEERB", "PEERC", "PEERD"], exclusions: [{ symbol: "BAD", reason: "Currency unknown <untrusted>" }], comparisons: [{ name: "Market cap / TTM common earnings", current: 20, peerMedian: 18, peerCount: 4, basis: "Common earnings, four quarters." }] };
   report.valuation.multiples[0].peerCount = 4;
   report.valuation.scenarios[0].qualitativeCommentary = ["Demand could improve; this is commentary, not a model input."];
@@ -116,7 +120,7 @@ describe("research reliability report surfaces", () => {
         ...["SMALLA", "SMALLB", "SMALLC"].map((symbol) => ({ symbol, reason: "size screen: market cap 6.67B is 424× smaller than the subject's 2.83T, outside the 100× comparable-size band (house rule D-65)" })),
         { symbol: "ADRA", reason: "ordinary active non-ADR equity status not established" },
         ...["PEERB", "PEERC", "PEERD", "PEERE", "PEERF"].map((symbol) => ({ symbol, reason: "provider unavailable or optional deadline exhausted; candidate not requested" })),
-        { symbol: "DEMO", reason: "Common earnings comparison: common ownership unproven" },
+        { symbol: report.meta.symbol, reason: "Common earnings comparison: common ownership unproven" },
         { symbol: "PEERA", reason: limited },
       ] };
     for (const rendered of Object.values(surfaces(report))) {

@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /**
  * Stage B — TTM synthesis gating (compute.ts; 2026-07 audit Defect B).
  *
@@ -1119,7 +1120,7 @@ describe("runStageB wiring — ADR currency guard on the DCF path (audit H3)", (
   });
 
   it("same-currency company is unaffected (control)", () => {
-    const computed = runStageB(wiringBundle());
+    const computed = runStageB(withFixtureQuoteDay(wiringBundle(), "2026-03-31"));
     if (computed.valuation.kind !== "dcf") throw new Error("expected dcf kind, got " + computed.valuation.kind + " route=" + computed.route.base + " overlays=" + JSON.stringify(computed.route.overlays) + " notes=" + JSON.stringify(computed.valuation.notes));
     expect(computed.valuation.dcf).not.toBeNull();
     expect(computed.gaps.some((g) => g.field === "valuation.dcf.currency")).toBe(false);

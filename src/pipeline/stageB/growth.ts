@@ -32,6 +32,7 @@ export interface GrowthIncomeRow extends FiscalDatedRow {
   revenue?: number | null;
   grossProfit?: number | null;
   operatingIncome?: number | null;
+  operatingBasis?: string;
   netIncome?: number | null;
   epsDiluted?: number | null;
 }
@@ -47,6 +48,96 @@ export interface GrowthCashFlowRow extends FiscalDatedRow {
   operatingCashFlow?: number | null;
   /** FMP reports capex NEGATIVE (freeCashFlow = operatingCashFlow + capitalExpenditure). */
   capitalExpenditure?: number | null;
+}
+
+/** Missing periods inside the observed window cannot disappear from a trend. */
+export function interiorMissingDates(points: readonly {date:string;value:number|null}[]): string[] {
+  const first=points.findIndex(p=>p.value!==null);
+  const last=points.findLastIndex(p=>p.value!==null);
+  return first<0 ? [] : points.slice(first,last+1).filter(p=>p.value===null).map(p=>p.date);
+}
+
+export interface MissingFiscalInterval { after: string; before: string; fiscalYears: number[]; label: string }
+function annualDay(value: unknown): number | null {
+  if(typeof value!=="string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const ms=Date.parse(value);
+  return Number.isFinite(ms) && new Date(ms).toISOString().slice(0,10)===value ? ms : null;
+}
+
+/** Retain only identities of rejected/excluded records, never their values or
+ * superseded copies of an admitted row. These are barriers, not absent slots. */
+export function rejectedAnnualCadenceRows(rows: readonly FiscalDatedRow[], rejected: readonly {period:string}[]): FiscalDatedRow[] {
+  const periods=new Set(rejected.flatMap(row=>row.period.split(" / ")));
+  return rows.filter(row=>periods.has(String(row.date || "<missing>")))
+    .map(row=>({date:row.date,fiscalYear:row.fiscalYear,period:undefined}));
+}
+
+/** A known recorded period can withhold an interior trend without asserting
+ * that a filing is absent or inventing a valid date for a malformed record. */
+export function unavailableAnnualPeriods(history: readonly FiscalDatedRow[], barriers: readonly FiscalDatedRow[] = []): string[] {
+  const dates=history.flatMap(row=>annualDay(row.date)===null ? [] : [String(row.date)]).sort();
+  if(!dates.length) return [];
+  const years=history.flatMap(row=>/^\d{4}$/.test(String(row.fiscalYear)) ? [Number(row.fiscalYear)] : []);
+  return [...new Set(barriers.flatMap(row=>{
+    const date=annualDay(row.date)===null ? null : String(row.date);
+    const year=/^\d{4}$/.test(String(row.fiscalYear)) ? Number(row.fiscalYear) : null;
+    if(date!==null ? date<dates[0]! || date>dates.at(-1)! : year!==null && years.length && (year<Math.min(...years) || year>Math.max(...years))) return [];
+    const identity=date!==null ? `${date}${year===null ? "" : ` (FY ${year})`}` : year!==null ? `FY ${year}` : "of unknown date and fiscal year";
+    return [`recorded annual period ${identity} unavailable after normalization`];
+  }))];
+}
+
+/** An absent slot needs an established annual cadence, explicit fiscal labels
+ * and actual annual durations. Calendar labels or a long day gap alone do not
+ * establish it. Never invent a period end for a missing filing. */
+export function missingAnnualIntervals(rows: readonly FiscalDatedRow[]): MissingFiscalInterval[] {
+  if(rows.length<3) return [];
+  const entries=rows.map(r=>{
+    const proof=r.fieldProvenance as Record<string,{periodStart?:string|null}> | undefined;
+    const start=typeof r.periodStart==="string" && r.periodStart ? r.periodStart : proof?.revenue?.periodStart;
+    const end=typeof r.date==="string" ? r.date : "", endMs=annualDay(end), startMs=annualDay(start);
+    const year=/^\d{4}$/.test(String(r.fiscalYear)) && Number(r.fiscalYear)>=1900 ? Number(r.fiscalYear) : null;
+    const days=endMs!==null && startMs!==null ? (endMs-startMs)/86400000+1 : 0;
+    const point=r.period==="FY" && year!==null && start && startMs!==null && endMs!==null && [364,365,366,371].includes(days)
+      ? {start,end,year,days,startMs,endMs} : null;
+    return {endMs,year,point};
+  });
+  // An invalid end can still locate an internal barrier by its explicit FY.
+  // With neither date nor fiscal identity, its position cannot be established.
+  const unplaced=entries.filter(e=>e.endMs===null);
+  if(unplaced.some(e=>e.year===null)) return [];
+  type Point=NonNullable<typeof entries[number]["point"]>;
+  const compatible=(a:Point,b:Point):boolean=>{
+    const n=b.year-a.year, elapsed=(b.endMs-a.endMs)/86400000;
+    if(n<1 || n>10 || b.startMs<=a.endMs || n===1 && b.startMs-a.endMs!==86400000) return false;
+    const calendar=[a,b].every(p=>[365,366].includes(p.days)) && a.start.slice(5)===b.start.slice(5) && a.end.slice(5)===b.end.slice(5);
+    const weekly=[a,b].every(p=>[364,371].includes(p.days)) && new Date(a.endMs).getUTCDay()===new Date(b.endMs).getUTCDay();
+    return calendar && Math.abs(elapsed-n*365.2425)<=2 || weekly && Math.abs(elapsed-n*364)<=7;
+  };
+  const out: MissingFiscalInterval[]=[];
+  let run:Point[]=[];
+  const finish=()=>{
+    // A consecutive pair must independently establish THIS coherent run.
+    if(run.length>=3 && run.some((p,i)=>i>0 && p.year===run[i-1]!.year+1 && p.startMs-run[i-1]!.endMs===86400000)) {
+      for(let i=1;i<run.length;i++) {
+        const a=run[i-1]!,b=run[i]!,n=b.year-a.year;
+        if(n<2) continue;
+        const fiscalYears=Array.from({length:n-1},(_,j)=>a.year+j+1);
+        out.push({after:a.end,before:b.end,fiscalYears,label:`absent fiscal slot${fiscalYears.length>1?"s":""} ${fiscalYears.map(y=>`FY ${y}`).join(", ")} between ${a.end} and ${b.end}`});
+      }
+    }
+    run=[];
+  };
+  for(const entry of entries.filter(e=>e.endMs!==null).sort((a,b)=>a.endMs!-b.endMs!)) {
+    const p=entry.point, prior=run.at(-1);
+    // Present but unsupported rows divide runs; never filter them out and join
+    // their neighbours into an invented absent interval.
+    if(!p) { finish(); continue; }
+    if(prior && (!compatible(prior,p) || unplaced.some(e=>e.year!>=prior.year && e.year!<=p.year))) finish();
+    run.push(p);
+  }
+  finish();
+  return out;
 }
 
 export interface GrowthOptions {
@@ -133,6 +224,7 @@ export function scoringMargin(
 }
 
 export interface MarginTrend {
+  missingIntervals?: MissingFiscalInterval[];
   /** Oldest → newest, up to MARGIN_SERIES_MAX_YEARS annual observations. */
   series: MarginPoint[];
   /**
@@ -141,6 +233,23 @@ export interface MarginTrend {
    */
   slopePctPtsPerYear: number | null;
   note?: string;
+}
+
+/** Displayed history is distinct from the window a valuation selects. Derive
+ * support from recorded points so saved computations need no new metadata.
+ * Fiscal labels are optional, supplied only by the existing issuer-label view. */
+export function operatingHistorySupport(trend: MarginTrend, fiscalLabels: ReadonlyMap<string,string> = new Map()): string | null {
+  const points=[...trend.series].sort((a,b)=>a.date.localeCompare(b.date));
+  const observed=points.filter(p=>isFiniteNumber(p.pct));
+  const unsupported=points.filter(p=>!isFiniteNumber(p.pct));
+  const absent=trend.missingIntervals ?? [];
+  if(!points.length || !unsupported.length && !absent.length) return null;
+  const period=(p:MarginPoint)=>`${p.date}${fiscalLabels.has(p.date) ? ` (${fiscalLabels.get(p.date)})` : ""}`;
+  return `Displayed operating-margin history: ${observed.length} observed annual margins across ${points.length} recorded annual rows from ${points[0]!.date} to ${points.at(-1)!.date}. ` +
+    `Observed periods: ${observed.length ? observed.map(period).join(", ") : "none"}. ` +
+    `Unsupported recorded periods: ${unsupported.length ? unsupported.map(period).join(", ") : "none"}. ` +
+    (absent.length ? `Absent fiscal intervals: ${absent.map(p=>p.label).join("; ")}. ` : "") +
+    "Model seed support, when used, is stated separately.";
 }
 
 export interface RevenueAcceleration {
@@ -565,6 +674,12 @@ export function computeGrowth(
 
   // --- Margin series + trend ---------------------------------------------------
   const marginRows = sortNewestFirst(incNorm.rows).slice(0, MARGIN_SERIES_MAX_YEARS).reverse(); // oldest → newest
+  // Normalization rejects malformed or ambiguous records before building the
+  // financial series. Retain their identities as cadence barriers only: a
+  // rejected recorded period is not an entirely absent filing. Superseded
+  // copies of an admitted period are not reintroduced.
+  const rejectedCadenceRows=rejectedAnnualCadenceRows(income,incNorm.rejected);
+  const missingIntervals=missingAnnualIntervals([...marginRows,...rejectedCadenceRows]);
   const buildMargin = (
     numerator: (r: GrowthIncomeRow) => number | null | undefined,
     label: string,
@@ -578,17 +693,28 @@ export function computeGrowth(
       return { date: r.date, pct: (num / rev) * 100 };
     });
     const oldestDate = series[0]?.date;
-    const slope = linearRegressionSlope(
+    const interior = [...interiorMissingDates(series.map(p=>({date:p.date,value:p.pct}))),...missingIntervals.map(p=>p.label),
+      ...unavailableAnnualPeriods(marginRows,rejectedCadenceRows)];
+    const slope = interior.length ? null : linearRegressionSlope(
       series.map((p) => ({
         x: oldestDate === undefined ? null : yearsBetweenDates(oldestDate, p.date),
         y: p.pct,
       })),
     );
     const trendNotes: string[] = [];
+    if (label === "operating" && marginRows.some(r => r.operatingBasis)) {
+      trendNotes.push("Operating-margin evidence is assessed period by period; a filed check on one row does not corroborate unverified provider rows elsewhere in this series");
+    }
     if (series.some((p) => p.pct === null)) {
       trendNotes.push(`${label} margin null where revenue ≤ 0 or numerator missing`);
     }
-    if (slope === null && series.length > 0) {
+    if (interior.length) {
+      const reason=`${label} margin slope withheld across interior unavailable periods: ${interior.join(", ")}`;
+      trendNotes.push(reason);
+      notes.push(reason);
+      gaps.push({field:`growth.margins.${label}.slope`,reason,severity:"info"});
+    }
+    if (slope === null && !interior.length && series.length > 0) {
       trendNotes.push(
         `slope requires ≥${REGRESSION_MIN_POINTS} non-null annual points (house rule)`,
       );
@@ -598,6 +724,7 @@ export function computeGrowth(
     }
     return {
       series,
+      ...(missingIntervals.length ? {missingIntervals} : {}),
       slopePctPtsPerYear: slope,
       note: trendNotes.length > 0 ? trendNotes.join("; ") : undefined,
     };

@@ -535,6 +535,10 @@ export function bindDeterministicReportProvenance(
     bind(report.valuation.dcf.perShare, FAIR_VALUE_PROVENANCE_ID, null);
   }
 
+  if (report.fairValue?.status === "dated-reference" && report.fairValue.reference) {
+    bind(report.fairValue.reference.perShare, "computed.fairValue.reference.perShare", null);
+  }
+
   if (report.scenarioTargets?.status === "available") {
     for (const target of report.scenarioTargets.targets) {
       bind(target.perShare, scenarioTargetProvenanceId(target.name), null);
