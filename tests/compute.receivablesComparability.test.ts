@@ -67,7 +67,7 @@ describe("filed repair accession display trust", () => {
     expect(computed.forensics.flags.some(f => f.id === "receivables-vs-revenue" || f.id === "dsri-elevated")).toBe(false);
     // A display-only change may alter the repair note, never another result,
     // score, gap, raw-evidence object or arithmetic output.
-    const withoutRepairNote = (value: typeof computed) => JSON.parse(JSON.stringify(value, (_key, child) =>
+    const withoutRepairNote = (value: unknown) => JSON.parse(JSON.stringify(value, (_key, child) =>
       typeof child === "string" && child.startsWith("Receivables selected-concept discontinuity/conflict repaired") ? "<repair note>" : child));
     expect(withoutRepairNote(computed)).toEqual(withoutRepairNote(reference));
     const validation = validateBundle(bundle);
@@ -78,7 +78,10 @@ describe("filed repair accession display trust", () => {
     const actualReport = report(bundle, computed);
     const referenceReport = report(referenceBundle, reference);
     expect(referenceReport.meta.dataCompleteness?.state).toBeDefined();
-    expect(actualReport).toEqual(referenceReport);
+    // D-212 now shows the same safe forensic qualification in the reader.
+    // Only that intentionally different accession display may change.
+    expect(withoutRepairNote(actualReport)).toEqual(withoutRepairNote(referenceReport));
+    expect(JSON.stringify(actualReport)).not.toContain(canary);
     const payload = assembleContextPayload(bundle, computed, validation);
     const forensicNotes = payload.computed.find(section => section.title === "Forensics (computed)")!.notes;
     const repairNotes = forensicNotes.filter(note => note.startsWith("Receivables selected-concept discontinuity/conflict repaired"));

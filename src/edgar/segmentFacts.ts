@@ -25,6 +25,7 @@
 
 import type { FetchResult } from "@/types/core";
 import type { FmpPayload, FmpSegmentationRow } from "@/providers/fmp";
+import { decodeEntities } from "@/edgar/extract";
 
 export const SEGMENT_AXES: Readonly<Record<string, string>> = {
   "srt:ProductOrServiceAxis": "Product / market platform",
@@ -163,7 +164,7 @@ export function parseMemberLabels(labXml: string): Record<string, string> {
     const label = attr(m[1]!, "xlink:label");
     const role = attr(m[1]!, "xlink:role") ?? "";
     if (!label) continue;
-    const text = m[2]!.replace(/<[^>]*>/g, "").replace(/&amp;/g, "&").replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, "\"").replace(/\s+/g, " ").trim();
+    const text = decodeEntities(m[2]!.replace(/<[^>]*>/g, "")).replace(/\s+/g, " ").trim();
     texts.set(label, [...(texts.get(label) ?? []), { role, text }]);
   }
   const out: Record<string, string> = {};

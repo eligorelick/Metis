@@ -462,6 +462,13 @@ describe("subscription research wiring", () => {
       expect(request.outputSchema).toBeDefined();
     }
   });
+
+  it("describes a skipped sibling without inventing a failed transport request", async () => {
+    const transport = vi.spyOn(subscriptionTransport, "runSubscriptionPass").mockResolvedValue(refusal);
+    await expect(pipelinePasses.runBullThenBear(setup())).rejects.toThrow("no second analyst request was sent");
+    expect(transport).toHaveBeenCalledTimes(1);
+    await expect(pipelinePasses.runBullThenBear(setup())).rejects.not.toThrow("bear pass failed (transport)");
+  });
 });
 
 /* ------------------------------------------------------------------------ *

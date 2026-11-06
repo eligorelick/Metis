@@ -402,7 +402,7 @@ function renderBodyReading(report: Report): string {
   const peers = report.valuation.peerCoverage;
   const accrualClarifications = qualityAccrualClarifications(report.quality);
   if (accrualClarifications.length > 0) lines.push("### Quality structured measures", "", ...accrualClarifications.flatMap(note => [markdownProse(note), ""]));
-  if (peers) lines.push("### Peer screen", "", ...peerCoverageAuditLines(peers).flatMap((line) => [`- ${markdownProse(line)}`]), "");
+  if (peers) lines.push("### Peer screen", "", ...peerCoverageAuditLines(peers, report.meta.symbol).flatMap((line) => [`- ${markdownProse(line)}`]), "");
   const facts = sourceFactAuditTables(report.sourceFactSummary, true)[0];
   if (facts) lines.push(`### ${facts.heading}`, "", table(facts.headers, facts.rows), "");
   const disclosures: FilingSupplements | undefined = report.filingDisclosures;

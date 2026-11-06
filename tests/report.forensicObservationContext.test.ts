@@ -15,6 +15,7 @@ import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { restoreN4aPeerWordingGolden } from "./helpers/n4aPeerWordingGolden";
 import { restoreCapexBasisGolden } from "./helpers/capexBasisGolden";
 import { restoreForensicCurrentUseGolden } from "./helpers/forensicCurrentUseGolden";
+import { restoreExpeReport1ForensicDate } from "./helpers/expeReport1ScopeGolden";
 
 function fixture(amounts: (number | null | undefined)[] = [-50e6, 32e6, 0, undefined]) {
   const bundle = completeCurrencyBundle({ sic: "3571" });
@@ -163,7 +164,7 @@ describe("retained forensic observation context on real data-only exports", () =
     expect(computed.scenarioTargets.methodVersion).toBe("SCENARIO_TARGETS_2026_11_CURRENT_VALUATION_USE_58");
     // The FIGR paid-run round (D-159) renamed only these two stamps on this fixture; restore
     // them so the pin keeps checking every value byte.
-    const restored = restoreP2ComputedGolden(restorePublicPolishGolden(restoreForensicCurrentUseGolden(computed)));
+    const restored = restoreP2ComputedGolden(restorePublicPolishGolden(restoreForensicCurrentUseGolden(restoreExpeReport1ForensicDate(computed))));
     restored.fairValue.methodVersion = "FAIR_VALUE_2026_11_CLAUDE_REPAIRS_39";
     restored.scenarioTargets.methodVersion = "SCENARIO_TARGETS_2026_11_CLAUDE_REPAIRS_39";
     // D-203 adds only this explicit TTM evidence qualification in the control.

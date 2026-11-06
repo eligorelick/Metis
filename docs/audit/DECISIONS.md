@@ -9753,3 +9753,54 @@ length check and four outdated subscription mocks; all were corrected and the
 full gate rerun successfully.
 Raw live probe data remains in ignored local temporary files. The synthetic sample
 is regenerated through its build script; existing financial golden pins remain fixed.
+
+## D-212 — EXPE report #1 execution, financial scope and complete evidence (2026-11-06)
+
+The user supplied a saved EXPE report and requested a complete issue inventory,
+repairs, verification and merge to main. The inventory and execution plan live
+in `2026-11-06-expe-report-1.md` and the corresponding internal repair plan.
+Keep original saved reports and run inputs immutable. Report 1.69.0, payload
+1.88.0, Stage B implementation 62 and Stage C 1.6.41 identify the changed meaning.
+
+Optional research may continue to the same-account, tool-free writer only after
+an explicit local action/time limit or unsupported search capability. Discard
+unfinished findings and preserve observed actions and unknown usage. Authentication,
+policy, quota, user cancellation, malformed protocol and upstream truncation do
+not qualify. No paid fallback or research replay is introduced. Persist the
+limitation through checkpoints, successful reports and data-only reports.
+
+Admit independently compatible quarterly consolidated/parent/signed-NCI earnings,
+even when the vendor parent number agrees. Consolidated cash conversion requires
+a complete consolidated earnings window; zero closing NCI balances prove no
+earnings allocation. Standalone capex/SBC recovery requires compatible direct or
+cumulative operands and retains original vendor observations and independent
+refusals. Retained EXPE replay reconciles the 9M earnings residual, corrects cash
+conversion to 177.199622%, corrects Q3 2025 FCF to −686M and recovers two SBC
+quarters. DCF 271.87, composite 68.19 and the retained TTM cash totals are unchanged.
+
+Keep WACC calculation dates aligned across surfaces while retaining dated inputs.
+Show actual forensic neutralization/proxy limitations, weighted-average share
+meaning and blocked guidance linkage. Public proxy ownership must include its
+surrounding section preface, complete continued tables, class/voting/as-of scope
+and every visible local footnote. An inner caption cannot rescue incomplete
+outer qualifications. Public excerpts remain distinct from normalized vendor
+feeds and exhaustive institutional aggregation. Presentation repairs keep factual
+rosters, absent analyst assessments and unavailable values distinguishable.
+
+Exact historical regression deltas are asserted before the previous byte/hash
+contracts are restored. The annual audit fixture changes only reviewed wording;
+the AAPL fixture loses an unsupported consolidated-conversion signal and pins its
+resulting scores, completeness and registry changes. The forensic fixture changes
+only the debt-cost statement date. No financial formula or score-band revision is
+used to hide these evidence changes. Independent review's five counterexamples
+were reproduced and fixed before the full release gate.
+
+Final Node 24 `npm run verify` passed: four integration tests; each core/risk
+coverage run passed 16,782 tests across 724 files with three existing skips;
+typecheck, lint, production build, dependency shape and security audit passed.
+The audit found zero known vulnerabilities, and the compiled build's source-diff
+hash matches the final production tree. The first gate exposed twelve old
+expectations/release-document failures; 467 focused tests and the complete gate
+then passed after test/document corrections. The live same-account bull analyst
+also completed with three web actions, reported usage and no API charge; full
+live-pipeline completion is not claimed by this receipt.

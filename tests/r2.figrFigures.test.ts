@@ -118,17 +118,17 @@ describe("R2 FIGR deterministic figures", () => {
     const p = assembleContextPayload(b, c, validation);
     expect(p.provenanceRegistry?.find(r => r.origin === "computed.capital.current.cashBridge.stockBasedCompensation")).toMatchObject({ value: 109.079e6 });
   });
-  it("F04 rejects a vendor zero contradicted by filed cumulative quarter operands", () => {
+  it("F04 replaces a vendor zero only with the proved canonical cumulative quarter", () => {
     const f = facts({ ShareBasedCompensation: [point(22.730e6, "2025-01-01", "2025-09-30", "2025-11-06", "0000000042-25-000003"), point(5.261e6, "2025-01-01", "2025-06-30", "2025-08-06", "0000000042-25-000002")] });
     const b = cumulativeBundle();
     if (!b.statements.cashflowQuarterly.ok) throw Error("fixture");
     const out = enrichFinancialFields(b.statements.balanceQuarterly, b.statements.cashflowQuarterly, f, "quarter", at);
-    expect(out.cashflow.ok && out.cashflow.value.data.rows[3]?.fieldConflicts?.stockBasedCompensation).toMatchObject({ usable: false, vendorValue: 0, secValue: 17.469e6 });
+    expect(out.cashflow.ok && out.cashflow.value.data.rows[3]?.fieldConflicts?.stockBasedCompensation).toMatchObject({ usable: true, vendorValue: 0, secValue: 17.469e6 });
     withFacts(b, f);
     const p = assembleContextPayload(b, runStageB(b), validation);
     // R9 names the accounting basis in the model-visible statement label.
-    expect(p.statements.find(s => s.title.startsWith("Cash flow") && s.title.includes("quarterly"))?.lineItems.find(l => l.lineItem === "SBC, cash-flow add-back")?.byPeriod.find(c => c.period === "2025-09-30")?.value).toBeNull();
-    expect(runStageB(b).capital.current?.cashBridge.stockBasedCompensation).toBeNull();
+    expect(p.statements.find(s => s.title.startsWith("Cash flow") && s.title.includes("quarterly"))?.lineItems.find(l => l.lineItem === "SBC, cash-flow add-back")?.byPeriod.find(c => c.period === "2025-09-30")?.value).toBe(17.469e6);
+    expect(runStageB(b).capital.current?.cashBridge.stockBasedCompensation).toBe(109.079e6);
   });
   it.each(["different-filing", "different-period", "different-currency", "future"])("F04 does not invent a filed TTM identity from incompatible operands (%s)", change => {
     const b = cumulativeBundle();

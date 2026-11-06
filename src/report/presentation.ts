@@ -1769,10 +1769,13 @@ export function evidenceScopeSummary(report: Pick<Report, "meta">): string | nul
     .filter((entry) => executionCompleted(entry) && subscriptionExecution(entry) !== null);
   if (entries.length === 0) return null;
   const list = (steps: string[]) => steps.length <= 1 ? steps.join("") : `${steps.slice(0, -1).join(", ")} and ${steps[steps.length - 1]}`;
-  const usedWeb = (entry: ExecutionMetadataEntry) => entry.webResearchUsed === true || (entry.webSearches ?? 0) > 0;
+  const usedWeb = (entry: ExecutionMetadataEntry) => entry.webResearchLimitation === undefined &&
+    (entry.webResearchUsed ?? (entry.webSearches ?? 0) > 0);
   const searched = entries.filter(usedWeb).map(entry => stepName(entry.step));
-  const supplied = entries.filter(entry => !usedWeb(entry)).map(entry => stepName(entry.step));
+  const supplied = entries.filter(entry => !usedWeb(entry) && entry.webResearchLimitation === undefined).map(entry => stepName(entry.step));
+  const limited = entries.filter(entry => entry.webResearchLimitation !== undefined).map(entry => stepName(entry.step));
   return [searched.length ? `${list(searched)} used web research with supplied evidence` : null,
+    limited.length ? `${list(limited)} used only the supplied evidence; optional web research was unavailable and no web findings were accepted` : null,
     supplied.length ? `${list(supplied)} used only the supplied evidence (payload-only; no web search)` : null].filter(Boolean).join("; ");
 }
 

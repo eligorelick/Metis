@@ -419,7 +419,7 @@ function passRunFailureMessage<T>(run: PassRun<T>, label: string): string {
   const detail = run.validationError
     ? `${run.error.message}: ${run.validationError}`
     : run.error.message;
-  return `${label} pass failed (${run.error.kind}): ${detail}`;
+  return run.error.notLaunched ? detail : `${label} pass failed (${run.error.kind}): ${detail}`;
 }
 
 /**

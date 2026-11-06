@@ -63,7 +63,7 @@ In **Settings → AI connections**, connect ChatGPT through official plan OAuth 
 reasoning choices and opt-in Fast speed. Reports retain actual execution details.
 Sign-in runs no inference; failures never switch to paid API usage. Claude API
 remains separately billed. Plan allowances and credit settings apply; API dollar caps do not measure them. See [setup, controls and limits](docs/PRIVACY.md#ai-connection-setup).
-ChatGPT supports hosted plan research; Claude retains API search and Gemini uses supplied evidence. Writers and judges stay tool-free. This new ChatGPT search path has offline transport tests; a live search-backed report has not been run for this change.
+ChatGPT supports hosted plan research; Claude retains API search and Gemini uses supplied evidence. Writers and judges stay tool-free. Explicit optional-search limits fall back to supplied evidence with a coverage notice; authentication, policy and allowance failures still stop the run.
 Connections have offline test coverage, and complete reports have run live through a ChatGPT connection; inference through a live Gemini account has not been verified. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
 
 ## Configuration

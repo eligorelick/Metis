@@ -13,7 +13,7 @@ export function restoreCurrentValuationPolicyGolden<T extends { computed: Comput
     bytes = bytes.replaceAll(current, prior);
   }
   const result = JSON.parse(bytes) as T, { computed, payload } = result;
-  expect(payload.payloadVersion).toBe("1.87.0"); payload.payloadVersion = "1.83.0";
+  expect(payload.payloadVersion).toBe("1.88.0"); payload.payloadVersion = "1.83.0";
   expect(computed.fairValue.currentUse).toEqual({ status: "current", reason: "supported-roll-forward",
     statementDate: "2026-03-28", valueDate: "2026-07-05", quoteDate: "2026-07-05" });
   const reasons = [

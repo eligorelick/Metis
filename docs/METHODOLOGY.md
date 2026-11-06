@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.68.0 / payload 1.87.0, Stage B `STAGE_B_2026_11_PUBLIC_EVIDENCE_61` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.69.0 / payload 1.88.0, Stage B `STAGE_B_2026_11_REPORT1_SCOPE_62` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Source-scope recovery (D-210) preserves original vendor observations. A cash
 amount equal to a filing's explicit restricted-inclusive total may be replaced
@@ -8273,10 +8273,11 @@ The SEC fallback reads the latest eligible DEF 14A in recent submissions, no old
 than eighteen calendar months. Amendments and competing latest scopes require
 reconciliation. Source-owned captions, compatible headers and substantive rows
 must agree; bounded compensation and beneficial-ownership tables retain their
-local preface and following qualifiers, without clipping a row. Unsupported split
-layouts remain unavailable. Raw offsets, document hash, accession and URL stay in
+local preface and following qualifiers, without clipping a row. Compatible adjacent
+continued ownership tables retain their class/voting headers and all referenced
+local footnotes; ambiguous or incomplete layouts remain unavailable. Raw offsets, document hash, accession and URL stay in
 the bundle. The payload retains exact text and publication/filing provenance.
-Separately placed footnotes may require reading the linked filing. Proxy ownership
+The full linked filing remains available for context. Proxy ownership
 cannot establish a comprehensive 13F manager universe, aggregate ownership or
 position changes, and annual compensation does not establish current employment.
 
@@ -8286,7 +8287,14 @@ output enter research provenance. Up to eight completed search/open/find actions
 are accepted, with cancellation on an excess action, a ten-minute research deadline
 and a sixteen-MB stream bound. These are local controls, not provider-side spending
 caps; late-reported completed actions are counted honestly. Capability refusals
-never switch to a separately billed API. Research origin survives checkpoint reuse,
+never switch to a separately billed API. Explicit local action/time limits and
+unsupported search capability can continue with a tool-free writer on the same
+connection. No unfinished notes or source URLs are admitted; a typed coverage
+limitation survives checkpoint reuse and is disclosed in execution and manifest.
+Authentication, policy, allowance, malformed-response and user-cancellation
+failures remain terminal. Unknown research usage stays unknown even when the
+writer reports its own tokens; completed action counts are retained separately.
+Research origin survives checkpoint reuse,
 even when a search returned no URLs. Execution metadata distinguishes reused
 research from new actions. Old stored reports without these fields retain their
 historical interpretation. Gemini remains payload-only; Claude keeps its existing
@@ -8305,3 +8313,26 @@ be avoided with public evidence where available; an unsupported format needs an
 additional bounded reader, and a complete 13F dataset needs manager/amendment and
 security-identity reconciliation. No subscription upgrade fixes accounting
 comparability by itself.
+
+
+## Quarterly scope and report qualifications (D-212)
+
+Compatible filed parent, consolidated and noncontrolling-interest earnings can
+be retained even when a vendor value is numerically undisputed. Consolidated
+CFO/FCF conversion requires a compatible consolidated earnings denominator;
+parent/common cash flow is not inferred from an earnings allocation. Standalone
+quarter capex and SBC require an exact filed interval or a compatible cumulative
+difference with preserved filing lineage. Sign normalization does not establish
+that a cumulative vendor amount belongs to a quarter. Conflicting presentations
+and independent refusals remain unavailable.
+
+Current WACC, its component statement periods and risk-free/quote observations
+retain separate dates. Historical ROIC is not relabeled as current. Beneish
+neutralized/clamped inputs and D&A proxy limitations accompany the score; the
+neutral-value convention and score bands are unchanged. Weighted-average share
+changes and diluted/basic gaps do not prove buybacks, point-in-time dilution or
+current outstanding awards. A guidance trigger must not claim an anchor
+comparison that the comparability guard withheld.
+
+The [EXPE report audit](audit/2026-11-06-expe-report-1.md) enumerates every
+observed defect and data-gap family, with accepted repairs and retained limits.

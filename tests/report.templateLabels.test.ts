@@ -59,7 +59,7 @@ describe("template statements carry JUDGMENT, never FACT (audit 2026-10-22 F-20)
     const texts = SYNTHETIC_ROUTES.flatMap((route) =>
       labelledClaims(runResearchRoutePanel(buildSyntheticRouteBundle(route)).report).filter((claim) => claim.label === "FACT").map((claim) => claim.text),
     );
-    for (const prefix of ["Net debt is ", "Capex runs at ", "Diluted share count changed ", "Stock-based compensation is ", "Repurchased "]) {
+    for (const prefix of ["Net debt is ", "Capex runs at ", "Weighted-average diluted share count ", "Stock-based compensation is ", "Repurchased "]) {
       expect(texts.some((text) => text.startsWith(prefix))).toBe(true);
     }
   });

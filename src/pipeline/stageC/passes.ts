@@ -151,7 +151,7 @@ import {
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { applyFinancialDiagnostics, assessExecutiveEvidence, executiveEvidenceKind } from "@/report/financialDiagnostics";
 import { applyConfidenceCeilings } from "@/pipeline/stageC/confidenceCeiling";
-import { attributeJudgeProtocolDisclosures, buildExecutionMetadataEntry, type ProviderExecution } from "@/report/execution";
+import { attributeJudgeProtocolDisclosures, buildExecutionMetadataEntry, webResearchLimitationText, type ProviderExecution, type WebResearchLimitation } from "@/report/execution";
 import { judgeFloorModelId, resolveRegistryModel } from "@/models/registry";
 import {
   SHARED_RULES_BLOCK,
@@ -1692,6 +1692,17 @@ function boundedResearch(notes: string, sources: AnalystResearch["sources"], web
   })) });
 }
 
+/** Research is optional; a failed provider/auth/policy request is not. */
+function optionalResearchLimitation(outcome: Extract<RunPassOutcome, { ok: false }>, request: RunPassArgs): WebResearchLimitation | undefined {
+  if (parseSubscriptionModel(request.model)?.provider !== "chatgpt" || outcome.error.kind !== "transport" || request.signal?.aborted || outcome.error.aborted || outcome.error.notLaunched) return undefined;
+  const failure = outcome.error.providerFailure;
+  if (failure?.code === "local_web_action_limit") return "action_limit";
+  if (failure?.code === "local_web_time_limit") return "time_limit";
+  if (failure?.code === "subscription_sharing_unsupported_capability" && failure.httpStatus === 400 &&
+      /^(?:tools|tools\[0\](?:\.type)?)$/.test(failure.param ?? "")) return "capability_unavailable";
+  return undefined;
+}
+
 /** Research and writing are separate provider invocations, each with its own permit.
  * The checkpoint is written before writing starts, including empty research. */
 function startAnalystRequest(
@@ -1724,26 +1735,32 @@ function startAnalystRequest(
       ...first.content.slice(1)] };
     return { ...request, messages };
   };
-  const attach = (run: PassRun<AnalystCase>, research: AnalystResearch, charge?: PassOutcomeLike): PassRun<AnalystCase> => {
+  const attach = (run: PassRun<AnalystCase>, research: AnalystResearch,
+    charge?: Pick<PassErrorLike, "usage" | "costUsd" | "fallbackUsed" | "presumed" | "execution" | "model" | "webSearches">): PassRun<AnalystCase> => {
     const current = run.ok ? run.result : run;
-    const usage = charge ? sumUsage(charge.usage, current.usage ?? { input_tokens: 0, output_tokens: 0 }) : current.usage;
+    const usage = charge ? sumUsage(charge.usage ?? { input_tokens: 0, output_tokens: 0 }, current.usage ?? { input_tokens: 0, output_tokens: 0 }) : current.usage;
     const totals = {
       usage,
       costUsd: (current.costUsd ?? 0) + (charge?.costUsd ?? 0),
-      webSearches: (current.webSearches ?? 0) + (charge ? webSearchesOf(charge.usage) : 0),
+      webSearches: (current.webSearches ?? 0) + (charge?.webSearches ?? (charge?.usage ? webSearchesOf(charge.usage) : 0)),
       fallbackUsed: current.fallbackUsed === true || charge?.fallbackUsed === true,
       ...((current.presumed || charge?.presumed) ? { presumed: true } : {}),
     };
+    if (usage && (totals.webSearches > 0 || charge?.webSearches !== undefined)) {
+      totals.usage = { ...usage, server_tool_use: { ...usage.server_tool_use, web_search_requests: totals.webSearches } };
+    }
     // The final writer has no tools, but its case uses the research above.
     // Count only this attempt's completed actions; a checkpoint can retain web
     // evidence without launching (or charging) another research request.
-    const execution: ProviderExecution = { ...current.execution,
+    const combined = charge ? sectionExecution(deps.model, [charge, current]) : { model: current.model, execution: current.execution };
+    const execution: ProviderExecution = { ...current.execution, ...combined.execution,
       webSearches: totals.webSearches,
-      webResearchUsed: current.execution?.webResearchUsed === true || charge?.execution?.webResearchUsed === true ||
-        research.webResearchUsed === true || research.sources.length > 0 || totals.webSearches > 0,
+      ...(research.limitation === undefined ? {} : { webResearchLimitation: research.limitation }),
+      webResearchUsed: research.limitation === undefined && (current.execution?.webResearchUsed === true || charge?.execution?.webResearchUsed === true ||
+        research.webResearchUsed === true || research.sources.length > 0 || totals.webSearches > 0),
     };
     return run.ok
-      ? { ...run, result: { ...run.result, ...totals, execution, usage: usage!, research,
+      ? { ...run, result: { ...run.result, ...totals, model: combined.model ?? run.result.model, execution, usage: totals.usage!, research,
           fetchedUrls: [...new Set([...run.result.fetchedUrls, ...research.sources.map(source => source.url)])].sort() } }
       : { ...run, ...totals, execution, error: { ...run.error, execution, research } };
   };
@@ -1760,8 +1777,19 @@ function startAnalystRequest(
     ] }] };
   const researchHandle = launch(researchRequest);
   return { firstToken: researchHandle.firstToken, result: researchHandle.result.then(async outcome => {
-    // A failed research request is a failed pass, never valid writing or reusable research.
-    if (!outcome.ok) return finishStructuredPass(outcome, parseAnalystCase, `llm.${side}`, deps.model);
+    if (!outcome.ok) {
+      const limitation = optionalResearchLimitation(outcome, researchRequest);
+      if (limitation === undefined) return finishStructuredPass(outcome, parseAnalystCase, `llm.${side}`, deps.model);
+      // Save only the typed limitation. Partial notes, annotations and URLs from
+      // the canceled request are not evidence and cannot reach a writer/retry.
+      const research: AnalystResearch = { limitation, notes: webResearchLimitationText(limitation), sources: [], webResearchUsed: false };
+      try {
+        deps.sectionCheckpoint?.save(checkpointField, { research });
+        return attach(await write(withNotes(research)).result, research, outcome.error);
+      } catch (error) {
+        return attach(hardFailure(`llm.${side}`, error, deps.model), research, outcome.error);
+      }
+    }
     const data = outcome.value.data;
     const urls = new Set((data.fetchedUrls ?? []).flatMap(url => canonicalizeFetchedUrl(url) ?? []));
     const sources = (data.fetchedSources ?? []).filter(source => urls.has(source.url));
@@ -2021,7 +2049,7 @@ function abandonedSibling(
 function siblingNeverLaunched(side: "bull" | "bear", failed: "bull" | "bear"): PassRun<AnalystCase> {
   const message =
     `${side} pass not launched because the ${failed} pass failed unrecoverably — ` +
-    "the run could no longer produce a report, so no second analyst request was paid for";
+    "the run could no longer produce a report, so no second analyst request was sent";
   return {
     ok: false,
     gap: { field: `llm.${side}`, reason: message, severity: "critical", attemptedSources: [] },
@@ -4326,7 +4354,9 @@ export function applyForensicScores(
       bx !== null && beneishScore !== null && ix
         ? `m-score: DSRI ${two(ix.dsri)}, GMI ${two(ix.gmi)}, AQI ${two(ix.aqi)}, SGI ${two(ix.sgi)}, DEPI ${two(ix.depi)}, ` +
           `SGAI ${two(ix.sgai)}, TATA ${typeof ix.tata === "number" ? ix.tata.toFixed(3) : "n/a"}, LVGI ${two(ix.lvgi)}` +
-          (typeof bx.sgiNeutralScore === "number" ? `; M with SGI at 1.0: ${bx.sgiNeutralScore.toFixed(2)}` : "")
+          (typeof bx.sgiNeutralScore === "number" ? `; M with SGI at 1.0: ${bx.sgiNeutralScore.toFixed(2)}` : "") +
+          (bx.neutralized?.length ? `; neutralized: ${bx.neutralized.join(", ")} (missing inputs set to 1.0)` : "") +
+          (bx.clamped?.length ? `; clamped: ${bx.clamped.join(", ")} (house bounds)` : "")
         : "m-score",
     score: beneishScore,
     zone: bx?.growthLed === true ? "flag (growth-led; graded on SGI-neutral M)" : bx?.verdict ?? null,

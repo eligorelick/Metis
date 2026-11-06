@@ -92,13 +92,13 @@ describe("subject capitalization scope in the peer row", () => {
   it("keeps the unverified vendor capitalization control", () => {
     expect(run(four()).peerCoverage.comparisons[0]).toMatchObject({ current: 10, peerMedian: 17.5, peerCount: 4 });
   });
-  it("labels withheld Company figures and retains the legacy missing display", () => {
+  it("distinguishes withheld Company figures from unexplained legacy missingness", () => {
     const peers = run(four(), unresolvedTarget()).peerCoverage;
     const table = valuationReviewBlocks({ peerCoverage: peers, symbol: "ROOT" }).find(b => b.title === "Peer comparison coverage")!.table!;
     expect(table.rows[0]).toEqual(["Market cap / TTM common earnings", "withheld", "17.5×", "4"]);
     expect(peerCoverageAuditLines(peers).join(" ")).toMatch(/company withheld \(Issuer-common economic share scope unresolved/);
     const legacy = { ...peers, comparisons: [{ name: "Market cap / TTM common earnings", current: null, peerMedian: 17.5, peerCount: 4, basis: "stored" }] };
-    expect(valuationReviewBlocks({ peerCoverage: legacy, symbol: "ROOT" }).find(b => b.title === "Peer comparison coverage")!.table!.rows[0][1]).toBe("n/m");
+    expect(valuationReviewBlocks({ peerCoverage: legacy, symbol: "ROOT" }).find(b => b.title === "Peer comparison coverage")!.table!.rows[0][1]).toBe("unavailable");
   });
 });
 

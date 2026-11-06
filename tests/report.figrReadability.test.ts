@@ -134,8 +134,11 @@ describe("R3 FIGR reader presentation", () => {
     const text = JSON.stringify(tables);
     expect(text).not.toContain("no structured guidance could be extracted");
     expect(text).not.toContain("outlook sentence not read as guidance");
-    expect(text).toContain("First coverage note.");
-    expect(text).toContain("Second coverage note.");
+    expect(text).not.toContain("First coverage note");
+    expect(text).not.toContain("Second coverage note");
+    const filingNotes = JSON.stringify(filingDisclosureTables(r.filingDisclosures, "catalystsRisks"));
+    expect(filingNotes).toContain("First coverage note");
+    expect(filingNotes).toContain("Second coverage note");
     expect(text).toContain("Consumer Loan Marketplace Volume");
     expect(reportToAuditMarkdown(r)).toContain("no structured guidance could be extracted");
   });

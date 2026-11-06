@@ -242,6 +242,87 @@ export function filedCapexTtm(facts: CompanyFacts, annualRow: FmpCashFlowRow | u
   return candidates.length === 1 ? candidates[0]! : null;
 }
 
+/** Standalone quarters must retain an independently matched annual capex tag.
+ * A cumulative observation is not quarterly spending merely because its sign
+ * was normalized. No component sum or interchangeable synonym is inferred. */
+export function admitQuarterlyCapex(row: FmpCashFlowRow, facts: CompanyFacts, annualRows: readonly FmpCashFlowRow[], observedAt: string): { row: FmpCashFlowRow; gaps: ManifestEntry[] } {
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  const unit = row.reportedCurrency;
+  if (!validDay(row.date) || !unit || !/^[A-Z]{3}$/.test(unit) || row.cik != null && Number(row.cik) !== facts.cik ||
+      !finite(row.capitalExpenditure) && row.fieldConflicts?.capitalExpenditure?.usable !== false) return { row, gaps: [] };
+  const capexRefusal = row.fieldConflicts?.capitalExpenditure;
+  if (capexRefusal?.usable === false) {
+    const unavailable: Record<string, null> = { capitalExpenditure: null, freeCashFlow: null };
+    return { row: { ...row, ...unavailable, fieldConflicts: { ...row.fieldConflicts,
+      freeCashFlow: row.fieldConflicts?.freeCashFlow?.usable === false ? row.fieldConflicts.freeCashFlow : {
+        usable: false, vendorValue: finite(row.freeCashFlow) ? row.freeCashFlow : null, secValue: null,
+        reason: `Standardized FCF withheld because cash capex was refused: ${capexRefusal.reason}` } } }, gaps: [] };
+  }
+  if (!finite(row.capitalExpenditure)) return { row, gaps: [] };
+  const annual = [...annualRows].filter(r => validDay(r.date) && r.date <= observedAt.slice(0, 10) &&
+    r.reportedCurrency === unit && (r.cik == null || Number(r.cik) === facts.cik) &&
+    r.fieldConflicts?.capitalExpenditure?.usable !== false && finite(r.capitalExpenditure) &&
+    Math.abs(Date.parse(r.date) - Date.parse(row.date!)) <= 380 * DAY)
+    .sort((a, b) => Math.abs(Date.parse(a.date!) - Date.parse(row.date!)) - Math.abs(Date.parse(b.date!) - Date.parse(row.date!)))[0];
+  if (!annual) return { row, gaps: [] };
+  const admittedTags = (r: FmpCashFlowRow, tag: string) => !r.fieldProvenance?.capitalExpenditure ||
+    r.fieldProvenance.capitalExpenditure.source === "edgar" && r.fieldProvenance.capitalExpenditure.unit === unit &&
+    r.fieldProvenance.capitalExpenditure.tags.length === 1 && r.fieldProvenance.capitalExpenditure.tags[0] === `us-gaap/${tag}`;
+  const candidates = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"].filter(tag => admittedTags(annual, tag) && admittedTags(row, tag)).flatMap(tag => {
+    const p = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p => p.end === annual.date && span(p) !== null && span(p)! >= 350 && span(p)! <= 380 &&
+      (!validDay(annual.filingDate) || p.filed === annual.filingDate)));
+    return p && p.val >= 0 && vendorAgreesWithFiled(Math.abs(annual.capitalExpenditure!), p.val) ? [{ tag, annual: p }] : [];
+  });
+  if (candidates.length !== 1) return { row, gaps: [] };
+  const { tag, annual: annualPoint } = candidates[0]!;
+  const ctx: DerivationContext = { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() };
+  const vendor = row.fieldConflicts?.capitalExpenditure?.vendorValue ?? row.capitalExpenditure;
+  const cumulative = points(facts, tag, unit, observedAt).some(p => p.start === annualPoint.start && p.end <= row.date! &&
+    p.end >= annualPoint.start! && span(p)! > QUARTER_DURATION_DAYS[1] && p.filed <= (row.filingDate ?? observedAt.slice(0, 10)) &&
+    vendorAgreesWithFiled(Math.abs(vendor), p.val));
+  let sec = filedFlow(facts, tag, unit, row.date, "quarter", observedAt, false, ctx);
+  if (sec && validDay(row.filingDate) && sec.evidence.filings[0]?.filed !== row.filingDate) {
+    const original = filedFlow(facts, tag, unit, row.date, "quarter", row.filingDate, false,
+      { labels: labelCopies(facts, row.filingDate), withheld: new Set(), unverified: new Map() });
+    const amounts = (r: Resolved) => (r.operands ?? []).map(p => [p.start, p.end, p.val]);
+    // Repeated comparative copies cannot displace an unchanged original pair.
+    // Both canonical derivations must agree, including each cumulative operand;
+    // offsetting restatements and materially changed copies remain refused.
+    if (original && original.evidence.filings[0]?.filed === row.filingDate && original.value === sec.value &&
+        original.evidence.periodStart === sec.evidence.periodStart && JSON.stringify(amounts(original)) === JSON.stringify(amounts(sec)))
+      sec = { ...original, evidence: { ...original.evidence, observedAt } };
+  }
+  if (!sec || row.periodStart != null && row.periodStart !== sec.evidence.periodStart ||
+      validDay(row.filingDate) && sec.evidence.filings[0]?.filed !== row.filingDate) {
+    if (!cumulative) return { row, gaps: [] };
+    const reason = `Standalone cash-capex withheld at ${row.date}: the retained vendor ${millions(vendor)} ${unit} matches a cumulative ${tag} observation, but no compatible standalone quarter on the original and current filing presentations is established. Dependent standardized FCF withheld; vendor observations retained.`;
+    const fieldConflicts = { ...row.fieldConflicts };
+    for (const field of ["capitalExpenditure", "freeCashFlow"] as const) if (fieldConflicts[field]?.usable !== false)
+      fieldConflicts[field] = { usable: false, vendorValue: row[field] ?? null, secValue: null, reason, ...(sec ? { secEvidence: sec.evidence } : {}) };
+    const unavailable: Record<string, null> = { capitalExpenditure: null, freeCashFlow: null };
+    return { row: { ...row, ...unavailable, fieldConflicts },
+      gaps: [{ field: `statements.cashflow.${row.date}.capitalExpenditure`, reason, severity: "warn" }] };
+  }
+  const agrees = agreesWithSec(Math.abs(vendor), sec.value, [sec]);
+  // A source-proved cumulative period mistake can be repaired. A different
+  // amount with no such explanation retains the observation but withholds FCF.
+  const usable = agrees || cumulative;
+  const value = usable ? -sec.value : null;
+  const reason = `Standalone cash-capex ${usable ? "reconciled" : "withheld"} at ${row.date}: ${tag} on the independently matched annual basis; ${sec.evidence.periodStart} through ${row.date}, ${sec.operands ? `derived ${derivedFrom(sec)}` : "directly filed"} outflow ${millions(sec.value)} ${unit}; vendor ${millions(vendor)} retained${cumulative && !agrees ? " as a cumulative-period observation" : ""}${usable ? "; standardized FCF uses this standalone outflow" : "; incompatible vendor amount has no proved period bridge, so dependent FCF is unavailable"}.`;
+  const cfo = row.fieldConflicts?.operatingCashFlow?.usable === false || row.fieldConflicts?.netCashProvidedByOperatingActivities?.usable === false ? null
+    : finite(row.operatingCashFlow) ? row.operatingCashFlow
+    : finite(row.netCashProvidedByOperatingActivities) ? row.netCashProvidedByOperatingActivities : null;
+  const fcf = value !== null && cfo !== null && row.fieldConflicts?.freeCashFlow?.usable !== false ? cfo + value : null;
+  const amounts: Record<string, number | null> = { capitalExpenditure: value, freeCashFlow: fcf };
+  return { row: { ...row, ...amounts,
+    fieldProvenance: { ...row.fieldProvenance, ...(usable ? { capitalExpenditure: sec.evidence } : {}) },
+    fieldConflicts: { ...row.fieldConflicts, capitalExpenditure: { usable, vendorValue: vendor, secValue: -sec.value, reason,
+      ...(usable ? { resolution: "filed-family" as const } : {}), secEvidence: sec.evidence },
+      ...(row.fieldConflicts?.freeCashFlow?.usable === false ? {} : { freeCashFlow: { usable: fcf !== null,
+        vendorValue: row.fieldConflicts?.freeCashFlow?.vendorValue ?? (finite(row.freeCashFlow) ? row.freeCashFlow : null), secValue: fcf, reason, secEvidence: sec.evidence } }) } },
+    gaps: [{ field: `statements.cashflow.${row.date}.capitalExpenditure`, reason, severity: usable ? "info" : "warn", ...(usable ? { expected: true } : {}) }] };
+}
+
 /** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
  * Compare only where BOTH filed scopes agree, with an FX-inclusive flow and
  * compatible instants. The interval comes from the filing, not an invented
@@ -332,11 +413,13 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     const balanceFilings = kind === "balance" && proof?.source === "edgar" && proof.unit === unit &&
       proof.periodStart === null && proof.periodEnd === row.date && proof.tags.includes(`us-gaap/${tag}`) && proof.filings.length > 0
       ? proof.filings : undefined;
+    const canonicalFlow = kind === "cashflow" && !["cashAtBeginningOfPeriod", "cashAtEndOfPeriod", "netChangeInCash"].includes(field)
+      ? filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed, ctx) : null;
     const sec = kind === "balance" ? instant(facts, tag, unit, row.date!, observedAt,
       balanceFilings ? undefined : validDay(row.filingDate) ? row.filingDate : undefined, balanceFilings)
       : field === "cashAtBeginningOfPeriod" || field === "cashAtEndOfPeriod" || field === "netChangeInCash"
         ? cashAmounts[field] ?? (field === "netChangeInCash" ? matchingCashChange(facts, unit, row, scope, observedAt) : null)
-        : filedFlow(facts, tag, unit, row.date!, scope, observedAt, signed, ctx) ??
+        : canonicalFlow ??
           (field === "stockBasedCompensation" && scope === "quarter" ? crossFilingCfoQuarter(facts, unit, row.date!, observedAt, tag) : null);
     // A prior-quarter filing is a calculation dependency, not authority for
     // comparing the current vendor row. All three cash fields share the
@@ -348,9 +431,23 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     }
     if (!sec || (sec.evidence.periodStart !== null && kind === "cashflow" && typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart) ||
       (!balanceFilings && validDay(row.filingDate) && !filingAnchor?.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
-    const vendor = row[field];
+    const prior = row.fieldConflicts?.[field];
+    const priorSbcZero = field === "stockBasedCompensation" && prior?.usable === false && prior.vendorValue === 0 &&
+      prior.reason.startsWith("vendor/SEC stockBasedCompensation conflict:") && prior.secValue === sec.value &&
+      prior.secEvidence?.unit === unit && prior.secEvidence.periodStart === sec.evidence.periodStart && prior.secEvidence.periodEnd === row.date &&
+      prior.secEvidence.tags.length === 1 && prior.secEvidence.tags[0] === `us-gaap/${tag}`;
+    const vendor = priorSbcZero ? prior.vendorValue : row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const value = sec.value * sign;
+    if (field === "stockBasedCompensation" && scope === "quarter" && canonicalFlow && vendor === 0 && value > 0 &&
+        proof === undefined && (prior?.usable !== false || priorSbcZero) &&
+        (!validDay(row.filingDate) || sec.evidence.filings[0]?.filed === row.filingDate)) {
+      const reason = `Vendor stock-based compensation zero placeholder reconciled at ${row.date}: ${sec.operands ? `derived ${derivedFrom(sec)}` : "directly filed"} standalone ${sec.evidence.periodStart} through ${row.date} amount ${millions(value)} ${unit} used; original vendor zero retained.`;
+      out = { ...out, [field]: value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence },
+        fieldConflicts: { ...out.fieldConflicts, [field]: { usable: true, vendorValue: vendor, secValue: value, resolution: "filed-family", reason, secEvidence: sec.evidence } } };
+      gaps.push({ field: `statements.cashflow.${row.date}.${field}`, reason, severity: "info", expected: true });
+      continue;
+    }
     if (agreesWithSec(vendor, value, [sec])) continue;
     if (kind === "cashflow" && scope === "quarter" && field === "stockBasedCompensation" && proof === undefined &&
       out.fieldConflicts?.[field]?.usable !== false && !sec.operands && sec.evidence.periodStart && sec.evidence.filings.length === 1 && value >= 0) {

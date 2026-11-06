@@ -6560,7 +6560,7 @@ describe("runJob — full pipeline with mock passes", () => {
     } finally { vi.unstubAllGlobals(); }
   });
   it.each(["terminal", "temporary", "rate-limit", "drop"])("preserves an accepted sibling while handling subscription failure %s", async kind => {
-    const temporary = kind !== "terminal";
+    const temporary = kind !== "terminal" && kind !== "drop";
     let calls = 0;
     const accepted = fakeAnalystCase();
     accepted.case_strength = 3;
@@ -6711,14 +6711,14 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.68.0"); // the Q round moved the shared report stamp
+    expect(repRow?.specVersion).toBe("1.69.0"); // the Q round moved the shared report stamp
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.40");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.41");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);
@@ -7320,6 +7320,55 @@ describe("runJob — unresolved ticker", () => {
  * ------------------------------------------------------------------------ */
 
 describe("runJob — LLM pass failure", () => {
+  it("persists optional research limitations on a completed report without data-only fallback", async () => {
+    const passes = planPasses();
+    const judge = passes.runJudgePass;
+    passes.runJudgePass = async (...args) => ({ ...await judge(...args), costUsd: 0, model: "chatgpt/gpt-6.1-sol" });
+    const original = passes.runBullThenBear;
+    const execution = { requestedModel: "chatgpt/gpt-6.1-sol", modelObserved: true, usageReported: false,
+      webSearches: 8, webResearchUsed: false, webResearchLimitation: "action_limit" as const };
+    passes.runBullThenBear = async (deps, hooks, settlements) => {
+      const result = await original(deps, hooks, { ...settlements, bull: async value => settlements?.bull?.({
+        ...value, telemetry: { ...value.telemetry, execution, webSearches: 8 },
+      }) });
+      return { ...result, bull: { ...result.bull, execution, webSearches: 8,
+        usage: { ...result.bull.usage, server_tool_use: { web_search_requests: 8 } } } };
+    };
+    const { jobId } = createJob("AAPL");
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+    expect(result.dataOnly).toBe(false);
+    const row = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!;
+    const report = ReportSchema.parse(JSON.parse(row.reportJson!));
+    expect(report.appendix.missingData.filter(gap => gap.field === "llm.bull.researchCoverage")).toEqual([
+      expect.objectContaining({ severity: "warn", reason: expect.stringContaining("no web findings were accepted") }),
+    ]);
+    expect(report.meta.execution?.find(entry => entry.step === "bull")).toMatchObject({ webSearches: 8, webResearchUsed: false });
+  });
+  it("attributes local research cancellation and unknown plan usage consistently", async () => {
+    vi.mocked(resolveModel).mockResolvedValueOnce({ model: "chatgpt/gpt-6-astra", resolvedFrom: "explicit" });
+    const { jobId } = createJob("AAPL");
+    const { passes } = mockPasses();
+    passes.runBullThenBear = async (_deps, hooks, settlements) => {
+      await launchTestAnalystSide(hooks, "bull");
+      await settlements?.bull?.({ outcome: "failure", failure: { name: "Error", message: "local cap", kind: "transport",
+        providerFailure: { code: "local_web_action_limit", disposition: "terminal", bodyShape: "stream-error" } }, telemetry: {
+        model: "chatgpt/gpt-6-astra", inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, webSearches: 8,
+        costUsd: 0, fallbackUsed: false, billable: false, fetchedUrls: [],
+        execution: { requestedModel: "chatgpt/gpt-6-astra", usageReported: false, modelObserved: true, webSearches: 8 },
+      } });
+      throw new Error("local cap");
+    };
+    const result = await runJob(jobId, passes, { bundle: fakeBundle(), hasAnthropicKey: true, now: NOW });
+    const row = handle.db.select().from(reports).where(eq(reports.id, result.reportId!)).get()!;
+    const report = ReportSchema.parse(JSON.parse(row.reportJson!));
+    expect(report.appendix.costBreakdown).toHaveLength(1);
+    expect(report.appendix.costBreakdown[0].discardedReason).toContain("local research action limit");
+    const disclosure = report.appendix.missingData.find(gap => gap.field === "llm.bull.discardedAttempt")!.reason;
+    expect(disclosure).toContain("allowance consumption is unknown");
+    expect(disclosure).not.toContain("It used the connected provider allowance");
+    expect(disclosure).not.toContain("provider request failed");
+    expect(handle.db.select().from(costLog).where(eq(costLog.jobId, jobId)).all()).toEqual([]);
+  });
   it("keeps presumed pass-mode charges reconcilable and disclosed after successful output", async () => {
     configMocks.getConfig.mockReturnValue({ ...configMocks.getConfig(), reservationMode: "pass" });
     const { jobId } = createJob("AAPL");
@@ -7438,7 +7487,7 @@ describe("runJob — LLM pass failure", () => {
     expect(report.appendix.missingData.find((gap) => gap.field === "llm.synthesize.discardedAttempt")?.reason).toContain(
       "A synthesize attempt stopped before it finished because the provider request failed before a usable response arrived. " +
         "The completed section it held when it stopped (verdict) was kept and appears in this report; the remaining sections were requested again. " +
-        "It used the connected provider allowance and recorded $0 in API charges; usage and failure details remain saved with the run.",
+        "It was configured for the connected provider allowance and recorded $0 in API charges; allowance consumption is unknown; usage and failure details remain saved with the run.",
     );
     const synthesizeRows = report.appendix.costBreakdown.filter((row) => row.step === "synthesize");
     expect(synthesizeRows.length).toBeGreaterThan(1);

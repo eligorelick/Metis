@@ -1,4 +1,5 @@
 import { restoreCurrentValuationPolicyGolden } from "./helpers/currentValuationPolicyGolden";
+import { restoreExpeReport1ScopeGolden } from "./helpers/expeReport1ScopeGolden";
 import { unavailableValuationUseFixture } from "./helpers/valuationUse";
 import { restorePublicPolishGolden } from "./helpers/publicPolishGolden";
 import { restoreP2DcfInputsGolden } from "./helpers/p2DcfInputsGolden";
@@ -699,6 +700,84 @@ function makeDeps(mock: MockRunPass, over: Partial<PassDeps> = {}): PassDeps {
 }
 
 describe("analyst research and writing boundaries", () => {
+  it.each([
+    ["local_web_action_limit", "action_limit"],
+    ["local_web_time_limit", "time_limit"],
+    ["subscription_sharing_unsupported_capability", "capability_unavailable"],
+  ] as const)("continues supplied-evidence writing after optional research limitation %s", async (code, limitation) => {
+    const { payload } = buildInputs();
+    const calls: RunPassArgs[] = [];
+    const stored: Record<string, Record<string, unknown>> = {};
+    const deps: PassDeps = { model: "chatgpt/example", webSearchTool: () => ({ type: "chatgpt_web_search", maxActions: 8 }),
+      sectionCheckpoint: { load: field => stored[field] ?? {}, save: (field, value) => { stored[field] = structuredClone(value); } },
+      runPass: async args => {
+        calls.push(args);
+        if (args.tools) return { ok: false, gap: { field: "llm.bull", reason: "local fixture boundary", severity: "critical" },
+          error: { kind: "transport", message: "local fixture boundary", model: args.model, costUsd: 0, webSearches: 8,
+            partialText: "UNFINISHED_NOTES https://invented.example/unsupported", providerFailure: {
+              disposition: "terminal", code, bodyShape: "stream-error", ...(limitation === "capability_unavailable" ? { param: "tools", httpStatus: 400 } : {}),
+            }, execution: { requestedModel: args.model, modelObserved: true, usageReported: false, webSearches: 8 } } };
+        const usage = { input_tokens: 10, output_tokens: 5 };
+        return { ok: true, value: { data: { model: args.model, usage, costUsd: 0, fallbackUsed: false, fetchedUrls: [],
+          execution: { requestedModel: args.model, modelObserved: true, usageReported: true, webSearches: 0 },
+          message: { model: args.model, usage, content: [{ type: "text", text: JSON.stringify(analystCase("bull")) }] } } } };
+      } };
+    const first = await runBullPass(deps, payload);
+    if (!first.ok) throw new Error(first.error.message);
+    expect(calls).toHaveLength(2);
+    expect(calls[1].tools).toBeUndefined();
+    expect(JSON.stringify(calls[1].messages)).toContain("Optional web research");
+    expect(JSON.stringify(calls[1].messages)).not.toContain("UNFINISHED_NOTES");
+    expect(first.result.fetchedUrls).toEqual([]);
+    expect(first.result.research).toMatchObject({ limitation, sources: [], webResearchUsed: false });
+    expect(first.result.execution).toMatchObject({ usageReported: false, webSearches: 8, webResearchUsed: false, webResearchLimitation: limitation });
+    const entry = buildExecutionMetadataEntry({ step: "bull", requestedModel: deps.model, effectiveModel: first.result.model,
+      requestedEffort: null, fallbackUsed: false, execution: first.result.execution, usage: first.result.usage });
+    expect(entry).toMatchObject({ webSearches: 8, webResearchUsed: false, webResearchLimitation: limitation });
+    expect(entry.inputTokens).toBeUndefined();
+    expect(first.result.costUsd).toBe(0);
+    const resumed = await runBullPass({ ...deps }, payload);
+    if (!resumed.ok) throw new Error(resumed.error.message);
+    expect(calls).toHaveLength(3);
+    expect(calls[2].tools).toBeUndefined();
+    expect(resumed.result.execution).toMatchObject({ usageReported: true, webSearches: 0, webResearchUsed: false, webResearchLimitation: limitation });
+  });
+
+  it("retains failed-research telemetry when the tool-free writer also fails", async () => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass()
+      .on("llm.bull", { kind: "error", error: { kind: "transport", message: "local cap", model: "chatgpt/example", webSearches: 8,
+        execution: { modelObserved: true, usageReported: false },
+        providerFailure: { disposition: "terminal", code: "local_web_action_limit", bodyShape: "stream-error" } } })
+      .on("llm.bull", { kind: "error", error: { kind: "transport", message: "writer refused", model: "chatgpt/example",
+        execution: { modelObserved: true, usageReported: true }, usage: { input_tokens: 4, output_tokens: 1 },
+        providerFailure: { disposition: "terminal", code: "subscription_sharing_usage_limit_exceeded", bodyShape: "error" } } });
+    const run = await runBullPass(makeDeps(mock, { model: "chatgpt/example", webSearchTool: () => ({ type: "chatgpt_web_search", maxActions: 8 }) }), payload);
+    expect(run.ok).toBe(false);
+    if (!run.ok) {
+      expect(run.error.message).toBe("writer refused");
+      expect(run.execution).toMatchObject({ usageReported: false, webSearches: 8, webResearchLimitation: "action_limit" });
+      expect(run.error.research).toMatchObject({ limitation: "action_limit", sources: [] });
+      expect(run.usage?.input_tokens).toBe(4);
+    }
+    expect(mock.calls).toHaveLength(2);
+  });
+
+  it.each([
+    { code: "subscription_sharing_usage_limit_exceeded" }, { code: "subscription_sharing_invalid_user" },
+    { code: "subscription_sharing_user_not_eligible" }, { code: "local_web_research_boundary" },
+    { code: "subscription_sharing_unsupported_capability", param: "reasoning.effort", httpStatus: 400 },
+    { code: "subscription_sharing_unsupported_capability", param: "tools", httpStatus: 403 },
+    { code: "local_web_action_limit", aborted: true },
+  ])("keeps non-optional research failures terminal: %j", async ({ code, param, httpStatus, aborted }) => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass().on("llm.bull", { kind: "error", error: { kind: "transport", message: "must stop",
+      aborted, providerFailure: { disposition: "terminal", code, param, httpStatus, bodyShape: "error" } } });
+    const run = await runBullPass(makeDeps(mock, { model: "chatgpt/example", webSearchTool: () => ({ type: "chatgpt_web_search", maxActions: 8 }) }), payload);
+    expect(run.ok).toBe(false);
+    expect(mock.calls).toHaveLength(1);
+  });
+
   it.each(["empty", "failed"] as const)("handles %s research without treating it as an analyst case", async kind => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();
@@ -987,7 +1066,7 @@ describe("payload determinism + provenance", () => {
     // R9 changes SBC basis labels and their semantic ids; preserve all earlier byte/stamp pins.
     // R8 restores only its reviewed evidence qualifications before the R6 pin.
     // Q1 restores only its per-person Form 4 summary first.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(restorePublicPolishGolden(restoreCurrentValuationPolicyGolden(buildInputs())))))))))))));
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(restorePublicPolishGolden(restoreCurrentValuationPolicyGolden(restoreExpeReport1ScopeGolden(buildInputs()))))))))))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>
@@ -1896,7 +1975,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.87.0");
+    expect(first.payloadVersion).toBe("1.88.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -3561,7 +3640,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.68.0"); // the Q round moved the shared report stamp
+    expect(report.meta.specVersion).toBe("1.69.0"); // the Q round moved the shared report stamp
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

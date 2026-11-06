@@ -165,6 +165,7 @@ export function applyFinancialDiagnostics(report: Report, computed: ComputedMetr
   const beneish = computed.forensics?.beneish;
   addNote(beneish?.aqiContext);
   addNote(beneish?.gmiContext);
+  for (const note of beneish?.notes ?? []) addNote(note);
   if (notes.length > 0) {
     next.quality.notes = notes;
     // A report assembled before D-68 carried these as "low" flags; never both.

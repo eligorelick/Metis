@@ -42,6 +42,108 @@ function client(html = document(compensation + ownership), filings = [filing()],
 }
 const options = { now: () => new Date(NOW) };
 
+// Reduced version of the as-filed two-page ownership layout: styled captions,
+// separate class/vote headers, running page furniture and notes after page two.
+const ownershipHeader = `<tr><td colspan="2">Common Stock</td><td colspan="2">Class B Common Stock</td></tr>
+  <tr><td>Beneficial Owner</td><td>Shares</td><td>%</td><td>Shares</td><td>%</td><td>Percent (%) of Votes (All Classes)</td></tr>`;
+const continuedOwnership = `<div><span style="font-weight:700">Security Ownership of Certain Beneficial Owners and Management</span></div>
+  <div><span style="font-weight:700">Beneficial Ownership Table</span></div>
+  <div>The following table presents beneficial ownership as of April 20, 2026, except where otherwise noted.</div>
+  <div>Class B converts one-for-one to common stock. Votes are one per common share and ten per Class B share.</div>
+  <table>${ownershipHeader}<tr><td>Northern Example Advisors</td><td>15,194,861</td><td>(1)</td><td>13.3%</td><td>—</td><td>9.0%</td></tr></table>
+  <table><tr><td>2026 Proxy Statement</td><td>31</td><td>Example Inc.</td></tr></table><hr/>
+  <table><tr><td><a href="#ownership">Security Ownership of Certain Beneficial Owners and Management</a></td><td><a href="#contents">Table of Contents</a></td></tr></table>
+  <table>${ownershipHeader}<tr><td>Jane Example</td><td>152,126</td><td>(2)</td><td>*</td><td>—</td><td>*</td></tr>
+  <tr><td>All executive officers and directors</td><td>6,256,282</td><td>(3)</td><td>5.2%</td><td>5,523,452</td><td>33.0%</td></tr></table>
+  <div>• The percentage of shares beneficially owned does not exceed 1% of the class.</div>
+  <div>(1) The reported holding predates a January 2026 internal realignment. The holder no longer has beneficial ownership; successor subsidiaries have not filed their separate reports.</div>
+  <div>(2) Includes restricted stock units vesting within sixty days of April 20, 2026.</div>
+  <div>(3) Includes Class B shares convertible one-for-one and restricted stock units vesting within sixty days.</div>
+  <table><tr><td>Example Inc.</td><td>32</td><td>2026 Proxy Statement</td></tr></table>
+  <div><span style="font-weight:700">Information Concerning Executive Officers</span></div><p>Unrelated executive biography.</p>`;
+
+describe("continued public ownership tables", () => {
+  it.each(["h2", "div"])("preserves outer ownership scope before a subordinate %s caption", async tag => {
+    const body = ownership.replace("<table>", `<${tag}>Beneficial Ownership Table</${tag}><table>`)
+      .replace("as of March 31, 2026.", "as of March 31, 2026. These holdings are historical; see note (1).");
+    for (const marker of ["(1)", "<sup>1</sup>"]) {
+      const scoped = body.replace("note (1)", `note ${marker}`);
+      const absent = await collectPublicGovernance(client(document(scoped)).edgar, CIK, "2026-11-06", options);
+      expect(absent.ok && absent.value.data.beneficialOwnership !== null).toBe(false);
+      const complete = await collectPublicGovernance(client(document(scoped + "<p>(1) The holder no longer has beneficial ownership after an internal realignment.</p>")).edgar, CIK, "2026-11-06", options);
+      expect(complete.ok && complete.value.data.beneficialOwnership?.text).toContain("These holdings are historical");
+      expect(complete.ok && complete.value.data.beneficialOwnership?.text).toContain("no longer has beneficial ownership");
+    }
+  });
+  it.each(["owner", "header", "preface"] as const)("requires visible qualifiers for plain-text %s footnote markers", async location => {
+    const marker = (at: string) => location === at ? " (1)" : "";
+    const body = `<h2>Beneficial Ownership Table</h2><p>Ownership as of April 20, 2026${marker("preface")}.</p>
+      <table><tr><td>Beneficial Owner</td><td>Common Shares${marker("header")}</td><td>Percent of Class</td></tr>
+      <tr><td>Northern Example Advisors${marker("owner")}</td><td>1,234,567</td><td>6.2%</td></tr></table>`;
+    for (const notes of ["", '<p hidden>(1) This holding predates a realignment and is no longer current.</p>']) {
+      const result = await collectPublicGovernance(client(document(body + notes + "<h2>Other Business</h2>")).edgar, CIK, "2026-11-06", options);
+      expect(result.ok && result.value.data.beneficialOwnership !== null).toBe(false);
+    }
+    const complete = await collectPublicGovernance(client(document(body + "<p>(1) This holding predates a realignment and is no longer current.</p><h2>Other Business</h2>")).edgar, CIK, "2026-11-06", options);
+    expect(complete.ok && complete.value.data.beneficialOwnership?.text).toContain("no longer current");
+  });
+  it("keeps the complete class, as-of and footnote scope across adjacent ownership pages", async () => {
+    const html = document(continuedOwnership);
+    const result = await collectPublicGovernance(client(html).edgar, CIK, "2026-11-06", options);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const evidence = result.value.data, excerpt = evidence.beneficialOwnership;
+    expect(excerpt).not.toBeNull();
+    expect(excerpt?.text).toContain("Jane Example");
+    expect(excerpt?.text).toContain("as of April 20, 2026");
+    expect(excerpt?.text).toContain("Class B Common Stock");
+    expect(excerpt?.text).toContain("Percent (%) of Votes (All Classes)");
+    expect(excerpt?.text).toContain("no longer has beneficial ownership");
+    expect(excerpt?.text).toContain("(3) Includes Class B shares");
+    expect(excerpt?.text).not.toContain("Unrelated executive biography");
+    expect(evidence.sourceHash).toBe(createHash("sha256").update(html).digest("hex"));
+    expect(html.slice(excerpt!.span.start, excerpt!.span.end)).toBe(excerpt!.span.html);
+    expect(excerpt!.originalChars).toBe(excerpt!.text.length);
+    expect(evidence).not.toHaveProperty("ownershipPercent");
+    expect(evidence.notes.join(" ")).toMatch(/not.*13F|13F.*not/i);
+  });
+
+  it.each([
+    ["a missing referenced note", continuedOwnership.replace(/<div>\(1\)[\s\S]*?<\/div>/, "")],
+    ["a hidden referenced note", continuedOwnership.replace("<div>(1)", "<div hidden>(1)")],
+    ["a duplicate conflicting note", continuedOwnership.replace("<div>(2)", "<div>(1) This alternative ownership scope conflicts with the previous note.</div><div>(2)")],
+    ["a missing asterisk qualifier", continuedOwnership.replace(/<div>•[\s\S]*?<\/div>/, "")],
+    ["missing block as-of evidence", continuedOwnership.replace("as of April 20, 2026", "")],
+    ["changed class headers", continuedOwnership.replace(`<table>${ownershipHeader}<tr><td>Jane`, `<table>${ownershipHeader.replaceAll("Class B", "Class C")}<tr><td>Jane`)],
+    ["overlapping owners", continuedOwnership.replace("Jane Example", "Northern Example Advisors")],
+    ["a separate section", continuedOwnership.replace(`<table>${ownershipHeader}<tr><td>Jane`, `<h2>Other Ownership Arrangements</h2><table>${ownershipHeader}<tr><td>Jane`)],
+    ["a separate styled section", continuedOwnership.replace(`<table>${ownershipHeader}<tr><td>Jane`, `<div><span style="font-weight:700">Other Ownership Arrangements</span></div><table>${ownershipHeader}<tr><td>Jane`)],
+    ["a different section in running navigation", continuedOwnership.replace('href="#ownership">Security Ownership of Certain Beneficial Owners and Management', 'href="#other">Other Ownership Arrangements')],
+    ["unrelated intervening data", continuedOwnership.replace(`<table>${ownershipHeader}<tr><td>Jane`, `<table><tr><td>Other security</td><td>10,000</td><td>12%</td></tr></table><table>${ownershipHeader}<tr><td>Jane`)],
+    ["intervening scope prose", continuedOwnership.replace(`<table>${ownershipHeader}<tr><td>Jane`, `<p>The next table reports a different date and share basis.</p><table>${ownershipHeader}<tr><td>Jane`)],
+    ["a hidden continuation", continuedOwnership.replace(`<table>${ownershipHeader}<tr><td>Jane`, `<table hidden>${ownershipHeader}<tr><td>Jane`)],
+    ["an oversized qualifier block", continuedOwnership.replace("<div>(3)", `<div>${"Long source qualification. ".repeat(1000)}</div><div>(3)`) ],
+  ])("withholds ownership with %s without dropping independently valid compensation", async (_reason, body) => {
+    const result = await collectPublicGovernance(client(document(compensation + body)).edgar, CIK, "2026-11-06", options);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.data.beneficialOwnership).toBeNull();
+    expect(result.value.data.compensation?.text).toContain("2,134,567");
+    expect(result.value.data.notes.join(" ")).toMatch(/ownership.*unavailable or ambiguous/i);
+  });
+
+  it("rejects separate competing ownership blocks rather than choosing a table", async () => {
+    const result = await collectPublicGovernance(client(document(ownership + ownership.replace("1,234,567", "9,876,543"))).edgar, CIK, "2026-11-06", options);
+    expect(result.ok).toBe(false);
+  });
+
+  it("does not lose a superscript note reference when its qualifier is absent", async () => {
+    const body = ownership.replace("1,234,567", "1,234,567<sup>1</sup>");
+    const result = await collectPublicGovernance(client(document(body)).edgar, CIK, "2026-11-06", options);
+    expect(result.ok).toBe(false);
+  });
+});
+
 describe("scope before a table-owned caption", () => {
   it.each([false, true])("retains adjacent units and currency before an internal compensation caption (bold: %s)", async bold => {
     const body = compensation.replace("<h2>Summary Compensation Table</h2>", "")

@@ -601,7 +601,8 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
     );
 
     const serialized = JSON.stringify(report);
-    expect(serialized).toContain("Diluted share count changed -7.5% between 2022-09-24 and 2025-09-27 (buyback).");
+    expect(serialized).toContain("Weighted-average diluted share count decreased 7.5% between fiscal periods ending 2022-09-24 and 2025-09-27");
+    expect(serialized).toContain("This change alone does not establish the effect of buybacks, issuance or dilution.");
     expect(serialized).toContain(
       // D-61: the premium is measured on the proxy price; it is appreciation
       // since the repurchases, said so, not timing. F-20: the proxy comparison

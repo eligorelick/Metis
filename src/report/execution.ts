@@ -33,8 +33,22 @@ export function attributeJudgeProtocolDisclosures(
 }
 
 export type ExecutionEffort = "low" | "medium" | "high" | "xhigh" | "max";
+export type WebResearchLimitation = "action_limit" | "time_limit" | "capability_unavailable";
+/** Fixed application text; never forwards rejected model output into the report. */
+export function webResearchLimitationText(limitation: WebResearchLimitation): string {
+  const reason = limitation === "action_limit" ? "reached the local action limit"
+    : limitation === "time_limit" ? "reached the local time limit" : "was unavailable on the selected connection";
+  return `Optional web research ${reason}; no web findings were accepted. Analysis uses only the supplied evidence. Current web coverage remains incomplete; no paid fallback was attempted.`;
+}
+export function webResearchLimitationGaps(entries: readonly ExecutionMetadataEntry[] = []): ManifestEntry[] {
+  return entries.flatMap(entry => entry.webResearchLimitation === undefined ? [] : [{
+    field: `llm.${entry.step}.researchCoverage`, reason: webResearchLimitationText(entry.webResearchLimitation),
+    severity: "warn" as const, attemptedSources: [parseSubscriptionModel(entry.requestedModel)?.provider ?? "unknown"],
+  }]);
+}
 /** Provider evidence, retained on durable artifacts independently of API charges. */
 export interface ProviderExecution {
+  webResearchLimitation?: WebResearchLimitation;
   /** Observed web-tool actions; plan counts include search/open/find, not an API charge estimate. */
   webSearches?: number;
   /** Includes retained research from a checkpoint, independently of new tool actions. */
@@ -105,6 +119,7 @@ export type ExecutionAdjustment =
   | "model-rejected";
 
 export interface ExecutionMetadataEntry {
+  webResearchLimitation?: WebResearchLimitation;
   webSearches?: number;
   webResearchUsed?: boolean;
   taskBudgetTokens?: number | null;
@@ -193,7 +208,8 @@ export function buildExecutionMetadataEntry(input: {
   const usage = input.execution?.usageReported === false ? undefined : input.usage;
   const observedSearches = input.usage?.server_tool_use?.web_search_requests ?? input.execution?.webSearches;
   const webSearches = typeof observedSearches === "number" && Number.isSafeInteger(observedSearches) && observedSearches >= 0 ? observedSearches : undefined;
-  const webResearchUsed = input.execution?.webResearchUsed === true || (webSearches ?? 0) > 0;
+  const limitation = input.execution?.webResearchLimitation;
+  const webResearchUsed = limitation === undefined && (input.execution?.webResearchUsed ?? (webSearches ?? 0) > 0);
   const effectiveEffort = input.execution?.effectiveEffort !== undefined
     ? input.execution.effectiveEffort
     : requestedEffort !== null && modelSupportsEffort(effectiveModel)
@@ -205,7 +221,9 @@ export function buildExecutionMetadataEntry(input: {
   const subscription = subscriptionExecution({ effectiveModel, requestedModel });
   if (subscription) {
     const provider = subscription.provider === "chatgpt" ? "ChatGPT plan" : "Google Gemini CLI";
-    const searchNote = webSearches !== undefined && webSearches > 0
+    const searchNote = limitation !== undefined
+      ? `${webResearchLimitationText(limitation)} ${webSearches ?? 0} observed web research actions were recorded for this attempt; this count is not an API charge estimate.`
+      : webSearches !== undefined && webSearches > 0
       ? `This pass used supplied evidence and ${webSearches} observed web research actions; this count is not an API charge estimate.`
       : webResearchUsed ? "This pass used supplied evidence and retained web research; no new web research actions were recorded."
       : "This pass used the supplied evidence without additional web search.";
@@ -279,6 +297,7 @@ export function buildExecutionMetadataEntry(input: {
     ...(usage?.input_tokens == null ? {} : { inputTokens: usage.input_tokens }),
     ...(usage?.output_tokens == null ? {} : { outputTokens: usage.output_tokens }),
     ...(webSearches === undefined ? {} : { webSearches }),
+    ...(limitation === undefined ? {} : { webResearchLimitation: limitation }),
     ...(input.execution?.webResearchUsed === undefined && !webResearchUsed ? {} : { webResearchUsed }),
     ...(input.execution?.observedModels === undefined || input.execution.modelObserved === false ? {} : { observedModels: input.execution.observedModels }),
     adjustments,

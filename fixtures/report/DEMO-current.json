@@ -21,16 +21,16 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.68.0",
+    "specVersion": "1.69.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.68.0",
+    "pipelineVersion": "1.69.0",
     "costUsd": 0,
-    "verificationRate": 0.8487972508591065,
+    "verificationRate": 0.8501742160278746,
     "provenanceCoverage": {
       "numeric": {
-        "supported": 247,
-        "total": 291,
-        "rate": 0.8487972508591065
+        "supported": 244,
+        "total": 287,
+        "rate": 0.8501742160278746
       },
       "factualClaims": {
         "supported": 33,
@@ -667,16 +667,23 @@
         ]
       },
       "balanceSheet": {
-        "grade": "B",
-        "assessmentStatus": "deterministic",
+        "grade": "A",
+        "assessmentStatus": "limited-evidence",
         "qualification": {
-          "status": "supported",
-          "reasons": []
+          "status": "provisional",
+          "reasons": [
+            {
+              "code": "limited-applicable-evidence",
+              "aspect": "balanceSheet",
+              "field": "scores.aspects.balanceSheet",
+              "detail": "Balance sheet has limited evidence (score 86/100 on one signal, 35.3% of signals)."
+            }
+          ]
         },
         "gradeContract": {
           "version": "GRADE_OVERRIDE_1",
-          "originalBand": "B",
-          "proposedGrade": "B",
+          "originalBand": "A",
+          "proposedGrade": "A",
           "distance": 0,
           "status": "unchanged",
           "reason": "matches-deterministic-band"
@@ -691,7 +698,12 @@
             "asOf": "2025-12-31"
           }
         ],
-        "confidence": "medium",
+        "confidence": "low",
+        "confidenceCap": {
+          "from": "medium",
+          "to": "low",
+          "reason": "the deterministic balance-sheet score rests on under half of the inputs its route supports"
+        },
         "keyNumbers": [
           {
             "value": -0.41379310344827586,
@@ -699,15 +711,6 @@
             "period": "ttm 2025-04-01 to 2026-03-31",
             "sourceId": "computed.scores.balanceSheet.netDebtToEbitda",
             "source": "computed.scores.balanceSheet.netDebtToEbitda",
-            "asOf": "2026-03-31",
-            "verified": true
-          },
-          {
-            "value": 1,
-            "unit": "frac",
-            "period": "ttm 2025-04-01 to 2026-03-31",
-            "sourceId": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
-            "source": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
             "asOf": "2026-03-31",
             "verified": true
           }
@@ -1452,9 +1455,8 @@
               "period": null,
               "sourceId": "computed.returns.wacc",
               "source": "computed.returns.wacc",
-              "asOf": "2025-12-31",
-              "verified": false,
-              "verificationNote": "[unverified] date-mismatch"
+              "asOf": "2026-07-06",
+              "verified": true
             }
           }
         ]
@@ -1752,16 +1754,23 @@
   },
   "balanceSheet": {
     "graded": {
-      "grade": "B",
-      "assessmentStatus": "deterministic",
+      "grade": "A",
+      "assessmentStatus": "limited-evidence",
       "qualification": {
-        "status": "supported",
-        "reasons": []
+        "status": "provisional",
+        "reasons": [
+          {
+            "code": "limited-applicable-evidence",
+            "aspect": "balanceSheet",
+            "field": "scores.aspects.balanceSheet",
+            "detail": "Balance sheet has limited evidence (score 86/100 on one signal, 35.3% of signals)."
+          }
+        ]
       },
       "gradeContract": {
         "version": "GRADE_OVERRIDE_1",
-        "originalBand": "B",
-        "proposedGrade": "B",
+        "originalBand": "A",
+        "proposedGrade": "A",
         "distance": 0,
         "status": "unchanged",
         "reason": "matches-deterministic-band"
@@ -1776,7 +1785,12 @@
           "asOf": "2025-12-31"
         }
       ],
-      "confidence": "medium",
+      "confidence": "low",
+      "confidenceCap": {
+        "from": "medium",
+        "to": "low",
+        "reason": "the deterministic balance-sheet score rests on under half of the inputs its route supports"
+      },
       "keyNumbers": [
         {
           "value": -0.41379310344827586,
@@ -1784,15 +1798,6 @@
           "period": "ttm 2025-04-01 to 2026-03-31",
           "sourceId": "computed.scores.balanceSheet.netDebtToEbitda",
           "source": "computed.scores.balanceSheet.netDebtToEbitda",
-          "asOf": "2026-03-31",
-          "verified": true
-        },
-        {
-          "value": 1,
-          "unit": "frac",
-          "period": "ttm 2025-04-01 to 2026-03-31",
-          "sourceId": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
-          "source": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
           "asOf": "2026-03-31",
           "verified": true
         }
@@ -1903,14 +1908,14 @@
           "asOf": "2025-12-31"
         },
         {
-          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
+          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
           "label": "JUDGMENT",
           "sourceId": "computed.capital.current",
           "source": "computed.capital.current",
           "asOf": "2026-03-31"
         },
         {
-          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
+          "text": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
           "label": "JUDGMENT",
           "source": "computed.capital.current",
           "asOf": "2026-03-31"
@@ -1965,16 +1970,6 @@
           "period": "ttm: 2025-04-01 to 2026-03-31",
           "sourceId": "computed.capital.current.netDebtToEbitda",
           "source": "computed.capital.current.netDebtToEbitda",
-          "asOf": "2026-03-31",
-          "verified": true
-        },
-        {
-          "value": 1,
-          "unit": "x",
-          "currency": null,
-          "period": "ttm: 2025-04-01 to 2026-03-31",
-          "sourceId": "computed.capital.current.fcfConversionBeforeSbc",
-          "source": "computed.capital.current.fcfConversionBeforeSbc",
           "asOf": "2026-03-31",
           "verified": true
         }
@@ -2942,7 +2937,7 @@
         "zone": null
       },
       "beneish": {
-        "variant": "m-score: DSRI 1.00, GMI 1.00, AQI 1.00, SGI 1.11, DEPI 1.00, SGAI 1.00, TATA -0.035, LVGI 1.00; M with SGI at 1.0: -2.64",
+        "variant": "m-score: DSRI 1.00, GMI 1.00, AQI 1.00, SGI 1.11, DEPI 1.00, SGAI 1.00, TATA -0.035, LVGI 1.00; M with SGI at 1.0: -2.64; neutralized: DSRI, AQI, DEPI, SGAI, LVGI (missing inputs set to 1.0)",
         "score": -2.544653888888889,
         "zone": "unlikely"
       },
@@ -2969,7 +2964,15 @@
       "Net operating assets are not adjusted for long-term investments, which are unavailable on a compatible admitted basis in both years.",
       "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk.",
       "Negative accruals mean cash flows exceed the earnings numerator on the disclosed construction. Large negative values warrant business-model, working-capital and cash-flow scope review; magnitude alone is not an accounting-integrity red flag.",
-      "Cash-flow vs balance-sheet accrual ratios diverge by 30.5pp — balance-sheet deltas may reflect M&A/divestiture/FX rather than earnings quality (Hribar–Collins 2002); house-rule divergence threshold 10pp."
+      "Cash-flow vs balance-sheet accrual ratios diverge by 30.5pp — balance-sheet deltas may reflect M&A/divestiture/FX rather than earnings quality (Hribar–Collins 2002); house-rule divergence threshold 10pp.",
+      "TATA: netIncomeFromContinuingOperations unavailable — netIncome used (fallback).",
+      "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only.",
+      "DSRI set to neutral 1.0 — inputs missing (Beneish's own missing-data convention, paper p.12).",
+      "AQI set to neutral 1.0 — inputs missing (Beneish's own missing-data convention, paper p.12).",
+      "DEPI set to neutral 1.0 — inputs missing (Beneish's own missing-data convention, paper p.12).",
+      "SGAI set to neutral 1.0 — inputs missing (Beneish's own missing-data convention, paper p.12).",
+      "LVGI set to neutral 1.0 — inputs missing (Beneish's own missing-data convention, paper p.12).",
+      "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
     ]
   },
   "technicals": {
@@ -3793,12 +3796,12 @@
         "severity": "info"
       }
     ],
-    "verificationRate": 0.8487972508591065,
+    "verificationRate": 0.8501742160278746,
     "provenanceCoverage": {
       "numeric": {
-        "supported": 247,
-        "total": 291,
-        "rate": 0.8487972508591065
+        "supported": 244,
+        "total": 287,
+        "rate": 0.8501742160278746
       },
       "factualClaims": {
         "supported": 33,
@@ -4141,17 +4144,6 @@
         "path": "verdict.gradeStrip.balanceSheet.keyNumbers[0]",
         "evidenceKind": "number",
         "source": "computed.scores.balanceSheet.netDebtToEbitda",
-        "reason": "supported",
-        "traceKind": "computed-derived"
-      },
-      {
-        "claim": "1 frac [computed.scores.balanceSheet.fcfConversionBeforeSbc · 2026-03-31]",
-        "outcome": "verified",
-        "validationStatus": "validated",
-        "note": "exact provenance record matched",
-        "path": "verdict.gradeStrip.balanceSheet.keyNumbers[1]",
-        "evidenceKind": "number",
-        "source": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
         "reason": "supported",
         "traceKind": "computed-derived"
       },
@@ -4574,15 +4566,15 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "8.18 % [computed.returns.wacc · 2025-12-31]",
-        "outcome": "unverified",
-        "validationStatus": "unchecked",
-        "note": "[unverified] date-mismatch",
+        "claim": "8.18 % [computed.returns.wacc · 2026-07-06]",
+        "outcome": "verified",
+        "validationStatus": "validated",
+        "note": "exact provenance record matched (column \"latest\" not period-checked)",
         "path": "fundamentals.returns[3].values[0].value",
         "evidenceKind": "number",
         "source": "computed.returns.wacc",
-        "reason": "date-mismatch",
-        "traceKind": "untraced"
+        "reason": "supported",
+        "traceKind": "computed-derived"
       },
       {
         "claim": "8.18 % [computed.returns.wacc.costOfEquity · 2026-07-02]",
@@ -4783,17 +4775,6 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "1 frac [computed.scores.balanceSheet.fcfConversionBeforeSbc · 2026-03-31]",
-        "outcome": "verified",
-        "validationStatus": "validated",
-        "note": "exact provenance record matched",
-        "path": "balanceSheet.graded.keyNumbers[1]",
-        "evidenceKind": "number",
-        "source": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
-        "reason": "supported",
-        "traceKind": "computed-derived"
-      },
-      {
         "claim": "-0.4 x [computed.capital.netDebtToEbitda · 2025-12-31]",
         "outcome": "unverified",
         "validationStatus": "unchecked",
@@ -4911,17 +4892,6 @@
         "path": "balanceSheet.coverage.numbers[4]",
         "evidenceKind": "number",
         "source": "computed.capital.current.netDebtToEbitda",
-        "reason": "supported",
-        "traceKind": "computed-derived"
-      },
-      {
-        "claim": "1 x [computed.capital.current.fcfConversionBeforeSbc · 2026-03-31]",
-        "outcome": "verified",
-        "validationStatus": "validated",
-        "note": "exact provenance record matched",
-        "path": "balanceSheet.coverage.numbers[5]",
-        "evidenceKind": "number",
-        "source": "computed.capital.current.fcfConversionBeforeSbc",
         "reason": "supported",
         "traceKind": "computed-derived"
       },
@@ -5439,17 +5409,6 @@
         "path": "scores.aspects.balanceSheet.drivers[0]",
         "evidenceKind": "number",
         "source": "computed.scores.balanceSheet.netDebtToEbitda",
-        "reason": "supported",
-        "traceKind": "computed-derived"
-      },
-      {
-        "claim": "1 frac [computed.scores.balanceSheet.fcfConversionBeforeSbc · 2026-03-31]",
-        "outcome": "verified",
-        "validationStatus": "validated",
-        "note": "exact provenance record matched",
-        "path": "scores.aspects.balanceSheet.drivers[1]",
-        "evidenceKind": "number",
-        "source": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
         "reason": "supported",
         "traceKind": "computed-derived"
       },
@@ -7600,7 +7559,7 @@
         "traceKind": "source-cited"
       },
       {
-        "claim": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
+        "claim": "Capital grading basis: ttm: 2025-04-01 to 2026-03-31. Complete TTM flows are used with the corresponding current balance; annual historical series remain separately labeled. Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
         "outcome": "unverified",
         "validationStatus": "cited",
         "numericSupportStatus": "cited",
@@ -8252,6 +8211,32 @@
         "traceKind": "value-match"
       },
       {
+        "claim": "Balance sheet has limited evidence (score 86/100 on one signal, 35.3% of signals).",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "numericSupportStatus": "unchecked",
+        "claimSupportStatus": "unreviewed",
+        "note": "Value matched; context not confirmed: 35.3%.",
+        "path": "verdict.gradeStrip.balanceSheet.qualification.reasons[0].detail",
+        "source": "computed.deterministic-aspect-scores.balancesheet-evidence-completeness",
+        "reason": "supported",
+        "check": "plain-figure",
+        "traceKind": "value-match"
+      },
+      {
+        "claim": "Balance sheet has limited evidence (score 86/100 on one signal, 35.3% of signals).",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "numericSupportStatus": "unchecked",
+        "claimSupportStatus": "unreviewed",
+        "note": "Value matched; context not confirmed: 35.3%.",
+        "path": "balanceSheet.graded.qualification.reasons[0].detail",
+        "source": "computed.deterministic-aspect-scores.balancesheet-evidence-completeness",
+        "reason": "supported",
+        "check": "plain-figure",
+        "traceKind": "value-match"
+      },
+      {
         "claim": "Technicals has limited evidence (score 76/100 on one signal, 20.0% of signals).",
         "outcome": "unverified",
         "validationStatus": "unchecked",
@@ -8797,25 +8782,17 @@
         "note": "Value creation (ROIC−WACC; on financial routes, which are costed on equity alone, the return on common or tangible common equity against the cost of equity instead) and accounting integrity (Piotroski, weighted by the share of its nine signals that were evaluable; plus Altman — banded after an affine map of the variant's zones onto the original 1.81/2.99 scale, which is the value the altmanZOriginalScale driver carries — accruals and Beneish where the route computes them — all three are withheld for financial classifications, whose balance sheets those models were not estimated on)."
       },
       "balanceSheet": {
-        "score": 82.08,
-        "band": "B",
+        "score": 86.14,
+        "band": "A",
         "weightPct": 15,
-        "dataCompleteness": 0.5882352941176471,
-        "applicableCompleteness": 0.5882352941176471,
+        "dataCompleteness": 0.35294117647058826,
+        "applicableCompleteness": 0.35294117647058826,
         "drivers": [
           {
             "value": -0.41379310344827586,
             "unit": "x",
             "period": "ttm 2025-04-01 to 2026-03-31",
             "source": "computed.scores.balanceSheet.netDebtToEbitda",
-            "asOf": "2026-03-31",
-            "verified": true
-          },
-          {
-            "value": 1,
-            "unit": "frac",
-            "period": "ttm 2025-04-01 to 2026-03-31",
-            "source": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
             "asOf": "2026-03-31",
             "verified": true
           }
@@ -8848,43 +8825,6 @@
                 "name": "EBITDA",
                 "value": 290000000,
                 "source": "computed.capital.current.ebitda",
-                "asOf": "2026-03-31"
-              }
-            ]
-          },
-          {
-            "id": "fcfConversionBeforeSbc",
-            "raw": 1,
-            "unit": "frac",
-            "transformedScore": 76,
-            "signalWeight": 0.2,
-            "evidenceFraction": 1,
-            "effectiveCompositeWeightPct": 3.5294117647058822,
-            "contributionPoints": 0.9176470588235294,
-            "family": "financial-strength",
-            "asOf": "2026-03-31",
-            "period": "ttm 2025-04-01 to 2026-03-31",
-            "startDate": "2025-04-01",
-            "endDate": "2026-03-31",
-            "windowYears": 0.9965776865160849,
-            "fallbackReason": null,
-            "operands": [
-              {
-                "name": "FCF before SBC",
-                "value": 180000000,
-                "source": "computed.capital.current.fcfBeforeSbc",
-                "asOf": "2026-03-31"
-              },
-              {
-                "name": "net income",
-                "value": 180000000,
-                "source": "computed.capital.current.netIncome",
-                "asOf": "2026-03-31"
-              },
-              {
-                "name": "FCF / net income",
-                "value": 1,
-                "source": "computed.capital.current.fcfConversionBeforeSbc",
                 "asOf": "2026-03-31"
               }
             ]
@@ -9117,7 +9057,7 @@
       }
     },
     "composite": {
-      "score": 66.17,
+      "score": 65.26,
       "band": "C",
       "weights": {
         "fundamentals": 20,
@@ -9128,28 +9068,34 @@
         "leadership": 10,
         "technicals": 5
       },
-      "methodology": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 74.5% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+      "methodology": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 70.97% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
     },
     "bandsVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE",
     "assessments": {
       "businessQuality": {
-        "score": 68.15,
+        "score": 66.93,
         "band": "C",
         "basis": "Completeness-adjusted fundamentals, quality, balance sheet, moat and capital stewardship; excludes price valuation and technical momentum.",
-        "evidenceCompleteness": 0.7933642305407012
+        "evidenceCompleteness": 0.7463054070112894
       },
       "valuation": {
         "score": 66.42,
         "band": "C",
         "basis": "Price attractiveness under the disclosed valuation assumptions; independent of business-quality summary."
       },
-      "evidenceCompleteness": 0.7450231729055258,
+      "evidenceCompleteness": 0.7097290552584671,
       "calibration": "unbacktested-house-rules"
     },
     "qualification": {
       "composite": {
         "status": "provisional",
         "reasons": [
+          {
+            "code": "limited-applicable-evidence",
+            "aspect": "balanceSheet",
+            "field": "scores.aspects.balanceSheet",
+            "detail": "Balance sheet has limited evidence (score 86/100 on one signal, 35.3% of signals)."
+          },
           {
             "code": "limited-applicable-evidence",
             "aspect": "leadership",
@@ -9178,8 +9124,15 @@
           "reasons": []
         },
         "balanceSheet": {
-          "status": "supported",
-          "reasons": []
+          "status": "provisional",
+          "reasons": [
+            {
+              "code": "limited-applicable-evidence",
+              "aspect": "balanceSheet",
+              "field": "scores.aspects.balanceSheet",
+              "detail": "Balance sheet has limited evidence (score 86/100 on one signal, 35.3% of signals)."
+            }
+          ]
         },
         "moat": {
           "status": "supported",
@@ -9231,14 +9184,14 @@
         "aboveNeutralPoints": 0.7125
       },
       {
-        "family": "financial-strength",
-        "weightPct": 8.823529411764707,
-        "aboveNeutralPoints": 2.8308316430020284
-      },
-      {
         "family": "accounting-integrity",
         "weightPct": 5.883333333333334,
         "aboveNeutralPoints": 0.23168094809531903
+      },
+      {
+        "family": "financial-strength",
+        "weightPct": 5.294117647058823,
+        "aboveNeutralPoints": 1.9131845841784991
       },
       {
         "family": "capital-return-policy",

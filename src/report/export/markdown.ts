@@ -138,7 +138,7 @@ import {
   usageSummary,
   type FigureRow,
 } from "@/report/presentation";
-import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
+import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
@@ -163,6 +163,7 @@ import {
   orderedProjectionSeries,
   projectionAvailability,
   projectionDisplayAssumptions,
+  projectionUnavailabilityNote,
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
@@ -787,8 +788,10 @@ function renderTechnicals(report: Report, ctx: GradeContext = {}): string {
 
 function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDisclosures" | "appendix" | "outlook">> = {}, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("leadership"), ""];
+  const roster = leadershipRosterPresentation(l);
   lines.push(gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, ctx), "");
   lines.push("### Executives", "");
+  if (l.executives.length === 0) lines.push("No individual executive assessment recorded.", "");
   // D-67: one card per assessed officer; the not-assessed officers share one line.
   const contexts = new Map(l.executives.map(e => [e, executiveOfficeContext(e, l, report.appendix?.verificationLog, report.outlook?.guidanceCredibility)]));
   const groups = executiveGroups(l.executives, l.executives.filter(e => contexts.get(e) !== undefined || executiveTenureText(e) !== undefined));
@@ -828,7 +831,8 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
     ), "");
   }
   lines.push(...subsection("### Insider activity", claimList(l.insiderSummary)));
-  lines.push(...subsection("### Governance", claimList(l.governanceNotes)));
+  lines.push(...subsection("### Provider executive roster", claimList(roster.roster)));
+  lines.push(...subsection("### Governance", claimList(roster.governance)));
   lines.push(...auditTableBlocks(filingDisclosureTables(report.filingDisclosures, "leadership")));
   return lines.join("\n").trimEnd();
 }
@@ -938,7 +942,8 @@ function renderProjections(p: Projections): string {
       if (points.every((point) => point === null)) return [];
       return [[row.period, ...points.map((point) => (point === null ? DASH : tracedValue(point.value)))]];
     });
-    lines.push(table(["Period", ...forwardPaths.map((descriptor) => descriptor.label)], rows), "");
+    const unavailable = projectionUnavailabilityNote(s);
+    lines.push(unavailable === null ? table(["Period", ...forwardPaths.map((descriptor) => descriptor.label)], rows) : markdownProse(unavailable), "");
     const own = specific[index] ?? [];
     if (own.length > 0) lines.push("Assumptions:", "", own.map((assumption) => `- ${markdownListItem(assumption)}`).join("\n"), "");
   });

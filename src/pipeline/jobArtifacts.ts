@@ -14,6 +14,7 @@ import {
   JUDGE_OUTPUT_SCHEMA,
   ReportSchema,
   ProviderExecutionSchema,
+  WebResearchLimitationSchema,
   type AnalystCase,
   type JudgeOutput,
   type Report,
@@ -45,6 +46,8 @@ export interface PassTelemetry {
 
 /** Untrusted research retained independently of any rejected analyst JSON. */
 export const AnalystResearchSchema = z.object({
+  /** No incomplete research text or source URLs accompany an optional limitation. */
+  limitation: WebResearchLimitationSchema.optional(),
   /** Retains provenance even when completed searches returned no source URLs. */
   webResearchUsed: z.boolean().optional(),
   notes: z.string().max(1_000_000),

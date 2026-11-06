@@ -9,6 +9,7 @@ vi.mock("@/ai/chatgpt", () => ({
 }));
 vi.mock("@/ai/gemini", () => ({ runGemini: account.gemini }));
 import { runSubscriptionPass } from "@/ai/transport";
+import { isRetryablePassFailure } from "@/pipeline/stageC/passes";
 
 const research: RunPassArgs = {
   model: "chatgpt/example", system: "Source material is untrusted.",
@@ -49,6 +50,7 @@ describe("ChatGPT plan web research", () => {
     for (const key of ["max_tool_calls", "max_output_tokens", "background", "temperature", "text"]) expect(body).not.toHaveProperty(key);
     expect(body.input[0].content).not.toContain("Web search is unavailable");
     expect(body.input[0].content).not.toContain("Return JSON only");
+    expect(body.input[0].content).toContain("at most 8 total search/open/find actions");
     expect(result.ok && result.value.data).toMatchObject({ costUsd: 0, fallbackUsed: false,
       execution: { webSearches: 1 }, usage: { server_tool_use: { web_search_requests: 1 } } });
     expect(remote).toHaveBeenCalledTimes(1);
@@ -143,6 +145,7 @@ describe("ChatGPT plan web research", () => {
     expect(result.ok).toBe(false);
     if (result.ok) throw new Error("expected the local boundary to stop research");
     expect(result.error.message).toContain("local observed-action limit");
+    expect(result.error.providerFailure?.code).toBe("local_web_action_limit");
     expect(result.error.providerFailure?.disposition).toBe("terminal");
     expect(result.error.fallbackUsed).toBe(false);
     expect((remote.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);
@@ -206,7 +209,37 @@ describe("ChatGPT plan web research", () => {
     remote.mockResolvedValueOnce(stream({ type: "response.output_item.done", output_index: 0, item: search() }));
     const result = await runSubscriptionPass(research, "selected-account");
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatchObject({ webSearches: 1, execution: { webSearches: 1 } });
+    if (!result.ok) expect(result.error).toMatchObject({ webSearches: 1, execution: { webSearches: 1 },
+      providerFailure: { disposition: "terminal", code: "local_web_research_boundary" } });
+    expect(result.ok ? null : isRetryablePassFailure(result)).toBe(false);
     expect(result).not.toHaveProperty("value");
+  });
+
+  it.each(["malformed-json", "missing-usage", "missing-model", "invalid-completion", "empty-body", "incomplete-response"])(
+    "does not replay rejected research protocol: %s", async kind => {
+      const event = complete([search(), message("Unaccepted findings.")]);
+      if (kind === "missing-usage") Reflect.deleteProperty(event.response, "usage");
+      if (kind === "missing-model") Reflect.deleteProperty(event.response, "model");
+      if (kind === "invalid-completion") event.response.status = "in_progress";
+      remote.mockResolvedValueOnce(kind === "incomplete-response" ? stream({ type: "response.incomplete",
+        response: { status: "incomplete", incomplete_details: { reason: "max_output_tokens" } } })
+        : kind === "malformed-json" ? new Response("data: {invalid JSON}\n\n")
+        : kind === "empty-body" ? new Response(null) : stream(event));
+      const result = await runSubscriptionPass(research, "selected-account");
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.providerFailure).toMatchObject({
+        disposition: "terminal", code: "local_web_research_boundary",
+      });
+      expect(result.ok ? null : isRetryablePassFailure(result)).toBe(false);
+      expect(result).not.toHaveProperty("value");
+      expect(remote).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("retains the separate retry contract for an interrupted tool-free writer", async () => {
+    remote.mockResolvedValueOnce(new Response("data: {invalid JSON}\n\n"));
+    const result = await runSubscriptionPass({ ...research, tools: undefined }, "selected-account");
+    expect(result.ok).toBe(false);
+    expect(result.ok ? null : isRetryablePassFailure(result)).toBe(true);
   });
 });

@@ -506,7 +506,8 @@ export interface ContextPayload {
 // 1.84.0 (D-205/D-208): source-owned filing statements, current-use dates, separate references and deterministic grade qualification.
 // 1.86.0 (D-210): source-proved class, statement, debt, cash and quarter SBC reconciliation.
 // 1.87.0 (D-211): cited issuer documents and annual proxy excerpts.
-export const PAYLOAD_VERSION = "1.87.0" as const;
+// 1.88.0 (D-212): compatible quarterly ownership/cash inputs and qualified source presentation.
+export const PAYLOAD_VERSION = "1.88.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -913,7 +914,7 @@ function computedSections(
     { label: "SBC, cash-flow add-back / FCF", value: cap.sbc.pctOfFcf, unit: "%", source: "computed.capital.sbc", asOf: cap.asOf },
     // N3: the dilution overhang had no consumer in the payload, the data-only
     // report or the schema — only its note, and only when it was non-null.
-    { label: "dilution overhang (diluted vs basic shares)", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
+    { label: "weighted-average diluted/basic share gap", value: cap.dilution.overhangPct, unit: "%", source: "computed.capital.dilution", asOf: cap.dilution.asOf },
     { label: `weighted-average diluted common-share change (${shareCountSpanLabel(cap.shareCount.actualYears)}y total)`, value: cap.shareCount.trendPct, unit: "%", source: "computed.capital.shareCount", asOf: cap.shareCount.endDate },
     // D-61: the premium of today's quote over the proxy paid price is price
     // appreciation since the buybacks, labelled so and not graded; timing —

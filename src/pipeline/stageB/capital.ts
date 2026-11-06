@@ -951,9 +951,9 @@ export function computeCapital(
       note: conversionReason ?? (
         overhangPct === null
           ? `Dilution overhang unavailable: ${missing.length > 0 ? missing.join(" and ") + " not disclosed" : "no annual income statement"}.`
-          : `Dilution from outstanding awards: diluted ${fmt(diluted as number)} vs basic ${fmt(basic as number)} weighted-average shares ` +
-            `as of ${latestInc?.date ?? "?"} — a ${fmt(overhangPct)}% overhang. Options, RSUs and convertibles that are ` +
-            "antidilutive in a loss year are excluded from the diluted count by the filer, so a loss-making issuer's overhang understates the award pool."),
+          : `Weighted-average diluted/basic share gap: diluted ${fmt(diluted as number)} vs basic ${fmt(basic as number)} shares ` +
+            `for the fiscal period ending ${latestInc?.date ?? "?"} — a ${fmt(overhangPct)}% gap. This period-average EPS denominator difference is not an outstanding award pool or a measure of current economic dilution. ` +
+            "Antidilutive options, RSUs and convertibles are excluded from diluted EPS by the filer."),
     };
     // N3: the note reaches the notes channel in BOTH states. It used to be
     // pushed only when an overhang existed, so "unavailable" was visible in the

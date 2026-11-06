@@ -42,7 +42,7 @@ const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "i
 const RAW_TAGS = new Set(["script", "style", "textarea", "title"]);
 const CAPTION_TAG = /^(?:h[1-6]|p|div|span|b|strong|caption|td|th)$/;
 const COMPENSATION_CAPTION = /^(?:(?:fiscal\s+)?20\d{2}\s+)?summary\s+compensation\s+table(?:\s+(?:for\s+)?(?:fiscal\s+)?20\d{2})?\s*[:.]?$/i;
-const OWNERSHIP_CAPTION = /^(?:(?:security|stock|share)\s+ownership(?:\s+of\s+(?:certain\s+)?beneficial\s+owners?(?:\s+and\s+management)?)?|beneficial\s+ownership(?:\s+of\s+(?:our\s+)?(?:common\s+stock|shares))?|principal\s+(?:stockholders|shareholders))\s*[:.]?$/i;
+const OWNERSHIP_CAPTION = /^(?:(?:security|stock|share)\s+ownership(?:\s+of\s+(?:certain\s+)?beneficial\s+owners?(?:\s+and\s+management)?)?|beneficial\s+ownership(?:\s+table|\s+of\s+(?:our\s+)?(?:common\s+stock|shares))?|principal\s+(?:stockholders|shareholders))\s*[:.]?$/i;
 const amount = (value: string): boolean => /^(?:[$€£]\s*)?\(?\d[\d,]*(?:\.\d+)?\)?\s*%?(?:\s*\(\d+\))?$/.test(value);
 const isoDay = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 const normalizedCik = (value: string): string | null => /^\d{1,10}$/.test(value) && Number(value) > 0 ? value.padStart(10, "0") : null;
@@ -109,10 +109,88 @@ function excerptTables(html: string, elements: Element[], family: "compensation"
   };
   const visible = elements.filter(node => !node.hidden);
   const tables = visible.filter(node => node.tag === "table");
+  const cellsOf = (table: Element): string[][] => visible.filter(node => node.tag === "tr" && ancestor(node, "table") === table)
+    .map(row => visible.filter(node => /^(?:td|th)$/.test(node.tag) && ancestor(node, "tr") === row)
+      .map(node => text(node.start, node.end)).filter(Boolean));
   const heading = (node: Element): boolean => /^h[1-6]$/.test(node.tag) ||
     /^(?:p|div)$/.test(node.tag) && /(?:^|;)\s*font-weight\s*:\s*(?:bold|[6-9]00)\b/i.test(node.attrs.get("style") ?? "") ||
     /^(?:p|div|span|b|strong)$/.test(node.tag) && node.end - node.start <= 1_000 &&
       /^(?:director compensation|pay versus performance|compensation actually paid|compensation discussion and analysis|outstanding equity awards|grants of plan.based awards|option exercises and stock vested)\s*[:.]?$/i.test(text(node.start, node.end));
+  const ownershipHeader = (table: Element) => {
+    if (table.end - table.start > 400_000 || tables.some(other => other !== table && other.start > table.start && other.end < table.end)) return null;
+    const cells = cellsOf(table);
+    if (cells.length < 2 || cells.length > 160) return null;
+    const headerIndex = cells.slice(0, 4).findIndex(row => {
+      const header = row.join(" ");
+      return /\b(?:beneficial(?:ly)?\s+own(?:ed|er)|ownership)\b/i.test(header) && /\b(?:shares?|stock)\b/i.test(header) && /percent|%/i.test(header);
+    });
+    if (headerIndex < 0) return null;
+    const rows = cells.slice(headerIndex + 1).filter(row => /[A-Za-z]{2}/.test(row[0] ?? "") && row.slice(1).some(cell => amount(cell) || cell === "*"));
+    if (!rows.length) return null;
+    return { signature: cells.slice(0, headerIndex + 1).filter(row => row.length).map(row => row.join("|").toLowerCase()).join("\n"), rows };
+  };
+  // SEC HTML often uses tables for running page numbers and navigation. Only
+  // this narrow furniture may separate otherwise identical ownership headers.
+  const pageFurniture = (table: Element): boolean => {
+    const content = text(table.start, table.end);
+    const cells = cellsOf(table);
+    return table.end - table.start <= 20_000 && content.length <= 300 && cells.length <= 3 &&
+      /\b(?:proxy statement|table of contents)\b/i.test(content) && !/[%$]|\d,\d|\d{5}/.test(content) &&
+      !/\b(?:shares?|beneficial owner|salary|compensation)\b/i.test(content) &&
+      (!/table of contents/i.test(content) || cells.flat().every(cell => /^table of contents$/i.test(cell) || OWNERSHIP_CAPTION.test(cell)));
+  };
+  const ownershipEnd = (start: number, first: Element): number | null => {
+    const initial = ownershipHeader(first);
+    if (!initial) return null;
+    const members = [first], rows = [...initial.rows];
+    const owners = new Set(rows.map(row => row[0]!.toLowerCase()));
+    let last = first;
+    for (;;) {
+      const after = tables.filter(table => table.start >= last.end);
+      let index = 0, cursor = last.end, bridge = "";
+      while (index < 2 && after[index] && pageFurniture(after[index]!)) {
+        bridge += text(cursor, after[index]!.start);
+        cursor = after[index++]!.end;
+      }
+      const next = after[index];
+      if (!next) break;
+      bridge += text(cursor, next.start);
+      const continuation = ownershipHeader(next);
+      // Prose/qualifiers or another section between tables end this block;
+      // repeated headers alone do not authorize crossing that boundary.
+      if (bridge.trim() || !continuation) break;
+      if (members.length >= 4 || continuation.signature !== initial.signature ||
+          continuation.rows.some(row => owners.has(row[0]!.toLowerCase()))) return null;
+      for (const row of continuation.rows) owners.add(row[0]!.toLowerCase());
+      rows.push(...continuation.rows);
+      members.push(next);
+      last = next;
+    }
+    const nextHeading = visible.find(node => node.start >= last.end && !ancestor(node, "table") &&
+      (heading(node) || /^(?:span|b|strong)$/.test(node.tag) && text(node.start, node.end).length <= 200 &&
+        /(?:^|;)\s*font-weight\s*:\s*(?:bold|[6-9]00)\b/i.test(node.attrs.get("style") ?? "")));
+    const end = Math.min(nextHeading?.start ?? html.length, tables.find(table => table.start >= last.end)?.start ?? html.length);
+    if (end - start > 400_000 || elements.some(node => node.hidden && node.tag === "table" && node.start >= start && node.end <= end)) return null;
+    if (members.length > 1 && !/\bas of\s+(?:[A-Za-z]+\s+\d{1,2},?\s+20\d{2}|20\d{2}-\d{2}-\d{2})\b/i.test(text(start, first.start))) return null;
+    // Qualifiers can be attached to an owner name, column heading or as-of
+    // preface as well as a numeric cell. Keep the complete visible source scope.
+    const references = new Set([...text(start, last.end).matchAll(/\((\d{1,3})\)/g)].map(match => match[1]!));
+    for (const node of visible.filter(node => node.tag === "sup" && node.start >= start && node.end <= last.end)) {
+      const reference = /^\(?(\d{1,3})\)?$/.exec(text(node.start, node.end));
+      if (reference) references.add(reference[1]!);
+    }
+    const blocks = visible.filter(node => /^(?:p|div|li)$/.test(node.tag) && node.start >= last.end && node.end <= end);
+    const definitions = new Map<string, number>();
+    for (const block of blocks.filter(node => !blocks.some(child => child.start > node.start && child.end < node.end))) {
+      const note = /^\((\d{1,3})\)\s*(?=[A-Za-z])(.{10,})$/.exec(text(block.start, block.end));
+      if (note) definitions.set(note[1]!, (definitions.get(note[1]!) ?? 0) + 1);
+    }
+    // A number in a row is not its qualifier. Every referenced note must be
+    // visible exactly once after the final table, inside the retained span.
+    if ([...references].some(reference => definitions.get(reference) !== 1)) return null;
+    if (rows.some(row => row.slice(1).some(cell => cell.includes("*"))) && !/\b(?:less than|does not exceed|below)\s*1\s*%/i.test(text(last.end, end))) return null;
+    return end;
+  };
   const captions = visible.filter(node => CAPTION_TAG.test(node.tag) && node.end - node.start <= 4_000 && !ancestor(node, "a"))
     .filter(node => !/<a\b[^>]*\bhref\s*=/i.test(html.slice(node.start, node.end)))
     .filter(node => (family === "compensation" ? COMPENSATION_CAPTION : OWNERSHIP_CAPTION).test(text(node.start, node.end)));
@@ -122,17 +200,15 @@ function excerptTables(html: string, elements: Element[], family: "compensation"
     const table = containing ?? tables.find(candidate => candidate.start >= caption.end);
     if (!table || table.end - table.start > 400_000 || tables.some(other => other !== table && other.start > table.start && other.end < table.end)) continue;
     if (!containing && (table.start - caption.end > 20_000 || text(caption.end, table.start).length > 2_500 ||
-      visible.some(node => heading(node) && node.start >= caption.end && node.end <= table.start))) continue;
-    const rows = visible.filter(node => node.tag === "tr" && ancestor(node, "table") === table);
-    const cells = rows.map(row => visible.filter(node => /^(?:td|th)$/.test(node.tag) && ancestor(node, "tr") === row)
-      .map(node => text(node.start, node.end)).filter(Boolean));
+      visible.some(node => heading(node) && node.start >= caption.end && node.end <= table.start &&
+        !(family === "ownership" && OWNERSHIP_CAPTION.test(text(node.start, node.end)))))) continue;
+    const cells = cellsOf(table);
     if (cells.length < 2 || cells.length > 160) continue;
     const header = cells.slice(0, 4).map(row => row.join(" ")).join(" ");
     const recognized = family === "compensation"
       ? /\bname\b/i.test(header) && /\byear\b/i.test(header) && /\b(?:salary|stock awards?)\b/i.test(header) && /\btotal\b/i.test(header) &&
         cells.some(row => row.length >= 3 && /[A-Za-z]{2}/.test(row[0]!) && row.slice(1).some(cell => /^20\d{2}$/.test(cell)) && row.slice(1).some(cell => amount(cell) && !/^20\d{2}$/.test(cell)))
-      : /\bname\b/i.test(header) && /\b(?:beneficial(?:ly)?\s+own(?:ed|er)|ownership)\b/i.test(header) && /\b(?:shares?|stock)\b/i.test(header) && /percent|%/i.test(header) &&
-        cells.some(row => row.length >= 3 && /[A-Za-z]{2}/.test(row[0]!) && row.slice(1).filter(amount).length >= 2);
+      : ownershipHeader(table) !== null;
     if (!recognized) continue;
     let start = containing ? table.start : caption.start;
     if (containing) {
@@ -146,16 +222,29 @@ function excerptTables(html: string, elements: Element[], family: "compensation"
       if (table.start - boundary > 20_000 || text(boundary, table.start).length > 2_500) continue;
       start = boundary;
     }
+    if (family === "ownership") {
+      // A subordinate table caption does not reset the surrounding ownership
+      // section's qualifications. Every candidate for this same table must use
+      // the earliest compatible section caption, including when that broader
+      // scope is later refused for a missing footnote or the size budget.
+      const outer = captions.find(node => !ancestor(node, "table") && node.end <= table.start &&
+        tables.find(candidate => candidate.start >= node.end) === table &&
+        !visible.some(between => heading(between) && between.start >= node.end && between.end <= table.start &&
+          !OWNERSHIP_CAPTION.test(text(between.start, between.end))));
+      if (outer) start = Math.min(start, outer.start);
+      if (table.start - start > 20_000 || text(start, table.start).length > 2_500) continue;
+    }
     const nextHeading = visible.find(node => heading(node) && node.start >= table.end);
     const nextTable = tables.find(node => node.start >= table.end);
-    const end = Math.min(nextHeading?.start ?? html.length, nextTable?.start ?? html.length);
+    const end = family === "ownership" ? ownershipEnd(start, table) : Math.min(nextHeading?.start ?? html.length, nextTable?.start ?? html.length);
+    if (end === null) continue;
     const body = text(start, end);
     // Do not publish a clipped financial row or silently omit local qualifiers.
     if (body.length > 20_000 || body.length < 80) continue;
     candidates.set(table.start, { caption: text(caption.start, caption.end), text: body, originalChars: body.length,
       span: { start, end, html: html.slice(start, end) } });
   }
-  // Continued, duplicated or conflicting tables require a richer parser.
+  // Separate duplicated or competing source-owned blocks remain ambiguous.
   return candidates.size === 1 ? [...candidates.values()][0]! : null;
 }
 
@@ -232,7 +321,7 @@ export async function collectPublicGovernance(
     const notes = [
       "These are selected as-filed proxy excerpts, not normalized per-officer compensation records or a complete governance review. Table dates and fiscal years remain the filing's own wording; filing date is not the compensation period or evidence of current office.",
       "Beneficial-ownership disclosures are not an exhaustive 13F institutional aggregation: they cannot establish total institutional ownership, investor counts, top-holder rankings, position changes or put/call ratios.",
-      "Excerpts retain the table and adjacent prose up to the next table or heading; separately placed footnotes and other proxy sections may require reading the linked filing.",
+      "Compensation excerpts retain the table and adjacent prose up to the next table or heading. Ownership excerpts retain matching adjacent continuation tables and their referenced local footnotes; separately placed material and other proxy sections may require reading the linked filing.",
       ...(!compensation ? ["Annual summary compensation table evidence is unavailable or ambiguous in this selected filing."] : []),
       ...(!beneficialOwnership ? ["Beneficial-ownership table evidence is unavailable or ambiguous in this selected filing."] : []),
     ];

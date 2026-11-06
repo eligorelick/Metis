@@ -23,6 +23,15 @@ export interface ReviewBlock {
 
 type PeerCoverage = NonNullable<Valuation["peerCoverage"]>;
 
+function peerCompanyValue(row: NonNullable<PeerCoverage["comparisons"]>[number], peers: PeerCoverage, subject?: string): string {
+  if (row.current !== null) return formatMultiple(row.current);
+  if (row.currentWithheldReason) return "withheld";
+  const nonpositiveCommonEarnings = row.name === "Market cap / TTM common earnings" && subject !== undefined &&
+    peers.exclusions.some(entry => entry.symbol.toUpperCase() === subject.toUpperCase() &&
+      entry.reason === "Common earnings comparison: nonpositive TTM common earnings");
+  return nonpositiveCommonEarnings ? "n/m" : "unavailable";
+}
+
 /**
  * D-67: the peer screen in two lines for the report body. The screen rules,
  * per-metric notes and every exclusion (about 56 lines for NVDA) are in the
@@ -70,11 +79,11 @@ export function peerCoverageSummary(peers: PeerCoverage, subject?: string): stri
 }
 
 /** The full peer screen record for the audit export (D-67). */
-export function peerCoverageAuditLines(peers: PeerCoverage): string[] {
+export function peerCoverageAuditLines(peers: PeerCoverage, subject?: string): string[] {
   return [
     ...peers.methodology,
     `${peers.evaluated} of ${peers.candidates} candidate issuers evaluated. Eligible issuers: ${peers.eligible.join(", ") || "none"}. Eligibility does not guarantee a usable value for every multiple.`,
-    ...(peers.comparisons ?? []).map((row) => `${row.name}: company ${row.currentWithheldReason ? `withheld (${row.currentWithheldReason})` : formatMultiple(row.current)}; peer median ${formatMultiple(row.peerMedian)}; ${row.peerCount} comparable peers. ${row.basis}`),
+    ...(peers.comparisons ?? []).map((row) => `${row.name}: company ${peerCompanyValue(row, peers, subject)}${row.currentWithheldReason ? ` (${row.currentWithheldReason})` : ""}; peer median ${row.peerMedian === null ? "withheld" : formatMultiple(row.peerMedian)}; ${row.peerCount} comparable peers. ${row.basis}`),
     ...peers.exclusions.map((exclusion) => `Excluded — ${exclusion.symbol}: ${exclusion.reason}`),
   ];
 }
@@ -122,7 +131,7 @@ export function valuationReviewBlocks(input: ValuationReviewInputs): ReviewBlock
       ...(comparisons.length === 0 ? {} : {
         table: {
           headers: ["Comparison", "Company", "Peer median", "Comparable peers"],
-          rows: comparisons.map((row) => [row.name, row.current === null && row.currentWithheldReason ? "withheld" : formatMultiple(row.current), row.peerMedian === null ? "withheld" : formatMultiple(row.peerMedian), String(row.peerCount)]),
+          rows: comparisons.map((row) => [row.name, peerCompanyValue(row, peers, input.symbol), row.peerMedian === null ? "withheld" : formatMultiple(row.peerMedian), String(row.peerCount)]),
         },
       }),
     });

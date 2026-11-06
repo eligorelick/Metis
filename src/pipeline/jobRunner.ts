@@ -77,6 +77,7 @@ import {
   annotateSharedModelFamily,
   attributeJudgeProtocolDisclosures,
   buildExecutionMetadataEntry,
+  webResearchLimitationGaps,
   failedPassNote,
   sharedModelFamilyOf,
   type ProviderExecution,
@@ -554,7 +555,7 @@ export interface ReportMetaInput {
 // 1.6.38 (D-208): current-use admission, provisional grades and deterministic reference/qualification transport.
 // 1.6.39: source-owned lease evidence and stable refusal qualifications survive enrichment.
 // 1.6.40 (D-211): public evidence recovery and ChatGPT plan research.
-export const PIPELINE_VERSION = "stage-c-1.6.40" as const;
+export const PIPELINE_VERSION = "stage-c-1.6.41" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -4804,6 +4805,7 @@ interface DiscardedAttempt {
   reason: string;
   model: string;
   billable: boolean;
+  usageReported?: boolean;
   /** D-116: its completed sections that the pass's final output kept ({@link keptSectionsOf}). */
   kept: string[];
 }
@@ -4830,7 +4832,10 @@ const DISCARDED_REASON_BY_KIND: Readonly<Record<string, string>> = {
 };
 const DISCARDED_REASON_DEFAULT = "the attempt did not produce a usable result";
 
-function readerSafeFailureText(failure: { kind?: string }): string {
+function readerSafeFailureText(failure: { kind?: string; providerFailure?: import("@/ai/providerFailure").ProviderFailure }): string {
+  if (failure.providerFailure?.code === "local_web_action_limit") return "the local research action limit canceled the request";
+  if (failure.providerFailure?.code === "local_web_time_limit") return "the local research time limit canceled the request";
+  if (failure.providerFailure?.code === "local_web_research_boundary") return "a local research safety boundary stopped the request";
   const known = failure.kind === undefined ? undefined : DISCARDED_REASON_BY_KIND[failure.kind];
   return known ?? DISCARDED_REASON_DEFAULT;
 }
@@ -4859,6 +4864,7 @@ function readDiscardedAttempts(jobId: string, assemblyRejected: readonly Assembl
         reason: readerSafeFailureText(artifact.envelope.failure),
         model: artifact.telemetry.model,
         billable: artifact.telemetry.billable,
+        usageReported: artifact.telemetry.execution?.usageReported,
         kept: keptSectionsOf(artifact, lineage),
       }];
     });
@@ -4872,6 +4878,7 @@ function readDiscardedAttempts(jobId: string, assemblyRejected: readonly Assembl
         reason: entry.reason,
         model: artifact.telemetry.model,
         billable: artifact.telemetry.billable,
+        usageReported: artifact.telemetry.execution?.usageReported,
         kept: [],
       }];
     });
@@ -4971,6 +4978,9 @@ function discardedAttemptGaps(state: RunState, options: { dataOnly?: boolean } =
   if (discarded.length === 0) return [];
   const ledger = readCostLedger(state.jobId);
   return discarded.map((attempt) => {
+    const planUsage = attempt.usageReported === false
+      ? "It was configured for the connected provider allowance and recorded $0 in API charges; allowance consumption is unknown"
+      : "It used the connected provider allowance and recorded $0 in API charges";
     const wasted = ledger
       .filter((row) => costRowBelongsToAttempt(row.attemptId, attempt.attemptId))
       .reduce((sum, row) => sum + row.costUsd, 0);
@@ -4985,13 +4995,13 @@ function discardedAttemptGaps(state: RunState, options: { dataOnly?: boolean } =
             (attempt.kept.length > 0 ? `Accepted sections (${attempt.kept.join(", ")}) remain saved for recovery; ` : "Its output was not accepted; ") +
             "model analysis is not included in this deterministic snapshot. " +
             (parseSubscriptionModel(attempt.model) && !attempt.billable
-              ? "It used the connected provider allowance and recorded $0 in API charges. "
+              ? `${planUsage}. `
               : `The attempt cost $${wasted.toFixed(4)}, included in the reported total. `) +
             "Usage, failure details and available artifacts remain saved with the run."
           : parseSubscriptionModel(attempt.model) && !attempt.billable
           ? attempt.kept.length > 0
-            ? `A ${attempt.pass} attempt stopped before it finished because ${attempt.reason}. ${kept}; the remaining sections were requested again. It used the connected provider allowance and recorded $0 in API charges; usage and failure details remain saved with the run.`
-            : `A ${attempt.pass} attempt did not produce usable output because ${attempt.reason}. It used the connected provider allowance and recorded $0 in API charges. The rejected output is excluded from this report; usage and failure details remain saved with the run.`
+            ? `A ${attempt.pass} attempt stopped before it finished because ${attempt.reason}. ${kept}; the remaining sections were requested again. ${planUsage}; usage and failure details remain saved with the run.`
+            : `A ${attempt.pass} attempt did not produce usable output because ${attempt.reason}. ${planUsage}. The rejected output is excluded from this report; usage and failure details remain saved with the run.`
           : attempt.kept.length > 0
             ? `A ${attempt.pass} attempt stopped because ${attempt.reason}. ${kept}; only missing or rejected sections were requested again. The attempt cost $${wasted.toFixed(4)}, included in the reported total. Its usage and failure details remain saved with the run.`
             : `the ${attempt.pass} pass was run more than once: an earlier attempt was billed and its output thrown ` +
@@ -5184,7 +5194,8 @@ function reconcileMeta(
     ...report.appendix.missingData.filter(
       (gap) =>
         !RECONCILED_MANIFEST_FIELDS.has(gap.field) &&
-        !gap.field.endsWith(DISCARDED_ATTEMPT_FIELD_SUFFIX),
+        !gap.field.endsWith(DISCARDED_ATTEMPT_FIELD_SUFFIX) &&
+        !/^llm\..+\.researchCoverage$/.test(gap.field),
     ),
     ...(judgeProtocol === undefined ? [] : judgeProtocolManifestEntries(judgeProtocol)),
     ...(presumed === null ? [] : [presumed.entry]),
@@ -5193,6 +5204,7 @@ function reconcileMeta(
     // belong HERE, with the cost breakdown they explain, so the two cannot
     // disagree — and so `dataCompleteness` below is computed over them.
     ...discarded,
+    ...webResearchLimitationGaps(annotatedExecution),
   ], { execution: annotatedExecution, model: meta.model });
   // Both edits above CHANGE the manifest this metadata summarizes. Recomputing
   // is not optional: deriveReportCompletenessPresentation recomputes from the
