@@ -17,13 +17,22 @@ describe("vendor cash that exactly matches the same filing's restricted-inclusiv
     expect(out.row.fieldProvenance?.cashAndCashEquivalents?.tags).toEqual(["us-gaap/CashAndCashEquivalentsAtCarryingValue"]);
     expect(out.row.cashAndShortTermInvestments).toBeNull();
     expect(out.row.netDebt).toBeNull();
+    expect(out.row.vendorNetDebt).toBe(-500 * M);
     expect(row.cashAndCashEquivalents).toBe(6976 * M);
   });
   it("recomputes net debt only when total debt has compatible admitted SEC evidence", () => {
     const row: FmpBalanceSheetRow = { ...vendor(), fieldProvenance: { totalDebt: enriched(Q2, "LongTermDebtNoncurrent") } };
     const out = admitBalanceCash(row, companyFacts({ [Q2]: tags }), "quarter", OBSERVED).row;
     expect(out.netDebt).toBe(1063 * M);
+    expect(out.vendorNetDebt).toBe(-500 * M);
     expect(out.fieldProvenance?.netDebt?.tags).toContain("us-gaap/CashAndCashEquivalentsAtCarryingValue");
+  });
+  it.each([-700 * M, null])("preserves an existing vendor net-debt observation %s", vendorNetDebt => {
+    const row: FmpBalanceSheetRow = { ...vendor(), vendorNetDebt,
+      fieldProvenance: { totalDebt: enriched(Q2, "LongTermDebtNoncurrent") } };
+    const out = admitBalanceCash(row, companyFacts({ [Q2]: tags }), "quarter", OBSERVED).row;
+    expect(out.vendorNetDebt).toBe(vendorNetDebt);
+    expect(out.netDebt).toBe(1063 * M);
   });
   it.each(["debt filing", "debt refusal", "net debt refusal"])("preserves %s while admitting cash", kind => {
     const row = { ...vendor(), fieldProvenance: { totalDebt: enriched(Q2, "LongTermDebtNoncurrent") } } as FmpBalanceSheetRow;

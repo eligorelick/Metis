@@ -399,6 +399,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
             reason: `${reason}; ${dependent === "netDebt" && canRecomputeDebt ? "net debt recomputed from same-filing admitted debt less unrestricted cash" : `${dependent} unavailable until its own composition is reconciled`}` };
         }
         out = { ...out, cashAndCashEquivalents: value, cashAndShortTermInvestments: null, netDebt, fieldConflicts,
+          vendorNetDebt: out.vendorNetDebt !== undefined ? out.vendorNetDebt : typeof out.netDebt === "number" && Number.isFinite(out.netDebt) ? out.netDebt : null,
           fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence,
             ...(canRecomputeDebt ? { netDebt: { ...sec.evidence, tags: [...new Set([...debtProof!.tags, ...sec.evidence.tags])], calculation: "total-debt-minus-unrestricted-cash" } } : {}) } };
         gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true,
