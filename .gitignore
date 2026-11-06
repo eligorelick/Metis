@@ -3,6 +3,7 @@
 connections.v1.json
 connections.v1.json.*.tmp
 connections.lock
+runtime.lock
 !.env.example
 
 # Dependencies / build

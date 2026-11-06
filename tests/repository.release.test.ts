@@ -249,13 +249,13 @@ function forbiddenReleaseFiles(files: readonly string[]): string[] {
     // Ignore rules protect ordinary staging; the release boundary also rejects
     // force-added local sessions, credentials and generated launch artifacts.
     if (/(^|\/)(?:tmp|brag-output[^/]*|\.codex|\.t3)\//.test(lower) ||
-      /(^|\/)(?:connections\.v1\.json(?:\..*)?|connections\.lock|csrf-token)$/.test(lower)) return true;
+      /(^|\/)(?:connections\.v1\.json(?:\..*)?|connections\.lock|runtime\.lock|csrf-token)$/.test(lower)) return true;
     if (lower.endsWith(".md") && !ALLOWED_MARKDOWN.has(file)) return true;
     if (lower.startsWith("docs/") && !ALLOWED_MARKDOWN.has(file)) return true;
     if (lower.startsWith(".github/") && !ALLOWED_GITHUB_FILES.has(file)) {
       return true;
     }
-    return /(^|\/)(audit_prompt(?:\.md)?|credentials(?:\.json)?|id_rsa|\.npmrc|\.netrc|research\/|\.env($|\.)|data\/|\.next\/|build\/|out\/|dist\/|node_modules\/|coverage\/|\.claude\/|\.superpowers\/|\.playwright-mcp\/|\.worktrees\/)|\.(?:db(?:3)?$|db-|sqlite(?:3)?$|tsbuildinfo$|pem$|key$|p12$|pfx$)/i.test(
+    return /(^|\/)(audit_prompt(?:\.md)?|credentials(?:\.json)?|id_rsa|\.npmrc|\.netrc|research\/|\.env($|\.)|data\/|\.next\/|build\/|out\/|dist\/|node_modules\/|coverage\/|\.claude\/|\.superpowers\/|\.playwright-mcp\/|\.worktrees\/)|\.(?:(?:db3?|sqlite3?)(?:$|-)|tsbuildinfo$|pem$|key$|p12$|pfx$)/i.test(
       file,
     );
   });
@@ -670,6 +670,9 @@ describe("public release contract", () => {
         "local.sqlite",
         "local.sqlite3",
         "local.db3",
+        "local.db3-wal",
+        "local.sqlite-journal",
+        "local.sqlite3-shm",
         "build/output.js",
         "coverage/risk/coverage-summary.json",
         "tmp/live-report.json",
@@ -680,6 +683,7 @@ describe("public release contract", () => {
         "connections.v1.json",
         "connections.v1.json.pending.tmp",
         "connections.lock",
+        "runtime.lock",
         "csrf-token",
         "credentials.json",
         "certs/private.pem",
@@ -701,6 +705,9 @@ describe("public release contract", () => {
       "local.sqlite",
       "local.sqlite3",
       "local.db3",
+      "local.db3-wal",
+      "local.sqlite-journal",
+      "local.sqlite3-shm",
       "build/output.js",
       "coverage/risk/coverage-summary.json",
       "tmp/live-report.json",
@@ -711,6 +718,7 @@ describe("public release contract", () => {
       "connections.v1.json",
       "connections.v1.json.pending.tmp",
       "connections.lock",
+      "runtime.lock",
       "csrf-token",
       "credentials.json",
       "certs/private.pem",
