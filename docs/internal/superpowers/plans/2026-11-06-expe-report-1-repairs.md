@@ -80,6 +80,7 @@
 - [x] Bump report/payload/Stage B/Stage C versions for changed meaning; update pinned version tests, method docs, changelog, audit decision/delta ledger and fictional sample. Do not blindly regenerate numeric goldens.
 - [x] Run `npm run verify` under Node 24; require dependency shape, typecheck, lint, integration, core/risk coverage, production build and dependency audit to pass.
 - [x] Compare retained-input financial replay before/after; verify refusals and unaffected route fixtures. Run a bounded same-account live research smoke if feasible; record its exact limits and result.
-- [ ] Commit scoped changes, update PR #111 with outcomes and validation, push and immediately link the PR.
+- [x] Commit scoped changes, update PR #111 with outcomes and validation, push and immediately link the PR.
+- [x] Audit tracked/new files for private data and unused additions; exclude local generated/session files and enforce the release boundary even for force-added artifacts.
 - [ ] Satisfy required GitHub checks/reviews, resolve actionable comments, and merge to main. If checks remain pending, watch the PR for automatic continuation rather than poll.
 - [ ] Confirm merged commit/main state; report fixes, remaining evidence limitations and verification to the user.

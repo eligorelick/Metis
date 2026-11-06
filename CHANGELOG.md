@@ -31,6 +31,9 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Advance report 1.69.0, payload 1.88.0, Stage B 62 and Stage C 1.6.41 (D-212).
   Preserve original stored reports and source-backed refusals; see the
   [issue inventory and verification record](docs/audit/2026-11-06-expe-report-1.md).
+- Exclude generated launch videos, local agent sessions, SQLite variants and
+  CSRF tokens from ordinary staging; reject force-added temporary output and
+  account-connection files in the release gate.
 
 ## Unreleased - Optional APIs and public evidence (2026-11-06)
 

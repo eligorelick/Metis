@@ -90,6 +90,21 @@ history changes technical scores, so this fresh run is not a frozen-input
 numerical comparison. The original report JSON remains SHA-256
 `5d87e2ebc31b37c7c70de704de1f4b346d45d8e6ae6834318d0c34559b863bc7`.
 
+The user's final repository-hygiene review examined all 1,459 tracked paths and
+1,453 text files. No local databases, generated videos, account stores, raw user
+report exports or personal attachment paths were tracked. Credential-pattern
+matches were two deliberately injected, offline test values, not operator
+credentials. Every file introduced by the PR is referenced by code, documented
+release inventory or automatic test discovery. Historical decision records and
+regression fixtures remain intentional reproducibility evidence.
+
+The two existing launch-video output directories remain local and now have an
+explicit ignore rule. Local agent sessions, SQLite variants and CSRF tokens are
+also ignored. A failing-before/passing-after release test ensures force-adding
+temporary output, account stores, session data or generated videos is rejected;
+all 24 release/privacy tests passed. This follow-up changes only ignore rules,
+release tests and documentation; production source is unchanged.
+
 ## Ways to fill remaining coverage
 
 | Evidence | Public path | Optional vendor/search role | Limit that must remain explicit |

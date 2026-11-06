@@ -246,6 +246,10 @@ function forbiddenReleaseFiles(files: readonly string[]): string[] {
     if (file === ".env.example") return false;
     // Request-handler source, not a credential file or exported secret directory.
     if (file === "src/app/api/settings/credentials/route.ts") return false;
+    // Ignore rules protect ordinary staging; the release boundary also rejects
+    // force-added local sessions, credentials and generated launch artifacts.
+    if (/(^|\/)(?:tmp|brag-output[^/]*|\.codex|\.t3)\//.test(lower) ||
+      /(^|\/)(?:connections\.v1\.json(?:\..*)?|connections\.lock|csrf-token)$/.test(lower)) return true;
     if (lower.endsWith(".md") && !ALLOWED_MARKDOWN.has(file)) return true;
     if (lower.startsWith("docs/") && !ALLOWED_MARKDOWN.has(file)) return true;
     if (lower.startsWith(".github/") && !ALLOWED_GITHUB_FILES.has(file)) {
@@ -668,6 +672,15 @@ describe("public release contract", () => {
         "local.db3",
         "build/output.js",
         "coverage/risk/coverage-summary.json",
+        "tmp/live-report.json",
+        "brag-output/brag.mp4",
+        "brag-output-2026-10-23-105933/share-copy.txt",
+        ".codex/session.json",
+        ".t3/session.json",
+        "connections.v1.json",
+        "connections.v1.json.pending.tmp",
+        "connections.lock",
+        "csrf-token",
         "credentials.json",
         "certs/private.pem",
         "certs/private.key",
@@ -690,6 +703,15 @@ describe("public release contract", () => {
       "local.db3",
       "build/output.js",
       "coverage/risk/coverage-summary.json",
+      "tmp/live-report.json",
+      "brag-output/brag.mp4",
+      "brag-output-2026-10-23-105933/share-copy.txt",
+      ".codex/session.json",
+      ".t3/session.json",
+      "connections.v1.json",
+      "connections.v1.json.pending.tmp",
+      "connections.lock",
+      "csrf-token",
       "credentials.json",
       "certs/private.pem",
       "certs/private.key",
