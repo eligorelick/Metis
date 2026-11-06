@@ -21,6 +21,7 @@ import { dividendFrequencyFromFacts } from "@/edgar/dividendFrequency";
 import type { DataBundle, ExtractedSection } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import type { FetchResult } from "@/types/core";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpRawRow } from "@/providers/fmp";
 import { admittedStatementRow } from "@/providers/fmp";
@@ -622,7 +623,7 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
         .filter((reason): reason is string => typeof reason === "string");
       if (reasons.length > 0) withheldOperating.set(d, reasons);
     }
-    bundle = operatingBasis;
+    bundle = withCashFlowSbcBasis(operatingBasis);
   }
   const normalizedIncome = normalizeQuarterRows(rowsOf<FmpIncomeStatementRow>(bundle.statements?.incomeQuarterly));
   const normalizedCash = normalizeQuarterRows(rowsOf<FmpCashFlowRow>(bundle.statements?.cashflowQuarterly));

@@ -242,6 +242,30 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
         gaps.push({ field: `statements.income.${row.date}.earningsFamily`, reason, severity: minor ? "info" : "warn", ...(minor ? { expected: true } : {}) });
       }
     }
+    // Ownership scope is useful even when the provider's parent earnings agree.
+    // Admit the signed bridge only from the same reconciled filing family;
+    // matching a number alone does not establish an ownership basis.
+    if (family && disputed.length === 0 && out.fieldConflicts?.netIncome?.usable !== false) {
+      const parent = operand("netIncome"), nci = operand("netIncomeAttributableToNoncontrollingInterest");
+      const consolidated = family.basis === "consolidated" ? family.net : operand("netIncomeConsolidated");
+      const parentScope = parent?.proof.tags.includes("us-gaap/NetIncomeLoss") ||
+        parent?.proof.tags.includes("us-gaap/ProfitLoss") && parent.proof.tags.includes("us-gaap/NetIncomeLossAttributableToNoncontrollingInterest");
+      const compatible = parent && parentScope && nci && consolidated &&
+        [parent, nci, consolidated].every(item => sameScope(family.pretax.proof, item.proof)) &&
+        vendorAgreesWithDerived(parent.value, consolidated.value - nci.value, [consolidated.value, nci.value]);
+      const basis = compatible && finite(out.netIncome)
+        ? same(out.netIncome, parent.value) ? "parent" : same(out.netIncome, consolidated.value) ? "consolidated" : null : null;
+      if (basis && compatible) {
+        const reason = `Filed ownership bridge, ${family.pretax.proof.periodStart} through ${row.date} ${family.pretax.proof.unit}: consolidated profit ${consolidated.value} minus signed noncontrolling income ${nci.value} = parent profit ${parent.value}; provider net income retained on its ${basis} basis`;
+        for (const [field, item] of [["netIncomeConsolidated", consolidated], ["netIncomeAttributableToNoncontrollingInterest", nci]] as const) {
+          if (out.fieldConflicts?.[field]?.usable === false || finite(out[field]) && !same(out[field], item.value)) continue;
+          if (finite(out[field]) && out.fieldProvenance?.[field] && sameScope(out.fieldProvenance[field], item.proof)) continue;
+          audit(field, item.value, item.proof, reason, "filed-family");
+        }
+        out = { ...out, netIncomeOwnershipBasis: basis, fieldProvenance: { ...out.fieldProvenance,
+          netIncome: basis === "parent" ? parent.proof : consolidated.proof } };
+      }
+    }
     // A frozen row can already contain the adopted earnings family while its
     // operating aggregate still belongs to the old provider pretax base: the
     // previously missing revenue prevented the first pass from recovering it.

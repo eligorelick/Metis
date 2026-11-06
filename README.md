@@ -53,6 +53,8 @@ Other symbols use live/cache data; generating fixture reports can still call sel
 
 No paid API key is required to try the app. For real keyless research, SEC EDGAR requires `EDGAR_CONTACT` (a contact identity, not a key). Optional keys: `FMP_API_KEY` for vendor data, `FRED_API_KEY` for macro requests, `FINNHUB_API_KEY` for Finnhub, and `ANTHROPIC_API_KEY` only for Claude API analysis. `ANTHROPIC_ADMIN_KEY` is only for optional cost reconciliation. Configure provider keys and the SEC contact in `.env` or Settings; Settings also supports Save, Test and Remove saved for the optional admin key in protected local storage. See the configuration table below for limits and defaults.
 
+Financial-data subscriptions are optional: useful APIs are preferred, with public issuer documents and SEC proxies as bounded fallbacks. Unsupported documents and unresolved accounting conflicts remain explicit; see [public evidence limits](docs/METHODOLOGY.md#optional-apis-and-public-evidence-d-211).
+
 Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps. Measured complete runs in November 2026 cost $1.62 (Haiku 4.5 analysts at medium effort with the Sonnet 5.5 judge), $2.28 (Sonnet 5.5 at high), $4.71 (Opus 5.5 at high), $12.27 (Opus 5.5 at extra high), $3.08 (Sonnet 5.5 on JPM) and $6.30 (Opus 5.5 on NVO), so expect more than the estimate at higher effort. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) and the detailed pricing table below.
 
 ## AI connections
@@ -60,8 +62,8 @@ Claude API analysis is separately billed. The checked-in registry's illustrative
 In **Settings → AI connections**, connect ChatGPT through official plan OAuth or Google through the separately installed Gemini CLI **0.36.x**, then save. ChatGPT supports account model refresh, GPT-6.1 Sol with an access notice,
 reasoning choices and opt-in Fast speed. Reports retain actual execution details.
 Sign-in runs no inference; failures never switch to paid API usage. Claude API
-remains separately billed. Plan allowances and credit settings apply; API dollar
-caps do not measure them. See [setup, controls and limits](docs/PRIVACY.md#ai-connection-setup).
+remains separately billed. Plan allowances and credit settings apply; API dollar caps do not measure them. See [setup, controls and limits](docs/PRIVACY.md#ai-connection-setup).
+ChatGPT supports hosted plan research; Claude retains API search and Gemini uses supplied evidence. Writers and judges stay tool-free. Explicit optional-search limits fall back to supplied evidence with a coverage notice; authentication, policy and allowance failures still stop the run.
 Connections have offline test coverage, and complete reports have run live through a ChatGPT connection; inference through a live Gemini account has not been verified. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
 
 ## Configuration

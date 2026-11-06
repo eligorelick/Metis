@@ -174,7 +174,7 @@ export interface StatementFieldProvenance {
   /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */
   calculation?: "revenue-minus-cost" | "ending-cash-minus-beginning-cash" | "cash-ppe-plus-hardware" | "cfo-minus-cash-ppe-and-hardware" | "nci-inferred-zero" | "basic-shares-equal-eps" | "equity-statement-nci" | "total-equity-less-equity-statement-nci"
     /** D-133: a vendor total debt recomposed from one filing because its lease line was the noncurrent lease liabilities only. */
-    | "noncurrent-lease-line-completed" | "same-filing-debt-completed"
+    | "noncurrent-lease-line-completed" | "same-filing-debt-completed" | "total-debt-minus-unrestricted-cash"
     | "pretax-plus-equity-method" | "parent-plus-nci" | "operating-income-as-ebit" | "operating-income-plus-da" | "earnings-identity"
     | "revenue-less-noninterest-costs" | "filed-sales-line" | "complete-operating-reconciliation";
 }

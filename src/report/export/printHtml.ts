@@ -90,6 +90,7 @@ import {
   orderedProjectionSeries,
   projectionAvailability,
   projectionDisplayAssumptions,
+  projectionUnavailabilityNote,
   projectionCellPoint,
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
@@ -161,7 +162,7 @@ import {
   type BodyTable,
   type FigureRow,
 } from "@/report/presentation";
-import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
+import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
@@ -717,6 +718,7 @@ function sectionTechnicals(report: Report): string {
 }
 
 function sectionLeadership(l: Leadership, report: Report): string {
+  const roster = leadershipRosterPresentation(l);
   // D-67: one card per assessed officer; the not-assessed officers share one line.
   const contexts = new Map(l.executives.map(e => [e, executiveOfficeContext(e, l, report.appendix.verificationLog, report.outlook.guidanceCredibility)]));
   const groups = executiveGroups(l.executives, l.executives.filter(e => contexts.get(e) !== undefined || executiveTenureText(e) !== undefined));
@@ -736,7 +738,7 @@ function sectionLeadership(l: Leadership, report: Report): string {
   const others = groups.notAssessed.length > 0
     ? `<div class="exec"><h4>${groups.assessed.length > 0 ? "Other officers" : "Officers"}</h4>${groups.notAssessedLines.map((line) => `<p>${esc(line)}</p>`).join("")}${claimList(groups.notAssessedClaims)}</div>`
     : "";
-  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${execs}${others}${managementActionsBlock(l.managementActions)}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Governance", claimList(l.governanceNotes))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
+  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${l.executives.length === 0 ? "<p>No individual executive assessment recorded.</p>" : ""}${execs}${others}${managementActionsBlock(l.managementActions)}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Provider executive roster", claimList(roster.roster))}${subsection("Governance", claimList(roster.governance))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
 }
 
 function sectionCompetitive(c: Competitive, report: Report): string {
@@ -806,7 +808,8 @@ function sectionProjections(p: Projections): string {
       });
       const own = specific[index] ?? [];
       const assumptions = own.length > 0 ? `<ul class="claims">${own.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : "";
-      return `<h3>${esc(PROJECTION_METRIC_BY_KEY[s.metric].forecastLabel)} (${esc(s.unit)})</h3>${table(["Period", ...forwardPaths.map((descriptor) => descriptor.label)], rows)}${assumptions}`;
+      const unavailable = projectionUnavailabilityNote(s);
+      return `<h3>${esc(PROJECTION_METRIC_BY_KEY[s.metric].forecastLabel)} (${esc(s.unit)})</h3>${unavailable === null ? table(["Period", ...forwardPaths.map((descriptor) => descriptor.label)], rows) : `<p class="faint">${esc(unavailable)}</p>`}${assumptions}`;
     })
     .join("");
   const pct = (w: number) => `${Math.round(w * 100)}%`;

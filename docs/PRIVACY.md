@@ -26,13 +26,14 @@ telemetry (`telemetry.nextjs.org`). `.env.example` ships
 | OpenAI (`auth.openai.com`, `api.openai.com`) | OAuth registration, token renewal/revocation and account model catalog; research prompt and ticker payload for inference | You connect ChatGPT, request its models, or run a report using that connection |
 | Google through the official Gemini CLI | Google OAuth and CLI service requests; the research prompt and evidence payload for inference | You connect Gemini or run a report using that connection; the CLI owns its service endpoints |
 | Anthropic's server-side web search | Search queries the model composes, executed by Anthropic on its servers and subject to its search service behavior | A Claude analyst chooses to search; capped at `MAX_PROVIDER_WEB_SEARCHES` = 8 uses per request, including separate retry/resumption requests (`src/providers/anthropic.ts`) |
+| OpenAI's hosted web research | Model-composed queries and visited sources, handled by OpenAI's search service | A ChatGPT analyst runs the separate research request; local cancellation on the first observed action beyond eight search/open/find actions, a ten-minute deadline and a 16 MB stream limit; these cannot prevent work already performed remotely |
 | Financial Modeling Prep (`financialmodelingprep.com`) | The symbol and endpoint parameters; `FMP_API_KEY` in an `apikey` header, never in the URL | `FMP_API_KEY` is set |
 | Yahoo (`query1.finance.yahoo.com`) | The symbol, chart parameters/date range and a product-identifying `User-Agent` (`YAHOO_DEFAULT_USER_AGENT`). **`EDGAR_CONTACT` is not used by the Yahoo client** | Quote or price history fallback is needed and FMP could not serve it |
 | FRED (`api.stlouisfed.org`, `fred.stlouisfed.org`) | Series ID, date range and transformation parameters; keyed requests include `FRED_API_KEY` as an `api_key` query parameter. The keyless `fredgraph.csv` fallback sends no credential | Macro series are requested; CSV also provides a fallback when keyed retrieval fails |
 | U.S. Treasury (`home.treasury.gov`) | The year of the daily par yield curve CSV requested; no key, contact or identity header | Only when FRED `DGS10`, FMP treasury rates and the last cached `DGS10` observation all have no risk-free rate |
 | Finnhub (`finnhub.io`) | Symbol, endpoint/date parameters; `FINNHUB_API_KEY` in an `X-Finnhub-Token` header | `FINNHUB_API_KEY` is set |
 | FINRA (`api.finra.org`) | Partition requests; symbol and requested settlement cycles in short-interest queries. The production path configures no FINRA credential | Short-interest data is requested |
-| Issuer website for an EDGAR-confirmed issuer | Public home, investor-relations, news and release GET requests; `User-Agent: MetisResearch/1.0 (public investor-relations announcement discovery)`; no key, contact or cookie; up to six requests in 12 seconds to public addresses | Confirming a next earnings date when not already confirmed, or discovering official material-event statements |
+| Issuer website for an EDGAR-confirmed issuer | Public home, investor-relations, news, release and transcript GET requests; `User-Agent: MetisResearch/1.0 (public investor-relations announcement discovery)`; no key, contact or cookie; up to six requests in 12 seconds per discovery pass to public addresses | Confirming a next earnings date, discovering official material-event statements, or recovering missing optional release/transcript evidence |
 
 Cache hits may avoid these requests. Expired hits can trigger a background
 refresh even while the UI displays stored data. Opening a company page can
@@ -406,8 +407,19 @@ does not prove remaining quota or model access. Check
 [Gemini quotas](https://geminicli.com/docs/resources/quota-and-pricing/)
 before generating reports. Metis does not know your remaining allowance.
 There is no automatic change to a paid API when a connection fails.
-Subscription reports use the supplied evidence without additional web search;
-the existing Claude API path retains its bounded web search.
+ChatGPT analyst research can use the connected plan's hosted web search when
+the account and model allow it. OpenAI does not support `max_tool_calls` on this
+route, so Metis cancels locally on the first action beyond eight; the count
+includes search, open and find actions and is not an API charge estimate or a
+provider-side spending cap. Gemini uses supplied evidence only. The Claude API
+path retains bounded web search. Writers and judges have no search tools.
+Reports disclose observed actions and retained web evidence, including research
+reused from a checkpoint. Explicit local action/time limits and an unsupported
+search capability can continue to a tool-free writer on the same connection,
+using only supplied evidence. Unfinished notes and URLs are discarded; the
+coverage limitation and observed actions remain recorded. Authentication, policy,
+allowance, malformed-response and user-cancellation failures do not take this
+path. No failure switches billing paths. See OpenAI's [plan capability limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
 
 The financial calculations and deterministic citation checks are shared by
 all providers. Account/model changes invalidate incompatible partial report

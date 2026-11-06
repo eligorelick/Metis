@@ -1633,17 +1633,6 @@
       "reason": "Valuation methodology (D-18, D-19): the near-term growth anchor became the median of four methods with its range shown, the terminal rule is labelled a house convention, WACC inputs are disclosed by source and observation date, free cash flow is reported net of stock-based compensation, the enterprise-value bridge is explicit, and an own-history multiple is a rank among N quarters. Fair value, the score drivers reading those inputs, and the disclaimer text move with them.",
       "deltas": [
         {
-          "path": "stageB.capital.dilution",
-          "beforeMissing": true,
-          "after": {
-            "basicShares": 200000000,
-            "dilutedShares": 205000000,
-            "overhangPct": 2.5,
-            "asOf": "2025-12-31",
-            "note": "Dilution from outstanding awards: diluted 205000000 vs basic 200000000 weighted-average shares as of 2025-12-31 — a 2.5% overhang. Options, RSUs and convertibles that are antidilutive in a loss year are excluded from the diluted count by the filer, so a loss-making issuer's overhang understates the award pool."
-          }
-        },
-        {
           "path": "stageB.capital.fcf.latestConversion",
           "before": 1.0285714285714285,
           "after": 0.8857142857142857
@@ -1716,11 +1705,6 @@
           "path": "stageB.capital.fcf.series.1.stockBasedCompensation",
           "beforeMissing": true,
           "after": 250000000
-        },
-        {
-          "path": "stageB.capital.notes.1",
-          "beforeMissing": true,
-          "after": "Dilution from outstanding awards: diluted 205000000 vs basic 200000000 weighted-average shares as of 2025-12-31 — a 2.5% overhang. Options, RSUs and convertibles that are antidilutive in a loss year are excluded from the diluted count by the filer, so a loss-making issuer's overhang understates the award pool."
         },
         {
           "path": "stageB.capital.sbc.note",
@@ -6551,16 +6535,6 @@
       "reason": "EXPE audit repairs consolidated equity scope and explicit capital/SBC/accrual definitions, records historical growth-window context, removes unused projection priors and exposes valuation ownership uncertainty. The simple no-NCI DEMO fixture retains its financial numbers and composite formula; these reviewed differences are explanatory notes, evidence operands, reconciliation metadata and version stamps.",
       "deltas": [
         {
-          "path": "report.quality.notes",
-          "beforeMissing": true,
-          "after": [
-            "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment.",
-            "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant.",
-            "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them.",
-            "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk."
-          ]
-        },
-        {
           "path": "report.scores.aspects.moat.note",
           "before": "Quantitative moat proxy: level and durability of ROIC plus gross-margin (pricing-power) level. Gross margin is dropped where the route suppresses it (banks, pre-revenue).",
           "after": "Quantitative moat proxy: the latest ROIC, its durability - the LOWEST annual ROIC in the window, so a rising return is not read as instability (D-61) - and gross-margin (pricing-power) level; financial routes score return on TANGIBLE COMMON EQUITY instead, since invested capital is undefined for a deposit-funded balance sheet. Gross margin is dropped where the route suppresses it (banks, pre-revenue)."
@@ -10476,9 +10450,12 @@
       "name": "D-208 current valuation use and provisional qualification",
       "decisions": [
         "D-208",
-        "D-209"
+        "D-209",
+        "D-210",
+        "D-211",
+        "D-212"
       ],
-      "reason": "D-208 admits the same-day model from actual 2025-12-31 statement/value/quote evidence, replacing build-time valuation labels; adds score-neutral, route-applicable evidence qualification through report grades and verdict; and advances coordinated method/report identities. Every existing financial numeric leaf stays pinned. D-209 advances only the current report stamp to 1.66.0 for source-owned evidence disclosures; all financial numeric pins remain unchanged.",
+      "reason": "D-208 admits the same-day model from actual 2025-12-31 statement/value/quote evidence, replacing build-time valuation labels; adds score-neutral, route-applicable evidence qualification through report grades and verdict; and advances coordinated method/report identities. Every existing financial numeric leaf stays pinned. D-209 advances only the current report stamp to 1.66.0 for source-owned evidence disclosures; all financial numeric pins remain unchanged. D-210 advances only the current report stamp to 1.67.0 in this fixture; its financial inputs do not exercise the new source-scope recoveries. D-211 advances the current report stamp to 1.68.0 for optional public evidence and observed research disclosures; this fixture has no recovered documents and all existing financial numeric pins remain unchanged. D-212 advances the current report stamp to 1.69.0; any independently affected financial leaves are reviewed separately.",
       "deltas": [
         {
           "path": "report.balanceSheet.graded.qualification",
@@ -10543,7 +10520,7 @@
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.66.0"
+          "after": "1.69.0"
         },
         {
           "path": "report.quality.graded.qualification",
@@ -10815,6 +10792,46 @@
               ]
             }
           }
+        }
+      ]
+    },
+    {
+      "name": "expe-report1-scope-and-qualification",
+      "decisions": [
+        "D-212"
+      ],
+      "reason": "D-212 retains the existing financial and score values in this annual fixture while correcting weighted-average share-gap meaning and exposing the actual Beneish and receivables qualifications. Earlier capex-basis wording remains asserted and restored by its separate historical compatibility helper.",
+      "deltas": [
+        {
+          "path": "report.quality.notes",
+          "beforeMissing": true,
+          "after": [
+            "Accruals are financial-asset-adjusted (Richardson, Sloan, Soliman & Tuna 2005): investing cash flow excludes purchases and sales/maturities of investments, and net operating assets exclude cash, short-term and long-term investments — buying securities or a strategic equity stake is not an accrual. Capex and acquisitions stay in as operating investment.",
+            "Acquisitions in the fiscal year ended 2025-12-31: goodwill was unchanged at USD 1.00 billion; investing cash flow shows USD 100.0 million paid for acquisitions, net of cash acquired. The acquired businesses' assets enter net operating assets, so part of the USD 250.0 million increase may have been bought rather than built up in working capital or plant.",
+            "Net operating assets rose USD 250.0 million in the fiscal year ended 2025-12-31: receivables +USD 150.0 million, inventory +USD 20.0 million, net PP&E +USD 150.0 million, other operating assets +USD 230.0 million; operating liabilities rose USD 300.0 million, which nets against them.",
+            "House-rule bands for positive accruals: ratio < 10% unremarkable, 10-20% elevated, >= 20% red flag (heuristic - Sloan 1996 is a decile-ranking result with no canonical bright line). Negative accruals do not establish positive earnings-inflation risk.",
+            "Receivables scope comparability is unverified: the same statement field is retained in both years; the numerical comparison alone does not establish a company-specific accounting explanation.",
+            "DEPI: rate built from combined depreciation AND amortisation over (D&A + net PP&E) — the statements do not separate depreciation; Beneish's index is on depreciation of PP&E alone, so an acquisitive issuer's intangible amortisation moves this index for reasons unrelated to depreciation policy (research §2.1).",
+            "TATA uses the cash-flow construction (NI from continuing ops − CFO)/TA_t (Hribar–Collins 2002); balance-sheet construction reported as diagnostic only.",
+            "Diagnostic balance-sheet TATA uses shortTermDebt as a proxy for current maturities of LTD (broader — includes notes payable).",
+            "The model detects overstatement, not understatement — a very negative M does not prove conservative accounting."
+          ]
+        },
+        {
+          "path": "stageB.capital.dilution",
+          "beforeMissing": true,
+          "after": {
+            "basicShares": 200000000,
+            "dilutedShares": 205000000,
+            "overhangPct": 2.5,
+            "asOf": "2025-12-31",
+            "note": "Weighted-average diluted/basic share gap: diluted 205000000 vs basic 200000000 shares for the fiscal period ending 2025-12-31 — a 2.5% gap. This period-average EPS denominator difference is not an outstanding award pool or a measure of current economic dilution. Antidilutive options, RSUs and convertibles are excluded from diluted EPS by the filer."
+          }
+        },
+        {
+          "path": "stageB.capital.notes.1",
+          "beforeMissing": true,
+          "after": "Weighted-average diluted/basic share gap: diluted 205000000 vs basic 200000000 shares for the fiscal period ending 2025-12-31 — a 2.5% gap. This period-average EPS denominator difference is not an outstanding award pool or a measure of current economic dilution. Antidilutive options, RSUs and convertibles are excluded from diluted EPS by the filer."
         }
       ]
     }

@@ -794,3 +794,12 @@ export function projectionDisplayAssumptions(series: ProjectionSeries): string[]
   return available.weighted ? series.assumptions : series.assumptions.filter(line =>
     !/\b(?:weighted (?:path|margin)|display (?:prior|weights?))\b/i.test(line));
 }
+
+/** Keep a retained refusal visible when a series has history but no usable forecast. */
+export function projectionUnavailabilityNote(series: ProjectionSeries): string | null {
+  if (projectionAvailability([series]).forward) return null;
+  const reasons = [...new Set(series.disclosures.map(entry => entry.reason).filter(Boolean))];
+  if (reasons.length > 0) return reasons.join(" ");
+  const retained = series.assumptions.filter(line => /\b(?:withheld|unavailable|unestablished|not established)\b/i.test(line));
+  return retained.length > 0 ? retained.join(" ") : "No forward projection points are available for this series.";
+}

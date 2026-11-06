@@ -26,6 +26,20 @@ const flows = [
   ["netCashProvidedByFinancingActivities", "NetCashProvidedByUsedInFinancingActivities", -20, -20],
 ] as const;
 describe("same-definition cash flow field admission", () => {
+  it("reconciles cumulative vendor SBC only against a direct quarter and cumulative total in the same filing", () => {
+    const result = admit("ShareBasedCompensation", [point(114), point(217, { start: "2025-11-29" })], { stockBasedCompensation: 217 });
+    expect(result.cash.stockBasedCompensation).toBe(114);
+    expect(result.cash.fieldConflicts?.stockBasedCompensation).toMatchObject({ usable: true, vendorValue: 217, secValue: 114 });
+    expect(result.cash.fieldProvenance?.stockBasedCompensation).toMatchObject({ periodStart: "2026-02-28", periodEnd: end });
+    expect(result.cashInput).toMatchObject({ value: { data: { rows: [{ stockBasedCompensation: 217 }] } } });
+  });
+  it.each(["amount", "filing", "ambiguous", "prior refusal"])("does not reconcile cumulative SBC with %s evidence", kind => {
+    const total = point(kind === "amount" ? 218 : 217, { start: "2025-11-29", ...(kind === "filing" ? { accn: "0000796343-26-000099" } : {}) });
+    const result = admit("ShareBasedCompensation", [point(114), total, ...(kind === "ambiguous" ? [{ ...total, val: 218 }] : [])],
+      { stockBasedCompensation: 217, ...(kind === "prior refusal" ? { fieldConflicts: { stockBasedCompensation: { usable: false as const, vendorValue: 217, secValue: null, reason: "independent refusal" } } } : {}) });
+    expect(result.cash.stockBasedCompensation).toBeNull();
+    expect(result.cash.fieldConflicts?.stockBasedCompensation?.usable).toBe(false);
+  });
   it("keeps refusal dependencies closed after serialization of legacy vendor aliases",()=>{
     const raw={date:end,cashAtEndOfPeriod:2588e6,netChangeInCash:-3744e6,purchasesOfInvestments:-1125e6,salesMaturitiesOfInvestments:688e6,financialAssetCashFlow:-437e6,
       fieldConflicts:{cashAtEndOfPeriod:{usable:false as const,vendorValue:2588e6,secValue:4919e6,reason:"filed cash conflict"},purchasesOfInvestments:{usable:false as const,vendorValue:-1125e6,secValue:null,reason:"investment classification unresolved"}}};

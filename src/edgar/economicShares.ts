@@ -346,6 +346,21 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
       else if (value) all.push({ text: value, boundary: strongAccountingBoundary(value), row });
       return all;
     }, []);
+    const pagination = (value: string): boolean => /^(?:\d+|F-\s*\d+|Table of Contents|Notes to Consolidated Financial Statements\s*[-\u2013\u2014]?\s*\(Continued\))$/i.test(value);
+    // A printed page can split the supported EPS equality sentence. Rejoin
+    // only its exact introductory fragment across pagination, retaining every
+    // substantive block and refusing to cross an accounting-topic boundary.
+    for (let index = 0; index < blocks.length; index++) {
+      const block = blocks[index];
+      if (block.boundary || block.row || !/(?:^|[.!?] )The earnings per share$/i.test(block.text)) continue;
+      let next = index + 1;
+      while (next < blocks.length && !blocks[next].boundary && !blocks[next].row && pagination(blocks[next].text)) next++;
+      const continuation = blocks[next];
+      if (continuation && !continuation.boundary && !continuation.row && /^amounts are the same for /i.test(continuation.text)) {
+        block.text += ` ${continuation.text}`;
+        continuation.text = "";
+      }
+    }
     const blockSentences = (block: typeof blocks[number]): string[] => block.row ? [block.text] : filingSentences(block.text);
     const statements = blocks.flatMap((block, blockIndex) => block.boundary ? [] : blockSentences(block).map(sentence => ({ sentence, blockIndex })));
     const sentences = statements.map(statement => statement.sentence);
@@ -384,7 +399,7 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
       if (/^(?:(?:the\s+)?company|common stock)\s+has\s+(?:one|two|three|four|\d+)\s+classes(?:\s+of\s+common\s+(?:stock|shares))?$/i.test(value)) return true;
       if (/^(?:financial|accounting)\s+(?:statements?\s+)?(?:discussion|information|data|statements|notes)$/i.test(value)) return true;
       if (/^(?:shares issued|treasury shares):\s*[\d,.]+$/i.test(value)) return true;
-      if (/^(?:\d+|F-\s*\d+|Table of Contents|Notes to Consolidated Financial Statements\s*[-\u2013\u2014]?\s*\(Continued\))$/i.test(value)) return true;
+      if (pagination(value)) return true;
       if (/^(?:Basic|Diluted)\s+Earnings\s+Per\s+Share$/i.test(value)) return true;
       if (/^The following table (?:represents|presents|shows) (?:our|the) basic and diluted earnings per share$/i.test(value)) return true;
       // Supported EPS methods are whole clauses. An accounting phrase cannot
@@ -396,7 +411,7 @@ export function parsePrimaryEconomicShares(html: string, identity: FilingIdentit
         new RegExp("^Basic earnings per share was calculated for " + years + " using the weighted average number of common and Class [A-Za-z0-9]+ common shares outstanding during the period excluding restricted stock and stock held in escrow$", "i"),
         new RegExp("^For " + years + ", we computed diluted earnings per share using \\(i\\) the number of shares of common stock and Class [A-Za-z0-9]+ common stock used in the basic earnings per share calculation as indicated above, \\(ii\\) if dilutive, the incremental common stock that we would issue upon the assumed exercise or vesting of stock-based awards and common stock warrants using the treasury stock method, \\(iii\\) if dilutive, our Convertible Notes using the if-converted method prior to the date of our irrevocable election to settle in cash as discussed in NOTE \\d+ [–—-] Debt, and \\(iv\\) other stock-based commitments$", "i"),
         /^(?:In )?periods when we recognize a net loss, we exclude the impact of outstanding stock awards and the potential share settlement impact related to our Convertible Notes, if applicable, from the diluted loss per share calculation as their inclusion would have an antidilutive effect$/i,
-        /^(?:For the (?:three|six|nine|twelve)(?: and (?:three|six|nine|twelve))? months ended [A-Za-z]+ \d{1,2}, \d{4}, (?:less than |approximately )?\d+(?: million)?|For the years? ended [A-Za-z]+ \d{1,2}, \d{4}(?:, \d{4})*(?: and \d{4})?, a minimal number of shares) of outstanding stock[- ](?:based )?awards (?:have been|were) excluded from the calculations of diluted earnings per share attributable to common stockholders because their effect would have been antidilutive$/i,
+        /^(?:For the (?:three|six|nine|twelve)(?: and (?:three|six|nine|twelve))? months ended [A-Za-z]+ \d{1,2}, \d{4}(?: and \d{4})?, (?:less than |approximately )?\d+(?: million)?|For the years? ended [A-Za-z]+ \d{1,2}, \d{4}(?:, \d{4})*(?: and \d{4})?, a minimal number of shares) of outstanding stock[- ](?:based )?awards (?:have been|were) excluded from the calculations of diluted earnings per share attributable to common stockholders because their effect would have been antidilutive$/i,
         /^For the (?:three|six|nine|twelve)(?: and (?:three|six|nine|twelve))? months ended [A-Za-z]+ \d{1,2}, \d{4}, approximately \d+(?: million)?(?: of outstanding stock awards| shares)? were excluded$/i,
         /^For the years? ended [A-Za-z]+ \d{1,2}, \d{4}(?:, \d{4})*(?: and \d{4})?, approximately \d+(?: million)?(?: and approximately \d+(?: million)?)?(?: shares)? were excluded$/i,
       ];

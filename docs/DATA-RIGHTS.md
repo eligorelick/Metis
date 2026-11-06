@@ -35,6 +35,13 @@ The FMP access tracker caches explicit endpoint/symbol refusals for 15 minutes;
 that behavior manages requests, not licensing permission. Likewise, source
 attribution and citation coverage document provenance without granting rights.
 
+Optional public-source recovery follows actual official-site links and reads
+eligible SEC proxies. It retains bounded issuer text, document hashes and source
+URLs in the research artifacts; budgeted excerpts may be sent to the selected
+AI connection. Public access does not establish redistribution rights. Hosted
+ChatGPT/Claude search remains subject to the connected provider's account and
+tool rules; unsupported documents are not reconstructed from search snippets.
+
 ## Provider considerations
 
 **Yahoo Finance.** Metis uses the keyless chart endpoint as a quote/price

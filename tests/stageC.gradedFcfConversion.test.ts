@@ -15,6 +15,13 @@ const TTM_USD = ["USD", "USD", "USD", "USD"] as const;
 describe("graded FCF conversion (AI-511)", () => {
   it("calls graded only the FCF conversion the balance-sheet score graded, with its window (AI-511)", () => {
     const bundle = completeCurrencyBundle({ siblingQuarterCurrencies: TTM_USD });
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("quarterly fixture required");
+    // This label test requires an admitted consolidated denominator. Parent
+    // profit and a zero closing NCI balance no longer supply that evidence.
+    bundle.statements.incomeQuarterly.value.data.rows.forEach(row => {
+      row.netIncomeConsolidated = row.netIncome;
+      row.netIncomeOwnershipBasis = "consolidated";
+    });
     const computed = runStageB(bundle);
     const current = computed.capital.current!;
     expect(current).toMatchObject({ basis: "ttm", asOf: "2026-03-31", periodStart: "2025-04-01" }); // precondition

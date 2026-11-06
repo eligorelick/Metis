@@ -24,6 +24,9 @@ const trackedFiles = (root = ROOT) =>
 const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
+  "docs/audit/2026-11-06-expe-report-1.md",
+  "docs/internal/superpowers/plans/2026-11-06-expe-report-1-repairs.md",
+  "docs/internal/superpowers/plans/2026-11-06-public-evidence-fallbacks.md",
   "CODE_OF_CONDUCT.md",
   "docs/internal/README.md",
   "docs/audit/2026-11-03-valuation-inputs.md",
@@ -85,6 +88,9 @@ const REQUIRED_RELEASE_FILES = [
  * record supersedes them.
  */
 const ALLOWED_MARKDOWN = new Set([
+  "docs/audit/2026-11-06-expe-report-1.md",
+  "docs/internal/superpowers/plans/2026-11-06-expe-report-1-repairs.md",
+  "docs/internal/superpowers/plans/2026-11-06-public-evidence-fallbacks.md",
   "CODE_OF_CONDUCT.md",
   "docs/internal/README.md",
   "docs/audit/2026-11-03-valuation-inputs.md",
@@ -240,12 +246,16 @@ function forbiddenReleaseFiles(files: readonly string[]): string[] {
     if (file === ".env.example") return false;
     // Request-handler source, not a credential file or exported secret directory.
     if (file === "src/app/api/settings/credentials/route.ts") return false;
+    // Ignore rules protect ordinary staging; the release boundary also rejects
+    // force-added local sessions, credentials and generated launch artifacts.
+    if (/(^|\/)(?:tmp|brag-output[^/]*|\.codex|\.t3)\//.test(lower) ||
+      /(^|\/)(?:connections\.v1\.json(?:\..*)?|connections\.lock|runtime\.lock|csrf-token)$/.test(lower)) return true;
     if (lower.endsWith(".md") && !ALLOWED_MARKDOWN.has(file)) return true;
     if (lower.startsWith("docs/") && !ALLOWED_MARKDOWN.has(file)) return true;
     if (lower.startsWith(".github/") && !ALLOWED_GITHUB_FILES.has(file)) {
       return true;
     }
-    return /(^|\/)(audit_prompt(?:\.md)?|credentials(?:\.json)?|id_rsa|\.npmrc|\.netrc|research\/|\.env($|\.)|data\/|\.next\/|build\/|out\/|dist\/|node_modules\/|coverage\/|\.claude\/|\.superpowers\/|\.playwright-mcp\/|\.worktrees\/)|\.(?:db(?:3)?$|db-|sqlite(?:3)?$|tsbuildinfo$|pem$|key$|p12$|pfx$)/i.test(
+    return /(^|\/)(audit_prompt(?:\.md)?|credentials(?:\.json)?|id_rsa|\.npmrc|\.netrc|research\/|\.env($|\.)|data\/|\.next\/|build\/|out\/|dist\/|node_modules\/|coverage\/|\.claude\/|\.superpowers\/|\.playwright-mcp\/|\.worktrees\/)|\.(?:(?:db3?|sqlite3?)(?:$|-)|tsbuildinfo$|pem$|key$|p12$|pfx$)/i.test(
       file,
     );
   });
@@ -660,8 +670,21 @@ describe("public release contract", () => {
         "local.sqlite",
         "local.sqlite3",
         "local.db3",
+        "local.db3-wal",
+        "local.sqlite-journal",
+        "local.sqlite3-shm",
         "build/output.js",
         "coverage/risk/coverage-summary.json",
+        "tmp/live-report.json",
+        "brag-output/brag.mp4",
+        "brag-output-2026-10-23-105933/share-copy.txt",
+        ".codex/session.json",
+        ".t3/session.json",
+        "connections.v1.json",
+        "connections.v1.json.pending.tmp",
+        "connections.lock",
+        "runtime.lock",
+        "csrf-token",
         "credentials.json",
         "certs/private.pem",
         "certs/private.key",
@@ -682,8 +705,21 @@ describe("public release contract", () => {
       "local.sqlite",
       "local.sqlite3",
       "local.db3",
+      "local.db3-wal",
+      "local.sqlite-journal",
+      "local.sqlite3-shm",
       "build/output.js",
       "coverage/risk/coverage-summary.json",
+      "tmp/live-report.json",
+      "brag-output/brag.mp4",
+      "brag-output-2026-10-23-105933/share-copy.txt",
+      ".codex/session.json",
+      ".t3/session.json",
+      "connections.v1.json",
+      "connections.v1.json.pending.tmp",
+      "connections.lock",
+      "runtime.lock",
+      "csrf-token",
       "credentials.json",
       "certs/private.pem",
       "certs/private.key",

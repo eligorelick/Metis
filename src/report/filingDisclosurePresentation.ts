@@ -1,4 +1,5 @@
 import { sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
+import { decodeEntities } from "@/edgar/extract";
 import type { ReportAuditTable } from "@/report/auditTables";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
 import { decimalRound, formatFinancialValue } from "@/report/format";
@@ -51,7 +52,7 @@ function approximately(text: string): string {
 
 /** The segment axis a filing note is about ("Segment XBRL, Geography: …"), or null. */
 function segmentNoteAxis(note: string): string | null {
-  return /^Segment XBRL, ([^:]+):/.exec(note)?.[1] ?? null;
+  return /^Segment XBRL, ([^:]+?)(?: axis withheld)?:/.exec(note)?.[1] ?? null;
 }
 
 /** A filing note about dividends or repurchase authorization. */
@@ -343,7 +344,7 @@ function trackRecordTable(d: FilingDisclosures): ReportAuditTable[] {
 }
 
 function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
-  return d.segments.map((s) => {
+  const tables = d.segments.map((s) => {
     const latest = s.quarters[0]!;
     // AI-406: growth only against the quarter the column names; no such quarter gives a dash.
     const quarterAgo = priorQuarterIndex(s.quarters, QOQ_WINDOW_DAYS) ?? -1;
@@ -355,7 +356,7 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
     };
     const total = s.total[0] ?? null;
     const rows = s.rows.map((r) => [
-      r.childOf === null ? r.label : `  ↳ ${r.label}`,
+      r.childOf === null ? decodeEntities(r.label) : `  ↳ ${decodeEntities(r.label)}`,
       ...s.quarters.map((_, i) => money(r.values[i] ?? null, s.currency)),
       sameSegmentBasis(r.earlierPresentationAt,0,quarterAgo) ? growth(r.values, quarterAgo) : DASH,
       sameSegmentBasis(r.earlierPresentationAt,0,yearAgo) ? growth(r.values, yearAgo) : DASH,
@@ -379,6 +380,11 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
       note: notes.join(" "),
     };
   });
+  const shownAxes = new Set(d.segments.map(s => s.axisLabel));
+  const unshown = d.notes.filter(note => segmentNoteAxis(note) !== null && !shownAxes.has(segmentNoteAxis(note)!));
+  if (unshown.length > 0) tables.push({ heading: "Segment reporting limitations", headers: ["Limitation"],
+    rows: unshown.map(note => [note]), note: "These limitations apply to segment coverage; no missing segment values are inferred." });
+  return tables;
 }
 
 function segmentPerformanceTables(d: FilingDisclosures): ReportAuditTable[] {
@@ -472,8 +478,7 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       // capital-return table, not under results against guidance — unless
       // that table is not shown.
       const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
-      const shownAxes = new Set(d.segments.map((s) => s.axisLabel));
-      const guidanceNotes = d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && !isQuarterlyTrendNote(n) && !isLenderConvention(n) && !n.includes("(see Lender conventions)") && (!capitalShown || !isCapitalReturnNote(n)) && !shownAxes.has(segmentNoteAxis(n) ?? ""));
+      const guidanceNotes = d.notes.filter((n) => !n.startsWith("Annual geographic revenue (") && !isQuarterlyTrendNote(n) && !isLenderConvention(n) && !n.includes("(see Lender conventions)") && (!capitalShown || !isCapitalReturnNote(n)) && segmentNoteAxis(n) === null && /\b(?:guidance|outlook)\b/i.test(n));
       // FIGR extra-high audit B2-18: the currency-reading convention and parser
       // diagnostics are audit material (its diagnostics section lists them).
       const notes = guidanceNotes.filter((n) => !isParserDiagnostic(n)).flatMap(readerGuidanceNote);
@@ -481,7 +486,15 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       if (notes.length > 0) tables.push({ heading: "Management guidance notes", headers: ["Note"], rows: notes.map(n => [n]) });
       return tables;
     }
-    case "catalystsRisks": return [...materialEventTables(d), ...companyStatementTables(d)];
+    case "catalystsRisks": {
+      const tables = [...materialEventTables(d), ...companyStatementTables(d)];
+      const capitalShown = d.freeCashFlow.length > 0 || d.capitalReturn !== null;
+      const notes = d.notes.filter(n => !n.startsWith("Annual geographic revenue (") && segmentNoteAxis(n) === null &&
+        !isQuarterlyTrendNote(n) && !isLenderConvention(n) && !n.includes("(see Lender conventions)") &&
+        (!capitalShown || !isCapitalReturnNote(n)) && !/\b(?:guidance|outlook)\b/i.test(n) && !isParserDiagnostic(n));
+      if (notes.length > 0) tables.push({ heading: "Filing review limitations and notes", headers: ["Note"], rows: notes.map(n => [readerBaseUnits(n)]) });
+      return tables;
+    }
   }
 }
 

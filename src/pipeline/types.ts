@@ -1,3 +1,6 @@
+import type { OfficialIrDocument } from "@/providers/companyIrDocuments";
+import type { PublicGovernanceEvidence } from "@/providers/publicGovernance";
+
 /**
  * Stage A contracts: the DataBundle — everything downstream (validation,
  * Stage B compute, LLM payload assembly) consumes — plus the small pure
@@ -410,6 +413,9 @@ export interface DataBundle {
   pressReleases: FmpFetch<FmpNewsArticleRow>;
   /** Bounded, issuer-bound official news, separate from paid snippets and SEC filings. */
   companyIrMaterialEvents?: FetchResult<CompanyIrMaterialEvents>;
+  /** Public evidence supplements; never relabeled as normalized vendor datasets. */
+  companyIrDocuments?: FetchResult<OfficialIrDocument[]>;
+  publicGovernance?: FetchResult<PublicGovernanceEvidence>;
 
   /** ~5y daily OHLCV, date desc, split-adjusted close only. */
   eodPrices: FmpFetch<FmpEodBarRow>;

@@ -16,6 +16,28 @@ const row = (over: Partial<FmpBalanceSheetRow> = {}): FmpBalanceSheetRow => ({ d
 const admit = (tags = tagged, vendor = row()) => admitDebtFields(vendor, companyFacts({ [Q2]: tags }), "USD", OBSERVED);
 
 describe("exact same-filing debt completion", () => {
+  it("counts a noncurrent operating lease once when it is embedded in long-term debt and repeated as a separate vendor line", () => {
+    // Retained EXPE FY2025 shape: the same 10-K establishes every component.
+    const tags = { LongTermDebtNoncurrent: 4469, LongTermDebtCurrent: 1692,
+      OperatingLeaseLiability: 315, OperatingLeaseLiabilityCurrent: 61, OperatingLeaseLiabilityNoncurrent: 254 };
+    const vendor = row({ longTermDebt: 4723 * M, shortTermDebt: 1692 * M,
+      capitalLeaseObligations: 254 * M, totalDebt: 6669 * M });
+    const before = JSON.stringify(vendor);
+    const out = admit(tags, vendor);
+    expect(out.row).toMatchObject({ longTermDebt: 4469 * M, shortTermDebt: 1692 * M,
+      capitalLeaseObligations: 315 * M, totalDebt: 6476 * M });
+    expect(out.row.fieldProvenance?.totalDebt?.filings).toHaveLength(1);
+    expect(leaseDebtConflict(out.row)).toBeNull();
+    expect(out.admissions[0]?.detail).toMatch(/noncurrent operating leases inside vendor long-term debt counted once/);
+    expect(JSON.stringify(vendor)).toBe(before);
+  });
+  it("does not repair an embedded operating lease when the vendor long-term amount differs from the same-filing sum", () => {
+    const out = admit({ LongTermDebtNoncurrent: 4469, LongTermDebtCurrent: 1692,
+      OperatingLeaseLiability: 315, OperatingLeaseLiabilityCurrent: 61, OperatingLeaseLiabilityNoncurrent: 254 },
+    row({ longTermDebt: 4724 * M, shortTermDebt: 1692 * M, capitalLeaseObligations: 254 * M, totalDebt: 6670 * M }));
+    expect(out.row.totalDebt).toBeNull();
+    expect(out.admissions).toEqual([]);
+  });
   it.each([103.48, 104.52])("uses reconciled components for a minor vendor-total difference (%sM), with both observations disclosed", total => {
     const vendor = row({ shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: total * M });
     const before = JSON.stringify(vendor);

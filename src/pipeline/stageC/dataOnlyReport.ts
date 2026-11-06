@@ -397,7 +397,7 @@ function fundamentalsSections(
     r.commonReturnTtm == null ? null : singleRow(
       r.commonReturnTtm.basis === "tangible-common-equity" ? "Return on tangible common equity (trailing four quarters)" : "Return on common equity (trailing four quarters)",
       r.commonReturnTtm.asOf === null ? "TTM" : `TTM to ${r.commonReturnTtm.asOf}`, r.commonReturnTtm.returnPct, "%", "computed.returns.commonReturnTtm", r.commonReturnTtm.asOf),
-    singleRow("WACC", "latest", r.wacc.waccPct, "%", "computed.returns.wacc", r.wacc.asOf?.statements ?? null),
+    singleRow("WACC", "latest", r.wacc.waccPct, "%", "computed.returns.wacc", computed.builtAt.slice(0, 10)),
     // Audit 2026-10-22 B-31: with no note channel here, the row says why the WACC and cost of debt rows are absent.
     singleRow(r.wacc.withheld ? `Cost of equity (the ${computed.route.base} route values equity at the cost of equity; no WACC or cost of debt is used)` : "Cost of equity",
       "latest", r.wacc.costOfEquityPct, "%", "computed.returns.wacc.costOfEquity", r.wacc.asOf?.riskFreeRate ?? null),
@@ -490,7 +490,7 @@ function balanceSheetSection(
   if (isNum(sc.trendPct) && sc.startDate && sc.endDate) {
     allocation.push(
       fact(
-        `Diluted share count changed ${fmtPct(sc.trendPct)} between ${sc.startDate} and ${sc.endDate}${isNum(sc.annualizedPct) ? ` (${fmtPct(sc.annualizedPct)} annualized` : ""}${sc.direction ? `${isNum(sc.annualizedPct) ? "; " : " ("}${sc.direction})` : isNum(sc.annualizedPct) ? ")" : ""}.`,
+        `Weighted-average diluted share count ${sc.trendPct < 0 ? "decreased" : sc.trendPct > 0 ? "increased" : "was unchanged"} ${fmtPct(Math.abs(sc.trendPct))} between fiscal periods ending ${sc.startDate} and ${sc.endDate}${isNum(sc.annualizedPct) ? ` (${fmtPct(sc.annualizedPct)} annualized)` : ""}. This change alone does not establish the effect of buybacks, issuance or dilution.`,
         "computed.capital.shareCount",
         sc.endDate,
       ),
@@ -668,7 +668,12 @@ function leadershipSection(stub: Report["leadership"], bundle: DataBundle, grade
   const notes: SourcedClaim[] = [...stub.governanceNotes];
   if (bundle.executives.ok) {
     const asOf = bundle.executives.value.asOf;
-    const rows = bundle.executives.value.data.rows.slice(0, 8);
+    const named = bundle.executives.value.data.rows.filter(row => typeof row.name === "string" && row.name.trim() && typeof row.title === "string" && row.title.trim());
+    const priority = (title: unknown): number => typeof title !== "string" ? 3
+      : /\b(?:chief executive officer|CEO)\b/i.test(title) ? 0
+        : /\b(?:chief financial officer|CFO)\b/i.test(title) ? 1
+          : /\bchair(?:man|woman|person)?\b/i.test(title) ? 2 : 3;
+    const rows = [...named].sort((a, b) => priority(a.title) - priority(b.title)).slice(0, 8);
     for (const row of rows) {
       const name = typeof row.name === "string" && row.name.length > 0 ? row.name : null;
       const title = typeof row.title === "string" && row.title.length > 0 ? row.title : null;
@@ -676,6 +681,7 @@ function leadershipSection(stub: Report["leadership"], bundle: DataBundle, grade
       const since = isoDay(row.titleSince);
       notes.push(fact(`${name} — ${title}${since ? ` (since ${since})` : ""}.`, "fmp:key-executives", asOf));
     }
+    if (named.length > rows.length) notes.push(fact(`Provider executive roster: showing ${rows.length} of ${named.length} named officers; ${named.length - rows.length} additional provider rows omitted. CEO, CFO and chair roles take priority; this roster does not assess their performance.`, "fmp:key-executives", asOf));
   }
   return { ...stub, graded, governanceNotes: notes };
 }

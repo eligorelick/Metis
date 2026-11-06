@@ -105,6 +105,10 @@ export function providerPeerListPresentation(report: Pick<Report, "competitive">
     return { heading: "Peer table", hideTable: true,
       note: `The data provider's peer list contained no comparable companies${discussed ? "; competitors are discussed in this section" : ""}.` };
   }
+  if (report.competitive.peerTable.length === 0 && coverage && (coverage.evaluated > 0 || coverage.eligible.length > 0)) {
+    return { heading: "Peer table", hideTable: true,
+      note: `No analyst peer comparison table was recorded. The deterministic screen evaluated ${coverage.evaluated} issuers; eligible: ${coverage.eligible.join(", ") || "none"}. Per-metric availability and exclusions are shown under Peer comparison coverage and in the audit export.` };
+  }
   // Some peers passed the screen, but every listed row is an excluded issuer
   // (the subject's own row aside): the rows stay, captioned as scale only.
   const subject = report.meta?.symbol?.toUpperCase();
@@ -114,4 +118,13 @@ export function providerPeerListPresentation(report: Pick<Report, "competitive">
   return allListedExcluded
     ? { heading: "Provider peer list", note: "The provider's list is shown for scale only; these issuers were excluded by the comparable screen and are not used as comparables." }
     : { heading: "Peer table" };
+}
+
+/** Provider roster facts do not establish an executive assessment or governance conclusion. */
+export function leadershipRosterPresentation(leadership: Report["leadership"]) {
+  const isRosterFact = (claim: Report["leadership"]["governanceNotes"][number]) => claim.source === "fmp:key-executives" && claim.label === "FACT";
+  return {
+    roster: leadership.governanceNotes.filter(isRosterFact),
+    governance: leadership.governanceNotes.filter(claim => !isRosterFact(claim)),
+  };
 }

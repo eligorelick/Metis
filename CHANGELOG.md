@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.66.0** and
-payload **1.85.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.69.0** and
+payload **1.88.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,50 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - EXPE report audit and bounded research recovery (2026-11-06)
+
+- Continue from explicit optional ChatGPT research limits using supplied evidence,
+  while retaining cancellation, source and usage disclosures. Authentication,
+  policy, allowance and user-abort failures still stop; no paid/provider fallback.
+- Correct quarterly ownership/cash scope, WACC date provenance, forensic model
+  qualifications, weighted-average share language and blocked-guidance wording.
+- Preserve complete continued proxy ownership tables and footnotes. Correct
+  segment labels, filing-note placement, factual executive coverage, absent
+  peer comparisons and withheld forecast explanations across reader/export views.
+- Advance report 1.69.0, payload 1.88.0, Stage B 62 and Stage C 1.6.41 (D-212).
+  Preserve original stored reports and source-backed refusals; see the
+  [issue inventory and verification record](docs/audit/2026-11-06-expe-report-1.md).
+- Exclude generated launch videos, local agent sessions, SQLite variants and
+  CSRF tokens from ordinary staging; reject force-added temporary output and
+  account-connection files in the release gate.
+
+## Unreleased - Optional APIs and public evidence (2026-11-06)
+
+- Prefer useful API responses; recover bounded official HTML release/transcript
+  evidence and eligible SEC proxy excerpts when optional datasets are unavailable
+  or contain only placeholders. Preserve unavailable dataset disclosures.
+- Enable separate ChatGPT plan web research with provider-observed citations,
+  local action/time/byte bounds and no automatic paid API fallback. Preserve
+  research origin across checkpoint reuse, including searches with no results.
+- Retain source dates, document hashes, issuer linkage and financial-table
+  qualifiers. Reject ambiguous dates and unrelated publication metadata.
+- Preserve original vendor net debt during filed cash reconciliation (PR #111
+  review). Advance report 1.68.0, payload 1.87.0, Stage B implementation 61 and
+  Stage C 1.6.40; keep financial formulas and score bands unchanged (D-211).
+
+## Unreleased - Source-scope recovery (2026-11-06)
+
+- Recover an explicitly equal-distribution share-class sentence split by printed
+  pagination and supported comparative-year EPS context, preserving qualifiers.
+- Retain financial statements located by a proved printed-page index only when
+  the mapped leading caption owns compatible rows; later captions cannot lend proof.
+- Reconcile leases duplicated in vendor long-term debt, restricted-inclusive cash
+  mislabeled as unrestricted cash, and cumulative SBC mislabeled as a quarter.
+  Each correction requires compatible filed evidence and retains vendor observations;
+  ambiguous facts, missing components and unrelated refusals remain unavailable.
+- Advance report 1.67.0, payload 1.86.0 and Stage B implementation 60. Valuation
+  formulas, score bands and stored report bytes are unchanged (D-210).
 
 ## Unreleased - Public sample and stable evidence disclosures (2026-11-05)
 

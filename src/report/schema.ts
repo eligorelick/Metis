@@ -168,7 +168,10 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.64.0 (D-197): verification log records figure-check outcomes for reader prose; the model no longer writes executive tenure
 // 1.65.0 (D-208): optional owned valuation dates, reference/audit diagnostics and grade qualification; stored bytes remain immutable.
 // 1.66.0: preserve source-owned lease scope and specific debt refusals through enrichment.
-export const REPORT_SPEC_VERSION = "1.66.0" as const;
+// 1.67.0: recover source-proved share classes, statements, lease/cash and quarter SBC scopes.
+// 1.68.0 (D-211): optional public evidence and observed/retained web research disclosures.
+// 1.69.0 (D-212): scope-safe quarterly inputs, optional-research limits and complete source qualifications.
+export const REPORT_SPEC_VERSION = "1.69.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -843,7 +846,11 @@ export const DataCompletenessSchema = z
   .strict();
 export type DataCompleteness = z.infer<typeof DataCompletenessSchema>;
 
+export const WebResearchLimitationSchema = z.enum(["action_limit", "time_limit", "capability_unavailable"]);
 export const ProviderExecutionSchema = z.object({
+  webResearchLimitation: WebResearchLimitationSchema.optional(),
+  webSearches: z.number().int().nonnegative().optional(),
+  webResearchUsed: z.boolean().optional(),
   taskBudgetTokens: z.number().int().positive().nullable().optional(),
   requestedModel: z.string().min(1).max(256).optional(),
   modelObserved: z.boolean().optional(),
@@ -864,6 +871,9 @@ export const ProviderExecutionSchema = z.object({
 
 export const ExecutionMetadataEntrySchema = z
   .object({
+    webResearchLimitation: WebResearchLimitationSchema.optional(),
+    webSearches: z.number().int().nonnegative().optional(),
+    webResearchUsed: z.boolean().optional(),
     taskBudgetTokens: z.number().int().positive().nullable().optional(),
     step: z.string(),
     requestedModel: z.string(),

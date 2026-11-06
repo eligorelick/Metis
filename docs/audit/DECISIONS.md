@@ -9650,3 +9650,157 @@ Fresh bounded probes and 76 native-source component proofs across 53 balance
 dates supplement inspected parent-run final replay/release receipts; the
 reviewer did not rerun those full executions. The reviewed change does not
 recertify every original audit finding, subsequent publication or live provider.
+
+## D-210 — Source-supported recovery of class, statement, debt, cash and SBC scope (2026-11-06)
+
+The EXPE live manifest exposed five general source-reading defects. The current
+10-Q's explicit equal-distribution sentence crosses a printed page break; its
+bounded EPS context also uses comparative years. Rejoin only the recognized
+sentence fragment across pagination and admit that whole accounting clause,
+retaining unknown-text, substantive-qualifier and accounting-boundary refusals.
+The 10-K printed-index route recovered notes but omitted its linked statements.
+Retain a statement only after its index target, caption, page sequence and own
+compatible rows are established. Require proof at the mapped leading caption;
+a valid later table or plain-text caption cannot rescue incompatible rows.
+
+When a vendor noncurrent lease line repeats the exact operating lease already
+embedded in its long-term debt, reconstruct financing debt plus complete
+leases once, using compatible components from one filing. No missing maturity
+is inferred. A vendor cash observation exactly matching a filing's explicit
+restricted-inclusive total may be corrected to its direct unrestricted cash
+point. Reject ambiguous latest values and invalid latest values before looking
+for an older positive amount. Preserve independent refusals, original vendor
+values and field provenance. Cash-plus-investments still requires its own
+composition; net debt is recalculated only from same-filing admitted debt.
+Likewise, correct a vendor SBC quarter matching a longer cumulative interval
+only if that filing directly reports an unambiguous standalone quarter in the
+same unit. Zero or otherwise unexplained SBC conflicts remain refused.
+
+Offline replay of retained input caches reproduces all 177 original manifest
+fields and severity counts (2 critical, 56 warning, 119 information). Repairs
+yield 168 entries (0 critical, 44 warning, 124 information), including retained
+reconciliation disclosures and newly exposed historical valuation limitations.
+The five original subscription-denied responses were not stored in cache;
+replay substitutes explicit missing-response errors for those same endpoints,
+without inventing provider data or claiming renewed entitlement. No model call
+or historical saved-report mutation is part of the audit.
+
+Remaining warnings require evidence or access: incomplete historical lease
+portions, incompatible historical earnings/CFO presentations, unexplained EPS
+and SBC differences, historical preferred and temporary capital, parent-common
+FCF attribution, historical class capitalization, and subscription endpoints.
+Missing gross-profit bases, limited CAGR spans and unevaluable forensic signals
+remain explicit. Resolving the current class inventory does not establish
+historical counts or every valuation assumption.
+
+Report 1.67.0, payload 1.86.0 and Stage B implementation 60 identify the changed
+admitted inputs. Valuation formulas, method identities, Stage C orchestration
+and score bands are unchanged; frozen historical cutoffs remain frozen. Exact
+golden changes are limited to current version identities, with all existing
+financial pins retained. Regression tests include positive source recoveries
+and refusal controls. Independent review found and prompted fixes for later
+caption rescue and ambiguous/invalid cash fallthrough; both then passed their
+regressions. The initial full verification reached 16,565 product passes and
+three existing skips but failed the missing D-210 ledger entry and current
+sample version. The ledger was completed and the fictional sample regenerated
+through its normal script; only its two current metadata stamps changed. Both
+targeted checks then passed. Final gate receipts follow the completed source,
+not that failed attempt.
+
+
+## D-211 ? Optional APIs, public evidence and observed research (2026-11-06)
+
+The user requested that financial-data subscriptions not be required and delegated
+implementation judgment. Retain usable API feeds and actual endpoint entitlement
+detection; add bounded official HTML release/transcript discovery and annual SEC
+proxy excerpts as supplemental evidence. Never convert public excerpts into
+invented vendor rows or complete 13F coverage. Recoverable financial inputs still
+follow D-210's exact-source rules. Preserve original vendorNetDebt before cash
+reconciliation overwrites canonical net debt, correcting PR #111's provenance finding.
+
+Enable supported hosted research through the existing ChatGPT plan route, with
+provider-observed source URLs, separate tool-free writing/judging, local bounds
+and no paid API fallback. Persist observed action counts independently of cost,
+and retain web-research origin across checkpoint reuse, including zero-result
+searches. Report 1.68.0, payload 1.87.0, Stage B implementation 61 and Stage C 1.6.40
+identify the new acquisition, evidence and execution semantics. Financial formulas,
+score bands and historical saved report bytes are unchanged.
+
+Independent review reproduced and prompted regressions for cached-proxy chronology,
+caption-preface currency/units (including bold scope blocks), ambiguous numeric dates,
+publication metadata from unrelated or hidden content, nonempty API placeholders,
+and zero-result research checkpoints. Public provider tests use injected transports;
+no live model call was made for this change. Live EXPE SEC retrieval on November 6
+retained the April 29, 2026 proxy's summary compensation table. Its split ownership
+layout was withheld. The issuer site served JavaScript widget templates for releases
+and transcripts, so bounded static discovery did not recover those documents.
+These are coverage limits, not evidence of absent disclosures.
+
+An end-to-end replay of that live proxy into the payload also caught a proxy's
+reportDate representing a later shareholder meeting. Availability now follows
+the filing date, not the meeting date; the table retains its own fiscal years.
+The payload rechecks the same eighteen-calendar-month window as acquisition.
+Both date regressions failed before correction and then passed. The actual
+EXPE compensation excerpt reaches the payload with its April 29 source date
+and document hash, without replacing the missing normalized FMP feed.
+
+Final `npm run verify` passed under Node 24.11.1: each overlapping core/risk run
+passed 16,699 tests across 720 files with three existing skips; four integration
+tests, type/lint, dependency shape, production build and security audit passed.
+The audit reported zero known vulnerabilities. The source diff matched the
+completed build before commit. The earlier completed run failed only the README
+length check and four outdated subscription mocks; all were corrected and the
+full gate rerun successfully.
+Raw live probe data remains in ignored local temporary files. The synthetic sample
+is regenerated through its build script; existing financial golden pins remain fixed.
+
+## D-212 — EXPE report #1 execution, financial scope and complete evidence (2026-11-06)
+
+The user supplied a saved EXPE report and requested a complete issue inventory,
+repairs, verification and merge to main. The inventory and execution plan live
+in `2026-11-06-expe-report-1.md` and the corresponding internal repair plan.
+Keep original saved reports and run inputs immutable. Report 1.69.0, payload
+1.88.0, Stage B implementation 62 and Stage C 1.6.41 identify the changed meaning.
+
+Optional research may continue to the same-account, tool-free writer only after
+an explicit local action/time limit or unsupported search capability. Discard
+unfinished findings and preserve observed actions and unknown usage. Authentication,
+policy, quota, user cancellation, malformed protocol and upstream truncation do
+not qualify. No paid fallback or research replay is introduced. Persist the
+limitation through checkpoints, successful reports and data-only reports.
+
+Admit independently compatible quarterly consolidated/parent/signed-NCI earnings,
+even when the vendor parent number agrees. Consolidated cash conversion requires
+a complete consolidated earnings window; zero closing NCI balances prove no
+earnings allocation. Standalone capex/SBC recovery requires compatible direct or
+cumulative operands and retains original vendor observations and independent
+refusals. Retained EXPE replay reconciles the 9M earnings residual, corrects cash
+conversion to 177.199622%, corrects Q3 2025 FCF to −686M and recovers two SBC
+quarters. DCF 271.87, composite 68.19 and the retained TTM cash totals are unchanged.
+
+Keep WACC calculation dates aligned across surfaces while retaining dated inputs.
+Show actual forensic neutralization/proxy limitations, weighted-average share
+meaning and blocked guidance linkage. Public proxy ownership must include its
+surrounding section preface, complete continued tables, class/voting/as-of scope
+and every visible local footnote. An inner caption cannot rescue incomplete
+outer qualifications. Public excerpts remain distinct from normalized vendor
+feeds and exhaustive institutional aggregation. Presentation repairs keep factual
+rosters, absent analyst assessments and unavailable values distinguishable.
+
+Exact historical regression deltas are asserted before the previous byte/hash
+contracts are restored. The annual audit fixture changes only reviewed wording;
+the AAPL fixture loses an unsupported consolidated-conversion signal and pins its
+resulting scores, completeness and registry changes. The forensic fixture changes
+only the debt-cost statement date. No financial formula or score-band revision is
+used to hide these evidence changes. Independent review's five counterexamples
+were reproduced and fixed before the full release gate.
+
+Final Node 24 `npm run verify` passed: four integration tests; each core/risk
+coverage run passed 16,782 tests across 724 files with three existing skips;
+typecheck, lint, production build, dependency shape and security audit passed.
+The audit found zero known vulnerabilities, and the compiled build's source-diff
+hash matches the final production tree. The first gate exposed twelve old
+expectations/release-document failures; 467 focused tests and the complete gate
+then passed after test/document corrections. The live same-account bull analyst
+also completed with three web actions, reported usage and no API charge; full
+live-pipeline completion is not claimed by this receipt.

@@ -5,7 +5,7 @@
  * from tests/edgar.statements.test.ts and `fakeYahoo` from tests/keyless.test.ts
  * (tests never import from each other here).
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { runStageB } from "@/pipeline/compute";
 import { buildDataBundle } from "@/pipeline/dataBundle";
@@ -222,12 +222,67 @@ function noNetworkConfigs(): { fred: FredConfig; finnhub: FinnhubConfig; finra: 
   const unavailable = (): Promise<Response> => Promise.resolve(new Response("not available", { status: 404 }));
   return {
     fred: { fetchImpl: unavailable, retryDelaysMs: [], minRequestIntervalMs: 0 },
-    finnhub: { apiKey: "TEST-KEY", fetchImpl: unavailable, retryDelaysMs: [] },
+    // Synthetic calls share no live provider quota; repeated bundle fixtures
+    // must not consume a real-time sixty-request window.
+    finnhub: { apiKey: "TEST-KEY", fetchImpl: unavailable, retryDelaysMs: [], maxRequestsPerMinute: 0 },
     finra: { fetchImpl: unavailable, retryDelaysMs: [], minRequestIntervalMs: 0 },
   };
 }
 
 describe("buildDataBundle without an FMP key", () => {
+  it("registers successful public proxy recovery as its own SEC source", async () => {
+    const base = edgarTransport();
+    const proxy = "https://www.sec.gov/Archives/edgar/data/320193/000032019326000010/proxy.htm";
+    const transport: EdgarTransport = { async fetchText(url, options) {
+      if (url === proxy) return { status: 200, fetchedAt: NOW.toISOString(), fromCache: false, stale: false,
+        body: "<html><body><h2>Summary Compensation Table</h2><p>Amounts are USD for the year shown.</p><table><tr><th>Name</th><th>Year</th><th>Salary</th><th>Total</th></tr><tr><td>Jane Example</td><td>2025</td><td>100,000</td><td>200,000</td></tr></table><p>Compensation includes grant-date awards.</p><h2>Other</h2></body></html>" };
+      const response = await base.fetchText(url, options);
+      if (url.includes("submissions/CIK0000320193.json")) {
+        const body = JSON.parse(response.body);
+        const fields = { accessionNumber: "0000320193-26-000010", filingDate: "2026-04-15", reportDate: "", form: "DEF 14A", primaryDocument: "proxy.htm" };
+        for (const [field, value] of Object.entries(fields)) body.filings.recent[field].push(value);
+        return { ...response, body: JSON.stringify(body) };
+      }
+      return response;
+    } };
+    const b = await buildDataBundle("AAPL", { now: () => NOW, fmp: createFmpClient({ apiKey: "", fixturesDir: "fixtures/fmp" }),
+      edgar: createEdgarClient({ transport }), yahoo: fakeYahoo(), companyIr: false, publicEvidence: true, ...noNetworkConfigs() });
+    expect(b.publicGovernance?.ok).toBe(true);
+    expect(Object.values(b.sourceManifest).some(entry => entry.endpoint === proxy && entry.provider === "edgar")).toBe(true);
+    expect(b.compensation.ok).toBe(false);
+    expect(b.gaps.some(entry => entry.field === "publicGovernance.coverage")).toBe(true);
+  });
+  it.each(["usable", "placeholder", "disabled"])("uses public governance only when needed: %s API data", async mode => {
+    const fmp = createFmpClient({ apiKey: "", fixturesDir: "fixtures/fmp" });
+    const response = (row: Record<string, unknown>) => ({ ok: true as const, value: {
+      source: "fmp" as const, endpoint: "fixture:optional-api", asOf: "2026-06-30", fetchedAt: NOW.toISOString(), data: { rows: [row], raw: {} },
+    } });
+    const rows = mode === "placeholder" ? [{ symbol: "AAPL" }, { symbol: "AAPL" }, { symbol: "AAPL" }]
+      : [{ symbol: "AAPL", nameAndPosition: "Jane Example, CEO", year: 2025, total: 500000 },
+        { symbol: "AAPL", date: "2026-06-30", numberOf13Fshares: 1000 },
+        { symbol: "AAPL", date: "2026-06-30", investorName: "Example Fund", sharesNumber: 500 }];
+    vi.spyOn(fmp, "executiveCompensation").mockResolvedValue(response(rows[0]!));
+    vi.spyOn(fmp, "symbolPositionsSummary").mockResolvedValue(response(rows[1]!));
+    vi.spyOn(fmp, "institutionalHolderAnalytics").mockResolvedValue(response(rows[2]!));
+    const b = await buildDataBundle("AAPL", { now: () => NOW, fmp, edgar: createEdgarClient({ transport: edgarTransport() }),
+      yahoo: fakeYahoo(), companyIr: false, publicEvidence: mode !== "disabled", ...noNetworkConfigs() });
+    if (mode === "placeholder") expect(b.publicGovernance).toBeDefined();
+    else expect(b.publicGovernance).toBeUndefined();
+  });
+  it("attempts public governance evidence when enabled and keeps missing paid datasets explicit", async () => {
+    const bundle = await buildDataBundle("AAPL", {
+      now: () => NOW,
+      fmp: createFmpClient({ apiKey: "", fixturesDir: "fixtures/fmp" }),
+      edgar: createEdgarClient({ transport: edgarTransport() }),
+      yahoo: fakeYahoo(), companyIr: false, publicEvidence: true,
+      ...noNetworkConfigs(),
+    });
+    expect(bundle.publicGovernance).toBeDefined();
+    expect(bundle.publicGovernance?.ok).toBe(false);
+    expect(bundle.compensation.ok).toBe(false);
+    expect(bundle.institutional.positionsSummary.ok).toBe(false);
+    expect(bundle.gaps.some(g => g.field.startsWith("edgar.publicGovernance"))).toBe(true);
+  });
   it("serves profile, quote, statements, prices and derived capitalization from EDGAR and Yahoo", async () => {
     const bundle = await buildDataBundle("AAPL", {
       now: () => NOW,
@@ -237,6 +292,7 @@ describe("buildDataBundle without an FMP key", () => {
       ...noNetworkConfigs(),
     });
     expect(bundle.profile.ok && bundle.profile.value.source).toBe("computed");
+    expect(bundle.publicGovernance).toBeUndefined(); // injected providers do not enable extra networking
     expect(bundle.profile.ok && bundle.profile.value.data.rows[0]).toMatchObject({ companyName: "Apple Inc.", sector: "Technology" });
     expect(bundle.quote.ok && bundle.quote.value.source).toBe("yahoo");
     expect(bundle.statements.incomeAnnual.ok && bundle.statements.incomeAnnual.value.source).toBe("edgar");

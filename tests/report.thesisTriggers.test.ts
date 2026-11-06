@@ -122,6 +122,7 @@ describe("model-derived thesis revision triggers", () => {
     const revenue = triggers.find((t) => t.id === "guided-quarter-revenue")!;
     expect(revenue.threshold).toMatchObject({ value: 105.84e9, unit: "USD", source: "sec:8-K EX-99.1 0001045810-26-000073" });
     expect(revenue.metric).toContain("2026-10-25");
+    expect(revenue.consequence).not.toContain("trajectory the year-one revenue anchor is checked against");
     expect(triggers.find((t) => t.id === "guided-quarter-gross-margin")?.threshold).toMatchObject({ value: 73.5, unit: "%" });
   });
   it("never prints a guided-quarter level in the year-one window line (R2)", () => {

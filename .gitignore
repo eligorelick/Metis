@@ -3,6 +3,7 @@
 connections.v1.json
 connections.v1.json.*.tmp
 connections.lock
+runtime.lock
 !.env.example
 
 # Dependencies / build
@@ -18,6 +19,13 @@ data/
 *.db-journal
 *.db-wal
 *.db-shm
+*.db3
+*.db3-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+csrf-token
 
 # Build artifacts
 *.tsbuildinfo
@@ -34,9 +42,13 @@ Thumbs.db
 AGENTS.md
 CLAUDE.md
 .claude/
+.codex/
+.t3/
 .superpowers/
 # Local execution designs remain available without entering the public release set.
 docs/superpowers/
 .playwright-mcp/
 .worktrees/
 tmp/
+# Generated launch videos, stills and local rendering work.
+/brag-output*/

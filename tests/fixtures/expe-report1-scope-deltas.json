@@ -1,0 +1,392 @@
+{
+  "computed": [
+    {
+      "path": "aapl.computed.returns.wacc.asOf.statements",
+      "before": "2025-09-27",
+      "after": "2026-03-28"
+    },
+    {
+      "path": "aapl.computed.capital.current.netIncome",
+      "before": 112000000000,
+      "after": null
+    },
+    {
+      "path": "aapl.computed.capital.current.fcfConversionBeforeSbc",
+      "before": 1.0142857142857142,
+      "after": null
+    },
+    {
+      "path": "aapl.computed.capital.current.cashBridge.definition",
+      "before": "Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
+      "after": "Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator."
+    },
+    {
+      "path": "aapl.computed.scores.aspects.balanceSheet.score",
+      "before": 81.94,
+      "after": 84.05
+    },
+    {
+      "path": "aapl.computed.scores.aspects.balanceSheet.dataCompleteness",
+      "before": 0.8235294117647058,
+      "after": 0.5882352941176471
+    },
+    {
+      "path": "aapl.computed.scores.aspects.balanceSheet.applicableCompleteness",
+      "before": 0.8235294117647058,
+      "after": 0.5882352941176471
+    },
+    {
+      "path": "aapl.computed.scores.aspects.balanceSheet.drivers[2]",
+      "before": {
+        "value": 1.0142857142857142,
+        "unit": "frac",
+        "source": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
+        "asOf": "2026-03-28",
+        "verified": true,
+        "period": "ttm 2025-03-29 to 2026-03-28"
+      },
+      "afterMissing": true
+    },
+    {
+      "path": "aapl.computed.scores.aspects.balanceSheet.signals[2]",
+      "before": {
+        "id": "fcfConversionBeforeSbc",
+        "raw": 1.0142857142857142,
+        "unit": "frac",
+        "transformedScore": 76.66666666666666,
+        "signalWeight": 0.2,
+        "evidenceFraction": 1,
+        "effectiveCompositeWeightPct": 3.5294117647058822,
+        "contributionPoints": 0.941176470588235,
+        "family": "financial-strength",
+        "asOf": "2026-03-28",
+        "period": "ttm 2025-03-29 to 2026-03-28",
+        "startDate": "2025-03-29",
+        "endDate": "2026-03-28",
+        "windowYears": 0.9965776865160849,
+        "fallbackReason": null,
+        "operands": [
+          {
+            "name": "FCF before SBC",
+            "value": 113600000000,
+            "source": "computed.capital.current.fcfBeforeSbc",
+            "asOf": "2026-03-28"
+          },
+          {
+            "name": "net income",
+            "value": 112000000000,
+            "source": "computed.capital.current.netIncome",
+            "asOf": "2026-03-28"
+          },
+          {
+            "name": "FCF / net income",
+            "value": 1.0142857142857142,
+            "source": "computed.capital.current.fcfConversionBeforeSbc",
+            "asOf": "2026-03-28"
+          }
+        ]
+      },
+      "afterMissing": true
+    },
+    {
+      "path": "aapl.computed.scores.composite.score",
+      "before": 59.54,
+      "after": 58.6
+    },
+    {
+      "path": "aapl.computed.scores.composite.methodology",
+      "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 77.77% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+      "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 74.24% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+    },
+    {
+      "path": "aapl.computed.scores.factorExposure[3].family",
+      "before": "financial-strength",
+      "after": "profitability"
+    },
+    {
+      "path": "aapl.computed.scores.factorExposure[3].weightPct",
+      "before": 12.352941176470589,
+      "after": 9.75
+    },
+    {
+      "path": "aapl.computed.scores.factorExposure[3].aboveNeutralPoints",
+      "before": 3.945723718361329,
+      "after": 1.1447869646421545
+    },
+    {
+      "path": "aapl.computed.scores.factorExposure[4].family",
+      "before": "profitability",
+      "after": "financial-strength"
+    },
+    {
+      "path": "aapl.computed.scores.factorExposure[4].weightPct",
+      "before": 9.75,
+      "after": 8.823529411764707
+    },
+    {
+      "path": "aapl.computed.scores.factorExposure[4].aboveNeutralPoints",
+      "before": 1.1447869646421545,
+      "after": 3.004547247773094
+    },
+    {
+      "path": "aapl.computed.scores.assessments.businessQuality.score",
+      "before": 68.59,
+      "after": 67.34
+    },
+    {
+      "path": "aapl.computed.scores.assessments.businessQuality.evidenceCompleteness",
+      "before": 0.8502008318478906,
+      "after": 0.8031420083184789
+    },
+    {
+      "path": "aapl.computed.scores.assessments.evidenceCompleteness",
+      "before": 0.777650623885918,
+      "after": 0.7423565062388592
+    }
+  ],
+  "payload": [
+    {
+      "path": "aapl.payload.computed[1].figures[2].asOf",
+      "before": "2025-09-27",
+      "after": "2026-03-28"
+    },
+    {
+      "path": "aapl.payload.computed[4].figures[2].value",
+      "before": 1.0142857142857142,
+      "after": null
+    },
+    {
+      "path": "aapl.payload.computed[4].figures[2].provenanceId",
+      "before": "computed.current-capital.fcf-conversion-before-sbc",
+      "afterMissing": true
+    },
+    {
+      "path": "aapl.payload.computed[4].notes[1]",
+      "before": "The balance-sheet score grades \"fcf conversion before sbc\" from this section (ttm: 2025-03-29 to 2026-03-28); \"FCF conversion (latest fiscal year, before SBC)\" under \"Capital & cash (computed)\" is the fiscal-year ratio, reported beside it and not graded.",
+      "after": "Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator."
+    },
+    {
+      "path": "aapl.payload.computed[4].notes[2]",
+      "before": "Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
+      "after": "2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified."
+    },
+    {
+      "path": "aapl.payload.computed[4].notes[3]",
+      "before": "2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified.",
+      "afterMissing": true
+    },
+    {
+      "path": "aapl.payload.computed[8].figures[0].value",
+      "before": 59.54,
+      "after": 58.6
+    },
+    {
+      "path": "aapl.payload.computed[8].figures[8].value",
+      "before": 81.94,
+      "after": 84.05
+    },
+    {
+      "path": "aapl.payload.computed[8].figures[9].value",
+      "before": 0.8235294117647058,
+      "after": 0.5882352941176471
+    },
+    {
+      "path": "aapl.payload.computed[8].notes[0]",
+      "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 77.77% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+      "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 74.24% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+    }
+  ],
+  "forensic": [
+    {
+      "path": "forensic.returns.wacc.asOf.statements",
+      "before": "2025-12-31",
+      "after": "2026-03-31"
+    }
+  ],
+  "registries": {
+    "provenanceRegistry": {
+      "removed": [
+        {
+          "index": 89,
+          "value": {
+            "id": "computed.current-capital.fcf-conversion-before-sbc",
+            "label": "fcf conversion before sbc",
+            "kind": "computed",
+            "value": 1.0142857142857142,
+            "unit": "ratio",
+            "currency": null,
+            "period": "ttm: 2025-03-29 to 2026-03-28",
+            "asOf": "2026-03-28",
+            "origin": "computed.capital.current.fcfConversionBeforeSbc",
+            "formulaVersion": "stage-b-v1",
+            "displayPrecision": 4
+          }
+        },
+        {
+          "index": 100,
+          "value": {
+            "id": "computed.capital.current.fcfConversionBeforeSbc",
+            "label": "fcf conversion before sbc",
+            "kind": "computed",
+            "value": 1.0142857142857142,
+            "unit": "ratio",
+            "currency": null,
+            "period": "ttm: 2025-03-29 to 2026-03-28",
+            "asOf": "2026-03-28",
+            "origin": "computed.capital.current.fcfConversionBeforeSbc",
+            "formulaVersion": "stage-b-v1",
+            "displayPrecision": 4
+          }
+        },
+        {
+          "index": 525,
+          "value": {
+            "id": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
+            "kind": "computed",
+            "value": 1.0142857142857142,
+            "unit": "ratio",
+            "currency": null,
+            "period": "ttm 2025-03-29 to 2026-03-28",
+            "asOf": "2026-03-28",
+            "origin": "computed.scores.balanceSheet.fcfConversionBeforeSbc",
+            "formulaVersion": "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE",
+            "displayPrecision": 4
+          }
+        }
+      ],
+      "added": [],
+      "changed": [
+        {
+          "id": "computed.returns.cost-of-debt-pre-tax",
+          "before": {
+            "id": "computed.returns.cost-of-debt-pre-tax",
+            "label": "cost of debt (pre-tax)",
+            "kind": "computed",
+            "value": 3.7361648171360264,
+            "unit": "percent",
+            "currency": null,
+            "period": null,
+            "asOf": "2025-09-27",
+            "origin": "computed.returns.wacc.costOfDebt(effective)",
+            "formulaVersion": "stage-b-v1",
+            "displayPrecision": 4
+          },
+          "after": {
+            "id": "computed.returns.cost-of-debt-pre-tax",
+            "label": "cost of debt (pre-tax)",
+            "kind": "computed",
+            "value": 3.7361648171360264,
+            "unit": "percent",
+            "currency": null,
+            "period": null,
+            "asOf": "2026-03-28",
+            "origin": "computed.returns.wacc.costOfDebt(effective)",
+            "formulaVersion": "stage-b-v1",
+            "displayPrecision": 4
+          }
+        },
+        {
+          "id": "computed.deterministic-aspect-scores.composite-score",
+          "before": {
+            "id": "computed.deterministic-aspect-scores.composite-score",
+            "label": "COMPOSITE score",
+            "kind": "computed",
+            "value": 59.54,
+            "unit": "score",
+            "currency": null,
+            "period": null,
+            "asOf": "2026-07-06",
+            "origin": "computed.scores.composite",
+            "formulaVersion": "stage-b-v1",
+            "displayPrecision": 4
+          },
+          "after": {
+            "id": "computed.deterministic-aspect-scores.composite-score",
+            "label": "COMPOSITE score",
+            "kind": "computed",
+            "value": 58.6,
+            "unit": "score",
+            "currency": null,
+            "period": null,
+            "asOf": "2026-07-06",
+            "origin": "computed.scores.composite",
+            "formulaVersion": "stage-b-v1",
+            "displayPrecision": 4
+          }
+        },
+        {
+          "id": "computed.deterministic-aspect-scores.balancesheet-score",
+          "before": {
+            "id": "computed.deterministic-aspect-scores.balancesheet-score",
+            "label": "balanceSheet score",
+            "kind": "computed",
+            "value": 81.94,
+            "unit": "score",
+            "currency": null,
+            "period": null,
+            "asOf": "2026-07-06",
+            "origin": "computed.scores.balanceSheet",
+            "formulaVersion": "stage-b-v1",
+            "displayPrecision": 4
+          },
+          "after": {
+            "id": "computed.deterministic-aspect-scores.balancesheet-score",
+            "label": "balanceSheet score",
+            "kind": "computed",
+            "value": 84.05,
+            "unit": "score",
+            "currency": null,
+            "period": null,
+            "asOf": "2026-07-06",
+            "origin": "computed.scores.balanceSheet",
+            "formulaVersion": "stage-b-v1",
+            "displayPrecision": 4
+          }
+        },
+        {
+          "id": "computed.deterministic-aspect-scores.balancesheet-evidence-completeness",
+          "before": {
+            "id": "computed.deterministic-aspect-scores.balancesheet-evidence-completeness",
+            "label": "balanceSheet evidence completeness",
+            "kind": "computed",
+            "value": 0.8235294117647058,
+            "unit": "ratio",
+            "unitScale": "fraction",
+            "currency": null,
+            "period": null,
+            "asOf": "2026-07-06",
+            "origin": "computed.scores.balanceSheet.dataCompleteness",
+            "formulaVersion": "stage-b-v1",
+            "displayPrecision": 4
+          },
+          "after": {
+            "id": "computed.deterministic-aspect-scores.balancesheet-evidence-completeness",
+            "label": "balanceSheet evidence completeness",
+            "kind": "computed",
+            "value": 0.5882352941176471,
+            "unit": "ratio",
+            "unitScale": "fraction",
+            "currency": null,
+            "period": null,
+            "asOf": "2026-07-06",
+            "origin": "computed.scores.balanceSheet.dataCompleteness",
+            "formulaVersion": "stage-b-v1",
+            "displayPrecision": 4
+          }
+        }
+      ]
+    },
+    "citationRegistry": {
+      "removed": [],
+      "added": [
+        {
+          "id": "computed.capital.current.fcfConversionBeforeSbc",
+          "kind": "payload-gap",
+          "asOf": "2026-03-28",
+          "origin": "computed.capital.current.fcfConversionBeforeSbc"
+        }
+      ],
+      "changed": []
+    }
+  }
+}

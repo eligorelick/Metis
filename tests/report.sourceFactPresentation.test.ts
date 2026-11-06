@@ -46,5 +46,7 @@ describe("assembled source facts on report surfaces",()=>{
     const text=JSON.stringify(sourceFactAuditTables(mismatch));
     expect(text).toContain("Residual");expect(text).toContain("1 USD");
     expect(text).toContain("62,647,000,000 USD");
+    expect(text).not.toContain("Reconciled net income");
+    expect(text).toContain("Calculated net income subtotal");
   });
 });

@@ -2,7 +2,7 @@ import { recordedValuationTrace } from "@/report/fairValueText";
 import { reverseDcfValueText } from "@/report/presentation";
 import { macroDisplayRows, type MacroDisplayRow } from "@/report/presentation";
 import { shownDataState } from "@/report/completeness";
-import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, unavailableModelInputTables } from "@/report/readerConventions";
+import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, unavailableModelInputTables } from "@/report/readerConventions";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
  * One component per report section (report sections 1–13). Each is dense,
@@ -143,6 +143,7 @@ import {
   orderedProjectionSeries,
   projectionAvailability,
   projectionDisplayAssumptions,
+  projectionUnavailabilityNote,
 } from "@/report/surfaceManifest";
 
 import { SensitivityHeatmap } from "@/components/charts/SensitivityHeatmap";
@@ -615,6 +616,7 @@ export function ProjectionsSection({
           {series.map((s, seriesIndex) => (
             <div key={`${s.metric}:${seriesIndex}`} className="border border-edge bg-bg p-2">
               <ProjectionFanChart series={s} />
+              {projectionUnavailabilityNote(s) && <p className="text-[11px] text-muted">{projectionUnavailabilityNote(s)}</p>}
             </div>
           ))}
         </div>
@@ -1595,6 +1597,7 @@ export function LeadershipSection({
   index: number;
   openReasoning?: boolean;
 }) {
+  const roster = leadershipRosterPresentation(leadership);
   // D-67: one card per assessed officer; the not-assessed officers share one card.
   const contexts = new Map(leadership.executives.map(e => [e, executiveOfficeContext(e, leadership, report.appendix?.verificationLog, report.outlook?.guidanceCredibility)]));
   const groups = executiveGroups(leadership.executives, leadership.executives.filter(e => contexts.get(e) !== undefined || executiveTenureText(e) !== undefined));
@@ -1608,6 +1611,7 @@ export function LeadershipSection({
         {...grading}
       />
       <SubBlock label={`executives (${leadership.executives.length})`}>
+        {leadership.executives.length === 0 && <p className="text-[11px] text-faint">No individual executive assessment recorded.</p>}
         <div className="grid gap-3 lg:grid-cols-2">
           {groups.assessed.map((exec, i) => (
             <ExecutiveCard key={i} exec={exec} context={contexts.get(exec)} />
@@ -1622,12 +1626,13 @@ export function LeadershipSection({
         </div>
       </SubBlock>
       {leadership.managementActions !== undefined && <ManagementActionsBlock actions={leadership.managementActions} />}
+      {roster.roster.length > 0 && <SubBlock label="Provider executive roster"><ClaimList claims={roster.roster} /></SubBlock>}
       <div className="grid gap-4 lg:grid-cols-2">
         <SubBlock label="Insider activity" semanticToken="insider activity">
           <ClaimList claims={leadership.insiderSummary} empty="No analyst insider summary recorded." />
         </SubBlock>
         <SubBlock label="board / comp notes">
-          <ClaimList claims={leadership.governanceNotes} empty="No analyst governance notes recorded." />
+          <ClaimList claims={roster.governance} empty="No analyst governance notes recorded." />
         </SubBlock>
       </div>
       <ExtraAuditTables tables={filingDisclosureTables(report.filingDisclosures, "leadership")} />

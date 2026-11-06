@@ -2582,6 +2582,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   };
   const currentBalance = [balanceQuarterly[0], balanceAnnual[0]].filter((r): r is FmpBalanceSheetRow => r !== undefined)
     .sort((a,b)=>String(b.date).localeCompare(String(a.date)))[0];
+  // Consolidated cash cannot be divided by a mixture of parent and total profit.
+  // A generic earnings window is usable only on an explicit consolidated basis.
+  // A zero closing NCI balance cannot prove zero NCI earnings during the period.
+  const consolidatedConversionIncome = ttmInc?.netIncomeConsolidated ??
+    (ttmInc?.netIncomeOwnershipBasis === "consolidated" ? ttmInc.netIncome : null);
   const capital = attachCurrentCapital(annualCapital, {
     trailingCashFlow: cashflowQuarterly.slice(0,4).map(toCapitalCashFlow),
     periodStart: ttmInc && ttmCf && currencies.ttmIncomeUsable && currencies.ttmCashFlowUsable ? ttmInc.periodStart : incomeAnnual[0]?.fieldProvenance?.revenue?.periodStart ?? null,
@@ -2590,10 +2595,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     evIncludeLeases,
     // D-31 / FIN-112: like the annual capital input, EBIT stays on operating income.
     // An incomplete trailing operating flow is unknown, never vendor EBIT or an annual substitute.
-    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, operatingIncome: operatingIncomeForNonMargins(ttmInc), ebit: operatingIncomeForNonMargins(ttmInc) } : null,
+    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, netIncome: consolidatedConversionIncome, operatingIncome: operatingIncomeForNonMargins(ttmInc), ebit: operatingIncomeForNonMargins(ttmInc) } : null,
     preserveAnnualCashBasis: ttmInc?.nonMarginOperatingIncome !== undefined,
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
-      netIncome: ttmInc?.netIncome ?? null, freeCashFlow: sumCurrentFlow("freeCashFlow"),
+      netIncome: consolidatedConversionIncome, freeCashFlow: sumCurrentFlow("freeCashFlow"),
       stockBasedCompensation: filedSbc?.value ?? sumCurrentFlow("stockBasedCompensation"),
       financeLeasePrincipalPayments: sumCurrentFlow("financeLeasePrincipalPayments"), issuerFreeCashFlow: sumCurrentFlow("issuerFreeCashFlow"),
     } : null,
@@ -2615,6 +2620,11 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     capital.current.debtBridge.compositionNote += ` ${p.label}. Filed borrowings = ${p.components.map(c => `${c.name} ${c.value}`).join(" + ")} = ${p.borrowings} ${p.currency}; loan-owner payables ${p.loanOwnerPayables} are separate, as is the retained operating-lease observation. ${p.source}.`;
   }
   if (capital.current?.basis === "ttm") {
+    if (capital.current.industrialMetricsApplicable !== false) {
+      capital.current.cashBridge.definition += consolidatedConversionIncome === null
+        ? " Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator."
+        : " FCF conversion uses the complete consolidated net-income window, including signed noncontrolling earnings; it is not a parent-shareholder cash-conversion measure.";
+    }
     const cfo = filedCfo?.end === capital.current.asOf && filedCfo?.value === capital.current.cashBridge.operatingCashFlow ? filedCfo : null;
     const sbc = filedSbc?.end === capital.current.asOf && filedSbc?.value === capital.current.cashBridge.stockBasedCompensation ? filedSbc : null;
     const capex = filedCapex?.end === capital.current.asOf && -filedCapex.value === capital.current.cashBridge.cashCapitalExpenditure ? filedCapex : null;
@@ -3595,7 +3605,7 @@ function computeReturns(
     quoteCurrency: str(profile?.currency),
     asOf: {
       riskFreeRate: rf.asOf ?? undefined,
-      statements: isoDay(incomeAnnual[0]?.date) ?? undefined,
+      statements: isoDay(interestBasis === "ttm" ? ttmInc?.date : incomeAnnual[0]?.date) ?? undefined,
       marketCap: (equityScope.status === "resolved" ? equityScope.priceAsOf ?? null
         : equityScope.status === "unresolved" ? null
           : quotePriceObservationDay(num(quote?.marketCap) !== null ? quote : profile)) ?? undefined,

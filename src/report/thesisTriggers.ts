@@ -105,7 +105,7 @@ export function buildThesisTriggers(
       threshold: { value: quarter.revenueLow, unit: currency, currency, source: citeGuidanceLow?.("revenue", quarter.revenueLow) ?? quarter.source, asOf: quarter.asOf, verified: null },
       horizon: `The fiscal quarter ending ${quarter.periodEnd}, reported in the next earnings release (guided midpoint ${money(quarter.revenueMid)})`,
       fixedAssumptions: ["Compare GAAP revenue for the same fiscal quarter with the low end of the range management published."],
-      consequence: "A result below the low end of management's own range would break the trajectory the year-one revenue anchor is checked against; review the anchor and recompute the DCF. A shortfall initiates review; it does not by itself invalidate the thesis.",
+      consequence: "A result below the low end of management's own range would miss its stated outlook for that fiscal quarter; reassess the revenue anchor and recompute the DCF if the evidence changes. A shortfall initiates review; it does not by itself invalidate the thesis or establish that the quarterly guide was used to set the annual anchor.",
     });
     if (finite(quarter.grossMarginLowPct)) {
       triggers.push({
