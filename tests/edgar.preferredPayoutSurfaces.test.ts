@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /** Pure synthetic integration: no network, user database, or retained issuer facts. */
 import { describe, expect, it } from "vitest";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
@@ -41,7 +42,7 @@ function parsedCash(usableYears: number, zeroMode?: ZeroCashMode) {
 
 function panel(usableYears: number, zeroMode?: ZeroCashMode) {
   const parsed = parsedCash(usableYears, zeroMode);
-  const bundle = buildSyntheticRouteBundle("bank");
+  const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("bank"), "2026-03-31");
   if (!bundle.statements.cashflowAnnual.ok) throw new Error("synthetic cash flow required");
   bundle.statements.cashflowAnnual.value.data.rows = parsed.cashflowAnnual.rows;
   // Retain the clearly synthetic envelope; field-level provenance names the

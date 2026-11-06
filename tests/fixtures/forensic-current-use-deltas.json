@@ -1,0 +1,939 @@
+[
+  {
+    "path": "fairValue.auditValue",
+    "beforeMissing": true,
+    "after": {
+      "value": 34.59,
+      "unit": "USD/share",
+      "source": "computed.valuation.dcf.perShare",
+      "asOf": "2026-03-31",
+      "verified": true
+    }
+  },
+  {
+    "path": "fairValue.basis",
+    "before": [
+      "Intrinsic value per share = the deterministic FCFF discounted-cash-flow fair value (NOPAT − sales-to-capital reinvestment, Gordon terminal, EV→equity bridge).",
+      "Computed-derived (source computed.valuation.*), not a source-verified analyst target — the LLM interprets it but does not author the number."
+    ],
+    "after": [
+      "Intrinsic value per share = the deterministic FCFF discounted-cash-flow fair value (NOPAT − sales-to-capital reinvestment, Gordon terminal, EV→equity bridge).",
+      "Computed-derived (source computed.valuation.*), not a source-verified analyst target — the LLM interprets it but does not author the number.",
+      "Current valuation use withheld: the model value is dated after the compared quote."
+    ]
+  },
+  {
+    "path": "fairValue.currentUse",
+    "beforeMissing": true,
+    "after": {
+      "status": "unestablished",
+      "reason": "future-value-date",
+      "statementDate": "2026-03-31",
+      "valueDate": "2026-03-31",
+      "quoteDate": "2025-07-05"
+    }
+  },
+  {
+    "path": "fairValue.methodVersion",
+    "before": "FAIR_VALUE_2026_11_PRIMARY_OPERATING_PROOF_57",
+    "after": "FAIR_VALUE_2026_11_CURRENT_VALUATION_USE_58"
+  },
+  {
+    "path": "fairValue.perShare",
+    "before": {
+      "value": 34.59,
+      "unit": "USD/share",
+      "source": "computed.valuation.dcf.perShare",
+      "asOf": "2026-07-06",
+      "verified": true
+    },
+    "after": null
+  },
+  {
+    "path": "fairValue.reasons[0].field",
+    "before": "valuation.fairValue.degradedInputs",
+    "after": "valuation.currentUse"
+  },
+  {
+    "path": "fairValue.reasons[0].reason",
+    "before": "Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2026-07-04), not FRED DGS10; the ROIC-vs-WACC history behind the terminal ROIC compares every fiscal year to the current WACC, because FRED DGS10 was unavailable for the per-year rates. A run with these providers healthy can give a different value.",
+    "after": "Current valuation use withheld: the model value is dated after the compared quote."
+  },
+  {
+    "path": "fairValue.status",
+    "before": "available",
+    "after": "suppressed"
+  },
+  {
+    "path": "fairValue.upsidePct",
+    "before": -65.41,
+    "after": null
+  },
+  {
+    "path": "gaps",
+    "before": [
+      {
+        "field": "compute.balanceQuarterly.currency",
+        "reason": "the quarterly balance sheet for 2026-03-31 carries no currency label and no statement of the same filing supplies one, so its currency is not established (unknown), and it is not assumed to be the model's USD. No FX conversion is applied, so that row and the 3 older ones are left out of every calculation that combines statements or years (cost of debt, WACC, ROIC and DuPont, net debt, the DCF and multiples bridges, forensic scores, growth rates and projections), and those figures are withheld where they depended on them; each row's own margins and its reported figures remain, in their own currency or as currency unknown",
+        "severity": "warn",
+        "attemptedSources": [
+          "fmp:/stable/balance-sheet-statement?period=quarter"
+        ]
+      },
+      {
+        "field": "compute.cashflowQuarterly.currency",
+        "reason": "the quarterly cash-flow statement for 2026-03-31 carries no currency label and no statement of the same filing supplies one, so its currency is not established (unknown), and it is not assumed to be the model's USD. No FX conversion is applied, so that row and the 3 older ones are left out of every calculation that combines statements or years (cost of debt, WACC, ROIC and DuPont, net debt, the DCF and multiples bridges, forensic scores, growth rates and projections), and those figures are withheld where they depended on them; each row's own margins and its reported figures remain, in their own currency or as currency unknown",
+        "severity": "warn",
+        "attemptedSources": [
+          "fmp:/stable/cash-flow-statement?period=quarter"
+        ]
+      },
+      {
+        "field": "compute.ttmCashFlow.currency",
+        "reason": "the latest 4 quarterly cash-flow rows' reporting currency could not be established: no quarter carries a currency label, and the same-period rows that do carry one are not linked to the same filing (no shared SEC acceptance timestamp), so their label is not the quarter's; the annual statement's currency is not evidence for the quarters. A sum of quarters not shown to share one currency is not a figure, so it is withheld from every use — the DCF anchor, the price multiples, and the ratios and signs built on its sums (interest coverage, cost of debt, tax rate, routing) — and the TTM basis is suppressed; latest annual statement used instead",
+        "severity": "warn",
+        "attemptedSources": [
+          "fmp:/stable/cash-flow-statement?period=quarter"
+        ]
+      },
+      {
+        "field": "technicals.relativeStrength.SPY",
+        "reason": "no valid SPY closes supplied for relative-strength alignment",
+        "severity": "warn"
+      },
+      {
+        "field": "capital.dilution",
+        "reason": "weightedAverageShsOut (basic) missing on the latest annual income statement (2025-12-31) — the diluted-vs-basic award overhang is not computable and is reported as unavailable, never as zero",
+        "severity": "info"
+      },
+      {
+        "field": "capital.interestCoverage",
+        "reason": "interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m",
+        "severity": "info"
+      },
+      {
+        "field": "forensics.flags.oneTimeItems",
+        "reason": "net other income/expense (totalOtherIncomeExpensesNet) is missing, or operating income is zero or missing, in every fiscal year of the lookback — one-time-items rule not evaluated (on SEC-built statements the field is the NonoperatingIncomeExpense aggregate only; a narrower OtherNonoperatingIncomeExpense is not used as a stand-in, RESEARCH 5.3)",
+        "severity": "info"
+      },
+      {
+        "field": "forensics.flags.receivables",
+        "reason": "accountsReceivables/netReceivables missing — receivables-vs-revenue flag not evaluated",
+        "severity": "info"
+      },
+      {
+        "field": "forensics.piotroski",
+        "reason": "signals not evaluable: roaImproved, leverageDown, turnoverUp — score reported out of 6",
+        "severity": "info"
+      },
+      {
+        "field": "returns.wacc.erp",
+        "reason": "equity risk premium missing — dated Damodaran 4.18% fallback used for the cost of equity",
+        "severity": "info"
+      },
+      {
+        "field": "returns.wacc.history",
+        "reason": "no fred:DGS10 observations supplied — ROIC-vs-WACC history compares every fiscal year to the current WACC",
+        "severity": "info",
+        "attemptedSources": [
+          "fred:DGS10"
+        ]
+      },
+      {
+        "field": "technicals.drawdown.1y",
+        "reason": "full 1-year coverage unestablished: observations inside the trailing 1-year window start 2025-09-06, after 2025-07-02 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+        "severity": "info"
+      },
+      {
+        "field": "technicals.drawdown.3y",
+        "reason": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2025-09-06, after 2023-07-02 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+        "severity": "info"
+      },
+      {
+        "field": "technicals.drawdown.5y",
+        "reason": "full 5-year coverage unestablished: observations inside the trailing 5-year window start 2025-09-06, after 2021-07-02 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+        "severity": "info"
+      },
+      {
+        "field": "technicals.range52w",
+        "reason": "issuer observations inside the trailing year start 2025-09-06, after the 2025-07-02 boundary plus 7-day allowance",
+        "severity": "info"
+      },
+      {
+        "field": "technicals.relativeStrength.sector",
+        "reason": "no sector ETF resolved for this symbol",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.analystEstimates.currency",
+        "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+        "severity": "info",
+        "attemptedSources": [
+          "fmp:/stable/analyst-estimates"
+        ]
+      },
+      {
+        "field": "valuation.dcf.bridgeBalanceDate",
+        "reason": "no balance sheet is filed at the statement date 2026-03-31; the equity bridge uses the 2025-12-31 balance, 90 days before the statement date; flows between the two dates are in neither that balance nor the first window",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.growthAnchor",
+        "reason": "growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.terminalRoic.waccBasis",
+        "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.enterpriseValue.leases",
+        "reason": "2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.ownHistory",
+        "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.ownHistory.windows",
+        "reason": "0 rejected fiscal period(s), 0 rejected quarter window(s), and 5 financially partial/unusable window(s): window 2026-03-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-12-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-09-30: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-06-30: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-03-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.peers",
+        "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+        "severity": "info"
+      }
+    ],
+    "after": [
+      {
+        "field": "compute.balanceQuarterly.currency",
+        "reason": "the quarterly balance sheet for 2026-03-31 carries no currency label and no statement of the same filing supplies one, so its currency is not established (unknown), and it is not assumed to be the model's USD. No FX conversion is applied, so that row and the 3 older ones are left out of every calculation that combines statements or years (cost of debt, WACC, ROIC and DuPont, net debt, the DCF and multiples bridges, forensic scores, growth rates and projections), and those figures are withheld where they depended on them; each row's own margins and its reported figures remain, in their own currency or as currency unknown",
+        "severity": "warn",
+        "attemptedSources": [
+          "fmp:/stable/balance-sheet-statement?period=quarter"
+        ]
+      },
+      {
+        "field": "compute.cashflowQuarterly.currency",
+        "reason": "the quarterly cash-flow statement for 2026-03-31 carries no currency label and no statement of the same filing supplies one, so its currency is not established (unknown), and it is not assumed to be the model's USD. No FX conversion is applied, so that row and the 3 older ones are left out of every calculation that combines statements or years (cost of debt, WACC, ROIC and DuPont, net debt, the DCF and multiples bridges, forensic scores, growth rates and projections), and those figures are withheld where they depended on them; each row's own margins and its reported figures remain, in their own currency or as currency unknown",
+        "severity": "warn",
+        "attemptedSources": [
+          "fmp:/stable/cash-flow-statement?period=quarter"
+        ]
+      },
+      {
+        "field": "compute.ttmCashFlow.currency",
+        "reason": "the latest 4 quarterly cash-flow rows' reporting currency could not be established: no quarter carries a currency label, and the same-period rows that do carry one are not linked to the same filing (no shared SEC acceptance timestamp), so their label is not the quarter's; the annual statement's currency is not evidence for the quarters. A sum of quarters not shown to share one currency is not a figure, so it is withheld from every use — the DCF anchor, the price multiples, and the ratios and signs built on its sums (interest coverage, cost of debt, tax rate, routing) — and the TTM basis is suppressed; latest annual statement used instead",
+        "severity": "warn",
+        "attemptedSources": [
+          "fmp:/stable/cash-flow-statement?period=quarter"
+        ]
+      },
+      {
+        "field": "technicals.relativeStrength.SPY",
+        "reason": "no valid SPY closes supplied for relative-strength alignment",
+        "severity": "warn"
+      },
+      {
+        "field": "valuation.reverseDcf.currentUse",
+        "reason": "Current valuation use withheld: the model value is dated after the compared quote.",
+        "severity": "warn"
+      },
+      {
+        "field": "capital.dilution",
+        "reason": "weightedAverageShsOut (basic) missing on the latest annual income statement (2025-12-31) — the diluted-vs-basic award overhang is not computable and is reported as unavailable, never as zero",
+        "severity": "info"
+      },
+      {
+        "field": "capital.interestCoverage",
+        "reason": "interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m",
+        "severity": "info"
+      },
+      {
+        "field": "forensics.flags.oneTimeItems",
+        "reason": "net other income/expense (totalOtherIncomeExpensesNet) is missing, or operating income is zero or missing, in every fiscal year of the lookback — one-time-items rule not evaluated (on SEC-built statements the field is the NonoperatingIncomeExpense aggregate only; a narrower OtherNonoperatingIncomeExpense is not used as a stand-in, RESEARCH 5.3)",
+        "severity": "info"
+      },
+      {
+        "field": "forensics.flags.receivables",
+        "reason": "accountsReceivables/netReceivables missing — receivables-vs-revenue flag not evaluated",
+        "severity": "info"
+      },
+      {
+        "field": "forensics.piotroski",
+        "reason": "signals not evaluable: roaImproved, leverageDown, turnoverUp — score reported out of 6",
+        "severity": "info"
+      },
+      {
+        "field": "returns.wacc.erp",
+        "reason": "equity risk premium missing — dated Damodaran 4.18% fallback used for the cost of equity",
+        "severity": "info"
+      },
+      {
+        "field": "returns.wacc.history",
+        "reason": "no fred:DGS10 observations supplied — ROIC-vs-WACC history compares every fiscal year to the current WACC",
+        "severity": "info",
+        "attemptedSources": [
+          "fred:DGS10"
+        ]
+      },
+      {
+        "field": "technicals.drawdown.1y",
+        "reason": "full 1-year coverage unestablished: observations inside the trailing 1-year window start 2025-09-06, after 2025-07-02 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+        "severity": "info"
+      },
+      {
+        "field": "technicals.drawdown.3y",
+        "reason": "full 3-year coverage unestablished: observations inside the trailing 3-year window start 2025-09-06, after 2023-07-02 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+        "severity": "info"
+      },
+      {
+        "field": "technicals.drawdown.5y",
+        "reason": "full 5-year coverage unestablished: observations inside the trailing 5-year window start 2025-09-06, after 2021-07-02 plus the 7-day allowance; partial observed drawdown computed over 300 available observations inside the window only",
+        "severity": "info"
+      },
+      {
+        "field": "technicals.range52w",
+        "reason": "issuer observations inside the trailing year start 2025-09-06, after the 2025-07-02 boundary plus 7-day allowance",
+        "severity": "info"
+      },
+      {
+        "field": "technicals.relativeStrength.sector",
+        "reason": "no sector ETF resolved for this symbol",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.analystEstimates.currency",
+        "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+        "severity": "info",
+        "attemptedSources": [
+          "fmp:/stable/analyst-estimates"
+        ]
+      },
+      {
+        "field": "valuation.dcf.bridgeBalanceDate",
+        "reason": "no balance sheet is filed at the statement date 2026-03-31; the equity bridge uses the 2025-12-31 balance, 90 days before the statement date; flows between the two dates are in neither that balance nor the first window",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.growthAnchor",
+        "reason": "growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.terminalRoic.waccBasis",
+        "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.enterpriseValue.leases",
+        "reason": "2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.ownHistory",
+        "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.ownHistory.windows",
+        "reason": "0 rejected fiscal period(s), 0 rejected quarter window(s), and 5 financially partial/unusable window(s): window 2026-03-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-12-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-09-30: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-06-30: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-03-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.peers",
+        "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "path": "scenarioTargets.basis",
+    "before": [
+      "base target = the deterministic FCFF-DCF fair value per share (computed.valuation.dcf.perShare).",
+      "bull/bear re-run the SAME DCF with year-one growth shifted ±1.59pp and the year-one margin shifted ±0pp, both shocks decaying to zero by the final explicit year; margin sample σ is scaled by observed growth/margin correlation (unavailable), not assumed perfectly correlated, and the margin shift is applied only when it moves with the scenario. Targets are labelled by per-share value, so the higher scenario is always bull; a fan with either run outside the DCF's domain is withheld.",
+      "Targets are computed-derived DCF sensitivities, not source-verified facts; no weight or probability is attached to them.",
+      "The shock decay and the scenario margin cap are set out under the weighted projections' scenario construction."
+    ],
+    "after": [
+      "Current valuation use withheld: the model value is dated after the compared quote."
+    ]
+  },
+  {
+    "path": "scenarioTargets.dispersion",
+    "before": {
+      "growthSigmaPp": 1.59,
+      "marginSigmaPp": 0,
+      "sigmaSource": "own-history",
+      "growthMarginCorrelation": null
+    },
+    "after": null
+  },
+  {
+    "path": "scenarioTargets.methodVersion",
+    "before": "SCENARIO_TARGETS_2026_11_PRIMARY_OPERATING_PROOF_57",
+    "after": "SCENARIO_TARGETS_2026_11_CURRENT_VALUATION_USE_58"
+  },
+  {
+    "path": "scenarioTargets.missingReasons[0].field",
+    "before": "valuation.scenarioTargets.dispersion.degenerate",
+    "after": "valuation.scenarioTargets.currentUse"
+  },
+  {
+    "path": "scenarioTargets.missingReasons[0].reason",
+    "before": "revenue-growth or operating-margin history shows negligible dispersion (σ rounds to 0.00pp) — the growth/margin correlation is undefined and the bull/bear band collapses toward the base; reported as no measurable dispersion rather than a calibrated fan",
+    "after": "Current valuation use withheld: the model value is dated after the compared quote."
+  },
+  {
+    "path": "scenarioTargets.missingReasons[0].severity",
+    "before": "info",
+    "after": "warn"
+  },
+  {
+    "path": "scenarioTargets.scenarioAssumptions",
+    "before": {
+      "methodVersion": "SHARED_SCENARIO_PATHS_2026_10_D99",
+      "shockPersistence": "mean-reverting-convergent",
+      "terminalTransition": "Growth and margin shocks are full size in year one and decay on the base path's convergent weights (a 3-year half-life, rescaled to reach zero in year 10), so terminal growth and the terminal margin equal the base case. Scenario operating margins are capped at 20% (gross margin 40%, FY 2025-12-31, less the leanest operating-expense ratio 20%, FY 2025-12-31), never below the base path. Tax, reinvestment efficiency, terminal ROIC and the equity bridge stay at base.",
+      "growthMarginCorrelation": null,
+      "scenarios": [
+        {
+          "name": "bull",
+          "growthDeltaPp": 1.5942925436246242,
+          "marginDeltaPp": 0
+        },
+        {
+          "name": "base",
+          "growthDeltaPp": 0,
+          "marginDeltaPp": 0
+        },
+        {
+          "name": "bear",
+          "growthDeltaPp": -1.5942925436246242,
+          "marginDeltaPp": 0
+        }
+      ],
+      "alternatives": []
+    },
+    "afterMissing": true
+  },
+  {
+    "path": "scenarioTargets.status",
+    "before": "available",
+    "after": "suppressed"
+  },
+  {
+    "path": "scenarioTargets.targets",
+    "before": [
+      {
+        "name": "bull",
+        "perShare": {
+          "value": 36.03,
+          "unit": "USD/share",
+          "source": "computed.scenarioTargets.bull",
+          "asOf": "2026-07-06",
+          "verified": true
+        },
+        "upsidePct": -63.96999999999999,
+        "growthDeltaPp": 1.5942925436246242,
+        "marginDeltaPp": 0
+      },
+      {
+        "name": "base",
+        "perShare": {
+          "value": 34.59,
+          "unit": "USD/share",
+          "source": "computed.scenarioTargets.base",
+          "asOf": "2026-07-06",
+          "verified": true
+        },
+        "upsidePct": -65.41,
+        "growthDeltaPp": 0,
+        "marginDeltaPp": 0
+      },
+      {
+        "name": "bear",
+        "perShare": {
+          "value": 33.22,
+          "unit": "USD/share",
+          "source": "computed.scenarioTargets.bear",
+          "asOf": "2026-07-06",
+          "verified": true
+        },
+        "upsidePct": -66.78,
+        "growthDeltaPp": -1.5942925436246242,
+        "marginDeltaPp": 0
+      }
+    ],
+    "after": []
+  },
+  {
+    "path": "scores.aspects.valuation.applicableCompleteness",
+    "before": 0.7,
+    "after": 0
+  },
+  {
+    "path": "scores.aspects.valuation.band",
+    "before": "F",
+    "after": null
+  },
+  {
+    "path": "scores.aspects.valuation.dataCompleteness",
+    "before": 0.7,
+    "after": 0
+  },
+  {
+    "path": "scores.aspects.valuation.drivers",
+    "before": [
+      {
+        "value": -65.40519315654555,
+        "unit": "%",
+        "source": "computed.scores.valuation.dcfUpside",
+        "asOf": "2026-07-05",
+        "verified": true,
+        "period": "Quote observation 2026-07-05; DCF statement start 2026-03-31, year-one revenue from consensus"
+      },
+      {
+        "value": 42.90287486293862,
+        "unit": "pp",
+        "source": "computed.scores.valuation.reverseImpliedVsAchievable",
+        "asOf": "2026-07-05",
+        "verified": true,
+        "period": "Same explicit DCF horizon and fading growth-path family; comparing first-year anchors."
+      }
+    ],
+    "after": []
+  },
+  {
+    "path": "scores.aspects.valuation.notApplicableReason",
+    "before": null,
+    "after": "applicable signals unavailable (data gap: their inputs were withheld or missing; see the data gaps) — aspect not scored"
+  },
+  {
+    "path": "scores.aspects.valuation.score",
+    "before": 15,
+    "after": null
+  },
+  {
+    "path": "scores.aspects.valuation.signals",
+    "before": [
+      {
+        "id": "dcfUpside",
+        "raw": -65.40519315654555,
+        "unit": "%",
+        "transformedScore": 15,
+        "signalWeight": 0.4,
+        "evidenceFraction": 1,
+        "effectiveCompositeWeightPct": 8,
+        "contributionPoints": -2.8,
+        "family": "valuation",
+        "asOf": "2026-07-05",
+        "period": "Quote observation 2026-07-05; DCF statement start 2026-03-31, year-one revenue from consensus",
+        "startDate": null,
+        "endDate": null,
+        "windowYears": null,
+        "fallbackReason": null,
+        "operands": [
+          {
+            "name": "DCF per share",
+            "value": 34.59480684345445,
+            "source": "computed.valuation.dcf.perShare",
+            "asOf": "2026-03-31"
+          },
+          {
+            "name": "current quote",
+            "value": 100,
+            "source": "computed.currentPrice",
+            "asOf": "2026-07-05"
+          }
+        ]
+      },
+      {
+        "id": "reverseImpliedVsAchievable",
+        "raw": 42.90287486293862,
+        "unit": "pp",
+        "transformedScore": 15,
+        "signalWeight": 0.3,
+        "evidenceFraction": 1,
+        "effectiveCompositeWeightPct": 6,
+        "contributionPoints": -2.1,
+        "family": "valuation",
+        "asOf": "2026-07-05",
+        "period": "Same explicit DCF horizon and fading growth-path family; comparing first-year anchors.",
+        "startDate": null,
+        "endDate": null,
+        "windowYears": 10,
+        "fallbackReason": null,
+        "operands": [
+          {
+            "name": "implied starting growth, same fade",
+            "value": 51.6748046875,
+            "source": "computed.valuation.reverseDcf.impliedRevenueGrowthPct",
+            "asOf": "2026-07-05"
+          },
+          {
+            "name": "base starting growth, same fade",
+            "value": 8.771929824561386,
+            "source": "computed.valuation.reverseDcf.baseRevenueGrowthPct",
+            "asOf": "2026-03-31"
+          }
+        ]
+      }
+    ],
+    "after": []
+  },
+  {
+    "path": "scores.assessments.evidenceCompleteness",
+    "before": 0.7991604278074866,
+    "after": 0.6591604278074865
+  },
+  {
+    "path": "scores.assessments.valuation.band",
+    "before": "F",
+    "after": null
+  },
+  {
+    "path": "scores.assessments.valuation.score",
+    "before": 15,
+    "after": null
+  },
+  {
+    "path": "scores.composite.methodology",
+    "before": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 79.92% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting.",
+    "after": "Route-adjusted, completeness-weighted mean of the seven aspect scores: each aspect enters at route weight × data completeness. The unsupported fraction is then shrunk to the neutral midpoint (50); completeness 65.92% is measured over route-applicable evidence (metrics the route suppresses or that are meaningless for it are excluded, not counted as missing). Fully observed scores are unchanged on any route, while sparse favorable data cannot create an extreme grade. Bands remain versioned house rules pending outcome backtesting."
+  },
+  {
+    "path": "scores.composite.score",
+    "before": 60.97,
+    "after": 65.87
+  },
+  {
+    "path": "scores.factorExposure",
+    "before": [
+      {
+        "family": "capital-returns",
+        "weightPct": 16.5,
+        "aboveNeutralPoints": 7.2675
+      },
+      {
+        "family": "growth",
+        "weightPct": 14.000000000000002,
+        "aboveNeutralPoints": 1.9397633393184035
+      },
+      {
+        "family": "valuation",
+        "weightPct": 14,
+        "aboveNeutralPoints": -4.9
+      },
+      {
+        "family": "profitability",
+        "weightPct": 9.75,
+        "aboveNeutralPoints": 0.7125
+      },
+      {
+        "family": "financial-strength",
+        "weightPct": 8.823529411764707,
+        "aboveNeutralPoints": 3.152941176470588
+      },
+      {
+        "family": "accounting-integrity",
+        "weightPct": 8.65,
+        "aboveNeutralPoints": 1.1473685538531564
+      },
+      {
+        "family": "capital-return-policy",
+        "weightPct": 4.545454545454545,
+        "aboveNeutralPoints": 0.6310332623976709
+      },
+      {
+        "family": "equity-compensation",
+        "weightPct": 2.6470588235294117,
+        "aboveNeutralPoints": 0.7941176470588235
+      },
+      {
+        "family": "momentum-and-trend",
+        "weightPct": 1,
+        "aboveNeutralPoints": 0.22163039801555967
+      }
+    ],
+    "after": [
+      {
+        "family": "capital-returns",
+        "weightPct": 16.5,
+        "aboveNeutralPoints": 7.2675
+      },
+      {
+        "family": "growth",
+        "weightPct": 14.000000000000002,
+        "aboveNeutralPoints": 1.9397633393184035
+      },
+      {
+        "family": "profitability",
+        "weightPct": 9.75,
+        "aboveNeutralPoints": 0.7125
+      },
+      {
+        "family": "financial-strength",
+        "weightPct": 8.823529411764707,
+        "aboveNeutralPoints": 3.152941176470588
+      },
+      {
+        "family": "accounting-integrity",
+        "weightPct": 8.65,
+        "aboveNeutralPoints": 1.1473685538531564
+      },
+      {
+        "family": "capital-return-policy",
+        "weightPct": 4.545454545454545,
+        "aboveNeutralPoints": 0.6310332623976709
+      },
+      {
+        "family": "equity-compensation",
+        "weightPct": 2.6470588235294117,
+        "aboveNeutralPoints": 0.7941176470588235
+      },
+      {
+        "family": "momentum-and-trend",
+        "weightPct": 1,
+        "aboveNeutralPoints": 0.22163039801555967
+      }
+    ]
+  },
+  {
+    "path": "scores.qualification",
+    "beforeMissing": true,
+    "after": {
+      "aspects": {
+        "fundamentals": {
+          "status": "supported",
+          "reasons": []
+        },
+        "valuation": {
+          "status": "provisional",
+          "reasons": [
+            {
+              "code": "missing-applicable-aspect",
+              "aspect": "valuation",
+              "field": "scores.aspects.valuation",
+              "detail": "Valuation has no route-applicable score evidence."
+            },
+            {
+              "code": "current-valuation-unavailable",
+              "aspect": "valuation",
+              "field": "valuation.currentUse",
+              "detail": "Current valuation evidence is unavailable or its alignment with the quote date is unestablished."
+            }
+          ]
+        },
+        "quality": {
+          "status": "supported",
+          "reasons": []
+        },
+        "balanceSheet": {
+          "status": "supported",
+          "reasons": []
+        },
+        "moat": {
+          "status": "supported",
+          "reasons": []
+        },
+        "leadership": {
+          "status": "provisional",
+          "reasons": [
+            {
+              "code": "limited-applicable-evidence",
+              "aspect": "leadership",
+              "field": "scores.aspects.leadership",
+              "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+            }
+          ]
+        },
+        "technicals": {
+          "status": "provisional",
+          "reasons": [
+            {
+              "code": "limited-applicable-evidence",
+              "aspect": "technicals",
+              "field": "scores.aspects.technicals",
+              "detail": "Technicals has limited evidence (score 72/100 on one signal, 20.0% of signals)."
+            }
+          ]
+        }
+      },
+      "composite": {
+        "status": "provisional",
+        "reasons": [
+          {
+            "code": "missing-applicable-aspect",
+            "aspect": "valuation",
+            "field": "scores.aspects.valuation",
+            "detail": "Valuation has no route-applicable score evidence."
+          },
+          {
+            "code": "current-valuation-unavailable",
+            "aspect": "valuation",
+            "field": "valuation.currentUse",
+            "detail": "Current valuation evidence is unavailable or its alignment with the quote date is unestablished."
+          },
+          {
+            "code": "limited-applicable-evidence",
+            "aspect": "leadership",
+            "field": "scores.aspects.leadership",
+            "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+          },
+          {
+            "code": "limited-applicable-evidence",
+            "aspect": "technicals",
+            "field": "scores.aspects.technicals",
+            "detail": "Technicals has limited evidence (score 72/100 on one signal, 20.0% of signals)."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "valuation.gaps",
+    "before": [
+      {
+        "field": "valuation.multiples.enterpriseValue.leases",
+        "reason": "2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.peers",
+        "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.ownHistory.windows",
+        "reason": "0 rejected fiscal period(s), 0 rejected quarter window(s), and 5 financially partial/unusable window(s): window 2026-03-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-12-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-09-30: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-06-30: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-03-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.ownHistory",
+        "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.growthAnchor",
+        "reason": "growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.terminalRoic.waccBasis",
+        "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.bridgeBalanceDate",
+        "reason": "no balance sheet is filed at the statement date 2026-03-31; the equity bridge uses the 2025-12-31 balance, 90 days before the statement date; flows between the two dates are in neither that balance nor the first window",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.analystEstimates.currency",
+        "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+        "severity": "info",
+        "attemptedSources": [
+          "fmp:/stable/analyst-estimates"
+        ]
+      },
+      {
+        "field": "compute.cashflowQuarterly.currency",
+        "reason": "the quarterly cash-flow statement for 2026-03-31 carries no currency label and no statement of the same filing supplies one, so its currency is not established (unknown), and it is not assumed to be the model's USD. No FX conversion is applied, so that row and the 3 older ones are left out of every calculation that combines statements or years (cost of debt, WACC, ROIC and DuPont, net debt, the DCF and multiples bridges, forensic scores, growth rates and projections), and those figures are withheld where they depended on them; each row's own margins and its reported figures remain, in their own currency or as currency unknown",
+        "severity": "warn",
+        "attemptedSources": [
+          "fmp:/stable/cash-flow-statement?period=quarter"
+        ]
+      }
+    ],
+    "after": [
+      {
+        "field": "valuation.multiples.enterpriseValue.leases",
+        "reason": "2025-12-31: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.peers",
+        "reason": "Insufficient eligible peer coverage; each median requires four surviving issuers for that metric after the IQR rule. See peer selection/exclusions.",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.ownHistory.windows",
+        "reason": "0 rejected fiscal period(s), 0 rejected quarter window(s), and 5 financially partial/unusable window(s): window 2026-03-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-12-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-09-30: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-06-30: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable; window 2025-03-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.multiples.ownHistory",
+        "reason": "insufficient history (need ≥8 quarters) to rank the current multiple among the issuer's own quarters (window up to 5y)",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.growthAnchor",
+        "reason": "growth-anchor method(s) unavailable: 5y revenue CAGR — the point estimate is the median of the 3 that were computable",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.terminalRoic.waccBasis",
+        "reason": "no per-fiscal-year risk-free observation was available, so the ROIC-vs-WACC evidence behind the terminal excess-return house convention compares every fiscal year to the CURRENT WACC",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.dcf.bridgeBalanceDate",
+        "reason": "no balance sheet is filed at the statement date 2026-03-31; the equity bridge uses the 2025-12-31 balance, 90 days before the statement date; flows between the two dates are in neither that balance nor the first window",
+        "severity": "info"
+      },
+      {
+        "field": "valuation.reverseDcf.currentUse",
+        "reason": "Current valuation use withheld: the model value is dated after the compared quote.",
+        "severity": "warn"
+      },
+      {
+        "field": "valuation.analystEstimates.currency",
+        "reason": "analyst estimate currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57); the analyst-consensus growth case uses them in USD",
+        "severity": "info",
+        "attemptedSources": [
+          "fmp:/stable/analyst-estimates"
+        ]
+      },
+      {
+        "field": "compute.cashflowQuarterly.currency",
+        "reason": "the quarterly cash-flow statement for 2026-03-31 carries no currency label and no statement of the same filing supplies one, so its currency is not established (unknown), and it is not assumed to be the model's USD. No FX conversion is applied, so that row and the 3 older ones are left out of every calculation that combines statements or years (cost of debt, WACC, ROIC and DuPont, net debt, the DCF and multiples bridges, forensic scores, growth rates and projections), and those figures are withheld where they depended on them; each row's own margins and its reported figures remain, in their own currency or as currency unknown",
+        "severity": "warn",
+        "attemptedSources": [
+          "fmp:/stable/cash-flow-statement?period=quarter"
+        ]
+      }
+    ]
+  },
+  {
+    "path": "valuation.reverseDcf",
+    "before": {
+      "method": "growth",
+      "impliedRevenueGrowthPct": 51.6748046875,
+      "impliedTerminalMarginPct": null,
+      "growthPathFamily": "convergent-shift-to-terminal",
+      "baseRevenueGrowthPct": 8.771929824561386,
+      "impliedGrowthPathPct": [
+        51.6748046875,
+        40.08082029679614,
+        30.87866878764305,
+        23.57491629464286,
+        17.77792409929093,
+        13.176848344714383,
+        9.524972098214288,
+        6.626476000538322,
+        4.325938123250047,
+        2.5
+      ],
+      "notes": [
+        "implied first-year revenue growth, with every later year of the base path shifted by the same amount times its convergent fade weight so the shift is gone by year 10 (final growth 2.5%); compare with the base year-one growth 8.77% on the same path, not a historical CAGR; all other assumptions frozen at base case"
+      ],
+      "gaps": []
+    },
+    "after": null
+  }
+]

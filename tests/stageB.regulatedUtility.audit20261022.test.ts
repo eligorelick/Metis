@@ -203,7 +203,7 @@ describe("B-13: the utility balance-sheet signals' evidence", () => {
   function inputs(): ScoringInputs {
     const c = runStageB(completeCurrencyBundle({}), { evIncludeLeases: false });
     return { route: { ...c.route, overlays: ["regulated-utility"] }, policy: metricPolicy(c.route), growth: c.growth, ...c.returns,
-      capital: c.capital, forensics: c.forensics, technicals: c.technicals, valuation: c.valuation, financialMetrics: c.financialMetrics,
+      capital: c.capital, forensics: c.forensics, technicals: c.technicals, valuationUse: c.fairValue.currentUse!, valuation: c.valuation, financialMetrics: c.financialMetrics,
       utilityCredit: credit, currentPrice: 100, asOf: "2026-10-17" };
   }
 

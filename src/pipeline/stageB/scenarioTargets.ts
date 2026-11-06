@@ -45,7 +45,8 @@ import { buildScenarioPaths, marginWithheldText, type ScenarioAssumptions } from
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import { perShareUnit, dcfWithheldWarnGap } from "@/pipeline/stageB/fairValue";
 import type { ManifestEntry } from "@/types/core";
-import type { ScenarioTarget, ScenarioTargets, TracedNumber } from "@/report/schema";
+import type { ScenarioTarget, ScenarioTargets, TracedNumber, ValuationUse } from "@/report/schema";
+import { valuationUseExplanation } from "./valuationUse";
 
 /** Method id stamped into the block. */
 export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
@@ -55,7 +56,7 @@ export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
 // D-135 (audit 2026-10-27 B4a): the bridge each target re-runs changed (redeemable equity and debt-like obligations counted once, after tax), so every target is recomputed.
 // FIN-401 / FIN-401-V1: every target re-runs the corrected stake/operating-income bridge.
 // D-178 / D-179: every target re-runs the FX-converted, completed-debt bridge.
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_BALANCE_ROW_INTEGRITY_55" as const;
+export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_CURRENT_VALUATION_USE_58" as const;
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;
@@ -67,6 +68,7 @@ export interface ScenarioTargetsInputs {
    * bridge the base per-share was computed with, never supplied separately.
    */
   valuation: ValuationResult;
+  valuationUse: ValuationUse;
   waccPct: number | null;
   /** Annual income history (any order) — for the ±σ dispersion (shared with the fan). */
   incomeHistory: ProjectionIncomeRow[];
@@ -81,6 +83,11 @@ const isNum = (v: number | null | undefined): v is number =>
   typeof v === "number" && Number.isFinite(v);
 
 const round2 = (v: number): number => Math.round(v * 100) / 100;
+
+function currentUseRefusal(inputs: ScenarioTargetsInputs): string | null {
+  return inputs.valuationUse?.status === "current" ? null : inputs.valuationUse
+    ? valuationUseExplanation(inputs.valuationUse) : "Current valuation use is unestablished; quote/model date evidence is required.";
+}
 
 /** D-193: finite-path business sensitivities, with the base valuation frozen. */
 function financialScenarioTargets(inputs: ScenarioTargetsInputs, valuation: Extract<ValuationResult, { kind: "excess-return" }>): ScenarioTargets {
@@ -128,6 +135,8 @@ function financialScenarioTargets(inputs: ScenarioTargetsInputs, valuation: Extr
       (a.terminalGrowthPct !== null && (!isNum(a.terminalGrowthPct) || coe <= a.terminalGrowthPct))) {
     return refuse("inputs", "retained base return, payout, terminal or per-share inputs are unavailable or inconsistent");
   }
+  const useRefusal = currentUseRefusal(inputs);
+  if (useRefusal !== null) return refuse("currentUse", useRefusal);
   const sorted = [...returns].sort((x, y) => x - y);
   const quantile = (p: number) => {
     const rank = (sorted.length - 1) * p;
@@ -210,7 +219,8 @@ function suppressed(missingReasons: ManifestEntry[], basis: string[]): ScenarioT
 }
 
 export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioTargets & { scenarioAssumptions?: ScenarioAssumptions } {
-  const { valuation, currency, asOf } = inputs;
+  const { valuation, currency } = inputs;
+  const asOf = inputs.valuationUse?.valueDate ?? null;
 
   if (valuation.kind === "excess-return") return financialScenarioTargets(inputs, valuation);
 
@@ -301,6 +311,11 @@ export function computeScenarioTargets(inputs: ScenarioTargetsInputs): ScenarioT
       ],
     );
   }
+
+  const useRefusal = currentUseRefusal(inputs);
+  if (useRefusal !== null) return suppressed(
+    [{ field: "valuation.scenarioTargets.currentUse", reason: useRefusal, severity: "warn" }], [useRefusal],
+  );
 
   // Company-history sample dispersion and observed covariance — shared with the fan.
   const disp = scenarioDispersion(inputs.incomeHistory);

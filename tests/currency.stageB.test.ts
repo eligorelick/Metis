@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /**
  * Currency integrity in Stage B.
  *
@@ -19,7 +20,7 @@ import { M, currencyBundle } from "./helpers/currencyBundle";
 const UNLABELLED = [null, null, null, null] as const;
 
 function recentIpo(options: Parameters<typeof currencyBundle>[0] = {}) {
-  const bundle = currencyBundle(options);
+  const bundle = withFixtureQuoteDay(currencyBundle(options), "2026-03-31");
   for (const key of ["incomeAnnual", "balanceAnnual", "cashflowAnnual"] as const) {
     const member = bundle.statements[key];
     if (member.ok) member.value.data.rows = [];
@@ -72,7 +73,7 @@ function perShareUnit(computed: ReturnType<typeof runStageB>): string | null {
 
 describe("TTM window currency evidence", () => {
   it("control: four USD-labelled quarters anchor the DCF on TTM revenue, in USD", () => {
-    const computed = runStageB(currencyBundle());
+    const computed = runStageB(withFixtureQuoteDay(currencyBundle(), "2026-03-31"));
     expect(dcfOf(computed).assumptions?.startRevenue.value).toBe(1200 * M);
     expect(dcfOf(computed).assumptions?.startRevenue.basis).toMatch(/^TTM revenue/);
     expect(perShareUnit(computed)).toBe("USD/share");
@@ -81,7 +82,7 @@ describe("TTM window currency evidence", () => {
 
   it("establishes an unlabelled window from the same filing's balance-sheet and cash-flow rows", () => {
     const computed = runStageB(
-      currencyBundle({ quarterCurrencies: UNLABELLED, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"], filingLinks: "shared" }),
+      withFixtureQuoteDay(currencyBundle({ quarterCurrencies: UNLABELLED, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"], filingLinks: "shared" }), "2026-03-31"),
     );
     expect(dcfOf(computed).assumptions?.startRevenue.basis).toMatch(/^TTM revenue/);
     // The pre-revenue threshold is in USD, so its decision needs a proven currency.
@@ -91,7 +92,7 @@ describe("TTM window currency evidence", () => {
 
   it("withholds the TTM from currency-dependent calculations when nothing establishes its currency", () => {
     // Annual rows are USD, but that says nothing about the quarters.
-    const computed = runStageB(currencyBundle({ quarterCurrencies: UNLABELLED, siblingQuarterCurrencies: UNLABELLED }));
+    const computed = runStageB(withFixtureQuoteDay(currencyBundle({ quarterCurrencies: UNLABELLED, siblingQuarterCurrencies: UNLABELLED }), "2026-03-31"));
     const gap = computed.gaps.find((g) => g.field === "compute.ttmIncome.currency");
     expect(gap?.reason).toMatch(/could not be established/);
     expect(gap?.reason).toMatch(/annual/);
@@ -105,7 +106,7 @@ describe("TTM window currency evidence", () => {
   });
 
   it("withholds a TTM window labelled in a different currency from the annual statement", () => {
-    const computed = runStageB(currencyBundle({ quarterCurrencies: ["TWD", "TWD", "TWD", "TWD"] }));
+    const computed = runStageB(withFixtureQuoteDay(currencyBundle({ quarterCurrencies: ["TWD", "TWD", "TWD", "TWD"] }), "2026-03-31"));
     expect(computed.gaps.find((g) => g.field === "compute.ttmIncome.currency")?.reason).toMatch(/TWD/);
     expect(dcfOf(computed).assumptions?.startRevenue.basis).toMatch(/^latest annual FY/);
   });
@@ -118,7 +119,7 @@ describe("model currency of calculated per-share values", () => {
     // listing's USD. (Until 2026-09-30 the DCF ran and was labelled
     // "per share (currency unknown)".)
     const computed = runStageB(
-      currencyBundle({ debt: 0, profileCurrency: "USD", annualCurrency: null, quarterCurrencies: UNLABELLED }),
+      withFixtureQuoteDay(currencyBundle({ debt: 0, profileCurrency: "USD", annualCurrency: null, quarterCurrencies: UNLABELLED }), "2026-03-31"),
     );
     expect(computed.fairValue.perShare).toBeNull();
     expect(computed.gaps.find((g) => g.field === "compute.incomeAnnual.currency")?.reason).toMatch(/not established/);
@@ -128,12 +129,12 @@ describe("model currency of calculated per-share values", () => {
   });
 
   it("states an explicit non-USD model currency", () => {
-    const computed = runStageB(currencyBundle({ profileCurrency: "JPY", annualCurrency: "JPY" }));
+    const computed = runStageB(withFixtureQuoteDay(currencyBundle({ profileCurrency: "JPY", annualCurrency: "JPY" }), "2026-03-31"));
     expect(perShareUnit(computed)).toBe("JPY/share");
   });
 
   it("states the statements' currency when the listing currency is unknown", () => {
-    const computed = runStageB(currencyBundle({ debt: 0, profileCurrency: null, annualCurrency: "EUR" }));
+    const computed = runStageB(withFixtureQuoteDay(currencyBundle({ debt: 0, profileCurrency: null, annualCurrency: "EUR" }), "2026-03-31"));
     expect(perShareUnit(computed)).toBe("EUR/share");
   });
 });

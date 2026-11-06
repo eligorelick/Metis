@@ -124,7 +124,7 @@ describe("normal annual filing acquisition retains debt presentation evidence", 
     expect(JSON.stringify(after)).toBe(afterSnapshot);
   });
   it("acquires the validated same-document appendix without another fetch or signature debt evidence", async () => {
-    const { bundle, calls } = await acquireAnnual("8", { html: annualNotesIndexFixture() });
+    const { bundle, calls } = await acquireAnnual("8", { html: annualNotesIndexFixture("Cash 100 90 Total assets 200 180") });
     expect(bundle.edgar.tenKNotes?.ok).toBe(true);
     if (!bundle.edgar.tenKNotes?.ok) throw new Error("Annual appendix missing");
     const result = bundle.edgar.tenKNotes.value;
@@ -166,11 +166,11 @@ describe("normal annual filing acquisition retains debt presentation evidence", 
   });
 
   it("keeps the existing statement-prefix bound and all notes when the prefix is long", async () => {
-    const { bundle } = await acquireAnnual("8", { prefix: "Annual audit context. ".repeat(650) });
+    const { bundle } = await acquireAnnual("8", { prefix: `${balance} ${"Statement detail. ".repeat(800)}` });
     if (!bundle.edgar.tenKNotes?.ok) throw new Error("Annual notes were not acquired");
     const section = bundle.edgar.tenKNotes.value.data;
     expect(section.statementsText).toHaveLength(12_000);
-    expect(section.statementsText).not.toContain("Long-term debt");
+    expect(section.statementsText).toContain("Long-term debt");
     expect(section.text).toBe(notes);
   });
 

@@ -66,6 +66,9 @@ export const RISK_SOURCE_MANIFEST = [
   "src/edgar/filedPresentation.ts",
   "src/edgar/instanceFacts.ts",
   "src/edgar/retainedClassEconomics.ts",
+  "src/edgar/revenueAdmission.ts",
+  "src/edgar/revenuePresentation.ts",
+  "src/edgar/primaryIncome.ts",
   "src/edgar/cashInvestment.ts",
   "src/edgar/shareUnitRepair.ts",
   // The element names and the successor hop moved OUT of the audited
@@ -145,6 +148,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/claimMatching.ts",
   "src/report/verificationMarks.ts",
   "src/report/legacyEntitySafety.ts",
+  "src/report/valuationUseSafety.ts",
   "src/report/principalAggregationSafety.ts",
   "src/report/enterpriseValueSafety.ts",
   "src/report/legacyPayloadRecordSafety.ts",

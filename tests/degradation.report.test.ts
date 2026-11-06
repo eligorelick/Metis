@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /**
  * Keyless / degraded END-TO-END report + accuracy-consistency tests
  * (Phase 4 gate).
@@ -210,7 +211,7 @@ function fixtureBundle(symbol = "AAPL"): DataBundle {
     asOf,
     gaps: [{ field: "sharesFloat", reason: "float unavailable", severity: "warn" as const }],
   } as unknown as DataBundle;
-  return bundle;
+  return withFixtureQuoteDay(bundle, "2026-03-28");
 }
 
 function buildInputs(symbol = "AAPL"): {

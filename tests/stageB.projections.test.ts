@@ -1,3 +1,4 @@
+import { currentValuationUseFixture } from "./helpers/valuationUse";
 /**
  * Stage B — weighted forward projections (projections.ts).
  *
@@ -281,7 +282,7 @@ describe("projections — scenarios", () => {
     expect(measured.growthMarginCorrelation).toBeGreaterThan(0.99);
 
     const inputs = makeInputs({ incomeHistory });
-    const targets = computeScenarioTargets({ ...inputs, currentPrice: 50 });
+    const targets = computeScenarioTargets({ ...inputs, currentPrice: 50, valuationUse: currentValuationUseFixture() });
     expect(targets.status).toBe("available");
     expect(targets.dispersion?.growthMarginCorrelation).toBeNull();
     expect(targets.targets.every(target => target.marginDeltaPp === 0)).toBe(true);

@@ -8,7 +8,7 @@ import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { reportToPrintBody, reportToPrintHtml } from "@/report/export/printHtml";
 import { parseStoredReportWithSafety } from "@/report/legacyEntitySafety";
 import type { Report } from "@/report/schema";
-import { ReportSchema } from "@/report/schema";
+import { REPORT_SPEC_VERSION, ReportSchema } from "@/report/schema";
 import { legacyScopeQualifications, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
 import { buildMarketData } from "@/pipeline/marketData";
@@ -238,7 +238,7 @@ describe("immutable saved-report scope qualifications", () => {
       { id: "recurring-discontinued-ops", severity: "warn", message: "Discontinued operations affected results in 2 of the last 5 fiscal years — recurring portfolio churn complicates run-rate earnings.", metrics: { discontinuedOpsYears: 2, lookbackYears: 5 }, rule: "house rule: netIncomeFromDiscontinuedOperations nonzero in >= 2 of the last 5 fiscal years", heuristic: true, asOf: [] },
     ];
     const r = buildDataOnlyReport({ symbol: bundle.symbol, companyName: "Synthetic saved-input issuer", generatedAt: bundle.builtAt, model: "none", costUsd: 0, bundle, computed, validation: { checks: [], flags: [], gaps: [] }, costBreakdown: [], reason: "offline legacy-input control" });
-    expect(r.meta.specVersion).toBe("1.64.0"); // the Q round moved the shared report stamp; the current builder stamps it
+    expect(r.meta.specVersion).toBe(REPORT_SPEC_VERSION); // Current builder; historical cutoffs stay frozen.
     expect(r.quality.flags[0]!.text).toContain("possible channel stuffing");
     const bytes = JSON.stringify(r);
     for (const input of [r, parseStoredReportWithSafety(bytes)!.report]) for (const read of Object.values(readers)) {

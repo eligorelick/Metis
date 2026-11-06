@@ -1722,6 +1722,7 @@ describe("excessReturnModel (banks / insurers)", () => {
     const mcap = forward.equityValue as number;
 
     const solved = excessReturnModel({
+      asOf: "2025-12-31", quoteAsOf: "2025-12-31",
       bookValue,
       currentRoePct: 13,
       costOfEquityPct: coe,
@@ -1742,6 +1743,7 @@ describe("excessReturnModel (banks / insurers)", () => {
     // value == book. So an issuer trading at 1.0x book implies ROE == CoE. This
     // is the property the old constant-ROE solve could not satisfy.
     const solved = excessReturnModel({
+      asOf: "2025-12-31", quoteAsOf: "2025-12-31",
       bookValue: 1000,
       currentRoePct: 13,
       costOfEquityPct: 10,
@@ -1767,6 +1769,7 @@ describe("excessReturnModel (banks / insurers)", () => {
       dilutedShares: 100,
     });
     const solved = excessReturnModel({
+      asOf: "2025-12-31", quoteAsOf: "2025-12-31",
       bookValue: 1000,
       currentRoePct: 13,
       costOfEquityPct: 10,
@@ -1958,7 +1961,7 @@ describe("valueCompany dispatch", () => {
   };
 
   const multiples: MultiplesFrameworkInputs = {
-    quote: { price: 100, marketCap: 10000, currency: "USD" },
+    quote: { price: 100, marketCap: 10000, currency: "USD", priceAsOf: "2025-12-31" },
     reportedCurrency: "USD",
     incomeTtm: {
       date: "2025-12-31",

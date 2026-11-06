@@ -1,3 +1,4 @@
+import { currentValuationUseFixture } from "./helpers/valuationUse";
 /**
  * Audit PGR-4 (docs/audit/2026-10-20-independent-audit-fixes.md): a valuation
  * grade resting on one own-history rank, with the excess-return signal
@@ -31,7 +32,7 @@ function insurerInputs(reverseSolve: { impliedCurrentRoePct: number; notes: stri
     notes: [],
     gaps: [],
   } as unknown as ValuationResult;
-  return { route, policy: metricPolicy(route), growth: c.growth, ...c.returns, capital: c.capital, forensics: c.forensics,
+  return { route, policy: metricPolicy(route), valuationUse: currentValuationUseFixture("2026-10-19"), growth: c.growth, ...c.returns, capital: c.capital, forensics: c.forensics,
     technicals: c.technicals, valuation, financialMetrics: c.financialMetrics, currentPrice: 219.11, asOf: "2026-10-19" };
 }
 

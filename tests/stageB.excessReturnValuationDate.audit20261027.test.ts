@@ -46,13 +46,17 @@ describe("FIN-309: one value date on the financial route", () => {
     // F1: converted notes now restore book before valuation (950 -> 1000).
     const row = book.startCoeGrid!.rows.findIndex(r => r.bookValue === book.startAlternative!.bookValue);
     for (let c = 0; c < 3; c++) expect(later.startCoeGrid!.perShare[row][c]).toBeCloseTo(book.startCoeGrid!.perShare[row][c]! * (1 + book.startCoeGrid!.costOfEquityPcts[c] / 100) ** (186 / 365.25), 9);
-    expect(excessReturnModel({ ...pure, valuationDate: "2026-07-05", price: later.perShare! }).reverseSolve.impliedCurrentRoePct).toBeCloseTo(15, 2);
+    expect(excessReturnModel({ ...pure, valuationDate: "2026-07-05", quoteAsOf: "2026-07-05", price: later.perShare! }).reverseSolve.impliedCurrentRoePct).toBeCloseTo(15, 2);
   });
-  it("does not roll a value backward and dates an over-limit headline at book", () => {
+  it("does not roll a value backward and keeps an over-limit value reference-only", () => {
     const a = excessReturnModel(pure), b = excessReturnModel({ ...pure, valuationDate: "2026-03-30" });
     expect(a.perShare).toBe(b.perShare);
     const late = run("bank", "2026-10-18");
-    expect(late.fairValue.perShare?.asOf).toBe("2026-03-31");
+    expect(late.fairValue.status).toBe("dated-reference");
+    expect(late.fairValue.perShare).toBeNull();
+    expect(late.fairValue.upsidePct).toBeNull();
+    expect(late.fairValue.reference?.valuationDate).toBe("2026-03-31");
+    expect(late.fairValue.reference?.quoteDate).toBe("2026-10-18");
   });
   it("keeps the general-route DCF roll", () => {
     const r = run("general", "2026-07-05");

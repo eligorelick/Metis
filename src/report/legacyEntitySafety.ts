@@ -1,3 +1,4 @@
+import { withValuationUseSafety } from "@/report/valuationUseSafety";
 import { withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import {
   ENTITY_WITHHELD_STATEMENT_PREFIX,
@@ -81,7 +82,7 @@ export function parseStoredReportWithSafety(
         missingData: attributeJudgeProtocolDisclosures(assessed.appendix.missingData, assessed.meta),
       },
     })))))));
-    const revalidated = validateStoredReportInReadMode(withLegacyScopeQualifications(view), readMode);
+    const revalidated = validateStoredReportInReadMode(withValuationUseSafety(withLegacyScopeQualifications(view)), readMode);
     if (revalidated === null) return null;
     return {
       report: revalidated,

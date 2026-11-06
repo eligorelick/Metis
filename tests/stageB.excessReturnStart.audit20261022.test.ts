@@ -160,7 +160,7 @@ describe("C-10: the model starts from the trailing return and exposes the fiscal
       balance: null,
     };
     const valuation = valueCompany(route, { currentPrice: 20, waccPct: null, netDebt: null, dilutedShares: 100, dcfInputs: null, multiples, excessReturn: bank(), reit: null });
-    const fairValue = computeFairValue({ valuation, currentPrice: 20, currency: "USD", asOf: "2026-10-22" });
+    const fairValue = computeFairValue({ quoteAsOf: "2026-06-30", valuation, currentPrice: 20, currency: "USD", asOf: "2026-10-22" });
     expect(fairValue.status).toBe("available");
     expect(fairValue.alternative?.perShare).toBeGreaterThan(0);
     expect(fairValue.alternative?.label).toMatch(/FY 2025-12-31 ROTE start/);
@@ -180,7 +180,7 @@ describe("C-10: the model starts from the trailing return and exposes the fiscal
     const route: CompanyRoute = { base: "bank", overlays: [], evidence: { sector: null, industry: null } };
     const multiples: MultiplesFrameworkInputs = { quote: { price: 20, marketCap: 2000, currency: "USD" }, reportedCurrency: "USD", incomeTtm: null, cashFlowTtm: null, balance: null };
     const valuation = valueCompany(route, { currentPrice: 20, waccPct: null, netDebt: null, dilutedShares: 100, dcfInputs: null, multiples, excessReturn: bank({ currentRoePct: -150, startAlternative: null }), reit: null });
-    const fairValue = computeFairValue({ valuation, currentPrice: 20, currency: "USD", asOf: "2026-10-22" });
+    const fairValue = computeFairValue({ quoteAsOf: "2026-06-30", valuation, currentPrice: 20, currency: "USD", asOf: "2026-10-22" });
     const floor = fairValue.reasons.find((g) => g.field === "valuation.dcf.perShare.floor");
     expect(floor?.reason).toMatch(/book value plus the present value of the excess returns/);
     expect(floor?.reason).not.toMatch(/enterprise value/);

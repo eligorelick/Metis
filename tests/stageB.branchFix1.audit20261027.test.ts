@@ -73,7 +73,7 @@ describe("I-1: lease-emptied capital withholds the DCF at warn", () => {
       currentPrice: 100, waccPct: 10, netDebt: 250e6, dilutedShares: 100e6, multiples, excessReturn: null, reit: null,
       dcfInputs: { ...base, balance: emptied(), capitalHistory: [2024, 2025].map(historyRow), marketCap: 10e9 } as DcfAssumptionInputs,
     });
-    const fair = computeFairValue({ valuation, currentPrice: 100, currency: "USD", asOf: "2026-07-01" });
+    const fair = computeFairValue({ quoteAsOf: null, valuation, currentPrice: 100, currency: "USD", asOf: "2026-07-01" });
     expect(fair.status).toBe("suppressed");
     expect(fair.reasons[0]!.reason.startsWith(LEASE_EMPTIED_CAPITAL_LEAD)).toBe(true);
   });

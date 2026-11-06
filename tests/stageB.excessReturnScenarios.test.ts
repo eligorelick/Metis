@@ -4,6 +4,7 @@ import { computeFairValue } from "@/pipeline/stageB/fairValue";
 import { excessReturnModel, type ExcessReturnInputs, type ValuationResult } from "@/pipeline/stageB/valuation";
 import { ScenarioTargetsSchema } from "@/report/schema";
 import { buildSyntheticRouteBundle, runResearchRoutePanel } from "./helpers/researchRoutePanel";
+import { classifyValuationUse } from "@/pipeline/stageB/valuationUse";
 
 const history = [12, 14, 16, 18, 20].map((roicPct, i) => ({ date: `${2021 + i}-12-31`, roicPct, waccPct: null }));
 function fixture(over: Partial<ExcessReturnInputs> = {}, route: "bank" | "insurer" = "bank") {
@@ -15,18 +16,29 @@ function fixture(over: Partial<ExcessReturnInputs> = {}, route: "bank" | "insure
     asOf: "2025-12-31", valuationDate: "2026-02-01", ...over,
   };
   const valuation = { kind: "excess-return", route, excessReturn: excessReturnModel(raw), notes: [], gaps: [] } as unknown as ValuationResult;
-  const input = { route: { base: route } as never, valuation, waccPct: null, incomeHistory: [], currentPrice: 20, currency: "USD", asOf: "2026-02-01" };
+  const input = { route: { base: route } as never, valuation, waccPct: null, incomeHistory: [], currentPrice: 20, currency: "USD", asOf: "2026-02-01",
+    quoteAsOf: "2026-02-01", valuationUse: classifyValuationUse(valuation, valuation.kind === "excess-return" && valuation.excessReturn.perShare !== null, "2026-02-01") };
   return { raw, valuation, input, targets: computeScenarioTargets(input) };
 }
 
 function completeFinancialBundle(route: "bank" | "insurer") {
   const bundle = buildSyntheticRouteBundle(route);
+  if (!bundle.quote.ok) throw new Error("fixture quote");
+  bundle.quote.value.data.rows[0]!.timestamp = Date.parse("2026-07-05T20:00:00Z") / 1000;
   if (!bundle.statements.balanceAnnual.ok) throw new Error("fixture balances");
   const balances = bundle.statements.balanceAnnual.value.data.rows;
   const template = balances.at(-1)!;
   for (const year of [2023, 2022, 2021]) balances.push({ ...template, date: `${year}-12-31`, filingDate: `${year + 1}-02-10`, totalStockholdersEquity: (350 + (year - 2021) * 25) * 1e6 });
   return bundle;
 }
+
+it("dates financial scenario values at the admitted valuation date instead of report build time", () => {
+  const { input, targets } = fixture();
+  expect(targets.targets).toHaveLength(3);
+  const laterBuild = computeScenarioTargets({ ...input, asOf: "2026-11-05" });
+  expect(laterBuild.targets.map(target => target.perShare?.value)).toEqual(targets.targets.map(target => target.perShare?.value));
+  expect(laterBuild.targets.every(target => target.perShare?.asOf === "2026-02-01")).toBe(true);
+});
 
 describe("D-193: financial-route own-history scenarios", () => {
   it.each(["bank", "insurer"] as const)("%s brackets an unchanged fair value with business-return and persistence stresses", route => {

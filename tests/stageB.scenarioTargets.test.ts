@@ -1,3 +1,4 @@
+import { currentValuationUseFixture } from "./helpers/valuationUse";
 /**
  * Stage B — deterministic scenario price targets (scenarioTargets.ts).
  *
@@ -99,6 +100,7 @@ function makeInputs(over: Partial<ScenarioTargetsInputs> = {}): ScenarioTargetsI
   return {
     route: route(),
     valuation: dcfValuation(),
+    valuationUse: currentValuationUseFixture(),
     waccPct: 9,
     incomeHistory: INCOME_HISTORY,
     currentPrice: 120,
@@ -107,6 +109,19 @@ function makeInputs(over: Partial<ScenarioTargetsInputs> = {}): ScenarioTargetsI
     ...over,
   };
 }
+
+it.each(["dated-reference", "unestablished"] as const)("does not publish current scenario targets from %s value evidence", status => {
+  const input = makeInputs();
+  const valuationUse = { status, reason: status === "dated-reference" ? "not-rolled-to-quote" as const : "quote-date-missing" as const, statementDate: "2025-12-31", valueDate: "2025-12-31", quoteDate: status === "dated-reference" ? "2026-07-20" : null };
+  const before = JSON.stringify(input.valuation);
+  const current = computeScenarioTargets({ ...input, valuationUse: { ...valuationUse, status: "current", reason: "same-date", quoteDate: "2025-12-31" } });
+  expect(current.targets).toHaveLength(3);
+  expect(current.targets.every(target => target.perShare?.asOf === "2025-12-31")).toBe(true);
+  const withheld = computeScenarioTargets({ ...input, valuationUse });
+  expect(withheld).toMatchObject({ status: "suppressed", targets: [] });
+  expect(withheld.missingReasons.some(reason => reason.field === "valuation.scenarioTargets.currentUse")).toBe(true);
+  expect(JSON.stringify(input.valuation)).toBe(before);
+});
 
 const targetFor = (r: ReturnType<typeof computeScenarioTargets>, name: "bull" | "base" | "bear") =>
   r.targets.find((t) => t.name === name)!;
@@ -463,6 +478,19 @@ describe("scenarioTargets — the perturbed runs use the base DCF's own bridge",
       operatingLeaseLiability: 250,
     },
   };
+
+  it.each(["2025-12-31", "2026-07-20", null])("publishes a current reverse DCF only for a supported actual quote date: %s", quoteDate => {
+    const run = (day: string | null) => valueCompany(route(), { currentPrice: 100, waccPct: 9, netDebt: 450, dilutedShares: 100,
+      operatingLeaseLiability: 250, includeLeasesInEv: false, dcfInputs: { ...dcfInputs, valuationDate: day },
+      multiples: { ...multiples, quote: { ...multiples.quote, priceAsOf: day } }, excessReturn: null, reit: null });
+    const current = run("2025-12-31"), actual = run(quoteDate);
+    if (current.kind !== "dcf" || actual.kind !== "dcf") throw Error("DCF route required");
+    expect(current.reverseDcf).not.toBeNull();
+    expect(actual.dcf?.perShare).not.toBeNull();
+    expect(actual.dcf?.perShare).toBe(current.dcf?.perShare);
+    if (quoteDate === "2025-12-31") expect(actual.reverseDcf).not.toBeNull();
+    else expect(actual.reverseDcf).toBeNull();
+  });
 
   it("re-runs bull and bear on the lease-adjusted bridge the base per-share used, so bull is never below base", () => {
     const valuation = valueCompany(route(), {

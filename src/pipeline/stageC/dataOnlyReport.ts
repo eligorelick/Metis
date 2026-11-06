@@ -1,3 +1,4 @@
+import { applyReportAssessmentStatus } from "@/report/assessment";
 /**
  * Data-only report enrichment — the deterministic Stage B content a report
  * carries when the LLM passes do not run.
@@ -41,7 +42,8 @@ import { buildEvidenceTiming } from "@/report/evidenceTiming";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { buildMarketData } from "@/pipeline/marketData";
 import { collapseMeasuredCagrValues } from "@/report/cagrPresentation";
-import { assembleContextPayload, guidanceLowCitation } from "@/pipeline/stageC/payload";
+import { annualFiscalLabels, assembleContextPayload, guidanceLowCitation } from "@/pipeline/stageC/payload";
+import { operatingHistorySupport } from "@/pipeline/stageB/growth";
 import type { DataBundle } from "@/pipeline/types";
 import { applyFinancialDiagnostics } from "@/report/financialDiagnostics";
 import { classifyManifest } from "@/report/completeness";
@@ -50,9 +52,9 @@ import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 import type { ForensicFlag } from "@/pipeline/stageB/forensics";
 import { scoreToBand } from "@/pipeline/stageB/grading";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
-import { compositeDisplay, hasLimitedEvidence, withNeutral } from "@/report/assessment";
+import { compositeDisplayForReader as compositeDisplay, hasLimitedEvidence, withNeutral } from "@/report/assessment";
 import { establishedCurrency } from "@/report/format";
-import { fairValueDegradedText } from "@/report/fairValueText";
+import { fairValueDegradedText, fairValueReferenceText } from "@/report/fairValueText";
 import { formatScore } from "@/report/scoreText";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { admittedGeography } from "@/edgar/segmentFacts";
@@ -814,7 +816,9 @@ function synthesis(
     const bands = (Object.keys(ASPECT_LABEL) as ScoreAspect[])
       .map((key) => {
         const aspect = computed.scores.aspects[key];
-        return `${ASPECT_LABEL[key]} ${aspect.band === null ? "not assessed" : hasLimitedEvidence(aspect) ? "limited evidence" : withNeutral(aspect.band, aspect.score)}`;
+        const qualifier = computed.scores.qualification?.aspects[key].status;
+        const suffix = qualifier === "provisional" ? " — Provisional" : qualifier === "unknown" ? " — Qualification unknown" : "";
+        return `${ASPECT_LABEL[key]} ${aspect.band === null ? "not assessed" : hasLimitedEvidence(aspect) ? "limited evidence" : withNeutral(aspect.band, aspect.score) + suffix}`;
       })
       .join(", ");
     // Audit 2026-10-22 F-19: the composite carries the aspects' evidence floor.
@@ -837,6 +841,8 @@ function synthesis(
     // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
     const degraded = fairValueDegradedText(fv);
     if (degraded !== null) parts.push(degraded);
+  } else if (fv.status === "dated-reference") {
+    parts.push(fairValueReferenceText(fv)!);
   } else if (fv.status === "outside-domain") {
     // Audit 2026-10-22 B-29: the verdict says the model is outside its domain.
     parts.push(`Deterministic ${fv.method ?? "fair-value"} model: no fair value. ${fv.basis[0] ?? "Model outside its domain."}`);
@@ -900,9 +906,17 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const moatGrade = block("moat");
   const leadershipGrade = block("leadership");
   const technicalsGrade = block("technicals");
+  const operatingSupport=operatingHistorySupport(computed.growth.margins.operating,annualFiscalLabels(bundle));
 
   const candidate: Report = {
     ...stub,
+    // A copied data-only stub may predate the current income admission. Keep
+    // source refusals and standalone qualifications even when no DCF assumption
+    // exists to carry them. This transports evidence, without changing grades.
+    appendix: { ...stub.appendix, missingData: [...new Map([
+      ...stub.appendix.missingData,
+      ...computed.gaps.filter(gap => gap.field.startsWith("statements.income.")),
+    ].map(gap => [`${gap.field}|${gap.reason}`, gap])).values()] },
     scenarioPresentation: buildScenarioPresentation(computed, comparableScenarioPrice(computed, bundle)),
     thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability))),
     verdict: {
@@ -926,6 +940,10 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
       ...stub.fundamentals,
       graded: fundamentalsGrade,
       ...fundamentalsSections(computed, cf),
+      commentary: [...stub.fundamentals.commentary,
+        ...(operatingSupport ? [fact(operatingSupport,"computed.growth.margins.operating",computed.growth.asOf)] : []), ...computed.gaps
+        .filter(gap => gap.field === `statements.income.${computed.returns.wacc.asOf?.statements}.waccOperatingIncome`)
+        .map(gap => fact(gap.reason, "computed.returns.wacc", computed.returns.wacc.asOf?.statements ?? null))],
     },
     balanceSheet: { graded: balanceSheetGrade, ...balanceSheetSection(computed, currency, cf, flagClaim) },
     valuation: valuationSection(stub.valuation, computed, valuationGrade, computed.valuationTranslation?.fx.quoteCurrency ?? currency),
@@ -968,8 +986,8 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const { provenanceCoverage: _appendixCoverage, ...appendix } = enriched.appendix;
   void _metaCoverage;
   void _appendixCoverage;
-  return { ...enriched, meta: { ...meta, evidenceTiming: buildEvidenceTiming(bundle, {
+  return applyReportAssessmentStatus({ ...enriched, meta: { ...meta, evidenceTiming: buildEvidenceTiming(bundle, {
     calculationAsOf: computed.builtAt ?? null, reportGeneratedAt: enriched.meta.generatedAt,
-  }) }, appendix };
+  }) }, appendix });
 }
 import { technicalTrendText } from "@/report/technicalTrend";

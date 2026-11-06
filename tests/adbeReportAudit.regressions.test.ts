@@ -94,7 +94,7 @@ describe("independent first-report audit reproductions", () => {
     const c=runStageB(completeCurrencyBundle({}));
     if(c.valuation.kind!=="dcf")throw Error("DCF fixture");
     c.valuation.multiples.multiples=[{key:"peTtm",current:18,basis:"current GAAP",peers:null,ownHistory:null},{key:"evToEbitda",current:20,basis:"current",peers:null,ownHistory:{percentileRank:40,observations:12,basis:"retained",p5:null,p25:null,p50:null,p75:null,p95:null}}];
-    const inputs:ScoringInputs={route:c.route,policy:metricPolicy(c.route),growth:c.growth,...c.returns,capital:c.capital,forensics:c.forensics,technicals:c.technicals,valuation:c.valuation,financialMetrics:c.financialMetrics,currentPrice:100,asOf:"2026-10-19"};
+    const inputs:ScoringInputs={route:c.route,policy:metricPolicy(c.route),growth:c.growth,...c.returns,capital:c.capital,forensics:c.forensics,technicals:c.technicals,valuationUse: c.fairValue.currentUse!, valuation:c.valuation,financialMetrics:c.financialMetrics,currentPrice:100,asOf:"2026-10-19"};
     const scores=computeScores(inputs);
     const row=scoreDriverTable(scores)?.rows.find(row=>row[0]==="Valuation"&&row[1]?.includes("history"));
     expect(row?.[1]).toBe("EV/EBITDA own-history rank");

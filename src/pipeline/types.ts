@@ -104,6 +104,8 @@ export interface ExtractedSection {
    * facts. Absent on legacy sections, empty prefixes and other section kinds.
    */
   statementsText?: string;
+  /** Specific extraction gap when the notes have no proved statement prefix. */
+  statementsTextGap?: string;
   /** Optional same-document appendix proof; absent on ordinary/legacy sections. */
   annualNotesRedirect?: import("@/edgar/extract").AnnualNotesRedirectEvidence;
   /** Bounded signature block from this same primary 10-Q, including dated roles. */

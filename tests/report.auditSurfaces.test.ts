@@ -7,6 +7,7 @@ import { reportToPrintBody } from "@/report/export/printHtml";
 import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualValidationText } from "@/report/auditTables";
 import { ReportSchema, type Report } from "@/report/schema";
 import { loadTask28Fixture } from "./helpers/task28Report";
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 
 function auditReport(): Report {
   const report = loadTask28Fixture();
@@ -68,7 +69,7 @@ it("RPT-211 includes body-table figures without relying on verification logs", a
  const { completeCurrencyBundle } = await import("./helpers/currencyBundle");
  const { runStageB } = await import("@/pipeline/compute");
  const { buildDataOnlyReport } = await import("@/pipeline/jobRunner");
- const bundle = completeCurrencyBundle({ debt: 300 });
+ const bundle = withFixtureQuoteDay(completeCurrencyBundle({ debt: 300 }), "2026-03-31");
  const report = buildDataOnlyReport({ symbol: bundle.symbol, companyName: "Synthetic", generatedAt: bundle.builtAt, model: "none", costUsd: 0, bundle, validation: { checks: [], flags: [], gaps: [] }, computed: runStageB(bundle), costBreakdown: [], reason: "no analysis" });
  const figures = [...report.fundamentals.growthTable, ...report.fundamentals.marginTrend, ...report.fundamentals.returns, ...report.fundamentals.fcf].flatMap(row => row.values.map(v => v.value));
  expect(report.valuation.dcf.perShare).not.toBeNull();

@@ -1,3 +1,6 @@
+import { recordedValuationTrace } from "@/report/fairValueText";
+import { qualificationText } from "@/report/assessment";
+import { withValuationUseSafety } from "@/report/valuationUseSafety";
 import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
@@ -296,6 +299,8 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
     `_${prose(block.oneLineWhy)}_`,
   ];
   if (block.interpretation) lines.push("", prose(block.interpretation));
+  const qualifier = qualificationText(block.qualification);
+  if (qualifier) lines.push("", markdownProse(qualifier));
   const contractText = readerGradeContractText(block);
   if (contractText) lines.push("", prose(contractText));
   if (block.reasoning.length > 0) lines.push("", "Reasoning:", "", claimList(block.reasoning, block.keyNumbers));
@@ -580,8 +585,10 @@ function renderValuation(
   // perShare is null when the deterministic fair value was suppressed — show
   // "unavailable", never a fabricated number.
   const dcfPs = v.dcf.perShare;
+  const recordedPerShare = recordedValuationTrace(v.dcf, fairValue);
   const noModel = review.report ? unavailableCashFlowModel(review.report) : false;
   if (noModel) lines.push(markdownProse(cashFlowModelExplanation(review.report!)), "", ...auditTableBlocks(unavailableModelInputTables(review.report!)));
+  if (noModel && fairValue) lines.push(markdownProse(fairValueWithheldText(fairValue)), "");
   if (!noModel) {
     lines.push(
       fairValue?.method === "excess-return" ? "### Excess-return value" : "### DCF",
@@ -601,7 +608,7 @@ function renderValuation(
       "",
     );
     lines.push(...subsection("Assumptions:", bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))]))));
-    lines.push(...auditTableBlocks(valuationAuditTables(v.dcf)));
+    lines.push(...auditTableBlocks(valuationAuditTables(v.dcf, recordedPerShare)));
 
     // Sensitivity grid (WACC × terminal growth), rendered as a pivot table.
     const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
@@ -615,7 +622,7 @@ function renderValuation(
         ...gterms.map((g) => {
           const ps = lookup.get(`${w}|${g}`);
           // The grid is in the currency of the per-share value beside it.
-          return ps === undefined || ps === null ? DASH : formatMoneyAmount(ps, dcfPs ? establishedCurrency(dcfPs.unit, dcfPs.currency) : null, 0);
+          return ps === undefined || ps === null ? DASH : formatMoneyAmount(ps, recordedPerShare ? establishedCurrency(recordedPerShare.unit, recordedPerShare.currency) : null, 0);
         }),
       ]);
       lines.push("### Sensitivity (per share — rows = WACC, cols = terminal g)", "", table(headers, rows), "");
@@ -1048,7 +1055,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
   report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
-  report = withLegacyScopeQualifications(report);
+  report = withValuationUseSafety(withLegacyScopeQualifications(report));
   const lenderTables = lenderConventionTables(report);
   report = withReaderConventions(report);
   const scopeQualifications = legacyScopeQualifications(report);

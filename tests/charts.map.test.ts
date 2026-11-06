@@ -263,6 +263,14 @@ describe("revenueRowsFromStatements", () => {
 // ---------------------------------------------------------------------------
 
 describe("marginRowsFromComputed", () => {
+  it("uses the computed operating series when gross margin is absent", () => {
+    const c = computedWithMargins([], [{ date: "2025-12-31", pct: 20 }], []);
+    expect(marginRowsFromComputed(c))
+      .toEqual([{ period: "2025-12-31", grossPct: null, operatingPct: 20, netPct: null }]);
+  });
+  it("returns an empty series when the calculation view supplies none", () => {
+    expect(marginRowsFromComputed(computedWithMargins([], [], []))).toEqual([]);
+  });
   it("passes the computed percent series through UNCHANGED (no ×100 double-apply)", () => {
     const computed = computedWithMargins(
       [
@@ -278,7 +286,7 @@ describe("marginRowsFromComputed", () => {
         { date: "2024-12-31", pct: 25.5 },
       ],
     );
-    const out = marginRowsFromComputed(computed, []);
+    const out = marginRowsFromComputed(computed);
     expect(out).toEqual([
       { period: "2023-12-31", grossPct: 45.2, operatingPct: 30.1, netPct: 25.0 },
       { period: "2024-12-31", grossPct: 46.0, operatingPct: 31.0, netPct: 25.5 },
@@ -291,7 +299,7 @@ describe("marginRowsFromComputed", () => {
       [{ date: "2023-12-31", pct: null }],
       [{ date: "2023-12-31", pct: null }],
     );
-    expect(marginRowsFromComputed(computed, [])[0]).toEqual({
+    expect(marginRowsFromComputed(computed)[0]).toEqual({
       period: "2023-12-31",
       grossPct: null,
       operatingPct: null,
@@ -299,35 +307,7 @@ describe("marginRowsFromComputed", () => {
     });
   });
 
-  it("falls back to deriving margins from statements (in percent) when the growth series is empty", () => {
-    const computed = computedWithMargins([], [], []);
-    const income: FmpIncomeStatementRow[] = [
-      // supplied DESC; fallback sorts ascending
-      { date: "2024-12-31", revenue: 200, grossProfit: 90, operatingIncome: 40, netIncome: 20 },
-      { date: "2023-12-31", revenue: 100, grossProfit: 60, operatingIncome: 25, netIncome: 10 },
-    ];
-    const out = marginRowsFromComputed(computed, income);
-    expect(out.map((r) => r.period)).toEqual(["2023-12-31", "2024-12-31"]);
-    // 2023: 60/100=60%, 25/100=25%, 10/100=10%
-    expect(out[0]).toEqual({ period: "2023-12-31", grossPct: 60, operatingPct: 25, netPct: 10 });
-    // 2024: 90/200=45%, 40/200=20%, 20/200=10%
-    expect(out[1]).toEqual({ period: "2024-12-31", grossPct: 45, operatingPct: 20, netPct: 10 });
-  });
 
-  it("fallback maps missing numerators / non-positive revenue to null", () => {
-    const computed = computedWithMargins([], [], []);
-    const income: FmpIncomeStatementRow[] = [
-      { date: "2024-12-31", revenue: 0, grossProfit: 90, operatingIncome: 40, netIncome: 20 }, // rev 0 → all null
-      { date: "2023-12-31", revenue: 100, netIncome: 10 }, // gross/op missing → null, net derived
-    ];
-    const out = marginRowsFromComputed(computed, income);
-    expect(out[0]).toEqual({ period: "2023-12-31", grossPct: null, operatingPct: null, netPct: 10 });
-    expect(out[1]).toEqual({ period: "2024-12-31", grossPct: null, operatingPct: null, netPct: null });
-  });
-
-  it("returns [] when both the computed series and the statement fallback are empty", () => {
-    expect(marginRowsFromComputed(computedWithMargins([], [], []), [])).toEqual([]);
-  });
 });
 
 // ---------------------------------------------------------------------------

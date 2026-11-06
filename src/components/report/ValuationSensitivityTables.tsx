@@ -5,11 +5,11 @@ import { RecordedAuditTable } from "./RecordedAuditTable";
 import { RecordedSensitivityMatrix, type RecordedSensitivityMatrixProps } from "./RecordedSensitivityMatrix";
 
 /** Prepare only the method's recorded matrices; all remaining canonical tables survive. */
-export function ValuationSensitivityTables({ dcf }: { dcf: Dcf }) {
+export function ValuationSensitivityTables({ dcf, recordedPerShare = dcf.perShare }: { dcf: Dcf; recordedPerShare?: Dcf["perShare"] }) {
   const growth = dcf.growthMarginGrid;
   const excess = dcf.excessReturnGrid;
-  const excessCurrency = dcf.perShare ? establishedCurrency(dcf.perShare.unit, dcf.perShare.currency) : null;
-  return valuationAuditTables(dcf).filter(table => table.heading !== "Enterprise value to equity bridge").map(table => {
+  const excessCurrency = recordedPerShare ? establishedCurrency(recordedPerShare.unit, recordedPerShare.currency) : null;
+  return valuationAuditTables(dcf, recordedPerShare).filter(table => table.heading !== "Enterprise value to equity bridge").map(table => {
     let matrix: RecordedSensitivityMatrixProps | undefined;
     if (growth && table.heading.startsWith("Sensitivity (per share — rows = year-one revenue growth shift")) {
       matrix = { label: "Recorded growth and margin sensitivity", table, values: growth.perShare,

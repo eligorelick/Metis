@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { enrichIncomeClassification } from "@/edgar/incomeClassification";
-import type { CompanyFacts } from "@/edgar/xbrl";
+import { getConcept, type CompanyFacts } from "@/edgar/xbrl";
 import type { FmpIncomeStatementRow, FmpPayload } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
 import { runStageB } from "@/pipeline/compute";
@@ -30,6 +30,235 @@ function admit(row: Partial<FmpIncomeStatementRow> = {}, source = facts()) {
   return { row: result.income.value.data.rows[0]!, result, original };
 }
 describe("same-definition income classification", () => {
+  it("refuses a purported quarterly total duplicated as a full-year fact", () => {
+    const source = facts({ Revenues: 26472 });
+    const concept = source.facts["us-gaap"]!.Revenues as { units: { USD: Record<string, unknown>[] } };
+    concept.units.USD.push({ ...concept.units.USD[0]!, start: "2025-05-30", filed: "2026-09-15", accn: "later-annual", form: "10-K", fp: "FY" });
+    const result = admit({ revenue: 6600 }, source);
+    expect(result.row.revenue).toBeNull();
+    expect(result.row.fieldConflicts?.revenue?.reason).toMatch(/duration|full.year/i);
+    const supported = facts({ Revenues: 26472, GrossProfit: 25757 });
+    (supported.facts["us-gaap"]!.Revenues as typeof concept).units.USD.push(concept.units.USD[1]!);
+    expect(admit({ revenue: 6600 }, supported).row.revenue).toBe(26472);
+  });
+  it.each([false, true])("preserves a later revenue recast and refuses the superseded gross-profit pair (prior GP refusal: %s)", priorGrossRefusal => {
+    const source = facts({ RegulatedAndUnregulatedOperatingRevenue: 6618 });
+    delete source.facts["us-gaap"]!.Revenues;
+    for (const raw of Object.values(source.facts["us-gaap"]!)) {
+      const c = raw as { units: { USD: Record<string, unknown>[] } };
+      c.units.USD.push({ ...c.units.USD[0]!, val: c.units.USD[0]!.val === 6618 ? 6500 : c.units.USD[0]!.val === 5903 ? 5785 : c.units.USD[0]!.val,
+        filed: "2026-09-15", accn: "later-restatement" });
+    }
+    const original = input({ revenue: undefined, grossProfit: undefined, filingDate: "2026-06-15", fieldConflicts: {
+      revenue: { usable: false, vendorValue: 6618, secValue: 6500, reason: "Revenue scope unresolved: older refusal" },
+      ...(priorGrossRefusal ? { grossProfit: { usable: false as const, vendorValue: 5903, secValue: null, reason: "Income classification conflict for grossProfit: older refusal" } } : {}),
+    } });
+    if (!original.ok) throw Error("fixture");
+    original.value.data.raw = [{ ...original.value.data.rows[0]!, revenue: 6618, grossProfit: 5903 }];
+    const result = enrichIncomeClassification(original, source, "quarter", at).income;
+    expect(result.ok && result.value.data.rows[0]).toMatchObject({ revenue: 6500, fieldConflicts: {grossProfit: {usable:false}} });
+    expect(result.ok && result.value.data.rows[0]!.grossProfit == null).toBe(true);
+  });
+  it("binds unchanged revenue to an already admitted same-filing operating numerator on replay", () => {
+    const source = facts();
+    const op = source.facts["us-gaap"]!.OperatingIncomeLoss as { units: { USD: Record<string, unknown>[] } };
+    op.units.USD.push({ ...op.units.USD[0]!, val: 2100, filed: "2026-09-15", accn: "later-operating-copy" });
+    const original = input({ filingDate: "2026-06-15", fieldProvenance: { operatingIncome: {
+      source: "edgar", unit: "USD", periodStart: "2026-02-28", periodEnd: "2026-05-29", observedAt: at,
+      tags: ["us-gaap/OperatingIncomeLoss"], filings: [{ accn: "0000796343-26-000112", filed: "2026-06-15", form: "10-Q" }],
+    } } });
+    const b = withIssuerFacts(completeCurrencyBundle({}), source); b.builtAt = at;
+    const replay = withIncomeOperatingBasis({ ...b, statements: { ...b.statements, incomeQuarterly: original } }).statements.incomeQuarterly;
+    expect(replay.ok && replay.value.data.rows[0]!.operatingIncome).toBe(2000);
+    const fresh = enrichIncomeClassification(original, source, "quarter", at).income;
+    const acquired = withIncomeOperatingBasis({ ...b, statements: { ...b.statements, incomeQuarterly: fresh } }).statements.incomeQuarterly;
+    expect(acquired.ok && acquired.value.data.rows[0]!.operatingIncome).toBe(2000);
+  });
+  it.each(["quarter", "annual"] as const)("adopts an independently filed total revenue in %s rows and preserves the vendor observation", scope => {
+    const source = facts();
+    const original = input({ revenue: 6600, filingDate: "2026-06-15" });
+    if (scope === "annual") {
+      for (const raw of Object.values(source.facts["us-gaap"]!)) {
+        const c = raw as { units: { USD: Record<string, unknown>[] } };
+        Object.assign(c.units.USD[0]!, { start: "2025-05-30", form: "10-K", fp: "FY" });
+      }
+      if (original.ok) original.value.data.rows[0]!.periodStart = "2025-05-30";
+    }
+    const result = enrichIncomeClassification(original, source, scope, at);
+    expect(result.income.ok && result.income.value.data.rows[0]).toMatchObject({ revenue: 6618,
+      fieldConflicts: { revenue: { vendorValue: 6600, secValue: 6618, usable: true, resolution: "filed-family" } },
+      fieldProvenance: { revenue: { tags: ["us-gaap/Revenues"] } } });
+    expect(original.ok && original.value.data.rows[0]!.revenue).toBe(6600);
+  });
+  it("recovers a frozen total-revenue refusal in the calculation view", () => {
+    const b = withIssuerFacts(completeCurrencyBundle({}), facts()); b.builtAt = at;
+    b.statements.incomeQuarterly = input({ revenue: undefined, fieldConflicts: { revenue: { usable: false, vendorValue: 6600, secValue: 6618,
+      reason: "Income classification conflict for revenue: old refusal" } } });
+    const before = JSON.stringify(b);
+    const result = withIncomeOperatingBasis(b).statements.incomeQuarterly;
+    expect(result.ok && result.value.data.rows[0]!.revenue).toBe(6618);
+    expect(JSON.stringify(b)).toBe(before);
+  });
+  it("uses the complete operating total instead of a narrower contract-revenue note", () => {
+    const source = facts({ RegulatedAndUnregulatedOperatingRevenue: 6618 });
+    source.facts["us-gaap"]!.RevenueFromContractWithCustomerIncludingAssessedTax = facts({ Revenues: 6500 }).facts["us-gaap"]!.Revenues;
+    delete source.facts["us-gaap"]!.Revenues;
+    const result = admit({}, source);
+    expect(result.row.revenue).toBe(6618);
+    expect(result.row.fieldProvenance?.revenue?.tags).toEqual(["us-gaap/RegulatedAndUnregulatedOperatingRevenue"]);
+  });
+  it("establishes a total from both filed goods and services rather than one component", () => {
+    const source = facts({ SalesRevenueGoodsNet: 6000, SalesRevenueServicesNet: 618 }); delete source.facts["us-gaap"]!.Revenues;
+    const result = admit({ revenue: 6600 }, source);
+    expect(result.row.revenue).toBe(6618);
+    expect(result.row.fieldProvenance?.revenue?.tags).toEqual(["us-gaap/SalesRevenueGoodsNet", "us-gaap/SalesRevenueServicesNet"]);
+    delete source.facts["us-gaap"]!.SalesRevenueServicesNet;
+    expect(admit({ revenue: undefined }, source).row.revenue).toBeUndefined();
+  });
+  it("does not combine goods and services from different filings", () => {
+    const source = facts({ SalesRevenueGoodsNet: 6000, SalesRevenueServicesNet: 618 }); delete source.facts["us-gaap"]!.Revenues;
+    const c = source.facts["us-gaap"]!.SalesRevenueServicesNet as { units: { USD: Record<string, unknown>[] } };
+    Object.assign(c.units.USD[0]!, { accn: "0000796343-26-000113", filed: "2026-06-16" });
+    const result = admit({ revenue: 6600 }, source);
+    expect(result.row.revenue).not.toBe(6618);
+  });
+  it("prefers a later filed comparative when it is no further from the provider", () => {
+    const source = facts();
+    const c = source.facts["us-gaap"]!.Revenues as { units: { USD: Record<string, unknown>[] } };
+    c.units.USD.push({ ...c.units.USD[0], accn: "0000796343-26-000113", filed: "2026-09-15" });
+    const result = admit({ filingDate: "2026-06-15", revenue: 6600 }, source);
+    expect(result.row.revenue).toBe(6618);
+    expect(result.row.fieldProvenance?.revenue?.filings[0]!.filed).toBe("2026-09-15");
+  });
+  it("does not let a pre-admission validation conflict veto the independently adopted total", () => {
+    const source = facts();
+    for (const raw of Object.values(source.facts["us-gaap"]!)) {
+      const c = raw as { units: { USD: Record<string, unknown>[] } };
+      Object.assign(c.units.USD[0]!, { start: "2025-05-30", form: "10-K", fp: "FY" });
+    }
+    const b = withIssuerFacts(completeCurrencyBundle({}), source); b.builtAt = at;
+    b.statements.incomeAnnual = input({ revenue: 6600, date: "2026-05-29", periodStart: "2025-05-30", period: "FY", fiscalYear: "2026", filingDate: "2026-06-15" });
+    const result = runStageB(b, undefined, { checks: [{ id: "xbrlCrossCheck.revenue.FY.2026-05-29", name: "Revenue", status: "fail", detail: "Vendor and filed total differ before admission" }], flags: [], gaps: [] });
+    expect(result.gaps.some(g => g.field === "projections.revenueEligibility")).toBe(false);
+  });
+  it("withholds genuinely conflicting same-filing totals instead of selecting one", () => {
+    const source = facts();
+    const c = source.facts["us-gaap"]!.Revenues as { units: { USD: Record<string, unknown>[] } };
+    c.units.USD.push({ ...c.units.USD[0], val: 7000 });
+    const result = admit({ revenue: 6600 }, source);
+    expect(result.row.revenue).toBeNull();
+    expect(result.row.fieldConflicts?.revenue?.reason).toMatch(/filed observations conflict/i);
+  });
+  it.each(["SalesRevenueNet", "components"])("prefers the complete %s revenue over a narrower contract note", total => {
+    const source = facts({ RevenueFromContractWithCustomerExcludingAssessedTax: 6500,
+      ...(total === "components" ? { SalesRevenueGoodsNet: 6000, SalesRevenueServicesNet: 618 } : { SalesRevenueNet: 6618 }) });
+    delete source.facts["us-gaap"]!.Revenues;
+    expect(admit({}, source).row.revenue).toBe(6618);
+  });
+  it("uses the same total in the validation summary and income admission", () => {
+    const source = facts({ RegulatedAndUnregulatedOperatingRevenue: 6618, RevenueFromContractWithCustomerIncludingAssessedTax: 6500 });
+    delete source.facts["us-gaap"]!.Revenues;
+    const summary = getConcept(source, "revenue", { period: { start: "2026-02-28", end: "2026-05-29" } });
+    expect(summary.ok && summary.value.data.value).toBe(6618);
+  });
+  it.each([true, false])("preserves a later retrospective revenue presentation only when its full gross-profit bridge reconciles (%s)", reconciles => {
+    const source = facts({ SalesRevenueNet: 6000, RevenueFromContractWithCustomerExcludingAssessedTax: reconciles ? 6618 : 6500 });
+    delete source.facts["us-gaap"]!.Revenues;
+    for (const raw of Object.values(source.facts["us-gaap"]!)) {
+      const c = raw as { units: { USD: Record<string, unknown>[] } };
+      Object.assign(c.units.USD[0]!, { accn: "0000796343-26-000113", filed: "2026-09-15" });
+    }
+    const original = source.facts["us-gaap"]!.SalesRevenueNet as { units: { USD: Record<string, unknown>[] } };
+    Object.assign(original.units.USD[0]!, { accn: "0000796343-26-000112", filed: "2026-06-15" });
+    const expected = reconciles ? 6618 : 6000;
+    const summary = getConcept(source, "revenue", { period: { start: "2026-02-28", end: "2026-05-29" } });
+    expect(summary.ok && summary.value.data.value).toBe(expected);
+    expect(admit({ revenue: expected, filingDate: "2026-06-15" }, source).row.revenue).toBe(expected);
+  });
+  it.each(["SalesRevenueNet", "components"])("selects the exact reconciled later revenue in the %s validation chain", total => {
+    const source = facts({ ...(total === "components" ? { SalesRevenueGoodsNet: 5000, SalesRevenueServicesNet: 1000 } : { SalesRevenueNet: 6000 }),
+      RevenueFromContractWithCustomerExcludingAssessedTax: 6500, RevenueFromContractWithCustomerIncludingAssessedTax: 6618 });
+    delete source.facts["us-gaap"]!.Revenues;
+    for (const [tag, raw] of Object.entries(source.facts["us-gaap"]!)) {
+      const p = (raw as { units: { USD: Record<string, unknown>[] } }).units.USD[0]!;
+      if (!/^SalesRevenue/.test(tag)) Object.assign(p, { accn: "0000796343-26-000113", filed: "2026-09-15" });
+    }
+    const summary = getConcept(source, "revenue", { period: { start: "2026-02-28", end: "2026-05-29" } });
+    expect(summary.ok && summary.value.data.value).toBe(6618);
+    expect(summary.ok && summary.value.data.tag).toBe("RevenueFromContractWithCustomerIncludingAssessedTax");
+  });
+  it("does not mistake a later sales/gross-profit bridge for proof of the broader issuer total", () => {
+    const source = facts({ Revenues: 7000, RevenueFromContractWithCustomerExcludingAssessedTax: 6618 });
+    const total = source.facts["us-gaap"]!.Revenues as { units: { USD: Record<string, unknown>[] } };
+    const gross = source.facts["us-gaap"]!.GrossProfit as { units: { USD: Record<string, unknown>[] } };
+    const cost = source.facts["us-gaap"]!.CostOfRevenue as { units: { USD: Record<string, unknown>[] } };
+    const contract = source.facts["us-gaap"]!.RevenueFromContractWithCustomerExcludingAssessedTax as { units: { USD: Record<string, unknown>[] } };
+    for (const c of [gross, cost, contract]) Object.assign(c.units.USD[0]!, { accn: "0000796343-26-000113", filed: "2026-09-15" });
+    expect(total.units.USD[0]!.val).toBe(7000);
+    const result = admit({ revenue: 7000, filingDate: "2026-06-15" }, source);
+    expect(result.row.revenue).toBe(7000);
+    const summary = getConcept(source, "revenue", { period: { start: "2026-02-28", end: "2026-05-29" } });
+    expect(summary.ok && summary.value.data.value).toBe(7000);
+  });
+  it("converges matching later total and gross-profit evidence after an older contract-note refusal", () => {
+    const source = facts({ RegulatedAndUnregulatedOperatingRevenue: 6618 }); delete source.facts["us-gaap"]!.Revenues;
+    for (const raw of Object.values(source.facts["us-gaap"]!)) {
+      const c = raw as { units: { USD: Record<string, unknown>[] } };
+      Object.assign(c.units.USD[0]!, { accn: "0000796343-26-000113", filed: "2026-09-15" });
+    }
+    const fields = { filingDate: "2026-06-15", costOfRevenue: 715, operatingExpenses: 3903 };
+    const fresh = admit({ ...fields, revenue: 6618, grossProfit: 5903 }, source);
+    const replay = admit({ ...fields, revenue: undefined, grossProfit: undefined, fieldConflicts: {
+      revenue: { usable: false, vendorValue: 6618, secValue: 6500, reason: "Revenue scope unresolved: older contract note" },
+      grossProfit: { usable: false, vendorValue: 5903, secValue: 5785, reason: "Income classification conflict for grossProfit: older note basis" },
+    } }, source);
+    expect(replay.row).toMatchObject({ revenue: 6618, grossProfit: 5903 });
+    expect(fresh.row).toMatchObject({ revenue: 6618, grossProfit: 5903 });
+    expect(replay.row.fieldProvenance?.revenue).toEqual(fresh.row.fieldProvenance?.revenue);
+    expect(replay.row.fieldProvenance?.grossProfit).toEqual(fresh.row.fieldProvenance?.grossProfit);
+    const b = withIssuerFacts(completeCurrencyBundle({}), source); b.builtAt = at;
+    const calculation = (input: typeof fresh.original) => {
+      const a = withIncomeOperatingBasis({ ...b, statements: { ...b.statements, incomeQuarterly: input } }).statements.incomeQuarterly;
+      return a.ok ? [a.value.data.rows[0]!.revenue, a.value.data.rows[0]!.grossProfit, a.value.data.rows[0]!.operatingIncome] : [];
+    };
+    expect(calculation(fresh.original)).toEqual(calculation(replay.original));
+  });
+  it("admits revenue before recovering the dependent filed operating and earnings family", () => {
+    const source = facts({ OperatingIncomeLoss: 900, NonoperatingIncomeExpense: 100,
+      IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 1000, IncomeTaxExpenseBenefit: 200, NetIncomeLoss: 800 });
+    const result = admit({ revenue: 6600, incomeBeforeTax: 1002, incomeTaxExpense: 200, netIncome: 802,
+      operatingIncome: 902, totalOtherIncomeExpensesNet: 100 }, source);
+    expect(result.row).toMatchObject({ revenue: 6618, operatingIncome: 900, totalOtherIncomeExpensesNet: 100, incomeBeforeTax: 1000, netIncome: 800 });
+    expect(result.row.incomeBeforeTaxRatio).toBeCloseTo(1000 / 6618);
+  });
+  it.each([false, true])("recovers the dependent operating numerator after prior earnings adoption (nonoperating already adopted: %s)", adoptedOther => {
+    const source = facts({ OperatingIncomeLoss: 900, NonoperatingIncomeExpense: 100,
+      IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 1000, IncomeTaxExpenseBenefit: 200, NetIncomeLoss: 800 });
+    const fields = { revenue: undefined, operatingIncome: 902, totalOtherIncomeExpensesNet: 100,
+      incomeBeforeTax: 1000, incomeTaxExpense: 200, netIncome: 800, fieldConflicts: {
+        revenue: { usable: false as const, vendorValue: 6600, secValue: 6618, reason: "Income classification conflict for revenue: older refusal" },
+        incomeBeforeTax: { usable: true as const, resolution: "filed-family" as const, vendorValue: adoptedOther ? 1004 : 1002, secValue: 1000, reason: "Filed earnings family adopted" },
+        ...(adoptedOther ? { totalOtherIncomeExpensesNet: { usable: true as const, resolution: "filed-family" as const, vendorValue: 102, secValue: 100, reason: "Filed earnings family adopted" } } : {}),
+      } };
+    expect(admit(fields, source).row.operatingIncome).toBe(900);
+    const unknown = admit({ ...fields, operatingIncome: undefined, fieldConflicts: { ...fields.fieldConflicts,
+      operatingIncome: { usable: false, vendorValue: 902, secValue: null, reason: "Independent unknown operating refusal" } } }, source);
+    expect(unknown.row.operatingIncome).toBeUndefined();
+  });
+  it("recovers a set-aside gross-profit observation only from an exactly matching retained provider row", () => {
+    const source = facts({ RegulatedAndUnregulatedOperatingRevenue: 6618 }); delete source.facts["us-gaap"]!.Revenues;
+    const original = input({ revenue: undefined, grossProfit: undefined, filingDate: "2026-06-15", fieldConflicts: {
+      revenue: { usable: false, vendorValue: 6618, secValue: 6500, reason: "Vendor quarterly revenue differs from a contract note" },
+    } });
+    if (!original.ok) throw Error("fixture");
+    const raw = { ...original.value.data.rows[0]!, revenue: 6618, grossProfit: 5903, fieldConflicts: undefined };
+    original.value.data.raw = [raw];
+    const result = enrichIncomeClassification(original, source, "quarter", at);
+    expect(result.income.ok && result.income.value.data.rows[0]!.grossProfit).toBe(5903);
+    raw.date = "2026-05-28";
+    const unmatched = enrichIncomeClassification(original, source, "quarter", at);
+    expect(unmatched.income.ok && unmatched.income.value.data.rows[0]!.grossProfit).toBeUndefined();
+  });
   it("recovers the original filed earnings before treating later comparative copies as no dispute", () => {
     const source = facts({ IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 1000,
       IncomeTaxExpenseBenefit: 200, NetIncomeLoss: 800 });
@@ -223,7 +452,7 @@ describe("same-definition income classification", () => {
   it("retains matching classifications with independently supported operands", () => {
     const result = admit({ costOfRevenue: 715, grossProfit: 5903, operatingExpenses: 3903 });
     expect(result.row.grossProfit).toBe(5903);
-    expect(result.row.fieldConflicts?.grossProfit).toBeUndefined();
+    expect(result.row.fieldConflicts?.grossProfit).toMatchObject({usable:true});
     expect(result.row.fieldProvenance?.costOfRevenue?.tags).toContain("us-gaap/CostOfRevenue");
   });
   it("checks an untagged gross-profit subtotal only from independent compatible full revenue and cost", () => {

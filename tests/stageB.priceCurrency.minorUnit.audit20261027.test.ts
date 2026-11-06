@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 import { describe, expect, it } from "vitest";
 import { statementCurrencies } from "@/pipeline/compute";
 import { peerDiscoveryScreen } from "@/pipeline/peers";
@@ -7,7 +8,7 @@ import { buildDataCompleteness } from "@/report/completeness";
 import { buildSyntheticRouteBundle, runResearchRoutePanel } from "./helpers/researchRoutePanel";
 
 function london(code: string, debt = false) {
-  const bundle = buildSyntheticRouteBundle("general");
+  const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("general"), "2026-03-31");
   for (const result of Object.values(bundle.statements)) if (result.ok) {
     for (const row of result.value.data.rows) row.reportedCurrency = "GBP";
   }

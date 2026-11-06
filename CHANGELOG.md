@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.64.0** and
-payload **1.81.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.66.0** and
+payload **1.85.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini account connections have their own model selection. These are
@@ -17,6 +17,160 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Public sample and stable evidence disclosures (2026-11-05)
+
+- Preserve each lease component's filed scope through debt enrichment and keep
+  independently established debt-refusal reasons ahead of generic composition
+  failures. Repeated enrichment retains the specific evidence qualifications.
+  Reject incompatible maturities from the total's own filing before certifying
+  complete lease evidence or composing debt from it.
+- Rebuild the fictional current sample with supported quote-date admission and
+  provisional grades. Executive grades remain unassessed where office-start
+  evidence is missing. Refresh the three README screenshots from this sample;
+  retain historical fixtures and all original source/model work.
+- Clarify primary versus vendor inputs, partial keyless SEC segment coverage,
+  provisional grades and dated references in the public README. Keep generated
+  configuration and pricing blocks unchanged.
+- Advance Stage B implementation to `EVIDENCE_DISCLOSURE_59`, payload to 1.85.0,
+  Stage C to 1.6.39 and report to 1.66.0. Fair-value/target formulas and conventions,
+  score bands and spending guards are unchanged. Final
+  scoped independent review, downstream replay and unchanged release checks
+  passed; the exact scope and
+  remaining limits are in the [validation log](docs/VALIDATION-STATUS.md).
+  FIGR/Opus live remains held.
+
+## Unreleased - Current valuation dates and provisional grades (2026-11-05)
+
+- Bind current valuation use to actual statement, model and quote dates under
+  the existing 200-day roll-forward safeguard. Keep supported older unrolled
+  values as separate dated references; suppress their current upside, targets
+  and inverse signals while preserving forward audit calculations and valid
+  normalization history. Existing financial and domain refusals remain closed.
+- Keep grade arithmetic unchanged and label eligible grades Provisional when
+  key applicable evidence is missing or limited. Track the actual selected
+  unverified operating operand when it supplies the discount rate. Preserve
+  existing stronger letter withholds and show qualifications on AI/data-only,
+  cover, section, scorecard, Markdown, print and audit paths.
+- Preserve stored report bytes and raw scores through an idempotent reader view
+  with explicit legacy uncertainty and separate original audit diagnostics.
+  Existing source and bridge qualifications remain visible.
+- Combine accepted D-203 revenue/operating proof and D-205 filing-section fixes.
+  Advance Stage B, fair-value and target identities to `CURRENT_VALUATION_USE_58`,
+  payload to 1.84.0, Stage C to 1.6.38 and report spec to 1.65.0. Score bands are
+  unchanged; accepted prior work remains stored and no report rerun is launched.
+- Close the combined review's foreign-currency sales, selected trailing WACC
+  evidence, cached current-price conclusions and diagnostic-provenance findings.
+  Preserve supported entity DCF/operating paths when dated per-share targets are
+  withheld. Original review reproductions and final unchanged release gates pass.
+- Reconcile 230 historical audit IDs: 228 implementation/regression closures and
+  two superseded, with eight research/readiness limits tracked separately.
+  Final saved-source and both-order 105-input replay pass; no numeric financial,
+  score or target mover follows the closing review fixes. See the
+  [validation record](docs/VALIDATION-STATUS.md) and
+  [per-ID ledger](docs/audit/DECISIONS.md#d-208-per-id-reconciliation) for exact scope,
+  inherited evidence and the four remaining disclosure-only order differences.
+  FIGR live remains held. No push, PR, shared-main merge or publication follows.
+
+## Unreleased - Sales comparability and undated history (2026-11-05)
+
+Establish operating-sales comparisons separately from broader statement-total
+anchors and apply scope checks to both contract-revenue concepts. Retain
+undated annual-record identities before the currency/date gate removes their
+financial values, so valuation and projection withholds describe the recorded
+unavailable evidence instead of claiming an absent year. Integration/review,
+coordinated identities and final release checks remain pending.
+
+## Unreleased - Comparable sales and recorded history gaps (2026-11-05)
+
+Perimeter findings compare the primary sales line's own concept; a smaller
+contract component cannot invent a consolidated recast. Growth, valuation and
+projections retain rejected annual-period identities without their financial
+values and distinguish unavailable recorded years from absent years. An affected
+trend or historical line keeps its withhold with the accurate source reason.
+Independent review and combined integration/release checks remain pending.
+
+## Unreleased - Close primary operating proof boundaries (2026-11-05)
+
+Retained primary tables cannot reverse later same-concept recasts. Preserve
+explicit operating expense/income roles and refuse unresolved alias conflicts
+rather than certifying a GP/pretax bridge after dropping them. Perimeter findings
+require period-bound financial evidence and comparable sales. Unchanged later
+facts and independently complete aggregates retain their existing use.
+Source/history follow-ups and combined integration/release checks remain pending.
+
+## Unreleased - Preserve footnoted statement-label meaning (2026-11-05)
+
+Short superscript markers cannot turn cash-flow labels into balance-sheet
+cash proof. Linked and unlinked markers receive the same proof-only treatment;
+genuine cash rows and original source text remain preserved. This addresses
+an inherited ambiguity found after the preceding scoped repair passed review.
+The 105-input saved-source census preserves all 794 available strings,
+including 163 notes; focused tests, typecheck and changed-file lint pass.
+Combined integration and release verification remain pending.
+
+## Unreleased - Internal statement boundaries and linked proof (2026-11-05)
+
+Check table-row ownership independently of font and empty spacer cells.
+Unrelated headings end proof; bounded financial metadata, account categories
+and explicit business subgroups retain their source structure. Hyperlinked
+labels and values cannot establish an opening, including partially linked
+fragments. Short linked superscript footnotes preserve otherwise unlinked
+proof and the original excerpt. Final focused validation passes 582 tests;
+independent scoped review and combined integration gates remain pending.
+The final saved-source producer covers 105 inputs/2,940 keys; all 794 available
+strings, including 163 notes, are byte-identical to `c7d32677`. This is source
+preservation, not a new all-company financial calculation.
+
+The parent's full producer check on the preceding `c7d32677` code completed
+105 inputs/2,940 keys, 794 available slots and 163 byte-identical notes. It
+supersedes the missing final-census status in the older entry below, without
+turning source preservation into a downstream financial-equality claim.
+
+## Unreleased - Bind statement captions to their own rows (2026-11-05)
+
+Statement proof now binds each caption, period/context and compatible numerical
+rows to one original table or bounded block sequence. Index rows, separate tables
+and intervening headings cannot supply proof. Preserve caption-only layout
+tables, issuer/unit metadata, column subgroups and repeated genuine captions.
+HOOD's saved annual caption/body mismatches now produce an explicit gap; its
+unlabelled balance data is not given a fabricated title. The focused final
+source check preserves 41 of 42 prior excerpts, with HOOD the only change in
+that selection; all checked notes are unchanged. The one full producer census
+predates the preservation follow-up and is not a final-code census. Independent
+re-review, combined version advances and final integration gates remain pending.
+
+## Unreleased - Historical class labels in current scope (2026-11-05)
+
+The class-scope fallback recognizes a narrowly proved, dated elimination and
+rename beside current common-stock and zero-outstanding comparative rows.
+Keep the original source text and all independent count, cover and rights
+guards. Omission, authorization, old zeros and future/conditional changes do
+not clear ambiguity. The targeted frozen SNOW calculation restores WACC and
+degraded completeness; its fair value remains suppressed. Combined version
+advances, independent re-review and final integration gates remain pending.
+
+## Unreleased - Statement proof after independent review (2026-11-05)
+
+Require a source-witnessed financial caption even inside the first statement
+excerpt. Keep comparative values inside one original row or text block, so
+note-index page columns cannot join the next note number as monetary proof.
+Retain genuine short, plain-text and formatted captions; repair the COIN
+annual false recovery and disclose unproved prefixes. Correct RIVN's EPS
+class references, which do not establish a balance-sheet class inventory.
+Historical-class refusal and final integration verification remain pending.
+
+## Unreleased - Statement text that fails no longer passes silently (2026-11-04)
+
+Financial-statement extraction checks for comparative monetary rows before
+retaining a statement excerpt. Incomplete contents navigation can recover the
+bounded enclosing item while preserving every byte of the existing notes;
+unproved prefixes become specific warning gaps. Long front matter no longer
+consumes the entire statement excerpt when a real statement follows it.
+Contents-only Other Information and a shared group anchor pointing to another
+section also fail explicitly. IBM's quarterly balance-sheet text is recovered;
+debt admission and version constants are unchanged. See D-205.
+
 
 ## Unreleased - Multi-class share economics (2026-11-05)
 
@@ -70,6 +224,16 @@ original versions and bytes; source merge does not deploy or publish a release.
 - After independent debt-scope proof, admit vendor-total/component-sum differences up to 0.5% using reconciled components and a persistent basis naming both values. Larger differences still refuse. D-202 records the raw 105-snapshot census, the follow-up company comparisons, and IBM's unresolved D-199 statement-extraction gap.
 - Count a current finance lease once when the filed current-debt line already holds it, and keep the refusal when vendor zero borrowings sit beside positive instrument-level debt such as notes, loans or convertibles.
 - D-202 records the wider frozen-input audit and release requirements. Saved reports and version constants remain unchanged.
+
+## Unreleased - Revenue and operating-basis admission (2026-11-05)
+
+- Round 2 binds complete retained primary statements to core duration facts, corrects consolidated operating results before normalization, and rejects unresolved historical tag scopes. Disjoint primary costs can establish interest/nonservice membership without a separate subtotal or provider agreement. HON's newer perimeter cannot use the incompatible old annual base as a matched current valuation.
+- Refuse cash-interest and ambiguous-interest standalone shortcuts; qualify untested derivations. Carry actual historical margin support into the analyst payload as well as report exports; retain the exact added text contract and all prior numeric golden pins. Carry gross-profit refusal and missing-ceiling causes through reports and exports. Detect wholly absent fiscal slots only from established cadence and label missing chart intervals without inventing dates.
+- Validation is scoped offline only in this round. The parent coordinates new combined replay and independent review; provisional grades and separate dated-reference presentation remain a separate authorized parent change.
+
+- Preserve later filed recasts and check every evidenced operating numerator, including derived fourth quarters. Complete expenses and interest membership must be proved; contradictory scope is refused for all uses.
+- Require independent sales and gross-profit scope, remove aggregate-quarter proof, and withhold trends across interior missing margins. Carry annual-fallback dates and uncertainty into report exports under unchanged D-65 policy.
+- Historical round-1 evidence at `61fd3583` (obsolete as final output after round 2): 50 fair values versus main's 55 and the reviewed revenue output's 58, with all value/signal/coverage changes recorded. The serial panel's worker failed after 70 company pairs; a continuation reused those saved details and completed the remainder. Both orders now have 103 calculated and two unsupported records, with no numeric/date differences; the original failed command and inherited text/gap differences remain explicit. D-206 and D-207 are already integrated in the repair baseline. Calculation, target, payload, pipeline and tag-review stamps advance locally; saved reports remain unchanged. Independent OpenAI review and the parent's integration decision remain required.
 
 ## Unreleased - Scores that lost an aspect say so (2026-11-04)
 

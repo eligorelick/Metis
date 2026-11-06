@@ -9,7 +9,7 @@ import { excessReturnModel } from "@/pipeline/stageB/valuation";
 function inputs(bank = false): ScoringInputs {
   const c = runStageB(completeCurrencyBundle({ bank }), { evIncludeLeases: false });
   return { route: c.route, policy: metricPolicy(c.route), growth: c.growth, ...c.returns, capital: c.capital,
-    forensics: c.forensics, technicals: c.technicals, valuation: c.valuation, financialMetrics: c.financialMetrics,
+    forensics: c.forensics, technicals: c.technicals, valuationUse: c.fairValue.currentUse!, valuation: c.valuation, financialMetrics: c.financialMetrics,
     currentPrice: 100, asOf: "2026-10-14" };
 }
 const operand = (result: ReturnType<typeof describeScoreEvidence>, name: string) => result.operands.find(o => o.name === name)!;
@@ -69,6 +69,8 @@ describe("score evidence follows the actual metric basis", () => {
   });
   it("uses the acquired quote observation for price-derived score evidence", () => {
     const bundle=completeCurrencyBundle({});
+    if (!bundle.quote.ok) throw new Error("quote fixture");
+    bundle.quote.value.data.rows[0]!.timestamp = Date.parse("2026-07-05T20:00:00Z") / 1000;
     const result=runStageB(bundle,{evIncludeLeases:false});
     if (!bundle.quote.ok) throw new Error("quote fixture");
     const quoteAsOf=bundle.quote.value.asOf;

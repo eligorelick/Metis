@@ -396,7 +396,7 @@ describe("parent-common P/FCF cash attribution", () => {
     expect(stat.current).toBeNull();
     const qualifier="Parent-common cash-flow attribution unresolved";
     expect(c.scores.aspects.valuation.note).toContain(qualifier);
-    const scoring={route:c.route,policy:metricPolicy(c.route),growth:c.growth,...c.returns,capital:c.capital,forensics:c.forensics,technicals:c.technicals,valuation:c.valuation,financialMetrics:c.financialMetrics,currentPrice:100,asOf:"2026-07-06"};
+    const scoring={route:c.route,policy:metricPolicy(c.route),growth:c.growth,...c.returns,capital:c.capital,forensics:c.forensics,technicals:c.technicals,valuationUse: c.fairValue.currentUse!, valuation:c.valuation,financialMetrics:c.financialMetrics,currentPrice:100,asOf:"2026-07-06"};
     expect(describeScoreEvidence(scoring,"valuation","peOwnHistoryRank").fallbackReason).toContain(qualifier);
     const payload=assembleContextPayload(bundle,c,{checks:[],flags:[],gaps:[]});
     expect(serializePayloadForPrompt(payload)).toContain(qualifier);

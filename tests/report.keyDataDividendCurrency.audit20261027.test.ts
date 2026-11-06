@@ -3,9 +3,10 @@ import { buildEarningsReleaseRecord, CURRENT_REPORTS_VERSION } from "@/providers
 import { keyDataRows } from "@/report/presentation";
 import type { Report } from "@/report/schema";
 import { buildSyntheticRouteBundle, runResearchRoutePanel } from "./helpers/researchRoutePanel";
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 
 function run(currency: string) {
-  const bundle = buildSyntheticRouteBundle("general");
+  const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("general"), "2026-03-31");
   for (const result of Object.values(bundle.statements)) if (result.ok) {
     for (const row of result.value.data.rows) row.reportedCurrency = currency;
   }

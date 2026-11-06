@@ -100,13 +100,13 @@ describe("a withheld DCF says why (VAL-10)", () => {
       { field: "valuation.dcf.netDebt", reason: "net debt unavailable — enterprise value cannot be bridged to equity", severity: "warn" },
       { field: "valuation.netDebt", reason: "total debt withheld (test refusal) — house net debt unavailable", severity: "warn" },
     ] } as unknown as ValuationResult;
-    const fair = computeFairValue({ valuation, currentPrice: 10, currency: "USD", asOf: "2026-06-30" });
+    const fair = computeFairValue({ quoteAsOf: null, valuation, currentPrice: 10, currency: "USD", asOf: "2026-06-30" });
     expect(fair.reasons[0]!.reason).toBe("net debt unavailable — enterprise value cannot be bridged to equity: total debt withheld (test refusal) — house net debt unavailable");
   });
 
   it("control: with no gap to quote, the generic text stays", () => {
     const valuation = { kind: "dcf", dcf: null, gaps: [] } as unknown as ValuationResult;
-    expect(computeFairValue({ valuation, currentPrice: 10, currency: "USD", asOf: "2026-06-30" }).reasons[0]!.reason)
+    expect(computeFairValue({ quoteAsOf: null, valuation, currentPrice: 10, currency: "USD", asOf: "2026-06-30" }).reasons[0]!.reason)
       .toBe("deterministic intrinsic per-share unavailable — the model was not built, or net debt / diluted shares / the ADR currency guard suppressed the equity bridge");
   });
 });

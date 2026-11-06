@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /**
  * Audit 2026-10-27 FIN-303 and FIN-303-V1 (batch B4, Task 4): invested capital
  * uses one lease basis. D-25 removes the operating-lease slice from debt for
@@ -53,7 +54,7 @@ const dcfInput = (balance: DcfBalanceRow, extra: Partial<DcfAssumptionInputs> = 
 
 describe("FIN-303: sales-to-capital removes the operating lease the bridge removes (D-25)", () => {
   it("passes operating-only lease evidence through Stage B's net-debt adapter", () => {
-    const bundle = completeCurrencyBundle({ debt: 300, siblingQuarterCurrencies: ['USD', 'USD', 'USD', 'USD'] });
+    const bundle = withFixtureQuoteDay(completeCurrencyBundle({ debt: 300, siblingQuarterCurrencies: ['USD', 'USD', 'USD', 'USD'] }), "2026-03-31");
     for (const family of [bundle.statements.balanceAnnual, bundle.statements.balanceQuarterly]) {
       if (!family.ok) throw new Error('fixture');
       for (const row of family.value.data.rows) Object.assign(row, { shortTermDebt: 20 * M, longTermDebt: 80 * M,
@@ -354,7 +355,7 @@ const secLease = (date: string) => ({
 });
 
 function bundleWith(lease: number | null, row: Record<string, unknown>) {
-  const bundle = completeCurrencyBundle({ debt: 300, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] });
+  const bundle = withFixtureQuoteDay(completeCurrencyBundle({ debt: 300, siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] }), "2026-03-31");
   for (const result of [bundle.statements.balanceQuarterly, bundle.statements.balanceAnnual]) {
     if (!result.ok) throw new Error("Missing balance fixture");
     for (const r of result.value.data.rows) {

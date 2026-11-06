@@ -1,3 +1,4 @@
+import { withValuationUseSafety } from "@/report/valuationUseSafety";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -32,9 +33,11 @@ describe("FIN-506: stored implied-return share-basis disclosure", () => {
     expect(view.appendix.missingData.find(g => g.field === field)).toMatchObject({
       reason: expect.stringContaining(phrase), severity: "info", expected: true,
     });
-    expect(view.scores).toEqual(report.scores);
+    const scores = structuredClone(view.scores!); delete scores.qualification;
+    expect(scores).toEqual(report.scores);
+    expect(view.scores?.qualification).toBeDefined();
     // The existing stored parser adds grade-contract metadata; pin that exact main behavior.
-    expect(view.valuation).toEqual(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []).valuation);
+    expect(view.valuation).toEqual(withValuationUseSafety(applyGradeOverrideContract(report, report.appendix.verificationLog ?? [])).valuation);
     expect(JSON.stringify(report)).toBe(before);
     const twice = parseStoredReportWithSafety(JSON.stringify(view))!.report;
     expect(twice.appendix.missingData.filter(g => g.field === field)).toHaveLength(1);

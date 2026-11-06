@@ -75,7 +75,7 @@ function reitValuationResult(): ValuationResult {
 }
 
 function makeInputs(over: Partial<FairValueInputs> = {}): FairValueInputs {
-  return { valuation: dcfValuation(), currentPrice: 100, currency: "USD", asOf: "2026-07-06", ...over };
+  return { valuation: dcfValuation(), currentPrice: 100, currency: "USD", asOf: "2026-07-06", quoteAsOf: "2025-12-31", ...over };
 }
 
 describe("route-specific withholding reasons", () => {

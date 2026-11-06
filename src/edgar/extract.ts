@@ -678,7 +678,7 @@ function anchorPositions(html: string, entries: TocEntry[]): Map<string, number>
   return map;
 }
 
-function layer1Slice(html: string, entries: TocEntry[], spec: SectionSpec, notes: string[]): SliceResult | null {
+function layer1Slice(html: string, entries: TocEntry[], spec: SectionSpec, notes: string[], financialHierarchy = false): SliceResult | null {
   const itemEntries = entries.filter((e) => e.item !== undefined);
   const pos = anchorPositions(html, entries);
 
@@ -720,7 +720,8 @@ function layer1Slice(html: string, entries: TocEntry[], spec: SectionSpec, notes
   // Title-only TOC variant (MXC): no item-numbered links anywhere.
   const kind = specKind(spec);
   const titleEntries = entries.filter((e) => e.item === undefined && e.title !== "");
-  const cand = titleEntries.find((e) => titleMatchesKind(e.title, kind) && (pos.get(e.target) ?? -1) >= 0);
+  const candidates = titleEntries.filter((e) => titleMatchesKind(e.title, kind) && (pos.get(e.target) ?? -1) >= 0);
+  const cand = candidates.find((e) => !conflictingTocTitle(html, entries, e, kind));
   if (cand === undefined) return null;
   const start = pos.get(cand.target) as number;
   // Bound by the next anchor of ANY entry, not just the next title-only one.
@@ -733,12 +734,24 @@ function layer1Slice(html: string, entries: TocEntry[], spec: SectionSpec, notes
     .filter((e) => (pos.get(e.target) ?? -1) >= 0)
     .sort((a, b) => (pos.get(a.target) as number) - (pos.get(b.target) as number));
   let end = html.length;
+  const fullItem = /^item\s+(\d{1,2}(?:\s*\.?\s*[a-d])?)\b[.:]?\s+\S/i;
+  const parentItem = fullItem.exec(cand.title);
+  const hierarchical = financialHierarchy && parentItem !== null && normItem(parentItem[1]) === wanted;
   for (const e of ordered) {
     const p = pos.get(e.target) as number;
-    if (p > start) {
+    // Full-titled item links may have statement/note child links. Those
+    // children do not close their parent item; the next item/part does.
+    const nextItem = e.item ?? fullItem.exec(e.title)?.[1];
+    const itemBoundary = nextItem !== undefined && normItem(nextItem) !== wanted;
+    const partBoundary = spec.form === "10-Q" && e.part !== null && e.part !== specPart(spec);
+    if (p > start && (!hierarchical || itemBoundary || partBoundary)) {
       end = p;
       break;
     }
+  }
+  if (hierarchical && end === html.length) {
+    notes.push(`full-titled Item ${wanted} has no closing item/part anchor`);
+    return null;
   }
   const text = htmlToText(html.slice(start, end));
   if (text.length === 0) return null;
@@ -753,6 +766,16 @@ function titleMatchesKind(title: string, kind: SectionKind): boolean {
   // (The reverse would make a "Financial Review" entry match the quoted
   // composite "Financial Review – Risk Factors" and hijack Risk Factors.)
   return TITLE_SYNONYMS[kind].some((syn) => n.includes(syn));
+}
+
+/** A shared group anchor is not its named child when the body proves another title. */
+function conflictingTocTitle(html: string, entries: TocEntry[], entry: TocEntry, kind: SectionKind): boolean {
+  if (kind !== "otherInformation") return false;
+  const at = resolveAnchor(html, entry.target);
+  if (at === null) return false;
+  const opening = normalizeTitle(htmlToText(html.slice(at, at + 4_000))).replace(/^table of contents\s*/, "");
+  return entries.some(other => other.target === entry.target && other.title !== entry.title &&
+    !titleMatchesKind(other.title, kind) && opening.startsWith(normalizeTitle(other.title)));
 }
 
 // ---------------------------------------------------------------------------
@@ -822,7 +845,7 @@ export interface ItemDefLike {
   title: RegExp;
 }
 
-function layer2Slice(fullText: string, spec: SectionSpec, notes: string[]): { text: string; zeroCandidates: boolean; missingBoundary?: true } | null {
+function layer2Slice(fullText: string, spec: SectionSpec, notes: string[], requiredBody?: string): { text: string; zeroCandidates: boolean; missingBoundary?: true } | null {
   let seq: ItemDef[];
   let winStart = 0;
   let winEnd = fullText.length;
@@ -871,6 +894,9 @@ function layer2Slice(fullText: string, spec: SectionSpec, notes: string[]): { te
     const c = targetCands[i];
     const b = boundaryCands.find((bc) => bc.index > c.index);
     if (b !== undefined) {
+      // A recovery must enclose the complete proved notes, so a running
+      // item heading inside those notes cannot replace their real opening.
+      if (requiredBody !== undefined && !fullText.slice(c.index, b.index).includes(requiredBody)) continue;
       chosen = c;
       end = b.index;
       break;
@@ -946,11 +972,287 @@ export const STUB_PHRASE_MAX_CHARS = STUB_MIN_CHARS * 4;
  * correctly extracted 40,000-character MD&A was discarded outright.
  */
 export function detectStub(text: string, minChars = STUB_MIN_CHARS): { isStub: boolean; reason: string } {
+  const withoutItemNumbers = text.replace(/\bItem\s+\d+[A-D]?\./gi, "");
+  if (text.length < STUB_MIN_CHARS && (text.match(/\bPage\s+\d+\b/g)?.length ?? 0) >= 2 &&
+      !/[.!?](?:\s|$)/.test(withoutItemNumbers)) {
+    return { isStub: true, reason: "contents/page listing without a section body" };
+  }
   if (text.length < minChars) return { isStub: true, reason: `only ${text.length} chars (<${minChars})` };
   if (text.length >= STUB_PHRASE_MAX_CHARS) return { isStub: false, reason: "" };
   const head = text.slice(0, 400);
   if (STUB_PHRASE_RE.test(head)) return { isStub: true, reason: "incorporation/cross-reference phrasing in first 400 chars" };
   return { isStub: false, reason: "" };
+}
+
+const STATEMENT_NUMBER = "-?\\d+(?:,\\d{3})*(?:\\.\\d+)?";
+const STATEMENT_AMOUNT = `(?:\\(\\s*${STATEMENT_NUMBER}\\s*\\)|${STATEMENT_NUMBER}|[—–-])`;
+// Short superscript footnotes are masked with U+FFFC for proof. They cannot
+// turn the compound label "cash flows" into the balance-sheet label "cash".
+const BALANCE_CASH_LABEL = "cash(?!(?:\\s|\\uFFFC)+flows?)(?: and cash equivalents)?";
+const STATEMENT_ROW_LABELS = [
+  BALANCE_CASH_LABEL,
+  "(?:total|current|noncurrent) (?:assets|liabilities|equity|revenue)",
+  "(?:short|long)[- ]term debt", "accounts (?:payable|receivable)",
+  "net (?:income|loss|revenue)", "retained earnings",
+];
+const HEADED_ROW_LABELS = [...STATEMENT_ROW_LABELS,
+  "net\\s*(?:sales|earnings)", "sales", "revenues?", "gross profit",
+  "operating (?:profit|income|costs|expenses)",
+];
+const statementRows = (labels: readonly string[]) => new RegExp(
+  `\\b(?:${labels.join("|")})\\b[^.!?]{0,100}?${STATEMENT_AMOUNT}\\s+(?:\\$\\s*)?${STATEMENT_AMOUNT}`, "gi");
+const HEADED_STATEMENT_ROWS = statementRows(HEADED_ROW_LABELS);
+const STATEMENT_TITLES = "BalanceSheets?|Statements?of(?:FinancialPosition|Income|Operations|Earnings|CashFlows?)";
+const STATEMENT_QUALIFIERS = "(?:(?:Unaudited|Interim|Condensed|Consolidated))*";
+const STATEMENT_ENTITY = "(?:[A-Z0-9&.,'’()-]{1,100}(?:andSubsidiaries|Inc\\.?|Incorporated|Corporation|Company))?";
+const STATEMENT_DATES = "(?:fortheYears?Ended|Years?Ended|asof|at)[A-Z0-9,/.()-]{0,120}";
+const STATEMENT_UNITS = "(?:\\((?:in)?(?:thousands|millions|billions)(?:,except[A-Z0-9,/.()-]{0,120})?\\))?";
+// "Results of Operations" alone also names MD&A; a statement-period caption is required.
+const STATEMENT_CAPTION = new RegExp(`^${STATEMENT_ENTITY}${STATEMENT_QUALIFIERS}(?:(?:${STATEMENT_TITLES})(?:\\(Unaudited\\))?(?:${STATEMENT_DATES})?|ResultsofOperations${STATEMENT_DATES})${STATEMENT_UNITS}$`, "i");
+
+const BALANCE_ROWS = statementRows([
+  BALANCE_CASH_LABEL, "(?:total|current|noncurrent) (?:assets|liabilities|equity)",
+  "(?:short|long)[- ]term debt", "accounts (?:payable|receivable)", "retained earnings",
+]);
+const INCOME_ROWS = statementRows([
+  "net (?:income|loss|revenue)", "net\\s*(?:sales|earnings)", "(?:total )?(?:sales|revenues?)", "gross profit",
+  "operating (?:profit|income|costs|expenses)", "(?:net |total )?interest (?:income|expense)",
+]);
+const CASH_FLOW_ROWS = statementRows([
+  "net (?:income|loss)", "(?:net )?cash (?:provided by|used in|flows? from)",
+  "depreciation and amortization", "(?:purchases|payments|proceeds) (?:of|for|from)",
+]);
+const CASH_FLOW_CONTEXT = /\b(?:cash flows? from|net cash (?:provided by|used in)|(?:operating|investing|financing) activities)\b/i;
+// Only statement metadata may bridge an external caption to its first table.
+// Unknown prose/headings are boundaries, even without semantic HTML headings.
+const STATEMENT_CONTEXT = /^(?:[\s\d(),./:;*$€£–—-]|\b(?:unaudited|continued|in|of|and|or|the|for|as|at|ended|ending|year|years|month|months|week|weeks|quarter|quarters|fiscal|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|twenty|thirty|forty|fifty|thousands|millions|billions|except|share|shares|per|data|amount|amounts|stated|number|numbers|which|are|reflected|par|value|values|expressed|dollar|dollars|US|USD|EUR|CAD|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\b)*$/i;
+const STATEMENT_ISSUER_LINE = /^[A-Z0-9&.,'’() -]{1,120}?(?:Inc\.?|Incorporated|Corporation|Company)(?: and (?:Subsidiaries|Subsidiary Companies))?(?: \(Parent Company\))?(?=\s|$)/i;
+function statementContext(text: string): boolean {
+  return STATEMENT_CONTEXT.test(text.replace(STATEMENT_ISSUER_LINE, ""));
+}
+const STATEMENT_SECTION = /^(?:(?:current|noncurrent|non-current|net|total|operating)\s+)?(?:assets|liabilities|liabilities, mezzanine equity and equity|(?:liabilities and )?(?:stockholders[’']?|shareholders[’']?)?\s*equity|revenues?|sales(?: and revenues)?|(?:non)?interest (?:income|expense)|costs?(?: of (?:sales|revenues?))?(?:,? (?:and )?expenses)?(?:,? and other)?|expenses|(?:cash flows? from )?(?:operating|investing|financing) activities)\s*:?$/i;
+const STATEMENT_FINANCIAL_SUBSECTION = /^(?:investments?|inventories|(?:available[- ]for[- ]sale|equity|fixed maturity) securities(?:,? at fair value)?|real estate(?: held for investment)?(?:,? at (?:cost|fair value))?|(?:short|long)[- ]term financing receivables|accounts (?:receivable|payable)|deferred credits and other liabilities|collateralized agreements|revenues? and other income|sales, maturities and repayments of)$/i;
+const STATEMENT_RECONCILIATION = /^adjustments(?: to (?:reconcile )?net (?:income|earnings)(?: \(loss\))?(?: including noncontrolling interest)?(?: to (?:net )?cash (?:flows? )?(?:provided by(?: \(used in\))?|used (?:in|for)) operating activities)?)?$/i;
+const STATEMENT_WORKING_CAPITAL = /^changes in (?:(?:operating )?assets and liabilities|working capital)(?:,? net of business combinations)?$/i;
+function statementSection(text: string): boolean {
+  const body = text.replace(/\s*:\s*$/, "").replace(/(?:\s*\((?:unaudited|\d{1,3}|[a-z])\))+$/i, "").trim();
+  return STATEMENT_SECTION.test(body) || STATEMENT_FINANCIAL_SUBSECTION.test(body) || STATEMENT_RECONCILIATION.test(body) || STATEMENT_WORKING_CAPITAL.test(body);
+}
+// Explicit business/segment labels and named industry categories are financial
+// subgroups; arbitrary text in an empty amount-column grid is not evidence.
+const STATEMENT_INDUSTRY = "(?:banking|insurance|railroads?|utilities|energy|manufacturing|service|retail|finance)";
+const STATEMENT_BUSINESS_SECTION = new RegExp(`^(?:[A-Z&'(), -]{0,100}\\b(?:businesses|segments)|${STATEMENT_INDUSTRY}(?:(?:,?\\s+and|,)\\s+(?:${STATEMENT_INDUSTRY}|other))*)\\s*:$`, "i");
+const STATEMENT_CELL_AMOUNT = new RegExp(`^(?:[$€£]\\s*)?${STATEMENT_AMOUNT}$`);
+interface StatementUnit {
+  sourceStart: number;
+  text: string;
+  witness: string;
+  caption: string;
+  /** End offsets of original, family-compatible rows in this unit only. */
+  rowEnds: number[];
+  firstRow: number;
+}
+const sourceStatementUnits = new WeakMap<ParsedDocument, StatementUnit[]>();
+
+/** A caption owns its containing table, or the first adjacent table/plain block
+ * sequence. A second table, peer heading or unrelated text cannot lend proof. */
+function statementUnits(source: ParsedDocument): StatementUnit[] {
+  const cached = sourceStatementUnits.get(source);
+  if (cached) return cached;
+  let structure = annualRecoveryStructures.get(source);
+  if (structure === undefined) {
+    structure = appendixStructure(source.pre, true);
+    annualRecoveryStructures.set(source, structure);
+  }
+  if (!structure) return [];
+  const layout = structure;
+  const tableOf = (node: AppendixElement | undefined): AppendixElement | undefined => {
+    for (; node; node = node.parent) if (node.tag === "table") return node;
+    return undefined;
+  };
+  const linked = (node: AppendixElement | undefined): boolean => {
+    for (; node; node = node.parent) if (node.tag === "a" && node.attrs.has("href")) return true;
+    return false;
+  };
+  const visible = layout.elements.filter(node => !node.hidden);
+  const issuerNames = visible.filter(node => node.attrs.get("name")?.toLowerCase() === "dei:entityregistrantname")
+    .map(node => layout.text(node.start, node.end)).filter(name => name.length > 2 && name.length < 150);
+  const isContext = (text: string) => statementContext(text) || issuerNames.some(name =>
+    text.trim().toLowerCase().startsWith(name.toLowerCase()) && statementContext(text.trim().slice(name.length)));
+  const tables = visible.filter(node => node.tag === "table");
+  const rows = visible.filter(node => node.tag === "tr" || !node.blockChild && /^(?:p|div)$/.test(node.tag) && !tableOf(node));
+  const cellsByRow = new Map<AppendixElement, AppendixElement[]>();
+  for (const cell of visible) if (cell.parent?.tag === "tr" && /^(?:td|th)$/.test(cell.tag)) {
+    const cells = cellsByRow.get(cell.parent) ?? [];
+    cells.push(cell);
+    cellsByRow.set(cell.parent, cells);
+  }
+  const boundaries = visible.filter(node => {
+    if (/^h[1-6]$/.test(node.tag)) return true;
+    const table = tableOf(node);
+    const bold = /^(?:b|strong|th)$/.test(node.tag) || /(?:^|;)\s*font-weight\s*:\s*(?:[6-9]00|bold)\b/i.test(node.attrs.get("style") ?? "");
+    if (table ? node.tag !== "tr" : !bold && (node.blockChild || !/^(?:p|div)$/.test(node.tag))) return false;
+    const row = node;
+    const body = layout.text(row.start, row.end);
+    if (!body || isContext(body) || statementSection(body)) return false;
+    if (table) {
+      const cells = cellsByRow.get(row) ?? [];
+      if (STATEMENT_BUSINESS_SECTION.test(body) && cells.length > 1 && Number(cells[0]!.attrs.get("colspan") ?? 1) === 1 &&
+          cells.slice(1).every(cell => !layout.text(cell.start, cell.end))) return false;
+      // Comparative amount cells identify data rows, including labels outside
+      // our proof vocabulary. Unknown text-only rows end ownership regardless
+      // of font, empty spacer cells, or an incidental year in their text.
+      if (cells.filter(cell => STATEMENT_CELL_AMOUNT.test(layout.text(cell.start, cell.end))).length >= 2 ||
+          body.search(HEADED_STATEMENT_ROWS) >= 0 || body.search(CASH_FLOW_ROWS) >= 0) return false;
+      return true;
+    }
+    const firstRow = Math.min(...[HEADED_STATEMENT_ROWS, CASH_FLOW_ROWS].map(pattern => {
+      const at = body.search(pattern); return at < 0 ? Infinity : at;
+    }));
+    return firstRow === Infinity;
+  });
+  const units: StatementUnit[] = [];
+  const add = (start: number, captionEnd: number, caption: string, owner?: AppendixElement, plainEnd?: number) => {
+    const containing = tableOf(owner);
+    const header = containing && layout.text(containing.start, containing.end);
+    const captionWrapper = containing && header && !/\d/.test(header) && header.startsWith(caption) && isContext(header.slice(caption.length));
+    const table = (captionWrapper ? undefined : containing) ?? (plainEnd ? tables.find(node => node.start > start && node.end <= plainEnd) : undefined)
+      ?? (captionWrapper ? tables.find(node => node.start >= containing.end) : undefined)
+      ?? tables.find(node => node.start >= captionEnd);
+    const contextStart = captionWrapper ? containing.end : captionEnd;
+    const heading = boundaries.find(node => node.start >= contextStart && node.start > start);
+    let end = Math.min(table?.end ?? source.pre.length, heading?.start ?? source.pre.length, plainEnd ?? source.pre.length);
+    // Inline/plain rows belong to their block sequence, never a later table.
+    const between = layout.text(contextStart, table?.start ?? end);
+    if (table && (!containing || captionWrapper) && (between.length > 600 || !isContext(between))) end = Math.min(end, table.start);
+    if (end <= start) return;
+    const body = layout.text(start, end);
+    const family = /BalanceSheets?|FinancialPosition/i.test(caption.replace(/\s+/g, "")) ? "balance"
+      : /CashFlows?/i.test(caption.replace(/\s+/g, "")) ? "cash" : "income";
+    const incompatible = family !== "cash" && CASH_FLOW_CONTEXT.test(body) ||
+      family === "balance" && /\b(?:total (?:other )?comprehensive income|years? ended)\b/i.test(body) ||
+      family === "income" && /\b(?:total comprehensive income|total assets)\b/i.test(body) ||
+      family === "cash" && !CASH_FLOW_CONTEXT.test(body);
+    const firstSpan = layout.spans.find(span => span.start >= start && span.start < end && span.text.trim());
+    const sourceStart = firstSpan ? firstSpan.start + firstSpan.text.length - firstSpan.text.trimStart().length : start;
+    // Following context identifies this source occurrence; it never supplies
+    // rows. Without it a shorter failed unit at a different issuer's repeated
+    // caption could incorrectly shadow a proved unit with the same beginning.
+    const witness = layout.text(start, Math.min(source.pre.length, end + 50_000)).slice(0, body.length + 160);
+    const unit: StatementUnit = { sourceStart, text: body, witness, caption, rowEnds: [], firstRow: Infinity };
+    const rowPattern = family === "balance" ? BALANCE_ROWS : family === "cash" ? CASH_FLOW_ROWS : INCOME_ROWS;
+    const addRows = (rowStart: number, rowEnd: number) => {
+      if (incompatible) return;
+      const from = Math.max(start, rowStart), to = Math.min(end, rowEnd);
+      if (from >= to) return;
+      const before = layout.text(start, from);
+      const offset = before.length + (before ? 1 : 0);
+      // Retain the excerpt and offsets, but mask supported superscript markers
+      // for proof. Their link status cannot change a compound label's meaning.
+      let lo = 0, hi = layout.spans.length;
+      while (lo < hi) { const mid = (lo + hi) >>> 1; if (layout.spans[mid]!.end <= from) lo = mid + 1; else hi = mid; }
+      const parts: string[] = [];
+      for (let i = lo; i < layout.spans.length && layout.spans[i]!.start < to; i++) {
+        const span = layout.spans[i]!;
+        const text = decodeEntities(span.text.slice(Math.max(0, from - span.start), Math.min(span.text.length, to - span.start)));
+        let superscript = false;
+        for (let node = span.parent; node; node = node.parent) if (node.tag === "sup") superscript = true;
+        const footnote = superscript && /^(?:\(?[0-9a-z]{1,3}\)?|[*†‡]+)$/i.test(text.trim());
+        // Other links could split a label or value into false tokens.
+        if (linked(span.parent) && text.trim() && !footnote) return;
+        parts.push(footnote ? text.replace(/\S/g, "\uFFFC") : text);
+      }
+      const proofText = parts.join(" ").replace(/\s+/g, " ").trim();
+      if (proofText.length !== layout.text(from, to).length) return;
+      for (const match of proofText.matchAll(rowPattern)) {
+        const at = offset + match.index;
+        if (at < caption.length) continue;
+        unit.firstRow = Math.min(unit.firstRow, at);
+        unit.rowEnds.push(at + match[0].length);
+      }
+    };
+    for (const row of rows) {
+      if (row.end <= start || row.start >= end) continue;
+      if (tableOf(row) !== (table && table.start < end ? table : undefined)) continue;
+      // A layout row enclosing another table is not a financial row.
+      if (tables.some(nested => nested.start > row.start && nested.end < row.end)) continue;
+      addRows(row.start, row.end);
+    }
+    // Preserve original newlines in plain source; never join their amounts.
+    for (const span of layout.spans) if (span.end > start && span.start < end && !tableOf(span.parent) &&
+        !rows.some(row => row.start <= span.start && row.end >= span.end)) {
+      let at = span.start;
+      for (const line of span.text.split(/(?<=\n)/)) { addRows(at, at + line.length); at += line.length; }
+    }
+    unit.rowEnds = [...new Set(unit.rowEnds)].sort((a, b) => a - b);
+    if (/\b(?:index|contents|pages?)\b/i.test(body.slice(caption.length, unit.firstRow))) unit.rowEnds = [];
+    units.push(unit);
+  };
+  for (const node of visible) {
+    if (node.end - node.start > 5_000 || !/^(?:p|div|h[1-6]|td|th|span)$/.test(node.tag)) continue;
+    if (node.tag === "span" && !/(?:^|;)\s*font-weight\s*:\s*(?:[6-9]00|bold)\b/i.test(node.attrs.get("style") ?? "")) continue;
+    const body = layout.text(node.start, node.end);
+    const firstRow = body.search(HEADED_STATEMENT_ROWS);
+    const caption = firstRow > 0 ? body.slice(0, firstRow).trimEnd() : body;
+    if (caption.length > 220 || !STATEMENT_CAPTION.test(caption.replace(/\s+/g, "")) || linked(node) ||
+        /<a\b[^>]*href\s*=/i.test(source.pre.slice(node.start, node.end))) continue;
+    add(node.start, node.end, caption, node, firstRow > 0 ? node.end : undefined);
+  }
+  for (const span of layout.spans) {
+    if (linked(span.parent) || tableOf(span.parent)) continue;
+    const raw = span.text.trimStart();
+    const line = decodeEntities(raw.split(/\r?\n/, 1)[0]!).trim();
+    if (!raw.includes("\n") || !STATEMENT_CAPTION.test(line.replace(/\s+/g, ""))) continue;
+    const start = span.start + span.text.length - raw.length;
+    const afterCaption = start + raw.indexOf("\n") + 1;
+    let end = afterCaption;
+    for (const nextLine of source.pre.slice(afterCaption, span.end).split(/(?<=\n)/)) {
+      const body = decodeEntities(nextLine).replace(/\s+/g, " ").trim();
+      if (body && !isContext(body) && !statementSection(body) &&
+          body.search(HEADED_STATEMENT_ROWS) < 0 && body.search(CASH_FLOW_ROWS) < 0) break;
+      end += nextLine.length;
+    }
+    add(start, afterCaption, line, span.parent, end);
+  }
+  // Nested formatting elements can describe the SAME physical caption. Keep
+  // its complete wrapper, including a caption-only layout table. This does not
+  // merge distinct source occurrences or skip an index/data table.
+  const bySource = new Map<number, StatementUnit>();
+  for (const unit of units) {
+    const previous = bySource.get(unit.sourceStart);
+    if (!previous || unit.text.length > previous.text.length) bySource.set(unit.sourceStart, unit);
+  }
+  const result = [...bySource.values()];
+  sourceStatementUnits.set(source, result);
+  return result;
+}
+
+/** Match a whole contiguous source unit, including its period/context, before
+ * considering its row offsets. Identical strings elsewhere confer no authority. */
+export function financialStatementText(text: string, limit = 12_000, source?: ParsedDocument): { statementsText?: string; statementsTextGap?: string } {
+  const starts = new Map<number, { unit: StatementUnit; matched: number; unique: boolean }[]>();
+  for (const unit of source ? statementUnits(source) : []) {
+    const matches: { at: number; matched: number }[] = [];
+    for (let at = text.indexOf(unit.caption); at >= 0; at = text.indexOf(unit.caption, at + 1)) {
+      const retained = text.slice(at, at + unit.witness.length).trimEnd();
+      if (retained.length > unit.caption.length && unit.witness.startsWith(retained)) matches.push({ at, matched: Math.min(retained.length, unit.text.length) });
+    }
+    for (const { at, matched } of matches) {
+      const witnesses = starts.get(at) ?? [];
+      witnesses.push({ unit, matched, unique: matches.length === 1 });
+      starts.set(at, witnesses);
+    }
+  }
+  for (const [at, witnesses] of [...starts].sort(([a], [b]) => a - b)) {
+    const proved = (length: number) => witnesses.every(({ unit, matched }) =>
+      unit.rowEnds.filter(end => end <= Math.min(length, matched)).length >= 2);
+    // Keep useful original coverage if this cap contains the same unit's proof.
+    if (proved(limit - at)) return { statementsText: text.slice(0, limit) };
+    if (witnesses.every(({ unique, unit }) => unique && unit.firstRow < 1_000) && proved(limit)) {
+      return { statementsText: text.slice(at, at + limit) };
+    }
+  }
+  return { statementsTextGap: "no substantive financial-statement rows were established before the notes; caption, period/context and compatible rows must belong to the same source table or bounded statement block; missing or mismatched captions remain unproved" };
 }
 
 /**
@@ -1002,7 +1304,7 @@ function tryMiniTocRedirect(
   minChars: number,
   notes: string[],
 ): string | null {
-  const titleEntries = entries.filter((e) => e.item === undefined && e.title !== "" && !excludeTargets.has(e.target));
+  const titleEntries = entries.filter((e) => e.item === undefined && e.title !== "" && !excludeTargets.has(e.target) && !conflictingTocTitle(html, entries, e, kind));
   if (titleEntries.length === 0) return null;
   const pos = anchorPositions(html, titleEntries);
 
@@ -1229,6 +1531,33 @@ export function parseDocument(html: string): ParsedDocument {
 // ---------------------------------------------------------------------------
 
 export function extractSection(html: string, spec: SectionSpec, opts: ExtractOptions = {}): ExtractResult {
+  const parsed = opts.preparsed ?? parseDocument(html);
+  const result = extractItemSection(html, spec, { ...opts, preparsed: parsed });
+  if (!result.ok || specKind(spec) !== "financialStatements") return result;
+  const opening = (text: string) => spec.form === "10-K"
+    ? annualNotesToFinancialStatements(text, parsed, spec.item === "15" ? "15" : "8")
+    : notesToFinancialStatements(text, parsed);
+  const originalNotes = opening(result.text);
+  if (originalNotes === null || financialStatementText(result.text.slice(0, originalNotes.start), 12_000, parsed).statementsText !== undefined) return result;
+  const diagnostics = { ...result.diagnostics, notes: [...result.diagnostics.notes] };
+  const header = layer2Slice(parsed.fullText, spec, diagnostics.notes, originalNotes.text);
+  const candidates = [
+    header && !header.zeroCandidates && !header.missingBoundary ? { text: header.text, method: "header-regex" as const } : null,
+    layer1Slice(parsed.pre, parsed.entries, spec, diagnostics.notes, true),
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const recoveredNotes = opening(candidate.text);
+    // Repeated page headings must not silently discard any later notes.
+    if (recoveredNotes?.text !== originalNotes.text ||
+        financialStatementText(candidate.text.slice(0, recoveredNotes.start), 12_000, parsed).statementsText === undefined) continue;
+    diagnostics.notes.push("recovered statement rows before the byte-identical notes using bounded item headers/anchors");
+    return { ok: true, text: candidate.text, chars: candidate.text.length, method: candidate.method, diagnostics };
+  }
+  return result;
+}
+
+function extractItemSection(html: string, spec: SectionSpec, opts: ExtractOptions): ExtractResult {
   if (spec.form === "40-F") {
     return { ok: false, error: new ExtractionError("unresolved_reference",
       "Form 40-F supplies annual disclosures through annual-report exhibits rather than numbered 10-K/20-F items; resolve the referenced annual report from the filing index before extracting narrative"),
@@ -1685,7 +2014,7 @@ interface AppendixElement {
 function appendixStructure(source: string, filingLayout = false, expired?: () => boolean) {
   const elements: AppendixElement[] = [];
   const stack: AppendixElement[] = [];
-  const spans: { start: number; end: number; text: string }[] = [];
+  const spans: { start: number; end: number; text: string; parent?: AppendixElement }[] = [];
   const blocks = /^(?:h[1-6]|p|div|td|th|tr|table|section)$/;
   const voids = /^(?:area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)$/;
   let cursor = 0;
@@ -1694,7 +2023,7 @@ function appendixStructure(source: string, filingLayout = false, expired?: () =>
     if ((++tokens & 1023) === 0 && expired?.()) return null;
     const start = source.indexOf("<", cursor);
     const textEnd = start < 0 ? source.length : start;
-    if (!stack.at(-1)?.hidden && textEnd > cursor) spans.push({ start: cursor, end: textEnd, text: source.slice(cursor, textEnd) });
+    if (!stack.at(-1)?.hidden && textEnd > cursor) spans.push({ start: cursor, end: textEnd, text: source.slice(cursor, textEnd), parent: stack.at(-1) });
     if (start < 0) { cursor = source.length; break; }
     if (source.startsWith("<!--", start)) {
       const end = source.indexOf("-->", start + 4);
@@ -1778,7 +2107,7 @@ function appendixStructure(source: string, filingLayout = false, expired?: () =>
     }
     return decodeEntities(parts.join(" ")).replace(/\s+/g, " ").trim();
   };
-  return { elements, text };
+  return { elements, spans, text };
 }
 
 // Keyed by the caller's shared document object: no global HTML retention, and

@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /**
  * A statement-derived value may be compared with the quote only when both are
  * in one KNOWN currency. Unknown or different currencies must not produce an
@@ -19,7 +20,7 @@ const UNKNOWN_MODEL: CurrencyBundleOptions = { annualCurrency: null, quarterCurr
 const UNKNOWN_QUOTE: CurrencyBundleOptions = { profileCurrency: null };
 
 function run(opts: CurrencyBundleOptions): ComputedMetrics {
-  return runStageB(currencyBundle({ debt: 0, ...opts }));
+  return runStageB(withFixtureQuoteDay(currencyBundle({ debt: 0, ...opts }), "2026-03-31"));
 }
 
 function dcf(c: ComputedMetrics) {
@@ -89,8 +90,8 @@ describe("price comparisons need one known currency", () => {
   });
 
   it("does not weight a market cap of unknown currency against USD debt in the WACC", () => {
-    const leveredUsd = runStageB(currencyBundle({}));
-    const leveredUnknownQuote = runStageB(currencyBundle(UNKNOWN_QUOTE));
+    const leveredUsd = runStageB(withFixtureQuoteDay(currencyBundle({}), "2026-03-31"));
+    const leveredUnknownQuote = runStageB(withFixtureQuoteDay(currencyBundle(UNKNOWN_QUOTE), "2026-03-31"));
     expect(leveredUsd.returns.wacc.weightEquity).not.toBeNull();
     expect(leveredUnknownQuote.returns.wacc.weightEquity).toBeNull();
     expect(leveredUnknownQuote.returns.wacc.waccPct).toBeNull();
@@ -99,7 +100,7 @@ describe("price comparisons need one known currency", () => {
     expect(leveredUnknownQuote.returns.wacc.costOfDebtPct).toBe(leveredUsd.returns.wacc.costOfDebtPct);
     expect(leveredUnknownQuote.gaps.find((g) => g.field === "returns.wacc.weights.currency")?.reason).toMatch(/quote currency unknown/);
     // Unknown statements never reach the weights: their debt is not combined at all.
-    const leveredUnknownModel = runStageB(currencyBundle(UNKNOWN_MODEL));
+    const leveredUnknownModel = runStageB(withFixtureQuoteDay(currencyBundle(UNKNOWN_MODEL), "2026-03-31"));
     expect(leveredUnknownModel.returns.wacc.waccPct).toBeNull();
     expect(leveredUnknownModel.returns.wacc.costOfDebtPct).toBeNull();
   });

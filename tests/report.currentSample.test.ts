@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ReportSchema } from "@/report/schema";
+import { REPORT_SPEC_VERSION, ReportSchema } from "@/report/schema";
+import { withValuationUseSafety } from "@/report/valuationUseSafety";
 import { ReportView } from "@/components/report/ReportView";
 import SamplePage from "@/app/report/sample/page";
 import { legacyScopeQualifications } from "@/report/legacyScopeQualifications";
@@ -22,7 +23,20 @@ vi.mock("@/components/WorkspaceToolbar", () => ({ WorkspaceToolbar: () => null }
 afterEach(() => { state.malformed = false; });
 
 describe("current fictional visitor sample", () => {
-  it("parses and renders complete USD research without legacy notices in both layouts", () => {
+  it("demonstrates current evidence-qualified valuation instead of a legacy refusal", () => {
+    const original = ReportSchema.parse(JSON.parse(readFileSync("fixtures/report/DEMO-current.json", "utf8")));
+    expect(original.meta.specVersion).toBe(REPORT_SPEC_VERSION);
+    expect(original.scores?.qualification?.composite.status).toBe("provisional");
+    expect(original.fairValue?.currentUse).toMatchObject({ status: "current", reason: "supported-roll-forward",
+      statementDate: "2026-03-31", valueDate: "2026-07-02", quoteDate: "2026-07-02" });
+    const bytes = JSON.stringify(original), view = withValuationUseSafety(original);
+    expect(view.fairValue?.status).toBe("available");
+    expect(view.scenarioTargets?.status).toBe("available");
+    expect(view.scores?.qualification?.composite.reasons.some(r => r.code === "current-valuation-unavailable")).toBe(false);
+    expect(reportToMarkdown(view)).toContain("Provisional");
+    expect(JSON.stringify(original)).toBe(bytes);
+  });
+  it("renders current USD research with explicit assessment gaps in both layouts", () => {
     const report = ReportSchema.parse(JSON.parse(readFileSync("fixtures/report/DEMO-current.json", "utf8")));
     expect(legacyScopeQualifications(report)).toEqual([]);
     expect(report.meta.companyName).toBe("Thesis Example Systems");
@@ -39,7 +53,8 @@ describe("current fictional visitor sample", () => {
     expect(report.catalystsRisks.risks.length).toBeGreaterThanOrEqual(5);
     expect(report.leadership.managementActions?.length).toBeGreaterThanOrEqual(5);
     expect(report.leadership.executives.map(e => e.title)).toEqual(expect.arrayContaining(["Chief Executive Officer", "Chief Financial Officer"]));
-    expect(report.leadership.executives.some(e => /^[A-F]$/.test(e.grade))).toBe(true);
+    expect(report.leadership.executives.every(e => e.grade === "not-assessed")).toBe(true);
+    expect(report.leadership.executives.every(e => e.assessmentReason?.includes("no office start is established"))).toBe(true);
     expect(report.business.segments.product.length).toBeGreaterThanOrEqual(2);
     expect(report.leadership.executives.every(e => e.credibilityGrade === "not-assessed")).toBe(true);
     expect(report.appendix.verificationLog?.filter(e => e.executiveEvidenceKind === "execution" && e.validationStatus === "validated").length).toBeGreaterThanOrEqual(2);

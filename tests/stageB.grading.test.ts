@@ -1,3 +1,4 @@
+import { currentValuationUseFixture } from "./helpers/valuationUse";
 /**
  * Stage B — deterministic aspect scoring (grading.ts).
  *
@@ -249,6 +250,7 @@ function makeInputs(over: Partial<ScoringInputs> = {}): ScoringInputs {
     forensics: forensics(),
     technicals: technicals(),
     valuation: valuationDcf(),
+    valuationUse: currentValuationUseFixture(),
     currentPrice: 150,
     asOf: "2026-07-06",
     ...over,
@@ -642,6 +644,18 @@ describe("grading — sector routing", () => {
     expect(cheap.aspects.valuation.score!).toBeGreaterThan(rich.aspects.valuation.score!);
   });
 
+  it.each(["dated-reference", "unestablished"] as const)("does not score a current implied ROE from %s model evidence", status => {
+    const input = makeInputs({ route: route("bank"), policy: policy(["fcfDcf"]), valuation: excessReturnVal(15, 9) });
+    const use = { status, reason: status === "dated-reference" ? "not-rolled-to-quote" as const : "quote-date-missing" as const, statementDate: "2025-12-31", valueDate: "2025-12-31", quoteDate: status === "dated-reference" ? "2026-07-20" : null };
+    const current = computeScores({ ...input, valuationUse: { ...use, status: "current", reason: "same-date", quoteDate: "2025-12-31" } });
+    const blocked = computeScores({ ...input, valuationUse: use });
+    const find = (scores: ReturnType<typeof computeScores>, id: string) => scores.aspects.valuation.signals?.find(signal => signal.id === id)?.raw;
+    expect(find(current, "roeImpliedVsAchievable")).toEqual(expect.any(Number));
+    expect(find(blocked, "roeImpliedVsAchievable")).toBeUndefined();
+    expect(find(current, "priceToTbvOwnHistoryRank")).toEqual(expect.any(Number));
+    expect(find(blocked, "priceToTbvOwnHistoryRank")).toBe(find(current, "priceToTbvOwnHistoryRank"));
+  });
+
   it("D-46: grades a bank balance sheet on capital, credit and funding, renormalising when NPL is withheld", () => {
     const s = computeScores(makeInputs({
       route: route("bank"),
@@ -681,6 +695,20 @@ describe("grading — sector routing", () => {
     expect(s.aspects.balanceSheet.drivers).toEqual([]);
     expect(s.aspects.balanceSheet.notApplicableReason).toMatch(/at least one of net charge-offs/);
   });
+});
+
+it.each(["dated-reference", "unestablished"] as const)("does not score current DCF comparisons from %s model evidence", status => {
+  const input = makeInputs();
+  const use = { status, reason: status === "dated-reference" ? "not-rolled-to-quote" as const : "quote-date-missing" as const, statementDate: "2025-12-31", valueDate: "2025-12-31", quoteDate: status === "dated-reference" ? "2026-07-20" : null };
+  const current = computeScores({ ...input, valuationUse: { ...use, status: "current", reason: "same-date", quoteDate: "2025-12-31" } });
+  const blocked = computeScores({ ...input, valuationUse: use });
+  const find = (scores: ReturnType<typeof computeScores>, id: string) => scores.aspects.valuation.signals?.find(signal => signal.id === id)?.raw;
+  for (const id of ["dcfUpside", "reverseImpliedVsAchievable"]) {
+    expect(find(current, id)).toEqual(expect.any(Number));
+    expect(find(blocked, id)).toBeUndefined();
+  }
+  expect(find(current, "peOwnHistoryRank")).toEqual(expect.any(Number));
+  expect(find(blocked, "peOwnHistoryRank")).toBe(find(current, "peOwnHistoryRank"));
 });
 
 /** Bank route metrics as financialMetrics.ts emits them; null ⇒ withheld. */

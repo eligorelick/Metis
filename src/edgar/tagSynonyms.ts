@@ -30,7 +30,7 @@
  */
 
 export const TAG_SYNONYMS_TAXONOMY = "us-gaap-2025";
-export const TAG_SYNONYMS_REVIEWED_ON = "2026-10-13";
+export const TAG_SYNONYMS_REVIEWED_ON = "2026-11-05";
 
 export interface TagStandIn {
   tag: string;
@@ -69,21 +69,26 @@ const entry = (
   ...(unlessBelow === undefined ? {} : { unlessBelow }),
 });
 
-/**
- * `Revenues` first: it is the taxonomy's total-revenue element, and the
- * ASC-606 elements are the performance-obligation subset of it. A filer that
- * tags both for one period reports the total on the face of its income
- * statement, and that is what the vendor's `revenue` carries. Resolution is
- * period-scoped, so a filer whose `Revenues` stops in an old year still
- * resolves the ASC-606 tag for every later period (see xbrl.ts).
- */
+/** Revenue candidates are checked against same-presentation components.
+ * A tag's name does not establish its scope; admission preserves a provider
+ * sales line corroborated by a filed line or complete statement bridge. */
+export const REGULATED_OPERATING_REVENUE_TAG = "RegulatedAndUnregulatedOperatingRevenue";
 export const REVENUE_TAGS: readonly string[] = [
   "Revenues",
-  "RevenueFromContractWithCustomerExcludingAssessedTax",
+  REGULATED_OPERATING_REVENUE_TAG,
   "SalesRevenueNet",
+  "RevenueFromContractWithCustomerExcludingAssessedTax",
   "RevenueFromContractWithCustomerIncludingAssessedTax",
   "RevenuesNetOfInterestExpense",
 ];
+
+/** Both disjoint face-line components are required; goods alone is not a total. */
+export const REVENUE_COMPONENT_TAGS = ["SalesRevenueGoodsNet", "SalesRevenueServicesNet"] as const;
+/** Direct totals whose taxonomy scope is broader than an ASC-606 note. */
+export const BROAD_REVENUE_TOTAL_TAGS = ["Revenues", REGULATED_OPERATING_REVENUE_TAG, "SalesRevenueNet"] as const;
+export const CONTRACT_REVENUE_TAGS = REVENUE_TAGS.filter(tag => /^RevenueFromContractWithCustomer/.test(tag));
+/** Signed net-interest operand for independent operating reconciliation. */
+export const NET_INTEREST_NONOPERATING_TAG = "InterestIncomeExpenseNonoperatingNet";
 
 /** Full industrial operands; financial net revenue and component costs are not substitutes. */
 export const GROSS_PROFIT_REVENUE_TAGS = REVENUE_TAGS.filter(tag => tag !== "RevenuesNetOfInterestExpense");
@@ -104,6 +109,10 @@ export const PRETAX_EXCLUDING_EQUITY_METHOD_TAG =
  * equity-method result then sits inside revenue). Never a chain line item.
  */
 export const COSTS_AND_EXPENSES_TAG = "CostsAndExpenses";
+/** Insurers report the full expense side under the benefits/losses total. */
+export const TOTAL_INCOME_EXPENSE_TAGS = [COSTS_AND_EXPENSES_TAG, "BenefitsLossesAndExpenses"] as const;
+/** Nonservice benefit expense is a filed nonoperating adjustment, not a tolerance. */
+export const NONSERVICE_BENEFIT_EXPENSE_TAG = "NetPeriodicDefinedBenefitsExpenseReversalOfExpenseExcludingServiceCostComponent";
 /** Direct consolidated totals eligible for an N3/N4b whole-row switch. */
 export const FILED_REVENUE_TOTAL_TAGS = ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax", "SalesRevenueNet"] as const;
 

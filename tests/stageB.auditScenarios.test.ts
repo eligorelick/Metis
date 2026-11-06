@@ -1,3 +1,4 @@
+import { currentValuationUseFixture } from "./helpers/valuationUse";
 import { describe, expect, it } from "vitest";
 import { buildDcfAssumptions, convergentFadeWeights, dcfDomainFailure, fadePath, forecastYearPeriod, reverseDcf, runDcf, type ValuationResult } from "@/pipeline/stageB/valuation";
 import { computeProjections, perturbScenarioAssumptions } from "@/pipeline/stageB/projections";
@@ -75,7 +76,7 @@ describe("report audit valuation regressions", () => {
     expect(dcfDomainFailure(valuation.dcf)).toBeNull();
     const countercyclical = ([[1000, 30], [1100, 15], [1188, 45], [1300.86, 20], [1398.42, 50]] as const).map(([revenue, m], i) => ({
       date: `${2021 + i}-12-31`, revenue, ebit: revenue * m / 100, netIncome: revenue * m / 100 * 0.75, epsDiluted: 1 }));
-    const t = computeScenarioTargets({ route, valuation, waccPct: 9, incomeHistory: countercyclical, currentPrice: 100, currency: "USD", asOf: "2026-10-13" });
+    const t = computeScenarioTargets({ route, valuation, valuationUse: currentValuationUseFixture(), waccPct: 9, incomeHistory: countercyclical, currentPrice: 100, currency: "USD", asOf: "2026-10-13" });
     const bull = t.targets.find(t => t.name === "bull")!;
     expect(bull.growthDeltaPp).toBeLessThan(0);
     expect(bull.marginDeltaPp).toBeGreaterThan(0);

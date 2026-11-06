@@ -61,15 +61,17 @@ describe("income classification at display precision (audit 2026-10-22 A-11)", (
     const out = enrichIncomeClassification(incomeInput(59_894e6, 48_988e6), incomeFacts(59_893e6), "quarter", at);
     const row = out.income.ok ? out.income.value.data.rows[0]! : null;
     expect(row).toMatchObject({ revenue: 59_894e6, grossProfit: 48_988e6 });
-    expect(row?.fieldConflicts?.revenue).toBeUndefined();
+    expect(row?.fieldConflicts?.revenue).toMatchObject({usable:true,resolution:"filed-line"});
     expect(row?.fieldProvenance?.revenue?.tags).toContain("us-gaap/Revenues");
     expect(out.gaps.filter((gap) => /classification conflict/.test(gap.reason))).toEqual([]);
   });
-  it("still refuses a classification-scale difference", () => {
+  it("adopts the complete filed revenue total while refusing incompatible gross profit", () => {
     const out = enrichIncomeClassification(incomeInput(61_000e6, 50_094e6), incomeFacts(59_893e6), "quarter", at);
     const row = out.income.ok ? out.income.value.data.rows[0]! : null;
-    expect(row?.revenue).toBeNull();
-    expect(row?.fieldConflicts?.revenue).toMatchObject({ usable: false, vendorValue: 61_000e6, secValue: 59_893e6 });
+    expect(row?.revenue).toBe(59_893e6);
+    expect(row?.fieldConflicts?.revenue).toMatchObject({ usable: true, resolution: "filed-family", vendorValue: 61_000e6, secValue: 59_893e6 });
+    expect(row?.grossProfit).toBeNull();
+    expect(row?.fieldConflicts?.grossProfit).toMatchObject({ usable: false, vendorValue: 50_094e6, secValue: 48_987e6 });
   });
 });
 

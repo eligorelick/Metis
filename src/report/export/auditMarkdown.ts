@@ -1,3 +1,5 @@
+import { fairValueReferenceText } from "@/report/fairValueText";
+import { withValuationUseSafety } from "@/report/valuationUseSafety";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { legacyCheckNote } from "@/report/claimMatching";
 /**
@@ -512,8 +514,10 @@ function renderGradeContracts(report: Report): string {
 }
 
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
+
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
-  report = withLegacyScopeQualifications(report);
+  report = withValuationUseSafety(withLegacyScopeQualifications(report));
+  const { auditValuation: recordedTargets, ...fairValueRecord } = report.fairValue ?? {};
   const scopeQualifications = legacyScopeQualifications(report);
   indexVerificationMarks(report);
   const m = report.meta;
@@ -530,6 +534,11 @@ export function reportToAuditMarkdown(report: Report, context: ReportPresentatio
     renderRun(report,context),
     scopeQualifications.length ? `## ${LEGACY_SCOPE_HEADING}\n\n${scopeQualifications.map(note => markdownProse(note)).join("\n\n")}` : "",
     report.marketData?.enterpriseValueNote ? `## Historical enterprise-value presentation\n\n${markdownProse(report.marketData.enterpriseValueNote)}` : "",
+    report.fairValue ? ["## Valuation date policy", fairValueReferenceText(report.fairValue) ?? "Current-use timing and qualification are recorded below.",
+      "```json", JSON.stringify({ fairValue: fairValueRecord, qualification: report.scores?.qualification }, null, 2), "```"].join("\n\n") : "",
+    recordedTargets ? [
+      "## Recorded pre-policy valuation diagnostics", "These original targets and inverse values are historical audit diagnostics, not admitted current evidence.",
+      "```json", JSON.stringify(recordedTargets, null, 2), "```"].join("\n\n") : "",
     renderVerification(report),
     report.scores ? renderScores(report.scores) : "",
     renderFigureRegistry(report),

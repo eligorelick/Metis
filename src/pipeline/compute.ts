@@ -1,3 +1,4 @@
+import { withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
 import { resolveForeignValuation, translateValuationInputs, translateProjectionInputs, type ForeignValuationBasis } from "@/pipeline/foreignCurrency";
 import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
 import { admittedStatementRow, isFmpQuotaReason, quotePriceObservationDay } from "@/providers/fmp";
@@ -23,7 +24,7 @@ import { newerFilingSentence, newerResultsSentence } from "@/report/filingDisclo
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
-import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { operatingIncomeEvidenceForNonMargins, operatingIncomeForNonMargins, operatingMarginBasis, withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { withFilerShareUnits } from "@/pipeline/shareUnits";
 import { filedAnnualNciEarnings } from "@/pipeline/nciEarnings";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
@@ -61,6 +62,7 @@ import {
 } from "@/pipeline/stageB/financialMetrics";
 import {
   computeGrowth,
+  rejectedAnnualCadenceRows,
   windowCagr,
   type GrowthResult,
   withoutTransitionPeriods,
@@ -75,6 +77,7 @@ import {
   computeDupont,
   computeRoicVsWaccSpread,
   type WaccResult,
+  type WaccOperatingEvidence,
   type RoicResult,
   type RoteResult,
   type DupontResult,
@@ -157,7 +160,7 @@ import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stage
 import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { filedCfoTtm, filedCashFlowTtm, filedCapexTtm } from "@/edgar/financialEnrichment";
-import { vendorAgreesWithDerived } from "@/edgar/vendorAgreement";
+import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason, uncashedDebtCollapseReason } from "@/edgar/debtCompleteness";
@@ -433,6 +436,7 @@ function fiscalIdentity(r: FmpStatementRow) {
 }
 
 function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
+  const operating = operatingMarginBasis(r);
   return {
     ...fiscalIdentity(r),
     date: String(r.date ?? ""),
@@ -442,7 +446,8 @@ function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
     filingDate: str(r.filingDate),
     revenue: num(r.revenue),
     grossProfit: num(r.grossProfit),
-    operatingIncome: num(r.operatingIncome),
+    operatingIncome: operating.operatingIncome,
+    operatingBasis: operating.basis,
     netIncome: num(r.netIncome),
     epsDiluted: num(r.epsDiluted),
   };
@@ -536,9 +541,9 @@ function toReturnsIncome(
     preferredCashScope: prefRow ? commonFlowScope(prefRow, "preferredDividendsPaid", "annual") : undefined,
     preferredClaimsInPeriod: preferredClaimsInFlow(evidence.incomeScope, balances, cashEvidence),
     revenue: num(r.revenue),
-    operatingIncome: num(r.operatingIncome),
+    operatingIncome: operatingIncomeForNonMargins(r),
     // ROIC's EBIT is operating income; raw vendor EBIT may include other income.
-    ebit: num(r.operatingIncome),
+    ebit: operatingIncomeForNonMargins(r),
     incomeBeforeTax: num(r.incomeBeforeTax),
     incomeTaxExpense: num(r.incomeTaxExpense),
     netIncome: num(r.netIncome),
@@ -615,9 +620,9 @@ function toCapitalIncome(r: FmpIncomeStatementRow): CapitalIncomeRow {
     acceptedDate: str(r.acceptedDate),
     filingDate: str(r.filingDate),
     revenue: num(r.revenue),
-    operatingIncome: num(r.operatingIncome),
+    operatingIncome: operatingIncomeForNonMargins(r),
     // Coverage and own-computed EBITDA share the operating-income basis.
-    ebit: num(r.operatingIncome),
+    ebit: operatingIncomeForNonMargins(r),
     ebitda: num(r.ebitda),
     interestExpense: num(r.interestExpense),
     netIncome: num(r.netIncome),
@@ -685,7 +690,7 @@ function toForensicsIncome(r: FmpIncomeStatementRow): ForensicsIncomeRow {
     sellingAndMarketingExpenses: num(r.sellingAndMarketingExpenses),
     depreciationAndAmortization: num(r.depreciationAndAmortization),
     ebit: num(r.ebit),
-    operatingIncome: num(r.operatingIncome),
+    operatingIncome: operatingIncomeForNonMargins(r),
     interestExpense: num(r.interestExpense),
     incomeTaxExpense: num(r.incomeTaxExpense),
     netIncome: num(r.netIncome),
@@ -829,6 +834,9 @@ export interface TtmIncome {
   currencyFromSameFilingStatements: boolean;
   revenue: number | null;
   operatingIncome: number | null;
+  nonMarginOperatingIncome?: number | null;
+  operatingIncomeBasis?: string;
+  operatingIncomeEvidence?: WaccOperatingEvidence;
   depreciationAndAmortization: number | null;
   netIncome: number | null;
   netIncomeConsolidated?: number | null;
@@ -1354,6 +1362,29 @@ function ttmIncomeFromNormalized(
   if (!commonWindow.commonIncomeWithheldReason) gateComplete("netIncomeAvailableToCommon");
 
   const windowStart = incomePeriod(q[3], normalized.rows[4]);
+  const operatingValues = q.map(operatingIncomeForNonMargins);
+  const operatingObservations = q.flatMap(row => {
+    const evidence = operatingIncomeEvidenceForNonMargins(row);
+    return evidence ? [{ status: evidence.status, asOf: evidence.asOf, field: evidence.field }] : [];
+  });
+  const unverifiedOperating = operatingObservations.some(evidence => evidence.status === "unverified-derivation");
+  // An unverified selected component qualifies the sum. Claim a fully filed
+  // sum only when all four observations actually carry that evidence.
+  const operatingEvidence: WaccOperatingEvidence | undefined = operatingValues.every(value => value !== null) &&
+    (unverifiedOperating || operatingObservations.length === 4) ? {
+      status: unverifiedOperating ? "unverified-derivation" : "filed-or-reconciled",
+      asOf: String(q[0].date ?? "") || null, field: `statements.income.ttm.${q[0].date}.operatingIncome`,
+      usedInDiscountRate: false, observations: operatingObservations,
+    } : undefined;
+  const standaloneOperating = q.some(row => row.nonMarginOperatingIncome !== undefined) && operatingValues.every((v): v is number => v !== null)
+    ? operatingValues.reduce((sum, v) => sum + v, 0) : undefined;
+  const corroboratedQuarters = q.filter(row=>row.fieldConflicts?.operatingIncome?.cause==="operating-basis" && row.fieldConflicts.operatingIncome.usable);
+  const unverifiedQuarters = q.filter(row=>num(row.operatingIncome)!==null && row.fieldConflicts?.operatingIncome?.usable!==false && !corroboratedQuarters.includes(row));
+  const numeratorBasis = [
+    corroboratedQuarters.length ? `Filed-corroborated quarters: ${corroboratedQuarters.map(row=>row.date).join(", ")}` : null,
+    unverifiedQuarters.length ? `Unverified provider quarters: ${unverifiedQuarters.map(row=>row.date).join(", ")}` : null,
+    ...new Set(q.flatMap(row=>row.operatingIncomeBasis?[row.operatingIncomeBasis]:[])),
+  ].filter(Boolean).join("; ");
   return {
     date: String(q[0].date ?? ""),
     periodStart: windowStart.periodStart,
@@ -1364,6 +1395,9 @@ function ttmIncomeFromNormalized(
     currencyFromSameFilingStatements: windowCurrency.fromSameFiling,
     revenue: revenueCount === 4 ? sumField(q, "revenue") : null,
     operatingIncome: gateComplete("operatingIncome"),
+    ...(standaloneOperating !== undefined ? { nonMarginOperatingIncome: standaloneOperating } : {}),
+    operatingIncomeBasis: numeratorBasis || undefined,
+    ...(operatingEvidence ? { operatingIncomeEvidence: operatingEvidence } : {}),
     depreciationAndAmortization: gateComplete("depreciationAndAmortization"),
     netIncome: commonWindow.netIncome,
     netIncomeConsolidated: gateComplete("netIncomeConsolidated"),
@@ -1844,7 +1878,8 @@ export function priorYearCostOfDebt(
       yearsBack: index,
       interestExpense,
       totalDebtAvg,
-      ebit: num(income?.operatingIncome) === null ? null : num(income?.operatingIncome)! - (options.unusualByYear?.get(fiscalYearEnd) ?? 0),
+      operatingIncomeEvidence: operatingIncomeEvidenceForNonMargins(income),
+      ebit: operatingIncomeForNonMargins(income) === null ? null : operatingIncomeForNonMargins(income)! - (options.unusualByYear?.get(fiscalYearEnd) ?? 0),
       coverageBasis: options.unusualByYear?.get(fiscalYearEnd) ? `FY ${fiscalYearEnd} operating income excluding tagged one-off items of ${options.unusualByYear.get(fiscalYearEnd)}` : undefined,
     };
   }
@@ -2083,7 +2118,7 @@ export function operatingDispositionView(bundle: DataBundle): { bundle: DataBund
     Number.isFinite(Date.parse(s.value.fetchedAt)) && Date.parse(s.value.fetchedAt) <= Date.parse(bundle.builtAt) ? [s.value.data] : []);
   const read = materialOperatingDispositions(facts, { ttmEnd: end ?? "", fiscalYearEnd: annual.map(r => isoDay(r.date)).find(d => d !== null && end !== null && d <= end) ?? null,
     unit: currency, observedAt: bundle.builtAt, periodStart: seed === trailing ? trailing?.periodStart : annual[0] ? incomePeriod(annual[0], annual[1], "annual").periodStart : null,
-    operatingIncome: num(seed?.operatingIncome), sections });
+    operatingIncome: operatingIncomeForNonMargins(seed), sections });
   if (!read.events.length) return { bundle, read };
   const reason = `${read.basis}. Operating income excludes this completed sale in every affected annual and quarterly calculation. ` +
     "Recurring net earnings, EPS and the tax pair are withheld for those periods because the sale's tax and common-holder allocation are not separately established; filed observations remain in the source bundle.";
@@ -2102,7 +2137,7 @@ export function operatingDispositionView(bundle: DataBundle): { bundle: DataBund
         const earliest = Date.parse(rowEnd) - longestPeriodDays * 86_400_000;
         if (!read.events.some(e => e.date <= rowEnd && Date.parse(e.date) > earliest)) return row;
         const undated = `${read.basis}. The period start of the row ending ${rowEnd} cannot be established, so it may contain this completed sale; its operating income is withheld rather than left holding the gain.`;
-        const out: FmpIncomeStatementRow = { ...row, ebitda: undefined, fieldConflicts: { ...row.fieldConflicts } };
+        const out: FmpIncomeStatementRow = { ...row, nonMarginOperatingIncome: undefined, ebitda: undefined, fieldConflicts: { ...row.fieldConflicts } };
         for (const field of ["operatingIncome", "ebit", "netIncome", "netIncomeConsolidated", "netIncomeAvailableToCommon", "netIncomeFromContinuingOperations", "eps", "epsDiluted", "incomeBeforeTax", "incomeTaxExpense"] as const) {
           out[field] = undefined;
           out.fieldConflicts![field] = { vendorValue: num(row[field]), secValue: null, usable: false, reason: undated };
@@ -2112,6 +2147,7 @@ export function operatingDispositionView(bundle: DataBundle): { bundle: DataBund
       const gain = read.events.filter(e => e.date >= period.periodStart! && e.date <= rowEnd).reduce((sum, e) => sum + e.value, 0);
       if (!gain) return row;
       const out: FmpIncomeStatementRow = { ...row, operatingIncome: num(row.operatingIncome) === null ? undefined : row.operatingIncome! - gain,
+        ...(row.nonMarginOperatingIncome != null ? { nonMarginOperatingIncome: row.nonMarginOperatingIncome - gain } : {}),
         ebit: num(row.ebit) === null ? undefined : row.ebit! - gain,
         ebitda: undefined,
         fieldConflicts: { ...row.fieldConflicts } };
@@ -2146,7 +2182,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   bundle = { ...bundle, economicShareEvidence: retainedClassEconomicEvidence(bundle) };
   const quote = firstRow(bundle.quote);
   const refusedAnnualRevenue = rowsOf(bundle.statements.incomeAnnual).find(row => row.fieldConflicts?.revenue?.usable === false);
-  const revenueConflict = validation?.checks.find(check=>check.status==="fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id)) ??
+  const revenueConflict = validation?.checks.find(check => check.status === "fail" && /^xbrlCrossCheck\.revenue\.FY\./.test(check.id) &&
+    !rowsOf(bundle.statements.incomeAnnual).some(row => check.id === `xbrlCrossCheck.revenue.FY.${row.date}` &&
+      row.fieldConflicts?.revenue?.usable === true && ["filed-family", "filed-line"].includes(row.fieldConflicts.revenue.resolution ?? "") &&
+      row.revenue != null && row.fieldConflicts.revenue.secValue != null && vendorAgreesWithFiled(row.revenue, row.fieldConflicts.revenue.secValue) && row.fieldProvenance?.revenue?.source === "edgar")) ??
     (refusedAnnualRevenue ? { id: `statements.income.${refusedAnnualRevenue.date}.revenue`, detail: refusedAnnualRevenue.fieldConflicts!.revenue!.reason } : null);
   const revenueEligibilityReason = revenueConflict
     ? `Annual revenue definitions are unreconciled (${revenueConflict.id}): ${revenueConflict.detail}. Revenue growth and margins, the scenario dispersion and projection history, the revenue-based forensic inputs and growth-dependent valuation are withheld; raw source observations are retained.` : null;
@@ -2317,8 +2356,12 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     balanceQuarterly: rowsInModelCurrency("balanceQuarterly", balanceQuarterlyReported, currencies.model, currencyEvidence),
   };
   const incomeAnnual = compatible.incomeAnnual.rows;
+  // An undated recorded period is financially excluded by the currency/date
+  // gate above, but its identity must survive before later normalizers run.
+  const incomeAnnualUndatedPeriods: FiscalDatedRow[] = incomeAnnualReported.filter(row=>isoDay(row.date)===null)
+    .map(row=>({date:row.date,fiscalYear:row.fiscalYear,period:undefined}));
   const incomeAnnualForRevenue = revenueConflict
-    ? incomeAnnual.map(row => ({ ...row, revenue: undefined })) : incomeAnnual;
+    ? incomeAnnual.map(row => ({ ...row, revenue: undefined, operatingIncome: undefined, nonMarginOperatingIncome: undefined })) : incomeAnnual;
   // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
   const balanceAdmissions: BalanceAdmission[] = [];
   const admitBalance = (vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
@@ -2430,7 +2473,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const growth = {
     ...growthCompatible,
     margins: computeGrowth((revenueConflict
-      ? incomeAnnualReported.map(row => ({ ...row, revenue: undefined })) : incomeAnnualReported)
+      ? incomeAnnualReported.map(row => ({ ...row, revenue: undefined, operatingIncome: undefined, nonMarginOperatingIncome: undefined })) : incomeAnnualReported)
       .map(toGrowthIncome), [], { period: "annual" }).margins,
   };
   if(revenueEligibilityReason){
@@ -2547,7 +2590,8 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     evIncludeLeases,
     // D-31 / FIN-112: like the annual capital input, EBIT stays on operating income.
     // An incomplete trailing operating flow is unknown, never vendor EBIT or an annual substitute.
-    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, ebit: ttmInc.operatingIncome } : null,
+    income: ttmInc && currencies.ttmIncomeUsable ? { ...ttmInc, operatingIncome: operatingIncomeForNonMargins(ttmInc), ebit: operatingIncomeForNonMargins(ttmInc) } : null,
+    preserveAnnualCashBasis: ttmInc?.nonMarginOperatingIncome !== undefined,
     cashFlow: ttmCf && currencies.ttmCashFlowUsable ? { ...ttmCf,
       netIncome: ttmInc?.netIncome ?? null, freeCashFlow: sumCurrentFlow("freeCashFlow"),
       stockBasedCompensation: filedSbc?.value ?? sumCurrentFlow("stockBasedCompensation"),
@@ -2717,6 +2761,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       ["financial services", "financial"].includes(str(profile?.sector)?.trim().toLowerCase() ?? "") &&
       (routingCashflowTtm?.operatingCashFlow ?? routingCashflowAnnual?.operatingCashFlow ?? 0) < 0,
     incomeAnnual: incomeAnnualForRevenue,
+    incomeAnnualUndatedPeriods,
     balanceAnnual,
     cashflowAnnual,
     incomeQuarterly,
@@ -2899,7 +2944,24 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
         isoDay(balance.date), currencies.model, bundle.builtAt),
     });
   })() : null;
-  const scores = computeScores({
+  const fairValue = withDegradedInputs(
+    computeFairValue({
+      valuation,
+      currentPrice,
+      currency: valuationCurrency,
+      asOf: asOfDay,
+      quoteAsOf: quotePriceObservationDay(quote),
+    }),
+    degradedInputsReason({
+      betaUsesRegression: returns.wacc.betaFinal !== null && /keyless profile regression|monthly OLS regression fallback/.test(returns.wacc.betaSource ?? ""),
+      riskFree: riskFreePct(bundle),
+      waccHistoryCurrentOnly: valuation.kind === "dcf" && riskFreeObservations(bundle).length === 0 && returns.waccHistory.missing.length > 0,
+      bundleGaps: bundle.gaps,
+      valuationGaps: valuation.gaps,
+    }),
+  );
+
+  const rawScores = computeScores({
     route,
     policy,
     growth,
@@ -2914,9 +2976,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     // D-46: the bank balance sheet is graded on these route metrics.
     financialMetrics,
     utilityCredit,
+    valuationUse: fairValue.currentUse,
     currentPrice,
     asOf: asOfDay,
-    quoteAsOf: bundle.quote.ok ? bundle.quote.value.asOf : null,
+    quoteAsOf: quotePriceObservationDay(quote),
   });
 
   // Same point-in-time anchors as computeValuation (audit H2/M3/M4): the NEWER
@@ -2937,8 +3000,12 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // Removing the irregular-spacing veto left scenarioDispersion with no
   // protection against a duplicated period, which contributes a zero-length
   // interval and a repeated observation to the volatility estimate.
-  const projNorm = normalizeQuarterRows(withoutTransitionPeriods(normalizeQuarterRows(incomeAnnualForRevenue).rows).rows);
-  const projectionPeriodGaps: ManifestEntry[] = projNorm.rejected.map(({ period, reason }) => ({
+  const projAnnualNorm = normalizeQuarterRows(incomeAnnualForRevenue);
+  const projRegular = withoutTransitionPeriods(projAnnualNorm.rows);
+  const projNorm = normalizeQuarterRows(projRegular.rows);
+  const projectionCadenceBarriers = [...incomeAnnualUndatedPeriods,...rejectedAnnualCadenceRows(incomeAnnualForRevenue,
+    [...projAnnualNorm.rejected,...projRegular.withheld.map(row=>({period:row.date}))])];
+  const projectionPeriodGaps: ManifestEntry[] = [...projAnnualNorm.rejected,...projNorm.rejected].map(({ period, reason }) => ({
     field: "projections.incomeStatement.period",
     reason: `annual period ${period} dropped from the projection history: ${reason}`,
     severity: "warn" as const,
@@ -2954,12 +3021,14 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   };
   const projectionIncomeHistory = projNorm.rows.map(
     (r): ProjectionIncomeRow => ({
+      ...fiscalIdentity(r),
       fiscalYear: str(r.fiscalYear),
       date: String(r.date ?? ""),
-      revenue: num(r.revenue),
+      // Every revenue consumer uses the same admitted operating line.
+      revenue: operatingMarginBasis(r).revenue,
       // Projections and their EPS conversion use the DCF's operating EBIT.
       // Vendor EBIT can include non-operating gains (pretax income + interest).
-      ebit: num(r.operatingIncome),
+      ebit: operatingMarginBasis(r).operatingIncome,
       netIncome: num(r.netIncome),
       epsDiluted: num(r.epsDiluted),
       interestExpense: num(r.interestExpense),
@@ -3028,6 +3097,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     ...(projectionOutsideOwnership ? { forecastEpsWithheldReason: "Noncontrolling ownership or income is evidenced at the operating forecast anchor, but a future common-earnings allocation is unestablished. No book NCI or historical NCI-income amount is allocated to future EBIT or cash flows." }
       : projectionTemporaryClaim ? { forecastEpsWithheldReason: "Temporary equity (redeemable preferred or redeemable noncontrolling interests) is filed, or refused, at the operating forecast anchor, but a future common-earnings allocation is unestablished. Its carrying amount is not a dividend or earnings forecast and is not subtracted from forecast operating earnings." } : {}),
     incomeHistory: projectionIncomeHistory,
+    incomeCadenceBarriers: projectionCadenceBarriers,
     fcfHistory: capital.fcf.series.map((r) => ({ date: r.date, fcf: r.fcf, fiscalYear: str(normalizeQuarterRows(cashflowAnnual).rows.find(row => isoDay(row.date) === r.date)?.fiscalYear) ?? str(normalizeQuarterRows(incomeAnnual).rows.find(row => isoDay(row.date) === r.date)?.fiscalYear) })),
     shareCountAnnualizedPct: capital.shareCount.annualizedPct,
     currency: projectionCurrency,
@@ -3059,6 +3129,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const scenarioTargets = computeScenarioTargets({
     route,
     valuation,
+    valuationUse: fairValue.currentUse,
     waccPct: returns.wacc.waccPct,
     incomeHistory: translatedProjectionInputs.incomeHistory,
     currentPrice,
@@ -3075,22 +3146,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // when no per-share model applies or the equity bridge is missing.
   // Audit 2026-10-22 F-13: an available value built on substituted inputs
   // carries a "degraded inputs" reason naming each substitution.
-  const fairValue = withDegradedInputs(
-    computeFairValue({
-      valuation,
-      currentPrice,
-      currency: projectionCurrency,
-      asOf: asOfDay,
-    }),
-    degradedInputsReason({
-      betaUsesRegression: returns.wacc.betaFinal !== null && /keyless profile regression|monthly OLS regression fallback/.test(returns.wacc.betaSource ?? ""),
-      riskFree: riskFreePct(bundle),
-      waccHistoryCurrentOnly: valuation.kind === "dcf" && riskFreeObservations(bundle).length === 0 && returns.waccHistory.missing.length > 0,
-      bundleGaps: bundle.gaps,
-      valuationGaps: valuation.gaps,
-    }),
-  );
-  if (classApproximation) fairValue.basis.push(classApproximation.basis);
+  if (classApproximation) {
+    fairValue.basis.push(classApproximation.basis);
+    fairValue.reference?.basis.push(classApproximation.basis);
+  }
 
   // --- Metric-policy suppression sweep (disclose, don't silently drop) -------
   // Forensics Z / M already suppressed inside runForensics for financials; we
@@ -3145,6 +3204,10 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
     financialMetrics.gaps,
     runway?.gaps ?? null,
   );
+
+  const scores = withAssessmentQualification(rawScores, { valuationUse: fairValue.currentUse,
+    financialEvidence: financialEvidenceQualifications(gaps, returns.wacc.operatingIncomeEvidence ?? null),
+  });
 
   // The 8-K forensic events belong with the forensic notes the report renders,
   // not in runStageB's own `notes`, which has no consumer.
@@ -3341,8 +3404,8 @@ function computeReturns(
   // The basis also decides which balance-sheet pair averages the debt.
   const annualDate = isoDay(incomeAnnual[0]?.date) ?? "?";
   const interestExpenseAnnual = num(incomeAnnual[0]?.interestExpense);
-  const ebitAnnual = num(incomeAnnual[0]?.operatingIncome) ?? num(incomeAnnual[0]?.waccOperatingIncome);
-  const standaloneAnnualCoverage = num(incomeAnnual[0]?.operatingIncome) === null && num(incomeAnnual[0]?.waccOperatingIncome) !== null;
+  const ebitAnnual = operatingIncomeForNonMargins(incomeAnnual[0]) ?? num(incomeAnnual[0]?.waccOperatingIncome);
+  const standaloneAnnualCoverage = operatingIncomeForNonMargins(incomeAnnual[0]) === null && num(incomeAnnual[0]?.waccOperatingIncome) !== null;
   // The TTM interest is divided by the debt balances at the window's ends; a
   // ratio of two sums is a figure only when both are in one currency. When the
   // balances are not established in the window's currency, the TTM pair is not
@@ -3367,9 +3430,10 @@ function computeReturns(
   const interestExpenseTtm = ttmDebtComparable ? (ttmInc?.interestExpense ?? null) : null;
   // Match the annual and DCF operating-income basis. A broader vendor EBIT
   // is not a substitute for an unreported operating-income coverage leg.
-  const ebitTtm = ttmDebtComparable ? (ttmInc?.operatingIncome ?? null) : null;
+  const ebitTtm = ttmDebtComparable ? operatingIncomeForNonMargins(ttmInc) : null;
   let interestExpenseForWacc: number | null;
   let ebitForWacc: number | null;
+  let coverageUsesAnnualOperatingIncome = false;
   let coverageBasis: string;
   let interestBasis: "ttm" | "annual";
   if (ttmInc && interestExpenseTtm !== null && ebitTtm !== null) {
@@ -3380,7 +3444,8 @@ function computeReturns(
   } else if (interestExpenseAnnual !== null && ebitAnnual !== null) {
     interestExpenseForWacc = interestExpenseAnnual;
     ebitForWacc = ebitAnnual;
-    coverageBasis = `FY ${annualDate} annual statement${standaloneAnnualCoverage ? " (filed operating income for standalone interest coverage)" : ""}`;
+    coverageUsesAnnualOperatingIncome = true;
+    coverageBasis = `FY ${annualDate} annual statement${standaloneAnnualCoverage ? ` (derived from filed pretax/nonoperating operands; unverified consolidated operating scope, retained for standalone interest coverage only; ${incomeAnnual[0]?.fieldProvenance?.waccOperatingIncome?.tags.join(", ") ?? "derivation unavailable"})` : ""}`;
     interestBasis = "annual";
     if (ttmInc && ttmDebtComparable) {
       notes.push(
@@ -3392,9 +3457,10 @@ function computeReturns(
   } else {
     interestExpenseForWacc = interestExpenseTtm ?? interestExpenseAnnual;
     ebitForWacc = ebitTtm ?? ebitAnnual;
+    coverageUsesAnnualOperatingIncome = ebitTtm === null;
     const interestLabel =
       interestExpenseTtm !== null ? "TTM" : interestExpenseAnnual !== null ? `FY ${annualDate}` : "unavailable";
-    const ebitLabel = ebitTtm !== null ? "TTM" : ebitAnnual !== null ? `FY ${annualDate}${standaloneAnnualCoverage ? " filed operating income for standalone interest coverage" : ""}` : "unavailable";
+    const ebitLabel = ebitTtm !== null ? "TTM" : ebitAnnual !== null ? `FY ${annualDate}${standaloneAnnualCoverage ? " derived from filed pretax/nonoperating operands; unverified consolidated operating scope, retained for standalone interest coverage only" : ""}` : "unavailable";
     interestBasis = interestExpenseTtm !== null ? "ttm" : "annual";
     coverageBasis =
       interestLabel === ebitLabel
@@ -3516,6 +3582,8 @@ function computeReturns(
     },
     betaRegressionUnavailable: betaFit.beta === null ? (betaFit.gap?.reason ?? betaFit.note) : null,
     ebitTtm: usdMoney(ebitForWacc),
+    operatingIncomeEvidence: ebitForWacc === null ? undefined : coverageUsesAnnualOperatingIncome
+      ? operatingIncomeEvidenceForNonMargins(incomeAnnual[0], standaloneAnnualCoverage) : ttmInc?.operatingIncomeEvidence,
     analysisDate: isoDay(bundle.builtAt) ?? undefined,
     isFinancial,
     // Audit 2026-10-22 B-31: these routes value equity at the cost of equity.
@@ -3686,6 +3754,7 @@ interface ValuationCtx {
   /** Previously suppressed solely by negative FIN-OTHER operating cash flow. */
   finOtherOcfExemption: boolean;
   incomeAnnual: FmpIncomeStatementRow[];
+  incomeAnnualUndatedPeriods: FiscalDatedRow[];
   balanceAnnual: FmpBalanceSheetRow[];
   cashflowAnnual: FmpCashFlowRow[];
   incomeQuarterly: FmpIncomeStatementRow[];
@@ -3849,6 +3918,8 @@ function equityMethodWindow(rows: readonly FmpIncomeStatementRow[]): { placement
 
 function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResult {
   const { route, incomeAnnual, balanceAnnual, balanceQuarterly, incomeQuarterly, ttmInc, ttmCf, growth, wacc, roic, profile, quote, evIncludeLeases } = ctx;
+  const operatingTtm = operatingMarginBasis(ttmInc);
+  const dcfUsesTtm = ttmInc !== null && operatingTtm.revenue !== null && operatingTtm.operatingIncome !== null;
   // WS6 (D-18/D-19): the growth-anchor regression method and the WACC
   // disclosure travel into the DCF assumption block with the rest.
   const waccByYear = new Map(ctx.waccHistory.points.map((point) => [point.date, point]));
@@ -3949,12 +4020,12 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         .filter((r) => r.date.length > 0)
     : null;
 
-  const equityWindowRows = ttmInc ? normalizeQuarterRows(incomeQuarterly).rows.filter(row => String(row.date) <= ttmInc.date).slice(0, 4) : inc0 ? [inc0] : [];
+  const equityWindowRows = dcfUsesTtm && ttmInc ? normalizeQuarterRows(incomeQuarterly).rows.filter(row => String(row.date) <= ttmInc.date).slice(0, 4) : inc0 ? [inc0] : [];
   const equityWindow = equityMethodWindow(equityWindowRows);
 
   // FIN-103: the DCF equity bridge reads the balance dated at the DCF statement
   // date (D-65), not the newest row the market EV uses.
-  const bridge = dcfBridgeRow(isoDay(ttmInc?.date ?? inc0?.date), ttmInc ? "ttm" : inc0 ? "annual" : null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null }, evIncludeLeases);
+  const bridge = dcfBridgeRow(isoDay(dcfUsesTtm ? ttmInc?.date : inc0?.date), dcfUsesTtm ? "ttm" : inc0 ? "annual" : null, balanceQuarterly, balanceAnnual, { row: balPoint ?? null, basis: balPointBasis ?? null }, evIncludeLeases);
   const bridgePoint = bridge.row;
   const bridgePointBasis = bridge.basis;
   const bridgeNetDebtInfo = netDebtFromBalance(bridgePoint);
@@ -4021,13 +4092,17 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     const reading = equityMethodWindow(rows);
     return reading.placement === "in-operating-income" && reading.income !== null ? value - reading.income : value;
   };
-  const dcfIncomeTtm: DcfIncomeRow | null = ttmInc
+  const annualOperating = operatingMarginBasis(inc0);
+  const dcfIncomeTtm: DcfIncomeRow | null = dcfUsesTtm && ttmInc
     ? {
         date: ttmInc.date,
         days: ttmInc.days,
         basis: "ttm",
-        revenue: ttmInc.revenue,
-        operatingIncome: adjustEbit(ttmInc.operatingIncome, equityWindowRows),
+        revenue: operatingTtm.revenue,
+        operatingIncome: adjustEbit(operatingTtm.operatingIncome, equityWindowRows),
+        operatingBasis: operatingTtm.basis,
+        grossProfitBasis: [...new Set(equityWindowRows.map(r=>r.fieldConflicts?.grossProfit?.usable===false ? r.fieldConflicts.grossProfit.reason : null).filter(Boolean))].join(" ") || undefined,
+        operatingPerimeterRefusal: equityWindowRows.find(r=>r.operatingPerimeterRefusal)?.operatingPerimeterRefusal,
         grossProfit: ttmInc.grossProfit ?? null,
         incomeBeforeTax: ttmInc.incomeBeforeTax,
         incomeTaxExpense: ttmInc.incomeTaxExpense,
@@ -4037,8 +4112,11 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           date: String(inc0.date ?? ""),
           days: incomePeriod(inc0, normalizeQuarterRows(incomeAnnual).rows.find((row) => String(row.date) < String(inc0.date)), "annual").days,
           basis: "annual",
-          revenue: num(inc0.revenue),
-          operatingIncome: adjustEbit(num(inc0.operatingIncome), equityWindowRows),
+          revenue: annualOperating.revenue,
+          operatingIncome: adjustEbit(annualOperating.operatingIncome, equityWindowRows),
+          operatingBasis: annualOperating.basis,
+          grossProfitBasis: inc0.fieldConflicts?.grossProfit?.usable===false ? inc0.fieldConflicts.grossProfit.reason : undefined,
+          operatingPerimeterRefusal: inc0.operatingPerimeterRefusal,
           grossProfit: num(inc0.grossProfit),
           incomeBeforeTax: num(inc0.incomeBeforeTax),
           incomeTaxExpense: num(inc0.incomeTaxExpense),
@@ -4051,10 +4129,17 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   const guardedAnnualUnusual = withoutRecurringFamilies(unusualOperatingItemsByFiscalYear(confirmedIssuerFacts(bundle.symbol, bundle.edgar), {
     fiscalYearEnds: incomeAnnual.map(r => isoDay(r.date) ?? ""), unit: ctx.modelCurrency, observedAt: bundle.builtAt,
   }), withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map(r => isoDay(r.date) ?? ""));
-  const dcfIncomeHistory: DcfIncomeRow[] = withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.map((r) => ({
+  const dcfAnnualNorm = normalizeQuarterRows(incomeAnnual);
+  const dcfRegular = withoutTransitionPeriods(dcfAnnualNorm.rows);
+  const dcfCadenceBarriers = [...ctx.incomeAnnualUndatedPeriods,...rejectedAnnualCadenceRows(incomeAnnual,
+    [...dcfAnnualNorm.rejected,...dcfRegular.withheld.map(row=>({period:row.date}))])];
+  const dcfIncomeHistory: DcfIncomeRow[] = dcfRegular.rows.map((r) => ({
+    ...fiscalIdentity(r),
     date: String(r.date ?? ""),
     revenue: num(r.revenue),
     operatingIncome: adjustEbit(num(r.operatingIncome), [r]),
+    operatingBasis: r.operatingIncomeBasis,
+    grossProfitBasis: r.fieldConflicts?.grossProfit?.usable===false ? r.fieldConflicts.grossProfit.reason : undefined,
     unusualOperatingItems: guardedAnnualUnusual.byYear.get(rowDate(r))?.value ?? null,
     grossProfit: num(r.grossProfit),
     incomeBeforeTax: num(r.incomeBeforeTax),
@@ -4139,7 +4224,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // end, each in the model currency. Consecutive 13/14-week quarters only.
   const fiscalYearToDate: FiscalYearToDate | null = (() => {
     const priorFiscalYearEnd = isoDay(inc0?.date);
-    if (!ttmInc || priorFiscalYearEnd === null || priorFiscalYearEnd >= ttmInc.date) return null;
+    if (!dcfUsesTtm || !ttmInc || priorFiscalYearEnd === null || priorFiscalYearEnd >= ttmInc.date) return null;
     const quarters = incomeQuarterly
       .filter((r) => { const d = isoDay(r.date); return d !== null && d > priorFiscalYearEnd && d <= ttmInc.date; })
       .sort((a, b) => String(a.date).localeCompare(String(b.date)));
@@ -4243,6 +4328,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
             observedAt: bundle.builtAt,
           }),
           incomeHistory: dcfIncomeHistory,
+          incomeCadenceBarriers: dcfCadenceBarriers,
           recurringOperatingItemsBasis: recurringOperatingItemsBasis(guardedAnnualUnusual.recurring),
           fiscalCalendar: fiscalYearRule(normalizeQuarterRows(incomeAnnual).rows.map(row => String(row.date))),
           balance: dcfBalance,
@@ -4314,7 +4400,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         date: ttmInc.date,
         basis: "ttm",
         revenue: ttmInc.revenue,
-        operatingIncome: ttmInc.operatingIncome,
+        operatingIncome: operatingIncomeForNonMargins(ttmInc),
         incomeBeforeTax: ttmInc.incomeBeforeTax,
         depreciationAndAmortization: ttmInc.depreciationAndAmortization,
         netIncome: ttmInc.netIncome,
@@ -4352,7 +4438,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           basis: "annual",
           fiscalYear: typeof inc0.fiscalYear === "string" ? inc0.fiscalYear : typeof inc0.fiscalYear === "number" ? String(inc0.fiscalYear) : null,
           revenue: num(inc0.revenue),
-          operatingIncome: num(inc0.operatingIncome),
+          operatingIncome: operatingIncomeForNonMargins(inc0),
           incomeBeforeTax: num(inc0.incomeBeforeTax),
           depreciationAndAmortization: num(inc0.depreciationAndAmortization),
           netIncome: num(inc0.netIncome),
@@ -4667,7 +4753,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       : null;
 
   // --- REIT inputs -----------------------------------------------------------
-  const noiApprox = ttmInc && ttmInc.operatingIncome !== null && da !== null ? ttmInc.operatingIncome + da : null;
+  const noiOperating = operatingIncomeForNonMargins(ttmInc);
+  const noiApprox = noiOperating !== null && da !== null ? noiOperating + da : null;
   const reitSubmapReason =
     route.reitSubmap === "undetermined"
       ? (route.gaps.find((g) => g.field === "route.reitSubmap")?.reason ?? null)
@@ -4836,6 +4923,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       result = {
         ...prior,
         suppressionReason: reason,
+        suppressionKind: "input-evidence",
         notes: [...prior.notes.filter(n => !n.startsWith("fcfDcf suppressed by metric policy (unprofitable overlay)")), reason],
         // Keep the prior suppression's classification; no input check or gap
         // severity is changed. Replace its obsolete profitability explanation.
@@ -5346,7 +5434,7 @@ function mergeQuarterly(
       acceptedDate: i.acceptedDate,
       filingDate: i.filingDate,
       revenue: num(i.revenue),
-      operatingIncome: num(i.operatingIncome),
+      operatingIncome: operatingIncomeForNonMargins(i),
       depreciationAndAmortization: num(i.depreciationAndAmortization) ?? (cf ? num(cf.depreciationAndAmortization) : null),
       // Kept separate: the REIT FFO history must use the same D&A basis as the
       // current ffoApprox, which reads the income statement only.

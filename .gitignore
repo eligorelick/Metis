@@ -35,6 +35,8 @@ AGENTS.md
 CLAUDE.md
 .claude/
 .superpowers/
+# Local execution designs remain available without entering the public release set.
+docs/superpowers/
 .playwright-mcp/
 .worktrees/
 tmp/

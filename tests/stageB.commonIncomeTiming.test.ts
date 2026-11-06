@@ -1,3 +1,4 @@
+import { withFixtureQuoteDay } from "./helpers/valuationUse";
 /** Synthetic timing precision controls; no provider timezone is inferred. */
 import { describe, expect, it } from "vitest";
 import { commonHolderCapital } from "@/pipeline/stageB/securityBasis";
@@ -58,7 +59,7 @@ describe.each(ZONES)("common source timing in %s", zone => {
   }));
 
   it.each(["vendor-older", "vendor-same-day", "primary-ambiguous-row", "primary-future-row", "primary-malformed-row", "primary-malformed", "primary-future"] as const)("consumer field-source precedence: %s", mode => inZone(zone, () => {
-    const bundle = buildSyntheticRouteBundle("bank");
+    const bundle = withFixtureQuoteDay(buildSyntheticRouteBundle("bank"), "2025-12-31");
     for (const member of [bundle.statements.incomeQuarterly, bundle.statements.balanceQuarterly, bundle.statements.cashflowQuarterly]) {
       if (!member.ok) throw new Error("synthetic rows required");
       member.value.data.rows = [];

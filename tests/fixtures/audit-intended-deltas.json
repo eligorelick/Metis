@@ -3,7 +3,7 @@
     "auditedBaseCommit": "524d09e81b00b08fe6af386011d34759a5e02fc0",
     "projectionSha256": "68222fc50a0b264723163fd76b7555dbff8fbf1e3269e82d4e36f4d3673d0376"
   },
-  "generatedAt": "2026-11-04",
+  "generatedAt": "2026-11-06",
   "keyedArrays": [
     "report.appendix.missingData",
     "stageB.gaps"
@@ -6189,44 +6189,6 @@
           ]
         },
         {
-          "path": "stageB.valuation.assumptions.growthAnchor",
-          "beforeMissing": true,
-          "after": {
-            "pointPct": 8.495755479803707,
-            "rangePct": [
-              7.888888888888889,
-              9.102622070718525
-            ],
-            "methods": [
-              {
-                "name": "log-linear revenue regression",
-                "valuePct": 9.102622070718525,
-                "detail": "9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1"
-              },
-              {
-                "name": "3y revenue CAGR",
-                "valuePct": null,
-                "detail": "unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance)"
-              },
-              {
-                "name": "5y revenue CAGR",
-                "valuePct": null,
-                "detail": "unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance)"
-              },
-              {
-                "name": "analyst-consensus case",
-                "valuePct": 7.888888888888889,
-                "detail": "7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31)"
-              }
-            ],
-            "unavailable": [
-              "3y revenue CAGR",
-              "5y revenue CAGR"
-            ],
-            "basis": "median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus."
-          }
-        },
-        {
           "path": "stageB.valuation.assumptions.growthPath.basis",
           "before": "linear fade from 7.89% (analyst consensus revenue, avg implied growth over next 2 fiscal years (through 2027-12-31)) to terminal 2.5% by year 10",
           "after": "year one 8% from the revenue anchor (analyst consensus), years 2–5 7.78%, 7.56%, 7.35%, 7.14% on consensus (consensus anchors years 1–5; house rule D-65); later years follow a convergent fade from year 5's 7.14% to the terminal rate 2.5% in year 10: the excess over the terminal rate decays geometrically with a 3-year half-life, rescaled so it closes exactly in year 10, so it falls somewhat faster than halving every 3 years (house rule D-58; the linear fade is retired). The year-one revenue anchor and the near-term growth rows state their own bases."
@@ -6273,11 +6235,6 @@
             "value": 500000000,
             "balanceDate": "2025-12-31"
           }
-        },
-        {
-          "path": "stageB.valuation.assumptions.notes.1",
-          "beforeMissing": true,
-          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus."
         },
         {
           "path": "stageB.valuation.assumptions.terminal.reinvestmentRate.basis",
@@ -6583,11 +6540,6 @@
           "path": "stageB.valuation.dcf.yearRows.9.revenue",
           "before": 20713691659.910522,
           "after": 21827523493.105625
-        },
-        {
-          "path": "stageB.valuation.notes.1",
-          "before": "NET_DEBT_V1: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000",
-          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over TTM 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus."
         }
       ]
     },
@@ -8898,26 +8850,6 @@
           }
         },
         {
-          "path": "stageB.valuation.notes.8",
-          "beforeMissing": true,
-          "after": "DCF equity bridge subtracts the estimated tax on non-operating investments (21% marginal rate, zero tax basis assumed) of 105000000: 21% of the 500000000 added above; the rate is max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two). The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost."
-        },
-        {
-          "path": "stageB.valuation.notes.9",
-          "beforeMissing": true,
-          "after": "DCF terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure)."
-        },
-        {
-          "path": "stageB.valuation.notes.10",
-          "beforeMissing": true,
-          "after": "Per-share values divide by the latest weighted-average diluted share count, 205M; the quoted market cap implies 200M shares outstanding at the quote, 2.5% fewer. The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure)."
-        },
-        {
-          "path": "stageB.valuation.notes.11",
-          "beforeMissing": true,
-          "after": "NET_DEBT_V3: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000"
-        },
-        {
           "path": "stageB.valuation.sensitivity.perShare.0.0",
           "before": 166.376092292583,
           "after": 198.91287793613134
@@ -9494,25 +9426,6 @@
       ]
     },
     {
-      "name": "audit-batch5-trust-signals-20261022",
-      "decisions": [
-        "D-110"
-      ],
-      "reason": "Audit batch 5 (D-110), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of per-share-label-unit-20261026, which held only that stamp and whose record for 1.40.3 stands in D-109. No figure moves. See docs/audit/DECISIONS.md, D-110.",
-      "deltas": [
-        {
-          "path": "report.balanceSheet.coverage.commentary.1",
-          "beforeMissing": true,
-          "after": {
-            "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
-            "label": "JUDGMENT",
-            "source": "computed.capital.current",
-            "asOf": "2025-12-31"
-          }
-        }
-      ]
-    },
-    {
       "name": "audit-batch4-freshness-20261026",
       "decisions": [
         "D-112"
@@ -9949,11 +9862,6 @@
           "path": "stageB.valuation.multiples.notes.0",
           "before": "income-derived multiples use the latest ANNUAL statement — TTM was suppressed (incomplete quarterly data)",
           "after": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000."
-        },
-        {
-          "path": "stageB.valuation.notes.6",
-          "beforeMissing": true,
-          "after": "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted."
         }
       ]
     },
@@ -10094,11 +10002,6 @@
       "reason": "D-140 established workflow/source-scope conventions. D-197 advances the report to 1.64.0. D-193 advances the report to 1.63.0. D-192 advances the report to 1.62.0. D-190 advances the report to 1.61.0. the Q round advances the report to 1.60.0 (D-175 to D-181), after the priority fixes moved it to 1.59.0 (D-168 to D-172), after the FIGR extra-high audit fixes moved it to 1.58.0 (D-163 to D-167), the FIGR paid-run fixes moved it to 1.57.0 (D-156 to D-161) and P0 M-1/M-2/L-2 to 1.56.0 (D-142); D-141 previously advanced it to 1.55.0 and replaces the synthetic model trend sentence with the deterministic price-to-SMA relation. All source observations, financial values, model classifications and other provenance fields stay pinned; FIG share conflicts do not occur in this fixture.",
       "deltas": [
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.64.0"
-        },
-        {
           "path": "report.technicals.read.trend",
           "before": "SYNTHETIC demonstration text for technicals read trend; it describes fictional inputs and is not a current market observation.",
           "after": "House SMA trend: uptrend as of 2025-12-31. Last close USD 40.00 is above both averages (50-day USD 39.2628; 200-day USD 36.5237)."
@@ -10121,41 +10024,6 @@
           "path": "stageB.valuation.multiples.multiples.5.basis",
           "before": "marketCap / (equity - goodwill - intangibleAssets) (latest quarterly balance sheet 2025-12-31)",
           "after": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 1000000000 and intangibleAssets 500000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)"
-        }
-      ]
-    },
-    {
-      "name": "p1-b4b-equity-method-fin401-20261102",
-      "decisions": [
-        "D-60",
-        "D-65"
-      ],
-      "reason": "FIN-401 / FIN-401-V1: the fair-value/scenario method stamps move with the corrected equity-method reading, and again with the FIGR paid-run operating-income and SBC bases (D-159); the report 1.56.0 stamp delta is owned by the D-140/D-141 group, where P0 moved it first on integration. Review R-5: DEMO has no placement evidence, so its long-term-investment note keeps the prior wording without an undetermined-placement claim; every numeric valuation and score remains pinned. Only these five owned leaves are re-pinned. The raw audit:deltas command already differs at report.balanceSheet.coverage.commentary.1 and stageB.capital.current at eecd2703; the exact fixture test restores those two reviewed capex descriptions, so their pins remain unchanged; see docs/audit/2026-11-02-b4b-equity-bridge.md.",
-      "deltas": [
-        {
-          "path": "report.fairValue.methodVersion",
-          "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_BALANCE_ROW_INTEGRITY_55"
-        },
-        {
-          "path": "report.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_BALANCE_ROW_INTEGRITY_55"
-        },
-        {
-          "path": "stageB.fairValue.methodVersion",
-          "before": "FAIR_VALUE_2026_07",
-          "after": "FAIR_VALUE_2026_11_BALANCE_ROW_INTEGRITY_55"
-        },
-        {
-          "path": "stageB.scenarioTargets.methodVersion",
-          "before": "SCENARIO_TARGETS_2026_07B",
-          "after": "SCENARIO_TARGETS_2026_11_BALANCE_ROW_INTEGRITY_55"
-        },
-        {
-          "path": "stageB.valuation.notes.7",
-          "beforeMissing": true,
-          "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
         }
       ]
     },
@@ -10203,65 +10071,6 @@
           "path": "report.valuation.reverseDcf.impliedValue",
           "before": -17.24609375,
           "after": 2.933349609375
-        },
-        {
-          "path": "stageB.capital.current",
-          "beforeMissing": true,
-          "after": {
-            "industrialMetricsApplicable": true,
-            "basis": "annual",
-            "asOf": "2025-12-31",
-            "periodStart": "2025-01-01",
-            "currency": "USD",
-            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
-            "netDebtToEbitda": -0.4642857142857143,
-            "netDebt": -1300000000,
-            "ebitda": 2800000000,
-            "ebit": 2500000000,
-            "interestExpense": 150000000,
-            "fcfBeforeSbc": 1800000000,
-            "netIncome": 1750000000,
-            "interestCoverage": 16.666666666666668,
-            "fcfConversionBeforeSbc": 1.0285714285714285,
-            "sbcPctOfFcf": 13.88888888888889,
-            "cashBridge": {
-              "operatingCashFlow": 2400000000,
-              "cashCapitalExpenditure": -600000000,
-              "standardizedFcf": 1800000000,
-              "financeLeasePrincipalPayments": null,
-              "leaseAdjustedFcf": null,
-              "issuerFcf": null,
-              "stockBasedCompensation": 250000000,
-              "afterSbcStandardizedFcf": 1550000000,
-              "afterSbcIssuerFcf": null,
-              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
-            },
-            "debtBridge": {
-              "leaseEvidence": {
-                "operating": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "finance": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "combined": {
-                  "coverage": "unverified",
-                  "verifiedZero": false
-                },
-                "observedLeaseLine": "positive"
-              },
-              "leaseEvidenceNote": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified.",
-              "totalDebtIncludingLeases": 1200000000,
-              "operatingLeases": null,
-              "financeLeases": null,
-              "cashAndShortTermInvestments": 2500000000,
-              "netDebtIncludingLeases": -1300000000,
-              "netDebtExcludingOperatingLeases": null
-            },
-            "periodStartIsApproximate": true
-          }
         },
         {
           "path": "stageB.returns.roic.series.0.operatingLoss",
@@ -10323,6 +10132,65 @@
           "path": "stageB.valuation.reverseDcf.notes.2",
           "beforeMissing": true,
           "after": "market-implied steady-state (terminal) EBIT margin, shifting the base margin path by the terminal-margin delta times its own fade weights (current 20% unchanged); growth path frozen at base case"
+        },
+        {
+          "path": "stageB.capital.current",
+          "beforeMissing": true,
+          "after": {
+            "industrialMetricsApplicable": true,
+            "basis": "annual",
+            "asOf": "2025-12-31",
+            "periodStart": "2025-01-01",
+            "currency": "USD",
+            "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
+            "netDebtToEbitda": -0.4642857142857143,
+            "netDebt": -1300000000,
+            "ebitda": 2800000000,
+            "ebit": 2500000000,
+            "interestExpense": 150000000,
+            "fcfBeforeSbc": 1800000000,
+            "netIncome": 1750000000,
+            "interestCoverage": 16.666666666666668,
+            "fcfConversionBeforeSbc": 1.0285714285714285,
+            "sbcPctOfFcf": 13.88888888888889,
+            "cashBridge": {
+              "operatingCashFlow": 2400000000,
+              "cashCapitalExpenditure": -600000000,
+              "standardizedFcf": 1800000000,
+              "financeLeasePrincipalPayments": null,
+              "leaseAdjustedFcf": null,
+              "issuerFcf": null,
+              "stockBasedCompensation": 250000000,
+              "afterSbcStandardizedFcf": 1550000000,
+              "afterSbcIssuerFcf": null,
+              "definition": "Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered."
+            },
+            "debtBridge": {
+              "leaseEvidence": {
+                "operating": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "finance": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "combined": {
+                  "coverage": "unverified",
+                  "verifiedZero": false
+                },
+                "observedLeaseLine": "positive"
+              },
+              "leaseEvidenceNote": "2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified.",
+              "totalDebtIncludingLeases": 1200000000,
+              "operatingLeases": null,
+              "financeLeases": null,
+              "cashAndShortTermInvestments": 2500000000,
+              "netDebtIncludingLeases": -1300000000,
+              "netDebtExcludingOperatingLeases": null
+            },
+            "periodStartIsApproximate": true
+          }
         }
       ]
     },
@@ -10474,6 +10342,479 @@
           "path": "report.leadership.executives.1.tenureYears",
           "before": 4,
           "after": 5.095244940005613
+        }
+      ]
+    },
+    {
+      "name": "D-203-dated-annual-fallback",
+      "decisions": [
+        "D-203",
+        "D-65"
+      ],
+      "reason": "D-203 preserves the D-65 annual fallback and adds statement/price/balance dates, age and uncertainty to its displayed revenue basis; analyst growth names its annual base. Four new textual leaves, related note-index shifts and method stamps are intentional. Numeric financial operands and pre-existing capex-basis normalization are unchanged.",
+      "deltas": [
+        {
+          "path": "report.valuation.dcf.assumptions.0.basis",
+          "before": "latest annual FY 2025-12-31 revenue as of 2025-12-31",
+          "after": "latest annual FY 2025-12-31 revenue as of 2025-12-31. Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty (D-65)."
+        },
+        {
+          "path": "stageB.valuation.assumptions.growthAnchor",
+          "beforeMissing": true,
+          "after": {
+            "pointPct": 8.495755479803707,
+            "rangePct": [
+              7.888888888888889,
+              9.102622070718525
+            ],
+            "methods": [
+              {
+                "name": "log-linear revenue regression",
+                "valuePct": 9.102622070718525,
+                "detail": "9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1"
+              },
+              {
+                "name": "3y revenue CAGR",
+                "valuePct": null,
+                "detail": "unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance)"
+              },
+              {
+                "name": "5y revenue CAGR",
+                "valuePct": null,
+                "detail": "unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance)"
+              },
+              {
+                "name": "analyst-consensus case",
+                "valuePct": 7.888888888888889,
+                "detail": "7.89% (mean of FY ending 2026-12-31 over latest annual FY 2025-12-31 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31)"
+              }
+            ],
+            "unavailable": [
+              "3y revenue CAGR",
+              "5y revenue CAGR"
+            ],
+            "basis": "median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over latest annual FY 2025-12-31 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus."
+          }
+        },
+        {
+          "path": "stageB.valuation.assumptions.notes.1",
+          "beforeMissing": true,
+          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over latest annual FY 2025-12-31 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus."
+        },
+        {
+          "path": "stageB.valuation.assumptions.notes.6",
+          "beforeMissing": true,
+          "after": "Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty (D-65)."
+        },
+        {
+          "path": "stageB.valuation.assumptions.startRevenue.basis",
+          "before": "latest annual FY 2025-12-31 revenue as of 2025-12-31",
+          "after": "latest annual FY 2025-12-31 revenue as of 2025-12-31. Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty (D-65)."
+        },
+        {
+          "path": "stageB.valuation.notes.1",
+          "before": "NET_DEBT_V1: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000",
+          "after": "Near-term growth anchor: median of 2 available growth methods = 8.5%, range 7.89% to 9.1% — methods: log-linear revenue regression 9.1%/yr fitted over 3 annual years (2023-12-31 to 2025-12-31), R2 1; 3y revenue CAGR unavailable: measured span 2.00 years, not the 3-year window (±0.25-year tolerance); 5y revenue CAGR unavailable: measured span 2.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 7.89% (mean of FY ending 2026-12-31 over latest annual FY 2025-12-31 8% and FY ending 2027-12-31 over FY ending 2026-12-31 7.78%, through 2027-12-31) (house rule: median of methods). It does not set year one, which comes from consensus."
+        },
+        {
+          "path": "stageB.valuation.notes.6",
+          "beforeMissing": true,
+          "after": "Annual fallback: statement 2025-12-31; price 2025-12-31; equity-bridge balance 2025-12-31; statement age at price 0 days. Balance changes after 2025-12-31 are not reflected in this equity bridge; the dated annual fallback carries that uncertainty (D-65)."
+        },
+        {
+          "path": "stageB.valuation.notes.7",
+          "beforeMissing": true,
+          "after": "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted."
+        },
+        {
+          "path": "stageB.valuation.notes.8",
+          "beforeMissing": true,
+          "after": "DCF equity bridge adds long-term investments (filed carrying value) of 500000000: long-term investments 0.50B on the 2025-12-31 annual balance sheet (filed 2026-02-15), at carrying value — the amount the sales-to-capital denominator removes as non-operating; a stake the statements do not break out of other assets stays in operating capital. They are not cash: their gains and losses sit below operating income, so the FCFF path does not value them, and no marketability discount or fair-value estimate is applied."
+        },
+        {
+          "path": "stageB.valuation.notes.9",
+          "beforeMissing": true,
+          "after": "DCF equity bridge subtracts the estimated tax on non-operating investments (21% marginal rate, zero tax basis assumed) of 105000000: 21% of the 500000000 added above; the rate is max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two). The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost."
+        },
+        {
+          "path": "stageB.valuation.notes.10",
+          "beforeMissing": true,
+          "after": "DCF terminal transition: FCFF 3.02B in year 10 becomes 2.39B in year 11 (-20.74%): reinvestment moves from 5.6% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 43.55%) to 27.01% (terminal growth 2.5% / terminal ROIC 9.26%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure)."
+        },
+        {
+          "path": "stageB.valuation.notes.11",
+          "beforeMissing": true,
+          "after": "Per-share values divide by the latest weighted-average diluted share count, 205M; the quoted market cap implies 200M shares outstanding at the quote, 2.5% fewer. The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure)."
+        },
+        {
+          "path": "stageB.valuation.notes.12",
+          "beforeMissing": true,
+          "after": "NET_DEBT_V3: net debt -1300000000 as of 2025-12-31; totalDebt 1200000000, cashAndShortTermInvestments 2500000000"
+        }
+      ]
+    },
+    {
+      "name": "audit-batch5-trust-signals-20261022",
+      "decisions": [
+        "D-110"
+      ],
+      "reason": "Audit batch 5 (D-110), F-20: the capital grading basis and the debt-bridge convention are statements about this analysis's method, not issuer facts, so they carry JUDGMENT instead of FACT, as the shared labelling rule (prompts.ts) has always said. Only the label moves; the text, source and date are unchanged. The report stamp moves to spec 1.41.0 for the batch, out of per-share-label-unit-20261026, which held only that stamp and whose record for 1.40.3 stands in D-109. No figure moves. See docs/audit/DECISIONS.md, D-110.",
+      "deltas": [
+        {
+          "path": "report.balanceSheet.coverage.commentary.1",
+          "beforeMissing": true,
+          "after": {
+            "text": "Capital grading basis: annual: 2025-01-01 to 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Standardized FCF = operating cash flow minus cash PP&E; lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. Issuer convention must be checked before comparison. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered.",
+            "label": "JUDGMENT",
+            "source": "computed.capital.current",
+            "asOf": "2025-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "name": "D-208 current valuation use and provisional qualification",
+      "decisions": [
+        "D-208",
+        "D-209"
+      ],
+      "reason": "D-208 admits the same-day model from actual 2025-12-31 statement/value/quote evidence, replacing build-time valuation labels; adds score-neutral, route-applicable evidence qualification through report grades and verdict; and advances coordinated method/report identities. Every existing financial numeric leaf stays pinned. D-209 advances only the current report stamp to 1.66.0 for source-owned evidence disclosures; all financial numeric pins remain unchanged.",
+      "deltas": [
+        {
+          "path": "report.balanceSheet.graded.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "supported",
+            "reasons": []
+          }
+        },
+        {
+          "path": "report.competitive.moatGraded.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "supported",
+            "reasons": []
+          }
+        },
+        {
+          "path": "report.fairValue.currentUse",
+          "beforeMissing": true,
+          "after": {
+            "status": "current",
+            "statementDate": "2025-12-31",
+            "valueDate": "2025-12-31",
+            "quoteDate": "2025-12-31",
+            "reason": "same-date"
+          }
+        },
+        {
+          "path": "report.fairValue.methodVersion",
+          "before": "FAIR_VALUE_2026_07",
+          "after": "FAIR_VALUE_2026_11_CURRENT_VALUATION_USE_58"
+        },
+        {
+          "path": "report.fairValue.perShare.asOf",
+          "before": "2026-07-06",
+          "after": "2025-12-31"
+        },
+        {
+          "path": "report.fundamentals.graded.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "supported",
+            "reasons": []
+          }
+        },
+        {
+          "path": "report.leadership.graded.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "provisional",
+            "reasons": [
+              {
+                "code": "limited-applicable-evidence",
+                "aspect": "leadership",
+                "field": "scores.aspects.leadership",
+                "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+              }
+            ]
+          }
+        },
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.66.0"
+        },
+        {
+          "path": "report.quality.graded.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "supported",
+            "reasons": []
+          }
+        },
+        {
+          "path": "report.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_11_CURRENT_VALUATION_USE_58"
+        },
+        {
+          "path": "report.scores.qualification",
+          "beforeMissing": true,
+          "after": {
+            "composite": {
+              "status": "provisional",
+              "reasons": [
+                {
+                  "code": "limited-applicable-evidence",
+                  "aspect": "leadership",
+                  "field": "scores.aspects.leadership",
+                  "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+                },
+                {
+                  "code": "limited-applicable-evidence",
+                  "aspect": "technicals",
+                  "field": "scores.aspects.technicals",
+                  "detail": "Technicals has limited evidence (score 80/100 on one signal, 20.0% of signals)."
+                }
+              ]
+            },
+            "aspects": {
+              "fundamentals": {
+                "status": "supported",
+                "reasons": []
+              },
+              "valuation": {
+                "status": "supported",
+                "reasons": []
+              },
+              "quality": {
+                "status": "supported",
+                "reasons": []
+              },
+              "balanceSheet": {
+                "status": "supported",
+                "reasons": []
+              },
+              "moat": {
+                "status": "supported",
+                "reasons": []
+              },
+              "leadership": {
+                "status": "provisional",
+                "reasons": [
+                  {
+                    "code": "limited-applicable-evidence",
+                    "aspect": "leadership",
+                    "field": "scores.aspects.leadership",
+                    "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+                  }
+                ]
+              },
+              "technicals": {
+                "status": "provisional",
+                "reasons": [
+                  {
+                    "code": "limited-applicable-evidence",
+                    "aspect": "technicals",
+                    "field": "scores.aspects.technicals",
+                    "detail": "Technicals has limited evidence (score 80/100 on one signal, 20.0% of signals)."
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "path": "report.technicals.graded.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "provisional",
+            "reasons": [
+              {
+                "code": "limited-applicable-evidence",
+                "aspect": "technicals",
+                "field": "scores.aspects.technicals",
+                "detail": "Technicals has limited evidence (score 80/100 on one signal, 20.0% of signals)."
+              }
+            ]
+          }
+        },
+        {
+          "path": "report.valuation.dcf.perShare.asOf",
+          "before": "2026-07-06",
+          "after": "2025-12-31"
+        },
+        {
+          "path": "report.valuation.graded.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "supported",
+            "reasons": []
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.balanceSheet.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "supported",
+            "reasons": []
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.fundamentals.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "supported",
+            "reasons": []
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.leadership.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "provisional",
+            "reasons": [
+              {
+                "code": "limited-applicable-evidence",
+                "aspect": "leadership",
+                "field": "scores.aspects.leadership",
+                "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+              }
+            ]
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.moat.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "supported",
+            "reasons": []
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.quality.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "supported",
+            "reasons": []
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.technicals.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "provisional",
+            "reasons": [
+              {
+                "code": "limited-applicable-evidence",
+                "aspect": "technicals",
+                "field": "scores.aspects.technicals",
+                "detail": "Technicals has limited evidence (score 80/100 on one signal, 20.0% of signals)."
+              }
+            ]
+          }
+        },
+        {
+          "path": "report.verdict.gradeStrip.valuation.qualification",
+          "beforeMissing": true,
+          "after": {
+            "status": "supported",
+            "reasons": []
+          }
+        },
+        {
+          "path": "stageB.fairValue.currentUse",
+          "beforeMissing": true,
+          "after": {
+            "status": "current",
+            "reason": "same-date",
+            "statementDate": "2025-12-31",
+            "valueDate": "2025-12-31",
+            "quoteDate": "2025-12-31"
+          }
+        },
+        {
+          "path": "stageB.fairValue.methodVersion",
+          "before": "FAIR_VALUE_2026_07",
+          "after": "FAIR_VALUE_2026_11_CURRENT_VALUATION_USE_58"
+        },
+        {
+          "path": "stageB.fairValue.perShare.asOf",
+          "before": "2026-07-06",
+          "after": "2025-12-31"
+        },
+        {
+          "path": "stageB.scenarioTargets.methodVersion",
+          "before": "SCENARIO_TARGETS_2026_07B",
+          "after": "SCENARIO_TARGETS_2026_11_CURRENT_VALUATION_USE_58"
+        },
+        {
+          "path": "stageB.scores.qualification",
+          "beforeMissing": true,
+          "after": {
+            "aspects": {
+              "fundamentals": {
+                "status": "supported",
+                "reasons": []
+              },
+              "valuation": {
+                "status": "supported",
+                "reasons": []
+              },
+              "quality": {
+                "status": "supported",
+                "reasons": []
+              },
+              "balanceSheet": {
+                "status": "supported",
+                "reasons": []
+              },
+              "moat": {
+                "status": "supported",
+                "reasons": []
+              },
+              "leadership": {
+                "status": "provisional",
+                "reasons": [
+                  {
+                    "code": "limited-applicable-evidence",
+                    "aspect": "leadership",
+                    "field": "scores.aspects.leadership",
+                    "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+                  }
+                ]
+              },
+              "technicals": {
+                "status": "provisional",
+                "reasons": [
+                  {
+                    "code": "limited-applicable-evidence",
+                    "aspect": "technicals",
+                    "field": "scores.aspects.technicals",
+                    "detail": "Technicals has limited evidence (score 80/100 on one signal, 20.0% of signals)."
+                  }
+                ]
+              }
+            },
+            "composite": {
+              "status": "provisional",
+              "reasons": [
+                {
+                  "code": "limited-applicable-evidence",
+                  "aspect": "leadership",
+                  "field": "scores.aspects.leadership",
+                  "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+                },
+                {
+                  "code": "limited-applicable-evidence",
+                  "aspect": "technicals",
+                  "field": "scores.aspects.technicals",
+                  "detail": "Technicals has limited evidence (score 80/100 on one signal, 20.0% of signals)."
+                }
+              ]
+            }
+          }
         }
       ]
     }

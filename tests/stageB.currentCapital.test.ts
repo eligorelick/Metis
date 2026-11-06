@@ -57,6 +57,18 @@ describe("TTM operating income incomplete (FIN-112)", () => {
 });
 
 describe("capital grading snapshot", () => {
+  it("keeps the explicit annual snapshot when a newly available TTM income window has incomplete cash capex", () => {
+    const old = annual();
+    const result = attachCurrentCapital(old, { income, cashFlow: { ...cash, capitalExpenditure: null }, balance, currency: "USD", preserveAnnualCashBasis: true,
+      periodStart: "2025-07-01",
+      annualCashFlow: { ...cash, date: "2025-12-31", operatingCashFlow: 50, capitalExpenditure: -10, stockBasedCompensation: 5 },
+      annualBalance: { ...balance, date: "2025-12-31" } });
+    expect(result.current).toMatchObject({ basis: "annual", asOf: "2025-12-31", periodStart: "2025-01-01", fcfConversionBeforeSbc: 4 / 3, sbcPctOfFcf: 12.5 });
+    expect(result.current?.cashBridge.standardizedFcf).toBe(40);
+    const existing = attachCurrentCapital(old, { income, cashFlow: { ...cash, capitalExpenditure: null }, balance, currency: "USD",
+      annualCashFlow: { ...cash, date: "2025-12-31", operatingCashFlow: 50, capitalExpenditure: -10 } });
+    expect(existing.current).toMatchObject({ basis: "ttm", cashBridge: { operatingCashFlow: 40, standardizedFcf: null } });
+  });
   it("uses complete current TTM flows and same-period balance without replacing annual history", () => {
     const old = annual();
     const result = attachCurrentCapital(old, { income, cashFlow: cash, balance, currency: "USD" });

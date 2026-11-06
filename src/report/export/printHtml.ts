@@ -1,3 +1,6 @@
+import { recordedValuationTrace } from "@/report/fairValueText";
+import { qualificationText } from "@/report/assessment";
+import { withValuationUseSafety } from "@/report/valuationUseSafety";
 import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
@@ -340,6 +343,8 @@ function gradeBlock(title: string, block: GradeBlock, seen: Map<string, FigureRo
     `<div class="gradehead"><span class="chip ${gradeClass(gradeForDisplay(block) ?? "unavailable")}">${esc(gradeDisplayLabel(block, ctx.aspect))}</span> <strong>${esc(title)}</strong> <span class="conf">confidence: ${esc(confidence)}</span></div>`,
     `<p class="why">${prose(block.oneLineWhy)}</p>`,
   ];
+  const qualifier = qualificationText(block.qualification);
+  if (qualifier) parts.push(`<p class="faint">${prose(qualifier)}</p>`);
   if (block.interpretation) parts.push(`<p class="interp">${prose(block.interpretation)}</p>`);
   const contractText = readerGradeContractText(block);
   if (contractText) parts.push(`<p class="faint">${prose(contractText)}</p>`);
@@ -558,8 +563,10 @@ function sectionValuation(
   const seen = new Map<string, FigureRow>();
   const parts: string[] = [gradeBlock("Valuation", v.graded, seen, report, gradeContext(report, "valuation"))];
   const dcfPs = v.dcf.perShare;
+  const recordedPerShare = recordedValuationTrace(v.dcf, fairValue);
   const noModel = unavailableCashFlowModel(report);
   if (noModel) parts.push(`<p>${esc(cashFlowModelExplanation(report))}</p>`, bodyTables(unavailableModelInputTables(report)));
+  if (noModel && fairValue) parts.push(`<p class="faint">${prose(fairValueWithheldText(fairValue))}</p>`);
   if (!noModel) {
     parts.push(
       dcfPs
@@ -577,7 +584,7 @@ function sectionValuation(
       );
     }
     parts.push(bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))])));
-    parts.push(bodyTables(valuationAuditTables(v.dcf)));
+    parts.push(bodyTables(valuationAuditTables(v.dcf, recordedPerShare)));
 
     const waccs = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.waccPct));
     const gterms = uniqueSorted(v.dcf.sensitivityGrid.map((c) => c.gTermPct));
@@ -590,7 +597,7 @@ function sectionValuation(
         ...gterms.map((g) => {
           const ps = lookup.get(`${w}|${g}`);
           // In the currency of the per-share value beside it.
-          return ps === undefined || ps === null ? DASH : formatMoneyAmount(ps, dcfPs ? establishedCurrency(dcfPs.unit, dcfPs.currency) : null, 0);
+          return ps === undefined || ps === null ? DASH : formatMoneyAmount(ps, recordedPerShare ? establishedCurrency(recordedPerShare.unit, recordedPerShare.currency) : null, 0);
         }),
       ]);
       parts.push(`<h3>Sensitivity (per share &mdash; rows = WACC, cols = terminal g)</h3>`, table(headers, rows.map((r) => r.map((c) => `<span class="mono">${esc(c)}</span>`))));
@@ -869,7 +876,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
   report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
   report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
-  report = withLegacyScopeQualifications(report);
+  report = withValuationUseSafety(withLegacyScopeQualifications(report));
   const lenderTables = lenderConventionTables(report);
   report = withReaderConventions(report);
   const scopeQualifications = legacyScopeQualifications(report);

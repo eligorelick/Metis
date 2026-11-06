@@ -41,10 +41,21 @@ describe("catalyst and risk reasoning compatibility", () => {
     report.appendix.verificationLog = verified.log.map(entry => ({ ...entry, path: `catalystsRisks.${entry.path}` }));
     indexVerificationMarks(report);
     expect(claimStatusMarkText(report.catalystsRisks.catalysts[0]!.reasoning as SourcedClaim)).toBe("[unverified]");
+    const beforeExports = JSON.stringify(report.catalystsRisks);
     const outputs = {
       ui: renderToStaticMarkup(createElement(CatalystsRisksPanel, { catalystsRisks: report.catalystsRisks })),
       markdown: reportToMarkdown(report), print: reportToPrintBody(report), audit: reportToAuditMarkdown(report),
     };
+    // D-208 changes only whole-report qualification/date safety in these
+    // exports. The standalone legacy catalyst/risk UI digest is unchanged.
+    for (const output of [outputs.markdown, outputs.print]) {
+      expect(output).toContain("Provisional");
+      expect(output).toContain("Qualification unknown");
+      expect(output).toContain("Current valuation use withheld by the existing financial or model evidence requirements.");
+    }
+    expect(outputs.audit).toContain("Recorded pre-policy valuation diagnostics");
+    expect(outputs.audit).toContain('"value": 48');
+    expect(JSON.stringify(report.catalystsRisks)).toBe(beforeExports);
     expect(Object.fromEntries(Object.entries(outputs).map(([key, value]) => [key, createHash("sha256").update(value).digest("hex")]))).toMatchSnapshot();
   });
 

@@ -1,7 +1,9 @@
-import { PRETAX_EXCLUDING_EQUITY_METHOD_TAG, tagsFor } from "@/edgar/tagSynonyms";
+import { admitRevenue, admitRevenueGrossProfit, operatingRevenuePolicy, replayIncomeObservations, providerIncomeValue, retainedIncomeRows, type OperatingRevenuePolicy } from "./revenueAdmission";
+import { GROSS_PROFIT_REVENUE_TAGS, REVENUE_COMPONENT_TAGS, PRETAX_EXCLUDING_EQUITY_METHOD_TAG, tagsFor } from "@/edgar/tagSynonyms";
 import { CORE_FACT_FORMS, conceptFactsSchema, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { factsForFilings } from "@/edgar/filedPresentation";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import { sameIncomeScope } from "./revenuePresentation";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FmpIncomeStatementRow, FmpPayload, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
@@ -22,28 +24,59 @@ export function contractRevenueScopeRefusal(proof: StatementFieldProvenance | nu
 
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
 export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string,
-  opts: { bankRevenue?: boolean; securitiesRevenue?: boolean; earningsOnly?: boolean; filedRows?: FmpIncomeStatementRow[] } = {}): { income: typeof income; gaps: ManifestEntry[] } {
+  opts: { bankRevenue?: boolean; securitiesRevenue?: boolean; earningsOnly?: boolean; filedRows?: FmpIncomeStatementRow[]; revenuePolicy?: OperatingRevenuePolicy } = {}): { income: typeof income; gaps: ManifestEntry[] } {
   if (!income.ok || income.value.data.rows.length === 0) return { income, gaps: [] };
+  if (!opts.bankRevenue && !opts.securitiesRevenue && income.value.source === "fmp")
+    income = {...income,value:{...income.value,data:replayIncomeObservations(income.value.data,facts.cik,facts,observedAt.slice(0,10))}};
   const built = opts.filedRows ? null : buildStatementsFromCompanyFacts(facts, { symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0, 10), factsObservedAt: observedAt,
     bankRevenue: opts.bankRevenue || opts.securitiesRevenue, annualPeriods: Math.max(12, income.value.data.rows.length + 2), quarterlyPeriods: Math.max(12, income.value.data.rows.length + 4),
     vendorSplits: { status: "unavailable", source: "income-classification", reason: "Income classification does not resolve per-share values" } });
   const filed = opts.filedRows ?? (scope === "annual" ? built!.incomeAnnual.rows : built!.incomeQuarterly.rows);
+  const revenuePolicy = opts.revenuePolicy ?? operatingRevenuePolicy(filed);
   const originalFilings = new Map<string, FmpIncomeStatementRow[]>();
   const gaps: ManifestEntry[] = [];
   const allowed: Record<string, string[]> = {
-    revenue: ["us-gaap/Revenues", "us-gaap/RevenueFromContractWithCustomerExcludingAssessedTax", "us-gaap/SalesRevenueNet", "us-gaap/RevenueFromContractWithCustomerIncludingAssessedTax"],
+    revenue: [...GROSS_PROFIT_REVENUE_TAGS, ...REVENUE_COMPONENT_TAGS].map(tag => `us-gaap/${tag}`),
     costOfRevenue: ["us-gaap/CostOfRevenue", "us-gaap/CostOfGoodsAndServicesSold"],
     grossProfit: ["us-gaap/GrossProfit"], operatingExpenses: ["us-gaap/OperatingExpenses"],
   };
   const industrialRevenue = [...allowed.revenue!];
   if (opts.bankRevenue === true) allowed.revenue!.push(...[...tagsFor("bankRevenueTotal"), ...tagsFor("bankRevenueComponents")].map(tag => `us-gaap/${tag}`));
+  const originalRow = (row: FmpIncomeStatementRow): FmpIncomeStatementRow | undefined => {
+    if (!row.filingDate) return undefined;
+    if (!originalFilings.has(row.filingDate)) {
+      const accessions = new Set(Object.values(facts.facts).flatMap(ns => Object.values(ns).flatMap(raw => {
+        const parsed = conceptFactsSchema.safeParse(raw);
+        return parsed.success ? Object.values(parsed.data.units).flatMap(ps => parseFactPoints(ps).filter(p =>
+          p.end === row.date && p.filed === row.filingDate && CORE_FACT_FORMS.has(p.form)).map(p => p.accn)) : [];
+      })));
+      const original = accessions.size === 1 ? buildStatementsFromCompanyFacts(factsForFilings(facts, [...accessions]), {
+        symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0,10), factsObservedAt: observedAt, annualPeriods: 40, quarterlyPeriods: 80,
+        bankRevenue: opts.bankRevenue || opts.securitiesRevenue,
+        vendorSplits: { status: "unavailable", source: "income-presentation", reason: "Monetary observations only" } }) : null;
+      originalFilings.set(row.filingDate, original ? scope === "annual" ? original.incomeAnnual.rows : original.incomeQuarterly.rows : []);
+    }
+    return originalFilings.get(row.filingDate)!.find(r => r.date === row.date);
+  };
   const rows = income.value.data.rows.map(row => {
     if (!row.date || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") || (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, ""))) return row;
     const sec = filed.find(candidate => candidate.date === row.date);
     if (!sec) return row;
+    const raw = retainedIncomeRows(income.value.data, row, facts.cik);
+    const observedRevenue = providerIncomeValue(row, raw, "revenue");
+    const needsOriginal = row.filingDate && !sec.fieldProvenance?.revenue?.filings.some(f => f.filed === row.filingDate) || observedRevenue !== null && (!finite(sec.revenue) || !same(observedRevenue, sec.revenue));
+    const operatingFilings = sec.fieldProvenance?.operatingIncome?.tags.includes("us-gaap/OperatingIncomeLoss") &&
+      !sameIncomeScope(sec.fieldProvenance.revenue,sec.fieldProvenance.operatingIncome) ? sec.fieldProvenance.operatingIncome.filings.map(f=>f.filed) : [];
+    const presentations = opts.bankRevenue || opts.securitiesRevenue ? [] :
+      [ ...(needsOriginal ? [row.filingDate] : []), ...operatingFilings ]
+        .filter((date): date is string => !!date).flatMap(filingDate=>{const r=originalRow({...row,filingDate});return r?[r]:[];});
+    const revenueAdmission = opts.bankRevenue || opts.securitiesRevenue ? null :
+      admitRevenue(row, sec, presentations, income.value.data, facts, scope, revenuePolicy);
+    const revenueSec = revenueAdmission?.evidence ?? sec;
+    gaps.push(...(revenueAdmission?.gaps ?? []));
     const evidenceFor = (field: string): StatementFieldProvenance | null => {
-      const proof = sec.fieldProvenance?.[field];
-      if (field === "grossProfit" && proof === undefined) {
+      const proof = (field === "revenue" ? revenueSec : sec).fieldProvenance?.[field];
+      if (field === "grossProfit" && proof === undefined && revenueSec === sec) {
         const revenue = evidenceFor("revenue"), cost = evidenceFor("costOfRevenue");
         if (revenue && cost && revenue.tags.some(tag => industrialRevenue.includes(tag)) && cost.tags.some(tag => allowed.costOfRevenue!.includes(tag)) &&
           revenue.periodStart === cost.periodStart && revenue.periodEnd === cost.periodEnd && revenue.unit === cost.unit &&
@@ -53,9 +86,11 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       }
       return proof && proof.unit === row.reportedCurrency && proof.periodEnd === row.date && proof.periodStart !== null &&
         (row.periodStart == null || row.periodStart === proof.periodStart) && proof.filings.length > 0 &&
-        (row.filingDate == null || [...proof.filings].sort((a, b) => b.filed.localeCompare(a.filed))[0]?.filed === row.filingDate) ? proof : null;
+        (row.filingDate == null || [...proof.filings].sort((a, b) => b.filed.localeCompare(a.filed))[0]?.filed === row.filingDate ||
+          field === "revenue" && finite(observedRevenue) && finite(revenueSec.revenue) && same(observedRevenue, revenueSec.revenue) &&
+          revenueAdmission?.handled === true) ? proof : null;
     };
-    let out = row;
+    let out = revenueAdmission?.row ?? row;
     const refuse = (field: string, value: number | null, proof: StatementFieldProvenance | null, reason: string) => {
       const fieldConflicts = { ...out.fieldConflicts };
       if (fieldConflicts[field]?.usable !== false) fieldConflicts[field] = { usable: false, vendorValue: finite(row[field]) ? row[field] : null, secValue: value, reason, ...(proof ? { secEvidence: proof } : {}) };
@@ -63,9 +98,18 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       gaps.push({ field: `statements.income.${row.date}.${field}`, reason, severity: "warn", attemptedSources: ["fmp:income-statement", "edgar:companyfacts"] });
     };
     const earnings = ["incomeBeforeTax", "incomeTaxExpense", "netIncome"] as const;
-    const sameScope = (a: StatementFieldProvenance, b: StatementFieldProvenance) =>
-      a.unit === b.unit && a.periodStart === b.periodStart && a.periodEnd === b.periodEnd &&
-      JSON.stringify(a.filings.map(f => `${f.accn}|${f.filed}|${f.form}`).sort()) === JSON.stringify(b.filings.map(f => `${f.accn}|${f.filed}|${f.form}`).sort());
+    const sameScope = sameIncomeScope;
+    const revenueProof = evidenceFor("revenue");
+    if (revenueAdmission?.handled && out.fieldConflicts?.revenue?.usable !== false &&
+        (revenueAdmission.changed || row.fieldConflicts?.grossProfit?.usable !== false)) {
+      out = admitRevenueGrossProfit(out, revenueSec, raw, presentations);
+    }
+    const gross = out.fieldConflicts?.grossProfit;
+    if (gross?.usable === false) gaps.push({field:`statements.income.${row.date}.grossProfit`,severity:"info",reason:gross.reason});
+    if (revenueAdmission?.handled && out.fieldConflicts?.revenue?.usable === false) {
+      refuse("revenue", out.fieldConflicts.revenue.secValue, out.fieldConflicts.revenue.secEvidence ?? null, out.fieldConflicts.revenue.reason);
+      refuse("grossProfit", null, out.fieldConflicts.revenue.secEvidence ?? null, "Gross profit withheld beside unresolved operating revenue.");
+    }
     let earningsSec = sec;
     const earningsProof = (field: string) => {
       const proof = earningsSec.fieldProvenance?.[field];
@@ -75,7 +119,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
           row.fieldProvenance?.[field]?.source === "edgar" && sameScope(row.fieldProvenance[field]!, proof)) ? proof : null;
     };
     const vendorFor = (field: string): number | null => finite(row[field]) ? row[field] :
-      /^Filed earnings/.test(row.fieldConflicts?.[field]?.reason ?? "") ? row.fieldConflicts?.[field]?.vendorValue ?? null : null;
+      row.fieldConflicts?.[field]?.vendorValue ?? null;
     const conflicts = () => earnings.filter(field => {
       const proof = earningsProof(field), vendor = vendorFor(field), value = earningsSec[field];
       if (!proof || !finite(vendor) || !finite(value) || same(vendor, value)) return false;
@@ -123,19 +167,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     // Resolve the source candidate before deciding whether a dispute exists:
     // every latest comparative can have a different filing date from the row.
     if (!family && row.filingDate) {
-      if (!originalFilings.has(row.filingDate)) {
-        const accns = new Set(Object.values(facts.facts).flatMap(ns => Object.values(ns).flatMap(raw => {
-          const parsed = conceptFactsSchema.safeParse(raw);
-          return parsed.success ? Object.values(parsed.data.units).flatMap(ps => parseFactPoints(ps).filter(p =>
-            p.end === row.date && p.filed === row.filingDate && CORE_FACT_FORMS.has(p.form)).map(p => p.accn)) : [];
-        })));
-        const original = accns.size === 1 ? buildStatementsFromCompanyFacts(factsForFilings(facts, [...accns]), {
-          symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0, 10), factsObservedAt: observedAt,
-          annualPeriods: 40, quarterlyPeriods: 80, bankRevenue: opts.bankRevenue || opts.securitiesRevenue,
-          vendorSplits: { status: "unavailable", source: "earnings-family", reason: "Monetary family only" } }) : null;
-        originalFilings.set(row.filingDate, original ? scope === "annual" ? original.incomeAnnual.rows : original.incomeQuarterly.rows : []);
-      }
-      const original = originalFilings.get(row.filingDate)!.find(r => r.date === row.date);
+      const original = originalRow(row);
       if (original) { earningsSec = original; family = familyFor(); }
     }
     const audit = (field: string, value: number | null, proof: StatementFieldProvenance | null, reason: string, resolution: "filed-family" | "minor-retained") => {
@@ -210,6 +242,22 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
         gaps.push({ field: `statements.income.${row.date}.earningsFamily`, reason, severity: minor ? "info" : "warn", ...(minor ? { expected: true } : {}) });
       }
     }
+    // A frozen row can already contain the adopted earnings family while its
+    // operating aggregate still belongs to the old provider pretax base: the
+    // previously missing revenue prevented the first pass from recovering it.
+    // Repeat that dependent check after total admission, even without a new
+    // earnings dispute. An unrelated operating refusal remains protected.
+    const priorPretax = row.fieldConflicts?.incomeBeforeTax;
+    const priorOther = row.fieldConflicts?.totalOtherIncomeExpensesNet?.vendorValue ?? row.totalOtherIncomeExpensesNet;
+    if (family && priorPretax?.usable === true && priorPretax.resolution === "filed-family" && finite(priorPretax.vendorValue) &&
+        out.fieldConflicts?.revenue?.usable === true && out.fieldConflicts.revenue.resolution === "filed-family" &&
+        row.fieldConflicts?.operatingIncome?.usable !== false && finite(row.operatingIncome) && finite(priorOther) &&
+        same(row.operatingIncome + priorOther, priorPretax.vendorValue) && !same(row.operatingIncome + priorOther, family.pretax.value)) {
+      const op = operand("operatingIncome"), revenue = out.fieldProvenance?.revenue;
+      if (op && revenue && sameScope(family.pretax.proof, op.proof) && sameScope(revenue, op.proof)) {
+        audit("operatingIncome", op.value, op.proof, "Previously adopted filed earnings family: dependent operating numerator recovered on the independently admitted total-revenue filing scope; old provider aggregate retained as an observation", "filed-family");
+      }
+    }
     // Share admission may run after monetary adoption on fresh acquisition.
     // Recheck direct EPS independently when the complete family already agrees.
     if (family) {
@@ -255,6 +303,9 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       refuse("grossProfit", null, canonicalCostEvidence, sec.fieldConflicts.grossProfit.reason);
     }
     for (const [field, tags] of Object.entries(allowed)) {
+      if (field === "grossProfit" && out.fieldConflicts?.grossProfit?.usable === true &&
+          revenueProof && out.fieldProvenance?.grossProfit && sameScope(revenueProof, out.fieldProvenance.grossProfit)) continue;
+      if (field === "revenue" && revenueAdmission?.handled) continue;
       if (field === "revenue" && out !== row && out.fieldProvenance?.revenue === netRevenue && out.revenue === sec.revenue && opts.securitiesRevenue) continue;
       if (row.fieldConflicts?.[field]?.usable === false) { out = { ...out, [field]: null }; continue; }
       const proof = evidenceFor(field);

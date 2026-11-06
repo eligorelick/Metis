@@ -1,3 +1,4 @@
+import { qualifiedGradeLabel } from "@/report/assessment";
 import { passBaseName, passAttemptName, FAILED_PASS_NOTE } from "@/report/execution";
 import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
 import { shownDataState } from "@/report/completeness";
@@ -59,7 +60,7 @@ export { displayedFactualValidation, displayedValidationStatus } from "@/report/
 import { isComputedFigure } from "@/report/verificationMarks";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
-import { fairValueDegradedText } from "@/report/fairValueText";
+import { fairValueDegradedText, fairValueReferenceText } from "@/report/fairValueText";
 import { riskFreeSourceLabel } from "@/pipeline/riskFreeSeries";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
@@ -1192,6 +1193,13 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     });
   }
 
+  if (report.fairValue?.status === "dated-reference" && report.fairValue.reference) {
+    const reference = report.fairValue.reference;
+    rows.push({ label: "Dated reference model value",
+      value: formatFinancialAmount(reference.perShare.value, reference.perShare.unit, reference.perShare.currency),
+      note: fairValueReferenceText(report.fairValue) ?? undefined });
+  }
+
   if (dcf) {
     rows.push({
       label: report.fairValue?.method === "excess-return" ? "Model fair value (excess return)" : "Model fair value (DCF)",
@@ -1213,6 +1221,10 @@ export function keyDataRows(report: Report): KeyDataRow[] {
       value: "Model outside its domain",
       note: report.fairValue.basis[0]?.replace(/^Model outside its domain: /, "").replace(/\.$/, ""),
     });
+  } else if (report.fairValue) {
+    rows.push({ label: report.fairValue.method === "excess-return" ? "Model fair value (excess return)"
+      : report.fairValue.method === "fcff-dcf" ? "Model fair value (DCF)" : "Model fair value",
+      value: "Unavailable for current use", note: report.fairValue.reasons.find(reason => reason.field === "valuation.currentUse")?.reason });
   }
   const bear = report.valuation.scenarios.find((s) => s.name === "bear")?.priceTarget ?? null;
   const bull = report.valuation.scenarios.find((s) => s.name === "bull")?.priceTarget ?? null;
@@ -2147,7 +2159,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         SCORE_ASPECT_LABEL[key],
         aspect.score === null ? "—" : formatScore(aspect.score),
         // D-67: the letter is withheld under the evidence floor on every surface.
-        hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band === null ? "—" : withNeutral(aspect.band, aspect.score),
+        hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band === null ? "—" : qualifiedGradeLabel(withNeutral(aspect.band, aspect.score), scores.qualification?.aspects[key]),
         `${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}%`,
         evidencePercentText(aspect.dataCompleteness),
         withoutDecisionNumbers(aspect.notApplicableReason ?? aspect.note),
@@ -2212,10 +2224,13 @@ export function businessQualityGraded(a: NonNullable<Report["scores"]>["assessme
 export function assessmentLine(scores: NonNullable<Report["scores"]>): string | null {
   const a = scores.assessments;
   if (!a) return null;
+  const businessKeys = ["fundamentals", "quality", "balanceSheet", "moat", "leadership"] as const;
+  const business = businessKeys.map(key => scores.qualification?.aspects[key]);
+  const businessQualification = business.find(q => q?.status === "provisional") ?? business.find(q => q?.status === "unknown");
   return [
-    `Business quality ${a.businessQuality.score === null ? "—" : formatScore(a.businessQuality.score)} (${!businessQualityGraded(a) ? `not graded: evidence ${evidencePercentText(a.businessQuality.evidenceCompleteness!)}` : a.businessQuality.band === null ? "—" : withNeutral(a.businessQuality.band, a.businessQuality.score)})`,
+    `Business quality ${a.businessQuality.score === null ? "—" : formatScore(a.businessQuality.score)} (${!businessQualityGraded(a) ? `not graded: evidence ${evidencePercentText(a.businessQuality.evidenceCompleteness!)}` : a.businessQuality.band === null ? "—" : qualifiedGradeLabel(withNeutral(a.businessQuality.band, a.businessQuality.score), businessQualification)})`,
     // D-67: the valuation letter is withheld under the evidence floor here too.
-    `price attractiveness ${a.valuation.score === null ? "—" : formatScore(a.valuation.score)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band === null ? "—" : withNeutral(a.valuation.band, a.valuation.score)})`,
+    `price attractiveness ${a.valuation.score === null ? "—" : formatScore(a.valuation.score)} (${hasLimitedEvidence(scores.aspects.valuation) ? "limited evidence" : a.valuation.band === null ? "—" : qualifiedGradeLabel(withNeutral(a.valuation.band, a.valuation.score), scores.qualification?.aspects.valuation)})`,
     `evidence available for ${evidencePercentText(a.evidenceCompleteness)} of the signal weight`,
   ].join(" · ");
 }

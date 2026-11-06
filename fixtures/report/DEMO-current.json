@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.61.0",
+    "specVersion": "1.66.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.61.0",
+    "pipelineVersion": "1.66.0",
     "costUsd": 0,
     "verificationRate": 0.8487972508591065,
     "provenanceCoverage": {
@@ -191,6 +191,10 @@
       "fundamentals": {
         "grade": "C",
         "assessmentStatus": "deterministic",
+        "qualification": {
+          "status": "supported",
+          "reasons": []
+        },
         "gradeContract": {
           "version": "GRADE_OVERRIDE_1",
           "originalBand": "C",
@@ -273,6 +277,10 @@
       "valuation": {
         "grade": "C",
         "assessmentStatus": "deterministic",
+        "qualification": {
+          "status": "supported",
+          "reasons": []
+        },
         "gradeContract": {
           "version": "GRADE_OVERRIDE_1",
           "originalBand": "C",
@@ -316,6 +324,17 @@
       "technicals": {
         "grade": "B",
         "assessmentStatus": "limited-evidence",
+        "qualification": {
+          "status": "provisional",
+          "reasons": [
+            {
+              "code": "limited-applicable-evidence",
+              "aspect": "technicals",
+              "field": "scores.aspects.technicals",
+              "detail": "Technicals has limited evidence (score 76/100 on one signal, 20.0% of signals)."
+            }
+          ]
+        },
         "gradeContract": {
           "version": "GRADE_OVERRIDE_1",
           "originalBand": "B",
@@ -362,6 +381,10 @@
       "quality": {
         "grade": "B",
         "assessmentStatus": "deterministic",
+        "qualification": {
+          "status": "supported",
+          "reasons": []
+        },
         "gradeContract": {
           "version": "GRADE_OVERRIDE_1",
           "originalBand": "B",
@@ -540,6 +563,17 @@
       "leadership": {
         "grade": "C",
         "assessmentStatus": "limited-evidence",
+        "qualification": {
+          "status": "provisional",
+          "reasons": [
+            {
+              "code": "limited-applicable-evidence",
+              "aspect": "leadership",
+              "field": "scores.aspects.leadership",
+              "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+            }
+          ]
+        },
         "gradeContract": {
           "version": "GRADE_OVERRIDE_1",
           "originalBand": "C",
@@ -579,6 +613,10 @@
       "moat": {
         "grade": "A",
         "assessmentStatus": "deterministic",
+        "qualification": {
+          "status": "supported",
+          "reasons": []
+        },
         "gradeContract": {
           "version": "GRADE_OVERRIDE_1",
           "originalBand": "A",
@@ -631,6 +669,10 @@
       "balanceSheet": {
         "grade": "B",
         "assessmentStatus": "deterministic",
+        "qualification": {
+          "status": "supported",
+          "reasons": []
+        },
         "gradeContract": {
           "version": "GRADE_OVERRIDE_1",
           "originalBand": "B",
@@ -713,7 +755,7 @@
         "label": "FACT",
         "sourceId": "computed.valuation.dcf-per-share",
         "source": "computed.valuation.dcf-per-share",
-        "asOf": "2026-07-06"
+        "asOf": "2026-07-02"
       }
     ]
   },
@@ -850,6 +892,10 @@
     "graded": {
       "grade": "C",
       "assessmentStatus": "deterministic",
+      "qualification": {
+        "status": "supported",
+        "reasons": []
+      },
       "gradeContract": {
         "version": "GRADE_OVERRIDE_1",
         "originalBand": "C",
@@ -1708,6 +1754,10 @@
     "graded": {
       "grade": "B",
       "assessmentStatus": "deterministic",
+      "qualification": {
+        "status": "supported",
+        "reasons": []
+      },
       "gradeContract": {
         "version": "GRADE_OVERRIDE_1",
         "originalBand": "B",
@@ -2004,6 +2054,10 @@
     "graded": {
       "grade": "C",
       "assessmentStatus": "deterministic",
+      "qualification": {
+        "status": "supported",
+        "reasons": []
+      },
       "gradeContract": {
         "version": "GRADE_OVERRIDE_1",
         "originalBand": "C",
@@ -2051,7 +2105,7 @@
         "currency": "USD",
         "period": null,
         "source": "payload.computed.fair-value.per-share",
-        "asOf": "2026-07-06",
+        "asOf": "2026-07-02",
         "verified": null
       },
       "assumptions": [
@@ -2083,7 +2137,7 @@
         {
           "name": "EBIT margin (yr1 → yrN)",
           "value": "20.0% → 20.0%",
-          "basis": "held flat at current 20% (TTM) under stable dated-margin regime (5y median 20%, slope 0pp/year)"
+          "basis": "held flat at current 20% (TTM) under stable dated-margin regime (5y median 20%, slope 0pp/year); Unverified provider quarters: 2026-03-31, 2025-12-31, 2025-09-30, 2025-06-30"
         },
         {
           "name": "forecast tax rate (yr1 → yrN)",
@@ -2543,7 +2597,7 @@
       },
       {
         "name": "P/FCF (before SBC)",
-        "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (TTM; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed (WS6 review, SHOULD-FIX 4)",
+        "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (TTM; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed",
         "current": 17.77777777777778,
         "peerMedian": null,
         "peerCount": null,
@@ -2595,7 +2649,7 @@
           "currency": "USD",
           "period": null,
           "source": "payload.computed.scenario-targets.bull.per-share",
-          "asOf": "2026-07-06",
+          "asOf": "2026-07-02",
           "verified": null
         },
         "horizon": "explicit DCF horizon",
@@ -2625,7 +2679,7 @@
           "currency": "USD",
           "period": null,
           "source": "payload.computed.scenario-targets.base.per-share",
-          "asOf": "2026-07-06",
+          "asOf": "2026-07-02",
           "verified": null
         },
         "horizon": "explicit DCF horizon",
@@ -2655,7 +2709,7 @@
           "currency": "USD",
           "period": null,
           "source": "payload.computed.scenario-targets.bear.per-share",
-          "asOf": "2026-07-06",
+          "asOf": "2026-07-02",
           "verified": null
         },
         "horizon": "explicit DCF horizon",
@@ -2702,6 +2756,10 @@
     "graded": {
       "grade": "B",
       "assessmentStatus": "deterministic",
+      "qualification": {
+        "status": "supported",
+        "reasons": []
+      },
       "gradeContract": {
         "version": "GRADE_OVERRIDE_1",
         "originalBand": "B",
@@ -2918,6 +2976,17 @@
     "graded": {
       "grade": "B",
       "assessmentStatus": "limited-evidence",
+      "qualification": {
+        "status": "provisional",
+        "reasons": [
+          {
+            "code": "limited-applicable-evidence",
+            "aspect": "technicals",
+            "field": "scores.aspects.technicals",
+            "detail": "Technicals has limited evidence (score 76/100 on one signal, 20.0% of signals)."
+          }
+        ]
+      },
       "gradeContract": {
         "version": "GRADE_OVERRIDE_1",
         "originalBand": "B",
@@ -3034,6 +3103,17 @@
     "graded": {
       "grade": "C",
       "assessmentStatus": "limited-evidence",
+      "qualification": {
+        "status": "provisional",
+        "reasons": [
+          {
+            "code": "limited-applicable-evidence",
+            "aspect": "leadership",
+            "field": "scores.aspects.leadership",
+            "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+          }
+        ]
+      },
       "gradeContract": {
         "version": "GRADE_OVERRIDE_1",
         "originalBand": "C",
@@ -3074,10 +3154,10 @@
       {
         "name": "Mira Vale",
         "title": "Chief Executive Officer",
-        "tenureYears": 4,
-        "grade": "B",
+        "tenureYears": null,
+        "grade": "not-assessed",
         "credibilityGrade": "not-assessed",
-        "assessmentReason": "Credibility is not assessed: no attributable, validated guidance-versus-actual record. The execution grade rests on company results cited in this officer's evidence, not on a measured personal track record.",
+        "assessmentReason": "Execution is not assessed: no office start is established, so company metrics cannot be attributed to this tenure. Credibility is not assessed: no validated comparison of earlier guidance with a later actual for the same period and basis.",
         "reasoning": [
           {
             "text": "Service investment fits the installed-base strategy; the acquisition still needs an operating result.",
@@ -3102,10 +3182,10 @@
       {
         "name": "Jonas Pell",
         "title": "Chief Financial Officer",
-        "tenureYears": 2,
-        "grade": "B",
+        "tenureYears": null,
+        "grade": "not-assessed",
         "credibilityGrade": "not-assessed",
-        "assessmentReason": "Credibility is not assessed: no attributable, validated guidance-versus-actual record. The execution grade rests on company results cited in this officer's evidence, not on a measured personal track record.",
+        "assessmentReason": "Execution is not assessed: no office start is established, so company metrics cannot be attributed to this tenure. Credibility is not assessed: no validated comparison of earlier guidance with a later actual for the same period and basis.",
         "reasoning": [
           {
             "text": "Cash discipline looks constructive; undisclosed repurchase prices prevent a judgment on buyback timing.",
@@ -3273,6 +3353,10 @@
     "moatGraded": {
       "grade": "A",
       "assessmentStatus": "deterministic",
+      "qualification": {
+        "status": "supported",
+        "reasons": []
+      },
       "gradeContract": {
         "version": "GRADE_OVERRIDE_1",
         "originalBand": "A",
@@ -4908,7 +4992,7 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "35.47 USD/share [payload.computed.fair-value.per-share · 2026-07-06]",
+        "claim": "35.47 USD/share [payload.computed.fair-value.per-share · 2026-07-02]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
@@ -4919,7 +5003,7 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "36.94 USD/share [payload.computed.scenario-targets.bull.per-share · 2026-07-06]",
+        "claim": "36.94 USD/share [payload.computed.scenario-targets.bull.per-share · 2026-07-02]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
@@ -4930,7 +5014,7 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "35.47 USD/share [payload.computed.scenario-targets.base.per-share · 2026-07-06]",
+        "claim": "35.47 USD/share [payload.computed.scenario-targets.base.per-share · 2026-07-02]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
@@ -4941,7 +5025,7 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "34.07 USD/share [payload.computed.scenario-targets.bear.per-share · 2026-07-06]",
+        "claim": "34.07 USD/share [payload.computed.scenario-targets.bear.per-share · 2026-07-02]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
@@ -6910,7 +6994,7 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "36.94 USD/share [payload.computed.scenario-targets.bull.per-share · 2026-07-06]",
+        "claim": "36.94 USD/share [payload.computed.scenario-targets.bull.per-share · 2026-07-02]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
@@ -6921,7 +7005,7 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "35.47 USD/share [payload.computed.scenario-targets.base.per-share · 2026-07-06]",
+        "claim": "35.47 USD/share [payload.computed.scenario-targets.base.per-share · 2026-07-02]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
@@ -6932,7 +7016,7 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "34.07 USD/share [payload.computed.scenario-targets.bear.per-share · 2026-07-06]",
+        "claim": "34.07 USD/share [payload.computed.scenario-targets.bear.per-share · 2026-07-02]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
@@ -6943,7 +7027,7 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "4.7119140625 % [computed.valuation.reverse-dcf-implied-revenue-growth · 2026-07-06]",
+        "claim": "4.7119140625 % [computed.valuation.reverse-dcf-implied-revenue-growth · 2026-07-02]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
@@ -6954,7 +7038,7 @@
         "traceKind": "computed-derived"
       },
       {
-        "claim": "35.47 USD/share [payload.computed.fair-value.per-share · 2026-07-06]",
+        "claim": "35.47 USD/share [payload.computed.fair-value.per-share · 2026-07-02]",
         "outcome": "verified",
         "validationStatus": "validated",
         "note": "exact provenance record matched",
@@ -8140,6 +8224,70 @@
         "source": "edgar:10-K item1",
         "reason": "supported",
         "traceKind": "source-cited"
+      },
+      {
+        "claim": "Technicals has limited evidence (score 76/100 on one signal, 20.0% of signals).",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "numericSupportStatus": "unchecked",
+        "claimSupportStatus": "unreviewed",
+        "note": "Value matched; context not confirmed: 20.0%.",
+        "path": "verdict.gradeStrip.technicals.qualification.reasons[0].detail",
+        "source": "computed.growth-margins.operating-margin-latest",
+        "reason": "supported",
+        "check": "plain-figure",
+        "traceKind": "value-match"
+      },
+      {
+        "claim": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals).",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "numericSupportStatus": "unchecked",
+        "claimSupportStatus": "unreviewed",
+        "note": "Value matched; context not confirmed: 45.5%.",
+        "path": "verdict.gradeStrip.leadership.qualification.reasons[0].detail",
+        "source": "computed.deterministic-aspect-scores.leadership-evidence-completeness",
+        "reason": "supported",
+        "check": "plain-figure",
+        "traceKind": "value-match"
+      },
+      {
+        "claim": "Technicals has limited evidence (score 76/100 on one signal, 20.0% of signals).",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "numericSupportStatus": "unchecked",
+        "claimSupportStatus": "unreviewed",
+        "note": "Value matched; context not confirmed: 20.0%.",
+        "path": "technicals.graded.qualification.reasons[0].detail",
+        "source": "computed.growth-margins.operating-margin-latest",
+        "reason": "supported",
+        "check": "plain-figure",
+        "traceKind": "value-match"
+      },
+      {
+        "claim": "House SMA trend: uptrend as of 2026-07-02. Last close USD 32.00 is above both averages (50-day USD 31.4576; 200-day USD 29.7776).",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "numericSupportStatus": "unchecked",
+        "claimSupportStatus": "unreviewed",
+        "note": "Value matched; context not confirmed: USD 31.4576; USD 29.7776.",
+        "path": "technicals.read.trend",
+        "reason": "supported",
+        "check": "plain-figure",
+        "traceKind": "value-match"
+      },
+      {
+        "claim": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals).",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "numericSupportStatus": "unchecked",
+        "claimSupportStatus": "unreviewed",
+        "note": "Value matched; context not confirmed: 45.5%.",
+        "path": "leadership.graded.qualification.reasons[0].detail",
+        "source": "computed.deterministic-aspect-scores.leadership-evidence-completeness",
+        "reason": "supported",
+        "check": "plain-figure",
+        "traceKind": "value-match"
       }
     ],
     "costBreakdown": []
@@ -8997,6 +9145,69 @@
       },
       "evidenceCompleteness": 0.7450231729055258,
       "calibration": "unbacktested-house-rules"
+    },
+    "qualification": {
+      "composite": {
+        "status": "provisional",
+        "reasons": [
+          {
+            "code": "limited-applicable-evidence",
+            "aspect": "leadership",
+            "field": "scores.aspects.leadership",
+            "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+          },
+          {
+            "code": "limited-applicable-evidence",
+            "aspect": "technicals",
+            "field": "scores.aspects.technicals",
+            "detail": "Technicals has limited evidence (score 76/100 on one signal, 20.0% of signals)."
+          }
+        ]
+      },
+      "aspects": {
+        "fundamentals": {
+          "status": "supported",
+          "reasons": []
+        },
+        "valuation": {
+          "status": "supported",
+          "reasons": []
+        },
+        "quality": {
+          "status": "supported",
+          "reasons": []
+        },
+        "balanceSheet": {
+          "status": "supported",
+          "reasons": []
+        },
+        "moat": {
+          "status": "supported",
+          "reasons": []
+        },
+        "leadership": {
+          "status": "provisional",
+          "reasons": [
+            {
+              "code": "limited-applicable-evidence",
+              "aspect": "leadership",
+              "field": "scores.aspects.leadership",
+              "detail": "Leadership has limited evidence (score 64/100 on one signal, 45.5% of signals)."
+            }
+          ]
+        },
+        "technicals": {
+          "status": "provisional",
+          "reasons": [
+            {
+              "code": "limited-applicable-evidence",
+              "aspect": "technicals",
+              "field": "scores.aspects.technicals",
+              "detail": "Technicals has limited evidence (score 76/100 on one signal, 20.0% of signals)."
+            }
+          ]
+        }
+      }
     },
     "factorExposure": [
       {
@@ -11202,7 +11413,7 @@
   "scenarioTargets": {
     "status": "available",
     "method": "dcf-dispersion",
-    "methodVersion": "SCENARIO_TARGETS_2026_11_LATEST_BOOK_46",
+    "methodVersion": "SCENARIO_TARGETS_2026_11_CURRENT_VALUATION_USE_58",
     "scenarioAssumptions": {
       "methodVersion": "SHARED_SCENARIO_PATHS_2026_10_D99",
       "shockPersistence": "mean-reverting-convergent",
@@ -11248,7 +11459,7 @@
           "currency": "USD",
           "period": null,
           "source": "payload.computed.scenario-targets.bull.per-share",
-          "asOf": "2026-07-06",
+          "asOf": "2026-07-02",
           "verified": null
         },
         "upsidePct": 15.437499999999993,
@@ -11263,7 +11474,7 @@
           "currency": "USD",
           "period": null,
           "source": "payload.computed.scenario-targets.base.per-share",
-          "asOf": "2026-07-06",
+          "asOf": "2026-07-02",
           "verified": null
         },
         "upsidePct": 10.843749999999996,
@@ -11278,7 +11489,7 @@
           "currency": "USD",
           "period": null,
           "source": "payload.computed.scenario-targets.bear.per-share",
-          "asOf": "2026-07-06",
+          "asOf": "2026-07-02",
           "verified": null
         },
         "upsidePct": 6.468750000000001,
@@ -11318,7 +11529,7 @@
         "currency": null,
         "period": null,
         "source": "computed.valuation.reverse-dcf-implied-revenue-growth",
-        "asOf": "2026-07-06",
+        "asOf": "2026-07-02",
         "verified": null
       },
       "horizon": "Starting annual growth, with the base path's later years shifted by the same amount, fading out by the base model's final growth rate across 10 explicit forecast years; equivalent to revenue of $1.26B for 12M ending 2027-03-31 (2026-04-01 through 2027-03-31), observable as reported quarters accumulate — against the base case's $1.31B (consensus), consensus $1.31B",
@@ -11332,15 +11543,22 @@
   ],
   "fairValue": {
     "status": "available",
+    "currentUse": {
+      "status": "current",
+      "statementDate": "2026-03-31",
+      "valueDate": "2026-07-02",
+      "quoteDate": "2026-07-02",
+      "reason": "supported-roll-forward"
+    },
     "method": "fcff-dcf",
-    "methodVersion": "FAIR_VALUE_2026_11_LATEST_BOOK_46",
+    "methodVersion": "FAIR_VALUE_2026_11_CURRENT_VALUATION_USE_58",
     "perShare": {
       "value": 35.47,
       "unit": "USD/share",
       "currency": "USD",
       "period": null,
       "source": "payload.computed.fair-value.per-share",
-      "asOf": "2026-07-06",
+      "asOf": "2026-07-02",
       "verified": null
     },
     "upsidePct": 10.843749999999996,

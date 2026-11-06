@@ -11,7 +11,7 @@ import { withIssuerFacts } from "./helpers/confirmedIssuer";
 const base: ExcessReturnInputs = {
   bookValue: 50_000, tangibleCommonEquity: 50_000, currentRoePct: 16, rotePct: 16,
   costOfEquityPct: 10, payoutRatioPct: 60, riskFreePct: 4.2,
-  dilutedShares: 1_000, asOf: "2026-03-31",
+  dilutedShares: 1_000, asOf: "2026-03-31", quoteAsOf: "2026-03-31",
 };
 function atModelValue(gap: number, over: Partial<ExcessReturnInputs> & { price?: number | null } = {}) {
   const inputs = { ...base, dilutedShares: 1_000 * (1 + gap / 100) };
@@ -20,6 +20,8 @@ function atModelValue(gap: number, over: Partial<ExcessReturnInputs> & { price?:
   return { forward, er: excessReturnModel({ ...inputs, marketCap: price * 1_000, price, ...over }) };
 }
 function financial(b: DataBundle) {
+  if (!b.quote.ok) throw new Error("quote fixture required");
+  b.quote.value.data.rows[0]!.timestamp = Date.parse("2026-03-31T20:00:00Z") / 1000;
   const out = runStageB(b);
   if (out.valuation.kind !== "excess-return") throw new Error("financial fixture required");
   return out.valuation;
