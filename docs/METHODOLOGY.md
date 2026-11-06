@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.67.0 / payload 1.86.0, Stage B `STAGE_B_2026_11_SOURCE_SCOPE_60` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.68.0 / payload 1.87.0, Stage B `STAGE_B_2026_11_PUBLIC_EVIDENCE_61` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Source-scope recovery (D-210) preserves original vendor observations. A cash
 amount equal to a filing's explicit restricted-inclusive total may be replaced
@@ -5050,12 +5050,14 @@ cited figures the verification log marks contradicted (a value mismatch). These
 are the records the audit export prints. When a figure
 is counted, the count names the split, as in "1 contradicted (1 cited figure, 0
 prose claims)". The audit export's prose-claim sentence still counts prose
-claims only. A pass that ran on a plan allowance (ChatGPT or Gemini CLI) sends
-the supplied evidence with no web-search tool. When any pass did, the report
+claims only. Gemini passes and tool-free ChatGPT passes use the supplied
+evidence. ChatGPT analysts can also conduct separate hosted research (D-211).
+When a plan pass ran, the report
 header and run details carry an Evidence line, for example "bull, bear and judge
 used only the supplied evidence (payload-only; no web search)". It is derived
 from the same execution entries whose per-pass note the audit export prints,
-counting only passes that ran to a usable analysis: a failed attempt a
+using observed actions and retained research to distinguish web research from
+payload-only work, and counting only passes that ran to a usable analysis: a failed attempt a
 data-only report lists, or a model the registry refused, is left out (see
 "AMZN audit fixes (October 20, 2026)").
 
@@ -8246,3 +8248,60 @@ is withheld with a recorded-period explanation, rather than asserting that the
 year is absent or inventing a valid date for a malformed source record.
 Undated source-row identities are retained before the model-currency/date
 filter can discard them; their financial values remain subject to that filter.
+
+
+## Optional APIs and public evidence (D-211)
+
+Financial-data subscriptions are optional. SEC/Yahoo keyless fundamentals and
+existing endpoint-scoped FMP entitlement cooldowns remain the foundation. Public
+recovery is attempted when an optional feed fails, is empty or supplies no usable
+content. Paid-plan names are not used to guess access. API successes keep their
+own provenance, and an unavailable vendor dataset stays unavailable even when
+public text supplements the research payload.
+
+For a confirmed issuer and website, official-document discovery follows actual
+public HTTPS links with DNS-pinned requests, same-origin redirects and six-request,
+twelve-second, one-MB-per-response bounds. It retains at most three releases
+published within thirty days and one genuine earnings transcript within 180 days.
+Article identity, publication evidence and speaker/Q&A content must be established.
+Ambiguous numeric dates, unrelated/hidden article dates and unbound structured
+metadata cannot establish freshness. Publication date is labelled as publication,
+not the call's date. PDF-only files and JavaScript-only widget contents remain
+unavailable; absence from this bounded search never means a document does not exist.
+
+The SEC fallback reads the latest eligible DEF 14A in recent submissions, no older
+than eighteen calendar months. Amendments and competing latest scopes require
+reconciliation. Source-owned captions, compatible headers and substantive rows
+must agree; bounded compensation and beneficial-ownership tables retain their
+local preface and following qualifiers, without clipping a row. Unsupported split
+layouts remain unavailable. Raw offsets, document hash, accession and URL stay in
+the bundle. The payload retains exact text and publication/filing provenance.
+Separately placed footnotes may require reading the linked filing. Proxy ownership
+cannot establish a comprehensive 13F manager universe, aggregate ownership or
+position changes, and annual compensation does not establish current employment.
+
+ChatGPT analyst research uses the connected plan's supported hosted search tool;
+writing and judging have no tools. Only URLs/citations observed in provider tool
+output enter research provenance. Up to eight completed search/open/find actions
+are accepted, with cancellation on an excess action, a ten-minute research deadline
+and a sixteen-MB stream bound. These are local controls, not provider-side spending
+caps; late-reported completed actions are counted honestly. Capability refusals
+never switch to a separately billed API. Research origin survives checkpoint reuse,
+even when a search returned no URLs. Execution metadata distinguishes reused
+research from new actions. Old stored reports without these fields retain their
+historical interpretation. Gemini remains payload-only; Claude keeps its existing
+bounded API research. See [OpenAI plan capability limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+
+Research instructions prefer issuer documents, SEC filings, regulators, official
+statistics and the original study publisher, with secondary reporting labelled.
+They require checking source dates and opening underlying documents when accessible;
+snippets and generated summaries do not substitute for source evidence. These
+instructions guide research; qualitative citation coverage is not whole-claim validation.
+
+Search is an evidence-discovery and research mechanism. It does not admit model
+numbers into financial statements, resolve contradictory source scopes, infer
+missing share rights or create institutional totals. A missing FMP entitlement can
+be avoided with public evidence where available; an unsupported format needs an
+additional bounded reader, and a complete 13F dataset needs manager/amendment and
+security-identity reconciliation. No subscription upgrade fixes accounting
+comparability by itself.

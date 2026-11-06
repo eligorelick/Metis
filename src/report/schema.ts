@@ -169,7 +169,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.65.0 (D-208): optional owned valuation dates, reference/audit diagnostics and grade qualification; stored bytes remain immutable.
 // 1.66.0: preserve source-owned lease scope and specific debt refusals through enrichment.
 // 1.67.0: recover source-proved share classes, statements, lease/cash and quarter SBC scopes.
-export const REPORT_SPEC_VERSION = "1.67.0" as const;
+// 1.68.0 (D-211): optional public evidence and observed/retained web research disclosures.
+export const REPORT_SPEC_VERSION = "1.68.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -845,6 +846,8 @@ export const DataCompletenessSchema = z
 export type DataCompleteness = z.infer<typeof DataCompletenessSchema>;
 
 export const ProviderExecutionSchema = z.object({
+  webSearches: z.number().int().nonnegative().optional(),
+  webResearchUsed: z.boolean().optional(),
   taskBudgetTokens: z.number().int().positive().nullable().optional(),
   requestedModel: z.string().min(1).max(256).optional(),
   modelObserved: z.boolean().optional(),
@@ -865,6 +868,8 @@ export const ProviderExecutionSchema = z.object({
 
 export const ExecutionMetadataEntrySchema = z
   .object({
+    webSearches: z.number().int().nonnegative().optional(),
+    webResearchUsed: z.boolean().optional(),
     taskBudgetTokens: z.number().int().positive().nullable().optional(),
     step: z.string(),
     requestedModel: z.string(),

@@ -1,4 +1,6 @@
 import { officerBiographiesText } from "@/edgar/officerTenure";
+import { discoverCompanyIrDocuments } from "@/providers/companyIrDocuments";
+import { collectPublicGovernance } from "@/providers/publicGovernance";
 import {historyWindowFallback,historyTailTtlMs} from "@/providers/historyCache";
 import { fetchValuationFx } from "@/pipeline/fx";
 import { quotePriceObservationDay } from "@/providers/fmp";
@@ -1843,6 +1845,8 @@ export interface BuildDataBundleOptions {
   finra?: FinraConfig;
   /** Bounded public website/IR fallback; injected providers require an explicit config to permit this extra network source. */
   companyIr?: CompanyIrOptions | false;
+  /** Optional paid-feed evidence recovery. Default on for production; injected providers explicitly opt in. */
+  publicEvidence?: boolean;
   /**
    * Read the latest 8-K releases/commentary and material-event items, and the
    * periodic XBRL instances for quarterly segment revenue. Default true; false
@@ -2498,6 +2502,37 @@ export async function buildDataBundle(
     if (companyIrMaterialEvents.ok) keylessGaps.push({ field: "companyIrMaterialEvents.coverage", reason: companyIrMaterialEvents.value.data.notes.join(" "), severity: "info", attemptedSources: companyIrMaterialEvents.value.data.events.map((event) => event.url) });
   }
 
+  let companyIrDocuments: DataBundle["companyIrDocuments"];
+  let publicGovernance: DataBundle["publicGovernance"];
+  if (!reserved && edgarConfirmedIssuer && opts.keyless !== false && opts.publicEvidence !== false &&
+      (opts.publicEvidence === true || (opts.fmp === undefined && opts.edgar === undefined))) {
+    const available = (result: FetchResult<FmpPayload<FmpRawRow>>, useful: (row: FmpRawRow) => boolean) => result.ok && result.value.data.rows.some(useful);
+    const hasText = (value: unknown) => typeof value === "string" && value.trim().length > 0;
+    const hasAmount = (row: FmpRawRow, fields: string[]) => fields.some(field => typeof row[field] === "number" && Number.isFinite(row[field]));
+    const needs = { pressReleases: !available(pressReleases, row => hasText(row.title) && hasText(row.text) && hasText(row.url) && hasText(row.publishedDate)),
+      transcript: !transcript.latest.ok || !transcript.latest.value.data.rows.some(row => typeof row.content === "string" && row.content.trim().length > 0) };
+    // A provider's access error remains a provider error. Public text can
+    // supplement research without establishing equivalent normalized coverage.
+    const publicCik = edgarBundle.cik.ok ? edgarBundle.cik.value.data.cik10 : edgarBundle.registrant?.cik10;
+    const governanceRead = publicCik && (!available(compensation, row => hasText(row.nameAndPosition) && typeof row.year === "number" && hasAmount(row, ["total", "salary", "bonus", "stockAward", "optionAward", "incentivePlanCompensation", "allOtherCompensation"])) ||
+      !available(positionsSummary, row => hasText(row.date) && hasAmount(row, ["investorsHolding", "numberOf13Fshares", "totalInvested", "ownershipPercent"])) ||
+      !available(topHolders, row => hasText(row.date) && hasText(row.investorName) && hasAmount(row, ["sharesNumber", "marketValue", "ownership"])))
+      ? collectPublicGovernance(edgar, publicCik, today, { now, signal: opts.signal }) : undefined;
+    const documentsRead = website && announcementIssuer && opts.companyIr !== false && (needs.pressReleases || needs.transcript)
+      ? discoverCompanyIrDocuments(website, sym, today, { ...(opts.companyIr || {}), now, signal: opts.signal, issuer: announcementIssuer, needs }) : undefined;
+    if (documentsRead) {
+      const discovery = await documentsRead;
+      keylessGaps.push(...discovery.gaps);
+      const documents = discovery.documents;
+      companyIrDocuments = documents.length ? { ok: true, value: { data: documents, source: "computed",
+        endpoint: "company-ir:documents", asOf: documents[0]!.publishedAt.slice(0, 10), fetchedAt: now().toISOString() } }
+        : gapResult("companyIrDocuments", "No eligible public issuer document was recovered; original dataset gaps remain explicit.", "info", undefined, true);
+    }
+    publicGovernance = await governanceRead;
+    if (publicGovernance?.ok) keylessGaps.push({ field: "publicGovernance.coverage", severity: "info", expected: true,
+      reason: publicGovernance.value.data.notes.join(" "), attemptedSources: [publicGovernance.value.data.documentUrl] });
+  }
+
   const benchmarkPrices: BenchmarkPrices = {
     spy: spyPrices,
     sectorEtf: sectorEtfPrices,
@@ -2561,6 +2596,8 @@ export async function buildDataBundle(
     news,
     pressReleases,
     ...(companyIrMaterialEvents === undefined ? {} : { companyIrMaterialEvents }),
+    ...(companyIrDocuments === undefined ? {} : { companyIrDocuments }),
+    ...(publicGovernance === undefined ? {} : { publicGovernance }),
     eodPrices,
     benchmarkPrices,
     shortInterest: shortInterestRes,

@@ -4,6 +4,7 @@ import { valuationUseExplanation } from "@/pipeline/stageB/valuationUse";
 import { extractOfficerTenures, type OfficerTenure } from "@/edgar/officerTenure";
 import { fiscalLabelContradicted } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
+import { publicDocumentExcerpts, publicTranscriptExcerpt } from "@/pipeline/stageC/publicEvidence";
 import {latestResultsRelease, updatesFiledAfterResults} from "@/providers/currentReports";
 import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimateTiming, type EstimateModelTiming } from "@/report/estimateTiming";
 /**
@@ -282,7 +283,7 @@ export interface TextExcerpt {
   /** A keyword family being retained does not imply all of its passages survived. */
   coverage?: EvidenceCoverage;
   /** Retained authority and observation context for an official company statement. */
-  sourceEvidence?: { kind: "issuer-statement"; publishedAt: string; observedAt: string; sourceHash: string; authorityChain: string[];
+  sourceEvidence?: { kind: "issuer-statement" | "sec-filing"; publishedAt: string; observedAt: string; sourceHash: string; authorityChain: string[];
     discoveryEvidence?: { kind: "reviewed-issuer-index"; verifiedWebsite: string; indexUrl: string; indexSourceHash: string } };
 }
 
@@ -504,7 +505,8 @@ export interface ContextPayload {
 // 1.83.0 (D-203 round 2): complete primary operating proofs and forecast-cause transport.
 // 1.84.0 (D-205/D-208): source-owned filing statements, current-use dates, separate references and deterministic grade qualification.
 // 1.86.0 (D-210): source-proved class, statement, debt, cash and quarter SBC reconciliation.
-export const PAYLOAD_VERSION = "1.86.0" as const;
+// 1.87.0 (D-211): cited issuer documents and annual proxy excerpts.
+export const PAYLOAD_VERSION = "1.87.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -2545,7 +2547,7 @@ function newsSection(bundle: DataBundle): PayloadSection {
 function transcriptExcerpt(bundle: DataBundle): TextExcerpt | null {
   const t = firstRow(bundle.transcript.latest);
   const content = strOrNull(t?.content);
-  if (!content) return null;
+  if (!content?.trim()) return publicTranscriptExcerpt(bundle, PAYLOAD_BUDGETS.transcriptChars);
   const asOf = isoDay(t?.date);
   const cut = selectMaterialEvidence(content, PAYLOAD_BUDGETS.transcriptChars);
   const period = strOrNull(t?.period);
@@ -2711,6 +2713,7 @@ function filingExcerpts(bundle: DataBundle): TextExcerpt[] {
   if (controls !== null) out.push(controls);
   out.push(...currentReportExcerpts(bundle));
   out.push(...companyIrMaterialExcerpts(bundle));
+  out.push(...publicDocumentExcerpts(bundle));
   return out;
 }
 

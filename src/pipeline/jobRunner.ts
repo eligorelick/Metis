@@ -553,7 +553,8 @@ export interface ReportMetaInput {
 // 1.6.37 (D-203 round 2): primary scope, standalone operands and absent fiscal slots.
 // 1.6.38 (D-208): current-use admission, provisional grades and deterministic reference/qualification transport.
 // 1.6.39: source-owned lease evidence and stable refusal qualifications survive enrichment.
-export const PIPELINE_VERSION = "stage-c-1.6.39" as const;
+// 1.6.40 (D-211): public evidence recovery and ChatGPT plan research.
+export const PIPELINE_VERSION = "stage-c-1.6.40" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;

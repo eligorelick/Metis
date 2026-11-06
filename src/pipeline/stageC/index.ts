@@ -31,7 +31,7 @@
 
 import type { DataBundle } from "@/pipeline/types";
 import { parseSubscriptionModel } from "@/ai/contracts";
-import { runSubscriptionPass } from "@/ai/transport";
+import { chatGptWebSearchTool, runSubscriptionPass } from "@/ai/transport";
 import { createSectionCheckpoint } from "./sectionCheckpoint";
 import type { ComputedMetrics } from "@/pipeline/compute";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
@@ -254,13 +254,15 @@ const runPassStreaming: RunPassStreamingFn = (args) => {
  * the user's cost/quality knob; the default stays "high".
  */
 function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
-  if (parseSubscriptionModel(deps.analysisModel)) {
+  const subscription = parseSubscriptionModel(deps.analysisModel);
+  if (subscription) {
     const connectionId = deps.connectionId;
     if (!connectionId) throw new Error("Subscription pass is missing its captured account connection");
     const owners = new Map<string, ReturnType<NonNullable<typeof deps.passAttemptFor>>>();
     const checkpoint = deps.jobSeed ? createSectionCheckpoint(JSON.stringify({ job: deps.jobSeed, payload: payloadFingerprint(deps.payload), model: deps.analysisModel, options: deps.subscriptionOptions ?? null })) : undefined;
     return {
       model: deps.analysisModel, signal: deps.signal, jobSeed: deps.jobSeed,
+      ...(subscription.provider === "chatgpt" ? { webSearchTool: chatGptWebSearchTool } : {}),
       // The plan endpoint closes any single response at 15 minutes.
       sectionedOutput: true,
       ...(checkpoint ? { sectionCheckpoint: { ...checkpoint, record: (field: string, telemetry: unknown) => checkpoint.record(field, telemetry, owners.get(field.split(":")[0])) } } : {}),
@@ -274,8 +276,8 @@ function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
           throw new Error("Subscription pass changed model or exceeded the local input size limit");
         }
       },
-      // Omit web-search and streaming overlap: these adapters use only the
-      // supplied evidence, and each bounded pass settles before the next one.
+      // Search is a separate ChatGPT research request; writing/judge stay
+      // tool-free. Gemini stays payload-only. Each request settles before the next.
     };
   }
   const owners = new Map<string, ReturnType<NonNullable<typeof deps.passAttemptFor>>>();

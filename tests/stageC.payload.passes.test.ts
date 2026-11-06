@@ -16,6 +16,7 @@ import { restoreR9SbcBasisGolden } from "./helpers/r9SbcBasisPayloadGolden";
 
 import { describe, expect, it, vi } from "vitest";
 import placeholderCase from "./fixtures/analyst-placeholder-case.json";
+import { buildExecutionMetadataEntry } from "@/report/execution";
 
 describe("current-main report generation integrity regressions", () => {
   it.each(["array", "invalid known section"])("retains rejected %s bytes separately from accepted section recovery", async (kind) => {
@@ -755,6 +756,7 @@ describe("analyst research and writing boundaries", () => {
     for (const side of ["bull", "bear"] as const) {
       const prompt = buildAnalystResearchFraming(side);
       for (const rule of ["market size and growth with a dated source", "competitors by name and how each competes", "position and share only where a source states it", "industry economics and regulation", "source URL and date", "historical company financials", "No claim naming a person", side]) expect(prompt).toContain(rule);
+      for (const rule of ["Prefer primary sources", "issuer investor-relations", "SEC filings", "regulators", "Open the underlying document", "publication dates from event dates"]) expect(prompt).toContain(rule);
     }
   });
   it("researches without a grammar, writes without tools, and carries fetched evidence through a skeleton repair", async () => {
@@ -800,6 +802,47 @@ describe("analyst research and writing boundaries", () => {
       const checked = await runVerifyPass(deps, payload, judge, { fetchedUrls: repaired.result.fetchedUrls });
       expect(checked.log.find(entry => entry.source === "https://example.com/news")).toMatchObject({ outcome: "unverified", validationStatus: "cited" });
     }
+  });
+
+  it.each([{ accepted: true, found: true }, { accepted: false, found: true }, { accepted: true, found: false }])("keeps web research in execution metadata after writing and checkpoint reuse (writer: $accepted, results: $found)", async ({ accepted, found }) => {
+    const { payload } = buildInputs();
+    const stored: Record<string, Record<string, unknown>> = {};
+    const calls: RunPassArgs[] = [];
+    let writerAccepted = accepted;
+    const deps: PassDeps = {
+      model: "chatgpt/example", webSearchTool: maxActions => ({ type: "chatgpt_web_search", maxActions }),
+      sectionCheckpoint: { load: field => stored[field] ?? {}, save: (field, data) => { stored[field] = structuredClone(data); } },
+      runPass: async args => {
+        calls.push(args);
+        const researching = !!args.tools?.length;
+        const usage = { input_tokens: 10, output_tokens: 5, server_tool_use: { web_search_requests: researching ? 2 : 0 } };
+        const output = writerAccepted ? analystCase("bull") : { ...analystCase("bull"), keyDrivers: [], risksToCase: [] };
+        return { ok: true, value: { data: { model: args.model, usage, costUsd: 0, fallbackUsed: false,
+          execution: { requestedModel: args.model, modelObserved: true, usageReported: true, webSearches: researching ? 2 : 0 },
+          fetchedUrls: researching && found ? ["https://issuer.example/release"] : [],
+          message: { model: args.model, usage, content: [{ type: "text", text: researching
+            ? found ? "Dated release at https://issuer.example/release" : "No eligible documents found in the search." : JSON.stringify(output) }] },
+        } } };
+      },
+    };
+    const first = await runBullPass(deps, payload);
+    expect(first.ok).toBe(accepted);
+    const firstResult = first.ok ? first.result : first;
+    expect(firstResult.execution).toMatchObject({ webSearches: 2, webResearchUsed: true });
+    if (!first.ok) expect(first.error.execution).toMatchObject({ webSearches: 2, webResearchUsed: true });
+    const firstEntry = buildExecutionMetadataEntry({ step: "bull", requestedModel: deps.model, effectiveModel: deps.model,
+      requestedEffort: null, fallbackUsed: false, execution: firstResult.execution, usage: firstResult.usage });
+    expect(firstEntry).toMatchObject({ webSearches: 2, webResearchUsed: true });
+    writerAccepted = true;
+    const resumed = await runBullPass({ ...deps }, payload);
+    if (!resumed.ok) throw new Error(resumed.error.message);
+    expect(calls).toHaveLength(3);
+    expect(calls[2].tools).toBeUndefined();
+    expect(resumed.result.execution).toMatchObject({ webSearches: 0, webResearchUsed: true });
+    expect(resumed.result.fetchedUrls).toEqual(found ? ["https://issuer.example/release"] : []);
+    const resumedEntry = buildExecutionMetadataEntry({ step: "bull", requestedModel: deps.model, effectiveModel: deps.model,
+      requestedEffort: null, fallbackUsed: false, execution: resumed.result.execution, usage: resumed.result.usage });
+    expect(resumedEntry).toMatchObject({ webSearches: 0, webResearchUsed: true });
   });
 
   // Review of the combined priority fixes (2026-11-03), finding 1: research is billed before writing starts.
@@ -1853,7 +1896,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.86.0");
+    expect(first.payloadVersion).toBe("1.87.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -3518,7 +3561,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.67.0"); // the Q round moved the shared report stamp
+    expect(report.meta.specVersion).toBe("1.68.0"); // the Q round moved the shared report stamp
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

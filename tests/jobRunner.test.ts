@@ -6568,12 +6568,17 @@ describe("runJob — full pipeline with mock passes", () => {
     accepted.keyDrivers = accepted.thesis;
     accepted.risksToCase = accepted.thesis;
     accepted.priceTarget.assumptions = ["Insufficient valuation evidence; target remains an unvalidated assumption."];
-    const remote = vi.fn(async () => {
+    const remote = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       calls++;
-      if (calls === 2) return kind === "drop" ? new Response("data: [DONE]\n\n")
+      const request = JSON.parse(String(init?.body));
+      const researching = Array.isArray(request.tools) && request.tools.length > 0;
+      // Bull research and writing succeed before the bear research refuses.
+      if (calls === 3) return kind === "drop" ? new Response("data: [DONE]\n\n")
         : Response.json({ error: { code: kind === "rate-limit" ? "rate_limit_exceeded" : temporary ? "subscription_sharing_usage_unavailable" : "subscription_sharing_usage_limit_exceeded" } }, { status: kind === "temporary" ? 503 : 429 });
       return new Response(`data: ${JSON.stringify({ type: "response.completed", response: { status: "completed", model: "gpt-6.1-sol",
-        usage: { input_tokens: 100, output_tokens: 50 }, output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(accepted) }] }] } })}\n\n`);
+        usage: { input_tokens: 100, output_tokens: 50 }, output: [
+          ...(researching ? [{ type: "web_search_call", id: `search-${calls}`, status: "completed", action: { type: "search", query: "issuer news", sources: [] } }] : []),
+          { type: "message", content: [{ type: "output_text", text: researching ? "No additional eligible sources found." : JSON.stringify(accepted) }] }] } })}\n\n`);
     });
     vi.stubGlobal("fetch", remote);
     try {
@@ -6581,12 +6586,12 @@ describe("runJob — full pipeline with mock passes", () => {
       const result = await runJob(jobId, { ...pipelinePasses, runJudgePass: async () => { throw new Error("offline test stops after analysts"); } },
         { bundle: fakeBundle("MSFT"), hasAnthropicKey: true, now: NOW,
           aiSelection: { provider: "chatgpt", connectionId: "offline-account", model: "gpt-6.1-sol" }, claimAiRuntime: async () => {} });
-      expect(calls, handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()!.stepsJson ?? "").toBe(temporary ? 3 : 2);
+      expect(calls, handle.db.select().from(jobs).where(eq(jobs.id, jobId)).get()!.stepsJson ?? "").toBe(temporary ? 5 : 3);
       expect(result.dataOnly).toBe(true);
       const bull = handle.db.select().from(jobPassArtifacts).where(eq(jobPassArtifacts.jobId, jobId)).all().filter(row => row.pass === "bull");
       expect(bull).toHaveLength(1);
       expect(JSON.parse(bull[0]!.outcomeJson).outcome).toBe("success");
-      expect(JSON.parse(bull[0]!.telemetryJson)).toMatchObject({ inputTokens: 100, outputTokens: 50, costUsd: 0 });
+      expect(JSON.parse(bull[0]!.telemetryJson)).toMatchObject({ inputTokens: 200, outputTokens: 100, costUsd: 0, webSearches: 1 });
     } finally { vi.unstubAllGlobals(); }
   });
   it("captures an explicit server-side connection selection for all passes without writing preferences", async () => {
@@ -6706,14 +6711,14 @@ describe("runJob — full pipeline with mock passes", () => {
     expect(repRow?.symbol).toBe("AAPL");
     expect(repRow?.status).toBe("done");
     expect(repRow?.verificationRate).toBe(1);
-    expect(repRow?.specVersion).toBe("1.67.0"); // the Q round moved the shared report stamp
+    expect(repRow?.specVersion).toBe("1.68.0"); // the Q round moved the shared report stamp
     expect(repRow?.costUsd).toBeCloseTo(totalCost, 6);
     const parsed = ReportSchema.safeParse(JSON.parse(repRow?.reportJson ?? "{}"));
     expect(parsed.success).toBe(true);
     if (parsed.success) {
       // Runner reconciled meta cost + pipeline version onto the report.
       expect(parsed.data.meta.costUsd).toBeCloseTo(totalCost, 4);
-      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.39");
+      expect(parsed.data.meta.pipelineVersion).toBe("stage-c-1.6.40");
       expect(parsed.data.meta.verificationRate).toBe(1);
       expect(parsed.data.meta.runId).toBe(jobId);
       expect(parsed.data.meta.reportId).toBe(result.reportId);

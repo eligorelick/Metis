@@ -45,6 +45,8 @@ export interface PassTelemetry {
 
 /** Untrusted research retained independently of any rejected analyst JSON. */
 export const AnalystResearchSchema = z.object({
+  /** Retains provenance even when completed searches returned no source URLs. */
+  webResearchUsed: z.boolean().optional(),
   notes: z.string().max(1_000_000),
   sources: z.array(z.object({
     url: z.string().url().max(8_192),

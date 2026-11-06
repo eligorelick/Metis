@@ -18,7 +18,8 @@
  * offline without an Anthropic key.
  */
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import * as subscriptionTransport from "@/ai/transport";
 import type Anthropic from "@anthropic-ai/sdk";
 import { APIError } from "@anthropic-ai/sdk";
 
@@ -414,6 +415,52 @@ describe("pipelinePasses construction", () => {
     const fp = pipelinePasses.fingerprintPayload?.(payload);
     // Built from the constant: a literal went stale at the 1.13.0 bump (D-49).
     expect(fp).toMatch(new RegExp(`^${PAYLOAD_VERSION.replace(/\./g, "\\.")}:[0-9a-f]{8}$`));
+  });
+});
+
+describe("subscription research wiring", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const refusal = { ok: false as const,
+    gap: { field: "llm.bull", reason: "fixture stop", severity: "critical" as const },
+    error: { kind: "transport" as const, message: "fixture stop", model: "chatgpt/example", costUsd: 0,
+      providerFailure: { disposition: "terminal" as const, bodyShape: "stream-error" as const } },
+  };
+  const setup = (provider = "chatgpt"): PassDeps<ContextPayload> => {
+    const { bundle, computed, validation } = buildInputs();
+    return { analysisModel: `${provider}/example`, connectionId: "selected-account",
+      payload: pipelinePasses.assembleContextPayload(bundle, computed, validation) };
+  };
+
+  it("researches through the selected ChatGPT account before a tool-free writer", async () => {
+    const transport = vi.spyOn(subscriptionTransport, "runSubscriptionPass")
+      .mockResolvedValueOnce({ ok: true, value: { data: {
+        model: "chatgpt/example", costUsd: 0, fallbackUsed: false,
+        usage: { input_tokens: 1, output_tokens: 1, server_tool_use: { web_search_requests: 1 } },
+        fetchedUrls: ["https://issuer.example/release"],
+        message: { model: "chatgpt/example", usage: { input_tokens: 1, output_tokens: 1 },
+          content: [{ type: "text", text: "Dated release: https://issuer.example/release" }] },
+      } } }).mockResolvedValue(refusal);
+    await expect(pipelinePasses.runAnalystPass!(setup(), "bull")).rejects.toThrow("fixture stop");
+    expect(transport).toHaveBeenCalledTimes(2);
+    const [researchRequest, writerRequest] = transport.mock.calls.map(call => call[0]);
+    expect(researchRequest.tools).toEqual([{ type: "chatgpt_web_search", maxActions: 8 }]);
+    expect(researchRequest.outputSchema).toBeUndefined();
+    expect(writerRequest.tools).toBeUndefined();
+    expect(writerRequest.outputSchema).toBeDefined();
+    expect(JSON.stringify(writerRequest.messages)).toContain("https://issuer.example/release");
+    expect(transport.mock.calls.every(call => call[1] === "selected-account")).toBe(true);
+  });
+
+  it("keeps Gemini analysts and ChatGPT judges tool-free", async () => {
+    const transport = vi.spyOn(subscriptionTransport, "runSubscriptionPass").mockResolvedValue(refusal);
+    await expect(pipelinePasses.runAnalystPass!(setup("gemini"), "bull")).rejects.toThrow("fixture stop");
+    const analyst = adapterPassResult(fakeAnalystCase());
+    await expect(pipelinePasses.runJudgePass(setup(), analyst, analyst)).rejects.toThrow("fixture stop");
+    expect(transport.mock.calls.length).toBeGreaterThanOrEqual(2);
+    for (const [request] of transport.mock.calls) {
+      expect(request.tools).toBeUndefined();
+      expect(request.outputSchema).toBeDefined();
+    }
   });
 });
 

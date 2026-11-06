@@ -88,8 +88,20 @@ function companyIrReader(opts: CompanyIrOptions) {
     return opts.fetchImpl ? opts.fetchImpl(url.toString(), init) : pinnedFetch(url.toString(), init, addresses[0]!);
   }) as typeof fetch;
   return { signal, get requests() { return requests; },
-    read: (url: string) => abortable(fetchWithPolicy(url, { cache: "no-store" }, { provider: "company-ir", timeoutMs: 3500, maxRetries: 0, maxBodyBytes: 1_000_000, fetchImpl: guardedFetch, signal }), signal) };
+    read: async (url: string) => {
+      let finalUrl = url;
+      const trackedFetch = (async (raw: string | URL | Request, init?: RequestInit) => {
+        finalUrl = typeof raw === "string" ? raw : raw instanceof URL ? raw.toString() : raw.url;
+        return guardedFetch(raw, init);
+      }) as typeof fetch;
+      const response = await abortable(fetchWithPolicy(url, { cache: "no-store" }, { provider: "company-ir", timeoutMs: 3500, maxRetries: 0, maxBodyBytes: 1_000_000, fetchImpl: trackedFetch, signal }), signal);
+      return { ...response, finalUrl };
+    } };
 }
+
+// Shared transport and URL/link admission for other bounded official-site readers.
+// Consumers must establish issuer authority themselves; public HTTPS alone does not.
+export { companyIrReader as createCompanyIrReader, safeUrl as safeCompanyIrUrl, links as companyIrLinks };
 
 /** Website -> explicitly linked IR -> news index -> earnings announcement; six requests and 12 seconds maximum. */
 export async function discoverCompanyIrEarnings(website: string, symbol: string, today: string, opts: CompanyIrOptions = {}): Promise<{ announcements: FetchResult<FmpEarningsRow>[]; gaps: ManifestEntry[] }> {

@@ -50,7 +50,8 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-186 / D-188: evidence-backed coverage, calibrated foreign revenue consensus, proved operating income,
 // corroborated filer share units and the immaterial stale NCI key change which values compute and what they are.
 // D-210: source-scope corrections change admitted valuation and return inputs.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_SOURCE_SCOPE_60" as const;
+// D-211: preserve original vendor net debt when filed cash is reconciled.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_PUBLIC_EVIDENCE_61" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

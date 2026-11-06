@@ -1,5 +1,5 @@
 import { qualifiedGradeLabel } from "@/report/assessment";
-import { passBaseName, passAttemptName, FAILED_PASS_NOTE } from "@/report/execution";
+import { passBaseName, passAttemptName, FAILED_PASS_NOTE, type ExecutionMetadataEntry } from "@/report/execution";
 import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
 import { shownDataState } from "@/report/completeness";
 import { shownFilingDisclosures } from "@/report/filingDisclosurePresentation";
@@ -1765,12 +1765,15 @@ export function evidenceScopeSummary(report: Pick<Report, "meta">): string | nul
   const stepName = passBaseName;
   // Codex review of PR #41: failed and never-sent attempts are listed in a
   // data-only report's run details, but they used no evidence at all.
-  const steps = modelPasses(report.meta.execution)
-    .filter((entry) => executionCompleted(entry) && subscriptionExecution(entry) !== null)
-    .map((entry) => stepName(entry.step));
-  if (steps.length === 0) return null;
-  const list = steps.length <= 1 ? steps.join("") : `${steps.slice(0, -1).join(", ")} and ${steps[steps.length - 1]}`;
-  return `${list} used only the supplied evidence (payload-only; no web search)`;
+  const entries = modelPasses(report.meta.execution)
+    .filter((entry) => executionCompleted(entry) && subscriptionExecution(entry) !== null);
+  if (entries.length === 0) return null;
+  const list = (steps: string[]) => steps.length <= 1 ? steps.join("") : `${steps.slice(0, -1).join(", ")} and ${steps[steps.length - 1]}`;
+  const usedWeb = (entry: ExecutionMetadataEntry) => entry.webResearchUsed === true || (entry.webSearches ?? 0) > 0;
+  const searched = entries.filter(usedWeb).map(entry => stepName(entry.step));
+  const supplied = entries.filter(entry => !usedWeb(entry)).map(entry => stepName(entry.step));
+  return [searched.length ? `${list(searched)} used web research with supplied evidence` : null,
+    supplied.length ? `${list(supplied)} used only the supplied evidence (payload-only; no web search)` : null].filter(Boolean).join("; ");
 }
 
 function total(values: readonly (number | undefined)[]): number | null {

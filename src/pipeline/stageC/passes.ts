@@ -1683,11 +1683,11 @@ async function runAnalystRequest(
 export const ANALYST_RESEARCH_NOTES_MAX_CHARS = 40_000;
 const ANALYST_RESEARCH_MAX_SOURCES = 200;
 
-function boundedResearch(notes: string, sources: AnalystResearch["sources"]): AnalystResearch {
+function boundedResearch(notes: string, sources: AnalystResearch["sources"], webResearchUsed: boolean): AnalystResearch {
   const kept = notes.length <= ANALYST_RESEARCH_NOTES_MAX_CHARS ? notes
     : `${notes.slice(0, ANALYST_RESEARCH_NOTES_MAX_CHARS)}
 [research notes truncated at ${ANALYST_RESEARCH_NOTES_MAX_CHARS} characters]`;
-  return AnalystResearchSchema.parse({ notes: kept, sources: sources.slice(0, ANALYST_RESEARCH_MAX_SOURCES).map((source) => ({
+  return AnalystResearchSchema.parse({ notes: kept, ...(webResearchUsed ? { webResearchUsed } : {}), sources: sources.slice(0, ANALYST_RESEARCH_MAX_SOURCES).map((source) => ({
     url: source.url, title: source.title.slice(0, 500), pageAge: source.pageAge === null ? null : source.pageAge.slice(0, 100),
   })) });
 }
@@ -1734,10 +1734,18 @@ function startAnalystRequest(
       fallbackUsed: current.fallbackUsed === true || charge?.fallbackUsed === true,
       ...((current.presumed || charge?.presumed) ? { presumed: true } : {}),
     };
+    // The final writer has no tools, but its case uses the research above.
+    // Count only this attempt's completed actions; a checkpoint can retain web
+    // evidence without launching (or charging) another research request.
+    const execution: ProviderExecution = { ...current.execution,
+      webSearches: totals.webSearches,
+      webResearchUsed: current.execution?.webResearchUsed === true || charge?.execution?.webResearchUsed === true ||
+        research.webResearchUsed === true || research.sources.length > 0 || totals.webSearches > 0,
+    };
     return run.ok
-      ? { ...run, result: { ...run.result, ...totals, usage: usage!, research,
+      ? { ...run, result: { ...run.result, ...totals, execution, usage: usage!, research,
           fetchedUrls: [...new Set([...run.result.fetchedUrls, ...research.sources.map(source => source.url)])].sort() } }
-      : { ...run, ...totals, error: { ...run.error, research } };
+      : { ...run, ...totals, execution, error: { ...run.error, execution, research } };
   };
   if (saved.success) {
     const handle = write(withNotes(saved.data));
@@ -1761,7 +1769,7 @@ function startAnalystRequest(
     try {
       research = boundedResearch(data.researchText ?? extractText(data.message), [
         ...sources, ...[...urls].filter(url => !sources.some(source => source.url === url)).map(url => ({ url, title: "", pageAge: null })),
-      ]);
+      ], data.execution?.webResearchUsed === true || webSearchesOf(data.usage) > 0 || urls.size > 0);
       deps.sectionCheckpoint?.save(checkpointField, { research });
       return attach(await write(withNotes(research)).result, research, data);
     } catch (error) {
@@ -2371,6 +2379,7 @@ function entityConflictsForCases(
 /** OD-4: payload membership and issuer origin are both required. */
 export function issuerPrimarySource(payload: ContextPayload): (id: string) => boolean {
   return id => {
+    if (id === payload.transcript?.source || payload.filings.some(row => row.source === id && row.sourceEvidence !== undefined)) return true;
     if (id.startsWith("edgar:")) return (payload.filings ?? []).some(row => row.source === id) || (payload.citationRegistry ?? []).some(row => row.id === id);
     if (id === "fmp:earning-call-transcript") return payload.transcript != null;
     if (id === "fmp:press-release") return (payload.citationRegistry ?? []).some(row => row.id === id);
@@ -3495,6 +3504,7 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     personNames,
     organizationNames: payloadOrganizationNames(payload),
     personRows,
+    transcriptSource: payload.transcript?.source,
   });
 
   const log: VerificationLogEntry[] = [...guardedReferences.log, ...guardedSchedule.log];

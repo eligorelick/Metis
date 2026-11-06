@@ -9706,3 +9706,50 @@ sample version. The ledger was completed and the fictional sample regenerated
 through its normal script; only its two current metadata stamps changed. Both
 targeted checks then passed. Final gate receipts follow the completed source,
 not that failed attempt.
+
+
+## D-211 ? Optional APIs, public evidence and observed research (2026-11-06)
+
+The user requested that financial-data subscriptions not be required and delegated
+implementation judgment. Retain usable API feeds and actual endpoint entitlement
+detection; add bounded official HTML release/transcript discovery and annual SEC
+proxy excerpts as supplemental evidence. Never convert public excerpts into
+invented vendor rows or complete 13F coverage. Recoverable financial inputs still
+follow D-210's exact-source rules. Preserve original vendorNetDebt before cash
+reconciliation overwrites canonical net debt, correcting PR #111's provenance finding.
+
+Enable supported hosted research through the existing ChatGPT plan route, with
+provider-observed source URLs, separate tool-free writing/judging, local bounds
+and no paid API fallback. Persist observed action counts independently of cost,
+and retain web-research origin across checkpoint reuse, including zero-result
+searches. Report 1.68.0, payload 1.87.0, Stage B implementation 61 and Stage C 1.6.40
+identify the new acquisition, evidence and execution semantics. Financial formulas,
+score bands and historical saved report bytes are unchanged.
+
+Independent review reproduced and prompted regressions for cached-proxy chronology,
+caption-preface currency/units (including bold scope blocks), ambiguous numeric dates,
+publication metadata from unrelated or hidden content, nonempty API placeholders,
+and zero-result research checkpoints. Public provider tests use injected transports;
+no live model call was made for this change. Live EXPE SEC retrieval on November 6
+retained the April 29, 2026 proxy's summary compensation table. Its split ownership
+layout was withheld. The issuer site served JavaScript widget templates for releases
+and transcripts, so bounded static discovery did not recover those documents.
+These are coverage limits, not evidence of absent disclosures.
+
+An end-to-end replay of that live proxy into the payload also caught a proxy's
+reportDate representing a later shareholder meeting. Availability now follows
+the filing date, not the meeting date; the table retains its own fiscal years.
+The payload rechecks the same eighteen-calendar-month window as acquisition.
+Both date regressions failed before correction and then passed. The actual
+EXPE compensation excerpt reaches the payload with its April 29 source date
+and document hash, without replacing the missing normalized FMP feed.
+
+Final `npm run verify` passed under Node 24.11.1: each overlapping core/risk run
+passed 16,699 tests across 720 files with three existing skips; four integration
+tests, type/lint, dependency shape, production build and security audit passed.
+The audit reported zero known vulnerabilities. The source diff matched the
+completed build before commit. The earlier completed run failed only the README
+length check and four outdated subscription mocks; all were corrected and the
+full gate rerun successfully.
+Raw live probe data remains in ignored local temporary files. The synthetic sample
+is regenerated through its build script; existing financial golden pins remain fixed.
