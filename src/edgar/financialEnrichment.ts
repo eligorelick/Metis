@@ -352,6 +352,60 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const value = sec.value * sign;
     if (agreesWithSec(vendor, value, [sec])) continue;
+    if (kind === "cashflow" && scope === "quarter" && field === "stockBasedCompensation" && proof === undefined &&
+      out.fieldConflicts?.[field]?.usable !== false && !sec.operands && sec.evidence.periodStart && sec.evidence.filings.length === 1 && value >= 0) {
+      const filing = sec.evidence.filings[0]!;
+      const cumulative = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p => p.end === row.date &&
+        p.start !== undefined && p.start < sec.evidence.periodStart! && span(p)! > QUARTER_DURATION_DAYS[1] && span(p)! <= 380 &&
+        p.accn === filing.accn && p.filed === filing.filed && p.form === filing.form));
+      if (cumulative && cumulative.val > value && vendor === cumulative.val) {
+        const reason = `vendor stock-based compensation period reconciled at ${row.date}: vendor ${millions(vendor)} ${unit} matches the same filing's cumulative ${cumulative.start} through ${cumulative.end} amount; directly filed quarter ${sec.evidence.periodStart} through ${row.date} amount ${millions(value)} ${unit} used; original vendor observation retained`;
+        out = { ...out, [field]: value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence },
+          fieldConflicts: { ...out.fieldConflicts, [field]: { usable: true, vendorValue: vendor, secValue: value,
+            resolution: "filed-family", reason, secEvidence: sec.evidence } } };
+        gaps.push({ field: `statements.cashflow.${row.date}.${field}`, reason, severity: "info", expected: true,
+          attemptedSources: [`edgar:companyfacts/us-gaap/${tag}`] });
+        continue;
+      }
+    }
+    if (kind === "balance" && field === "cashAndCashEquivalents" && proof === undefined && out.fieldConflicts?.[field]?.usable !== false) {
+      const inclusiveTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents";
+      const inclusive = instant(facts, inclusiveTag, unit, row.date!, observedAt, undefined, sec.evidence.filings);
+      // Positive admission needs an unambiguous latest point before applying
+      // the sign rule. A newer invalid point cannot expose an older balance.
+      const unrestricted = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p =>
+        p.end === row.date && p.start === undefined && (!validDay(row.filingDate) || p.filed === row.filingDate)));
+      const unrestrictedProved = unrestricted && unrestricted.val >= 0 && unrestricted.val === value &&
+        sec.evidence.filings.some(f => f.accn === unrestricted.accn && f.filed === unrestricted.filed && f.form === unrestricted.form);
+      // Two explicitly filed scopes, from one filing. The unrestricted amount
+      // is read directly; no absent restricted maturity is presumed zero.
+      if (unrestrictedProved && inclusive && inclusive.value > value && Math.abs(vendor - inclusive.value) <= Math.max(1, inclusive.value * 1e-6)) {
+        const reason = `vendor cash scope reconciled at ${row.date}: vendor ${millions(vendor)} ${unit} equals the same filing's ${inclusiveTag}, which includes restricted cash; directly filed unrestricted cash ${millions(value)} ${unit} used; original vendor observation retained`;
+        const evidence = { ...sec.evidence, tags: [...sec.evidence.tags, ...inclusive.evidence.tags] };
+        const fieldConflicts: NonNullable<FmpStatementRow["fieldConflicts"]> = { ...out.fieldConflicts, [field]: { usable: true, vendorValue: vendor, secValue: value,
+          resolution: "filed-family" as const, reason, secEvidence: evidence } };
+        const debtProof = out.fieldProvenance?.totalDebt;
+        const sameDebtFiling = debtProof?.source === "edgar" && debtProof.unit === unit && debtProof.periodStart === null &&
+          debtProof.periodEnd === row.date && debtProof.filings.length > 0 && debtProof.filings.every(f =>
+            sec.evidence.filings.some(c => c.accn === f.accn && c.filed === f.filed && c.form === f.form));
+        const canRecomputeDebt = sameDebtFiling && typeof out.totalDebt === "number" && Number.isFinite(out.totalDebt) &&
+          out.fieldConflicts?.totalDebt?.usable !== false && out.fieldConflicts?.netDebt?.usable !== false;
+        const netDebt = canRecomputeDebt ? (out.totalDebt as number) - value : null;
+        for (const dependent of ["cashAndShortTermInvestments", "netDebt"]) {
+          if (fieldConflicts[dependent]?.usable === false) continue;
+          fieldConflicts[dependent] = { usable: dependent === "netDebt" && canRecomputeDebt === true,
+            vendorValue: typeof out[dependent] === "number" ? out[dependent] as number : null,
+            secValue: dependent === "netDebt" ? netDebt : null, secEvidence: evidence,
+            reason: `${reason}; ${dependent === "netDebt" && canRecomputeDebt ? "net debt recomputed from same-filing admitted debt less unrestricted cash" : `${dependent} unavailable until its own composition is reconciled`}` };
+        }
+        out = { ...out, cashAndCashEquivalents: value, cashAndShortTermInvestments: null, netDebt, fieldConflicts,
+          fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence,
+            ...(canRecomputeDebt ? { netDebt: { ...sec.evidence, tags: [...new Set([...debtProof!.tags, ...sec.evidence.tags])], calculation: "total-debt-minus-unrestricted-cash" } } : {}) } };
+        gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true,
+          attemptedSources: evidence.tags.map(t => `edgar:companyfacts/${t}`) });
+        continue;
+      }
+    }
     // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
     const [vendorText, secText] = millionsPair(vendor, value);
     const reason = sec.operands
@@ -805,7 +859,11 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       // real leases. Complete the debt composition below; never merely ignore
       // the contradictory zero or subtract leases from borrowings-only debt.
       const undisclosedZero = line === 0 && op.total + fin.total > 0;
-      const operatingInLong = undisclosedZero && op.noncurrent > 0 && noncurrent !== null &&
+      // A separately repeated noncurrent lease line can duplicate the very
+      // same amount embedded in vendor long-term debt. Both amounts must
+      // reconcile to this filing before composing financing debt plus leases.
+      const noncurrentLeaseLine = line > 0 && [op.noncurrent, op.noncurrent + fin.noncurrent].some(v => eq(line, v));
+      const operatingInLong = (undisclosedZero || noncurrentLeaseLine) && op.noncurrent > 0 && noncurrent !== null &&
         [noncurrent + op.noncurrent, noncurrent + op.noncurrent + fin.noncurrent].some(v => eq(row.longTermDebt as number, v));
       if (noncurrent === null || noncurrent < 0 || !(vendorAgreesWithFiled(row.longTermDebt as number, noncurrent) ||
           combined !== null && vendorAgreesWithFiled(row.longTermDebt as number, combined) || operatingInLong)) continue;

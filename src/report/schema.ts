@@ -168,7 +168,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.64.0 (D-197): verification log records figure-check outcomes for reader prose; the model no longer writes executive tenure
 // 1.65.0 (D-208): optional owned valuation dates, reference/audit diagnostics and grade qualification; stored bytes remain immutable.
 // 1.66.0: preserve source-owned lease scope and specific debt refusals through enrichment.
-export const REPORT_SPEC_VERSION = "1.66.0" as const;
+// 1.67.0: recover source-proved share classes, statements, lease/cash and quarter SBC scopes.
+export const REPORT_SPEC_VERSION = "1.67.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

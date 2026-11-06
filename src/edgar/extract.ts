@@ -1229,7 +1229,7 @@ function statementUnits(source: ParsedDocument): StatementUnit[] {
 
 /** Match a whole contiguous source unit, including its period/context, before
  * considering its row offsets. Identical strings elsewhere confer no authority. */
-export function financialStatementText(text: string, limit = 12_000, source?: ParsedDocument): { statementsText?: string; statementsTextGap?: string } {
+export function financialStatementText(text: string, limit = 12_000, source?: ParsedDocument, requireLeadingCaption = false): { statementsText?: string; statementsTextGap?: string } {
   const starts = new Map<number, { unit: StatementUnit; matched: number; unique: boolean }[]>();
   for (const unit of source ? statementUnits(source) : []) {
     const matches: { at: number; matched: number }[] = [];
@@ -1244,6 +1244,7 @@ export function financialStatementText(text: string, limit = 12_000, source?: Pa
     }
   }
   for (const [at, witnesses] of [...starts].sort(([a], [b]) => a - b)) {
+    if (requireLeadingCaption && at !== 0) continue;
     const proved = (length: number) => witnesses.every(({ unit, matched }) =>
       unit.rowEnds.filter(end => end <= Math.min(length, matched)).length >= 2);
     // Keep useful original coverage if this cap contains the same unit's proof.
@@ -2668,7 +2669,7 @@ function recoverAnnualSection(
 export function extractAnnualNotesFromIndex(html: string, source?: ParsedDocument): {
   text: string; method: "annual-notes-index-redirect"; statementsText?: string; evidence: AnnualNotesRedirectEvidence;
 } | null {
-  const notes = extractAnnualAppendixNotes(html) ?? extractPrintedIndexNotes(html);
+  const notes = extractAnnualAppendixNotes(html) ?? extractPrintedIndexNotes(html, source);
   if (notes === null) return null;
   // Index routes have already proved appendix headings in original markup;
   // flattened full-title prose must not replace that stronger boundary proof.
@@ -2910,7 +2911,7 @@ function extractAnnualAppendixNotes(html: string): ReturnType<typeof extractAnnu
  * Notes end at a closed appendix heading, or a closed document with a final
  * printed footer. Missing/duplicate/interrupted pages refuse the entire route.
  */
-function extractPrintedIndexNotes(html: string): ReturnType<typeof extractAnnualNotesFromIndex> {
+function extractPrintedIndexNotes(html: string, source?: ParsedDocument): ReturnType<typeof extractAnnualNotesFromIndex> {
   const structure = appendixStructure(html, true);
   if (!structure || !/<\/body>\s*<\/html>\s*$/i.test(html)) return null;
   const { elements, text } = structure;
@@ -3021,12 +3022,43 @@ function extractPrintedIndexNotes(html: string): ReturnType<typeof extractAnnual
     const body = text(head.start, end);
     const accepted = recognizeAnnualNotes(body);
     if (!accepted || accepted.start !== 0 || detectStub(body).isStub) continue;
-    return { text: body, method: "annual-notes-index-redirect", evidence: {
+    const evidence: AnnualNotesRedirectEvidence = {
       coordinateSystem: "original-html-characters", index: { start: table.start, end: table.end },
       ...(enclosingItem ? { enclosingItem } : {}),
       notes: { target: opening.dest.attrs.get("id") ?? opening.dest.attrs.get("name")!, page: { namespace: opening.page.namespace, number: opening.page.number }, start: head.start },
       boundary: { start: end, kind: boundary ? "heading" : "document-end", lastPage: endPage.number },
-    } };
+    };
+    // The index also locates statements, but cannot establish their rows.
+    // Retain only a matching original caption on its mapped page, across a
+    // complete printed-page sequence, and require the existing table proof.
+    let statementsText: string | undefined;
+    for (const statement of mappings.filter(m => m.page.start < opening.page.start &&
+      STATEMENT_CAPTION.test(m.title.replace(/\s+/g, ""))).sort((a, b) => a.page.start - b.page.start || a.dest.start - b.dest.start)) {
+      const sequence = pages.filter(p => p.start >= statement.page.start && p.start <= opening.page.start);
+      if (sequence.some((p, i) => p.namespace !== statement.page.namespace || p.number !== statement.page.number + i ||
+        pages.filter(other => other.namespace === p.namespace && other.number === p.number).length !== 1 ||
+        (i > 0 && !breaks.some(br => br.start === sequence[i - 1]!.end && br.end === p.start)))) continue;
+      const captions = elements.filter(n => !n.hidden && /^(?:p|div|h[1-6]|span)$/.test(n.tag) &&
+        n.start >= Math.max(statement.page.start, statement.dest.start) && n.end <= statement.page.footer &&
+        !ancestor(n, "table") && !ancestor(n, "a") && !/<a\b[^>]*href/i.test(html.slice(n.start, n.end)) &&
+        normalizeTitle(nt(n)) === normalizeTitle(statement.title));
+      // Formatting wrappers can share one physical caption; distinct captions
+      // on the same page remain ambiguous rather than borrowing each other's rows.
+      const leaves = captions.filter(n => !captions.some(child => child.start > n.start && child.end < n.end));
+      if (leaves.length !== 1) continue;
+      const caption = leaves[0]!;
+      if (blocks.some(n => n.start > caption.end && n.start < head.start &&
+        /^(?:INDEX OF EXHIBITS|EXHIBIT INDEX|SIGNATURES|REPORT OF INDEPENDENT REGIST\s*ERED PUBLIC ACCOUNTING FIRM|Item\s+(?:7A|9|15|16)\..*|Schedule II(?:\s*[-–—:]?\s*Valuation and Qualifying Accounts)?)$/i.test(nt(n)))) continue;
+      const candidate = text(caption.start, head.start);
+      // Require proof owned by this mapped leading caption. A later table or
+      // plain-text statement cannot rescue its missing or incompatible rows.
+      const proved = financialStatementText(candidate, 12_000, source ??= parseDocument(html), true).statementsText;
+      if (!proved) continue;
+      statementsText = proved;
+      evidence.statements = { target: statement.dest.attrs.get("id") ?? statement.dest.attrs.get("name")!, start: caption.start, retainedChars: proved.length };
+      break;
+    }
+    return { text: body, method: "annual-notes-index-redirect", ...(statementsText ? { statementsText } : {}), evidence };
   }
   return null;
 }

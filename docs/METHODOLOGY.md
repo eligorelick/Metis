@@ -3,7 +3,16 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.66.0 / payload 1.85.0, Stage B `STAGE_B_2026_11_EVIDENCE_DISCLOSURE_59` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.67.0 / payload 1.86.0, Stage B `STAGE_B_2026_11_SOURCE_SCOPE_60` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+
+Source-scope recovery (D-210) preserves original vendor observations. A cash
+amount equal to a filing's explicit restricted-inclusive total may be replaced
+by its directly filed unrestricted balance only with unambiguous compatible
+evidence. Net debt is then recomputed only from admitted debt in that same
+filing; a combined cash-and-investments value needs its own proof. A vendor SBC
+quarter equal to a cumulative amount is corrected only when that filing also
+directly states the standalone quarter. Missing lease portions, conflicting
+filing presentations and unsupported ownership allocations remain unavailable.
 
 ## Current valuation use and grade qualification (D-208)
 

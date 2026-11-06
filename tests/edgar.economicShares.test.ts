@@ -279,3 +279,26 @@ it("retains a supported numeric income row with a plain issuer label", async () 
   const bundle = await productionBundle(withRightsPassage(passage));
   expect(runStageB(bundle).valuation.multiples?.enterpriseValue.equityScope?.status).toBe("resolved");
 });
+
+const paginatedEquality = `<p>Basic earnings per share is calculated using our weighted-average outstanding common shares. The earnings per share</p>
+  <div>15</div><hr style="page-break-after:always"/><div>Table of Contents</div>
+  <div>Notes to Consolidated Financial Statements &#8211; (Continued)</div>
+  <p>amounts are the same for common stock and Class B common stock because the holders of each class are legally entitled to equal per share distributions whether through dividends or in liquidation.</p>`;
+it("retains current equality whose EPS sentence continues across printed pagination", () => {
+  const result = parsePrimaryEconomicShares(withRightsPassage(paginatedEquality), identity, "2026-10-15");
+  expect(result.evidence?.classes.map(cls => [cls.shares, cls.economicUnitsPerQuotedShare])).toEqual([[100_000_000, 1], [20_000_000, 1]]);
+  expect(result.passages.rights).toBe("The earnings per share amounts are the same for common stock and Class B common stock because the holders of each class are legally entitled to equal per share distributions whether through dividends or in liquidation.");
+});
+const comparativeAntidilution = "For the three and nine months ended September 30, 2026 and 2025, less than 1 million of outstanding stock awards have been excluded from the calculations of diluted earnings per share attributable to common stockholders because their effect would have been antidilutive.";
+it("retains equality beside a complete comparative-year antidilution accounting clause", () => {
+  expect(parsePrimaryEconomicShares(withRightsPassage(`<p>${boundedEquality}</p><p>${comparativeAntidilution}</p>`), identity, "2026-10-15").evidence?.complete).toBe(true);
+});
+it.each([
+  paginatedEquality.replace("<div>15</div>", "<div>These rights become effective January 1, 2027.</div><div>15</div>"),
+  paginatedEquality.replace("<p>amounts", "<h2>Note 7 - Other Disclosures</h2><p>amounts"),
+  paginatedEquality.replace("whether through dividends or in liquidation.", "whether through dividends or in liquidation, only after approval."),
+  paginatedEquality + "<p>The latter class instead receives twice the distributions of the former.</p>",
+  `<p>${boundedEquality}</p><p>${comparativeAntidilution.replace("antidilutive.", "antidilutive, while the latter class receives twice the distributions.")}</p>`,
+])("does not erase substantive qualifiers when joining pagination or reading comparative accounting", passage => {
+  expect(parsePrimaryEconomicShares(withRightsPassage(passage), identity, "2026-10-15").evidence).toBeNull();
+});

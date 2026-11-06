@@ -503,7 +503,8 @@ export interface ContextPayload {
 // 1.82.0 (D-203): scoped operating inputs, interior margin gaps and annual-base dates.
 // 1.83.0 (D-203 round 2): complete primary operating proofs and forecast-cause transport.
 // 1.84.0 (D-205/D-208): source-owned filing statements, current-use dates, separate references and deterministic grade qualification.
-export const PAYLOAD_VERSION = "1.85.0" as const;
+// 1.86.0 (D-210): source-proved class, statement, debt, cash and quarter SBC reconciliation.
+export const PAYLOAD_VERSION = "1.86.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

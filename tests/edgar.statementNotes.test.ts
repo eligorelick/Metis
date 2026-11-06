@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { annualNotesToFinancialStatements, extractAnnualNotesFromIndex } from '@/edgar/extract';
+import { annualNotesToFinancialStatements, extractAnnualNotesFromIndex, financialStatementText, parseDocument } from '@/edgar/extract';
 const prose = 'The company consolidates subsidiaries and eliminates intercompany balances. '.repeat(70);
 describe('closed annual notes recognition', () => {
     it('ends newly recognized notes at the auditor title and salutation', () => {
@@ -20,6 +20,34 @@ describe('closed annual notes recognition', () => {
 });
 function fixture(namespace = '', firstNote = false) { const p = (n: number) => `${namespace}${n}`; return `<html><body><ix:header><link:schemaRef href="schema.xsd"/></ix:header><h2>Index to Financial Statements</h2><table><tr><td>Consolidated Balance Sheets</td><td><a href="#balance">${p(2)}</a></td></tr><tr><td>Notes to Consolidated Financial Statements</td><td>${firstNote ? '' : '<a href="#notes">' + p(3) + '</a>'}</td></tr>${firstNote ? `<tr><td>Note 1 - Basis of Presentation</td><td><a href="#notes">${p(3)}</a></td></tr>` : ''}</table><p>${p(1)}</p><div id="balance"></div><hr style="page-break-after:always"/><h2>Consolidated Balance Sheets</h2><p>Balance sheet.</p><p>${p(2)}</p><div id="notes"></div><hr style="page-break-after:always"/><h2>Notes to Consolidated Financial Statements</h2><p>Note 1 - Basis of Presentation</p><p>${prose}</p><p>${p(3)}</p></body></html>`; }
 describe('printed-page financial index', () => {
+    const statementRows = '<table><tr><th>December 31, 2025 2024 (In millions)</th></tr><tr><td>Cash and cash equivalents</td><td>12</td><td>11</td></tr><tr><td>Total assets</td><td>30</td><td>28</td></tr></table>';
+    const statementFixture = () => fixture('F-').replace('<h2>Consolidated Balance Sheets</h2><p>Balance sheet.</p>', `<div><span style="font-weight:700">Consolidated Balance Sheets</span>${statementRows}</div>`);
+    it('retains a proved statement from the same printed-page index before the notes', () => {
+        const html = statementFixture();
+        const parsed = parseDocument(html);
+        const result = extractAnnualNotesFromIndex(html, parsed);
+        expect(result?.text).toContain(prose.trim());
+        expect(result?.statementsText).toContain('Consolidated Balance Sheets December 31, 2025 2024 (In millions) Cash and cash equivalents 12 11 Total assets 30 28');
+        expect(result?.statementsText).not.toContain('Note 1 - Basis of Presentation');
+        expect(result?.evidence.statements).toMatchObject({ target: 'balance' });
+        expect(financialStatementText(result?.statementsText ?? '', 12_000, parsed).statementsText).toBe(result?.statementsText);
+    });
+    it.each([
+        ['mismatched destination caption', (h: string) => h.replace('<span style="font-weight:700">Consolidated Balance Sheets</span>', '<span style="font-weight:700">Consolidated Statements of Income</span>')],
+        ['a later unindexed statement after the mismatched rows', (h: string) => h.replace(statementRows, '<table><tr><th>Years ended 2025 2024</th></tr><tr><td>Net income</td><td>12</td><td>11</td></tr></table><h2>Consolidated Statements of Income</h2><table><tr><th>Years ended 2025 2024</th></tr><tr><td>Revenue</td><td>12</td><td>11</td></tr><tr><td>Net income</td><td>3</td><td>2</td></tr></table>')],
+        ['linked contents caption', (h: string) => h.replace('<span style="font-weight:700">Consolidated Balance Sheets</span>', '<a href="#contents">Consolidated Balance Sheets</a>')],
+        ['a later plain-text caption after mismatched rows', (h: string) => h.replace(statementRows, '<table><tr><th>Years ended 2025 2024</th></tr><tr><td>Net income</td><td>12</td><td>11</td></tr></table><pre>Consolidated Statements of Income\nYears ended 2025 2024\nRevenue 12 11\nNet income 3 2\n</pre>')],
+        ['a later table caption after mismatched rows', (h: string) => h.replace(statementRows, '<table><tr><th>Years ended 2025 2024</th></tr><tr><td>Net income</td><td>12</td><td>11</td></tr></table><table><tr><th>Consolidated Statements of Income</th></tr><tr><th>Years ended 2025 2024</th></tr><tr><td>Revenue</td><td>12</td><td>11</td></tr><tr><td>Net income</td><td>3</td><td>2</td></tr></table>')],
+        ['incompatible statement rows', (h: string) => h.replace(statementRows, '<table><tr><th>Years ended 2025 2024</th></tr><tr><td>Net income</td><td>12</td><td>11</td></tr><tr><td>Total comprehensive income</td><td>30</td><td>28</td></tr></table>')],
+        ['contents page columns', (h: string) => h.replace(statementRows, '<table><tr><td>Index: Page</td><td>Current</td><td>Prior</td></tr><tr><td>Cash</td><td>12</td><td>11</td></tr><tr><td>Total assets</td><td>30</td><td>28</td></tr></table>')],
+        ['intervening signatures', (h: string) => h.replace('<p>F-2</p>', '<h2>SIGNATURES</h2><p>F-2</p>')],
+        ['unnumbered intervening page', (h: string) => h.replace('<p>F-2</p><div id="notes"></div>', '<p>F-2</p><hr style="page-break-after:always"/><p>Unnumbered page.</p><div id="notes"></div>')],
+    ])('keeps notes but withholds statements with %s', (_name, change) => {
+        const result = extractAnnualNotesFromIndex(change(statementFixture()));
+        expect(result?.text).toContain(prose.trim());
+        expect(result?.statementsText).toBeUndefined();
+        expect(result?.evidence.statements).toBeUndefined();
+    });
     it.each([true, false])('keeps later notes after a printed-index Item 15 continuation (enclosing item known: %s)', known => {
         const html = fixture('F-').replace('<h2>Index to Financial Statements</h2>', `${known ? '<h2>Item 15. Exhibits and Financial Statement Schedules</h2>' : ''}<h2>Index to Financial Statements</h2>`)
             .replace('<p>F-3</p>', `<h2>Item 15. Exhibits and Financial Statement Schedules (continued)</h2><h3>Note 12 - Debt</h3><p>LATER_NOTE_SENTINEL ${prose}</p><p>F-3</p>`);

@@ -10478,7 +10478,7 @@
         "D-208",
         "D-209"
       ],
-      "reason": "D-208 admits the same-day model from actual 2025-12-31 statement/value/quote evidence, replacing build-time valuation labels; adds score-neutral, route-applicable evidence qualification through report grades and verdict; and advances coordinated method/report identities. Every existing financial numeric leaf stays pinned. D-209 advances only the current report stamp to 1.66.0 for source-owned evidence disclosures; all financial numeric pins remain unchanged.",
+      "reason": "D-208 admits the same-day model from actual 2025-12-31 statement/value/quote evidence, replacing build-time valuation labels; adds score-neutral, route-applicable evidence qualification through report grades and verdict; and advances coordinated method/report identities. Every existing financial numeric leaf stays pinned. D-209 advances only the current report stamp to 1.66.0 for source-owned evidence disclosures; all financial numeric pins remain unchanged. D-210 advances only the current report stamp to 1.67.0 in this fixture; its financial inputs do not exercise the new source-scope recoveries.",
       "deltas": [
         {
           "path": "report.balanceSheet.graded.qualification",
@@ -10543,7 +10543,7 @@
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.66.0"
+          "after": "1.67.0"
         },
         {
           "path": "report.quality.graded.qualification",
