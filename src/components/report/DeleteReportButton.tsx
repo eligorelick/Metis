@@ -11,7 +11,16 @@ export function DeleteReportButton({ reportId, symbol, redirect = false }: { rep
     setBusy(true); setError("");
     try {
       const response = await fetch(`/api/report/view/${reportId}?symbol=${encodeURIComponent(symbol)}`, { method: "DELETE" });
-      if (!response.ok) throw new Error((await response.json()).error ?? "Could not delete this run.");
+      if (!response.ok) {
+        // Next can return an empty 405 when a running server has not picked up
+        // a newly added handler; upstream failures may return HTML instead.
+        const payload: unknown = await response.json().catch(() => null);
+        const fallback = response.status === 405
+          ? "Deleting saved runs is unavailable on this server. Restart Metis, reload this page, and try again."
+          : `Could not delete this run (HTTP ${response.status}). Please try again.`;
+        throw new Error(payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" && payload.error.trim()
+          ? payload.error : fallback);
+      }
       if (redirect) router.replace(`/company/${encodeURIComponent(symbol)}/history`);
       router.refresh();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not delete this run."); setBusy(false); }

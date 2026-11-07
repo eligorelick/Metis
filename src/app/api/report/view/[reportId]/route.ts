@@ -63,11 +63,15 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ r
   const id = parseReportId((await params).reportId);
   const symbol = normalizeRouteSymbol(new URL(request.url).searchParams.get("symbol") ?? "");
   if (id === null || symbol === null) return NextResponse.json({ error: "Invalid report or ticker." }, { status: 400 });
-  const { deleteSavedReport } = await import("@/report/delete");
-  const result = deleteSavedReport(id, symbol);
-  if (result === "active") return NextResponse.json({ error: "This run is still active. Cancel it before deleting." }, { status: 409 });
-  if (result === "missing") return NextResponse.json({ error: "Saved run not found." }, { status: 404 });
-  return NextResponse.json({ deleted: id }, { headers: { "Cache-Control": "no-store" } });
+  try {
+    const { deleteSavedReport } = await import("@/report/delete");
+    const result = deleteSavedReport(id, symbol);
+    if (result === "active") return NextResponse.json({ error: "This run is still active. Cancel it before deleting." }, { status: 409 });
+    if (result === "missing") return NextResponse.json({ error: "Saved run not found." }, { status: 404 });
+    return NextResponse.json({ deleted: id }, { headers: { "Cache-Control": "no-store" } });
+  } catch {
+    return NextResponse.json({ error: "Could not delete this run. Please try again." }, { status: 500, headers: { "Cache-Control": "no-store" } });
+  }
 }
 
 export async function GET(
