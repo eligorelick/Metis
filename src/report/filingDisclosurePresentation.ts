@@ -354,19 +354,28 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
       const prior = i < 0 ? null : values[i] ?? null;
       return now === null || now === undefined || prior === null || prior <= 0 ? DASH : pct((now / prior - 1) * 100, true);
     };
+    const change = (values: (number | null)[], earlier: readonly number[] | undefined): string => {
+      const now = values[0];
+      const prior = yearAgo < 0 ? null : values[yearAgo];
+      if (now == null || prior == null || !sameSegmentBasis(earlier, 0, yearAgo)) return DASH;
+      const delta = now - prior;
+      return `${delta > 0 ? "+" : ""}${money(delta, s.currency)}`;
+    };
     const total = s.total[0] ?? null;
     const rows = s.rows.map((r) => [
       r.childOf === null ? decodeEntities(r.label) : `  ↳ ${decodeEntities(r.label)}`,
       ...s.quarters.map((_, i) => money(r.values[i] ?? null, s.currency)),
       sameSegmentBasis(r.earlierPresentationAt,0,quarterAgo) ? growth(r.values, quarterAgo) : DASH,
       sameSegmentBasis(r.earlierPresentationAt,0,yearAgo) ? growth(r.values, yearAgo) : DASH,
+      change(r.values, r.earlierPresentationAt),
       total !== null && total > 0 && r.values[0] !== null && r.values[0] !== undefined ? pct((r.values[0] / total) * 100) : DASH,
     ]);
-    rows.push(["Total revenue", ...s.quarters.map((_, i) => money(s.total[i] ?? null, s.currency)), sameSegmentBasis(s.totalEarlierPresentationAt,0,quarterAgo) ? growth(s.total, quarterAgo) : DASH, sameSegmentBasis(s.totalEarlierPresentationAt,0,yearAgo) ? growth(s.total, yearAgo) : DASH, total !== null ? "100.0%" : DASH]);
+    rows.push(["Total revenue", ...s.quarters.map((_, i) => money(s.total[i] ?? null, s.currency)), sameSegmentBasis(s.totalEarlierPresentationAt,0,quarterAgo) ? growth(s.total, quarterAgo) : DASH, sameSegmentBasis(s.totalEarlierPresentationAt,0,yearAgo) ? growth(s.total, yearAgo) : DASH, change(s.total, s.totalEarlierPresentationAt), total !== null ? "100.0%" : DASH]);
     const notes = [
       crossFilingClause(s.quarters.filter((_,i)=>s.totalCrossFilingAt?.includes(i)||s.rows.some(r=>r.crossFilingAt?.includes(i)))).trim(),
       `XBRL revenue facts from ${s.sources.join(", ")}; the newest filing's figure wins where filings overlap (recast comparatives).`,
       s.rows.some((r) => r.childOf !== null) ? "Indented rows are components of the row above them." : "",
+      `YoY revenue change subtracts the comparable quarter ended ${yearAgo < 0 ? "(unavailable)" : s.quarters[yearAgo]} from ${latest}, on the same presentation. Indented component rows are not added again to their parent; changes are not profit contributions or proof that displayed members exhaust consolidated revenue.`,
       s.priorPresentation.length > 0 ? `Members tagged only in earlier quarters (a prior presentation) are omitted: ${s.priorPresentation.join(", ")}.` : "",
       s.derivedCells > 0 ? `${s.derivedCells} cell(s) are derived as the difference of two reported windows (for example a fiscal year less nine months).` : "",
       // D-67: a segment axis's own filing note sits under its table, not under guidance.
@@ -375,7 +384,7 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
     ].filter((n) => n !== "");
     return {
       heading: `Segment revenue by quarter — ${s.axisLabel}`,
-      headers: ["Segment", ...s.quarters, "QoQ", "YoY", `Share (${latest})`],
+      headers: ["Segment", ...s.quarters, "QoQ", "YoY", "YoY revenue change", `Share (${latest})`],
       rows,
       note: notes.join(" "),
     };

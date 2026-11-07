@@ -117,7 +117,7 @@ describe("source-bound financial composition disclosures", () => {
     expect(facts.find(f => f.key === "composition-cash-combined")?.computed).toContain("6682000000 + 2402000000 + 0 = 9084000000 USD");
     const tax = facts.filter(f => f.key.startsWith("composition-tax-"));
     expect(tax.map(f => f.value)).toEqual([50 * M, 55 * M]);
-    expect(tax.every(f => /not an occupancy-tax pair.*legal netting.*unestablished/i.test(f.text))).toBe(true);
+    expect(tax.every(f => /Income-tax balances shown gross.*legal netting.*unestablished/i.test(f.text))).toBe(true);
     const wc = facts.filter(f => f.key.startsWith("composition-working-capital-"));
     expect(wc.map(f => f.value)).toEqual([-1654 * M, -230 * M, 282 * M, -12 * M, -1614 * M]);
     expect(wc.at(-1)?.label).toMatch(/partial subtotal/i);
@@ -169,7 +169,8 @@ describe("source-bound financial composition disclosures", () => {
       expect(text).toContain("comprehensive current-service cost is unestablished");
       expect(text).toContain("other working-capital components remain unresolved");
       expect(text).not.toContain("merchant payables and deferred merchant bookings remain unresolved");
-      expect(text).toContain("not an occupancy-tax pair");
+      expect(text).toContain("Income-tax balances shown gross");
+      expect(text).not.toContain("not an occupancy-tax pair");
     }
     const payload = assembleContextPayload(bundle, runStageB(bundle), { checks: [], flags: [], gaps: [] });
     expect(payload.filingFacts?.notes.join(" ")).toContain("comprehensive current-service cost is unestablished");

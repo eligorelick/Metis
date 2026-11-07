@@ -171,7 +171,7 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.67.0: recover source-proved share classes, statements, lease/cash and quarter SBC scopes.
 // 1.68.0 (D-211): optional public evidence and observed/retained web research disclosures.
 // 1.69.0 (D-212): scope-safe quarterly inputs, optional-research limits and complete source qualifications.
-export const REPORT_SPEC_VERSION = "1.69.0" as const;
+export const REPORT_SPEC_VERSION = "1.70.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -1194,6 +1194,15 @@ export const DcfSchema = z
       period: z.string(), modelRevenue: z.number(), consensusRevenue: z.number().nullable(), gapPct: z.number().nullable(),
       anchored: z.boolean(), fiscalYears: z.string(), status: z.string(),
     }).strict()).optional(),
+    /** Deterministic mechanical alternatives; never a replacement base valuation. */
+    taxCapitalSensitivity: z.object({
+      basis: z.string(), withheldReason: z.string().nullable(),
+      rows: z.array(z.object({
+        taxShiftPp: z.number(), taxYears: z.number().int().nonnegative(), salesToCapitalFactor: z.number().positive(),
+        salesToCapital: z.number().positive(), perShare: z.number().nullable(), changeFromBase: z.number().nullable(),
+        withheldReason: z.string().nullable(),
+      }).strict()),
+    }).strict().optional(),
     /** D-60: year-one growth × sustained margin per-share grid (null cells withheld). */
     growthMarginGrid: z.object({
       growthShiftsPp: z.array(z.number()), marginShiftsPp: z.array(z.number()),
@@ -2751,7 +2760,7 @@ const JudgeOutputObjectSchema = z
     fundamentals: FundamentalsSchema,
     balanceSheet: BalanceSheetSchema,
     // Pipeline-filled DCF blocks are not judge output (D-65 adds consensusPath).
-    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, excessReturnGrid: true, consensusPath: true, sensitivityNotes: true }) }),
+    valuation: ValuationSchema.extend({ dcf: DcfSchema.omit({ bridge: true, forecastRows: true, growthMarginGrid: true, excessReturnGrid: true, consensusPath: true, sensitivityNotes: true, taxCapitalSensitivity: true }) }),
     quality: QualitySchema,
     technicals: TechnicalsSchema,
     leadership: LeadershipSchema.extend({ executives: z.array(ExecutiveSchema.omit({ officeTenure: true })) }),

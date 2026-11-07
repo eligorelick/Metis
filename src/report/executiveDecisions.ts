@@ -232,8 +232,11 @@ export interface ExecutiveOfficeContext {
 }
 
 /** Withheld grade rationales stay withheld when a context-only card is expanded. */
-export function executiveCardClaims(e: Executive, claims: SourcedClaim[]): SourcedClaim[] {
-  return e.grade === "not-assessed" && e.credibilityGrade === "not-assessed" ? claims.filter(c => c.label === "FACT") : claims;
+export function executiveCardClaims(e: Executive, claims: SourcedClaim[], sharedCompanyClaims: readonly SourcedClaim[] = []): SourcedClaim[] {
+  const eligible = e.grade === "not-assessed" && e.credibilityGrade === "not-assessed" ? claims.filter(c => c.label === "FACT") : claims;
+  // Exact company-action duplicates remain in the shared chronology and audit.
+  return eligible.filter(c => !sharedCompanyClaims.some(shared => shared.text === c.text && shared.label === c.label &&
+    citationSourceId(shared) === citationSourceId(c) && shared.asOf === c.asOf));
 }
 
 /** Read-time context only: retains original claims and never changes a saved grade or verification mark. */

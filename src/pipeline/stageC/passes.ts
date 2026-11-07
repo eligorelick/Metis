@@ -1,3 +1,4 @@
+import { supplementalNumericAudit } from "@/report/supplementalNumericAudit";
 /**
  * Stage C — the four grounded LLM pass runners plus report assembly.
  *
@@ -3926,6 +3927,9 @@ export async function runVerifyPass<T extends object = JudgeOutput>(
     }
   }
 
+  // Appended deterministic tables contain plain scalars as well as traced
+  // cells. Their explicit unchecked inventory is separate from both rates.
+  log.push(...supplementalNumericAudit(verifiedReport));
   const total = numbers.length;
   const numeric = calculateCoverage(traced, total);
   const factualClaims = calculateCoverage(factualSupported, factualTotal);
@@ -4147,9 +4151,10 @@ export function applyDcfDisplay(
   valuation: JudgeOutput["valuation"],
   computedValuation: ComputedMetrics["valuation"] | undefined,
   currency: string | null = null,
+  currentUse?: import("@/report/schema").ValuationUse,
 ): JudgeOutput["valuation"] {
   if (computedValuation === undefined) return valuation;
-  const display = computeDcfDisplay(computedValuation, currency);
+  const display = computeDcfDisplay(computedValuation, currency, currentUse);
   return {
     ...valuation,
     dcf: {
@@ -4573,6 +4578,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
         ),
         args.computed.valuation,
         args.computed.valuation === undefined ? null : args.computed.valuationTranslation?.fx.quoteCurrency ?? statementCurrencies(args.bundle).model,
+        fairValue?.currentUse,
       ),
       args.computed.valuation,
     ),

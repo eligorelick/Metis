@@ -1,0 +1,1364 @@
+{
+  "baselineCommit": "3767acbe",
+  "reason": "Fiscal aliases, bounded material evidence, operating-tax/capital diagnostics, accurate terminal-return wording and weighted-metric qualification; synthetic fixture only.",
+  "changes": [
+    {
+      "path": "computed.valuation.assumptions.asOf.estimates",
+      "before": "2027-09-30",
+      "after": "2027-09-25"
+    },
+    {
+      "path": "computed.valuation.assumptions.growthAnchor.basis",
+      "before": "median of 3 available growth methods = 2.52%, range 1.81% to 10.03% — methods: log-linear revenue regression 2.52%/yr fitted over 5 annual years (2021-09-25 to 2025-09-27), R2 0.71; 3y revenue CAGR 1.81%; 5y revenue CAGR unavailable: measured span 4.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 10.03% (mean of FY ending 2026-09-30 over TTM 6.54% in 186 days, annualized 13.24% and FY ending 2027-09-30 over FY ending 2026-09-30 6.82%, through 2027-09-30) (house rule: median of methods). It does not set year one, which comes from consensus.",
+      "after": "median of 3 available growth methods = 2.52%, range 1.81% to 10.19% — methods: log-linear revenue regression 2.52%/yr fitted over 5 annual years (2021-09-25 to 2025-09-27), R2 0.71; 3y revenue CAGR 1.81%; 5y revenue CAGR unavailable: measured span 4.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 10.19% (mean of FY ending 2026-09-26 over TTM 6.54% in 182 days, annualized 13.55% and FY ending 2027-09-25 over FY ending 2026-09-26 6.82%, through 2027-09-25) (house rule: median of methods). It does not set year one, which comes from consensus."
+    },
+    {
+      "path": "computed.valuation.assumptions.growthAnchor.methods[3].detail",
+      "before": "10.03% (mean of FY ending 2026-09-30 over TTM 6.54% in 186 days, annualized 13.24% and FY ending 2027-09-30 over FY ending 2026-09-30 6.82%, through 2027-09-30)",
+      "after": "10.19% (mean of FY ending 2026-09-26 over TTM 6.54% in 182 days, annualized 13.55% and FY ending 2027-09-25 over FY ending 2026-09-26 6.82%, through 2027-09-25)"
+    },
+    {
+      "path": "computed.valuation.assumptions.growthAnchor.methods[3].valuePct",
+      "before": 10.030043918211895,
+      "after": 10.185006381886486
+    },
+    {
+      "path": "computed.valuation.assumptions.growthAnchor.rangePct[1]",
+      "before": 10.030043918211895,
+      "after": 10.185006381886486
+    },
+    {
+      "path": "computed.valuation.assumptions.notes[0]",
+      "before": "analyst year-1 growth leg annualized by day-count: 6.54% over 186 days (TTM end 2026-03-28 → FY1 end 2026-09-30) → 13.24%/yr",
+      "after": "analyst year-1 growth leg annualized by day-count: 6.54% over 182 days (TTM end 2026-03-28 → FY1 end 2026-09-26) → 13.55%/yr"
+    },
+    {
+      "path": "computed.valuation.assumptions.notes[2]",
+      "before": "Near-term growth anchor: median of 3 available growth methods = 2.52%, range 1.81% to 10.03% — methods: log-linear revenue regression 2.52%/yr fitted over 5 annual years (2021-09-25 to 2025-09-27), R2 0.71; 3y revenue CAGR 1.81%; 5y revenue CAGR unavailable: measured span 4.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 10.03% (mean of FY ending 2026-09-30 over TTM 6.54% in 186 days, annualized 13.24% and FY ending 2027-09-30 over FY ending 2026-09-30 6.82%, through 2027-09-30) (house rule: median of methods). It does not set year one, which comes from consensus.",
+      "after": "Near-term growth anchor: median of 3 available growth methods = 2.52%, range 1.81% to 10.19% — methods: log-linear revenue regression 2.52%/yr fitted over 5 annual years (2021-09-25 to 2025-09-27), R2 0.71; 3y revenue CAGR 1.81%; 5y revenue CAGR unavailable: measured span 4.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 10.19% (mean of FY ending 2026-09-26 over TTM 6.54% in 182 days, annualized 13.55% and FY ending 2027-09-25 over FY ending 2026-09-26 6.82%, through 2027-09-25) (house rule: median of methods). It does not set year one, which comes from consensus."
+    },
+    {
+      "path": "computed.valuation.assumptions.terminal.roicTermPct.basis",
+      "before": "terminal ROIC = WACC 8.96% + 5pp evidenced excess return: ROIC exceeded WACC in each of the last 5 fiscal years (2021-09-25 to 2025-09-27, median spread 74.31pp); half the spread is carried in perpetuity, capped at 5pp (HOUSE CONVENTION after McKinsey's RONIC guidance and Damodaran's modest-excess-return cap — not a standard; see docs/METHODOLOGY.md); ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 8.96% — no per-year risk-free observation was available to recompute a year-specific WACC",
+      "after": "terminal ROIC = WACC 8.96% + 5pp evidenced excess return: ROIC exceeded WACC in 5 observed fiscal years (2021-09-25 to 2025-09-27, median spread 74.31pp); half the spread is carried in perpetuity, capped at 5pp (HOUSE CONVENTION after McKinsey's RONIC guidance and Damodaran's modest-excess-return cap — not a standard; see docs/METHODOLOGY.md); ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 8.96% — no per-year risk-free observation was available to recompute a year-specific WACC"
+    },
+    {
+      "path": "computed.valuation.notes[0]",
+      "before": "analyst year-1 growth leg annualized by day-count: 6.54% over 186 days (TTM end 2026-03-28 → FY1 end 2026-09-30) → 13.24%/yr",
+      "after": "analyst year-1 growth leg annualized by day-count: 6.54% over 182 days (TTM end 2026-03-28 → FY1 end 2026-09-26) → 13.55%/yr"
+    },
+    {
+      "path": "computed.valuation.notes[2]",
+      "before": "Near-term growth anchor: median of 3 available growth methods = 2.52%, range 1.81% to 10.03% — methods: log-linear revenue regression 2.52%/yr fitted over 5 annual years (2021-09-25 to 2025-09-27), R2 0.71; 3y revenue CAGR 1.81%; 5y revenue CAGR unavailable: measured span 4.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 10.03% (mean of FY ending 2026-09-30 over TTM 6.54% in 186 days, annualized 13.24% and FY ending 2027-09-30 over FY ending 2026-09-30 6.82%, through 2027-09-30) (house rule: median of methods). It does not set year one, which comes from consensus.",
+      "after": "Near-term growth anchor: median of 3 available growth methods = 2.52%, range 1.81% to 10.19% — methods: log-linear revenue regression 2.52%/yr fitted over 5 annual years (2021-09-25 to 2025-09-27), R2 0.71; 3y revenue CAGR 1.81%; 5y revenue CAGR unavailable: measured span 4.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 10.19% (mean of FY ending 2026-09-26 over TTM 6.54% in 182 days, annualized 13.55% and FY ending 2027-09-25 over FY ending 2026-09-26 6.82%, through 2027-09-25) (house rule: median of methods). It does not set year one, which comes from consensus."
+    },
+    {
+      "path": "payload.computed[6].figures",
+      "before": [
+        {
+          "label": "valuation model",
+          "value": "dcf",
+          "unit": "",
+          "source": "computed.valuation.kind",
+          "asOf": null,
+          "currency": null,
+          "period": null
+        },
+        {
+          "label": "DCF per share",
+          "value": 125.54216204255545,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.dcf",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.dcf-per-share"
+        },
+        {
+          "label": "DCF terminal value share",
+          "value": 0.5115557383982471,
+          "unit": "fraction",
+          "source": "computed.valuation.dcf.terminalShare",
+          "asOf": "2026-03-28",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.dcf-terminal-value-share"
+        },
+        {
+          "label": "reverse-DCF implied revenue growth",
+          "value": 29.5849609375,
+          "unit": "%",
+          "source": "computed.valuation.reverseDcf",
+          "asOf": "2026-07-05",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.reverse-dcf-implied-revenue-growth"
+        },
+        {
+          "label": "reverse-DCF implied terminal margin",
+          "value": null,
+          "unit": "%",
+          "source": "computed.valuation.reverseDcf",
+          "asOf": "2026-07-05",
+          "currency": null,
+          "period": null
+        },
+        {
+          "label": "DCF base-case year-one revenue growth over TTM",
+          "value": 10.724263629832631,
+          "unit": "%",
+          "source": "computed.valuation.reverseDcfContext.baseYearOne",
+          "asOf": "2026-03-28",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.dcf-base-case-year-one-revenue-growth-over-ttm"
+        },
+        {
+          "label": "consensus year-one revenue growth over TTM",
+          "value": 10.724263629832631,
+          "unit": "%",
+          "source": "computed.valuation.reverseDcfContext.consensusYearOne",
+          "asOf": "2026-03-28",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.consensus-year-one-revenue-growth-over-ttm"
+        },
+        {
+          "label": "peTtm (current)",
+          "value": 27.23735408560311,
+          "unit": "x",
+          "source": "computed.valuation.multiples.peTtm",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.pettm-current"
+        },
+        {
+          "label": "evToEbitda (current)",
+          "value": 22.562654429932934,
+          "unit": "x",
+          "source": "computed.valuation.multiples.evToEbitda",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.evtoebitda-current"
+        },
+        {
+          "label": "evToSales (current)",
+          "value": 7.738498789346247,
+          "unit": "x",
+          "source": "computed.valuation.multiples.evToSales",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.evtosales-current"
+        },
+        {
+          "label": "priceToFcf (current)",
+          "value": 27.72887323943662,
+          "unit": "x",
+          "source": "computed.valuation.multiples.priceToFcf",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.pricetofcf-current"
+        },
+        {
+          "label": "priceToBook (current)",
+          "value": 52.5,
+          "unit": "x",
+          "source": "computed.valuation.multiples.priceToBook",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.pricetobook-current"
+        },
+        {
+          "label": "priceToTbv (current)",
+          "value": null,
+          "unit": "x",
+          "source": "computed.valuation.multiples.priceToTbv",
+          "asOf": null,
+          "currency": null,
+          "period": null
+        }
+      ],
+      "after": [
+        {
+          "label": "valuation model",
+          "value": "dcf",
+          "unit": "",
+          "source": "computed.valuation.kind",
+          "asOf": null,
+          "currency": null,
+          "period": null
+        },
+        {
+          "label": "DCF per share",
+          "value": 125.54216204255545,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.dcf",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.dcf-per-share"
+        },
+        {
+          "label": "DCF terminal value share",
+          "value": 0.5115557383982471,
+          "unit": "fraction",
+          "source": "computed.valuation.dcf.terminalShare",
+          "asOf": "2026-03-28",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.dcf-terminal-value-share"
+        },
+        {
+          "label": "reverse-DCF implied revenue growth",
+          "value": 29.5849609375,
+          "unit": "%",
+          "source": "computed.valuation.reverseDcf",
+          "asOf": "2026-07-05",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.reverse-dcf-implied-revenue-growth"
+        },
+        {
+          "label": "reverse-DCF implied terminal margin",
+          "value": null,
+          "unit": "%",
+          "source": "computed.valuation.reverseDcf",
+          "asOf": "2026-07-05",
+          "currency": null,
+          "period": null
+        },
+        {
+          "label": "DCF base-case year-one revenue growth over TTM",
+          "value": 10.724263629832631,
+          "unit": "%",
+          "source": "computed.valuation.reverseDcfContext.baseYearOne",
+          "asOf": "2026-03-28",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.dcf-base-case-year-one-revenue-growth-over-ttm"
+        },
+        {
+          "label": "consensus year-one revenue growth over TTM",
+          "value": 10.724263629832631,
+          "unit": "%",
+          "source": "computed.valuation.reverseDcfContext.consensusYearOne",
+          "asOf": "2026-03-28",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.consensus-year-one-revenue-growth-over-ttm"
+        },
+        {
+          "label": "mechanical tax/capital sensitivity 1: first 5 years tax shift -5 pp, sales/capital factor 0.75",
+          "value": 126.58183632361582,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.taxCapitalSensitivity.cell1",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.mechanical-tax-capital-sensitivity-1-first-5-years-tax-shift-5-pp-sales-capital-factor-0-75"
+        },
+        {
+          "label": "mechanical tax/capital sensitivity 2: first 5 years tax shift -5 pp, sales/capital factor 1",
+          "value": 127.78614366556666,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.taxCapitalSensitivity.cell2",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.mechanical-tax-capital-sensitivity-2-first-5-years-tax-shift-5-pp-sales-capital-factor-1"
+        },
+        {
+          "label": "mechanical tax/capital sensitivity 3: first 5 years tax shift -5 pp, sales/capital factor 1.25",
+          "value": 128.50872807073713,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.taxCapitalSensitivity.cell3",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.mechanical-tax-capital-sensitivity-3-first-5-years-tax-shift-5-pp-sales-capital-factor-1-25"
+        },
+        {
+          "label": "mechanical tax/capital sensitivity 4: first 5 years tax shift 0 pp, sales/capital factor 0.75",
+          "value": 124.33785470060462,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.taxCapitalSensitivity.cell4",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.mechanical-tax-capital-sensitivity-4-first-5-years-tax-shift-0-pp-sales-capital-factor-0-75"
+        },
+        {
+          "label": "mechanical tax/capital sensitivity 5: first 5 years tax shift 0 pp, sales/capital factor 1",
+          "value": 125.54216204255545,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.taxCapitalSensitivity.cell5",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.mechanical-tax-capital-sensitivity-5-first-5-years-tax-shift-0-pp-sales-capital-factor-1"
+        },
+        {
+          "label": "mechanical tax/capital sensitivity 6: first 5 years tax shift 0 pp, sales/capital factor 1.25",
+          "value": 126.26474644772594,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.taxCapitalSensitivity.cell6",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.mechanical-tax-capital-sensitivity-6-first-5-years-tax-shift-0-pp-sales-capital-factor-1-25"
+        },
+        {
+          "label": "mechanical tax/capital sensitivity 7: first 5 years tax shift 5 pp, sales/capital factor 0.75",
+          "value": 122.09387307759343,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.taxCapitalSensitivity.cell7",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.mechanical-tax-capital-sensitivity-7-first-5-years-tax-shift-5-pp-sales-capital-factor-0-75"
+        },
+        {
+          "label": "mechanical tax/capital sensitivity 8: first 5 years tax shift 5 pp, sales/capital factor 1",
+          "value": 123.29818041954427,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.taxCapitalSensitivity.cell8",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.mechanical-tax-capital-sensitivity-8-first-5-years-tax-shift-5-pp-sales-capital-factor-1"
+        },
+        {
+          "label": "mechanical tax/capital sensitivity 9: first 5 years tax shift 5 pp, sales/capital factor 1.25",
+          "value": 124.02076482471475,
+          "unit": "currency/share",
+          "currency": "USD",
+          "source": "computed.valuation.taxCapitalSensitivity.cell9",
+          "asOf": "2026-07-05",
+          "period": null,
+          "provenanceId": "computed.valuation.mechanical-tax-capital-sensitivity-9-first-5-years-tax-shift-5-pp-sales-capital-factor-1-25"
+        },
+        {
+          "label": "peTtm (current)",
+          "value": 27.23735408560311,
+          "unit": "x",
+          "source": "computed.valuation.multiples.peTtm",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.pettm-current"
+        },
+        {
+          "label": "evToEbitda (current)",
+          "value": 22.562654429932934,
+          "unit": "x",
+          "source": "computed.valuation.multiples.evToEbitda",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.evtoebitda-current"
+        },
+        {
+          "label": "evToSales (current)",
+          "value": 7.738498789346247,
+          "unit": "x",
+          "source": "computed.valuation.multiples.evToSales",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.evtosales-current"
+        },
+        {
+          "label": "priceToFcf (current)",
+          "value": 27.72887323943662,
+          "unit": "x",
+          "source": "computed.valuation.multiples.priceToFcf",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.pricetofcf-current"
+        },
+        {
+          "label": "priceToBook (current)",
+          "value": 52.5,
+          "unit": "x",
+          "source": "computed.valuation.multiples.priceToBook",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null,
+          "provenanceId": "computed.valuation.pricetobook-current"
+        },
+        {
+          "label": "priceToTbv (current)",
+          "value": null,
+          "unit": "x",
+          "source": "computed.valuation.multiples.priceToTbv",
+          "asOf": null,
+          "currency": null,
+          "period": null
+        }
+      ]
+    },
+    {
+      "path": "payload.computed[6].notes",
+      "before": [
+        "Operating-margin forecast basis: fade current 31.48% (TTM) -> 30.29% by year 5 under stable dated-margin regime (5y median 30.29%, slope 0.27pp/year), flat thereafter; Unverified provider quarters: 2026-03-28, 2025-12-28, 2025-09-27, 2025-06-28",
+        "analyst year-1 growth leg annualized by day-count: 6.54% over 186 days (TTM end 2026-03-28 → FY1 end 2026-09-30) → 13.24%/yr",
+        "Year-one revenue anchor: year-one revenue 457.29B (10.72% over TTM 413B) from analyst consensus calendarized to 12M ending 2027-03-28 (fiscal-year estimates weighted by day overlap, each fiscal year spread evenly over its days because the last complete fiscal year has no four reported quarterly revenues to shape it; the fiscal year ending 2026-09-26 contributes its consensus less the 219B already reported through 2026-03-28 (2 quarters), spread over its unreported days); measured against TTM revenue 413B; year two is not anchored: 12M ending 2028-03-28 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2027-03-28) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
+        "Near-term growth anchor: median of 3 available growth methods = 2.52%, range 1.81% to 10.03% — methods: log-linear revenue regression 2.52%/yr fitted over 5 annual years (2021-09-25 to 2025-09-27), R2 0.71; 3y revenue CAGR 1.81%; 5y revenue CAGR unavailable: measured span 4.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 10.03% (mean of FY ending 2026-09-30 over TTM 6.54% in 186 days, annualized 13.24% and FY ending 2027-09-30 over FY ending 2026-09-30 6.82%, through 2027-09-30) (house rule: median of methods). It does not set year one, which comes from consensus.",
+        "EBIT margin regime stable: dated 5y slope 0.27pp/year; target 30.29% versus current 31.48% and median 30.29%",
+        "terminal tax rate floored: the company historical median 14.72% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule D-58: the terminal rate converges toward the marginal rate)",
+        "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 8.96% — no per-year risk-free observation was available to recompute a year-specific WACC",
+        "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-28: 113600000000, UNADJUSTED — stock-based compensation was not disclosed.",
+        "Valuation date: cash flows are discounted from the statement date 2026-03-28 and rolled forward 99 days to the quote date 2026-07-05 at the WACC (× 1.0235), so the per-share value and the price it is compared with share a date; the equity bridge stays at the 2026-03-28 balance, whose later cash generation is inside the first window's flows (house rule D-65)",
+        "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+        "DCF terminal transition: FCFF 162.79B in year 10 becomes 140.66B in year 11 (-13.6%): reinvestment moves from 2.62% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 93.23%) to 17.91% (terminal growth 2.5% / terminal ROIC 13.96%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure).",
+        "NET_DEBT_V3: net debt 46000000000 as of 2026-03-28; totalDebt 98000000000, cashAndShortTermInvestments 52000000000",
+        "Provisional: Leadership has limited evidence (score 74/100 on one signal, 45.5% of signals). Technicals has no route-applicable score evidence.",
+        "peTtm: price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.",
+        "evToEbitda: EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 3,196,000,000,000; EV on retained debt basis 3,196,000,000,000. Balance basis: latest quarterly balance sheet 2026-03-28.",
+        "evToSales: EV / revenue (TTM). 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 3,196,000,000,000; EV on retained debt basis 3,196,000,000,000.",
+        "priceToFcf: marketCap / (operatingCashFlow + capitalExpenditure) (TTM; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed",
+        "priceToBook: marketCap / common equity (latest quarterly balance sheet 2026-03-28; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness",
+        "priceToTbv: marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill unavailable and intangibleAssets unavailable (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-28; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)",
+        "Consensus anchoring (D-65): consensus sets year one of the 10-year base path (12M ending 2027-03-28); the remaining years are the house convergent fade. Call the base path consensus-anchored only for those years, and name them.",
+        "Reverse-DCF context (D-60, D136): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided quarter's year-over-year growth, consensus year one and the latest quarter's year-over-year growth rows. The base and consensus levels are measured over the same TTM revenue; each quarter is compared with its own year-ago quarter. Describe the price as demanding only relative to those figures."
+      ],
+      "after": [
+        "Mechanical sensitivity, not an underwritten forecast or revised fair value: shift the operating tax rate by -5/0/+5 percentage points in the first 5 years and multiply explicit-period sales-to-capital by 0.75/1/1.25. Revenue, EBIT margins, WACC (including its existing debt-tax shield), later taxes, terminal growth/ROIC, valuation date and the base equity bridge stay fixed. No segment economics or tax-benefit recurrence is inferred; capital efficiency here measures marginal forecast reinvestment. Cells outside the admitted input range or DCF domain are withheld.",
+        "Operating-margin forecast basis: fade current 31.48% (TTM) -> 30.29% by year 5 under stable dated-margin regime (5y median 30.29%, slope 0.27pp/year), flat thereafter; Unverified provider quarters: 2026-03-28, 2025-12-28, 2025-09-27, 2025-06-28",
+        "analyst year-1 growth leg annualized by day-count: 6.54% over 182 days (TTM end 2026-03-28 → FY1 end 2026-09-26) → 13.55%/yr",
+        "Year-one revenue anchor: year-one revenue 457.29B (10.72% over TTM 413B) from analyst consensus calendarized to 12M ending 2027-03-28 (fiscal-year estimates weighted by day overlap, each fiscal year spread evenly over its days because the last complete fiscal year has no four reported quarterly revenues to shape it; the fiscal year ending 2026-09-26 contributes its consensus less the 219B already reported through 2026-03-28 (2 quarters), spread over its unreported days); measured against TTM revenue 413B; year two is not anchored: 12M ending 2028-03-28 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2027-03-28) (house rule D-60: consensus levels when consistent with admitted guidance extrapolation, then model extrapolation of quarterly guidance, then the run-rate). House rule D-65: consensus sets every year whose fiscal-year estimates have at least 3 analysts and an implied dispersion of at most 25%, while its growth stays within [-10%, max(25%, the prior year)].",
+        "Near-term growth anchor: median of 3 available growth methods = 2.52%, range 1.81% to 10.19% — methods: log-linear revenue regression 2.52%/yr fitted over 5 annual years (2021-09-25 to 2025-09-27), R2 0.71; 3y revenue CAGR 1.81%; 5y revenue CAGR unavailable: measured span 4.00 years, not the 5-year window (±0.25-year tolerance); analyst-consensus case 10.19% (mean of FY ending 2026-09-26 over TTM 6.54% in 182 days, annualized 13.55% and FY ending 2027-09-25 over FY ending 2026-09-26 6.82%, through 2027-09-25) (house rule: median of methods). It does not set year one, which comes from consensus.",
+        "EBIT margin regime stable: dated 5y slope 0.27pp/year; target 30.29% versus current 31.48% and median 30.29%",
+        "terminal tax rate floored: the company historical median 14.72% floored at 21% = max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two) (house rule D-58: the terminal rate converges toward the marginal rate)",
+        "ROIC-vs-WACC history compares every fiscal year to the CURRENT WACC 8.96% — no per-year risk-free observation was available to recompute a year-specific WACC",
+        "Stock-based compensation is expensed inside the EBIT this DCF projects, so it is never added back here; the reported free-cash-flow metric subtracts it as well (house default). The FCFF path derives from revenue, EBIT margin and reinvestment, not from the free-cash-flow metric, so the two are consistent but not the same series. Reported free cash flow as of 2026-03-28: 113600000000, UNADJUSTED — stock-based compensation was not disclosed.",
+        "Valuation date: cash flows are discounted from the statement date 2026-03-28 and rolled forward 99 days to the quote date 2026-07-05 at the WACC (× 1.0235), so the per-share value and the price it is compared with share a date; the equity bridge stays at the 2026-03-28 balance, whose later cash generation is inside the first window's flows (house rule D-65)",
+        "DCF equity bridge: EV − net debt − minority interest − preferred equity. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted.",
+        "DCF terminal transition: FCFF 162.79B in year 10 becomes 140.66B in year 11 (-13.6%): reinvestment moves from 2.62% of NOPAT (revenue growth / sales-to-capital, an implied return on new capital of 93.23%) to 17.91% (terminal growth 2.5% / terminal ROIC 13.96%). The step is where the two reinvestment conventions meet, not a forecast (D-60 disclosure).",
+        "NET_DEBT_V3: net debt 46000000000 as of 2026-03-28; totalDebt 98000000000, cashAndShortTermInvestments 52000000000",
+        "Provisional: Leadership has limited evidence (score 74/100 on one signal, 45.5% of signals). Technicals has no route-applicable score evidence.",
+        "peTtm: price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.",
+        "evToEbitda: EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 3,196,000,000,000; EV on retained debt basis 3,196,000,000,000. Balance basis: latest quarterly balance sheet 2026-03-28.",
+        "evToSales: EV / revenue (TTM). 2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 3,196,000,000,000; EV on retained debt basis 3,196,000,000,000.",
+        "priceToFcf: marketCap / (operatingCashFlow + capitalExpenditure) (TTM; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed",
+        "priceToBook: marketCap / common equity (latest quarterly balance sheet 2026-03-28; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness",
+        "priceToTbv: marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill unavailable and intangibleAssets unavailable (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-28; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)",
+        "Consensus anchoring (D-65): consensus sets year one of the 10-year base path (12M ending 2027-03-28); the remaining years are the house convergent fade. Call the base path consensus-anchored only for those years, and name them.",
+        "Reverse-DCF context (D-60, D136): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided quarter's year-over-year growth, consensus year one and the latest quarter's year-over-year growth rows. The base and consensus levels are measured over the same TTM revenue; each quarter is compared with its own year-ago quarter. Describe the price as demanding only relative to those figures."
+      ]
+    },
+    {
+      "path": "payload.computed[9].notes",
+      "before": [
+        "Base path is the DCF forward trajectory (year-one revenue from consensus, 10.72% growth; consensus sets year one of 10; then a convergent fade to 2.5% terminal growth).",
+        "Bull/bear shift year-one growth by ±4.78pp and the year-one margin by ±0.13pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (0.19), applied only when it moves with the scenario.",
+        "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-28), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+        "Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta 4.78pp; margin delta 0.13pp. Revenue or FCF paths may cross.",
+        "Weighted path = 0.25·bull + 0.5·base + 0.25·bear, the fixed display prior.",
+        "PROJECTED FCF is unlevered free cash flow (FCFF), consistent with the DCF (NOPAT − reinvestment); stock-based compensation is an expense inside that EBIT, so FCFF is after stock-based compensation.",
+        "HISTORICAL FCF on this series is levered free cash flow after stock-based compensation (house default: operating cash flow + capital expenditure − SBC; unadjusted only where SBC was not disclosed), stated AFTER interest. It is not the before-SBC vendor figure behind the FCF CAGR. The two segments share the SBC treatment but differ on leverage: for a leveraged issuer the level steps at the history→forecast seam by roughly after-tax interest, and that step is a change of basis, not a forecast of improvement.",
+        "Scenario paths can cross: the higher-growth shock reinvests more up front, so its near-term FCF may sit below the lower-growth shock. The bull-to-bear spread is the scenario range; bull/bear labels do not imply an ordering of each operating metric.",
+        "Operating EPS = (forward operating EBIT − interest expense 3.8B a year at the latest quarter's run-rate (the quarter ending 2026-03-28's interest 0.95B × 4), held flat) × (1 − that year's DCF tax rate) ÷ diluted shares with applied change 0%/yr (year-one net income / EBIT 0.83). Interest income, investment gains and other non-operating items are excluded, so this is operating EPS, not a forecast of GAAP diluted EPS.",
+        "The base holds the diluted share count flat: a repurchase authorization is discretionary capacity, not a committed schedule, and future repurchases depend on cash and price. Positive dilution is retained only when the observed share-count trend is positive. No remaining repurchase authorization was read from the filings. The historical-share-trend alternative is hypothetical and does not deduct repurchase cash from equity value; flat-share EPS isolates operating performance."
+      ],
+      "after": [
+        "Base path is the DCF forward trajectory (year-one revenue from consensus, 10.72% growth; consensus sets year one of 10; then a convergent fade to 2.5% terminal growth).",
+        "Bull/bear shift year-one growth by ±4.78pp and the year-one margin by ±0.13pp, both decaying to zero by the final explicit year; the margin shift is sample σ scaled by the company's observed growth/margin correlation (0.19), applied only when it moves with the scenario.",
+        "Forward periods are 12-month windows ending on anniversaries of the latest statement date (2026-03-28), not fiscal years or company guidance periods. Exact periodStart/periodEnd are saved on each verified forecast point; leap-day anniversaries clamp to February end.",
+        "Bull/bear identity is shared with price targets and ordered by enterprise value. Bull growth delta 4.78pp; margin delta 0.13pp. Revenue or FCF paths may cross.",
+        "Weighted path = 0.25·bull + 0.5·base + 0.25·bear, the fixed display prior.",
+        "Weighted rows are independently averaged scenario metrics under the fixed display prior. Weighted revenue, margin and EPS do not form one reconciling income statement; revenue and margin covary across scenarios.",
+        "PROJECTED FCF is unlevered free cash flow (FCFF), consistent with the DCF (NOPAT − reinvestment); stock-based compensation is an expense inside that EBIT, so FCFF is after stock-based compensation.",
+        "HISTORICAL FCF on this series is levered free cash flow after stock-based compensation (house default: operating cash flow + capital expenditure − SBC; unadjusted only where SBC was not disclosed), stated AFTER interest. It is not the before-SBC vendor figure behind the FCF CAGR. The two segments share the SBC treatment but differ on leverage: for a leveraged issuer the level steps at the history→forecast seam by roughly after-tax interest, and that step is a change of basis, not a forecast of improvement.",
+        "Scenario paths can cross: the higher-growth shock reinvests more up front, so its near-term FCF may sit below the lower-growth shock. The bull-to-bear spread is the scenario range; bull/bear labels do not imply an ordering of each operating metric.",
+        "Operating EPS = (forward operating EBIT − interest expense 3.8B a year at the latest quarter's run-rate (the quarter ending 2026-03-28's interest 0.95B × 4), held flat) × (1 − that year's DCF tax rate) ÷ diluted shares with applied change 0%/yr (year-one net income / EBIT 0.83). Interest income, investment gains and other non-operating items are excluded, so this is operating EPS, not a forecast of GAAP diluted EPS.",
+        "The base holds the diluted share count flat: a repurchase authorization is discretionary capacity, not a committed schedule, and future repurchases depend on cash and price. Positive dilution is retained only when the observed share-count trend is positive. No remaining repurchase authorization was read from the filings. The historical-share-trend alternative is hypothetical and does not deduct repurchase cash from equity value; flat-share EPS isolates operating performance."
+      ]
+    },
+    {
+      "path": "payload.estimates.figures[0].label",
+      "before": "est revenue 2026-09-30",
+      "after": "est revenue 2026-09-26"
+    },
+    {
+      "path": "payload.estimates.figures[0].period",
+      "before": "2026-09-30",
+      "after": "2026-09-26"
+    },
+    {
+      "path": "payload.estimates.figures[0].provenanceId",
+      "before": "payload.estimates.est-revenue-2026-09-30",
+      "after": "payload.estimates.est-revenue-2026-09-26"
+    },
+    {
+      "path": "payload.estimates.figures[1].label",
+      "before": "est EPS 2026-09-30",
+      "after": "est EPS 2026-09-26"
+    },
+    {
+      "path": "payload.estimates.figures[1].period",
+      "before": "2026-09-30",
+      "after": "2026-09-26"
+    },
+    {
+      "path": "payload.estimates.figures[1].provenanceId",
+      "before": "payload.estimates.est-eps-2026-09-30",
+      "after": "payload.estimates.est-eps-2026-09-26"
+    },
+    {
+      "path": "payload.estimates.figures[2].label",
+      "before": "est revenue 2027-09-30",
+      "after": "est revenue 2027-09-25"
+    },
+    {
+      "path": "payload.estimates.figures[2].period",
+      "before": "2027-09-30",
+      "after": "2027-09-25"
+    },
+    {
+      "path": "payload.estimates.figures[2].provenanceId",
+      "before": "payload.estimates.est-revenue-2027-09-30",
+      "after": "payload.estimates.est-revenue-2027-09-25"
+    },
+    {
+      "path": "payload.estimates.figures[3].label",
+      "before": "est EPS 2027-09-30",
+      "after": "est EPS 2027-09-25"
+    },
+    {
+      "path": "payload.estimates.figures[3].period",
+      "before": "2027-09-30",
+      "after": "2027-09-25"
+    },
+    {
+      "path": "payload.estimates.figures[3].provenanceId",
+      "before": "payload.estimates.est-eps-2027-09-30",
+      "after": "payload.estimates.est-eps-2027-09-25"
+    },
+    {
+      "path": "payload.filings[0].coverage.categories",
+      "before": [
+        {
+          "category": "products-roadmap",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "customers",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "suppliers-manufacturing",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "competition",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "regulation-export",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "investments",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "commitments-guarantees",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "results",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "guidance",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "capex-liquidity",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "tax",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "exceptional",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "internal-controls",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "contingencies",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        }
+      ],
+      "after": [
+        {
+          "category": "products-roadmap",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "customers",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "suppliers-manufacturing",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "competition",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "regulation-export",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "commercial-terms",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "reporting-changes",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "investments",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "commitments-guarantees",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "results",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "guidance",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "capex-liquidity",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "tax",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "exceptional",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "internal-controls",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "contingencies",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        }
+      ]
+    },
+    {
+      "path": "payload.filings[0].coverage.version",
+      "before": "section-evidence-4/risk",
+      "after": "section-evidence-7/risk"
+    },
+    {
+      "path": "payload.filings[1].coverage.categories",
+      "before": [
+        {
+          "category": "results",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "guidance",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "capex-liquidity",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "tax",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "exceptional",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "fcf",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "earnings-quality",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "subsequent-liquidity",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "distribution-costs",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        }
+      ],
+      "after": [
+        {
+          "category": "results",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "guidance",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "capex-liquidity",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "tax",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "exceptional",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "fcf",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "earnings-quality",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "subsequent-liquidity",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "distribution-costs",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "operating-costs",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "commercial-terms",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        }
+      ]
+    },
+    {
+      "path": "payload.filings[1].coverage.version",
+      "before": "section-evidence-2",
+      "after": "section-evidence-7"
+    },
+    {
+      "path": "payload.missingData[6].reason",
+      "before": "40212 of 54000 source chars omitted by section-evidence-4/risk for edgar:10-K item1A as of 2025-09-27. products-roadmap: not-found (0/0 candidate passages retained); customers: not-found (0/0 candidate passages retained); suppliers-manufacturing: not-found (0/0 candidate passages retained); competition: not-found (0/0 candidate passages retained); regulation-export: not-found (0/0 candidate passages retained); investments: not-found (0/0 candidate passages retained); commitments-guarantees: not-found (0/0 candidate passages retained); results: not-found (0/0 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); internal-controls: not-found (0/0 candidate passages retained); contingencies: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist.",
+      "after": "40212 of 54000 source chars omitted by section-evidence-7/risk for edgar:10-K item1A as of 2025-09-27. products-roadmap: not-found (0/0 candidate passages retained); customers: not-found (0/0 candidate passages retained); suppliers-manufacturing: not-found (0/0 candidate passages retained); competition: not-found (0/0 candidate passages retained); regulation-export: not-found (0/0 candidate passages retained); commercial-terms: not-found (0/0 candidate passages retained); reporting-changes: not-found (0/0 candidate passages retained); investments: not-found (0/0 candidate passages retained); commitments-guarantees: not-found (0/0 candidate passages retained); results: not-found (0/0 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); internal-controls: not-found (0/0 candidate passages retained); contingencies: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist."
+    },
+    {
+      "path": "payload.missingData[7].reason",
+      "before": "26928 of 33000 source chars omitted by section-evidence-2 for edgar:10-K item7 as of 2025-09-27. results: not-found (0/0 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist.",
+      "after": "26928 of 33000 source chars omitted by section-evidence-7 for edgar:10-K item7 as of 2025-09-27. results: not-found (0/0 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained); operating-costs: not-found (0/0 candidate passages retained); commercial-terms: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist."
+    },
+    {
+      "path": "payload.missingData[8].reason",
+      "before": "54528 of 64000 source chars omitted by section-evidence-2 for fmp:earning-call-transcript as of 2026-05-01. results: retained (296/2000 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist.",
+      "after": "54528 of 64000 source chars omitted by section-evidence-7 for fmp:earning-call-transcript as of 2026-05-01. results: retained (296/2000 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained); operating-costs: not-found (0/0 candidate passages retained); commercial-terms: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist."
+    },
+    {
+      "path": "payload.payloadVersion",
+      "before": "1.88.0",
+      "after": "1.89.0"
+    },
+    {
+      "path": "payload.transcript.coverage.categories",
+      "before": [
+        {
+          "category": "results",
+          "status": "retained",
+          "availablePassages": 2000,
+          "retainedPassages": 296
+        },
+        {
+          "category": "guidance",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "capex-liquidity",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "tax",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "exceptional",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "fcf",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "earnings-quality",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "subsequent-liquidity",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "distribution-costs",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        }
+      ],
+      "after": [
+        {
+          "category": "results",
+          "status": "retained",
+          "availablePassages": 2000,
+          "retainedPassages": 296
+        },
+        {
+          "category": "guidance",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "capex-liquidity",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "tax",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "exceptional",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "fcf",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "earnings-quality",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "subsequent-liquidity",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "distribution-costs",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "operating-costs",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        },
+        {
+          "category": "commercial-terms",
+          "status": "not-found",
+          "availablePassages": 0,
+          "retainedPassages": 0
+        }
+      ]
+    },
+    {
+      "path": "payload.transcript.coverage.version",
+      "before": "section-evidence-2",
+      "after": "section-evidence-7"
+    }
+  ],
+  "registries": {
+    "provenanceRegistry": {
+      "added": [
+        {
+          "id": "computed.valuation.mechanical-tax-capital-sensitivity-1-first-5-years-tax-shift-5-pp-sales-capital-factor-0-75",
+          "label": "mechanical tax/capital sensitivity 1: first 5 years tax shift -5 pp, sales/capital factor 0.75",
+          "kind": "computed",
+          "value": 126.58183632361582,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "period": null,
+          "asOf": "2026-07-05",
+          "origin": "computed.valuation.taxCapitalSensitivity.cell1",
+          "formulaVersion": "stage-b-v1",
+          "displayPrecision": 4
+        },
+        {
+          "id": "computed.valuation.mechanical-tax-capital-sensitivity-2-first-5-years-tax-shift-5-pp-sales-capital-factor-1",
+          "label": "mechanical tax/capital sensitivity 2: first 5 years tax shift -5 pp, sales/capital factor 1",
+          "kind": "computed",
+          "value": 127.78614366556666,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "period": null,
+          "asOf": "2026-07-05",
+          "origin": "computed.valuation.taxCapitalSensitivity.cell2",
+          "formulaVersion": "stage-b-v1",
+          "displayPrecision": 4
+        },
+        {
+          "id": "computed.valuation.mechanical-tax-capital-sensitivity-3-first-5-years-tax-shift-5-pp-sales-capital-factor-1-25",
+          "label": "mechanical tax/capital sensitivity 3: first 5 years tax shift -5 pp, sales/capital factor 1.25",
+          "kind": "computed",
+          "value": 128.50872807073713,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "period": null,
+          "asOf": "2026-07-05",
+          "origin": "computed.valuation.taxCapitalSensitivity.cell3",
+          "formulaVersion": "stage-b-v1",
+          "displayPrecision": 4
+        },
+        {
+          "id": "computed.valuation.mechanical-tax-capital-sensitivity-4-first-5-years-tax-shift-0-pp-sales-capital-factor-0-75",
+          "label": "mechanical tax/capital sensitivity 4: first 5 years tax shift 0 pp, sales/capital factor 0.75",
+          "kind": "computed",
+          "value": 124.33785470060462,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "period": null,
+          "asOf": "2026-07-05",
+          "origin": "computed.valuation.taxCapitalSensitivity.cell4",
+          "formulaVersion": "stage-b-v1",
+          "displayPrecision": 4
+        },
+        {
+          "id": "computed.valuation.mechanical-tax-capital-sensitivity-5-first-5-years-tax-shift-0-pp-sales-capital-factor-1",
+          "label": "mechanical tax/capital sensitivity 5: first 5 years tax shift 0 pp, sales/capital factor 1",
+          "kind": "computed",
+          "value": 125.54216204255545,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "period": null,
+          "asOf": "2026-07-05",
+          "origin": "computed.valuation.taxCapitalSensitivity.cell5",
+          "formulaVersion": "stage-b-v1",
+          "displayPrecision": 4
+        },
+        {
+          "id": "computed.valuation.mechanical-tax-capital-sensitivity-6-first-5-years-tax-shift-0-pp-sales-capital-factor-1-25",
+          "label": "mechanical tax/capital sensitivity 6: first 5 years tax shift 0 pp, sales/capital factor 1.25",
+          "kind": "computed",
+          "value": 126.26474644772594,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "period": null,
+          "asOf": "2026-07-05",
+          "origin": "computed.valuation.taxCapitalSensitivity.cell6",
+          "formulaVersion": "stage-b-v1",
+          "displayPrecision": 4
+        },
+        {
+          "id": "computed.valuation.mechanical-tax-capital-sensitivity-7-first-5-years-tax-shift-5-pp-sales-capital-factor-0-75",
+          "label": "mechanical tax/capital sensitivity 7: first 5 years tax shift 5 pp, sales/capital factor 0.75",
+          "kind": "computed",
+          "value": 122.09387307759343,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "period": null,
+          "asOf": "2026-07-05",
+          "origin": "computed.valuation.taxCapitalSensitivity.cell7",
+          "formulaVersion": "stage-b-v1",
+          "displayPrecision": 4
+        },
+        {
+          "id": "computed.valuation.mechanical-tax-capital-sensitivity-8-first-5-years-tax-shift-5-pp-sales-capital-factor-1",
+          "label": "mechanical tax/capital sensitivity 8: first 5 years tax shift 5 pp, sales/capital factor 1",
+          "kind": "computed",
+          "value": 123.29818041954427,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "period": null,
+          "asOf": "2026-07-05",
+          "origin": "computed.valuation.taxCapitalSensitivity.cell8",
+          "formulaVersion": "stage-b-v1",
+          "displayPrecision": 4
+        },
+        {
+          "id": "computed.valuation.mechanical-tax-capital-sensitivity-9-first-5-years-tax-shift-5-pp-sales-capital-factor-1-25",
+          "label": "mechanical tax/capital sensitivity 9: first 5 years tax shift 5 pp, sales/capital factor 1.25",
+          "kind": "computed",
+          "value": 124.02076482471475,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "period": null,
+          "asOf": "2026-07-05",
+          "origin": "computed.valuation.taxCapitalSensitivity.cell9",
+          "formulaVersion": "stage-b-v1",
+          "displayPrecision": 4
+        },
+        {
+          "id": "payload.estimates.est-revenue-2026-09-26",
+          "label": "est revenue 2026-09-26",
+          "kind": "provider",
+          "value": 440000000000,
+          "unit": "currency",
+          "currency": "USD",
+          "currencyBasis": "inherited",
+          "period": "2026-09-26",
+          "asOf": "2026-07-06",
+          "origin": "fmp:analyst-estimates",
+          "estimateTiming": {
+            "version": "1",
+            "precision": "day-UTC",
+            "asOfRole": "unclassified",
+            "acquisitionOrigin": "legacy-recorded",
+            "acquiredOn": null,
+            "fixtureLoadedOn": null,
+            "recordedOn": "2026-07-06",
+            "publishedOn": null,
+            "envelopeReferenceOn": "2026-07-01"
+          },
+          "formulaVersion": null,
+          "displayPrecision": 4
+        },
+        {
+          "id": "payload.estimates.est-eps-2026-09-26",
+          "label": "est EPS 2026-09-26",
+          "kind": "provider",
+          "value": 7.5,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "currencyBasis": "inherited",
+          "period": "2026-09-26",
+          "asOf": "2026-07-06",
+          "origin": "fmp:analyst-estimates",
+          "estimateTiming": {
+            "version": "1",
+            "precision": "day-UTC",
+            "asOfRole": "unclassified",
+            "acquisitionOrigin": "legacy-recorded",
+            "acquiredOn": null,
+            "fixtureLoadedOn": null,
+            "recordedOn": "2026-07-06",
+            "publishedOn": null,
+            "envelopeReferenceOn": "2026-07-01"
+          },
+          "formulaVersion": null,
+          "displayPrecision": 4
+        },
+        {
+          "id": "payload.estimates.est-revenue-2027-09-25",
+          "label": "est revenue 2027-09-25",
+          "kind": "provider",
+          "value": 470000000000,
+          "unit": "currency",
+          "currency": "USD",
+          "currencyBasis": "inherited",
+          "period": "2027-09-25",
+          "asOf": "2026-07-06",
+          "origin": "fmp:analyst-estimates",
+          "estimateTiming": {
+            "version": "1",
+            "precision": "day-UTC",
+            "asOfRole": "unclassified",
+            "acquisitionOrigin": "legacy-recorded",
+            "acquiredOn": null,
+            "fixtureLoadedOn": null,
+            "recordedOn": "2026-07-06",
+            "publishedOn": null,
+            "envelopeReferenceOn": "2026-07-01"
+          },
+          "formulaVersion": null,
+          "displayPrecision": 4
+        },
+        {
+          "id": "payload.estimates.est-eps-2027-09-25",
+          "label": "est EPS 2027-09-25",
+          "kind": "provider",
+          "value": 8.2,
+          "unit": "currency-per-share",
+          "currency": "USD",
+          "currencyBasis": "inherited",
+          "period": "2027-09-25",
+          "asOf": "2026-07-06",
+          "origin": "fmp:analyst-estimates",
+          "estimateTiming": {
+            "version": "1",
+            "precision": "day-UTC",
+            "asOfRole": "unclassified",
+            "acquisitionOrigin": "legacy-recorded",
+            "acquiredOn": null,
+            "fixtureLoadedOn": null,
+            "recordedOn": "2026-07-06",
+            "publishedOn": null,
+            "envelopeReferenceOn": "2026-07-01"
+          },
+          "formulaVersion": null,
+          "displayPrecision": 4
+        }
+      ],
+      "removed": [
+        {
+          "index": 346,
+          "value": {
+            "id": "payload.estimates.est-revenue-2026-09-30",
+            "label": "est revenue 2026-09-30",
+            "kind": "provider",
+            "value": 440000000000,
+            "unit": "currency",
+            "currency": "USD",
+            "currencyBasis": "inherited",
+            "period": "2026-09-30",
+            "asOf": "2026-07-06",
+            "origin": "fmp:analyst-estimates",
+            "estimateTiming": {
+              "version": "1",
+              "precision": "day-UTC",
+              "asOfRole": "unclassified",
+              "acquisitionOrigin": "legacy-recorded",
+              "acquiredOn": null,
+              "fixtureLoadedOn": null,
+              "recordedOn": "2026-07-06",
+              "publishedOn": null,
+              "envelopeReferenceOn": "2026-07-01"
+            },
+            "formulaVersion": null,
+            "displayPrecision": 4
+          }
+        },
+        {
+          "index": 347,
+          "value": {
+            "id": "payload.estimates.est-eps-2026-09-30",
+            "label": "est EPS 2026-09-30",
+            "kind": "provider",
+            "value": 7.5,
+            "unit": "currency-per-share",
+            "currency": "USD",
+            "currencyBasis": "inherited",
+            "period": "2026-09-30",
+            "asOf": "2026-07-06",
+            "origin": "fmp:analyst-estimates",
+            "estimateTiming": {
+              "version": "1",
+              "precision": "day-UTC",
+              "asOfRole": "unclassified",
+              "acquisitionOrigin": "legacy-recorded",
+              "acquiredOn": null,
+              "fixtureLoadedOn": null,
+              "recordedOn": "2026-07-06",
+              "publishedOn": null,
+              "envelopeReferenceOn": "2026-07-01"
+            },
+            "formulaVersion": null,
+            "displayPrecision": 4
+          }
+        },
+        {
+          "index": 348,
+          "value": {
+            "id": "payload.estimates.est-revenue-2027-09-30",
+            "label": "est revenue 2027-09-30",
+            "kind": "provider",
+            "value": 470000000000,
+            "unit": "currency",
+            "currency": "USD",
+            "currencyBasis": "inherited",
+            "period": "2027-09-30",
+            "asOf": "2026-07-06",
+            "origin": "fmp:analyst-estimates",
+            "estimateTiming": {
+              "version": "1",
+              "precision": "day-UTC",
+              "asOfRole": "unclassified",
+              "acquisitionOrigin": "legacy-recorded",
+              "acquiredOn": null,
+              "fixtureLoadedOn": null,
+              "recordedOn": "2026-07-06",
+              "publishedOn": null,
+              "envelopeReferenceOn": "2026-07-01"
+            },
+            "formulaVersion": null,
+            "displayPrecision": 4
+          }
+        },
+        {
+          "index": 349,
+          "value": {
+            "id": "payload.estimates.est-eps-2027-09-30",
+            "label": "est EPS 2027-09-30",
+            "kind": "provider",
+            "value": 8.2,
+            "unit": "currency-per-share",
+            "currency": "USD",
+            "currencyBasis": "inherited",
+            "period": "2027-09-30",
+            "asOf": "2026-07-06",
+            "origin": "fmp:analyst-estimates",
+            "estimateTiming": {
+              "version": "1",
+              "precision": "day-UTC",
+              "asOfRole": "unclassified",
+              "acquisitionOrigin": "legacy-recorded",
+              "acquiredOn": null,
+              "fixtureLoadedOn": null,
+              "recordedOn": "2026-07-06",
+              "publishedOn": null,
+              "envelopeReferenceOn": "2026-07-01"
+            },
+            "formulaVersion": null,
+            "displayPrecision": 4
+          }
+        }
+      ],
+      "changed": []
+    },
+    "citationRegistry": {
+      "added": [],
+      "removed": [],
+      "changed": []
+    }
+  }
+}

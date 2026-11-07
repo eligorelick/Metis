@@ -120,7 +120,7 @@ function articleContent(html: string): { title: string; text: string; html: stri
 function issuerAliases(issuer: ConfirmedIssuerIdentity): string[] {
   const name = issuer.canonicalName.trim();
   const core = name.replace(/,?\s+(?:incorporated|inc|corporation|corp|limited|ltd|plc|llc)\.?$/i, "");
-  return [...new Set([name, name.replace(/,\s*(?=(?:inc|corp|ltd)\.?$)/i, " "), ...(core.split(/\s+/).length > 1 ? [core] : []), ...(issuer.validAliases ?? [])])].filter(alias => alias.length >= 3);
+  return [...new Set([name, name.replace(/,\s*(?=(?:inc|corp|ltd)\.?$)/i, " "), core, ...(issuer.validAliases ?? [])])].filter(alias => alias.length >= 3);
 }
 
 function namesIssuer(title: string, issuer: ConfirmedIssuerIdentity): boolean {
@@ -143,7 +143,7 @@ function fiscalTitle(title: string): Pick<OfficialIrDocument, "fiscalYear" | "qu
   return labels.length && labels.every(label => label.quarter === labels[0]!.quarter && label.fiscalYear === labels[0]!.fiscalYear) ? labels[0]! : {};
 }
 
-const PRESS_HEADLINE = /\b(?:announc(?:e|es|ed|ing)|reports?|results|launches?|acquir(?:e[sd]?|ing)|appoint(?:s|ed)?|declares?|introduces?|unveils?)\b/i;
+const PRESS_HEADLINE = /\b(?:announc(?:e|es|ed|ing)|reports?|results|launches?|acquir(?:e[sd]?|ing)|appoint(?:s|ed)?|declares?|introduces?|unveils?|selects?|partners?|collaborates?|expands?|extends?|signs?)\b/i;
 const REPORT_NAVIGATION = /^(?:20\d{2}\s+)?(?:(?:annual|quarterly|financial|integrated|sustainability|responsibility|esg)\s+)?reports?(?:\s*(?:&|and)\s*(?:proxies|proxy statements?))?(?:\s+(?:archive|library))?(?:\s+20\d{2})?\s*$/i;
 const NEWS_INDEX = /^(?:latest\s+)?(?:news(?:room)?|press releases?|news (?:and|&) press releases?|news (?:and|&) events)\s*$/i;
 const EVENTS_INDEX = /^(?:events?(?:\s+(?:and|&)\s+presentations?)?|presentations?|quarterly results|financial results|earnings(?:\s+(?:and|&)\s+events)?)\s*$/i;
@@ -251,12 +251,14 @@ export async function discoverCompanyIrDocuments(
       if (page.stage === "company") {
         const ir = all.find(link => /\binvestor(?:s| relations)?\b/i.test(link.text));
         if (ir) add(ir, "ir");
-        if (opts.needs.pressReleases) all.filter(link => sameIssuerHost(link.url) && NEWS_INDEX.test(link.text)).slice(0, 1).forEach(link => add(link, "index"));
+        // The confirmed company homepage can explicitly authorize a hosted
+        // newsroom just as it authorizes a hosted investor-relations site.
+        if (opts.needs.pressReleases) all.filter(link => NEWS_INDEX.test(link.text)).slice(0, 1).forEach(link => add(link, "index"));
         continue;
       }
       const local = all.filter(link => new URL(link.url).origin === new URL(page.url).origin);
       if (page.stage === "ir") {
-        if (opts.needs.pressReleases) local.filter(link => NEWS_INDEX.test(link.text)).slice(0, 1).forEach(link => add(link, "index"));
+        if (opts.needs.pressReleases) all.filter(link => (new URL(link.url).origin === new URL(page.url).origin || sameIssuerHost(link.url)) && NEWS_INDEX.test(link.text)).slice(0, 1).forEach(link => add(link, "index"));
         if (opts.needs.transcript) local.filter(link => EVENTS_INDEX.test(link.text)).slice(0, 1).forEach(link => add(link, "index"));
       }
       if (opts.needs.transcript && !documents.some(d => d.kind === "earnings-transcript")) {

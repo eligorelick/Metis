@@ -791,7 +791,7 @@ export function projectionAvailability(series: readonly ProjectionSeries[]): { f
 export function projectionDisplayAssumptions(series: ProjectionSeries): string[] {
   const available = projectionAvailability([series]);
   if (!available.forward) return [];
-  return available.weighted ? series.assumptions : series.assumptions.filter(line =>
+  return available.weighted ? [...series.assumptions, "Weighted rows are independently averaged scenario metrics under the fixed display prior. Weighted revenue, margin and EPS do not form one reconciling income statement; revenue and margin covary across scenarios."] : series.assumptions.filter(line =>
     !/\b(?:weighted (?:path|margin)|display (?:prior|weights?))\b/i.test(line));
 }
 

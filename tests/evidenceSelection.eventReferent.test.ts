@@ -24,7 +24,7 @@ describe("8-K event excerpts keep a person's amount with the sentence that names
     expect(cut.text).toContain("Jane Testcase, an employee of the Company, is the sister-in-law of Mr. Testcase.");
     if (cut.text.includes("annual salary")) expect(cut.text).toContain(REFERENT_AND_SALARY);
     for (const orphan of ["omitted…]\nMs. Testcase", "omitted…]\nIn 2026, she", "omitted…]\nHer compensation"]) expect(cut.text).not.toContain(orphan);
-    expect(cut.coverage.version).toBe("section-evidence-6/event");
+    expect(cut.coverage.version).toBe("section-evidence-7/event");
   });
   it("keeps the related-person amount with its referent when there is room", () => {
     expect(selectMaterialEvidence(BODY, 1_700, "event").text).toContain(REFERENT_AND_SALARY);
@@ -61,7 +61,7 @@ describe("8-K event excerpts keep a person's amount with the sentence that names
 
   it("leaves the other profiles' coverage version unchanged", () => {
     for (const profile of ["financial", "business", "interim"] as const) {
-      expect(selectMaterialEvidence(BODY, 600, profile).coverage.version).toBe(profile === "financial" ? "section-evidence-2" : `section-evidence-2/${profile}`);
+      expect(selectMaterialEvidence(BODY, 600, profile).coverage.version).toBe(profile === "financial" ? "section-evidence-7" : `section-evidence-7/${profile}`);
     }
   });
 });

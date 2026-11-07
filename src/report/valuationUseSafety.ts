@@ -57,6 +57,9 @@ export function withValuationUseSafety(report: Report): Report {
     view.fairValue = fairValue;
   }
   if (use.status !== "current") {
+    if (view.valuation.dcf.taxCapitalSensitivity) view.valuation.dcf.taxCapitalSensitivity = {
+      ...view.valuation.dcf.taxCapitalSensitivity, rows: [], withheldReason: valuationUseExplanation(use),
+    };
     view.valuation.dcf.perShare = null; view.valuation.dcf.upsidePct = null;
     view.valuation.reverseDcf.impliedValue = null;
     if (view.scenarioTargets?.status === "available") {

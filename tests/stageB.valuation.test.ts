@@ -2245,7 +2245,7 @@ describe("terminalRoic — evidenced excess returns carried into the terminal", 
     expect(t.roicTermPct).toBe(14);
     expect(t.excessPp).toBe(TERMINAL_EXCESS_RETURN_CAP_PP);
     expect(t.note).toBeNull();
-    expect(t.basis).toMatch(/^terminal ROIC = WACC 9% \+ 5pp evidenced excess return: ROIC exceeded WACC in each of the last 5 fiscal years \(2021-12-31 to 2025-12-31, median spread 15pp\)/);
+    expect(t.basis).toMatch(/^terminal ROIC = WACC 9% \+ 5pp evidenced excess return: ROIC exceeded WACC in 5 observed fiscal years \(2021-12-31 to 2025-12-31, median spread 15pp\)/);
   });
 
   it("carries less than the cap when the spread is modest", () => {

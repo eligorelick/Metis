@@ -2806,7 +2806,9 @@ function extractProvedForeignNotes(html: string, structure: ReturnType<typeof ap
 
 /** Preserve the original appendix proof and its exact output. */
 function extractAnnualAppendixNotes(html: string): ReturnType<typeof extractAnnualNotesFromIndex> {
-  const structure = appendixStructure(html);
+  // Filing generators use self-closing empty cell spacers; the layout parser
+  // admits only cells immediately followed by another cell or the row close.
+  const structure = appendixStructure(html, true);
   if (!structure) return null;
   const { elements, text } = structure;
   const nodeText = (node: AppendixElement) => text(node.start, node.end);
@@ -2823,7 +2825,7 @@ function extractAnnualAppendixNotes(html: string): ReturnType<typeof extractAnnu
   const begin = item15[0]!;
   const role = (title: string): "notes" | "schedule" | "statements" | null => {
     if (/^Notes to (?:the )?(?:Condensed )?(?:Consolidated )?Financial (?:Statements|Information)$/i.test(title)) return "notes";
-    if (/^Schedule II(?:\s*[-–—:]\s*Valuation and Qualifying Accounts)?$/i.test(title)) return "schedule";
+    if (/^(?:\(\d{1,2}\) )?Schedule II(?:\s*[-–—:]\s*Valuation and Qualifying Accounts)?(?: for Fiscal 20\d{2}(?:(?:,? and|,) 20\d{2}){0,3})?$/i.test(title)) return "schedule";
     if (/^Consolidated Balance Sheets$/i.test(title)) return "statements";
     return null;
   };
@@ -2862,7 +2864,9 @@ function extractAnnualAppendixNotes(html: string): ReturnType<typeof extractAnnu
     // An empty named anchor/wrapper may immediately precede its heading. No
     // unbounded scan past a wrong title, reference, company prose or index.
     const heading = headings.find(n => n.start >= target.start && n.start - target.start <= 1000 &&
-      text(target.start, n.start) === "" && normalizeTitle(nodeText(n)) === normalizeTitle(entry.title));
+      (text(target.start, n.start) === "" || (entry.role === "notes" &&
+        /^[A-Z][A-Z0-9 &.,'’()\-]+ (?:Incorporated|Corporation|INC\.?|CORP\.?)$/.test(text(target.start, n.start)))) && (normalizeTitle(nodeText(n)) === normalizeTitle(entry.title) ||
+        (entry.role === "schedule" && /^Schedule II$/i.test(nodeText(n)))));
     return heading ? { target, heading } : null;
   };
   const start = resolve(notes), end = resolve(schedule);
@@ -2883,7 +2887,7 @@ function extractAnnualAppendixNotes(html: string): ReturnType<typeof extractAnnu
   // This deliberately small supported-title set is generic across issuers.
   // A block end or period/colon followed by whitespace/end must terminate it;
   // "Organization is described ..." is not an Organization heading.
-  const financialTitle = /^(?:Organization(?: and Business)?|Description of Business|Basis of Presentation|(?:Organization and )?Summary of Significant Accounting Policies)(?:[.:](?:\s|$)|$)/i;
+  const financialTitle = /^(?:Organization(?: and Business)?|Description of Business|Basis of Presentation|(?:Organization and )?Summary of Significant Accounting Policies|Significant Accounting Policies)(?:[.:](?:\s|$)|$)/i;
   if (!standaloneMarker && (marker === null || !financialTitle.test(marker[1]!))) return null;
   // A linked schedule cannot authorize swallowing other appendices/signatures.
   // Exact standalone titles only: a paragraph beginning with a full title and

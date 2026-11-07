@@ -1,3 +1,4 @@
+import { citationSourceId } from "@/pipeline/stageC/citations";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
 import { withValuationUseSafety } from "@/report/valuationUseSafety";
@@ -199,6 +200,31 @@ export function esc(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/** Only literal HTTP(S) destinations are navigable; all text and attributes are escaped. */
+function safeLink(text: string, destination: string): string {
+  try {
+    const url = new URL(destination);
+    if ((url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password) return `<a href="${esc(url.href)}">${esc(text)}</a>`;
+  } catch { /* A registry tag is text, not a URL. */ }
+  return esc(text);
+}
+
+function linkedText(text: string): string {
+  const pattern = /https?:\/\/[^\s<>"']+/g;
+  let offset = 0;
+  let html = "";
+  for (const match of text.matchAll(pattern)) {
+    html += esc(text.slice(offset, match.index)) + safeLink(match[0], match[0]);
+    offset = match.index! + match[0].length;
+  }
+  return html + esc(text.slice(offset));
+}
+
+function citationHtml(claim: SourcedClaim): string {
+  const linked = safeLink(claimCitation(claim), citationSourceId(claim) ?? "");
+  return linked.startsWith("<a ") ? linked : `<a href="#report-sources">${linked}</a>`;
+}
+
 /** Escaped stored prose: registry ids under reader labels, figures at reader precision (D-67). */
 function prose(text: string, source?: string): string {
   return esc(displayProse(text, source));
@@ -230,13 +256,13 @@ function gradeClass(grade: string): string {
  * HTML building blocks
  * ======================================================================== */
 
-function h2(index: number, title: string): string {
-  return `<h2 class="sec"><span class="secno">${index}</span> ${esc(title)}</h2>`;
+function h2(index: number, title: string, anchor: string): string {
+  return `<h2 class="sec" id="${esc(anchor)}"><span class="secno">${index}</span> ${esc(title)}</h2>`;
 }
 
 function sectionHeading(key: ReportSectionKey): string {
   const section = reportSection(key);
-  return h2(section.index, section.printTitle);
+  return h2(section.index, section.printTitle, `report-${key}`);
 }
 
 /** Allocate print space by column role, never by a financial value. */
@@ -282,7 +308,7 @@ function printTokens(html: string): string {
  */
 function bodyTable(headers: readonly string[], rows: readonly (readonly string[])[], keep: readonly string[] = []): string {
   const pruned = pruneTable(headers, rows, keep);
-  return pruned === null ? "" : table(pruned.headers, pruned.rows.map((row) => row.map(esc)));
+  return pruned === null ? "" : table(pruned.headers, pruned.rows.map((row) => row.map(linkedText)));
 }
 
 function subsection(heading: string, body: string, level = "h3"): string {
@@ -310,7 +336,7 @@ function claimReasoning(reasoning: SourcedClaim | SourcedClaim[]): string {
 function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   if (claims.length === 0) return "";
   return `<ul class="claims">${claims
-    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${esc(displayClaimText(c, numbers))} <span class="src">${esc(claimCitation(c))}</span>${statusMark(c)}</li>`)
+    .map((c) => `<li><span class="label ${c.label.toLowerCase()}">${esc(c.label)}</span> ${esc(displayClaimText(c, numbers))} <span class="src">${citationHtml(c)}</span>${statusMark(c)}</li>`)
     .join("")}</ul>`;
 }
 
@@ -371,8 +397,8 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
 
 function segmentTable(rows: readonly SegmentRow[], geographic = false): string {
   return bodyTable(
-    ["Segment", "Revenue", "Share"],
-    rows.map((s) => [geographic ? geographyLabel(s.name) : s.name, formatFinancialAmount(s.revenue.value, s.revenue.unit, s.revenue.currency), s.sharePct === null ? DASH : `${s.sharePct.toFixed(1)}%`]),
+    ["Segment", "Revenue", "Share", "Period", "As of"],
+    rows.map((s) => [geographic ? geographyLabel(s.name) : s.name, formatFinancialAmount(s.revenue.value, s.revenue.unit, s.revenue.currency), s.sharePct === null ? DASH : `${s.sharePct.toFixed(1)}%`, tracedPeriodLabel(s.revenue.period, s.revenue.periodContext), s.revenue.asOf ?? DASH]),
   );
 }
 
@@ -409,6 +435,7 @@ function headerBlock(report: Report): string {
     <h1>${esc(m.companyName)} <span class="ticker">(${esc(m.symbol)})</span></h1>
     <p class="subtitle">Equity Research Report</p>
     <p>Report date: ${esc(m.generatedAt.slice(0, 10))}</p>
+    <nav aria-label="Report navigation"><a href="#report-verdict">Decision</a> · <a href="#report-business">Business</a> · <a href="#report-valuation">Valuation</a> · <a href="#report-appendix">Methodology and evidence appendix</a> · <a href="#report-sources">Sources</a></nav>
     <p class="disclaimer">${esc(m.disclaimer)}</p>
     ${syntheticNotice(report) ? `<p class="disclaimer">${esc(syntheticNotice(report)!)}</p>` : ""}
     ${providerFallbackNotice(report) ? `<p class="disclaimer">${esc(providerFallbackNotice(report)!)}</p>` : ""}
@@ -467,7 +494,7 @@ function managementActionsBlock(actions: Leadership["managementActions"]): strin
       SHAREHOLDER_ALIGNMENT_LABELS[item.shareholderAlignment], claimReasoning(managementActionClaims(item))]),
     ["Shareholder alignment"],
   );
-  return `<h3>${esc(MANAGEMENT_ACTIONS_HEADING)}</h3>${body}`;
+  return `<h3 id="report-management-actions">${esc(MANAGEMENT_ACTIONS_HEADING)}</h3>${body}`;
 }
 
 function sectionScores(scores: Scoring): string {
@@ -493,11 +520,12 @@ function sectionScores(scores: Scoring): string {
 
 function sectionBusiness(b: Business, extra: ReportAuditTable[] = []): string {
   const quarterly = bodyTables(extra);
-  // D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export.
-  const annual = (showAnnualSegments(quarterly.length > 0)
-    ? subsection(annualSegmentHeading("Product", b.segments.product, false), segmentTable(b.segments.product)) : "") +
-    (showAnnualSegments(quarterly.length > 0) || geographicBasisNote(b.segments.geographic)
-      ? `${subsection(annualSegmentHeading("Geographic", b.segments.geographic, false), segmentTable(b.segments.geographic, true))}${geographicBasisNote(b.segments.geographic) ? `<p class="faint">${esc(geographicBasisNote(b.segments.geographic)!)}</p>` : ""}` : "");
+  // Keep dated geography and explicitly referenced annual categories inspectable.
+  const annualProductReference = [...b.whatTheySell, ...b.concentrationRisks].some(c => /annual product|product categor|product table/i.test(c.text));
+  const annual = (showAnnualSegments(quarterly.length > 0) || annualProductReference
+    ? subsection(annualSegmentHeading("Product", b.segments.product, quarterly.length > 0), segmentTable(b.segments.product)) : "") +
+    (b.segments.geographic.length > 0
+      ? `${subsection(annualSegmentHeading("Geographic", b.segments.geographic, quarterly.length > 0), segmentTable(b.segments.geographic, true))}${geographicBasisNote(b.segments.geographic) ? `<p class="faint">${esc(geographicBasisNote(b.segments.geographic)!)}</p>` : ""}` : "");
   return `<section class="block">${sectionHeading("business")}
     ${subsection("What they sell", claimList(b.whatTheySell))}
     ${b.marketStructure?.length ? subsection("Market & industry structure", claimList(b.marketStructure)) : ""}
@@ -721,18 +749,19 @@ function sectionLeadership(l: Leadership, report: Report): string {
   const roster = leadershipRosterPresentation(l);
   // D-67: one card per assessed officer; the not-assessed officers share one line.
   const contexts = new Map(l.executives.map(e => [e, executiveOfficeContext(e, l, report.appendix.verificationLog, report.outlook.guidanceCredibility)]));
+  const companyClaims = (l.managementActions ?? []).flatMap(managementActionClaims);
   const groups = executiveGroups(l.executives, l.executives.filter(e => contexts.get(e) !== undefined || executiveTenureText(e) !== undefined));
   const execs = groups.assessed
     .map((e) => {
       const evidence = EXECUTIVE_EVIDENCE_GROUPS.map((descriptor) => {
-        const claims = executiveCardClaims(e, e.evidence[descriptor.key] ?? []);
+        const claims = executiveCardClaims(e, e.evidence[descriptor.key] ?? [], companyClaims);
         if (!claims || claims.length === 0) return "";
         return `<h4>${esc(descriptor.label)}</h4>${claimList(claims)}`;
       }).join("");
       const context = contexts.get(e), reason = context?.note ?? executiveAssessmentNote(e);
-      const decisions = context ? `<h4>Office decision context</h4>${context.actions.map(a => `<p><strong>${esc(a.occurredOn!)} &middot; ${esc(MANAGEMENT_ACTOR_LABELS[a.actor])}</strong> &middot; ${esc(a.verificationNote)}</p>${claimList(a.action)}${claimList(a.assessment)}`).join("")}${context.guidance.length ? `<h4>Company guidance context</h4>${claimList(context.guidance)}` : ""}` : "";
+      const decisions = context ? `<h4>Office decision context</h4>${context.actions.map(a => `<p><a href="#report-management-actions">${esc(a.occurredOn!)} &middot; ${esc(MANAGEMENT_ACTOR_LABELS[a.actor])}: shared management chronology</a> &middot; ${esc(a.verificationNote)}</p>`).join("")}${context.guidance.length ? `<h4>Company guidance context</h4>${claimList(context.guidance)}` : ""}` : "";
       return `<div class="exec"><h4>${esc(e.name)} &mdash; ${esc(e.title)}</h4>
-        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span></p>${executiveTenureText(e) ? `<p>${esc(executiveTenureText(e)!)} (${esc(e.officeTenure!.source)}; filed ${esc(e.officeTenure!.filingDate)})</p>` : ""}${reason ? `<p>${prose(reason)}</p>` : ""}${claimList(executiveCardClaims(e, e.reasoning))}${evidence}${decisions}</div>`;
+        <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span></p>${executiveTenureText(e) ? `<p>${esc(executiveTenureText(e)!)} (${esc(e.officeTenure!.source)}; filed ${esc(e.officeTenure!.filingDate)})</p>` : ""}${reason ? `<p>${prose(reason)}</p>` : ""}${claimList(executiveCardClaims(e, e.reasoning, companyClaims))}${evidence}${decisions}</div>`;
     })
     .join("");
   const others = groups.notAssessed.length > 0
@@ -862,9 +891,9 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
   // D-67: one row per underlying data gap; process disclosures and moot entries apart.
   const families = gapSummary(a.missingData, completeness.classification);
   const gaps = `<h3>Data gaps</h3><p>${esc(`${gapCountText(a.missingData, completeness)} ${dataStateText(completeness)}`)}</p>${table(["Manifest reconciliation", "Displayed groups", "Recorded entries"], manifestReconciliationRows(a.missingData, completeness).map(row => [esc(row.label), String(row.groups), String(row.entries)]))}${bodyTables(dataGapTables(completeness), "h4")}${families.length > 0 ? table(["Gap family", "Entries", "Highest severity (as shown)"], families.map((row) => [esc(row.family), String(row.entries), esc(row.highest)])) : ""}`;
-  const sources = `<h3>Sources</h3>${table(
+  const sources = `<h3 id="report-sources">Sources</h3>${table(
     SOURCE_ENTRY_FIELDS.map((field) => field.label),
-    a.sources.map((source) => SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? (source.stale === undefined ? "unknown" : source.stale ? "yes" : "no") : esc(source[field.key])))),
+    a.sources.map((source) => SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? (source.stale === undefined ? "unknown" : source.stale ? "yes" : "no") : field.key === "endpoint" ? safeLink(source[field.key], source[field.key]) : esc(source[field.key])))),
   )}`;
   const path = auditExportFilename(report,context);
   const audit = `<h3>Audit trail</h3><p>The verification log, deterministic checks, full missing-data manifest, score drivers with registry ids, projection series, evidence timing, as-of map and pass-by-pass execution record are in the separate audit export${path ? ` (<span class="mono">${esc(path)}</span>)` : ""}.</p>`;

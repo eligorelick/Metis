@@ -38,6 +38,25 @@ async function discover(overrides: Record<string, string> = {}, options: Partial
 }
 
 describe("bounded official issuer document discovery", () => {
+  it("follows observed issuer-authorized newsroom links and admits a commercial selection headline", async () => {
+    const commercial = article("Cedar Network Selects Example Group to Expand Service", "<p>Example Group and Cedar Network today announced an agreement to expand their communications services. The companies expect commercial deployment following customer validation, and have not disclosed the contract value or expected revenue contribution.</p>");
+    const { result, attempted } = await discover({
+      "https://example.com/": '<a href="https://news.example-host.com/">Newsroom</a>',
+      "https://news.example-host.com/": '<a href="/selection">Cedar Network Selects Example Group to Expand Service</a>',
+      "https://news.example-host.com/selection": commercial,
+    }, {}, { pressReleases: true, transcript: false });
+    expect(result.documents[0]?.authorityChain).toEqual(["https://example.com/", "https://news.example-host.com/", "https://news.example-host.com/selection"]);
+    expect(attempted).toHaveLength(3);
+  });
+  it("uses an exact legal-name core for a one-word issuer without guessing an unlinked host", async () => {
+    const { result } = await discover({
+      "https://example.com/": '<a href="https://ir.example-host.com/example/">Investor Relations</a>',
+      "https://ir.example-host.com/example/": '<a href="https://example.com/news/">Newsroom</a>',
+      "https://example.com/news/": '<a href="/selection">Cedar Selects Everpine to Expand Service</a>',
+      "https://example.com/selection": article("Cedar Selects Everpine to Expand Service", "<p>Everpine today announced a commercial collaboration with Cedar. The customers are validating the products ahead of a planned rollout, and financial terms of the agreement have not been disclosed. Any future revenue remains subject to deployment timing and execution.</p>"),
+    }, { issuer: { ...issuer, canonicalName: "Everpine Incorporated" } }, { pressReleases: true, transcript: false });
+    expect(result.documents[0]?.title).toBe("Cedar Selects Everpine to Expand Service");
+  });
   it("retains fetched releases and real call transcripts with separate provenance within one six-request budget", async () => {
     const { result, attempted } = await discover();
     expect(result.documents).toHaveLength(2);

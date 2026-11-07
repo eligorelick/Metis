@@ -338,11 +338,13 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
 /** Segment rows (product/geographic) as name / revenue / share. */
 function segmentTable(rows: readonly SegmentRow[], geographic = false): string {
   return bodyTable(
-    ["Segment", "Revenue", "Share"],
+    ["Segment", "Revenue", "Share", "Period", "As of"],
     rows.map((s) => [
       geographic ? geographyLabel(s.name) : s.name,
       formatFinancialAmount(s.revenue.value, s.revenue.unit, s.revenue.currency),
       s.sharePct === null ? DASH : `${s.sharePct.toFixed(1)}%`,
+      tracedPeriodLabel(s.revenue.period, s.revenue.periodContext),
+      s.revenue.asOf ?? DASH,
     ]),
   );
 }
@@ -492,12 +494,13 @@ function renderBusiness(b: Business, extra: readonly ReportAuditTable[] = []): s
   lines.push(...subsection("### What they sell", claimList(b.whatTheySell)));
   if (b.marketStructure?.length) lines.push(...subsection("### Market & industry structure", claimList(b.marketStructure)));
   lines.push(...quarterly);
-  // D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export.
-  if (showAnnualSegments(quarterly.length > 0)) {
-    lines.push(...subsection(`### ${annualSegmentHeading("Product", b.segments.product, false)}`, segmentTable(b.segments.product)));
+  // Keep dated geography and explicitly referenced annual categories inspectable.
+  const annualProductReference = [...b.whatTheySell, ...b.concentrationRisks].some(c => /annual product|product categor|product table/i.test(c.text));
+  if (showAnnualSegments(quarterly.length > 0) || annualProductReference) {
+    lines.push(...subsection(`### ${annualSegmentHeading("Product", b.segments.product, quarterly.length > 0)}`, segmentTable(b.segments.product)));
   }
-  if (showAnnualSegments(quarterly.length > 0) || geographicBasisNote(b.segments.geographic)) {
-    lines.push(...subsection(`### ${annualSegmentHeading("Geographic", b.segments.geographic, false)}`, segmentTable(b.segments.geographic, true)));
+  if (b.segments.geographic.length > 0) {
+    lines.push(...subsection(`### ${annualSegmentHeading("Geographic", b.segments.geographic, quarterly.length > 0)}`, segmentTable(b.segments.geographic, true)));
     const geographicBasis = geographicBasisNote(b.segments.geographic);
     if (geographicBasis) lines.push("", markdownProse(geographicBasis), "");
   }
@@ -794,6 +797,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
   if (l.executives.length === 0) lines.push("No individual executive assessment recorded.", "");
   // D-67: one card per assessed officer; the not-assessed officers share one line.
   const contexts = new Map(l.executives.map(e => [e, executiveOfficeContext(e, l, report.appendix?.verificationLog, report.outlook?.guidanceCredibility)]));
+  const companyClaims = (l.managementActions ?? []).flatMap(managementActionClaims);
   const groups = executiveGroups(l.executives, l.executives.filter(e => contexts.get(e) !== undefined || executiveTenureText(e) !== undefined));
   for (const e of groups.assessed) {
     lines.push(
@@ -803,18 +807,18 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
       "",
     );
     if (executiveTenureText(e)) lines.push(`${markdownProse(executiveTenureText(e)!)} (${markdownSourceLabel(e.officeTenure!.source)}; filed ${e.officeTenure!.filingDate})`, "");
-    if (e.reasoning.length > 0) lines.push(claimList(executiveCardClaims(e, e.reasoning)), "");
+    if (e.reasoning.length > 0) lines.push(claimList(executiveCardClaims(e, e.reasoning, companyClaims)), "");
     const context = contexts.get(e);
     const reason = context?.note ?? executiveAssessmentNote(e);
     if (reason) lines.push(prose(reason), "");
     for (const descriptor of EXECUTIVE_EVIDENCE_GROUPS) {
-      const claims = executiveCardClaims(e, e.evidence[descriptor.key] ?? []);
+      const claims = executiveCardClaims(e, e.evidence[descriptor.key] ?? [], companyClaims);
       if (!claims || claims.length === 0) continue;
       lines.push(`##### ${descriptor.label}`, "", claimList(claims), "");
     }
     if (context) {
       lines.push("##### Office decision context", "");
-      for (const a of context.actions) lines.push(`**${a.occurredOn} · ${MANAGEMENT_ACTOR_LABELS[a.actor]}** · ${prose(a.verificationNote)}`, "", claimList(a.action), claimList(a.assessment), "");
+      for (const a of context.actions) lines.push(`[${a.occurredOn} · ${MANAGEMENT_ACTOR_LABELS[a.actor]}: shared management chronology](#report-management-actions) · ${prose(a.verificationNote)}`, "");
       if (context.guidance.length) lines.push("##### Company guidance context", "", claimList(context.guidance), "");
     }
   }
@@ -823,7 +827,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
     if (groups.notAssessedClaims.length > 0) lines.push(claimList(groups.notAssessedClaims), "");
   }
   if (l.managementActions !== undefined) {
-    lines.push(`### ${MANAGEMENT_ACTIONS_HEADING}`, "", l.managementActions.length === 0 ? NO_MANAGEMENT_ACTIONS : bodyTable(
+    lines.push('<a id="report-management-actions"></a>', "", `### ${MANAGEMENT_ACTIONS_HEADING}`, "", l.managementActions.length === 0 ? NO_MANAGEMENT_ACTIONS : bodyTable(
       ["Date", "Who", "Action", "Shareholder alignment", "Note"],
       l.managementActions.map((item) => [eventDateText(item.occurredOn), MANAGEMENT_ACTOR_LABELS[item.actor], MANAGEMENT_CATEGORY_LABELS[item.category],
         SHAREHOLDER_ALIGNMENT_LABELS[item.shareholderAlignment], claimReasoning(managementActionClaims(item))]),
