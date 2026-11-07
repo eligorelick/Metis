@@ -38,7 +38,7 @@ describe("8-K transaction excerpts keep the deal's terms (FIGR paid audit R1)", 
     expect(cut.text).toContain(COMPLETION_LEAD);
     expect(cut.text).toContain(CONSIDERATION);
     expect(cut.coverage.version).toBe(`${EVENT_SELECTION_VERSION}/event`);
-    expect(EVENT_SELECTION_VERSION).toBe("section-evidence-6");
+    expect(EVENT_SELECTION_VERSION).toBe("section-evidence-7");
   });
 
   it("gives an acquisition or merger-agreement 8-K the larger transaction budget", () => {

@@ -983,11 +983,17 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
       forms.add("weighted-average diluted share change over five years");
     }
     if (currentCapitalFcfReading(record) === "after-sbc") forms.add("standardized free cash flow after stock compensation");
+    if (record.id === "computed.returns.wacc" && record.origin === "computed.returns.wacc" && record.unit === "percent" && label === "WACC") forms.add("WACC assumption");
     const projection = projectionReading(record);
     if (projection !== null) {
       const { metric, scenario, window } = projection;
       const name = metric === "epsDiluted" ? "operating EPS" : metric === "fcf" ? "unlevered free cash flow" : metric;
       forms.add(`${scenario === "weighted" ? "weighted" : `${scenario}-case projected`} ${name} ${window}`);
+      if (scenario === "weighted") {
+        forms.add(`weighted ${name} projection ${window}`);
+        forms.add(`weighted ${name} ${window} projected`);
+        if (metric === "fcf") forms.add(`weighted unlevered free cash flow to the firm ${window} projected`);
+      }
       if (scenario === "weighted") forms.add(`fixed-prior weighted ${name} ${window}`);
       if (metric === "revenue") forms.add(`${scenario === "weighted" ? "weighted" : `${scenario}-case projected`} ${name} ${window} modeled`);
     }
@@ -1126,7 +1132,7 @@ function typedClaimContext(text: string, record: NumericProvenanceRecord): strin
   if (projectionReading(record) !== null) {
     // Read the producer's window in its own spelling. The stated endpoint is
     // retained for the ordinary period check, including a wrong endpoint.
-    text = text.replace(/\bfor (?:the )?12 months (?:ending|to)\b/gi, match => "12M ending".padEnd(match.length));
+    text = text.replace(/\bfor (?:the )?(?:12|twelve) months (?:ending|to)\b/gi, match => "12M ending".padEnd(match.length));
   }
   if (reverseDcfGrowth(record)) {
     // This is the model's year-one growth over starting TTM revenue. TTM in

@@ -49,6 +49,25 @@ function loadReport(): Report {
   return parsed.data;
 }
 
+describe("canonical print citation destinations", () => {
+  it.each([
+    { source: "https://example.com/display", sourceId: "https://www.sec.gov/Archives/canonical.htm?a=1&b=2", expected: "https://www.sec.gov/Archives/canonical.htm?a=1&amp;b=2" },
+    { source: "Annual filing", sourceId: "https://www.sec.gov/Archives/canonical.htm", expected: "https://www.sec.gov/Archives/canonical.htm" },
+    { source: "https://example.com/legacy", expected: "https://example.com/legacy" },
+    { source: "[https://example.com/legacy \u00b7 2026-11-01]", expected: "https://example.com/legacy" },
+    { source: "https://example.com/display", sourceId: "javascript:alert(1)", expected: "#report-sources" },
+    { source: "https://example.com/display", sourceId: "https://user:secret@example.com/private", expected: "#report-sources" },
+    { source: "https://example.com/display", sourceId: "data:text/html,unsafe", expected: "#report-sources" },
+    { source: "https://example.com/display", sourceId: "invalid[source", expected: "#report-sources" },
+  ])("uses canonical identity before URL safety: $sourceId", ({ expected, ...source }) => {
+    const report = loadReport();
+    report.business.whatTheySell = [{ label: "FACT", text: "Unique citation destination control.", asOf: "2026-11-01", ...source }];
+    const html = reportToPrintBody(report);
+    const claim = html.slice(html.indexOf("Unique citation destination control."));
+    expect(claim.match(/href="([^"]+)"/)?.[1]).toBe(expected);
+  });
+});
+
 describe("esc()", () => {
   it("escapes all five HTML-sensitive characters", () => {
     expect(esc("&")).toBe("&amp;");

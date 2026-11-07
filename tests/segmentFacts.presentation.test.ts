@@ -55,7 +55,7 @@ it("excludes earlier basis levels and growth from analysts and explains the clas
  expect(payload.quarterlyTrend?.figures.some(f=>/Devices revenue growth quarter over quarter/.test(f.label))).toBe(false);
  expect(payload.segmentRevenue?.figures.some(f=>/Devices.*2025-06-30/.test(f.label))).toBe(false);
  expect(table.note).toContain("presentation changed");
- expect(table.rows.find(r=>r[0]==="Devices")!.at(-3)).toBe("\u2014");
+ expect(table.rows.find(r=>r[0]==="Devices")![table.headers.indexOf("QoQ")]).toBe("\u2014");
 });
 it("registers retained cross-filing levels as computed and discloses the 10-K blind spot",()=>{
  const {payload,table}=surfaces([kNew,q3Old,q2Old,q1Old]);
@@ -103,7 +103,7 @@ it("AI-508 refuses an old-presentation residual after a Q3 reallocation", () => 
  const {payload,table}=surfaces(filings);
  expect(payload.quarterlyTrend?.figures.some(f=>/Devices revenue growth quarter over quarter/.test(f.label))).toBe(false);
  expect(payload.segmentRevenue?.figures.some(f=>/Devices.*total less.*2026-06-30/.test(f.label))).toBe(false);
- expect(table.rows.find(r=>r[0]==="Devices")!.at(-3)).toBe("\u2014");
+ expect(table.rows.find(r=>r[0]==="Devices")![table.headers.indexOf("QoQ")]).toBe("\u2014");
 });
 
 it("AI-508 pins Q3 reallocation and the following 10-K on the current basis", () => {

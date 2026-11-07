@@ -9,7 +9,7 @@ const SBC_NOTE = "Recognized expense and capitalized SBC are not additive as com
 const CASH_NOTE = "Cash including restrictions is not all available liquidity. These are same-date, same-currency balances from one filing; restricted cash is not deducted again from directly tagged unrestricted cash. Restricted components are current and noncurrent; the reported combined aggregate and its components are not additive. Missing components remain unknown, not zero.";
 const WC_NOTE = "Signed cash-flow contributions for identified standard components only; other working-capital components remain unresolved. This is not total working capital or normalized FCF.";
 const MERCHANT_WC_NOTE = "Merchant payables and deferred merchant bookings remain unresolved; this is not merchant float or a cash-float sensitivity.";
-const TAX_NOTE = "Income-tax balances shown gross, not an occupancy-tax pair; legal netting and jurisdiction matching are unestablished. The receivable tag alone does not establish maturity. No net liquidity amount is inferred.";
+const TAX_NOTE = "Income-tax balances shown gross; legal netting and jurisdiction matching are unestablished. No net liquidity amount is inferred.";
 
 function day(value: unknown): string | null {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(value)) return null;

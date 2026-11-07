@@ -32,7 +32,7 @@ export interface FilingSupplements {
   }>;
 }
 
-const sourceText = (ref: FilingRef): string => `${ref.form}${ref.exhibit ? ` ${ref.exhibit}` : ""} filed ${ref.filingDate} (${ref.accession})`;
+const sourceText = (ref: FilingRef): string => `${ref.form}${ref.exhibit ? ` ${ref.exhibit}` : ""} filed ${ref.filingDate} (${ref.accession})${ref.url ? ` ${ref.url}` : ""}`;
 const count = (value: number): string => formatNumber(value, 0);
 
 /**
@@ -41,6 +41,9 @@ const count = (value: number): string => formatNumber(value, 0);
  * already have their own columns; the audit export keeps the full text.
  */
 const XBRL_PROVENANCE = /\s*\b[a-z][a-z0-9-]*\/[A-Za-z][A-Za-z0-9]*; [^;]+; [^;]+; [^;]+?, filed \d{4}-\d{2}-\d{2}\.(?: Matched SEC submissions metadata and XBRL; a successful notes-text extraction is not asserted\.)?/g;
+// This exact older pipeline qualification is replaced by the populated-row
+// qualification below. Issuer text and the saved audit evidence are unchanged.
+const LEGACY_TAX_SCOPE = "Income-tax balances shown gross, not an occupancy-tax pair; legal netting and jurisdiction matching are unestablished. The receivable tag alone does not establish maturity.";
 
 function sentences(text: string): string[] {
   return text.split(/(?<=[.!?])\s+(?=[A-Z“"(])/).map((s) => s.trim()).filter(Boolean);
@@ -70,14 +73,42 @@ export function filingFactTables(d: FilingSupplements): ReportAuditTable[] {
   return groups.flatMap(group => {
     const facts = d.filingFacts!.filter(f => group.prefix === "" ? !f.key?.startsWith("composition-") : f.key?.startsWith(group.prefix));
     if (facts.length === 0) return [];
-    const bases = facts.map((f) => sentences(readerBaseUnits([f.computed ? `Derived: ${f.computed}.` : null, f.text.replace(XBRL_PROVENANCE, "").trim()].filter(Boolean).join(" "))));
+    const labels = facts.map(f => f.label).join(" ");
+    let heading = group.heading;
+    let notes = group.notes;
+    if (group.prefix === "composition-sbc-") {
+      const capitalized = /capitali[sz]/i.test(labels);
+      const recognized = /recogniz|expense|amortization/i.test(labels);
+      heading = `SBC composition: ${recognized && capitalized ? "separately reported expense and capitalization" : capitalized ? "capitalized amounts" : "recognized expense"}`;
+    } else if (group.prefix === "composition-tax-") {
+      const receivable = /receivable/i.test(labels);
+      const payable = /payable/i.test(labels);
+      heading = `Income-tax balances: ${[receivable ? "gross receivable" : null, payable ? "current payable" : null].filter(Boolean).join(" and ") || "reported balances"}`;
+      notes = [{ text: `Reported balances do not establish legal netting or jurisdiction matching.${receivable ? " Receivable maturity is not established by a gross balance." : ""}` }];
+    } else if (group.prefix === "") {
+      const topics = [
+        /customer/i.test(labels) ? "customer disclosures" : null,
+        /investment/i.test(labels) ? "investments" : null,
+        /goodwill/i.test(labels) ? "goodwill" : null,
+        /acquisi|transaction|consideration/i.test(labels) ? "transactions" : null,
+        /commitment|financing|capacity/i.test(labels) ? "commitments and financing" : null,
+      ].filter(Boolean);
+      heading = `Filing notes: ${topics.join(", ") || "reported disclosures"}`;
+      notes = [{ text: "Each row retains its own period and issuer qualification. Different exposures are not additive." },
+        ...(/customer/i.test(labels) ? [{ text: "Reported customers are unnamed: matching positions across periods do not establish common identities. Separately stated indirect-customer and payment-term context does not identify those counterparties as the reported direct customers." }] : [])];
+    }
+    const bases = facts.map((f) => {
+      const factText = f.text.replace(XBRL_PROVENANCE, "");
+      const text = group.prefix === "composition-tax-" ? factText.replace(LEGACY_TAX_SCOPE, "") : factText;
+      return sentences(readerBaseUnits([f.computed ? `Derived: ${f.computed}.` : null, text.trim()].filter(Boolean).join(" ")));
+    });
     const shared = facts.length > 1 ? bases[0]!.filter((s) => bases.every((basis) => basis.includes(s))) : [];
     const rowBases = bases.map((basis) => basis.filter((s) => !shared.includes(s)).join(" "));
     const showBasis = rowBases.some((basis) => basis !== "");
-    const groupNote = group.notes.filter((n) => !n.unlessEveryRow || !bases.every((basis) => n.unlessEveryRow!.test(basis.join(" "))))
+    const groupNote = notes.filter((n) => !n.unlessEveryRow || !bases.every((basis) => n.unlessEveryRow!.test(basis.join(" "))))
       .map((n) => n.text).join(" ");
     return [{
-      heading: group.heading,
+      heading,
       headers: ["Disclosure", "Value as stated", "Period / as of", ...(showBasis ? ["Basis / issuer context"] : []), "Source"],
       rows: facts.map((f, i) => {
         const amount = f.unit === "currency" ? formatFinancialValue(f.value, "currency", d.currency)

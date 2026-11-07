@@ -10518,11 +10518,6 @@
           }
         },
         {
-          "path": "report.meta.specVersion",
-          "before": "1.2.0",
-          "after": "1.69.0"
-        },
-        {
           "path": "report.quality.graded.qualification",
           "beforeMissing": true,
           "after": {
@@ -10832,6 +10827,111 @@
           "path": "stageB.capital.notes.1",
           "beforeMissing": true,
           "after": "Weighted-average diluted/basic share gap: diluted 205000000 vs basic 200000000 shares for the fiscal period ending 2025-12-31 — a 2.5% gap. This period-average EPS denominator difference is not an outstanding award pool or a measure of current economic dilution. Antidilutive options, RSUs and convertibles are excluded from diluted EPS by the filer."
+        }
+      ]
+    },
+    {
+      "name": "evidence-backed-report-remediation",
+      "decisions": [
+        "D-213"
+      ],
+      "reason": "D-213 adds a separately labeled mechanical operating-tax and capital-efficiency sensitivity without changing the synthetic fixture base DCF or grades. The current report stamp moves for evidence and period semantics. Earlier capex descriptions remain normalized by their existing exact helper, and all historical financial deltas remain pinned. No audited source or baseline is repinned.",
+      "deltas": [
+        {
+          "path": "report.valuation.dcf.taxCapitalSensitivity",
+          "beforeMissing": true,
+          "after": {
+            "basis": "Mechanical sensitivity, not an underwritten forecast or revised fair value: shift the operating tax rate by -5/0/+5 percentage points in the first 5 years and multiply explicit-period sales-to-capital by 0.75/1/1.25. Revenue, EBIT margins, WACC (including its existing debt-tax shield), later taxes, terminal growth/ROIC, valuation date and the base equity bridge stay fixed. No segment economics or tax-benefit recurrence is inferred; capital efficiency here measures marginal forecast reinvestment. Cells outside the admitted input range or DCF domain are withheld.",
+            "withheldReason": null,
+            "rows": [
+              {
+                "taxShiftPp": -5,
+                "taxYears": 5,
+                "salesToCapitalFactor": 0.75,
+                "salesToCapital": 2.232142857142857,
+                "perShare": 153.9898449116482,
+                "changeFromBase": -0.47013613003252885,
+                "withheldReason": null
+              },
+              {
+                "taxShiftPp": -5,
+                "taxYears": 5,
+                "salesToCapitalFactor": 1,
+                "salesToCapital": 2.9761904761904763,
+                "perShare": 157.5139841227277,
+                "changeFromBase": 3.0540030810469716,
+                "withheldReason": null
+              },
+              {
+                "taxShiftPp": -5,
+                "taxYears": 5,
+                "salesToCapitalFactor": 1.25,
+                "salesToCapital": 3.7202380952380953,
+                "perShare": 159.62846764937538,
+                "changeFromBase": 5.1684866076946605,
+                "withheldReason": null
+              },
+              {
+                "taxShiftPp": 0,
+                "taxYears": 5,
+                "salesToCapitalFactor": 0.75,
+                "salesToCapital": 2.232142857142857,
+                "perShare": 150.93584183060125,
+                "changeFromBase": -3.524139211079472,
+                "withheldReason": null
+              },
+              {
+                "taxShiftPp": 0,
+                "taxYears": 5,
+                "salesToCapitalFactor": 1,
+                "salesToCapital": 2.9761904761904763,
+                "perShare": 154.45998104168072,
+                "changeFromBase": 0,
+                "withheldReason": null
+              },
+              {
+                "taxShiftPp": 0,
+                "taxYears": 5,
+                "salesToCapitalFactor": 1.25,
+                "salesToCapital": 3.7202380952380953,
+                "perShare": 156.5744645683284,
+                "changeFromBase": 2.114483526647689,
+                "withheldReason": null
+              },
+              {
+                "taxShiftPp": 5,
+                "taxYears": 5,
+                "salesToCapitalFactor": 0.75,
+                "salesToCapital": 2.232142857142857,
+                "perShare": 147.88183874955428,
+                "changeFromBase": -6.578142292126444,
+                "withheldReason": null
+              },
+              {
+                "taxShiftPp": 5,
+                "taxYears": 5,
+                "salesToCapitalFactor": 1,
+                "salesToCapital": 2.9761904761904763,
+                "perShare": 151.40597796063378,
+                "changeFromBase": -3.054003081046943,
+                "withheldReason": null
+              },
+              {
+                "taxShiftPp": 5,
+                "taxYears": 5,
+                "salesToCapitalFactor": 1.25,
+                "salesToCapital": 3.7202380952380953,
+                "perShare": 153.52046148728147,
+                "changeFromBase": -0.9395195543992543,
+                "withheldReason": null
+              }
+            ]
+          }
+        },
+        {
+          "path": "report.meta.specVersion",
+          "before": "1.2.0",
+          "after": "1.70.0"
         }
       ]
     }

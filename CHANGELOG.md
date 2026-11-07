@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.69.0** and
-payload **1.88.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.70.0** and
+payload **1.89.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,23 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Evidence-backed report remediation (2026-11-07)
+
+- Recover compatible filed SBC, quarterly share/EPS evidence, annual notes,
+  guidance and executive tenure; reconcile fiscal aliases before selecting
+  forward estimates or inferring transition periods. Preserve source conflicts
+  and refuse unresolved cash/debt definitions.
+- Retain commercial consideration, acquisitions, deployment timing, segment
+  changes and operating-cost evidence. Add explicit tax/capital-efficiency
+  sensitivities without changing score bands or forcing a valuation direction.
+- Correct disclosure explanations, precision, segment dollar changes and
+  weighted-scenario labels; add safe print links and remove repeated company
+  actions. Inventory supplemental numbers separately from verified claims.
+- Report spec 1.70.0, payload 1.89.0, Stage B
+  `STAGE_B_2026_11_EVIDENCE_REMEDIATION_63`, pipeline `stage-c-1.6.42`.
+  Historical reports retain their original bytes. See the
+  [item-by-item disposition](docs/audit/2026-11-07-evidence-backed-report-remediation.md).
 
 ## Unreleased - Ticker navigation performance (2026-11-06)
 

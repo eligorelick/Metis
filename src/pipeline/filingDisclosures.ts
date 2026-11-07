@@ -1,3 +1,4 @@
+import { withReleaseQuarterEarnings } from "./releaseQuarterEarnings";
 import { withholdContradictedReleaseLabels, fiscalLabelContradicted, fiscalLabelEndedBy, fiscalOutlookLabelContradicted, type FiscalLabelledPeriod } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
 import {latestResultsRelease} from "@/providers/currentReports";
@@ -716,6 +717,8 @@ function quarterlyTrend(bundle: DataBundle, releases: readonly EarningsReleaseRe
       notes.push(`Operating expenses for ${d} withheld: the retained SEC row does not establish a complete, period- and currency-matched total; R&D/SG&A components alone are insufficient.`);
       operatingExpenses = null;
     }
+    if (r.fieldProvenance?.epsDiluted?.tags.includes("release/consolidated-three-month-epsDiluted") && r.fieldConflicts?.epsDiluted?.usable === true)
+      notes.push(r.fieldConflicts.epsDiluted.reason);
     return {
       periodEnd: d,
       fiscalLabel: typeof year === "string" && /^\d{4}$/.test(year) && period !== null && /^Q[1-4]$/.test(period) ? `${period} FY${year}` : null,
@@ -759,6 +762,7 @@ export function residualNote(axisLabel: string, cells: number): string {
 
 /** Null when the bundle carries none of this evidence (old bundles, fixtures). */
 export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability?: { reason: string }): FilingDisclosures | undefined {
+  bundle = withReleaseQuarterEarnings(bundle);
   bundle = balanceIntegrityView(bundle);
   const reports = currentReportsOf(bundle);
   const materialEventItems = MaterialEventItemsSchema.safeParse(reports?.materialEventItems);
@@ -863,26 +867,29 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
   // the issuer's sentence as much as "$X remained under". Amazon states its
   // authorization only in the equity note, so the report showed the $6.1B
   // from the notes and also said no authorization was read from the filings.
-  const sections = [segmentPrimarySection(bundle), segmentPrimarySection(bundle, "notes")].filter((s): s is NonNullable<typeof s> => s !== null);
-  // Both are sections of the latest 10-Q, so they share its reference and period.
-  const primary = sections[0];
-  if (primary && currency !== null && periodReportingCurrency(bundle, primary.data.reportDate) === currency &&
-    (capitalReturn?.authorizationRemaining == null || primary.ref.filingDate > capitalReturn.source.filingDate)) {
-    const candidates = sections.flatMap(section => splitSentences(section.data.text)).flatMap(sentence => {
-      const match = /\bAs of ([A-Z][a-z]+ \d{1,2}, 20\d{2}),? (?:(?:we|the company) (?:have|has|had) )?(?:a total of )?((?:US)?\$\s?[\d.,]+\s*(?:billion|million)) (?:remained|was remaining|remaining) under (?:our|the|its) (?:[A-Z][a-z]+ 20\d{2} )?(?:share |stock )?repurchase (?:authority|authorization|program)\b/i.exec(sentence);
-      if (!match) return [];
-      const asOf = isoFromMonthDate(match[1]!);
-      const amount = moneyMentions(match[2]!)[0];
-      return asOf === primary.data.reportDate && amount && symbolCurrency(amount.symbol, currency) === currency && amount.value >= 0
-        ? [{ asOf, value: amount.value }] : [];
-    });
-    if (candidates.length && new Set(candidates.map(candidate => candidate.value)).size === 1) {
-      const candidate=candidates[0]!;
-      capitalReturn = { ...(capitalReturn ?? { source: primary.ref, returned: null, returnedPeriod: null, authorizationRemaining: null, authorizationAdded: null,
-        dividendPerShare: null, dividendPayDate: null, dividendRecordDate: null, dividendChangeFrom: null, dividendChangeTo: null }),
-        authorizationRemaining: candidate.value, authorizationRemainingAsOf: candidate.asOf, authorizationRemainingSource: primary.ref };
-      delete capitalReturn.authorizationRemainingApproximate;
-      notes.push(`Remaining repurchase authorization is dated ${candidate.asOf}, from ${primary.ref.form} ${primary.ref.accession}, filed ${primary.ref.filingDate}; authority is discretionary and does not establish funded future repurchases.`);
+  const authorizationSections = [segmentPrimarySection(bundle), segmentPrimarySection(bundle, "notes"), segmentPrimarySection(bundle, "annual-mdna"), segmentPrimarySection(bundle, "annual-notes")].filter((s): s is NonNullable<typeof s> => s !== null);
+  // Group each filing separately; a newer dated authorization supersedes an
+  // earlier one without mixing sentences or reporting periods across filings.
+  for (const primary of [...authorizationSections].sort((a, b) => a.ref.filingDate.localeCompare(b.ref.filingDate))) {
+    const sections = authorizationSections.filter(section => section.ref.accession === primary.ref.accession);
+    if (primary && currency !== null && periodReportingCurrency(bundle, primary.data.reportDate) === currency &&
+      (capitalReturn?.authorizationRemaining == null || primary.ref.filingDate > (capitalReturn.authorizationRemainingSource ?? capitalReturn.source).filingDate)) {
+      const candidates = sections.flatMap(section => splitSentences(section.data.text)).flatMap(sentence => {
+        const match = /\b(?:As of|At) ([A-Z][a-z]+ \d{1,2}, 20\d{2}),? (?:(?:we|the company) (?:have|has|had) )?(?:a total of )?((?:US)?\$\s?[\d.,]+\s*(?:billion|million)) (?:remained|was remaining|remaining)(?: authorized for repurchase)? under (?:our|the|its) (?:[A-Z][a-z]+ 20\d{2} )?(?:share |stock )?repurchase (?:authority|authorization|program)\b/i.exec(sentence);
+        if (!match) return [];
+        const asOf = isoFromMonthDate(match[1]!);
+        const amount = moneyMentions(match[2]!)[0];
+        return asOf === primary.data.reportDate && amount && symbolCurrency(amount.symbol, currency) === currency && amount.value >= 0
+          ? [{ asOf, value: amount.value }] : [];
+      });
+      if (candidates.length && new Set(candidates.map(candidate => candidate.value)).size === 1) {
+        const candidate=candidates[0]!;
+        capitalReturn = { ...(capitalReturn ?? { source: primary.ref, returned: null, returnedPeriod: null, authorizationRemaining: null, authorizationAdded: null,
+          dividendPerShare: null, dividendPayDate: null, dividendRecordDate: null, dividendChangeFrom: null, dividendChangeTo: null }),
+          authorizationRemaining: candidate.value, authorizationRemainingAsOf: candidate.asOf, authorizationRemainingSource: primary.ref };
+        delete capitalReturn.authorizationRemainingApproximate;
+        notes.push(`Remaining repurchase authorization is dated ${candidate.asOf}, from ${primary.ref.form} ${primary.ref.accession}, filed ${primary.ref.filingDate}; authority is discretionary and does not establish funded future repurchases.`);
+      }
     }
   }
   // A dividend change or added authorization announced in an earlier release
@@ -1150,11 +1157,12 @@ function sectionRef(res: FetchResult<ExtractedSection> | undefined): { ref: Fili
  * legacy section wrapper. `part` picks Item 2 (MD&A) or Item 1 (the notes) of
  * the same 10-Q, under the same admission.
  */
-function segmentPrimarySection(bundle: DataBundle, part: "mdna" | "notes" = "mdna"): ReturnType<typeof sectionRef> {
+function segmentPrimarySection(bundle: DataBundle, part: "mdna" | "notes" | "annual-mdna" | "annual-notes" = "mdna"): ReturnType<typeof sectionRef> {
   const edgar = bundle.edgar;
-  const section = part === "mdna" ? edgar?.tenQMdna : edgar?.tenQNotes;
-  const item = part === "mdna" ? { sectionName: "tenQItem2", label: "Item 2" } : { sectionName: "tenQNotes", label: "Item 1" };
-  const filing = edgar?.latestTenQ;
+  const annual = part.startsWith("annual-");
+  const section = part === "annual-mdna" ? edgar?.mdna : part === "annual-notes" ? edgar?.tenKNotes : part === "mdna" ? edgar?.tenQMdna : edgar?.tenQNotes;
+  const item = part === "annual-mdna" ? { sectionName: "item7", label: "Item 7" } : part === "annual-notes" ? { sectionName: "tenKNotes", label: "Item 8" } : part === "mdna" ? { sectionName: "tenQItem2", label: "Item 2" } : { sectionName: "tenQNotes", label: "Item 1" };
+  const filing = annual ? edgar?.latestTenK : edgar?.latestTenQ;
   const identity = edgar?.cik;
   if (!section?.ok || section.value.source !== "edgar" || !filing?.ok || filing.value.source !== "edgar" || !identity?.ok) return null;
   const mapping = identity.value.data;
@@ -1168,7 +1176,7 @@ function segmentPrimarySection(bundle: DataBundle, part: "mdna" | "notes" = "mdn
   const validDay = (value: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
   const cutoff = bundle.builtAt.slice(0, 10);
   if (!validDay(cutoff) || !Number.isFinite(Date.parse(bundle.builtAt)) || !validDay(data.reportDate) || !validDay(data.filingDate) ||
-    data.reportDate > data.filingDate || data.filingDate > cutoff || data.form !== metadata.form || !/^10-Q(?:\/A)?$/.test(data.form) ||
+    data.reportDate > data.filingDate || data.filingDate > cutoff || data.form !== metadata.form || !(annual ? /^10-K(?:\/A)?$/ : /^10-Q(?:\/A)?$/).test(data.form) ||
     data.sectionName !== item.sectionName || data.reportDate !== metadata.reportDate || data.filingDate !== metadata.filingDate ||
     section.value.asOf !== data.reportDate || data.accession !== metadata.accessionNumber || !/^\d{10}-\d{2}-\d{6}$/.test(data.accession) ||
     !/^[a-zA-Z0-9_.-]+\.html?$/i.test(metadata.primaryDocument) || !Number.isFinite(Date.parse(section.value.fetchedAt))) return null;

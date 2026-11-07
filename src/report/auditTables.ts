@@ -113,6 +113,14 @@ export function valuationAuditTables(dcf: Dcf, recordedPerShare: Dcf["perShare"]
       (b.valuationDate === undefined ? "" : " Cash flows are discounted from the statement date and rolled forward to the quote date at the WACC; the bridge's balances stay at the statement date.")});
   }
   const gm = dcf.growthMarginGrid;
+  const tc = dcf.taxCapitalSensitivity;
+  if (tc) result.push({ heading: "Operating tax and capital-efficiency sensitivity",
+    headers: ["Operating tax shift", "Years shifted", "Sales / capital", "Per share", "Change from base"],
+    rows: tc.rows.length ? tc.rows.map(row => [
+      `${row.taxShiftPp > 0 ? "+" : ""}${row.taxShiftPp} pp`, String(row.taxYears), `${row.salesToCapital.toFixed(2)}x (${row.salesToCapitalFactor}x base)`,
+      row.withheldReason ?? (row.perShare === null ? "withheld" : formatFinancialValue(row.perShare, "currency/share", b?.currency ?? null)),
+      row.withheldReason || row.changeFromBase === null ? "withheld" : formatFinancialValue(row.changeFromBase, "currency/share", b?.currency ?? null),
+    ]) : [["Withheld", "—", "—", tc.withheldReason ?? "Unavailable", "—"]], note: tc.basis });
   const shift = (v: number) => `${v > 0 ? "+" : ""}${v}pp`;
   if (gm && gm.perShare.length) result.push({heading:"Sensitivity (per share — rows = year-one revenue growth shift, cols = sustained operating-margin shift)",
     headers:["Growth shift / margin shift",...gm.marginShiftsPp.map(shift)],

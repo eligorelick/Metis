@@ -3,6 +3,8 @@ import { htmlToText } from "./extract";
 import type { EdgarFiling } from "@/providers/edgar";
 import type { FmpPayload, FmpSegmentationRow } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
+import { countryGeographyTables, type CountryContext } from "./countryGeography";
+import { geographyAttribute as attr, geographyRevenueConcept } from "./geographySource";
 
 export interface AnnualGeography {
   cik: string; accession: string; form: "10-K"; filingDate: string; reportDate: string;
@@ -13,7 +15,6 @@ export interface AnnualGeography {
 }
 interface Identity { cik: string; filing: EdgarFiling; documentUrl: string; fetchedAt: string; cutoff: string }
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const attr = (s: string, name: string) => new RegExp(`\\b${name}=["']([^"']+)["']`, "i").exec(s)?.[1] ?? null;
 const date = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(Date.parse(s)) && new Date(s).toISOString().slice(0, 10) === s;
 const cik = (s: string) => /^\d{1,10}$/.test(s) ? s.replace(/^0+(?=\d)/, "") : null;
 
@@ -98,12 +99,16 @@ export function parseAnnualGeography(html: string, identity: Identity): FetchRes
     f.filingDate > identity.cutoff || !Number.isFinite(Date.parse(identity.fetchedAt))) return gap("Primary annual filing identity, period or availability is not established.");
   if (html.length > 20_000_000) return gap("Annual geography parser document budget exceeded.");
   const units = new Map<string, string>();
+  const unitIds = new Set<string>();
   for (const m of html.matchAll(/<(?:xbrli:)?unit\b([^>]*)>([\s\S]*?)<\/(?:xbrli:)?unit>/gi)) {
     const id = attr(m[1]!, "id");
+    if (id && unitIds.has(id)) return gap("Duplicate XBRL unit identity makes annual geography currency ambiguous.");
+    if (id) unitIds.add(id);
     const measure = /^\s*<(?:xbrli:)?measure>\s*iso4217:([A-Z]{3})\s*<\/(?:xbrli:)?measure>\s*$/.exec(m[2]!);
     if (id && measure) units.set(id, measure[1]!);
   }
   const contexts = new Map<string, { start: string; end: string; member: string | null }>();
+  const countryContexts = new Map<string, CountryContext>();
   const contextIds = new Set<string>();
   for (const m of html.matchAll(/<(?:xbrli:)?context\b([^>]*)>([\s\S]*?)<\/(?:xbrli:)?context>/gi)) {
     const id = attr(m[1]!, "id");
@@ -122,12 +127,23 @@ export function parseAnnualGeography(html: string, identity: Identity): FetchRes
     const geographic = segments.length === 1 && members.length === 1 &&
       /^(?:srt|us-gaap):StatementGeographicalAxis$/.test(attr(members[0]![1]!, "dimension") ?? "") &&
       segments[0]![1]!.replace(members[0]![0], "").trim() === "";
+    const geographyMembers = members.filter(member => /^(?:srt|us-gaap):StatementGeographicalAxis$/.test(attr(member[1]!, "dimension") ?? ""));
+    const concentrationQualifiers = members.filter(member =>
+      (attr(member[1]!, "dimension") === "us-gaap:ConcentrationRiskByTypeAxis" && member[2]!.trim() === "us-gaap:GeographicConcentrationRiskMember") ||
+      (attr(member[1]!, "dimension") === "us-gaap:ConcentrationRiskByBenchmarkAxis" && member[2]!.trim() === "us-gaap:RevenueFromContractWithCustomerMember"));
+    const country = geographic || (segments.length === 1 && geographyMembers.length <= 1 && concentrationQualifiers.length === 2 && members.length === geographyMembers.length + 2 &&
+      new Set(concentrationQualifiers.map(m => attr(m[1]!, "dimension"))).size === 2 &&
+      members.reduce((body, member) => body.replace(member[0], ""), segments[0]![1]!).trim() === "");
+    if (id && owner && cik(owner) === cik(identity.cik) && start && end && date(start) && date(end) && days >= 350 && days <= 380 &&
+      !/<(?:xbrli:)?scenario\b|<(?:xbrldi:)?typedMember\b/i.test(m[2]!) && (consolidated || country)) {
+      countryContexts.set(id, { start, end, member: geographyMembers[0]?.[2]?.trim() ?? null });
+    }
     if (id && owner && cik(owner) === cik(identity.cik) && start && end && date(start) && date(end) && days >= 350 && days <= 380 &&
       !/<(?:xbrli:)?scenario\b|<(?:xbrldi:)?typedMember\b/i.test(m[2]!) && (consolidated || geographic)) {
       contexts.set(id, { start, end, member: geographic ? members[0]![2]!.trim() : null });
     }
   }
-  const candidates: AnnualGeography[] = [];
+  const candidates: AnnualGeography[] = countryGeographyTables(html, identity, units, countryContexts);
   let count = 0;
   for (const table of html.matchAll(/<table\b[^>]*>[\s\S]*?<\/table>/gi)) {
     if (++count > 500) return gap("Annual geography parser table budget exceeded.");
@@ -191,7 +207,7 @@ export function parseAnnualGeography(html: string, identity: Identity): FetchRes
           (periodStarts[i] !== undefined && periodStarts[i] !== scope?.start) ||
           (isTotal ? member !== null : member === null || !memberLabel || normalizedLabel(memberLabel) !== normalizedLabel(label) ||
             (rowMember !== null && rowMember !== member) || (i === 0 && geographicMembers.has(member))) ||
-          !/^us-gaap:(?:Revenue\w*|SalesRevenueNet)$/.test(attr(fact[1]!, "name") ?? "") ||
+          !geographyRevenueConcept(attr(fact[1]!, "name")) ||
           10 ** Number(attr(fact[1]!, "scale")) !== scale || attr(fact[1]!, "sign") !== null ||
           !Number.isFinite(value) || value < 0 || value !== Number(numbers[i]![1]!.replace(/,/g, "")) ||
           (!isTotal && Object.hasOwn(periods[i]!.values, label))) { valid = false; break; }

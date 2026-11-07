@@ -12,6 +12,7 @@
 import { describe, expect, it } from "vitest";
 
 import { computeDcfDisplay } from "@/pipeline/stageB/fairValue";
+import { currentValuationUseFixture } from "./helpers/valuationUse";
 import {
   buildDcfAssumptions,
   runDcf,
@@ -60,6 +61,15 @@ function dcfValuation(over: Partial<Extract<ValuationResult, { kind: "dcf" }>> =
 }
 
 describe("computeDcfDisplay — general DCF route", () => {
+  it("adds tax/capital diagnostics only with an admitted current valuation", () => {
+    const valuation = dcfValuation();
+    expect(computeDcfDisplay(valuation, "USD").taxCapitalSensitivity).toBeUndefined();
+    const current = computeDcfDisplay(valuation, "USD", currentValuationUseFixture());
+    expect(current.taxCapitalSensitivity?.rows).toHaveLength(9);
+    expect(current.taxCapitalSensitivity?.basis).toMatch(/not an underwritten forecast/i);
+    const refused = computeDcfDisplay(valuation, "USD", { ...currentValuationUseFixture(), status: "dated-reference", reason: "not-rolled-to-quote" });
+    expect(refused.taxCapitalSensitivity?.rows).toEqual([]);
+  });
   it("builds deterministic assumption rows carrying the DcfAssumptions basis strings", () => {
     const valuation = dcfValuation();
     const a = (valuation as Extract<ValuationResult, { kind: "dcf" }>).assumptions!;

@@ -1,3 +1,5 @@
+import { withReleaseQuarterEarnings } from "./releaseQuarterEarnings";
+import { forwardAnnualEstimates } from "./forwardEstimates";
 import { withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
 import { resolveForeignValuation, translateValuationInputs, translateProjectionInputs, type ForeignValuationBasis } from "@/pipeline/foreignCurrency";
 import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
@@ -2171,7 +2173,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
-  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle)));
+  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))));
   bundle = balanceIntegrityView(bundle);
   bundle = preferredCapitalView(bundle);
   const operatingDispositions = operatingDispositionView(bundle);
@@ -4023,7 +4025,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     });
   }
   const analystEstimates: AnalystEstimateRow[] | null = bundle.analystEstimates.ok && estimatesInModelCurrency
-    ? estimateRows
+    ? forwardAnnualEstimates(estimateRows, withoutTransitionPeriods(normalizeQuarterRows(incomeAnnual).rows).rows.flatMap(row => isoDay(row.date) ? [isoDay(row.date)!] : []))
         // D-65: the analyst count and range are the breadth and agreement evidence beyond year two.
         .map((r) => ({ date: String(r.date ?? ""), revenueAvg: num(r.revenueAvg), analysts: num(r.numAnalystsRevenue),
           revenueLow: num(r.revenueLow), revenueHigh: num(r.revenueHigh) }))

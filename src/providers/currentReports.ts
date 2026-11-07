@@ -1,3 +1,4 @@
+import { parseQuarterlyEarnings, type QuarterlyEarningsFact } from "@/edgar/quarterlyEarnings";
 import {PRIORITY_EVENT_ITEMS,NON_EVENT_ITEMS} from "@/edgar/currentReports";
 /**
  * Bounded EDGAR reads behind the 8-K and quarterly-segment ingestion (NVDA
@@ -109,6 +110,8 @@ export interface EarningsReleaseRecord {
    * release and the commentary. Optional: absent on records stored before it.
    */
   reconciliation?: SourcedEarningsFact<ReconciliationFact>[];
+  /** Direct consolidated GAAP three-month EPS and weighted shares; absent on older records. */
+  quarterlyEarnings?: SourcedEarningsFact<QuarterlyEarningsFact>[];
   /** D-63: commitments and guarantees tables (commentary first, then release). */
   commitments?: (SourcedEarningsFact<CommitmentTable> & {
     /** Zero-based parsed-table ordinal within the supplying document. */
@@ -249,6 +252,7 @@ export function buildEarningsReleaseRecord(args: {
     guidanceExhibit: guidance === null || guidance.items.length === 0 ? null : guidance === fromRelease ? "EX-99.1" : "EX-99.2",
     freeCashFlow: mergeEarningsObservations(fcfRelease, commentaryText === null ? [] : parseIssuerFreeCashFlow(commentaryText).map((fact) => ({ ...fact, source: source("EX-99.2") }))),
     capitalReturn: parseCapitalReturn(releaseText),
+    quarterlyEarnings: parseQuarterlyEarnings(releaseText).map(fact => ({ ...fact, source: source("EX-99.1") })),
     reconciliation: mergeEarningsObservations(parseReconciliation(releaseText).map((fact) => ({ ...fact, source: source("EX-99.1") })),
       commentaryText === null ? [] : parseReconciliation(commentaryText).map((fact) => ({ ...fact, source: source("EX-99.2") }))),
     ...commitmentsOf(releaseText, commentaryText, source),

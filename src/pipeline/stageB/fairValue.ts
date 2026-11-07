@@ -33,6 +33,7 @@ import { FAIR_VALUE_DEGRADED_FIELD } from "@/report/fairValueText";
 import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/providerFallback";
 import { classifyValuationUse, valuationUseExplanation } from "./valuationUse";
 import type { ValuationUse } from "@/report/schema";
+import { taxCapitalSensitivity, type TaxCapitalSensitivity } from "./taxCapitalSensitivity";
 
 /** Versioned method prior — bump when the resolution changes. */
 // D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
@@ -514,13 +515,14 @@ export interface DcfDisplay {
   consensusPath?: { period: string; modelRevenue: number; consensusRevenue: number | null; gapPct: number | null; anchored: boolean;
     fiscalYears: string; status: string }[];
   growthMarginGrid?: { growthShiftsPp: number[]; marginShiftsPp: number[]; perShare: (number | null)[][]; notes: string[] };
+  taxCapitalSensitivity?: TaxCapitalSensitivity;
   /** Audit 2026-10-22 C-11: the excess-return route's start-return × cost-of-equity grid. */
   excessReturnGrid?: { rows: { label: string; startReturnPct: number; bookValue: number }[]; costOfEquityPcts: number[]; perShare: (number | null)[][]; notes: string[] };
   forecastRows?: { year: number; period: string; periodStart?: string; periodEnd?: string; periodBasis?: "rolling-12-month" | "fiscal-year";
     revenue: number; growthPct: number; ebitMarginPct: number; taxRatePct: number; nopat: number; reinvestment: number; fcff: number; presentValue: number }[];
 }
 
-export function computeDcfDisplay(valuation: ValuationResult, currency: string | null = null): DcfDisplay {
+export function computeDcfDisplay(valuation: ValuationResult, currency: string | null = null, currentUse?: ValuationUse): DcfDisplay {
   // C-11: the excess-return route carries its own start-return × CoE grid.
   const erGrid = valuation.kind === "excess-return" ? valuation.excessReturn.startCoeGrid : undefined;
   if (erGrid !== undefined) {
@@ -576,7 +578,8 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
         }];
       })
     : [];
-  return { assumptions, sensitivityGrid, ...sensitivityNotes, ...growthMarginGrid, bridge: {
+  return { assumptions, sensitivityGrid, ...sensitivityNotes, ...growthMarginGrid,
+    ...(currentUse ? { taxCapitalSensitivity: taxCapitalSensitivity(a, dcf, a.wacc.value, currentUse) } : {}), bridge: {
     enterpriseValue: dcf.enterpriseValue, netDebt: dcf.bridge.netDebt, minorityInterest: dcf.bridge.noncontrollingDeducted ?? dcf.bridge.minorityInterest,
     preferredEquity: dcf.bridge.preferred, equityValue: dcf.equityValue, dilutedShares: dcf.bridge.dilutedShares,
     ...(dcf.bridge.convertibles ? { convertibles: dcf.bridge.convertibles } : {}),

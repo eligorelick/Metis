@@ -123,7 +123,7 @@ function fiscalScopeKey(row: FiscalDatedRow): string | null {
 /** Nearby dates are aliases only with matching explicit fiscal and issuer scope. */
 export function compatibleFiscalAlias(left: FiscalDatedRow, right: FiscalDatedRow): boolean {
   const a = strictFiscalDay(left.date), b = strictFiscalDay(right.date);
-  if (!a || !b || a.label === b.label || Math.abs(a.epochMs - b.epochMs) > 3 * DAY_MS) return false;
+  if (!a || !b || a.label === b.label || Math.abs(a.epochMs - b.epochMs) > (left.period === "FY" && right.period === "FY" ? 7 : 3) * DAY_MS) return false;
   const scope = fiscalScopeKey(left);
   if (scope === null || scope !== fiscalScopeKey(right)) return false;
   const filed = strictFiscalDay(left.filingDate);
@@ -172,7 +172,7 @@ export function normalizeQuarterRows<T extends FiscalDatedRow>(
   // Sorting first and bounding the entire group prevents order-dependent chains.
   const aliasGroups: Array<Array<{ row: T; day: StrictDay }>> = [];
   for (const candidates of [...grouped.values()].sort((a, b) => a[0].day.epochMs - b[0].day.epochMs)) {
-    const group = aliasGroups.find(existing => candidates[0].day.epochMs - existing[0].day.epochMs <= 3 * DAY_MS &&
+    const group = aliasGroups.find(existing => candidates[0].day.epochMs - existing[0].day.epochMs <= (candidates[0].row.period === "FY" && existing[0].row.period === "FY" ? 7 : 3) * DAY_MS &&
       existing.some(a => candidates.some(b => compatibleFiscalAlias(a.row, b.row))));
     if (group) group.push(...candidates);
     else aliasGroups.push([...candidates]);

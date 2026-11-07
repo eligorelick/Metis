@@ -383,6 +383,36 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "- Explain material segment/geographic moves when the source explains them: reclassifications and recasts, customer",
   "  headquarters versus end-customer location, and China revenue versus guidance excluding China Data Center compute.",
   "  Keep these definitions distinct; use the dated product milestones the release states, including production status.",
+  "STRATEGY AND ECONOMIC BRIDGES (only for material, retained evidence; place each fact once):",
+  "- Classify each growth opportunity as a commercial agreement, management target, or longer-term possibility.",
+  "  State the product, customer or end market, source date, deployment/revenue timing, and disclosed economics.",
+  "  A design-win pipeline, addressable market, technology roadmap or performance benchmark is not booked revenue or profit.",
+  "  Include product-level competitors and the basis for differentiation when supported; distinguish them from valuation peers.",
+  "- Build a revenue-replacement bridge from comparable end-market/segment rows when provided: contributions from",
+  "  growing and declining businesses, reporting-perimeter changes and acquisitions. Use only supplied derived records",
+  "  or clearly sourced operands; identify missing comparable data rather than inventing a contribution or organic growth rate.",
+  "  Connect gross profit, research and development, selling/general costs, SBC and acquisition charges to the margin thesis.",
+  "  Treat temporary investment pressure and durable operating leverage as hypotheses with evidence, not automatic add-backs.",
+  "- Discuss material customer warrants, rebates and other consideration alongside the associated commercial opportunity:",
+  "  preserve exercise price, vesting/performance conditions, revenue-reduction accounting and recognition timing when supplied.",
+  "  A maximum award is not immediate dilution; do not subtract its full grant value from equity value without an established treatment.",
+  "  For acquisitions, distinguish transaction value, accounting purchase price and service-conditioned compensation, with dates.",
+  "- Do not add opportunity revenue on top of consensus without evidence that it is incremental. Explain whether inclusion is",
+  "  known or unknown. Do not raise the computed target because a technology or partnership sounds promising.",
+  "- Describe the existing fan as historical-dispersion sensitivities. A fully underwritten operating scenario needs sourced",
+  "  mix, margin, investment and funding assumptions; if unavailable, narrow the narrative to the variables actually modeled.",
+  "  Read any tax/capital-efficiency diagnostics as mechanical sensitivities, not calibrated forecasts or approved alternatives.",
+  "- Reconcile a valuation disagreement by earnings basis, sustainable margins, capital intensity and discounting where supported.",
+  "  Missing segment profit or tax evidence prevents a defensible sum-of-parts or after-tax normalization; state that limit",
+  "  instead of inventing segment margins, tax effects or peer multiples. Model traceability alone does not establish economic accuracy.",
+  "- Use a dated sources-and-uses discussion for cash generation, capex, dividends, repurchases, acquisition payments and debt",
+  "  maturities when evidence permits. Distinguish authorization from funded repurchases and restricted from usable liquidity.",
+  "  Do not deduct purchase obligations again if captured in operating cash flows or mix forecasts and actuals into a cash total.",
+  "- Give dated prove/disprove milestones for the major operating drivers, including product shipments, revenue replacement,",
+  "  margins and capital/working-capital needs. State which model assumption each observation would justify revisiting.",
+  "  A reverse-DCF growth hurdle alone is not a complete thesis-monitoring plan. Mark undisclosed timing or thresholds as unknown.",
+  "- Keep the decision summary short: key economics, strongest contrary evidence and material source gaps. Put an event's",
+  "  detailed chronology in one place and refer to it elsewhere; avoid repeating score methodology or the same catalyst in every section.",
   "RISK PROBABILITY: justify each low/medium/high likelihood with its own dated evidence and trigger; do not default all",
   "risks to medium or confuse impact with probability. Where evidence cannot distinguish likelihood, set probability",
   "to unknown and explain the uncertainty. A likelihood label is a JUDGMENT, not a calibrated probability.",
@@ -815,6 +845,7 @@ export function buildAnalystResearchFraming(side: "bull" | "bear"): string {
   return `Research independently for the ${side} analyst. Return plain-text research notes, NOT an ANALYST_CASE or JSON outline.
 Find dated findings NOT already in the payload on recent catalysts, news, guidance, management commentary, capital-markets activity, regulatory/legal events and competitive moves.
 Cover the last six months, including management and board actions: executive changes, strategy, acquisitions or divestitures, buybacks, dividends, debt and guidance changes.
+For material growth opportunities, check current issuer announcements and investor-day materials for commercial agreements, design wins, deployment timing, customer consideration and changes to long-term targets. Include an older roadmap only when it remains relevant; retain its original date and check for superseding disclosures. Distinguish a signed agreement from a management ambition, and undisclosed economics from established incremental revenue or profit.
 Also research the market and industry structure: market size and growth with a dated source; main competitors by name and how each competes; the company's position and share only where a source states it; and industry economics and regulation that shape the business.
 Each finding must include its source URL and date. Distinguish publication dates from event dates and flag missing dates or conflicting evidence.
 Prefer primary sources: issuer investor-relations documents, SEC filings, regulators, official statistical agencies and the original publisher of an industry study. Use established financial reporting for context and identify secondary reporting explicitly.

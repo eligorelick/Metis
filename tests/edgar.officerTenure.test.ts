@@ -147,6 +147,14 @@ describe("filing officer tenure, bound to a current roster person and office", (
     expect(read("Executive officers of the registrant Alex Smith 60 President and Chief Executive Officer, and a member of the Board, since August 8, 2024.")[0]?.start).toBe("2024-08-08");
   });
 
+  it("binds a coordinated board membership to the same officer without losing the office start", () => {
+    const text = "Alex Smith, age 60, has served as President and Chief Executive Officer and as a member of the Board of Directors since June 2021.";
+    expect(read(text)[0]).toMatchObject({ office: "ceo", start: "2021-06-30", quote: text });
+    expect(read("Alex Smith has served as Chief Executive Officer and as a member of the Board of Another Corporation since June 2021.")).toEqual([]);
+    expect(read("Alex Smith has served as Chief Executive Officer and Robin Lee as a member of the Board of Directors since June 2021.")).toEqual([]);
+    expect(read("Alex Smith has served as Chief Executive Officer since June 2021 and as a member of the Board of Directors since May 2018.")[0]?.start).toBe("2021-06-30");
+  });
+
   it("bounds retained sections and issuer appointment footnotes together", () => {
     const html = "<h2>Our Board of Management</h2>" + Array.from({ length: 2500 }, (_, i) => `<p>Footnote ${i}. Alex Smith was appointed CEO of the Company on April 24, 2024.</p>`).join("");
     expect(officerBiographiesText(parseDocument(html)).text.length).toBeLessThanOrEqual(120_000);

@@ -30,6 +30,9 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
     const rows = input.value.data.rows.map(row => {
       const admitted = admitBalanceCash(row, facts, key === "balanceAnnual" ? "annual" : "quarter", bundle.builtAt);
       gaps.push(...admitted.gaps);
+      const prior = row.fieldConflicts?.cashAndCashEquivalents, current = admitted.row.fieldConflicts?.cashAndCashEquivalents;
+      if (prior?.usable === false && current?.usable === true && current.resolution === "filed-family")
+        superseded.set(`statements.balance.${row.date}.cashAndCashEquivalents`, prior.reason);
       return admitted.row;
     });
     return { ...input, value: { ...input.value, data: { ...input.value.data, rows } } };

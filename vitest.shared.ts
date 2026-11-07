@@ -290,6 +290,9 @@ export const RISK_SOURCE_MANIFEST = [
   "src/edgar/guidanceTables.ts",
   "src/edgar/htmlHidden.ts",
   "src/edgar/annualGeography.ts",
+  "src/edgar/countryGeography.ts",
+  "src/edgar/geographySource.ts",
+  "src/edgar/quarterlyEarnings.ts",
   "src/edgar/officerTenure.ts",
   "src/pipeline/financialComposition.ts",
   "src/pipeline/stageB/leaseScope.ts",
@@ -304,6 +307,9 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/presentation.ts",
   "src/report/export/auditMarkdown.ts",
   "src/pipeline/marketData.ts",
+  "src/pipeline/forwardEstimates.ts",
+  "src/pipeline/releaseQuarterEarnings.ts",
+  "src/report/supplementalNumericAudit.ts",
   // Q1: reader wording for recent developments and management actions on every surface.
   "src/report/qualitativeAnalysis.ts",
 ];

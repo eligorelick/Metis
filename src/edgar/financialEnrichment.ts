@@ -436,13 +436,32 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       prior.reason.startsWith("vendor/SEC stockBasedCompensation conflict:") && prior.secValue === sec.value &&
       prior.secEvidence?.unit === unit && prior.secEvidence.periodStart === sec.evidence.periodStart && prior.secEvidence.periodEnd === row.date &&
       prior.secEvidence.tags.length === 1 && prior.secEvidence.tags[0] === `us-gaap/${tag}`;
-    const vendor = priorSbcZero ? prior.vendorValue : row[field];
+    const replaySbc = field === "stockBasedCompensation" && prior?.usable === false &&
+      prior.reason.startsWith("vendor/SEC stockBasedCompensation conflict:") && prior.secValue === sec.value &&
+      prior.secEvidence?.unit === unit && prior.secEvidence.periodStart === sec.evidence.periodStart &&
+      prior.secEvidence.periodEnd === row.date && prior.secEvidence.tags.length === 1 && prior.secEvidence.tags[0] === `us-gaap/${tag}`;
+    const replayCash = kind === "balance" && field === "cashAndCashEquivalents" && prior?.usable === false &&
+      prior.reason.startsWith("vendor/SEC cashAndCashEquivalents conflict:") && prior.secValue === sec.value &&
+      prior.secEvidence?.unit === unit && prior.secEvidence.periodStart === null && prior.secEvidence.periodEnd === row.date &&
+      prior.secEvidence.tags.length === 1 && prior.secEvidence.tags[0] === `us-gaap/${tag}`;
+    const vendor = priorSbcZero || replaySbc || replayCash ? prior!.vendorValue : row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const value = sec.value * sign;
     if (field === "stockBasedCompensation" && scope === "quarter" && canonicalFlow && vendor === 0 && value > 0 &&
         proof === undefined && (prior?.usable !== false || priorSbcZero) &&
         (!validDay(row.filingDate) || sec.evidence.filings[0]?.filed === row.filingDate)) {
       const reason = `Vendor stock-based compensation zero placeholder reconciled at ${row.date}: ${sec.operands ? `derived ${derivedFrom(sec)}` : "directly filed"} standalone ${sec.evidence.periodStart} through ${row.date} amount ${millions(value)} ${unit} used; original vendor zero retained.`;
+      out = { ...out, [field]: value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence },
+        fieldConflicts: { ...out.fieldConflicts, [field]: { usable: true, vendorValue: vendor, secValue: value, resolution: "filed-family", reason, secEvidence: sec.evidence } } };
+      gaps.push({ field: `statements.cashflow.${row.date}.${field}`, reason, severity: "info", expected: true });
+      continue;
+    }
+    // Only the canonical, presentation-compatible annual/YTD pair can resolve
+    // this conflict. A cross-filing refutation is never positive admission.
+    if (field === "stockBasedCompensation" && scope === "quarter" && canonicalFlow === sec && sec.operands &&
+        value >= 0 && proof === undefined && (prior?.usable !== false || replaySbc) &&
+        (!validDay(row.filingDate) || sec.evidence.filings[0]?.filed === row.filingDate) && !agreesWithSec(vendor, value, [sec])) {
+      const reason = `Vendor stock-based compensation reconciled at ${row.date}: compatible derived ${derivedFrom(sec)} standalone ${sec.evidence.periodStart} through ${row.date} amount ${millions(value)} ${unit} used; original vendor ${millions(vendor)} retained.`;
       out = { ...out, [field]: value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence },
         fieldConflicts: { ...out.fieldConflicts, [field]: { usable: true, vendorValue: vendor, secValue: value, resolution: "filed-family", reason, secEvidence: sec.evidence } } };
       gaps.push({ field: `statements.cashflow.${row.date}.${field}`, reason, severity: "info", expected: true });
@@ -465,9 +484,21 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
         continue;
       }
     }
-    if (kind === "balance" && field === "cashAndCashEquivalents" && proof === undefined && out.fieldConflicts?.[field]?.usable !== false) {
+    if (kind === "balance" && field === "cashAndCashEquivalents" && proof === undefined && (out.fieldConflicts?.[field]?.usable !== false || replayCash)) {
       const inclusiveTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents";
-      const inclusive = instant(facts, inclusiveTag, unit, row.date!, observedAt, undefined, sec.evidence.filings);
+      let inclusive = instant(facts, inclusiveTag, unit, row.date!, observedAt, undefined, sec.evidence.filings);
+      // A later comparative may establish the definition when it repeats the
+      // exact original unrestricted amount and supplies both scopes together.
+      // Never combine a changed comparative with the original filing.
+      if (!inclusive) {
+        const latestUnrestricted = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined));
+        const latestInclusive = unambiguousNewest(points(facts, inclusiveTag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined));
+        if (latestUnrestricted?.val === value && latestInclusive) {
+          const ownCash = instant(facts, tag, unit, row.date!, observedAt, undefined, [latestInclusive]);
+          if (ownCash?.value === value && latestInclusive.val >= value)
+            inclusive = resolved(latestInclusive.val, [inclusiveTag, tag], [latestInclusive, ...points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined && p.accn === latestInclusive.accn && p.filed === latestInclusive.filed)], unit, observedAt, null, row.date!);
+        }
+      }
       // Positive admission needs an unambiguous latest point before applying
       // the sign rule. A newer invalid point cannot expose an older balance.
       const unrestricted = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p =>
@@ -477,8 +508,8 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       // Two explicitly filed scopes, from one filing. The unrestricted amount
       // is read directly; no absent restricted maturity is presumed zero.
       if (unrestrictedProved && inclusive && inclusive.value > value && Math.abs(vendor - inclusive.value) <= Math.max(1, inclusive.value * 1e-6)) {
-        const reason = `vendor cash scope reconciled at ${row.date}: vendor ${millions(vendor)} ${unit} equals the same filing's ${inclusiveTag}, which includes restricted cash; directly filed unrestricted cash ${millions(value)} ${unit} used; original vendor observation retained`;
-        const evidence = { ...sec.evidence, tags: [...sec.evidence.tags, ...inclusive.evidence.tags] };
+        const reason = `vendor cash scope reconciled at ${row.date}: vendor ${millions(vendor)} ${unit} equals the filed ${inclusiveTag}, which includes restricted cash; its supplying filing corroborates the unchanged unrestricted amount; directly filed unrestricted cash ${millions(value)} ${unit} used; original vendor observation retained`;
+        const evidence = { ...sec.evidence, tags: [...new Set([...sec.evidence.tags, ...inclusive.evidence.tags])], filings: [...sec.evidence.filings, ...inclusive.evidence.filings] };
         const fieldConflicts: NonNullable<FmpStatementRow["fieldConflicts"]> = { ...out.fieldConflicts, [field]: { usable: true, vendorValue: vendor, secValue: value,
           resolution: "filed-family" as const, reason, secEvidence: evidence } };
         const debtProof = out.fieldProvenance?.totalDebt;
