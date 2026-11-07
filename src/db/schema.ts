@@ -37,6 +37,12 @@ export const watchlist = sqliteTable("watchlist", {
 });
 
 /** Saved reports, versioned by row (report history + diffing). */
+export const companyData = sqliteTable("company_data", {
+  symbol: text("symbol").primaryKey(),
+  snapshotJson: text("snapshotJson").notNull(),
+  builtAt: text("builtAt").notNull(),
+});
+
 export const reports = sqliteTable(
   "reports",
   {

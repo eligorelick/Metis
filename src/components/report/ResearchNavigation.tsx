@@ -11,7 +11,7 @@ export function ResearchNavigation({ symbol, active, reportHref }: {
     <nav className="research-navigation" aria-label="Company research views">
       {([
         ["report", "Report", reportHref ?? company],
-        ["analysis", "Live analysis", `${company}?view=live`],
+        ["analysis", "Ticker data", `${company}?view=live`],
         ["revisions", "Revisions", `${company}/history`],
       ] as const).map(([key, label, href]) => <Link key={key} href={href} prefetch={false} aria-current={active === key ? "page" : undefined}>{label}</Link>)}
     </nav>

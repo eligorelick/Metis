@@ -21,6 +21,7 @@ import { foreignBundle } from "./helpers/foreignBundle";
 const harness = vi.hoisted(() => ({ buildDataBundle: vi.fn() }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/pipeline/companyData", () => ({ readCompanyData: () => null, retainCompanyData: () => {} }));
 vi.mock("@/pipeline/dataBundle", () => ({ buildDataBundle: harness.buildDataBundle }));
 vi.mock("@/pipeline/stageA/validate", () => ({
   validateBundle: vi.fn(() => ({ checks: [], flags: [], gaps: [] })),

@@ -79,6 +79,12 @@ classification; the gate acts on affirmative provider flags.
 
 ## Configuration and settings
 
+Saved report headers expose **Rerun ticker** directly in both designs. History rows, expanded sidebar runs and saved report headers expose **Delete**, followed by confirmation. Deletion removes only the selected report; jobs, source snapshots and cost accounting remain. Active runs cannot be deleted. The deletion API is `DELETE /api/report/view/[reportId]?symbol=TICKER`, protected by the same-origin and local-host guards.
+
+**Ticker data** recalls a compatible local `company_data` snapshot or newer retained run inputs. Revisiting it does not call providers while compatible inputs exist. Inputs from different calculation, report-spec or score-band versions are skipped; after an upgrade, the first visit rebuilds inputs if no compatible snapshot remains. Source timestamps remain visible. **Update ticker data** sends `POST /api/company/[symbol]/refresh`; concurrent updates are bounded and coalesced. The update waits for expired API data but reuses unexpired responses and immutable filings. A transport failure leaves the existing snapshot available. New report runs still acquire source data through the normal provider caches and retain their input snapshots. These recalls are display inputs, not replacements for a historical report's saved calculations.
+
+For Claude account access, install Claude Code 2.1.319 or later, use `claude auth login`, then **Connect local Claude Code** in Settings. Select a CLI alias (default, opus, sonnet, haiku, fable, best) or full model ID and optional effort. The app checks account identity before each pass, records returned models/usage, and never copies CLI OAuth tokens. **Disconnect** stops Metis's CLI processes while retaining the user's terminal login. The separate Claude API route and its model/effort settings are unchanged.
+
 The README configuration table is generated from `.env.example`; the long
 comments explain source policies, reservations, timing and paths. Most parsed
 server configuration is cached for the process lifetime, so restart after changing

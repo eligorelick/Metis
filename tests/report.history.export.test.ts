@@ -29,6 +29,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // absent under the plain-node test runner). Stub it to a no-op so the module
 // graph resolves — it has no runtime behavior. (Same pattern as watchlist.test.)
 vi.mock("server-only", () => ({}));
+vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }) }));
 
 import {
   createDatabase,

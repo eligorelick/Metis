@@ -23,6 +23,7 @@ const PROVIDER_ENV_KEYS = [
 ] as const;
 const REQUIRED_TABLES = [
   "api_cache",
+  "company_data",
   "cost_log",
   "job_llm_leases",
   "job_pass_artifacts",

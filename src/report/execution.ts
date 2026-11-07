@@ -220,7 +220,7 @@ export function buildExecutionMetadataEntry(input: {
   if (input.execution?.taskBudgetTokens != null) notes.push(`${input.step}: advisory task budget ${input.execution.taskBudgetTokens.toLocaleString("en-US")} tokens per request; this is not a hard output or cost cap.`);
   const subscription = subscriptionExecution({ effectiveModel, requestedModel });
   if (subscription) {
-    const provider = subscription.provider === "chatgpt" ? "ChatGPT plan" : "Google Gemini CLI";
+    const provider = subscription.provider === "chatgpt" ? "ChatGPT plan" : subscription.provider === "claude" ? "Claude Code account" : "Google Gemini CLI";
     const searchNote = limitation !== undefined
       ? `${webResearchLimitationText(limitation)} ${webSearches ?? 0} observed web research actions were recorded for this attempt; this count is not an API charge estimate.`
       : webSearches !== undefined && webSearches > 0

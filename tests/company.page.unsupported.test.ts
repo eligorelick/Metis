@@ -10,6 +10,8 @@ const pageHarness = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }) }));
+vi.mock("@/pipeline/companyData", () => ({ readCompanyData: () => null, retainCompanyData: () => {} }));
 vi.mock("@/pipeline/dataBundle", () => ({
   buildDataBundle: pageHarness.buildDataBundle,
 }));

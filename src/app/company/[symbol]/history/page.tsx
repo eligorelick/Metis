@@ -23,6 +23,7 @@ import { RevisionDigest } from "@/components/report/RevisionDigest";
 import { diffReports } from "@/report/diff";
 import { GradeChip, Badge, Panel } from "@/components/ui";
 import { ExportButtons } from "@/components/report/ExportButtons";
+import { DeleteReportButton } from "@/components/report/DeleteReportButton";
 import {
   listReportsForSymbol,
   loadReportPairForSymbol,
@@ -181,6 +182,7 @@ function ReportRow({
           {r.gradeStrip !== null ? (
             <ExportButtons reportId={r.id} symbol={symbol} />
           ) : null}
+          <DeleteReportButton reportId={r.id} symbol={symbol} />
         </div>
       </td>
     </tr>

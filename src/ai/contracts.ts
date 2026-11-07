@@ -1,5 +1,6 @@
 /** Browser-safe connection and model identifiers. No credential fields. */
-export type SubscriptionProvider = "chatgpt" | "gemini";
+export type SubscriptionProvider = "chatgpt" | "gemini" | "claude";
+export const CLAUDE_MODELS = ["default", "opus", "sonnet", "haiku", "fable", "best"] as const;
 export const CHATGPT_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 export type ChatGptEffort = (typeof CHATGPT_EFFORTS)[number];
 export interface ChatGptRunOptions {
@@ -42,6 +43,7 @@ export interface AiConnectionsView {
   connections: AiConnectionSummary[];
   hasAnthropicKey: boolean;
   geminiInstalled: boolean;
+  claudeInstalled?: boolean;
   pending: { status: "waiting" | "connected" | "error"; message: string; url?: string } | null;
 }
 
@@ -55,6 +57,6 @@ export function subscriptionModel(provider: SubscriptionProvider, model: string)
 }
 
 export function parseSubscriptionModel(value: string): { provider: SubscriptionProvider; model: string } | null {
-  const match = /^(chatgpt|gemini)\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,127})$/.exec(value);
+  const match = /^(chatgpt|gemini|claude)\/([a-zA-Z0-9][a-zA-Z0-9._-]{0,127})$/.exec(value);
   return match ? { provider: match[1] as SubscriptionProvider, model: match[2] } : null;
 }

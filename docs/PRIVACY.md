@@ -25,6 +25,7 @@ telemetry (`telemetry.nextjs.org`). `.env.example` ships
 | Anthropic (`api.anthropic.com`) | The analysis prompt and evidence payload for inference; `ANTHROPIC_API_KEY` for authenticated Messages/Models calls | Claude API runs a pass, or `auto` resolves the available model catalog |
 | OpenAI (`auth.openai.com`, `api.openai.com`) | OAuth registration, token renewal/revocation and account model catalog; research prompt and ticker payload for inference | You connect ChatGPT, request its models, or run a report using that connection |
 | Google through the official Gemini CLI | Google OAuth and CLI service requests; the research prompt and evidence payload for inference | You connect Gemini or run a report using that connection; the CLI owns its service endpoints |
+| Anthropic through the official Claude Code CLI | The research prompt and evidence payload for inference; authentication is handled by the CLI | You sign in using `claude auth login` or run a report through the local CLI; Metis never reads or stores the CLI's OAuth tokens |
 | Anthropic's server-side web search | Search queries the model composes, executed by Anthropic on its servers and subject to its search service behavior | A Claude analyst chooses to search; capped at `MAX_PROVIDER_WEB_SEARCHES` = 8 uses per request, including separate retry/resumption requests (`src/providers/anthropic.ts`) |
 | OpenAI's hosted web research | Model-composed queries and visited sources, handled by OpenAI's search service | A ChatGPT analyst runs the separate research request; local cancellation on the first observed action beyond eight search/open/find actions, a ten-minute deadline and a 16 MB stream limit; these cannot prevent work already performed remotely |
 | Financial Modeling Prep (`financialmodelingprep.com`) | The symbol and endpoint parameters; `FMP_API_KEY` in an `apikey` header, never in the URL | `FMP_API_KEY` is set |
@@ -35,9 +36,7 @@ telemetry (`telemetry.nextjs.org`). `.env.example` ships
 | FINRA (`api.finra.org`) | Partition requests; symbol and requested settlement cycles in short-interest queries. The production path configures no FINRA credential | Short-interest data is requested |
 | Issuer website for an EDGAR-confirmed issuer | Public home, investor-relations, news, release and transcript GET requests; `User-Agent: MetisResearch/1.0 (public investor-relations announcement discovery)`; no key, contact or cookie; up to six requests in 12 seconds per discovery pass to public addresses | Confirming a next earnings date, discovering official material-event statements, or recovering missing optional release/transcript evidence |
 
-Cache hits may avoid these requests. Expired hits can trigger a background
-refresh even while the UI displays stored data. Opening a company page can
-fetch data without starting paid AI research. AI off disables inference;
+Saved reports and compatible retained ticker inputs are recalled locally without provider requests. The first visit without compatible retained data (including after a calculation-version upgrade), **Update ticker data**, or a new report run can fetch source data. Explicit ticker updates wait for expired API responses while reusing fresh cache entries; other acquisition paths may refresh expired hits in the background. Retained inputs preserve their original source dates and are not presented as current quotes. AI off disables inference;
 it does not disable market-data or SEC requests. Fixture market data does not
 disable a selected, connected AI provider.
 
@@ -387,7 +386,10 @@ also be switched off for data-only reports.
 | --- | --- | --- |
 | ChatGPT | Browser OAuth with the required `chatgpt.tokens.use.direct` scope; account/provider eligibility applies | Your ChatGPT plan allowance and account credit settings |
 | Gemini | Official Gemini CLI 0.36.x, installed separately; Google browser sign-in | Your Google CLI allowance and account settings |
-| Claude | Optional `ANTHROPIC_API_KEY` | Separately billed Anthropic API usage |
+| Claude via local CLI | Official Claude Code 2.1.319+; run `claude auth login` in a terminal, then Connect local Claude Code | Your Claude account's model access, limits and extra usage settings |
+| Claude API | Optional `ANTHROPIC_API_KEY` | Separately billed Anthropic API usage |
+
+The Claude connection checks the CLI's authentication status and stores only an opaque connection ID and a hash of account identity. It invokes the unmodified CLI with safe mode, no built-in/MCP tools, no session persistence, and no inherited API keys. It does not copy OAuth tokens, implement a Claude.ai sign-in flow, or sign the CLI out when you disconnect Metis. Changing the CLI account requires reconnecting in Settings. Model aliases resolve through the CLI; observed models and token counts are recorded in reports. Remaining allowance is available at [Claude usage](https://claude.ai/settings/usage), not through Metis. See [Anthropic's current authentication rules](https://code.claude.com/docs/en/legal-and-compliance).
 
 ChatGPT sign-in opens normal Chrome, with a fallback link. Gemini sign-in
 requires Chrome, and Metis passes its executable to the CLI as the browser,
@@ -411,7 +413,7 @@ ChatGPT analyst research can use the connected plan's hosted web search when
 the account and model allow it. OpenAI does not support `max_tool_calls` on this
 route, so Metis cancels locally on the first action beyond eight; the count
 includes search, open and find actions and is not an API charge estimate or a
-provider-side spending cap. Gemini uses supplied evidence only. The Claude API
+provider-side spending cap. Gemini and the local Claude CLI use supplied evidence only. The Claude API
 path retains bounded web search. Writers and judges have no search tools.
 Reports disclose observed actions and retained web evidence, including research
 reused from a checkpoint. Explicit local action/time limits and an unsupported

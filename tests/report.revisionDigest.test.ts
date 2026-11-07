@@ -11,6 +11,7 @@ import DiffPage from "@/app/company/[symbol]/history/diff/page";
 import HistoryPage from "@/app/company/[symbol]/history/page";
 import { resetConfigCache } from "@/config/env";
 vi.mock("server-only", () => ({}));
+vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }) }));
 vi.mock("@/components/watchlist/Sidebar", () => ({ WatchlistSidebar: () => null }));
 
 function digest(mutate: (report: ReturnType<typeof loadTask28Fixture>) => void = () => {}) {

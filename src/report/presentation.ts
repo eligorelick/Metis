@@ -1826,7 +1826,10 @@ export function usageSummary(report: Pick<Report, "meta" | "appendix">): string 
   // The same figure the audit ledger totals: the sum of the displayed rows.
   const cost = roundedDisplayedCostTotal(report.appendix.costBreakdown.map((entry) => entry.costUsd));
   if (plan) {
-    const provider = execution.some((entry) => /^gemini\//.test(entry.effectiveModel)) ? "Gemini CLI" : "ChatGPT plan";
+    const provider = [...new Set(execution.map(entry => {
+      const connection = parseSubscriptionModel(entry.effectiveModel) ?? parseSubscriptionModel(entry.requestedModel);
+      return connection?.provider === "claude" ? "Claude Code account" : connection?.provider === "gemini" ? "Gemini CLI" : "ChatGPT plan";
+    }))].join(" / ");
     return `${tokens ?? "token usage not reported"} on the ${provider} allowance (no API charge recorded)${usageLimit}`;
   }
   const dollars = `${formatCostUsd(cost)} recorded API cost`;

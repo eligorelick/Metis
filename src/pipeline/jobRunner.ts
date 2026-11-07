@@ -37,6 +37,7 @@ import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
 import { requestedAnalysisModel } from "@/ai/analysisRoute";
 import { parseSubscriptionModel, type AiSelection } from "@/ai/contracts";
 import { bindAiFingerprint } from "@/ai/fingerprint";
+import { withFreshCacheReads } from "@/cache/apiCache";
 import { AI_RUNTIME_CONFLICT_HELP, AI_RUNTIME_CONFLICT_MESSAGE, claimAiRuntimeForRun, isAiRuntimeConflict } from "@/ai/store";
 import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { getDb, type ThesisDb } from "@/db";
@@ -3026,7 +3027,7 @@ export async function runJob<TPayload = unknown>(
       bundle =
         frozen?.content.bundle ??
         opts.bundle ??
-        (await awaitJobStage(buildDataBundle(state.symbol, {
+        (await awaitJobStage(withFreshCacheReads(() => buildDataBundle(state.symbol, {
           ...opts.bundleOptions,
           signal: jobSignal,
           onProgress: (msg) => {
@@ -3037,7 +3038,7 @@ export async function runJob<TPayload = unknown>(
             persistSteps(state);
             emitStep(state, "fetch");
           },
-        }), jobSignal, jobController, "fetch", fetchDeadlineMs));
+        })), jobSignal, jobController, "fetch", fetchDeadlineMs));
       throwIfJobAborted(jobSignal);
       if (frozen !== null) stageBConfig = frozen.content.stageBConfig;
       const inputSnapshot = frozen ?? captureRunInputSnapshot(bundle, stageBConfig, undefined, getRuntimeSnapshotArtifactIdentity());
@@ -3239,7 +3240,7 @@ export async function runJob<TPayload = unknown>(
     const deps: PassDeps<TPayload> = {
       analysisModel,
       ...("connectionId" in aiSelection ? { connectionId: aiSelection.connectionId } : {}),
-      ...(aiSelection.provider === "chatgpt" ? { subscriptionOptions: {
+      ...(aiSelection.provider === "chatgpt" || aiSelection.provider === "claude" ? { subscriptionOptions: {
         ...(aiSelection.effort === undefined ? {} : { effort: aiSelection.effort }),
         ...(aiSelection.serviceTier === undefined ? {} : { serviceTier: aiSelection.serviceTier }),
       } } : {}),
