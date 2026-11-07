@@ -10931,7 +10931,7 @@
         {
           "path": "report.meta.specVersion",
           "before": "1.2.0",
-          "after": "1.70.0"
+          "after": "1.71.0"
         }
       ]
     }

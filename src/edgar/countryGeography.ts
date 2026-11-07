@@ -3,7 +3,7 @@ import { htmlToText, stripHiddenBlocks } from "./extract";
 import { explicitHtmlHiddenState } from "./htmlHidden";
 import type { AnnualGeography } from "./annualGeography";
 import type { EdgarFiling } from "@/providers/edgar";
-import { geographyAttribute as attr, geographyRevenueConcept } from "./geographySource";
+import { geographyAttribute as attr, geographyNumber, geographyRevenueConcept } from "./geographySource";
 
 export interface CountryContext { start: string; end: string; member: string | null }
 const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -95,11 +95,11 @@ export function countryGeographyTables(html: string, identity: { cik: string; fi
       let rowMember: string | null = null;
       for (let i = 0; i < facts.length; i++) {
         const fact = facts[i]!, context = contexts.get(attr(fact[1]!, "contextRef") ?? ""), unit = units.get(attr(fact[1]!, "unitRef") ?? "");
-        const amount = Number(htmlToText(fact[2]!).replace(/,/g, ""));
+        const amount = geographyNumber(fact[1]!, htmlToText(fact[2]!));
         if (!context || !unit || (currency !== undefined && currency !== unit) || Number(context.end.slice(0, 4)) !== years[i] ||
           (i === 0 && context.end !== identity.filing.reportDate) || (periods[i]!.end && periods[i]!.end !== context.end) ||
           (starts[i] && starts[i] !== context.start) || 10 ** Number(attr(fact[1]!, "scale")) !== scale || attr(fact[1]!, "sign") !== null ||
-          !Number.isFinite(amount) || amount < 0 || amount !== numbers[i * 2] || numbers[i * 2 + 1]! < 0 || numbers[i * 2 + 1]! > 100) { valid = false; break; }
+          amount === null || amount < 0 || amount !== numbers[i * 2] || numbers[i * 2 + 1]! < 0 || numbers[i * 2 + 1]! > 100) { valid = false; break; }
         if (total ? context.member !== null : context.member === null || (rowMember !== null && rowMember !== context.member) || (i === 0 && members.has(context.member)) || Object.hasOwn(periods[i]!.values, label)) { valid = false; break; }
         if (!total) {
           const member = context.member!;

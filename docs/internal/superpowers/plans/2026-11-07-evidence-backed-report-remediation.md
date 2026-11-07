@@ -1,5 +1,19 @@
 # Evidence-backed report remediation plan
 
+## Authorized post-merge integration follow-up
+
+The fresh user-requested review reproduced five defects: release EPS/share
+payload propagation, canonical split coverage, geography numeric transformations,
+interactive annual-table visibility and structured print-table citation URLs.
+Repair these on the existing isolated worktree, using failing-first synthetic
+regressions and positive controls. Separate ownership: payload integration;
+release split guard; UI/print presentation; controller geography, stamps, docs,
+frozen comparison and full verification. No new valuation model or ticker rule.
+After targeted tests, run `npm run verify`, recheck frozen input bytes and current
+source positives, obtain a fresh scoped review, then publish and merge a follow-up
+PR under the user's standing authorization. Preserve the prior audit history and
+record any verification failures and corrections explicitly.
+
 Spec: `docs/internal/superpowers/specs/2026-11-07-evidence-backed-report-remediation.md`.
 
 ## Global constraints

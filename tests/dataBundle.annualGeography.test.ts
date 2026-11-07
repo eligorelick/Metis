@@ -240,6 +240,8 @@ describe("annual primary-filing geography fallback", () => {
 
   it.each([
     ["missing-definition", (h: string) => h.replace(definition, "Revenue by geography.")],
+    ["unsupported-comma-decimal-format", (h: string) => h.replaceAll('scale="6"', 'format="ixt:num-comma-decimal" scale="6"')],
+    ["nil-monetary-facts", (h: string) => h.replaceAll('scale="6"', 'xsi:nil="true" scale="6"')],
     ["wrong-year", (h: string) => h.replace("<td>2025</td>", "<td>2026</td>")],
     ["wrong-unit", (h: string) => h.replace('unitRef="usd"', 'unitRef="missing"')],
     ["wrong-scale", (h: string) => h.replace('scale="6"', 'scale="3"')],

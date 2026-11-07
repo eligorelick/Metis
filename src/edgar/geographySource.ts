@@ -39,6 +39,17 @@ export function geographyAttributes(source: string): Map<string, string> | null 
 
 export const geographyAttribute = (source: string, name: string): string | null => geographyAttributes(source)?.get(name.toLowerCase()) ?? null;
 
+/** These table readers support dot-decimal monetary values only. A displayed
+ * number cannot override an explicit nil or a different iXBRL transformation. */
+export function geographyNumber(source: string, printed: string): number | null {
+  const attrs = geographyAttributes(source);
+  if (!attrs || ![undefined, "ixt:num-dot-decimal", "ixt:numdotdecimal"].includes(attrs.get("format")) ||
+    ![undefined, "false", "0"].includes(attrs.get("xsi:nil")) ||
+    !/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(printed)) return null;
+  const value = Number(printed.replaceAll(",", ""));
+  return Number.isFinite(value) ? value : null;
+}
+
 /** Total-revenue concepts only; e.g. remaining performance obligations are
  * monetary and duration-scoped too, but do not measure recognized revenue. */
 const REVENUE_CONCEPTS = new Set([

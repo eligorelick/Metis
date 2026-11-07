@@ -4,7 +4,7 @@ import type { EdgarFiling } from "@/providers/edgar";
 import type { FmpPayload, FmpSegmentationRow } from "@/providers/fmp";
 import type { FetchResult } from "@/types/core";
 import { countryGeographyTables, type CountryContext } from "./countryGeography";
-import { geographyAttribute as attr, geographyRevenueConcept } from "./geographySource";
+import { geographyAttribute as attr, geographyNumber, geographyRevenueConcept } from "./geographySource";
 
 export interface AnnualGeography {
   cik: string; accession: string; form: "10-K"; filingDate: string; reportDate: string;
@@ -198,7 +198,7 @@ export function parseAnnualGeography(html: string, identity: Identity): FetchRes
       for (let i = 0; i < facts.length; i++) {
         const fact = facts[i]!;
         const unit = units.get(attr(fact[1]!, "unitRef") ?? "");
-        const value = Number(htmlToText(fact[2]!).replace(/,/g, ""));
+        const value = geographyNumber(fact[1]!, htmlToText(fact[2]!));
         const scope = contexts.get(attr(fact[1]!, "contextRef") ?? "");
         const member = scope?.member ?? null;
         const memberLabel = member === "country:US" ? "United States" : member === "us-gaap:NonUsMember" ? "All other countries" : member?.split(":").at(-1)?.replace(/Member$/, "");
@@ -209,7 +209,7 @@ export function parseAnnualGeography(html: string, identity: Identity): FetchRes
             (rowMember !== null && rowMember !== member) || (i === 0 && geographicMembers.has(member))) ||
           !geographyRevenueConcept(attr(fact[1]!, "name")) ||
           10 ** Number(attr(fact[1]!, "scale")) !== scale || attr(fact[1]!, "sign") !== null ||
-          !Number.isFinite(value) || value < 0 || value !== Number(numbers[i]![1]!.replace(/,/g, "")) ||
+          value === null || value < 0 || value !== Number(numbers[i]![1]!.replace(/,/g, "")) ||
           (!isTotal && Object.hasOwn(periods[i]!.values, label))) { valid = false; break; }
         currency = unit;
         periodStarts[i] = scope!.start;

@@ -52,7 +52,8 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-210: source-scope corrections change admitted valuation and return inputs.
 // D-211: preserve original vendor net debt when filed cash is reconciled.
 // D-212: quarterly cash/earnings scope and actual WACC input dates.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_EVIDENCE_REMEDIATION_63" as const;
+// D-214: direct quarterly release EPS/shares require canonical, covered split-basis agreement.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_RELEASE_SPLIT_SAFETY_64" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

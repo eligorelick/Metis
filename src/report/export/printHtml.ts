@@ -304,11 +304,12 @@ function printTokens(html: string): string {
 
 /**
  * A body table (D-62): always-empty columns are dropped and an empty table is
- * not printed. Cells are raw text and escaped here.
+ * not printed. Raw text is escaped here; structured claims carry escaped HTML.
  */
-function bodyTable(headers: readonly string[], rows: readonly (readonly string[])[], keep: readonly string[] = []): string {
-  const pruned = pruneTable(headers, rows, keep);
-  return pruned === null ? "" : table(pruned.headers, pruned.rows.map((row) => row.map(linkedText)));
+interface EscapedPrintCell { html: string }
+function bodyTable(headers: readonly string[], rows: readonly (readonly (string | EscapedPrintCell)[])[], keep: readonly string[] = []): string {
+  const pruned = pruneTable(headers, rows.map(row => row.map(cell => typeof cell === "string" ? linkedText(cell) : cell.html)), keep);
+  return pruned === null ? "" : table(pruned.headers, pruned.rows);
 }
 
 function subsection(heading: string, body: string, level = "h3"): string {
@@ -327,9 +328,11 @@ function statusMarkSuffix(claim: SourcedClaim): string {
   return mark === null ? "" : ` ${mark}`;
 }
 
-function claimReasoning(reasoning: SourcedClaim | SourcedClaim[]): string {
-  if (!Array.isArray(reasoning)) return `${displayProse(reasoning.text, reasoning.source)}${statusMarkSuffix(reasoning)}`;
-  return reasoning.map(claim => `[${claim.label}] ${displayClaimText(claim)} (${claimCitation(claim)})${statusMarkSuffix(claim)}`).join(" ");
+function claimReasoning(reasoning: SourcedClaim | SourcedClaim[]): EscapedPrintCell {
+  if (!Array.isArray(reasoning)) return { html: linkedText(`${displayProse(reasoning.text, reasoning.source)}${statusMarkSuffix(reasoning)}`) };
+  // A citation's URL is a structured field, not the surrounding prose. Keep
+  // genuine URL punctuation and canonical identity out of text auto-linking.
+  return { html: reasoning.map(claim => `[${esc(claim.label)}] ${linkedText(displayClaimText(claim))} (${citationHtml(claim)})${esc(statusMarkSuffix(claim))}`).join(" ") };
 }
 
 /** Claims with ONE source marker each (D-62). */

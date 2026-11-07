@@ -11,6 +11,30 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-214 - Quarterly evidence propagation and reader consistency (2026-11-07)
+
+A fresh review after D-213 found five integration/admission defects that the
+earlier tests and reviews missed. Corrected quarterly EPS/shares now enter both
+Stage B and the model/verifier payload with their SEC provenance and conflict
+history. Direct release values require complete split coverage and a canonical
+factor of one from their filing basis to the report basis. An accounting context
+date cannot establish the first adjusted trading session. Uncertain timing or a
+non-unit factor preserves the existing row rather than inventing an adjustment.
+
+Both annual-geography readers refuse nil facts and transformations other than
+their supported dot-decimal formats. Explicitly referenced annual product and
+available geography rows remain visible beside quarterly UI tables, with dates
+and allocation qualifications. Print table citations use structured canonical
+destinations rather than rediscovering URLs from parenthesized prose.
+
+These are bounded correctness repairs, not a revised investment thesis. No
+forecast premium, score threshold or base valuation formula changes. Report
+1.71.0, payload 1.90.0 and Stage B `STAGE_B_2026_11_RELEASE_SPLIT_SAFETY_64`
+identify the changed admission/context semantics; historical reports and source
+snapshots retain their original bytes. Pipeline and evidence-selection versions
+remain unchanged because prompts and pass algorithms did not change. See the
+[review and validation record](2026-11-07-evidence-backed-report-remediation.md#post-merge-review-and-integration-follow-up).
+
 ## D-213 - Evidence-backed report remediation (2026-11-07)
 
 Choose general source/period repairs and additive sensitivities over a company-

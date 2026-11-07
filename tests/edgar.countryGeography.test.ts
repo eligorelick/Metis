@@ -24,6 +24,19 @@ describe("tagged annual country revenues on a headquarters basis", () => {
     const html = fixture().replaceAll('60%', '59%').replaceAll('40%', '41%');
     expect(parseAnnualGeography(html, identity).ok).toBe(true);
   });
+  it("refuses decimal-comma monetary facts rather than multiplying their amounts by a thousand", () => {
+    const html = fixture().replaceAll('scale="6"', 'format="ixt:num-comma-decimal" scale="6"')
+      .replace(/>(60|54|40|36|100|90)<\/ix:nonFraction>/g, '>$1,000</ix:nonFraction>');
+    expect(parseAnnualGeography(html, identity).ok).toBe(false);
+  });
+  it.each(['xsi:nil="true"', 'xsi:nil="1"', 'xsi:nil="unknown"', 'format="ixt:fixed-zero"', 'format="custom:unknown"'])("refuses unsupported monetary fact semantics: %s", attributes => {
+    expect(parseAnnualGeography(fixture().replaceAll('scale="6"', `${attributes} scale="6"`), identity).ok).toBe(false);
+  });
+  it.each(['format="ixt:num-dot-decimal"', 'format="ixt:numdotdecimal"', 'xsi:nil="false"', 'xsi:nil="0"'])("preserves supported numeric facts: %s", attributes => {
+    const result = parseAnnualGeography(fixture().replaceAll('scale="6"', `${attributes} scale="6"`), identity);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.data.periods[0]?.total).toBe(100e6);
+  });
   it.each(["unquoted", "spaced quoted"])("retains source identity for %s HTML attributes and unrelated boolean flags", mode => {
     const html = fixture().replace(/\b(id|contextRef|unitRef|name|scale|dimension)="([^"]+)"/g, mode === "unquoted" ? "$1=$2" : "$1 = '$2' ")
       .replaceAll("<ix:nonFraction ", "<ix:nonFraction compact ");

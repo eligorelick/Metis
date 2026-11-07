@@ -51,6 +51,24 @@ function loadReport(): Report {
 
 describe("canonical print citation destinations", () => {
   it.each([
+    { source: "https://issuer.example/news/authorization.html", expected: "https://issuer.example/news/authorization.html" },
+    { source: "https://issuer.example/news/authorization_(2026)", expected: "https://issuer.example/news/authorization_(2026)" },
+    { source: "https://issuer.example/news?query=(2026)&suffix=)!.,;", expected: "https://issuer.example/news?query=(2026)&amp;suffix=)!.,;" },
+    { source: "https://issuer.example/display", sourceId: "https://issuer.example/canonical?query=(2026)&suffix=)", expected: "https://issuer.example/canonical?query=(2026)&amp;suffix=)" },
+    { source: "https://issuer.example/display", sourceId: "javascript:alert(1)", expected: "#report-sources" },
+    { source: "https://issuer.example/display", sourceId: "https://user:secret@issuer.example/private", expected: "#report-sources" },
+  ])("keeps table citation destinations separate from enclosing punctuation: $source", ({ expected, ...source }) => {
+    const report = loadReport();
+    report.leadership.managementActions = [{ occurredOn: "2026-06-24", actor: "board", category: "capital-allocation", shareholderAlignment: "mixed",
+      action: [{ label: "FACT", text: "Citation table boundary <script>unsafe</script>.", asOf: null, ...source }], assessment: [] }];
+    const html = reportToPrintBody(report);
+    const note = html.slice(html.indexOf("Citation table boundary")).split("</td>")[0]!;
+    expect(note.match(/href="([^"]+)"/)?.[1]).toBe(expected);
+    expect(note).toContain("&lt;script&gt;unsafe&lt;/script&gt;");
+    expect(note).not.toContain("<script>");
+  });
+
+  it.each([
     { source: "https://example.com/display", sourceId: "https://www.sec.gov/Archives/canonical.htm?a=1&b=2", expected: "https://www.sec.gov/Archives/canonical.htm?a=1&amp;b=2" },
     { source: "Annual filing", sourceId: "https://www.sec.gov/Archives/canonical.htm", expected: "https://www.sec.gov/Archives/canonical.htm" },
     { source: "https://example.com/legacy", expected: "https://example.com/legacy" },
