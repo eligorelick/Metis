@@ -37,7 +37,8 @@ import { createCompanyLoadCoordinator } from "@/pipeline/companyLoad";
 import type { DataBundle } from "@/pipeline/types";
 import { validateBundle, type ValidationReport } from "@/pipeline/stageA/validate";
 import { renderManifestSummary } from "@/pipeline/stageA/manifest";
-import { runStageB, sourcedOf, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
+import { sourcedOf, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
+import { getCompanyAnalysis } from "@/components/report/companyAnalysis";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import type { AltmanZone } from "@/pipeline/stageB/forensics";
 import {
@@ -87,6 +88,7 @@ interface SupportedPageData {
   bundle: DataBundle;
   validation: ValidationReport;
   computed: ComputedMetrics;
+  fundamentals: ReturnType<typeof getCompanyAnalysis>["fundamentals"];
   support: Extract<InstrumentSupport, { supported: true }>;
   /** Latest persisted `done` report for this symbol, if any (rendered in full). */
   latestReport: LatestReport | null;
@@ -132,7 +134,7 @@ async function loadCompany(symbol: string): Promise<PageData | null> {
   const profileRow = bundle.profile.ok ? (bundle.profile.value.data.rows[0] ?? null) : null;
   const support = classifyInstrumentSupport(profileRow);
   if (!support.supported) return { status: "unsupported", bundle, validation, support };
-  const computed = runStageB(bundle);
+  const { computed, fundamentals } = getCompanyAnalysis(bundle);
   // A malformed DB / query never fails the whole page — fall back to no report.
   let latestReport: LatestReport | null = null;
   try {
@@ -140,7 +142,7 @@ async function loadCompany(symbol: string): Promise<PageData | null> {
   } catch {
     latestReport = null;
   }
-  return { status: "supported", bundle: balanceIntegrityView(bundle), validation, computed, support, latestReport };
+  return { status: "supported", bundle: balanceIntegrityView(bundle), validation, computed, fundamentals, support, latestReport };
 }
 
 const coordinatedCompanyLoad = createCompanyLoadCoordinator<PageData>({
@@ -1059,12 +1061,11 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
     );
   }
 
-  const { validation, computed } = data;
+  const { validation, computed, fundamentals: fundData } = data;
 
   // Build the heavy (~1260-bar) chart datasets once for the live analysis tree.
   const priceProps = priceChartPropsFromBundle(bundle, computed);
   const rsSeries = relativeStrengthSeriesFromBundle(bundle);
-  const fundData = fundamentalsChartDataFromBundle(bundle, computed);
 
   // Stage-B live analysis panels (always available from the just-run pipeline).
   const analysisPanels = (

@@ -26,6 +26,7 @@ const harness = vi.hoisted(() => ({
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/pipeline/companyData", () => ({ readCompanyData: () => null, retainCompanyData: () => {} }));
+vi.mock("@/components/report/companyAnalysis", () => ({ getCompanyAnalysis: (bundle: unknown) => ({ computed: harness.runStageB(bundle), fundamentals: { series: [] } }) }));
 vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }) }));
 vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: harness.activeJob, getLatestResumableJobForSymbol: harness.resumableJob }));
 vi.mock("@/pipeline/dataBundle", () => ({

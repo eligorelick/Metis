@@ -89,6 +89,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/symbol.ts",
   "src/pipeline/companyLoad.ts",
   "src/pipeline/companyData.ts",
+  "src/components/report/companyAnalysis.ts",
   "src/pipeline/dataBundle.ts",
   "src/pipeline/commonEarnings.ts",
   "src/pipeline/incomeBasis.ts",

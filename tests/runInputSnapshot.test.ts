@@ -24,6 +24,57 @@ beforeEach(() => {
 afterEach(() => { setDbForTests(null); handle.sqlite.close(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe("immutable normalized run inputs", () => {
+  it("reuses verified immutable inputs but still detects changed or removed stored bytes", () => {
+    const snapshot = captureRunInputSnapshot(completeCurrencyBundle({}), { evIncludeLeases: false });
+    persistRunInputSnapshot("run-a", 0, snapshot, capturedAt);
+    const first = readRunInputSnapshot(snapshot.hash);
+    expect(Object.isFrozen(first?.content.bundle)).toBe(true);
+    expect(readRunInputSnapshot(snapshot.hash)).toBe(first);
+    handle.sqlite.prepare("UPDATE run_input_snapshots SET snapshotJson = ? WHERE hash = ?").run("corrupt", snapshot.hash);
+    expect(() => readRunInputSnapshot(snapshot.hash)).toThrow(/integrity/i);
+    handle.sqlite.prepare("UPDATE run_input_snapshots SET snapshotJson = ? WHERE hash = ?").run(canonicalSnapshotJson(snapshot), snapshot.hash);
+    expect(readRunInputSnapshot(snapshot.hash)?.hash).toBe(snapshot.hash);
+    const isolated = createDatabase(":memory:");
+    try { expect(readRunInputSnapshot(snapshot.hash, isolated.db)).toBeNull(); } finally { isolated.sqlite.close(); }
+    handle.sqlite.prepare("DELETE FROM job_run_inputs WHERE snapshotHash = ?").run(snapshot.hash);
+    handle.sqlite.prepare("DELETE FROM run_input_snapshots WHERE hash = ?").run(snapshot.hash);
+    expect(readRunInputSnapshot(snapshot.hash)).toBeNull();
+  });
+
+  it("evicts older verified snapshots instead of retaining every input bundle", () => {
+    const bundle = completeCurrencyBundle({});
+    const first = captureRunInputSnapshot(bundle, { evIncludeLeases: false });
+    persistRunInputSnapshot("run-a", 0, first, capturedAt);
+    const recalled = readRunInputSnapshot(first.hash);
+    for (let generation = 1; generation <= 8; generation++) {
+      const snapshot = captureRunInputSnapshot({ ...bundle, symbol: `TICKER${generation}` }, { evIncludeLeases: false });
+      persistRunInputSnapshot("run-a", generation, snapshot, capturedAt);
+      readRunInputSnapshot(snapshot.hash);
+    }
+    const reloaded = readRunInputSnapshot(first.hash);
+    expect(reloaded).toEqual(recalled);
+    expect(reloaded).not.toBe(recalled);
+  });
+
+  it("bounds retained snapshot bytes even when fewer than eight inputs are used", () => {
+    const first = captureRunInputSnapshot(completeCurrencyBundle({}), { evIncludeLeases: false });
+    const second = captureRunInputSnapshot(completeCurrencyBundle({ quarterlyRevenue: 350 }), { evIncludeLeases: false });
+    // JSON whitespace grows the stored representation without an enormous
+    // fixture or changing the snapshot's verified content address.
+    for (const snapshot of [first, second]) handle.db.insert(runInputSnapshots).values({
+      hash: snapshot.hash, snapshotJson: " ".repeat(8_500_000) + canonicalSnapshotJson(snapshot), createdAt: capturedAt,
+    }).run();
+    const recalled = readRunInputSnapshot(first.hash);
+    expect(readRunInputSnapshot(first.hash)).toBe(recalled);
+    readRunInputSnapshot(second.hash);
+    expect(readRunInputSnapshot(first.hash)).not.toBe(recalled);
+    handle.sqlite.prepare("UPDATE run_input_snapshots SET snapshotJson = ? WHERE hash = ?")
+      .run(" ".repeat(16_000_001) + canonicalSnapshotJson(second), second.hash);
+    const oversized = readRunInputSnapshot(second.hash);
+    expect(oversized?.hash).toBe(second.hash);
+    expect(readRunInputSnapshot(second.hash)).not.toBe(oversized);
+  });
+
   it("keeps the Drizzle composite association key synchronized with bootstrapped SQLite", () => {
     const declared = getTableConfig(jobRunInputs);
     const stored = handle.sqlite.pragma("table_info(job_run_inputs)") as { name: string; pk: number }[];
