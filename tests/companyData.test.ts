@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createDatabase, setDbForTests, type DatabaseHandle } from "@/db";
-import { jobs } from "@/db/schema";
+import { companyData, jobs } from "@/db/schema";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
-import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
+import { captureRunInputSnapshot, canonicalSnapshotJson, CURRENT_SNAPSHOT_VERSIONS } from "@/pipeline/runInputSnapshot";
 import { persistRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
 import { readCompanyData, retainCompanyData, loadCompanyData } from "@/pipeline/companyData";
 import { cachedFetch, withFreshCacheReads } from "@/cache/apiCache";
@@ -56,5 +56,32 @@ it("skips newer failed-run inputs and recalls the last usable run or ticker snap
   }
   expect(readCompanyData(good.symbol)?.builtAt).toBe(good.builtAt);
   retainCompanyData(good);
+  expect(readCompanyData(good.symbol)?.builtAt).toBe(good.builtAt);
+});
+
+it.each(["stageB", "reportSpec", "scoreBands"] as const)("rebuilds retained ticker data with an incompatible %s version", async version => {
+  const bundle = completeCurrencyBundle({});
+  const old = captureRunInputSnapshot(bundle, { evIncludeLeases: false }, { ...CURRENT_SNAPSHOT_VERSIONS, [version]: "old" });
+  handle.db.insert(companyData).values({ symbol: bundle.symbol, snapshotJson: canonicalSnapshotJson(old), builtAt: bundle.builtAt }).run();
+  expect(readCompanyData(bundle.symbol)).toBeNull();
+  const fresh = { ...bundle, builtAt: "2026-11-06T19:00:00.000Z" };
+  const fetcher = vi.fn(async () => fresh);
+  expect((await loadCompanyData(bundle.symbol, fetcher)).builtAt).toBe(fresh.builtAt);
+  expect((await loadCompanyData(bundle.symbol, fetcher)).builtAt).toBe(fresh.builtAt);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it.each(["stageB", "reportSpec", "scoreBands"] as const)("skips incompatible %s versions in both sources and recalls a compatible earlier run", version => {
+  const good = completeCurrencyBundle({});
+  const newer = { ...good, builtAt: "2026-11-06T19:00:00.000Z" };
+  const snapshots = [captureRunInputSnapshot(good, { evIncludeLeases: false }),
+    captureRunInputSnapshot(newer, { evIncludeLeases: false }, { ...CURRENT_SNAPSHOT_VERSIONS, [version]: "old" })];
+  handle.db.insert(companyData).values({ symbol: newer.symbol, snapshotJson: canonicalSnapshotJson(snapshots[1]), builtAt: newer.builtAt }).run();
+  for (const [index, snapshot] of snapshots.entries()) {
+    const { bundle } = snapshot.content;
+    const id = `run-${index}`;
+    handle.db.insert(jobs).values({ id, symbol: bundle.symbol, status: "done", stepsJson: "[]", createdAt: bundle.builtAt, updatedAt: bundle.builtAt }).run();
+    persistRunInputSnapshot(id, 0, snapshot, bundle.builtAt);
+  }
   expect(readCompanyData(good.symbol)?.builtAt).toBe(good.builtAt);
 });

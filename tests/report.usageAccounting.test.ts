@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { ReportView } from "@/components/report/ReportView";
+import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintBody } from "@/report/export/printHtml";
 import { buildExecutionMetadataEntry } from "@/report/execution";
 import { passLine, usageSummary } from "@/report/presentation";
 import { CostBreakdownEntrySchema, type Report } from "@/report/schema";
@@ -38,6 +43,24 @@ function paidReport(ledger: Report["appendix"]["costBreakdown"]): Report {
 }
 
 describe("run usage counts every recorded request (FIGR paid audit R1)", () => {
+  it.each([
+    ["chatgpt/gpt-6.1-sol", "ChatGPT plan"],
+    ["gemini/gemini-model", "Gemini CLI"],
+    ["claude/claude-opus-5-5", "Claude Code account"],
+  ])("attributes %s usage to its account in the report and exports", (model, allowance) => {
+    const report = loadTask28Fixture();
+    report.meta.execution = [buildExecutionMetadataEntry({
+      step: "bull", requestedModel: model, effectiveModel: model, requestedEffort: null, fallbackUsed: false,
+      usage: { input_tokens: 1000, output_tokens: 100 },
+    })];
+    report.appendix.costBreakdown = [];
+    const expected = `1,000 input / 100 output tokens on the ${allowance} allowance (no API charge recorded)`;
+    expect(usageSummary(report)).toBe(expected);
+    for (const output of [reportToMarkdown(report), reportToAuditMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, { report }))]) {
+      expect(output).toContain(expected);
+    }
+  });
+
   it("accepts per-request token counts in the cost breakdown and still reads rows without them", () => {
     for (const entry of LEDGER) expect(CostBreakdownEntrySchema.safeParse(entry).success).toBe(true);
     expect(CostBreakdownEntrySchema.safeParse({ step: "bull", model: MODEL, costUsd: 0.1 }).success).toBe(true);

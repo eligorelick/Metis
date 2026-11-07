@@ -64,7 +64,7 @@ Claude account access uses your installed, unmodified **Claude Code 2.1.319+**: 
 ChatGPT supports hosted plan research; Claude API retains API search, while Claude through the local CLI and Gemini use supplied evidence. Writers and judges stay tool-free. Explicit optional-search limits fall back to supplied evidence with a coverage notice; authentication, policy and allowance failures still stop the run.
 Connections have offline test coverage, and complete reports have run live through a ChatGPT connection; inference through live Gemini and Claude Code accounts has not been verified. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
 
-Saved reports have a **Rerun ticker** control and a **Delete** action with confirmation. **Ticker data** recalls retained local inputs, including inputs from prior runs, and shows when they were collected. **Update ticker data** checks for updated source data without running AI; ordinary revisits do not re-fetch retained data. Fresh provider responses and immutable filings remain cached during an update. Deleting a report keeps job, input and cost records for accounting.
+Saved reports have a **Rerun ticker** control and a **Delete** action with confirmation. **Ticker data** recalls compatible local inputs from prior visits or runs and shows when they were collected. **Update ticker data** checks for updated source data without running AI; ordinary revisits reuse retained data. App upgrades rebuild inputs if their calculation versions differ. Fresh provider responses and immutable filings remain cached during an update. Deleting a report keeps job, input and cost records for accounting.
 
 ## Configuration
 

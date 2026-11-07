@@ -4,12 +4,17 @@ import { getDb } from "@/db";
 import { companyData, jobRunInputs, jobs } from "@/db/schema";
 import { canonicalEntitySymbol, sameEntitySymbol } from "@/symbol";
 import { getConfig } from "@/config/env";
-import { captureRunInputSnapshot, canonicalSnapshotJson, verifyRunInputSnapshot } from "./runInputSnapshot";
+import { captureRunInputSnapshot, canonicalSnapshotJson, verifyRunInputSnapshot, CURRENT_SNAPSHOT_VERSIONS, type RunInputSnapshot } from "./runInputSnapshot";
 import { readRunInputSnapshot } from "./runInputSnapshotStore";
 import type { DataBundle } from "./types";
 
 function usableProfile(bundle: DataBundle): boolean {
   return bundle.profile?.ok === true && bundle.profile.value.data.rows.length > 0;
+}
+
+function compatibleBundle(snapshot: RunInputSnapshot | null): DataBundle | null {
+  if (!snapshot || canonicalSnapshotJson(snapshot.content.versions) !== canonicalSnapshotJson(CURRENT_SNAPSHOT_VERSIONS)) return null;
+  return usableProfile(snapshot.content.bundle) ? snapshot.content.bundle : null;
 }
 
 /** Durable recall, with no provider calls, expiry or background revalidation. */
@@ -21,8 +26,8 @@ export function readCompanyData(symbol: string): DataBundle | null {
   let bundle: DataBundle | null = null;
   if (row) {
     try {
-      const candidate = verifyRunInputSnapshot(JSON.parse(row.snapshotJson)).content.bundle;
-      if (usableProfile(candidate)) bundle = candidate;
+      const candidate = compatibleBundle(verifyRunInputSnapshot(JSON.parse(row.snapshotJson)));
+      if (candidate && sameEntitySymbol(candidate.symbol, symbol)) bundle = candidate;
     } catch { /* Try the independently retained run input. */ }
   }
   const runs = db.select({ hash: jobRunInputs.snapshotHash, capturedAt: jobRunInputs.capturedAt }).from(jobRunInputs)
@@ -32,8 +37,8 @@ export function readCompanyData(symbol: string): DataBundle | null {
   for (const run of runs) {
     if (bundle && run.capturedAt <= bundle.builtAt) break;
     try {
-      const candidate = readRunInputSnapshot(run.hash)?.content.bundle;
-      if (candidate && usableProfile(candidate) && sameEntitySymbol(candidate.symbol, symbol) && (!bundle || candidate.builtAt > bundle.builtAt)) bundle = candidate;
+      const candidate = compatibleBundle(readRunInputSnapshot(run.hash));
+      if (candidate && sameEntitySymbol(candidate.symbol, symbol) && (!bundle || candidate.builtAt > bundle.builtAt)) bundle = candidate;
     } catch { /* Retain the last readable ticker snapshot. */ }
   }
   return bundle && sameEntitySymbol(bundle.symbol, symbol) ? bundle : null;
