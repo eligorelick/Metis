@@ -28,3 +28,32 @@ it("keeps the run on screen when the server refuses deletion", async () => {
   expect(container.querySelector('[role="alert"]')!.textContent).toContain("still active");
   expect(nav.replace).not.toHaveBeenCalled(); expect(nav.refresh).not.toHaveBeenCalled();
 });
+
+it.each([
+  { body: null, status: 405, message: "Restart Metis" },
+  { body: "<html>Internal server error</html>", status: 500, message: "Could not delete this run (HTTP 500)" },
+  { body: '{"error":', status: 502, message: "Could not delete this run (HTTP 502)" },
+  { body: "null", status: 500, message: "Could not delete this run (HTTP 500)" },
+  { body: '{"error":{"detail":"internal"}}', status: 500, message: "Could not delete this run (HTTP 500)" },
+])("handles an unreadable $status response without hiding the failure behind a JSON error", async ({ body, status, message }) => {
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(body, { status }));
+  await act(async () => root.render(createElement(DeleteReportButton, { reportId: 42, symbol: "DEMO", redirect: true })));
+  await act(async () => container.querySelector("button")!.click());
+  await act(async () => container.querySelector("button")!.click());
+  expect(container.querySelector('[role="alert"]')!.textContent).toContain(message);
+  expect(nav.replace).not.toHaveBeenCalled(); expect(nav.refresh).not.toHaveBeenCalled();
+  expect(container.querySelector("button")!.disabled).toBe(false);
+  await act(async () => container.querySelector("button")!.click());
+  expect(nav.replace).toHaveBeenCalledWith("/company/DEMO/history");
+  expect(nav.refresh).toHaveBeenCalledTimes(1);
+  expect(container.querySelector('[role="alert"]')).toBeNull();
+});
+
+it("accepts an empty successful response and refreshes history without navigating away", async () => {
+  vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 204 }));
+  await act(async () => root.render(createElement(DeleteReportButton, { reportId: 42, symbol: "DEMO" })));
+  await act(async () => container.querySelector("button")!.click());
+  await act(async () => container.querySelector("button")!.click());
+  expect(nav.replace).not.toHaveBeenCalled(); expect(nav.refresh).toHaveBeenCalledTimes(1);
+  expect(container.querySelector('[role="alert"]')).toBeNull();
+});

@@ -18,6 +18,15 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Saved-run deletion recovery (2026-11-06)
+
+- Show a readable deletion error when the server returns an empty, malformed
+  or HTML response. A missing DELETE handler now explains how to restart and
+  reload; failed attempts keep the run visible and allow retry.
+- Return a sanitized JSON error for storage failures while retaining the report
+  and job link. Successful deletion still refreshes history or leaves the
+  deleted report's page. No report, payload or calculation versions change.
+
 ## Unreleased - Saved research controls and Claude account access (2026-11-06)
 
 - Expose Rerun ticker on saved reports in both layouts, with confirmed deletion

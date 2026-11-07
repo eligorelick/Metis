@@ -33,3 +33,16 @@ it("rejects cross-origin deletion and malformed ids before changing history", as
   expect(handle.db.select().from(reports).all()).toHaveLength(1);
   expect((await DELETE(new Request(url, { method: "DELETE", headers: { host: "localhost:3000", origin: "http://localhost:3000" } }), { params: Promise.resolve({ reportId: String(id) }) })).status).toBe(200);
 });
+
+it("returns a readable JSON error on a storage failure and leaves the run intact", async () => {
+  const id = seed();
+  handle.sqlite.exec("CREATE TRIGGER fail_report_delete BEFORE DELETE ON reports BEGIN SELECT RAISE(ABORT, 'private storage detail'); END");
+  const response = await DELETE(new Request(`http://localhost:3000/api/report/view/${id}?symbol=BRK.B`, {
+    method: "DELETE", headers: { host: "localhost:3000", origin: "http://localhost:3000" },
+  }), { params: Promise.resolve({ reportId: String(id) }) });
+  expect(response.status).toBe(500);
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(await response.json()).toEqual({ error: "Could not delete this run. Please try again." });
+  expect(handle.db.select().from(reports).all()).toHaveLength(1);
+  expect(handle.db.select().from(jobs).get()?.reportId).toBe(id);
+});
