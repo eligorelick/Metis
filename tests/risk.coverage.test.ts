@@ -75,6 +75,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/symbol.ts",
   "src/pipeline/companyLoad.ts",
   "src/pipeline/companyData.ts",
+  "src/components/report/companyAnalysis.ts",
   "src/pipeline/dataBundle.ts",
   "src/pipeline/commonEarnings.ts",
   "src/pipeline/incomeBasis.ts",

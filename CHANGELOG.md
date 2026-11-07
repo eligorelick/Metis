@@ -18,6 +18,16 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Ticker navigation performance (2026-11-06)
+
+- Reuse unchanged ticker calculations and fundamentals chart data across page
+  visits. Updated inputs, calculation settings or implementation versions produce
+  fresh results; retained display results are bounded and isolated from mutation.
+- Reuse verified, immutable run inputs while checking the current database bytes
+  on every read, so changed, corrupt or deleted records remain detectable.
+- Preserve deletion refreshes so Back/Forward navigation cannot restore deleted
+  report data. No financial formulas, saved-report bytes or version stamps change.
+
 ## Unreleased - Saved-run deletion recovery (2026-11-06)
 
 - Show a readable deletion error when the server returns an empty, malformed
