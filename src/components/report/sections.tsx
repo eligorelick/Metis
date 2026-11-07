@@ -673,7 +673,7 @@ function SegmentTable({
             {r.name}
           </div>
           <div className="min-w-0 break-words text-right">
-            <TracedFigure n={r.revenue} className="text-[11px]" />
+            <TracedFigure n={r.revenue} className="text-[11px]" showProvenance />
           </div>
           <div className="col-span-2 min-w-0">
             <ShareBar
@@ -697,6 +697,11 @@ export function BusinessSegments({
   /** Deterministic filing-disclosure tables (XBRL segment revenue by quarter). */
   extraTables?: ReportAuditTable[];
 }) {
+  const quarterlyShown = extraTables.length > 0;
+  const annualProductReference = [...business.whatTheySell, ...business.concentrationRisks]
+    .some(claim => /annual product|product categor|product table/i.test(claim.text));
+  const annualProductShown = showAnnualSegments(quarterlyShown) || annualProductReference;
+  const annualGeographyShown = showAnnualSegments(quarterlyShown) || business.segments.geographic.length > 0;
   return (
     <SectionFrame id="business" index={index} title="Business & Segments">
       <SubBlock label="what they sell">
@@ -706,21 +711,21 @@ export function BusinessSegments({
         <ClaimList claims={business.marketStructure} />
       </SubBlock>}
       <ExtraAuditTables tables={extraTables} />
-      {/* D-67: beside the quarterly XBRL tables the annual provider tables are in the audit export. */}
-      {(showAnnualSegments(extraTables.length > 0) || geographicBasisNote(business.segments.geographic)) && <div className="grid gap-4 lg:grid-cols-2">
-        {showAnnualSegments(extraTables.length > 0) && <SubBlock label={annualSegmentHeading("Product", business.segments.product, false).toLowerCase()}>
+      {/* Keep referenced annual categories and dated geography beside quarterly evidence. */}
+      {(annualProductShown || annualGeographyShown) && <div className="grid gap-4 lg:grid-cols-2">
+        {annualProductShown && <SubBlock label={annualSegmentHeading("Product", business.segments.product, quarterlyShown).toLowerCase()}>
           <SegmentTable
             rows={business.segments.product}
             emptyLabel="no product segmentation reported"
           />
         </SubBlock>}
-        <SubBlock label={annualSegmentHeading("Geographic", business.segments.geographic, false).toLowerCase()}>
+        {annualGeographyShown && <SubBlock label={annualSegmentHeading("Geographic", business.segments.geographic, quarterlyShown).toLowerCase()}>
           <SegmentTable
             rows={business.segments.geographic.map((row) => ({ ...row, name: geographyLabel(row.name) }))}
             emptyLabel="no geographic segmentation reported"
           />
           {geographicBasisNote(business.segments.geographic) && <p className="mt-2 text-[11px] leading-snug text-muted">{geographicBasisNote(business.segments.geographic)}</p>}
-        </SubBlock>
+        </SubBlock>}
       </div>}
       <SubBlock label="concentration risks">
         <ClaimList claims={business.concentrationRisks} empty="No concentration-risk assessment available." />

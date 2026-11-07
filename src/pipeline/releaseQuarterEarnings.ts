@@ -1,6 +1,7 @@
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { conceptFactsSchema, factPointSchema } from "@/edgar/xbrl";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import { shareBasisFactor } from "@/edgar/splits";
 import type { DataBundle } from "./types";
 import type { StatementFieldProvenance } from "@/providers/fmp";
 
@@ -13,9 +14,10 @@ const day = (value: unknown): value is string => typeof value === "string" && /^
  * averages, restore a split/unit refusal, or translate an ADR denominator. */
 export function withReleaseQuarterEarnings(bundle: DataBundle): DataBundle {
   const edgar = bundle.edgar, reports = edgar?.currentReports, identity = edgar?.cik;
+  const splitBasis = edgar?.shareBasis;
   const profile = bundle.profile?.ok ? bundle.profile.value.data.rows[0] : null;
   const input = bundle.statements?.incomeQuarterly;
-  if (!input?.ok || !reports?.ok || reports.value.source !== "edgar" || !identity?.ok || identity.value.source !== "edgar" ||
+  if (!input?.ok || !reports?.ok || !splitBasis || reports.value.source !== "edgar" || !identity?.ok || identity.value.source !== "edgar" ||
       profile?.isAdr !== false || identity.value.data.ticker.toUpperCase() !== bundle.symbol.toUpperCase() ||
       edgar.registrant?.cik10 !== identity.value.data.cik10 || edgar.registrant.tickers.length !== 1 || edgar.registrant.tickers[0]?.toUpperCase() !== bundle.symbol.toUpperCase() ||
       !Number.isFinite(Date.parse(reports.value.fetchedAt)) || Date.parse(reports.value.fetchedAt) > Date.parse(bundle.builtAt)) return bundle;
@@ -71,11 +73,14 @@ export function withReleaseQuarterEarnings(bundle: DataBundle): DataBundle {
           source.form !== "8-K" || source.accession !== release.accession || !/^\d{10}-\d{2}-\d{6}$/.test(source.accession) ||
           source.exhibit !== "EX-99.1" || source.url !== release.releaseUrl || !source.url?.startsWith(expectedPrefix) ||
           !/^[a-zA-Z0-9_.-]+\.html?$/.test(source.url.slice(expectedPrefix.length)) || fact.symbol !== "$" ||
-          bundle.edgar.shareBasis?.splits.events.some(event => event.date > source.filingDate && event.date <= bundle.edgar.shareBasis!.basisDay) ||
-          bundle.edgar.shareBasis?.splits.unresolved.some(event => event.to > source.filingDate && event.from <= bundle.edgar.shareBasis!.basisDay) ||
           !finite(fact.netIncome) || Math.abs(fact.netIncome - row.netIncome) > Math.max(1, Math.abs(row.netIncome) * 0.001) ||
           FIELDS.some(field => !finite(fact[field]) || row.fieldProvenance?.[field]?.filings.some(f => f.filed > source.filingDate)) ||
           fact.weightedAverageShsOut <= 0 || fact.weightedAverageShsOutDil < fact.weightedAverageShsOut) return row;
+      // These are statement averages on the release's filing basis, not a
+      // point-in-time count measured at period end. Require complete coverage
+      // and an unchanged basis; do not infer timing from a split context date.
+      const basis = shareBasisFactor(splitBasis.splits, source.filingDate, null, splitBasis.basisDay);
+      if ("withheld" in basis || basis.factor !== 1) return row;
       const out = { ...row, fieldConflicts: { ...row.fieldConflicts }, fieldProvenance: { ...row.fieldProvenance } };
       for (const field of FIELDS) {
         const evidence: StatementFieldProvenance = { source: "edgar", unit: field.startsWith("eps") ? `${row.reportedCurrency}/shares` : "shares",

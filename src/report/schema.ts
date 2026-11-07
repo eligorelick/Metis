@@ -171,7 +171,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.67.0: recover source-proved share classes, statements, lease/cash and quarter SBC scopes.
 // 1.68.0 (D-211): optional public evidence and observed/retained web research disclosures.
 // 1.69.0 (D-212): scope-safe quarterly inputs, optional-research limits and complete source qualifications.
-export const REPORT_SPEC_VERSION = "1.70.0" as const;
+// 1.71.0 (D-214): preserve split-safe quarterly evidence across computation and model context, and expose referenced annual tables.
+export const REPORT_SPEC_VERSION = "1.71.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency

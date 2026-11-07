@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { BusinessSegments } from "@/components/report/sections";
 import { figureValueText } from "@/report/presentation";
 import { executiveCardClaims } from "@/report/executiveDecisions";
 import { filingFactTables } from "@/report/filingSupplementPresentation";
@@ -81,6 +84,13 @@ describe("evidence-backed reader remediation", () => {
       const row = text.includes("<tr>") ? text.match(/<tr>[^]*?Historical region[^]*?<\/tr>/)?.[0]?.split("<tr>").at(-1) : text.split("\n").find(line => line.includes("Historical region"));
       expect(row).toContain("2023-09-30");
     }
+    const ui = renderToStaticMarkup(createElement(BusinessSegments, {
+      business: report.business, index: 2, extraTables: filingDisclosureTables(report.filingDisclosures, "business"),
+    })).replace(/<[^>]*>/g, " ");
+    expect(ui).toContain("Historical region");
+    expect(ui).toContain("Referenced annual product");
+    expect(ui).toContain("fiscal year ended 2023-09-30 (prior presentation)");
+    expect(ui).toContain("period FY2023; as of 2023-09-30");
   });
   it("labels separately averaged scenario metrics without claiming a reconciling income statement", () => {
     const series = loadTask28Fixture().projections!.series[0]!;

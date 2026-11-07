@@ -58,3 +58,52 @@ Remaining evidence limits: the comparative inventory bridge, some debt/lease def
 Final Node 24 `npm run verify`: **passed**. Both core and risk coverage runs passed **17,014 tests across 745 files**, with three existing skips each; all coverage contracts passed. Four isolated database CLI integration tests, dependency checks, typecheck, lint and production build passed. The production/development dependency audit reported **zero vulnerabilities**. Additional attribute-parser controls exercised unquoted/whitespace variants, malformed values and source identity without changing production behavior.
 
 Independent task reviews, a fresh whole-branch review and its scoped re-review are complete. All identified review findings were addressed, including the residual adjusted-heading ambiguity. The reviewer independently confirmed that regeneration of the wholly synthetic current sample changes stamps and additive diagnostic/audit fields, while existing financial values remain equal. No real source response or report export is included in this change.
+
+## Post-merge review and integration follow-up
+
+The user requested another independent check after PR #115 merged. That check
+found five defects not established by the earlier reviews:
+
+1. The model/verifier statement payload still held the prior vendor EPS/share
+   figures after Stage B and the filing table adopted compatible release values.
+2. Direct release admission used an accounting split context date and could
+   override current-basis vendor figures with pre-split values. It also admitted
+   without proved split coverage.
+3. The new country-geography reader, and the shared legacy table path, ignored
+   explicit numeric transformation/nil attributes. A synthetic decimal-comma
+   fact was misread by a factor of 1,000. The
+   [XBRL transformation registry](https://www.xbrl.org/Specification/inlineXBRL-transformationRegistry/REC-2022-02-16/inlineXBRL-transformationRegistry-REC-2022-02-16.html)
+   defines decimal-comma and dot-decimal transformations separately.
+4. Referenced annual product and historical geography tables were visible in
+   exports but could still be hidden in the interactive reader.
+5. A print table's parenthesized citation could acquire a closing parenthesis in
+   its navigable URL, instead of retaining its canonical structured destination.
+
+Each defect received a failing synthetic regression before its repair. The
+follow-up preserves supported positive inputs, source conflicts, original stored
+reports, base valuation formulas and score bands. The split check follows the
+existing filing-date convention for statement averages; the source model does
+not supply a separate original publication date for a furnished exhibit.
+
+The first targeted integration run passed 532 tests and failed two: a stale
+payload-version fingerprint/header expectation and test-list enumeration before
+the new regression file was staged. Both were corrected; the three affected
+version/documentation/release suites then passed 140 tests. These were test
+integration failures, not new financial behavior changes.
+
+Final follow-up Node 24.11.1 `npm run verify`: **passed**. Both complete coverage
+runs passed **17,044 tests across 746 files**, with three existing skips each and
+all coverage contracts met. Four isolated database integration tests, dependency
+shape, typecheck, lint, production build and security audit passed; the audit
+reported zero vulnerabilities. Source, test and fixture hashes stayed unchanged
+through the gate.
+
+The fresh scoped reviewer approved all five repairs, independently ran 202 tests
+and additional split/attribute probes, and confirmed all 938 numeric values in
+the regenerated synthetic sample remain identical. Its only sample changes are
+method stamps. Frozen-input computation is exactly equal to the preceding
+implementation; original report/snapshot hashes are unchanged, historical replay
+still refuses a mismatched engine, and cached-public-source notes, guidance,
+quarter EPS/shares and geography positive controls remain supported. No fresh
+model-authored report was generated, and future narrative accuracy remains an
+evidence-dependent judgment rather than a test guarantee.

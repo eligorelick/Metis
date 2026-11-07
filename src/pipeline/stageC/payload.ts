@@ -55,6 +55,7 @@ import { incompleteLeaseCoverage, leaseEvidenceNote, leaseEvidenceContextFor, ty
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { calibratedRevenueCurrency, establishedIsoCode, inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import { withFilerShareUnits } from "@/pipeline/shareUnits";
+import { withReleaseQuarterEarnings } from "@/pipeline/releaseQuarterEarnings";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DegradationPlan } from "@/pipeline/stageB/sectorRouting";
 import { HTM_LOSS_TAX_RATE_PCT } from "@/pipeline/stageB/financialMetrics";
@@ -509,7 +510,8 @@ export interface ContextPayload {
 // 1.86.0 (D-210): source-proved class, statement, debt, cash and quarter SBC reconciliation.
 // 1.87.0 (D-211): cited issuer documents and annual proxy excerpts.
 // 1.88.0 (D-212): compatible quarterly ownership/cash inputs and qualified source presentation.
-export const PAYLOAD_VERSION = "1.89.0" as const;
+// 1.90.0 (D-214): quarterly release corrections and their source lineage agree with Stage B; unsafe split/inline numeric bases are refused.
+export const PAYLOAD_VERSION = "1.90.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -3806,7 +3808,7 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
-  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle)));
+  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))));
   bundle = balanceIntegrityView(bundle);
   const profile = firstRow(bundle.profile);
   // Trading (listing), annual and model currencies, resolved exactly as Stage B
