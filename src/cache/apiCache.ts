@@ -13,6 +13,13 @@
  */
 
 import "server-only";
+import { AsyncLocalStorage } from "node:async_hooks";
+
+const freshReads = new AsyncLocalStorage<boolean>();
+/** Explicit updates wait for expired source refreshes while retaining fresh/immutable cache hits. */
+export function withFreshCacheReads<T>(work: () => Promise<T>): Promise<T> {
+  return freshReads.run(true, work);
+}
 
 import { and, eq, lt, sql } from "drizzle-orm";
 import { getDb, type ThesisDb } from "@/db";
@@ -378,6 +385,7 @@ export async function flushPendingRefreshes(): Promise<void> {
  * an expired hit never throws; it serves stale and revalidates in background.
  */
 export async function cachedFetch<T>(opts: CachedFetchOptions<T>): Promise<Sourced<T>> {
+  if (freshReads.getStore()) opts = { ...opts, expiredHit: "refresh-first" };
   const { provider, endpoint, params, ttlSeconds, fetcher } = opts;
   const cacheKey = buildCacheKey(provider, endpoint, params);
   const db = getDb();

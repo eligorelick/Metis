@@ -7,7 +7,7 @@ import { autoPreferenceIds, resolveRegistryModel } from "@/models/registry";
 import { subscriptionModel, type AiSelection } from "./contracts";
 
 export interface AnalysisRoute {
-  provider: "anthropic" | "chatgpt" | "gemini" | "none";
+  provider: "anthropic" | "chatgpt" | "gemini" | "claude" | "none";
   model: string | null;
   effort: string | null;
   ready: boolean;
@@ -46,8 +46,8 @@ export function buildAnalysisRoute(
     const label = effort === null ? `Claude API · ${claudeName(model)}` : `Claude API · ${claudeName(model)} · ${effort} effort`;
     return { provider: "anthropic", model, effort, ready, label: ready ? label : `${label} · key needed` };
   }
-  const name = selection.provider === "chatgpt" ? "ChatGPT plan" : "Gemini";
-  const effort = selection.provider === "chatgpt" ? selection.effort ?? null : null;
+  const name = selection.provider === "chatgpt" ? "ChatGPT plan" : selection.provider === "claude" ? "Claude via local CLI" : "Gemini";
+  const effort = selection.provider === "chatgpt" || selection.provider === "claude" ? selection.effort ?? null : null;
   if (!ready) return { provider: selection.provider, model: selection.model, effort, ready, label: `${name} · sign-in needed` };
   const parts = [name, selection.model];
   if (effort) parts.push(`${effort} effort`);

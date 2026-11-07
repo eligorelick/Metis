@@ -63,8 +63,11 @@ In **Settings → AI connections**, connect ChatGPT through official plan OAuth 
 reasoning choices and opt-in Fast speed. Reports retain actual execution details.
 Sign-in runs no inference; failures never switch to paid API usage. Claude API
 remains separately billed. Plan allowances and credit settings apply; API dollar caps do not measure them. See [setup, controls and limits](docs/PRIVACY.md#ai-connection-setup).
-ChatGPT supports hosted plan research; Claude retains API search and Gemini uses supplied evidence. Writers and judges stay tool-free. Explicit optional-search limits fall back to supplied evidence with a coverage notice; authentication, policy and allowance failures still stop the run.
-Connections have offline test coverage, and complete reports have run live through a ChatGPT connection; inference through a live Gemini account has not been verified. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
+Claude account access uses your installed, unmodified **Claude Code 2.1.319+**: run `claude auth login`, complete Anthropic's sign-in, then click **Connect local Claude Code** in Settings. Choose a CLI model alias or full model ID and an optional reasoning effort, then save the connection. OAuth tokens stay with the CLI. [Anthropic's authentication rules](https://code.claude.com/docs/en/legal-and-compliance) describe this local CLI path.
+ChatGPT supports hosted plan research; Claude API retains API search, while Claude through the local CLI and Gemini use supplied evidence. Writers and judges stay tool-free. Explicit optional-search limits fall back to supplied evidence with a coverage notice; authentication, policy and allowance failures still stop the run.
+Connections have offline test coverage, and complete reports have run live through a ChatGPT connection; inference through live Gemini and Claude Code accounts has not been verified. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
+
+Saved reports have a **Rerun ticker** control and a **Delete** action with confirmation. **Ticker data** recalls retained local inputs, including inputs from prior runs, and shows when they were collected. **Update ticker data** checks for updated source data without running AI; ordinary revisits do not re-fetch retained data. Fresh provider responses and immutable filings remain cached during an update. Deleting a report keeps job, input and cost records for accounting.
 
 ## Configuration
 

@@ -16,6 +16,7 @@ import { useState } from "react";
 import Link from "next/link";
 
 import type { RunRef } from "@/report/history";
+import { DeleteReportButton } from "@/components/report/DeleteReportButton";
 
 export function RunsDisclosure({
   symbol,
@@ -64,6 +65,7 @@ export function RunsDisclosure({
                 </span>
                 <RunStatus status={r.status} />
               </Link>
+              <div className="px-6 pb-1"><DeleteReportButton reportId={r.id} symbol={symbol} redirect={r.id === selectedReportId} /></div>
             </li>
           ))}
         </ul>

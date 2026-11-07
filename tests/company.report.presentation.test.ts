@@ -25,6 +25,8 @@ const harness = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/pipeline/companyData", () => ({ readCompanyData: () => null, retainCompanyData: () => {} }));
+vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }) }));
 vi.mock("@/pipeline/jobRunner", () => ({ getReusableActiveJobForSymbol: harness.activeJob, getLatestResumableJobForSymbol: harness.resumableJob }));
 vi.mock("@/pipeline/dataBundle", () => ({
   buildDataBundle: harness.buildDataBundle,
@@ -246,7 +248,7 @@ describe("persisted report presentation", () => {
   it("P4-2 classic saved research discloses reusable analyst work", async () => {
     harness.resumableJob.mockReturnValue("finished-job");
     const html = renderToStaticMarkup(await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) }));
-    expect(html).toContain("A previous run stopped with reusable analyst work. Open Live analysis to resume it.");
+    expect(html).toContain("A previous run stopped with reusable analyst work. Resume it using the run controls above.");
     expect(harness.buildDataBundle).not.toHaveBeenCalled();
   });
   it("opens an existing ticker report without starting live data or calculations", async () => {
@@ -403,7 +405,7 @@ describe("persisted report presentation", () => {
   it("owns the current bundle timestamp only inside live analysis", async () => {
     const companyTree = await CompanyBody({ symbol: "DEMO" });
     const tabs = elementsWithin(companyTree).find((element) => element.type === ReportTabs)!;
-    const currentBundleLabel = "built 2026-08-07 00:00:00Z";
+    const currentBundleLabel = "collected 2026-08-07 00:00:00Z";
 
     expect(structuralText(tabs.props.analysis as ReactNode)).toContain(currentBundleLabel);
     expect(structuralText(companyTree)).not.toContain(currentBundleLabel);

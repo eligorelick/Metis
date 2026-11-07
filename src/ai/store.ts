@@ -21,6 +21,7 @@ export interface AiStore {
   hostId: string;
   profiles: ChatGptProfile[];
   gemini: { id: string; connected: boolean } | null;
+  claude?: { id: string; connected: boolean; identity: string } | null;
   selection: AiSelection;
   /** Credential/account writes must not turn the implicit provider default into a user choice. */
   selectionIsDefault?: boolean;
@@ -45,10 +46,11 @@ const aiStoreSchema = z.object({
     }).passthrough().optional(),
   }).passthrough()),
   gemini: z.object({ id: z.string().min(1), connected: z.boolean() }).passthrough().nullable(),
+  claude: z.object({ id: z.string().min(1), connected: z.boolean(), identity: z.string().regex(/^[a-f0-9]{64}$/) }).passthrough().nullable().optional(),
   selection: z.union([
     z.object({ provider: z.enum(["none", "anthropic"]) }).passthrough(),
     z.object({
-      provider: z.enum(["chatgpt", "gemini"]),
+      provider: z.enum(["chatgpt", "gemini", "claude"]),
       connectionId: z.string().min(1), model: z.string().refine(validModelId),
       effort: z.enum(CHATGPT_EFFORTS).optional(),
       serviceTier: z.enum(["default", "fast"]).optional(),

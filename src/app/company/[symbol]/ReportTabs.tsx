@@ -54,7 +54,7 @@ export function ReportTabs({
           <span className="ml-1.5 text-[9px] text-faint">{reportMeta}</span>
         </TabButton>
         <TabButton id={tabId("analysis")} controls={panelId("analysis")} active={tab === "analysis"} onClick={() => setTab("analysis")}>
-          live analysis
+          ticker data
         </TabButton>
       </div>
       {revisionsHref && <Link href={revisionsHref} prefetch={false} className="px-3 py-2 text-[13px] text-muted hover:text-accent">Revisions</Link>}

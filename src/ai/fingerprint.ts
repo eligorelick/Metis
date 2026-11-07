@@ -7,7 +7,7 @@ export function bindAiFingerprint(payload: string | null, selection: AiSelection
   const identity: unknown[] = [selection.provider, selection.connectionId, selection.model];
   // Preserve old fingerprints when no new controls were captured. Any explicit
   // effort/speed choice prevents reuse of passes generated under other settings.
-  if (selection.provider === "chatgpt" && (selection.effort !== undefined || selection.serviceTier !== undefined)) {
+  if ((selection.provider === "chatgpt" || selection.provider === "claude") && (selection.effort !== undefined || selection.serviceTier !== undefined)) {
     identity.push(selection.effort ?? null, selection.serviceTier ?? "default");
   }
   return `${payload}:ai-v1:${createHash("sha256").update(JSON.stringify(identity)).digest("hex")}`;

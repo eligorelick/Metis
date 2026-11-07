@@ -65,6 +65,9 @@ import { describeAnalysisRoute } from "@/ai/connections";
 import { ReportTabs } from "./ReportTabs";
 import { ResearchNavigation } from "@/components/report/ResearchNavigation";
 import { activeRunIdentity } from "@/pipeline/companyJobIdentity";
+import { DeleteReportButton } from "@/components/report/DeleteReportButton";
+import { readCompanyData, retainCompanyData } from "@/pipeline/companyData";
+import { RefreshCompanyData } from "@/components/report/RefreshCompanyData";
 import { normalizeRouteSymbol } from "@/symbol";
 import { notFound } from "next/navigation";
 import { FMP_EMPTY_ARRAY_REASON } from "@/providers/fmp";
@@ -120,8 +123,11 @@ function isConfirmedUnknownProfile(bundle: DataBundle): boolean {
 }
 
 async function loadCompany(symbol: string): Promise<PageData | null> {
-  const bundle = await buildDataBundle(symbol);
+  let stored: DataBundle | null = null;
+  try { stored = readCompanyData(symbol); } catch { /* A first visit can still load source data. */ }
+  const bundle = stored ?? await buildDataBundle(symbol);
   if (isConfirmedUnknownProfile(bundle)) return null;
+  if (!stored && bundle.profile.ok && bundle.profile.value.data.rows.length > 0) { try { retainCompanyData(bundle); } catch { /* Storage trouble must not hide available data. */ } }
   const validation = validateBundle(bundle, { now: new Date(bundle.builtAt) });
   const profileRow = bundle.profile.ok ? (bundle.profile.value.data.rows[0] ?? null) : null;
   const support = classifyInstrumentSupport(profileRow);
@@ -925,7 +931,7 @@ function readRunRoute(): { label: string; ready: boolean } | null {
 
 /** A failed refresh must not strand a reader who already has saved research. */
 function UnavailableLiveAnalysis({ symbol, children }: { symbol: string; children: ReactNode }) {
-  if (!getConfig().uiRedesign) return children;
+  if (!getConfig().uiRedesign) return <>{children}<div className="p-4"><RefreshCompanyData symbol={symbol} /></div></>;
   let saved: LatestReport | null = null;
   try { saved = getLatestDoneReport(symbol); } catch { /* Keep the original failure and history route readable. */ }
   const reportHref = saved?.report
@@ -933,6 +939,7 @@ function UnavailableLiveAnalysis({ symbol, children }: { symbol: string; childre
   return <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 p-4">
     <ResearchNavigation symbol={symbol} active="analysis" reportHref={reportHref} />
     {saved?.report && <p className="text-[12px] text-muted">Saved report #{saved.reportId} · {saved.createdAt.slice(0, 10)} remains available through Report. This failed Live request does not change it.</p>}
+    <RefreshCompanyData symbol={symbol} />
     {children}
   </div>;
 }
@@ -964,17 +971,18 @@ export default async function CompanyPage({ params, searchParams }: {
   if (saved?.report) {
     const dossier = getConfig().uiRedesign;
     const initialJobId = await activeRunIdentity(symbol);
-    const resumableJobId = !dossier ? (await import("@/pipeline/jobRunner")).getLatestResumableJobForSymbol(symbol) : null;
+    const resumableJobId = (await import("@/pipeline/jobRunner")).getLatestResumableJobForSymbol(symbol);
     return (
       <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} activeReportId={saved.reportId} />}>
         {fictionalBanner}
         <div className="saved-research-workspace flex flex-col gap-3 p-4">
           <ReportSnapshotHeader snapshot={saved.report} reportId={saved.reportId} status={saved.status}
-            actions={<><ExportButtons reportId={saved.reportId} symbol={symbol} />{!dossier && <Link href={`/company/${encodeURIComponent(symbol)}/history`}>History</Link>}</>}
-            navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Live analysis</Link>}
-            controls={dossier ? <div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId} route={readRunRoute()} renderedReportId={saved.reportId} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div> : undefined}
+            actions={<><ExportButtons reportId={saved.reportId} symbol={symbol} /><DeleteReportButton reportId={saved.reportId} symbol={symbol} redirect />{!dossier && <Link href={`/company/${encodeURIComponent(symbol)}/history`}>History</Link>}</>}
+            navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Ticker data</Link>}
+            controls={<div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId ?? resumableJobId} route={readRunRoute()} renderedReportId={saved.reportId} />{dossier && <ReportNotes symbol={symbol} reportId={saved.reportId} />}</div>}
           />
-          {!dossier && resumableJobId !== null && <p className="text-[12px] text-muted">A previous run stopped with reusable analyst work. Open Live analysis to resume it.</p>}
+          <p className="text-xs text-faint">Showing the saved report. Rerun ticker checks for updated source data and creates a new report using your current settings.</p>
+          {resumableJobId !== null && initialJobId === resumableJobId && <p className="text-xs text-muted">A previous run stopped with reusable analyst work. Resume it using the run controls above.</p>}
           <PersistedReportView key={saved.reportId} report={saved.report} selectedReportId={saved.reportId} selectedReportStatus={saved.status} headerNotices />
         </div>
       </AppShell>
@@ -1062,8 +1070,9 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
   const analysisPanels = (
     <div className="flex flex-col gap-3">
       <div className="text-[11px] text-faint">
-        live bundle · built {new Date(bundle.builtAt).toISOString().replace("T", " ").slice(0, 19)}Z
+        Saved ticker data · collected {new Date(bundle.builtAt).toISOString().replace("T", " ").slice(0, 19)}Z. Source dates are shown below.
       </div>
+      <RefreshCompanyData symbol={symbol} />
       <div className="grid gap-3 lg:grid-cols-2">
         <FundamentalsPanel computed={computed} bundle={bundle} chartData={fundData} />
         <ReturnsPanel computed={computed} />

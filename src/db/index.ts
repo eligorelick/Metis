@@ -41,6 +41,12 @@ export interface DatabaseHandle {
 // ---------------------------------------------------------------------------
 
 const BASE_TABLE_DDL = `
+CREATE TABLE IF NOT EXISTS "company_data" (
+  "symbol" TEXT PRIMARY KEY NOT NULL,
+  "snapshotJson" TEXT NOT NULL,
+  "builtAt" TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS "watchlist" (
   "symbol" TEXT PRIMARY KEY NOT NULL,
   "addedAt" TEXT NOT NULL

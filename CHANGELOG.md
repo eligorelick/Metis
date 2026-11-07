@@ -10,13 +10,27 @@ Current source declares application **0.1.0**, report spec **1.69.0** and
 payload **1.88.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
-ChatGPT/Gemini account connections have their own model selection. These are
+ChatGPT/Gemini/local Claude CLI account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
 [October audit](docs/audit/2026-10-03-repository-audit.md) and later
 [recommendations ledger](docs/audit/2026-10-04-recommendations.md) record
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Saved research controls and Claude account access (2026-11-06)
+
+- Expose Rerun ticker on saved reports in both layouts, with confirmed deletion
+  in report headers, history and sidebar runs. Keep job and cost records.
+- Recall ticker inputs locally, including usable inputs from prior runs. Add an
+  explicit Update ticker data action; new runs and updates wait for expired
+  provider responses while reusing fresh responses and immutable filings.
+- Add Claude account/model/effort selection through the installed, unmodified
+  Claude Code CLI (2.1.319+). Sign-in stays in `claude auth login`; Metis never
+  reads CLI OAuth tokens or switches a failed connection to a paid API.
+- Preserve report, payload and calculation version stamps: this change affects
+  navigation, source acquisition and provider routing, not financial formulas
+  or the stored-report schema. Live Claude CLI inference remains unverified.
 
 ## Unreleased - EXPE report audit and bounded research recovery (2026-11-06)
 

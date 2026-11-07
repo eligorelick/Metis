@@ -993,7 +993,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView, rende
               : "border-accent/50 text-accent hover:bg-accent/10"
           }`}
         >
-          {dossier ? (phase === "unsupported" ? "Unsupported instrument" : busy ? "Working…" : phase === "done" ? "Generate another report" : "Generate report") : phase === "unsupported"
+          {renderedReportId !== null && !busy && phase !== "unsupported" ? "Rerun ticker" : dossier ? (phase === "unsupported" ? "Unsupported instrument" : busy ? "Working…" : phase === "done" ? "Generate another report" : "Generate report") : phase === "unsupported"
             ? "unsupported"
             : phase === "idle" || phase === "error"
               ? "generate report ·"
