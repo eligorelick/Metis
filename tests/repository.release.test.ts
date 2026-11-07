@@ -24,6 +24,9 @@ const trackedFiles = (root = ROOT) =>
 const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
+  "docs/internal/superpowers/specs/2026-11-07-evidence-backed-report-remediation.md",
+  "docs/internal/superpowers/plans/2026-11-07-evidence-backed-report-remediation.md",
+  "docs/audit/2026-11-07-evidence-backed-report-remediation.md",
   "docs/audit/2026-11-06-expe-report-1.md",
   "docs/internal/superpowers/plans/2026-11-06-expe-report-1-repairs.md",
   "docs/internal/superpowers/plans/2026-11-06-public-evidence-fallbacks.md",
@@ -88,6 +91,9 @@ const REQUIRED_RELEASE_FILES = [
  * record supersedes them.
  */
 const ALLOWED_MARKDOWN = new Set([
+  "docs/internal/superpowers/specs/2026-11-07-evidence-backed-report-remediation.md",
+  "docs/internal/superpowers/plans/2026-11-07-evidence-backed-report-remediation.md",
+  "docs/audit/2026-11-07-evidence-backed-report-remediation.md",
   "docs/audit/2026-11-06-expe-report-1.md",
   "docs/internal/superpowers/plans/2026-11-06-expe-report-1-repairs.md",
   "docs/internal/superpowers/plans/2026-11-06-public-evidence-fallbacks.md",

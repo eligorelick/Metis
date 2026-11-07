@@ -11,6 +11,10 @@ function build(charge:number, tax=52.5, historyTax=true) {
   return buildDcfAssumptions(inputs).assumptions!;
 }
 describe("DCF tax seed without admitted one-offs (FIN-502)",()=>{
+  it("identifies a negative observed rate as an excluded tax benefit",()=>{
+    expect(build(0,-10).taxRatePath.basis).toMatch(/observed.*-4%.*tax benefit.*excluded/i);
+    expect(build(0,-10).taxRatePath.basis).not.toMatch(/not computable/);
+  });
   it("uses the company median inside the no-tax-effect and marginal-effect range",()=>{
     expect(build(100).taxRatePath.value[0]).toBeCloseTo(21.0526315789,8);
     expect(build(100).taxRatePath.basis).toMatch(/re-read without tagged one-off/);

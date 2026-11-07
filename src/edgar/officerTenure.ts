@@ -151,6 +151,10 @@ export function extractOfficerTenures(text: string, roster: readonly { name: str
           const body = sentence.replace(/^,?\s*(?:age\s*)?\d{1,3},?\s*/, "").replace(/^,\s*/, "");
           if (!/^(?:Chair\w*|President|Chief|Executive|Senior|CEO|CFO|Vice|Member|became|was appointed|was promoted|has (?:been|served)|have (?:been|served)|succeeded)\b/i.test(body)) continue;
           let suffix = match[2]!.trim().replace(/\((?:CEO|CFO)\)\s*\(?$/i, "").replace(/\($/, "").replace(/,$/, "").trim();
+          // A shared "since" may govern this office and this person's board
+          // membership. Remove only that complete, unqualified coordination
+          // before applying the employer/other-subject fences below.
+          suffix = suffix.replace(/,?\s*and (?:as )?(?:a )?member of the (?:Board(?: of (?:Directors|Management))?|Executive Committee),?$/i, "");
           if (/\b(?:since|at|for|joined|served|became|appointed|Mr|Ms|Mrs|Dr|he|she|prior|previously|as|in|from)\b/i.test(suffix)) continue;
           suffix = suffix.replace(/,?\s+and (?:a )?member of the (?:Board(?: of (?:Directors|Management))?|Executive Committee),?$/i, "");
           const statedRole = `${match[1]}${suffix ? ` ${suffix}` : ""}`;

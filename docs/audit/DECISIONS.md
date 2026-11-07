@@ -11,6 +11,29 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-213 - Evidence-backed report remediation (2026-11-07)
+
+Choose general source/period repairs and additive sensitivities over a company-
+specific upward valuation adjustment. Commercial opportunities deserve evidence
+coverage, but undisclosed profits, adoption or consensus inclusion cannot safely
+be filled with optimistic assumptions. Preserve source conflicts, accounting
+scope, historical report bytes, existing base formulas and score thresholds.
+
+The additional tax/capital grid isolates mechanical dependence on those inputs;
+it is not a newly underwritten forecast. Broader normalization and SOTP require
+item-specific tax and segment economics. Supplemental numerical coverage is
+reported as an explicit unchecked inventory rather than inflated verification.
+This adds evidence and disclosure complexity but reduces the risk of false
+precision. [Audit dispositions and validation](2026-11-07-evidence-backed-report-remediation.md)
+record remaining evidence limits and distinguish frozen replay from a new full run.
+
+Final Node 24 `npm run verify` passed: both complete coverage runs passed
+17,014 tests across 745 files with three existing skips each; four integration
+tests, typecheck, lint, build and dependency checks passed, with zero known
+vulnerabilities. Independent task and whole-branch review findings, including
+the final accounting-scope edge case, were fixed and re-reviewed. Original
+real-run files and historical synthetic baselines remain unchanged.
+
 ## D-141 - FIG report source reconciliation and qualified evidence (2026-11-01)
 
 - **Evidence and choice.** The completed FIG report's historical EPS and weighted-share fields conflict with direct retained SEC facts even though no split was recorded. Extend the existing refusal boundary to exact issuer, period, currency and ordinary-share comparisons; retain vendor values and filed evidence as conflicts. Do not silently substitute a different common-earnings allocation or use missing primary coverage as evidence of error. Matching current observations remain admitted. The measured FIG annual share trend and its sole leadership score input become unavailable.

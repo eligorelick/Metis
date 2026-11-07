@@ -1,4 +1,6 @@
 import { fairValueReferenceText } from "@/report/fairValueText";
+import { forwardAnnualEstimates } from "@/pipeline/forwardEstimates";
+import { taxCapitalSensitivity } from "@/pipeline/stageB/taxCapitalSensitivity";
 import { qualificationText } from "@/report/assessment";
 import { valuationUseExplanation } from "@/pipeline/stageB/valuationUse";
 import { extractOfficerTenures, type OfficerTenure } from "@/edgar/officerTenure";
@@ -507,7 +509,7 @@ export interface ContextPayload {
 // 1.86.0 (D-210): source-proved class, statement, debt, cash and quarter SBC reconciliation.
 // 1.87.0 (D-211): cited issuer documents and annual proxy excerpts.
 // 1.88.0 (D-212): compatible quarterly ownership/cash inputs and qualified source presentation.
-export const PAYLOAD_VERSION = "1.88.0" as const;
+export const PAYLOAD_VERSION = "1.89.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1212,6 +1214,8 @@ function computedSections(
   // --- Valuation -----------------------------------------------------------
   const val = computed.valuation;
   const currentValue = computed.fairValue?.currentUse?.status === "current";
+  const taxCapital = val.kind === "dcf" && val.assumptions && val.dcf && computed.fairValue?.currentUse
+    ? taxCapitalSensitivity(val.assumptions, val.dcf, val.assumptions.wacc.value, computed.fairValue.currentUse) : null;
   const dcfBaseLabel = val.kind === "dcf" && val.assumptions?.forecastPeriod?.basis === "fiscal-year"
     ? `annual FY ending ${val.assumptions.asOf.statements}` : "TTM";
   const reverseContext = val.kind === "dcf"
@@ -1229,6 +1233,11 @@ function computedSections(
     // must be read against, with guided and latest quarters on a YoY basis, so
     // "demanding" or "undemanding" is a comparison, not an adjective.
     valFigures.push(...reverseContext.figures);
+    taxCapital?.rows.forEach((row, index) => valFigures.push({
+      label: `mechanical tax/capital sensitivity ${index + 1}: first ${row.taxYears} years tax shift ${row.taxShiftPp} pp, sales/capital factor ${row.salesToCapitalFactor}`,
+      value: row.perShare, unit: "currency/share", currency: currencies.model,
+      source: `computed.valuation.taxCapitalSensitivity.cell${index + 1}`, asOf: computed.fairValue?.currentUse?.valueDate ?? null,
+    }));
   } else if (val.kind === "excess-return") {
     // WS5 review (NIT 8): the model's shape and the multiple a financial is
     // actually read on had no consumer anywhere downstream — the payload showed
@@ -1320,6 +1329,7 @@ function computedSections(
   // Audit 2026-10-22 F-13: the model is told which inputs were substituted.
   const degradedInputs = fairValueDegradedText(computed.fairValue);
   sections.push(payloadSection({ title: "Valuation (computed)", figures: valFigures, notes: [
+    ...(taxCapital ? [taxCapital.basis, ...(taxCapital.withheldReason ? [taxCapital.withheldReason] : [])] : []),
     ...(val.kind === "dcf" && val.assumptions ? [`Operating-margin forecast basis: ${val.assumptions.ebitMarginPath.basis}`] : []),
     ...val.notes,
     ...(computed.fairValue?.currentUse && !currentValue ? [valuationUseExplanation(computed.fairValue.currentUse),
@@ -1871,7 +1881,8 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, c
   const estimateTiming = { ...estimateModelTiming(readEstimateTiming(bundle.analystEstimates.ok ? bundle.analystEstimates.value.data.estimateTiming : undefined, bundle.analystEstimates.ok ? bundle.analystEstimates.value : undefined)),
     envelopeReferenceOn: estimateDay(bundle.analystEstimates.ok ? bundle.analystEstimates.value.asOf : null) };
   const estAsOf = estimateTiming.acquiredOn ?? estimateTiming.fixtureLoadedOn ?? estimateTiming.recordedOn;
-  const est = rowsOf(bundle.analystEstimates).slice(0, PAYLOAD_BUDGETS.listRows);
+  const est = forwardAnnualEstimates(rowsOf(bundle.analystEstimates), rowsOf(bundle.statements.incomeAnnual)
+    .flatMap(row => typeof row.date === "string" ? [row.date.slice(0, 10)] : [])).slice(0, PAYLOAD_BUDGETS.listRows);
   if (est.some(row => numOrNull(row.epsAvg) !== null)) notes.push("Provider EPS accounting basis is unverified: the retained estimate source does not establish GAAP versus adjusted earnings. Do not compare provider EPS or price/provider-EPS quotients with GAAP TTM EPS, GAAP historical P/E, issuer non-GAAP guidance or model operating EPS as though they share an accounting basis. Numerical proximity does not establish comparability.");
   for (const e of est) {
     const currency = rowCurrency(e, issuer);

@@ -6,6 +6,109 @@ const CURRENT_QUARTER = /^Q([1-4])\s+FY\s*'?(20\d{2}|\d{2})\s+(?:Estimates|Curre
 const TABLE_COLUMN_CUE = /\b(?:Q[1-4]\b[^.]{0,60}\bEstimates|(?:Previous|Current) Guidance)\b/i;
 const ENDPOINT_RANGE = /^(US\$|\$|€|£)\s*(\d+(?:\.\d+)?)\s*(B|M|billion|million)?\s*[-–—]\s*(US\$|\$|€|£)?\s*(\d+(?:\.\d+)?)\s*(B|M|billion|million)?$/i;
 
+/** Preserve footnotes through layout/tag wrappers until a distinct disclosure. */
+function guidanceQualificationEnd(html: string): number | null {
+  for (const heading of html.matchAll(/<(h[1-6]|p|div)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)) {
+    const label = htmlToText(heading[2]!);
+    if (/^(?:Conference Call(?: and Available Information)?|About [A-Za-z][A-Za-z .&-]{0,100}|(?:Note Regarding )?Forward-Looking Statements)$/i.test(label)) return heading.index;
+    if (!/^h[1-6]$/i.test(heading[1]!) || !/^(?:Segment Results|Financial Results|Consolidated (?:Statements of (?:Income|Operations)|Balance Sheets))$/i.test(label)) continue;
+    const following = html.slice(heading.index + heading[0].length);
+    const table = /^\s*<table\b[^>]*>[\s\S]*?<\/table\s*>/i.exec(following);
+    if (table && /\b(?:20\d{2}|Q[1-4]\s+FY\s*'?(?:20)?\d{2})\b/.test(htmlToText(table[0])) &&
+        /<tr\b[^>]*>[\s\S]*?<t[dh]\b[^>]*>[\s\S]*?<\/t[dh]>\s*<t[dh]\b[^>]*>\s*\$[\d,.]+/i.test(table[0])) return heading.index;
+  }
+  return null;
+}
+
+/** Filing layout cells are supported only with an explicit current column and
+ * a complete consolidated table introduction. Empty spacers supply no facts. */
+function parseLayoutGuidance(text: string, document: ParsedDocument): IssuerGuidance | null {
+  const tables = [...document.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)];
+  const candidates = tables.filter(t => /\bCurrent Guidance\s+Q[1-4]\s+FY\s*'?(?:20\d{2}|\d{2})\s+(?:Estimates|Est\.)/i.test(htmlToText(t[0]).slice(0, 500)));
+  if (!candidates.length) return null;
+  const refused = (): IssuerGuidance => ({ period: null, items: [], qualifiers: [], unparsed: [] });
+  if (candidates.length !== 1 || document.fullText !== text || explicitHtmlHiddenState(document.pre) !== "clear") return refused();
+  const table = candidates[0]!;
+  if (table[0].length > 60_000 || htmlToText(table[0]).length > 6_000 || /<table\b/i.test(table[0].slice(table[0].indexOf(">") + 1)) || /\browspan\s*=/i.test(table[0])) return refused();
+  const scopeLabel = /^(?:(?:Business|Financial|Consolidated) Outlook|Consolidated Guidance)$/i;
+  const captions = [...table[0].matchAll(/<caption\b[^>]*>([\s\S]*?)<\/caption\s*>/gi)];
+  if (captions.length > 1 || captions.some(caption => !scopeLabel.test(htmlToText(caption[1]!)))) return refused();
+  const context = document.pre.slice(Math.max(0, table.index - 15_000), table.index);
+  const scope = [...context.matchAll(/<(h[1-6]|p|div)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)]
+    .filter(m => /^(?:(?:Business|Financial|Consolidated) Outlook|Consolidated Guidance)$/i.test(htmlToText(m[2]!))).at(-1);
+  if (!scope) return refused();
+  const between = context.slice(scope.index + scope[0].length);
+  if (/<(?:h[1-6]|table)\b/i.test(between) || !/The following table summarizes GAAP and Non-GAAP guidance based on the current outlook\.$/i.test(htmlToText(between))) return refused();
+  if (/\b(?:segments?|divisions?|business(?:es)?|selected operations|only|limited to|specific to|exclusiv\w*|exclud(?:e[sd]?|ing))\b/i.test(htmlToText(between))) return refused();
+  // A short standalone segment caption cannot be smuggled between the
+  // consolidated heading and the table's explanatory introduction.
+  if ([...between.matchAll(/<(p|div|strong|b)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)]
+    .some(block => { const label = htmlToText(block[2]!); return label !== "" && label.length < 180 && (!/[.!?]$/.test(label) || label.split(/\s+/).length < 8); })) return refused();
+  const sourceSpan = (raw: string, at: number) => {
+    const prefix = htmlToText(document.pre.slice(0, at));
+    const start = prefix.length + (prefix ? 1 : 0), value = htmlToText(raw);
+    return text.slice(start, start + value.length) === value ? { start, end: start + value.length, text: value } : null;
+  };
+  const scopeStart = Math.max(0, table.index - 15_000) + scope.index;
+  if (!sourceSpan(scope[0], scopeStart)) return refused();
+  const rows = [...table[0].matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr\s*>/gi)];
+  if (rows.length < 2 || rows.length > 32) return refused();
+  const cells = (raw: string) => [...raw.matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]\s*>/gi)].map(m => htmlToText(m[1]!)).filter(Boolean);
+  const first = rows.findIndex(row => cells(row[0]).length > 0);
+  if (first < 0) return refused();
+  const headerCells = cells(rows[first]![0]);
+  if (headerCells.length !== 1) return refused();
+  const header = /^Current Guidance Q([1-4])\s+FY\s*'?(20\d{2}|\d{2})\s+(?:Estimates|Est\.)(?:\s*\d{1,2})?$/i.exec(headerCells[0]!);
+  if (!header) return refused();
+  const period: FiscalPeriod = { label: `Q${header[1]} FY${header[2]!.length === 2 ? 2000 + Number(header[2]) : Number(header[2])}`, fiscalYear: header[2]!.length === 2 ? 2000 + Number(header[2]) : Number(header[2]), fiscalQuarter: Number(header[1]) as 1 | 2 | 3 | 4 };
+  const headerSpan = sourceSpan(rows[first]![0], table.index + rows[first]!.index);
+  if (!headerSpan) return refused();
+  const items: GuidanceItem[] = [], seen = new Set<string>();
+  let supplemental = false;
+  for (const row of rows.slice(first + 1)) {
+    const values = cells(row[0]);
+    if (!values.length) continue;
+    if (values.length === 1 && /^Supplemental Revenue Information$/i.test(values[0]!)) { supplemental = true; continue; }
+    if (values.length !== 2) return refused();
+    const [label, value] = values as [string, string];
+    const revenue = /^(?:Total |Consolidated )?Revenues?$/i.test(label);
+    const eps = /^(GAAP|Non-GAAP) diluted (?:EPS|earnings per share)$/i.exec(label);
+    // Supplemental segments and reconciliations cannot redefine consolidated
+    // revenue. Explicit GAAP and Non-GAAP EPS labels retain their own basis.
+    if (!revenue && !eps) {
+      if ((supplemental && / revenues?\s*\d{0,2}$/i.test(label)) || /^Less diluted EPS attributable to\b/i.test(label)) continue;
+      return refused();
+    }
+    if (revenue && supplemental) return refused();
+    const basis = revenue ? "unspecified" : eps![1]!.toLowerCase() === "gaap" ? "gaap" : "non-gaap";
+    const key = `${revenue ? "revenue" : "eps"}|${basis}`;
+    if (seen.has(key)) return refused();
+    seen.add(key);
+    const range = ENDPOINT_RANGE.exec(value);
+    if (!range) continue;
+    const [, symbol, lowText, lowScale, secondSymbol, highText, highScale] = range;
+    if (secondSymbol && secondSymbol.toUpperCase() !== symbol!.toUpperCase()) continue;
+    const scaleOf = (scale?: string) => /^(?:b|billion)$/i.test(scale ?? "") ? 1e9 : /^(?:m|million)$/i.test(scale ?? "") ? 1e6 : null;
+    const scale = revenue ? scaleOf(lowScale) : 1;
+    if (revenue ? scale === null || scale !== scaleOf(highScale) : lowScale !== undefined || highScale !== undefined) continue;
+    const low = Number((Number(lowText) * scale!).toFixed(6)), high = Number((Number(highText) * scale!).toFixed(6));
+    if (!Number.isFinite(low) || !Number.isFinite(high) || low > high) continue;
+    const span = sourceSpan(row[0], table.index + row.index);
+    if (!span) return refused();
+    items.push({ metric: revenue ? "revenue" : "eps", basis, period, unit: revenue ? "currency" : "currency-per-share", symbol: symbol!.toUpperCase(), low, mid: Number(((low + high) / 2).toFixed(6)), high, form: "range", sentence: span.text.slice(0, 500), span, headerSpan });
+  }
+  const after = document.pre.slice(table.index + table[0].length, table.index + table[0].length + 10_000);
+  const stop = guidanceQualificationEnd(after);
+  if (stop === null && table.index + table[0].length + after.length < document.pre.length) return refused();
+  const qualifiers = htmlToText(after.slice(0, stop ?? after.length));
+  // Accounting footnotes may exclude an expense or transaction. Population
+  // restrictions on a business/segment are different: those figures cannot
+  // become a consolidated company revenue or EPS anchor.
+  if (/\b(?:segments?|divisions?|business(?:es)?|operations)\b[^.!?]{0,200}\b(?:only|exclud\w*|limited|restricted)\b|\b(?:only|exclud\w*|limited to|restricted to|guidance for)\b[^.!?]{0,200}\b(?:segments?|divisions?|business(?:es)?|operations)\b/i.test(qualifiers)) return refused();
+  if (qualifiers.length > 3000) return refused();
+  return { period, items, qualifiers: qualifiers ? [qualifiers.slice(0, 3000)] : [], unparsed: [] };
+}
+
 /**
  * Current-only tables require actual cells: flattened text cannot establish
  * either a single column or a source row. Refusals are non-null so the caller
@@ -121,6 +224,8 @@ const STOP = /\*\*\s*A reconciliation|\bQuarterly Dividend\b|\bConference Call\b
 /** Old compact formats plus bounded single-quarter tables with document evidence. */
 export function parseGuidanceTables(text: string, document?: ParsedDocument): IssuerGuidance | null {
   if (document !== undefined) {
+    const layout = parseLayoutGuidance(text, document);
+    if (layout !== null) return layout;
     const quarterly = parseQuarterlyDocumentTable(text, document);
     if (quarterly !== null) return quarterly;
   }

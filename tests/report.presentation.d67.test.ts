@@ -256,7 +256,7 @@ describe("leadership, segments, peers, EPS bridge and charts", () => {
     }
   });
 
-  it("drops the annual segment tables beside the quarterly XBRL tables, keeps them in the audit export, and files axis notes under their table", () => {
+  it("keeps dated annual geography inspectable beside quarterly XBRL tables and files axis notes under their table", () => {
     const report = loadTask28Fixture();
     const source = { form: "8-K", accession: "0000000000-26-000001", exhibit: "EX-99.1", filingDate: "2026-08-26", url: "https://www.sec.gov/x" };
     report.filingDisclosures = {
@@ -278,8 +278,8 @@ describe("leadership, segments, peers, EPS bridge and charts", () => {
     report.business.segments.geographic = [{ name: "Other Americas", revenue: { ...report.business.segments.product[0]!.revenue, value: 4.3e9 }, sharePct: 2 }];
     const parsed = ReportSchema.parse(report);
     const markdown = reportToMarkdown(parsed);
-    expect(markdown).not.toContain("Other Americas");
-    expect(markdown).not.toMatch(/segments — annual/);
+    expect(markdown).toContain("Other Americas");
+    expect(markdown).toMatch(/Geographic segments — annual.*prior presentation/);
     expect(markdown).toContain("| Other | $1.28B | $959M |");
     expect(reportToAuditMarkdown(parsed)).toContain("Other Americas");
     const [segmentTable] = filingDisclosureTables(parsed.filingDisclosures, "business");

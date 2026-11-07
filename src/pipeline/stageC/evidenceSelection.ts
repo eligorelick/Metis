@@ -1,13 +1,13 @@
 import { materialCreditSupportClauses } from "@/edgar/currentReports";
 
 /** Pure, bounded source selection. Offsets always refer to the original source. */
-export const EVIDENCE_SELECTION_VERSION = "section-evidence-2";
+export const EVIDENCE_SELECTION_VERSION = "section-evidence-7";
 /**
  * The notes and risk readings. section-evidence-4 (D-99, AMZN audit findings
  * 6 and 16): the performance-obligations family and the pending-case clauses
  * for government cases, their relief, fines and scheduled trials.
  */
-export const NOTES_RISK_SELECTION_VERSION = "section-evidence-4";
+export const NOTES_RISK_SELECTION_VERSION = "section-evidence-7";
 /**
  * The 8-K event reading. section-evidence-5 (AI-101): a passage that refers to
  * a person by honorific and surname, or by a leading pronoun, is kept only
@@ -20,8 +20,8 @@ export const NOTES_RISK_SELECTION_VERSION = "section-evidence-4";
  * Agreement On June 10, 2026"), a defined term may be printed with spaces inside
  * its quotes, and an amount may be written out in digits ("$532,426,000").
  */
-export const EVENT_SELECTION_VERSION = "section-evidence-6";
-export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs"] as const;
+export const EVENT_SELECTION_VERSION = "section-evidence-7";
+export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs", "operating-costs", "commercial-terms"] as const;
 /**
  * D-63: 10-K Item 1 (Business) families. A business description carries few
  * figures, so the financial families above found almost nothing in it; these
@@ -29,13 +29,13 @@ export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "t
  * ecosystem, the product roadmap, customers, suppliers and manufacturing,
  * competitors, export and other regulation, and the executive officers.
  */
-export const BUSINESS_CATEGORIES = ["platform-software", "products-roadmap", "customers", "suppliers-manufacturing", "competition", "regulation-export", "officers"] as const;
+export const BUSINESS_CATEGORIES = ["platform-software", "products-roadmap", "customers", "suppliers-manufacturing", "competition", "regulation-export", "officers", "commercial-terms", "reporting-changes"] as const;
 /**
  * D-63: the latest 10-Q's notes to the financial statements. D-66: the 10-K's
  * notes are read with the same families, and business combinations (a deal's
  * consideration, goodwill and intangibles) join them.
  */
-export const NOTES_CATEGORIES = ["investments", "commitments-guarantees", "customer-concentration", "debt", "capital-return", "contingencies", "internal-controls", "tax", "subsequent-liquidity", "business-combinations", "performance-obligations"] as const;
+export const NOTES_CATEGORIES = ["investments", "commitments-guarantees", "customer-concentration", "debt", "capital-return", "contingencies", "internal-controls", "tax", "subsequent-liquidity", "business-combinations", "performance-obligations", "commercial-terms", "reporting-changes"] as const;
 export type EvidenceCategory = typeof MATERIAL_CATEGORIES[number] | typeof BUSINESS_CATEGORIES[number] | typeof NOTES_CATEGORIES[number];
 /**
  * Which families a source is read for (D-63). `financial` is the original
@@ -73,6 +73,9 @@ const CATEGORY_PATTERNS: Record<EvidenceCategory, RegExp> = {
   "earnings-quality": /\b(?:other income(?:\s*\(expense\))?|other expense(?:\s*\(income\))?|non[- ]operating|(?:unrealized|non[- ]cash|investment) (?:gains?|losses?)|equity (?:securities|warrant) valuations?|(?:upward|downward|reclassification|fair[- ]value) adjustments?)\b/i,
   "subsequent-liquidity": /^(?=[\s\S]*\b(?:subsequent(?:ly)?|(?:after|following|since) (?:the )?(?:quarter|period|year)[ -]end)\b)(?=[\s\S]*\b(?:funded|funding|paid|repaid|repayment|borrowed|issued|issuance|acquired|acquisition|invested|investment|commitment)\b)(?=[\s\S]*\d)/i,
   "distribution-costs": /\b(?:selling and marketing|marketing (?:spend|expense|cost)|(?:partner|affiliate|distribution) (?:program )?commissions?|traffic (?:generation|acquisition) costs?)\b/i,
+  "operating-costs": /\b(?:research and development|R&D|selling,? general and administrative|acquisition.related (?:costs|charges)|service.conditioned (?:shares|compensation))\b/i,
+  "commercial-terms": /\b(?:warrants?|exercise price|reduction (?:of|in|to) revenue|contra.revenue|commercial agreement|design.win|deployment|purchase milestones)\b/i,
+  "reporting-changes": /\b(?:reportable segment|nonreportable businesses|segment (?:reclassification|recast)|recast (?:prior|comparative))\b/i,
   "platform-software": /\b(?:software|platforms?|ecosystems?|developers?|librar(?:y|ies)|SDKs?|frameworks?|APIs?|CUDA|operating systems?|installed base)\b/i,
   "products-roadmap": /\b(?:architectures?|roadmap|launch(?:ed|es)?|introduc(?:ed|es)|unveil(?:ed|s)?|next[- ]generation|new products?|product (?:transitions?|cycles?|lines?)|production shipments?|commence production)\b/i,
   customers: /\b(?:customers?|clients?|end markets?|hyperscalers?|cloud service providers?|CSPs)\b/i,
@@ -393,6 +396,35 @@ function contextLinks(all: readonly Passage[], profile: EvidenceProfile): Map<Pa
   };
   for (let i = 0; i < all.length; i++) {
     const passage = all[i]!;
+    // Commercial upside and its consideration, timing and accounting terms
+    // are one reading. Keep bounded adjacent referents with the originating
+    // transaction; if the group cannot fit, omit it rather than detach terms.
+    if (strategyKind(passage) !== null) {
+      const acquiree = /\b(?:acquired|acquisition of)\s+([A-Z][A-Za-z0-9-]+)/.exec(passage.text)?.[1];
+      const consideration = strategyKind(passage) === "consideration";
+      for (let j = i + 1; j < Math.min(all.length, i + 6); j++) {
+        const next = all[j]!;
+        const namedDescription = acquiree !== undefined && next.text.trimStart().startsWith(`${acquiree} `);
+        const economicQualification = /\b(?:contracts?|agreements?|customers?|purchases?|orders?|revenue|margins?|payments?|shipments?|deliveries)\b/i.test(next.text) &&
+          /\b(?:not disclosed|undisclosed|not guaranteed|subject to|cancel(?:lation|lable|led|ed)?|without penalty)\b/i.test(next.text);
+        const warrantAccounting = consideration && /^\s*(?:The grant[- ]date fair value of the warrants?\b|As of\b[^.]{0,100}\bWarrant Shares\b)/i.test(next.text);
+        if (next.table || !(namedDescription || economicQualification || warrantAccounting || /^\s*(?:The (?:warrant|acquisition|transaction|agreement|increase|decrease)|Its |Of the shares|These shares|Such |This |Previously,|Deployment |Contract revenue|Due to the timing of the acquisition)/i.test(next.text))) break;
+        bind(passage, next);
+      }
+    }
+    // The financial profile can split an oversized sentence into chunks.
+    // A later warrant referent still depends on the full introduction, not
+    // merely its last chunk; a budget too small for both must omit both.
+    if (/^\s*The warrants?\b/i.test(passage.text)) {
+      for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
+        const previous = all[j]!;
+        if (strategyKind(previous) === "consideration") {
+          for (let k = j; k < i; k++) bind(all[k]!, passage);
+          break;
+        }
+        if (profile !== "financial" || previous.table || previous.end !== all[j + 1]!.start) break;
+      }
+    }
     const kind = contextKind(passage);
     const marker = FOOTNOTE.exec(passage.text);
     if (marker) {
@@ -441,6 +473,18 @@ function contextLinks(all: readonly Passage[], profile: EvidenceProfile): Map<Pa
     }
   }
   return links;
+}
+
+type StrategyKind = "consideration" | "acquisition" | "perimeter" | "deployment" | "costs";
+function strategyKind(passage: Passage): StrategyKind | null {
+  const body = passage.text;
+  if (passage.table) return null;
+  if (/\b(?:issued|granted)\b[^.]{0,100}\bwarrants?\b/i.test(body) && /\b(?:customer|commercial|purchase|exercise price|warrant shares)\b/i.test(body)) return "consideration";
+  if (/\b(?:acquired|completed (?:the |an? )?acquisition)\b/i.test(body)) return "acquisition";
+  if (/\b(?:beginning|effective|previously|reclassif|recast)/i.test(body) && CATEGORY_PATTERNS["reporting-changes"].test(body)) return "perimeter";
+  if (/\b(?:selected|entered into|signed)\b/i.test(body) && /\b(?:commercial agreement|deployment|multi.year|design.win)\b/i.test(body)) return "deployment";
+  if (CATEGORY_PATTERNS["operating-costs"].test(body) && /\b(?:increased|decreased|expense|costs)\b/i.test(body) && /\d/.test(body)) return "costs";
+  return null;
 }
 
 /** R6: voting economics are independent of dividend/liquidation economics.
@@ -543,7 +587,7 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   const spec = PROFILES[profile];
   const all = passages(text, profile);
   const contextual = profile === "notes" || profile === "interim" || profile === "event";
-  const links = contextual ? contextLinks(all, profile) : new Map<Passage, Set<Passage>>();
+  const links = contextLinks(all, profile);
   const selected: Passage[] = [];
   const superseded = new Set<string>();
   const separator = "\n[…source passage omitted…]\n";
@@ -616,6 +660,21 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
         if (used + passage.text.length > cap) continue;
         const before = remaining;
         if (add(passage)) used += before - remaining;
+      }
+    }
+    // Reserve at most a quarter for material strategy economics, rotating
+    // across topics so repeated deals cannot crowd out costs or perimeter
+    // changes. This changes selection, never the meaning of the source.
+    const strategyKinds: StrategyKind[] = ["consideration", "acquisition", "perimeter", "deployment", "costs"];
+    const strategyQueues = strategyKinds.map(kind => all.filter(passage => strategyKind(passage) === kind));
+    const strategyCap = Math.floor(budget * 0.25);
+    let strategyUsed = 0;
+    for (let round = 0; strategyQueues.some(queue => queue.length > round); round++) {
+      for (const queue of strategyQueues) {
+        const passage = queue[round];
+        if (!passage || selected.includes(passage)) continue;
+        const before = remaining;
+        if (add(passage, strategyCap - strategyUsed)) strategyUsed += before - remaining;
       }
     }
     if (superseding.length > 0) {

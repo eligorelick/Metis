@@ -11,6 +11,7 @@ import type { ContextPayload } from "@/pipeline/stageC/payload";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { ReportSchema, type Leadership, type ManagementAction, type SourcedClaim, type VerificationLogEntry } from "@/report/schema";
+import { withoutPrintTokens } from "./helpers/printTokens";
 
 const fact = (text: string, source = "edgar:8-K", asOf = "2026-06-24"): SourcedClaim => ({ text, source, asOf, label: "FACT" });
 const decision = (): ManagementAction => ({ occurredOn: "2026-06-24", actor: "board", category: "capital-allocation",
@@ -132,6 +133,17 @@ describe("executive decisions bound to a validated action and dated tenure", () 
 });
 
 describe("stored executive cards show the report's existing decision context", () => {
+  it("keeps one shared company-action chronology in reader exports and links officer context to it", () => {
+    const report = ReportSchema.parse(JSON.parse(fs.readFileSync("fixtures/report/DEMO-sample.json", "utf8")));
+    report.leadership = leadership();
+    report.leadership.executives.push({ ...structuredClone(report.leadership.executives[0]!), name: "Jordan Brown", title: "Chief Financial Officer" });
+    report.appendix.verificationLog = actionLog();
+    for (const text of [reportToMarkdown(report), withoutPrintTokens(reportToPrintBody(report))]) {
+      expect(text.split(decision().action[0]!.text)).toHaveLength(2);
+      expect(text).toContain("#report-management-actions");
+      expect(text).toContain("not an executed purchase");
+    }
+  });
   it("shows dated actions, their judgments and the specific missing record on live, Markdown and print surfaces without changing the stored report", () => {
     const report = ReportSchema.parse(JSON.parse(fs.readFileSync("fixtures/report/DEMO-sample.json", "utf8")));
     report.leadership = leadership();

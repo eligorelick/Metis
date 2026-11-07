@@ -596,7 +596,17 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
   const out = rows.map((row) => {
     const date = isoDay(row["date"]);
     if (date === null || row["source"] === "edgar") return row;
-    const present = VENDOR_SHARE_FIELDS.filter((f) => row[f] !== undefined && row[f] !== null);
+    const priorConflicts = (row as FmpStatementRow).fieldConflicts;
+    // Revisit only an exact, independently filed loss-quarter EPS conflict.
+    // This does not infer shares, restore general unit refusals, or subtract
+    // annual EPS to create a quarter; the direct primary interval is rechecked.
+    const canRecheck = (field: (typeof VENDOR_SHARE_FIELDS)[number]): boolean => {
+      const prior = priorConflicts?.[field];
+      return reconciliation?.reconcileFiled === true && reconciliation.period === "quarter" && (field === "eps" || field === "epsDiluted") &&
+        prior?.usable === false && isFiniteNumber(prior.vendorValue) && prior.vendorValue < 0 && isFiniteNumber(prior.secValue) && prior.secValue < 0 && prior.secEvidence !== undefined &&
+        prior.reason.startsWith("the vendor's ") && prior.reason.includes("; field unavailable until reconciled");
+    };
+    const present = VENDOR_SHARE_FIELDS.filter((f) => row[f] !== undefined && row[f] !== null || canRecheck(f));
     if (present.length === 0) return row;
     const later = splitAfter(splits, basisDay, date);
     const open = splitOpen(splits, basisDay, date);
@@ -609,7 +619,6 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
     let copy: Record<string, unknown> | null = null;
     for (const field of present) {
       const isEps = field === "eps" || field === "epsDiluted";
-      if (reconciliation?.reconcileFiled && reconciliation.isAdr !== true && isEps) continue;
       const primary = splitCheck || !compareUnsplit ? null : comparablePrimaryShareField(row as FmpStatementRow, field, reconciliation, splits, basisDay);
       if (reconciliation?.reconcileFiled && reconciliation.isAdr === true && isEps &&
           (unit === null || primary === null && reconciliation.period === "annual" && Number(row.cik) === reconciliation.companyFacts.cik)) {
@@ -625,7 +634,11 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
       const proof = primary?.evidence ?? null;
       if (!splitCheck && primary === null) continue;
       const label = VENDOR_SHARE_FIELD_LABELS[field];
-      const vendorValue = row[field];
+      const prior = priorConflicts?.[field];
+      const replay = canRecheck(field) && primary !== null && prior?.secValue === primary.value &&
+        prior.secEvidence?.unit === primary.evidence.unit && prior.secEvidence.periodStart === primary.evidence.periodStart &&
+        prior.secEvidence.periodEnd === primary.evidence.periodEnd;
+      const vendorValue = replay ? prior!.vendorValue : row[field];
       const filerValue = splitCheck ? filer?.[field] : primary!.value;
       const unresolvedScaling = !isEps && isFiniteNumber(vendorValue) && isFiniteNumber(filerValue) && filerValue > 0 &&
         [1000, 1_000_000].some(factor => Math.abs(vendorValue / filerValue / factor - 1) <= 0.001);
@@ -644,6 +657,8 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
             (reconciliation.isAdr === true ? `; native currency, ${reconciliation.ordinarySharesPerQuotedUnit} ordinary shares per ADS` : "");
           copy ??= { ...row };
           copy[field] = filerValue;
+          copy.fieldConflicts = { ...(copy.fieldConflicts as FmpStatementRow["fieldConflicts"]), [field]: {
+            vendorValue, secValue: filerValue, usable: true, resolution: "filed-line", reason, secEvidence: proof! } };
           copy.fieldProvenance = { ...(copy.fieldProvenance as FmpStatementRow["fieldProvenance"]), [field]: proof! };
           reconciled.push({ date, field, reason });
         }

@@ -1,3 +1,4 @@
+import { forwardAnnualEstimates } from "./forwardEstimates";
 /**
  * D-62: the provider market and consensus data a reader expects on page 1
  * (quote, market cap, share count, period-end EV, FY+1/FY+2 consensus,
@@ -171,12 +172,8 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; 
   }
 
   // FY+1 and FY+2: the first two estimate rows after the latest reported fiscal year.
-  const lastFiscal = day(rows(bundle.statements?.incomeAnnual)[0]?.date);
-  const estimateRows = rows(bundle.analystEstimates)
-    .map((row) => ({ row, date: day(row.date) }))
-    .filter((entry): entry is { row: Row; date: string } => entry.date !== null && (lastFiscal === null || entry.date > lastFiscal))
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 2);
+  const estimateRows = forwardAnnualEstimates(rows(bundle.analystEstimates), rows(bundle.statements?.incomeAnnual).flatMap(row => day(row.date) ? [day(row.date)!] : []))
+    .slice(0, 2).map(row => ({ row, date: row.date }));
   const ptc = rows(bundle.priceTargetConsensus)[0];
   const pts = rows(bundle.priceTargetSummary)[0];
   const estimateCurrencies = new Set(

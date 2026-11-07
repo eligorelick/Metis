@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.69.0 / payload 1.88.0, Stage B `STAGE_B_2026_11_REPORT1_SCOPE_62` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.70.0 / payload 1.89.0, Stage B `STAGE_B_2026_11_EVIDENCE_REMEDIATION_63` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Source-scope recovery (D-210) preserves original vendor observations. A cash
 amount equal to a filing's explicit restricted-inclusive total may be replaced
@@ -13,6 +13,37 @@ filing; a combined cash-and-investments value needs its own proof. A vendor SBC
 quarter equal to a cumulative amount is corrected only when that filing also
 directly states the standalone quarter. Missing lease portions, conflicting
 filing presentations and unsupported ownership allocations remain unavailable.
+
+## Evidence-backed report remediation (2026-11-07)
+
+Compatible filed annual-minus-YTD stock compensation may resolve a refused
+vendor quarter, with the conflict and derivation retained. Explicit filed
+quarterly diluted shares/EPS control their own period; annual denominators do
+not substitute for loss-quarter evidence. Fiscal-date aliases are reconciled
+before forward-estimate selection and duration inference. Ambiguous annual
+presentations remain refused, not labeled short transition years.
+
+An observed tax benefit is separate from a sustainable forecast tax rate.
+Terminal-return explanations name the observed years and missing years.
+Annual repurchase authorization is disclosed as capacity, not assumed funding.
+The base DCF formula, valuation routing and score-band thresholds are unchanged.
+
+The additional tax/capital sensitivity shifts operating tax by minus/plus five
+percentage points for the first five explicit years (or fewer for a shorter
+model), and multiplies marginal sales-to-capital by 0.75, 1 or 1.25. Later taxes,
+WACC and its existing debt-tax shield, revenue, EBIT margins, terminal growth,
+terminal ROIC and the equity bridge remain fixed. These are mechanical shocks,
+not evidence-backed forecasts or an alternate grade. A withheld/noncurrent base
+cannot be restored by a grid cell. Domain and input-range failures remain null.
+
+Evidence selection retains commercial consideration, acquisition compensation,
+deployment timing, segment-perimeter changes and operating-cost explanations in
+bounded source context. Research distinguishes signed agreements, management
+targets and longer-term opportunities; it cannot add speculative growth above
+consensus or manufacture undisclosed segment profits and item-specific taxes.
+Independently weighted scenario metrics are labeled as such. Supplemental
+numerical inventory is separate from traced-claim coverage and does not certify
+every displayed number. See the [audit dispositions](audit/2026-11-07-evidence-backed-report-remediation.md).
 
 ## Current valuation use and grade qualification (D-208)
 

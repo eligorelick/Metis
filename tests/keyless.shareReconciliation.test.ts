@@ -54,6 +54,20 @@ const quarter = fiscalRow("2025-03-31", "Q1", { eps: -2.05, epsDiluted: -2.05, w
 const primaryQuarter = { ...quarter, eps: 0.04, epsDiluted: 0.04, weightedAverageShsOut: 231_076_000, weightedAverageShsOutDil: 231_076_000, netIncome: 44_882_000 };
 
 describe("vendor EPS and weighted shares with independently comparable primary facts", () => {
+  it("reconciles filed quarter-specific loss EPS as well as its share denominator", () => {
+    const filed = { ...quarter, netIncome: -200e6, eps: -2, epsDiluted: -2, weightedAverageShsOut: 100e6, weightedAverageShsOutDil: 100e6 };
+    const facts = factsFor([filed]);
+    const primary = built(facts);
+    const vendor = { ...filed, epsDiluted: -1.8, weightedAverageShsOutDil: 111e6 };
+    const out = guardVendorShareFields([vendor], primary.incomeQuarterly.rows, primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter", reconcileFiled: true });
+    expect(out.rows[0]).toMatchObject({ epsDiluted: -2, weightedAverageShsOutDil: 100e6 });
+    expect(out.rows[0]?.fieldConflicts?.epsDiluted).toMatchObject({ usable: true, vendorValue: -1.8, secValue: -2 });
+    const guarded = guardVendorShareFields([vendor], primary.incomeQuarterly.rows, primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" });
+    expect(guardVendorShareFields(guarded.rows, [], primary.splits, AS_OF,
+      { companyFacts: facts, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter", reconcileFiled: true }).rows[0]?.epsDiluted).toBe(-2);
+  });
   it("corrects a quarter count that actually matches the filed nine-month count below the old 3% band", () => {
     const row = fiscalRow("2026-09-30", "Q3", { weightedAverageShsOutDil: 7312.5e6 });
     const facts = factsFor([{ ...row, weightedAverageShsOutDil: 7222.2e6 }]);

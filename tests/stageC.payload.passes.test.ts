@@ -1,3 +1,4 @@
+import { restoreEvidenceRemediationGolden } from "./helpers/evidenceRemediationGolden";
 import { restoreCurrentValuationPolicyGolden } from "./helpers/currentValuationPolicyGolden";
 import { restoreExpeReport1ScopeGolden } from "./helpers/expeReport1ScopeGolden";
 import { unavailableValuationUseFixture } from "./helpers/valuationUse";
@@ -1066,7 +1067,7 @@ describe("payload determinism + provenance", () => {
     // R9 changes SBC basis labels and their semantic ids; preserve all earlier byte/stamp pins.
     // R8 restores only its reviewed evidence qualifications before the R6 pin.
     // Q1 restores only its per-person Form 4 summary first.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(restorePublicPolishGolden(restoreCurrentValuationPolicyGolden(restoreExpeReport1ScopeGolden(buildInputs()))))))))))))));
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(restorePublicPolishGolden(restoreCurrentValuationPolicyGolden(restoreExpeReport1ScopeGolden(restoreEvidenceRemediationGolden(buildInputs())))))))))))))));
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
     const computedFigureLabelMatrix = payload.computed.map((section) =>
@@ -1975,7 +1976,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.88.0");
+    expect(first.payloadVersion).toBe("1.89.0");
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2174,6 +2175,17 @@ describe("payload determinism + provenance", () => {
     );
   });
 
+  it("excludes completed fiscal aliases from forward payload estimates", () => {
+    const { bundle, computed } = buildInputs();
+    if (!bundle.analystEstimates.ok || !bundle.statements.incomeAnnual.ok) throw new Error("fixture requires statements and estimates");
+    const latest = bundle.statements.incomeAnnual.value.data.rows[0].date;
+    if (typeof latest !== "string") throw new Error("fixture requires an annual date");
+    const alias = new Date(Date.parse(latest) + 86_400_000).toISOString().slice(0, 10);
+    bundle.analystEstimates.value.data.rows.unshift({ date: alias, revenueAvg: 123456789, epsAvg: 0.1234 });
+    const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
+    expect(payload.estimates.figures.some(row => row.value === 123456789 || row.value === 0.1234)).toBe(false);
+  });
+
   it("keeps an analyst forecast period separate from its provider observation time", () => {
     // An estimate registers only in a currency its own row states (2026-09-30;
     // tests/currency.analystEstimates.test.ts), so these rows state USD.
@@ -2182,10 +2194,10 @@ describe("payload determinism + provenance", () => {
     for (const row of bundle.analystEstimates.value.data.rows) row.reportedCurrency = "USD";
     const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
     const fy2027 = payload.provenanceRegistry!.find(
-      (entry) => entry.id === "payload.estimates.est-revenue-2027-09-30",
+      (entry) => entry.id === "payload.estimates.est-revenue-2027-09-25",
     )!;
 
-    expect(fy2027.period).toBe("2027-09-30");
+    expect(fy2027.period).toBe("2027-09-25");
     expect(fy2027.asOf).toBe("2026-07-06");
   });
 
@@ -3640,7 +3652,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.69.0"); // the Q round moved the shared report stamp
+    expect(report.meta.specVersion).toBe("1.70.0"); // evidence-remediation report semantics
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();

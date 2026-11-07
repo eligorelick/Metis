@@ -3,6 +3,26 @@ import { extractAnnualNotesFromIndex, extractSection } from "@/edgar/extract";
 import { annualNotesIndexFixture } from "./helpers/annualNotesIndexFixture";
 
 describe("source-derived annual appendix index (synthetic markup)", () => {
+  it("recovers a closed appendix with generator empty-cell spacers and a significant-accounting-policies opening", () => {
+    const html = annualNotesIndexFixture()
+      .replaceAll('<td><a href=', '<td/><td><a href=')
+      .replace('Note 1 - Organization.', 'Note 1. Significant Accounting Policies.');
+    const result = extractAnnualNotesFromIndex(html);
+    expect(result?.text).toContain('LATER_NOTE_SENTINEL');
+    expect(result?.text).not.toContain('SCHEDULE_SENTINEL');
+    expect(extractAnnualNotesFromIndex(html.replace('<td/>', '<div/>'))).toBeNull();
+    expect(extractAnnualNotesFromIndex(html.replace('Significant Accounting Policies.', 'Significant Accounting Policies are described in another document.'))).toBeNull();
+  });
+  it("matches a fiscal-year-qualified schedule index caption to its exact standalone Schedule II destination", () => {
+    const html = annualNotesIndexFixture().replace('<td>Schedule II</td>', '<td>(2) Schedule II - Valuation and Qualifying Accounts for Fiscal 2026, 2025 and 2024</td>');
+    expect(extractAnnualNotesFromIndex(html)?.text).toContain('LATER_NOTE_SENTINEL');
+    expect(extractAnnualNotesFromIndex(html.replace('SCHEDULE II</h2>', 'SCHEDULE III</h2>'))).toBeNull();
+  });
+  it("permits a bounded standalone corporate page caption between the notes target and heading", () => {
+    const html = annualNotesIndexFixture().replace('<h2 id="notes">', '<a id="notes"></a><div>CEDAR DEVICES Incorporated</div><h2>');
+    expect(extractAnnualNotesFromIndex(html)?.text).toContain('LATER_NOTE_SENTINEL');
+    expect(extractAnnualNotesFromIndex(html.replace('CEDAR DEVICES Incorporated', 'See another annual report for financial statements.'))).toBeNull();
+  });
   it.each([" (continued)", ""])("keeps later notes after a repeated enclosing Item 15 header%s", suffix => {
     const html = annualNotesIndexFixture().replace('<h2>Notes to Consolidated Financial Statements (continued)</h2>', `<h2>Item 15. Exhibits and Financial Statement Schedules${suffix}</h2><h2>Notes to Consolidated Financial Statements (continued)</h2>`);
     const result = extractAnnualNotesFromIndex(html);

@@ -1,4 +1,5 @@
 import { qualifiedGradeLabel } from "@/report/assessment";
+import { supplementalNumericInventoryText } from "@/report/supplementalNumericAudit";
 import { passBaseName, passAttemptName, FAILED_PASS_NOTE, type ExecutionMetadataEntry } from "@/report/execution";
 import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
 import { shownDataState } from "@/report/completeness";
@@ -513,6 +514,8 @@ export function citedMark(n: TracedNumber): string {
  */
 export function figureValueText(n: Pick<TracedNumber, "value" | "unit" | "currency" | "source">): string {
   const unit = n.unit.trim().toLowerCase();
+  // TATA is a signed accrual fraction, unlike the other Beneish indices.
+  if (/^computed\.forensics\.(?:beneish-index-tata|beneish\.indices\.tata)$/i.test(n.source) && ["x", "ratio", "fraction"].includes(unit)) return n.value.toFixed(3);
   if (/evidence-completeness$/.test(n.source) && ["fraction", "frac", "ratio", "number", ""].includes(unit)) return ratioPercentText(n.value);
   if (isRatioAsPercent(n.source) && ["x", "×", "multiple", "fraction", "frac", "ratio"].includes(unit)) return ratioPercentText(n.value);
   if (/piotroski-f-9-signals$/.test(n.source) && Number.isInteger(n.value)) return `${n.value}/9`;
@@ -1407,6 +1410,8 @@ export function trustRows(recorded: ProvenanceCoverage | undefined, log?: readon
     { label: "Factual claims carrying a citation", value: ratio(coverage.factualClaims.supported, coverage.factualClaims.total, coverage.factualClaims.rate) },
   );
   if (coverage.judgments.total > 0) rows.push({ label: "Judgments carrying a citation", value: ratio(coverage.judgments.cited, coverage.judgments.total, coverage.judgments.rate) });
+  const supplemental = supplementalNumericInventoryText(log);
+  if (supplemental) rows.push({ label: "Supplemental filing and market numeric inventory (not validation)", value: supplemental });
   return rows;
 }
 

@@ -1236,6 +1236,8 @@ export function terminalRoic(
   }
   const oldest = years[n - 1].date;
   const newest = years[0].date;
+  const observedYearNumbers = new Set(years.map(y => Number(y.date.slice(0, 4))));
+  const missingYears = Array.from({ length: Math.max(0, Number(newest.slice(0, 4)) - Number(oldest.slice(0, 4)) + 1) }, (_, i) => Number(oldest.slice(0, 4)) + i).filter(y => !observedYearNumbers.has(y));
   return {
     roicTermPct: waccPct + excess,
     excessPp: excess,
@@ -1247,7 +1249,7 @@ export function terminalRoic(
             ? `, and the set-aside business-combination year counts toward the at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 required `
             : `, at least ${TERMINAL_EXCESS_RETURN_MIN_YEARS} of the last 5 being required `) +
           `(${oldest} to ${newest}${misses.length > 0 ? `; miss: ${missText(misses)}` : ""}${setAsideText}${unestablishedText}${annotatedText}; median spread ${fmtNum(median)}pp over the years counted); `
-        : `${RET} exceeded ${RATE} in each of the last ${n} fiscal years (${oldest} to ${newest}, median spread ${fmtNum(median)}pp); `) +
+        : `${RET} exceeded ${RATE} in ${n} observed fiscal years (${oldest} to ${newest}${missingYears.length ? `; missing fiscal-year observations: ${missingYears.join(", ")}; observations are not consecutive` : ""}, median spread ${fmtNum(median)}pp); `) +
       `half the spread is carried in perpetuity, capped at ${TERMINAL_EXCESS_RETURN_CAP_PP}pp ` +
       "(HOUSE CONVENTION after McKinsey's RONIC guidance and Damodaran's modest-excess-return cap — not a standard; see docs/METHODOLOGY.md)",
     note: null,
@@ -2291,6 +2293,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       : null;
   const rereadTax = normalizeUnusual ? taxRateWithoutOneOffs({ pretax, taxExpense: taxExp, oneOff: inputs.unusualOperatingItems!.value, marginalPct: taxFloor, historicalMedianPct: historicalMedianTax }) : null;
   const currentTaxRate = rereadTax?.pct ?? observedCurrentTaxRate;
+  const unavailableTaxReason = pretax !== null && pretax > 0 && isNum(taxExp) && taxExp < 0
+    ? `${periodBasis} observed effective rate ${fmtNum(taxExp / pretax * 100)}% reflects a tax benefit and is excluded from the recurring forecast seed`
+    : `${periodBasis} effective rate not computable (non-positive pre-tax income or missing tax expense)`;
   const rereadBasis = rereadTax === null ? null : `${periodBasis} effective rate re-read without tagged one-off items of ${fmtNum(inputs.unusualOperatingItems!.value)}: ${fmtNum(rereadTax.noTaxEffectPct)}% with no tax effect on them, ${fmtNum(rereadTax.marginalEffectPct)}% taxed at the ${fmtNum(taxFloor)}% marginal rate; year one ${fmtNum(rereadTax.pct)}% (${rereadTax.source === "marginal-reading" ? "no historical median: the marginal-rate reading" : `the company historical median ${fmtNum(historicalMedianTax!)}% held within that range`})`;
   if (rereadBasis) notes.push(rereadBasis);
   const companyTerminalTax = historicalMedianTax ?? currentTaxRate;
@@ -2328,12 +2333,12 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     // the basis says no current rate was observed: it used to print "TTM
     // effective rate 22%" for an issuer with a pre-tax loss.
     notes.push(
-      `${periodBasis} effective tax rate not computable (pre-tax income ≤ 0, or tax expense missing/negative) — tax path held at ${terminalTaxText}`,
+      `${unavailableTaxReason} — tax path held at ${terminalTaxText}`,
     );
     gaps.push(
       gapEntry(
         "valuation.dcf.ttmTaxRate",
-        `${periodBasis} effective tax rate not computable (non-positive pre-tax income or missing tax expense) — ${fmtNum(taxTerminal)}% (${companyTaxText} ${fmtNum(companyTax)}%, floor ${fmtNum(taxFloor)}%) is used for the whole path`,
+        `${unavailableTaxReason} — ${fmtNum(taxTerminal)}% (${companyTaxText} ${fmtNum(companyTax)}%, floor ${fmtNum(taxFloor)}%) is used for the whole path`,
         "info",
       ),
     );
@@ -2344,7 +2349,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
         `${currentTaxRate === null ? "" : ` against the ${periodBasis} ${rereadTax ? "rate re-read without tagged one-off items," : "observed"} ${fmtNum(currentTaxRate)}%`}` +
         `${tEff === taxTerminal ? ` held flat: terminal rate is ${terminalTaxText}` : ` fading to ${fmtNum(taxTerminal)}% by year ${years}: ${terminalTaxText}`} (house rule D-60: tax guidance sets year one)`
       : currentTaxRate === null
-      ? `${periodBasis} effective rate not computable (pre-tax income ≤ 0 or tax expense missing) — held at ${terminalTaxText} for all ${years} years`
+      ? `${unavailableTaxReason} — held at ${terminalTaxText} for all ${years} years`
       : tEff === taxTerminal
         ? `${rereadBasis ?? `${periodBasis} effective rate ${fmtNum(tEff)}%`} held flat: terminal rate is ${terminalTaxText}`
         : `${rereadBasis ?? `${periodBasis} effective rate ${fmtNum(tEff)}%`} fading to ${fmtNum(taxTerminal)}% by year ${years}: ${terminalTaxText}`;
