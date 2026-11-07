@@ -20,6 +20,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/ai/analysisRoute.ts",
   "src/ai/browser.ts",
   "src/ai/chatgpt.ts",
+  "src/ai/claude.ts",
   "src/ai/connections.ts",
   "src/ai/contracts.ts",
   "src/ai/fingerprint.ts",
@@ -73,6 +74,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/cache/maintenance.ts",
   "src/symbol.ts",
   "src/pipeline/companyLoad.ts",
+  "src/pipeline/companyData.ts",
   "src/pipeline/dataBundle.ts",
   "src/pipeline/commonEarnings.ts",
   "src/pipeline/incomeBasis.ts",
@@ -130,6 +132,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/modelEvidence.ts",
   "src/report/query.ts",
   "src/report/history.ts",
+  "src/report/delete.ts",
   "src/report/diff.ts",
   "src/report/diffPresentation.ts",
   "src/report/claimMatching.ts",
@@ -268,6 +271,9 @@ const EXPECTED_RISK_SOURCES = [
  * so a new module has to be placed on purpose (audit 2026-09-06, F200).
  */
 const COVERAGE_EXEMPT_SOURCES: Record<string, string> = {
+  "src/app/api/company/[symbol]/refresh/route.ts": "route orchestration delegates to audited companyData/apiCache; exercised by tests/company.refreshRoute.test.ts",
+  "src/components/report/DeleteReportButton.tsx": "UI confirmation and mutation feedback exercised by tests/report.deleteButton.test.ts; deletion is audited in src/report/delete.ts",
+  "src/components/report/RefreshCompanyData.tsx": "UI delegates persistence and freshness to audited companyData/apiCache; its handler is exercised by tests/company.refreshRoute.test.ts",
   "src/app/company/[symbol]/GenerateReport.tsx": "Measured 79.24/84.44/96.25/83.68 statements/branches/functions/lines in tsx-targeted-measure, below the risk floor; UI behavior exercised by tests/api.routes.export.test.ts, tests/company.generateReport.persistence.test.ts, tests/company.generateReport.resume.test.ts, tests/company.generateReport.route.test.ts, tests/company.generateReport.stream.test.ts, tests/company.generateReport.unsupported.test.ts, tests/company.page.unsupported.test.ts, tests/company.report.presentation.test.ts, tests/currency.companyPage.test.ts, tests/report.dossier.test.ts, tests/report.surface.client.test.ts",
   "src/app/company/[symbol]/history/diff/diff-body.tsx": "UI behavior exercised by tests/report.history.export.test.ts",
   "src/app/company/[symbol]/history/diff/page.tsx": "UI behavior exercised by tests/company.routes.symbol.test.ts, tests/report.history.export.test.ts, tests/report.revisionDigest.test.ts",

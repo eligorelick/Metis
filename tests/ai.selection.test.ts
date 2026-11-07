@@ -1,14 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AiStore } from "@/ai/store";
-const fake = vi.hoisted(() => ({ store: null as AiStore | null, key: false, cli: null as string | null, google: null as null | { status: string }, openai: null as null | { status: string } }));
+const fake = vi.hoisted(() => ({ store: null as AiStore | null, key: false, cli: null as string | null, claude: false, google: null as null | { status: string }, openai: null as null | { status: string } }));
 vi.mock("@/ai/store", () => ({ readAiStore: () => fake.store, withAiStore: async (fn: (s: AiStore) => unknown) => fn(fake.store!) }));
 vi.mock("@/config/env", () => ({ getConfig: () => ({ hasAnthropicKey: fake.key }) }));
 vi.mock("@/ai/chatgpt", () => ({ chatGptPending: () => fake.openai }));
 vi.mock("@/ai/gemini", () => ({ geminiExecutable: () => fake.cli, geminiPending: () => fake.google }));
+vi.mock("@/ai/claude", () => ({ claudeExecutable: () => fake.claude ? { command: "official-claude", prefix: [] } : null }));
 import { captureAiSelection, connectionsView, selectConnection, selectionIsConnected } from "@/ai/connections";
-beforeEach(() => { fake.store = null; fake.key = false; fake.cli = null; fake.google = null; fake.openai = null; });
+beforeEach(() => { fake.store = null; fake.key = false; fake.cli = null; fake.claude = false; fake.google = null; fake.openai = null; });
 function store(): AiStore { return fake.store = { version: 1, hostId: "urn:uuid:fixture", profiles: [], gemini: null, selection: { provider: "none" } }; }
 describe("explicit account selection", () => {
+  it("requires a connected local Claude installation and saves its own model and effort", async () => {
+    const saved = store(); saved.claude = { id: "c", connected: true, identity: "a".repeat(64) };
+    const choice = { provider: "claude" as const, connectionId: "c", model: "opus", effort: "high" as const };
+    expect(selectionIsConnected(choice)).toBe(false);
+    await expect(selectConnection(choice)).rejects.toThrow("Connect");
+    fake.claude = true; expect(selectionIsConnected(choice)).toBe(true);
+    await selectConnection(choice); expect(saved.selection).toEqual(choice);
+    expect(connectionsView().connections).toContainEqual(expect.objectContaining({ provider: "claude", id: "c", connected: true }));
+    await expect(selectConnection({ ...choice, serviceTier: "fast" })).rejects.toThrow("Choose");
+    saved.claude.connected = false; expect(selectionIsConnected(choice)).toBe(false);
+    await expect(selectConnection(choice)).rejects.toThrow("Connect");
+  });
   it("preserves a legacy configured API route only before a saved selection exists", () => {
     expect(captureAiSelection()).toEqual({ provider: "none" });
     fake.key = true; expect(captureAiSelection()).toEqual({ provider: "anthropic" });
