@@ -863,7 +863,7 @@
     {
       "path": "payload.filings[1].coverage.version",
       "before": "section-evidence-2",
-      "after": "section-evidence-7"
+      "after": "section-evidence-8"
     },
     {
       "path": "payload.missingData[6].reason",
@@ -873,17 +873,17 @@
     {
       "path": "payload.missingData[7].reason",
       "before": "26928 of 33000 source chars omitted by section-evidence-2 for edgar:10-K item7 as of 2025-09-27. results: not-found (0/0 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist.",
-      "after": "26928 of 33000 source chars omitted by section-evidence-7 for edgar:10-K item7 as of 2025-09-27. results: not-found (0/0 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained); operating-costs: not-found (0/0 candidate passages retained); commercial-terms: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist."
+      "after": "26928 of 33000 source chars omitted by section-evidence-8 for edgar:10-K item7 as of 2025-09-27. results: not-found (0/0 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained); operating-costs: not-found (0/0 candidate passages retained); commercial-terms: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist."
     },
     {
       "path": "payload.missingData[8].reason",
       "before": "54528 of 64000 source chars omitted by section-evidence-2 for fmp:earning-call-transcript as of 2026-05-01. results: retained (296/2000 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist.",
-      "after": "54528 of 64000 source chars omitted by section-evidence-7 for fmp:earning-call-transcript as of 2026-05-01. results: retained (296/2000 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained); operating-costs: not-found (0/0 candidate passages retained); commercial-terms: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist."
+      "after": "54528 of 64000 source chars omitted by section-evidence-8 for fmp:earning-call-transcript as of 2026-05-01. results: retained (296/2000 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained); operating-costs: not-found (0/0 candidate passages retained); commercial-terms: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist."
     },
     {
       "path": "payload.payloadVersion",
       "before": "1.88.0",
-      "after": "1.90.0"
+      "after": "1.91.0"
     },
     {
       "path": "payload.transcript.coverage.categories",
@@ -1015,7 +1015,7 @@
     {
       "path": "payload.transcript.coverage.version",
       "before": "section-evidence-2",
-      "after": "section-evidence-7"
+      "after": "section-evidence-8"
     }
   ],
   "registries": {

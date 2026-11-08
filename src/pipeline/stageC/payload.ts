@@ -45,6 +45,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
+import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
 import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
@@ -511,7 +512,8 @@ export interface ContextPayload {
 // 1.87.0 (D-211): cited issuer documents and annual proxy excerpts.
 // 1.88.0 (D-212): compatible quarterly ownership/cash inputs and qualified source presentation.
 // 1.90.0 (D-214): quarterly release corrections and their source lineage agree with Stage B; unsafe split/inline numeric bases are refused.
-export const PAYLOAD_VERSION = "1.90.0" as const;
+// 1.91.0 (D-215): restored revenue and annual guidance, with separately scoped borrowing-cost evidence.
+export const PAYLOAD_VERSION = "1.91.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -1736,7 +1738,10 @@ function extractStatement<TRow extends FmpRawRow>(
       };
     }),
   }));
-  return { title, periods: periodLabels, lineItems: lines, notes: periodKind !== "instant" ? [] : kept.flatMap(r => {
+  return { title, periods: periodLabels, lineItems: lines, notes: periodKind !== "instant" ? kept.flatMap(r => {
+    const refusal = (r as FmpStatementRow).fieldConflicts?.interestExpense;
+    return refusal?.usable === false && refusal.cause === "borrowing-cost-scope" ? [refusal.reason] : [];
+  }) : kept.flatMap(r => {
     const coverage = incompleteLeaseCoverage(r as FmpBalanceSheetRow);
     return [...(coverage === null ? [] : [`${isoDay(r.date) ?? "Unknown balance date"}: ${coverage.note}`]), leaseEvidenceNote({ ...(r as FmpBalanceSheetRow), leaseEvidenceContext })];
   }) };
@@ -3808,7 +3813,7 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
-  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))));
+  bundle = withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle)))));
   bundle = balanceIntegrityView(bundle);
   const profile = firstRow(bundle.profile);
   // Trading (listing), annual and model currencies, resolved exactly as Stage B

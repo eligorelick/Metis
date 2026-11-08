@@ -101,10 +101,15 @@ export interface OperatingRevenuePolicy { sales: boolean; salesTags: readonly st
 
 /** Select the company's operating line before resolving individual periods.
  * A primary sales reconciliation or a corroborated net-sales presentation
- * establishes sales; equal filed contract lines inherit that same scope. */
+ * establishes sales; equal filed revenue concepts inherit that same scope.
+ * A broadly named concept is not necessarily broader income. A matching
+ * primary statement can prove it is sales, unless another retained primary
+ * presentation demonstrates a different scope for that concept. */
 export function operatingRevenuePolicy(rows: readonly FmpIncomeStatementRow[]): OperatingRevenuePolicy {
   let sales = false;
   const salesTags = new Set<string>(["SalesRevenueNet"]);
+  const corroboratedBroadTags = new Set<string>();
+  const contradictedBroadTags = new Set<string>();
   for (const row of rows) {
     const lines = row.filedIncomeLines ?? {}, candidates = filedRevenueLines(lines);
     const net = lines["SalesRevenueNet"];
@@ -117,7 +122,21 @@ export function operatingRevenuePolicy(rows: readonly FmpIncomeStatementRow[]): 
       const contract = lines[tag];
       if (contract && sameIncomeScope(basis.proof,contract.proof) && vendorAgreesWithFiled(basis.value,contract.value)) salesTags.add(tag);
     }
+    for (const tag of BROAD_REVENUE_TOTAL_TAGS) {
+      const total = lines[tag];
+      if (!total || !sameIncomeScope(basis.proof, total.proof)) continue;
+      if (!vendorAgreesWithFiled(basis.value, total.value)) { contradictedBroadTags.add(tag); continue; }
+      const primary = row.primaryIncomeProof;
+      // A sales/other-income bridge can net to the same total by coincidence.
+      // Only a bound, complete primary sales statement proves concept scope;
+      // its actual document must be the same filing as the corroborating fact.
+      if (primary && !primary.superseded && !primary.components.some(c => c.role === "income-total") &&
+          vendorAgreesWithFiled(primary.revenue, basis.value) && sameIncomeScope(primary.proof, basis.proof) &&
+          primary.proof.calculation === "complete-operating-reconciliation" && primary.proof.documents?.length &&
+          primary.proof.documents.every(d => primary.proof.filings.some(f => f.accn === d.accession && f.filed === d.filed && f.form === d.form))) corroboratedBroadTags.add(tag);
+    }
   }
+  for (const tag of corroboratedBroadTags) if (!contradictedBroadTags.has(tag)) salesTags.add(tag);
   return {sales,salesTags:[...salesTags]};
 }
 

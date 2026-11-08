@@ -185,7 +185,7 @@ export interface StatementFieldConflict {
   /** False refuses the operand; true retains the observation as an audit trail after resolution. */
   usable: boolean;
   resolution?: "filed-family" | "minor-retained" | "filed-line";
-  cause?: "revenue-scope" | "operating-basis" | "operating-scope";
+  cause?: "revenue-scope" | "operating-basis" | "operating-scope" | "borrowing-cost-scope";
   reason: string;
   secEvidence?: StatementFieldProvenance;
 }

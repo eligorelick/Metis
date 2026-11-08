@@ -1,7 +1,8 @@
 import { materialCreditSupportClauses } from "@/edgar/currentReports";
+import { confirmedQuarterResultsSchedules } from "@/edgar/earningsSchedule";
 
 /** Pure, bounded source selection. Offsets always refer to the original source. */
-export const EVIDENCE_SELECTION_VERSION = "section-evidence-7";
+export const EVIDENCE_SELECTION_VERSION = "section-evidence-8";
 /**
  * The notes and risk readings. section-evidence-4 (D-99, AMZN audit findings
  * 6 and 16): the performance-obligations family and the pending-case clauses
@@ -586,6 +587,20 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   const budget = Math.max(0, Math.floor(maxChars));
   const spec = PROFILES[profile];
   const all = passages(text, profile);
+  const schedules = new Set<Passage>();
+  if (profile === "financial") {
+    // A schedule's introduction and date rows must survive as one exact source
+    // passage. Sentence selection otherwise drops the dates or their authority.
+    for (const schedule of confirmedQuarterResultsSchedules(text)) {
+      const group = all.filter(p => p.start < schedule.end && p.end > schedule.start);
+      if (!group.length) continue;
+      const start = group[0]!.start, end = group.at(-1)!.end;
+      const combined = { start, end, text: text.slice(start, end), categories: [...new Set(group.flatMap(p => p.categories))], score: Math.max(...group.map(p => p.score)), table: false };
+      all.splice(all.indexOf(group[0]!), group.length, combined);
+      for (const member of group) schedules.delete(member);
+      schedules.add(combined);
+    }
+  }
   const contextual = profile === "notes" || profile === "interim" || profile === "event";
   const links = contextLinks(all, profile);
   const selected: Passage[] = [];
@@ -651,6 +666,13 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   if (text.length <= budget) {
     selected.push({ start: 0, end: text.length, text, categories: [], score: 0, table: false });
   } else {
+    // At most one fifth of the existing budget; failure to fit keeps the
+    // normal omission/refusal behavior and never cuts a calendar in half.
+    let calendarBudget = Math.floor(budget / 5);
+    for (const schedule of schedules) {
+      const before = remaining;
+      if (add(schedule, calendarBudget)) calendarBudget -= before - remaining;
+    }
     // A bounded reservation for asserted facts prevents generic, numeric risk
     // prose from displacing a disclosed weakness or a pending case's caveats.
     if (spec.critical !== undefined) {

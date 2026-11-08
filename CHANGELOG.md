@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.71.0** and
-payload **1.90.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.72.0** and
+payload **1.91.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,21 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Operating evidence and report audit (2026-11-08)
+
+- Preserve historical revenue when a primary statement corroborates its SEC
+  concept as operating sales; retain incompatible-source refusal paths.
+- Separate capitalized borrowing costs from financing expense and interest
+  coverage. Retain period and debt-scope checks for historical borrowing costs.
+- Extract explicit annual revenue/tax guidance, recognize announced quarterly
+  earnings schedules, explain unresolved earnings bridges without guessing the
+  missing adjustment, and collapse exact repeated reader limitations.
+- Report spec 1.72.0, payload 1.91.0, Stage B
+  `STAGE_B_2026_11_OPERATING_EVIDENCE_65`, pipeline `stage-c-1.6.43`, and
+  current-reports 1.4.0 and general evidence selection `section-evidence-8`.
+  Score thresholds and historical report bytes stay fixed.
+  See [the audit record](docs/audit/2026-11-08-dhi-report-4.md).
 
 ## Unreleased - PDF first-page pagination (2026-11-07)
 

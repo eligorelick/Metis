@@ -1,6 +1,7 @@
 import type { CitationProvenanceRecord } from "@/pipeline/stageC/provenance";
 import { estimateDay } from "@/report/estimateTiming";
 import type { VerificationLogEntry } from "@/report/schema";
+import { confirmedQuarterResultsSchedules } from "@/edgar/earningsSchedule";
 
 // Only assembler-owned calendar notes establish an event. Source passages can
 // establish its status; citation names and free-form report prose cannot.
@@ -54,6 +55,13 @@ function eventPieces(clause: string, date: string, eventContext = false): { piec
   return { pieces, hits };
 }
 
+/** A primary release can announce an annual schedule in a heading and rows.
+ * Bind only consecutive quarter/date rows to its explicit results-release
+ * introduction; a date elsewhere in the passage cannot confirm the event. */
+function scheduledQuarterDate(text: string, date: string): boolean {
+  return confirmedQuarterResultsSchedules(text).some(schedule => schedule.dates.some(printed => datePattern(date).test(printed)));
+}
+
 /** Resolve one date/source/status record per event before editing any prose. */
 function scheduledEvents(notes: readonly string[], registry: readonly CitationProvenanceRecord[], companySources: readonly string[], evidence?: EarningsScheduleEvidence): ScheduledEvent[] {
   const events = new Map<string, ScheduledEvent>();
@@ -64,7 +72,7 @@ function scheduledEvents(notes: readonly string[], registry: readonly CitationPr
     const establishesDate = (text: string) => text.split(HARD_CLAUSE).some(part => eventPieces(part, event.date).hits.size > 0 &&
       /\b(?:will|plans?|planned|scheduled|expects?|announces?|announced|due)\b/i.test(part) &&
       !/\b(?:not|unconfirmed|unverified|might|could|rumou?rs?|speculat\w*)\b|\bmay\s+(?:report|release|announce|be|hold|publish)\b/i.test(part));
-    const official = evidence?.passages.find(passage => typeof passage.text === "string" && establishesDate(passage.text) && registry.some(record => record.id === passage.source && record.kind === "payload-text" &&
+    const official = evidence?.passages.find(passage => typeof passage.text === "string" && (establishesDate(passage.text) || scheduledQuarterDate(passage.text, event.date)) && registry.some(record => record.id === passage.source && record.kind === "payload-text" &&
       (/^edgar:(?:8-K|10-[KQ]|6-K|20-F|40-F)\b/i.test(record.origin) || companySources.includes(record.id))));
     if (official) { event.status = "confirmed"; event.source = official.source; }
     else if (evidence?.issuerName) {

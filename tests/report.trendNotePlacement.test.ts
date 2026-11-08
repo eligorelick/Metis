@@ -28,6 +28,15 @@ const tableText = (d: FilingDisclosures, section: "fundamentals" | "outlook") =>
   JSON.stringify(filingDisclosureTables(d, section));
 
 describe("R2/R3 review: quarterly-trend notes sit with the trend", () => {
+  it("shows a repeated stored filing limitation once while preserving distinct dated evidence", () => {
+    const d = buildFilingDisclosures(providerBundle())!;
+    const note = "Operating margin withheld: no corroborated bridge is available.";
+    d.notes = [note, note, `${note} Period 2026-03-31.`, `${note} Period 2025-12-31.`];
+    const before = JSON.stringify(d);
+    const table = filingDisclosureTables(d, "catalystsRisks").find(t => t.heading === "Filing review limitations and notes")!;
+    expect(table.rows).toEqual([[note], [`${note} Period 2026-03-31.`], [`${note} Period 2025-12-31.`]]);
+    expect(JSON.stringify(d)).toBe(before);
+  });
   it("names the trend's own notes and nothing else", () => {
     for (const note of [
       "Quarterly income trend: a row has no period end.",

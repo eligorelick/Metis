@@ -7,8 +7,8 @@ import { runStageB } from "@/pipeline/compute";
 import { getConcept, type CompanyFacts } from "@/edgar/xbrl";
 import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
-import type { FmpIncomeStatementRow } from "@/providers/fmp";
-import { admitRevenueGrossProfit, corroborateOperatingIncome, replayIncomeObservations } from "@/edgar/revenueAdmission";
+import type { FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
+import { admitRevenueGrossProfit, corroborateOperatingIncome, operatingRevenuePolicy, replayIncomeObservations } from "@/edgar/revenueAdmission";
 import { parseOperatingRevenueBridge } from "@/edgar/currentReports";
 
 const at = "2026-07-06T00:00:00Z";
@@ -40,6 +40,79 @@ function annual(extra: Record<string, number>, vendor = 1000) {
   return {input,f};
 }
 const first=(b:ReturnType<typeof bundle>,name:"incomeAnnual"|"incomeQuarterly")=>{const m=withIncomeOperatingBasis(b).statements[name];if(!m.ok)throw Error("fixture");return m.value.data.rows[0]!;};
+
+describe("primary statements corroborating broadly named operating revenue", () => {
+ const primaryStatement = (proof: StatementFieldProvenance, revenue: number) => ({
+  periodEnd: proof.periodEnd, months: 12, revenue, totalIncome: revenue, operatingIncome: revenue * 0.2, pretax: revenue * 0.2,
+  components: [{ label: "Revenues", role: "sales", value: revenue }], roundingResidual: 0, scale: M,
+  proof: { ...proof, calculation: "complete-operating-reconciliation" as const,
+   documents: proof.filings.map(f => ({ accession: f.accn, filed: f.filed, form: f.form, url: "https://www.sec.gov/Archives/edgar/data/42/annual.htm" })) },
+ });
+ it.each(["same", "currency", "duration", "filing", "amount", "sales-only bridge", "other document", "net-zero other income"])("inherits only a matching filed revenue concept (%s)", mode => {
+  const proof = { source: "edgar" as const, unit: "USD", periodStart: "2025-01-01", periodEnd: "2025-12-31", observedAt: at,
+   tags: ["us-gaap/Revenues"], filings: [{ accn: "annual", filed: "2026-02-01", form: "10-K" }] };
+  const primary = { value: 1000 * M, role: "operating-sales" as const, proof };
+  const revenue = { value: (mode === "amount" ? 1100 : 1000) * M, proof: { ...proof,
+   unit: mode === "currency" ? "EUR" : "USD", periodStart: mode === "duration" ? "2025-04-01" : proof.periodStart,
+   filings: mode === "filing" ? [{ accn: "other", filed: "2026-03-01", form: "10-K" }] : proof.filings } };
+  const bound = primaryStatement(proof, 1000 * M);
+  if (mode === "other document") bound.proof.documents[0]!.accession = "unrelated-filing";
+  if (mode === "net-zero other income") bound.components.push({ label: "Total revenue and other income", role: "income-total", value: 1000 * M });
+  const policy = operatingRevenuePolicy([{ ...(mode === "sales-only bridge" ? {} : { primaryIncomeProof: bound }), filedIncomeLines: { "primary-sales": primary, Revenues: revenue } }]);
+  expect(policy.salesTags.includes("Revenues")).toBe(mode === "same");
+ });
+
+ it("does not promote a broad concept contradicted by another retained sales presentation", () => {
+  const proof = { source: "edgar" as const, unit: "USD", periodStart: "2025-01-01", periodEnd: "2025-12-31", observedAt: at,
+   tags: ["us-gaap/Revenues"], filings: [{ accn: "annual", filed: "2026-02-01", form: "10-K" }] };
+  const row = (sales: number) => ({ primaryIncomeProof: primaryStatement(proof, sales * M), filedIncomeLines: {
+   "primary-sales": { value: sales * M, role: "operating-sales" as const, proof }, Revenues: { value: 1000 * M, proof },
+  } });
+  expect(operatingRevenuePolicy([row(1000), row(900)]).salesTags).not.toContain("Revenues");
+ });
+
+ it("retains annual history and scoring when a quarterly primary statement confirms the Revenues concept", () => {
+  const b = bundle(); if (!b.edgar.companyFacts.ok) throw Error("fixture");
+  const concepts = b.edgar.companyFacts.value.data.facts["us-gaap"]!;
+  const sales = structuredClone(concepts.SalesRevenueNet) as { units: { USD: Record<string, unknown>[] } };
+  concepts.Revenues = sales;
+  for (const tag of ["SalesRevenueNet", "RevenueFromContractWithCustomerExcludingAssessedTax", "GrossProfit", "CostsAndExpenses", "OperatingExpenses", "InterestExpense"]) delete concepts[tag];
+  concepts.SellingGeneralAndAdministrativeExpense = { units: { USD: sales.units.USD.map(p => ({ ...p, val: Number(p.val) * 0.2 })) } };
+  concepts.OtherNonoperatingIncomeExpense = { units: { USD: sales.units.USD.map(p => ({ ...p, val: 10 * M })) } };
+  concepts.IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest = {
+   units: { USD: sales.units.USD.map(p => ({ ...p, val: Number(p.val) * 0.2 + 10 * M })) },
+  };
+  const text = "CONSOLIDATED STATEMENTS OF OPERATIONS (in millions of USD) Three Months Ended March 31, 2026 2025 Revenues $300 $280 Cost of sales 180 168 Selling, general and administrative expense 60 56 Other (income) expense (10) (8) Income before income taxes 70 64";
+  b.edgar.tenQNotes = { ok: true, value: { source: "edgar", endpoint: "synthetic", fetchedAt: at, asOf: "2026-03-31", data: {
+   sectionName: "tenQNotes", text, statementsText: text, chars: text.length, method: "header-regex", accession: "incomeQuarterly-2026-03-31",
+   filingDate: "2026-05-02", reportDate: "2026-03-31", form: "10-Q", documentUrl: "https://www.sec.gov/Archives/edgar/data/42/quarter.htm",
+  } } };
+  const before = JSON.stringify(b);
+  expect(first(b, "incomeQuarterly").primaryIncomeProof?.revenue).toBe(300 * M);
+  const row = first(b, "incomeAnnual");
+  expect(row.revenue).toBe(1000 * M);
+  expect(row.fieldConflicts?.revenue?.usable).toBe(true);
+  const computed = runStageB(b);
+  expect(computed.scores.aspects.fundamentals.signals?.map(s => s.id)).toContain("revenueCagr");
+  expect(computed.gaps.some(g => g.field === "eligibility.annual.revenue")).toBe(false);
+  expect(JSON.stringify(b)).toBe(before);
+ });
+ it("does not turn a net-zero sales/other-income release bridge into an annual operating concept", () => {
+  const b = bundle(); if (!b.edgar.companyFacts.ok) throw Error("fixture");
+  const concepts = b.edgar.companyFacts.value.data.facts["us-gaap"]!;
+  const revenue = concepts.Revenues as { units: { USD: Record<string, unknown>[] } };
+  for (const p of revenue.units.USD) if (String(p.accn).startsWith("incomeQuarterly")) p.val = Number(p.val) / 1.1;
+  for (const tag of Object.keys(concepts)) if (tag !== "Revenues" && !tag.startsWith("IncomeLossFromContinuingOperationsBefore")) delete concepts[tag];
+  const text = "Consolidated statement (Amounts in millions of USD) Three Months Ended March 31, 2026 2025 Sales and other operating revenue 300 280 Income from equity affiliates 20 10 Other income (20) (10) Total revenues and other income 300 280";
+  b.edgar.tenQNotes = { ok: true, value: { source: "edgar", endpoint: "synthetic", fetchedAt: at, asOf: "2026-03-31", data: {
+   sectionName: "tenQNotes", text, statementsText: text, chars: text.length, method: "header-regex", accession: "unrelated-filing",
+   filingDate: "2026-05-01", reportDate: "2026-03-31", form: "8-K", documentUrl: "https://www.sec.gov/Archives/edgar/data/42/release.htm",
+  } } };
+  const row = first(b, "incomeAnnual");
+  expect(row.revenue).toBeNull();
+  expect(row.fieldConflicts?.revenue?.usable).toBe(false);
+ });
+});
 
 describe("one corroborated revenue basis",()=>{
  it.each([

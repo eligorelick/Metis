@@ -482,10 +482,83 @@ export function parseIssuerGrowthEffect(sentence: string): { pp: number } | null
   return Number.isFinite(pp) ? { pp } : null;
 }
 
+/** An explicit fiscal-year introduction binds only its immediately following
+ * bullets. A later promise of quarterly guidance cannot relabel the annual
+ * amounts. Unsupported metrics remain visible as unparsed source evidence. */
+function parseAnnualGuidanceBullets(text: string, document?: ParsedDocument): IssuerGuidance | null {
+  const introductions = [...text.matchAll(/\bGuidance\s+([^\u2022]{0,300}?\bis providing (?:initial |updated )?guidance for fiscal (?:year )?(20\d{2}) including:)\s*(?=\u2022)/gi)];
+  if (introductions.length === 0) return null;
+  const refused = (): IssuerGuidance => ({ period: null, items: [], qualifiers: [], unparsed: [] });
+  if (introductions.length !== 1) return refused();
+  if (document && (document.fullText !== text || explicitHtmlHiddenState(document.pre) !== "clear")) return refused();
+  const introduction = introductions[0]!;
+  if (PART_OF_YEAR.test(introduction[1]!) || /\b(?:segments?|divisions?|only|exclud\w*|limited to|not|never|cannot|withdraw\w*|denie[sd]|if|might|could)\b/i.test(introduction[1]!)) return refused();
+  const period = fiscalPeriod(Number(introduction[2]), null);
+  const from = introduction.index + introduction[0].length;
+  const window = text.slice(from, from + 3_000);
+  const stop = OUTLOOK_STOP.exec(window);
+  if (stop === null && from + window.length < text.length) return refused();
+  const block = window.slice(0, stop?.index ?? window.length);
+  const headerText = introduction[0].trimEnd();
+  const headerSpan = { start: introduction.index, end: introduction.index + headerText.length, text: headerText };
+  const revenuePattern = new RegExp(String.raw`^Consolidated revenues? (?:in the range of|between) ${SCALED_MONEY} (?:to|and) ${SCALED_MONEY}\.?$`, "i");
+  const items: GuidanceItem[] = [], unparsed: string[] = [];
+  const seen = new Set<GuidanceMetric>();
+  let scopeEnd = block.length;
+  for (const bullet of block.matchAll(/[^\u2022]+/g)) {
+    const sentences = splitSentences(bullet[0].trim());
+    const restrictions = sentences.filter(sentence => {
+      const restrictsPopulation = /\b(?:only|exclud\w*|limited to|restricted to)\b[^.!?]{0,180}\b(?:segments?|divisions?|business(?:es)?|operations)\b|\b(?:segments?|divisions?|business(?:es)?|operations)\b[^.!?]{0,180}\b(?:only|exclud\w*|limited to|restricted to)\b/i.test(sentence);
+      const describesScope = /\b(?:appl(?:y|ies|icable)|cover[sd]?|relat(?:e|es))\b|\b(?:this|these|the(?: above| preceding)?) (?:amounts?|ranges?|figures?|guidance|outlook|projections?|estimates?)\b/i.test(sentence);
+      const namedYear = namedYearPhrase(sentence, null);
+      const changesPeriod = PART_OF_YEAR.test(sentence) || (namedYear !== null && namedYear.fiscalYear !== period.fiscalYear);
+      return restrictsPopulation || (describesScope && changesPeriod);
+    });
+    // A sentence after the amount may restrict the period or population of
+    // the whole list. Preserve it; an annual consolidated label is not safe.
+    if (restrictions.length) return { ...refused(), qualifiers: restrictions.slice(0, 4), unparsed: [bullet[0].trim().slice(0, 300)] };
+    const sentence = sentences[0];
+    if (!sentence) continue;
+    const spanStart = from + bullet.index + bullet[0].indexOf(sentence);
+    const span = { start: spanStart, end: spanStart + sentence.length, text: sentence };
+    const tax = /^Income tax rate of (?:(approximately|about|around|roughly) )?(\d+(?:\.\d+)?)%\.?$/i.exec(sentence);
+    let item: GuidanceItem | null = null;
+    if (revenuePattern.test(sentence)) {
+      const values = moneyMentions(sentence);
+      const [low, high] = values;
+      if (values.length === 2 && low!.symbol === high!.symbol && low!.value <= high!.value) {
+        item = { metric: "revenue", basis: "unspecified", period, unit: "currency", symbol: low!.symbol,
+          low: low!.value, mid: round((low!.value + high!.value) / 2), high: high!.value, form: "range", sentence, span, headerSpan };
+      }
+    } else if (tax) {
+      const value = Number(tax[2]);
+      item = { metric: "tax-rate", basis: "unspecified", period, unit: "%", symbol: null,
+        low: value, mid: value, high: value, form: tax[1] ? "approximate" : "point", sentence, span, headerSpan };
+    }
+    if (item) {
+      if (seen.has(item.metric)) return refused();
+      seen.add(item.metric);
+      items.push(item);
+    } else if (/\d/.test(sentence)) unparsed.push(sentence.slice(0, 300));
+    // Only consecutive simple bullets inherit the introductory year. Any
+    // intervening prose, colon heading, or partial-year reference ends that
+    // scope before another bullet can borrow it, even without punctuation.
+    if (sentences.length > 1 || /:/.test(bullet[0]) || PART_OF_YEAR.test(bullet[0])) {
+      scopeEnd = bullet.index + bullet[0].length;
+      break;
+    }
+  }
+  const qualifiers = splitSentences(block.slice(0, scopeEnd)).filter(sentence =>
+    /\b(?:not assuming|assumes?|excludes?|excluding|does not include)\b/i.test(sentence) && sentence.length <= 400);
+  return { period, items, qualifiers: qualifiers.slice(0, 4), unparsed: unparsed.slice(0, 4) };
+}
+
 /** Guidance from a release or commentary; null when it prints no outlook. */
 export function parseGuidance(rawText: string, document?: ParsedDocument): IssuerGuidance | null {
   const table = parseGuidanceTables(rawText, document);
   if (table !== null) return table;
+  const annualBullets = parseAnnualGuidanceBullets(rawText, document);
+  if (annualBullets !== null) return annualBullets;
   const block = outlookBlock(normalizeFilingText(rawText));
   if (block === null) return null;
   const period = quarterPhrase(block);

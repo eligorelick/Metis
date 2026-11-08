@@ -57,6 +57,8 @@ const EXPECTED_RISK_SOURCES = [
   "src/edgar/revenueAdmission.ts",
   "src/edgar/revenuePresentation.ts",
   "src/edgar/primaryIncome.ts",
+  "src/edgar/borrowingCosts.ts",
+  "src/edgar/earningsSchedule.ts",
   "src/edgar/cashInvestment.ts",
   "src/edgar/shareUnitRepair.ts",
   // WS4 review N3: the versioned tag table and the successor hop were carved
@@ -79,6 +81,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/pipeline/dataBundle.ts",
   "src/pipeline/commonEarnings.ts",
   "src/pipeline/incomeBasis.ts",
+  "src/pipeline/borrowingCostBasis.ts",
   "src/pipeline/shareUnits.ts",
   "src/pipeline/nciEarnings.ts",
   "src/pipeline/cashFlowBasis.ts",

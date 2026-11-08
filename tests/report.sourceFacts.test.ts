@@ -53,6 +53,13 @@ function record(input: ContextPayload, metric: string): NumericProvenanceRecord 
 }
 
 describe("evidence-bound source facts and reported earnings", () => {
+  it("does not diagnose an unproved equity-method adjustment from an unexplained earnings residual", () => {
+    const input = payload({ "income-before-tax": 1000, "income-tax-expense": 240, "net-income": 742, "equity-method-income-loss-as-filed": null });
+    const result = buildSourceFactSummary(input)!.earningsReconciliation;
+    expect(result).toMatchObject({ status: "unavailable", residual: 18, reportedNetIncome: 742, pretaxMinusTax: 760 });
+    expect(result.reason).toMatch(/unresolved|unestablished/i);
+    expect(result.reason).not.toMatch(/Missing reported equity-method/);
+  });
   function ownershipPayload(nci: number | null): ContextPayload {
     const input = payload({ "income-before-tax": 1027, "income-tax-expense": 152, "net-income": 878, "equity-method-income-loss-as-filed": 3 });
     for (const [metric, label, value] of [["consolidated-net-income", "consolidated net income", 875],
@@ -165,7 +172,7 @@ describe("evidence-bound source facts and reported earnings", () => {
   it("discloses a residual when equity is missing instead of inferring zero", () => {
     const summary = buildSourceFactSummary(payload({ "equity-method-income-loss-as-filed": null }))!;
     expect(summary.earningsReconciliation).toMatchObject({ status: "unavailable", method: "pretax-minus-tax", pretaxMinusTax: 62.658e9, residual: 0.011e9 });
-    expect(summary.earningsReconciliation.reason).toMatch(/missing.*equity-method/i);
+    expect(summary.earningsReconciliation.reason).toMatch(/reconciliation is unresolved/i);
   });
 
   it("does not force an economically small residual to zero", () => {

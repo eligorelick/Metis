@@ -23,6 +23,7 @@
  */
 
 import type { ManifestEntry } from "@/types/core";
+import type { FiledBorrowingCost } from "@/edgar/borrowingCosts";
 import { BETA_MIN_MONTHS, BLUME_MARKET_WEIGHT, BLUME_RAW_WEIGHT } from "@/pipeline/stageB/betaEstimate";
 import { isFiniteNumber } from "@/pipeline/stageB/growth";
 import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCurrency";
@@ -314,6 +315,8 @@ export type CostOfDebtMethod = "effective" | "historical" | "synthetic" | "none"
  * fiscal year before the latest annual row.
  */
 export interface PriorYearCostOfDebt {
+  /** Separately filed incurred borrowing cost; never an income-statement expense or ICR input. */
+  borrowingCost?: FiledBorrowingCost;
   operatingIncomeEvidence?: WaccOperatingEvidence;
   coverageBasis?: string;
   pct: number;
@@ -817,13 +820,19 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     if (rdEffective !== null && !deMinimis && rdEffective >= rdBand[0] && rdEffective <= rdBand[1]) {
       costOfDebtPct = rdEffective;
       costOfDebtMethod = priorUsable ? "historical" : "effective";
+      if (priorUsable && prior.borrowingCost) {
+        // The weight stays current; the rate's denominator belongs to the
+        // historical cost period and must not be labelled latest-two-year debt.
+        base.debtWeightBasis ??= inputs.totalDebtBasis ?? "the current retained average debt balance";
+        base.debtBasis = `FY ${prior.fiscalYearEnd} average borrowing debt ${fmt(prior.totalDebtAvg)}; ${prior.borrowingCost.basis}`;
+      }
       if (priorUsable) {
       notes.push(
-        `interest expense ${intExpRaw === 0 ? "reported as 0 (undisclosed)" : "missing"} with debt outstanding — cost of debt taken from FY ${prior.fiscalYearEnd}, the latest fiscal year that disclosed it (${prior.yearsBack} year${prior.yearsBack === 1 ? "" : "s"} back): ${fmt(prior.interestExpense)} / ${fmt(prior.totalDebtAvg)} average debt = ${fmt(prior.pct)}%`,
+        `interest expense ${intExpRaw === 0 ? "reported as 0 (undisclosed)" : "missing"} with debt outstanding — cost of debt taken from FY ${prior.fiscalYearEnd}, the latest fiscal year that disclosed it (${prior.yearsBack} year${prior.yearsBack === 1 ? "" : "s"} back): ${fmt(prior.borrowingCost?.amount ?? prior.interestExpense)} / ${fmt(prior.totalDebtAvg)} average debt = ${fmt(prior.pct)}%${prior.borrowingCost ? `; ${prior.borrowingCost.basis}` : ""}`,
       );
       gaps.push({
         field: "returns.wacc.interestExpense",
-        reason: `interest expense undisclosed for the latest fiscal year — cost of debt inferred from the FY ${prior.fiscalYearEnd} effective rate (${fmt(prior.pct)}%, ${prior.yearsBack} fiscal year${prior.yearsBack === 1 ? "" : "s"} back); a rate change since then is not captured`,
+        reason: `interest expense undisclosed for the latest fiscal year — cost of debt inferred from the FY ${prior.fiscalYearEnd} effective rate (${fmt(prior.pct)}%, ${prior.yearsBack} fiscal year${prior.yearsBack === 1 ? "" : "s"} back); a rate change since then is not captured${prior.borrowingCost ? `; ${prior.borrowingCost.basis}` : ""}`,
         severity: "warn",
       });
       }
@@ -852,7 +861,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
       const coverageBasis =
         intExp !== null && intExp > 0
           ? { interest: intExp, ebit: inputs.ebitTtm, label: currentBasis, evidence: inputs.operatingIncomeEvidence }
-          : priorUsable && isFiniteNumber(prior.ebit) && prior.interestExpense > 0
+          : priorUsable && !prior.borrowingCost && isFiniteNumber(prior.ebit) && prior.interestExpense > 0
             ? { interest: prior.interestExpense, ebit: prior.ebit, evidence: prior.operatingIncomeEvidence, label: prior.coverageBasis ?? `FY ${prior.fiscalYearEnd} (latest fiscal year with disclosed interest expense)` }
             : null;
       if (coverageBasis === null) {
@@ -994,7 +1003,7 @@ export function computeWacc(inputs: WaccInputs): WaccResult {
     weightDebt = weightDebtAmount / (mcap + weightDebtAmount);
     notes.push(
       latestDebt !== null
-        ? `debt weight uses ${inputs.totalDebtLatestBasis ?? "the latest book totalDebt"} as market-value proxy; the effective cost of debt divides interest by ${inputs.totalDebtBasis ?? "the average balance"}`
+        ? `debt weight uses ${inputs.totalDebtLatestBasis ?? "the latest book totalDebt"} as market-value proxy; the effective cost of debt divides interest by ${base.debtBasis ?? "the average balance"}`
         : `debt weight uses ${inputs.totalDebtBasis ?? "book totalDebt (avg of latest two periods)"} as market-value proxy`,
     );
   }

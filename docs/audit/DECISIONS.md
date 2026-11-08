@@ -11,6 +11,28 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-215 - Restore corroborated operating evidence without relaxing grades (2026-11-08)
+
+The DHI audit reproduced a revenue-scope admission error: a quarterly primary
+statement established operating sales, but the issuer policy then rejected the
+same broadly named SEC revenue concept across history. Inherit a concept's
+operating scope only from matching filed amounts, duration, currency and filing;
+a contradictory retained sales presentation prevents broad-concept promotion.
+
+Restoring revenue exposed a separate provider interest-classification problem.
+Interest incurred and capitalized into inventory, and inventory interest later
+released to cost of sales, cannot be summed as financing expense or used for a
+synthetic credit rating. Historical borrowing-cost evidence must bind its own
+period to the corresponding debt balances and retain explicit qualifications.
+Never reconstruct a missing expense or ownership allocation from a residual.
+
+Annual guidance and quarterly earnings schedules require explicit scope in the
+source; recognized rows do not authorize arbitrary dates or unparsed metrics.
+Keep evidence floors, source conflicts and historical reports unchanged. The
+new report/payload/Stage B/pipeline stamps identify changed semantics; no band
+threshold or valuation-target adjustment is introduced. See the
+[audit and verification record](2026-11-08-dhi-report-4.md).
+
 ## D-214 - Quarterly evidence propagation and reader consistency (2026-11-07)
 
 A fresh review after D-213 found five integration/admission defects that the

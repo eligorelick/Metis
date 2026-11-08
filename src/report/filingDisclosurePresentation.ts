@@ -501,7 +501,7 @@ export function filingDisclosureTables(d: (FilingDisclosures & FilingSupplements
       const notes = d.notes.filter(n => !n.startsWith("Annual geographic revenue (") && segmentNoteAxis(n) === null &&
         !isQuarterlyTrendNote(n) && !isLenderConvention(n) && !n.includes("(see Lender conventions)") &&
         (!capitalShown || !isCapitalReturnNote(n)) && !/\b(?:guidance|outlook)\b/i.test(n) && !isParserDiagnostic(n));
-      if (notes.length > 0) tables.push({ heading: "Filing review limitations and notes", headers: ["Note"], rows: notes.map(n => [readerBaseUnits(n)]) });
+      if (notes.length > 0) tables.push({ heading: "Filing review limitations and notes", headers: ["Note"], rows: [...new Set(notes)].map(n => [readerBaseUnits(n)]) });
       return tables;
     }
   }
