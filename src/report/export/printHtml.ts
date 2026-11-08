@@ -1028,7 +1028,9 @@ ul.claims li { margin: 3pt 0; }
 .block.prominent { border: 2px solid #785b32; padding: 6pt 10pt; background: #faf8f3; margin: 12pt 0; }
 .exec { break-inside: avoid; margin: 6pt 0; }
 .disagreements ul { margin: 2pt 0; }
-.keydata { border: 1.5px solid #181b19; padding: 4pt 10pt 6pt; margin: 0 0 12pt; break-inside: avoid; }
+/* Key data can exceed the space below the title. Paginate its table by row,
+   rather than moving the entire summary onto the next page. */
+.keydata { border: 1.5px solid #181b19; padding: 4pt 10pt 6pt; margin: 0 0 12pt; break-inside: auto; page-break-inside: auto; }
 .keydata h3 { margin-top: 4pt; }
 .methodology { border: 1px solid #d5cbbb; background: #faf8f3; padding: 6pt 10pt; margin: 6pt 0 10pt; }
 .methodology ul { margin: 2pt 0; padding-left: 14pt; }

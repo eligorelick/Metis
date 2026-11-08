@@ -184,6 +184,8 @@ describe("reportToPrintHtml — full schema-valid report", () => {
   });
 
   it("lets long tables paginate while repeating headers and keeping individual rows intact", () => {
+    expect(PRINT_CSS).toMatch(/\.keydata\s*\{[^}]*break-inside:\s*auto/);
+    expect(PRINT_CSS).toMatch(/\.keydata\s*\{[^}]*page-break-inside:\s*auto/);
     expect(PRINT_CSS).toMatch(/thead\s*\{[^}]*display:\s*table-header-group/i);
     expect(PRINT_CSS).toMatch(/table\s*\{[^}]*break-inside:\s*auto/i);
     expect(PRINT_CSS).toMatch(/table\s*\{[^}]*page-break-inside:\s*auto/i);
@@ -202,6 +204,7 @@ describe("reportToPrintHtml — full schema-valid report", () => {
     expect(targetsWholeTable(".audit-table tr")).toBe(false);
     expect(targetsWholeTable("table.audit-table thead")).toBe(false);
     expect(avoidWholeBlockSelectors.filter(targetsWholeTable)).toEqual([]);
+    expect(avoidWholeBlockSelectors).not.toContain(".keydata");
   });
 
   it("auto-print script is opt-in", () => {

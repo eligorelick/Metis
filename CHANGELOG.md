@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - PDF first-page pagination (2026-11-07)
+
+- Let the key-data summary continue across printed pages instead of moving the
+  entire box below the title onto page two. Preserve intact rows and repeating
+  table headings in both PDF export surfaces. Report content and financial
+  calculations are unchanged; no schema or version-stamp change is required.
+
 ## Unreleased - Report remediation integration follow-up (2026-11-07)
 
 - Carry admitted quarterly release EPS/shares and SEC lineage into the model
