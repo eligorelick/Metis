@@ -45,6 +45,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
+import { withPrimaryCapitalBasis, primaryCapitalAudit, primaryCapitalManifest } from "@/pipeline/primaryCapitalBasis";
 import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
@@ -297,6 +298,7 @@ export interface TextExcerpt {
  * {@link serializePayloadForPrompt} are byte-stable for identical inputs.
  */
 export interface ContextPayload {
+  primaryCapitalEvidence?: import("@/report/schema").PrimaryCapitalAudit;
   /** Spec-pinned payload format version (bump on shape changes). */
   payloadVersion: string;
   /** Exact numeric evidence available to the deterministic verifier. */
@@ -513,7 +515,8 @@ export interface ContextPayload {
 // 1.88.0 (D-212): compatible quarterly ownership/cash inputs and qualified source presentation.
 // 1.90.0 (D-214): quarterly release corrections and their source lineage agree with Stage B; unsafe split/inline numeric bases are refused.
 // 1.91.0 (D-215): restored revenue and annual guidance, with separately scoped borrowing-cost evidence.
-export const PAYLOAD_VERSION = "1.91.0" as const;
+// 1.92.0: admitted primary cash, exact execution shares/cost and their definition/source reach the analysts.
+export const PAYLOAD_VERSION = "1.92.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers
@@ -937,6 +940,17 @@ function computedSections(
         ]
       : []),
   ];
+  for (const execution of cap.primaryRepurchaseExecutions ?? []) {
+    const primary = execution.primaryEvidence;
+    if (!primary) continue;
+    capFigures.push(
+      { label: `primary repurchase shares (${execution.periodEnd}, current share basis)`, value: execution.shares, unit: "shares", source: `edgar:primary-repurchase-shares:${primary.source.documentUrl}`, asOf: execution.periodEnd, period: execution.periodEnd },
+      { label: `primary equity repurchase cost (${execution.periodEnd}; distinct from cash outflow)`, value: execution.value, unit: "currency", currency: primary.record.currency,
+        source: `edgar:primary-repurchase-equity-cost:${primary.source.documentUrl}`, asOf: execution.periodEnd, period: execution.periodEnd },
+    );
+    if (execution.basisFactor !== 1) capFigures.push({ label: `primary filed repurchase shares (${execution.periodEnd}, before split adjustment)`,
+      value: primary.record.shares, unit: "shares", source: `edgar:primary-repurchase-filed-shares:${primary.source.documentUrl}`, asOf: execution.periodEnd, period: execution.periodEnd });
+  }
   sections.push(payloadSection({ title: "Capital & cash (computed)", figures: capFigures, notes: cap.notes }));
 
   // --- Bank capital, credit and funding (D-46) ------------------------------
@@ -1740,7 +1754,10 @@ function extractStatement<TRow extends FmpRawRow>(
   }));
   return { title, periods: periodLabels, lineItems: lines, notes: periodKind !== "instant" ? kept.flatMap(r => {
     const refusal = (r as FmpStatementRow).fieldConflicts?.interestExpense;
-    return refusal?.usable === false && refusal.cause === "borrowing-cost-scope" ? [refusal.reason] : [];
+    const capital = (r as FmpStatementRow).fieldProvenance?.commonStockRepurchased?.primaryCapital;
+    const resolution = (r as FmpStatementRow).fieldConflicts?.commonStockRepurchased;
+    return [...(refusal?.usable === false && refusal.cause === "borrowing-cost-scope" ? [refusal.reason] : []),
+      ...(capital ? [resolution?.resolution === "primary-cash-line" ? resolution.reason : `Primary common-share cash outflow, distinct from equity cost. Source: ${capital.source.documentUrl}`] : [])];
   }) : kept.flatMap(r => {
     const coverage = incompleteLeaseCoverage(r as FmpBalanceSheetRow);
     return [...(coverage === null ? [] : [`${isoDay(r.date) ?? "Unknown balance date"}: ${coverage.note}`]), leaseEvidenceNote({ ...(r as FmpBalanceSheetRow), leaseEvidenceContext })];
@@ -3813,7 +3830,8 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
-  bundle = withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle)))));
+  const originalBundle = bundle;
+  bundle = withPrimaryCapitalBasis(withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
   bundle = balanceIntegrityView(bundle);
   const profile = firstRow(bundle.profile);
   // Trading (listing), annual and model currencies, resolved exactly as Stage B
@@ -3874,7 +3892,9 @@ export function assembleContextPayload(
     excerptCoverageDisclosures([transcript, ...filings]),
   ]);
 
+  const primaryCapital = primaryCapitalAudit(bundle, computed.capital?.primaryRepurchaseExecutions);
   const payload: PayloadWithoutRegistry = {
+    ...(primaryCapital ? { primaryCapitalEvidence: primaryCapital } : {}),
     payloadVersion: PAYLOAD_VERSION,
     symbol: bundle.symbol,
     companyName: strOrNull(profile?.companyName),
@@ -3904,7 +3924,7 @@ export function assembleContextPayload(
     filings,
     news: newsSection(bundle),
     validationFlags,
-    missingData,
+    missingData: primaryCapitalManifest(originalBundle, missingData),
     // asOf map: bundle's own dot-path -> as-of, with stable key ordering.
     asOfMap: sortRecord(bundle.asOf),
   };
@@ -4130,6 +4150,7 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
 
   parts.push(renderSection(payload.quote));
   for (const s of payload.computed) parts.push(renderSection(s));
+  if (payload.primaryCapitalEvidence) parts.push(renderUntrustedValue("Primary capital source proofs (cash outflow and equity cost are separate; source coordinates are locators, not financial figures)", JSON.stringify(payload.primaryCapitalEvidence)));
   // Audit 2026-10-27 B3 Task 2 (AI-102): exclusion reasons and collection notes
   // can quote a provider's error body: enveloped, one entry per line (D-101).
   if (payload.peerScreen) {

@@ -95,6 +95,8 @@ export interface StatementSet {
 
 /** One extracted 10-K / 10-Q section (text feeds the LLM payload). */
 export interface ExtractedSection {
+  /** Bounded primary capital proofs captured before statement text truncation. */
+  primaryCapitalEvidence?: import("@/edgar/primaryCapital").PrimaryCapitalEvidence;
   /** Which report section this is. */
   sectionName: "item1A" | "item7" | "tenQItem2" | "item1" | "tenQNotes" | "tenKNotes" | "tenQItem5";
   text: string;

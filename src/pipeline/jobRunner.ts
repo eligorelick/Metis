@@ -31,6 +31,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
+import { withPrimaryCapitalBasis, primaryCapitalManifest } from "@/pipeline/primaryCapitalBasis";
 import { ProviderFailureSchema } from "@/ai/providerFailure";
 import { analysisOutcomeFromSteps } from "@/report/analysisCompletion";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
@@ -556,7 +557,8 @@ export interface ReportMetaInput {
 // 1.6.38 (D-208): current-use admission, provisional grades and deterministic reference/qualification transport.
 // 1.6.39: source-owned lease evidence and stable refusal qualifications survive enrichment.
 // 1.6.40 (D-211): public evidence recovery and ChatGPT plan research.
-export const PIPELINE_VERSION = "stage-c-1.6.43" as const;
+// 1.6.44: primary repurchase evidence survives acquisition, calculation, analyst context and export.
+export const PIPELINE_VERSION = "stage-c-1.6.44" as const;
 
 /** Reason recorded on skipped LLM steps when no Anthropic key is configured. */
 export const NO_KEY_SKIP_REASON = "ANTHROPIC_API_KEY not configured" as const;
@@ -5429,7 +5431,7 @@ interface DataOnlyInput {
  */
 export function buildDataOnlyReport(input: DataOnlyInput): Report {
   const { symbol, validation, computed } = input;
-  const bundle = balanceIntegrityView(input.bundle);
+  const bundle = balanceIntegrityView(withPrimaryCapitalBasis(input.bundle));
   const asOfMap = input.sterileManifest ? {} : { ...bundle.asOf };
   // The letter beside this claim is the deterministic score band when Stage B
   // ran and a schema placeholder when it did not; "ungraded" (before the
@@ -5449,7 +5451,7 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
     keyNumbers: [],
   });
 
-  const missingData: ManifestEntry[] = input.sterileManifest ? [] : collectMissingData(bundle, validation, computed, input.gaps ?? []);
+  const missingData: ManifestEntry[] = input.sterileManifest ? [] : primaryCapitalManifest(input.bundle, collectMissingData(bundle, validation, computed, input.gaps ?? []));
   const attemptedAnalysisSources = [
     ...new Set(
       missingData

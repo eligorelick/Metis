@@ -173,7 +173,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.69.0 (D-212): scope-safe quarterly inputs, optional-research limits and complete source qualifications.
 // 1.71.0 (D-214): preserve split-safe quarterly evidence across computation and model context, and expose referenced annual tables.
 // 1.72.0 (D-215): corroborated revenue scope, capitalized-interest safety, annual guidance and accurate schedule/reconciliation disclosures.
-export const REPORT_SPEC_VERSION = "1.72.0" as const;
+// 1.73.0: source-bound primary cash and execution evidence, with existing grade thresholds.
+export const REPORT_SPEC_VERSION = "1.73.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
@@ -2810,10 +2811,34 @@ export const ScenarioPresentationSchema = z.object({
 }).strict();
 export type ScenarioPresentation = z.infer<typeof ScenarioPresentationSchema>;
 
+const PrimaryCapitalLocatorSchema = z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive(), text: z.string().min(1).max(600) }).strict();
+const PrimaryCapitalProofSchema = z.object({
+  coordinateSystem: z.literal("original-html-characters"), statement: PrimaryCapitalLocatorSchema, row: PrimaryCapitalLocatorSchema,
+  period: z.array(PrimaryCapitalLocatorSchema).min(1).max(2), units: PrimaryCapitalLocatorSchema, currencyUnit: PrimaryCapitalLocatorSchema.optional(),
+}).strict();
+const PrimaryCapitalSourceSchema = z.object({
+  cik: z.string(), entityName: z.string(), accession: z.string(), form: z.string(), filingDate: IsoDateSchema,
+  reportDate: IsoDateSchema, documentUrl: z.string().url(), observedAt: z.string(),
+}).strict();
+const PrimaryCapitalPeriodShape = { periodStart: IsoDateSchema, periodEnd: IsoDateSchema, currency: IsoCurrencySchema,
+  scale: z.number().positive(), source: PrimaryCapitalSourceSchema, proof: PrimaryCapitalProofSchema };
+/** Pipeline-owned bounded financial proof, independent of scoring eligibility. */
+export const PrimaryCapitalAuditSchema = z.object({
+  cash: z.array(z.object({ ...PrimaryCapitalPeriodShape, amount: z.number().nonnegative(),
+    observations: z.object({ vendorValue: z.number().nullable(), secValue: z.number().nullable(), resolution: z.string() }).strict().optional(),
+  }).strict()).max(4),
+  executions: z.array(z.object({ ...PrimaryCapitalPeriodShape, filedShares: z.number().int().positive(), shares: z.number().positive(), cost: z.number().positive(),
+    basisFactor: z.number().positive(), basisDay: IsoDateSchema,
+    tags: z.object({ shares: z.string().optional(), cost: z.string().optional() }).strict().optional(),
+  }).strict()).max(4),
+}).strict();
+export type PrimaryCapitalAudit = z.infer<typeof PrimaryCapitalAuditSchema>;
+
 const ReportObjectSchema = z
   .object({
     /** Exact pipeline-owned provider facts; absent on historical reports. */
     sourceFactSummary: SourceFactSummarySchema.optional(),
+    primaryCapitalEvidence: PrimaryCapitalAuditSchema.optional(),
     meta: MetaSchema,
     verdict: VerdictSchema,
     business: BusinessSchema,

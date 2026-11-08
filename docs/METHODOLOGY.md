@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.72.0 / payload 1.91.0, Stage B `STAGE_B_2026_11_OPERATING_EVIDENCE_65` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.73.0 / payload 1.92.0, Stage B `STAGE_B_2026_11_PRIMARY_CAPITAL_66` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -965,13 +965,26 @@ market-cap history is averaged and divided by basic weighted-average shares
   currencies.
 
 **Repurchase timing** (D-61, `repurchaseExecutions.ts`) uses the price
-actually paid: the filer's tagged repurchase cost ÷ tagged shares for the
-fiscal year.
+actually paid: the filer's repurchase equity cost ÷ executed shares for the
+fiscal year, from a matched tagged pair or a proved primary statement pair.
 - **Tags.** The share/value pairs are
   `StockRepurchasedAndRetiredDuringPeriod*`,
   `StockRepurchasedDuringPeriod*` and `TreasuryStockSharesAcquired` /
   `TreasuryStockValueAcquiredCostMethod`. Both facts come from the latest
   filing that tags both for that year.
+- **Primary recovery.** Supported consolidated cash-flow and equity tables are
+  read before the unchanged 12,000-character statement excerpt cap. Explicit
+  annual boundaries, issuer, currency, column alignment and source coordinates
+  are required. Exact executed shares and equity cost remain separate from cash
+  outflow. A bulk payments conflict is cleared only with an exact compatible
+  vendor amount and a same-filing accounting-definition bridge. Rounded counts
+  from another concept family are not interchangeable with exact shares.
+  Newer contradictory evidence cannot revive an older convenient value.
+- **Shared evidence.** The same immutable admission view feeds calculated
+  grades and analyst statement cells; primary execution figures and their
+  source also reach analyst citations and exports. Stored observations and
+  historical reports remain unchanged. Unsupported layouts and unresolved
+  periods remain gaps; recovery does not lower the existing scoring floors.
 - **Share basis.** The count is put on the statements' share basis with the
   split resolution. Without that resolution, nothing is computed.
 - **Measure.** Timing = (Σ shares bought × that year's average price) ÷

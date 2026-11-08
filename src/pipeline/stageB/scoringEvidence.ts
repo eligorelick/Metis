@@ -321,10 +321,10 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
     const b = i.capital.buybackPriceAnalysis;
     const used = b.years.filter(r => finite(r.actualPricePaid) && finite(r.avgPriceProxy) && r.repurchased > 0);
     dates(used[0]?.date, used.at(-1)?.date);
-    result.period = `Fiscal years with tagged repurchase prices ${result.period ?? "unavailable"}; each compared with the same year's average price`;
+    result.period = `Fiscal years with ${used.some(r => r.executionEvidence) ? "filed" : "tagged"} repurchase prices ${result.period ?? "unavailable"}; each compared with the same year's average price`;
     result.fallbackReason = "This same-year execution-price comparison does not assess contemporaneous intrinsic-value discipline.";
     for (const row of used) {
-      operand(`price paid, year ending ${row.date}`, row.actualPricePaid, "computed.capital.buybackPriceAnalysis.years.actualPricePaid", day(row.date));
+      operand(`price paid, year ending ${row.date}`, row.actualPricePaid, row.executionEvidence?.source.documentUrl ?? "computed.capital.buybackPriceAnalysis.years.actualPricePaid", day(row.date));
       operand(`average price, year ending ${row.date}`, row.avgPriceProxy, "computed.capital.buybackPriceAnalysis.years.avgPriceProxy", day(row.date));
     }
     operand("share of repurchase dollars covered, percent", b.timingCoveragePct, "computed.capital.buybackPriceAnalysis.timingCoveragePct", result.endDate);

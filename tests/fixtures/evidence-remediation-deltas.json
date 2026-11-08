@@ -883,7 +883,7 @@
     {
       "path": "payload.payloadVersion",
       "before": "1.88.0",
-      "after": "1.91.0"
+      "after": "1.92.0"
     },
     {
       "path": "payload.transcript.coverage.categories",

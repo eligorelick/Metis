@@ -1,4 +1,5 @@
 import { applyReportAssessmentStatus } from "@/report/assessment";
+import { withPrimaryCapitalBasis, primaryCapitalManifest, primaryCapitalAudit } from "@/pipeline/primaryCapitalBasis";
 /**
  * Data-only report enrichment — the deterministic Stage B content a report
  * carries when the LLM passes do not run.
@@ -544,6 +545,11 @@ function balanceSheetSection(
     }
   }
   if (bb.note) allocation.push(judgment(bb.note, "computed.capital.buybackPriceAnalysis", cap.asOf));
+  for (const execution of cap.primaryRepurchaseExecutions ?? []) {
+    const primary = execution.primaryEvidence;
+    if (!primary) continue;
+    allocation.push(fact(`For the year ended ${execution.periodEnd}, the primary equity statement reports ${fmtNum(execution.shares, 0)} repurchased shares on the report's share basis and ${fmtMoney(execution.value, primary.record.currency)} of equity repurchase cost. This is distinct from the cash outflow; a timing grade also requires adequate cash-history and market-price coverage.`, primary.source.documentUrl, execution.periodEnd));
+  }
 
   return {
     debtProfile: { commentary: debtCommentary, numbers: debtNumbers },
@@ -887,7 +893,7 @@ export interface EnrichDataOnlyReportArgs {
  */
 export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArgs): Report {
   const { computed } = args;
-  const bundle = balanceIntegrityView(args.bundle);
+  const bundle = balanceIntegrityView(withPrimaryCapitalBasis(args.bundle));
   const baseRouteMetrics = routeMetricsBlock(computed);
   const routeMetrics = baseRouteMetrics && computed.valuation.kind === "excess-return"
     ? { ...baseRouteMetrics, notes: [...new Set([...baseRouteMetrics.notes, describeFinancialValuation(computed.valuation.excessReturn.financialAssumptions)])] }
@@ -914,19 +920,22 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const technicalsGrade = block("technicals");
   const operatingSupport=operatingHistorySupport(computed.growth.margins.operating,annualFiscalLabels(bundle));
 
+  const primaryCapital = primaryCapitalAudit(bundle, computed.capital?.primaryRepurchaseExecutions);
+  const currentManifest = primaryCapitalManifest(args.bundle, stub.appendix.missingData);
   const candidate: Report = {
     ...stub,
+    ...(primaryCapital ? { primaryCapitalEvidence: primaryCapital } : {}),
     // A copied data-only stub may predate the current income admission. Keep
     // source refusals and standalone qualifications even when no DCF assumption
     // exists to carry them. This transports evidence, without changing grades.
     appendix: { ...stub.appendix, missingData: [...new Map([
-      ...stub.appendix.missingData,
+      ...currentManifest,
       ...computed.gaps.filter(gap => gap.field.startsWith("statements.income.")),
     ].map(gap => [`${gap.field}|${gap.reason}`, gap])).values()] },
     scenarioPresentation: buildScenarioPresentation(computed, comparableScenarioPrice(computed, bundle)),
     thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability))),
     verdict: {
-      synthesis: synthesis(computed, bundle, args.reason, currency, classifyManifest(stub.appendix.missingData).dataGaps.length),
+      synthesis: synthesis(computed, bundle, args.reason, currency, classifyManifest(currentManifest).dataGaps.length),
       gradeStrip: {
         fundamentals: fundamentalsGrade,
         valuation: valuationGrade,

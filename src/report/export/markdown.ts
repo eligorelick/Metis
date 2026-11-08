@@ -40,7 +40,7 @@ import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVer
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
-import { valuationAuditTables, projectionAuditTables } from "@/report/auditTables";
+import { valuationAuditTables, projectionAuditTables, primaryCapitalEvidenceTables } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
 import type {
   Appendix,
@@ -1090,6 +1090,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
     renderQuality(report.quality, gradeContext(report, "quality", completeness)),
     renderTechnicals(report, gradeContext(report, "technicals", completeness)),
     renderLeadership(report.leadership, report, gradeContext(report, "leadership", completeness)),
+    ...auditTableBlocks(primaryCapitalEvidenceTables(report.primaryCapitalEvidence), "##"),
     renderCompetitive(report.competitive, gradeContext(report, "moat", completeness), report),
     renderCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     renderOutlook(report),
