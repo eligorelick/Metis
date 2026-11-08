@@ -115,6 +115,10 @@ export interface ParsedDocument {
   fullText: string;
 }
 
+// The full source is kept only while its parsed acquisition document is alive.
+// It is not part of retained sections or serialized analyst text.
+const originalDocuments = new WeakMap<ParsedDocument, string>();
+
 /** The actual periodic-filing signature block, not a role mentioned in prose. */
 export function periodicSignatureText(fullText: string): string | null {
   const headings = [...fullText.matchAll(/\bSIGNATURES\b/g)];
@@ -1524,7 +1528,9 @@ export function parseDocument(html: string): ParsedDocument {
   const pre = stripHiddenBlocks(html);
   const entries = parseTocEntries(pre);
   const fullText = htmlToText(pre);
-  return { pre, entries, fullText };
+  const document = { pre, entries, fullText };
+  originalDocuments.set(document, html);
+  return document;
 }
 
 // ---------------------------------------------------------------------------
@@ -2109,6 +2115,14 @@ function appendixStructure(source: string, filingLayout = false, expired?: () =>
     return decodeEntities(parts.join(" ")).replace(/\s+/g, " ").trim();
   };
   return { elements, spans, text };
+}
+
+/** Source-bound lexical tables, including their hidden unit/context metadata. */
+export function primaryDocumentStructure(document: ParsedDocument) {
+  const source = originalDocuments.get(document);
+  if (source === undefined) return null;
+  const structure = appendixStructure(source, true);
+  return structure === null ? null : { ...structure, source };
 }
 
 // Keyed by the caller's shared document object: no global HTML retention, and
