@@ -39,8 +39,8 @@ source and preserve the distinction between equity cost and cash outflow.
 
 The baseline is main commit `71f657a27e67c694234d44f03e89d04e764eae3a`.
 Unchanged saved DHI and QCOM inputs and synthetic industrial, bank, REIT and
-sparse-history inputs produced byte-identical computed outputs before version
-stamp changes. The evaluation reads the original live-clone database read-only;
+sparse-history inputs produced byte-identical computed outputs under the final
+implementation. The evaluation reads the original live-clone database read-only;
 real responses and generated diagnostics remain outside Git.
 
 A separate enriched evaluation adds structured evidence recovered from DHI's
@@ -76,11 +76,11 @@ audit exports. They cover wrong identities/URLs, future observations, ambiguous
 periods, column shifts, foreign/unknown currencies, stock splits, incomplete
 history, contradictory primary/tagged facts and preservation of original inputs.
 
-The full Node 24.11.1 verification gate passed: 17,205 tests in each of the core
+The final Node 24.11.1 verification gate passed: 17,214 tests in each of the core
 and risk coverage runs (three existing skips), four database integration tests,
 dependency-shape validation, typecheck, lint, production build and security
 audit (zero vulnerabilities). Core statement/branch/function/line coverage was
-97.58/93.23/99.11/98.71%; risk coverage was 96.04/91.47/98.29/98.23%, including
+97.58/93.23/99.11/98.71%; risk coverage was 96.04/91.47/98.30/98.24%, including
 the new modules' required per-file floors. All 1,211 tracked source/test files
 were hash-identical before and after the gate. The original report and snapshot
 hashes still match, and regenerated fictional DEMO output changes only its two
