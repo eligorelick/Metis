@@ -9,6 +9,12 @@ backups are outside Metis's control.
 
 ## What leaves the machine
 
+The evidence payload can include primary repurchase counts and equity costs
+recovered from the same acquired filing, together with their dates, accounting
+definitions and source URL. These bounded structured figures supplement the
+existing excerpts; they do not increase the excerpt text budgets or trigger an
+additional filing request.
+
 The checked-in app has no author-operated telemetry, analytics, crash-report
 or update-check endpoint. Application requests use the providers below;
 developer/maintenance commands and browser sign-in have additional behavior

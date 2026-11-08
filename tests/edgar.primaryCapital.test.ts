@@ -57,6 +57,7 @@ describe("primary capital statement recovery", () => {
   it("does not keep an earlier convenient same-period table when a duplicate disagrees", () => {
     const html = capitalHtml() .replace("<h2>Notes", `<div>EXAMPLE INDUSTRIES, INC. AND SUBSIDIARIES</div><div>CONSOLIDATED STATEMENTS OF CASH FLOWS</div>${capitalCashTable.replace("(40.0)", "(44.0)")}<h2>Notes`);
     expect(parse(html).cash.some(x => x.periodEnd === "2025-12-31")).toBe(false);
+    expect(parse(html).refusedPeriods).toContainEqual(expect.objectContaining({ kind: "cash", periodEnd: "2025-12-31" }));
   });
 
   it("refuses a noncontrolling cost mixed into the equity movement", () => {
@@ -111,5 +112,10 @@ describe("primary capital statement recovery", () => {
   it("refuses inline counts explicitly rounded to thousands of shares", () => {
     const html = inlineCapitalHtml().replaceAll('unitRef="shares" contextRef=', 'decimals="-3" unitRef="shares" contextRef=');
     expect(parse(html).executions).toEqual([]);
+  });
+
+  it("refuses stylesheet-hidden statement tables instead of interpreting them as visible evidence", () => {
+    const html = capitalHtml().replace("<body>", '<body><style>.gone { display: none; }</style>').replaceAll("<table>", '<table class="gone">');
+    expect(parse(html).cash).toEqual([]); expect(parse(html).executions).toEqual([]);
   });
 });

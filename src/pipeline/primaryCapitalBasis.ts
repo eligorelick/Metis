@@ -24,7 +24,7 @@ function selectedEvidence(bundle: DataBundle, end: string, facts: CompanyFacts):
   const candidates = [bundle.edgar.tenKNotes, bundle.edgar.tenQNotes].flatMap(section => {
     if (!section?.ok || !section.value.data.primaryCapitalEvidence) return [];
     const evidence = section.value.data.primaryCapitalEvidence;
-    return evidence.cash.some(r => r.periodEnd === end) || evidence.executions.some(r => r.periodEnd === end) ? [{ section, evidence }] : [];
+    return evidence.cash.some(r => r.periodEnd === end) || evidence.executions.some(r => r.periodEnd === end) || evidence.refusedPeriods?.some(r => r.periodEnd === end) ? [{ section, evidence }] : [];
   }).sort((a, b) => b.section.value.data.filingDate.localeCompare(a.section.value.data.filingDate));
   if (candidates.length === 0) return null;
   const newest = candidates[0]!, tied = candidates.filter(c => c.section.value.data.filingDate === newest.section.value.data.filingDate);
@@ -56,7 +56,7 @@ function costScopeBridge(row: FmpCashFlowRow, evidence: PrimaryCapitalEvidence, 
   if (!conflict || !finite(conflict.secValue) || !bulk || bulk.unit !== record.currency || bulk.periodStart !== record.periodStart || bulk.periodEnd !== record.periodEnd ||
       bulk.tags.length !== 1 || bulk.filings.length !== 1 || bulk.filings[0]!.accn !== evidence.source.accession || bulk.filings[0]!.filed !== evidence.source.filingDate || bulk.filings[0]!.form !== evidence.source.form) return false;
   const matches = evidence.costDisclosures?.filter(d => d.periodStart === record.periodStart && d.periodEnd === record.periodEnd && d.currency === record.currency &&
-    d.definition === "total-cost-including-commissions-and-excise-taxes" && d.tag === bulk.tags[0] && equal(d.amount, Math.abs(conflict.secValue!))) ?? [];
+    d.definition === "total-cost-including-commissions-and-excise-taxes" && (d.tag === bulk.tags[0] || `us-gaap/${d.tag}` === bulk.tags[0]) && equal(d.amount, Math.abs(conflict.secValue!))) ?? [];
   return matches.length === 1;
 }
 
@@ -70,7 +70,7 @@ export function withPrimaryCapitalBasis(bundle: DataBundle): DataBundle {
     const evidence = selectedEvidence(bundle, row.date ?? "", facts);
     if (!evidence) return row;
     const candidates = evidence.cash.filter(r => r.periodEnd === row.date);
-    if (candidates.length !== 1) return row;
+    if (candidates.length !== 1 || evidence.refusedPeriods?.some(r => r.periodEnd === row.date && r.kind === "cash")) return row;
     const record = candidates[0]!;
     if (!finite(record.amount) || record.amount <= 0 || !compatibleRow(row, record.periodStart, record.periodEnd, record.currency, evidence, record.proof)) return row;
     const conflict = row.fieldConflicts?.commonStockRepurchased, amount = -record.amount;
@@ -112,7 +112,7 @@ export function primaryRepurchaseExecutions(bundle: DataBundle, fiscalYearEnds: 
     if (!evidence) { if (preferred) rows.push(preferred); continue; }
     const candidates = evidence.executions.filter(r => r.periodEnd === end), cashRow = annualRows.find(r => r.date === end), basis = bundle.edgar.shareBasis;
     const refuse = (reason: string) => notes.push(`Primary repurchase execution for ${end} withheld: ${reason}.`);
-    if (candidates.length !== 1 || !cashRow) { refuse("absent or ambiguous same-period pair"); continue; }
+    if (candidates.length !== 1 || !cashRow || evidence.refusedPeriods?.some(r => r.periodEnd === end && r.kind === "execution")) { refuse("absent or ambiguous same-period pair"); continue; }
     const record = candidates[0]!;
     if (!Number.isSafeInteger(record.shares) || record.shares <= 0 || !finite(record.cost) || record.cost <= 0 ||
         !compatibleRow(cashRow, record.periodStart, end, record.currency, evidence, record.proof) || !basis || basis.basisDay > bundle.builtAt.slice(0, 10)) { refuse("issuer, annual period, currency or share basis is unestablished"); continue; }
@@ -121,6 +121,9 @@ export function primaryRepurchaseExecutions(bundle: DataBundle, fiscalYearEnds: 
     const shares = record.shares * factor.factor;
     let conflict = preferred !== undefined && (!equal(preferred.shares, shares) || !equal(preferred.value, record.cost));
     for (const pair of REPURCHASE_EXECUTION_TAG_PAIRS) for (const kind of ["shares", "value"] as const) {
+      // A lone concept from another family is not the same accounting operand
+      // (for example a rounded treasury count beside an exact retirement row).
+      if (record.tags && pair[kind] !== record.tags[kind === "value" ? "cost" : "shares"]) continue;
       const series = tagPoints(facts, pair[kind], kind === "shares" ? "shares" : record.currency);
       const points = filterToCoreForms(series?.points ?? []).filter(p => p.start === record.periodStart && p.end === end && p.filed <= bundle.builtAt.slice(0, 10));
       const latest = points.map(p => p.filed).sort().at(-1);

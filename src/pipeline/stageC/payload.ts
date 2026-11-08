@@ -514,7 +514,8 @@ export interface ContextPayload {
 // 1.88.0 (D-212): compatible quarterly ownership/cash inputs and qualified source presentation.
 // 1.90.0 (D-214): quarterly release corrections and their source lineage agree with Stage B; unsafe split/inline numeric bases are refused.
 // 1.91.0 (D-215): restored revenue and annual guidance, with separately scoped borrowing-cost evidence.
-export const PAYLOAD_VERSION = "1.91.0" as const;
+// 1.92.0: admitted primary cash, exact execution shares/cost and their definition/source reach the analysts.
+export const PAYLOAD_VERSION = "1.92.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Small pure helpers

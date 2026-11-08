@@ -14,7 +14,11 @@ export interface PrimaryCapitalProof {
 }
 interface PeriodEvidence { periodStart: string; periodEnd: string; currency: string; scale: number; proof: PrimaryCapitalProof }
 export interface PrimaryRepurchaseCash extends PeriodEvidence { amount: number }
-export interface PrimaryRepurchaseExecution extends PeriodEvidence { shares: number; cost: number }
+export interface PrimaryRepurchaseExecution extends PeriodEvidence {
+  shares: number; cost: number;
+  /** Only literal inline concepts from the witnessed cells; absent for plain rows. */
+  tags?: { shares?: string; cost?: string };
+}
 export interface PrimaryRepurchaseCostDisclosure {
   periodStart: string; periodEnd: string; currency: string; amount: number;
   tag: "PaymentsForRepurchaseOfCommonStock";
@@ -25,6 +29,8 @@ export interface PrimaryCapitalEvidence {
   version: 1; source: PrimaryCapitalIdentity; cash: PrimaryRepurchaseCash[];
   executions: PrimaryRepurchaseExecution[]; refusals: string[];
   costDisclosures?: PrimaryRepurchaseCostDisclosure[];
+  /** Preserve known-period refusals so later consumers cannot revive an older value. */
+  refusedPeriods?: { periodEnd: string; kind: "cash" | "execution"; reason: string }[];
 }
 
 type Structure = NonNullable<ReturnType<typeof primaryDocumentStructure>>;
@@ -70,6 +76,10 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
   const structure = primaryDocumentStructure(document);
   if (!structure) { out.refusals.push("Primary capital statements require balanced, source-bound document markup."); return out; }
   const { elements, text, source } = structure;
+  if (elements.some(e => e.tag === "style" && /(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))/i.test(source.slice(e.start, e.end)) ||
+      e.tag === "link" && /(?:^|\s)stylesheet(?:\s|$)/i.test(e.attrs.get("rel") ?? ""))) {
+    out.refusals.push("Stylesheet-dependent visibility is unsupported for primary capital statement proof."); return out;
+  }
   const cashCandidates = new Map<string, number>(), executionCandidates = new Map<string, number>();
   let cashLayoutRefused = false, equityLayoutRefused = false;
   const visible = elements.filter(e => !e.hidden);
@@ -199,7 +209,13 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
               [0, 1, 2, 4].some(i => values[i] !== 0) || values[3]! >= 0 || values[3] !== values[5]) continue;
           const validated = validateCell(row.cells[6]!.node, start, end), shareUnit = validateCell(row.cells[0]!.node, start, end, true);
           if (!validated || !shareUnit) continue;
+          const concept = (cell: Element): string | undefined => {
+            const name = children.find(e => e.tag === "ix:nonfraction" && e.start > cell.start && e.end < cell.end)?.attrs.get("name");
+            return /^us-gaap:([A-Za-z][A-Za-z0-9]+)$/.exec(name ?? "")?.[1];
+          };
+          const tags = { shares: concept(row.cells[0]!.node), cost: concept(row.cells[6]!.node) };
           out.executions.push({ periodStart: start, periodEnd: end, shares, cost: Number((Math.abs(values[5]!) * scale).toFixed(2)), currency: validated.currency, scale,
+            ...(tags.shares || tags.cost ? { tags } : {}),
             proof: proof(row.node, [before.row.node, after.row.node], validated.unit) });
         }
       }
@@ -210,6 +226,11 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
   if (unique(out.cash, cashCandidates).length !== out.cash.length || unique(out.executions, executionCandidates).length !== out.executions.length) out.refusals.push("Duplicate primary capital rows for the same annual period were withheld.");
   out.cash = cashLayoutRefused || out.cash.length > 4 ? [] : unique(out.cash, cashCandidates);
   out.executions = equityLayoutRefused || out.executions.length > 4 ? [] : unique(out.executions, executionCandidates);
+  const refused = [
+    ...[...cashCandidates.keys()].filter(end => !out.cash.some(r => r.periodEnd === end)).map(periodEnd => ({ periodEnd, kind: "cash" as const, reason: "Unproved or conflicting annual cash repurchase row." })),
+    ...[...executionCandidates.keys()].filter(end => !out.executions.some(r => r.periodEnd === end)).map(periodEnd => ({ periodEnd, kind: "execution" as const, reason: "Unproved or conflicting annual share and equity-cost pair." })),
+  ].sort((a, b) => b.periodEnd.localeCompare(a.periodEnd));
+  if (refused.length) out.refusedPeriods = refused.slice(0, 24);
   // A bulk Payments tag can be attached to a rounded all-in cost in prose.
   // Prove that actual use in this filing; numerical proximity alone is never
   // a scope bridge for a conflicting normalized cash-flow observation.

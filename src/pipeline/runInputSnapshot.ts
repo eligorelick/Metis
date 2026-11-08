@@ -54,7 +54,8 @@ export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // D-212: quarterly cash/earnings scope and actual WACC input dates.
 // D-214: direct quarterly release EPS/shares require canonical, covered split-basis agreement.
 // D-215: operating-revenue concept corroboration and capitalized-interest evidence change calculation inputs.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_OPERATING_EVIDENCE_65" as const;
+// Primary capital evidence is acquired before truncation and admitted on one shared source basis.
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_PRIMARY_CAPITAL_66" as const;
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

@@ -33,7 +33,7 @@ function fixture(): DataBundle {
   rows[0] = { ...rows[0], date: "2025-12-31", period: "FY", periodStart: "2025-01-01", commonStockRepurchased: null,
     fieldConflicts: { commonStockRepurchased: { vendorValue: -40 * M, secValue: -40.2 * M, usable: false, reason: "Original bulk repurchase disagreement",
       secEvidence: { source: "edgar", unit: "USD", periodStart: "2025-01-01", periodEnd: "2025-12-31", observedAt: b.builtAt,
-        tags: ["PaymentsForRepurchaseOfCommonStock"], filings: [{ accn: capitalIdentity.accession, filed: capitalIdentity.filingDate, form: "10-K" }] } } } };
+        tags: ["us-gaap/PaymentsForRepurchaseOfCommonStock"], filings: [{ accn: capitalIdentity.accession, filed: capitalIdentity.filingDate, form: "10-K" }] } } } };
   rows[1]!.commonStockRepurchased = -20 * M; rows[2]!.commonStockRepurchased = 0;
   return b;
 }
@@ -106,6 +106,14 @@ describe("shared primary capital admission", () => {
     expect(primaryRepurchaseExecutions(b, ["2025-12-31"]).rows).toEqual([]);
   });
 
+  it("does not mix an unpaired rounded treasury count with the exact retired-share definition", () => {
+    const b = fixture(); if (!b.edgar.companyFacts.ok) throw Error("fixture");
+    b.edgar.companyFacts.value.data.facts["us-gaap"]!.TreasuryStockSharesAcquired = { units: { shares: [point(1.9 * M)] } };
+    const rows = primaryRepurchaseExecutions(b, ["2025-12-31"]).rows;
+    expect(rows[0]?.shares).toBe(2 * M);
+    expect(rows[0]?.primaryEvidence?.record.tags).toEqual({ shares: "StockRepurchasedAndRetiredDuringPeriodShares", cost: "StockRepurchasedAndRetiredDuringPeriodValue" });
+  });
+
   it("does not resurrect an older execution pair behind a newer conflicting primary filing", () => {
     const b = fixture(); if (!b.edgar.tenKNotes?.ok) throw Error("fixture");
     b.edgar.tenQNotes = structuredClone(b.edgar.tenKNotes);
@@ -115,6 +123,18 @@ describe("shared primary capital admission", () => {
     Object.assign(value.data.primaryCapitalEvidence!.source, { accession: value.data.accession, filingDate: value.data.filingDate, documentUrl: value.data.documentUrl, observedAt: value.fetchedAt });
     value.data.primaryCapitalEvidence!.executions.push({ ...value.data.primaryCapitalEvidence!.executions[1]!, shares: 3 * M });
     expect(primaryRepurchaseExecutions(b, ["2025-12-31"]).rows).toEqual([]);
+  });
+
+  it("retains the refusal of a newer primary filing whose contradictory rows were all discarded", () => {
+    const b = fixture(); if (!b.edgar.tenKNotes?.ok) throw Error("fixture");
+    b.edgar.tenQNotes = structuredClone(b.edgar.tenKNotes);
+    const v = b.edgar.tenQNotes.value, e = v.data.primaryCapitalEvidence!;
+    Object.assign(v.data, { accession: "0001234567-26-000002", filingDate: "2026-04-01", documentUrl: capitalIdentity.documentUrl.replace("000123456726000001", "000123456726000002") });
+    v.fetchedAt = "2026-04-02T00:00:00Z";
+    Object.assign(e.source, { accession: v.data.accession, filingDate: v.data.filingDate, documentUrl: v.data.documentUrl, observedAt: v.fetchedAt });
+    e.cash = []; e.executions = []; e.refusedPeriods = [{ periodEnd: "2025-12-31", kind: "cash", reason: "contradictory rows" }, { periodEnd: "2025-12-31", kind: "execution", reason: "contradictory rows" }];
+    expect(primaryRepurchaseExecutions(b, ["2025-12-31"]).rows).toEqual([]);
+    expect(cashRows(withPrimaryCapitalBasis(b))[0]!.commonStockRepurchased).toBeNull();
   });
 
   it("carries the same financial evidence into calculated capital, analyst cells and prompt citations", () => {

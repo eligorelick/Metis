@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.72.0** and
-payload **1.91.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.73.0** and
+payload **1.92.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/Gemini/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,23 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Primary grading evidence recovery (2026-11-08)
+
+- Retain bounded cash-flow and equity repurchase proofs before the existing
+  statement excerpt cap. Exact annual periods, issuer, currency, table columns,
+  source locators and refusal records travel with the evidence.
+- Share one immutable admission view across calculated grades, analyst inputs
+  and data-only reports. A conflicting bulk payments tag requires a same-filing
+  accounting-definition bridge; rounded counts from another tag family cannot
+  replace exact executed shares. Existing scoring and split safeguards remain.
+- Add source-linked execution figures and audit evidence. The unchanged-input
+  DHI, QCOM and four synthetic replays retain identical financial results. A
+  separate DHI enrichment recovers one cash operand and three execution pairs;
+  remaining history/ownership gaps keep its grades unchanged.
+- Report spec 1.73.0, payload 1.92.0, Stage B
+  `STAGE_B_2026_11_PRIMARY_CAPITAL_66`, pipeline `stage-c-1.6.44`.
+  See the [evidence recovery audit](docs/audit/2026-11-08-grading-evidence-recovery.md).
 
 ## Unreleased - Operating evidence and report audit (2026-11-08)
 

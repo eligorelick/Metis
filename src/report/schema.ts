@@ -173,7 +173,8 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.69.0 (D-212): scope-safe quarterly inputs, optional-research limits and complete source qualifications.
 // 1.71.0 (D-214): preserve split-safe quarterly evidence across computation and model context, and expose referenced annual tables.
 // 1.72.0 (D-215): corroborated revenue scope, capitalized-interest safety, annual guidance and accurate schedule/reconciliation disclosures.
-export const REPORT_SPEC_VERSION = "1.72.0" as const;
+// 1.73.0: source-bound primary cash and execution evidence, with existing grade thresholds.
+export const REPORT_SPEC_VERSION = "1.73.0" as const;
 
 /* ------------------------------------------------------------------------ *
  * Legacy-read leniency
