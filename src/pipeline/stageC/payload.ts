@@ -45,7 +45,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
-import { withPrimaryCapitalBasis } from "@/pipeline/primaryCapitalBasis";
+import { withPrimaryCapitalBasis, primaryCapitalAudit, primaryCapitalManifest } from "@/pipeline/primaryCapitalBasis";
 import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
@@ -298,6 +298,7 @@ export interface TextExcerpt {
  * {@link serializePayloadForPrompt} are byte-stable for identical inputs.
  */
 export interface ContextPayload {
+  primaryCapitalEvidence?: import("@/report/schema").PrimaryCapitalAudit;
   /** Spec-pinned payload format version (bump on shape changes). */
   payloadVersion: string;
   /** Exact numeric evidence available to the deterministic verifier. */
@@ -947,6 +948,8 @@ function computedSections(
       { label: `primary equity repurchase cost (${execution.periodEnd}; distinct from cash outflow)`, value: execution.value, unit: "currency", currency: primary.record.currency,
         source: `edgar:primary-repurchase-equity-cost:${primary.source.documentUrl}`, asOf: execution.periodEnd, period: execution.periodEnd },
     );
+    if (execution.basisFactor !== 1) capFigures.push({ label: `primary filed repurchase shares (${execution.periodEnd}, before split adjustment)`,
+      value: primary.record.shares, unit: "shares", source: `edgar:primary-repurchase-filed-shares:${primary.source.documentUrl}`, asOf: execution.periodEnd, period: execution.periodEnd });
   }
   sections.push(payloadSection({ title: "Capital & cash (computed)", figures: capFigures, notes: cap.notes }));
 
@@ -3827,6 +3830,7 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
+  const originalBundle = bundle;
   bundle = withPrimaryCapitalBasis(withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
   bundle = balanceIntegrityView(bundle);
   const profile = firstRow(bundle.profile);
@@ -3888,7 +3892,9 @@ export function assembleContextPayload(
     excerptCoverageDisclosures([transcript, ...filings]),
   ]);
 
+  const primaryCapital = primaryCapitalAudit(bundle, computed.capital?.primaryRepurchaseExecutions);
   const payload: PayloadWithoutRegistry = {
+    ...(primaryCapital ? { primaryCapitalEvidence: primaryCapital } : {}),
     payloadVersion: PAYLOAD_VERSION,
     symbol: bundle.symbol,
     companyName: strOrNull(profile?.companyName),
@@ -3918,7 +3924,7 @@ export function assembleContextPayload(
     filings,
     news: newsSection(bundle),
     validationFlags,
-    missingData,
+    missingData: primaryCapitalManifest(originalBundle, missingData),
     // asOf map: bundle's own dot-path -> as-of, with stable key ordering.
     asOfMap: sortRecord(bundle.asOf),
   };
@@ -4144,6 +4150,7 @@ export function serializePayloadForPrompt(payload: ContextPayload): string {
 
   parts.push(renderSection(payload.quote));
   for (const s of payload.computed) parts.push(renderSection(s));
+  if (payload.primaryCapitalEvidence) parts.push(renderUntrustedValue("Primary capital source proofs (cash outflow and equity cost are separate; source coordinates are locators, not financial figures)", JSON.stringify(payload.primaryCapitalEvidence)));
   // Audit 2026-10-27 B3 Task 2 (AI-102): exclusion reasons and collection notes
   // can quote a provider's error body: enveloped, one entry per line (D-101).
   if (payload.peerScreen) {

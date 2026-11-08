@@ -6,12 +6,15 @@ import { runStageB } from "@/pipeline/compute";
 import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/stageC/payload";
 import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
-import { capitalIdentity, inlineCapitalHtml } from "./helpers/primaryCapital";
+import { capitalIdentity, inlineCapitalHtml, capitalHtml, capitalCashTable } from "./helpers/primaryCapital";
 import type { DataBundle } from "@/pipeline/types";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import { buildDataOnlyReport } from "@/pipeline/jobRunner";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
+import { assembleReport } from "@/pipeline/stageC/passes";
+import { ReportSchema, type JudgeOutput } from "@/report/schema";
+import { loadTask28Fixture } from "./helpers/task28Report";
 
 const point = (val: number) => ({ val, start: "2025-01-01", end: "2025-12-31", accn: capitalIdentity.accession, filed: capitalIdentity.filingDate, form: "10-K", fy: 2025, fp: "FY" });
 const facts = (): CompanyFacts => ({ cik: 1234567, entityName: capitalIdentity.entityName, facts: { "us-gaap": {
@@ -39,6 +42,61 @@ function fixture(): DataBundle {
 }
 
 describe("shared primary capital admission", () => {
+  it("withholds usable vendor cash when the primary source explicitly refuses contradictory rows", () => {
+    const b = fixture(), row = cashRows(b)[0]!;
+    row.commonStockRepurchased = -40 * M; delete row.fieldConflicts;
+    const duplicate = capitalCashTable.replace("</table>", "<tr><td>Repurchases of common stock</td><td>(44.0)</td><td>(20.0)</td></tr></table>");
+    Object.assign(evidenceOf(b), primaryCapitalEvidence(parseDocument(capitalHtml(duplicate)), capitalIdentity));
+    const before = JSON.stringify(b), view = withPrimaryCapitalBasis(b);
+    expect(cashRows(view)[0]!.commonStockRepurchased).toBeNull();
+    expect(cashRows(view)[0]!.fieldConflicts?.commonStockRepurchased).toMatchObject({ usable: false, vendorValue: -40 * M });
+    expect(view.gaps.some(g => g.field === "statements.cashflow.2025-12-31.commonStockRepurchased")).toBe(true);
+    expect(withPrimaryCapitalBasis(view)).toEqual(view);
+    expect(JSON.stringify(b)).toBe(before);
+  });
+
+  it("checks a plain share count against the counterpart of an inline cost concept", () => {
+    const b = fixture(); if (!b.edgar.companyFacts.ok) throw Error("fixture");
+    const html = inlineCapitalHtml().replaceAll("In millions", "USD in millions")
+      .replace(/<ix:nonFraction name="us-gaap:StockRepurchasedAndRetiredDuringPeriodShares"[^>]*>([^<]*)<\/ix:nonFraction>/g, "$1");
+    Object.assign(evidenceOf(b), primaryCapitalEvidence(parseDocument(html), capitalIdentity));
+    b.edgar.companyFacts.value.data.facts["us-gaap"] = { StockRepurchasedAndRetiredDuringPeriodShares: { units: { shares: [point(3 * M)] } } };
+    expect(evidenceOf(b).executions[1]!.tags).toEqual({ cost: "StockRepurchasedAndRetiredDuringPeriodValue" });
+    expect(primaryRepurchaseExecutions(b, ["2025-12-31"]).rows).toEqual([]);
+  });
+
+  it("does not use tagged fallback when same-date primary presentations disagree", () => {
+    const b = fixture(); if (!b.edgar.companyFacts.ok || !b.edgar.tenKNotes?.ok) throw Error("fixture");
+    b.edgar.companyFacts.value.data.facts["us-gaap"]!.StockRepurchasedAndRetiredDuringPeriodShares = { units: { shares: [point(2 * M)] } };
+    b.edgar.tenQNotes = structuredClone(b.edgar.tenKNotes);
+    b.edgar.tenQNotes.value.data.primaryCapitalEvidence!.executions[1]!.shares = 3 * M;
+    expect(primaryRepurchaseExecutions(b, ["2025-12-31"]).rows).toEqual([]);
+  });
+
+  it("retains period refusals when a newer source has unsupported stylesheet visibility", () => {
+    const b = fixture(); if (!b.edgar.tenKNotes?.ok) throw Error("fixture");
+    b.edgar.tenQNotes = structuredClone(b.edgar.tenKNotes);
+    const value = b.edgar.tenQNotes.value;
+    const identity = { ...capitalIdentity, accession: "0001234567-26-000002", filingDate: "2026-04-01", observedAt: "2026-04-02T00:00:00Z", documentUrl: capitalIdentity.documentUrl.replace("000123456726000001", "000123456726000002") };
+    Object.assign(value.data, identity); value.fetchedAt = identity.observedAt;
+    value.data.primaryCapitalEvidence = primaryCapitalEvidence(parseDocument(capitalHtml().replace("<body>", "<body><style>table { display: none }</style>")), identity);
+    expect(value.data.primaryCapitalEvidence.refusedPeriods).toContainEqual(expect.objectContaining({ kind: "execution", periodEnd: "2025-12-31" }));
+    expect(primaryRepurchaseExecutions(b, ["2025-12-31"]).rows).toEqual([]);
+  });
+
+  it("preserves a complete tagged execution when primary evidence only covers cash", () => {
+    const b = fixture(); if (!b.edgar.companyFacts.ok) throw Error("fixture");
+    b.edgar.companyFacts.value.data.facts["us-gaap"]!.StockRepurchasedAndRetiredDuringPeriodShares = { units: { shares: [point(2 * M)] } };
+    evidenceOf(b).executions = [];
+    expect(primaryRepurchaseExecutions(b, ["2025-12-31"]).rows[0]).toMatchObject({ shares: 2 * M, value: 40.2 * M, sharesTag: "StockRepurchasedAndRetiredDuringPeriodShares" });
+  });
+
+  it("does not compare a foreign-currency partial tag to a USD primary cost", () => {
+    const b = fixture(); if (!b.edgar.companyFacts.ok) throw Error("fixture");
+    b.edgar.companyFacts.value.data.facts["us-gaap"]!.StockRepurchasedAndRetiredDuringPeriodValue = { units: { CAD: [point(53 * M)] } };
+    expect(primaryRepurchaseExecutions(b, ["2025-12-31"]).rows[0]).toMatchObject({ shares: 2 * M, value: 40.2 * M });
+  });
+
   it("resolves cash only with a filed definition bridge while preserving original observations", () => {
     const b = fixture(), before = JSON.stringify(b), view = withPrimaryCapitalBasis(b), row = cashRows(view)[0]!;
     expect(row.commonStockRepurchased).toBe(-40 * M);
@@ -148,6 +206,52 @@ describe("shared primary capital admission", () => {
     expect(prompt).toContain(capitalIdentity.documentUrl);
     expect(p.provenanceRegistry?.some(r => r.value === 2 * M && r.id.includes("primary-repurchase-shares"))).toBe(true);
     expect(JSON.stringify(b)).toBe(before);
+  });
+
+  it("removes only resolved cash warnings from both report assembly paths", () => {
+    const b = fixture(), old = { field: "statements.cashflow.2025-12-31.commonStockRepurchased", reason: cashRows(b)[0]!.fieldConflicts!.commonStockRepurchased!.reason, severity: "warn" as const };
+    const unrelated = { ...old, reason: "Independent unresolved history qualification" };
+    b.gaps.push(old, unrelated);
+    const before = JSON.stringify(b), computed = runStageB(b);
+    const dataOnly = buildDataOnlyReport({ symbol: b.symbol, companyName: capitalIdentity.entityName, generatedAt: b.builtAt, model: "none", costUsd: 0,
+      bundle: b, computed, validation: { checks: [], flags: [], gaps: [old] }, costBreakdown: [], reason: "Synthetic verification" });
+    const judge = loadTask28Fixture() as JudgeOutput;
+    const analyst = assembleReport({ symbol: b.symbol, bundle: b, computed, judgeOutput: judge, model: "synthetic", costEntries: [], validationGaps: [old], verify: { verificationRate: null, log: [] } }, b.builtAt);
+    for (const report of [dataOnly, analyst]) {
+      expect(report.appendix.missingData).not.toContainEqual(old);
+      expect(report.appendix.missingData).toContainEqual(unrelated);
+      expect(reportToAuditMarkdown(report)).not.toContain(old.reason);
+    }
+    expect(JSON.stringify(b)).toBe(before);
+  });
+
+  it.each([1, 2])("retains bounded exact proofs without a timing grade on split factor %s", factor => {
+    const b = fixture();
+    if (factor === 2) b.edgar.shareBasis!.splits.events.push({ date: "2026-05-01", ratio: 2, tagged: 2, evidence: null, contextDates: [], announced: null,
+      firstAdjustedSession: "2026-05-01", sessionWindow: { from: "2026-05-01", to: "2026-05-01" }, legalFrom: "2026-05-01", sources: ["vendor"] });
+    const computed = runStageB(b), payload = assembleContextPayload(b, computed, { checks: [], flags: [], gaps: [] });
+    expect(computed.capital.buybackPriceAnalysis.timingPct).toBeNull();
+    expect(payload.primaryCapitalEvidence?.executions).toContainEqual(expect.objectContaining({ filedShares: 2 * M, shares: factor * 2 * M, cost: 40.2 * M, basisFactor: factor,
+      source: capitalIdentity, proof: evidenceOf(b).executions[1]!.proof }));
+    if (factor === 2) expect(payload.provenanceRegistry?.some(r => r.id.includes("primary-filed-repurchase-shares") && r.value === 2 * M)).toBe(true);
+    expect(payload.primaryCapitalEvidence?.cash[0]?.proof).toEqual(evidenceOf(b).cash[0]!.proof);
+    const prompt = serializePayloadForPrompt(payload);
+    expect(prompt).toContain("original-html-characters");
+    expect(prompt).toContain(capitalIdentity.accession);
+    const dataOnly = buildDataOnlyReport({ symbol: b.symbol, companyName: capitalIdentity.entityName, generatedAt: b.builtAt, model: "none", costUsd: 0,
+      bundle: b, computed, validation: { checks: [], flags: [], gaps: [] }, costBreakdown: [], reason: "Synthetic verification" });
+    const analyst = assembleReport({ symbol: b.symbol, bundle: b, computed, judgeOutput: loadTask28Fixture() as JudgeOutput, model: "synthetic", costEntries: [], verify: { verificationRate: null, log: [] } }, b.builtAt);
+    for (const report of [dataOnly, analyst]) {
+      expect(ReportSchema.parse(report).primaryCapitalEvidence).toEqual(payload.primaryCapitalEvidence);
+      for (const markdown of [reportToMarkdown(report), reportToAuditMarkdown(report)]) {
+        expect(markdown).toContain("2000000");
+        expect(markdown).toContain("40200000");
+        expect(markdown).toContain(capitalIdentity.accession);
+      }
+      const audit = reportToAuditMarkdown(report);
+      expect(audit).toContain("original-html-characters");
+      expect(audit).toContain(String(evidenceOf(b).executions[1]!.proof.row.start));
+    }
   });
 
   it("keeps incomplete older-year history and timing grades refused", () => {

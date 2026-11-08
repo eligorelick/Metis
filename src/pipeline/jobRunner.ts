@@ -31,6 +31,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
+import { withPrimaryCapitalBasis, primaryCapitalManifest } from "@/pipeline/primaryCapitalBasis";
 import { ProviderFailureSchema } from "@/ai/providerFailure";
 import { analysisOutcomeFromSteps } from "@/report/analysisCompletion";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
@@ -5430,7 +5431,7 @@ interface DataOnlyInput {
  */
 export function buildDataOnlyReport(input: DataOnlyInput): Report {
   const { symbol, validation, computed } = input;
-  const bundle = balanceIntegrityView(input.bundle);
+  const bundle = balanceIntegrityView(withPrimaryCapitalBasis(input.bundle));
   const asOfMap = input.sterileManifest ? {} : { ...bundle.asOf };
   // The letter beside this claim is the deterministic score band when Stage B
   // ran and a schema placeholder when it did not; "ungraded" (before the
@@ -5450,7 +5451,7 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
     keyNumbers: [],
   });
 
-  const missingData: ManifestEntry[] = input.sterileManifest ? [] : collectMissingData(bundle, validation, computed, input.gaps ?? []);
+  const missingData: ManifestEntry[] = input.sterileManifest ? [] : primaryCapitalManifest(input.bundle, collectMissingData(bundle, validation, computed, input.gaps ?? []));
   const attemptedAnalysisSources = [
     ...new Set(
       missingData

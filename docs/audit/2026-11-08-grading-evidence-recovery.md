@@ -86,6 +86,16 @@ were hash-identical before and after the gate. The original report and snapshot
 hashes still match, and regenerated fictional DEMO output changes only its two
 method stamps.
 
+The fresh whole-branch review identified seven admission or handoff gaps, all
+addressed with failing-first regressions in one fix pass: explicit cash refusals
+now disable usable conflicting operands; partially tagged rows check their
+comparable counterpart; ambiguous and rejected presentations cannot restore
+older fallbacks; cash-only evidence preserves valid execution facts; comparisons
+require matching units; superseded cash warnings are removed from both report
+paths; and bounded exact evidence survives payload, report schema and exports
+even without an eligible timing grade. Filed and split-adjusted shares remain
+separate and citable. The review reported no Critical, Minor or excluded findings.
+
 The implementation is intentionally narrow: other table shapes, accounting
 definitions, cost disclosures and stylesheet-dependent visibility remain gaps.
 Legacy bundles without primary proofs keep their prior financial behavior.

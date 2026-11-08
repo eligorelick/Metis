@@ -1,5 +1,5 @@
 import { applyReportAssessmentStatus } from "@/report/assessment";
-import { withPrimaryCapitalBasis } from "@/pipeline/primaryCapitalBasis";
+import { withPrimaryCapitalBasis, primaryCapitalManifest, primaryCapitalAudit } from "@/pipeline/primaryCapitalBasis";
 /**
  * Data-only report enrichment — the deterministic Stage B content a report
  * carries when the LLM passes do not run.
@@ -920,19 +920,22 @@ export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArg
   const technicalsGrade = block("technicals");
   const operatingSupport=operatingHistorySupport(computed.growth.margins.operating,annualFiscalLabels(bundle));
 
+  const primaryCapital = primaryCapitalAudit(bundle, computed.capital?.primaryRepurchaseExecutions);
+  const currentManifest = primaryCapitalManifest(args.bundle, stub.appendix.missingData);
   const candidate: Report = {
     ...stub,
+    ...(primaryCapital ? { primaryCapitalEvidence: primaryCapital } : {}),
     // A copied data-only stub may predate the current income admission. Keep
     // source refusals and standalone qualifications even when no DCF assumption
     // exists to carry them. This transports evidence, without changing grades.
     appendix: { ...stub.appendix, missingData: [...new Map([
-      ...stub.appendix.missingData,
+      ...currentManifest,
       ...computed.gaps.filter(gap => gap.field.startsWith("statements.income.")),
     ].map(gap => [`${gap.field}|${gap.reason}`, gap])).values()] },
     scenarioPresentation: buildScenarioPresentation(computed, comparableScenarioPrice(computed, bundle)),
     thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability))),
     verdict: {
-      synthesis: synthesis(computed, bundle, args.reason, currency, classifyManifest(stub.appendix.missingData).dataGaps.length),
+      synthesis: synthesis(computed, bundle, args.reason, currency, classifyManifest(currentManifest).dataGaps.length),
       gradeStrip: {
         fundamentals: fundamentalsGrade,
         valuation: valuationGrade,

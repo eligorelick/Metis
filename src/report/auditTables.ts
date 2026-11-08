@@ -1,4 +1,4 @@
-import type { Dcf, Projections, ProvenanceCoverage, Scoring, VerificationLogEntry } from "./schema";
+import type { Dcf, Projections, ProvenanceCoverage, Scoring, VerificationLogEntry, PrimaryCapitalAudit } from "./schema";
 import { displayedFactualValidation, numericClaimPartition, unprintedFactualClaimCount } from "./claimMatching";
 import { evidencePercentText, withNeutral } from "./assessment";
 import { establishedCurrency, formatFinancialValue, formatLargeNumber } from "./format";
@@ -6,6 +6,26 @@ import { formatScore } from "./scoreText";
 import { admittedProjectionPoints, projectionAvailability } from "./surfaceManifest";
 
 export interface ReportAuditTable { key?: string; heading: string; headers: string[]; rows: string[][]; note?: string }
+/** Exact recovered operands remain visible even when timing is unscored. */
+export function primaryCapitalEvidenceTables(evidence: PrimaryCapitalAudit | undefined, detailed = false): ReportAuditTable[] {
+  if (!evidence) return [];
+  const tables: ReportAuditTable[] = [];
+  if (evidence.cash.length) tables.push({ heading: "Primary repurchase cash evidence", headers: ["Annual period", "Currency", "Cash outflow (exact)", "Accession", "Filed", "Source"],
+    rows: evidence.cash.map(r => [`${r.periodStart} to ${r.periodEnd}`, r.currency, String(r.amount), r.source.accession, r.source.filingDate, r.source.documentUrl]),
+    note: "Cash outflow is a separate definition from equity repurchase cost. These source facts do not waive grading-history requirements." });
+  if (evidence.executions.length) tables.push({ heading: "Primary repurchase execution evidence", headers: ["Annual period", "Currency", "Filed shares (exact)", "Current-basis shares", "Equity cost (exact)", "Split factor / basis date", "Accession", "Filed", "Source"],
+    rows: evidence.executions.map(r => [`${r.periodStart} to ${r.periodEnd}`, r.currency, String(r.filedShares), String(r.shares), String(r.cost), `${r.basisFactor} / ${r.basisDay}`, r.source.accession, r.source.filingDate, r.source.documentUrl]) });
+  if (detailed) {
+    const records = [...evidence.cash.map(r => ({ ...r, kind: "Cash outflow" })), ...evidence.executions.map(r => ({ ...r, kind: "Equity execution" }))];
+    const span = (s: { start: number; end: number; text: string }) => `${s.start}:${s.end} — ${s.text}`;
+    tables.push({ heading: "Primary capital source locators", headers: ["Evidence / period", "Issuer / CIK", "Form / report date / observed", "Scale", "Coordinate system", "Statement", "Row", "Annual bounds", "Units"],
+      rows: records.map(r => [`${r.kind} / ${r.periodEnd}`, `${r.source.entityName} / ${r.source.cik}`, `${r.source.form} / ${r.source.reportDate} / ${r.source.observedAt}`, String(r.scale), r.proof.coordinateSystem,
+        span(r.proof.statement), span(r.proof.row), r.proof.period.map(span).join("; "), [r.proof.units, ...(r.proof.currencyUnit ? [r.proof.currencyUnit] : [])].map(span).join("; ")]) });
+    const resolved = evidence.cash.flatMap(r => r.observations ? [[r.periodEnd, String(r.observations.vendorValue), String(r.observations.secValue), r.observations.resolution]] : []);
+    if (resolved.length) tables.push({ heading: "Resolved cash observations", headers: ["Period end", "Original vendor amount", "Original bulk amount", "Resolution"], rows: resolved });
+  }
+  return tables;
+}
 const n = (value: number | null | undefined, digits = 2) => typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "unavailable";
 
 /** Presentation-only decomposition: no weight redistribution or new grades. */

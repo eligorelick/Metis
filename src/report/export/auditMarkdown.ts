@@ -24,7 +24,7 @@ import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
 import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
 import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
 import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
-import { scoreAuditTables, factualValidationText } from "@/report/auditTables";
+import { scoreAuditTables, factualValidationText, primaryCapitalEvidenceTables } from "@/report/auditTables";
 import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTiming";
 import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
 import { peerCoverageAuditLines } from "@/report/researchReview";
@@ -540,6 +540,7 @@ export function reportToAuditMarkdown(report: Report, context: ReportPresentatio
       "## Recorded pre-policy valuation diagnostics", "These original targets and inverse values are historical audit diagnostics, not admitted current evidence.",
       "```json", JSON.stringify(recordedTargets, null, 2), "```"].join("\n\n") : "",
     renderVerification(report),
+    ...primaryCapitalEvidenceTables(report.primaryCapitalEvidence, true).map(t => [`## ${t.heading}`, table(t.headers, t.rows), ...(t.note ? [markdownProse(t.note)] : [])].join("\n\n")),
     report.scores ? renderScores(report.scores) : "",
     renderFigureRegistry(report),
     report.filingDisclosures?.quarterlyGrossMarginNotApplicable ? `## Lender conventions (full recorded explanation)\n\n${markdownProse(report.filingDisclosures.quarterlyGrossMarginNotApplicable)}` : "",

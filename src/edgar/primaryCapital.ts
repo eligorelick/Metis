@@ -76,12 +76,13 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
   const structure = primaryDocumentStructure(document);
   if (!structure) { out.refusals.push("Primary capital statements require balanced, source-bound document markup."); return out; }
   const { elements, text, source } = structure;
-  if (elements.some(e => e.tag === "style" && /(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))/i.test(source.slice(e.start, e.end)) ||
-      e.tag === "link" && /(?:^|\s)stylesheet(?:\s|$)/i.test(e.attrs.get("rel") ?? ""))) {
-    out.refusals.push("Stylesheet-dependent visibility is unsupported for primary capital statement proof."); return out;
-  }
+  const visibilityRefused = elements.some(e => e.tag === "style" && /(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))/i.test(source.slice(e.start, e.end)) ||
+      e.tag === "link" && /(?:^|\s)stylesheet(?:\s|$)/i.test(e.attrs.get("rel") ?? ""));
+  if (visibilityRefused) out.refusals.push("Stylesheet-dependent visibility is unsupported for primary capital statement proof.");
+  // Continue only to retain applicable annual refusal markers. No values from
+  // this presentation may be admitted when its visibility is unproved.
   const cashCandidates = new Map<string, number>(), executionCandidates = new Map<string, number>();
-  let cashLayoutRefused = false, equityLayoutRefused = false;
+  let cashLayoutRefused = visibilityRefused, equityLayoutRefused = visibilityRefused;
   const visible = elements.filter(e => !e.hidden);
   const locator = (e: Element): PrimaryCapitalLocator => ({ start: e.start, end: e.end, text: text(e.start, e.end).slice(0, 600) });
   const rawText = (e: Element): string => decodeEntities(source.slice(e.start, e.end).replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();

@@ -37,6 +37,7 @@ import { supplementalNumericAudit } from "@/report/supplementalNumericAudit";
  */
 
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
+import { withPrimaryCapitalBasis, primaryCapitalManifest, primaryCapitalAudit } from "@/pipeline/primaryCapitalBasis";
 import { metisEnv } from "@/config/namespace";
 import type { ManifestEntry } from "@/types/core";
 import { returnPathLanguageManifestEntries } from "@/pipeline/stageC/returnPathLanguage";
@@ -4478,7 +4479,8 @@ function retainedDecisionSources(payload: ContextPayload): { source: string; tex
 }
 
 export function assembleReport(args: AssembleReportArgs, generatedAt?: string): Report {
-  args = { ...args, bundle: balanceIntegrityView(args.bundle) };
+  const originalBundle = args.bundle;
+  args = { ...args, bundle: balanceIntegrityView(withPrimaryCapitalBasis(args.bundle)) };
   const companyName = firstProfileName(args.bundle) ?? args.symbol;
   const coverage: ProvenanceCoverage = args.verify.coverage ?? {
     numeric: { supported: 0, total: 0, rate: null },
@@ -4505,7 +4507,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
       ? undefined
       : completeJudgeProtocol(args.judgeProtocol, sharedModelFamilyOf(execution));
 
-  const missingData = attributeJudgeProtocolDisclosures(dedupManifest([
+  const missingData = attributeJudgeProtocolDisclosures(primaryCapitalManifest(originalBundle, dedupManifest([
     ...args.bundle.gaps,
     ...args.computed.gaps,
     ...(args.validationGaps ?? []),
@@ -4516,7 +4518,7 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     ...(args.verify.checks === undefined ? [] : consistencyManifestEntries(args.verify.checks)),
     // Audit 2026-10-22 C-11: "recovering toward the cost of equity" when the trailing return is already above the terminal target.
     ...returnPathLanguageManifestEntries(args.judgeOutput, args.computed),
-  ]), { execution, model: args.model });
+  ])), { execution, model: args.model });
 
   const meta: ReportMeta = {
     symbol: args.symbol,
@@ -4627,6 +4629,8 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     ...(routeMetrics ? { routeMetrics } : {}),
   };
   if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
+  const primaryCapital = primaryCapitalAudit(args.bundle, args.computed.capital?.primaryRepurchaseExecutions);
+  if (primaryCapital) candidate.primaryCapitalEvidence = primaryCapital;
   // D-62: provider market and consensus data (quote, shares, EV, FY+1/FY+2
   // consensus, price targets, grade counts, short interest) for the page-1
   // key-data box. Copied as served; the payload the model saw is unchanged.

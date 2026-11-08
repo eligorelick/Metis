@@ -2811,10 +2811,34 @@ export const ScenarioPresentationSchema = z.object({
 }).strict();
 export type ScenarioPresentation = z.infer<typeof ScenarioPresentationSchema>;
 
+const PrimaryCapitalLocatorSchema = z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive(), text: z.string().min(1).max(600) }).strict();
+const PrimaryCapitalProofSchema = z.object({
+  coordinateSystem: z.literal("original-html-characters"), statement: PrimaryCapitalLocatorSchema, row: PrimaryCapitalLocatorSchema,
+  period: z.array(PrimaryCapitalLocatorSchema).min(1).max(2), units: PrimaryCapitalLocatorSchema, currencyUnit: PrimaryCapitalLocatorSchema.optional(),
+}).strict();
+const PrimaryCapitalSourceSchema = z.object({
+  cik: z.string(), entityName: z.string(), accession: z.string(), form: z.string(), filingDate: IsoDateSchema,
+  reportDate: IsoDateSchema, documentUrl: z.string().url(), observedAt: z.string(),
+}).strict();
+const PrimaryCapitalPeriodShape = { periodStart: IsoDateSchema, periodEnd: IsoDateSchema, currency: IsoCurrencySchema,
+  scale: z.number().positive(), source: PrimaryCapitalSourceSchema, proof: PrimaryCapitalProofSchema };
+/** Pipeline-owned bounded financial proof, independent of scoring eligibility. */
+export const PrimaryCapitalAuditSchema = z.object({
+  cash: z.array(z.object({ ...PrimaryCapitalPeriodShape, amount: z.number().positive(),
+    observations: z.object({ vendorValue: z.number().nullable(), secValue: z.number().nullable(), resolution: z.string() }).strict().optional(),
+  }).strict()).max(4),
+  executions: z.array(z.object({ ...PrimaryCapitalPeriodShape, filedShares: z.number().int().positive(), shares: z.number().positive(), cost: z.number().positive(),
+    basisFactor: z.number().positive(), basisDay: IsoDateSchema,
+    tags: z.object({ shares: z.string().optional(), cost: z.string().optional() }).strict().optional(),
+  }).strict()).max(4),
+}).strict();
+export type PrimaryCapitalAudit = z.infer<typeof PrimaryCapitalAuditSchema>;
+
 const ReportObjectSchema = z
   .object({
     /** Exact pipeline-owned provider facts; absent on historical reports. */
     sourceFactSummary: SourceFactSummarySchema.optional(),
+    primaryCapitalEvidence: PrimaryCapitalAuditSchema.optional(),
     meta: MetaSchema,
     verdict: VerdictSchema,
     business: BusinessSchema,
