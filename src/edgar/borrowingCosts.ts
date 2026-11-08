@@ -97,8 +97,13 @@ export function capitalizedInterestMisclassification(facts: CompanyFacts, input:
   });
   const cost = uniqueLatest(costs);
   if (!cost?.start || cost.val <= 0) return null;
-  const direct = uniqueLatest(INTEREST_EXPENSE_TAGS.flatMap(tag => points(facts, tag, input.unit, input.observedAt))
-    .filter(p => p.start === cost.start && p.end === cost.end && p.filed >= cost.filed));
+  // Distinct direct-expense concepts can legitimately differ. Follow the same
+  // ordered concept policy as statement extraction, then resolve filed copies
+  // within that concept. Conflicting preferred copies must not expose a less
+  // preferred concept just because its amount happens to match the provider.
+  const directCopies = INTEREST_EXPENSE_TAGS.map(tag => points(facts, tag, input.unit, input.observedAt)
+    .filter(p => p.start === cost.start && p.end === cost.end && p.filed >= cost.filed)).find(ps => ps.length > 0);
+  const direct = uniqueLatest(directCopies ?? []);
   if (direct && sameAmount(direct.val, input.value)) return null;
   const balances = points(facts, INVENTORY, input.unit, input.observedAt).filter(p => p.start === undefined && sameFiling(cost, p));
   const opening = uniqueLatest(balances.filter(p => p.end === previousDay(cost.start!)));
