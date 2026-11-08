@@ -470,7 +470,7 @@ describe("D-63 filing evidence", () => {
     // The financial reading of the same text kept neither the foundry nor the officers.
     expect(selectMaterialEvidence(ITEM1, 12_000).text).not.toContain("TSMC");
     for (const span of item1.spans) expect(ITEM1.slice(span.start, span.end)).toBe(span.text);
-    expect(item1.coverage.version).toBe("section-evidence-7/business");
+    expect(item1.coverage.version).toBe("section-evidence-8/business");
 
     // D-66 reserves concentration passages and raises the bounded notes budget.
     const notes = selectMaterialEvidence(NOTES, 14_000, "notes");

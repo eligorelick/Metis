@@ -30,6 +30,8 @@ import { operatingIncomeEvidenceForNonMargins, operatingIncomeForNonMargins, ope
 import { withFilerShareUnits } from "@/pipeline/shareUnits";
 import { filedAnnualNciEarnings } from "@/pipeline/nciEarnings";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
+import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
+import { filedAnnualBorrowingCost, type BorrowingCostEvidenceInput } from "@/edgar/borrowingCosts";
 import type {
   FmpBalanceSheetRow,
   FmpCashFlowRow,
@@ -1854,14 +1856,14 @@ function bookDebtOnLeaseBasis(
 export function priorYearCostOfDebt(
   incomeAnnual: readonly FmpIncomeStatementRow[],
   balanceAnnual: readonly FmpBalanceSheetRow[],
-  options: { includeOperatingLeases?: boolean; unusualByYear?: ReadonlyMap<string, number> } = {},
+  options: { includeOperatingLeases?: boolean; unusualByYear?: ReadonlyMap<string, number>; borrowingCostEvidence?: BorrowingCostEvidenceInput } = {},
 ): PriorYearCostOfDebt | null {
   const includeOperatingLeases = options.includeOperatingLeases === true;
   for (let index = 1; index < incomeAnnual.length && index <= PRIOR_YEAR_COST_OF_DEBT_MAX_YEARS_BACK; index += 1) {
     const income = incomeAnnual[index];
     const fiscalYearEnd = isoDay(income?.date);
     const interestExpense = num(income?.interestExpense);
-    if (fiscalYearEnd === null || interestExpense === null || interestExpense <= 0) continue;
+    if (fiscalYearEnd === null || interestExpense !== null && interestExpense < 0) continue;
     const balanceIndex = balanceAnnual.findIndex((row) => isoDay(row.date) === fiscalYearEnd);
     if (balanceIndex < 0) continue;
     // Same lease basis as the current-year debt leg (bookDebtOnLeaseBasis).
@@ -1872,16 +1874,28 @@ export function priorYearCostOfDebt(
     const debtPriorYear = bookDebtOnLeaseBasis(balanceAnnual[balanceIndex + 1], includeOperatingLeases).value;
     if (debtThisYear === null || debtThisYear <= 0) continue;
     if (debtPriorYear !== null && debtPriorYear < 0) continue;
+    const openingDate = isoDay(balanceAnnual[balanceIndex + 1]?.date);
+    const currency = str(income?.reportedCurrency);
+    const latestFiscalYearEnd = isoDay(incomeAnnual[0]?.date);
+    const elapsedDays = latestFiscalYearEnd === null ? null : (Date.parse(latestFiscalYearEnd) - Date.parse(fiscalYearEnd)) / 86_400_000;
+    const borrowingCost = (interestExpense === null || interestExpense === 0) && options.borrowingCostEvidence &&
+      elapsedDays !== null && elapsedDays >= 350 && elapsedDays <= PRIOR_YEAR_COST_OF_DEBT_MAX_YEARS_BACK * 371 &&
+      openingDate && currency && balanceAnnual[balanceIndex]?.reportedCurrency === currency &&
+      balanceAnnual[balanceIndex + 1]?.reportedCurrency === currency && debtPriorYear !== null
+      ? filedAnnualBorrowingCost({ ...options.borrowingCostEvidence, fiscalYearEnd, openingDate, unit: currency,
+          closingDebt: debtThisYear, openingDebt: debtPriorYear }) : null;
+    if (!(interestExpense !== null && interestExpense > 0) && !borrowingCost) continue;
     const totalDebtAvg =
       debtPriorYear !== null && debtPriorYear > 0 ? (debtThisYear + debtPriorYear) / 2 : debtThisYear;
     return {
-      pct: (interestExpense / totalDebtAvg) * 100,
+      pct: ((borrowingCost?.amount ?? interestExpense!) / totalDebtAvg) * 100,
       fiscalYearEnd,
-      yearsBack: index,
-      interestExpense,
+      yearsBack: borrowingCost ? Math.round(elapsedDays! / 365.25) : index,
+      interestExpense: interestExpense ?? 0,
+      ...(borrowingCost ? { borrowingCost } : {}),
       totalDebtAvg,
       operatingIncomeEvidence: operatingIncomeEvidenceForNonMargins(income),
-      ebit: operatingIncomeForNonMargins(income) === null ? null : operatingIncomeForNonMargins(income)! - (options.unusualByYear?.get(fiscalYearEnd) ?? 0),
+      ebit: borrowingCost || operatingIncomeForNonMargins(income) === null ? null : operatingIncomeForNonMargins(income)! - (options.unusualByYear?.get(fiscalYearEnd) ?? 0),
       coverageBasis: options.unusualByYear?.get(fiscalYearEnd) ? `FY ${fiscalYearEnd} operating income excluding tagged one-off items of ${options.unusualByYear.get(fiscalYearEnd)}` : undefined,
     };
   }
@@ -2173,7 +2187,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
-  bundle = withCashFlowSbcBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))));
+  bundle = withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle)))));
   bundle = balanceIntegrityView(bundle);
   bundle = preferredCapitalView(bundle);
   const operatingDispositions = operatingDispositionView(bundle);
@@ -3558,7 +3572,9 @@ function computeReturns(
     // equity carried" outcome.
     priorYearCostOfDebt:
       !isFinancial && (interestExpenseForWacc === null || interestExpenseForWacc <= 0)
-        ? priorYearCostOfDebt(incomeAnnual, balanceAnnual, { includeOperatingLeases, unusualByYear: new Map([...annualUnusual].map(([date, value]) => [date, value.value])) })
+        ? priorYearCostOfDebt(incomeAnnual, balanceAnnual, { includeOperatingLeases, unusualByYear: new Map([...annualUnusual].map(([date, value]) => [date, value.value])),
+            borrowingCostEvidence: { facts: bundle.edgar?.companyFacts?.ok && Date.parse(bundle.edgar.companyFacts.value.fetchedAt) <= Date.parse(bundle.builtAt)
+              ? confirmedIssuerFacts(bundle.symbol, bundle.edgar) : null, observedAt: bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : bundle.builtAt } })
         : null,
     totalDebtAvg: usdMoney(debtSnapshot.average),
     totalDebtBasis: debtSnapshot.basis,

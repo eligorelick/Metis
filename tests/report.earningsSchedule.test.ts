@@ -1,10 +1,57 @@
 import { describe, expect, it } from "vitest";
 import { isCountedClaimEntry } from "@/report/claimMatching";
 import { guardEarningsSchedule } from "@/report/earningsSchedule";
+import { selectMaterialEvidence } from "@/pipeline/stageC/evidenceSelection";
 
 const note = "next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): 2026-11-04 [finnhub:earnings-calendar · 2026-11-01]";
 
 describe("provider earnings-date qualification boundaries", () => {
+  const annualSchedule = "The Company plans to release financial results for each quarter of fiscal 2027 before the market opens, with a conference call to begin at 8:30 a.m. Eastern Time, on the following dates. Details on how to access the conference calls will be available at a later date. • First quarter: Tuesday, January 19, 2027 • Second quarter: Tuesday, April 20, 2027 • Third quarter: Thursday, July 22, 2027 • Fourth quarter and fiscal year: Tuesday, October 26, 2027";
+  it.each([
+    `It is not true that ${annualSchedule}`,
+    annualSchedule.replace("for each quarter", "on a tentative schedule for each quarter"),
+    `${annualSchedule}. These dates are unconfirmed estimates.`,
+    `${annualSchedule} • First quarter: Tuesday, January 20, 2027`,
+  ])("refuses a schedule whose enclosing context qualifies or contradicts it", text => {
+    const calendarNote = "next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): 2027-01-19 [fmp:earnings-calendar · 2026-11-01]";
+    const claim = { text: "Results are due January 19, 2027.", label: "FACT", source: "edgar:8-K" };
+    const result = guardEarningsSchedule(claim, [calendarNote], [{ id: "edgar:8-K", kind: "payload-text", origin: "edgar:8-K", asOf: "2026-11-01" }], [], { issuerName: null, newsNotes: [], passages: [{ source: "edgar:8-K", text, asOf: "2026-11-01" }] });
+    expect(result.report.label).toBe("ESTIMATE");
+    expect(result.report.text).toContain("calendar estimate");
+  });
+  it("retains the complete source schedule through the bounded financial excerpt", () => {
+    const crowded = "Consolidated revenue was $10 billion and operating income was $1 billion. ".repeat(200);
+    const source = `${crowded} Fiscal 2027 Conference Calls ${annualSchedule} About Example Inc. We sell products.`;
+    const cut = selectMaterialEvidence(source, 9_000);
+    expect(cut.text).toContain(annualSchedule);
+    expect(cut.text.length).toBeLessThanOrEqual(9_000);
+    for (const span of cut.spans) expect(source.slice(span.start, span.end)).toBe(span.text);
+    for (let i = 1; i < cut.spans.length; i++) expect(cut.spans[i]!.start).toBeGreaterThanOrEqual(cut.spans[i - 1]!.end);
+    expect(selectMaterialEvidence(source, 250).text.length).toBeLessThanOrEqual(250);
+  });
+  it("keeps adjacent schedule selections nonoverlapping", () => {
+    const schedule = (year: number) => `The Company plans to release financial results on the following dates. • First quarter: January 19, ${year} • Second quarter: April 20, ${year}.`;
+    const source = `${"Consolidated revenue was $10 billion and operating income was $1 billion. ".repeat(200)}${schedule(2027)} ${schedule(2028)} About Example Inc. We sell products.`;
+    const cut = selectMaterialEvidence(source, 9_000);
+    for (const year of [2027, 2028]) expect(cut.text.split(schedule(year)).length - 1).toBe(1);
+    for (let i = 1; i < cut.spans.length; i++) expect(cut.spans[i]!.start).toBeGreaterThanOrEqual(cut.spans[i - 1]!.end);
+    expect(cut.coverage.retainedChars + cut.coverage.omittedChars).toBe(source.length);
+    expect(cut.text.length).toBeLessThanOrEqual(9_000);
+  });
+  it.each(["confirmed", "speculative", "negated", "unregistered", "dividend", "wrong date", "unrelated later date", "conflicting quarter", "tentative row"])("binds an annual results calendar to its quarter rows (%s)", mode => {
+    const calendarNote = "next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): 2027-01-19 [fmp:earnings-calendar · 2026-11-01]";
+    const claim = { text: "First-quarter results are scheduled for January 19, 2027.", label: "FACT", source: "edgar:8-K" };
+    const intro = mode === "speculative" ? "The Company might release financial results" : mode === "negated" ? "The Company does not plan to release financial results" : "The Company plans to release financial results";
+    const schedule = `${intro} for each quarter of fiscal 2027 before the market opens, with a conference call to begin at 8:30 a.m. Eastern Time, on the following dates. Details on how to access the conference calls will be available at a later date. • First quarter: Tuesday, ${mode === "wrong date" ? "January 20, 2027" : "January 19, 2027"} • Second quarter: Tuesday, April 20, 2027`;
+    const text = mode === "dividend" ? schedule.replace("financial results", "dividend payments").replace("conference call", "meeting")
+      : mode === "unrelated later date" ? `${schedule.replace("January 19, 2027", "January 20, 2027")} About the company. First quarter: January 19, 2027`
+      : mode === "conflicting quarter" ? schedule.replace("Second quarter:", "First quarter:")
+      : mode === "tentative row" ? schedule.replace("January 19, 2027", "January 19, 2027 (unconfirmed)") : schedule;
+    const registry = mode === "unregistered" ? [] : [{ id: "edgar:8-K", kind: "payload-text" as const, origin: "edgar:8-K", asOf: "2026-11-01" }];
+    const out = guardEarningsSchedule(claim, [calendarNote], registry, [], { issuerName: null, newsNotes: [], passages: [{ source: "edgar:8-K", text, asOf: "2026-11-01" }] });
+    expect(out.report.text.includes("calendar estimate")).toBe(mode !== "confirmed");
+    expect(out.report.label).toBe(mode === "confirmed" ? "FACT" : "ESTIMATE");
+  });
   const figrNote = "next scheduled earnings date per provider calendar (a provider schedule, not a company confirmation): 2026-11-12 [fmp:earnings-calendar · 2026-11-02]";
   const news = "2026-10-22 [news] GlobeNewswire: Figure Technology Solutions Announces Date for Third Quarter 2026 Results — Figure Technology Solutions will report third quarter results on November 12, 2026. [fmp:news · 2026-10-22]";
   const context = { issuerName: "Figure Technology Solutions, Inc.", newsNotes: [news], passages: [] };

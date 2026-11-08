@@ -61,7 +61,7 @@ describe("8-K event excerpts keep a person's amount with the sentence that names
 
   it("leaves the other profiles' coverage version unchanged", () => {
     for (const profile of ["financial", "business", "interim"] as const) {
-      expect(selectMaterialEvidence(BODY, 600, profile).coverage.version).toBe(profile === "financial" ? "section-evidence-7" : `section-evidence-7/${profile}`);
+      expect(selectMaterialEvidence(BODY, 600, profile).coverage.version).toBe(profile === "financial" ? "section-evidence-8" : `section-evidence-8/${profile}`);
     }
   });
 });

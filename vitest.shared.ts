@@ -70,6 +70,8 @@ export const RISK_SOURCE_MANIFEST = [
   "src/edgar/revenueAdmission.ts",
   "src/edgar/revenuePresentation.ts",
   "src/edgar/primaryIncome.ts",
+  "src/edgar/borrowingCosts.ts",
+  "src/edgar/earningsSchedule.ts",
   "src/edgar/cashInvestment.ts",
   "src/edgar/shareUnitRepair.ts",
   // The element names and the successor hop moved OUT of the audited
@@ -93,6 +95,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/pipeline/dataBundle.ts",
   "src/pipeline/commonEarnings.ts",
   "src/pipeline/incomeBasis.ts",
+  "src/pipeline/borrowingCostBasis.ts",
   "src/pipeline/shareUnits.ts",
   "src/pipeline/nciEarnings.ts",
   "src/pipeline/cashFlowBasis.ts",

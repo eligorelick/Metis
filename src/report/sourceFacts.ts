@@ -155,7 +155,7 @@ function reconcile(rows: readonly SourceFactRow[]): ReportedEarningsReconciliati
     return { ...direct, status: "unavailable", reason: "Consolidated profit reconciles to pretax less tax, but parent profit differs and signed noncontrolling-interest earnings are unavailable; ownership scope cannot be reconciled with an equity-method plug." };
   }
   const equity = find("equity-method-income-loss-as-filed");
-  if (!equity) return { ...direct, status: "unavailable", reason: "Missing reported equity-method income (loss), as filed; the direct identity does not reconcile." };
+  if (!equity) return { ...direct, status: "unavailable", reason: "Reported earnings reconciliation is unresolved: the direct identity does not reconcile and the necessary ownership or other reconciling operands are unestablished. The residual alone does not identify an equity-method adjustment." };
   const reconciledNetIncome = pretaxMinusTax + equity.value;
   const residual = reconciledNetIncome - net.value;
   const matches = reconciles(residual, [pretax.value, tax.value, equity.value, net.value]);
