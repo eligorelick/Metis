@@ -2824,7 +2824,7 @@ const PrimaryCapitalPeriodShape = { periodStart: IsoDateSchema, periodEnd: IsoDa
   scale: z.number().positive(), source: PrimaryCapitalSourceSchema, proof: PrimaryCapitalProofSchema };
 /** Pipeline-owned bounded financial proof, independent of scoring eligibility. */
 export const PrimaryCapitalAuditSchema = z.object({
-  cash: z.array(z.object({ ...PrimaryCapitalPeriodShape, amount: z.number().positive(),
+  cash: z.array(z.object({ ...PrimaryCapitalPeriodShape, amount: z.number().nonnegative(),
     observations: z.object({ vendorValue: z.number().nullable(), secValue: z.number().nullable(), resolution: z.string() }).strict().optional(),
   }).strict()).max(4),
   executions: z.array(z.object({ ...PrimaryCapitalPeriodShape, filedShares: z.number().int().positive(), shares: z.number().positive(), cost: z.number().positive(),

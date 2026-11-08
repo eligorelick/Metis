@@ -4,6 +4,13 @@ import { createEdgarClient, type EdgarTransport } from "@/providers/edgar";
 import { createFmpClient } from "@/providers/fmp";
 import { capitalHtml } from "./helpers/primaryCapital";
 import { annualNotesIndexFixture } from "./helpers/annualNotesIndexFixture";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { runStageB } from "@/pipeline/compute";
+import { assembleContextPayload } from "@/pipeline/stageC/payload";
+import { assembleReport } from "@/pipeline/stageC/passes";
+import { buildDataOnlyReport } from "@/pipeline/jobRunner";
+import { ReportSchema, type JudgeOutput } from "@/report/schema";
+import { loadTask28Fixture } from "./helpers/task28Report";
 
 async function acquire(form: "10-K" | "10-Q" | "20-F", html: string, exhibit?: string) {
   const requested: string[] = [];
@@ -43,6 +50,25 @@ it.each(["10-K", "10-Q"] as const)("keeps source-bound %s capital rows after the
   expect(section.primaryCapitalEvidence?.source.documentUrl).toBe(section.documentUrl);
   expect(requested.filter(url => url.endsWith("/annual.htm"))).toHaveLength(1);
   expect(JSON.parse(JSON.stringify(section)).primaryCapitalEvidence).toEqual(section.primaryCapitalEvidence);
+});
+
+it.each(["10-K", "10-Q"] as const)("carries acquired %s identity through both strict report assembly paths", async form => {
+  const html = form === "10-K" ? statementHtml() : statementHtml().replace("Item 8. Financial Statements and Supplementary Data", "Item 1. Financial Statements").replace("Item 9. Changes in and Disagreements With Accountants", "Item 2. Management's Discussion and Analysis");
+  const { bundle: acquired } = await acquire(form, html);
+  const bundle = completeCurrencyBundle({});
+  bundle.symbol = acquired.symbol; bundle.edgar = acquired.edgar; bundle.builtAt = acquired.builtAt;
+  if (!bundle.statements.cashflowAnnual.ok) throw Error("fixture");
+  bundle.statements.cashflowAnnual.value.data.rows[0]!.commonStockRepurchased = -40_000_000;
+  bundle.statements.cashflowAnnual.value.data.rows[1]!.commonStockRepurchased = -20_000_000;
+  const computed = runStageB(bundle), validation = { checks: [], flags: [], gaps: [] };
+  const payload = assembleContextPayload(bundle, computed, validation);
+  const dataOnly = buildDataOnlyReport({ symbol: bundle.symbol, companyName: "Example Industries, Inc.", generatedAt: bundle.builtAt, model: "none", costUsd: 0,
+    bundle, computed, validation, costBreakdown: [], reason: "Synthetic acquisition verification" });
+  const analyst = assembleReport({ symbol: bundle.symbol, bundle, computed, judgeOutput: loadTask28Fixture() as JudgeOutput, model: "synthetic", costEntries: [], verify: { verificationRate: null, log: [] } }, bundle.builtAt);
+  expect(payload.primaryCapitalEvidence?.cash[0]?.amount).toBe(40_000_000);
+  for (const report of [dataOnly, analyst]) expect(ReportSchema.parse(report).primaryCapitalEvidence).toEqual(payload.primaryCapitalEvidence);
+  expect(Object.keys(payload.primaryCapitalEvidence!.cash[0]!.source).sort()).toEqual(["accession", "cik", "documentUrl", "entityName", "filingDate", "form", "observedAt", "reportDate"]);
+  expect(JSON.stringify(payload.primaryCapitalEvidence)).not.toContain("Earlier statement information");
 });
 
 it("binds incorporated evidence to the acquired exhibit and not the parent filing's HTML offsets", async () => {

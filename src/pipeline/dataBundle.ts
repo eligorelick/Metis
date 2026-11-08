@@ -1051,7 +1051,8 @@ async function runExtraction(
  * item under its broader identity. Unproved items remain explicit gaps.
  */
 function capitalFromSource(source: ParsedDocument | undefined, cik: number, entityName: string, section: Pick<ExtractedSection, "accession" | "form" | "filingDate" | "reportDate" | "documentUrl">, observedAt: string): Pick<ExtractedSection, "primaryCapitalEvidence"> {
-  return source ? { primaryCapitalEvidence: primaryCapitalEvidence(source, { cik: String(cik), entityName, ...section, observedAt }) } : {};
+  return source ? { primaryCapitalEvidence: primaryCapitalEvidence(source, { cik: String(cik), entityName, accession: section.accession, form: section.form,
+    filingDate: section.filingDate, reportDate: section.reportDate, documentUrl: section.documentUrl, observedAt }) } : {};
 }
 
 function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>, symbol: string, source: ParsedDocument | undefined, cik: number, entityName: string): FetchResult<ExtractedSection> {

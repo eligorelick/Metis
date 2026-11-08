@@ -42,6 +42,29 @@ function fixture(): DataBundle {
 }
 
 describe("shared primary capital admission", () => {
+  it.each([{ cell: "0", vendor: 0 }, { cell: "—", vendor: null }])("keeps proved zero cash in the timing window and exports ($cell, vendor $vendor)", ({ cell, vendor }) => {
+    const b = fixture();
+    Object.assign(evidenceOf(b), primaryCapitalEvidence(parseDocument(capitalHtml(capitalCashTable.replace("(20.0)", cell))), capitalIdentity));
+    cashRows(b)[0]!.commonStockRepurchased = -40 * M; delete cashRows(b)[0]!.fieldConflicts;
+    cashRows(b)[1]!.commonStockRepurchased = vendor;
+    if (!b.statements.incomeAnnual.ok) throw Error("fixture");
+    for (const row of b.statements.incomeAnnual.value.data.rows) row.weightedAverageShsOut = 10 * M;
+    const prices = Array.from({ length: 731 }, (_, n) => ({ date: new Date(Date.UTC(2024, 0, 1) + n * 86_400_000).toISOString().slice(0, 10), marketCap: 250 * M }));
+    b.marketCapHistory = { ok: true, value: { source: "fmp", endpoint: "synthetic market history", asOf: "2025-12-31", fetchedAt: b.builtAt, data: { rows: prices, raw: prices } } };
+    const before = JSON.stringify(b), view = withPrimaryCapitalBasis(b), computed = runStageB(b);
+    expect(cashRows(view)[1]!.commonStockRepurchased).toBe(0);
+    expect(cashRows(view)[1]!.fieldConflicts?.commonStockRepurchased?.usable).not.toBe(false);
+    expect(computed.capital.buybackPriceAnalysis.timingCoveragePct).toBe(100);
+    expect(computed.capital.buybackPriceAnalysis.timingPct).toBeCloseTo(24.3781094527363, 8);
+    const payload = assembleContextPayload(b, computed, { checks: [], flags: [], gaps: [] });
+    const report = buildDataOnlyReport({ symbol: b.symbol, companyName: capitalIdentity.entityName, generatedAt: b.builtAt, model: "none", costUsd: 0,
+      bundle: b, computed, validation: { checks: [], flags: [], gaps: [] }, costBreakdown: [], reason: "Synthetic zero verification" });
+    expect(payload.primaryCapitalEvidence?.cash.find(r => r.periodEnd === "2024-12-31")?.amount).toBe(0);
+    expect(ReportSchema.parse(report).primaryCapitalEvidence).toEqual(payload.primaryCapitalEvidence);
+    expect(reportToAuditMarkdown(report)).toContain("2024-01-01 to 2024-12-31 | USD | 0");
+    expect(JSON.stringify(b)).toBe(before);
+  });
+
   it("withholds usable vendor cash when the primary source explicitly refuses contradictory rows", () => {
     const b = fixture(), row = cashRows(b)[0]!;
     row.commonStockRepurchased = -40 * M; delete row.fieldConflicts;
@@ -82,6 +105,20 @@ describe("shared primary capital admission", () => {
     value.data.primaryCapitalEvidence = primaryCapitalEvidence(parseDocument(capitalHtml().replace("<body>", "<body><style>table { display: none }</style>")), identity);
     expect(value.data.primaryCapitalEvidence.refusedPeriods).toContainEqual(expect.objectContaining({ kind: "execution", periodEnd: "2025-12-31" }));
     expect(primaryRepurchaseExecutions(b, ["2025-12-31"]).rows).toEqual([]);
+  });
+
+  it("does not revive older cash evidence behind a newer primary row with missing cells", () => {
+    const b = fixture(); if (!b.edgar.tenKNotes?.ok) throw Error("fixture");
+    cashRows(b)[0]!.commonStockRepurchased = -40 * M; delete cashRows(b)[0]!.fieldConflicts;
+    b.edgar.tenQNotes = structuredClone(b.edgar.tenKNotes);
+    const value = b.edgar.tenQNotes.value;
+    const identity = { ...capitalIdentity, accession: "0001234567-26-000002", filingDate: "2026-04-01", observedAt: "2026-04-02T00:00:00Z", documentUrl: capitalIdentity.documentUrl.replace("000123456726000001", "000123456726000002") };
+    Object.assign(value.data, identity); value.fetchedAt = identity.observedAt;
+    const malformed = capitalCashTable.replace("(40.0)", "(44.0)").replace("<td>(20.0)</td>", "<td></td>");
+    value.data.primaryCapitalEvidence = primaryCapitalEvidence(parseDocument(capitalHtml(malformed)), identity);
+    const view = withPrimaryCapitalBasis(b);
+    expect(cashRows(view)[0]!.commonStockRepurchased).toBeNull();
+    expect(cashRows(view)[0]!.fieldConflicts?.commonStockRepurchased?.usable).toBe(false);
   });
 
   it("preserves a complete tagged execution when primary evidence only covers cash", () => {

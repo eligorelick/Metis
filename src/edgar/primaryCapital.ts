@@ -71,7 +71,10 @@ function ancestor(element: Element, tag: string): Element | undefined {
 
 /** Narrow face-statement recovery. Unsupported layouts remain explicit gaps. */
 export function primaryCapitalEvidence(document: ParsedDocument, identity: PrimaryCapitalIdentity): PrimaryCapitalEvidence {
-  const out: PrimaryCapitalEvidence = { version: 1, source: { ...identity }, cash: [], executions: [], refusals: [] };
+  const out: PrimaryCapitalEvidence = { version: 1, source: {
+    cik: identity.cik, entityName: identity.entityName, accession: identity.accession, form: identity.form,
+    filingDate: identity.filingDate, reportDate: identity.reportDate, documentUrl: identity.documentUrl, observedAt: identity.observedAt,
+  }, cash: [], executions: [], refusals: [] };
   if (!validPrimaryCapitalIdentity(identity)) { out.refusals.push("Invalid primary filing identity or availability date."); return out; }
   const structure = primaryDocumentStructure(document);
   if (!structure) { out.refusals.push("Primary capital statements require balanced, source-bound document markup."); return out; }
@@ -172,16 +175,18 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
       const years = yearRow.cells.map(c => Number(c.text));
       if (years.length > 4 || new Set(years).size !== years.length) { refuseLayout(); continue; }
       for (const row of rows.filter(r => r.cells[0]?.text === "Repurchases of common stock")) {
-        if (row.cells.length !== years.length + 1) continue;
         for (const [column, year] of years.entries()) {
           const end = isoFromMonthDate(`${monthDay}, ${year}`), previous = isoFromMonthDate(`${monthDay}, ${year - 1}`);
           if (!end || !previous || end > identity.reportDate) continue;
           cashCandidates.set(end, (cashCandidates.get(end) ?? 0) + 1);
+          // A blank or omitted comparative cell still makes this an applicable
+          // presentation. Retain its refusal instead of reviving another row.
+          if (row.cells.length !== years.length + 1) continue;
           const start = nextDay(previous), cell = row.cells[column + 1]!, amount = number(cell.text);
           const header = yearRow.cells[column]!;
           if (cell.columnStart < header.columnStart || cell.columnEnd > header.columnEnd) continue;
           const validated = validateCell(cell.node, start, end);
-          if (amount === null || amount >= 0 || !validated || !annual(start, end)) continue;
+          if (amount === null || amount > 0 || !validated || !annual(start, end)) continue;
           out.cash.push({ periodStart: start, periodEnd: end, amount: Number((Math.abs(amount) * scale).toFixed(2)), currency: validated.currency, scale,
             proof: proof(row.node, [dateRow.node, yearRow.node], validated.unit) });
         }

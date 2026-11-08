@@ -91,8 +91,8 @@ export function withPrimaryCapitalBasis(bundle: DataBundle): DataBundle {
     const candidates = evidence.cash.filter(r => r.periodEnd === row.date);
     if (candidates.length !== 1 || evidence.refusedPeriods?.some(r => r.periodEnd === row.date && r.kind === "cash")) return refuseCash(`ambiguous or unproved primary cash rows; source ${evidence.source.documentUrl}`);
     const record = candidates[0]!;
-    if (!finite(record.amount) || record.amount <= 0 || !compatibleRow(row, record.periodStart, record.periodEnd, record.currency, evidence, record.proof)) return row;
-    const conflict = row.fieldConflicts?.commonStockRepurchased, amount = -record.amount;
+    if (!finite(record.amount) || record.amount < 0 || !compatibleRow(row, record.periodStart, record.periodEnd, record.currency, evidence, record.proof)) return row;
+    const conflict = row.fieldConflicts?.commonStockRepurchased, amount = record.amount === 0 ? 0 : -record.amount;
     const vendor = conflict?.usable === false ? conflict.vendorValue : row.commonStockRepurchased;
     if (finite(vendor) && !equal(vendor, amount)) {
       if (conflict?.usable === false) return row;

@@ -76,15 +76,22 @@ audit exports. They cover wrong identities/URLs, future observations, ambiguous
 periods, column shifts, foreign/unknown currencies, stock splits, incomplete
 history, contradictory primary/tagged facts and preservation of original inputs.
 
-The final Node 24.11.1 verification gate passed: 17,214 tests in each of the core
+Node 24.11.1 verification completed: 17,225 tests in each of the core
 and risk coverage runs (three existing skips), four database integration tests,
 dependency-shape validation, typecheck, lint, production build and security
 audit (zero vulnerabilities). Core statement/branch/function/line coverage was
-97.58/93.23/99.11/98.71%; risk coverage was 96.04/91.47/98.30/98.24%, including
+97.58/93.23/99.11/98.71%; risk coverage was 96.05/91.48/98.30/98.24%, including
 the new modules' required per-file floors. All 1,211 tracked source/test files
 were hash-identical before and after the gate. The original report and snapshot
 hashes still match, and regenerated fictional DEMO output changes only its two
 method stamps.
+
+The initial verification command stopped when a risk-test worker exited
+unexpectedly after 750 of 751 files, without a reported assertion failure.
+The complete risk pass was rerun on unchanged code with machine-readable
+diagnostics: all 751 files passed with no unhandled errors. Build and security
+audit then completed. The worker exit did not recur; no test, coverage threshold
+or validation requirement was waived.
 
 The fresh whole-branch review identified seven admission or handoff gaps, all
 addressed with failing-first regressions in one fix pass: explicit cash refusals
@@ -95,6 +102,17 @@ require matching units; superseded cash warnings are removed from both report
 paths; and bounded exact evidence survives payload, report schema and exports
 even without an eligible timing grade. Filed and split-adjusted shares remain
 separate and citable. The review reported no Critical, Minor or excluded findings.
+
+The subsequent automated PR review found three additional boundary cases.
+Acquisition and parser boundaries now explicitly select the eight filing-identity
+fields, preventing section text from entering source metadata and breaking strict
+report validation. Supported cash zeros and statement dashes remain proved zeros
+through calculation and exports; blank or unproved values remain unavailable.
+Recognized cash rows with missing comparative cells retain refusal markers for
+their declared periods, preventing earlier contradictory values from surviving.
+Eleven failing-first regressions cover these cases, including normal 10-K/10-Q
+acquisition through both strict report assembly paths and a complete timing
+window containing a proved zero-cash year.
 
 The implementation is intentionally narrow: other table shapes, accounting
 definitions, cost disclosures and stylesheet-dependent visibility remain gaps.

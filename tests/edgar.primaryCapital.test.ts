@@ -6,6 +6,17 @@ import { capitalCashTable, capitalEquityTable, capitalHtml, capitalIdentity, inl
 const parse = (html = capitalHtml(), overrides = {}) => primaryCapitalEvidence(parseDocument(html), { ...capitalIdentity, ...overrides });
 
 describe("primary capital statement recovery", () => {
+  it.each(["0", "—", "-"])("preserves a validated cash zero written as %s", cell => {
+    const evidence = parse(capitalHtml(capitalCashTable.replace("(20.0)", cell)));
+    expect(evidence.cash.find(r => r.periodEnd === "2024-12-31")?.amount).toBe(0);
+    expect(evidence.refusedPeriods?.some(r => r.kind === "cash" && r.periodEnd === "2024-12-31") ?? false).toBe(false);
+  });
+
+  it("retains only declared identity fields even when a caller supplies a larger object", () => {
+    const evidence = parse(capitalHtml(), { text: "UNBOUNDED SECTION TEXT", chars: 12345, method: "header-regex", sectionName: "tenKNotes" });
+    expect(evidence.source).toEqual(capitalIdentity);
+  });
+
   it("recovers separate cash and execution costs beyond the retained statement prefix", () => {
     const evidence = parse();
     expect(evidence.cash.find(x => x.periodEnd === "2025-12-31")).toMatchObject({ amount: 40_000_000, currency: "USD", periodStart: "2025-01-01" });
@@ -58,6 +69,15 @@ describe("primary capital statement recovery", () => {
     const html = capitalHtml() .replace("<h2>Notes", `<div>EXAMPLE INDUSTRIES, INC. AND SUBSIDIARIES</div><div>CONSOLIDATED STATEMENTS OF CASH FLOWS</div>${capitalCashTable.replace("(40.0)", "(44.0)")}<h2>Notes`);
     expect(parse(html).cash.some(x => x.periodEnd === "2025-12-31")).toBe(false);
     expect(parse(html).refusedPeriods).toContainEqual(expect.objectContaining({ kind: "cash", periodEnd: "2025-12-31" }));
+  });
+
+  it.each(["<td></td>", ""])("retains contradictory cash refusals when a comparative cell is %j", replacement => {
+    const malformed = capitalCashTable.replace("(40.0)", "(44.0)").replace("<td>(20.0)</td>", replacement);
+    const html = capitalHtml().replace("<h2>Notes", `<div>EXAMPLE INDUSTRIES, INC. AND SUBSIDIARIES</div><div>CONSOLIDATED STATEMENTS OF CASH FLOWS</div>${malformed}<h2>Notes`);
+    for (const evidence of [parse(html), parse(capitalHtml(malformed))]) {
+      expect(evidence.cash).toEqual([]);
+      for (const periodEnd of ["2025-12-31", "2024-12-31"]) expect(evidence.refusedPeriods).toContainEqual(expect.objectContaining({ kind: "cash", periodEnd }));
+    }
   });
 
   it("refuses a noncontrolling cost mixed into the equity movement", () => {
