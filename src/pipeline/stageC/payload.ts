@@ -45,6 +45,7 @@ import type { DataBundle } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
+import { withPrimaryCapitalBasis } from "@/pipeline/primaryCapitalBasis";
 import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
@@ -937,6 +938,15 @@ function computedSections(
         ]
       : []),
   ];
+  for (const execution of cap.primaryRepurchaseExecutions ?? []) {
+    const primary = execution.primaryEvidence;
+    if (!primary) continue;
+    capFigures.push(
+      { label: `primary repurchase shares (${execution.periodEnd}, current share basis)`, value: execution.shares, unit: "shares", source: `edgar:primary-repurchase-shares:${primary.source.documentUrl}`, asOf: execution.periodEnd, period: execution.periodEnd },
+      { label: `primary equity repurchase cost (${execution.periodEnd}; distinct from cash outflow)`, value: execution.value, unit: "currency", currency: primary.record.currency,
+        source: `edgar:primary-repurchase-equity-cost:${primary.source.documentUrl}`, asOf: execution.periodEnd, period: execution.periodEnd },
+    );
+  }
   sections.push(payloadSection({ title: "Capital & cash (computed)", figures: capFigures, notes: cap.notes }));
 
   // --- Bank capital, credit and funding (D-46) ------------------------------
@@ -1740,7 +1750,10 @@ function extractStatement<TRow extends FmpRawRow>(
   }));
   return { title, periods: periodLabels, lineItems: lines, notes: periodKind !== "instant" ? kept.flatMap(r => {
     const refusal = (r as FmpStatementRow).fieldConflicts?.interestExpense;
-    return refusal?.usable === false && refusal.cause === "borrowing-cost-scope" ? [refusal.reason] : [];
+    const capital = (r as FmpStatementRow).fieldProvenance?.commonStockRepurchased?.primaryCapital;
+    const resolution = (r as FmpStatementRow).fieldConflicts?.commonStockRepurchased;
+    return [...(refusal?.usable === false && refusal.cause === "borrowing-cost-scope" ? [refusal.reason] : []),
+      ...(capital ? [resolution?.resolution === "primary-cash-line" ? resolution.reason : `Primary common-share cash outflow, distinct from equity cost. Source: ${capital.source.documentUrl}`] : [])];
   }) : kept.flatMap(r => {
     const coverage = incompleteLeaseCoverage(r as FmpBalanceSheetRow);
     return [...(coverage === null ? [] : [`${isoDay(r.date) ?? "Unknown balance date"}: ${coverage.note}`]), leaseEvidenceNote({ ...(r as FmpBalanceSheetRow), leaseEvidenceContext })];
@@ -3813,7 +3826,7 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
-  bundle = withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle)))));
+  bundle = withPrimaryCapitalBasis(withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
   bundle = balanceIntegrityView(bundle);
   const profile = firstRow(bundle.profile);
   // Trading (listing), annual and model currencies, resolved exactly as Stage B

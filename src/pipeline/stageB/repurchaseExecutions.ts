@@ -37,8 +37,10 @@ export interface RepurchaseExecution {
   shares: number;
   /** Their cost as tagged, in the reporting currency. */
   value: number;
-  sharesTag: string;
-  valueTag: string;
+  sharesTag?: string;
+  valueTag?: string;
+  /** Direct primary table proof; plain statement rows never acquire invented tags. */
+  primaryEvidence?: { source: import("@/edgar/primaryCapital").PrimaryCapitalIdentity; record: import("@/edgar/primaryCapital").PrimaryRepurchaseExecution };
   /** Filing both facts come from (one filing, so one share basis). */
   filed: string;
   accn: string;

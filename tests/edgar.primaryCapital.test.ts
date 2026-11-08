@@ -89,4 +89,27 @@ describe("primary capital statement recovery", () => {
   it("retains decimal monetary precision without binary rounding noise", () => {
     expect(parse(capitalHtml(capitalCashTable.replace("40.0", "4281.6"))).cash[0]!.amount).toBe(4_281_600_000);
   });
+
+  it("identifies an explicitly different total-cost disclosure for a bulk-tag scope bridge", () => {
+    const html = inlineCapitalHtml().replace("<h2>Notes", `<p>During fiscal 2025, the Company repurchased 2.0 million shares of its common stock at a total cost, including commissions and excise taxes, of $ <ix:nonFraction name="us-gaap:PaymentsForRepurchaseOfCommonStock" unitRef="usd" contextRef="annual2025" scale="6" format="ixt:num-dot-decimal">40.2</ix:nonFraction> million.</p><h2>Notes`);
+    expect(parse(html).costDisclosures?.[0]).toMatchObject({ amount: 40_200_000, periodEnd: "2025-12-31", tag: "PaymentsForRepurchaseOfCommonStock", currency: "USD" });
+    expect(parse(html.replace("the Company repurchased", "the Company authorized")).costDisclosures ?? []).toEqual([]);
+  });
+
+  it("rejects cells shifted into the wrong year or equity component by column spans", () => {
+    const cash = capitalCashTable.replace('<td>Repurchases of common stock</td>', '<td colspan="2">Repurchases of common stock</td>');
+    expect(parse(capitalHtml(cash)).cash).toEqual([]);
+    const equity = capitalEquityTable.replaceAll('<td>Repurchases of common stock', '<td colspan="2">Repurchases of common stock');
+    expect(parse(capitalHtml(capitalCashTable, equity)).executions).toEqual([]);
+  });
+
+  it("does not select an older table behind an ambiguous annual header", () => {
+    const html = capitalHtml().replace("<h2>Notes", `<div>EXAMPLE INDUSTRIES, INC. AND SUBSIDIARIES</div><div>CONSOLIDATED STATEMENTS OF CASH FLOWS</div>${capitalCashTable.replace("Year Ended", "Period Ended")}<h2>Notes`);
+    expect(parse(html).cash).toEqual([]);
+  });
+
+  it("refuses inline counts explicitly rounded to thousands of shares", () => {
+    const html = inlineCapitalHtml().replaceAll('unitRef="shares" contextRef=', 'decimals="-3" unitRef="shares" contextRef=');
+    expect(parse(html).executions).toEqual([]);
+  });
 });

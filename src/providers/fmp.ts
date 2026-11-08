@@ -159,6 +159,7 @@ export interface FmpQuoteRow extends FmpRawRow {
 
 /** Field evidence supplements the row envelope without relabeling vendor fields. */
 export interface StatementFieldProvenance {
+  primaryCapital?: { definition: "cash-outflow"; source: import("@/edgar/primaryCapital").PrimaryCapitalIdentity; proof: import("@/edgar/primaryCapital").PrimaryCapitalProof };
   source: "edgar";
   unit: string;
   periodStart: string | null;
@@ -184,7 +185,7 @@ export interface StatementFieldConflict {
   secValue: number | null;
   /** False refuses the operand; true retains the observation as an audit trail after resolution. */
   usable: boolean;
-  resolution?: "filed-family" | "minor-retained" | "filed-line";
+  resolution?: "filed-family" | "minor-retained" | "filed-line" | "primary-cash-line";
   cause?: "revenue-scope" | "operating-basis" | "operating-scope" | "borrowing-cost-scope";
   reason: string;
   secEvidence?: StatementFieldProvenance;

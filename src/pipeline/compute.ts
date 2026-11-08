@@ -105,7 +105,7 @@ import {
   type MarketCapPoint,
   type QuoteInput,
 } from "@/pipeline/stageB/capital";
-import { repurchaseExecutionsFromFacts } from "@/pipeline/stageB/repurchaseExecutions";
+import { withPrimaryCapitalBasis, primaryRepurchaseExecutions } from "@/pipeline/primaryCapitalBasis";
 import {
   runForensics,
   FORENSIC_PERIOD_ALIGNMENT_TOLERANCE_DAYS,
@@ -2187,7 +2187,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   const profile = firstRow(bundle.profile);
   const support = classifyInstrumentSupport(profile);
   if (!support.supported) throw new UnsupportedInstrumentError(support);
-  bundle = withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle)))));
+  bundle = withPrimaryCapitalBasis(withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
   bundle = balanceIntegrityView(bundle);
   bundle = preferredCapitalView(bundle);
   const operatingDispositions = operatingDispositionView(bundle);
@@ -2556,12 +2556,7 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
   // D-61: the price actually paid for repurchased shares, from the filer's own
   // equity-statement tags, on the statements' share basis.
   const companyFactsResult = admittedFacts;
-  const repurchaseExecutions = repurchaseExecutionsFromFacts({
-    companyFacts: companyFactsResult?.ok === true ? companyFactsResult.value.data : null,
-    shareBasis: bundle.edgar?.shareBasis ?? null,
-    fiscalYearEnds: cashflowAnnual.map((r) => String(r.date ?? "")).filter((d) => d.length > 0),
-    reportedCurrency: str(cashflowAnnual[0]?.reportedCurrency) ?? str(incomeAnnual[0]?.reportedCurrency),
-  });
+  const repurchaseExecutions = primaryRepurchaseExecutions(bundle, cashflowAnnual.map((r) => String(r.date ?? "")).filter((d) => d.length > 0));
   const annualCapital = computeCapital(
     incomeAnnual.map(toCapitalIncome),
     cashflowAnnual.map(toCapitalCashFlow),
@@ -2587,7 +2582,9 @@ export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig,
       evIncludeLeases,
     },
   );
-  if (annualCapital.buybackPriceAnalysis.totalRepurchased > 0) {
+  const primaryExecutions = repurchaseExecutions.rows.filter(r => r.primaryEvidence !== undefined);
+  if (primaryExecutions.length > 0) annualCapital.primaryRepurchaseExecutions = primaryExecutions;
+  if (annualCapital.buybackPriceAnalysis.totalRepurchased > 0 || primaryExecutions.length > 0) {
     for (const note of repurchaseExecutions.notes) annualCapital.notes.push(note);
   }
 

@@ -15,9 +15,16 @@ export interface PrimaryCapitalProof {
 interface PeriodEvidence { periodStart: string; periodEnd: string; currency: string; scale: number; proof: PrimaryCapitalProof }
 export interface PrimaryRepurchaseCash extends PeriodEvidence { amount: number }
 export interface PrimaryRepurchaseExecution extends PeriodEvidence { shares: number; cost: number }
+export interface PrimaryRepurchaseCostDisclosure {
+  periodStart: string; periodEnd: string; currency: string; amount: number;
+  tag: "PaymentsForRepurchaseOfCommonStock";
+  definition: "total-cost-including-commissions-and-excise-taxes";
+  proof: PrimaryCapitalLocator;
+}
 export interface PrimaryCapitalEvidence {
   version: 1; source: PrimaryCapitalIdentity; cash: PrimaryRepurchaseCash[];
   executions: PrimaryRepurchaseExecution[]; refusals: string[];
+  costDisclosures?: PrimaryRepurchaseCostDisclosure[];
 }
 
 type Structure = NonNullable<ReturnType<typeof primaryDocumentStructure>>;
@@ -64,6 +71,7 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
   if (!structure) { out.refusals.push("Primary capital statements require balanced, source-bound document markup."); return out; }
   const { elements, text, source } = structure;
   const cashCandidates = new Map<string, number>(), executionCandidates = new Map<string, number>();
+  let cashLayoutRefused = false, equityLayoutRefused = false;
   const visible = elements.filter(e => !e.hidden);
   const locator = (e: Element): PrimaryCapitalLocator => ({ start: e.start, end: e.end, text: text(e.start, e.end).slice(0, 600) });
   const rawText = (e: Element): string => decodeEntities(source.slice(e.start, e.end).replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
@@ -106,16 +114,21 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
     if (!cash && !equity) continue;
     const prior = blocks[i - 1];
     if (!prior || owner(text(prior.start, prior.end)) !== owner(identity.entityName)) continue;
+    const refuseLayout = () => { if (cash) cashLayoutRefused = true; else equityLayoutRefused = true; };
     const table = tables.find(t => t.start >= heading.end);
-    if (!table || text(heading.end, table.start).length > 180 || blocks.some(b => b.start > heading.end && b.end < table.start && /STATEMENTS|SCHEDULE/i.test(text(b.start, b.end)))) continue;
+    if (!table || text(heading.end, table.start).length > 180 || blocks.some(b => b.start > heading.end && b.end < table.start && /STATEMENTS|SCHEDULE/i.test(text(b.start, b.end)))) { refuseLayout(); continue; }
     const children = visible.filter(e => e.start > table.start && e.end < table.end);
-    if (children.some(e => e.tag === "table" || Number(e.attrs.get("rowspan") ?? 1) !== 1)) { out.refusals.push("Unsupported primary capital table layout."); continue; }
-    const rows = children.filter(e => e.tag === "tr" && ancestor(e, "table") === table).map(node => ({
-      node, cells: children.filter(e => /^(?:td|th)$/.test(e.tag) && ancestor(e, "tr") === node)
-        .map(node => ({ node, text: text(node.start, node.end) })).filter(c => c.text !== "" && c.text !== "$"),
-    }));
+    if (children.some(e => e.tag === "table" || Number(e.attrs.get("rowspan") ?? 1) !== 1 || !/^(?:[1-9]|[1-9]\d)$/.test(e.attrs.get("colspan") ?? "1"))) { refuseLayout(); out.refusals.push("Unsupported primary capital table layout."); continue; }
+    const rows = children.filter(e => e.tag === "tr" && ancestor(e, "table") === table).map(node => {
+      let column = 0;
+      const cells = children.filter(e => /^(?:td|th)$/.test(e.tag) && ancestor(e, "tr") === node).map(node => {
+        const start = column; column += Number(node.attrs.get("colspan") ?? 1);
+        return { node, text: text(node.start, node.end), columnStart: start, columnEnd: column };
+      }).filter(c => c.text !== "" && c.text !== "$");
+      return { node, cells };
+    });
     const scaleRows = rows.filter(r => /^\((?:(?:USD|EUR|CAD|US dollars) )?[Ii]n (?:millions|thousands)(?:, except (?:common stock )?share data)?\)$/.test(r.cells.map(c => c.text).join(" ")));
-    if (scaleRows.length !== 1) continue;
+    if (scaleRows.length !== 1) { refuseLayout(); continue; }
     const scaleRow = scaleRows[0]!, scaleText = text(scaleRow.node.start, scaleRow.node.end);
     const scale = /millions/.test(scaleText) ? 1e6 : 1e3;
     const explicitCurrency = /\((USD|EUR|CAD|US dollars) /i.exec(scaleText)?.[1]?.replace(/US dollars/i, "USD").toUpperCase();
@@ -133,7 +146,7 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
           !periodContext(attrs.get("contextref") ?? "", start, end, equity)) return null;
       if (isShares) {
         const node = units.get(attrs.get("unitref") ?? "");
-        return node && rawText(node) === "xbrli:shares" && Number(attrs.get("scale") ?? 0) === 0 ? { currency: "shares" } : null;
+        return node && rawText(node) === "xbrli:shares" && Number(attrs.get("scale") ?? 0) === 0 && !(Number(attrs.get("decimals")) < 0) ? { currency: "shares" } : null;
       }
       const result = unit(attrs.get("unitref") ?? "");
       return result && (!explicitCurrency || result.currency === explicitCurrency) && 10 ** Number(attrs.get("scale") ?? 0) === scale ? { currency: result.currency, unit: result.node } : null;
@@ -142,11 +155,11 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
     if (cash) {
       const dateRows = rows.filter(r => new RegExp(`^Year(?:s)? Ended (${MONTH} \\d{1,2}),?$`, "i").test(r.cells.map(c => c.text).join(" ")));
       const yearRows = rows.filter(r => r.cells.length > 0 && r.cells.every(c => /^20\d{2}$/.test(c.text)));
-      if (dateRows.length !== 1 || yearRows.length !== 1) continue;
+      if (dateRows.length !== 1 || yearRows.length !== 1) { refuseLayout(); continue; }
       const dateRow = dateRows[0]!, yearRow = yearRows[0]!;
       const monthDay = new RegExp(`(${MONTH} \\d{1,2})`, "i").exec(text(dateRow.node.start, dateRow.node.end))![1]!;
       const years = yearRow.cells.map(c => Number(c.text));
-      if (years.length > 4 || new Set(years).size !== years.length) continue;
+      if (years.length > 4 || new Set(years).size !== years.length) { refuseLayout(); continue; }
       for (const row of rows.filter(r => r.cells[0]?.text === "Repurchases of common stock")) {
         if (row.cells.length !== years.length + 1) continue;
         for (const [column, year] of years.entries()) {
@@ -154,6 +167,8 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
           if (!end || !previous || end > identity.reportDate) continue;
           cashCandidates.set(end, (cashCandidates.get(end) ?? 0) + 1);
           const start = nextDay(previous), cell = row.cells[column + 1]!, amount = number(cell.text);
+          const header = yearRow.cells[column]!;
+          if (cell.columnStart < header.columnStart || cell.columnEnd > header.columnEnd) continue;
           const validated = validateCell(cell.node, start, end);
           if (amount === null || amount >= 0 || !validated || !annual(start, end)) continue;
           out.cash.push({ periodStart: start, periodEnd: end, amount: Number((Math.abs(amount) * scale).toFixed(2)), currency: validated.currency, scale,
@@ -162,13 +177,13 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
       }
     } else {
       const headers = rows.filter(r => r.cells.length === 6 && r.cells.map(c => c.text).join("|") === "Common Stock|Additional Paid-in Capital|Retained Earnings|Treasury Stock|Non-controlling Interests|Total Equity");
-      if (headers.length !== 1) continue;
+      if (headers.length !== 1) { refuseLayout(); continue; }
       const boundary = new RegExp(`^Balances at (${MONTH} \\d{1,2}, \\d{4})(?: \\(.*\\))?$`, "i");
       const boundaries = rows.flatMap((r, index) => {
         const match = boundary.exec(r.cells[0]?.text ?? ""), date = match ? isoFromMonthDate(match[1]!) : null;
         return date ? [{ row: r, index, date }] : [];
       });
-      if (boundaries.length < 2 || boundaries.length > 5 || boundaries.some((b, n) => n > 0 && !annual(nextDay(boundaries[n - 1]!.date), b.date))) continue;
+      if (boundaries.length < 2 || boundaries.length > 5 || boundaries.some((b, n) => n > 0 && !annual(nextDay(boundaries[n - 1]!.date), b.date))) { refuseLayout(); continue; }
       for (let n = 1; n < boundaries.length; n++) {
         const before = boundaries[n - 1]!, after = boundaries[n]!, start = nextDay(before.date), end = after.date;
         if (end > identity.reportDate) continue;
@@ -176,6 +191,7 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
           if (row.cells[0]?.text.startsWith("Repurchases of common stock")) executionCandidates.set(end, (executionCandidates.get(end) ?? 0) + 1);
           const sharesMatch = /^Repurchases of common stock \(\s*((?:\d{1,3}(?:,\d{3})+|\d+)) shares\s*\)$/.exec(row.cells[0]?.text ?? "");
           if (!sharesMatch || row.cells.length !== 7) continue;
+          if (row.cells.slice(1).some((cell, column) => cell.columnStart < headers[0]!.cells[column]!.columnStart || cell.columnEnd > headers[0]!.cells[column]!.columnEnd)) continue;
           const shares = Number(sharesMatch[1]!.replaceAll(",", "")), values = row.cells.slice(1).map(c => number(c.text));
           // Only the treasury-cost movement is supported. NCI and other equity
           // components must be explicitly zero, with a matching total cost.
@@ -192,7 +208,34 @@ export function primaryCapitalEvidence(document: ParsedDocument, identity: Prima
   // A duplicate statement is ambiguous even when the numbers happen to agree.
   const unique = <T extends { periodEnd: string }>(records: T[], counts: Map<string, number>): T[] => records.filter(r => counts.get(r.periodEnd) === 1);
   if (unique(out.cash, cashCandidates).length !== out.cash.length || unique(out.executions, executionCandidates).length !== out.executions.length) out.refusals.push("Duplicate primary capital rows for the same annual period were withheld.");
-  out.cash = unique(out.cash, cashCandidates); out.executions = unique(out.executions, executionCandidates);
+  out.cash = cashLayoutRefused || out.cash.length > 4 ? [] : unique(out.cash, cashCandidates);
+  out.executions = equityLayoutRefused || out.executions.length > 4 ? [] : unique(out.executions, executionCandidates);
+  // A bulk Payments tag can be attached to a rounded all-in cost in prose.
+  // Prove that actual use in this filing; numerical proximity alone is never
+  // a scope bridge for a conflicting normalized cash-flow observation.
+  const disclosures: PrimaryRepurchaseCostDisclosure[] = [];
+  for (const fact of visible.filter(e => e.tag === "ix:nonfraction" && e.attrs.get("name") === "us-gaap:PaymentsForRepurchaseOfCommonStock")) {
+    let paragraph = fact.parent;
+    while (paragraph && !/^(?:div|p)$/.test(paragraph.tag)) paragraph = paragraph.parent;
+    if (!paragraph || text(paragraph.start, paragraph.end).length > 1500) continue;
+    const prefix = text(paragraph.start, fact.start), suffix = text(fact.end, paragraph.end);
+    const year = /During fiscal (20\d{2}), (?:the Company|we) repurchased [\d,.]+ (?:million )?shares of (?:its|our) common stock at a total cost, including commissions and excise taxes, of \$$/i.exec(prefix)?.[1];
+    const magnitude = /^(million|billion)\b/i.exec(suffix)?.[1]?.toLowerCase();
+    const scale = magnitude === "million" ? 1e6 : magnitude === "billion" ? 1e9 : null;
+    const amount = number(text(fact.start, fact.end)), currency = unit(fact.attrs.get("unitref") ?? "");
+    if (!year || !scale || !currency || amount === null || amount <= 0 || fact.attrs.get("xsi:nil") === "true" ||
+        !/^(?:ixt:num-dot-decimal|ixt:numdotdecimal)?$/.test(fact.attrs.get("format") ?? "") || 10 ** Number(fact.attrs.get("scale") ?? 0) !== scale) continue;
+    const period = out.cash.find(c => c.periodEnd.startsWith(year) && c.currency === currency.currency && periodContext(fact.attrs.get("contextref") ?? "", c.periodStart, c.periodEnd, false));
+    if (!period) continue;
+    disclosures.push({ periodStart: period.periodStart, periodEnd: period.periodEnd, currency: currency.currency, amount: Number((amount * scale).toFixed(2)),
+      tag: "PaymentsForRepurchaseOfCommonStock", definition: "total-cost-including-commissions-and-excise-taxes", proof: locator(paragraph) });
+  }
+  const disclosurePeriods = [...new Set(disclosures.map(d => d.periodEnd))];
+  const resolvedDisclosures = disclosurePeriods.flatMap(end => {
+    const matches = disclosures.filter(d => d.periodEnd === end);
+    return new Set(matches.map(d => `${d.currency}|${d.amount}`)).size === 1 ? [matches[0]!] : [];
+  });
+  if (resolvedDisclosures.length) out.costDisclosures = resolvedDisclosures;
   if (out.cash.length === 0) out.refusals.push("No unambiguous annual parent-common cash repurchase row with supported currency and period.");
   if (out.executions.length === 0) out.refusals.push("No unambiguous annual parent-common share and equity-cost pair within explicit annual bounds.");
   return out;

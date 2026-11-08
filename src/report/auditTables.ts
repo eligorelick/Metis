@@ -64,6 +64,10 @@ export function factorContributionSensitivityTable(scores: Scoring): ReportAudit
 
 export function scoreAuditTables(scores: Scoring): ReportAuditTable[] {
   const tables: ReportAuditTable[] = [];
+  const primaryOperands = (scores.aspects.leadership.signals ?? []).filter(s => s.id === "buybackTiming").flatMap(s =>
+    s.operands.filter(o => /^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\//.test(o.source)).map(o => [o.name, n(o.value, 6), o.asOf ?? "unavailable", o.source]));
+  if (primaryOperands.length) tables.push({ heading: "Primary repurchase execution sources", headers: ["Operand", "Value", "Period end", "Primary filing"], rows: primaryOperands,
+    note: "Price paid uses the filed equity cost and repurchased-share count on the established share basis. Cash outflow and market-average price are separate operands; existing coverage and plausibility requirements still apply." });
   if (scores.assessments) {
     const a = scores.assessments;
     tables.push({ heading: "Assessment dimensions", headers: ["Dimension", "Score / band", "Meaning"], rows: [

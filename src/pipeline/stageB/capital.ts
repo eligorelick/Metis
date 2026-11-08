@@ -142,7 +142,7 @@ export interface CapitalOptions {
    * filer's XBRL equity-statement tags, on the current share basis
    * (repurchaseExecutions.ts). Absent ⇒ buyback timing is not measurable.
    */
-  repurchaseExecutions?: ReadonlyArray<Pick<RepurchaseExecution, "periodEnd" | "shares" | "value" | "sharesTag" | "valueTag">>;
+  repurchaseExecutions?: ReadonlyArray<Pick<RepurchaseExecution, "periodEnd" | "shares" | "value" | "sharesTag" | "valueTag" | "primaryEvidence">>;
   /**
    * AMZN audit 2026-10-20, finding 20 (b): the enterprise value's lease basis
    * (THESIS_EV_INCLUDE_LEASES). False takes the operating-lease liability out
@@ -214,6 +214,7 @@ export interface CapexYearRow {
 }
 
 export interface BuybackYearRow {
+  executionEvidence?: RepurchaseExecution["primaryEvidence"];
   date: string;
   /** Dollars spent on buybacks that fiscal year (positive). */
   repurchased: number;
@@ -245,6 +246,8 @@ export interface ShareCountTrend {
 }
 
 export interface CapitalResult {
+  /** Admitted primary execution pairs, including years whose market/cash comparison is refused. */
+  primaryRepurchaseExecutions?: RepurchaseExecution[];
   /** Current comparable flow/balance window used in capital grading. Annual series remain historical. */
   current?: CurrentCapitalSnapshot;
   /** Latest statement date used — provenance anchor. */
@@ -1172,6 +1175,7 @@ export function computeCapital(
         avgPriceProxy,
         sharesProxy,
         ...(execution !== undefined ? { actualPricePaid, paidVsYearAveragePct } : {}),
+        ...(execution?.primaryEvidence ? { executionEvidence: execution.primaryEvidence } : {}),
         note: rowNotes.length > 0 ? rowNotes.join("; ") : undefined,
       });
     }
@@ -1182,7 +1186,7 @@ export function computeCapital(
   if (timingCoveragePct !== null && timingCoveragePct >= BUYBACK_TIMING_MIN_COVERAGE_PCT) {
     timingPct = (timingAtYearAverage / timingCost - 1) * 100;
     notes.push(
-      `buyback timing: the shares actually repurchased would have cost ${fmt(timingPct)}% ${timingPct >= 0 ? "more" : "less"} at each fiscal year's average price than was paid (tagged cost ÷ tagged shares; ${fmt(timingCoveragePct)}% of repurchase dollars covered)` +
+      `buyback timing: the shares actually repurchased would have cost ${fmt(timingPct)}% ${timingPct >= 0 ? "more" : "less"} at each fiscal year's average price than was paid (${buybackYears.some(y => y.executionEvidence) ? "filed equity cost ÷ filed shares" : "tagged cost ÷ tagged shares"}; ${fmt(timingCoveragePct)}% of repurchase dollars covered)` +
         (unpricedExecutionYears.length > 0
           ? `; no year-average price for ${unpricedExecutionYears.join(", ")} (${[...unpricedReasons].join("; ")}), so those years are left out`
           : ""),
