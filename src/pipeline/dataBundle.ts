@@ -7,6 +7,7 @@ import { quotePriceObservationDay } from "@/providers/fmp";
 import { parsePrimaryEconomicShares, economicEvidenceFromInventories, type FilingEconomicShares } from "@/edgar/economicShares";
 import { parsePrimaryCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { parseEquityStatementNci, type FilingEquityStatementNci } from "@/edgar/equityStatementNci";
+import { primaryCapitalEvidence } from "@/edgar/primaryCapital";
 /**
  * Stage A composition root: buildDataBundle(symbol) — turns a ticker into the
  * DataBundle everything downstream consumes .
@@ -1049,7 +1050,12 @@ async function runExtraction(
  * no substantive heading is found, retain the proved and bounded financial
  * item under its broader identity. Unproved items remain explicit gaps.
  */
-function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>, symbol: string, source?: ParsedDocument): FetchResult<ExtractedSection> {
+function capitalFromSource(source: ParsedDocument | undefined, cik: number, entityName: string, section: Pick<ExtractedSection, "accession" | "form" | "filingDate" | "reportDate" | "documentUrl">, observedAt: string): Pick<ExtractedSection, "primaryCapitalEvidence"> {
+  return source ? { primaryCapitalEvidence: primaryCapitalEvidence(source, { cik: String(cik), entityName, ...section, observedAt }) } : {};
+}
+
+function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>, symbol: string, source: ParsedDocument | undefined, cik: number, entityName: string): FetchResult<ExtractedSection> {
+  result = { ...result, value: { ...result.value, data: { ...result.value.data, ...capitalFromSource(source, cik, entityName, result.value.data, result.value.fetchedAt) } } };
   const notes = notesToFinancialStatements(result.value.data.text, source);
   if (notes === null) {
     const item = financialStatementsAndNotes(result.value.data.text, source);
@@ -1071,7 +1077,7 @@ function notesOnly(result: Extract<FetchResult<ExtractedSection>, { ok: true }>,
  * ending at the schedules or exhibit index.
  */
 async function annualNotes(
-  edgar: EdgarClient, cik: number, filing: EdgarFiling, docUrl: string, html: string, fetchedAt: string, symbol: string, parsed: ParsedDocument | undefined,
+  edgar: EdgarClient, cik: number, filing: EdgarFiling, docUrl: string, html: string, fetchedAt: string, symbol: string, parsed: ParsedDocument | undefined, entityName: string,
 ): Promise<FetchResult<ExtractedSection>> {
   if (filing.form === "20-F") {
     let source = { html, url: docUrl, fetchedAt };
@@ -1091,15 +1097,19 @@ async function annualNotes(
         sectionName: "tenKNotes", text: notes.text, chars: notes.text.length, method: notes.method,
         ...(notes.financialTextScope ? { financialTextScope: notes.financialTextScope } : {}),
         accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reportDate: asOf, documentUrl: source.url,
+        ...capitalFromSource(source.url === docUrl && parsed ? parsed : parseDocument(source.html), cik, entityName,
+          { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reportDate: asOf, documentUrl: source.url }, source.fetchedAt),
       } } };
   }
   const tried: string[] = [];
   const sources = new Map<string, ParsedDocument>();
   let financialItem: Extract<FetchResult<ExtractedSection>, { ok: true }> | undefined;
   for (const item of ["8", "15"] as const) {
-    const section = await runExtraction(edgar, cik, filing, docUrl, html, fetchedAt,
+    let section = await runExtraction(edgar, cik, filing, docUrl, html, fetchedAt,
       { member: "tenKNotes", sectionName: "tenKNotes", spec: { form: "10-K", item }, failSeverity: "warn" }, symbol, parsed, undefined, sources);
     if (!section.ok) { tried.push(`Item ${item}: ${section.gap.reason}`); continue; }
+    section = { ...section, value: { ...section.value, data: { ...section.value.data,
+      ...capitalFromSource(sources.get(section.value.data.documentUrl), cik, entityName, section.value.data, section.value.fetchedAt) } } };
     const notes = annualNotesToFinancialStatements(section.value.data.text, sources.get(section.value.data.documentUrl), item);
     if (notes === null) {
       tried.push(`Item ${item}: no substantive notes opening proved`);
@@ -1123,6 +1133,8 @@ async function annualNotes(
       data: { sectionName: "tenKNotes", text: redirect.text, chars: redirect.text.length, method: redirect.method,
         accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reportDate: asOf,
         documentUrl: docUrl, annualNotesRedirect: redirect.evidence,
+        ...capitalFromSource(parsed ?? parseDocument(html), cik, entityName,
+          { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reportDate: asOf, documentUrl: docUrl }, fetchedAt),
         ...financialStatementText(redirect.statementsText ?? "", PERIODIC_STATEMENTS_CHARS, parsed) } } };
   }
   if (financialItem) return financialItem;
@@ -1457,7 +1469,7 @@ async function buildEdgarBundle(
             tenKNotes = notesMs > edgarSectionBudgetMs
                 ? gapResult(`edgar.tenKNotes(${symbol})`, `${filing.form} notes skipped: parsing and the earlier sections took ${Math.round(notesMs / 1000)}s, ` +
                   `exceeding the ${Math.round(edgarSectionBudgetMs / 1000)}s per-filing extraction budget.`, "warn", [docUrl])
-                : await annualNotes(edgar, cik, filing, docUrl, html, doc.value.fetchedAt, symbol, parsedDoc);
+                : await annualNotes(edgar, cik, filing, docUrl, html, doc.value.fetchedAt, symbol, parsedDoc, sub.value.data.name);
           } else {
             withBusiness(`annual filing is Form ${filing.form}, which has no itemised business section`, "info", [docUrl]);
           }
@@ -1518,7 +1530,7 @@ async function buildEdgarBundle(
           const statements = await runExtraction(edgar, cik, filing, docUrl, doc.value.data, doc.value.fetchedAt,
             { member: "tenQNotes", sectionName: "tenQNotes", spec: { form: "10-Q", item: "1", part: 1 }, failSeverity: "warn" },
             symbol, parsedQ, undefined, noteSources);
-          tenQNotes = statements.ok ? notesOnly(statements, symbol, noteSources.get(statements.value.data.documentUrl)) : statements;
+          tenQNotes = statements.ok ? notesOnly(statements, symbol, noteSources.get(statements.value.data.documentUrl), cik, sub.value.data.name) : statements;
           const signaturesText = periodicSignatureText(parsedQ.fullText);
           if (tenQNotes.ok && signaturesText !== null) tenQNotes = { ...tenQNotes, value: { ...tenQNotes.value,
             data: { ...tenQNotes.value.data, signaturesText } } };
