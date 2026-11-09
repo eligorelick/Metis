@@ -13,8 +13,10 @@
  *   { "approvals": [{ "case": "nvda-data-only", "file": "report.md",
  *       "before": "<sha256>", "after": "<sha256>", "reason": "why", "decision": "optional" }] }
  *
- * A changed manifest field (payloadFingerprint, route, …) is approved the same
- * way, with the field name as "file" and its JSON-encoded values as before/after.
+ * A file present in only one run is approved the same way, with "missing" as
+ * the hash on the side where it does not exist. A changed manifest field
+ * (payloadFingerprint, route, …) is approved with the field name as "file" and
+ * its JSON-encoded values as before/after.
  *
  * An approval that matches no difference is also an error, so the list stays exact.
  */
@@ -26,6 +28,9 @@ import { comparePaths, diffPaths, type AuditJsonValue } from "../../tests/helper
 import type { GoldenCaseEntry, GoldenManifest } from "./run";
 
 interface Approval { case: string; file: string; before: string; after: string; reason: string; decision?: string }
+
+/** The hash recorded for an output file that one run did not produce. */
+const MISSING = "missing";
 
 const COMPARED_FIELDS = ["status", "error", "snapshot", "analystOutput", "route", "overlays", "clock", "payloadFingerprint", "reportPath", "reportSchema", "readMode", "notes"] as const;
 
@@ -141,21 +146,22 @@ function main(argv: string[]): void {
     const files = [...new Set([...Object.keys(x.files ?? {}), ...Object.keys(y.files ?? {})])];
     for (const file of files) {
       fileCount++;
-      const before = x.files?.[file];
-      const after = y.files?.[file];
+      const before = x.files?.[file] ?? MISSING;
+      const after = y.files?.[file] ?? MISSING;
       if (before === after) continue;
+      const change = before === MISSING ? "added" : after === MISSING ? "removed" : "changed";
       const approval = approvals.find((entry) => entry.case === id && entry.file === file && entry.before === before && entry.after === after);
       if (approval) {
         used.add(approval);
         approvedCount++;
-        out.push(`  ${id}/${file}: changed, approved — ${approval.reason}${approval.decision ? ` (${approval.decision})` : ""}`);
+        out.push(`  ${id}/${file}: ${change}, approved — ${approval.reason}${approval.decision ? ` (${approval.decision})` : ""}`);
       } else {
         unapproved++;
-        out.push(`  ${id}/${file}: CHANGED ${before?.slice(0, 12) ?? "(missing)"} -> ${after?.slice(0, 12) ?? "(missing)"}`);
+        out.push(`  ${id}/${file}: ${change.toUpperCase()} ${before.slice(0, 12)} -> ${after.slice(0, 12)}`);
       }
       const beforeFile = path.join(args.before, id, file);
       const afterFile = path.join(args.after, id, file);
-      if (before && after && fs.existsSync(beforeFile) && fs.existsSync(afterFile)) {
+      if (change === "changed" && fs.existsSync(beforeFile) && fs.existsSync(afterFile)) {
         out.push(...(file.endsWith(".json") ? jsonLeafDiff(beforeFile, afterFile, args.lines) : textDiff(beforeFile, afterFile, args.lines)));
       }
     }
