@@ -2,7 +2,7 @@
 
 Use this prompt in a Codex chat attached to the **Metis production repository**. It implements the redesign described in the [full production UI plan](superpowers/plans/2026-10-24-production-ui-integration.md), with explicit checks that preserve research meaning and existing functionality.
 
-Copy the entire block below as one message. It starts with `/goal` followed by the objective, matching the documented [Codex Goals command](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex). A plain-text copy is available in [metis-ui-codex-goal.txt](metis-ui-codex-goal.txt). This document does not itself start a goal.
+Copy the entire block below as one message. It starts with `/goal` followed by the objective, matching the documented [Codex Goals command](https://developers.openai.com/cookbook/examples/codex/using_goals_in_codex). This document does not itself start a goal.
 
 This repository copy uses portable placeholders for private reference locations. Resolve them from the local execution record before reuse, or attach the plan, design rationale and portable prototype and substitute their available paths. The original local handoff contains machine-specific paths. Do not implement from an inaccessible reference or screenshots alone. No token budget is specified; choose one separately only if you want a limit.
 
