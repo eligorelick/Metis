@@ -2,7 +2,6 @@ import "server-only";
 import { getConfig } from "@/config/env";
 import { readAiStore, withAiStore } from "./store";
 import { chatGptPending } from "./chatgpt";
-import { geminiExecutable, geminiPending } from "./gemini";
 import { claudeExecutable } from "./claude";
 import { getWritableSettingsAuthority } from "@/settings/settings";
 import { buildAnalysisRoute, type AnalysisRoute } from "./analysisRoute";
@@ -22,9 +21,10 @@ export function selectionIsConnected(selection: AiSelection): boolean {
   if (selection.provider === "none") return false;
   if (selection.provider === "anthropic") return getConfig().hasAnthropicKey;
   const store = readAiStore();
-  if (selection.provider === "gemini") return store?.gemini?.id === selection.connectionId && store.gemini.connected && geminiExecutable() !== null;
   if (selection.provider === "claude") return store?.claude?.id === selection.connectionId && store.claude.connected && claudeExecutable() !== null;
-  return store?.profiles.some((p) => p.id === selection.connectionId && p.tokens?.scopes.includes("chatgpt.tokens.use.direct")) ?? false;
+  if (selection.provider === "chatgpt") return store?.profiles.some((p) => p.id === selection.connectionId && p.tokens?.scopes.includes("chatgpt.tokens.use.direct")) ?? false;
+  // A selection saved for the removed Gemini CLI route is never connected.
+  return false;
 }
 
 /** The route a report would run on right now: the same selection and settings the job runner captures. */
@@ -35,13 +35,11 @@ export function describeAnalysisRoute(): AnalysisRoute {
 
 export function connectionsView(): AiConnectionsView {
   const store = readAiStore();
-  const google = geminiPending(); const openai = chatGptPending();
-  return { selectionIsDefault: !store || store.selectionIsDefault === true, selection: captureAiSelection(), hasAnthropicKey: getConfig().hasAnthropicKey, geminiInstalled: geminiExecutable() !== null,
+  return { selectionIsDefault: !store || store.selectionIsDefault === true, selection: captureAiSelection(), hasAnthropicKey: getConfig().hasAnthropicKey,
     claudeInstalled: claudeExecutable() !== null,
-    pending: google?.status === "waiting" ? google : openai?.status === "waiting" ? openai : google ?? openai,
+    pending: chatGptPending(),
     connections: [
       ...(store?.profiles ?? []).map((p, index) => ({ id: p.id, provider: "chatgpt" as const, label: `${p.email ?? "ChatGPT account"} · connection ${index + 1}`, connected: !!p.tokens, planEnabled: p.tokens?.scopes.includes("chatgpt.tokens.use.direct") ?? false })),
-      ...(store?.gemini ? [{ id: store.gemini.id, provider: "gemini" as const, label: "Google account in Metis's Gemini CLI", connected: store.gemini.connected, planEnabled: store.gemini.connected }] : []),
       ...(store?.claude ? [{ id: store.claude.id, provider: "claude" as const, label: "Your local Claude Code account", connected: store.claude.connected, planEnabled: store.claude.connected }] : []),
     ] };
 }
@@ -52,7 +50,7 @@ export async function selectConnection(input: unknown): Promise<void> {
   if (s.provider === "none" || s.provider === "anthropic") {
     await withAiStore((store) => { store.selection = { provider: s.provider as "none" | "anthropic" }; delete store.selectionIsDefault; }); return;
   }
-  if ((s.provider !== "chatgpt" && s.provider !== "gemini" && s.provider !== "claude") || typeof s.connectionId !== "string" || !validModelId(s.model)) throw new Error("Choose a connection and a valid model");
+  if ((s.provider !== "chatgpt" && s.provider !== "claude") || typeof s.connectionId !== "string" || !validModelId(s.model)) throw new Error("Choose a connection and a valid model");
   if (s.effort !== undefined && ((s.provider !== "chatgpt" && s.provider !== "claude") || !CHATGPT_EFFORTS.includes(s.effort as ChatGptEffort))) throw new Error("Choose a supported reasoning effort");
   if (s.serviceTier !== undefined && (s.provider !== "chatgpt" || (s.serviceTier !== "default" && s.serviceTier !== "fast"))) throw new Error("Choose Standard or Fast for ChatGPT");
   if (s.serviceTier === "fast" && !chatGptFastOffered(s.model)) throw new Error("OpenAI does not offer Fast for this model. Choose Standard, or a model OpenAI lists for Fast.");
@@ -61,8 +59,7 @@ export async function selectConnection(input: unknown): Promise<void> {
     ...(s.serviceTier === undefined ? {} : { serviceTier: s.serviceTier as "default" | "fast" }),
   };
   await withAiStore((store) => {
-    const connected = selection.provider === "gemini" ? store.gemini?.id === selection.connectionId && store.gemini.connected
-      : selection.provider === "claude" ? store.claude?.id === selection.connectionId && store.claude.connected && claudeExecutable() !== null
+    const connected = selection.provider === "claude" ? store.claude?.id === selection.connectionId && store.claude.connected && claudeExecutable() !== null
       : store.profiles.some((p) => p.id === selection.connectionId && p.tokens?.scopes.includes("chatgpt.tokens.use.direct"));
     if (!connected) throw new Error("Connect this account before selecting it");
     store.selection = selection;

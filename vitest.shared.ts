@@ -37,7 +37,6 @@ export const RISK_SOURCE_MANIFEST = [
   "src/ai/connections.ts",
   "src/ai/contracts.ts",
   "src/ai/fingerprint.ts",
-  "src/ai/gemini.ts",
   "src/ai/mutex.ts",
   "src/ai/providerFailure.ts",
   "src/components/charts/plotData.ts",

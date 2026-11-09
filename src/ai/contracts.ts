@@ -42,7 +42,6 @@ export interface AiConnectionsView {
   selection: AiSelection;
   connections: AiConnectionSummary[];
   hasAnthropicKey: boolean;
-  geminiInstalled: boolean;
   claudeInstalled?: boolean;
   pending: { status: "waiting" | "connected" | "error"; message: string; url?: string } | null;
 }

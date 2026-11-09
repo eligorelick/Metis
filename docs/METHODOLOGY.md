@@ -5107,7 +5107,7 @@ cited figures the verification log marks contradicted (a value mismatch). These
 are the records the audit export prints. When a figure
 is counted, the count names the split, as in "1 contradicted (1 cited figure, 0
 prose claims)". The audit export's prose-claim sentence still counts prose
-claims only. Gemini passes and tool-free ChatGPT passes use the supplied
+claims only. Local Claude CLI passes and tool-free ChatGPT passes use the supplied
 evidence. ChatGPT analysts can also conduct separate hosted research (D-211).
 When a plan pass ran, the report
 header and run details carry an Evidence line, for example "bull, bear and judge
@@ -8354,7 +8354,7 @@ writer reports its own tokens; completed action counts are retained separately.
 Research origin survives checkpoint reuse,
 even when a search returned no URLs. Execution metadata distinguishes reused
 research from new actions. Old stored reports without these fields retain their
-historical interpretation. Gemini remains payload-only; Claude keeps its existing
+historical interpretation. Claude keeps its existing
 bounded API research. See [OpenAI plan capability limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
 
 Research instructions prefer issuer documents, SEC filings, regulators, official

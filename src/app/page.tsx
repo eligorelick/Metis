@@ -264,7 +264,7 @@ export default async function Home() {
             <KeyRow
               name="ANTHROPIC_API_KEY"
               configured={config.hasAnthropicKey}
-              detail="optional paid Claude analysis + web search; ChatGPT and Gemini sign-in are available in Settings"
+              detail="optional paid Claude analysis + web search; ChatGPT sign-in is available in Settings"
             />
           </div>
         </Panel>

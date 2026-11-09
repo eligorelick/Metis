@@ -1,9 +1,8 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import type { RunPassArgs } from "@/pipeline/stageC/passes";
-const fake = vi.hoisted(() => ({ access: vi.fn(), connected: true, controller: null as AbortController | null, release: vi.fn(), gemini: vi.fn() }));
+const fake = vi.hoisted(() => ({ access: vi.fn(), connected: true, controller: null as AbortController | null, release: vi.fn() }));
 vi.mock("@/ai/chatgpt", () => ({ chatGptAccess: fake.access, chatGptConnected: () => fake.connected,
   trackChatGptRequest: () => ({ signal: fake.controller!.signal, release: fake.release }) }));
-vi.mock("@/ai/gemini", () => ({ runGemini: fake.gemini }));
 import { consumeChatGptStream, listChatGptModels, runSubscriptionPass, subscriptionMessages } from "@/ai/transport";
 const args: RunPassArgs = { model: "chatgpt/example", system: "research", messages: [{ role: "user", content: "evidence" }], maxTokens: 100 };
 const completed = { type: "response.completed", response: { status: "completed", model: "example", usage: { input_tokens: 3, output_tokens: 2 }, output: [{ type: "message", content: [{ type: "output_text", text: "{}" }] }] } };
@@ -11,7 +10,7 @@ const event = (data: unknown) => new Response(`data: ${JSON.stringify(data)}\n\n
 let remote: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   vi.clearAllMocks(); fake.controller = new AbortController(); fake.connected = true;
-  fake.access.mockReset().mockResolvedValue("fake-access"); fake.gemini.mockReset();
+  fake.access.mockReset().mockResolvedValue("fake-access");
   remote = vi.fn(async () => event(completed)); vi.stubGlobal("fetch", remote);
 });
 afterEach(() => vi.unstubAllGlobals());
@@ -120,11 +119,10 @@ describe("provider dispatch and catalog lifecycle", () => {
     const [, options] = remote.mock.calls[0] as unknown as [string, RequestInit];
     expect(options.cache).toBe("no-store");
   });
-  it("normalizes the official Gemini result without recording API spend or fetched URLs", async () => {
-    fake.gemini.mockResolvedValue({ text: '```json\n{"ok":true}\n```', model: "gemini-example", input: 4, output: 5 });
+  it("refuses a model saved for the removed Gemini CLI route without calling any provider", async () => {
     const result = await runSubscriptionPass({ ...args, model: "gemini/auto" }, "google");
-    expect(result.ok).toBe(true);
-    if (result.ok) { expect(result.value.data.costUsd).toBe(0); expect(result.value.data.fetchedUrls).toEqual([]); expect(result.value.data.model).toBe("gemini/gemini-example"); }
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatchObject({ costUsd: 0, fallbackUsed: false, message: "Invalid subscription provider model" });
     expect(remote).not.toHaveBeenCalled();
   });
   it("never calls a provider after cancellation or disconnect and sanitizes unexpected errors", async () => {
@@ -133,10 +131,10 @@ describe("provider dispatch and catalog lifecycle", () => {
     fake.connected = true; fake.controller!.abort();
     expect((await runSubscriptionPass(args, "account")).ok).toBe(false); expect(remote).not.toHaveBeenCalled();
     const signal = AbortSignal.abort();
-    const canceled = await runSubscriptionPass({ ...args, model: "gemini/auto", signal }, "google");
+    const canceled = await runSubscriptionPass({ ...args, signal }, "account");
     expect(canceled.ok).toBe(false); if (!canceled.ok) expect(canceled.error.aborted).toBe(true);
-    fake.gemini.mockRejectedValue(new Error("private token"));
-    expect(JSON.stringify(await runSubscriptionPass({ ...args, model: "gemini/auto" }, "google"))).not.toContain("private token");
+    fake.controller = new AbortController(); fake.access.mockRejectedValueOnce(new Error("private token"));
+    expect(JSON.stringify(await runSubscriptionPass(args, "account"))).not.toContain("private token");
     await expect(runSubscriptionPass({ ...args, model: "invalid" }, "account")).rejects.toThrow("Invalid subscription");
   });
   it("filters the account model catalog and rejects inaccessible or malformed catalogs", async () => {

@@ -14,7 +14,7 @@ vi.mock("@/ai/store", () => ({
 import { claudeExecutable, connectClaude, runClaude, disconnectClaude } from "@/ai/claude";
 const result = { type: "result", subtype: "success", result: "{}", modelUsage: { "claude-sonnet-5-5": { inputTokens: 2, outputTokens: 1 } } };
 beforeEach(() => {
-  fake.store = { version: 1, hostId: "urn:uuid:test", profiles: [], gemini: null, selection: { provider: "none" } };
+  fake.store = { version: 1, hostId: "urn:uuid:test", profiles: [], selection: { provider: "none" } };
   fake.login.email = "one@example.test"; fake.hang = false; fake.native = true; fake.npm = false; fake.version = "2.1.319 (Claude Code)"; fake.launchError = false;
   fake.spawn.mockReset().mockImplementation((_command: string, args: string[]) => {
     const child = Object.assign(new EventEmitter(), { stdin: new PassThrough(), stdout: new PassThrough(), stderr: new PassThrough(), exitCode: null as number | null, signalCode: null as string | null,

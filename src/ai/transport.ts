@@ -3,7 +3,6 @@ import { chatGptFailureContext, type ProviderFailure } from "./providerFailure";
 import type { PassUsage, RunPassArgs, RunPassOutcome } from "@/pipeline/stageC/passes";
 import { canonicalizeFetchedUrl } from "@/pipeline/stageC/provenance";
 import { chatGptAccess, trackChatGptRequest, chatGptConnected } from "./chatgpt";
-import { runGemini } from "./gemini";
 import { runClaude } from "./claude";
 import { AI_RUNTIME_CONFLICT_HELP, isAiRuntimeConflict } from "./store";
 import { PassSettlementHookError } from "@/pipeline/jobArtifacts";
@@ -422,14 +421,14 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
     } else if (parsed.provider === "claude") {
       result = await runClaude(connectionId, parsed.model, messages.map((m) => `${m.role}:\n${m.content}`).join("\n\n"), args.signal, options.effort);
     } else {
-      result = await runGemini(connectionId, parsed.model, messages.map((m) => `${m.role}:\n${m.content}`).join("\n\n"), args.signal);
+      throw new Error("Invalid subscription provider model");
     }
     const usage: PassUsage = { input_tokens: result.input, output_tokens: result.output,
       ...(result.webSearches === undefined ? {} : { server_tool_use: { web_search_requests: result.webSearches } }) };
     const model = subscriptionModel(parsed.provider, result.model);
     return { ok: true, value: { data: { model, usage, costUsd: 0, fallbackUsed: false, fetchedUrls: result.fetchedUrls ?? [],
       ...(result.fetchedSources === undefined ? {} : { fetchedSources: result.fetchedSources, researchText: result.researchText }),
-      execution: { requestedModel: args.model, requestedEffort: parsed.provider !== "gemini" ? options.effort ?? null : null,
+      execution: { requestedModel: args.model, requestedEffort: options.effort ?? null,
         modelObserved: true, usageReported: true,
         effectiveEffort: result.effort ?? null,
         ...(result.observedModels === undefined ? {} : { observedModels: result.observedModels }),
@@ -444,7 +443,7 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
     const invalidTools = error instanceof SubscriptionToolConfigurationError;
     const reason = runtimeConflict
       ? `${(error as Error).message} ${AI_RUNTIME_CONFLICT_HELP}`
-      : error instanceof Error && /^(ChatGPT|Gemini|Claude|Invalid completed|Invalid subscription)/.test(error.message)
+      : error instanceof Error && /^(ChatGPT|Claude|Invalid completed|Invalid subscription)/.test(error.message)
         ? error.message : `${parsed.provider} pass failed or was canceled. No paid fallback was attempted.`;
     return { ok: false, gap: { field, reason, severity: "critical", attemptedSources: [parsed.provider] },
       error: { kind: "transport", message: reason, model: observed?.model ? subscriptionModel(parsed.provider, observed.model) : args.model, costUsd: 0, fallbackUsed: false, aborted: args.signal?.aborted === true,
@@ -456,7 +455,7 @@ export async function runSubscriptionPass(args: RunPassArgs, connectionId: strin
           ...(observed.webSearches === undefined ? {} : { server_tool_use: { web_search_requests: observed.webSearches } }) } } : {}),
         ...(observed?.webSearches === undefined ? {} : { webSearches: observed.webSearches }),
         ...(observed?.partialText ? { partialText: observed.partialText } : {}),
-        execution: { requestedModel: args.model, requestedEffort: parsed.provider !== "gemini" ? options.effort ?? null : null, effectiveEffort: observed?.effort ?? null,
+        execution: { requestedModel: args.model, requestedEffort: options.effort ?? null, effectiveEffort: observed?.effort ?? null,
           modelObserved: observed?.model !== undefined, usageReported: observed?.usage !== undefined,
           ...(parsed.provider === "chatgpt" ? { requestedServiceTier: options.serviceTier ?? "default", effectiveServiceTier: observed?.serviceTier ?? null,
             webSearches: observed?.webSearches ?? 0, webResearchUsed: (observed?.webSearches ?? 0) > 0 } : {}),

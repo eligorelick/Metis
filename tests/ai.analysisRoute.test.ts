@@ -6,14 +6,12 @@ import type { AiStore } from "@/ai/store";
 const fake = vi.hoisted(() => ({
   store: null as AiStore | null,
   key: false,
-  cli: null as string | null,
   settings: { analysisModel: "claude-opus-5-5", analysisEffort: "max" } as { analysisModel: string; analysisEffort: string },
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/ai/store", () => ({ readAiStore: () => fake.store, withAiStore: async (fn: (s: AiStore) => unknown) => fn(fake.store!) }));
 vi.mock("@/config/env", () => ({ getConfig: () => ({ hasAnthropicKey: fake.key }) }));
 vi.mock("@/ai/chatgpt", () => ({ chatGptPending: () => null }));
-vi.mock("@/ai/gemini", () => ({ geminiExecutable: () => fake.cli, geminiPending: () => null }));
 vi.mock("@/settings/settings", () => ({ getWritableSettingsAuthority: () => ({ state: fake.settings }) }));
 
 import { describeAnalysisRoute } from "@/ai/connections";
@@ -24,14 +22,14 @@ import { modelSupportsEffort } from "@/report/execution";
 const GRANT = ["chatgpt.tokens.use.direct"];
 function chatgptStore(connected: boolean, selection: AiStore["selection"]): AiStore {
   return fake.store = {
-    version: 1, hostId: "urn:uuid:fixture", gemini: null, selection,
+    version: 1, hostId: "urn:uuid:fixture", selection,
     profiles: [{ id: "p", clientId: "oaiapp_secret_client", email: "owner@example.test",
       ...(connected ? { tokens: { access: "ACCESS-TOKEN-XYZ", refresh: "REFRESH-TOKEN-XYZ", id: "ID-TOKEN-XYZ", expiresAt: 1, scopes: GRANT } } : {}) }],
   } as AiStore;
 }
 
 beforeEach(() => {
-  fake.store = null; fake.key = false; fake.cli = null;
+  fake.store = null; fake.key = false;
   fake.settings = { analysisModel: "claude-opus-5-5", analysisEffort: "max" };
 });
 
@@ -92,12 +90,9 @@ describe("describeAnalysisRoute", () => {
     expect(route.ready).toBe(false);
     expect(route.label).toBe("ChatGPT plan · sign-in needed");
   });
-  it("describes Gemini ready and not ready", () => {
-    const store = chatgptStore(false, { provider: "gemini", connectionId: "g", model: "auto" });
-    store.gemini = { id: "g", connected: true };
-    expect(describeAnalysisRoute()).toMatchObject({ provider: "gemini", model: "auto", effort: null, ready: false, label: "Gemini · sign-in needed" });
-    fake.cli = "official";
-    expect(describeAnalysisRoute()).toMatchObject({ ready: true, label: "Gemini · auto" });
+  it("never marks a selection saved for the removed Gemini CLI route ready", () => {
+    chatgptStore(true, { provider: "gemini", connectionId: "p", model: "auto" });
+    expect(describeAnalysisRoute()).toMatchObject({ provider: "gemini", ready: false });
   });
   it("describes AI off", () => {
     chatgptStore(false, { provider: "none" });
@@ -112,7 +107,6 @@ describe("describeAnalysisRoute", () => {
     const settings = { analysisModel: "claude-opus-5-5", analysisEffort: "max" } as const;
     chatgptStore(true, { provider: "chatgpt", connectionId: "p", model: "gpt-6.1-sol" });
     expect(requestedAnalysisModel(fake.store!.selection, settings.analysisModel)).toBe("chatgpt/gpt-6.1-sol");
-    expect(requestedAnalysisModel({ provider: "gemini", connectionId: "g", model: "auto" }, settings.analysisModel)).toBe("gemini/auto");
     expect(requestedAnalysisModel({ provider: "anthropic" }, settings.analysisModel)).toBe("claude-opus-5-5");
     expect(describeAnalysisRoute().model).toBe("gpt-6.1-sol");
   });

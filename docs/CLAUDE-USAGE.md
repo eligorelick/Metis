@@ -10,7 +10,7 @@ when reviewing that snapshot.
 
 ## Select the report connection first
 
-**Settings → AI connections** chooses AI off, Claude API, ChatGPT, or Gemini.
+**Settings → AI connections** chooses AI off, Claude API, or ChatGPT.
 Connecting an account does not generate a report. Save the desired report
 connection after selecting its model and, for ChatGPT, effort and speed.
 
@@ -19,7 +19,6 @@ connection after selecting its model and, for ChatGPT, effort and speed.
 | AI off | Fetch, validate and calculate locally; save a data-only report | No inference charge |
 | Claude API | `ANTHROPIC_API_KEY`; Anthropic Messages API | USD estimated from provider usage and the registry, or conservative presumed spend |
 | ChatGPT | Browser OAuth; OpenAI Responses API through the connected account | `$0` API cost; reported input/output tokens and execution evidence |
-| Gemini | Separately installed official Gemini CLI **0.36.x**, Google OAuth | `$0` API cost; observed models and CLI-reported token totals |
 
 A subscription report's `$0` means Metis records no API dollar charge. It does
 not mean free or unlimited provider usage, and Metis cannot read remaining

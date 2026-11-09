@@ -26,7 +26,7 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); Object.defineProperty(process, "platform", platform); vi.restoreAllMocks(); vi.unstubAllEnvs(); fs.rmSync(directory, { recursive: true, force: true }); });
 function envelope(provider = "none") {
-  return JSON.stringify({ protection: "windows-dpapi", data: Buffer.from(JSON.stringify({ version: 1, hostId: "urn:uuid:fixture", profiles: [], gemini: null, selection: { provider } })).toString("base64") });
+  return JSON.stringify({ protection: "windows-dpapi", data: Buffer.from(JSON.stringify({ version: 1, hostId: "urn:uuid:fixture", profiles: [], selection: { provider } })).toString("base64") });
 }
 it.each(["future-schema", "decrypt"])("keeps configuration usable but money and writes closed: %s (SEC-204)", async (cause) => {
   store.ensurePrivateDirectory(store.aiDirectory());

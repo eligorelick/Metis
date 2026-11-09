@@ -16,7 +16,7 @@ import { jwtVerify } from "jose";
 
 let remote: ReturnType<typeof vi.fn>;
 beforeEach(() => {
-  fake.store = { version: 1, hostId: "urn:uuid:aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", profiles: [], gemini: null, selection: { provider: "none" } };
+  fake.store = { version: 1, hostId: "urn:uuid:aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", profiles: [], selection: { provider: "none" } };
   fake.queue = Promise.resolve();
   remote = vi.fn(async (url: string | URL | Request) => {
     if (String(url).includes("openid-configuration")) return Response.json({ issuer: "https://auth.openai.com", jwks_uri: "https://auth.openai.com/jwks", revocation_endpoint: "https://auth.openai.com/revoke" });

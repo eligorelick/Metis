@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { assertSameOrigin } from "@/app/api/sameOrigin";
 import { connectionsView, describeAnalysisRoute, selectConnection } from "@/ai/connections";
 import { beginChatGpt, disconnectChatGpt } from "@/ai/chatgpt";
-import { beginGemini, disconnectGemini } from "@/ai/gemini";
 import { listChatGptModels } from "@/ai/transport";
 import { connectClaude, disconnectClaude } from "@/ai/claude";
 
@@ -37,13 +36,11 @@ export async function POST(request: Request) {
       case "connect-chatgpt":
         if (body.id !== undefined && !id) return response({ error: "Invalid connection" }, 400);
         await beginChatGpt(id); break;
-      case "connect-gemini": await beginGemini(); break;
       case "connect-claude": await connectClaude(); message = "Claude Code account connected. Choose a model and save the report connection below."; break;
       case "disconnect-claude": message = await disconnectClaude(); break;
       case "disconnect-chatgpt":
         if (!id) return response({ error: "Invalid connection" }, 400);
         message = await disconnectChatGpt(id); break;
-      case "disconnect-gemini": message = await disconnectGemini(); break;
       case "models":
         if (!id) return response({ error: "Invalid connection" }, 400);
         return response({ models: await listChatGptModels(id) });
@@ -52,7 +49,7 @@ export async function POST(request: Request) {
     }
     return response(withRoute({ ...connectionsView(), ...(message ? { message } : {}) }));
   } catch (error) {
-    const message = error instanceof Error && /^(Choose |Connect |Install |Unknown ChatGPT|ChatGPT |Gemini |Claude |AI credentials|AI connections|AI connection storage|Too many|Invalid AI)/.test(error.message)
+    const message = error instanceof Error && /^(Choose |Connect |Install |Unknown ChatGPT|ChatGPT |Claude |AI credentials|AI connections|AI connection storage|Too many|Invalid AI)/.test(error.message)
       ? error.message : "The connection action could not be completed. No paid request was sent.";
     return response({ error: message }, 400);
   }

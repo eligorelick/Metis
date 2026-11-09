@@ -122,7 +122,7 @@ Claude API when a key is configured, Data only otherwise. Beginning account
 setup preserves that implicit default. A saved
 unavailable selection does not fall back to paid Claude when authorization fails;
 explicitly disconnecting its selected account resets the choice to Data only.
-ChatGPT/Gemini model choices are separate from `ANALYSIS_MODEL`; ChatGPT has
+ChatGPT and local Claude CLI model choices are separate from `ANALYSIS_MODEL`; ChatGPT has
 its own effort/speed choices. Selection is captured for an execution rather than
 re-read in each pass. Credential availability and model access can still fail.
 See [AI setup](PRIVACY.md#ai-connection-setup) for the implemented connections
@@ -143,7 +143,7 @@ Generation runs fetch → validate → compute → bull → bear → synthesize 
 Neither analyst sees the other's output; they share payload/model context and
 are not statistically independent. The runner can overlap their requests;
 paid Claude work must fit durable permit and budget limits. The active-LLM-call
-limit counts positive-USD Claude reservations; ChatGPT/Gemini calls reserve no
+limit counts positive-USD Claude reservations; ChatGPT and local Claude CLI calls reserve no
 USD and are constrained by active jobs and provider allowances instead.
 Verification is deterministic and makes no
 model call. Missing/disabled AI or certain computation/pass failures can produce
@@ -266,7 +266,7 @@ Company landing pages accept only GET and HEAD; other methods return 405 with
 | `GET /api/export/[reportId]?format=md` | Markdown attachment; default format is `md`. | `400` malformed ID/format; `404` absent; `422` unreadable saved content. |
 | `GET /api/export/[reportId]?format=pdf` | Print-optimized HTML and browser print dialog, `text/html`; no PDF bytes from the server. | Same validation as Markdown. |
 | `GET /api/ai/connections` | Sanitized connection status, selected route and pending sign-in; `no-store`. | `403` nonlocal/unguarded access; `500` storage failure. |
-| `POST /api/ai/connections` | Actions: `connect-chatgpt`, `connect-gemini`, `disconnect-chatgpt`, `disconnect-gemini`, `models`, `select`. | `413` body over 8,192 characters; `400` invalid action/selection or connection failure; `403` guard. |
+| `POST /api/ai/connections` | Actions: `connect-chatgpt`, `connect-claude`, `disconnect-chatgpt`, `disconnect-claude`, `models`, `select`. | `413` body over 8,192 characters; `400` invalid action/selection or connection failure; `403` guard. |
 
 The SSE endpoint reads on subscription, polls once per second for other-process
 commits, emits only advancing revisions, and sends heartbeat comments every
@@ -310,8 +310,7 @@ Credential mutations use the separate permanent `connections.lock` SQLite
 mutex in the AI directory, holding native ownership across the read, async
 mutation and save. Process exit releases ownership without deleting the file.
 Stop every Metis server before upgrading or downgrading this protocol; migrate
-only an incompatible lock when instructed, preserving credentials and Gemini
-directories. Never delete a live lock. See [migration and filesystem limits](PRIVACY.md)
+only an incompatible lock when instructed, preserving credentials. Never delete a live lock. See [migration and filesystem limits](PRIVACY.md)
 and the [native process verification record](audit/2026-10-04-recommendations.md).
 
 Plan-run recovery files live in `<data dir>/recovery/sections` (they follow

@@ -33,7 +33,6 @@ telemetry (`telemetry.nextjs.org`). `.env.example` ships
 | SEC EDGAR (`www.sec.gov`, `data.sec.gov`, `efts.sec.gov`) | `EDGAR_CONTACT`, verbatim, as the `User-Agent`; the ticker, CIK, and filing paths being read | A real contact is configured (`src/providers/edgar.ts` `EDGAR_USER_AGENT`, `hasConfiguredEdgarIdentity`) |
 | Anthropic (`api.anthropic.com`) | The analysis prompt and evidence payload for inference; `ANTHROPIC_API_KEY` for authenticated Messages/Models calls | Claude API runs a pass, or `auto` resolves the available model catalog |
 | OpenAI (`auth.openai.com`, `api.openai.com`) | OAuth registration, token renewal/revocation and account model catalog; research prompt and ticker payload for inference | You connect ChatGPT, request its models, or run a report using that connection |
-| Google through the official Gemini CLI | Google OAuth and CLI service requests; the research prompt and evidence payload for inference | You connect Gemini or run a report using that connection; the CLI owns its service endpoints |
 | Anthropic through the official Claude Code CLI | The research prompt and evidence payload for inference; authentication is handled by the CLI | You sign in using `claude auth login` or run a report through the local CLI; Metis never reads or stores the CLI's OAuth tokens |
 | Anthropic's server-side web search | Search queries the model composes, executed by Anthropic on its servers and subject to its search service behavior | A Claude analyst chooses to search; capped at `MAX_PROVIDER_WEB_SEARCHES` = 8 uses per request, including separate retry/resumption requests (`src/providers/anthropic.ts`) |
 | OpenAI's hosted web research | Model-composed queries and visited sources, handled by OpenAI's search service | A ChatGPT analyst runs the separate research request; local cancellation on the first observed action beyond eight search/open/find actions, a ten-minute deadline and a 16 MB stream limit; these cannot prevent work already performed remotely |
@@ -63,7 +62,7 @@ Browser OAuth involves the provider's sign-in website and any identity
 services the browser follows. Clicking source, documentation or quota links
 also opens external sites under the browser's own privacy settings. The table
 is not an inventory of all traffic from Chrome, the operating system or the
-separately installed Gemini CLI.
+separately installed Claude Code CLI.
 
 ## What the AI provider receives
 
@@ -103,9 +102,7 @@ is disclosed. The database can cache full provider responses beyond what the
 model receives.
 
 ChatGPT requests set `store: false` and stream Responses API output. That
-request option does not establish zero retention by OpenAI. Gemini is prompted
-to use only supplied evidence and is configured to deny tools, hooks, MCP,
-extensions and project context. Subscription adapters expose no additional
+request option does not establish zero retention by OpenAI. Subscription adapters expose no additional
 web-search tool; Claude analysts retain bounded server-side search. Metis
 does not train a model or change provider account data-use/retention policies.
 
@@ -271,7 +268,7 @@ publication file can remain after a crash or failed cleanup; it contains no toke
 locks and unknown lock formats are refused before credential mutation. If the
 error requests migration, stop every Metis server, remove only
 `connections.lock` in the AI directory, then restart the intended version.
-Preserve `connections.v1.json` and every `gemini-*` directory. Never remove or
+Preserve `connections.v1.json`. Never remove or
 replace a lock while a server is running, or mix old and new servers: an old
 in-flight stale-lock deletion cannot be fenced by the new protocol. Downgrading
 also requires this stopped-server lock removal. Local filesystem hard links and
@@ -279,16 +276,10 @@ native SQLite locking are required; unsupported publication fails closed.
 Network filesystems are not supported by this locking guarantee. See the
 [locking decision and verification limits](audit/2026-10-04-recommendations.md#1-credential-locking--implemented).
 
-Gemini stores its own OAuth state under an isolated `gemini-<id>` subdirectory
-owned by Metis. Metis does not read another app's Google credentials. CLI
-telemetry, extensions, hooks, MCP and tools are disabled; prompts are passed
-on standard input rather than command-line arguments. The CLI may retain its
-own session files inside this directory. Disconnect stops local child
-processes, waits for exit, and removes that directory. The official CLI storage
-override preserves your normal browser profile. This CLI directory has no
-Metis-added DPAPI encryption; the CLI manages its own credential/session
-files. An empty environment file in
-its work directory prevents loading credentials from ancestor directories.
+Earlier versions offered a Gemini CLI connection that kept its own OAuth
+state in `gemini-<id>` subdirectories of the AI directory. Metis no longer
+uses them; with every Metis server stopped you can delete them, and revoke the
+Google grant from your Google Account if desired.
 Connection lifecycle and inference operations claim one live Metis server
 per OS user; another server cannot connect, refresh or disconnect them until
 the owning server stops. Status reads and selection saves are not an
@@ -394,35 +385,25 @@ also be switched off for data-only reports.
 | Connection | Authorization | Usage |
 | --- | --- | --- |
 | ChatGPT | Browser OAuth with the required `chatgpt.tokens.use.direct` scope; account/provider eligibility applies | Your ChatGPT plan allowance and account credit settings |
-| Gemini | Official Gemini CLI 0.36.x, installed separately; Google browser sign-in | Your Google CLI allowance and account settings |
 | Claude via local CLI | Official Claude Code 2.1.319+; run `claude auth login` in a terminal, then Connect local Claude Code | Your Claude account's model access, limits and extra usage settings |
 | Claude API | Optional `ANTHROPIC_API_KEY` | Separately billed Anthropic API usage |
 
 The Claude connection checks the CLI's authentication status and stores only an opaque connection ID and a hash of account identity. It invokes the unmodified CLI with safe mode, no built-in/MCP tools, no session persistence, and no inherited API keys. It does not copy OAuth tokens, implement a Claude.ai sign-in flow, or sign the CLI out when you disconnect Metis. Changing the CLI account requires reconnecting in Settings. Model aliases resolve through the CLI; observed models and token counts are recorded in reports. Remaining allowance is available at [Claude usage](https://claude.ai/settings/usage), not through Metis. See [Anthropic's current authentication rules](https://code.claude.com/docs/en/legal-and-compliance).
 
-ChatGPT sign-in opens normal Chrome, with a fallback link. Gemini sign-in
-requires Chrome, and Metis passes its executable to the CLI as the browser,
-preserving the normal browser profile for sign-in/autofill. Metis gives
-Gemini an isolated local home and disables
-tools, extensions, hooks, MCP and inherited API keys. CLI support is restricted
-to the reviewed 0.36 minor line; newer minor releases need compatibility review.
+ChatGPT sign-in opens normal Chrome, with a fallback link.
 Only one running Metis server per OS user can own connection lifecycles/inference;
 stop that server before moving these connections to another local instance.
-Its Google connection
-is separate from an existing personal CLI login. See Google's
-[installation guide](https://geminicli.com/docs/get-started/installation/).
 
 ChatGPT models come from the connected account's catalog. A catalog entry
 does not prove remaining quota or model access. Check
-[ChatGPT usage](https://chatgpt.com/settings/usage) ("Manage usage") and
-[Gemini quotas](https://geminicli.com/docs/resources/quota-and-pricing/)
+[ChatGPT usage](https://chatgpt.com/settings/usage) ("Manage usage")
 before generating reports. Metis does not know your remaining allowance.
 There is no automatic change to a paid API when a connection fails.
 ChatGPT analyst research can use the connected plan's hosted web search when
 the account and model allow it. OpenAI does not support `max_tool_calls` on this
 route, so Metis cancels locally on the first action beyond eight; the count
 includes search, open and find actions and is not an API charge estimate or a
-provider-side spending cap. Gemini and the local Claude CLI use supplied evidence only. The Claude API
+provider-side spending cap. The local Claude CLI uses supplied evidence only. The Claude API
 path retains bounded web search. Writers and judges have no search tools.
 Reports disclose observed actions and retained web evidence, including research
 reused from a checkpoint. Explicit local action/time limits and an unsupported
@@ -441,11 +422,10 @@ apply. Metis's USD API caps do not cap subscription tokens or provider credits.
 
 ChatGPT credentials stay server-side in protected per-user storage (Windows
 DPAPI; owner-only files on macOS/Linux). Disconnect stops local requests and
-attempts ChatGPT session revocation. Google disconnect clears Metis's CLI
-state; revoke the Google grant from your Google Account if desired. See
+attempts ChatGPT session revocation. See
 [Privacy](PRIVACY.md). The OAuth paths have offline regression coverage.
 Complete reports have run live through a ChatGPT connection (October 2026);
-inference through a live Gemini connection has not been verified for this release.
+inference through a live Claude Code connection has not been verified for this release.
 
 ### Model and speed controls
 
@@ -467,8 +447,7 @@ Reports, exports and history retain actual provider model and usage evidence;
 the requested speed is shown separately from the returned tier. Successful
 ChatGPT output requires a completed event, usable final text, valid model ID
 and nonnegative integer input/output usage. Missing or
-inconsistent provider evidence stays unknown. Gemini reports every observed
-model when its CLI uses several, without guessing which wrote the final response.
+inconsistent provider evidence stays unknown.
 
 ## Limited FMP access
 

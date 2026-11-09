@@ -140,13 +140,6 @@ it("removes narrowly owned workstream annotations while preserving company text"
   expect(withoutDecisionNumbers(company)).toBe(company);
 });
 
-it("describes Gemini's installed Chrome requirement", async () => {
-  const { AiConnections } = await import("@/app/settings/AiConnections");
-  const html = renderToStaticMarkup(createElement(AiConnections));
-  expect(html).toContain("Gemini requires Chrome to be installed; Metis opens Chrome");
-  expect(html).not.toContain("choose Chrome as your default");
-});
-
 it("uses a plain scorecard header", async () => {
   const { CompositeScorecard } = await import("@/components/report/sections");
   const html = renderToStaticMarkup(createElement(CompositeScorecard, { scores: loadTask28Fixture().scores! }));

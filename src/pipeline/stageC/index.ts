@@ -277,7 +277,7 @@ function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
         }
       },
       // Search is a separate ChatGPT research request; writing/judge stay
-      // tool-free. Gemini stays payload-only. Each request settles before the next.
+      // tool-free. Each request settles before the next.
     };
   }
   const owners = new Map<string, ReturnType<NonNullable<typeof deps.passAttemptFor>>>();

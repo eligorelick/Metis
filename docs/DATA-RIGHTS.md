@@ -25,7 +25,7 @@ account's rights cover this workflow. Provider terms and plans can change.
 | Retrieval | Requests company/market/filing data through configured providers and keyless fallbacks; entitlement refusals become disclosed gaps |
 | Local storage | Caches provider responses, potentially full filing HTML and transcripts; retains report history and settled AI pass artifacts |
 | Calculations | Derives financial metrics, valuations, scores and comparisons from those inputs |
-| AI inference | Sends budgeted excerpts, company/market figures, provenance and missing-data disclosures to the selected Claude, ChatGPT or Gemini connection; judge/repair requests can resend model outputs |
+| AI inference | Sends budgeted excerpts, company/market figures, provenance and missing-data disclosures to the selected Claude or ChatGPT connection; judge/repair requests can resend model outputs |
 | Export | Renders saved reports as Markdown or print HTML for browser PDF; corrected export creates HTML plus structured JSON |
 | Sharing | The app has no publishing service, but you can share the exported files or expose an instance yourself |
 
@@ -117,8 +117,8 @@ account terms, data-use settings and content policies. Its authorization does
 not grant rights to transmit another vendor's data to it. Claude analyst web
 search can introduce additional source material governed by the originating
 site's rights; successful observed URLs establish citation evidence, not a
-license. ChatGPT/Gemini adapters use supplied evidence without additional web
-search. [Privacy](PRIVACY.md) describes transmission and local credentials;
+license. ChatGPT writers and judges and the local Claude CLI use supplied
+evidence without additional web search. [Privacy](PRIVACY.md) describes transmission and local credentials;
 [AI usage](CLAUDE-USAGE.md) describes execution and billing.
 
 ## Retention and sharing
