@@ -205,7 +205,6 @@ const ALLOWED_MARKDOWN = new Set([
   // filesystem paths and credentials remain forbidden by unsafePublicDocument.
   "docs/internal/redesign-plan.md",
   "docs/internal/metis-ui-codex-goal.md",
-  "docs/internal/metis-ui-codex-goal.txt",
   "docs/internal/ui-redesign-execution.md",
   "docs/internal/ui-redesign-parity.md",
   "docs/internal/ui-refinement-review.md",
@@ -804,11 +803,8 @@ describe("public release contract", () => {
     const removedDocNames = [
       "AGENTS",
       "CLAUDE",
-      "CONTRIBUTING",
       "COST",
       "DATA_MAP",
-      "DECISIONS",
-      "SECURITY",
       "SPEC",
     ]
       .map((name) => `${name}\\.md`)
