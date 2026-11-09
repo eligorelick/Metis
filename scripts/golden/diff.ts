@@ -19,6 +19,7 @@
  * An approval that matches no difference is also an error, so the list stays exact.
  */
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { comparePaths, diffPaths, type AuditJsonValue } from "../../tests/helpers/auditDeltaContract";
@@ -62,11 +63,32 @@ function jsonLeafDiff(beforeFile: string, afterFile: string, limit: number): str
   return [`    ${paths.length} JSON leaf path(s) differ`, ...shown, ...(paths.length > limit ? [`      … ${paths.length - limit} more`] : [])];
 }
 
+const MAX_LINE = 200;
+
+/**
+ * Unified diff of two text outputs via `git diff --no-index`. Static web markup
+ * is one long line, so HTML is split at tag boundaries first; printed lines are
+ * capped so a changed line cannot flood the terminal.
+ */
 function textDiff(beforeFile: string, afterFile: string, limit: number): string[] {
-  const result = spawnSync("git", ["diff", "--no-index", "--no-color", "--unified=1", "--", beforeFile, afterFile], { encoding: "utf8", maxBuffer: 1 << 30 });
-  const lines = (result.stdout ?? "").split("\n").filter((line) => !line.startsWith("diff --git") && !line.startsWith("index "));
-  const changed = lines.filter((line) => /^[+-](?![+-]{2} )/.test(line)).length;
-  return [`    ${changed} changed line(s)`, ...lines.slice(0, limit).map((line) => `      ${line}`), ...(lines.length > limit ? ["      …"] : [])];
+  const prepare = (file: string) => {
+    const text = fs.readFileSync(file, "utf8");
+    return file.endsWith(".html") ? text.replace(/></g, ">\n<") : text;
+  };
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "golden-diff-"));
+  try {
+    fs.writeFileSync(path.join(scratch, "before"), prepare(beforeFile));
+    fs.writeFileSync(path.join(scratch, "after"), prepare(afterFile));
+    const result = spawnSync("git", ["diff", "--no-index", "--no-color", "--unified=1", "--", "before", "after"], { cwd: scratch, encoding: "utf8", maxBuffer: 1 << 30 });
+    const lines = (result.stdout ?? "").split("\n")
+      .filter((line) => !/^(diff --git|index |--- |\+\+\+ |\\ No newline)/.test(line) && line.length > 0);
+    const changed = lines.filter((line) => line.startsWith("+") || line.startsWith("-")).length;
+    const clip = (line: string) => (line.length > MAX_LINE ? `${line.slice(0, MAX_LINE)}…` : line);
+    return [`    ${changed} changed line(s)${afterFile.endsWith(".html") ? " (HTML split at tags)" : ""}`,
+      ...lines.slice(0, limit).map((line) => `      ${clip(line)}`), ...(lines.length > limit ? ["      …"] : [])];
+  } finally {
+    fs.rmSync(scratch, { recursive: true, force: true });
+  }
 }
 
 function main(argv: string[]): void {
