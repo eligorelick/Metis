@@ -1,0 +1,31 @@
+{
+  "about": "Same-report harness cases (scripts/golden). Inputs stay in the local application database and are never committed: this file lists only their SHA-256 identities. The snapshot hash is the run_input_snapshots content digest; analystOutput pins one stored synthesize artifact by job, generation, attempt and the SHA-256 of its stored outcome JSON. A case without analystOutput builds the data-only report (no AI).",
+  "cases": [
+    { "id": "amzn-data-only", "snapshot": "868c3fcda60c41eaeada8b6de02e8e0d77ab000ed4f90913e9eb5e28c541acc9" },
+    { "id": "figr-data-only", "snapshot": "b56ff3d235c81c71c176b5646af36b5d2212f1a458e06318ba49d0e018ef8b2a" },
+    { "id": "meta-data-only", "snapshot": "034e2ba11ca4a941759fa88298b80c36075ce355431cc60ce955e8ef43c1a7d2" },
+    { "id": "mu-data-only", "snapshot": "a4a0eb9aae3062b94fe1cc65e62b9926e4f2cfc31f82f0cf152bd461b7ea64b7" },
+    { "id": "nvda-data-only", "snapshot": "3e1ed6db18f1e9b3598acff9d6c2c5195d62d42a8b11c9b495d0aa6e3981fd68" },
+    { "id": "qcom-data-only", "snapshot": "156088684a182732169f2523da112447698501879c4fb864ea2711bbc8bde49f" },
+    {
+      "id": "amzn-fixed-analyst",
+      "snapshot": "868c3fcda60c41eaeada8b6de02e8e0d77ab000ed4f90913e9eb5e28c541acc9",
+      "analystOutput": { "jobId": "927f0931-78cd-43a1-85f1-1b795798ca4e", "runGeneration": 0, "attemptId": "b11d3d9f-770a-4d9c-b858-f3ef9bec97e9", "sha256": "b86515abc307ea3b84752647b4ebad526ee5f35dcc0b3a416d04573ee4c41cb0" }
+    },
+    {
+      "id": "meta-fixed-analyst",
+      "snapshot": "034e2ba11ca4a941759fa88298b80c36075ce355431cc60ce955e8ef43c1a7d2",
+      "analystOutput": { "jobId": "8a01f56a-1a80-4e1c-8e49-78b8d8007aeb", "runGeneration": 0, "attemptId": "45dac8a1-765a-4082-b506-12bdf98c5385", "sha256": "d6eb48367995f70d39c776e916b34af85a4cc8e77792bd1b831aa8e62b31fbcc" }
+    },
+    {
+      "id": "mu-fixed-analyst",
+      "snapshot": "a4a0eb9aae3062b94fe1cc65e62b9926e4f2cfc31f82f0cf152bd461b7ea64b7",
+      "analystOutput": { "jobId": "d591e056-953c-41b5-a33f-ef91f2de5d20", "runGeneration": 0, "attemptId": "2a4f244c-36c6-4ca4-bb9b-5e5346d7f3c3", "sha256": "072e8962fb03d12f1cca02679eab4f0bf857ed465d54d8784a6ada9655502379" }
+    },
+    {
+      "id": "nvda-fixed-analyst",
+      "snapshot": "3e1ed6db18f1e9b3598acff9d6c2c5195d62d42a8b11c9b495d0aa6e3981fd68",
+      "analystOutput": { "jobId": "dba76fde-91bb-421e-95af-c08addf500f4", "runGeneration": 0, "attemptId": "ce4480b3-9ed9-4fc2-a348-e7a8dc3da25b", "sha256": "3f7ad7579ea5f790921920e06afc79bb9183b8d3994f68bd158c5b68bba8e19c" }
+    }
+  ]
+}
