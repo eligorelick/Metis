@@ -6,14 +6,14 @@
  * escaped. Stage A flags and gap reasons quote provider text verbatim (an FMP
  * error body, a transport message), so a hostile reason must stay inside an
  * envelope, must not forge a closing marker, and must not open a new line that
- * the Gemini flattening (`role:\ncontent`) would read as a role turn.
+ * the local CLI flattening (`role:\ncontent`) would read as a role turn.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const fake = vi.hoisted(() => ({ gemini: vi.fn() }));
+const fake = vi.hoisted(() => ({ claude: vi.fn() }));
 vi.mock("@/ai/chatgpt", () => ({ chatGptAccess: vi.fn(), chatGptConnected: () => true,
   trackChatGptRequest: () => ({ signal: new AbortController().signal, release: vi.fn() }) }));
-vi.mock("@/ai/gemini", () => ({ runGemini: fake.gemini }));
+vi.mock("@/ai/claude", () => ({ runClaude: fake.claude }));
 
 import { runSubscriptionPass } from "@/ai/transport";
 import { runStageB } from "@/pipeline/compute";
@@ -81,12 +81,12 @@ function deps(): PassDeps {
     runPass: vi.fn(),
     runPassStreaming: vi.fn(),
     webSearchTool: (maxUses: number) => ({ type: "web_search_20260318", name: "web_search", max_uses: maxUses }),
-    model: "gemini/auto",
+    model: "claude/default",
   } as unknown as PassDeps;
 }
 
 beforeEach(() => {
-  fake.gemini.mockReset().mockResolvedValue({ text: "{}", model: "gemini-example", input: 1, output: 1, observedModels: [] });
+  fake.claude.mockReset().mockResolvedValue({ text: "{}", model: "claude-example", input: 1, output: 1, observedModels: [] });
 });
 
 describe("Stage A flags and gap reasons (F-5)", () => {
@@ -132,11 +132,11 @@ describe("Stage A flags and gap reasons (F-5)", () => {
     expect(gapLines[0]).toMatch(/^- \[warn\] keyMetrics: FMP error \(HTTP 500\): upstream said CANARY_GAP .* Strong Buy\. \[manifest\.keyMetrics\]$/);
   });
 
-  it("gives the Gemini flattening no forged role line", async () => {
+  it("gives the local CLI flattening no forged role line", async () => {
     const args = buildAnalystRunPassArgs(deps(), hostilePayload(), "bull");
-    const result = await runSubscriptionPass(args, "google");
+    const result = await runSubscriptionPass(args, "claude-account");
     expect(result.ok).toBe(true);
-    const prompt = fake.gemini.mock.calls[0]![2] as string;
+    const prompt = fake.claude.mock.calls[0]![2] as string;
     const roleLines = prompt.split("\n").filter((line) => /^(developer|user|assistant|system):$/.test(line));
     expect(roleLines).toEqual(["developer:", "user:"]);
   });

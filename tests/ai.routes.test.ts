@@ -3,7 +3,6 @@ const fake = vi.hoisted(() => ({ view: vi.fn(() => ({ selection: { provider: "no
 const ROUTE = { provider: "none", model: null, effort: null, ready: false, label: "AI off (data-only reports)" };
 vi.mock("@/ai/connections", () => ({ connectionsView: fake.view, selectConnection: fake.select, describeAnalysisRoute: () => { if (fake.routeThrows) throw new Error("settings unreadable"); return ROUTE; } }));
 vi.mock("@/ai/chatgpt", () => ({ beginChatGpt: vi.fn(), disconnectChatGpt: vi.fn() }));
-vi.mock("@/ai/gemini", () => ({ beginGemini: vi.fn(), disconnectGemini: vi.fn() }));
 vi.mock("@/ai/transport", () => ({ listChatGptModels: vi.fn() }));
 vi.mock("@/app/api/sameOrigin", async (original) => {
   const actual = await original<typeof import("@/app/api/sameOrigin")>();
@@ -12,7 +11,6 @@ vi.mock("@/app/api/sameOrigin", async (original) => {
 import { GET, POST } from "@/app/api/ai/connections/route";
 import { assertSameOrigin } from "@/app/api/sameOrigin";
 import { beginChatGpt, disconnectChatGpt } from "@/ai/chatgpt";
-import { beginGemini, disconnectGemini } from "@/ai/gemini";
 import { listChatGptModels } from "@/ai/transport";
 beforeEach(() => { vi.clearAllMocks(); fake.routeThrows = false; fake.view.mockImplementation(() => ({ selection: { provider: "none" }, connections: [] })); });
 function request(body: unknown) {
@@ -59,13 +57,13 @@ describe("local connection API", () => {
       expect((await POST(request({ action, id: "bad" }))).status).toBe(400);
     }
     vi.mocked(disconnectChatGpt).mockResolvedValueOnce("Disconnected");
-    vi.mocked(disconnectGemini).mockResolvedValueOnce("Disconnected locally");
     vi.mocked(listChatGptModels).mockResolvedValueOnce([{ id: "m", name: "Model" }]);
-    for (const action of ["connect-chatgpt", "connect-gemini", "disconnect-chatgpt", "disconnect-gemini", "select"]) {
+    for (const action of ["connect-chatgpt", "disconnect-chatgpt", "select"]) {
       expect((await POST(request({ action, id, selection: { provider: "none" } }))).status).toBe(200);
     }
-    expect(beginChatGpt).toHaveBeenCalledWith(id); expect(beginGemini).toHaveBeenCalled();
-    expect(disconnectChatGpt).toHaveBeenCalledWith(id); expect(disconnectGemini).toHaveBeenCalled();
+    expect(beginChatGpt).toHaveBeenCalledWith(id);
+    expect(disconnectChatGpt).toHaveBeenCalledWith(id);
+    for (const action of ["connect-gemini", "disconnect-gemini"]) expect((await POST(request({ action, id }))).status).toBe(400);
     expect(await (await POST(request({ action: "models", id }))).json()).toEqual({ models: [{ id: "m", name: "Model" }] });
     expect((await POST(request({ action: "connect-chatgpt" }))).status).toBe(200);
   });

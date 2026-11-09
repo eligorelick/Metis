@@ -1,13 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RunPassArgs } from "@/pipeline/stageC/passes";
 
-const account = vi.hoisted(() => ({ signal: null as AbortSignal | null, release: vi.fn(), gemini: vi.fn() }));
+const account = vi.hoisted(() => ({ signal: null as AbortSignal | null, release: vi.fn() }));
 vi.mock("@/ai/chatgpt", () => ({
   chatGptAccess: async () => "selected-account-token",
   chatGptConnected: () => true,
   trackChatGptRequest: (_id: string, upstream?: AbortSignal) => ({ signal: upstream ?? account.signal!, release: account.release }),
 }));
-vi.mock("@/ai/gemini", () => ({ runGemini: account.gemini }));
 import { runSubscriptionPass } from "@/ai/transport";
 import { isRetryablePassFailure } from "@/pipeline/stageC/passes";
 
@@ -172,13 +171,6 @@ describe("ChatGPT plan web research", () => {
     const result = await runSubscriptionPass({ ...research, tools }, "selected-account");
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatchObject({ notLaunched: true, providerFailure: { disposition: "terminal" } });
-    expect(remote).not.toHaveBeenCalled();
-  });
-
-  it("keeps Gemini tool-free instead of silently dropping a requested search", async () => {
-    const result = await runSubscriptionPass({ ...research, model: "gemini/example" }, "selected-account");
-    expect(result.ok).toBe(false);
-    expect(account.gemini).not.toHaveBeenCalled();
     expect(remote).not.toHaveBeenCalled();
   });
 

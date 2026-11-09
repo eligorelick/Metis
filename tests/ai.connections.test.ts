@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { parseSubscriptionModel, subscriptionModel } from "@/ai/contracts";
 import { bindAiFingerprint } from "@/ai/fingerprint";
 import { consumeChatGptStream, subscriptionMessages } from "@/ai/transport";
-import { geminiEnvironment } from "@/ai/gemini";
 import { buildExecutionMetadataEntry, sharedModelFamilyOf } from "@/report/execution";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -52,7 +51,7 @@ describe("subscription transport boundaries", () => {
 describe("account binding and billing disclosures", () => {
   it("changes durable compatibility for a provider, account or model change", () => {
     const base = { provider: "chatgpt" as const, connectionId: "account-a", model: "model-a" };
-    const fingerprints = [base, { ...base, provider: "gemini" as const }, { ...base, connectionId: "account-b" }, { ...base, model: "model-b" }].map((selection) => bindAiFingerprint("payload", selection));
+    const fingerprints = [base, { ...base, provider: "claude" as const }, { ...base, connectionId: "account-b" }, { ...base, model: "model-b" }].map((selection) => bindAiFingerprint("payload", selection));
     expect(new Set(fingerprints).size).toBe(4);
     expect(fingerprints[0]).not.toContain("account-a");
     expect(bindAiFingerprint("payload", { provider: "anthropic" })).toBe("payload");
@@ -62,7 +61,7 @@ describe("account binding and billing disclosures", () => {
     expect(subscriptionModel("chatgpt", "example-model")).toBe("chatgpt/example-model");
     expect(parseSubscriptionModel("chatgpt/example-model")).toEqual({ provider: "chatgpt", model: "example-model" });
     expect(parseSubscriptionModel("https://evil.example/model")).toBeNull();
-    expect(() => subscriptionModel("gemini", "model; command")).toThrow();
+    expect(() => subscriptionModel("claude", "model; command")).toThrow();
   });
   it("does not reuse passes across captured reasoning or speed settings", () => {
     const selection = { provider: "chatgpt" as const, connectionId: "account", model: "gpt-6.1-sol" };
@@ -76,15 +75,5 @@ describe("account binding and billing disclosures", () => {
     expect(entry.note).toContain("without additional web search");
     expect(entry.effectiveEffort).toBeNull();
     expect(sharedModelFamilyOf(["bull", "bear", "synthesize"].map((step) => ({ step, effectiveModel: model }))).shared).toBe(true);
-  });
-  it("does not pass API credentials or runtime injection settings into Gemini", () => {
-    for (const key of ["GEMINI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY", "GOOGLE_APPLICATION_CREDENTIALS", "NODE_OPTIONS", "HTTPS_PROXY", "GEMINI_CLI_SYSTEM_SETTINGS_PATH"]) vi.stubEnv(key, "private-test-value");
-    const env = geminiEnvironment("isolated-home", false);
-    expect(Object.values(env)).not.toContain("private-test-value");
-    expect(env.GEMINI_CLI_HOME).toBe("isolated-home");
-    expect(env.GEMINI_CLI_NO_RELAUNCH).toBe("true");
-    expect(env.GOOGLE_GENAI_USE_GCA).toBe("true");
-    expect(env.NO_BROWSER).toBe("1");
-    expect(env.GEMINI_CLI_SYSTEM_SETTINGS_PATH).toContain("isolated-home");
   });
 });

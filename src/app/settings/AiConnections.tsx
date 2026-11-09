@@ -101,23 +101,21 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
   return <Panel title="AI connections">
     <div className="space-y-3 text-sm">
       <p>Choose how Metis runs its AI research. Financial calculations and citation checks stay in Metis.</p>
-      <p className="text-faint">ChatGPT sign-in opens your normal Chrome browser. Gemini requires Chrome to be installed; Metis opens Chrome to use its saved sign-in. Signing in does not run a report. Metis never switches a failed connection to paid API usage.</p>
+      <p className="text-faint">ChatGPT sign-in opens your normal Chrome browser. Signing in does not run a report. Metis never switches a failed connection to paid API usage.</p>
       {view && <>
-        <p><strong>Active:</strong> {active?.provider === "none" ? "AI off — data-only reports" : active?.provider === "anthropic" ? "Claude API — separately billed" : `${active?.provider === "chatgpt" ? "ChatGPT plan" : active?.provider === "claude" ? "Claude via local CLI" : "Google Gemini CLI allowance"} · ${active && "model" in active ? active.model : ""} · ${view.connections.find((c) => c.id === (active && "connectionId" in active ? active.connectionId : ""))?.label ?? "connection unavailable"}`}</p>
+        <p><strong>Active:</strong> {active?.provider === "none" ? "AI off — data-only reports" : active?.provider === "anthropic" ? "Claude API — separately billed" : `${active?.provider === "chatgpt" ? "ChatGPT plan" : active?.provider === "claude" ? "Claude via local CLI" : "Unsupported connection"} · ${active && "model" in active ? active.model : ""} · ${view.connections.find((c) => c.id === (active && "connectionId" in active ? active.connectionId : ""))?.label ?? "connection unavailable"}`}</p>
         {active?.provider === "chatgpt" && <p className="text-xs text-faint">Saved reasoning: {active.effort ?? "provider default"} · speed: {active.serviceTier === "fast" ? "Fast" : "Standard"}. Each report records the settings actually reported by the provider.</p>}
         <div className="flex flex-wrap gap-2">
           <button className={button} disabled={busy || view.pending?.status === "waiting"} onClick={() => void act({ action: "connect-chatgpt" })}>Continue with ChatGPT</button>
-          <button className={button} disabled={busy || !view.geminiInstalled || view.pending?.status === "waiting"} onClick={() => void act({ action: "connect-gemini" })}>Connect Gemini with Google</button>
           <button className={button} disabled={busy || !view.claudeInstalled} onClick={() => void act({ action: "connect-claude" })}>Connect local Claude Code</button>
         </div>
-        <p className="text-xs text-faint">ChatGPT requires an eligible plan. Gemini uses the official local Gemini CLI and its Google allowance.</p>
+        <p className="text-xs text-faint">ChatGPT requires an eligible plan.</p>
         <div className="space-y-2 border border-edge p-3">
           <p className="font-medium">Claude account / OAuth</p>
           <p>Sign in through the official Claude Code app: run <code>claude auth login</code> in your terminal and complete Anthropic’s browser sign-in. Then click <strong>Connect local Claude Code</strong> above. Metis runs the installed CLI; your OAuth credentials stay with Claude Code.</p>
           {!view.claudeInstalled && <p>Install <a className="underline" href="https://code.claude.com/docs/en/overview" target="_blank" rel="noreferrer">Claude Code</a> version 2.1.319 or newer, then restart Metis.</p>}
           <p className="text-xs text-faint">Reports use your Claude Code account’s model access and usage limits. Extra usage settings in your account still apply. <a className="underline" href="https://claude.ai/settings/usage" target="_blank" rel="noreferrer">View Claude usage</a> · <a className="underline" href="https://code.claude.com/docs/en/legal-and-compliance" target="_blank" rel="noreferrer">Authentication rules</a>. The separately billed Claude API connection remains available.</p>
         </div>
-        {!view.geminiInstalled && <p>Gemini CLI is missing or unsupported. Install version 0.36.x using <a className="underline" href="https://geminicli.com/docs/get-started/installation/" target="_blank" rel="noreferrer">Google’s instructions</a>, then restart Metis.</p>}
         {view.pending && <div role="status" className="border border-edge p-2"><p>{view.pending.message}</p>{view.pending.url && <a className="underline" href={view.pending.url} target="_blank" rel="noreferrer">Open ChatGPT sign-in</a>}</div>}
         {view.connections.map((c) => <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-edge py-2">
           <span>{c.label} — {c.connected ? c.planEnabled ? c.provider === "chatgpt" ? "connected · ChatGPT plan usage is enabled" : "connected" : "plan access not granted" : "signed out"}</span>
@@ -128,10 +126,10 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
           </div>
         </div>)}
         <label className="block">Use for new reports
-          <select className="mt-1 w-full border border-edge bg-bg p-2" value={chosen} disabled={busy} onChange={(e) => { dirty.current = true; setChosen(e.target.value); setModels([]); setCatalogState("idle"); setCatalogError(""); setEffort(""); setServiceTier("default"); const provider = view.connections.find((c) => c.id === e.target.value)?.provider; setModel(provider === "gemini" ? "auto" : provider === "claude" ? "default" : ""); }}>
+          <select className="mt-1 w-full border border-edge bg-bg p-2" value={chosen} disabled={busy} onChange={(e) => { dirty.current = true; setChosen(e.target.value); setModels([]); setCatalogState("idle"); setCatalogError(""); setEffort(""); setServiceTier("default"); const provider = view.connections.find((c) => c.id === e.target.value)?.provider; setModel(provider === "claude" ? "default" : ""); }}>
             <option value="none">AI off — data-only reports</option>
             {chosenUnavailable && <option value={chosen} disabled>Saved connection unavailable — select a connected account</option>}
-            {view.connections.filter((c) => c.connected && c.planEnabled).map((c) => <option key={c.id} value={c.id}>{c.provider === "chatgpt" ? "ChatGPT plan" : c.provider === "claude" ? "Claude via local CLI" : "Gemini CLI allowance"} · {c.label}</option>)}
+            {view.connections.filter((c) => c.connected && c.planEnabled).map((c) => <option key={c.id} value={c.id}>{c.provider === "chatgpt" ? "ChatGPT plan" : "Claude via local CLI"} · {c.label}</option>)}
             <option value="anthropic" disabled={!view.hasAnthropicKey}>Claude API — separately billed{!view.hasAnthropicKey ? " (no key configured)" : ""}</option>
           </select>
         </label>
@@ -157,7 +155,6 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
             ? "Fast is subject to account availability. OpenAI currently documents 2.5× included usage consumption and 2× purchased-credit or Enterprise pay-as-you-go rates. The provider may serve Standard instead; the saved report records the returned tier."
             : "OpenAI offers Fast only for GPT-6.1 Sol, GPT-6.1 Terra, GPT-6 Astra, GPT-6 Sol and GPT-6 Luna, so this model runs at Standard speed."}{" "}<a className="underline" href="https://learn.chatgpt.com/docs/agent-configuration/speed" target="_blank" rel="noreferrer">Speed and usage details</a>.</p>
         </div>}
-        {connection?.provider === "gemini" && <label className="block">Gemini model<input className="mt-1 w-full border border-edge bg-bg p-2" value={model} maxLength={128} onChange={(e) => { dirty.current = true; setModel(e.target.value); }} /><span className="text-xs text-faint">“auto” uses Google’s CLI selection; you can enter an available Gemini model ID.</span></label>}
         {connection?.provider === "claude" && <div className="space-y-2">
           <label className="block">Claude model<input list="claude-models" className="mt-1 w-full border border-edge bg-bg p-2" value={model} maxLength={128} disabled={busy} onChange={e => { dirty.current = true; setModel(e.target.value); }} /></label>
           <datalist id="claude-models">{CLAUDE_MODELS.map(id => <option key={id} value={id} />)}</datalist>
@@ -170,7 +167,7 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
           ...(connection.provider === "chatgpt" ? { serviceTier: speed, ...(effort ? { effort } : {}) } : {}),
           ...(connection.provider === "claude" && effort ? { effort } : {}),
         } : { provider: chosen } })}>Save report connection</button>
-        <p className="text-xs text-faint">Your remaining plan allowance is not available here. A model listing does not guarantee access or remaining quota. Check ChatGPT (<a className="underline" href={CHATGPT_MANAGE_USAGE_URL} target="_blank" rel="noreferrer">Manage usage</a>) or <a className="underline" href="https://geminicli.com/docs/resources/quota-and-pricing/" target="_blank" rel="noreferrer">Gemini allowance details</a> before running reports. Your provider’s credit settings still apply.</p>
+        <p className="text-xs text-faint">Your remaining plan allowance is not available here. A model listing does not guarantee access or remaining quota. Check ChatGPT (<a className="underline" href={CHATGPT_MANAGE_USAGE_URL} target="_blank" rel="noreferrer">Manage usage</a>) before running reports. Your provider’s credit settings still apply.</p>
       </>}
       {!view && !message && <p>Loading connections…</p>}
       {message && <p role="status">{message}</p>}

@@ -10,13 +10,20 @@ Current source declares application **0.1.0**, report spec **1.73.0** and
 payload **1.92.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
-ChatGPT/Gemini/local Claude CLI account connections have their own model selection. These are
+ChatGPT/local Claude CLI account connections have their own model selection. These are
 repository settings, not confirmation of live provider entitlement. The
 [October audit](docs/audit/2026-10-03-repository-audit.md) and later
 [recommendations ledger](docs/audit/2026-10-04-recommendations.md) record
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Gemini CLI connection removed (2026-11-09)
+
+- Remove the Gemini CLI connection from Settings, the connections API and the
+  pass transport. It never ran a live report and accepted only CLI 0.36.x.
+  Saved reports keep their `gemini/...` model labels, and a store saved with a
+  Gemini selection still opens; that selection reads as unavailable.
 
 ## Unreleased - Primary grading evidence recovery (2026-11-08)
 

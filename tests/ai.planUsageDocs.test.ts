@@ -65,7 +65,7 @@ describe("documented ChatGPT plan-usage errors", () => {
 describe("refresh-token failures", () => {
   let tokenResponse: Response;
   beforeEach(() => {
-    fake.store = { version: 1, hostId: "urn:uuid:aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", gemini: null, selection: { provider: "none" },
+    fake.store = { version: 1, hostId: "urn:uuid:aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", selection: { provider: "none" },
       profiles: [{ id: "p1", clientId: "oaiapp_issued", subject: "sub", tokens: { access: "old", refresh: "r", id: "i", expiresAt: 0, scopes: ["chatgpt.tokens.use.direct"] } }] } as AiStore;
     vi.stubGlobal("fetch", vi.fn(async () => tokenResponse));
   });

@@ -20,7 +20,7 @@ afterEach(() => { vi.useRealTimers(); Object.defineProperty(process, "platform",
 afterAll(() => fs.rmSync(root, { recursive: true, force: true }));
 describe("credential protection and lock failures", () => {
   const validStore = () => ({
-    version: 1, hostId: "urn:uuid:fixture", profiles: [], gemini: null,
+    version: 1, hostId: "urn:uuid:fixture", profiles: [],
     selection: { provider: "none" },
   });
   it.each([
@@ -35,7 +35,6 @@ describe("credential protection and lock failures", () => {
     ["nonstring scope", { profiles: [{ id: "test", clientId: "oaiapp_test", tokens: { access: "a", refresh: "r", id: "i", expiresAt: 1, scopes: [42] } }] }],
     ["missing renewable token", { profiles: [{ id: "test", clientId: "oaiapp_test", tokens: { access: "a", id: "i", expiresAt: 1, scopes: [] } }] }],
     ["nonnumeric token expiry", { profiles: [{ id: "test", clientId: "oaiapp_test", tokens: { access: "a", refresh: "r", id: "i", expiresAt: "later", scopes: [] } }] }],
-    ["Gemini boolean replaced", { gemini: { id: "test", connected: "false" } }],
     ["invalid runtime PID", { runtimeOwnerPid: -1 }],
   ])("refuses malformed valid JSON (%s) before any mutation or credential replacement", async (_label, fields) => {
     ensurePrivateDirectory(aiDirectory());

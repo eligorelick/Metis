@@ -20,7 +20,6 @@ export interface AiStore {
   version: 1;
   hostId: string;
   profiles: ChatGptProfile[];
-  gemini: { id: string; connected: boolean } | null;
   claude?: { id: string; connected: boolean; identity: string } | null;
   selection: AiSelection;
   /** Credential/account writes must not turn the implicit provider default into a user choice. */
@@ -45,11 +44,12 @@ const aiStoreSchema = z.object({
       expiresAt: z.number(), scopes: z.array(z.string()),
     }).passthrough().optional(),
   }).passthrough()),
-  gemini: z.object({ id: z.string().min(1), connected: z.boolean() }).passthrough().nullable(),
   claude: z.object({ id: z.string().min(1), connected: z.boolean(), identity: z.string().regex(/^[a-f0-9]{64}$/) }).passthrough().nullable().optional(),
   selection: z.union([
     z.object({ provider: z.enum(["none", "anthropic"]) }).passthrough(),
     z.object({
+      // "gemini" stays readable so a store saved by the removed Gemini CLI route still opens;
+      // that selection is never connected (connections.ts) and cannot be saved again.
       provider: z.enum(["chatgpt", "gemini", "claude"]),
       connectionId: z.string().min(1), model: z.string().refine(validModelId),
       effort: z.enum(CHATGPT_EFFORTS).optional(),
@@ -209,7 +209,7 @@ export async function withAiStore<T>(fn: (store: AiStore) => Promise<T> | T): Pr
   ensurePrivateDirectory(aiDirectory());
   return withAiMutex(path.join(aiDirectory(), "connections.lock"), async () => {
     const current = readAiStore();
-    const store = current ?? { version: 1, hostId: `urn:uuid:${randomUUID()}`, profiles: [], gemini: null, selection: { provider: process.env.ANTHROPIC_API_KEY?.trim() ? "anthropic" : "none" }, selectionIsDefault: true };
+    const store = current ?? { version: 1, hostId: `urn:uuid:${randomUUID()}`, profiles: [], selection: { provider: process.env.ANTHROPIC_API_KEY?.trim() ? "anthropic" : "none" }, selectionIsDefault: true };
     const before = current === null ? null : JSON.stringify(store);
     const result = await fn(store);
     if (before === null || JSON.stringify(store) !== before) writeAiStore(store);
