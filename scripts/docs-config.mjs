@@ -65,11 +65,16 @@ export const COMMAND_DESCRIPTIONS = {
   "claims:evaluate": "Evaluate claim-checker outputs against explicit synthetic or human-reviewed references offline; see docs/REPORT-EVALUATION.md.",
 };
 
-/** Commands that exist for the suite's own plumbing and are not user-facing. */
+/**
+ * Commands that exist for the suite's own plumbing and are not user-facing.
+ * The same-report harness is developer tooling, documented in docs/OPERATIONS.md.
+ */
 export const INTERNAL_COMMANDS = new Set([
   "test:product",
   "test:coverage:core",
   "test:coverage:risk",
+  "golden:run",
+  "golden:diff",
 ]);
 
 /**

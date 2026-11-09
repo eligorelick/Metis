@@ -508,3 +508,20 @@ EDGAR contacts must use printable ASCII or Latin-1 letters. If Settings refuses 
 DATA-114: when a merged FMP history uses a window fallback, the series ends at the earliest last bar of its accepted fallback chunks. Later successful bars are withheld to avoid a gap; endpoint text and stale metadata disclose the truncation.
 
 Core coverage holds every Stage B and report-schema file to 85/75/85/85 (statements/branches/functions/lines), alongside the unchanged 90/84/95/93 aggregate. Risk coverage retains its 85/75/85/85 per-file gate. Every TS and TSX source has a named placement.
+
+## Same-report check before a refactor
+
+`npm run golden:run` and `npm run golden:diff` show whether a code change leaves reports identical. They rebuild ten stored cases offline and compare two commits' output byte for byte: six companies with saved run inputs (AMZN, FIGR, META, MU, NVDA, QCOM). Each company gets a data-only report, and AMZN, META, MU and NVDA also get a report from their stored analyst output. For every case the harness pins the Stage B output, the Stage C payload and its fingerprint, the report JSON, the Markdown, print and audit Markdown exports, and both web layouts (classic and dossier) rendered from the saved-report reader. `scripts/golden/cases.json` lists the inputs by SHA-256 only.
+
+```powershell
+npm run golden:run -- --ref main --out tmp/golden/before
+npm run golden:run -- --out tmp/golden/after
+npm run golden:diff -- tmp/golden/before tmp/golden/after
+```
+
+- `--ref REF` extracts that commit with `git archive` into `tmp/golden/trees/` and runs its code. Without `--ref`, the run uses the working tree and records a hash of any uncommitted changes. Both use the installed `node_modules`; the diff notes when the two commits' `package-lock.json` differ.
+- The first run reads the inputs from the local application database in read-only mode (`--db FILE` or `METIS_DB_PATH` chooses it) and caches them under `tmp/golden/inputs`. They contain vendor data, so they stay local and are never committed.
+- Each case runs in its own Node process. Fetch, sockets, TLS and DNS are blocked. Provider keys and `METIS_*`/`THESIS_*` settings are removed from its environment. The clock is fixed to the inputs' build time, and the time zone is UTC. A scratch database and data directory sit inside the output folder. No model is called and nothing is spent.
+- `golden:diff` exits 0 only when every case, field and file matches. Otherwise it lists each changed file, with JSON leaf paths or the start of a text diff. An intended change passes only when listed in `--approved FILE`, with its before and after hash and a reason; a file that only one run produced uses `missing` as the hash on the other side.
+- A run takes about 1–2 minutes on four processes (`--jobs N` changes the count; `--only id,id` picks cases). Run it twice on one commit to confirm the output repeats exactly.
+- Limits: all six companies use the general route (FIGR adds the recent-IPO overlay with lender cash-flow handling). There are no bank, insurer, REIT, utility or 20-F inputs yet; those need new data-only captures with live data calls. The verify step uses no fetched URLs, and the cost table is empty.
