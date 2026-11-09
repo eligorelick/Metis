@@ -140,7 +140,6 @@ export const ERP_PLAUSIBLE_PCT: readonly [number, number] = [3, 25];
  * used to carry its own rounded 0.67/0.33 pair, so a keyless report printed
  * two unequal "Blume-adjusted" betas for one raw slope.
  */
-export { BLUME_RAW_WEIGHT };
 export const BLUME_MEAN_WEIGHT = BLUME_MARKET_WEIGHT;
 export const BETA_CLAMP: readonly [number, number] = [0.6, 2.0];
 /** Raw beta outside (0, 4] is treated as unusable; WACC fails closed. */

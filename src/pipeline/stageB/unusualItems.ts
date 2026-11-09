@@ -10,7 +10,6 @@ import type { ExtractedSection } from "@/pipeline/types";
  * component tags stand in only when it is not, so nothing is counted twice.
  */
 import { DISPOSITION_GAIN_CANDIDATE_TAGS, UNUSUAL_OPERATING_GAIN_TAGS, UNUSUAL_OPERATING_CHARGE_TOTAL_TAG, UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS } from "@/edgar/tagSynonyms";
-export { UNUSUAL_OPERATING_GAIN_TAGS, UNUSUAL_OPERATING_CHARGE_TOTAL_TAG, UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS } from "@/edgar/tagSynonyms";
 
 export interface UnusualOperatingItems {
   /** Net amount the items added to operating income: gains positive, charges negative. */

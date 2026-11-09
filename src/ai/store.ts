@@ -143,9 +143,6 @@ export function providerCredentialSnapshot(): { values: ProviderCredentialValues
     return { values: current.credentials };
   } catch { return { values: {}, unreadable: unreadableMessage }; }
 }
-export function readProviderCredentials(): Readonly<Partial<Record<ProviderCredentialKey, string>>> {
-  return providerCredentialSnapshot().values;
-}
 export function getProviderCredential(key: ProviderCredentialKey): string | undefined {
   const current = providerCredentialSnapshot();
   if (current.unreadable && (key === "ANTHROPIC_API_KEY" || key === "ANTHROPIC_ADMIN_KEY")) return undefined;

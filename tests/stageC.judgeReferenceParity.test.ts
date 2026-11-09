@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { assembleContextPayload } from "@/pipeline/stageC/payload";
-import { assembleReport, MockRunPass, runJudgeVerifyAssemble, runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
+import { assembleReport, runJudgeVerifyAssemble, runVerifyPass, type PassDeps } from "@/pipeline/stageC/passes";
+import { MockRunPass } from "./helpers/mockRunPass";
 import { JUDGE_OUTPUT_KEYS, JUDGE_OUTPUT_SCHEMA, ReportSchema, type AnalystCase } from "@/report/schema";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 

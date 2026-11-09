@@ -255,7 +255,6 @@ import {
   buildLeadershipGuidance,
 } from "@/pipeline/stageC/prompts";
 import {
-  MockRunPass,
   runBullPass,
   ANALYST_RESEARCH_NOTES_MAX_CHARS,
   runBearPass,
@@ -291,6 +290,7 @@ import {
   ANALYST_SECTION_PARTS,
   type RunPassArgs,
 } from "@/pipeline/stageC/passes";
+import { MockRunPass } from "./helpers/mockRunPass";
 import { completedTopLevelFields, continuationInstruction, mergeContinuation, sectionDigest, type SectionEvidence } from "@/pipeline/stageC/continuation";
 import { JUDGE_OUTPUT_KEYS, JUDGE_OUTPUT_SCHEMA, fillNullableGaps } from "@/report/schema";
 import type { CostBreakdownEntry as _CBE } from "@/report/schema";

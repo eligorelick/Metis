@@ -28,9 +28,6 @@ export const FINNHUB_TTL_SECONDS = 86400;
 /** News/calendar fallback observations refresh every six hours. */
 export const FINNHUB_FALLBACK_TTL_SECONDS = 6 * 3600;
 
-/** Cache TTL for sector modules (patents/lobbying/gov-spending), seconds (7 d). */
-export const FINNHUB_SECTOR_MODULE_TTL_SECONDS = 604800;
-
 const DEFAULT_BASE_URL = "https://finnhub.io/api/v1";
 const DEFAULT_RETRY_DELAYS_MS = [1000, 4000];
 const DEFAULT_MAX_PER_MINUTE = 60;

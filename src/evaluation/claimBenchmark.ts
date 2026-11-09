@@ -34,7 +34,6 @@ export const ClaimPredictionsSchema = z.object({
   schemaVersion: z.literal("claim-predictions/v1"), checker: z.object({ id: nonempty, version: nonempty }).strict(), corpusHash: hash,
   outputs: z.array(z.object({ caseId: nonempty, caseHash: hash, scope: z.enum(["whole-claim", "numeric-only"]), label: z.union([ClaimLabelSchema, z.literal("abstain")]) }).strict()),
 }).strict();
-export type ClaimPredictions = z.infer<typeof ClaimPredictionsSchema>;
 
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;

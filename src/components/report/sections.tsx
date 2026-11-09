@@ -82,7 +82,6 @@ import {
 } from "@/report/presentation";
 import { ValuationReview } from "@/components/report/ValuationReview";
 import type { ValuationReviewInputs } from "@/report/researchReview";
-import type { EvidenceTimingRow } from "@/report/evidenceTiming";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -105,7 +104,6 @@ import type {
   Disagreement,
   Executive,
   Fundamentals,
-  GradeBlock,
   Leadership,
   Macro,
   MetricRow,
@@ -133,7 +131,6 @@ import {
 } from "@/report/format";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import { deriveReportCompletenessPresentation } from "@/report/completeness";
-import type { Grade } from "@/types/core";
 import {
   EXECUTIVE_EVIDENCE_GROUPS,
   SCORE_SURFACES,
@@ -1077,7 +1074,6 @@ export function ValuationSection({
   openReasoning,
   scenarioPresentation,
   thesisTriggers,
-  evidenceTiming,
   report,
   grading = {},
   presentation = "classic",
@@ -1091,7 +1087,6 @@ export function ValuationSection({
   routeMetrics?: RouteMetrics;
   index: number;
   openReasoning?: boolean;
-  evidenceTiming?: readonly EvidenceTimingRow[];
   presentation?: "classic" | "dossier";
 } & ValuationReviewInputs) {
   const { dcf, reverseDcf } = valuation;
@@ -1103,7 +1098,6 @@ export function ValuationSection({
   return (
     <SectionFrame id="valuation" index={index} title="Valuation">
       {/* D-62: evidence timing is in the audit export. */}
-      {evidenceTiming === undefined ? null : null}
       <GradeReasoning
         title="valuation"
         block={valuation.graded}
@@ -2345,6 +2339,3 @@ export function ReportMetaStrip({
     </div>
   );
 }
-
-/** Re-export the grade type so callers can annotate without a second import. */
-export type { Grade, GradeBlock };

@@ -31,10 +31,10 @@ import {
   judgeRetryFeedback,
   judgeUserTurns,
   MAX_JUDGE_RETRIES,
-  MockRunPass,
   runJudgePass,
   type PassDeps,
 } from "@/pipeline/stageC/passes";
+import { MockRunPass } from "./helpers/mockRunPass";
 import { SHARED_RULES_BLOCK } from "@/pipeline/stageC/prompts";
 import type { AnalystCase } from "@/report/schema";
 

@@ -1015,7 +1015,6 @@ export const RecentDevelopmentsSchema = z
     items: z.array(RecentDevelopmentSchema).max(QUALITATIVE_ITEM_CAP).describe("Dated developments from about the last six months, newest first."),
   })
   .strict();
-export type RecentDevelopments = z.infer<typeof RecentDevelopmentsSchema>;
 
 export const VerdictSchema = z
   .object({
@@ -1234,7 +1233,6 @@ export const ReverseDcfSchema = z
     narrative: ratingSafeString(),
   })
   .strict();
-export type ReverseDcf = z.infer<typeof ReverseDcfSchema>;
 
 export const MultipleRowSchema = z
   .object({
@@ -1385,7 +1383,6 @@ export const ForensicScoresSchema = z
     accruals: AccrualsScoreSchema,
   })
   .strict();
-export type ForensicScores = z.infer<typeof ForensicScoresSchema>;
 
 export const QualityFlagSchema = z
   .object({
@@ -1394,7 +1391,6 @@ export const QualityFlagSchema = z
     source: z.string(),
   })
   .strict();
-export type QualityFlag = z.infer<typeof QualityFlagSchema>;
 
 export const QualitySchema = z
   .object({
@@ -1426,7 +1422,6 @@ export const TechnicalReadSchema = z
     relativeStrength: ratingSafeString(),
   })
   .strict();
-export type TechnicalRead = z.infer<typeof TechnicalReadSchema>;
 
 export const TechnicalsSchema = z
   .object({
@@ -1528,7 +1523,6 @@ export const PeerRowSchema = z
     metrics: z.array(TracedNumberSchema),
   })
   .strict();
-export type PeerRow = z.infer<typeof PeerRowSchema>;
 
 export const MoatSourceSchema = z.enum([
   "switchingCosts",
@@ -1616,7 +1610,6 @@ export const ScenarioNarrativesSchema = z
     y5: z.array(SourcedClaimSchema),
   })
   .strict();
-export type ScenarioNarratives = z.infer<typeof ScenarioNarrativesSchema>;
 
 export const OutlookSchema = z
   .object({
@@ -1644,7 +1637,6 @@ export const MacroSeriesRowSchema = z
     relevance: ratingSafeString(),
   })
   .strict();
-export type MacroSeriesRow = z.infer<typeof MacroSeriesRowSchema>;
 
 export const MacroSchema = z
   .object({
@@ -1806,26 +1798,6 @@ export function verificationEntryOutcomeLabel(entry: VerificationLogEntry): stri
   if (entry.claimSupportStatus === "cited") return "Cited; prose unchecked";
   if (entry.outcome === "unverified" && entry.evidenceKind === "number" && entry.source?.trim()) return "untraced";
   return citationOutcomeLabel(entry.outcome);
-}
-
-/** Short human label for a {@link VerificationLogEntry.traceKind}. */
-export function traceKindLabel(
-  kind: NonNullable<VerificationLogEntry["traceKind"]>,
-): string {
-  switch (kind) {
-    case "payload-match":
-      return "payload value match";
-    case "source-cited":
-      return "source cited";
-    case "computed-derived":
-      return "computed";
-    case "excerpt-match":
-      return "filing/transcript text match";
-    case "value-match":
-      return "value match; context unconfirmed";
-    case "untraced":
-      return "untraced";
-  }
 }
 
 /**
@@ -2923,7 +2895,6 @@ export const AnalystPriceTargetSchema = z
     assumptions: z.array(ratingSafeString()),
   })
   .strict();
-export type AnalystPriceTarget = z.infer<typeof AnalystPriceTargetSchema>;
 
 /**
  * One side of the case (bull or bear). Both passes emit this shape; the judge

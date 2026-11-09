@@ -505,21 +505,6 @@ export function revenueRunRate(
 }
 
 /**
- * D-58: consensus revenue for one forecast window, calendarized from
- * fiscal-year estimates by day overlap (each fiscal year's revenue spread
- * evenly over its days, or by the issuer's quarterly shape when one is given).
- * Null unless the estimates cover the window.
- */
-export function calendarizedConsensus(
-  rows: AnalystEstimateRow[] | null,
-  window: { startDate: string; endDate: string },
-  reported?: FiscalYearToDate | null,
-  seasonality?: RevenueSeasonality | null,
-): number | null {
-  return calendarizeConsensusWindow(rows, window, reported, seasonality).value;
-}
-
-/**
  * AMZN audit 2026-10-20 finding 19: each fiscal quarter's share of the last
  * complete fiscal year's revenue, first quarter first, or null unless the
  * four reported quarters are consecutive 13/14-week quarters ending on that
@@ -1359,13 +1344,6 @@ export interface DcfAssumptions {
   asOf: { statements: string | null; estimates: string | null };
   notes: string[];
 }
-
-/**
- * D-65: a quote more than this many days after the statement date is not
- * rolled forward: a stale statement is a data problem, not a timing one, and
- * the bridge's balance sheet would be older still.
- */
-export { MAX_ROLL_FORWARD_DAYS } from "@/pipeline/stageB/valuationUse";
 
 /**
  * D-60: operating margin = gross margin − operating-expense ratio, so no

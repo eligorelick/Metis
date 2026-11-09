@@ -35,7 +35,6 @@ import type {
 } from "@/report/schema";
 import { claimCitation, displayClaimText, displayConfidence, displayProse, figureRows, figureValueText, seeAlsoText, withoutTabled } from "@/report/presentation";
 import {
-  formatNumber,
   unitLabel,
   numericCitationTraceLabel,
   tracedPeriodLabel,
@@ -604,55 +603,6 @@ export function ShareBar({
         </span>
       )}
     </div>
-  );
-}
-
-/* ======================================================================== *
- * HeatmapCell — value colored green→red across [min,max]
- * ======================================================================== */
-
-/**
- * A single sensitivity-grid cell. Background interpolates green (high) → amber
- * (mid) → red (low) by the value's position in [min,max]. `null` renders a
- * faint dash. `format` maps the value to display text (defaults to the bare
- * rounded amount — pass a currency-aware formatter to label it).
- */
-export function HeatmapCell({
-  value,
-  min,
-  max,
-  format = (v) => formatNumber(v, 0),
-  highlight = false,
-}: {
-  value: number | null;
-  min: number;
-  max: number;
-  format?: (v: number) => string;
-  highlight?: boolean;
-}) {
-  if (value === null || !Number.isFinite(value)) {
-    return (
-      <td className="mono px-2 py-1 text-right text-[11px] text-faint">—</td>
-    );
-  }
-  const span = max - min;
-  const t = span > 0 ? Math.max(0, Math.min(1, (value - min) / span)) : 0.5;
-  // Green (pos) at t=1, red (neg) at t=0, amber (warn) mid — mix in bg so text
-  // stays legible.
-  const hi = "46, 204, 143"; // --pos
-  const mid = "232, 179, 57"; // --warn
-  const lo = "240, 82, 95"; // --neg
-  const rgb =
-    t >= 0.5
-      ? lerpRgb(mid, hi, (t - 0.5) * 2)
-      : lerpRgb(lo, mid, t * 2);
-  return (
-    <td
-      className={`mono px-2 py-1 text-right text-[11px] text-fg ${highlight ? "outline outline-1 outline-accent" : ""}`}
-      style={{ backgroundColor: `rgba(${rgb}, 0.28)` }}
-    >
-      {format(value)}
-    </td>
   );
 }
 

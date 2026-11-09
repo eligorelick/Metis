@@ -531,7 +531,6 @@ export const SOURCE_ENTRY_FIELD_BY_KEY = {
   stale: SOURCE_ENTRY_FIELDS[4],
 } as const satisfies Record<SourceEntryFieldKey, FieldDescriptor<SourceEntryFieldKey>>;
 
-export type ManifestEntryFieldKey = ProjectionDisclosureFieldKey;
 export const MANIFEST_ENTRY_FIELD_ORDER = PROJECTION_DISCLOSURE_FIELD_ORDER;
 export const MANIFEST_ENTRY_FIELDS = PROJECTION_DISCLOSURE_FIELDS;
 export const MANIFEST_ENTRY_FIELD_BY_KEY = PROJECTION_DISCLOSURE_FIELD_BY_KEY;

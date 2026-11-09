@@ -1789,11 +1789,6 @@ export class EdgarClient {
       value: this.sourced({ total: parsed.data.hits.total.value, hits }, url, res.fetchedAt.slice(0, 10), res.fetchedAt, res.stale),
     };
   }
-
-  /** Convenience: Archives URL for a filing row from submissions. */
-  filingDocUrl(cik: number | string, filing: EdgarFiling): string {
-    return archivesUrl(cik, filing.accessionNumber, filing.primaryDocument);
-  }
 }
 
 export function createEdgarClient(opts: EdgarClientOptions = {}): EdgarClient {

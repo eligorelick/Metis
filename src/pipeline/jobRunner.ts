@@ -2469,11 +2469,6 @@ export function cancelJob(jobId: string): boolean {
   return canceled;
 }
 
-/** TEST hook: true when runJob currently executes the job in this process. */
-export function isJobLiveInProcess(jobId: string): boolean {
-  return liveJobIds().has(jobId);
-}
-
 /** Legacy test export; durable renewal cadence is derived from the lease TTL. */
 export { JOB_HEARTBEAT_MS } from "@/pipeline/leaseTiming";
 

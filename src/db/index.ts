@@ -527,4 +527,4 @@ export function closeDb(): void {
 }
 
 export * from "./schema";
-export { defaultDataDir, defaultDbPath } from "./paths";
+export { defaultDbPath } from "./paths";
