@@ -14,8 +14,6 @@
  * rules and their sources (ASC 250-10-45-23, ASC 205-20-45-3, SEC FRM 13110.4).
  */
 
-import type { FactPoint } from "@/edgar/xbrl";
-
 /** The slice of a fact the pairing rules read. A `FactPoint` satisfies it. */
 export interface LineageCopy {
   start?: string;
@@ -33,9 +31,6 @@ export interface LabelCopy extends LineageCopy {
   tag: string;
   unit: string;
 }
-
-/** A FactPoint must stay usable wherever a LineageCopy is wanted (compile-time check only). */
-export type FactPointIsALineageCopy = FactPoint extends LineageCopy ? true : never;
 
 /** A signed percentage, or the reason there is none. */
 export function describeChangePct(changePct: number | null, decimals = 2): string {

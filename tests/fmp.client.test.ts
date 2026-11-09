@@ -818,7 +818,6 @@ describe("fmpCacheKey", () => {
     expect(seen[2]?.ttlMs).toBe(FMP_TTLS.incomeStatement);
     expect(FMP_TTLS.quote).toBe(15 * 60_000);
     expect(FMP_TTLS.incomeStatement).toBe(24 * 3_600_000);
-    expect(FMP_TTLS.sectorPeSnapshot).toBe(3_600_000);
     expect(FMP_TTLS.treasuryRates).toBe(2 * 3_600_000);
   });
 

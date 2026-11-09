@@ -79,10 +79,10 @@ import {
   type RunPassArgs,
   type RunPassOutcome,
   judgeUserTurns,
-  MockRunPass,
   runJudgePass,
   type PassDeps,
 } from "@/pipeline/stageC/passes";
+import { MockRunPass } from "./helpers/mockRunPass";
 
 /* ------------------------------------------------------------------------ *
  * Fixtures

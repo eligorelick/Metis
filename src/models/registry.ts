@@ -34,7 +34,6 @@ const ModelPricingSchema = z
     cacheReadPerMTok: z.number().positive(),
   })
   .strict();
-export type RegistryModelPricing = z.infer<typeof ModelPricingSchema>;
 
 const RegistryModelSchema = z
   .object({

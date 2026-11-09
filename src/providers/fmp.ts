@@ -617,12 +617,6 @@ export interface FmpPositionsSummaryRow extends FmpRawRow {
   putCallRatio?: number;
 }
 
-export interface FmpOwnershipDatesRow extends FmpRawRow {
-  date?: string;
-  year?: number;
-  quarter?: number;
-}
-
 export interface FmpStockPeerRow extends FmpRawRow {
   symbol?: string;
   companyName?: string;
@@ -725,28 +719,6 @@ export interface FmpEodBarRow extends FmpRawRow {
   vwap?: number;
 }
 
-export interface FmpSectorPeRow extends FmpRawRow {
-  date?: string;
-  sector?: string;
-  exchange?: string;
-  pe?: number;
-}
-
-export interface FmpIndustryPeRow extends FmpRawRow {
-  date?: string;
-  industry?: string;
-  exchange?: string;
-  pe?: number;
-}
-
-export interface FmpSectorPerformanceRow extends FmpRawRow {
-  date?: string;
-  sector?: string;
-  exchange?: string;
-  /** units PLV — likely percent */
-  averageChange?: number;
-}
-
 export interface FmpTreasuryRatesRow extends FmpRawRow {
   date?: string;
   month1?: number;
@@ -763,12 +735,6 @@ export interface FmpTreasuryRatesRow extends FmpRawRow {
   year30?: number;
 }
 
-export interface FmpEconomicIndicatorRow extends FmpRawRow {
-  name?: string;
-  date?: string;
-  value?: number;
-}
-
 export interface FmpMarketRiskPremiumRow extends FmpRawRow {
   country?: string;
   continent?: string | null;
@@ -783,14 +749,6 @@ export interface FmpDcfRow extends FmpRawRow {
   dcf?: number;
   /** the real field name has a space: "Stock Price" */
   "Stock Price"?: number;
-}
-
-export interface FmpSectorNameRow extends FmpRawRow {
-  sector?: string;
-}
-
-export interface FmpIndustryNameRow extends FmpRawRow {
-  industry?: string;
 }
 
 /** Every method returns the typed rows plus the verbatim parsed body. */
@@ -867,14 +825,12 @@ export const FMP_TTLS = {
   priceTargetConsensus: DAY,
   gradesConsensus: DAY,
   earnings: DAY,
-  earningsCalendar: DAY,
   transcriptDates: DAY,
   transcript: FOREVER,
   insiderTradingSearch: DAY,
   insiderTradeStatistics: DAY,
   institutionalHolderAnalytics: DAY,
   symbolPositionsSummary: DAY,
-  institutionalOwnershipDates: DAY,
   stockPeers: DAY,
   revenueProductSegmentation: DAY,
   revenueGeographicSegmentation: DAY,
@@ -887,16 +843,9 @@ export const FMP_TTLS = {
   stockNews: 6 * HOUR,
   pressReleases: 6 * HOUR,
   historicalPriceEodFull: DAY,
-  sectorPeSnapshot: HOUR,
-  industryPeSnapshot: HOUR,
-  sectorPerformanceSnapshot: HOUR,
   treasuryRates: 2 * HOUR,
-  economicIndicators: 4 * HOUR,
   marketRiskPremium: 7 * DAY,
   dcf: DAY,
-  leveredDcf: DAY,
-  availableIndustries: FOREVER,
-  availableSectors: FOREVER,
 } as const satisfies Record<string, number>;
 
 export type FmpMethodName = keyof typeof FMP_TTLS;
@@ -2128,16 +2077,6 @@ export class FmpClient {
     });
   }
 
-  earningsCalendar(from: string, to: string): FmpResult<FmpEarningsRow> {
-    return this.call<FmpEarningsRow>({
-      method: "earningsCalendar",
-      endpoint: "earnings-calendar",
-      params: { from, to },
-      fixtureKeys: [`${from}_${to}`],
-      gapField: `fmp.earningsCalendar(${from},${to})`,
-    });
-  }
-
   transcriptDates(symbol: string): FmpResult<FmpTranscriptDateRow> {
     return this.call<FmpTranscriptDateRow>({
       method: "transcriptDates",
@@ -2212,17 +2151,6 @@ export class FmpClient {
       entityScope: { expectedSymbols: [symbol], returnedSymbol: "optional" },
       fixtureKeys: [`${symbol}_${year}_Q${quarter}`, symbol],
       gapField: `fmp.symbolPositionsSummary(${symbol},${year}Q${quarter})`,
-    });
-  }
-
-  /** Per-HOLDER 13F filing dates (param is the holder's CIK, not a symbol). */
-  institutionalOwnershipDates(cik: string): FmpResult<FmpOwnershipDatesRow> {
-    return this.call<FmpOwnershipDatesRow>({
-      method: "institutionalOwnershipDates",
-      endpoint: "institutional-ownership/dates",
-      params: { cik },
-      fixtureKeys: [cik],
-      gapField: `fmp.institutionalOwnershipDates(${cik})`,
     });
   }
 
@@ -2563,37 +2491,6 @@ export class FmpClient {
 
   // -- sector / macro context -------------------------------------------------
 
-  sectorPeSnapshot(date: string): FmpResult<FmpSectorPeRow> {
-    return this.call<FmpSectorPeRow>({
-      method: "sectorPeSnapshot",
-      endpoint: "sector-pe-snapshot",
-      params: { date },
-      fixtureKeys: [date],
-      gapField: `fmp.sectorPeSnapshot(${date})`,
-    });
-  }
-
-  industryPeSnapshot(date: string): FmpResult<FmpIndustryPeRow> {
-    return this.call<FmpIndustryPeRow>({
-      method: "industryPeSnapshot",
-      endpoint: "industry-pe-snapshot",
-      params: { date },
-      fixtureKeys: [date],
-      gapField: `fmp.industryPeSnapshot(${date})`,
-    });
-  }
-
-  /** `averageChange` units are PLV (likely percent). Rows repeat per exchange. */
-  sectorPerformanceSnapshot(date: string): FmpResult<FmpSectorPerformanceRow> {
-    return this.call<FmpSectorPerformanceRow>({
-      method: "sectorPerformanceSnapshot",
-      endpoint: "sector-performance-snapshot",
-      params: { date },
-      fixtureKeys: [date],
-      gapField: `fmp.sectorPerformanceSnapshot(${date})`,
-    });
-  }
-
   /** Percent yields, full curve per day. No params → latest row. */
   treasuryRates(from?: string, to?: string): FmpResult<FmpTreasuryRatesRow> {
     return this.call<FmpTreasuryRatesRow>({
@@ -2602,17 +2499,6 @@ export class FmpClient {
       params: { from, to },
       fixtureKeys: [from && to ? `${from}_${to}` : ""],
       gapField: "fmp.treasuryRates",
-    });
-  }
-
-  /** `name` per the 24 documented enum values. */
-  economicIndicators(name: string): FmpResult<FmpEconomicIndicatorRow> {
-    return this.call<FmpEconomicIndicatorRow>({
-      method: "economicIndicators",
-      endpoint: "economic-indicators",
-      params: { name },
-      fixtureKeys: [name],
-      gapField: `fmp.economicIndicators(${name})`,
     });
   }
 
@@ -2637,37 +2523,6 @@ export class FmpClient {
       entityScope: { expectedSymbols: [symbol], returnedSymbol: "optional" },
       fixtureKeys: [symbol],
       gapField: `fmp.dcf(${symbol})`,
-    });
-  }
-
-  leveredDcf(symbol: string): FmpResult<FmpDcfRow> {
-    return this.call<FmpDcfRow>({
-      method: "leveredDcf",
-      endpoint: "levered-discounted-cash-flow",
-      params: { symbol },
-      entityScope: { expectedSymbols: [symbol], returnedSymbol: "optional" },
-      fixtureKeys: [symbol],
-      gapField: `fmp.leveredDcf(${symbol})`,
-    });
-  }
-
-  // -- enums (frozen day-1) -----------------------------------
-
-  availableIndustries(): FmpResult<FmpIndustryNameRow> {
-    return this.call<FmpIndustryNameRow>({
-      method: "availableIndustries",
-      endpoint: "available-industries",
-      params: {},
-      gapField: "fmp.availableIndustries",
-    });
-  }
-
-  availableSectors(): FmpResult<FmpSectorNameRow> {
-    return this.call<FmpSectorNameRow>({
-      method: "availableSectors",
-      endpoint: "available-sectors",
-      params: {},
-      gapField: "fmp.availableSectors",
     });
   }
 }

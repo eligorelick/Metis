@@ -21,8 +21,6 @@ import type { ManifestEntry } from "@/types/core";
 /** The reserved strings, uppercase and canonical. */
 export const RESERVED_FIXTURE_SYMBOLS = ["DEMO", "DBNK"] as const;
 
-export type ReservedFixtureSymbol = (typeof RESERVED_FIXTURE_SYMBOLS)[number];
-
 const RESERVED = new Set<string>(RESERVED_FIXTURE_SYMBOLS);
 
 /** True for a reserved fixture symbol, in any spelling or casing. */

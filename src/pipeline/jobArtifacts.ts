@@ -653,10 +653,6 @@ export function computeJobResumePlan(input: ResumeArtifacts): ComputedJobResumeP
   };
 }
 
-export function computeJobResumeState(input: ResumeArtifacts): JobResumeState {
-  return computeJobResumePlan(input).state;
-}
-
 export function parsePassArtifactEnvelope<T = unknown>(
   pass: DurablePass,
   value: string | unknown,
@@ -942,13 +938,6 @@ function matchingCost(
     (row.costUsd === telemetry.costUsd || (telemetry.presumed === true && row.settlementKind === "presumed" && row.presumedAttemptId === row.attemptId && row.reconciledAt !== null && row.costUsd >= 0 && row.costUsd <= telemetry.costUsd)) &&
     (telemetry.presumed !== true || (row.settlementKind === "presumed" && row.presumedAttemptId === row.attemptId)) &&
     row.fallbackUsed === telemetry.fallbackUsed;
-}
-
-export function passCostMatchesTelemetry(
-  row: CostLogRow,
-  telemetry: PassTelemetry,
-): boolean {
-  return matchingCost(row, telemetry);
 }
 
 /**

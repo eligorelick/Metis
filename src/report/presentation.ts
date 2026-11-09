@@ -57,7 +57,7 @@ import { compositeNote, compositeText, evidencePercentText, hasLimitedEvidence, 
 import { formatScore } from "@/report/scoreText";
 import { attributeGradeReliability, type AttributeGradeReliability } from "@/report/gradeReliability";
 import { displayedClaimCoverage, displayedFactualValidation, displayedValidationStatus, numericClaimPartition } from "@/report/claimMatching";
-export { displayedFactualValidation, displayedValidationStatus } from "@/report/claimMatching";
+export { displayedValidationStatus } from "@/report/claimMatching";
 import { isComputedFigure } from "@/report/verificationMarks";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";

@@ -51,7 +51,6 @@ export const conceptFactsSchema = z.looseObject({
   description: z.string().nullish(),
   units: z.record(z.string(), z.array(z.unknown())),
 });
-export type ConceptFacts = z.infer<typeof conceptFactsSchema>;
 
 /** Shape of https://data.sec.gov/api/xbrl/companyfacts/CIK##########.json */
 export interface CompanyFacts {

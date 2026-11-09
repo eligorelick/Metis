@@ -90,11 +90,6 @@ export type JobEvent =
   | JobErrorEvent
   | JobUnsupportedEvent;
 
-/** True for every terminal event kind (subscribers unsubscribe after these). */
-export function isTerminalEvent(event: JobEvent): boolean {
-  return event.type === "done" || event.type === "error" || event.type === "unsupported";
-}
-
 export type JobEventCallback = (event: JobEvent) => void;
 
 /* ------------------------------------------------------------------------ *

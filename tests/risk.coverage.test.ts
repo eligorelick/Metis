@@ -358,7 +358,6 @@ const COVERAGE_EXEMPT_SOURCES: Record<string, string> = {
   "src/app/company/[symbol]/format.ts": "display formatting for the company page; exercised by the page tests, not risk-bearing",
   "src/components/charts/format.ts": "chart label formatting; covered by tests/charts.format.test.ts, a wrong label is visible, never persisted",
   "src/components/charts/map.ts": "chart data mapping; covered by tests/charts.map.test.ts, a wrong point is visible, never persisted",
-  "src/components/charts/synthetic.ts": "the synthetic sample-report chart data; fixtures only",
   "src/components/watchlist/addTickerInput.ts": "input normalisation for the add-ticker box; covered by tests/watchlist.addTicker.test.ts",
   "src/types/core.ts": "type declarations only; no runtime code",
 };
