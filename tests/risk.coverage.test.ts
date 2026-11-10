@@ -159,6 +159,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/export/markdown.ts",
   "src/report/export/markdownEscape.ts",
   "src/report/export/printHtml.ts",
+  "src/report/export/readerFormat.ts",
   "src/report/format.ts",
   "src/report/cagrPresentation.ts",
   "src/report/scoreText.ts",

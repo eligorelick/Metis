@@ -16,6 +16,7 @@ import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnS
 import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
 import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
+import { claimReasoning as sharedClaimReasoning, type ClaimReasoningMarkup, num, signedPct, tracedValue } from "@/report/export/readerFormat";
 import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
@@ -102,7 +103,6 @@ import {
   formatMoneyAmount,
   establishedCurrency,
   peerColumnKeys,
-  formatPct,
 } from "@/report/format";
 import {
   annualSegmentHeading,
@@ -230,20 +230,6 @@ function prose(text: string, source?: string): string {
   return esc(displayProse(text, source));
 }
 
-function num(v: number | null | undefined, digits = 2): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return DASH;
-  return v.toFixed(digits);
-}
-
-function tracedValue(n: TracedNumber): string {
-  return formatFinancialValue(n.value, n.unit, n.currency);
-}
-
-function signedPct(v: number | null | undefined, digits = 1): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return DASH;
-  return formatPct(v, digits, true);
-}
-
 function asOfTag(asOf: string | null): string {
   return asOf ? ` <span class="asof">as of ${esc(asOf)}</span>` : "";
 }
@@ -322,17 +308,21 @@ function statusMark(claim: SourcedClaim): string {
   return mark === null ? "" : ` <span class="claim-status">${esc(mark)}</span>`;
 }
 
-/** The same mark as plain text for a table cell, which the table escapes. */
-function statusMarkSuffix(claim: SourcedClaim): string {
-  const mark = claimStatusMarkText(claim);
-  return mark === null ? "" : ` ${mark}`;
-}
+/**
+ * A reasoning cell in escaped HTML. A citation's URL is a structured field,
+ * not the surrounding prose: keep genuine URL punctuation and canonical
+ * identity out of text auto-linking.
+ */
+const PRINT_CLAIM_REASONING: ClaimReasoningMarkup = {
+  text: plain => linkedText(plain),
+  label: label => esc(label),
+  claimText: text => linkedText(text),
+  citation: claim => citationHtml(claim),
+  mark: suffix => esc(suffix),
+};
 
 function claimReasoning(reasoning: SourcedClaim | SourcedClaim[]): EscapedPrintCell {
-  if (!Array.isArray(reasoning)) return { html: linkedText(`${displayProse(reasoning.text, reasoning.source)}${statusMarkSuffix(reasoning)}`) };
-  // A citation's URL is a structured field, not the surrounding prose. Keep
-  // genuine URL punctuation and canonical identity out of text auto-linking.
-  return { html: reasoning.map(claim => `[${esc(claim.label)}] ${linkedText(displayClaimText(claim))} (${citationHtml(claim)})${esc(statusMarkSuffix(claim))}`).join(" ") };
+  return { html: sharedClaimReasoning(reasoning, PRINT_CLAIM_REASONING) };
 }
 
 /** Claims with ONE source marker each (D-62). */

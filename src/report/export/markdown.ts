@@ -36,7 +36,8 @@ import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnS
 import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
 import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
-import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
+import { claimReasoning as sharedClaimReasoning, num, PLAIN_CLAIM_REASONING, signedPct, statusMarkSuffix, tracedValue } from "@/report/export/readerFormat";
+import { COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -196,22 +197,6 @@ function sectionHeading(key: ReportSectionKey): string {
   return `## ${section.index}. ${section.printTitle}`;
 }
 
-/** Fixed-decimal number, or an em dash for null/non-finite. */
-function num(v: number | null | undefined, digits = 2): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return DASH;
-  return v.toFixed(digits);
-}
-
-function tracedValue(n: TracedNumber): string {
-  return formatFinancialValue(n.value, n.unit, n.currency);
-}
-
-/** Signed percent for deltas (e.g. +7.3% / -4.0%). */
-function signedPct(v: number | null | undefined, digits = 1): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return DASH;
-  return `${v >= 0 ? "+" : ""}${v.toFixed(digits)}%`;
-}
-
 /** As-of stamp suffix; empty when the claim/figure is timeless (null). */
 function asOfSuffix(asOf: string | null): string {
   return asOf ? ` _(as of ${markdownProse(asOf)})_` : "";
@@ -249,21 +234,14 @@ function subsection(heading: string, body: string): string[] {
  * Shared block renderers
  * ======================================================================== */
 
-/** F-21: a factual claim's verification status after its citation, or nothing. */
-function withStatusMark(claim: SourcedClaim): string {
-  const mark = claimStatusMarkText(claim);
-  return mark === null ? "" : ` ${mark}`;
-}
-
 function claimReasoning(reasoning: SourcedClaim | SourcedClaim[]): string {
-  if (!Array.isArray(reasoning)) return `${displayProse(reasoning.text, reasoning.source)}${withStatusMark(reasoning)}`;
-  return reasoning.map(claim => `[${claim.label}] ${displayClaimText(claim)} (${claimCitation(claim)})${withStatusMark(claim)}`).join(" ");
+  return sharedClaimReasoning(reasoning, PLAIN_CLAIM_REASONING);
 }
 
 /** A bullet list of sourced claims, each with its label and ONE source marker (D-62). */
 function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
   return claims
-    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_${withStatusMark(c)}`)
+    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_${statusMarkSuffix(c)}`)
     .join("\n");
 }
 
