@@ -1,5 +1,5 @@
 import { fairValueReferenceText } from "@/report/fairValueText";
-import { withValuationUseSafety } from "@/report/valuationUseSafety";
+import { withSafeStoredReportView } from "@/report/storedReportView";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { legacyCheckNote } from "@/report/claimMatching";
 /**
@@ -14,16 +14,9 @@ import { legacyCheckNote } from "@/report/claimMatching";
  * same input → byte-identical output (sorted as-of keys, no clock, no locale).
  */
 
-import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
+import { legacyScopeQualifications, LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { formatExecutionMetadata } from "@/report/execution";
-import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
-import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
-import { withLegacyEdgarDerivedLines } from "@/report/legacyEdgarDerivedLines";
-import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
-import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
-import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
-import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { scoreAuditTables, factualValidationText, primaryCapitalEvidenceTables } from "@/report/auditTables";
 import { evidenceTimingRows, EVIDENCE_TIMING_NOTE } from "@/report/evidenceTiming";
 import { deriveReportCompletenessPresentation, type ClassifiedGap } from "@/report/completeness";
@@ -515,8 +508,7 @@ function renderGradeContracts(report: Report): string {
 
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
 
-  report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
-  report = withValuationUseSafety(withLegacyScopeQualifications(report));
+  report = withSafeStoredReportView(report);
   const { auditValuation: recordedTargets, ...fairValueRecord } = report.fairValue ?? {};
   const scopeQualifications = legacyScopeQualifications(report);
   indexVerificationMarks(report);

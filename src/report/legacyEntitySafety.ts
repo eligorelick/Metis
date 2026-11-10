@@ -1,5 +1,3 @@
-import { withValuationUseSafety } from "@/report/valuationUseSafety";
-import { withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
 import {
   ENTITY_WITHHELD_STATEMENT_PREFIX,
   getEntityRegistry,
@@ -12,13 +10,7 @@ import { claimCoverageWithout, factualValidationWithout, isCountedClaimEntry } f
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { attributeJudgeProtocolDisclosures } from "@/report/execution";
-import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
-import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
-import { withLegacyEdgarDerivedLines } from "@/report/legacyEdgarDerivedLines";
-import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
-import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
-import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
-import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
+import { withSafeStoredReportView } from "@/report/storedReportView";
 import { detachRetiredStoredFields, withRetiredFieldDisclosures } from "@/report/legacyRetiredFields";
 import {
   citationAsOf,
@@ -79,14 +71,14 @@ export function parseStoredReportWithSafety(
       getEntityRegistry(parsed.meta.symbol),
     );
     const assessed = applyReportAssessmentStatus(applyGradeOverrideContract(safety.report, safety.report.appendix.verificationLog ?? []));
-    const view = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety({
+    const view = withSafeStoredReportView({
       ...assessed,
       appendix: {
         ...assessed.appendix,
         missingData: attributeJudgeProtocolDisclosures(assessed.appendix.missingData, assessed.meta),
       },
-    })))))));
-    const revalidated = validateStoredReportInReadMode(withValuationUseSafety(withLegacyScopeQualifications(view)), readMode);
+    });
+    const revalidated = validateStoredReportInReadMode(view, readMode);
     if (revalidated === null) return null;
     return {
       report: revalidated,
