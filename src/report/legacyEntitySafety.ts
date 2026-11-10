@@ -19,6 +19,7 @@ import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
 import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
 import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
 import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
+import { detachRetiredStoredFields, withRetiredFieldDisclosures } from "@/report/legacyRetiredFields";
 import {
   citationAsOf,
   citationSourceId,
@@ -62,13 +63,16 @@ export function parseStoredReportWithSafety(
 ): SafeStoredReport | null {
   if (reportJson === null) return null;
   try {
-    const raw: unknown = JSON.parse(reportJson);
+    // Listed retired fields (exact path, shape and writing builds) are set
+    // aside and disclosed; any other unknown field still fails the read.
+    const { raw, retired } = detachRetiredStoredFields(JSON.parse(reportJson));
     const strict = ReportSchema.safeParse(raw);
     const readMode: SafeStoredReport["readMode"] = strict.success ? "strict" : "legacy";
-    const parsed = strict.success
+    const validated = strict.success
       ? strict.data
       : validateStoredReportInReadMode(raw, "legacy");
-    if (parsed === null) return null;
+    if (validated === null) return null;
+    const parsed = withRetiredFieldDisclosures(validated, retired);
 
     const safety = sanitizeLegacyEntityConflicts(
       parsed,
