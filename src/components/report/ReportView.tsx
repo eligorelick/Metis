@@ -30,15 +30,9 @@ import { RunNotices } from "./RunNotices";
  * chart module stays decoupled from this renderer.
  */
 
-import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
+import { legacyScopeQualifications, LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
+import { withStoredReportView } from "@/report/storedReportView";
 import { MetisLogo } from "@/brand/MetisLogo";
-import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
-import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
-import { withLegacyEdgarDerivedLines } from "@/report/legacyEdgarDerivedLines";
-import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
-import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
-import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
-import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { indexVerificationMarks } from "@/report/verificationMarks";
 import type { ReactNode } from "react";
 import { WorkspaceOnly } from "@/appearance/UiDesignProvider";
@@ -191,7 +185,7 @@ export function ReportView({
   selectedReportId?: number;
   selectedReportStatus?: string;
 }) {
-  const report = withValuationUseSafety(withPlainFigureNotes(withClassifiedDataOnlyGapCount(withReaderConventions(withLegacyScopeQualifications(withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(sourceReport))))))))))));
+  const report = withValuationUseSafety(withPlainFigureNotes(withClassifiedDataOnlyGapCount(withReaderConventions(withStoredReportView(sourceReport)))));
   const lenderTables = lenderConventionTables(sourceReport);
   const scopeQualifications = legacyScopeQualifications(report);
   // F-21: the claim chips below read each claim's verification status.

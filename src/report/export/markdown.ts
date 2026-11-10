@@ -1,6 +1,6 @@
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
-import { withValuationUseSafety } from "@/report/valuationUseSafety";
+import { withSafeStoredReportView } from "@/report/storedReportView";
 import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
@@ -25,16 +25,9 @@ import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
  * Pure and dependency-free — safe to call from a route handler or a test.
  */
 
-import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
+import { legacyScopeQualifications, LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
-import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
-import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
-import { withLegacyEdgarDerivedLines } from "@/report/legacyEdgarDerivedLines";
-import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
-import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
-import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
-import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { claimReasoning as sharedClaimReasoning, num, PLAIN_CLAIM_REASONING, signedPct, statusMarkSuffix, tracedValue } from "@/report/export/readerFormat";
 import { COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
@@ -1041,8 +1034,7 @@ function capitalize(s: string): string {
 export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
-  report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
-  report = withValuationUseSafety(withLegacyScopeQualifications(report));
+  report = withSafeStoredReportView(report);
   const lenderTables = lenderConventionTables(report);
   report = withReaderConventions(report);
   const scopeQualifications = legacyScopeQualifications(report);

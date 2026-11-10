@@ -1,20 +1,13 @@
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
-import { withValuationUseSafety } from "@/report/valuationUseSafety";
+import { withSafeStoredReportView } from "@/report/storedReportView";
 import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
-import { legacyScopeQualifications, LEGACY_SCOPE_HEADING, withLegacyScopeQualifications } from "@/report/legacyScopeQualifications";
+import { legacyScopeQualifications, LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
-import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
-import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
-import { withLegacyEdgarDerivedLines } from "@/report/legacyEdgarDerivedLines";
-import { withLegacyBridgeMethod } from "@/report/legacyBridgeMethod";
-import { withLegacyImpliedReturnShareBasis } from "@/report/legacyImpliedReturnShareBasis";
-import { withLegacyValuationNotes } from "@/report/legacyValuationNotes";
-import { withLegacyPayloadRecordSafety } from "@/report/legacyPayloadRecordSafety";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { claimReasoning as sharedClaimReasoning, type ClaimReasoningMarkup, num, signedPct, tracedValue } from "@/report/export/readerFormat";
 import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
@@ -900,8 +893,7 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
 export function reportToPrintBody(report: Report, context: ReportPresentationContext = {}): string {
   report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
   report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
-  report = withLegacyImpliedReturnShareBasis(withLegacyValuationNotes(withLegacyBridgeMethod(withLegacyEdgarDerivedLines(withLegacyPayloadRecordSafety(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)))))));
-  report = withValuationUseSafety(withLegacyScopeQualifications(report));
+  report = withSafeStoredReportView(report);
   const lenderTables = lenderConventionTables(report);
   report = withReaderConventions(report);
   const scopeQualifications = legacyScopeQualifications(report);
