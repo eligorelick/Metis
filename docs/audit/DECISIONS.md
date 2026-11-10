@@ -11,6 +11,30 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-216 - Saved reports that carry a field no released build wrote (2026-11-09)
+
+Principle P21. Saved reports #59 (QCOM, spec 1.23.1) and #60 (FIGR, spec 1.23.2)
+stopped opening: both carry `filingDisclosures.corporateActionBridge`, which the
+strict report schema rejects as an unknown key. Git history shows the field only
+in a stash ("Preserved local work before main update", 2026-11-01, on base
+65ed5638), so uncommitted local work wrote it on 2026-11-01 and it never
+reached main. Everything else in both reports passes the strict schema.
+
+Options: add the field to the report schema (new reports could then carry it
+too, and its feature would need porting); accept unknown fields on read (hides
+corruption everywhere); or list each retired field once and set it aside on
+read. Choice: `src/report/legacyRetiredFields.ts` lists a retired field by exact
+path, a frozen copy of the shape it was written with, and the exact spec stamps
+of the builds that wrote it (1.23.1, 1.23.2 and 1.23.3). Only a match on all
+three is set aside; any other unknown field, shape or stamp (including empty,
+malformed, pre-release and out-of-range stamps) still fails the read. The view adds a
+fixed-wording filing note saying what is not shown: the record's table and
+source excerpts. It says the form, accession, filing date and link remain in
+the filing notes only when one note states all four for every item; otherwise it
+says the source list is not shown either. Stored
+bytes are not changed and the feature is not ported. No other saved report and
+no new report changes.
+
 ## D-215 - Restore corroborated operating evidence without relaxing grades (2026-11-08)
 
 The DHI audit reproduced a revenue-scope admission error: a quarterly primary
