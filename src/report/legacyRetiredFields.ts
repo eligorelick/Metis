@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import { FilingDisclosuresSchema, type Report } from "@/report/schema";
 
 /**
@@ -48,8 +47,12 @@ export interface RetiredStoredField {
   value: RetiredCorporateActionBridge;
 }
 
-/** Spec stamps of the builds that wrote the field: 1.23.x only. */
-const CORPORATE_ACTION_BRIDGE_WRITTEN_BEFORE = "1.24.0";
+/**
+ * The exact spec stamps of the builds that wrote the field: the stash's base
+ * is stamped 1.23.1 and its local edits went to 1.23.3; main never used 1.23.2
+ * or 1.23.3. Any other stamp, including empty, malformed or pre-release, is refused.
+ */
+const CORPORATE_ACTION_BRIDGE_WRITING_STAMPS: ReadonlySet<string> = new Set(["1.23.1", "1.23.2", "1.23.3"]);
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -62,8 +65,7 @@ export function detachRetiredStoredFields(raw: unknown): { raw: unknown; retired
   if (!isRecord(raw) || !isRecord(raw.filingDisclosures) || !isRecord(raw.meta)) return { raw, retired: [] };
   const { corporateActionBridge: stored, ...rest } = raw.filingDisclosures;
   if (stored === undefined || "corporateActionBridge" in FilingDisclosuresSchema.shape) return { raw, retired: [] };
-  const spec = typeof raw.meta.specVersion === "string" ? raw.meta.specVersion : "";
-  if (!specVersionBefore(spec, CORPORATE_ACTION_BRIDGE_WRITTEN_BEFORE)) return { raw, retired: [] };
+  if (typeof raw.meta.specVersion !== "string" || !CORPORATE_ACTION_BRIDGE_WRITING_STAMPS.has(raw.meta.specVersion)) return { raw, retired: [] };
   const parsed = corporateActionBridge.safeParse(stored);
   if (!parsed.success) return { raw, retired: [] };
   return {
@@ -76,10 +78,12 @@ export function detachRetiredStoredFields(raw: unknown): { raw: unknown; retired
 export function retiredCorporateActionBridgeNote(bridge: RetiredCorporateActionBridge, notes: readonly string[]): string {
   const items = bridge.evidence.length;
   const status = bridge.status === "unresolved" ? "unresolved" : "coverage incomplete";
-  const listed = items > 0 && bridge.evidence.every((e) => notes.some((n) => n.includes(e.source.accession)));
+  // Claim the source details are still shown only when one note states every one of them for every item.
+  const listed = items > 0 && bridge.evidence.every(({ source: { form, accession, filingDate, url } }) =>
+    url !== null && notes.some((n) => n.includes(`${form} ${accession} filed ${filingDate}`) && n.includes(url)));
   return `Read-time notice: this saved report also stores a corporate-action evidence record (status: ${status}; ${items} source item${items === 1 ? "" : "s"}) written by a development build that never became part of the app. ` +
     (listed
-      ? "The current app cannot show that record's table or its source excerpts; each item's form, accession number, filing date and link appear in the corporate-action note among these filing notes. "
+      ? "The current app cannot show that record's table or its source excerpts; each item's form, accession number, filing date and link appear in these filing notes. "
       : "The current app cannot show that record's table, its source excerpts or its source list. ") +
     "The stored report was not changed.";
 }

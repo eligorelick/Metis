@@ -24,12 +24,14 @@ Options: add the field to the report schema (new reports could then carry it
 too, and its feature would need porting); accept unknown fields on read (hides
 corruption everywhere); or list each retired field once and set it aside on
 read. Choice: `src/report/legacyRetiredFields.ts` lists a retired field by exact
-path, a frozen copy of the shape it was written with, and the spec stamps of the
-builds that wrote it (before 1.24.0). Only a match on all three is set aside;
-any other unknown field, shape or stamp still fails the read. The view adds a
+path, a frozen copy of the shape it was written with, and the exact spec stamps
+of the builds that wrote it (1.23.1, 1.23.2 and 1.23.3). Only a match on all
+three is set aside; any other unknown field, shape or stamp (including empty,
+malformed, pre-release and out-of-range stamps) still fails the read. The view adds a
 fixed-wording filing note saying what is not shown: the record's table and
-source excerpts. The note also says whether the report's existing
-corporate-action note lists every item's form, accession, date and link. Stored
+source excerpts. It says the form, accession, filing date and link remain in
+the filing notes only when one note states all four for every item; otherwise it
+says the source list is not shown either. Stored
 bytes are not changed and the feature is not ported. No other saved report and
 no new report changes.
 

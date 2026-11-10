@@ -10,7 +10,8 @@ import { FilingDisclosuresSchema, REPORT_SPEC_VERSION, ReportSchema } from "@/re
 // D-216 (P21): saved reports #59 and #60 carry `filingDisclosures.corporateActionBridge`, written by
 // local 1.23.x work that never reached main. Synthetic issuer and filings only; no saved report data.
 const ACCESSION = "0000000001-26-000042";
-const SUMMARY = `Corporate-action bridge unresolved after balance date 2026-06-30: acquisition-completed dated 2026-07-15: 10-Q ${ACCESSION} filed 2026-07-30.`;
+const LINK = "https://www.sec.gov/Archives/edgar/data/1/000000000126000042/demo.htm";
+const SUMMARY = `Corporate-action bridge unresolved after balance date 2026-06-30: acquisition-completed dated 2026-07-15: 10-Q ${ACCESSION} filed 2026-07-30 (${LINK}).`;
 const BRIDGE = {
   status: "unresolved",
   balanceDate: "2026-06-30",
@@ -18,7 +19,7 @@ const BRIDGE = {
   evidence: [{
     kind: "acquisition-completed",
     eventDate: "2026-07-15",
-    source: { form: "10-Q", accession: ACCESSION, exhibit: null, filingDate: "2026-07-30", url: "https://www.sec.gov/Archives/edgar/data/1/000000000126000042/demo.htm" },
+    source: { form: "10-Q", accession: ACCESSION, exhibit: null, filingDate: "2026-07-30", url: LINK },
     text: "On July 15, 2026, we completed the acquisition of Example Co.",
   }],
   limitations: ["Bounded retained SEC evidence is not a comprehensive transaction ledger."],
@@ -48,14 +49,35 @@ describe("stored reports with a retired field (D-216)", () => {
     expect(safe!.report.filingDisclosures).not.toHaveProperty("corporateActionBridge");
     expect(safe!.report.filingDisclosures!.notes[0]).toBe(SUMMARY);
     expect(notice(json)).toEqual([
-      "Read-time notice: this saved report also stores a corporate-action evidence record (status: unresolved; 1 source item) written by a development build that never became part of the app. The current app cannot show that record's table or its source excerpts; each item's form, accession number, filing date and link appear in the corporate-action note among these filing notes. The stored report was not changed.",
+      "Read-time notice: this saved report also stores a corporate-action evidence record (status: unresolved; 1 source item) written by a development build that never became part of the app. The current app cannot show that record's table or its source excerpts; each item's form, accession number, filing date and link appear in these filing notes. The stored report was not changed.",
     ]);
     expect(reportToMarkdown(safe!.report)).toContain("Read-time notice: this saved report also stores a corporate-action evidence record");
   });
 
-  it("says the source list is not shown when no note lists the evidence", () => {
-    expect(notice(storedJson({ bridge: BRIDGE, notes: ["An unrelated filing note."] }))?.[0])
-      .toContain("cannot show that record's table, its source excerpts or its source list.");
+  it("claims the source details are shown only when a note states every one of them", () => {
+    const unshown = "cannot show that record's table, its source excerpts or its source list.";
+    const withoutLink = SUMMARY.replace(` (${LINK})`, "");
+    for (const notes of [
+      ["An unrelated filing note."],
+      [withoutLink],
+      [SUMMARY.replace("10-Q ", "8-K ")],
+      [SUMMARY.replace("filed 2026-07-30", "filed 2026-07-31")],
+      [withoutLink, `See ${LINK}.`],
+    ]) expect(notice(storedJson({ bridge: BRIDGE, notes }))?.[0]).toContain(unshown);
+    const noUrl = { ...BRIDGE, evidence: [{ ...BRIDGE.evidence[0]!, source: { ...BRIDGE.evidence[0]!.source, url: null } }] };
+    expect(notice(storedJson({ bridge: noUrl }))?.[0]).toContain(unshown);
+  });
+
+  it("sets the field aside only on the exact stamps of the builds that wrote it", () => {
+    for (const spec of ["1.23.1", "1.23.2", "1.23.3"]) expect(parseStoredReportWithSafety(storedJson({ bridge: BRIDGE, spec }))).not.toBeNull();
+    for (const spec of ["", " ", "1.23", "1.23.1 ", "v1.23.1", "1.23.1-dev", "1.24.0-dev", "1.23.0", "1.23.4", "1.22.0", "1.24.0", REPORT_SPEC_VERSION]) {
+      expect(parseStoredReportWithSafety(storedJson({ bridge: BRIDGE, spec }))).toBeNull();
+    }
+    const missing = JSON.parse(storedJson({ bridge: BRIDGE }));
+    delete missing.meta.specVersion;
+    expect(detachRetiredStoredFields(missing).retired).toEqual([]);
+    missing.meta.specVersion = 1.231;
+    expect(detachRetiredStoredFields(missing).retired).toEqual([]);
   });
 
   it("never mutates the parsed stored value", () => {
@@ -67,11 +89,9 @@ describe("stored reports with a retired field (D-216)", () => {
     expect(JSON.stringify(raw)).toBe(before);
   });
 
-  it("still refuses the field with another shape, on a current-spec report, or any other unknown field", () => {
+  it("still refuses the field with another shape, or any other unknown field", () => {
     expect(parseStoredReportWithSafety(storedJson({ bridge: { ...BRIDGE, invented: 1 } }))).toBeNull();
     expect(parseStoredReportWithSafety(storedJson({ bridge: { ...BRIDGE, status: "resolved" } }))).toBeNull();
-    expect(parseStoredReportWithSafety(storedJson({ bridge: BRIDGE, spec: REPORT_SPEC_VERSION }))).toBeNull();
-    expect(parseStoredReportWithSafety(storedJson({ bridge: BRIDGE, spec: "1.24.0" }))).toBeNull();
     expect(parseStoredReportWithSafety(storedJson({ extra: { inventedField: BRIDGE } }))).toBeNull();
     const topLevel = JSON.parse(storedJson());
     topLevel.corporateActionBridge = BRIDGE;
