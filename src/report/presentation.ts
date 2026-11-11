@@ -1347,8 +1347,8 @@ export function syntheticNotice(report: Pick<Report, "meta" | "appendix">): stri
  */
 export function evidenceContractNotice(report: Pick<Report, "meta">): string | null {
   const status = evidenceContractStatus(report.meta);
-  if (status.state === "absent") return "Built under older rules: this saved report has no evidence-rules stamp, so its figures are shown as saved.";
-  if (status.state === "unrecognised") return `Built under unrecognised rules: this saved report's evidence-rules stamp ${JSON.stringify(status.stamp)} is not one this app knows, so its figures are shown as saved.`;
+  if (status.state === "absent") return "Built under older rules: this report has no evidence-rules stamp, so its figures are shown as saved.";
+  if (status.state === "unrecognised") return `Built under unrecognised rules: this report's evidence-rules stamp ${JSON.stringify(status.stamp)} is not one this app knows, so its figures are shown as saved.`;
   return null;
 }
 

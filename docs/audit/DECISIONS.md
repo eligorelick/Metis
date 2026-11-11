@@ -32,11 +32,11 @@ current value. Linking a recovered verify artifact keeps that artifact's own
 stamp or its absence, as it keeps its spec and pipeline versions.
 
 Stored reports are not migrated and their bytes do not change. A report with
-no stamp shows "Built under older rules: this saved report has no
-evidence-rules stamp, so its figures are shown as saved." One whose stamp this
+no stamp shows "Built under older rules: this report has no evidence-rules
+stamp, so its figures are shown as saved." One whose stamp this
 build does not know (for example one written by a newer build) shows "Built
-under unrecognised rules: this saved report's evidence-rules stamp "…" is not
-one this app knows, so its figures are shown as saved." It is neither refused
+under unrecognised rules: this report's evidence-rules stamp "…" is not one
+this app knows, so its figures are shown as saved." It is neither refused
 nor treated as current. `evidenceContractNotice` (presentation layer, P22)
 derives the note once; the app header notices, the Markdown header and the
 print header show it after the synthetic and provider-fallback notices. Every
@@ -53,7 +53,9 @@ Evidence: `golden:diff` over 10 cases and 80 files differs only in
 the whole report, the dossier's `data-report-identity` attribute. The audit
 fixture's one new delta is `report.meta.evidenceContract`. The bundled samples
 (`DEMO-sample.json`, `DEMO-current.json`) predate the stamp and are not
-stamped, so they now show the older-rules note.
+stamped, so they now show the older-rules note. The catalyst/risk export
+snapshot (an unstamped legacy fixture) changes only by that note: with the
+note line removed, its Markdown and print hashes equal the earlier snapshot.
 
 ## D-216 - Saved reports that carry a field no released build wrote (2026-11-09)
 

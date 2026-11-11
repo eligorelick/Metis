@@ -28,9 +28,9 @@ import { completeCurrencyBundle } from "./helpers/currencyBundle";
  * recognise, shows one note on the app screen, Markdown and print, beside (not
  * instead of) the specific warnings it already had.
  */
-const OLDER = "Built under older rules: this saved report has no evidence-rules stamp, so its figures are shown as saved.";
+const OLDER = "Built under older rules: this report has no evidence-rules stamp, so its figures are shown as saved.";
 const unrecognised = (stamp: string) =>
-  `Built under unrecognised rules: this saved report's evidence-rules stamp "${stamp}" is not one this app knows, so its figures are shown as saved.`;
+  `Built under unrecognised rules: this report's evidence-rules stamp "${stamp}" is not one this app knows, so its figures are shown as saved.`;
 
 const fallbackGap: ManifestEntry = {
   field: "keyless.quote",
