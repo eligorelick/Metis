@@ -157,7 +157,7 @@ import {
   type FigureRow,
 } from "@/report/presentation";
 import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
-import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
 import { executiveTenureText, executiveCardClaims, executiveOfficeContext } from "@/report/executiveDecisions";
@@ -424,7 +424,7 @@ function headerBlock(report: Report): string {
     <nav aria-label="Report navigation"><a href="#report-verdict">Decision</a> · <a href="#report-business">Business</a> · <a href="#report-valuation">Valuation</a> · <a href="#report-appendix">Methodology and evidence appendix</a> · <a href="#report-sources">Sources</a></nav>
     <p class="disclaimer">${esc(m.disclaimer)}</p>
     ${syntheticNotice(report) ? `<p class="disclaimer">${esc(syntheticNotice(report)!)}</p>` : ""}
-    ${providerFallbackNotice(report) ? `<p class="disclaimer">${esc(providerFallbackNotice(report)!)}</p>` : ""}
+    ${providerFallbackNotice(report) ? `<p class="disclaimer">${esc(providerFallbackNotice(report)!)}</p>` : ""}${evidenceContractNotice(report) ? `<p class="disclaimer">${esc(evidenceContractNotice(report)!)}</p>` : ""}
   </header>`;
 }
 

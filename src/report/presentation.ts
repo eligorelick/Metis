@@ -66,6 +66,7 @@ import { riskFreeSourceLabel } from "@/pipeline/riskFreeSeries";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
 import { reportSection } from "@/report/sectionManifest";
+import { evidenceContractStatus } from "@/report/evidenceContract";
 import { EXECUTIVE_EVIDENCE_GROUPS } from "@/report/surfaceManifest";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
 import { inProgressUsSessionDate } from "@/providers/usSession";
@@ -1338,6 +1339,17 @@ export function syntheticNotice(report: Pick<Report, "meta" | "appendix">): stri
   return reserved || historical
     ? "Synthetic demonstration · fictional issuer and invented observations. This snapshot is not live company research."
     : null;
+}
+
+/**
+ * One reader note for a report not stamped with this build's evidence rules
+ * (P21, D-217). It sits beside, never replaces, the specific legacy warnings.
+ */
+export function evidenceContractNotice(report: Pick<Report, "meta">): string | null {
+  const status = evidenceContractStatus(report.meta);
+  if (status.state === "absent") return "Built under older rules: this report has no evidence-rules stamp, so its figures are shown as saved.";
+  if (status.state === "unrecognised") return `Built under unrecognised rules: this report's evidence-rules stamp ${JSON.stringify(status.stamp)} is not one this app knows, so its figures are shown as saved.`;
+  return null;
 }
 
 export interface ManifestReconciliationRow {

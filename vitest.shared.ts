@@ -168,6 +168,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/legacyValuationNotes.ts",
   "src/report/legacyRetiredFields.ts",
   "src/report/storedReportView.ts",
+  "src/report/evidenceContract.ts",
   "src/report/sectionManifest.ts",
   "src/report/surfaceManifest.ts",
   "src/report/export/correctedCli.ts",

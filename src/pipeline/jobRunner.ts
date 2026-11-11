@@ -175,6 +175,7 @@ import {
   usesRequestAdmission,
   type RemainingPaidWork,
 } from "@/pipeline/paidRunBudget";
+import { EVIDENCE_CONTRACT_VERSION } from "@/report/evidenceContract";
 
 /* ------------------------------------------------------------------------ *
  * PipelinePasses — injected Stage C contract (loose/structural types)
@@ -5478,6 +5479,8 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
       specVersion: REPORT_SPEC_VERSION,
       model: input.model,
       pipelineVersion: PIPELINE_VERSION,
+      // P21, D-217: a data-only report built now carries the current evidence-rules stamp.
+      evidenceContract: EVIDENCE_CONTRACT_VERSION,
       costUsd: input.costUsd,
       ...(input.presumed == null ? {} : { presumedCostUsd: input.presumed.totalUsd }),
       ...(input.execution === undefined || input.execution.length === 0

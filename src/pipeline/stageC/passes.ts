@@ -58,6 +58,7 @@ import { technicalTrendText } from "@/report/technicalTrend";
 import { buildSourceFactSummary } from "@/report/sourceFacts";
 import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
 import { buildMarketData } from "@/pipeline/marketData";
+import { EVIDENCE_CONTRACT_VERSION } from "@/report/evidenceContract";
 import {
   ANALYST_CASE_SCHEMA,
   JUDGE_OUTPUT_SCHEMA,
@@ -4527,6 +4528,8 @@ export function assembleReport(args: AssembleReportArgs, generatedAt?: string): 
     specVersion: REPORT_SPEC_VERSION,
     model: args.model,
     pipelineVersion: args.pipelineVersion ?? REPORT_SPEC_VERSION,
+    // P21, D-217: only a report built now carries the current evidence-rules stamp.
+    evidenceContract: EVIDENCE_CONTRACT_VERSION,
     costUsd: totalCost(args.costEntries),
     verificationRate: args.verify.verificationRate,
     provenanceCoverage: coverage,
