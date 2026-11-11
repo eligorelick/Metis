@@ -174,6 +174,9 @@ import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
 // 1.71.0 (D-214): preserve split-safe quarterly evidence across computation and model context, and expose referenced annual tables.
 // 1.72.0 (D-215): corroborated revenue scope, capitalized-interest safety, annual guidance and accurate schedule/reconciliation disclosures.
 // 1.73.0: source-bound primary cash and execution evidence, with existing grade thresholds.
+// D-217 (P21): optional `meta.evidenceContract` on newly built reports (src/report/evidenceContract.ts).
+// Like `presumedCostUsd`, an optional meta field with no figure change, so the spec stays 1.73.0. Stored
+// reports keep their bytes; one without the stamp, or with an unrecognised one, shows a "figures as saved" note.
 export const REPORT_SPEC_VERSION = "1.73.0" as const;
 
 /* ------------------------------------------------------------------------ *
@@ -340,6 +343,7 @@ const NON_NARRATIVE_STRING_KEYS = new Set([
   "generatedAt",
   "specVersion",
   "pipelineVersion",
+  "evidenceContract",
   "model",
   "verifyModel",
   "provider",
@@ -911,6 +915,13 @@ export const MetaSchema = z
     model: z.string(),
     verifyModel: z.string().optional(),
     pipelineVersion: z.string(),
+    /**
+     * Evidence-rules contract the report was built under (P21, D-217); owner
+     * src/report/evidenceContract.ts. Absent from every report saved before
+     * the stamp existed (shown as built under older rules). Any non-empty
+     * value parses, so a stamp from another build is disclosed, not refused.
+     */
+    evidenceContract: z.string().min(1).max(128).optional(),
     /** Mandatory-stage outcome; distinct from process termination and factual verification scope. */
     analysisOutcome: z.enum(["complete", "data-only"]).optional(),
     costUsd: z.number(),

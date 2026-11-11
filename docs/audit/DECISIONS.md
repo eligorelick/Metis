@@ -11,6 +11,50 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-217 - Stamp new reports with their evidence rules; never rewrite old ones (2026-11-10)
+
+Principle P21. A saved report had no field saying which evidence rules built
+it; readers guessed from `meta.specVersion` and `meta.pipelineVersion` text
+(`specVersionBefore`). The rule review proposed a stamp on new reports and one
+note on old ones (rule-consolidation report, "Saved reports"); its critique
+kept that, with two conditions: readers accept the stamp before the writer
+emits it, and the note never replaces a specific currency, scope or legacy
+warning.
+
+Options: migrate stored reports to add a stamp (rewrites stored meaning, breaks
+P21); infer the rules from the spec text (the guess this replaces); or an
+optional stamp written only on new reports. Choice: optional
+`meta.evidenceContract`, owned by `src/report/evidenceContract.ts`
+(`EVIDENCE_CONTRACT_VERSION = "EVIDENCE_CONTRACT_1"`). The report schema, and
+so both read modes of the stored-report reader, accept any non-empty string up
+to 128 characters; `assembleReport` and `buildDataOnlyReport` write the
+current value. Linking a recovered verify artifact keeps that artifact's own
+stamp or its absence, as it keeps its spec and pipeline versions.
+
+Stored reports are not migrated and their bytes do not change. A report with
+no stamp shows "Built under older rules: this saved report has no
+evidence-rules stamp, so its figures are shown as saved." One whose stamp this
+build does not know (for example one written by a newer build) shows "Built
+under unrecognised rules: this saved report's evidence-rules stamp "…" is not
+one this app knows, so its figures are shown as saved." It is neither refused
+nor treated as current. `evidenceContractNotice` (presentation layer, P22)
+derives the note once; the app header notices, the Markdown header and the
+print header show it after the synthetic and provider-fallback notices. Every
+existing specific warning is unchanged.
+
+The report spec stays 1.73.0: like `presumedCostUsd`, this adds an optional
+meta field and changes no figure, and moving the spec would change the
+Versions row of every new report. The stamp moves only by a later decision;
+nothing bumps it automatically. Out of scope: freezing the legacy adapters,
+`specVersionBefore` and its cutoffs, replays or reruns.
+
+Evidence: `golden:diff` over 10 cases and 80 files differs only in
+`meta.evidenceContract` in each rebuilt `report.json` and, because it hashes
+the whole report, the dossier's `data-report-identity` attribute. The audit
+fixture's one new delta is `report.meta.evidenceContract`. The bundled samples
+(`DEMO-sample.json`, `DEMO-current.json`) predate the stamp and are not
+stamped, so they now show the older-rules note.
+
 ## D-216 - Saved reports that carry a field no released build wrote (2026-11-09)
 
 Principle P21. Saved reports #59 (QCOM, spec 1.23.1) and #60 (FIGR, spec 1.23.2)

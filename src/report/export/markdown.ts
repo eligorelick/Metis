@@ -133,7 +133,7 @@ import {
   type FigureRow,
 } from "@/report/presentation";
 import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
-import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
 import {
@@ -368,6 +368,7 @@ function renderHeader(report: Report): string {
     `> ${markdownBlockquote(m.disclaimer)}`,
     ...(syntheticNotice(report) ? ["", `> ${markdownBlockquote(syntheticNotice(report)!)}`] : []),
     ...(providerFallbackNotice(report) ? ["", `> ${markdownBlockquote(providerFallbackNotice(report)!)}`] : []),
+    ...(evidenceContractNotice(report) ? ["", `> ${markdownBlockquote(evidenceContractNotice(report)!)}`] : []),
   ].join("\n");
 }
 

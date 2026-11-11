@@ -10934,6 +10934,20 @@
           "after": "1.73.0"
         }
       ]
+    },
+    {
+      "name": "evidence-contract-stamp-d217",
+      "decisions": [
+        "D-217"
+      ],
+      "reason": "D-217 (P21) stamps a newly assembled report with meta.evidenceContract. The synthetic fixture report is assembled now, so it carries the current stamp; no figure, label or sentence changes, and no audited source or baseline is repinned.",
+      "deltas": [
+        {
+          "path": "report.meta.evidenceContract",
+          "beforeMissing": true,
+          "after": "EVIDENCE_CONTRACT_1"
+        }
+      ]
     }
   ]
 }

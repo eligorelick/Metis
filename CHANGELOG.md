@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Evidence-rules stamp on new reports (2026-11-10)
+
+- New reports carry `meta.evidenceContract` (D-217). Saved reports are never
+  rewritten: one without the stamp shows a "built under older rules" note on
+  the app screen, Markdown and print, and its figures are shown as saved. The
+  report spec stays 1.73.0 and no figure changes.
+
 ## Unreleased - Gemini CLI connection removed (2026-11-09)
 
 - Remove the Gemini CLI connection from Settings, the connections API and the

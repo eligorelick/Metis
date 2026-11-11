@@ -154,6 +154,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/legacyValuationNotes.ts",
   "src/report/legacyRetiredFields.ts",
   "src/report/storedReportView.ts",
+  "src/report/evidenceContract.ts",
   "src/report/sectionManifest.ts",
   "src/report/surfaceManifest.ts",
   "src/report/export/correctedCli.ts",
