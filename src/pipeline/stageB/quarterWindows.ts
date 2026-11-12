@@ -144,21 +144,58 @@ export function compatibleFiscalAlias(left: FiscalDatedRow, right: FiscalDatedRo
 }
 
 /**
+ * Why `normalizeQuarterRowsWithKinds` rejected a period (P11, D-223). It is set
+ * where the rejection is decided, next to its sentence, so code reads this value
+ * instead of the wording. In memory only: it is never stored or shown, and
+ * `normalizeQuarterRows` does not return it.
+ */
+export type QuarterRejectionKind =
+  | "invalid-date"
+  | "alias-scope-conflict"
+  | "alias-value-restatement"
+  | "duplicate-missing-recency"
+  | "duplicate-tied-recency";
+
+/** The two kinds behind a "duplicate fiscal period ..." sentence: a period served more than once with no provably latest row. */
+export function isAmbiguousDuplicateRejection(kind: QuarterRejectionKind): boolean {
+  return kind === "duplicate-missing-recency" || kind === "duplicate-tied-recency";
+}
+
+/**
  * Validate period ends, sort newest-first, and collapse restatements without
  * mutating either the source array or its row objects. A duplicate period is
  * retained only when one whole row is provably later than every other row.
+ * Returns exactly `{ rows, rejected }`; the rejection kinds stay with
+ * `normalizeQuarterRowsWithKinds`, so no caller's stored object gains a key.
  */
 export function normalizeQuarterRows<T extends FiscalDatedRow>(
   rows: readonly T[],
 ): { rows: T[]; rejected: Array<{ period: string; reason: string }> } {
+  const { rows: kept, rejected } = normalizeQuarterRowsWithKinds(rows);
+  return { rows: kept, rejected };
+}
+
+/**
+ * `normalizeQuarterRows`, plus `rejectionKinds[i]`: why `rejected[i]` was
+ * rejected (P11, D-223). The records in `rejected` are the same `{ period,
+ * reason }` objects `normalizeQuarterRows` returns.
+ */
+export function normalizeQuarterRowsWithKinds<T extends FiscalDatedRow>(
+  rows: readonly T[],
+): { rows: T[]; rejected: Array<{ period: string; reason: string }>; rejectionKinds: QuarterRejectionKind[] } {
   const rejected: Array<{ period: string; reason: string }> = [];
+  const rejectionKinds: QuarterRejectionKind[] = [];
+  const reject = (kind: QuarterRejectionKind, period: string, reason: string): void => {
+    rejected.push({ period, reason });
+    rejectionKinds.push(kind);
+  };
   const grouped = new Map<string, Array<{ row: T; day: StrictDay }>>();
 
   for (const row of rows) {
     const day = strictFiscalDay(row.date);
     if (!day) {
       const period = displayPeriod(row.date);
-      rejected.push({ period, reason: `invalid fiscal period-end date "${period}"; expected a real Gregorian YYYY-MM-DD` });
+      reject("invalid-date", period, `invalid fiscal period-end date "${period}"; expected a real Gregorian YYYY-MM-DD`);
       continue;
     }
     const group = grouped.get(day.label);
@@ -189,7 +226,7 @@ export function normalizeQuarterRows<T extends FiscalDatedRow>(
     if (new Set(candidates.map(candidate => candidate.day.label)).size > 1) {
       const scopes = candidates.map(candidate => fiscalScopeKey(candidate.row));
       if (scopes.some(scope => scope === null || scope !== scopes[0])) {
-        rejected.push({ period, reason: `fiscal aliases ${period} contain contradictory issuer, currency or fiscal scope; whole period rejected as ambiguous` });
+        reject("alias-scope-conflict", period, `fiscal aliases ${period} contain contradictory issuer, currency or fiscal scope; whole period rejected as ambiguous`);
         continue;
       }
       // SEC rows retain first-reported dates while individual values may be
@@ -207,15 +244,13 @@ export function normalizeQuarterRows<T extends FiscalDatedRow>(
         });
       });
       if (sourceRecencyConflict) {
-        rejected.push({ period, reason: `fiscal aliases ${period} have value-source restatements not represented by row recency; whole period rejected as ambiguous` });
+        reject("alias-value-restatement", period, `fiscal aliases ${period} have value-source restatements not represented by row recency; whole period rejected as ambiguous`);
         continue;
       }
     }
     if (recencies.some((recency) => recency === null)) {
-      rejected.push({
-        period,
-        reason: `duplicate fiscal period ${period} has missing or invalid acceptedDate/filingDate recency; whole period rejected as ambiguous`,
-      });
+      reject("duplicate-missing-recency", period,
+        `duplicate fiscal period ${period} has missing or invalid acceptedDate/filingDate recency; whole period rejected as ambiguous`);
       continue;
     }
 
@@ -229,17 +264,15 @@ export function normalizeQuarterRows<T extends FiscalDatedRow>(
     }
 
     if (provablyLatest.length !== 1) {
-      rejected.push({
-        period,
-        reason: `duplicate fiscal period ${period} has tied or overlapping acceptedDate/filingDate recency; whole period rejected as ambiguous`,
-      });
+      reject("duplicate-tied-recency", period,
+        `duplicate fiscal period ${period} has tied or overlapping acceptedDate/filingDate recency; whole period rejected as ambiguous`);
       continue;
     }
     selected.push(candidates[provablyLatest[0]]);
   }
 
   selected.sort((left, right) => right.day.epochMs - left.day.epochMs);
-  return { rows: selected.map(({ row }) => row), rejected };
+  return { rows: selected.map(({ row }) => row), rejected, rejectionKinds };
 }
 
 /** Return why a newest-first window is not exactly four contiguous quarters. */
