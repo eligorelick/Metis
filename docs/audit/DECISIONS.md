@@ -49,9 +49,11 @@ notes are the same. `tests/stageC.duplicatePeriodKind.test.ts` feeds every
 kind (both duplicate kinds, a duplicate across fiscal aliases, an invalid date,
 contradictory aliases, an unrepresented restatement, a quarterly duplicate and
 no rejection) through `assembleContextPayload`, and checks against main's
-output recorded at f1b2a556: the rejected records, the block's periods and
-notes, and a hash of the whole Stage B output and of the statement blocks. It
-also shows a reworded duplicate sentence keeps its note and a non-duplicate
+output recorded at f1b2a556: the rejected records and the block's periods and
+notes. During development the whole Stage B output, the statement blocks and
+the multiples result were also compared by hash with main's and were
+identical; those whole-output hashes are not kept as tests, because any later
+unrelated change to those outputs would break them. It also shows a reworded duplicate sentence keeps its note and a non-duplicate
 rejection worded as a duplicate gets none.
 
 Nothing stored gains a key, per caller of `normalizeQuarterRows` (its result is
@@ -67,8 +69,8 @@ payload.ts (`annualFiscalLabels` and `realDay`). The FMP family
 not from this function. `normalizeQuarterRowsWithKinds`' result stays inside
 `oneRowPerPeriod`, which returns `{ rows, notes }` as before. The test checks
 that the Stage B output, the payload and the multiples result (own-history
-disclosure) hold no kind word and match main's hash, and that the gap entries
-carrying a duplicate sentence keep their keys.
+disclosure) hold no kind word, and that the gap entries carrying a duplicate
+sentence (and the own-history window gap) keep their exact keys.
 
 O1. `buildRevenueAnchor` keeps a local `notCovered` array beside the path rows,
 set where the gate is decided (`cal.value === null && !cal.staleAgainstReported`,
@@ -86,9 +88,11 @@ agree on every input. `tests/stageB.valuationD65.test.ts` builds through
 `buildDcfAssumptions` a direct and a nested not-covered stop, a
 stale-against-reported gate, a direct and a nested `consensusGate` gate, the
 final-year stop, the floor and re-acceleration stops, the clamped year two and
-no consensus, checks the stop clause and a hash of the whole assumptions object
-against main's, and that the suffix appears exactly on the two not-covered
-cases, where the old regex matches.
+no consensus, checks the stop clause against main's, that the anchor and its
+consensus path rows keep their exact key lists with no `notCovered` key, and
+that the suffix appears exactly on the two not-covered cases, where the old
+regex matches. The whole assumptions object was compared by hash with main's
+during development and was identical; that hash is not kept as a test.
 
 `tests/refusalWording.ratchet.test.ts` unpins payload.ts and valuation.ts, which
 read no wording now. Not changed: every decision. The comparison check
