@@ -27,6 +27,7 @@
  * the exported constant.
  */
 
+import { SCORE_BANDS_VERSION } from "@/report/versions";
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import type { MetricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { scoringMargin, windowCagr, type GrowthResult } from "@/pipeline/stageB/growth";
@@ -48,9 +49,7 @@ import type {
 } from "@/report/schema";
 import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
 
-/** Versioned band-table id, stamped into the report for auditability. */
-// D-136: route evidence bookkeeping changes; numerical band thresholds do not.
-export const SCORE_BANDS_VERSION = "SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE" as const;
+export { SCORE_BANDS_VERSION } from "@/report/versions";
 
 /* ------------------------------------------------------------------------ *
  * Scoring primitives

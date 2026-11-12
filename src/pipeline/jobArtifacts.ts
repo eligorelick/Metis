@@ -1,3 +1,4 @@
+import { PASS_ARTIFACT_ENVELOPE_VERSION } from "@/report/versions";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { ProviderFailureSchema, type ProviderFailure } from "@/ai/providerFailure";
@@ -23,7 +24,7 @@ import type { ProviderExecution } from "@/report/execution";
 import { canonicalizeFetchedUrl } from "@/pipeline/stageC/provenance";
 import { mutateJobSnapshotInTransaction } from "@/pipeline/jobState";
 
-export const PASS_ARTIFACT_ENVELOPE_VERSION = 1 as const;
+export { PASS_ARTIFACT_ENVELOPE_VERSION } from "@/report/versions";
 
 /** Stable execution order for every durable paid-pass boundary. */
 export const DURABLE_PASSES = ["bull", "bear", "synthesize", "verify"] as const;

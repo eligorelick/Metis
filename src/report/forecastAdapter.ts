@@ -4,13 +4,14 @@
  * structured records and retained byte identity; it does not certify their truth
  * and deliberately does not authorize strict report registration.
  */
+import { FORECAST_ADAPTER_VERSION } from "@/report/versions";
 import { z } from "zod";
 import {
   artifactHashSchema, artifactIsBound, evaluationStampSchema, retainedArtifactSchema,
   targetDefinitionV2Schema, type RetainedArtifact, type TargetDefinitionV2,
 } from "@/evaluation/targetDefinition";
 
-export const FORECAST_ADAPTER_VERSION = "SELECTED_FORECAST_V1" as const;
+export { FORECAST_ADAPTER_VERSION } from "@/report/versions";
 const text = z.string().trim().min(1);
 const day = evaluationStampSchema.refine(value => value.length === 10, "Expected an exact ISO day");
 const instant = z.iso.datetime();

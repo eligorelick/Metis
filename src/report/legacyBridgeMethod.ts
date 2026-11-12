@@ -1,3 +1,4 @@
+import { BRIDGE_METHOD_SINCE_SPEC_VERSION, BRIDGE_READINGS_SINCE_SPEC_VERSION } from "@/report/versions";
 import { millions } from "@/pipeline/stageB/netDebt";
 import { financeLeaseOnlyEvClause, financeLeaseOnlyTotal } from "@/pipeline/stageB/valuation";
 import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
@@ -26,9 +27,8 @@ import type { Report } from "@/report/schema";
  * it. Each clause compares the report's spec with its own part's cutoff
  * (`LEGACY_BRIDGE_CLAUSES`); there is no module-wide early return.
  */
-export const BRIDGE_METHOD_SINCE_SPEC_VERSION = "1.50.0";
-/** Frozen at the FIN-401 / FIN-401-V1 repair, independently of later report stamps (D-67). */
-export const BRIDGE_READINGS_SINCE_SPEC_VERSION = "1.56.0";
+export { BRIDGE_METHOD_SINCE_SPEC_VERSION } from "@/report/versions";
+export { BRIDGE_READINGS_SINCE_SPEC_VERSION } from "@/report/versions";
 
 const SINCE = BRIDGE_METHOD_SINCE_SPEC_VERSION;
 const NOTE_PREFIX = "Valued under the equity-bridge method before report spec ";

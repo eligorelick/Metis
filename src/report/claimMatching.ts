@@ -1,3 +1,4 @@
+import { INSIDER_ROLES_READ_FROM } from "@/report/versions";
 import type { ProvenanceCoverage, VerificationLogEntry } from "./schema";
 
 type FactualValidation = NonNullable<ProvenanceCoverage["factualValidation"]>;
@@ -130,8 +131,7 @@ export function displayedClaimCoverage(coverage: ProvenanceCoverage, log: readon
   return claimCoverageWithout(coverage, unprintedClaimEntries(log, "factual-claim"), unprintedClaimEntries(log, "judgment"));
 }
 
-/** Frozen AI-116 display cutoff; never follow a later report stamp. */
-export const INSIDER_ROLES_READ_FROM = "1.56.0";
+export { INSIDER_ROLES_READ_FROM } from "@/report/versions";
 export function legacyCheckNote(entry: VerificationLogEntry, log: readonly VerificationLogEntry[], reportSpecVersion: string): string | null {
   if (!/^\d+\.\d+\.\d+$/.test(reportSpecVersion)) return null;
   const parts = reportSpecVersion.split(".").map(Number);

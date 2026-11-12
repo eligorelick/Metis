@@ -182,6 +182,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/export/readerFormat.ts",
   "src/report/format.ts",
   "src/report/cagrPresentation.ts",
+  "src/report/versions.ts",
   "src/report/scoreText.ts",
   "src/report/fairValueText.ts",
   "src/report/providerFallback.ts",
