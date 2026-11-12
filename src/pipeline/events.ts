@@ -15,7 +15,7 @@ import { costLog, jobLlmLeases, jobs, reports } from "@/db/schema";
 import { readStoredJobResumeInTransaction } from "@/pipeline/jobStore";
 import { assertSafeJobRevision } from "@/pipeline/jobState";
 import { parseCanonicalJobSteps } from "@/pipeline/jobSteps";
-import { ReportSchema, withLenientLegacyRead } from "@/report/schema";
+import { readStoredReportRecord } from "@/report/storedReportRead";
 import type { StepProgress } from "@/types/core";
 import { isUnsupportedInstrumentKind, type UnsupportedInstrumentKind } from "@/pipeline/stageB/instrumentSupport";
 
@@ -273,15 +273,13 @@ export function jobExists(jobId: string): boolean {
   return getDb().select({ id: jobs.id }).from(jobs).where(eq(jobs.id, jobId)).get() !== undefined;
 }
 
+/**
+ * True when a stored report is data-only (it carries the `analysis.llm`
+ * missing-data entry). It reads through the one shared saved-report parse
+ * step, so any report the saved-report reader can open gets the same answer
+ * here; a report that cannot be read is never treated as data-only.
+ */
 export function reportJsonIsDataOnly(reportJson: string | null): boolean {
-  if (reportJson === null) return false;
-  try {
-    const raw = JSON.parse(reportJson);
-    const parsed = ReportSchema.safeParse(raw);
-    if (parsed.success) return parsed.data.appendix.missingData.some((m) => m.field === "analysis.llm");
-    const legacy = withLenientLegacyRead(() => ReportSchema.safeParse(raw));
-    return legacy.success && legacy.data.appendix.missingData.some((m) => m.field === "analysis.llm");
-  } catch {
-    return false;
-  }
+  const stored = readStoredReportRecord(reportJson);
+  return stored !== null && stored.report.appendix.missingData.some((m) => m.field === "analysis.llm");
 }

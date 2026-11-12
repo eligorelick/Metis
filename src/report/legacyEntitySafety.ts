@@ -11,15 +11,18 @@ import { applyReportAssessmentStatus } from "@/report/assessment";
 import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { attributeJudgeProtocolDisclosures } from "@/report/execution";
 import { withSafeStoredReportView } from "@/report/storedReportView";
-import { detachRetiredStoredFields, withRetiredFieldDisclosures } from "@/report/legacyRetiredFields";
+import { withRetiredFieldDisclosures } from "@/report/legacyRetiredFields";
+import {
+  readStoredReportRecord,
+  validateStoredReportInReadMode,
+  type StoredReportReadMode,
+} from "@/report/storedReportRead";
 import {
   citationAsOf,
   citationSourceId,
   type CitationCarrier,
 } from "@/pipeline/stageC/citations";
 import {
-  ReportSchema,
-  withLenientLegacyRead,
   type ProvenanceCoverage,
   type Report,
   type VerificationLogEntry,
@@ -32,19 +35,10 @@ export interface LegacyEntitySafetyResult {
 }
 
 export interface SafeStoredReport extends LegacyEntitySafetyResult {
-  readMode: "strict" | "legacy";
+  readMode: StoredReportReadMode;
 }
 
-/** Validate a report with exactly the mode selected by its original stored read. */
-export function validateStoredReportInReadMode(
-  value: unknown,
-  readMode: SafeStoredReport["readMode"],
-): Report | null {
-  const parsed = readMode === "strict"
-    ? ReportSchema.safeParse(value)
-    : withLenientLegacyRead(() => ReportSchema.safeParse(value));
-  return parsed.success ? parsed.data : null;
-}
+export { validateStoredReportInReadMode };
 
 /**
  * Parse one immutable stored-report view, sanitize it against the issuer's
@@ -53,18 +47,11 @@ export function validateStoredReportInReadMode(
 export function parseStoredReportWithSafety(
   reportJson: string | null,
 ): SafeStoredReport | null {
-  if (reportJson === null) return null;
+  const stored = readStoredReportRecord(reportJson);
+  if (stored === null) return null;
   try {
-    // Listed retired fields (exact path, shape and writing builds) are set
-    // aside and disclosed; any other unknown field still fails the read.
-    const { raw, retired } = detachRetiredStoredFields(JSON.parse(reportJson));
-    const strict = ReportSchema.safeParse(raw);
-    const readMode: SafeStoredReport["readMode"] = strict.success ? "strict" : "legacy";
-    const validated = strict.success
-      ? strict.data
-      : validateStoredReportInReadMode(raw, "legacy");
-    if (validated === null) return null;
-    const parsed = withRetiredFieldDisclosures(validated, retired);
+    const { readMode } = stored;
+    const parsed = withRetiredFieldDisclosures(stored.report, stored.retired);
 
     const safety = sanitizeLegacyEntityConflicts(
       parsed,
