@@ -11,6 +11,93 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-223 - Refusal codes, step 6: the duplicate-period note and the estimate-anchor suffix read a typed value (2026-11-12)
+
+Principle P11. Step 6 of the D-218 migration moves the two remaining general
+readers whose sentence is written in memory in the same call, so a typed value
+can travel beside it without storing anything new: the statement block's
+duplicate-period note (G7, `oneRowPerPeriod`, `src/pipeline/stageC/payload.ts`)
+and the estimate-anchor stop suffix (O1, `buildRevenueAnchor`,
+`src/pipeline/stageB/valuation.ts`). Both typed values are in-memory only: they
+are never stored, serialised or shown, and they are not new stored status
+words. No sentence, version stamp, snapshot, Stage B output, payload, report or
+export changes.
+
+G7. `normalizeQuarterRowsWithKinds` (`src/pipeline/stageB/quarterWindows.ts`)
+is the former body of `normalizeQuarterRows`; each of its five rejection sites
+now writes its unchanged `{ period, reason }` record and, in a parallel
+`rejectionKinds` array, a `QuarterRejectionKind`: `invalid-date`,
+`alias-scope-conflict`, `alias-value-restatement`, `duplicate-missing-recency`
+or `duplicate-tied-recency`. One local helper pushes both, so the arrays cannot
+drift. `oneRowPerPeriod`, its only caller, notes a period served more than once
+when `isAmbiguousDuplicateRejection` holds for its kind (the two duplicate
+kinds) instead of when the sentence starts `duplicate fiscal period`.
+`normalizeQuarterRows` now calls it and returns exactly `{ rows, rejected }`:
+the same keys in the same order, the same array and the same record objects
+(keys `period`, `reason`) as before. Options considered: a kind field on each
+record (every consumer that spreads or stores a record would carry it), an
+extra property on `normalizeQuarterRows`' result (compute.ts passes that whole
+object on through `normalizeStatementQuarters` to several more functions), or a
+separate function only the reader calls. Choice: the last, the least leak risk.
+
+Equivalence. The two duplicate kinds are written by exactly the two sites whose
+sentence starts `duplicate fiscal period`; the other three sentences start
+`invalid fiscal period-end date` or `fiscal aliases`, and every sentence begins
+with fixed text, so no period or provider value can change what it starts
+with. The kinds therefore name the same records, in the same order, so the
+notes are the same. `tests/stageC.duplicatePeriodKind.test.ts` feeds every
+kind (both duplicate kinds, a duplicate across fiscal aliases, an invalid date,
+contradictory aliases, an unrepresented restatement, a quarterly duplicate and
+no rejection) through `assembleContextPayload`, and checks against main's
+output recorded at f1b2a556: the rejected records, the block's periods and
+notes, and a hash of the whole Stage B output and of the statement blocks. It
+also shows a reworded duplicate sentence keeps its note and a non-duplicate
+rejection worded as a duplicate gets none.
+
+Nothing stored gains a key, per caller of `normalizeQuarterRows` (its result is
+unchanged, so this holds for each): compute.ts (`normalizeStatementQuarters`
+and its gap `compute.quarterRows.*`, the TTM readers, the projection, DCF and
+returns history rows, `rejectedAffectsCurrentWindow`, the fiscal calendar and
+fcfHistory lookups), filingDisclosures.ts (currency checks, the fiscal calendar, quarterly
+rows and the quarterly trend notes), peers.ts (peer quarter windows and exclusions), capital.ts,
+financialMetrics.ts, growth.ts and returns.ts (their period gaps), valuation.ts
+(`deriveOwnHistory`'s `rejectedPeriods` and the own-history window gap) and
+payload.ts (`annualFiscalLabels` and `realDay`). The FMP family
+`rejectedPeriods` (`balanceIntegrity.ts`) come from `statementIntegrityRows`,
+not from this function. `normalizeQuarterRowsWithKinds`' result stays inside
+`oneRowPerPeriod`, which returns `{ rows, notes }` as before. The test checks
+that the Stage B output, the payload and the multiples result (own-history
+disclosure) hold no kind word and match main's hash, and that the gap entries
+carrying a duplicate sentence keep their keys.
+
+O1. `buildRevenueAnchor` keeps a local `notCovered` array beside the path rows,
+set where the gate is decided (`cal.value === null && !cal.staleAgainstReported`,
+the branch that writes `<label> is not covered by the fiscal-year estimates`).
+The local `stop` object carries `notCovered`: the year's own flag when its
+reason is the year's gate, the prior year's when the reason quotes that gate
+(`there is no consensus growth into it (year N: <gate>)`), false for the other
+four stops. The suffix ` (the estimates cover through ...)` reads it instead of
+`/not covered/` over the stop sentence. The path rows, the consensus path and
+everything returned are unchanged. Equivalence: the other gates and stops are
+built from ISO dates (forecast windows, estimate dates snapped to the fiscal
+calendar, the reported-through date, all checked as `YYYY-MM-DD`), numbers and
+fixed words, none of which contains `not covered`, so the regex and the flag
+agree on every input. `tests/stageB.valuationD65.test.ts` builds through
+`buildDcfAssumptions` a direct and a nested not-covered stop, a
+stale-against-reported gate, a direct and a nested `consensusGate` gate, the
+final-year stop, the floor and re-acceleration stops, the clamped year two and
+no consensus, checks the stop clause and a hash of the whole assumptions object
+against main's, and that the suffix appears exactly on the two not-covered
+cases, where the old regex matches.
+
+`tests/refusalWording.ratchet.test.ts` unpins payload.ts and valuation.ts, which
+read no wording now. Not changed: every decision. The comparison check
+(`golden:diff`, 10 cases, 80 files) shows no difference; none of its cases has
+a rejected duplicate period, so the tests above carry the proof for G7. Left for
+later steps: the gap readers G1-G6 (gap entries are stored, so a code there is
+a stored-format change), the provider, stored-report and sector-specific
+readers, and the identity comparisons.
+
 ## D-222 - Refusal codes, step 5: the stock-compensation, cash and share-count rechecks read the code (2026-11-12)
 
 Principle P11. Step 5 of the D-218 migration moves the last four readers of a
@@ -340,7 +427,8 @@ last two, so none is removed.) `ManifestEntry` gets no code in this step: gap en
 into Stage B output, the payload, `appendix.missingData` (strict schema),
 `fairValue.reasons` and snapshots, and keeping a code out of all of them is a
 larger change than this step. The G and P gap readers therefore stay
-wording-only for now.
+wording-only for now. (Revised by D-223: G7, which reads rejection sentences in
+memory, not a gap entry, now reads a typed rejection kind.)
 
 Not changed: every decision. The comparison check (`golden:diff`, 10 cases, 80
 files) shows no difference. Sites that compare two refusal sentences for
