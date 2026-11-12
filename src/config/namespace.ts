@@ -21,7 +21,8 @@
  *    that reads a setting (settings:reset, costs:reconcile, research:replay,
  *    export:corrected, db:push, the golden harness's own database path).
  *  - The server also refuses eagerly in `src/instrumentation.ts`, before it
- *    mints the request token or bootstraps the scheduler, so it never starts.
+ *    mints the request token or bootstraps the scheduler, prints the message
+ *    and exits with code 1 (Next alone would log the error and keep listening).
  *    The settings:reset, costs:reconcile, research:replay and export:corrected
  *    entry points refuse eagerly too (replay of a --snapshot file and the
  *    corrected export read no setting, so only the eager check covers them).

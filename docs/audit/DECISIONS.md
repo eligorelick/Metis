@@ -49,8 +49,11 @@ database and data paths, the legacy-import switch, the allowed host and the
 judge-order fallback all refuse on first use, in the server, the request
 proxy, the job runner and scheduler bootstrap, and every script that reads a
 setting. The server also refuses eagerly in `src/instrumentation.ts` before it
-mints the request token or starts the scheduler (Next.js rethrows a
-`register()` error, so the server does not start). The settings:reset,
+mints the request token or starts the scheduler, prints the message and
+exits with code 1. (Next.js only logs a `register()` failure and keeps
+listening; checked on the production build, every page and API route then
+answered a bare 500, no token file or database was created and the scheduler
+never ran. Exiting makes the refusal plain.) The settings:reset,
 costs:reconcile, research:replay and export:corrected entry points refuse
 eagerly as well, because replay of a `--snapshot` file and the corrected
 export read no setting. The golden harness reads its database path through

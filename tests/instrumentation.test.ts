@@ -59,15 +59,21 @@ describe("scheduler startup instrumentation", () => {
     expect(line).not.toContain("f".repeat(64));
   });
 
-  it("refuses a retired THESIS_ setting before minting the token or starting the scheduler (D-227)", async () => {
+  it("exits on a retired THESIS_ setting before minting the token or starting the scheduler (D-227)", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
     delete process.env.NEXT_PHASE;
     process.env.THESIS_RESUME_ON_START = "0";
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
       await expect(register()).rejects.toThrow(/THESIS_RESUME_ON_START -> METIS_RESUME_ON_START/);
     } finally {
       delete process.env.THESIS_RESUME_ON_START;
     }
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(error).toHaveBeenCalledOnce();
+    expect(String(error.mock.calls[0]?.[0])).toContain("THESIS_RESUME_ON_START -> METIS_RESUME_ON_START");
+    expect(String(error.mock.calls[0]?.[0])).not.toMatch(/=\s*0/);
     expect(ensureRequestToken).not.toHaveBeenCalled();
     expect(bootstrapReportScheduler).not.toHaveBeenCalled();
   });
