@@ -186,6 +186,19 @@ export function admitRevenueGrossProfit(row: FmpIncomeStatementRow, sec: FmpInco
     grossProfitRatio: null, grossProfitMargin: null };
 }
 
+/**
+ * P11 (D-226): the refused revenue conflict kept with the "Revenue scope unresolved" sentence. Every
+ * other property of the refusal it replaces is kept, in place. This writer establishes a revenue-scope
+ * refusal, so it keeps `revenue-scope` and nothing else: any other code goes with the old sentence, so
+ * a code never sits beside a sentence it was not written with. A refusal without a code stays without
+ * one; a code is never added here (D-226 records why).
+ */
+function revenueScopeUnresolved(conflict: StatementFieldConflict, reason: string): StatementFieldConflict {
+  const kept: StatementFieldConflict = { ...conflict, reason };
+  if (kept.cause !== undefined && kept.cause !== "revenue-scope") delete kept.cause;
+  return kept;
+}
+
 export function admitRevenue(row: FmpIncomeStatementRow, current: FmpIncomeStatementRow, originals: readonly FmpIncomeStatementRow[],
   payload: FmpPayload<FmpIncomeStatementRow>, facts: CompanyFacts, scope: "annual" | "quarter", policy?: OperatingRevenuePolicy): RevenueAdmission {
   const raw = retainedIncomeRows(payload, row, facts.cik);
@@ -249,7 +262,7 @@ export function admitRevenue(row: FmpIncomeStatementRow, current: FmpIncomeState
     const note = candidates.find(c => c.line.proof.tags.every(t => CONTRACT_REVENUE_TAGS.some(tag => t === `us-gaap/${tag}`)));
     if (!note || row.fieldConflicts?.revenue?.usable !== false) return unchanged;
     const reason = "Revenue scope unresolved: the contract-revenue fact is not established as consolidated operating revenue; a complete same-period operating line is required.";
-    return { row: { ...row, fieldConflicts: { ...row.fieldConflicts, revenue: { ...row.fieldConflicts.revenue, reason } } },
+    return { row: { ...row, fieldConflicts: { ...row.fieldConflicts, revenue: revenueScopeUnresolved(row.fieldConflicts.revenue, reason) } },
       evidence: current, handled: true, gaps: [{ field: `statements.income.${row.date}.revenue`, reason, severity: "info" }] };
   }
   const { line, source } = selected;
