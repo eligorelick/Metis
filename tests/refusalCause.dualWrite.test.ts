@@ -120,12 +120,12 @@ describe("admitDebtFields writes each debt refusal's code beside its unchanged s
 
   it("a total withheld because its maturity-scoped short-term component was refused takes the component's code, not its sentence", () => {
     const shortRefusal = { usable: false, vendorValue: 4 * M, secValue: null, reason: "debt maturity scope unresolved: x" } as const;
-    const coded = admit({ LongTermDebtNoncurrent: 100 }, vendor({ shortTermDebt: null, capitalLeaseObligations: 0, totalDebt: null,
+    const coded = admit({ LongTermDebtNoncurrent: 100 }, vendor({ shortTermDebt: undefined, capitalLeaseObligations: 0, totalDebt: undefined,
       fieldConflicts: { shortTermDebt: { ...shortRefusal, cause: "debt-maturity-scope" } } }));
     expect(conflict(coded, "totalDebt")).toMatchObject({ cause: "debt-component-maturity-scope",
       reason: "incomplete debt carrying value: shortTermDebt is unavailable (debt maturity scope unresolved: x)" });
     // A legacy component with the same sentence but no code stays unknown: the total is not coded from its wording.
-    const legacy = admitDebtFields(vendor({ shortTermDebt: null, capitalLeaseObligations: 0, totalDebt: null,
+    const legacy = admitDebtFields(vendor({ shortTermDebt: undefined, capitalLeaseObligations: 0, totalDebt: undefined,
       fieldConflicts: { shortTermDebt: shortRefusal } }), companyFacts({ [Q2]: { LongTermDebtNoncurrent: 100 } }), "USD", OBSERVED).row;
     expect(conflict(legacy, "totalDebt")).toMatchObject({ reason: conflict(coded, "totalDebt")!.reason });
     expect(conflict(legacy, "totalDebt")?.cause).toBeUndefined();
