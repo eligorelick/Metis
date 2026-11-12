@@ -50,9 +50,9 @@ function client(fetchImpl: typeof fetch, cachedFetch: CachedFetchFn = makeFmpCac
   });
 }
 
-const request = (c: FmpClient, _method: QuoteMethod) => c.quote("AAPL");
+const request = (c: FmpClient, method: QuoteMethod) => c[method]("AAPL");
 
-const endpoint = (_method: QuoteMethod) => fmpCacheKey("quote", { symbol: "AAPL" });
+const endpoint = (method: QuoteMethod) => fmpCacheKey(method, { symbol: "AAPL" });
 
 describe.each<QuoteMethod>(["quote"])("FMP %s timestamp admission", (method) => {
   it("rejects a future observation before durable storage and recovers on the next cold read", async () => {
