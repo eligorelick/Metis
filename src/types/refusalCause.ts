@@ -25,7 +25,9 @@
  *   read five of them (`CONFLICT_CAUSES_READ_BY_CODE`); since D-220 the
  *   debt-maturity split check and the debt-note recovery read four more; since
  *   D-221 the minor-difference note reads one more (the combined-total recovery
- *   reads a code already read). The other two are read by nothing yet.
+ *   reads a code already read); since D-222 the stock-compensation and cash
+ *   rechecks read `vendor-sec-value-conflict` and the vendor share-count recheck
+ *   reads `vendor-share-value-conflict`. Every one of them is now read.
  */
 export const STATEMENT_CONFLICT_CAUSES = [
   // Read as typed causes before D-218.
@@ -33,7 +35,7 @@ export const STATEMENT_CONFLICT_CAUSES = [
   "operating-basis",
   "operating-scope",
   "borrowing-cost-scope",
-  // D-218 step 1: written beside the sentence, not yet read.
+  // D-218 step 1: written beside the sentence; read since D-219 to D-222.
   /** "vendor/SEC <field> conflict: ...", on the conflicted field and on each dependent field that carries the same sentence. */
   "vendor-sec-value-conflict",
   /** "the vendor's <label> for <date> (...) differs from / matches an earlier filing ... field unavailable until reconciled". */
@@ -66,8 +68,10 @@ export type StatementConflictCause = (typeof STATEMENT_CONFLICT_CAUSES)[number];
  * The D-218 step-1 codes. Those no reader decides by are kept out of run input
  * snapshots (`captureRunInputSnapshot`) so a stored snapshot's bytes stay as
  * they were. A step that migrates a reader to one of these codes stops
- * stripping it there, with its own snapshot note: D-219, D-220 and D-221 keep the
- * codes in `CONFLICT_CAUSES_READ_BY_CODE` (`@/edgar/refusalCauseRead`).
+ * stripping it there, with its own snapshot note: D-219, D-220, D-221 and D-222 keep
+ * the codes in `CONFLICT_CAUSES_READ_BY_CODE` (`@/edgar/refusalCauseRead`). Since
+ * D-222 every one of them is read, so none is stripped; the list stays so that a
+ * later dual-written code is again kept out until a reader reads it.
  */
 export const DUAL_WRITTEN_CONFLICT_CAUSES: ReadonlySet<StatementConflictCause> = new Set<StatementConflictCause>(
   STATEMENT_CONFLICT_CAUSES.slice(STATEMENT_CONFLICT_CAUSES.indexOf("vendor-sec-value-conflict")),

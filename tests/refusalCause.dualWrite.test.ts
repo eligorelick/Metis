@@ -248,26 +248,37 @@ describe("the code list", () => {
     expect([...seen].filter((code) => DUAL_WRITTEN_CONFLICT_CAUSES.has(code)).sort()).toEqual([...DUAL_WRITTEN_CONFLICT_CAUSES].sort());
   });
 
-  it("keeps step-1 codes out of a run input snapshot and keeps the codes readers already use", () => {
+  it("keeps the step-1 codes in a run input snapshot once readers read them, and leaves a bundle without codes as it was", () => {
     const bundle = completeCurrencyBundle({});
     if (!bundle.statements.balanceAnnual.ok) throw Error("fixture");
     const rows = bundle.statements.balanceAnnual.value.data.rows as FmpStatementRow[];
     const plain = structuredClone(bundle);
-    // D-220: debt-maturity-scope is now read, so a code still read by nothing stands in for the step-1 codes.
-    // D-221: debt-total-minor-difference is now read too; vendor-sec-value-conflict is still read by nothing.
-    rows[0]!.fieldConflicts = { totalDebt: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence", cause: "vendor-sec-value-conflict" },
+    // D-222: the last two step-1 codes are read now (C1-C3, C13), so a snapshot keeps them like every other code.
+    rows[0]!.fieldConflicts = { cashAndCashEquivalents: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence", cause: "vendor-sec-value-conflict" },
+      eps: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence", cause: "vendor-share-value-conflict" },
       revenue: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence", cause: "revenue-scope" } };
-    (plain.statements.balanceAnnual.ok ? plain.statements.balanceAnnual.value.data.rows[0] as FmpStatementRow : null)!.fieldConflicts = {
-      totalDebt: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence" },
+    const plainRow = (plain.statements.balanceAnnual.ok ? plain.statements.balanceAnnual.value.data.rows[0] as FmpStatementRow : null)!;
+    plainRow.fieldConflicts = {
+      cashAndCashEquivalents: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence" },
+      eps: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence" },
       revenue: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence", cause: "revenue-scope" } };
+    const storedConflicts = (snapshot: ReturnType<typeof captureRunInputSnapshot>) => {
+      const stored = snapshot.content.bundle.statements.balanceAnnual;
+      return stored.ok ? (stored.value.data.rows[0] as FmpStatementRow).fieldConflicts : undefined;
+    };
     const snapshot = captureRunInputSnapshot(bundle, { evIncludeLeases: false });
-    const stored = snapshot.content.bundle.statements.balanceAnnual;
-    const conflicts = stored.ok ? (stored.value.data.rows[0] as FmpStatementRow).fieldConflicts : undefined;
-    expect(conflicts?.totalDebt).toEqual({ usable: false, vendorValue: 1, secValue: null, reason: "kept sentence" });
-    expect(conflicts?.revenue?.cause).toBe("revenue-scope");
-    expect(snapshot.hash).toBe(captureRunInputSnapshot(plain, { evIncludeLeases: false }).hash);
-    expect(canonicalSnapshotJson(snapshot.content.bundle)).not.toContain("vendor-sec-value-conflict");
+    expect(storedConflicts(snapshot)).toEqual(rows[0]!.fieldConflicts);
+    expect(canonicalSnapshotJson(snapshot.content.bundle)).toContain("vendor-sec-value-conflict");
+    // A bundle without the codes (every frozen input and older bundle) is stored exactly as given: nothing is added or removed.
+    const plainSnapshot = captureRunInputSnapshot(plain, { evIncludeLeases: false });
+    expect(storedConflicts(plainSnapshot)).toEqual(plainRow.fieldConflicts);
+    expect(plainSnapshot.hash).not.toBe(snapshot.hash);
+    const withoutCodes = JSON.parse(canonicalSnapshotJson(snapshot.content.bundle)) as typeof snapshot.content.bundle;
+    if (!withoutCodes.statements.balanceAnnual.ok) throw Error("fixture");
+    for (const field of ["cashAndCashEquivalents", "eps"]) delete (withoutCodes.statements.balanceAnnual.value.data.rows[0] as FmpStatementRow).fieldConflicts![field]!.cause;
+    expect(canonicalSnapshotJson(withoutCodes)).toBe(canonicalSnapshotJson(plainSnapshot.content.bundle));
     // The live bundle is not mutated.
-    expect(rows[0]!.fieldConflicts?.totalDebt?.cause).toBe("vendor-sec-value-conflict");
+    expect(rows[0]!.fieldConflicts?.cashAndCashEquivalents?.cause).toBe("vendor-sec-value-conflict");
+    expect(rows[0]!.fieldConflicts?.eps?.cause).toBe("vendor-share-value-conflict");
   });
 });
