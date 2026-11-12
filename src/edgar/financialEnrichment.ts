@@ -691,7 +691,8 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   const revisitVendorSum = oldSumRefusal?.usable === false && typeof oldSumRefusal.vendorValue === "number" &&
     Number.isFinite(oldSumRefusal.vendorValue) && oldSumRefusal.vendorValue >= 0 &&
     (row.cik == null || Number(row.cik) === facts.cik) &&
-    /^incomplete debt carrying value: the vendor lease line .*?, but the vendor total debt .* is not its short-term debt \+ long-term debt \+ lease line, so its composition is unknown;/.test(oldSumRefusal.reason);
+    // P11 (D-221): legacy rows only; no current writer has this sentence, so a coded conflict never matches (`refusalCauseRead`).
+    conflictCauseMatches(oldSumRefusal, "legacyVendorSumRefusal");
   if (componentReason === null && (row.fieldConflicts?.totalDebt?.usable !== false || revisitVendorSum)) {
     // Re-evaluate only this guard's old refusal. The original observed total
     // is a candidate for scope proof, never a fallback admitted by itself.
@@ -806,7 +807,8 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     const reason = `same-filing gross debt ${millions(gross!.value)} plus signed discount/premium and issuance costs ${millions(adjustment!.val)} reconciles to carrying debt ${millions(carrying!.value)} ${currency}; the gross amount is not an omitted borrowing`;
     gaps.push({ field: `statements.balance.${row.date}.totalDebt`, reason, severity: "info", expected: true });
     const conflict = out.fieldConflicts?.totalDebt;
-    if (conflict?.usable === false && conflict.reason.startsWith("incomplete debt carrying value: same-period DebtLongtermAndShorttermCombinedAmount ") &&
+    // P11 (D-221): by the typed code; a conflict with no code by its sentence (`refusalCauseRead`).
+    if (conflict?.usable === false && conflictCauseMatches(conflict, "combinedAggregateExceedsComponents") &&
         typeof conflict.vendorValue === "number" && vendorAgreesWithFiled(conflict.vendorValue, financing! + (typeof out.capitalLeaseObligations === "number" ? out.capitalLeaseObligations : 0))) {
       const fieldConflicts = { ...out.fieldConflicts };
       delete fieldConflicts.totalDebt;
@@ -866,8 +868,9 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   // comparison in a bounded manifest entry in either order, rather than lose
   // its qualification when the completed field already carries provenance.
   const retainedTotal = out.fieldConflicts?.totalDebt;
+  // P11 (D-221): by the typed code; a conflict with no code by its sentence (`refusalCauseRead`).
   if (retainedTotal?.usable === true && retainedTotal.resolution === "filed-family" &&
-      retainedTotal.reason.startsWith("vendor total ") && retainedTotal.reason.includes("minor difference retained")) {
+      conflictCauseMatches(retainedTotal, "debtTotalMinorDifference")) {
     admissions.push({ kind: "minor-debt-total", date: row.date!, detail: retainedTotal.reason, summary: retainedTotal.reason });
   }
   return { row: out, gaps, admissions };

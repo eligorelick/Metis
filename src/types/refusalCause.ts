@@ -23,8 +23,9 @@
  *   The rest are dual-written beside their sentences (`DUAL_WRITTEN_CONFLICT_CAUSES`).
  *   Since D-219 the lease-portion recovery and the same-filing debt completion
  *   read five of them (`CONFLICT_CAUSES_READ_BY_CODE`); since D-220 the
- *   debt-maturity split check and the debt-note recovery read four more. The
- *   other three are read by nothing yet.
+ *   debt-maturity split check and the debt-note recovery read four more; since
+ *   D-221 the minor-difference note reads one more (the combined-total recovery
+ *   reads a code already read). The other two are read by nothing yet.
  */
 export const STATEMENT_CONFLICT_CAUSES = [
   // Read as typed causes before D-218.
@@ -65,8 +66,8 @@ export type StatementConflictCause = (typeof STATEMENT_CONFLICT_CAUSES)[number];
  * The D-218 step-1 codes. Those no reader decides by are kept out of run input
  * snapshots (`captureRunInputSnapshot`) so a stored snapshot's bytes stay as
  * they were. A step that migrates a reader to one of these codes stops
- * stripping it there, with its own snapshot note: D-219 and D-220 keep the codes
- * in `CONFLICT_CAUSES_READ_BY_CODE` (`@/edgar/refusalCauseRead`).
+ * stripping it there, with its own snapshot note: D-219, D-220 and D-221 keep the
+ * codes in `CONFLICT_CAUSES_READ_BY_CODE` (`@/edgar/refusalCauseRead`).
  */
 export const DUAL_WRITTEN_CONFLICT_CAUSES: ReadonlySet<StatementConflictCause> = new Set<StatementConflictCause>(
   STATEMENT_CONFLICT_CAUSES.slice(STATEMENT_CONFLICT_CAUSES.indexOf("vendor-sec-value-conflict")),
