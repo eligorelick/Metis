@@ -166,6 +166,7 @@ import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { filedCfoTtm, filedCashFlowTtm, filedCapexTtm } from "@/edgar/financialEnrichment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
+import { withComputationContext } from "@/edgar/computationContext";
 import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason, uncashedDebtCollapseReason } from "@/edgar/debtCompleteness";
 import { filedReceivablesCandidates } from "@/edgar/receivables";
@@ -2179,7 +2180,16 @@ export function operatingDispositionView(bundle: DataBundle): { bundle: DataBund
     gaps: [...bundle.gaps, { field: "compute.operatingDispositions", reason, severity: "info" }] } };
 }
 
+/**
+ * Stage B runs inside one computation context (P13): the filed statements and
+ * other exact-input derivations its readers repeat are computed once per run
+ * step and never outlive it (src/edgar/computationContext.ts).
+ */
 export function runStageB(bundle: DataBundle, replayConfig?: StageBReplayConfig, suppliedValidation?: ValidationReport): ComputedMetrics {
+  return withComputationContext(() => runStageBInContext(bundle, replayConfig, suppliedValidation));
+}
+
+function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfig, suppliedValidation?: ValidationReport): ComputedMetrics {
   const notes: string[] = [];
   const suppressed: SuppressedMetric[] = [];
   const validation = suppliedValidation ?? (bundle.edgar?.companyFacts && bundle.institutional && Number.isFinite(Date.parse(bundle.builtAt))

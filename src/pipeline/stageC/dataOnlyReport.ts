@@ -1,3 +1,4 @@
+import { withComputationContext } from "@/edgar/computationContext";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { withPrimaryCapitalBasis, primaryCapitalManifest, primaryCapitalAudit } from "@/pipeline/primaryCapitalBasis";
 /**
@@ -891,7 +892,12 @@ export interface EnrichDataOnlyReportArgs {
  * scores, fair value, scenario targets and projections are attached exactly as
  * the LLM path attaches them after the judge.
  */
+/** The data-only enrichment runs inside one computation context (P13), like Stage B (src/edgar/computationContext.ts). */
 export function enrichDataOnlyReport(stub: Report, args: EnrichDataOnlyReportArgs): Report {
+  return withComputationContext(() => enrichDataOnlyReportInContext(stub, args));
+}
+
+function enrichDataOnlyReportInContext(stub: Report, args: EnrichDataOnlyReportArgs): Report {
   const { computed } = args;
   const bundle = balanceIntegrityView(withPrimaryCapitalBasis(args.bundle));
   const baseRouteMetrics = routeMetricsBlock(computed);
