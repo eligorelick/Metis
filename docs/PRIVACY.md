@@ -130,7 +130,7 @@ does not encrypt `.env`, and the server-only boundary does not protect it from
 other processes running with your account's filesystem access. Avoid sharing
 environment files, connection directories or unreviewed diagnostic output.
 
-The `X-Metis-Token` (`X-Thesis-Token` is accepted only when the primary header is absent) that non-browser
+The `X-Metis-Token` (the old `X-Thesis-Token` header is refused, never read as a credential) that non-browser
 clients use for mutating routes is not a
 credential for anything remote, and not a lock on the API either. It is a marker
 for clients that send no browser headers: `src/app/api/sameOrigin.ts` accepts a
@@ -201,9 +201,9 @@ so SQLite recovery companions are not stranded. No database is moved, renamed
 or overwritten by the rebrand.
 `METIS_DB_PATH` overrides the file; `METIS_DATA_DIR` overrides the directory.
 SQLite writes `-wal` and `-shm` siblings beside whichever database is active.
-Legacy `THESIS_*` aliases remain supported; an explicitly present canonical
-`METIS_*` value wins, including a blank or invalid value, without falling back
-to the legacy value. See [compatibility](BRAND.md#compatibility).
+Old `THESIS_*` setting names are no longer read; one that is still set stops
+startup with an error naming its `METIS_*` replacement (D-227). See
+[compatibility](BRAND.md#compatibility).
 
 On Windows, `APPDATA` is the fallback if `LOCALAPPDATA` is unavailable. Blank
 path overrides are treated as unset. The resolved active path is printed by

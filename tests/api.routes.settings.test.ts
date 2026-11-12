@@ -73,7 +73,7 @@ afterEach(() => {
 /**
  * Requests here model the app's own browser calls: a same-origin fetch carries
  * `Sec-Fetch-Site: same-origin`, which the CSRF guard requires when no Origin
- * or X-Thesis-Token is present (tests/api.routes.sameOrigin.test.ts).
+ * or X-Metis-Token is present (tests/api.routes.sameOrigin.test.ts).
  */
 const SAME_ORIGIN = { "sec-fetch-site": "same-origin" } as const;
 

@@ -17,10 +17,11 @@ describe("reversible dossier layout", () => {
     expect(parseEnv({ METIS_UI_REDESIGN: "0" })).toHaveProperty("uiRedesign", false);
   });
 
-  it("uses the existing strict binary flag and namespace precedence", () => {
+  it("uses the existing strict binary flag; the retired THESIS_ name is refused, not read (D-227)", () => {
     expect(() => parseEnv({ METIS_UI_REDESIGN: "true" })).toThrow();
-    expect(parseEnv({ THESIS_UI_REDESIGN: "1" })).toHaveProperty("uiRedesign", true);
-    expect(parseEnv({ METIS_UI_REDESIGN: "0", THESIS_UI_REDESIGN: "1" })).toHaveProperty("uiRedesign", false);
+    expect(parseEnv({ METIS_UI_REDESIGN: " 1 " })).toHaveProperty("uiRedesign", true);
+    expect(() => parseEnv({ THESIS_UI_REDESIGN: "1" })).toThrow(/THESIS_UI_REDESIGN -> METIS_UI_REDESIGN/);
+    expect(() => parseEnv({ METIS_UI_REDESIGN: "0", THESIS_UI_REDESIGN: "1" })).toThrow(/THESIS_UI_REDESIGN/);
   });
 
   it.each(["0", "1"])("sets the SSR layout boundary for flag %s without serializing config", async (flag) => {

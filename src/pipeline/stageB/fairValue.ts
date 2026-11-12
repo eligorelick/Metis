@@ -132,7 +132,7 @@ export interface DegradedInputs {
  * refusal forced — the risk-free rate from a source other than FRED DGS10, a
  * ROIC-vs-WACC history with no per-year DGS10, an FMP member the value reads served by the keyless layer, the analyst-growth method left out
  * because the provider refused the estimates. A substitution the run was
- * configured for (`expected`: a keyless plan, THESIS_STATEMENT_SOURCE=edgar) is
+ * configured for (`expected`: a keyless plan, METIS_STATEMENT_SOURCE=edgar) is
  * not a degradation and is not named. Null when nothing was substituted.
  */
 /** Keyless members no fair-value model reads: the sector ETF feeds technicals only, the float nothing in Stage B. */

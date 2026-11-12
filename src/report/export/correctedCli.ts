@@ -15,6 +15,7 @@ import {
 import type { Report } from "@/report/schema";
 import { PRINCIPAL_CORRECTION_NOTE, principalSummaryCorrections } from "@/report/principalAggregationSafety";
 import { normalizeSymbol, sameEntitySymbol } from "@/symbol";
+import { assertNoStaleSettings } from "@/config/namespace";
 
 export interface CorrectedCliArguments {
   dbFile: string;
@@ -306,6 +307,8 @@ const invokedPath = process.argv[1]
   : undefined;
 if (invokedPath === import.meta.url) {
   try {
+    // D-227: refuse retired Thesis-era setting names before any export work.
+    assertNoStaleSettings();
     runCorrectedCli(process.argv.slice(2));
   } catch (error) {
     process.stderr.write(

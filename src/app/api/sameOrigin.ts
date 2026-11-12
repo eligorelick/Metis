@@ -62,15 +62,23 @@ import { assertAllowedHost, requestOriginMatchesHost } from "@/app/requestSecuri
 import { getConfig } from "@/config/env";
 import { defaultDataDir } from "@/db/paths";
 
-/** Primary script header; legacy is accepted only when the primary header is absent. */
+/** The only script header that carries the startup token. */
 export const REQUEST_TOKEN_HEADER = "x-metis-token";
-export const LEGACY_REQUEST_TOKEN_HEADER = "x-thesis-token";
+/**
+ * Retired header (D-227, P26). It is never read as a credential; a request
+ * that carries only this header is refused with a reason naming the canonical
+ * header, so an old client learns what to change instead of failing silently.
+ */
+export const RETIRED_REQUEST_TOKEN_HEADER = "x-thesis-token";
 
 /** File name inside the data directory (override the full path with METIS_TOKEN_FILE). */
 export const REQUEST_TOKEN_FILE_NAME = "csrf-token";
 
 /** `Sec-Fetch-Site` values a browser can send on a request that is not cross-site. */
 const BROWSER_SITE_VALUES: ReadonlySet<string> = new Set(["same-origin", "same-site", "none"]);
+
+const RETIRED_HEADER_REASON =
+  "the X-Thesis-Token header is no longer accepted; send the same token in the X-Metis-Token header instead";
 
 const MISSING_CREDENTIALS_REASON =
   "no Sec-Fetch-Site, Origin, or X-Metis-Token header; browsers send Sec-Fetch-Site or " +
@@ -165,9 +173,9 @@ function presentedTokenMatches(presented: string, expected = ensureRequestToken(
   return timingSafeEqual(presentedDigest, expectedDigest);
 }
 
-/** The presented token; presence precedence keeps an invalid primary header from falling back to a valid legacy one. */
+/** The presented token: the canonical header only. The retired header is never a credential. */
 function presentedToken(request: Request): string | null {
-  return request.headers.get(REQUEST_TOKEN_HEADER) ?? request.headers.get(LEGACY_REQUEST_TOKEN_HEADER);
+  return request.headers.get(REQUEST_TOKEN_HEADER);
 }
 
 const TOKEN_SHAPE = /^[0-9a-f]{64}$/;
@@ -240,7 +248,9 @@ export function assertSameOrigin(request: Request): NextResponse | null {
   if (secFetchSite !== undefined) return null;
 
   const presented = presentedToken(request);
-  if (presented === null) return forbid(MISSING_CREDENTIALS_REASON);
+  if (presented === null) {
+    return forbid(request.headers.has(RETIRED_REQUEST_TOKEN_HEADER) ? RETIRED_HEADER_REASON : MISSING_CREDENTIALS_REASON);
+  }
   if (!presentedTokenMatches(presented)) {
     return forbid("request token does not match the token this server minted at startup");
   }

@@ -2,8 +2,10 @@
 export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.NEXT_PHASE === "phase-production-build") return;
-  const { warnMetisAliasConflicts } = await import("@/config/namespace");
-  warnMetisAliasConflicts();
+  // D-227 (P23, P26): refuse retired Thesis-era setting names before anything
+  // else runs, so a leftover hold, cap or path is never silently dropped.
+  const { assertNoStaleSettings } = await import("@/config/namespace");
+  assertNoStaleSettings();
   // Mint the per-process X-Metis-Token before any route is served so a
   // non-browser client can read it from the data directory (docs/PRIVACY.md).
   // The token itself is never logged.

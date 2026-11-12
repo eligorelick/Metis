@@ -192,7 +192,7 @@ function judgeProtocolFor(
   // the runner threads both on every path.
   if (seed === undefined) return undefined;
   return recoveredJudgeProtocolDraft({
-    // The one place production interprets THESIS_JUDGE_ORDER, as everywhere else
+    // The one place production interprets METIS_JUDGE_ORDER, as everywhere else
     // in this adapter. Read only on the MISS, so the normal path (the judge ran
     // here and recorded its own protocol) still pays nothing for it.
     setting: getConfig().judgeOrder,
@@ -309,7 +309,7 @@ function toPassDeps(deps: RunnerPassDeps<ContextPayload>): PassDeps {
 }
 
 /**
- * WS7 (D-20): add the `THESIS_JUDGE_ORDER` setting from the PARSED config, so
+ * WS7 (D-20): add the `METIS_JUDGE_ORDER` setting from the PARSED config, so
  * production has exactly one place where that env var is interpreted. Applied
  * only on the two judge-shaped paths (the judge pass and the preflight that has
  * to rebuild its exact request) — the analyst and verify paths do not depend on

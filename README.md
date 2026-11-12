@@ -71,8 +71,8 @@ Saved reports have a **Rerun ticker** control and a **Delete** action with confi
 <!-- BEGIN GENERATED: config -->
 
 Every key is optional. This table is generated from `.env.example`, which carries the long form of each one.
-Its `METIS_*` lines ship commented out: a key that is set, even blank or invalid, wins over its legacy
-`THESIS_*` alias, so uncomment only what you mean to set. See [compatibility](docs/BRAND.md#compatibility).
+Its `METIS_*` lines ship commented out, so uncomment only what you mean to set. Old `THESIS_*` names are
+no longer read: if one is still set, Metis refuses to start and names its `METIS_*` replacement. See [compatibility](docs/BRAND.md#compatibility).
 
 | Key | Shipped value, built-in default or opt-in example | What it does |
 | --- | --- | --- |
@@ -209,7 +209,7 @@ Metis has no telemetry, analytics or update check; its own outbound traffic goes
 The application is single-user and has no authentication; keep it on loopback
 unless you add a security layer of your own. Mutating routes reject a request
 carrying neither browser Fetch Metadata nor a matching `Origin`; browsers send
-those automatically; scripts send `X-Metis-Token` (legacy `X-Thesis-Token` accepted) with the contents of
+those automatically; scripts send `X-Metis-Token` (the old `X-Thesis-Token` is refused) with the contents of
 the `csrf-token` file the server writes at every start and names on stdout. That
 is a browser-CSRF boundary, not local access control: any process on the machine
 can present the same headers. Report security problems through the

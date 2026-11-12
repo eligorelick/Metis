@@ -87,14 +87,14 @@ describe("parseSettingsResetArguments", () => {
   });
 
   it("falls back to the configured database path when --db is absent", () => {
-    process.env.THESIS_DB_PATH = dbFile;
+    process.env.METIS_DB_PATH = dbFile;
     try {
       expect(parseSettingsResetArguments([], directory)).toEqual({
         dbFile,
         confirmed: false,
       });
     } finally {
-      delete process.env.THESIS_DB_PATH;
+      delete process.env.METIS_DB_PATH;
     }
   });
 

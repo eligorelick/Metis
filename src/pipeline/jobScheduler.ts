@@ -493,7 +493,7 @@ export function requestAttemptId(passAttemptId: string, sequence: number): strin
  * maximum, which covers a pass that settles without ever reaching the
  * provider. Once the first request has its OWN reservation that headroom is
  * redundant, so it is released: live exposure then stays at exactly
- * THESIS_MAX_ACTIVE_LLM_CALLS request maxima rather than twice that. Only
+ * METIS_MAX_ACTIVE_LLM_CALLS request maxima rather than twice that. Only
  * downward, and only on the exact live lease.
  */
 export function resizePaidPassLease(

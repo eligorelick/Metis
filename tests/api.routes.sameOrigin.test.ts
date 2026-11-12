@@ -5,7 +5,7 @@
  * proves at the route level that a provably cross-site browser request is
  * rejected with 403 BEFORE any work happens — no job row, no runJob dispatch,
  * no settings/watchlist writes. A request carrying neither Fetch Metadata nor
- * Origin now needs the startup `X-Thesis-Token` (D-21); browsers never do,
+ * Origin now needs the startup `X-Metis-Token` (D-21; the old `X-Thesis-Token` is refused since D-227); browsers never do,
  * because they always send one of the two.
  *
  * Route harness mirrors tests/api.routes.report.test.ts: handlers imported
@@ -79,14 +79,14 @@ beforeEach(() => {
   // Keep the minted token file inside a temp directory: no test may write to
   // the real app-data directory, and each test starts from a fresh token.
   tokenDirectory = mkdtempSync(join(tmpdir(), "thesis-request-token-"));
-  process.env.THESIS_TOKEN_FILE = join(tokenDirectory, REQUEST_TOKEN_FILE_NAME);
+  process.env.METIS_TOKEN_FILE = join(tokenDirectory, REQUEST_TOKEN_FILE_NAME);
   resetConfigCache();
   _resetRequestTokenForTests();
 });
 
 afterEach(() => {
-  delete process.env.THESIS_ALLOWED_HOST;
-  delete process.env.THESIS_TOKEN_FILE;
+  delete process.env.METIS_ALLOWED_HOST;
+  delete process.env.METIS_TOKEN_FILE;
   resetConfigCache();
   _resetRequestTokenForTests();
   setDbForTests(null);
@@ -327,17 +327,17 @@ describe("assertSameOrigin", () => {
     expect(assertSameOrigin(req)?.status).toBe(403);
   });
 
-  it("allows a matching non-loopback Host only when THESIS_ALLOWED_HOST is configured (LAN dev)", () => {
+  it("allows a matching non-loopback Host only when METIS_ALLOWED_HOST is configured (LAN dev)", () => {
     const req = () =>
       guardReq(
         { origin: "http://192.168.1.50:3000", host: "192.168.1.50:3000" },
         "http://192.168.1.50:3000/api/report",
       );
     // Unset → the exact DNS-rebinding shape → rejected.
-    delete process.env.THESIS_ALLOWED_HOST;
+    delete process.env.METIS_ALLOWED_HOST;
     expect(assertSameOrigin(req())?.status).toBe(403);
     // Configured to this exact host:port → allowed.
-    process.env.THESIS_ALLOWED_HOST = "192.168.1.50:3000";
+    process.env.METIS_ALLOWED_HOST = "192.168.1.50:3000";
     try {
       expect(assertSameOrigin(req())).toBeNull();
       // A different LAN host is still rejected even with one configured.
@@ -347,7 +347,7 @@ describe("assertSameOrigin", () => {
       );
       expect(assertSameOrigin(other)?.status).toBe(403);
     } finally {
-      delete process.env.THESIS_ALLOWED_HOST;
+      delete process.env.METIS_ALLOWED_HOST;
     }
   });
 
@@ -406,8 +406,8 @@ describe("assertSameOrigin", () => {
 });
 
 describe("assertAllowedHost", () => {
-  it("folds an explicit default port in THESIS_ALLOWED_HOST, as browsers omit it from Host", () => {
-    process.env.THESIS_ALLOWED_HOST = "192.168.1.50:80";
+  it("folds an explicit default port in METIS_ALLOWED_HOST, as browsers omit it from Host", () => {
+    process.env.METIS_ALLOWED_HOST = "192.168.1.50:80";
     try {
       // The browser sends the bare host over http …
       expect(assertAllowedHost(guardReq({ host: "192.168.1.50" }, "http://192.168.1.50/api/report"))).toBeNull();
@@ -425,20 +425,20 @@ describe("assertAllowedHost", () => {
         ),
       ).toBeNull();
     } finally {
-      delete process.env.THESIS_ALLOWED_HOST;
+      delete process.env.METIS_ALLOWED_HOST;
     }
     // A non-default port still needs an exact match.
-    process.env.THESIS_ALLOWED_HOST = "192.168.1.50:8080";
+    process.env.METIS_ALLOWED_HOST = "192.168.1.50:8080";
     try {
       expect(assertAllowedHost(guardReq({ host: "192.168.1.50" }, "http://192.168.1.50/api/report"))?.status).toBe(403);
       expect(assertAllowedHost(guardReq({ host: "192.168.1.50:8080" }, "http://192.168.1.50:8080/api/report"))).toBeNull();
     } finally {
-      delete process.env.THESIS_ALLOWED_HOST;
+      delete process.env.METIS_ALLOWED_HOST;
     }
   });
 
   it("matches an exact configured IDNA hostname and port after canonicalization", () => {
-    process.env.THESIS_ALLOWED_HOST = "b\u00fccher.local:3000";
+    process.env.METIS_ALLOWED_HOST = "b\u00fccher.local:3000";
     expect(
       assertAllowedHost(guardReq({ host: "xn--bcher-kva.local:3000" })),
     ).toBeNull();
@@ -448,20 +448,20 @@ describe("assertAllowedHost", () => {
   });
 
   it("matches a configured expanded IPv6 authority exactly after canonicalization", () => {
-    process.env.THESIS_ALLOWED_HOST = "[0:0:0:0:0:0:0:2]:3000";
+    process.env.METIS_ALLOWED_HOST = "[0:0:0:0:0:0:0:2]:3000";
     expect(assertAllowedHost(guardReq({ host: "[::2]:3000" }))).toBeNull();
     expect(assertAllowedHost(guardReq({ host: "[::2]:3001" }))?.status).toBe(403);
   });
 
   it("rejects IPv4-mapped IPv6 even when that exact authority is configured", () => {
-    process.env.THESIS_ALLOWED_HOST = "[::ffff:192.168.1.50]:3000";
+    process.env.METIS_ALLOWED_HOST = "[::ffff:192.168.1.50]:3000";
     expect(
       assertAllowedHost(guardReq({ host: "[::ffff:192.168.1.50]:3000" }))?.status,
     ).toBe(403);
   });
 
-  it("does not grant access when THESIS_ALLOWED_HOST is malformed", () => {
-    process.env.THESIS_ALLOWED_HOST = "lan.example:3000/path";
+  it("does not grant access when METIS_ALLOWED_HOST is malformed", () => {
+    process.env.METIS_ALLOWED_HOST = "lan.example:3000/path";
     expect(assertAllowedHost(guardReq({ host: "lan.example:3000" }))?.status).toBe(403);
   });
 });
@@ -915,7 +915,7 @@ describe("request-wide proxy", () => {
     const LAN = "192.168.1.50:3000";
 
     function lanRequest(path: string, headers: Record<string, string> = {}, method = "GET"): Request {
-      process.env.THESIS_ALLOWED_HOST = LAN;
+      process.env.METIS_ALLOWED_HOST = LAN;
       return new Request(`http://${LAN}${path}`, { method, headers: { host: LAN, ...headers } });
     }
 
@@ -954,7 +954,8 @@ describe("request-wide proxy", () => {
       expect(existsSync(requestTokenPath())).toBe(false);
       const minted = ensureRequestToken().token;
       expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: minted }))).toBe(true);
-      expect(requestCarriesToken(lanRequest("/company/AAPL", { "x-thesis-token": minted }))).toBe(true);
+      // D-227 (P26): the retired header is never a credential, even carrying the minted token.
+      expect(requestCarriesToken(lanRequest("/company/AAPL", { "x-thesis-token": minted }))).toBe(false);
       expect(
         requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "bad", "x-thesis-token": minted })),
       ).toBe(false);
@@ -1156,20 +1157,20 @@ describe("ensureRequestToken", () => {
     expect(ensureRequestToken()).toBe(state);
   });
 
-  it("defaults to csrf-token in the data directory and follows THESIS_TOKEN_FILE", () => {
+  it("defaults to csrf-token in the data directory and follows METIS_TOKEN_FILE", () => {
     const explicit = join(tokenDirectory, "elsewhere.token");
-    process.env.THESIS_TOKEN_FILE = explicit;
+    process.env.METIS_TOKEN_FILE = explicit;
     resetConfigCache();
     expect(requestTokenPath()).toBe(explicit);
 
-    delete process.env.THESIS_TOKEN_FILE;
-    process.env.THESIS_DATA_DIR = tokenDirectory;
+    delete process.env.METIS_TOKEN_FILE;
+    process.env.METIS_DATA_DIR = tokenDirectory;
     resetConfigCache();
     try {
       expect(requestTokenPath()).toBe(join(tokenDirectory, REQUEST_TOKEN_FILE_NAME));
       expect(REQUEST_TOKEN_FILE_NAME).toBe("csrf-token");
     } finally {
-      delete process.env.THESIS_DATA_DIR;
+      delete process.env.METIS_DATA_DIR;
       resetConfigCache();
     }
   });
@@ -1185,7 +1186,7 @@ describe("ensureRequestToken", () => {
   });
 
   it("keeps serving requests, without logging the token, when the file cannot be written", () => {
-    process.env.THESIS_TOKEN_FILE = join(tokenDirectory, "not-a-directory.txt", "token");
+    process.env.METIS_TOKEN_FILE = join(tokenDirectory, "not-a-directory.txt", "token");
     resetConfigCache();
     _resetRequestTokenForTests();
     writeFileSync(join(tokenDirectory, "not-a-directory.txt"), "blocks mkdir\n", "utf8");

@@ -66,21 +66,21 @@ describe("maintenance CLI environment", () => {
     const shell = path.join(directory, "shell.db");
     try {
       [base, local, shell].forEach(seed);
-      writeFileSync(path.join(directory, ".env"), `THESIS_DB_PATH=${base.replaceAll("\\", "/")}\n`);
-      writeFileSync(path.join(directory, ".env.development.local"), `THESIS_DB_PATH=${local.replaceAll("\\", "/")}\n`);
+      writeFileSync(path.join(directory, ".env"), `METIS_DB_PATH=${base.replaceAll("\\", "/")}\n`);
+      writeFileSync(path.join(directory, ".env.development.local"), `METIS_DB_PATH=${local.replaceAll("\\", "/")}\n`);
       const fromFiles = run("settings:reset", directory, ["--yes"]);
       expect(fromFiles.status, fromFiles.stderr).toBe(0);
       expect(count(local)).toBe(0);
       expect(count(base)).toBe(1);
       expect(count(shell)).toBe(1);
-      const fromShell = run("settings:reset", directory, ["--yes"], { THESIS_DB_PATH: shell });
+      const fromShell = run("settings:reset", directory, ["--yes"], { METIS_DB_PATH: shell });
       expect(fromShell.status, fromShell.stderr).toBe(0);
       expect(count(shell)).toBe(0);
       expect(count(base)).toBe(1);
     } finally { rmSync(directory, { recursive: true, force: true }); }
   }, 2 * CHILD_TIMEOUT_MS + CLI_TEST_OVERHEAD_MS);
 
-  it("uses the canonical database for standalone maintenance without touching the legacy selection", () => {
+  it("stops settings:reset on a retired THESIS_ name in .env and resets neither database (D-227)", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "metis-cli-env-"));
     const canonical = path.join(directory, "canonical.db");
     const legacy = path.join(directory, "legacy.db");
@@ -88,8 +88,10 @@ describe("maintenance CLI environment", () => {
       [canonical, legacy].forEach(seed);
       writeFileSync(path.join(directory, ".env"), `METIS_DB_PATH=${canonical.replaceAll("\\", "/")}\nTHESIS_DB_PATH=${legacy.replaceAll("\\", "/")}\n`);
       const result = run("settings:reset", directory, ["--yes"]);
-      expect(result.status, result.stderr).toBe(0);
-      expect(count(canonical)).toBe(0);
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain("THESIS_DB_PATH -> METIS_DB_PATH");
+      expect(result.stderr).not.toContain(legacy.replaceAll("\\", "/"));
+      expect(count(canonical)).toBe(1);
       expect(count(legacy)).toBe(1);
     } finally { rmSync(directory, { recursive: true, force: true }); }
   }, CHILD_TIMEOUT_MS + CLI_TEST_OVERHEAD_MS);
@@ -108,13 +110,26 @@ describe("maintenance CLI environment", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "thesis-cost-env-"));
     const configured = path.join(directory, "configured.db");
     try {
-      writeFileSync(path.join(directory, ".env"), `THESIS_DB_PATH=${configured.replaceAll("\\", "/")}\n`);
+      writeFileSync(path.join(directory, ".env"), `METIS_DB_PATH=${configured.replaceAll("\\", "/")}\n`);
       const child = run("costs:reconcile", directory);
       expect(child.status, child.stderr).toBe(0);
       expect(child.stdout).toContain("no unreconciled presumed spend");
       expect(existsSync(configured)).toBe(true);
       expect(existsSync(path.join(directory, "Thesis", "thesis.db"))).toBe(false);
       expect(existsSync(path.join(directory, "thesis", "thesis.db"))).toBe(false);
+    } finally { rmSync(directory, { recursive: true, force: true }); }
+  }, CHILD_TIMEOUT_MS + CLI_TEST_OVERHEAD_MS);
+
+  it("stops costs:reconcile on a retired THESIS_ spend setting before opening any database (D-227)", () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "metis-cost-stale-"));
+    const configured = path.join(directory, "configured.db");
+    try {
+      writeFileSync(path.join(directory, ".env"), `METIS_DB_PATH=${configured.replaceAll("\\", "/")}\nTHESIS_MAX_JOB_COST_USD=5\n`);
+      const child = run("costs:reconcile", directory);
+      expect(child.status).toBe(1);
+      expect(child.stderr).toContain("THESIS_MAX_JOB_COST_USD -> METIS_MAX_JOB_COST_USD");
+      expect(child.stderr).not.toMatch(/=\s*5\b/);
+      expect(existsSync(configured)).toBe(false);
     } finally { rmSync(directory, { recursive: true, force: true }); }
   }, CHILD_TIMEOUT_MS + CLI_TEST_OVERHEAD_MS);
 });

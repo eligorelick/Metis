@@ -37,7 +37,7 @@ describe("scheduler startup instrumentation", () => {
     expect(bootstrapReportScheduler).toHaveBeenCalledOnce();
   });
 
-  it("mints the X-Thesis-Token before the scheduler and logs only its path", async () => {
+  it("mints the X-Metis-Token before the scheduler and logs only its path", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
     delete process.env.NEXT_PHASE;
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
@@ -57,6 +57,19 @@ describe("scheduler startup instrumentation", () => {
     const line = String(info.mock.calls[0]?.[0]);
     expect(line).toContain("test-data-dir/csrf-token");
     expect(line).not.toContain("f".repeat(64));
+  });
+
+  it("refuses a retired THESIS_ setting before minting the token or starting the scheduler (D-227)", async () => {
+    process.env.NEXT_RUNTIME = "nodejs";
+    delete process.env.NEXT_PHASE;
+    process.env.THESIS_RESUME_ON_START = "0";
+    try {
+      await expect(register()).rejects.toThrow(/THESIS_RESUME_ON_START -> METIS_RESUME_ON_START/);
+    } finally {
+      delete process.env.THESIS_RESUME_ON_START;
+    }
+    expect(ensureRequestToken).not.toHaveBeenCalled();
+    expect(bootstrapReportScheduler).not.toHaveBeenCalled();
   });
 
   it("stays quiet when the token file could not be written (the guard already warned)", async () => {

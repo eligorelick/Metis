@@ -109,7 +109,7 @@ describe("credential protection and lock failures", () => {
   });
 
   it("uses OS locations independently of report database overrides", () => {
-    vi.stubEnv("THESIS_DATA_DIR", "report-only");
+    vi.stubEnv("METIS_DATA_DIR", "report-only");
     expect(aiDirectory()).toBe(path.join(directory, "Metis", "ai"));
     vi.stubEnv("XDG_CONFIG_HOME", undefined); expect(aiDirectory()).toBe(path.join(os.homedir(), ".config", "Metis", "ai"));
     system("darwin"); expect(aiDirectory()).toBe(path.join(os.homedir(), "Library", "Application Support", "Metis", "ai"));

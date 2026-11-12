@@ -28,20 +28,24 @@ const values = {
   RESERVATION_MODE: "pass", RESUME_ON_START: "0", TOKEN_FILE: "custom-token", JUDGE_ORDER: "both", EV_INCLUDE_LEASES: "1",
 };
 describe("Metis configuration compatibility", () => {
-  it("accepts every canonical setting with the exact legacy behavior", () => {
-    const env = (prefix: string) => Object.fromEntries(Object.entries(values).map(([key, value]) => [prefix + key, value]));
-    expect(parseEnv(env("METIS_"))).toEqual(parseEnv(env("THESIS_")));
-    expect(parseEnv(env("METIS_")).maxActiveJobs).toBe(3);
+  it("accepts every canonical setting", () => {
+    const env = Object.fromEntries(Object.entries(values).map(([key, value]) => [`METIS_${key}`, value]));
+    expect(parseEnv(env)).toMatchObject({
+      maxActiveJobs: 3, maxActiveLlmCalls: 4, maxJobCostUsd: 1.234567, maxRollingCostUsd: 2.5,
+      rollingCostWindowMs: 3_600_000, statementSource: "edgar", paidPassLeaseTtlMs: 800_000,
+      jobLeaseTtlMs: 1_100_000, streamIdleTimeoutMs: 0, reservationMode: "pass", resumeOnStart: false,
+      tokenFile: "custom-token", judgeOrder: "both", evIncludeLeases: true,
+    });
   });
-  it.each(Object.entries(values))("canonical %s wins over the legacy value, even blank", (key, value) => {
-    expect(parseEnv({ [`METIS_${key}`]: value, [`THESIS_${key}`]: "invalid" })).toEqual(parseEnv({ [`THESIS_${key}`]: value }));
-    expect(parseEnv({ [`METIS_${key}`]: "", [`THESIS_${key}`]: value })).toEqual(parseEnv({}));
+  it.each(Object.entries(values))("a retired THESIS_%s is refused even beside a valid canonical value (D-227)", (key, value) => {
+    expect(() => parseEnv({ [`METIS_${key}`]: value, [`THESIS_${key}`]: value })).toThrow(`THESIS_${key} -> METIS_${key}`);
+    expect(() => parseEnv({ [`THESIS_${key}`]: "" })).toThrow(`THESIS_${key} -> METIS_${key}`);
   });
-  it.each(["MAX_ACTIVE_JOBS", "MAX_ACTIVE_LLM_CALLS", "MAX_JOB_COST_USD", "MAX_ROLLING_COST_USD", "ROLLING_COST_WINDOW_MINUTES", "STATEMENT_SOURCE", "PAID_PASS_LEASE_SECONDS", "JOB_LEASE_SECONDS", "STREAM_IDLE_SECONDS", "RESERVATION_MODE", "RESUME_ON_START"])("invalid canonical %s cannot fall back around validation", (key) => {
-    expect(() => parseEnv({ [`METIS_${key}`]: "invalid", [`THESIS_${key}`]: values[key as keyof typeof values] })).toThrow();
+  it.each(["MAX_ACTIVE_JOBS", "MAX_ACTIVE_LLM_CALLS", "MAX_JOB_COST_USD", "MAX_ROLLING_COST_USD", "ROLLING_COST_WINDOW_MINUTES", "STATEMENT_SOURCE", "PAID_PASS_LEASE_SECONDS", "JOB_LEASE_SECONDS", "STREAM_IDLE_SECONDS", "RESERVATION_MODE", "RESUME_ON_START"])("invalid canonical %s is rejected by validation", (key) => {
+    expect(() => parseEnv({ [`METIS_${key}`]: "invalid" })).toThrow();
   });
-  it("applies canonical precedence in the direct standalone judge-order reader", () => {
-    vi.stubEnv("THESIS_JUDGE_ORDER", "both");
+  it("reads only the canonical name in the direct standalone judge-order reader", () => {
+    vi.stubEnv("METIS_JUDGE_ORDER", "both");
     expect(judgeOrderSettingFor({} as PassDeps)).toBe("both");
     vi.stubEnv("METIS_JUDGE_ORDER", "bear-first");
     expect(judgeOrderSettingFor({} as PassDeps)).toBe("bear-first");
@@ -50,6 +54,8 @@ describe("Metis configuration compatibility", () => {
     vi.stubEnv("METIS_JUDGE_ORDER", "");
     expect(judgeOrderSettingFor({} as PassDeps)).toBe("random");
     expect(judgeOrderSettingFor({ judgeOrder: "bull-first" } as PassDeps)).toBe("bull-first");
+    vi.stubEnv("THESIS_JUDGE_ORDER", "both");
+    expect(() => judgeOrderSettingFor({} as PassDeps)).toThrow(/THESIS_JUDGE_ORDER -> METIS_JUDGE_ORDER/);
   });
   it("retains lease relationships and spending precision guards in the canonical namespace", () => {
     expect(() => parseEnv({ METIS_PAID_PASS_LEASE_SECONDS: "1000", METIS_JOB_LEASE_SECONDS: "900" })).toThrow();
@@ -70,12 +76,19 @@ describe("persistent path compatibility", () => {
     expect(fs.readFileSync(path.join(legacy, "thesis.db"), "utf8")).toBe("preserved");
   });
   it("preserves an old database in an explicitly selected directory and respects canonical blank overrides", () => {
-    vi.stubEnv("METIS_DATA_DIR", directory); vi.stubEnv("THESIS_DATA_DIR", "ignored");
+    vi.stubEnv("METIS_DATA_DIR", directory);
     fs.writeFileSync(path.join(directory, "thesis.db"), "old");
     expect(defaultDbPath()).toBe(path.join(directory, "thesis.db"));
-    vi.stubEnv("METIS_DB_PATH", ""); vi.stubEnv("THESIS_DB_PATH", "ignored.db");
+    vi.stubEnv("METIS_DB_PATH", "");
     expect(hasExplicitDbPath()).toBe(false); expect(defaultDbPath()).toBe(path.join(directory, "thesis.db"));
     vi.stubEnv("METIS_DB_PATH", " canonical.db "); expect(defaultDbPath()).toBe("canonical.db");
+  });
+  it.each(["DB_PATH", "DATA_DIR"])("a retired THESIS_%s stops path resolution instead of moving the database (D-227)", (suffix) => {
+    vi.stubEnv("METIS_DATA_DIR", directory);
+    vi.stubEnv(`THESIS_${suffix}`, path.join(directory, "elsewhere"));
+    expect(() => defaultDbPath()).toThrow(`THESIS_${suffix} -> METIS_${suffix}`);
+    expect(() => defaultDataDir()).toThrow(`THESIS_${suffix} -> METIS_${suffix}`);
+    expect(() => hasExplicitDbPath()).toThrow(`THESIS_${suffix} -> METIS_${suffix}`);
   });
   it("keeps legacy SQLite recovery companions discoverable even if the base file is missing", () => {
     vi.stubEnv("METIS_DATA_DIR", directory);
@@ -85,7 +98,7 @@ describe("persistent path compatibility", () => {
     expect(fs.readFileSync(`${legacy}-wal`, "utf8")).toBe("recovery bytes");
     expect(fs.existsSync(path.join(directory, "metis.db"))).toBe(false);
   });
-  it.each(["METIS", "THESIS"])("%s legacy-import opt-in copies only isolated data while retaining the original", (namespace) => {
+  it("METIS_IMPORT_LEGACY_DB opt-in copies only isolated data while retaining the original", () => {
     const workspace = path.join(directory, "workspace");
     const source = path.join(workspace, "data", "thesis.db");
     const target = path.join(directory, "destination");
@@ -95,20 +108,32 @@ describe("persistent path compatibility", () => {
     const bytes = fs.readFileSync(source);
     vi.spyOn(process, "cwd").mockReturnValue(workspace);
     vi.stubEnv("METIS_DATA_DIR", target);
-    vi.stubEnv(`${namespace}_IMPORT_LEGACY_DB`, "1");
+    vi.stubEnv("METIS_IMPORT_LEGACY_DB", "1");
     const copied = createDatabase();
     try { expect(copied.sqlite.prepare("SELECT value FROM settings WHERE key='preserved'").get()).toEqual({ value: "research" }); }
     finally { copied.sqlite.close(); }
     expect(fs.readFileSync(source)).toEqual(bytes);
   });
-  it("canonical blank import control suppresses a legacy opt-in without mutating the original", () => {
+  it("a retired THESIS_IMPORT_LEGACY_DB opt-in is refused, copying nothing and leaving the original intact (D-227)", () => {
     const workspace = path.join(directory, "workspace");
     const source = path.join(workspace, "data", "thesis.db");
     const original = createDatabase(source); original.sqlite.close();
     const bytes = fs.readFileSync(source);
     vi.spyOn(process, "cwd").mockReturnValue(workspace);
     vi.stubEnv("METIS_DATA_DIR", path.join(directory, "destination"));
-    vi.stubEnv("METIS_IMPORT_LEGACY_DB", ""); vi.stubEnv("THESIS_IMPORT_LEGACY_DB", "1");
+    vi.stubEnv("THESIS_IMPORT_LEGACY_DB", "1");
+    const copy = vi.spyOn(fs, "copyFileSync");
+    expect(() => createDatabase()).toThrow("THESIS_IMPORT_LEGACY_DB -> METIS_IMPORT_LEGACY_DB");
+    expect(copy).not.toHaveBeenCalled(); expect(fs.readFileSync(source)).toEqual(bytes);
+  });
+  it("a blank METIS_IMPORT_LEGACY_DB copies nothing and leaves the original intact", () => {
+    const workspace = path.join(directory, "workspace");
+    const source = path.join(workspace, "data", "thesis.db");
+    const original = createDatabase(source); original.sqlite.close();
+    const bytes = fs.readFileSync(source);
+    vi.spyOn(process, "cwd").mockReturnValue(workspace);
+    vi.stubEnv("METIS_DATA_DIR", path.join(directory, "destination"));
+    vi.stubEnv("METIS_IMPORT_LEGACY_DB", "");
     const copy = vi.spyOn(fs, "copyFileSync");
     const fresh = createDatabase(); fresh.sqlite.close();
     expect(copy).not.toHaveBeenCalled(); expect(fs.readFileSync(source)).toEqual(bytes);
@@ -125,15 +150,22 @@ describe("persistent path compatibility", () => {
 
 describe("Metis script request security", () => {
   function request(headers: Record<string, string>) { return new Request("http://localhost:3000/api/report", { method: "POST", headers: { host: "localhost:3000", ...headers } }); }
-  it("accepts either header, with explicit canonical values taking precedence", () => {
+  it("accepts the canonical header and refuses the retired one clearly, never as a credential (D-227)", async () => {
     vi.stubEnv("METIS_TOKEN_FILE", path.join(directory, "token"));
     const token = ensureRequestToken().token;
     expect(REQUEST_TOKEN_HEADER).toBe("x-metis-token");
     expect(assertSameOrigin(request({ "x-metis-token": token }))).toBeNull();
-    expect(assertSameOrigin(request({ "x-thesis-token": token }))).toBeNull();
+    const retired = assertSameOrigin(request({ "x-thesis-token": token }));
+    expect(retired?.status).toBe(403);
+    expect((await retired!.json()).error).toBe(
+      "cross-origin request rejected: the X-Thesis-Token header is no longer accepted; send the same token in the X-Metis-Token header instead",
+    );
+    // Canonical behaviour is unchanged when the canonical header is present: it alone decides.
     expect(assertSameOrigin(request({ "x-metis-token": "", "x-thesis-token": token }))?.status).toBe(403);
     expect(assertSameOrigin(request({ "x-metis-token": "wrong", "x-thesis-token": token }))?.status).toBe(403);
     expect(assertSameOrigin(request({ "x-metis-token": token, "x-thesis-token": "wrong" }))).toBeNull();
+    // A request with no token header at all keeps its existing reason.
+    expect((await assertSameOrigin(request({}))!.json()).error).toMatch(/no Sec-Fetch-Site, Origin, or X-Metis-Token header/);
   });
   it.each(["x-metis-token", "x-thesis-token"])("%s never bypasses origin, metadata or host guards", (header) => {
     vi.stubEnv("METIS_TOKEN_FILE", path.join(directory, "token")); const token = ensureRequestToken().token;
@@ -141,11 +173,13 @@ describe("Metis script request security", () => {
     expect(assertSameOrigin(request({ [header]: token, "sec-fetch-site": "cross-site" }))?.status).toBe(403);
     expect(assertSameOrigin(request({ [header]: token, host: "evil.example" }))?.status).toBe(403);
   });
-  it("uses the canonical allowed host and a blank canonical does not allow the legacy host", () => {
-    vi.stubEnv("METIS_ALLOWED_HOST", "metis.example:3000"); vi.stubEnv("THESIS_ALLOWED_HOST", "old.example:3000");
+  it("uses the canonical allowed host; blank allows none; a retired THESIS_ALLOWED_HOST refuses (D-227)", () => {
+    vi.stubEnv("METIS_ALLOWED_HOST", "metis.example:3000");
     expect(assertSameOrigin(request({ host: "metis.example:3000", origin: "http://metis.example:3000" }))).toBeNull();
     expect(assertSameOrigin(request({ host: "old.example:3000", origin: "http://old.example:3000" }))?.status).toBe(403);
     vi.stubEnv("METIS_ALLOWED_HOST", "");
-    expect(assertSameOrigin(request({ host: "old.example:3000", origin: "http://old.example:3000" }))?.status).toBe(403);
+    expect(assertSameOrigin(request({ host: "metis.example:3000", origin: "http://metis.example:3000" }))?.status).toBe(403);
+    vi.stubEnv("THESIS_ALLOWED_HOST", "old.example:3000");
+    expect(() => assertSameOrigin(request({ host: "old.example:3000", origin: "http://old.example:3000" }))).toThrow("THESIS_ALLOWED_HOST -> METIS_ALLOWED_HOST");
   });
 });

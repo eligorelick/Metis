@@ -173,8 +173,8 @@ export function renderConfigBlock(sections, schemaKeys) {
   }
   const lines = [CONFIG_BEGIN, ""];
   lines.push("Every key is optional. This table is generated from `.env.example`, which carries the long form of each one.");
-  lines.push("Its `METIS_*` lines ship commented out: a key that is set, even blank or invalid, wins over its legacy");
-  lines.push("`THESIS_*` alias, so uncomment only what you mean to set. See [compatibility](docs/BRAND.md#compatibility).");
+  lines.push("Its `METIS_*` lines ship commented out, so uncomment only what you mean to set. Old `THESIS_*` names are");
+  lines.push("no longer read: if one is still set, Metis refuses to start and names its `METIS_*` replacement. See [compatibility](docs/BRAND.md#compatibility).");
   lines.push("");
   lines.push("| Key | Shipped value, built-in default or opt-in example | What it does |");
   lines.push("| --- | --- | --- |");

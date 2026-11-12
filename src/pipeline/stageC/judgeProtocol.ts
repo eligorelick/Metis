@@ -48,12 +48,18 @@ export const JUDGE_ORDER_SETTINGS = [
 ] as const satisfies readonly JudgeOrderSetting[];
 
 /**
- * Default `THESIS_JUDGE_ORDER`. `random` costs exactly one judge pass, which is
+ * Default `METIS_JUDGE_ORDER`. `random` costs exactly one judge pass, which is
  * why it is the default; `both` costs TWO judge passes on every report.
  */
 export const DEFAULT_JUDGE_ORDER_SETTING: JudgeOrderSetting = "random";
 
-/** Env var name, so callers and docs never spell it twice. */
+/**
+ * The setting name as reports and the judge prompt spell it, so callers never
+ * spell it twice. It is display text only and is never used to read the
+ * environment (the setting is `METIS_JUDGE_ORDER`, read through the parsed
+ * config). FROZEN by D-227: renaming it changes saved-report wording and the
+ * judge prompt bytes, which needs an owner decision first.
+ */
 export const JUDGE_ORDER_ENV_KEY = "THESIS_JUDGE_ORDER";
 
 /** How many judge provider passes each setting costs. `both` is the expensive one. */
@@ -65,7 +71,7 @@ export const JUDGE_PASSES_PER_SETTING: Record<JudgeOrderSetting, 1 | 2> = {
 };
 
 /**
- * Parse a `THESIS_JUDGE_ORDER` value. An unset/blank value is the default; an
+ * Parse a `METIS_JUDGE_ORDER` value. An unset/blank value is the default; an
  * UNRECOGNIZED value also degrades to the default rather than failing a run —
  * position order is a fairness control, and refusing to produce a report because
  * a typo appeared in one env var would be worse than running the safe default.
@@ -517,7 +523,7 @@ export interface JudgeProtocolDraft {
  *
  * Order, setting and seed survive because the draw is deterministic in (setting,
  * seed) — the same two inputs the original pass used, so the same order comes
- * back unless the operator changed `THESIS_JUDGE_ORDER` between the two
+ * back unless the operator changed `METIS_JUDGE_ORDER` between the two
  * processes. The per-side lengths, truncations and self-assessments do not
  * survive: they are facts about two analyst cases this process never saw. They
  * are reported as null and DISCLOSED — in the reader sentence and as a warn
@@ -676,7 +682,7 @@ export function buildJudgeProtocolNote(
   const first = protocol.order === "bull-first" ? "bull" : "bear";
   const second = protocol.order === "bull-first" ? "bear" : "bull";
   const { bull, bear } = protocol;
-  // A pinned order (THESIS_JUDGE_ORDER=bull-first / bear-first) is FIXED to one
+  // A pinned order (METIS_JUDGE_ORDER=bull-first / bear-first) is FIXED to one
   // side by configuration and the seed played no part; saying it was "drawn
   // from seed" and "not fixed to one side" was false in exactly that setting
   // (audit 2026-09-06, F174). The sentence is a function of the setting, as

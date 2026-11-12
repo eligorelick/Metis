@@ -1366,7 +1366,7 @@ function createSettlementCheckpoint<T>(
       // reserves for itself. Release it BEFORE that request asks for
       // admission, not after: while both are live the pass's own lease
       // occupies a paid slot (and job/rolling headroom) that its own first
-      // request then has to fit beside. At THESIS_MAX_ACTIVE_LLM_CALLS=1 that
+      // request then has to fit beside. At METIS_MAX_ACTIVE_LLM_CALLS=1 that
       // refused every first request with "capacity" — a transient reason, so
       // the loop below retried forever and no provider request was ever sent —
       // and at the default of 2 it serialised bull and bear, which costs bear
