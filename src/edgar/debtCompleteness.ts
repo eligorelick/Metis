@@ -1,4 +1,5 @@
 import { millions } from "@/pipeline/stageB/netDebt";
+import type { StatementConflictCause } from "@/types/refusalCause";
 
 /** A noncurrent convertible carrying subtype is a lower bound on noncurrent
  * financing debt, never an automatic addition to an inclusive generic total.
@@ -58,15 +59,24 @@ export const DEBT_AGGREGATE_TAGS: readonly string[] = [
 export function uncomposedDebtReason(row: {
   shortTermDebt?: unknown; longTermDebt?: unknown; financeLeaseLiability?: unknown;
 }, aggregates: readonly { tag: string; value: number | null }[]): string | null {
+  return uncomposedDebtRefusal(row, aggregates)?.reason ?? null;
+}
+
+/** P11 (D-218): `uncomposedDebtReason`'s sentence with its typed cause, chosen from the exceeding tag, never from the text. */
+export function uncomposedDebtRefusal(row: {
+  shortTermDebt?: unknown; longTermDebt?: unknown; financeLeaseLiability?: unknown;
+}, aggregates: readonly { tag: string; value: number | null }[]): { reason: string; cause: StatementConflictCause } | null {
   const finite = (value: unknown): number | null => typeof value === "number" && Number.isFinite(value) ? value : null;
   const current = finite(row.shortTermDebt);
   const noncurrent = finite(row.longTermDebt);
   if (current === null && noncurrent === null) return null;
   const composed = (current ?? 0) + (noncurrent ?? 0) + (finite(row.financeLeaseLiability) ?? 0);
   const over = aggregates.find(({ value }) => value !== null && value > composed + Math.max(1, Math.abs(composed) * 0.01));
-  return over === undefined ? null
-    : `incomplete debt carrying value: same-period ${over.tag} ${over.value} exceeds the composed current and noncurrent financing debt ` +
-      `and finance leases ${composed}; a debt component no chain read is missing, so total debt and net debt are withheld rather than published as a partial sum`;
+  return over === undefined ? null : {
+    reason: `incomplete debt carrying value: same-period ${over.tag} ${over.value} exceeds the composed current and noncurrent financing debt ` +
+      `and finance leases ${composed}; a debt component no chain read is missing, so total debt and net debt are withheld rather than published as a partial sum`,
+    cause: over.tag === "DebtLongtermAndShorttermCombinedAmount" ? "debt-combined-aggregate-exceeds-components" : "debt-aggregate-exceeds-components",
+  };
 }
 
 /**

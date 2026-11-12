@@ -11,6 +11,65 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-218 - Refusal codes beside refusal sentences, step 1: write, do not read (2026-11-11)
+
+Principle P11: a refusal is judged from its cause and evidence, never its
+wording. Admission status still travels as English in `StatementFieldConflict.reason`
+and `ManifestEntry.reason`, and later code decides by matching that text. A scan
+of `src` finds 69 such lines in 51 decision sites: 17 read field-conflict
+sentences in Stage A or Stage B (debt, cash, stock compensation, vendor EPS), 7
+read gap sentences at run time, 9 read provider status sentences, 17 read the
+stored sentences of a saved report (one of them, the non-bank lender convention,
+is sector-specific) and 1 reads an estimate-anchor sentence for display. The
+rule-consolidation review proposed typed causes with a ban on reason parsing;
+its critique made two conditions binding: extend the existing typed fields
+rather than start a second cause system, and migrate in steps (write codes
+beside the prose, move readers one at a time, then ban the parsing), never
+guessing a cause for a legacy row that has none.
+
+Options: rewrite each reader to a code in one change (changes outcomes for
+every frozen input and saved row without a code); infer codes from the existing
+sentences (the parsing this replaces); or write a code where each sentence is
+composed and change no reader. Choice: the third. `STATEMENT_CONFLICT_CAUSES`
+(`src/types/refusalCause.ts`) is the one list; `StatementFieldConflict.cause`
+takes it, keeping its four existing members. Twelve new codes are written
+beside the unchanged sentences by the writers that compose them:
+`admitDebtFields`, the lease-line and same-filing completions, the stock
+compensation and cash comparison, the SEC statement builder's debt
+withholdings and `guardVendorShareFields`. Each code is chosen by the branch
+that wrote the sentence, never by reading it; a total refused because of a
+refused component takes the component's code only when that component carries
+one. No reader uses the new codes.
+
+Kept out of outputs: conflicts never reach Stage B output, the payload, the
+report or its exports, so nothing a report shows or stores changes.
+`captureRunInputSnapshot` removes the new codes (`DUAL_WRITTEN_CONFLICT_CAUSES`)
+so a new run snapshot keeps the bytes it would have had; the four existing
+codes stay. `ManifestEntry` gets no code in this step: gap entries are copied
+into Stage B output, the payload, `appendix.missingData` (strict schema),
+`fairValue.reasons` and snapshots, and keeping a code out of all of them is a
+larger change than this step. The G and P gap readers therefore stay
+wording-only for now.
+
+Not changed: every decision. The comparison check (`golden:diff`, 10 cases, 80
+files) shows no difference. Sites that compare two refusal sentences for
+identity (whether a netDebt refusal is the totalDebt one) need a link between
+the two refusals, not a code, and are left as they are. One reader
+(`financialEnrichment.ts`, the old vendor-sum wording) matches a sentence no
+current writer produces; it reads only rows built before 18ea3137 and needs a
+legacy rule of its own. Sector-specific readers and writers are untouched and
+left for an owner decision.
+
+Guard: `tests/refusalWording.ratchet.test.ts` pins the wording-reading lines
+per file, so a new one fails and a migrated one must be unpinned.
+`tests/refusalCause.dualWrite.test.ts` checks, on every conflict its shapes
+produce, that each code and the wording its reader matches agree both ways,
+that every new code is reached, that an uncoded legacy component leaves its
+total uncoded, and that a snapshot drops the new codes but keeps the old ones.
+A later step that moves a reader to a code must also stop removing that code
+from snapshots, with its own snapshot note, and decide how a frozen input or
+saved row with no code is read.
+
 ## D-217 - Stamp new reports with their evidence rules; never rewrite old ones (2026-11-10)
 
 Principle P21. A saved report had no field saying which evidence rules built
