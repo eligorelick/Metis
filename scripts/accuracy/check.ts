@@ -137,7 +137,7 @@ function row(ticker: string, caseId: string, figure: MetisFigure, ref: Reference
     filedNotes: [...(ref?.unresolved ? [`filed value not established: ${ref.unresolved}`] : []), ...(ref?.notes ?? []), ...(ref?.recipeWhy ? [`recipe: ${ref.recipeWhy}`] : [])],
     status: classification.status,
     detail: classification.detail,
-    ...(expected?.cause && classification.status === "mismatch" ? { cause: expected.cause } : {}),
+    ...(expected?.cause && (classification.status === "mismatch" || classification.status === "not-established") ? { cause: expected.cause } : {}),
     ...(expected?.note ? { note: expected.note } : {}),
   };
 }

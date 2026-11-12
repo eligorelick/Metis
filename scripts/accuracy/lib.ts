@@ -439,7 +439,7 @@ export function updateExpectation(expected: readonly ExpectationEntry[], observe
       figure: figure.figure,
       status: figure.status,
       valueSha256: figure.status === "match" ? null : valueHash(figure.metis),
-      ...(previous?.cause && figure.status === "mismatch" ? { cause: previous.cause } : {}),
+      ...(previous?.cause && figure.status !== "match" && figure.status !== "gap" ? { cause: previous.cause } : {}),
       ...(previous?.note ? { note: previous.note } : {}),
     };
     if (differences.has(key)) next.changeReason = reason.trim();
