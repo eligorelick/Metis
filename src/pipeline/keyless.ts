@@ -88,6 +88,7 @@ import type { YahooClient, YahooMeta } from "@/providers/yahoo";
 import type { StatementSource } from "@/config/env";
 import type { DataSource, FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import type { StatementConflictCause } from "@/types/refusalCause";
+import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -605,7 +606,7 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
       const prior = priorConflicts?.[field];
       return reconciliation?.reconcileFiled === true && reconciliation.period === "quarter" && (field === "eps" || field === "epsDiluted") &&
         prior?.usable === false && isFiniteNumber(prior.vendorValue) && prior.vendorValue < 0 && isFiniteNumber(prior.secValue) && prior.secValue < 0 && prior.secEvidence !== undefined &&
-        prior.reason.startsWith("the vendor's ") && prior.reason.includes("; field unavailable until reconciled");
+        conflictCauseMatches(prior, "vendorShareRecheck");
     };
     const present = VENDOR_SHARE_FIELDS.filter((f) => row[f] !== undefined && row[f] !== null || canRecheck(f));
     if (present.length === 0) return row;

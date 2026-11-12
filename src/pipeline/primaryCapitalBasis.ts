@@ -3,7 +3,7 @@ import { validPrimaryCapitalIdentity, type PrimaryCapitalEvidence, type PrimaryC
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { filterToCoreForms, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { shareBasisFactor } from "@/edgar/splits";
-import type { FmpCashFlowRow, StatementFieldProvenance } from "@/providers/fmp";
+import type { FmpCashFlowRow, StatementFieldConflict, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 import type { PrimaryCapitalAudit } from "@/report/schema";
 import { repurchaseExecutionsFromFacts, REPURCHASE_EXECUTION_TAG_PAIRS, type RepurchaseExecution } from "./stageB/repurchaseExecutions";
@@ -63,6 +63,17 @@ function costScopeBridge(row: FmpCashFlowRow, evidence: PrimaryCapitalEvidence, 
   return matches.length === 1;
 }
 
+/**
+ * P11 (D-222): the refused repurchase conflict rewritten as a primary-cash-line resolution. The old
+ * sentence is replaced, so its typed `cause` goes with it: a code never sits beside a sentence it was
+ * not written with. The superseded sentence is still tracked by the caller's `superseded` map.
+ */
+function primaryCashLineResolution(conflict: StatementFieldConflict, reason: string): StatementFieldConflict {
+  const kept: StatementFieldConflict = { ...conflict };
+  delete kept.cause;
+  return { ...kept, usable: true, resolution: "primary-cash-line", reason };
+}
+
 /** An immutable calculation view; stored provider observations remain intact. */
 export function withPrimaryCapitalBasis(bundle: DataBundle): DataBundle {
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
@@ -110,7 +121,7 @@ export function withPrimaryCapitalBasis(bundle: DataBundle): DataBundle {
     const reason = `Primary cash-flow statement explicitly reports common-share cash repurchases for ${record.periodStart} to ${record.periodEnd}; the separate total-cost disclosure includes commissions and excise taxes. Original vendor and bulk observations remain retained. Source: ${evidence.source.documentUrl}`;
     if (conflict?.usable === false) superseded.set(`statements.cashflow.${record.periodEnd}.commonStockRepurchased`, conflict.reason);
     return { ...row, commonStockRepurchased: amount, fieldProvenance: { ...row.fieldProvenance, commonStockRepurchased: provenance(evidence, record) },
-      ...(conflict?.usable === false ? { fieldConflicts: { ...row.fieldConflicts, commonStockRepurchased: { ...conflict, usable: true, resolution: "primary-cash-line" as const, reason } } } : {}) };
+      ...(conflict?.usable === false ? { fieldConflicts: { ...row.fieldConflicts, commonStockRepurchased: primaryCashLineResolution(conflict, reason) } } : {}) };
   });
   if (rows.every((r, i) => r === input.value.data.rows[i])) return bundle;
   return { ...bundle, statements: { ...bundle.statements, cashflowAnnual: { ...input, value: { ...input.value, data: { ...input.value.data, rows } } } },

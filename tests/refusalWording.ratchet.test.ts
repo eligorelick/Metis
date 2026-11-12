@@ -18,17 +18,17 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const PINNED: Record<string, number> = {
-  // C1-C3 read conflict wording; C6, C8, C10 compare two refusal sentences for identity.
-  // C11 moved to its code in D-219, C4 and C12 in D-220, C7 and C9 in D-221 (C5, legacy-only, too);
-  // their wording, for conflicts with no code, is in refusalCauseRead.ts.
-  "src/edgar/financialEnrichment.ts": 6,
+  // C6, C8, C10 compare two refusal sentences for identity.
+  // C11 moved to its code in D-219, C4 and C12 in D-220, C7 and C9 in D-221 (C5, legacy-only, too),
+  // C1-C3 in D-222; their wording, for conflicts with no code, is in refusalCauseRead.ts.
+  "src/edgar/financialEnrichment.ts": 3,
   // D-219, D-220: the one place a conflict without a typed cause is read by its sentence, for the
   // readers migrated to codes, moved verbatim: C14's two patterns and C11's one (D-219); the
   // shortTermDebt pattern C4 and C12 share, C4's longTermDebt one and C12's total/net one (D-220);
-  // C7's combined-total pattern, C9's minor-difference one and C5's legacy vendor-sum one (D-221).
-  "src/edgar/refusalCauseRead.ts": 9,
-  // C13: a vendor loss-quarter EPS conflict rechecked from its wording.
-  "src/pipeline/keyless.ts": 1,
+  // C7's combined-total pattern, C9's minor-difference one and C5's legacy vendor-sum one (D-221);
+  // the stock-compensation pattern C1 and C2 share, C3's cash one and C13's share-count one (D-222).
+  "src/edgar/refusalCauseRead.ts": 12,
+  // C13 (src/pipeline/keyless.ts) moved to its code in D-222; that file reads no wording now.
   // C15: netDebt removed when its sentence equals totalDebt's. C14 moved to its code in D-219.
   "src/pipeline/stageB/leaseScope.ts": 1,
   // C16, C17: a gap dropped when its sentence equals the superseded conflict's.

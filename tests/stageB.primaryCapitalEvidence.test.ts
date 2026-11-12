@@ -144,6 +144,23 @@ describe("shared primary capital admission", () => {
     expect(withPrimaryCapitalBasis(view)).toEqual(view);
   });
 
+  it("P11 (D-222): the rewritten resolution drops the replaced sentence's code; an uncoded original resolves exactly as before", () => {
+    const coded = fixture(), plain = fixture();
+    cashRows(coded)[0]!.fieldConflicts!.commonStockRepurchased!.cause = "vendor-sec-value-conflict";
+    const before = JSON.stringify(coded);
+    const codedView = withPrimaryCapitalBasis(coded), plainView = withPrimaryCapitalBasis(plain);
+    const resolution = cashRows(codedView)[0]!.fieldConflicts!.commonStockRepurchased!;
+    expect(resolution).toMatchObject({ vendorValue: -40 * M, secValue: -40.2 * M, usable: true, resolution: "primary-cash-line",
+      reason: expect.stringMatching(/^Primary cash-flow statement explicitly reports common-share cash repurchases for 2025-01-01 to 2025-12-31; /) });
+    expect(resolution).not.toHaveProperty("cause");
+    expect(resolution.secEvidence).toEqual(cashRows(coded)[0]!.fieldConflicts!.commonStockRepurchased!.secEvidence);
+    // Without a code on the original, the same view results; the stored row keeps its code.
+    expect(codedView).toEqual(plainView);
+    expect(cashRows(plainView)[0]!.fieldConflicts!.commonStockRepurchased).not.toHaveProperty("cause");
+    expect(JSON.stringify(coded)).toBe(before);
+    expect(cashRows(coded)[0]!.fieldConflicts!.commonStockRepurchased!.cause).toBe("vendor-sec-value-conflict");
+  });
+
   it("refuses a previously usable vendor cash amount that contradicts the primary cash line", () => {
     const b = fixture();
     cashRows(b)[0]!.commonStockRepurchased = -41 * M;

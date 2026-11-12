@@ -435,15 +435,15 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       (!balanceFilings && validDay(row.filingDate) && !filingAnchor?.evidence.filings.some(filing => filing.filed === row.filingDate))) continue;
     const prior = row.fieldConflicts?.[field];
     const priorSbcZero = field === "stockBasedCompensation" && prior?.usable === false && prior.vendorValue === 0 &&
-      prior.reason.startsWith("vendor/SEC stockBasedCompensation conflict:") && prior.secValue === sec.value &&
+      conflictCauseMatches(prior, "vendorSecStockCompensation") && prior.secValue === sec.value &&
       prior.secEvidence?.unit === unit && prior.secEvidence.periodStart === sec.evidence.periodStart && prior.secEvidence.periodEnd === row.date &&
       prior.secEvidence.tags.length === 1 && prior.secEvidence.tags[0] === `us-gaap/${tag}`;
     const replaySbc = field === "stockBasedCompensation" && prior?.usable === false &&
-      prior.reason.startsWith("vendor/SEC stockBasedCompensation conflict:") && prior.secValue === sec.value &&
+      conflictCauseMatches(prior, "vendorSecStockCompensation") && prior.secValue === sec.value &&
       prior.secEvidence?.unit === unit && prior.secEvidence.periodStart === sec.evidence.periodStart &&
       prior.secEvidence.periodEnd === row.date && prior.secEvidence.tags.length === 1 && prior.secEvidence.tags[0] === `us-gaap/${tag}`;
     const replayCash = kind === "balance" && field === "cashAndCashEquivalents" && prior?.usable === false &&
-      prior.reason.startsWith("vendor/SEC cashAndCashEquivalents conflict:") && prior.secValue === sec.value &&
+      conflictCauseMatches(prior, "vendorSecCash") && prior.secValue === sec.value &&
       prior.secEvidence?.unit === unit && prior.secEvidence.periodStart === null && prior.secEvidence.periodEnd === row.date &&
       prior.secEvidence.tags.length === 1 && prior.secEvidence.tags[0] === `us-gaap/${tag}`;
     const vendor = priorSbcZero || replaySbc || replayCash ? prior!.vendorValue : row[field];

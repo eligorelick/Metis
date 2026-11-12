@@ -103,6 +103,35 @@ const READERS = {
     codes: new Set<StatementConflictCause>(),
     legacy: (reason) => /^incomplete debt carrying value: the vendor lease line .*?, but the vendor total debt .* is not its short-term debt \+ long-term debt \+ lease line, so its composition is unknown;/.test(reason),
   },
+  /**
+   * D-222, on stockBasedCompensation only: C1 `priorSbcZero` and C2 `replaySbc` in the vendor/SEC
+   * comparison (`admitCashFields`, `src/edgar/financialEnrichment.ts`): the comparison's own refusal
+   * of this field, which a compatible filed quarter may replace. The same code on another field
+   * names that field in its sentence and is not read here.
+   */
+  vendorSecStockCompensation: {
+    codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
+    legacy: (reason) => reason.startsWith("vendor/SEC stockBasedCompensation conflict:"),
+  },
+  /**
+   * D-222, on a balance row's cashAndCashEquivalents only: C3 `replayCash` in the vendor/SEC
+   * comparison: the comparison's own refusal of the cash field, which the same-filing cash-scope
+   * reconciliation may replace. Its dependents (cashAndShortTermInvestments, netDebt) carry the same
+   * code and sentence but are not read here.
+   */
+  vendorSecCash: {
+    codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
+    legacy: (reason) => reason.startsWith("vendor/SEC cashAndCashEquivalents conflict:"),
+  },
+  /**
+   * D-222, on eps/epsDiluted only: C13 `canRecheck` in `guardVendorShareFields`
+   * (`src/pipeline/keyless.ts`): the no-split disagreement with the filer's exact-interval EPS,
+   * which the filed-reconciliation pass rechecks for a loss quarter.
+   */
+  vendorShareRecheck: {
+    codes: new Set<StatementConflictCause>(["vendor-share-value-conflict"]),
+    legacy: (reason) => reason.startsWith("the vendor's ") && reason.includes("; field unavailable until reconciled"),
+  },
 } as const satisfies Record<string, CodeReader>;
 
 export type ConflictCodeReader = keyof typeof READERS;

@@ -1,5 +1,5 @@
 /**
- * P11 (D-219, D-220, D-221) steps 2 to 4: seven readers decide by the typed refusal
+ * P11 (D-219 to D-222) steps 2 to 5: eleven readers decide by the typed refusal
  * code, and a conflict without a code is read by its sentence exactly as before.
  *
  * - C14 `restoreRefusedOperatingPortion` (via `restoreLeaseFinancingProvenance`):
@@ -15,6 +15,12 @@
  * - C9, the minor-difference note (via `admitDebtFields`, D-221): `debt-total-minor-difference`
  *   on a usable, filed-family totalDebt.
  * - C5, the old vendor-sum guard (via `admitDebtFields`, D-221): legacy-only, an empty code set.
+ * - C1 `priorSbcZero` and C2 `replaySbc` (via `admitStockCompensation`, D-222):
+ *   `vendor-sec-value-conflict` on stockBasedCompensation.
+ * - C3 `replayCash` (via `admitBalanceCash`, D-222): `vendor-sec-value-conflict` on a
+ *   balance row's cashAndCashEquivalents.
+ * - C13 `canRecheck` (via `guardVendorShareFields`, D-222): `vendor-share-value-conflict`
+ *   on eps and epsDiluted.
  *
  * Every refusal below is written by the real writer (the debt admission, the
  * SEC statement builder, the cash comparison, the plausibility helper); only
@@ -30,14 +36,16 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { implausibleDebtReason } from "@/edgar/debtCompleteness";
-import { admitBalanceCash, admitDebtFields } from "@/edgar/financialEnrichment";
+import { admitBalanceCash, admitDebtFields, admitStockCompensation, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { CONFLICT_CAUSES_READ_BY_CODE, conflictCauseMatches, type ConflictCodeReader } from "@/edgar/refusalCauseRead";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import type { CompanyFacts, FactPoint } from "@/edgar/xbrl";
+import { guardVendorShareFields } from "@/pipeline/keyless";
 import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
 import { restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import type { ExtractedSection } from "@/pipeline/types";
-import type { FmpBalanceSheetRow, FmpStatementRow, StatementFieldConflict } from "@/providers/fmp";
+import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, FmpPayload, FmpStatementRow, StatementFieldConflict } from "@/providers/fmp";
+import type { FetchResult } from "@/types/core";
 import { DUAL_WRITTEN_CONFLICT_CAUSES, STATEMENT_CONFLICT_CAUSES, type StatementConflictCause } from "@/types/refusalCause";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { companyFacts, M, OBSERVED, Q2 } from "./helpers/amzn51LeaseShape";
@@ -46,11 +54,13 @@ import frozen from "./fixtures/crwv-debt-facts.json";
 type Conflict = StatementFieldConflict;
 type Conflicted = { fieldConflicts?: Record<string, Conflict> };
 const READERS: readonly ConflictCodeReader[] = ["leaseLineNoOperatingTotal", "recoverableDebtScope", "shortTermDebtMaturityScope",
-  "longTermDebtNoncurrentAllocation", "noteRecoverableDebtTotal", "combinedAggregateExceedsComponents", "debtTotalMinorDifference", "legacyVendorSumRefusal"];
+  "longTermDebtNoncurrentAllocation", "noteRecoverableDebtTotal", "combinedAggregateExceedsComponents", "debtTotalMinorDifference", "legacyVendorSumRefusal",
+  "vendorSecStockCompensation", "vendorSecCash", "vendorShareRecheck"];
 /** The fields each reader is called on. The D-219 readers are checked on every field, as before. */
 const READ_FIELDS: Record<ConflictCodeReader, readonly string[] | "any"> = { leaseLineNoOperatingTotal: "any", recoverableDebtScope: "any",
   shortTermDebtMaturityScope: ["shortTermDebt"], longTermDebtNoncurrentAllocation: ["longTermDebt"], noteRecoverableDebtTotal: ["totalDebt", "netDebt"],
-  combinedAggregateExceedsComponents: ["totalDebt"], debtTotalMinorDifference: ["totalDebt"], legacyVendorSumRefusal: ["totalDebt"] };
+  combinedAggregateExceedsComponents: ["totalDebt"], debtTotalMinorDifference: ["totalDebt"], legacyVendorSumRefusal: ["totalDebt"],
+  vendorSecStockCompensation: ["stockBasedCompensation"], vendorSecCash: ["cashAndCashEquivalents"], vendorShareRecheck: ["eps", "epsDiluted"] };
 /** D-221: a reader no current writer's code reaches; only a row without a code can pass it. */
 const LEGACY_ONLY: readonly ConflictCodeReader[] = ["legacyVendorSumRefusal"];
 
@@ -148,7 +158,7 @@ const C14 = (row: FmpBalanceSheetRow, facts = recoveryFacts()) => restoreLeaseFi
 const C11 = (row: FmpBalanceSheetRow, facts = recoveryFacts()) => admitDebtFields(row, facts, "USD", OBSERVED);
 
 /** The reader's result with codes and without them: the same apart from `cause`. */
-function bothWays<R>(read: (row: FmpBalanceSheetRow) => R, row: FmpBalanceSheetRow): R {
+function bothWays<R, T = FmpBalanceSheetRow>(read: (row: T) => R, row: T): R {
   const coded = read(structuredClone(row));
   const legacy = read(uncoded(row));
   expect(uncoded(coded)).toEqual(uncoded(legacy));
@@ -723,6 +733,300 @@ describe("D-221: the code is what is read", () => {
   });
 });
 
+// ---- D-222: C1 and C2 (stockBasedCompensation) and C3 (cashAndCashEquivalents) in the vendor/SEC
+// comparison (`admitCashFields`), and C13 (`canRecheck`) in `guardVendorShareFields`. ----
+const CASH_AT = "2026-11-06T21:00:34Z";
+const usd = (val: number, start: string | undefined, end: string, filed: string, form = "10-Q"): FactPoint =>
+  ({ ...(start ? { start } : {}), end, val: val * M, filed, accn: `0000000123-${filed.replaceAll("-", "")}`, form, fy: Number(end.slice(0, 4)), fp: form === "10-K" ? "FY" : "Q1" });
+const usdFacts = (tags: Record<string, FactPoint[]>): CompanyFacts => ({ cik: 123, entityName: "Synthetic",
+  facts: { "us-gaap": Object.fromEntries(Object.entries(tags).map(([tag, points]) => [tag, { units: { USD: points } }])) } });
+/** A provenance the field still carries on the writer's pass, so the comparison takes no reconciliation branch and writes its own refusal. */
+const HELD = { source: "edgar" as const, unit: "USD", periodStart: null, periodEnd: "2000-01-01", observedAt: CASH_AT, tags: [], filings: [] };
+const fetched = <T extends FmpStatementRow>(rows: T[]): FetchResult<FmpPayload<T>> =>
+  ({ ok: true, value: { source: "fmp", endpoint: "fixture", fetchedAt: CASH_AT, asOf: CASH_AT, data: { rows, raw: rows } } });
+/** A reader's result must leave a row it does not read exactly as it was. */
+function expectUnread<T>(out: { row: T; gaps: unknown[] }, input: T): void {
+  expect(out.row).toEqual(input);
+  expect(out.gaps).toEqual([]);
+}
+
+/** Stock compensation: a direct quarter (C1, vendor zero) and a quarter derived from the annual and nine-month filings (C2). */
+const SBC_DIRECT = usdFacts({ ShareBasedCompensation: [usd(103, "2026-01-01", "2026-03-31", "2026-05-08")] });
+const SBC_DERIVED = usdFacts({ ShareBasedCompensation: [usd(398, "2025-01-01", "2025-12-31", "2026-02-13", "10-K"), usd(293, "2025-01-01", "2025-09-30", "2025-11-07")] });
+/** The comparison's own refusal, as a later pass reads it: the provenance that held the writer off is gone. */
+function sbcRefused(row: FmpCashFlowRow, facts: CompanyFacts): FmpCashFlowRow {
+  const out = structuredClone(admitStockCompensation<FmpCashFlowRow>({ ...row, fieldProvenance: { stockBasedCompensation: HELD } }, facts, "quarter", CASH_AT).row);
+  delete out.fieldProvenance;
+  return out;
+}
+const sbcZeroRefused = sbcRefused({ date: "2026-03-31", periodStart: "2026-01-01", filingDate: "2026-05-08", reportedCurrency: "USD", stockBasedCompensation: 0 }, SBC_DIRECT);
+const sbcDerivedRefused = sbcRefused({ date: "2025-12-31", periodStart: "2025-10-01", filingDate: "2026-02-13", reportedCurrency: "USD", stockBasedCompensation: 50 * M }, SBC_DERIVED);
+const C1 = (row: FmpCashFlowRow) => admitStockCompensation(row, SBC_DIRECT, "quarter", CASH_AT);
+const C2 = (row: FmpCashFlowRow) => admitStockCompensation(row, SBC_DERIVED, "quarter", CASH_AT);
+function expectSbcReconciled(out: ReturnType<typeof C1>, value: number, lead: RegExp): void {
+  expect(out.row.stockBasedCompensation).toBe(value * M);
+  expect(out.row.fieldConflicts?.stockBasedCompensation).toMatchObject({ usable: true, resolution: "filed-family", secValue: value * M, reason: expect.stringMatching(lead) });
+  expect(out.gaps.map((gap) => gap.severity)).toEqual(["info"]);
+}
+const ZERO_RECONCILED = /^Vendor stock-based compensation zero placeholder reconciled at 2026-03-31: directly filed /;
+const DERIVED_RECONCILED = /^Vendor stock-based compensation reconciled at 2025-12-31: compatible derived /;
+/** `row` with its `field` conflict replaced by `from`'s sentence and code (or no code), at the row's amounts and evidence. */
+const withConflict = <T extends FmpStatementRow>(row: T, field: string, from: Conflict): T =>
+  ({ ...structuredClone(row), fieldConflicts: { ...structuredClone(row.fieldConflicts), [field]: placed(row.fieldConflicts![field]!, from) } });
+
+/** Cash: the filing tags only unrestricted cash on the writer's pass; the later pass also sees its restricted-inclusive total. */
+const CASH_POINT = usd(500, undefined, "2025-12-31", "2026-02-01", "10-K");
+const CASH_ONLY = usdFacts({ CashAndCashEquivalentsAtCarryingValue: [CASH_POINT] });
+const CASH_SCOPED = usdFacts({ CashAndCashEquivalentsAtCarryingValue: [CASH_POINT],
+  CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents: [{ ...CASH_POINT, val: 520 * M }] });
+const cashRefused = admitBalanceCash({ date: "2025-12-31", filingDate: "2026-02-01", reportedCurrency: "USD", cashAndCashEquivalents: 520 * M,
+  cashAndShortTermInvestments: 600 * M, netDebt: -520 * M } as FmpBalanceSheetRow, CASH_ONLY, "annual", CASH_AT).row;
+const C3 = (row: FmpBalanceSheetRow) => admitBalanceCash(row, CASH_SCOPED, "annual", CASH_AT);
+function expectCashReconciled(out: ReturnType<typeof C3>): void {
+  expect(out.row.cashAndCashEquivalents).toBe(500 * M);
+  expect(out.row.fieldConflicts?.cashAndCashEquivalents).toMatchObject({ usable: true, resolution: "filed-family", vendorValue: 520 * M,
+    reason: expect.stringMatching(/^vendor cash scope reconciled at 2025-12-31: vendor 520M USD equals the filed CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents/) });
+  // The dependents keep the cash refusal they were given; the reader does not read them.
+  for (const dependent of ["cashAndShortTermInvestments", "netDebt"]) expect(out.row.fieldConflicts?.[dependent]).toEqual(cashRefused.fieldConflicts![dependent]);
+}
+
+/** The acquisition pass (`enrichFinancialFields`) over both statements: refusals on stock compensation, investing and financing cash flow and cash. */
+const ENRICH_FACTS = usdFacts({ ShareBasedCompensation: [usd(398, "2025-01-01", "2025-12-31", "2026-02-13", "10-K"), usd(103, "2026-01-01", "2026-03-31", "2026-05-08")],
+  NetCashProvidedByUsedInInvestingActivities: [usd(-50, "2025-01-01", "2025-12-31", "2026-02-13", "10-K"), usd(-12, "2026-01-01", "2026-03-31", "2026-05-08")],
+  NetCashProvidedByUsedInFinancingActivities: [usd(-20, "2025-01-01", "2025-12-31", "2026-02-13", "10-K")],
+  CashAndCashEquivalentsAtCarryingValue: [usd(500, undefined, "2025-12-31", "2026-02-13", "10-K"), usd(400, undefined, "2024-12-31", "2025-02-13", "10-K")] });
+function enriched(scope: "annual" | "quarter", cashflow: FmpCashFlowRow, balance: FmpBalanceSheetRow): { balance: FmpBalanceSheetRow; cashflow: FmpCashFlowRow } {
+  const out = enrichFinancialFields(fetched([balance]), fetched([cashflow]), ENRICH_FACTS, scope, CASH_AT);
+  if (!out.balance.ok || !out.cashflow.ok) throw Error("fixture");
+  return { balance: out.balance.value.data.rows[0]!, cashflow: out.cashflow.value.data.rows[0]! };
+}
+const annualEnriched = enriched("annual", { date: "2025-12-31", periodStart: "2025-01-01", filingDate: "2026-02-13", reportedCurrency: "USD", stockBasedCompensation: 300 * M,
+  netCashProvidedByInvestingActivities: -40 * M, netCashProvidedByFinancingActivities: -25 * M },
+{ date: "2025-12-31", filingDate: "2026-02-13", reportedCurrency: "USD", cashAndCashEquivalents: 480 * M, cashAndShortTermInvestments: 600 * M, netDebt: -480 * M });
+const quarterEnriched = enriched("quarter", { date: "2026-03-31", periodStart: "2026-01-01", filingDate: "2026-05-08", reportedCurrency: "USD", stockBasedCompensation: 0,
+  netCashProvidedByInvestingActivities: -10 * M }, { date: "2026-03-31", filingDate: "2026-05-08", reportedCurrency: "USD", cashAndCashEquivalents: 480 * M });
+
+/** Share counts: a loss quarter whose vendor EPS (basic and diluted) differs from the filer's exact-interval EPS. */
+const SHARE_AS_OF = "2026-11-01";
+const SHARE_TAGS = { eps: "EarningsPerShareBasic", epsDiluted: "EarningsPerShareDiluted", weightedAverageShsOut: "WeightedAverageNumberOfSharesOutstandingBasic",
+  weightedAverageShsOutDil: "WeightedAverageNumberOfDilutedSharesOutstanding", revenue: "Revenues", netIncome: "NetIncomeLoss" } as const;
+const SHARE_FILED: FmpIncomeStatementRow = { date: "2025-03-31", period: "Q1", fiscalYear: "2025", cik: "0001579878", symbol: "FIG", reportedCurrency: "USD", revenue: 228_199_000,
+  netIncome: -200e6, eps: -2, epsDiluted: -2, weightedAverageShsOut: 100e6, weightedAverageShsOutDil: 100e6 };
+const SHARE_FACTS: CompanyFacts = (() => {
+  const concepts: Record<string, { units: Record<string, FactPoint[]> }> = {};
+  for (const [field, tag] of Object.entries(SHARE_TAGS)) {
+    const unit = field.startsWith("eps") ? "USD/shares" : field.startsWith("weighted") ? "shares" : "USD";
+    ((concepts[tag] ??= { units: {} }).units[unit] ??= []).push({ start: "2025-01-01", end: "2025-03-31", val: SHARE_FILED[field] as number, filed: "2026-05-14",
+      accn: "0001628280-26-250331", form: "10-Q", fy: 2025, fp: "Q1" });
+  }
+  concepts.Assets = { units: { USD: [{ end: "2025-03-31", val: 2e9, filed: "2026-05-14", accn: "0001628280-26-250331", form: "10-Q", fy: 2025, fp: "Q1" }] } };
+  return { cik: 1579878, entityName: "Figma, Inc.", facts: { "us-gaap": concepts, dei: {} } };
+})();
+const SHARE_PRIMARY = buildStatementsFromCompanyFacts(SHARE_FACTS, { symbol: "FIG", cik: SHARE_FILED.cik!, asOf: SHARE_AS_OF, factsObservedAt: `${SHARE_AS_OF}T22:38:31.000Z`,
+  annualPeriods: 10, quarterlyPeriods: 24, vendorSplits: { status: "retrieved", source: "fixture:split-history", events: [], coverage: [{ from: "2020-01-01", to: SHARE_AS_OF }] } });
+const SHARE_GUARD = { companyFacts: SHARE_FACTS, registrantTickers: ["FIG"], isAdr: false, fiscalYearEnd: "1231", period: "quarter" as const };
+/** The guard's first pass (the writer), with or without an unresolved split window. */
+const guarded = (vendorRow: FmpIncomeStatementRow, splitWindow = false) => guardVendorShareFields([vendorRow], SHARE_PRIMARY.incomeQuarterly.rows,
+  splitWindow ? { ...SHARE_PRIMARY.splits, unresolved: [{ from: "2025-01-01", to: "2026-01-01", reason: "fixture split window" }] } : SHARE_PRIMARY.splits, SHARE_AS_OF, SHARE_GUARD);
+const lossRefused = guarded({ ...SHARE_FILED, eps: -1.8, epsDiluted: -1.8 }).rows[0]!;
+const gainRefused = guarded({ ...SHARE_FILED, eps: 1.8, epsDiluted: 1.8 }).rows[0]!;
+const unusableRefused = guarded({ ...SHARE_FILED, eps: Number.NaN }).rows[0]!;
+const SPLIT_SENTENCE = guarded({ ...SHARE_FILED, eps: -1.8 }, true).withheld[0]!.reason;
+/** The guard's "no filed" sentence. EPS never reaches it (a comparable filed EPS is always finite), so this is its template; it carries no code. */
+const NO_FILED_SENTENCE = `no filed eps for 2025-03-31 on the ${SHARE_AS_OF} basis to test the vendor's -1.8 against independent same-period filed facts`;
+/** C13: the filed-reconciliation pass, which rechecks a refused loss-quarter EPS from its conflict alone. */
+const C13 = (row: FmpIncomeStatementRow) => {
+  const out = guardVendorShareFields([row], [], SHARE_PRIMARY.splits, SHARE_AS_OF, { ...SHARE_GUARD, reconcileFiled: true });
+  return { row: out.rows[0]!, gaps: [...out.withheld, ...out.reconciled] };
+};
+function expectRechecked(out: ReturnType<typeof C13>, fields: readonly ("eps" | "epsDiluted")[]): void {
+  for (const field of fields) {
+    expect(out.row[field]).toBe(-2);
+    expect(out.row.fieldConflicts?.[field]).toMatchObject({ usable: true, resolution: "filed-line", vendorValue: -1.8, secValue: -2,
+      reason: `${field} for 2025-03-31 corrected from vendor -1.8 to filed -2; exact 2025-01-01 through 2025-03-31 USD/shares; discrepancy exceeds rounding` });
+  }
+  expect(out.gaps.map((gap) => gap.field)).toEqual(fields);
+}
+
+describe("D-222: the writers' refusals the step-5 readers are tested on", () => {
+  it("the comparison codes its refusal on the field (and the cash dependents) with the field's own sentence", () => {
+    expect(conflictOn(sbcZeroRefused, "stockBasedCompensation")).toMatchObject({ usable: false, vendorValue: 0, secValue: 103 * M, cause: "vendor-sec-value-conflict",
+      reason: "vendor/SEC stockBasedCompensation conflict: exact 2026-01-01 through 2026-03-31 USD; vendor 0M, filed 103M; field unavailable until reconciled" });
+    expect(conflictOn(sbcDerivedRefused, "stockBasedCompensation")).toMatchObject({ usable: false, vendorValue: 50 * M, secValue: 105 * M, cause: "vendor-sec-value-conflict",
+      reason: expect.stringMatching(/^vendor\/SEC stockBasedCompensation conflict: derived 105M USD for 2025-10-01 through 2025-12-31 /) });
+    for (const field of ["cashAndCashEquivalents", "cashAndShortTermInvestments", "netDebt"]) {
+      expect(conflictOn(cashRefused, field)).toMatchObject({ usable: false, cause: "vendor-sec-value-conflict",
+        reason: "vendor/SEC cashAndCashEquivalents conflict: exact instant through 2025-12-31 USD; vendor 520M, filed 500M; field unavailable until reconciled" });
+    }
+    expect(conflictOn(annualEnriched.cashflow, "stockBasedCompensation")).toMatchObject({ cause: "vendor-sec-value-conflict",
+      reason: expect.stringMatching(/^vendor\/SEC stockBasedCompensation conflict: exact 2025-01-01 through 2025-12-31 /) });
+    expect(conflictOn(annualEnriched.cashflow, "netCashProvidedByInvestingActivities")).toMatchObject({ cause: "vendor-sec-value-conflict",
+      reason: expect.stringMatching(/^vendor\/SEC netCashProvidedByInvestingActivities conflict: /) });
+    expect(conflictOn(annualEnriched.cashflow, "netCashProvidedByFinancingActivities")).toMatchObject({ cause: "vendor-sec-value-conflict",
+      reason: expect.stringMatching(/^vendor\/SEC netCashProvidedByFinancingActivities conflict: /) });
+    expect(conflictOn(annualEnriched.balance, "cashAndCashEquivalents")).toMatchObject({ cause: "vendor-sec-value-conflict",
+      reason: expect.stringMatching(/^vendor\/SEC cashAndCashEquivalents conflict: /) });
+    // On the acquisition pass the quarter's zero placeholder is reconciled at once; investing is refused.
+    expect(conflictOn(quarterEnriched.cashflow, "stockBasedCompensation")).toMatchObject({ usable: true, resolution: "filed-family" });
+    expect(conflictOn(quarterEnriched.cashflow, "stockBasedCompensation").cause).toBeUndefined();
+    expect(conflictOn(quarterEnriched.cashflow, "netCashProvidedByInvestingActivities")).toMatchObject({ usable: false, cause: "vendor-sec-value-conflict" });
+  });
+
+  it("the share guard codes only its no-split disagreement, which always ends with \"; field unavailable until reconciled\"", () => {
+    for (const field of ["eps", "epsDiluted"]) {
+      expect(conflictOn(lossRefused, field)).toMatchObject({ usable: false, vendorValue: -1.8, secValue: -2, cause: "vendor-share-value-conflict", reason:
+        `the vendor's ${field} for 2025-03-31 (-1.8) differs from the filer's (-2) on the ${SHARE_AS_OF} basis; exact 2025-01-01 through 2025-03-31 USD/shares; field unavailable until reconciled` });
+      expect(conflictOn(gainRefused, field)).toMatchObject({ usable: false, vendorValue: 1.8, cause: "vendor-share-value-conflict" });
+    }
+    expect(conflictOn(unusableRefused, "eps")).toMatchObject({ usable: false, vendorValue: null,
+      reason: "the vendor's eps for 2025-03-31 (NaN) is not a usable figure to test against independent same-period filed facts" });
+    expect(conflictOn(unusableRefused, "eps").cause).toBeUndefined();
+    // Across a split window the guard writes no conflict at all, only its withheld sentence.
+    expect(guarded({ ...SHARE_FILED, eps: -1.8 }, true).rows[0]!.fieldConflicts).toBeUndefined();
+    expect(SPLIT_SENTENCE).toBe(`the vendor's eps for 2025-03-31 (-1.8) differs from the filer's (-2) on the ${SHARE_AS_OF} basis, across an unresolved split (fixture split window)`);
+  });
+});
+
+/** Sentences other writers put on a field, placed on each reader's field; none passes it, with its code or without. */
+const NEIGHBOURS: Record<string, Conflict> = {
+  ...Object.fromEntries(Object.entries(REFUSALS).map(([name, refusal]) => [`the debt refusal "${name}"`, refusal.totalDebt])),
+  "the share guard's coded EPS disagreement": conflictOn(lossRefused, "eps"),
+  "the share guard's not-a-usable-figure sentence": conflictOn(unusableRefused, "eps"),
+  "the share guard's split-check sentence": literalOn(SPLIT_SENTENCE),
+  "the share guard's no-filed sentence": literalOn(NO_FILED_SENTENCE),
+  "the SEC statement builder's unrestricted-cash withholding": literalOn("unrestricted cash unavailable: complete compatible current AND noncurrent restrictions are required to subtract from combined cash; no missing restriction is assumed zero"),
+};
+/** The comparison's coded refusals: the same code on each field, each with its own field's sentence. */
+const COMPARISON_CODED: Record<string, Conflict> = {
+  "the stock-compensation refusal": conflictOn(sbcZeroRefused, "stockBasedCompensation"),
+  "the cash refusal": conflictOn(cashRefused, "cashAndCashEquivalents"),
+  "the investing cash-flow refusal": conflictOn(annualEnriched.cashflow, "netCashProvidedByInvestingActivities"),
+};
+
+describe("C1, C2: the stock-compensation rechecks read vendor-sec-value-conflict on stockBasedCompensation", () => {
+  it("C1 reconciles the comparison's vendor-zero refusal from the filed quarter, with its code and without", () => {
+    expectSbcReconciled(bothWays(C1, sbcZeroRefused), 103, ZERO_RECONCILED);
+  });
+
+  it("C2 reconciles the comparison's refusal from the compatible derived quarter, with its code and without", () => {
+    expectSbcReconciled(bothWays(C2, sbcDerivedRefused), 105, DERIVED_RECONCILED);
+  });
+
+  it.each(Object.keys(NEIGHBOURS))("C1 and C2 leave %s on stockBasedCompensation refused, with its code and without", (name) => {
+    for (const [read, row] of [[C1, sbcZeroRefused], [C2, sbcDerivedRefused]] as const) {
+      const input = withConflict(row, "stockBasedCompensation", NEIGHBOURS[name]!);
+      expectUnread(bothWays(read, input), input);
+    }
+  });
+
+  it("the other conditions still decide: an annual refusal and a reconciled quarter stay as they are, and other cash-flow fields are not read", () => {
+    // The annual refusal is the comparison's own, so the recheck takes it up, finds no quarter to reconcile and restates it.
+    const annual = annualEnriched.cashflow;
+    const restated = bothWays((row: FmpCashFlowRow) => admitStockCompensation(row, ENRICH_FACTS, "annual", CASH_AT), annual);
+    expect(restated.row).toEqual(annual);
+    expect(restated.gaps.map((gap) => [gap.field, gap.reason, gap.severity])).toEqual([["statements.cashflow.2025-12-31.stockBasedCompensation",
+      conflictOn(annual, "stockBasedCompensation").reason, "warn"]]);
+    const quarter = quarterEnriched.cashflow;
+    expectUnread(bothWays((row: FmpCashFlowRow) => admitStockCompensation(row, ENRICH_FACTS, "quarter", CASH_AT), quarter), quarter);
+    // A vendor-zero refusal whose filed value no longer matches the filing is left refused.
+    const moved = { ...sbcZeroRefused, fieldConflicts: { stockBasedCompensation: { ...conflictOn(sbcZeroRefused, "stockBasedCompensation"), secValue: 104 * M } } };
+    expectUnread(bothWays(C1, moved), moved);
+  });
+});
+
+describe("C3: the cash recheck reads vendor-sec-value-conflict on a balance row's cashAndCashEquivalents", () => {
+  it("reconciles the comparison's cash refusal from the same filing's restricted-inclusive total, with its code and without", () => {
+    expectCashReconciled(bothWays(C3, cashRefused));
+  });
+
+  it.each(Object.keys(NEIGHBOURS))("leaves %s on cashAndCashEquivalents refused, with its code and without", (name) => {
+    const input = withConflict(cashRefused, "cashAndCashEquivalents", NEIGHBOURS[name]!);
+    expectUnread(bothWays(C3, input), input);
+  });
+
+  it("does not read the cash refusal its dependents carry: with the cash field refused for another reason, nothing is rechecked", () => {
+    const input = withConflict(cashRefused, "cashAndCashEquivalents", NEIGHBOURS["the SEC statement builder's unrestricted-cash withholding"]!);
+    expect(conflictOn(input, "netDebt").cause).toBe("vendor-sec-value-conflict");
+    expect(conflictOn(input, "cashAndShortTermInvestments").cause).toBe("vendor-sec-value-conflict");
+    expectUnread(bothWays(C3, input), input);
+  });
+
+  it("the other conditions still decide: a cash refusal whose evidence names another tag is left refused", () => {
+    const refusal = conflictOn(cashRefused, "cashAndCashEquivalents");
+    const input = { ...cashRefused, fieldConflicts: { ...cashRefused.fieldConflicts, cashAndCashEquivalents: { ...refusal, secEvidence: { ...refusal.secEvidence!, tags: ["us-gaap/Cash"] } } } };
+    expectUnread(bothWays(C3, input), input);
+  });
+});
+
+describe("C13: the share-count recheck reads vendor-share-value-conflict on eps and epsDiluted", () => {
+  it("rechecks the loss-quarter EPS refusal on both fields, with its code and without", () => {
+    expectRechecked(bothWays(C13, lossRefused), ["eps", "epsDiluted"]);
+  });
+
+  it.each(Object.keys(NEIGHBOURS).filter((name) => name !== "the share guard's coded EPS disagreement"))(
+    "leaves %s on eps and epsDiluted refused, with its code and without", (name) => {
+      const input = withConflict(withConflict(lossRefused, "eps", NEIGHBOURS[name]!), "epsDiluted", NEIGHBOURS[name]!);
+      expectUnread(bothWays(C13, input), input);
+    });
+
+  it.each(Object.keys(COMPARISON_CODED))("leaves %s placed on eps and epsDiluted refused, with its code and without", (name) => {
+    const input = withConflict(withConflict(lossRefused, "eps", COMPARISON_CODED[name]!), "epsDiluted", COMPARISON_CODED[name]!);
+    expectUnread(bothWays(C13, input), input);
+  });
+
+  it("the other conditions still decide: a positive-EPS refusal is never rechecked", () => {
+    expectUnread(bothWays(C13, gainRefused), gainRefused);
+  });
+});
+
+describe("D-222: the code is what is read", () => {
+  const ALTERED = "a sentence none of these readers' wording matches";
+  const as = (cause: string, reason: string) => literalOn(reason, cause as StatementConflictCause);
+  const SBC_SENTENCE = conflictOn(sbcZeroRefused, "stockBasedCompensation").reason;
+  const CASH_SENTENCE = conflictOn(cashRefused, "cashAndCashEquivalents").reason;
+  const UNRELATED = ["debt-maturity-scope", "revenue-scope", "a-code-no-list-has"];
+  const onBothEps = (row: FmpIncomeStatementRow, eps: Conflict, epsDiluted: Conflict) => withConflict(withConflict(row, "eps", eps), "epsDiluted", epsDiluted);
+
+  it("C1, C2 and C3 recheck vendor-sec-value-conflict whatever its sentence", () => {
+    expectSbcReconciled(C1(withConflict(sbcZeroRefused, "stockBasedCompensation", as("vendor-sec-value-conflict", ALTERED))), 103, ZERO_RECONCILED);
+    expectSbcReconciled(C2(withConflict(sbcDerivedRefused, "stockBasedCompensation", as("vendor-sec-value-conflict", ALTERED))), 105, DERIVED_RECONCILED);
+    expectCashReconciled(C3(withConflict(cashRefused, "cashAndCashEquivalents", as("vendor-sec-value-conflict", ALTERED))));
+  });
+  it.each([...UNRELATED, "vendor-share-value-conflict"])("C1, C2 and C3 leave their own sentences refused under %s", (cause) => {
+    for (const [read, row] of [[C1, sbcZeroRefused], [C2, sbcDerivedRefused]] as const) {
+      const input = withConflict(row, "stockBasedCompensation", as(cause, conflictOn(row, "stockBasedCompensation").reason));
+      expectUnread(read(input), input);
+    }
+    const input = withConflict(cashRefused, "cashAndCashEquivalents", as(cause, CASH_SENTENCE));
+    expectUnread(C3(input), input);
+  });
+  it("C1, C2 and C3 read a row with no codes by its sentence", () => {
+    expectSbcReconciled(C1(withConflict(sbcZeroRefused, "stockBasedCompensation", literalOn(SBC_SENTENCE))), 103, ZERO_RECONCILED);
+    for (const reason of [ALTERED, CASH_SENTENCE]) {
+      const input = withConflict(sbcZeroRefused, "stockBasedCompensation", literalOn(reason));
+      expectUnread(C1(input), input);
+    }
+    expectCashReconciled(C3(withConflict(cashRefused, "cashAndCashEquivalents", literalOn(CASH_SENTENCE))));
+    for (const reason of [ALTERED, SBC_SENTENCE]) {
+      const input = withConflict(cashRefused, "cashAndCashEquivalents", literalOn(reason));
+      expectUnread(C3(input), input);
+    }
+  });
+
+  it("C13 rechecks vendor-share-value-conflict whatever its sentence", () => {
+    expectRechecked(C13(onBothEps(lossRefused, as("vendor-share-value-conflict", ALTERED), as("vendor-share-value-conflict", ALTERED))), ["eps", "epsDiluted"]);
+  });
+  it.each([...UNRELATED, "vendor-sec-value-conflict"])("C13 leaves its own sentence refused under %s", (cause) => {
+    const input = onBothEps(lossRefused, as(cause, conflictOn(lossRefused, "eps").reason), as(cause, conflictOn(lossRefused, "epsDiluted").reason));
+    expectUnread(C13(input), input);
+  });
+  it("C13 reads a row with no codes by its sentence", () => {
+    expectRechecked(C13(uncoded(lossRefused)), ["eps", "epsDiluted"]);
+    const input = onBothEps(lossRefused, literalOn(ALTERED), literalOn(NO_FILED_SENTENCE));
+    expectUnread(C13(input), input);
+  });
+});
+
 describe("refusalCauseRead", () => {
   const MATURITIES = [MATURITY_TAG, REMAINDER_TAG];
   const fieldsOf = (row: Conflicted): [string, Conflict][] => Object.entries(row.fieldConflicts ?? {});
@@ -741,6 +1045,10 @@ describe("refusalCauseRead", () => {
       [splitRefused, shortUnavailable, longUnavailable, noteRow],
       // D-221: the combined-total and minor-difference shapes.
       [combinedRefused, crwvCombined, crwvTaggedTotal, ...Object.values(completed).map((out) => out.row)],
+      // D-222: the vendor/SEC comparison's and the share guard's shapes, and what the rechecks make of them.
+      [sbcZeroRefused, sbcDerivedRefused, cashRefused, annualEnriched.cashflow, annualEnriched.balance, quarterEnriched.cashflow, quarterEnriched.balance,
+        C1(sbcZeroRefused).row, C2(sbcDerivedRefused).row, C3(cashRefused).row],
+      [lossRefused, gainRefused, unusableRefused, C13(lossRefused).row],
     ].flat().flatMap(fieldsOf),
   ];
   const conflicts: Conflict[] = fielded.map(([, conflict]) => conflict);
@@ -779,11 +1087,29 @@ describe("refusalCauseRead", () => {
     expect(conflictCauseMatches({ reason: maturityTotal.reason }, "shortTermDebtMaturityScope")).toBe(false);
   });
 
-  it("reads exactly the incomplete-scope, lease-line, debt-maturity and minor-difference codes, all of them D-218 step-1 codes", () => {
+  it("reads exactly the D-218 step-1 codes, every one of them (D-222)", () => {
     expect([...CONFLICT_CAUSES_READ_BY_CODE].sort()).toEqual(["debt-aggregate-exceeds-components", "debt-combined-aggregate-exceeds-components",
       "debt-component-maturity-scope", "debt-components-incomplete", "debt-lease-line-no-operating-total", "debt-lease-line-refused", "debt-maturity-scope",
-      "debt-noncurrent-allocation", "debt-total-minor-difference", "debt-vendor-short-term-zero"]);
-    expect([...CONFLICT_CAUSES_READ_BY_CODE].every((cause) => DUAL_WRITTEN_CONFLICT_CAUSES.has(cause))).toBe(true);
+      "debt-noncurrent-allocation", "debt-total-minor-difference", "debt-vendor-short-term-zero", "vendor-sec-value-conflict", "vendor-share-value-conflict"]);
+    expect([...CONFLICT_CAUSES_READ_BY_CODE].sort()).toEqual([...DUAL_WRITTEN_CONFLICT_CAUSES].sort());
+  });
+
+  it("D-222: the vendor/SEC code sits on stock compensation and cash only beside that field's own sentence; a dependent never is one of them", () => {
+    const coded = fielded.filter(([, conflict]) => conflict.cause === "vendor-sec-value-conflict");
+    expect(new Set(coded.map(([field]) => field))).toEqual(new Set(["stockBasedCompensation", "cashAndCashEquivalents", "cashAndShortTermInvestments", "netDebt",
+      "netCashProvidedByInvestingActivities", "netCashProvidedByFinancingActivities"]));
+    const DEPENDENT_OF: Record<string, string> = { cashAndShortTermInvestments: "cashAndCashEquivalents", netDebt: "cashAndCashEquivalents" };
+    for (const [field, conflict] of coded) expect({ field, sentence: conflict.reason.startsWith(`vendor/SEC ${DEPENDENT_OF[field] ?? field} conflict: `) }).toEqual({ field, sentence: true });
+    // The same code with another field's sentence would pass the code but not the wording, which is why the readers are per field.
+    const investing = COMPARISON_CODED["the investing cash-flow refusal"]!;
+    expect([conflictCauseMatches(investing, "vendorSecStockCompensation"), conflictCauseMatches({ reason: investing.reason }, "vendorSecStockCompensation")]).toEqual([true, false]);
+    // The share code sits on the share fields only, always beside the disagreement sentence.
+    const shareCoded = fielded.filter(([, c]) => c.cause === "vendor-share-value-conflict");
+    expect(shareCoded.length).toBeGreaterThan(2);
+    for (const [field, conflict] of shareCoded) {
+      expect(["eps", "epsDiluted", "weightedAverageShsOut", "weightedAverageShsOutDil"]).toContain(field);
+      expect(conflict.reason).toMatch(/^the vendor's .*; field unavailable until reconciled$/);
+    }
   });
 
   it("decides a coded conflict by its code alone and an uncoded one by its sentence", () => {
@@ -829,11 +1155,26 @@ describe("refusalCauseRead", () => {
     expect(conflictCauseMatches({ reason: OLD_VENDOR_SUM }, "legacyVendorSumRefusal")).toBe(true);
     expect(conflictCauseMatches({ reason: REFUSALS["lease line, any other refusal"].totalDebt.reason }, "legacyVendorSumRefusal")).toBe(false);
     for (const reader of ["combinedAggregateExceedsComponents", "debtTotalMinorDifference", "legacyVendorSumRefusal"] as const) expect(conflictCauseMatches({}, reader)).toBe(false);
+    // D-222.
+    expect(conflictCauseMatches({ cause: "vendor-sec-value-conflict", reason: "x" }, "vendorSecStockCompensation")).toBe(true);
+    expect(conflictCauseMatches({ cause: "vendor-share-value-conflict", reason: "vendor/SEC stockBasedCompensation conflict: x" }, "vendorSecStockCompensation")).toBe(false);
+    expect(conflictCauseMatches({ reason: "vendor/SEC stockBasedCompensation conflict: x" }, "vendorSecStockCompensation")).toBe(true);
+    expect(conflictCauseMatches({ reason: "vendor/SEC cashAndCashEquivalents conflict: x" }, "vendorSecStockCompensation")).toBe(false);
+    expect(conflictCauseMatches({ cause: "vendor-sec-value-conflict", reason: "x" }, "vendorSecCash")).toBe(true);
+    expect(conflictCauseMatches({ cause: "debt-maturity-scope", reason: "vendor/SEC cashAndCashEquivalents conflict: x" }, "vendorSecCash")).toBe(false);
+    expect(conflictCauseMatches({ reason: "vendor/SEC cashAndCashEquivalents conflict: x" }, "vendorSecCash")).toBe(true);
+    expect(conflictCauseMatches({ reason: "vendor cash scope reconciled at 2025-12-31: x" }, "vendorSecCash")).toBe(false);
+    const share = "the vendor's eps for 2025-03-31 (-1.8) differs from the filer's (-2) on the 2026-11-01 basis; x; field unavailable until reconciled";
+    expect(conflictCauseMatches({ cause: "vendor-share-value-conflict", reason: "x" }, "vendorShareRecheck")).toBe(true);
+    expect(conflictCauseMatches({ cause: "vendor-sec-value-conflict", reason: share }, "vendorShareRecheck")).toBe(false);
+    expect(conflictCauseMatches({ reason: share }, "vendorShareRecheck")).toBe(true);
+    expect(conflictCauseMatches({ reason: "the vendor's eps for 2025-03-31 (NaN) is not a usable figure to test against x" }, "vendorShareRecheck")).toBe(false);
+    for (const reader of ["vendorSecStockCompensation", "vendorSecCash", "vendorShareRecheck"] as const) expect(conflictCauseMatches({}, reader)).toBe(false);
   });
 });
 
 describe("run input snapshots", () => {
-  it("keep the codes readers read, still drop the step-1 codes nothing reads, and keep the earlier codes", () => {
+  it("keep every code: each D-218 step-1 code is read (D-222), and the earlier codes stay", () => {
     const bundle = completeCurrencyBundle({});
     if (!bundle.statements.balanceAnnual.ok) throw Error("fixture");
     const row = bundle.statements.balanceAnnual.value.data.rows[0] as FmpStatementRow;
@@ -844,15 +1185,16 @@ describe("run input snapshots", () => {
     const kept = Object.values((stored.ok ? stored.value.data.rows[0] as FmpStatementRow : row).fieldConflicts ?? {});
     expect(kept.map((conflict) => conflict.reason)).toEqual(STATEMENT_CONFLICT_CAUSES.map(() => "kept sentence"));
     // D-220 adds the four debt-maturity codes to the nine kept since D-219; D-221 adds the minor difference
-    // (the combined-total code C7 reads was already kept for C11).
+    // (the combined-total code C7 reads was already kept for C11); D-222 adds the vendor/SEC and share codes.
     expect(kept.map((conflict) => conflict.cause).filter((cause) => cause !== undefined).sort()).toEqual([
       "borrowing-cost-scope", "debt-aggregate-exceeds-components", "debt-combined-aggregate-exceeds-components", "debt-component-maturity-scope",
       "debt-components-incomplete", "debt-lease-line-no-operating-total", "debt-lease-line-refused", "debt-maturity-scope", "debt-noncurrent-allocation",
-      "debt-total-minor-difference", "debt-vendor-short-term-zero", "operating-basis", "operating-scope", "revenue-scope"]);
+      "debt-total-minor-difference", "debt-vendor-short-term-zero", "operating-basis", "operating-scope", "revenue-scope", "vendor-sec-value-conflict",
+      "vendor-share-value-conflict"]);
+    expect(kept.map((conflict) => conflict.cause).sort()).toEqual([...STATEMENT_CONFLICT_CAUSES].sort());
     const dropped = STATEMENT_CONFLICT_CAUSES.filter((cause) => DUAL_WRITTEN_CONFLICT_CAUSES.has(cause) && !CONFLICT_CAUSES_READ_BY_CODE.has(cause));
-    expect(dropped).toEqual(["vendor-sec-value-conflict", "vendor-share-value-conflict"]);
-    for (const cause of dropped) expect((stored.ok ? stored.value.data.rows[0] as FmpStatementRow : row).fieldConflicts?.[`field-${cause}`]?.cause).toBeUndefined();
-    // The live bundle is not mutated (checked on a code the snapshot drops).
-    expect(row.fieldConflicts?.["field-vendor-sec-value-conflict"]?.cause).toBe("vendor-sec-value-conflict");
+    expect(dropped).toEqual([]);
+    // The live bundle is not mutated.
+    expect(Object.values(row.fieldConflicts ?? {}).map((conflict) => conflict.cause)).toEqual([...STATEMENT_CONFLICT_CAUSES]);
   });
 });

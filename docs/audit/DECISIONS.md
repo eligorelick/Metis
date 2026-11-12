@@ -11,6 +11,91 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-222 - Refusal codes, step 5: the stock-compensation, cash and share-count rechecks read the code (2026-11-12)
+
+Principle P11. Step 5 of the D-218 migration moves the last four readers of a
+D-218 code from the refusal sentence to the code, under the D-219 read rule (a
+coded conflict is decided by its code alone, an unknown or unrelated code fails
+closed, a conflict without a code is read by its original sentence pattern in
+`src/edgar/refusalCauseRead.ts`). Three are in the vendor/SEC comparison
+(`admitCashFields`, `src/edgar/financialEnrichment.ts`): the vendor-zero stock
+compensation recheck (C1, `priorSbcZero`), the stock-compensation replay (C2,
+`replaySbc`) and the cash replay (C3, `replayCash`). The fourth is the
+loss-quarter EPS recheck in `guardVendorShareFields` (C13, `canRecheck`,
+`src/pipeline/keyless.ts`). Every other condition at the four sites is
+unchanged: `usable === false`, the vendor and SEC values, the SEC evidence's
+unit, period and single tag, the field and statement tests, and C13's
+`reconcileFiled`, quarter and negative-value tests. Nothing else is switched.
+
+| Reader | Field | Codes | Legacy wording (moved verbatim) |
+|---|---|---|---|
+| `vendorSecStockCompensation` (C1, C2) | stockBasedCompensation | `vendor-sec-value-conflict` | starts `vendor/SEC stockBasedCompensation conflict:` |
+| `vendorSecCash` (C3) | cashAndCashEquivalents (balance rows) | `vendor-sec-value-conflict` | starts `vendor/SEC cashAndCashEquivalents conflict:` |
+| `vendorShareRecheck` (C13) | eps, epsDiluted | `vendor-share-value-conflict` | starts `the vendor's ` and includes `; field unavailable until reconciled` |
+
+First, a fix (its own commit). `withPrimaryCapitalBasis`
+(`src/pipeline/primaryCapitalBasis.ts`) resolved a refused
+commonStockRepurchased conflict by copying it with a new sentence, so it kept
+whatever code the old sentence had, which can be `vendor-sec-value-conflict`
+(D-219 found this). Now that the code is read, a code must never sit beside a
+sentence it was not written with, so the rewritten conflict carries no code;
+the old sentence is still tracked by the `superseded` map, which is unchanged.
+The resolution is a calculation view: it is not stored in a run input snapshot,
+and the payload and audit read only its values, resolution and sentence, so no
+stored byte changes. `revenueAdmission.ts` makes the same kind of copy with
+`revenue-scope`, a code read before D-218, on revenue only; it is left as it is.
+
+Why code and wording agree for every current writer. One writer writes
+`vendor-sec-value-conflict`: the comparison's refusal branch, which writes the
+code with `vendor/SEC ${field} conflict: ...` on the compared field and on its
+dependents: cashAndCashEquivalents gives it to cashAndShortTermInvestments and
+netDebt, and the beginning and ending cash give it to netChangeInCash.
+stockBasedCompensation has no dependents and is nobody's dependent, and
+cashAndCashEquivalents is compared only on balance rows and is nobody's
+dependent, so on these two fields the code always comes with the field's own
+sentence, annual and quarterly. The refusal branch always writes the code, so
+the sentence never comes without it. The comparison's other writes on these
+fields are usable resolutions or carry their own sentences, without a code. No
+other writer composes a `vendor/SEC <field> conflict:` sentence (the operating
+cash-flow and income conflicts read `vendor/SEC operating cash-flow conflict at`
+and `vendor/SEC conflict for`), and the SEC statement builder's cash withholdings
+have other sentences and no code. One writer writes `vendor-share-value-conflict`:
+`guardVendorShareFields`, only in its no-split disagreement branch, whose
+sentence starts `the vendor's ` and always ends `; field unavailable until
+reconciled`. The guard's other sentences on eps/epsDiluted (not a usable
+figure, no filed figure, ADR) have no code and do not contain that ending, and
+across a split it writes no conflict at all. Nothing copies a conflict onto
+these fields from another field. The copies that keep fields (the Stage B views,
+`withCashFlowSbcBasis`, run input snapshots) keep code and sentence together;
+the release-quarter EPS reconciliation and the share-unit repair write new
+conflicts without a code or delete the conflict. The four codes read before
+D-218 are written only on revenue, operating income and interest expense.
+
+Snapshots. `CONFLICT_CAUSES_READ_BY_CODE` derives from the readers, so
+`captureRunInputSnapshot` now keeps the last two step-1 codes too. Every D-218
+code is now read and kept in a new snapshot, so `withoutDualWrittenCauses`
+removes nothing today; it and `DUAL_WRITTEN_CONFLICT_CAUSES` stay so that a
+later dual-written code is again kept out of snapshots until a reader reads it.
+A snapshot or frozen input without codes is read by its sentences, as before.
+Nothing else about snapshots changes. No refusal sentence, other writer or
+version stamp changes: code and sentence agree on every conflict a current
+writer produces, so no decision changes, and conflicts reach no Stage B output,
+payload, report or export.
+
+Not changed: every decision. The comparison check (`golden:diff`, 10 cases, 80
+files) shows no difference. `tests/refusalCause.readers.test.ts` builds each
+refusal with the real writers (`admitStockCompensation`, `admitBalanceCash`,
+`enrichFinancialFields`, `guardVendorShareFields`), runs each reader on it with
+codes and with them deleted, and requires the same outcome. It covers the
+vendor-zero and replay stock compensation, the cash replay, loss-quarter EPS on
+both fields, and the neighbours each reader must reject: other refusals placed
+on the field, the cash dependents, other cash-flow fields, positive EPS, and
+the guard's split-check, not-a-usable-figure and no-filed sentences. It also
+shows a coded conflict is decided by its code whatever its sentence, and a
+conflict without a code by its sentence. Left for later steps: the identity
+comparisons (C6, C8, C10, C15, C16, C17) and the gap, provider, stored-report
+and sector-specific readers.
+
 ## D-221 - Refusal codes, step 4: the combined-total recovery and the minor-difference note read the code (2026-11-12)
 
 Principle P11. Step 4 of the D-218 migration moves two more readers from the
@@ -62,7 +147,8 @@ code is revisited by its sentence as before. The four codes read before D-218
 are written only on revenue, operating income and interest expense, and
 nothing copies a conflict between those fields and totalDebt; the two copies
 that keep a code and change the sentence (`primaryCapitalBasis.ts`,
-repurchases; `revenueAdmission.ts`, revenue) never reach it. The only
+repurchases; `revenueAdmission.ts`, revenue) never reach it. (Revised by D-222:
+the repurchase copy now drops the code.) The only
 conflict copied onto a debt field, the vendor/SEC cash conflict on net debt,
 keeps both its sentence and its code.
 
@@ -70,7 +156,8 @@ Snapshots. `CONFLICT_CAUSES_READ_BY_CODE` derives from the readers, so
 `captureRunInputSnapshot` now also keeps `debt-total-minor-difference`; the
 combined-total code was already kept for C11, and the legacy reader adds none.
 Two step-1 codes are still removed (`vendor-sec-value-conflict`,
-`vendor-share-value-conflict`) and the four earlier codes stay. Nothing else
+`vendor-share-value-conflict`) and the four earlier codes stay. (Revised by
+D-222: they are read and kept too; none is removed.) Nothing else
 about snapshots changes. No refusal sentence, writer or version stamp changes:
 the code and the sentence agree on every conflict a current writer produces,
 so no decision changes, and conflicts still reach no Stage B output, payload,
@@ -87,7 +174,7 @@ decided by its code whatever its sentence and a conflict without a code by its
 sentence, and that no coded conflict passes the legacy-only reader. Left for
 later steps: C1-C3 and C13 (whose codes are still removed from snapshots), the
 identity comparisons and the gap, provider, stored-report and sector-specific
-readers.
+readers. (Revised by D-222: C1-C3 and C13 now read their codes.)
 
 ## D-220 - Refusal codes, step 3: the two debt-maturity checks read the code (2026-11-11)
 
@@ -133,14 +220,14 @@ read before D-218 are written only on revenue, operating income and interest
 expense, and nothing copies a conflict between those fields and the debt
 fields. The only copies that keep a code and change the sentence
 (`primaryCapitalBasis.ts`, repurchases; `revenueAdmission.ts`, revenue) never
-reach these fields.
+reach these fields. (Revised by D-222: the repurchase copy now drops the code.)
 
 Snapshots. `CONFLICT_CAUSES_READ_BY_CODE` derives from the readers, so
 `captureRunInputSnapshot` now also keeps these four codes; the three codes no
 reader reads (`vendor-sec-value-conflict`, `vendor-share-value-conflict`,
 `debt-total-minor-difference`) are still removed and the four earlier codes stay.
 (Revised by D-221: `debt-total-minor-difference` is kept too; two are still
-removed.) Nothing else about snapshots changes. No refusal sentence, writer or version
+removed. Revised by D-222: those two are kept too; none is removed.) Nothing else about snapshots changes. No refusal sentence, writer or version
 stamp changes: the code and the sentence agree on every conflict a current
 writer produces, so no decision changes, and conflicts still reach no Stage B
 output, payload, report or export.
@@ -154,7 +241,8 @@ outcome; it also shows a coded conflict is decided by its code whatever its
 sentence and a conflict without a code by its sentence. Left for later steps:
 C1-C3, C7, C9, C13, the identity comparisons and the gap, provider,
 stored-report and sector-specific readers. (Revised by D-221: C7 and C9 now
-read their codes, and C5 is a legacy-only reader.)
+read their codes, and C5 is a legacy-only reader. Revised by D-222: C1-C3 and
+C13 too.)
 
 ## D-219 - Refusal codes, step 2: the lease and debt-recovery checks read the code (2026-11-11)
 
@@ -190,7 +278,8 @@ Snapshots. `captureRunInputSnapshot` now keeps these five codes, so a run that
 computes Stage B from its snapshot decides by them; the seven step-1 codes no
 reader reads are still removed, and the four earlier codes stay. (Revised by
 D-220: the four debt-maturity codes are kept too; three are still removed.
-Revised by D-221: and the minor-difference code; two are still removed.) No version
+Revised by D-221: and the minor-difference code; two are still removed.
+Revised by D-222: and the last two; none is removed.) No version
 stamp changes: the code and the sentence agree on every conflict a current
 writer produces, so no decision changes, and conflicts still reach no Stage B
 output, payload, report or export.
@@ -201,10 +290,12 @@ refusal each reader handles, and every debt refusal it does not, with its codes
 and with them deleted, and requires the same outcome both ways. Left for later
 steps: C1-C4, C7, C9, C12, C13 and the gap, provider, stored-report and
 sector-specific readers. (Revised by D-220: C4 and C12 now read
-their codes. Revised by D-221: C7 and C9 too, and C5 is legacy-only.) Found while checking: the primary cash-flow repurchase
+their codes. Revised by D-221: C7 and C9 too, and C5 is legacy-only.
+Revised by D-222: and C1-C3 and C13.) Found while checking: the primary cash-flow repurchase
 resolution (`primaryCapitalBasis.ts`) copies a coded vendor/SEC conflict and
 replaces its sentence, keeping the code; no reader uses that code yet, and it
 must be fixed before a reader of `vendor-sec-value-conflict` moves to codes.
+(Revised by D-222: fixed; the rewritten conflict carries no code.)
 
 ## D-218 - Refusal codes beside refusal sentences, step 1: write, do not read (2026-11-11)
 
@@ -235,7 +326,8 @@ withholdings and `guardVendorShareFields`. Each code is chosen by the branch
 that wrote the sentence, never by reading it; a total refused because of a
 refused component takes the component's code only when that component carries
 one. No reader uses the new codes. (Revised by D-219: two readers now do.
-Revised by D-220: four do. Revised by D-221: six do.)
+Revised by D-220: four do. Revised by D-221: six do. Revised by D-222: every
+new code is read.)
 
 Kept out of outputs: conflicts never reach Stage B output, the payload, the
 report or its exports, so nothing a report shows or stores changes.
@@ -243,7 +335,8 @@ report or its exports, so nothing a report shows or stores changes.
 so a new run snapshot keeps the bytes it would have had; the four existing
 codes stay. (Revised by D-219: snapshots now keep the five codes
 those readers read. Revised by D-220: and the four debt-maturity codes.
-Revised by D-221: and the minor-difference code.) `ManifestEntry` gets no code in this step: gap entries are copied
+Revised by D-221: and the minor-difference code. Revised by D-222: and the
+last two, so none is removed.) `ManifestEntry` gets no code in this step: gap entries are copied
 into Stage B output, the payload, `appendix.missingData` (strict schema),
 `fairValue.reasons` and snapshots, and keeping a code out of all of them is a
 larger change than this step. The G and P gap readers therefore stay
