@@ -4,15 +4,14 @@
  * data.sec.gov, live-verified).
  *
  * Conventions:
- *   - Hosts: www.sec.gov (Archives, tickers), data.sec.gov (submissions/XBRL),
- *     efts.sec.gov (full-text search).
+ *   - Hosts: www.sec.gov (Archives, tickers), data.sec.gov (submissions/XBRL).
  *   - Client-side throttle ≤5 req/s with jitter.
  *   - A 403 mid-session is SEC's RATE-LIMIT signal, not an auth failure →
  *     enter a ~10-minute cooldown and surface a retryable EdgarRateLimitError.
  *   - data.sec.gov needs 10-digit zero-padded CIK ("CIK0000320193"); Archives
  *     URLs take the unpadded integer. Never derive CIK from accession numbers.
  *   - Filed documents are immutable → cache ~forever; submissions ~6h;
- *     company_tickers ~7d; companyfacts ~6h; full-text search ~24h.
+ *     company_tickers ~7d; companyfacts ~6h.
  *
  * Wiring: all HTTP flows through the injectable `EdgarTransport` interface.
  *  - createDefaultEdgarTransport(): shared http.ts "edgar" limiter (≤5 req/s)
@@ -90,7 +89,6 @@ export const EDGAR_USER_AGENT = resolveEdgarUserAgent();
 export const EDGAR_HOSTS = {
   www: "https://www.sec.gov",
   data: "https://data.sec.gov",
-  efts: "https://efts.sec.gov",
 } as const;
 
 const HOUR = 3_600_000;
@@ -101,7 +99,6 @@ export const EDGAR_TTL = {
   companyFacts: 6 * HOUR,
   /** Filed documents are immutable. */
   filing: 10 * 365 * 24 * HOUR,
-  fullTextSearch: 24 * HOUR,
 } as const;
 
 /** ≤5 req/s policy (official max is 10/s). */
@@ -1201,45 +1198,6 @@ export interface EdgarSubmissions {
   olderPages: { name: string; filingCount?: number; filingFrom?: string; filingTo?: string }[];
 }
 
-const eftsSchema = z.looseObject({
-  hits: z.looseObject({
-    total: z.looseObject({ value: z.number() }),
-    hits: z.array(
-      z.looseObject({
-        _id: z.string(),
-        _source: z.record(z.string(), z.unknown()),
-      }),
-    ),
-  }),
-});
-
-export interface FullTextSearchHit {
-  /** "{accession-with-dashes}:{filename}" */
-  id: string;
-  accession: string;
-  filename: string;
-  form?: string;
-  fileDate?: string;
-  fileType?: string;
-  ciks: string[];
-  displayNames: string[];
-  source: Record<string, unknown>;
-}
-
-export interface FullTextSearchResult {
-  total: number;
-  hits: FullTextSearchHit[];
-}
-
-export interface FullTextSearchOptions {
-  forms?: string | string[];
-  ciks?: string | number | (string | number)[];
-  startdt?: string;
-  enddt?: string;
-  /** Pagination offset (UI sends &from=N; unverified beyond first page). */
-  from?: number;
-}
-
 // ---------------------------------------------------------------------------
 // Client
 // ---------------------------------------------------------------------------
@@ -1545,24 +1503,6 @@ export class EdgarClient {
     return { ok: true, value: this.sourced(sub, url, asOf, res.fetchedAt, res.stale) };
   }
 
-  /**
-   * Newest filing of an EXACT form ("10-K" !== "10-K/A" — amendments are
-   * distinct form values; scan newest-first, first exact match wins).
-   */
-  async latestFiling(cik: number | string, form: string): Promise<FetchResult<EdgarFiling>> {
-    const sub = await this.submissions(cik);
-    if (!sub.ok) return sub;
-    const hit = sub.value.data.recentFilings.find((f) => f.form === form);
-    if (hit === undefined) {
-      return this.gap(
-        `edgar.latestFiling(${cik}, ${form})`,
-        `no "${form}" among ${sub.value.data.recentFilings.length} recent filings (older overflow pages not searched)`,
-        [sub.value.endpoint],
-      );
-    }
-    return { ok: true, value: this.sourced(hit, sub.value.endpoint, hit.filingDate, sub.value.fetchedAt, sub.value.stale === true) };
-  }
-
   // -- documents -------------------------------------------------------------
 
   /**
@@ -1723,71 +1663,6 @@ export class EdgarClient {
     const fetchedDay = res.fetchedAt.slice(0, 10);
     const observedAsOf = latestEligibleFactEnd(facts, fetchedDay) ?? fetchedDay;
     return { ok: true, value: this.sourced(facts, url, observedAsOf, res.fetchedAt, res.stale) };
-  }
-
-  // -- full-text search --------------------------------------------------------
-
-  /**
-   * EFTS full-text search (2001-present). Treat as a LOCATOR (hits carry
-   * accession + filename), not a snippet source. Quote phrases yourself:
-   * fullTextSearch('"going concern"').
-   */
-  async fullTextSearch(q: string, opts: FullTextSearchOptions = {}): Promise<FetchResult<FullTextSearchResult>> {
-    const params = new URLSearchParams();
-    params.set("q", q);
-    if (opts.forms !== undefined) {
-      params.set("forms", Array.isArray(opts.forms) ? opts.forms.join(",") : opts.forms);
-    }
-    if (opts.ciks !== undefined) {
-      const list = Array.isArray(opts.ciks) ? opts.ciks : [opts.ciks];
-      params.set("ciks", list.map((c) => padCik(c)).join(","));
-    }
-    if (opts.startdt !== undefined || opts.enddt !== undefined) {
-      params.set("dateRange", "custom");
-      if (opts.startdt !== undefined) params.set("startdt", opts.startdt);
-      if (opts.enddt !== undefined) params.set("enddt", opts.enddt);
-    }
-    if (opts.from !== undefined) params.set("from", String(opts.from));
-    const url = `${EDGAR_HOSTS.efts}/LATEST/search-index?${params.toString()}`;
-    const res = await this.request(url, EDGAR_TTL.fullTextSearch);
-    if (!res.ok) return this.gap(`edgar.fullTextSearch(${q})`, `EFTS HTTP ${res.status}`, [url]);
-    let parsedJson: unknown;
-    try {
-      parsedJson = JSON.parse(res.body);
-    } catch {
-      return this.gap(`edgar.fullTextSearch(${q})`, "EFTS response was not valid JSON", [url]);
-    }
-    const parsed = eftsSchema.safeParse(parsedJson);
-    if (!parsed.success) {
-      return this.gap(`edgar.fullTextSearch(${q})`, `EFTS shape unexpected: ${parsed.error.issues[0]?.message ?? "?"}`, [url]);
-    }
-    const hits: FullTextSearchHit[] = parsed.data.hits.hits.map((h) => {
-      const [accession, filename = ""] = h._id.split(":");
-      const src = h._source;
-      const strOrU = (k: string): string | undefined => {
-        const v = src[k];
-        return typeof v === "string" ? v : undefined;
-      };
-      const strArr = (k: string): string[] => {
-        const v = src[k];
-        return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
-      };
-      return {
-        id: h._id,
-        accession,
-        filename,
-        form: strOrU("form"),
-        fileDate: strOrU("file_date"),
-        fileType: strOrU("file_type"),
-        ciks: strArr("ciks"),
-        displayNames: strArr("display_names"),
-        source: src,
-      };
-    });
-    return {
-      ok: true,
-      value: this.sourced({ total: parsed.data.hits.total.value, hits }, url, res.fetchedAt.slice(0, 10), res.fetchedAt, res.stale),
-    };
   }
 }
 
