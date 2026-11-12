@@ -1,5 +1,6 @@
 import { PAYLOAD_VERSION } from "@/report/versions";
 import { fairValueReferenceText } from "@/report/fairValueText";
+import { withComputationContext } from "@/edgar/computationContext";
 import { forwardAnnualEstimates } from "@/pipeline/forwardEstimates";
 import { taxCapitalSensitivity } from "@/pipeline/stageB/taxCapitalSensitivity";
 import { qualificationText } from "@/report/assessment";
@@ -3678,7 +3679,16 @@ function attachProvenanceRegistry(
  * clock, no network, no randomness. Given identical inputs the output is
  * byte-identical (drives the prompt cache).
  */
+/** The payload is assembled inside one computation context (P13), like Stage B (src/edgar/computationContext.ts). */
 export function assembleContextPayload(
+  bundle: DataBundle,
+  computed: ComputedMetrics,
+  validation: ValidationReport,
+): ContextPayload {
+  return withComputationContext(() => assembleContextPayloadInContext(bundle, computed, validation));
+}
+
+function assembleContextPayloadInContext(
   bundle: DataBundle,
   computed: ComputedMetrics,
   validation: ValidationReport,
