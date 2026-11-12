@@ -1,7 +1,8 @@
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
-import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
+import type { StatementConflictCause } from "@/types/refusalCause";
+import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtRefusal, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
@@ -549,7 +550,8 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       if (fieldConflicts[dependent]?.usable === false) continue;
       fieldConflicts[dependent] = { usable: false, vendorValue: typeof out[dependent] === "number" && Number.isFinite(out[dependent]) ? out[dependent] : null,
         secValue: dependent === field ? value : dependent === "netChangeInCash" ? cashAmounts.netChangeInCash?.value ?? null : null,
-        secEvidence: dependent === "netChangeInCash" ? cashAmounts.netChangeInCash?.evidence ?? sec.evidence : sec.evidence, reason };
+        secEvidence: dependent === "netChangeInCash" ? cashAmounts.netChangeInCash?.evidence ?? sec.evidence : sec.evidence, reason,
+        cause: "vendor-sec-value-conflict" };
     }
     out = { ...out, ...unavailable, fieldConflicts };
     gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn", attemptedSources: [`edgar:companyfacts/us-gaap/${tag}`, `fmp:${kind}-statement`] });
@@ -676,8 +678,12 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
     .find((field) => row.fieldConflicts?.[field]?.usable === false && !(splitOnly && splitRefusal(field)));
   const componentReason = refusedComponent === undefined ? null
     : `incomplete debt carrying value: ${refusedComponent} is unavailable (${row.fieldConflicts![refusedComponent]!.reason})`;
+  // P11 (D-218): from the component's own typed cause; a component without one leaves the total uncoded.
+  const componentCause: StatementConflictCause | undefined = refusedComponent === "shortTermDebt" &&
+    row.fieldConflicts!.shortTermDebt!.cause === "debt-maturity-scope" ? "debt-component-maturity-scope" : undefined;
   // D-133: a noncurrent-only vendor lease line is completed from its filing, or total debt is withheld.
   let leaseLineReason: string | null = null;
+  let leaseLineCause: StatementConflictCause | undefined;
   let compositionFallback: string | null = null;
   const oldSumRefusal = row.fieldConflicts?.totalDebt;
   const revisitVendorSum = oldSumRefusal?.usable === false && typeof oldSumRefusal.vendorValue === "number" &&
@@ -703,7 +709,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
         out = { ...out, fieldConflicts };
       }
       admissions.push(completion.admission);
-    } else if (completion.status === "refused") leaseLineReason = completion.reason;
+    } else if (completion.status === "refused") { leaseLineReason = completion.reason; leaseLineCause = completion.cause; }
   }
   // Broader exact scopes (operating-only leases, current leases in vendor
   // debt, or omitted current debt) still require one reconciled filing.
@@ -713,12 +719,13 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
       out = completion.row;
       admissions.push(completion.admission);
       leaseLineReason = null;
+      leaseLineCause = undefined;
     } else if (completion.status === "refused") {
       // A failed composition attempt establishes no particular missing fact.
       // Keep it only when the independent guards below find no specific cause;
       // otherwise repeat admission can erase a filed-current-debt qualification.
       if (completion.fallback) compositionFallback = completion.reason;
-      else leaseLineReason ??= completion.reason;
+      else if (leaseLineReason === null) { leaseLineReason = completion.reason; leaseLineCause = completion.cause; }
     }
   }
   let presentationReason: string | null = null;
@@ -768,12 +775,14 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   if (scopeReason !== null) {
     out = { ...out, shortTermDebt: null, fieldConflicts: { ...out.fieldConflicts, shortTermDebt: {
       vendorValue: typeof row.shortTermDebt === "number" ? row.shortTermDebt : null, secValue: null, usable: false, reason: scopeReason,
+      cause: "debt-maturity-scope",
     } } };
     gaps.push({ field: `statements.balance.${row.date}.shortTermDebt`, reason: scopeReason, severity: "warn" });
     // LongTermDebt less a refused bucket is not noncurrent debt either.
     if (splitOnly && out.fieldConflicts?.longTermDebt?.usable !== false) out = { ...out, longTermDebt: null, fieldConflicts: { ...out.fieldConflicts, longTermDebt: {
       vendorValue: typeof row.longTermDebt === "number" ? row.longTermDebt : null, secValue: null, usable: false,
       reason: "noncurrent carrying debt allocation unavailable: LongTermDebt includes current maturities, but the fiscal maturity bucket was rejected as current carrying debt",
+      cause: "debt-noncurrent-allocation",
     } } };
   }
   const aggregate = instant(facts, "DebtInstrumentCarryingAmount", currency, row.date, observedAt);
@@ -814,23 +823,40 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   }));
   const zeroCurrentReason = out.fieldProvenance?.shortTermDebt !== undefined || currentMaturitiesFoldedIn(out.longTermDebt, filedCurrent) ? null
     : zeroCurrentDebtReason(out.shortTermDebt, CURRENT_DEBT_TAGS.map((tag) => ({ tag, value: filedCurrent[tag]?.value ?? null })));
-  const reason = componentReason ?? leaseLineReason ?? presentationReason ?? convertibleReason ?? zeroCurrentReason ??
-    (scopeReason !== null && !splitOnly ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason(splitOnly ? { shortTermDebt: 0,
+  // P11 (D-218): the first established cause, in the original order, with its typed code beside the unchanged sentence.
+  let reason: string | null;
+  let cause: StatementConflictCause | undefined;
+  if (componentReason != null) { reason = componentReason; cause = componentCause; }
+  else if (leaseLineReason != null) { reason = leaseLineReason; cause = leaseLineCause; }
+  else if (presentationReason != null) reason = presentationReason;
+  else if (convertibleReason != null) reason = convertibleReason;
+  else if (zeroCurrentReason != null) { reason = zeroCurrentReason; cause = "debt-vendor-short-term-zero"; }
+  else {
+    const maturityScoped = scopeReason !== null && !splitOnly;
+    const principal = maturityScoped ? `incomplete debt carrying value: ${scopeReason}` : incompleteDebtReason(splitOnly ? { shortTermDebt: 0,
       longTermDebt: inclusiveTotal, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }
-      : { shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null)) ??
-    // The statements builder's tagged-total check (B-14), for vendor rows that
-    // never pass through it: a same-period total above the composed components
-    // shows one is missing. A kept inclusive total has no split to compose.
-    (splitOnly ? null : uncomposedDebtReason({ shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability },
-      DEBT_AGGREGATE_TAGS.filter(tag => !(grossReconciled && tag === "DebtLongtermAndShorttermCombinedAmount"))
-        .map((tag) => ({ tag, value: instant(facts, tag, currency, row.date!, observedAt)?.value ?? null })))) ?? compositionFallback;
+      : { shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability, totalDebt: out.totalDebt }, aggregate?.value ?? null);
+    if (principal != null) { reason = principal; cause = maturityScoped ? "debt-maturity-scope" : "debt-components-incomplete"; }
+    else {
+      // The statements builder's tagged-total check (B-14), for vendor rows that
+      // never pass through it: a same-period total above the composed components
+      // shows one is missing. A kept inclusive total has no split to compose.
+      const uncomposed = splitOnly ? null : uncomposedDebtRefusal({ shortTermDebt: out.shortTermDebt, longTermDebt: out.longTermDebt, financeLeaseLiability: out.financeLeaseLiability },
+        DEBT_AGGREGATE_TAGS.filter(tag => !(grossReconciled && tag === "DebtLongtermAndShorttermCombinedAmount"))
+          .map((tag) => ({ tag, value: instant(facts, tag, currency, row.date!, observedAt)?.value ?? null })));
+      if (uncomposed !== null) { reason = uncomposed.reason; cause = uncomposed.cause; }
+      else reason = compositionFallback;
+    }
+  }
   for (const field of ["totalDebt", "netDebt"] as const) {
     const prior = out.fieldConflicts?.[field];
     if (reason === null && prior?.usable !== false) continue;
     const refusal = reason ?? prior!.reason;
+    // A kept prior refusal keeps its own code; only a new sentence takes the new one.
+    const refusalCause = reason !== null ? cause : prior!.cause;
     out = { ...out, [field]: null, fieldConflicts: { ...out.fieldConflicts, [field]: {
       vendorValue: prior?.vendorValue ?? (typeof row[field] === "number" ? row[field] as number : null),
-      secValue: null, usable: false, reason: refusal, ...(aggregate ? { secEvidence: aggregate.evidence } : {}),
+      secValue: null, usable: false, reason: refusal, ...(refusalCause !== undefined ? { cause: refusalCause } : {}), ...(aggregate ? { secEvidence: aggregate.evidence } : {}),
     } } };
     if (reason !== null) gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "warn" });
   }
@@ -887,7 +913,7 @@ export function balanceAdmissionEntries(admissions: readonly BalanceAdmission[])
 }
 
 type LeaseLineCompletion<T> = { status: "none" } | { status: "completed"; row: T; admission: BalanceAdmission }
-  | { status: "refused"; reason: string; fallback?: true };
+  | { status: "refused"; reason: string; fallback?: true; cause?: StatementConflictCause };
 
 /** D-202: measured after scope proof, independently of valuation outcomes.
  * The scoped panel's minor cluster ends at 0.2051%; the next gap is 0.8665%.
@@ -1053,7 +1079,7 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       const fieldConflicts = { ...row.fieldConflicts };
       delete fieldConflicts.totalDebt;
       if (totalNote) fieldConflicts.totalDebt = { usable: true, vendorValue: vendorTotal, secValue: totalDebt,
-        resolution: "filed-family", reason: `${totalNote}completed debt ${millions(totalDebt)} ${unit}` };
+        resolution: "filed-family", cause: "debt-total-minor-difference", reason: `${totalNote}completed debt ${millions(totalDebt)} ${unit}` };
       if (!cashOnlyNetRefusal) delete fieldConflicts.netDebt;
       if (refusedCash?.usable === false) fieldConflicts.netDebt = { ...refusedCash, secValue: null,
         vendorValue: row.fieldConflicts?.netDebt?.vendorValue ?? (finite(row.netDebt) ? row.netDebt : null) };
@@ -1160,30 +1186,32 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
     `(OperatingLeaseLiabilityNoncurrent ${millions(operatingNoncurrent)}${financeNoncurrent !== null ? ` + FinanceLeaseLiabilityNoncurrent ${millions(financeNoncurrent)}`
       : otherFinanceTags.length > 0 ? "; no FinanceLeaseLiabilityNoncurrent is filed" : "; no finance lease is filed"}) at ${date}`;
   // Review m2: the consequence states only what the check established; by default, that the row is not completed.
-  const refuse = (cause: string, consequence = "the row is not completed from that filing, so total debt and net debt are withheld"): LeaseLineCompletion<T> => ({ status: "refused",
-    reason: `incomplete debt carrying value: ${lineText}, but ${cause}; ${consequence}` });
+  const refuse = (cause: string, consequence = "the row is not completed from that filing, so total debt and net debt are withheld",
+    code: StatementConflictCause = "debt-lease-line-refused"): LeaseLineCompletion<T> => ({ status: "refused",
+    reason: `incomplete debt carrying value: ${lineText}, but ${cause}; ${consequence}`, cause: code });
   if (otherFinanceTags.length > 0) {
     return refuse(`the filing tags a finance lease (${otherFinanceTags.map(([tag, value]) => `${tag} ${typeof value === "number" ? millions(value) : "(in another filing)"}`).join(", ")}) ` +
       "without FinanceLeaseLiabilityNoncurrent, so the finance leases the provider line may leave out cannot be established");
   }
-  const leaseTotal = (prefix: "Operating" | "Finance"): { value: number; tags: string[] } | string => {
+  // P11 (D-218): a refusal carries whether the filing established no total, so the code never reads the sentence.
+  const leaseTotal = (prefix: "Operating" | "Finance"): { value: number; tags: string[] } | { refusal: string; absent: boolean } => {
     const tag = `${prefix}LeaseLiability`;
     const total = inFiling(tag), current = inFiling(`${tag}Current`), noncurrentPart = inFiling(`${tag}Noncurrent`);
-    if (total === "elsewhere" || current === "elsewhere" || noncurrentPart === "elsewhere") return `the ${tag} amounts are not all in that filing`;
+    if (total === "elsewhere" || current === "elsewhere" || noncurrentPart === "elsewhere") return { refusal: `the ${tag} amounts are not all in that filing`, absent: false };
     if (total !== null) {
       if (incompatibleLeaseMaturities(total, current, noncurrentPart)) {
-        if (current !== null && noncurrentPart !== null) return `the filed ${tag} ${millions(total)} is not its current ${millions(current)} plus noncurrent ${millions(noncurrentPart)}`;
-        return `the filed ${tag} ${millions(total)} is less than its ${current !== null ? `current ${millions(current)}` : `noncurrent ${millions(noncurrentPart!)}`} maturity`;
+        if (current !== null && noncurrentPart !== null) return { refusal: `the filed ${tag} ${millions(total)} is not its current ${millions(current)} plus noncurrent ${millions(noncurrentPart)}`, absent: false };
+        return { refusal: `the filed ${tag} ${millions(total)} is less than its ${current !== null ? `current ${millions(current)}` : `noncurrent ${millions(noncurrentPart!)}`} maturity`, absent: false };
       }
       return { value: total, tags: [tag] };
     }
     if (current !== null && noncurrentPart !== null) return { value: current + noncurrentPart, tags: [`${tag}Current`, `${tag}Noncurrent`] };
-    return `the filing establishes no total ${prefix.toLowerCase()}-lease liability (neither ${tag} nor its current and noncurrent portions)`;
+    return { refusal: `the filing establishes no total ${prefix.toLowerCase()}-lease liability (neither ${tag} nor its current and noncurrent portions)`, absent: true };
   };
   const operating = leaseTotal("Operating");
-  if (typeof operating === "string") return refuse(operating);
+  if ("refusal" in operating) return refuse(operating.refusal, undefined, operating.absent ? "debt-lease-line-no-operating-total" : "debt-lease-line-refused");
   const finance = financeNoncurrent === null ? { value: 0, tags: [] as string[] } : leaseTotal("Finance");
-  if (typeof finance === "string") return refuse(finance);
+  if ("refusal" in finance) return refuse(finance.refusal);
   const leases = operating.value + finance.value;
   // Current lease liabilities of zero: the line already is the total, as it is today.
   if (Math.abs(line - leases) <= tolerance(leases)) return { status: "total" };
@@ -1293,7 +1321,7 @@ function completeFromFiling<T extends FmpStatementRow>(row: T, line: number, fil
   const vendorNetDebt = row.vendorNetDebt !== undefined ? row.vendorNetDebt : finite(row.netDebt) ? row.netDebt : null;
   const out = { ...row, capitalLeaseObligations: leases, totalDebt, netDebt, vendorNetDebt,
     ...(totalNote ? { fieldConflicts: { ...row.fieldConflicts, totalDebt: { usable: true, vendorValue: vendorTotal,
-      secValue: totalDebt, resolution: "filed-family" as const, reason: `${totalNote}completed debt ${millions(totalDebt)} ${currency}` } } } : {}),
+      secValue: totalDebt, resolution: "filed-family" as const, cause: "debt-total-minor-difference" as const, reason: `${totalNote}completed debt ${millions(totalDebt)} ${currency}` } } } : {}),
     ...(keepVendorShort ? {} : { shortTermDebt: currentDebt }),
     ...(row.operatingLeaseLiability == null ? { operatingLeaseLiability: operating.value } : {}),
     ...(financeNoncurrent !== null && row.financeLeaseLiability == null ? { financeLeaseLiability: finance.value } : {}),

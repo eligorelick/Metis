@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { REPORT_SPEC_VERSION } from "@/report/schema";
 import { SCORE_BANDS_VERSION } from "@/pipeline/stageB/grading";
+import { DUAL_WRITTEN_CONFLICT_CAUSES, type StatementConflictCause } from "@/types/refusalCause";
 
 export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // NVDA_AUDIT_2 (D-65..D-68): all eligible consensus windows, non-operating
@@ -116,6 +117,27 @@ function redact(value: unknown, path: string, fields: string[]): unknown {
   return value;
 }
 
+/**
+ * P11 (D-218) step 1: the dual-written conflict codes are read by nothing yet,
+ * so a snapshot keeps the bytes it had before they existed. Mutates a detached
+ * JSON copy only; every other `cause` value is kept.
+ */
+function withoutDualWrittenCauses(value: unknown): void {
+  if (Array.isArray(value)) { for (const item of value) withoutDualWrittenCauses(item); return; }
+  if (value === null || typeof value !== "object") return;
+  const record = value as Record<string, unknown>;
+  const conflicts = record.fieldConflicts;
+  if (conflicts !== null && typeof conflicts === "object" && !Array.isArray(conflicts)) {
+    for (const conflict of Object.values(conflicts as Record<string, unknown>)) {
+      if (conflict !== null && typeof conflict === "object" &&
+          DUAL_WRITTEN_CONFLICT_CAUSES.has((conflict as { cause?: unknown }).cause as StatementConflictCause)) {
+        delete (conflict as { cause?: unknown }).cause;
+      }
+    }
+  }
+  for (const child of Object.values(record)) withoutDualWrittenCauses(child);
+}
+
 function deepFreeze<T>(v: T): T {
   if (v !== null && typeof v === "object") {
     for (const item of Object.values(v)) deepFreeze(item);
@@ -152,6 +174,7 @@ export function createSnapshotArtifactIdentity(input: { methodArtifactBytes: str
 export function captureRunInputSnapshot(bundle: DataBundle, config: { evIncludeLeases: boolean }, versions: SnapshotVersions = CURRENT_SNAPSHOT_VERSIONS, identity?: SnapshotArtifactIdentity): RunInputSnapshot {
   // Check cycles, prototypes and non-finite values before recursive redaction.
   const detached = JSON.parse(canonicalSnapshotJson(bundle));
+  withoutDualWrittenCauses(detached);
   const redactedFields: string[] = [];
   const content = {
     formatVersion: RUN_INPUT_SNAPSHOT_FORMAT, versions: { ...versions },

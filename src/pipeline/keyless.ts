@@ -87,6 +87,7 @@ import type {
 import type { YahooClient, YahooMeta } from "@/providers/yahoo";
 import type { StatementSource } from "@/config/env";
 import type { DataSource, FetchResult, ManifestEntry, Sourced } from "@/types/core";
+import type { StatementConflictCause } from "@/types/refusalCause";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -665,6 +666,8 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
         continue;
       }
       let reason: string | null = null;
+      // P11 (D-218): set only by the disagreement branch whose sentence ends "field unavailable until reconciled".
+      let cause: StatementConflictCause | undefined;
       if (!isFiniteNumber(vendorValue) || (!isEps && vendorValue <= 0)) {
         reason = `the vendor's ${label} for ${date} (${String(vendorValue)}) is not a usable figure to test against ${against}`;
       } else if (!isFiniteNumber(filerValue) || (!isEps && filerValue <= 0)) {
@@ -682,6 +685,7 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
             ? `the vendor's ${label} for ${date} (${vendorValue}) matches an earlier filing for the exact interval, superseded by a later filing (${filerValue}) on the ${basisDay} basis`
             : `the vendor's ${label} for ${date} (${vendorValue}) differs from the filer's (${filerValue}) on the ${basisDay} basis`) +
             (splitCheck ? `, across ${against}` : `; exact ${proof!.periodStart} through ${proof!.periodEnd} ${proof!.unit}; field unavailable until reconciled`);
+          if (!splitCheck) cause = "vendor-share-value-conflict";
         }
       }
       if (reason === null) continue;
@@ -691,6 +695,7 @@ export function guardVendorShareFields<TRow extends FmpRawRow>(
       if (!splitCheck && proof !== null) {
         copy.fieldConflicts = { ...(copy.fieldConflicts as FmpStatementRow["fieldConflicts"]), [field]: {
           vendorValue: isFiniteNumber(vendorValue) ? vendorValue : null, secValue: isFiniteNumber(filerValue) ? filerValue : null, usable: false, reason, secEvidence: proof,
+          ...(cause !== undefined ? { cause } : {}),
         } };
       }
     }

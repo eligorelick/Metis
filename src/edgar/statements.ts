@@ -60,7 +60,8 @@
 import { filedRevenueLines, preferredRevenueLine } from "./revenuePresentation";
 import type { FiledIncomeLine, EquityMethodIncomePlacement, FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
-import { commercialPaperInsideBorrowings, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtReason, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
+import type { StatementConflictCause } from "@/types/refusalCause";
+import { commercialPaperInsideBorrowings, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtRefusal, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
 import {
   describeChangePct,
@@ -1705,8 +1706,10 @@ interface NoteSink {
   add(note: string): void;
   /** Record that `field` at row `period` was served by a stand-in described by `text`. */
   substitute(field: string, period: string, text: string): void;
-  /** Record that `field` at row `period` was left null on purpose, for the reason `text`. */
-  withhold(field: string, period: string, text: string): void;
+  /** Record that `field` at row `period` was left null on purpose, for the reason `text`; `cause` is its typed code (P11, D-218). */
+  withhold(field: string, period: string, text: string, cause?: StatementConflictCause): void;
+  /** The typed cause recorded with a withholding's exact text, or undefined when its writer recorded none. */
+  causeOf(held: { field: string; text: string }): StatementConflictCause | undefined;
   /**
    * Refusals recorded during resolution (a `first` step that skipped every
    * synonym). `buildStatementRows` turns the last new one into a withholding
@@ -1745,6 +1748,9 @@ function createNoteSink(): NoteSink {
   const refusals: string[] = [];
   const presentationRefusals: string[] = [];
   const withholdAttempts: string[] = [];
+  // Kept beside the records so a Withholding's own shape is unchanged.
+  const withheldCauses = new Map<string, StatementConflictCause>();
+  const causeKey = (field: string, text: string): string => JSON.stringify([field, text]);
   let muted = 0;
   const record = (into: { field: string; text: string; periods: string[] }[], field: string, period: string, text: string): void => {
     const existing = into.find((s) => s.field === field && s.text === text);
@@ -1766,9 +1772,14 @@ function createNoteSink(): NoteSink {
     substitute(field: string, period: string, text: string): void {
       if (muted === 0) record(substitutions, field, period, text);
     },
-    withhold(field: string, period: string, text: string): void {
+    withhold(field: string, period: string, text: string, cause?: StatementConflictCause): void {
       withholdAttempts.push(text);
-      if (muted === 0) record(withheld, field, period, text);
+      if (muted !== 0) return;
+      record(withheld, field, period, text);
+      if (cause !== undefined) withheldCauses.set(causeKey(field, text), cause);
+    },
+    causeOf(held: { field: string; text: string }): StatementConflictCause | undefined {
+      return withheldCauses.get(causeKey(held.field, held.text));
     },
     refuse(text: string): void {
       if (muted === 0) refusals.push(text);
@@ -3043,12 +3054,27 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   const partialLease = (["Finance"] as const).find(prefix =>
     cc.resolved.get("capitalLeaseObligations")?.parts?.[`${prefix.toLowerCase()}LeaseLiability`] === undefined &&
     ((cc.money(`${prefix}LeaseLiabilityCurrent`) === null) !== (cc.money(`${prefix}LeaseLiabilityNoncurrent`) === null)));
-  const incomplete = partialLease !== undefined
-    ? `${partialLease} lease liability incomplete: current and noncurrent portions are both required when no tagged total is available; complete debt is withheld`
-    : refusedCurrent ? `incomplete debt carrying value: ${refusedCurrent.text}`
-    : omittedConvertibleCarryingReason(debtView, cc.money("ConvertibleLongTermNotesPayable")) ?? incompleteDebtReason(debtView, cc.money("DebtInstrumentCarryingAmount")) ??
-      uncomposedDebtReason({ ...debtView, financeLeaseLiability: cc.resolved.get("capitalLeaseObligations")?.parts?.["financeLeaseLiability"] ?? null },
+  // P11 (D-218): each branch records its typed cause beside the unchanged sentence; evaluation order is as before.
+  let incomplete: string | null;
+  let incompleteCause: StatementConflictCause | undefined;
+  if (partialLease !== undefined) {
+    incomplete = `${partialLease} lease liability incomplete: current and noncurrent portions are both required when no tagged total is available; complete debt is withheld`;
+  } else if (refusedCurrent) {
+    incomplete = `incomplete debt carrying value: ${refusedCurrent.text}`;
+    if (notes.causeOf(refusedCurrent) === "debt-maturity-scope") incompleteCause = "debt-maturity-scope";
+  } else {
+    const convertible = omittedConvertibleCarryingReason(debtView, cc.money("ConvertibleLongTermNotesPayable"));
+    const principal = convertible ?? incompleteDebtReason(debtView, cc.money("DebtInstrumentCarryingAmount"));
+    if (principal !== null) {
+      incomplete = principal;
+      if (convertible === null) incompleteCause = "debt-components-incomplete";
+    } else {
+      const uncomposed = uncomposedDebtRefusal({ ...debtView, financeLeaseLiability: cc.resolved.get("capitalLeaseObligations")?.parts?.["financeLeaseLiability"] ?? null },
         DEBT_AGGREGATE_TAGS.map((tag) => ({ tag, value: cc.money(tag) })));
+      incomplete = uncomposed?.reason ?? null;
+      incompleteCause = uncomposed?.cause;
+    }
+  }
   if (partialLease !== undefined) {
     v.capitalLeaseObligations = null;
     notes.withhold("capitalLeaseObligations", ctx, incomplete!);
@@ -3056,7 +3082,7 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   if (incomplete !== null) {
     v.totalDebt = null;
     v.netDebt = null;
-    for (const field of ["totalDebt", "netDebt"]) notes.withhold(field, ctx, incomplete);
+    for (const field of ["totalDebt", "netDebt"]) notes.withhold(field, ctx, incomplete, incompleteCause);
     notes.add(`totalDebt ${ctx}: ${incomplete}`);
   }
   v.netDebt ??= sub(v.totalDebt ?? null, v.cashAndCashEquivalents ?? null);
@@ -3175,7 +3201,7 @@ function resolveDebtOverlaps(
   const scopeReason = maturitiesStand ? fiscalMaturityScopeReason(maturities, fiscalRemainder) : null;
   if (scopeReason !== null) {
     v.shortTermDebt = null;
-    notes.withhold("shortTermDebt", ctx, scopeReason);
+    notes.withhold("shortTermDebt", ctx, scopeReason, "debt-maturity-scope");
     notes.add(`shortTermDebt ${ctx}: ${scopeReason}`);
   } else if (maturitiesStand) {
     notes.add(
@@ -3206,7 +3232,7 @@ function resolveDebtOverlaps(
         notes.add(`totalDebt ${ctx}: financing debt is the LongTermDebt total (${v.longTermDebt}), which includes current maturities; only its current/noncurrent split is withheld`);
       }
       v.longTermDebt = null;
-      notes.withhold("longTermDebt", ctx, reason);
+      notes.withhold("longTermDebt", ctx, reason, "debt-noncurrent-allocation");
       notes.add(`longTermDebt ${ctx}: ${reason}`);
     } else if (current !== null) {
       v.longTermDebt = tidy(v.longTermDebt - current, MONEY_DECIMALS);
@@ -3250,7 +3276,7 @@ function resolveDebtOverlaps(
     } else {
       const reason = `noncurrent carrying debt allocation unavailable: ${INCLUSIVE_LONG_TERM_TAG} includes current maturities, which ${currentMaturityLine} also carries, and no current-maturities fact separates them`;
       v.longTermDebt = null;
-      notes.withhold("longTermDebt", ctx, reason);
+      notes.withhold("longTermDebt", ctx, reason, "debt-noncurrent-allocation");
       notes.add(`longTermDebt ${ctx}: ${reason}`);
     }
   }
@@ -3722,8 +3748,10 @@ function buildStatementRows<TRow>(
     } else if (def.statement === "balance") {
       if (values.totalLiabilities != null && !resolutions.has("totalLiabilities")) row.identityDerivedFields = ["totalLiabilities"];
       const refused = notes.withheld.filter((held) => ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermDebt", "longTermDebt", "totalDebt", "netDebt", "totalLiabilities", ...TEMPORARY_EQUITY_FIELDS].includes(held.field) && held.periods.includes(slot.date));
-      if (refused.length > 0) row.fieldConflicts = Object.fromEntries(refused.map((held) => [held.field,
-        { vendorValue: null, secValue: null, usable: false, reason: held.text }]));
+      if (refused.length > 0) row.fieldConflicts = Object.fromEntries(refused.map((held) => {
+        const cause = notes.causeOf(held);
+        return [held.field, { vendorValue: null, secValue: null, usable: false, reason: held.text, ...(cause !== undefined ? { cause } : {}) }];
+      }));
     } else if (def.statement === "cashflow" && values.commonDividendsPaid === null) {
       // Statement-level withholding notes do not travel with a serialized row.
       // Preserve an explicit common-cash refusal so payout cannot infer zero.

@@ -28,6 +28,7 @@
 import "server-only";
 import { quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
 import { coerceVendorNumber } from "@/providers/vendorNumber";
+import type { StatementConflictCause } from "@/types/refusalCause";
 import { buildEstimateTiming, type EstimateTiming } from "@/report/estimateTiming";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getProviderCredential } from "@/ai/store";
@@ -186,7 +187,8 @@ export interface StatementFieldConflict {
   /** False refuses the operand; true retains the observation as an audit trail after resolution. */
   usable: boolean;
   resolution?: "filed-family" | "minor-retained" | "filed-line" | "primary-cash-line";
-  cause?: "revenue-scope" | "operating-basis" | "operating-scope" | "borrowing-cost-scope";
+  /** P11 (D-218): the typed cause, listed once in `@/types/refusalCause`. Absent means unknown, never a default. */
+  cause?: StatementConflictCause;
   reason: string;
   secEvidence?: StatementFieldProvenance;
 }
