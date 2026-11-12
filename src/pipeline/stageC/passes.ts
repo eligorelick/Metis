@@ -1,3 +1,4 @@
+import { withComputationContext } from "@/edgar/computationContext";
 import { supplementalNumericAudit } from "@/report/supplementalNumericAudit";
 /**
  * Stage C — the four grounded LLM pass runners plus report assembly.
@@ -4479,7 +4480,12 @@ function retainedDecisionSources(payload: ContextPayload): { source: string; tex
   return [payload.transcript ?? null, ...(payload.filings ?? [])].filter((excerpt): excerpt is NonNullable<typeof excerpt> => excerpt !== null);
 }
 
+/** Report assembly runs inside one computation context (P13), like Stage B (src/edgar/computationContext.ts). */
 export function assembleReport(args: AssembleReportArgs, generatedAt?: string): Report {
+  return withComputationContext(() => assembleReportInContext(args, generatedAt));
+}
+
+function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string): Report {
   const originalBundle = args.bundle;
   args = { ...args, bundle: balanceIntegrityView(withPrimaryCapitalBasis(args.bundle)) };
   const companyName = firstProfileName(args.bundle) ?? args.symbol;

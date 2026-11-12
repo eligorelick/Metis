@@ -12,6 +12,8 @@ cd Metis
 npm ci
 ```
 
+Install from the lockfile with `npm ci`. Do not regenerate `package-lock.json` with `npm install` on Windows: npm skips the optional wasm32 builds there and can drop their entries from the lock, and CI's `npm ci` then fails. `npm run check:dependencies` (part of `verify`) detects a lock with missing entries.
+
 Copy [`.env.example`](.env.example) to `.env` (`Copy-Item .env.example .env` in PowerShell, `cp .env.example .env` on macOS/Linux). Keep credentials private. No API key is needed for offline tests or the synthetic sample at `/report/sample`. For real keyless SEC research, configure a truthful `EDGAR_CONTACT`; see the [README](README.md#quick-start).
 
 Run `npm run dev` and open http://127.0.0.1:3000. For production locally, run `npm run build` then `npm start`. Normal startup initializes the database; do not run `db:push` as a setup prerequisite. See [operations](docs/OPERATIONS.md) for configuration and recovery.
@@ -20,7 +22,7 @@ Run `npm run dev` and open http://127.0.0.1:3000. For production locally, run `n
 
 Write the failing regression test first for a behavior change, then implement the smallest general fix. Use Vitest and existing neighboring test conventions. `npm run test:watch` supports iteration; `npm run test -- tests/repository.release.test.ts` targets a file.
 
-Tests must not use the live network. The guards in [`tests/setup/`](tests/setup) block live requests and isolate environment/credentials; do not bypass them. Use offline fixtures, mocks and synthetic inputs, including unsupported and missing-data cases. Keep real provider responses, paid report exports and keys out of commits: [data rights](docs/DATA-RIGHTS.md) limit redistribution. Fix general source/period/unit/sector rules, never add ticker-specific code.
+Tests must not use the live network. The guards in [`tests/setup/`](tests/setup) block live requests and isolate environment/credentials; do not bypass them. Use offline fixtures, mocks and synthetic inputs, including unsupported and missing-data cases. Keep real provider responses, paid report exports and keys out of commits: [data rights](docs/DATA-RIGHTS.md) limit redistribution. Fix general source/period/unit/sector rules, never add ticker-specific code. Code comments cite a `docs/METHODOLOGY.md` heading by name, a decision id (`D-nn`) or an audit finding id, never a retired section number.
 
 Before submitting, run:
 

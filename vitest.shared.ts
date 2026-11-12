@@ -63,6 +63,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/edgar/extract.ts",
   "src/edgar/xbrl.ts",
   "src/edgar/statements.ts",
+  "src/edgar/computationContext.ts",
   "src/edgar/filedPresentation.ts",
   "src/edgar/instanceFacts.ts",
   "src/edgar/retainedClassEconomics.ts",
