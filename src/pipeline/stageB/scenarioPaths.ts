@@ -1,4 +1,5 @@
 /** One deterministic identity for the target table and all projection fans. */
+import { SCENARIO_PATHS_METHOD_VERSION } from "@/report/versions";
 import { convergentFadeWeights, GROWTH_FADE_HALF_LIFE_YEARS, MARGIN_CLAMP_PP, runDcf, type DcfAssumptions, type DcfRunOptions } from "@/pipeline/stageB/valuation";
 
 export interface ScenarioAssumptions {
@@ -22,8 +23,7 @@ export interface ScenarioAssumptions {
   alternatives: { name: "decaying-growth-shock"; bullPerShare: number | null; bearPerShare: number | null; basis: string }[];
 }
 
-// D-99 (AMZN audit finding 11): the correlated margin shift applies only when it moves with its scenario.
-export const SCENARIO_PATHS_METHOD_VERSION = "SHARED_SCENARIO_PATHS_2026_10_D99" as const;
+export { SCENARIO_PATHS_METHOD_VERSION } from "@/report/versions";
 
 /**
  * D-60: mean-reverting scenario shocks. A ±σ growth shift held for all ten

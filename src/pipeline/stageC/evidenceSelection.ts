@@ -1,27 +1,11 @@
+import { EVIDENCE_SELECTION_VERSION, NOTES_RISK_SELECTION_VERSION, EVENT_SELECTION_VERSION } from "@/report/versions";
 import { materialCreditSupportClauses } from "@/edgar/currentReports";
 import { confirmedQuarterResultsSchedules } from "@/edgar/earningsSchedule";
 
 /** Pure, bounded source selection. Offsets always refer to the original source. */
-export const EVIDENCE_SELECTION_VERSION = "section-evidence-8";
-/**
- * The notes and risk readings. section-evidence-4 (D-99, AMZN audit findings
- * 6 and 16): the performance-obligations family and the pending-case clauses
- * for government cases, their relief, fines and scheduled trials.
- */
-export const NOTES_RISK_SELECTION_VERSION = "section-evidence-7";
-/**
- * The 8-K event reading. section-evidence-5 (AI-101): a passage that refers to
- * a person by honorific and surname, or by a leading pronoun, is kept only
- * together with the sentence that introduces that person, and an award of
- * shares ranks like a dollar amount. Not -3: that numeral was the notes/risk
- * selector until D-99, and a version string must not change its method.
- * section-evidence-6 (FIGR paid audit R1): the operative passages are kept in
- * tiers, the dated lead first, then the amounts, then the passages that only
- * define a party; a dated lead may follow an item sub-heading ("Merger
- * Agreement On June 10, 2026"), a defined term may be printed with spaces inside
- * its quotes, and an amount may be written out in digits ("$532,426,000").
- */
-export const EVENT_SELECTION_VERSION = "section-evidence-7";
+export { EVIDENCE_SELECTION_VERSION } from "@/report/versions";
+export { NOTES_RISK_SELECTION_VERSION } from "@/report/versions";
+export { EVENT_SELECTION_VERSION } from "@/report/versions";
 export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs", "operating-costs", "commercial-terms"] as const;
 /**
  * D-63: 10-K Item 1 (Business) families. A business description carries few
