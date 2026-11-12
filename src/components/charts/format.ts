@@ -16,7 +16,6 @@
 // Tabular formatters (axis ticks, tooltips)
 // ---------------------------------------------------------------------------
 
-const EN_DASH = "–"; // – for ranges
 const EM_DASH = "—"; // — for null cells
 
 /**
@@ -141,7 +140,7 @@ export function fiscalYear(iso: string | null | undefined): string {
   return iso.slice(0, 4);
 }
 
-export { EN_DASH, EM_DASH };
+export { EM_DASH };
 
 // ---------------------------------------------------------------------------
 // Rebase to 100 (relative-strength chart)
