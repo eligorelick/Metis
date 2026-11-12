@@ -22,8 +22,18 @@ export function debtPresentationSections(edgar: Pick<EdgarBundle, "tenQNotes" | 
 }
 
 const DAY = 86_400_000;
+/** Pure memo of the day check: the answer depends on the string alone. Bounded for long-lived processes. */
+const VALID_DAY_MEMO = new Map<string, boolean>();
+const VALID_DAY_MEMO_LIMIT = 200_000;
 function validDay(day: unknown): day is string {
-  return typeof day === "string" && /^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day;
+  if (typeof day !== "string") return false;
+  let valid = VALID_DAY_MEMO.get(day);
+  if (valid === undefined) {
+    valid = /^\d{4}-\d{2}-\d{2}$/.test(day) && Number.isFinite(Date.parse(day)) && new Date(day).toISOString().slice(0, 10) === day;
+    if (VALID_DAY_MEMO.size >= VALID_DAY_MEMO_LIMIT) VALID_DAY_MEMO.clear();
+    VALID_DAY_MEMO.set(day, valid);
+  }
+  return valid;
 }
 const span = (p: FactPoint) => p.start ? (Date.parse(p.end) - Date.parse(p.start)) / DAY : null;
 const newest = (points: FactPoint[]) => [...points].sort((a, b) => b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn))[0];

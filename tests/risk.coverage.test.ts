@@ -50,6 +50,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/edgar/extract.ts",
   "src/edgar/xbrl.ts",
   "src/edgar/statements.ts",
+  "src/edgar/computationContext.ts",
   "src/edgar/filedPresentation.ts",
   "src/edgar/instanceFacts.ts",
   "src/edgar/retainedClassEconomics.ts",
