@@ -101,8 +101,56 @@ const show = (value: FrozenJson | undefined): string => {
   return text.length > 160 ? `${text.slice(0, 157)}...` : text;
 };
 
-/** Leaf-level differences, frozen versus today; then key/element order if every leaf agrees. */
-export function diffFrozen(frozen: FrozenJson, today: FrozenJson): { paths: string[]; lines: string[] } {
+/**
+ * The value exactly as it is written, hashed and read back: a JSON round trip.
+ * Comparing anything else would let the pin see a difference the file and its
+ * hash cannot hold (an `undefined` member, a Date, NaN), or miss one they do.
+ */
+export function normalizeFrozen(value: FrozenJson): FrozenJson {
+  return JSON.parse(JSON.stringify(value)) as FrozenJson;
+}
+
+const isObject = (value: FrozenJson | undefined): value is { [key: string]: FrozenJson } =>
+  value !== null && value !== undefined && typeof value === "object" && !Array.isArray(value);
+
+/**
+ * Object key-order differences, found independently of value differences. In
+ * every object present in both records, the keys the two share must keep their
+ * relative order; each shared key whose position among them moved is reported
+ * as a changed path (one line per object). Array order needs no separate check:
+ * an element is addressed by its index, so a reordered array shows as value
+ * differences at the moved indices.
+ */
+function orderDifferences(frozen: FrozenJson, today: FrozenJson, at: string, paths: string[], lines: string[]): void {
+  if (Array.isArray(frozen) && Array.isArray(today)) {
+    for (let index = 0; index < Math.min(frozen.length, today.length); index += 1) {
+      orderDifferences(frozen[index]!, today[index]!, `${at}[${index}]`, paths, lines);
+    }
+    return;
+  }
+  if (!isObject(frozen) || !isObject(today)) return;
+  const shared = new Set(Object.keys(frozen).filter((key) => Object.hasOwn(today, key)));
+  const beforeOrder = Object.keys(frozen).filter((key) => shared.has(key));
+  const afterOrder = Object.keys(today).filter((key) => shared.has(key));
+  const moved = beforeOrder.filter((key, position) => afterOrder[position] !== key);
+  if (moved.length > 0) {
+    paths.push(...moved.map((key) => `${at}${segment(key)}`));
+    lines.push(`${at}: key order changed: frozen ${show(beforeOrder)} -> today ${show(afterOrder)}`);
+  }
+  for (const key of beforeOrder) orderDifferences(frozen[key]!, today[key]!, `${at}${segment(key)}`, paths, lines);
+}
+
+/**
+ * Every difference between the frozen record and today's output, as changed
+ * paths (what a refresh scope must cover) and report lines (what the pin
+ * prints): leaf values, added or removed leaves, type changes, null versus
+ * absent, and object key order. This is the one definition of frozen-record
+ * equality: the pin passes, and a refresh finds nothing to record, exactly
+ * when it returns no paths, which is exactly when the record hashes agree.
+ */
+export function diffFrozen(frozenRecord: FrozenJson, todayOutput: FrozenJson): { paths: string[]; lines: string[] } {
+  const frozen = normalizeFrozen(frozenRecord);
+  const today = normalizeFrozen(todayOutput);
   const before = flattenFrozen(frozen);
   const after = flattenFrozen(today);
   const beforeMap = new Map(before);
@@ -124,14 +172,8 @@ export function diffFrozen(frozen: FrozenJson, today: FrozenJson): { paths: stri
       lines.push(`${leaf}: frozen (absent) -> today ${show(value)}`);
     }
   }
-  if (paths.length === 0) {
-    const index = before.findIndex(([leaf], position) => after[position]![0] !== leaf);
-    if (index >= 0) {
-      paths.push(before[index]![0]);
-      lines.push(`order changed at leaf ${index}: frozen ${before[index]![0]} -> today ${after[index]![0]}`);
-    }
-  }
-  return { paths, lines };
+  orderDifferences(frozen, today, "$", paths, lines);
+  return { paths: [...new Set(paths)], lines };
 }
 
 /**
@@ -286,7 +328,7 @@ export function expectFrozenRecord(target: FrozenTarget, today: FrozenJson): voi
     refreshedThisProcess.add(target);
     const previous = readFrozenRecord(target);
     const entry = planFrozenRefresh(target, previous, today, request);
-    writeFileSync(FROZEN_TARGETS[target], `${formatFrozen(today)}\n`, "utf8");
+    writeFileSync(FROZEN_TARGETS[target], `${formatFrozen(normalizeFrozen(today))}\n`, "utf8");
     writeFileSync(FROZEN_LOG_PATH, `${JSON.stringify([...readFrozenLog(), entry], null, 2)}\n`, "utf8");
   }
   const frozen = readFrozenRecord(target);

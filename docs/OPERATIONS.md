@@ -384,10 +384,12 @@ npm run freeze:refresh -- --target stagec-payload --decision D-123 --scope '$.fi
 
 `--target` is `stagec-payload` or `audit-fixture`. The decision must be a
 `D-nnn` entry in `docs/audit/DECISIONS.md`, the reason at least 60 characters,
-and `--scope` the leaf-path prefixes expected to change. The refresh is refused
-when any changed leaf lies outside the scope, when the scope is the whole
-record, when nothing changed, or under CI; a normal test run never sets its
-variables. Each refresh appends date, decision, reason, scope, before/after
+and `--scope` the leaf-path prefixes expected to change. Key order is part of
+the record: a reordered object reports each moved key as a changed path, and a
+reordered array reports each moved index, alongside any value change. The
+refresh is refused when any changed path lies outside the scope, when the
+scope is the whole record, when nothing changed, or under CI; a normal test run
+never sets its variables. Each refresh appends date, decision, reason, scope, before/after
 hash and changed paths to `tests/fixtures/frozen/refresh-log.json`, and a test
 requires the log's last entry to match each committed record, so a hand edit or
 an unlogged re-record fails. Commit the record and its log entry together.
