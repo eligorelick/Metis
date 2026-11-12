@@ -84,6 +84,18 @@ describe("withComputationContext", () => {
     });
   });
 
+  it("keeps nothing it cannot copy, so each caller computes its own", () => {
+    let computed = 0;
+    const input = {};
+    withComputationContext(() => {
+      const make = () => ({ n: ++computed, f: () => 1 });
+      const first = memoize("t", input, null, make);
+      const second = memoize("t", input, null, make);
+      expect([first.n, second.n]).toEqual([1, 2]);
+      expect(first).not.toBe(second);
+    });
+  });
+
   it("clears on return and on throw, so nothing leaks into the next run", () => {
     const input = { v: 1 };
     const read = () => memoize("t", input, null, () => ({ v: input.v }));

@@ -118,8 +118,16 @@ export function memoize<T>(namespace: string, input: object | string, args: unkn
   // The stored value is never handed out: the first caller also gets a copy,
   // so no caller holds a reference into the stored result or into its input.
   const value = compute();
+  let copy: T;
+  try {
+    copy = structuredClone(value);
+  } catch {
+    // Not copyable (it holds a function or similar): hand the value to this
+    // caller alone and keep nothing, so later callers compute their own.
+    return value;
+  }
   slot.set(value);
-  return structuredClone(value);
+  return copy;
 }
 
 /**
