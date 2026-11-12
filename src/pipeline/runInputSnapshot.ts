@@ -1,3 +1,4 @@
+import { STAGE_B_IMPLEMENTATION_VERSION, RUN_INPUT_SNAPSHOT_FORMAT } from "@/report/versions";
 import type { DataBundle } from "@/pipeline/types";
 import { createHash } from "node:crypto";
 import { z } from "zod";
@@ -6,58 +7,8 @@ import { SCORE_BANDS_VERSION } from "@/pipeline/stageB/grading";
 import { DUAL_WRITTEN_CONFLICT_CAUSES, type StatementConflictCause } from "@/types/refusalCause";
 import { CONFLICT_CAUSES_READ_BY_CODE } from "@/edgar/refusalCauseRead";
 
-export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
-// NVDA_AUDIT_2 (D-65..D-68): all eligible consensus windows, non-operating
-// investment add-backs, quote-date discounting, consistent EV multiples and
-// effective scenario shocks. Earlier snapshots require their original engine.
-// D-72: missing interest, acquisition payments and segment-history safeguards.
-// D-73: preserve debt refusals instead of using incomplete or older balances.
-// D-83 adds explicit EPS-convention metadata; financial arithmetic is retained.
-// D-84: common-payout history excludes explicit source refusals, including total zero.
-// IREN source-scope corrections: disjoint cash investment/FCF, historical share admission, EPS and class-scope refusals. Old stored reports/snapshots retain their original contracts.
-// Separate AFFO comparability and unresolved company/security-model admission.
-// D-97: instrument-class financing debt, debt plausibility, operating-lease portion scope and zero/immaterial NCI.
-// D-98: SEC-statement investment stakes and their tax, YoY guided pace, improving-margin fade, one-off margin seed and gain-inflated P/E.
-// D-99: SBC beyond negative FCF, loss-year ROIC at the marginal-rate floor, recent buyback timing, bounded reverse DCF, scenario margin direction, seasonal consensus calendarization and lease-consistent leverage.
-// D-100: noncurrent notes and inclusive long-term debt read once, a refused maturity bucket that no longer withholds an inclusive total or stands in beside a balance sheet with no current portion, debt plausibility on the average and collapse tests, bounded revenue guides and the depositary-share market cap withheld.
-// D-102: the DCF domain tests, the trailing excess-return start, the start-return grid and NCI on the earnings key.
-// D-103: annual or zero-shield WACC tax rates, principal-versus-carrying debt band, vendor-filed agreement at display precision, D&A composed from depreciation and amortization, and class-tagged issuer-economic market cap.
-// D-104: filed retirement and environmental obligations in the DCF bridge, the regulated-utility overlay, the issuer's own sales-to-capital history and no WACC on equity-valued routes.
-// D-105: a basic count for an untagged diluted count at equal EPS, the multi-class diluted count, equity-statement NCI, the average debt behind a refused balance, EBIT under a filed non-operating aggregate, restricted-cash restrictions and a narrower combined cash total, cash-flow recoveries, managed care on the general route and Piotroski leverage on a composed long-term debt.
-// D-106: current debt securities tagged DebtSecuritiesCurrent read as short-term investments in the keyless statements.
-// D-107: the EV bridge note's amounts printed with grouped digits, and the grid guard note says its cells are withheld.
-// D-108: net income attributable to the parent derived as ProfitLoss less NCI income when NetIncomeLoss is not filed, and read as parent income.
-// D-111: the risk-free rate from the bundle's riskFreeFallback (last cached DGS10, then the Treasury par curve) when DGS10 and FMP treasury have none, and a degraded-inputs entry in fairValue.reasons naming each substituted input.
-// D-112: newer 10-Q instance facts merged into companyfacts, an undated release ordered by filing, a newer release's dollars bound to a single-currency history, each multiple's period, the non-bracketing scenario fan withheld, continuing-operations EPS and the economic issuer of a re-presented predecessor's rows.
-// D-124 (audit 2026-10-27 B3): the discovery size screen compares an established or same-market listing only, the peer collection records each read profile's listing currency, and the capex/D&A average counts its years. Stage A records a `validation.providerGeography` gap when provider geography is withheld.
-// D-133 (audit 2026-10-29, AMZN #51): a noncurrent-only vendor lease line completed from its filing, a vendor short-term debt of 0 beside filed current debt withheld, the vendor path's undisclosed stakes filled with the D-98 chain, and refusals named in net debt, EV, the DCF gap, fair value and ROIC.
-// D-134 (audit 2026-10-27 B13): the EDGAR rows Stage B reads change meaning. A synonym below its own filed component is no longer the total (D&A, R&D, a bank's interest income); the derived EBIT removes the filer's other non-operating line and reads pretax through the filed chain; the interest and aggregate placement is keyed on the period; a quarter derived from a year or year-to-date figure is on one filed presentation or withheld; the vendor enrichment pairs on one presentation with a 1%-capped derived allowance (FIN-511-V2); the one-time-items rule discloses when it was not evaluated.
-// D-135 (audit 2026-10-27 B4a): the equity bridge, the market EV and invested capital count each claim once. Redeemable equity, pension and OPEB deficits, loss contingencies and contingent consideration enter the bridge, debt-like lines are deducted after tax, the covered operating lease enters sales-to-capital, and the divisor in a loss period is named; a stored Stage B result is recomputed.
-// D136 / B5a Tasks 1, 2, 3 and 3b: 13/52-week flow bases, filed weekday
-// calendars, guided-quarter season and twelve-month floor, ex-item disclosure.
-// D-137 (B6): financial-route currency/eligibility, admitted reverse-return share basis, buyback coverage,
-// revenue refusal, ADR Altman scope, common-equity/gain/scope peer comparisons and same-construction P/E ranking.
-// D-138 report-53 batch: receivables continuity and descriptive lease evidence on the retained debt basis.
-// F-01/F-02: issuer admission and fiscal identity change deterministic operands.
-// FIG live test: current cash-flow bridge discloses unestablished vendor capex
-// scope instead of asserting the mixed series is cash PP&E only. Values unchanged.
-// FIG report audit: source admission now withholds independently contradicted
-// historical EPS/share fields and admits dated compact guidance. Older input
-// snapshots require their original engine; do not relabel their materialized rows.
-// FIN-401 / FIN-401-V1 (B4b): an old Stage B result used the earlier equity-method reading and must be recomputed.
-// D-173: a lagging annual balance feed is filled with the fiscal-year-end quarterly balance of the same date.
-// D-174: a debt collapse no disclosed debt cash flow explains is withheld when interest cannot judge it.
-// D-178 / D-179: foreign-currency statements are valued at one dated FX rate, and same-filing debt completion, complete-balance
-// WACC, the annual-EBIT synthetic rating and the NCI synonyms change which valuations compute.
-// D-186 / D-188: evidence-backed coverage, calibrated foreign revenue consensus, proved operating income,
-// corroborated filer share units and the immaterial stale NCI key change which values compute and what they are.
-// D-210: source-scope corrections change admitted valuation and return inputs.
-// D-211: preserve original vendor net debt when filed cash is reconciled.
-// D-212: quarterly cash/earnings scope and actual WACC input dates.
-// D-214: direct quarterly release EPS/shares require canonical, covered split-basis agreement.
-// D-215: operating-revenue concept corroboration and capitalized-interest evidence change calculation inputs.
-// Primary capital evidence is acquired before truncation and admitted on one shared source basis.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_PRIMARY_CAPITAL_66" as const;
+export { RUN_INPUT_SNAPSHOT_FORMAT } from "@/report/versions";
+export { STAGE_B_IMPLEMENTATION_VERSION } from "@/report/versions";
 export interface SnapshotVersions { stageB: string; reportSpec: string; scoreBands: string }
 export interface SnapshotArtifactIdentity { methodArtifactHash: string; dependencyLockHash: string; codeCommit: string | null; dirtyDiffHash: string | null }
 export interface SnapshotCustody extends SnapshotArtifactIdentity { status: "local-content-identity"; normalizedSourceContentHash: string }

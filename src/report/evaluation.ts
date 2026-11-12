@@ -6,11 +6,12 @@
  * Definitions and actuals are operator-supplied evidence: matching metadata is
  * necessary for comparability, not independent verification of that evidence.
  */
+import { EVALUATION_POLICY_VERSION } from "@/report/versions";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { artifactIsBound, evidenceObservationV2Schema, matchObservation, retainedArtifactSchema, targetDefinitionV2Schema, type ObservationExclusionReason } from "@/evaluation/targetDefinition";
 
-export const EVALUATION_POLICY_VERSION = "REPORT_EVALUATION_2026_10_V1" as const;
+export { EVALUATION_POLICY_VERSION } from "@/report/versions";
 const nonempty = z.string().trim().min(1);
 const date = z.iso.date();
 const timestamp = z.iso.datetime();

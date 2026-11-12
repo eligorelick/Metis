@@ -1,8 +1,8 @@
+import { LEGACY_SCOPE_SINCE_SPEC, LEGACY_PLACEHOLDER_DISPLAY_CUTOFF } from "@/report/versions";
 import type { Report } from "@/report/schema";
 import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 
-/** D-138: frozen independently from the bridge, annualization and share-basis cutoffs. */
-export const LEGACY_SCOPE_SINCE_SPEC = "1.53.0";
+export { LEGACY_SCOPE_SINCE_SPEC } from "@/report/versions";
 export const LEGACY_SCOPE_HEADING = "Read-time saved-report clarifications";
 
 function version(report: Pick<Report, "meta">): string {
@@ -60,8 +60,7 @@ export function withLegacyScopeQualifications(report: Report): Report {
   return flags.every((flag, i) => flag === report.quality.flags[i]) ? report : { ...report, quality: { ...report.quality, flags } };
 }
 
-/** RPT-215: frozen display boundary, never tied to the current writer stamp. */
-export const LEGACY_PLACEHOLDER_DISPLAY_CUTOFF = "1.56.0";
+export { LEGACY_PLACEHOLDER_DISPLAY_CUTOFF } from "@/report/versions";
 export function withLegacyPlaceholderSafety(report: Report): Report {
  if (!specVersionBefore(version(report), LEGACY_PLACEHOLDER_DISPLAY_CUTOFF) || report.fairValue !== undefined) return report;
  const placeholder = (n: Report["valuation"]["dcf"]["perShare"]) => n?.value === 0 && n.source === "pipeline" && n.asOf === null;

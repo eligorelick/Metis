@@ -28,6 +28,7 @@
  * disclosing missingReasons[] — a target is SUPPRESSED, never fabricated.
  */
 
+import { SCENARIO_TARGET_METHOD_VERSION } from "@/report/versions";
 import {
   dcfDomainFailure,
   excessReturnValue,
@@ -50,13 +51,7 @@ import { valuationUseExplanation } from "./valuationUse";
 
 /** Method id stamped into the block. */
 export const SCENARIO_TARGET_METHOD = "dcf-dispersion" as const;
-/** Versioned method prior — bump when the construction changes. */
-// D-99 (AMZN audit finding 11): the correlated margin shift applies only when it moves with its scenario.
-// D-102 (audit 2026-10-22 B-29, E-5): a run outside the DCF's domain withholds the fan; the bridge applies the NCI earnings key.
-// D-135 (audit 2026-10-27 B4a): the bridge each target re-runs changed (redeemable equity and debt-like obligations counted once, after tax), so every target is recomputed.
-// FIN-401 / FIN-401-V1: every target re-runs the corrected stake/operating-income bridge.
-// D-178 / D-179: every target re-runs the FX-converted, completed-debt bridge.
-export const SCENARIO_TARGET_METHOD_VERSION = "SCENARIO_TARGETS_2026_11_CURRENT_VALUATION_USE_58" as const;
+export { SCENARIO_TARGET_METHOD_VERSION } from "@/report/versions";
 
 export interface ScenarioTargetsInputs {
   route: CompanyRouteResult;

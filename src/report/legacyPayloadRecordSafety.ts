@@ -1,3 +1,4 @@
+import { PAYLOAD_RECORD_CORRECTION_SPEC } from "@/report/versions";
 import { providerGeographyContradiction, type GeographyContradiction } from "@/edgar/segmentFacts";
 import { listingSuffix } from "@/pipeline/peers";
 import { normalizeFinancialUnit, unitCurrency } from "@/report/format";
@@ -14,7 +15,7 @@ import type { Report, TracedNumber } from "@/report/schema";
  * Every note below is a fixed string: no provider, filing or model text reaches
  * it, because those are untrusted.
  */
-export const PAYLOAD_RECORD_CORRECTION_SPEC = "1.45.0";
+export { PAYLOAD_RECORD_CORRECTION_SPEC } from "@/report/versions";
 export const PAYLOAD_RECORD_CORRECTION_FIELD = "presentation.payloadRecords";
 export const PAYLOAD_RECORD_CORRECTION_NOTE =
   "Deterministic presentation correction: foreign peer market caps shown without a currency, insider transaction counts shown as shares, the capex/D&A average label, the data-only FRED unit sentences, provider geography the report's own XBRL segment tables contradict, and the data-only label that called the fiscal-year FCF conversion graded; the displayed coverage counts exclude the corrected entries; no analyst or model rerun occurred; the stored report and its recorded counts are unchanged.";
