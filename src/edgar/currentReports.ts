@@ -784,6 +784,33 @@ export interface OperatingRevenueBridge {
 /** A complete consolidated income-table reconciliation, never a segment table
  * or a headline. Every column must bind to a printed date and reconcile. */
 export function parseOperatingRevenueBridge(rawText: string): OperatingRevenueBridge[] {
+  // A pure function of the text (P13: computed once, read everywhere). The
+  // memo is keyed by the full text itself, so a hit can only return what this
+  // exact text produces; every caller gets its own copy.
+  const memo = OPERATING_REVENUE_BRIDGE_MEMO.get(rawText);
+  if (memo !== undefined) return structuredClone(memo);
+  const parsed = parseOperatingRevenueBridgeUncached(rawText);
+  rememberOperatingRevenueBridge(rawText, structuredClone(parsed));
+  return parsed;
+}
+
+/** Bounded by retained text length so a long-lived process holds at most a few filings' text. */
+const OPERATING_REVENUE_BRIDGE_MEMO = new Map<string, OperatingRevenueBridge[]>();
+const OPERATING_REVENUE_BRIDGE_MEMO_CHARS = 32_000_000;
+let operatingRevenueBridgeMemoChars = 0;
+
+function rememberOperatingRevenueBridge(text: string, parsed: OperatingRevenueBridge[]): void {
+  if (text.length > OPERATING_REVENUE_BRIDGE_MEMO_CHARS) return;
+  for (const [oldest] of OPERATING_REVENUE_BRIDGE_MEMO) {
+    if (operatingRevenueBridgeMemoChars + text.length <= OPERATING_REVENUE_BRIDGE_MEMO_CHARS) break;
+    OPERATING_REVENUE_BRIDGE_MEMO.delete(oldest);
+    operatingRevenueBridgeMemoChars -= oldest.length;
+  }
+  OPERATING_REVENUE_BRIDGE_MEMO.set(text, parsed);
+  operatingRevenueBridgeMemoChars += text.length;
+}
+
+function parseOperatingRevenueBridgeUncached(rawText: string): OperatingRevenueBridge[] {
   const text = normalizeFilingText(rawText);
   const cells = String.raw`((?:\$?\s*\(?\s*-?\s*\d[\d,]*(?:\.\d+)?\s*\)?\s*){1,8})`;
   const sales = String.raw`(?:Sales(?: and other operating revenues?)?|Net sales|Operating revenues?)`;
