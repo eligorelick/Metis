@@ -523,3 +523,90 @@ describe("review round 1: both variants of the FFO depreciation note are read (f
     expect(figures.get("fv.ffo.shares")?.value).toBe(73);
   });
 });
+
+describe("review round 2: the newest filing wins across balance representations (P2, P7)", () => {
+  // A total line and its components are alternatives for one balance at 2025-12-31.
+  const A = "0000000001-26-000011"; // filed 2026-02-01
+  const B = "0000000001-26-000012"; // filed 2026-03-01
+  const C = "0000000001-26-000013"; // filed 2026-03-15
+  const at = (val: number, accn: string, filed: string, form = "10-K") => fact(undefined, "2025-12-31", val, accn, form, filed);
+  const cashAndSti = DEFAULT_RECIPES["cashAndShortTermInvestments.latest"]!;
+  const resolveAt = (recipe: Recipe, rows: CompanyFacts) => resolveReference(recipe, "@2025-12-31", rows, "USD", "2026-10-29");
+  const accnsOf = (result: ReturnType<typeof resolveAt>) => ("reason" in result ? [] : [...new Set(result.points.map((point) => point.accn))]);
+
+  it("takes newer filed components over an older filed total", () => {
+    const rows = facts({
+      CashCashEquivalentsAndShortTermInvestments: { USD: [at(100, A, "2026-02-01")] },
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(120, B, "2026-03-01", "10-K/A")] },
+      ShortTermInvestments: { USD: [at(30, B, "2026-03-01", "10-K/A")] },
+    });
+    const result = resolveAt(cashAndSti, rows);
+    expect("reason" in result ? result.reason : result.value).toBe(150);
+    expect(accnsOf(result)).toEqual([B]);
+    expect("reason" in result ? [] : result.notes.join(" ")).toMatch(/newer filing wins: filed line = 100 in 10-K 0000000001-26-000011/);
+    // The same rule holds for the lease recipes.
+    const leases = facts({
+      OperatingLeaseLiability: { USD: [at(50, A, "2026-02-01")] },
+      OperatingLeaseLiabilityCurrent: { USD: [at(12, B, "2026-03-01", "10-K/A")] },
+      OperatingLeaseLiabilityNoncurrent: { USD: [at(44, B, "2026-03-01", "10-K/A")] },
+    });
+    expect(resolveAt(DEFAULT_RECIPES["operatingLeases.latest"]!, leases)).toMatchObject({ value: 56 });
+    // Before the newer filing exists, the older total stands (P2).
+    expect(resolveReference(cashAndSti, "@2025-12-31", rows, "USD", "2026-02-28")).toMatchObject({ value: 100 });
+  });
+
+  it("takes a newer filed total over older filed components", () => {
+    const rows = facts({
+      CashCashEquivalentsAndShortTermInvestments: { USD: [at(100, B, "2026-03-01", "10-K/A")] },
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(120, A, "2026-02-01")] },
+      ShortTermInvestments: { USD: [at(30, A, "2026-02-01")] },
+    });
+    const result = resolveAt(cashAndSti, rows);
+    expect("reason" in result ? result.reason : result.value).toBe(100);
+    expect(accnsOf(result)).toEqual([B]);
+  });
+
+  it("uses the recipe's order only to break a tie within one filing", () => {
+    const rows = facts({
+      CashCashEquivalentsAndShortTermInvestments: { USD: [at(100, A, "2026-02-01")] },
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(120, A, "2026-02-01")] },
+      ShortTermInvestments: { USD: [at(30, A, "2026-02-01")] },
+    });
+    expect(resolveAt(cashAndSti, rows)).toMatchObject({ value: 100, notes: [] });
+    const reversed: Recipe = { op: "first", alternatives: [...(cashAndSti as Extract<Recipe, { op: "first" }>).alternatives].reverse() };
+    expect(resolveAt(reversed, rows)).toMatchObject({ value: 150 });
+    // Inside a composed balance the filing is pinned, so every alternative ties and the order decides.
+    const debt = facts({
+      LongTermDebtNoncurrent: { USD: [at(1_000, A, "2026-02-01")] },
+      OperatingLeaseLiability: { USD: [at(50, A, "2026-02-01")] },
+      OperatingLeaseLiabilityCurrent: { USD: [at(12, A, "2026-02-01"), at(13, B, "2026-03-01", "10-K/A")] },
+      OperatingLeaseLiabilityNoncurrent: { USD: [at(44, A, "2026-02-01"), at(45, B, "2026-03-01", "10-K/A")] },
+    });
+    const total = resolveAt(DEFAULT_RECIPES["totalDebtIncludingLeases.latest"]!, debt);
+    expect("reason" in total ? total.reason : total.value).toBe(1_050);
+    expect(accnsOf(total)).toEqual([A]);
+  });
+
+  it("never composes a newer total from components split across filings", () => {
+    const rows = facts({
+      CashCashEquivalentsAndShortTermInvestments: { USD: [at(100, A, "2026-02-01")] },
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(120, B, "2026-03-01", "10-K/A")] },
+      ShortTermInvestments: { USD: [at(30, C, "2026-03-15", "10-K/A")] },
+    });
+    const result = resolveAt(cashAndSti, rows);
+    // Filing B presents cash with no short-term line; filing C carries no cash, so it cannot compose the balance.
+    expect("reason" in result ? result.reason : result.value).toBe(120);
+    expect(accnsOf(result)).toEqual([B]);
+    // With every component required, the split parts compose nothing and the filed total stands.
+    const required: Recipe = { op: "first", alternatives: [
+      { op: "instant", concepts: ["CashCashEquivalentsAndShortTermInvestments"] },
+      { op: "sum", terms: [
+        { role: "cash", sign: 1, recipe: { op: "instant", concepts: ["CashAndCashEquivalentsAtCarryingValue"] } },
+        { role: "short-term investments", sign: 1, recipe: { op: "instant", concepts: ["ShortTermInvestments"] } },
+      ] },
+    ] };
+    const strict = resolveAt(required, rows);
+    expect("reason" in strict ? strict.reason : strict.value).toBe(100);
+    expect(accnsOf(strict)).toEqual([A]);
+  });
+});

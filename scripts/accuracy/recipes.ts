@@ -38,7 +38,10 @@ export type Recipe =
   | { op: "instant"; concepts: string[]; unit?: string; absence?: AbsenceRuleName }
   /** Signed terms from one filing (instants) or one period (flows); an optional term may be absent. */
   | { op: "sum"; terms: { role: string; sign: 1 | -1; recipe: Recipe; optional?: boolean }[] }
-  /** The first alternative that resolves (e.g. a filed total line, else its filed components). */
+  /**
+   * Alternative representations of one figure (e.g. a filed total line, or its filed components): the alternative from
+   * the newest filing wins (P2); the order only breaks a tie on the filing date (see `newestAlternative`).
+   */
   | { op: "first"; alternatives: Recipe[] }
   /** Numerator over denominator, times `scale`. */
   | { op: "ratio"; numerator: Recipe; denominator: Recipe; scale: number }
@@ -382,13 +385,17 @@ function resolve(recipe: Recipe, period: Period, ctx: Context, accn?: string): R
     case "first": {
       const reasons: string[] = [];
       const needsInstance: string[] = [];
+      const resolved: ResolvedReference[] = [];
       for (const alternative of recipe.alternatives) {
-        const resolved = resolve(alternative, period, ctx, accn);
-        if (!("reason" in resolved)) return resolved;
-        reasons.push(resolved.reason);
-        needsInstance.push(...(resolved.needsInstance ?? []));
+        const result = resolve(alternative, period, ctx, accn);
+        if ("reason" in result) {
+          reasons.push(result.reason);
+          needsInstance.push(...(result.needsInstance ?? []));
+        } else resolved.push(result);
       }
-      return { reason: reasons.join("; or "), ...(needsInstance.length > 0 ? { needsInstance: [...new Set(needsInstance)] } : {}) };
+      // An alternative still waiting on a filing's own instance could be the newest: decide only once it is read.
+      if (needsInstance.length > 0) return { reason: reasons.join("; or "), needsInstance: [...new Set(needsInstance)] };
+      return newestAlternative(resolved) ?? { reason: reasons.join("; or ") };
     }
     case "ratio": {
       const numerator = resolve(recipe.numerator, period, ctx, accn);
@@ -415,7 +422,32 @@ function resolve(recipe: Recipe, period: Period, ctx: Context, accn?: string): R
 }
 
 function newestFiled(derivation: FiledDerivation): string {
-  return derivation.operands.reduce((latest, operand) => (operand.point.filed > latest ? operand.point.filed : latest), "");
+  return latestFiled(derivation.operands.map((operand) => operand.point));
+}
+
+/** The filing date a resolved value stands on: its newest operand's (one filing for a composed balance, P7). */
+function latestFiled(points: readonly { filed: string }[]): string {
+  return points.reduce((latest, point) => (point.filed > latest ? point.filed : latest), "");
+}
+
+/**
+ * Alternative representations of one figure (a filed total line, or its filed components): every alternative that
+ * resolves is a candidate, and the one from the newest filing on or before the cutoff wins (P2). The recipe's order
+ * only breaks a tie on the filing date. A composed alternative stands on the one filing all its parts come from (a sum
+ * at an instant pins it, P7), so parts are never mixed across filings to build a newer total. A superseded alternative
+ * that states a different value is noted.
+ */
+function newestAlternative(candidates: readonly ResolvedReference[]): ResolvedReference | null {
+  let best: ResolvedReference | null = null;
+  for (const candidate of candidates) {
+    // Strictly newer only: on an equal filing date the earlier alternative keeps its place.
+    if (best === null || latestFiled(candidate.points) > latestFiled(best.points)) best = candidate;
+  }
+  if (best === null) return null;
+  const superseded = candidates.filter((candidate) => candidate !== best && latestFiled(candidate.points) < latestFiled(best!.points) && candidate.value !== best!.value);
+  if (superseded.length === 0) return best;
+  const where = (ref: ResolvedReference) => [...new Set(ref.points.map((point) => `${point.form} ${point.accn} (filed ${point.filed})`))].join(", ");
+  return { ...best, notes: [...best.notes, ...superseded.map((older) => `newer filing wins: ${older.formula} = ${older.value} in ${where(older)} is superseded`)] };
 }
 
 function single(point: FiledPoint, period: string, kind: ReferenceKind): ResolvedReference | Unresolved {
