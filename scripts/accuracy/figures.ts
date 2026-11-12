@@ -14,6 +14,8 @@
  * it negative).
  */
 
+import type { FigureUnit } from "./lib";
+
 export type FigureGroup = "statement" | "current" | "valuation";
 
 export interface MetisFigure {
@@ -23,7 +25,7 @@ export interface MetisFigure {
   value: number | null;
   period: string | null;
   /** Unit of the stored value: "currency", "currency/share", "shares" or "%". */
-  unit: "currency" | "currency/share" | "shares" | "%";
+  unit: FigureUnit;
   currency: string | null;
   /** Where the value was read (Stage B path). */
   source: string;
@@ -185,16 +187,23 @@ export function extractFigures(stageB: Json, report: Json): MetisFigure[] {
     add({ id: "fv.dilutedShares", label: "Excess-return per-share divisor (latest weighted-average diluted shares)", group: "valuation", value: num(stageB, "valuation.excessReturn.scenarioEvidence.dilutedShares"), period: asOf ? `LATEST-PERIOD:${asOf}` : null, unit: "shares", currency: null, source: "valuation.excessReturn.scenarioEvidence.dilutedShares", reportNote: num(stageB, "valuation.excessReturn.scenarioEvidence.dilutedShares") === null ? shorten(str(stageB, "fairValue.reasons.0.reason") ?? "") || undefined : undefined });
     add({ id: "fv.payoutRatio", label: "Excess-return year-one payout ratio (common dividends + net buybacks over income to common, up to 3-year average)", group: "valuation", value: num(stageB, "valuation.excessReturn.payoutRatioPct.value"), period: fyPeriod(fyEnd), unit: "%", currency: null, source: "valuation.excessReturn.payoutRatioPct.value", reportNote: shorten(str(stageB, "valuation.excessReturn.payoutRatioPct.basis") ?? str(stageB, "fairValue.reasons.0.reason") ?? "") || undefined });
   } else if (kind === "reit") {
-    const ffoNote = ((at(stageB, "valuation.reit.notes") as string[] | undefined) ?? []).find((note) => note.startsWith("FFO")) ?? null;
+    const ffoNote = reitFfoNote(stageB);
     const reitAsOf = str(stageB, "valuation.reit.asOf");
     const period = fyPeriod(reitAsOf);
     const ffoNotePart = (label: string, pattern: RegExp, id: string) =>
       add({ id, label, group: "valuation", value: noteNumber(ffoNote, pattern), period, unit: "currency", currency: statementCurrency, source: `valuation.reit.notes[FFO] (${label})`, reportNote: ffoNote ? undefined : "no FFO reconstruction note" });
     ffoNotePart("net income", /net income (-?\d+(?:\.\d+)?)/, "fv.ffo.netIncome");
-    ffoNotePart("total depreciation and amortization", /total depreciation and amortization (-?\d+(?:\.\d+)?)/, "fv.ffo.depreciationAmortization");
+    // computeNareitFfo (src/pipeline/stageB/financialMetrics.ts) adds back either the filer's real-estate depreciation
+    // or, when none is tagged, total depreciation and amortization; each is its own figure with its own filed line.
+    if (ffoNote && /\breal-estate depreciation and amortization -?\d/.test(ffoNote)) {
+      ffoNotePart("real-estate depreciation and amortization", /real-estate depreciation and amortization (-?\d+(?:\.\d+)?)/, "fv.ffo.realEstateDepreciationAmortization");
+    } else {
+      ffoNotePart("total depreciation and amortization", /total depreciation and amortization (-?\d+(?:\.\d+)?)/, "fv.ffo.depreciationAmortization");
+    }
     ffoNotePart("gains on property sales", /gains on property sales (-?\d+(?:\.\d+)?)/, "fv.ffo.gainsOnSale");
     ffoNotePart("impairments", /impairments (-?\d+(?:\.\d+)?)/, "fv.ffo.impairments");
-    const ffoTotal = noteNumber(ffoNote, /= (-?\d+(?:\.\d+)?)\. APPROXIMATE/);
+    // The note ends "= <FFO>." and, when approximate, continues " APPROXIMATE: ...".
+    const ffoTotal = noteNumber(ffoNote, /= (-?\d+(?:\.\d+)?)\.(?: APPROXIMATE|$)/);
     const ffoPerShare = num(stageB, "valuation.reit.ffoPerShare");
     add({ id: "fv.ffo.shares", label: "FFO per-share divisor (FFO ÷ FFO per share)", group: "valuation", value: ffoTotal !== null && ffoPerShare ? Math.round(ffoTotal / ffoPerShare) : null, period, unit: "shares", currency: null, source: "FFO total in valuation.reit.notes ÷ valuation.reit.ffoPerShare", reportNote: "the divisor is not stored; it is FFO over FFO per share, rounded to a whole share" });
   }
@@ -204,6 +213,12 @@ export function extractFigures(stageB: Json, report: Json): MetisFigure[] {
     add({ id: "runway.liquidAssets", label: "Runway liquid assets", group: "valuation", value: num(stageB, "runway.liquidAssets"), period: liquidAsOf ? `@${liquidAsOf}` : null, unit: "currency", currency: currentCurrency, source: "runway.liquidAssets", reportNote: shorten(str(stageB, "runway.liquidAssetsBasis") ?? "") || undefined });
   }
   return figures;
+}
+
+/** The FFO reconstruction note ("FFO (...) = net income N + ... depreciation and amortization N ..."), not the other FFO notes. */
+export function reitFfoNote(stageB: Json): string | null {
+  const notes = (at(stageB, "valuation.reit.notes") as unknown[] | undefined) ?? [];
+  return notes.find((note): note is string => typeof note === "string" && /^FFO\b[^=]*= net income -?\d/.test(note)) ?? null;
 }
 
 function fallback(stageB: Json): string | undefined {

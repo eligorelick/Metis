@@ -51,7 +51,7 @@ export interface FiledPoint {
 }
 
 /** Periodic report forms whose financial statements carry the filed values. */
-const STATEMENT_FORMS = new Set(["10-K", "10-Q", "20-F", "40-F", "10-K/A", "10-Q/A", "20-F/A", "40-F/A", "10-KT", "10-QT"]);
+export const STATEMENT_FORMS: ReadonlySet<string> = new Set(["10-K", "10-Q", "20-F", "40-F", "10-K/A", "10-Q/A", "20-F/A", "40-F/A", "10-KT", "10-QT"]);
 
 export function dayNumber(date: string): number {
   const ms = Date.parse(`${date.slice(0, 10)}T00:00:00Z`);
@@ -127,24 +127,36 @@ function dedupeRestated(rows: { accn: string; filed: string; val: number }[]): {
   });
 }
 
-export function selectDuration(facts: CompanyFacts, concepts: readonly string[], unit: string, query: PeriodQuery, cutoff: string): FiledPoint | null {
-  for (const concept of concepts) {
-    const point = pickNewest(factsFor(facts, concept, unit).filter((fact) => durationMatches(fact, query)), concept, unit, cutoff);
-    if (point) return point;
+/**
+ * The newest filing across equivalent concept aliases (P2): each alias's newest
+ * admitted fact is a candidate, the candidate filed latest on or before the
+ * cutoff wins, and the configured concept order only breaks a tie on the filing
+ * date. Restatements are those of the chosen concept (another alias in an
+ * older filing can be a different definition, not a restatement).
+ */
+function pickAcrossAliases(perConcept: readonly { concept: string; unit: string; candidates: SecFact[] }[], cutoff: string): FiledPoint | null {
+  let best: FiledPoint | null = null;
+  for (const { concept, unit, candidates } of perConcept) {
+    const point = pickNewest(candidates, concept, unit, cutoff);
+    // Strictly newer only: on an equal filing date the earlier-configured alias keeps its place.
+    if (point && (best === null || point.filed > best.filed)) best = point;
   }
-  return null;
+  return best;
+}
+
+export function selectDuration(facts: CompanyFacts, concepts: readonly string[], unit: string, query: PeriodQuery, cutoff: string): FiledPoint | null {
+  return pickAcrossAliases(concepts.map((concept) => ({ concept, unit, candidates: factsFor(facts, concept, unit).filter((fact) => durationMatches(fact, query)) })), cutoff);
 }
 
 export function selectInstant(facts: CompanyFacts, concepts: readonly string[], unit: string, end: string, cutoff: string, accn?: string): FiledPoint | null {
-  for (const concept of concepts) {
-    const candidates = factsFor(facts, concept, unit).filter((fact) => fact.start === undefined && fact.end === end && (accn === undefined || fact.accn === accn));
-    const point = pickNewest(candidates, concept, unit, cutoff);
-    if (point) return point;
-  }
-  return null;
+  return pickAcrossAliases(concepts.map((concept) => ({
+    concept,
+    unit,
+    candidates: factsFor(facts, concept, unit).filter((fact) => fact.start === undefined && fact.end === end && (accn === undefined || fact.accn === accn)),
+  })), cutoff);
 }
 
-/** The latest fiscal-year fact (10-K/20-F) ending strictly before `before`, for one concept. */
+/** The latest fiscal-year fact (10-K/20-F) ending strictly before `before`, across every given concept alias. */
 export function latestFiscalYearEnd(facts: CompanyFacts, concepts: readonly string[], unit: string, before: string, cutoff: string): string | null {
   let best: string | null = null;
   for (const concept of concepts) {
@@ -155,7 +167,6 @@ export function latestFiscalYearEnd(facts: CompanyFacts, concepts: readonly stri
       if (!/^(10-K|20-F|40-F|10-KT)/.test(fact.form)) continue;
       if (best === null || fact.end > best) best = fact.end;
     }
-    if (best !== null) return best;
   }
   return best;
 }
@@ -179,6 +190,14 @@ export function buildTtm(facts: CompanyFacts, concepts: readonly string[], unit:
     const fy = selectDuration(facts, concepts, unit, { end, durationDays: FISCAL_YEAR_DAYS }, cutoff);
     return fy ? { value: fy.val, formula: "fiscal year", operands: [{ role: "fiscal year", sign: 1, point: fy }] } : null;
   }
+  // Each alias builds its own identity from its own operands; across aliases the newest filing wins (P2): the
+  // newest current-year-to-date filing, then the newest fiscal-year filing; concept order only breaks a tie.
+  let best: FiledDerivation | null = null;
+  const newer = (a: FiledDerivation, b: FiledDerivation) => {
+    const [aFy, aYtd] = [a.operands[0]!.point.filed, a.operands[1]!.point.filed];
+    const [bFy, bYtd] = [b.operands[0]!.point.filed, b.operands[1]!.point.filed];
+    return aYtd > bYtd || (aYtd === bYtd && aFy > bFy);
+  };
   for (const concept of concepts) {
     const fy = selectDuration(facts, [concept], unit, { end: fiscalYearEnd, durationDays: FISCAL_YEAR_DAYS }, cutoff);
     if (!fy?.start) continue;
@@ -190,7 +209,7 @@ export function buildTtm(facts: CompanyFacts, concepts: readonly string[], unit:
       && Math.abs(dayNumber(fact.end) - (dayNumber(end) - 365)) <= 7);
     const prior = pickNewest(priorCandidates, concept, unit, cutoff);
     if (!prior) continue;
-    return {
+    const candidate: FiledDerivation = {
       value: fy.val + ytd.val - prior.val,
       formula: "fiscal year + current year to date − prior-year year to date",
       operands: [
@@ -199,8 +218,9 @@ export function buildTtm(facts: CompanyFacts, concepts: readonly string[], unit:
         { role: "prior-year year to date", sign: -1, point: prior },
       ],
     };
+    if (best === null || newer(candidate, best)) best = candidate;
   }
-  return null;
+  return best;
 }
 
 // ------------------------------------------------- filing XBRL instance
@@ -273,6 +293,66 @@ export function parseXbrlInstance(xml: string, meta: { accn: string; form: strin
   return out;
 }
 
+/** One numeric fact of a filing's own XBRL instance, dimensional or not, under any taxonomy (extensions included). */
+export interface InstanceFact {
+  /** Local element name, e.g. "MinorityInterest". */
+  name: string;
+  /** Unit as "USD", "USD/shares", "shares", "pure". */
+  unit: string;
+  start?: string;
+  end: string;
+  val: number;
+  /** "Axis=Member" local names of the context's explicit and typed members; empty for an undimensioned fact. */
+  members: string[];
+}
+
+/**
+ * Every numeric, non-nil fact of one filing's XBRL instance, keeping each
+ * context's dimension members. Used to establish what a filing does NOT
+ * disclose: companyfacts drops dimensional facts, so it cannot show that a
+ * balance is absent from the filing (e.g. NCI disclosed only on
+ * StatementEquityComponentsAxis, as src/edgar/equityStatementNci.ts reads it).
+ */
+export function scanXbrlInstance(xml: string): InstanceFact[] {
+  const local = (qname: string) => qname.trim().replace(/^[^:]*:/, "");
+  const contexts = new Map<string, { start?: string; end: string; members: string[] }>();
+  for (const match of xml.matchAll(/<(?:[A-Za-z0-9_-]+:)?context\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/(?:[A-Za-z0-9_-]+:)?context>/g)) {
+    const body = match[2]!;
+    const members: string[] = [];
+    for (const member of body.matchAll(/<(?:[A-Za-z0-9_-]+:)?explicitMember\b[^>]*\bdimension="([^"]+)"[^>]*>([^<]+)</g)) members.push(`${local(member[1]!)}=${local(member[2]!)}`);
+    for (const member of body.matchAll(/<(?:[A-Za-z0-9_-]+:)?typedMember\b[^>]*\bdimension="([^"]+)"[^>]*>/g)) members.push(`${local(member[1]!)}=typed`);
+    const instant = /<(?:[A-Za-z0-9_-]+:)?instant>\s*([0-9-]{10})/.exec(body)?.[1];
+    const start = /<(?:[A-Za-z0-9_-]+:)?startDate>\s*([0-9-]{10})/.exec(body)?.[1];
+    const end = /<(?:[A-Za-z0-9_-]+:)?endDate>\s*([0-9-]{10})/.exec(body)?.[1];
+    if (instant) contexts.set(match[1]!, { end: instant, members });
+    else if (start && end) contexts.set(match[1]!, { start, end, members });
+  }
+  const units = new Map<string, string>();
+  for (const match of xml.matchAll(/<(?:[A-Za-z0-9_-]+:)?unit\b[^>]*\bid="([^"]+)"[^>]*>([\s\S]*?)<\/(?:[A-Za-z0-9_-]+:)?unit>/g)) {
+    const body = match[2]!;
+    const numerator = /<(?:[A-Za-z0-9_-]+:)?unitNumerator>[\s\S]*?<(?:[A-Za-z0-9_-]+:)?measure>([^<]+)</.exec(body)?.[1];
+    const denominator = /<(?:[A-Za-z0-9_-]+:)?unitDenominator>[\s\S]*?<(?:[A-Za-z0-9_-]+:)?measure>([^<]+)</.exec(body)?.[1];
+    const measure = /<(?:[A-Za-z0-9_-]+:)?measure>([^<]+)</.exec(body)?.[1];
+    if (numerator && denominator) units.set(match[1]!, `${unitName(numerator)}/${unitName(denominator)}`);
+    else if (measure) units.set(match[1]!, unitName(measure));
+  }
+  const out: InstanceFact[] = [];
+  for (const match of xml.matchAll(/<([A-Za-z0-9_-]+):([A-Za-z0-9_]+)\b([^>]*?)(?<!\/)>([^<]*)<\/\1:\2>/g)) {
+    const attributes = match[3]!;
+    if (/xsi:nil="true"/.test(attributes)) continue;
+    const contextRef = /\bcontextRef="([^"]+)"/.exec(attributes)?.[1];
+    const unitRef = /\bunitRef="([^"]+)"/.exec(attributes)?.[1];
+    if (!contextRef || !unitRef) continue;
+    const context = contexts.get(contextRef);
+    const unit = units.get(unitRef);
+    const text = match[4]!.trim();
+    const value = Number(text);
+    if (!context || !unit || text === "" || !Number.isFinite(value)) continue;
+    out.push({ name: match[2]!, unit, ...(context.start ? { start: context.start } : {}), end: context.end, val: value, members: context.members });
+  }
+  return out;
+}
+
 /** companyfacts plus the facts of filings it has not ingested; a fact already present for the same filing is kept once. */
 export function mergeFacts(base: CompanyFacts, extra: CompanyFacts): CompanyFacts {
   const merged: CompanyFacts = { ...base, facts: structuredClone(base.facts) };
@@ -297,7 +377,37 @@ export type FigureStatus = "match" | "mismatch" | "gap" | "not-established";
 /** How a filed reference value was obtained. */
 export type ReferenceKind = "filed" | "derived" | "ratio";
 
-export interface ReferenceValue {
+/** What a compared value measures: an amount in a currency, an amount per share in a currency, a share count or a percent. */
+export type FigureUnit = "currency" | "currency/share" | "shares" | "%";
+
+/** The measure a value is stated in; currency is null for shares and percents. */
+export interface Measure {
+  unit: FigureUnit;
+  currency: string | null;
+}
+
+/** The measure of an XBRL unit such as "USD", "USD/shares", "shares" in the filer's statement currency, or null when it is none of these. */
+export function measureOfXbrlUnit(unit: string): Measure | null {
+  if (unit === "shares") return { unit: "shares", currency: null };
+  let match = /^([A-Z]{3})$/.exec(unit);
+  if (match) return { unit: "currency", currency: match[1]! };
+  match = /^([A-Z]{3})\/shares$/.exec(unit);
+  if (match) return { unit: "currency/share", currency: match[1]! };
+  return null;
+}
+
+/** Why two measures disagree (P3 unit and share basis, P4 currency), or null when they agree. */
+export function measureDisagreement(metis: Measure, filed: Measure): string | null {
+  if (metis.unit !== filed.unit) return `Metis states the figure in ${metis.unit}, the filed reference in ${filed.unit}: not the same measure (P3)`;
+  if (metis.currency !== filed.currency) {
+    return metis.currency === null
+      ? `Metis states no currency for the figure; the filed reference is in ${filed.currency} (P4)`
+      : `Metis states the figure in ${metis.currency}, the filed reference is in ${filed.currency ?? "no currency"} (P4)`;
+  }
+  return null;
+}
+
+export interface ReferenceValue extends Measure {
   kind: ReferenceKind;
   value: number;
   /** Operands whose rounding a derived value inherits (P8 `vendorAgreesWithDerived`). */
@@ -312,11 +422,13 @@ export interface Classification {
 /**
  * Metis's figure against the filed reference. A withheld figure is a disclosed
  * gap; a reference that could not be established never yields a match; a
- * period other than the reference's is a mismatch whatever the value.
+ * period other than the reference's is a mismatch whatever the value, and so is
+ * a value in another unit, share basis or currency (P3, P4).
  */
 export function classifyFigure(input: {
   metis: number | null;
   metisPeriod: string;
+  metisMeasure: Measure;
   reference: ReferenceValue | null;
   referencePeriod: string | null;
 }): Classification {
@@ -325,6 +437,8 @@ export function classifyFigure(input: {
   if (input.metisPeriod !== input.referencePeriod) {
     return { status: "mismatch", detail: `period ${input.metisPeriod} differs from the filed reference period ${input.referencePeriod}` };
   }
+  const disagreement = measureDisagreement(input.metisMeasure, input.reference);
+  if (disagreement) return { status: "mismatch", detail: disagreement };
   if (sameObservation(input.metis, input.reference)) return { status: "match", detail: "same observation (P8 owner)" };
   return { status: "mismatch", detail: `differs by ${formatNumber(input.metis - input.reference.value)} (${relativeGap(input.metis, input.reference.value)})` };
 }

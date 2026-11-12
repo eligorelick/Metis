@@ -9,23 +9,29 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { validateReferenceCutoff } from "../scripts/accuracy/check";
+import { buildEntry } from "../scripts/accuracy/fetch";
 import { extractFigures } from "../scripts/accuracy/figures";
+import type { ReferenceFile } from "../scripts/accuracy/files";
 import {
   buildTtm,
   classifyFigure,
   cutoffDate,
   diffExpectation,
+  latestFiscalYearEnd,
   mergeFacts,
   parseXbrlInstance,
+  scanXbrlInstance,
   selectDuration,
   selectInstant,
   updateExpectation,
   valueHash,
   type CompanyFacts,
   type ExpectationEntry,
+  type InstanceFact,
   type SecFact,
 } from "../scripts/accuracy/lib";
-import { resolveReference, type Recipe } from "../scripts/accuracy/recipes";
+import { DEFAULT_RECIPES, resolveReference, type CompanyConfig, type Recipe } from "../scripts/accuracy/recipes";
 
 const K = "0000000001-26-000001"; // 10-K
 const Q = "0000000001-26-000002"; // 10-Q
@@ -120,29 +126,34 @@ describe("filed reference recipes", () => {
     ] };
     const result = resolveReference(recipe, "@2026-06-30", balance, "USD", "2026-10-29");
     expect("reason" in result ? result.reason : result.value).toBe(6);
-    const none = resolveReference({ op: "instant", concepts: ["MinorityInterest"], absentMeansNone: true }, "@2026-06-30", balance, "USD", "2026-10-29");
+    // An absent NCI line is a filed zero only once the filing's own instance shows no other NCI disclosure.
+    const unread = resolveReference({ op: "instant", concepts: ["MinorityInterest"], absence: "noncontrolling-interest" }, "@2026-06-30", balance, "USD", "2026-10-29");
+    expect(unread).toMatchObject({ needsInstance: [Q] });
+    const clean = [{ name: "Cash", unit: "USD", end: "2026-06-30", val: 4, members: [] }];
+    const none = resolveReference({ op: "instant", concepts: ["MinorityInterest"], absence: "noncontrolling-interest" }, "@2026-06-30", balance, "USD", "2026-10-29", { [Q]: clean });
     expect("reason" in none ? none.reason : none.value).toBe(0);
   });
 });
 
 describe("classification uses the P8 owner", () => {
+  const usd = { unit: "currency" as const, currency: "USD" };
   it("treats a filer reporting unit as the same observation and a percent-scale gap as a mismatch", () => {
-    const filed = { kind: "filed" as const, value: 5_749_377_000 };
-    expect(classifyFigure({ metis: 5_749_400_000, metisPeriod: "FY:2025-12-31", reference: filed, referencePeriod: "FY:2025-12-31" }).status).toBe("match");
-    expect(classifyFigure({ metis: 5_810_000_000, metisPeriod: "FY:2025-12-31", reference: filed, referencePeriod: "FY:2025-12-31" }).status).toBe("mismatch");
+    const filed = { kind: "filed" as const, value: 5_749_377_000, ...usd };
+    expect(classifyFigure({ metis: 5_749_400_000, metisPeriod: "FY:2025-12-31", metisMeasure: usd, reference: filed, referencePeriod: "FY:2025-12-31" }).status).toBe("match");
+    expect(classifyFigure({ metis: 5_810_000_000, metisPeriod: "FY:2025-12-31", metisMeasure: usd, reference: filed, referencePeriod: "FY:2025-12-31" }).status).toBe("mismatch");
   });
 
   it("lets a derived value use its operands' rounding, capped at 1%", () => {
-    const derived = { kind: "derived" as const, value: 302_970_000_000, operands: [215_938_000_000, 180_000_000_000, 92_968_000_000] };
-    expect(classifyFigure({ metis: 302_969_000_000, metisPeriod: "TTM:a..b", reference: derived, referencePeriod: "TTM:a..b" }).status).toBe("match");
-    const small = { kind: "derived" as const, value: 1_000_000, operands: [3_000_000, 2_000_000] };
-    expect(classifyFigure({ metis: 2_000_000, metisPeriod: "p", reference: small, referencePeriod: "p" }).status).toBe("mismatch");
+    const derived = { kind: "derived" as const, value: 302_970_000_000, operands: [215_938_000_000, 180_000_000_000, 92_968_000_000], ...usd };
+    expect(classifyFigure({ metis: 302_969_000_000, metisPeriod: "TTM:a..b", metisMeasure: usd, reference: derived, referencePeriod: "TTM:a..b" }).status).toBe("match");
+    const small = { kind: "derived" as const, value: 1_000_000, operands: [3_000_000, 2_000_000], ...usd };
+    expect(classifyFigure({ metis: 2_000_000, metisPeriod: "p", metisMeasure: usd, reference: small, referencePeriod: "p" }).status).toBe("mismatch");
   });
 
   it("reports a withheld figure as a gap, an unproven reference as not established, and another period as a mismatch", () => {
-    expect(classifyFigure({ metis: null, metisPeriod: "p", reference: null, referencePeriod: null }).status).toBe("gap");
-    expect(classifyFigure({ metis: 1, metisPeriod: "p", reference: null, referencePeriod: null }).status).toBe("not-established");
-    const result = classifyFigure({ metis: 223.35, metisPeriod: "FY:2024-12-31", reference: { kind: "filed", value: 223.35 }, referencePeriod: "FY:2025-12-31" });
+    expect(classifyFigure({ metis: null, metisPeriod: "p", metisMeasure: usd, reference: null, referencePeriod: null }).status).toBe("gap");
+    expect(classifyFigure({ metis: 1, metisPeriod: "p", metisMeasure: usd, reference: null, referencePeriod: null }).status).toBe("not-established");
+    const result = classifyFigure({ metis: 223.35, metisPeriod: "FY:2024-12-31", metisMeasure: usd, reference: { kind: "filed", value: 223.35, ...usd }, referencePeriod: "FY:2025-12-31" });
     expect(result).toMatchObject({ status: "mismatch" });
     expect(result.detail).toMatch(/period/);
   });
@@ -272,9 +283,9 @@ describe("accuracy CLIs", () => {
     fs.mkdirSync(caseDir, { recursive: true });
     const stageB = { route: { base: "general" }, capital: { asOf: "2025-12-31", interestCoverage: { ebit: 79_975_000_000 } }, growth: {}, gaps: [], valuation: { kind: "multiples" }, fairValue: { status: "available" } };
     fs.writeFileSync(path.join(caseDir, "stageB.json"), JSON.stringify(stageB));
-    fs.writeFileSync(path.join(caseDir, "report.json"), JSON.stringify({ filingDisclosures: { currency: "USD" } }));
-    const reference = { about: "", source: "", builtFrom: "", cases: {}, entries: [
-      { case: "amzn-data-only", figure: "operatingIncome.fy", period: "FY:2025-12-31", value: 79_975_000_000, kind: "filed", operands: [79_975_000_000], points: [], notes: [] },
+    fs.writeFileSync(path.join(caseDir, "report.json"), JSON.stringify({ filingDisclosures: { currency: "USD" }, meta: { evidenceTiming: { cutoffAt: "2026-10-29T15:09:25.377Z" } } }));
+    const reference = { about: "", source: "", builtFrom: "", cases: { "amzn-data-only": { ticker: "AMZN", cik: 1, entityName: null, cutoffAt: "2026-10-29T09:00:00.000Z", currency: "USD" } }, entries: [
+      { case: "amzn-data-only", figure: "operatingIncome.fy", period: "FY:2025-12-31", value: 79_975_000_000, kind: "filed", unit: "currency", currency: "USD", operands: [79_975_000_000], points: [], notes: [] },
     ] };
     const referenceFile = path.join(root, "reference.json");
     fs.writeFileSync(referenceFile, JSON.stringify(reference));
@@ -291,5 +302,224 @@ describe("accuracy CLIs", () => {
     const fail = run("check.ts", args);
     expect(fail.status).toBe(1);
     expect(fail.stdout).toContain("WORSE: amzn-data-only operatingIncome.fy — match -> mismatch");
+
+    // A run whose cutoff is not the one the reference was built for fails loudly, naming the case and both cutoffs.
+    fs.writeFileSync(path.join(caseDir, "report.json"), JSON.stringify({ filingDisclosures: { currency: "USD" }, meta: { evidenceTiming: { cutoffAt: "2026-08-01T12:00:00.000Z" } } }));
+    const stale = run("check.ts", args);
+    expect(stale.status).toBe(1);
+    expect(stale.stderr).toContain("amzn-data-only");
+    expect(stale.stderr).toContain("2026-08-01T12:00:00.000Z");
+    expect(stale.stderr).toContain("2026-10-29T09:00:00.000Z");
+    expect(stale.stderr).toMatch(/rebuild the filed reference/);
+  });
+});
+
+describe("review round 1: the reference is valid only for its own cutoff (P2)", () => {
+  const reference = (cutoffAt: string, filed = "2026-07-31"): ReferenceFile => ({
+    about: "", source: "", builtFrom: "",
+    cases: { c: { ticker: "C", cik: 1, entityName: null, cutoffAt, currency: "USD" } },
+    entries: [{ case: "c", figure: "cash", period: "@2026-06-30", value: 70, kind: "filed", unit: "currency", currency: "USD", points: [{ concept: "Cash", unit: "USD", end: "2026-06-30", val: 70, form: "10-Q", accn: Q, filed, role: "filed line", sign: 1 }] }],
+  });
+
+  it("accepts a run whose cutoff falls on the reference's cutoff day", () => {
+    const ref = reference("2026-10-29T01:00:00.000Z");
+    expect(() => validateReferenceCutoff("c", "2026-10-29T23:59:00.000Z", ref, ref.entries)).not.toThrow();
+  });
+
+  it("refuses a reference built for another cutoff, naming the case and both cutoffs", () => {
+    const ref = reference("2026-10-29T01:00:00.000Z");
+    expect(() => validateReferenceCutoff("c", "2026-07-15T00:00:00.000Z", ref, ref.entries)).toThrow(/c: the run's evidence cutoff 2026-07-15T00:00:00.000Z differs from the cutoff the filed reference was built for \(2026-10-29T01:00:00.000Z\); rebuild/);
+    expect(() => validateReferenceCutoff("c", "2026-11-30T00:00:00.000Z", ref, ref.entries)).toThrow(/differs from the cutoff/);
+  });
+
+  it("refuses a reference with no recorded cutoff, a report with none, and an operand filed after the run's cutoff", () => {
+    const ref = reference("2026-10-29T01:00:00.000Z");
+    expect(() => validateReferenceCutoff("other", "2026-10-29T01:00:00.000Z", ref, [])).toThrow(/records no evidence cutoff/);
+    expect(() => validateReferenceCutoff("c", null, ref, ref.entries)).toThrow(/states no evidence cutoff/);
+    const tampered = reference("2026-10-29T01:00:00.000Z", "2026-10-30");
+    expect(() => validateReferenceCutoff("c", "2026-10-29T01:00:00.000Z", tampered, tampered.entries)).toThrow(/uses 10-Q .* filed 2026-10-30, after the run's evidence cutoff/);
+  });
+});
+
+describe("review round 1: currency and unit must agree before a match (P3, P4)", () => {
+  const usd = { unit: "currency" as const, currency: "USD" };
+  it("never matches a value in another currency, unit or share basis, however close the number", () => {
+    const filedTwd = { kind: "filed" as const, value: 1_000, unit: "currency" as const, currency: "TWD" };
+    const result = classifyFigure({ metis: 1_000, metisPeriod: "p", metisMeasure: usd, reference: filedTwd, referencePeriod: "p" });
+    expect(result).toEqual({ status: "mismatch", detail: "Metis states the figure in USD, the filed reference is in TWD (P4)" });
+    const perShare = { kind: "filed" as const, value: 1_000, unit: "currency/share" as const, currency: "USD" };
+    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", metisMeasure: usd, reference: perShare, referencePeriod: "p" }).detail).toMatch(/currency\/share: not the same measure \(P3\)/);
+    const shares = { kind: "filed" as const, value: 1_000, unit: "shares" as const, currency: null };
+    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", metisMeasure: { unit: "%", currency: null }, reference: shares, referencePeriod: "p" }).status).toBe("mismatch");
+    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", metisMeasure: { unit: "currency", currency: null }, reference: { ...filedTwd, currency: "USD" }, referencePeriod: "p" }).detail).toMatch(/states no currency/);
+    // Control: the same measure still matches through the P8 owner.
+    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", metisMeasure: usd, reference: { ...filedTwd, currency: "USD" }, referencePeriod: "p" }).status).toBe("match");
+  });
+
+  const twd: CompanyConfig = { ticker: "T", case: "t", cik: 1, currency: "TWD", scale: { "fv.dilutedShares": { factor: 0.2, why: "ADS" } } };
+  const filings = facts({
+    Revenues: { TWD: [fact("2025-01-01", "2025-12-31", 3_000, K, "20-F", "2026-04-16")] },
+    WeightedAverageNumberOfDilutedSharesOutstanding: { shares: [fact("2025-01-01", "2025-12-31", 500, K, "20-F", "2026-04-16")] },
+  });
+  const rate = { rate: 0.03, from: "TWD", to: "USD", note: "Valuation translated at one spot rate" };
+
+  it("persists the comparison currency after the report's own translation, and the unit of every reference", () => {
+    const revenue = buildEntry(twd, "fv.startRevenue", "FY:2025-12-31", "USD", filings, "2026-10-29", rate);
+    expect(revenue).toMatchObject({ value: 90, unit: "currency", currency: "USD", kind: "derived" });
+    // Not translated when the figure states the filed currency; a share count carries no currency and is never translated.
+    expect(buildEntry(twd, "revenue.fy", "FY:2025-12-31", "TWD", filings, "2026-10-29", rate)).toMatchObject({ value: 3_000, unit: "currency", currency: "TWD" });
+    expect(buildEntry(twd, "dilutedShares.fy", "FY:2025-12-31", null, filings, "2026-10-29", rate)).toMatchObject({ value: 500, unit: "shares", currency: null });
+    // A figure in a third currency keeps the filed currency, so the check reports the disagreement instead of a match.
+    expect(buildEntry(twd, "fv.startRevenue", "FY:2025-12-31", "EUR", filings, "2026-10-29", rate)).toMatchObject({ value: 3_000, currency: "TWD" });
+  });
+
+  it("reads a ratio of like amounts as a percent and refuses a sum of unlike units", () => {
+    const flows = facts({ Tax: { USD: [fact("2025-01-01", "2025-12-31", 21, K, "10-K", "2026-02-06")] }, Pretax: { USD: [fact("2025-01-01", "2025-12-31", 100, K, "10-K", "2026-02-06")] }, Shares: { shares: [fact("2025-01-01", "2025-12-31", 7, K, "10-K", "2026-02-06")] } });
+    const ratio = resolveReference({ op: "ratio", numerator: { op: "flow", concepts: ["Tax"] }, denominator: { op: "flow", concepts: ["Pretax"] }, scale: 100 }, "FY:2025-12-31", flows, "USD", "2026-10-29");
+    expect(ratio).toMatchObject({ value: 21, measure: { unit: "%", currency: null } });
+    const unlike = resolveReference({ op: "sum", terms: [
+      { role: "amount", sign: 1, recipe: { op: "flow", concepts: ["Tax"] } },
+      { role: "count", sign: 1, recipe: { op: "flow", concepts: ["Shares"], unit: "shares" } },
+    ] }, "FY:2025-12-31", flows, "USD", "2026-10-29");
+    expect("reason" in unlike && unlike.reason).toMatch(/different units or currencies/);
+  });
+});
+
+describe("review round 1: an absent NCI or preferred line is a zero only when the filing proves it (P7, P10)", () => {
+  const balance = facts({
+    StockholdersEquity: { USD: [fact(undefined, "2026-06-30", 500, Q, "10-Q", "2026-07-31")] },
+    Cash: { USD: [fact(undefined, "2026-06-30", 4, Q, "10-Q", "2026-07-31")] },
+  });
+  const nci = DEFAULT_RECIPES["fv.minorityInterest"]!;
+  const preferred = DEFAULT_RECIPES["fv.preferred"]!;
+  const base: InstanceFact[] = [
+    { name: "StockholdersEquity", unit: "USD", end: "2026-06-30", val: 500, members: [] },
+    { name: "Cash", unit: "USD", end: "2026-06-30", val: 4, members: [] },
+  ];
+  const resolveWith = (recipe: Recipe, instance: InstanceFact[] | undefined, period = "@2026-06-30") =>
+    resolveReference(recipe, period, balance, "USD", "2026-10-29", instance ? { [Q]: instance } : {});
+
+  it("leaves it unresolved when no filing on or before the cutoff carries the instant", () => {
+    const result = resolveWith(nci, base, "@2026-09-30");
+    expect("reason" in result && result.reason).toMatch(/no periodic report filed on or before the cutoff .* carrying a balance at 2026-09-30/);
+    expect(resolveReference(nci, "@2026-06-30", balance, "USD", "2026-07-30")).toMatchObject({ reason: expect.stringMatching(/not established/) });
+  });
+
+  it("asks for the filing's own instance before deciding, and never zeroes without it", () => {
+    expect(resolveWith(nci, undefined)).toMatchObject({ needsInstance: [Q], reason: expect.stringMatching(/instance .* was not read/) });
+  });
+
+  it("refuses a zero when the instance discloses NCI another way", () => {
+    const dimensional = resolveWith(nci, [...base, { name: "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", unit: "USD", end: "2026-06-30", val: 12, members: ["StatementEquityComponentsAxis=NoncontrollingInterestMember"] }]);
+    expect("reason" in dimensional && dimensional.reason).toMatch(/NoncontrollingInterestMember/);
+    const redeemable = resolveWith(nci, [...base, { name: "RedeemableNoncontrollingInterestEquityCarryingAmount", unit: "USD", end: "2026-06-30", val: 30, members: [] }]);
+    expect("reason" in redeemable && redeemable.reason).toMatch(/RedeemableNoncontrollingInterestEquityCarryingAmount = 30/);
+    const gap = resolveWith(nci, [...base, { name: "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", unit: "USD", end: "2026-06-30", val: 512, members: [] }]);
+    expect("reason" in gap && gap.reason).toMatch(/total equity including NCI 512 against parent equity 500/);
+    const empty = resolveWith(nci, [{ name: "Cash", unit: "USD", end: "2025-12-31", val: 1, members: [] }]);
+    expect("reason" in empty && empty.reason).toMatch(/carries no balance at 2026-06-30/);
+  });
+
+  it("records a proven absence as a filed zero, and a tagged alias as its own value", () => {
+    const equalTotal = [...base, { name: "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", unit: "USD", end: "2026-06-30", val: 500, members: [] }, { name: "MinorityInterestOwnershipPercentageByParent", unit: "pure", end: "2026-06-30", val: 1, members: [] }];
+    const proven = resolveWith(nci, equalTotal);
+    expect(proven).toMatchObject({ value: 0, formula: "not presented", measure: { unit: "currency", currency: "USD" } });
+    expect("notes" in proven && proven.notes[0]).toMatch(/10-Q 0000000001-26-000002 filed 2026-07-31/);
+    const tagged = facts({ NonredeemableNoncontrollingInterest: { USD: [fact(undefined, "2026-06-30", 9, Q, "10-Q", "2026-07-31")] } });
+    expect(resolveReference(nci, "@2026-06-30", tagged, "USD", "2026-10-29")).toMatchObject({ value: 9 });
+  });
+
+  it("does not let authorized preferred shares block the zero, but issued preferred does", () => {
+    const authorized = [...base, { name: "PreferredStockSharesAuthorized", unit: "shares", end: "2026-06-30", val: 500_000_000, members: [] }, { name: "PreferredStockParOrStatedValuePerShare", unit: "USD/shares", end: "2026-06-30", val: 0.01, members: [] }];
+    expect(resolveWith(preferred, authorized)).toMatchObject({ value: 0 });
+    const issued = resolveWith(preferred, [...authorized, { name: "PreferredStockSharesOutstanding", unit: "shares", end: "2026-06-30", val: 1_000, members: [] }]);
+    expect("reason" in issued && issued.reason).toMatch(/PreferredStockSharesOutstanding = 1000/);
+    const series = resolveWith(preferred, [...base, { name: "StockholdersEquity", unit: "USD", end: "2026-06-30", val: 50, members: ["StatementEquityComponentsAxis=PreferredStockMember"] }]);
+    expect("reason" in series && series.reason).toMatch(/PreferredStockMember/);
+  });
+
+  it("scans every fact of the instance with its dimension members", () => {
+    const xml = `<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:us-gaap="http://fasb.org/us-gaap/2025" xmlns:abc="http://abc.com/2026" xmlns:xbrldi="http://xbrl.org/2006/xbrldi">
+      <xbrli:context id="i"><xbrli:entity><xbrli:identifier scheme="x">1</xbrli:identifier></xbrli:entity><xbrli:period><xbrli:instant>2026-06-30</xbrli:instant></xbrli:period></xbrli:context>
+      <xbrli:context id="n"><xbrli:entity><xbrli:identifier scheme="x">1</xbrli:identifier><xbrli:segment><xbrldi:explicitMember dimension="us-gaap:StatementEquityComponentsAxis">us-gaap:NoncontrollingInterestMember</xbrldi:explicitMember></xbrli:segment></xbrli:entity><xbrli:period><xbrli:instant>2026-06-30</xbrli:instant></xbrli:period></xbrli:context>
+      <xbrli:unit id="usd"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>
+      <us-gaap:StockholdersEquity contextRef="i" unitRef="usd" decimals="-6">500</us-gaap:StockholdersEquity>
+      <us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest contextRef="n" unitRef="usd" decimals="-6">12</us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest>
+      <abc:NoncontrollingInterestInSubsidiary contextRef="i" unitRef="usd" decimals="-6">7</abc:NoncontrollingInterestInSubsidiary>
+    </xbrli:xbrl>`;
+    const scanned = scanXbrlInstance(xml);
+    expect(scanned).toContainEqual({ name: "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", unit: "USD", end: "2026-06-30", val: 12, members: ["StatementEquityComponentsAxis=NoncontrollingInterestMember"] });
+    // An extension element counts too.
+    const extension = resolveWith(nci, scanned.filter((row) => row.members.length === 0));
+    expect("reason" in extension && extension.reason).toMatch(/NoncontrollingInterestInSubsidiary = 7/);
+  });
+});
+
+describe("review round 1: the newest filing wins across concept aliases (P2)", () => {
+  const aliases = facts({
+    Revenues: { USD: [fact("2025-01-01", "2025-12-31", 100, K, "10-K", "2026-02-06")] },
+    RevenueFromContractWithCustomerExcludingAssessedTax: { USD: [fact("2025-01-01", "2025-12-31", 104, Q, "10-Q", "2026-07-31")] },
+  });
+
+  it("takes a later alias's newer filing over an earlier alias's older one", () => {
+    const point = selectDuration(aliases, ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax"], "USD", { end: "2025-12-31", durationDays: { min: 350, max: 380 } }, "2026-10-29");
+    expect(point).toMatchObject({ concept: "RevenueFromContractWithCustomerExcludingAssessedTax", val: 104, accn: Q });
+    // Before the newer filing exists, the older alias stands (P2).
+    expect(selectDuration(aliases, ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax"], "USD", { end: "2025-12-31", durationDays: { min: 350, max: 380 } }, "2026-07-30")?.val).toBe(100);
+  });
+
+  it("uses concept order only to break a tie on the filing date, for instants too", () => {
+    const tie = facts({
+      MinorityInterest: { USD: [fact(undefined, "2026-06-30", 5, Q, "10-Q", "2026-07-31")] },
+      NonredeemableNoncontrollingInterest: { USD: [fact(undefined, "2026-06-30", 6, Q, "10-Q", "2026-07-31"), fact(undefined, "2026-03-31", 1, K, "10-Q", "2026-05-01")] },
+      Older: { USD: [fact(undefined, "2026-06-30", 3, K, "10-Q", "2026-07-01")] },
+    });
+    expect(selectInstant(tie, ["MinorityInterest", "NonredeemableNoncontrollingInterest"], "USD", "2026-06-30", "2026-10-29")?.val).toBe(5);
+    expect(selectInstant(tie, ["NonredeemableNoncontrollingInterest", "MinorityInterest"], "USD", "2026-06-30", "2026-10-29")?.val).toBe(6);
+    expect(selectInstant(tie, ["Older", "MinorityInterest"], "USD", "2026-06-30", "2026-10-29")?.val).toBe(5);
+  });
+
+  it("builds a TTM and finds the latest fiscal year across aliases", () => {
+    const ttmFacts = facts({
+      OldTag: { USD: [
+        fact("2025-01-01", "2025-12-31", 80, K, "10-K", "2026-02-06"),
+        fact("2026-01-01", "2026-06-30", 50, "0000000001-26-000010", "10-Q", "2026-07-20"),
+        fact("2025-01-01", "2025-06-30", 40, "0000000001-26-000010", "10-Q", "2026-07-20"),
+      ] },
+      NewTag: { USD: [
+        fact("2025-01-01", "2025-12-31", 81, K, "10-K", "2026-02-06"),
+        fact("2026-01-01", "2026-06-30", 52, Q, "10-Q", "2026-07-31"),
+        fact("2025-01-01", "2025-06-30", 41, Q, "10-Q", "2026-07-31"),
+        fact("2026-01-01", "2026-12-31", 99, LATE, "10-K", "2027-02-01"),
+      ] },
+    });
+    expect(buildTtm(ttmFacts, ["OldTag", "NewTag"], "USD", "2025-12-31", "2026-06-30", "2026-10-29")?.value).toBe(81 + 52 - 41);
+    expect(resolveReference({ op: "flow", concepts: ["OldTag", "NewTag"] }, "TTM:2025-07-01..2026-06-30", ttmFacts, "USD", "2026-10-29")).toMatchObject({ value: 92 });
+    const years = facts({ A: { USD: [fact("2024-01-01", "2024-12-31", 1, K, "10-K", "2025-02-06")] }, B: { USD: [fact("2025-01-01", "2025-12-31", 2, K, "10-K", "2026-02-06")] } });
+    expect(latestFiscalYearEnd(years, ["A", "B"], "USD", "2026-06-30", "2026-10-29")).toBe("2025-12-31");
+  });
+});
+
+describe("review round 1: both variants of the FFO depreciation note are read (figures.ts)", () => {
+  const reit = (note: string) => ({
+    capital: { asOf: "2025-12-31", current: {} }, growth: {}, gaps: [], fairValue: { status: "available" },
+    valuation: { kind: "reit", reit: { asOf: "2025-12-31", ffoPerShare: 2, notes: ["FFO is approximate because ownership reconciliation is unavailable.", note] } },
+  });
+  const byId = (note: string) => new Map(extractFigures(reit(note), { filingDisclosures: { currency: "USD" } }).map((figure) => [figure.id, figure]));
+
+  it("keeps the real-estate depreciation number as its own figure", () => {
+    const figures = byId("FFO (approximate NAREIT reconstruction) = net income 100 + real-estate depreciation and amortization 40 − gains on property sales 10 (GainLossOnSaleOfProperties) + impairments 6 (ImpairmentOfRealEstate) = 136. APPROXIMATE: ownership reconciliation is unavailable.");
+    expect(figures.get("fv.ffo.realEstateDepreciationAmortization")).toMatchObject({ value: 40, period: "FY:2025-12-31" });
+    expect(figures.has("fv.ffo.depreciationAmortization")).toBe(false);
+    expect(figures.get("fv.ffo.netIncome")?.value).toBe(100);
+    expect(figures.get("fv.ffo.shares")?.value).toBe(68);
+    expect(DEFAULT_RECIPES["fv.ffo.realEstateDepreciationAmortization"]).toMatchObject({ op: "flow" });
+  });
+
+  it("keeps the total variant, and reads a note with no APPROXIMATE tail", () => {
+    const figures = byId("FFO (approximate NAREIT reconstruction) = net income 100 + total depreciation and amortization 50 − gains on property sales 10 (GainLossOnSaleOfProperties) + impairments 6 (ImpairmentOfRealEstate) = 146.");
+    expect(figures.get("fv.ffo.depreciationAmortization")?.value).toBe(50);
+    expect(figures.has("fv.ffo.realEstateDepreciationAmortization")).toBe(false);
+    expect(figures.get("fv.ffo.shares")?.value).toBe(73);
   });
 });

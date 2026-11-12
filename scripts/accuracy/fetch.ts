@@ -19,8 +19,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { extractFigures, dcfTranslationRate } from "./figures";
-import { cutoffDate, mergeFacts, parseXbrlInstance, type CompanyFacts } from "./lib";
-import { recipeFor, resolveReference, type CompanyConfig } from "./recipes";
+import { cutoffDate, mergeFacts, parseXbrlInstance, scanXbrlInstance, type CompanyFacts, type InstanceFact } from "./lib";
+import { recipeFor, resolveReference, type CompanyConfig, type InstanceEvidence } from "./recipes";
 import { REFERENCE_FILE, COMPANIES_FILE, readCompanies, type ReferenceEntry, type ReferenceFile } from "./files";
 
 const REPO = path.resolve(__dirname, "..", "..");
@@ -67,6 +67,15 @@ async function cached(file: string, refresh: boolean, url: string): Promise<stri
   return text;
 }
 
+/** One filing's own XBRL instance document (the `*_htm.xml` an inline-XBRL filing carries). */
+async function instanceXml(cik: number, accn: string, refresh: boolean): Promise<string> {
+  const folder = `https://www.sec.gov/Archives/edgar/data/${cik}/${accn.replace(/-/g, "")}`;
+  const index = JSON.parse(await cached(path.join(CACHE, `index-${accn}.json`), refresh, `${folder}/index.json`)) as { directory: { item: { name: string }[] } };
+  const instance = index.directory.item.map((item) => item.name).find((name) => name.endsWith("_htm.xml"));
+  if (!instance) throw new Error(`${accn} has no inline-XBRL instance document`);
+  return cached(path.join(CACHE, `instance-${accn}.xml`), refresh, `${folder}/${instance}`);
+}
+
 /** One filing's own XBRL instance, for a filing companyfacts has not ingested. */
 async function instanceFacts(cik: number, accn: string, refresh: boolean): Promise<CompanyFacts> {
   const padded = String(cik).padStart(10, "0");
@@ -76,12 +85,7 @@ async function instanceFacts(cik: number, accn: string, refresh: boolean): Promi
   const recent = submissions.filings.recent;
   const at = recent.accessionNumber.indexOf(accn);
   if (at < 0) throw new Error(`${accn} is not in CIK${padded}'s recent filings`);
-  const folder = `https://www.sec.gov/Archives/edgar/data/${cik}/${accn.replace(/-/g, "")}`;
-  const index = JSON.parse(await cached(path.join(CACHE, `index-${accn}.json`), refresh, `${folder}/index.json`)) as { directory: { item: { name: string }[] } };
-  const instance = index.directory.item.map((item) => item.name).find((name) => name.endsWith("_htm.xml"));
-  if (!instance) throw new Error(`${accn} has no inline-XBRL instance document`);
-  const xml = await cached(path.join(CACHE, `instance-${accn}.xml`), refresh, `${folder}/${instance}`);
-  return parseXbrlInstance(xml, { accn, form: recent.form[at]!, filed: recent.filingDate[at]! });
+  return parseXbrlInstance(await instanceXml(cik, accn, refresh), { accn, form: recent.form[at]!, filed: recent.filingDate[at]! });
 }
 
 async function main(argv: string[]): Promise<void> {
@@ -106,8 +110,19 @@ async function main(argv: string[]): Promise<void> {
     for (const filing of company.instanceFilings ?? []) facts = mergeFacts(facts, await instanceFacts(company.cik, filing.accn, args.refresh));
     cases[company.case] = { ticker: company.ticker, cik: company.cik, entityName: facts.entityName ?? null, cutoffAt, currency: company.currency };
     const translation = dcfTranslationRate(stageB);
+    const cutoff = cutoffDate(cutoffAt);
+    // Filings whose own instance an absence proof needs (dimensional facts companyfacts drops), read on demand.
+    const instances: Record<string, InstanceFact[]> = {};
     for (const figure of extractFigures(stageB, report)) {
-      entries.push(buildEntry(company, figure.id, figure.referencePeriod ?? figure.period, figure.currency, facts, cutoffDate(cutoffAt), translation));
+      const period = figure.referencePeriod ?? figure.period;
+      const { recipe } = recipeFor(company, figure.id);
+      for (;;) {
+        const probe = resolveReference(recipe, period, facts, company.currency, cutoff, instances);
+        const missing = ("reason" in probe ? probe.needsInstance ?? [] : []).filter((accn) => !(accn in instances));
+        if (missing.length === 0) break;
+        for (const accn of missing) instances[accn] = scanXbrlInstance(await instanceXml(company.cik, accn, args.refresh));
+      }
+      entries.push(buildEntry(company, figure.id, period, figure.currency, facts, cutoff, translation, instances));
     }
     process.stdout.write(`${company.case}: ${entries.filter((entry) => entry.case === company.case).length} figures\n`);
   }
@@ -130,12 +145,13 @@ export function buildEntry(
   facts: CompanyFacts,
   cutoff: string,
   translation: { rate: number; from: string; to: string; note: string } | null,
+  instances: InstanceEvidence = {},
 ): ReferenceEntry {
   const { recipe, why } = recipeFor(company, figure);
-  const resolved = resolveReference(recipe, period, facts, company.currency, cutoff);
+  const resolved = resolveReference(recipe, period, facts, company.currency, cutoff, instances);
   if ("reason" in resolved) {
     // Not admitted, only reported: the value a later filing gives for the same period (P2 keeps it out of the reference).
-    const later = recipe.op === "none" ? null : resolveReference(recipe, period, facts, company.currency, "9999-12-31");
+    const later = recipe.op === "none" ? null : resolveReference(recipe, period, facts, company.currency, "9999-12-31", instances);
     const afterCutoff = later && !("reason" in later) && later.points.some((point) => point.filed > cutoff)
       ? `after the cutoff, ${later.points.filter((point) => point.filed > cutoff).map((point) => `${point.form} ${point.accn} filed ${point.filed}`).filter((text, index, all) => all.indexOf(text) === index).join(", ")} gives ${later.value} for ${later.period} (not admitted, P2)`
       : undefined;
@@ -151,11 +167,15 @@ export function buildEntry(
     notes.push(`filed amount × ${scale.factor}: ${scale.why}`);
   }
   let kind = resolved.kind;
-  if (figureCurrency && figureCurrency !== company.currency && translation && translation.from === company.currency && translation.to === figureCurrency) {
+  // The comparison measure travels with the value: the filed unit and currency, changed only by the report's own
+  // stated translation (P4). The check refuses a match when it disagrees with the figure's own measure.
+  let currency = resolved.measure.currency;
+  if (currency && figureCurrency && figureCurrency !== currency && translation && translation.from === currency && translation.to === figureCurrency) {
     value *= translation.rate;
     operands = operands.map((operand) => operand * translation.rate);
     kind = kind === "filed" ? "derived" : kind;
-    notes.push(`filed ${company.currency} amount translated to ${figureCurrency} at the report's own stated rate ${translation.rate} ${figureCurrency} per ${company.currency} (a market input, not a filed value): ${translation.note}`);
+    notes.push(`filed ${currency} amount translated to ${figureCurrency} at the report's own stated rate ${translation.rate} ${figureCurrency} per ${currency} (a market input, not a filed value): ${translation.note}`);
+    currency = translation.to;
   }
   return {
     case: company.case,
@@ -163,6 +183,8 @@ export function buildEntry(
     period: resolved.period,
     value,
     kind,
+    unit: resolved.measure.unit,
+    currency,
     formula: resolved.formula,
     operands,
     points: resolved.points,

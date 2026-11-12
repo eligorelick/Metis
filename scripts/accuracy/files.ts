@@ -1,7 +1,7 @@
 /** Committed accuracy-check data files and their shapes. */
 import fs from "node:fs";
 import path from "node:path";
-import type { ExpectationEntry, FiledPoint, ReferenceKind } from "./lib";
+import type { ExpectationEntry, FiledPoint, FigureUnit, ReferenceKind } from "./lib";
 import type { CompanyConfig } from "./recipes";
 
 const DIR = __dirname;
@@ -15,6 +15,10 @@ export interface ReferenceEntry {
   period: string | null;
   value?: number;
   kind?: ReferenceKind;
+  /** What the filed value measures once scaled and translated for comparison (P3, P4); required on an established entry. */
+  unit?: FigureUnit;
+  /** The comparison currency: the filed currency, or the report's valuation currency after the stated translation; null for shares and percents. */
+  currency?: string | null;
   formula?: string;
   operands?: number[];
   points?: (FiledPoint & { role: string; sign: 1 | -1 })[];

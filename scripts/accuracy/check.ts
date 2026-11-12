@@ -32,6 +32,7 @@ import path from "node:path";
 import { extractFigures, type MetisFigure } from "./figures";
 import {
   classifyFigure,
+  cutoffDate,
   diffExpectation,
   expectationKey,
   formatNumber,
@@ -95,6 +96,37 @@ export function filingReference(entry: ReferenceEntry | undefined): string {
     .join("; ");
 }
 
+/** The report's evidence cutoff (meta.evidenceTiming.cutoffAt), as accuracy:fetch reads it. */
+export function reportCutoffAt(report: Record<string, unknown>): string | null {
+  const cutoffAt = ((report.meta as Record<string, unknown> | undefined)?.evidenceTiming as Record<string, unknown> | undefined)?.cutoffAt;
+  return typeof cutoffAt === "string" && cutoffAt.length > 0 ? cutoffAt : null;
+}
+
+/**
+ * The filed reference may be reused for a run only when it was built for the run's own evidence cutoff (P2): a
+ * reference built for a later cutoff can hold filings this report could not have had, and one built for an earlier
+ * cutoff can miss the newest filing it did have. Both cutoffs are compared as filing dates (a filing dated on the
+ * cutoff's UTC day counts), and every operand's filing date is checked again against the run's cutoff. Anything else
+ * fails loudly, naming the case and both cutoffs: rebuild the reference for this run.
+ */
+export function validateReferenceCutoff(caseId: string, runCutoffAt: string | null, reference: ReferenceFile, entries: readonly ReferenceEntry[]): void {
+  const rebuild = "rebuild the filed reference for this run: npm run accuracy:fetch -- --network --run <golden run>";
+  if (runCutoffAt === null) throw new Error(`${caseId}: the report states no evidence cutoff (meta.evidenceTiming.cutoffAt), so the filed reference cannot be validated against it; ${rebuild}`);
+  const built = reference.cases?.[caseId]?.cutoffAt;
+  if (typeof built !== "string") throw new Error(`${caseId}: reference.json records no evidence cutoff for this case (run cutoff ${runCutoffAt}); ${rebuild}`);
+  const cutoff = cutoffDate(runCutoffAt);
+  if (cutoffDate(built) !== cutoff) {
+    throw new Error(`${caseId}: the run's evidence cutoff ${runCutoffAt} differs from the cutoff the filed reference was built for (${built}); ${rebuild}`);
+  }
+  for (const entry of entries) {
+    if (entry.unresolved) continue;
+    const late = (entry.points ?? []).find((point) => point.filed > cutoff);
+    if (late) {
+      throw new Error(`${caseId}: the filed reference for ${entry.figure} uses ${late.form} ${late.accn} filed ${late.filed}, after the run's evidence cutoff ${runCutoffAt} (P2); ${rebuild}`);
+    }
+  }
+}
+
 export function buildRows(run: string, reference: ReferenceFile, expectation: readonly ExpectationEntry[]): CheckRow[] {
   const companies = readCompanies();
   const refs = new Map(reference.entries.map((entry) => [expectationKey(entry), entry]));
@@ -105,6 +137,7 @@ export function buildRows(run: string, reference: ReferenceFile, expectation: re
     if (!fs.existsSync(path.join(dir, "stageB.json"))) continue;
     const stageB = JSON.parse(fs.readFileSync(path.join(dir, "stageB.json"), "utf8")) as Record<string, unknown>;
     const report = JSON.parse(fs.readFileSync(path.join(dir, "report.json"), "utf8")) as Record<string, unknown>;
+    validateReferenceCutoff(company.case, reportCutoffAt(report), reference, reference.entries.filter((entry) => entry.case === company.case));
     for (const figure of extractFigures(stageB, report)) rows.push(row(company.ticker, company.case, figure, refs.get(`${company.case}/${figure.id}`), expected.get(`${company.case}/${figure.id}`)));
   }
   return rows;
@@ -112,10 +145,15 @@ export function buildRows(run: string, reference: ReferenceFile, expectation: re
 
 function row(ticker: string, caseId: string, figure: MetisFigure, ref: ReferenceEntry | undefined, expected: ExpectationEntry | undefined): CheckRow {
   const established = ref && !ref.unresolved && typeof ref.value === "number";
+  // An established reference must say what it measures; one that does not predates that rule and is rebuilt, never guessed (P3, P4).
+  if (established && (ref.unit === undefined || ref.currency === undefined)) {
+    throw new Error(`${caseId}: the filed reference for ${figure.id} records no comparison unit and currency; rebuild the filed reference for this run: npm run accuracy:fetch -- --network --run <golden run>`);
+  }
   const classification = classifyFigure({
     metis: figure.value,
     metisPeriod: figure.period ?? "",
-    reference: established ? { kind: ref.kind ?? "filed", value: ref.value!, operands: ref.operands } : null,
+    metisMeasure: { unit: figure.unit, currency: figure.currency },
+    reference: established ? { kind: ref.kind ?? "filed", value: ref.value!, operands: ref.operands, unit: ref.unit!, currency: ref.currency ?? null } : null,
     referencePeriod: established ? ref.period : null,
   });
   return {
@@ -154,8 +192,8 @@ const METHOD = [
   "### Method",
   "",
   "- **Figures.** One explicit mapping (scripts/accuracy/figures.ts) reads each data-only case's stored stageB.json and report.json: the latest fiscal year's revenue, operating income, net income, diluted EPS, diluted shares, capital spending and free cash flow; the current-capital TTM operating income, net income, operating cash flow, capital spending and free cash flow; cash and short-term investments, total debt including leases and the lease lines at the latest balance; and every fair-value input taken from filings (DCF base revenue, tax rate, per-share divisor, net debt, NCI, preferred, long-term investments; excess-return opening book, TTM income to common, divisor, payout; REIT FFO operands and divisor; runway liquid assets). Value, period, unit and currency come from the stored output. Market inputs (price, beta, risk-free rate, equity risk premium, consensus, FX spot rates) are not filed values and are not compared.",
-  "- **Filed side.** scripts/accuracy/fetch.ts reads SEC XBRL companyfacts (and, where companyfacts has not ingested a filing, that filing's own XBRL instance) and picks facts by concept, period and form with its own selection code (scripts/accuracy/lib.ts, recipes.ts); it never calls Metis's statement builders. Only filings dated on or before the report's evidence cutoff count, and the newest such filing wins (P2); earlier differing values are listed as restatements. TTM flows are fiscal year + current year to date − prior-year year to date, with both year-to-date operands from one filing (P1); per-share values are never built that way. Composed balances take every part from one filing (P7). A latest-fiscal-year row is held to the report's own latest fiscal year, so an older year shown in its place is a period mismatch.",
-  "- **Same value.** The rulebook's P8 owner (src/edgar/vendorAgreement.ts): `vendorAgreesWithFiled` for a filed line, `vendorAgreesWithDerived` for a value built from filed operands. Stored precision is compared, never display text.",
+  "- **Filed side.** scripts/accuracy/fetch.ts reads SEC XBRL companyfacts (and, where companyfacts has not ingested a filing, that filing's own XBRL instance) and picks facts by concept, period and form with its own selection code (scripts/accuracy/lib.ts, recipes.ts); it never calls Metis's statement builders. Only filings dated on or before the report's evidence cutoff count, and the newest such filing wins across equivalent concepts (P2); earlier differing values are listed as restatements. The reference is used only for the cutoff it was built for. Non-controlling interest and preferred stock the filing does not present count as zero only when that filing's own XBRL instance shows no other such element, dimensional member or equity gap (P7, P10). TTM flows are fiscal year + current year to date − prior-year year to date, with both year-to-date operands from one filing (P1); per-share values are never built that way. Composed balances take every part from one filing (P7). A latest-fiscal-year row is held to the report's own latest fiscal year, so an older year shown in its place is a period mismatch.",
+  "- **Same value.** The rulebook's P8 owner (src/edgar/vendorAgreement.ts): `vendorAgreesWithFiled` for a filed line, `vendorAgreesWithDerived` for a value built from filed operands. Stored precision is compared, never display text. The unit and currency must agree first; a disagreement is a mismatch (P3, P4).",
   "- **Status.** match; mismatch (with a cause: Metis error, definition, or vendor value shown); gap (Metis withholds the figure, or the route marks it not applicable; the note says whether the value is in the filings); not established (no filed value could be established, never counted as a match). Capital spending is compared as a positive outflow. Per-share and share figures of the 20-F filer TSM are compared per ADS (1 ADS = 5 ordinary shares, the report's own ratio); its statement figures in TWD; its DCF inputs in USD after translating the filed TWD at the report's own stated spot rate (a market input).",
   "",
 ];

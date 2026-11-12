@@ -102,6 +102,8 @@
       "period": "FY:2025-12-31",
       "value": 716924000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         716924000000
@@ -128,6 +130,8 @@
       "period": "FY:2025-12-31",
       "value": 79975000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         79975000000
@@ -154,6 +158,8 @@
       "period": "FY:2025-12-31",
       "value": 77670000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         77670000000
@@ -180,6 +186,8 @@
       "period": "FY:2025-12-31",
       "value": 7.17,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         7.17
@@ -206,6 +214,8 @@
       "period": "FY:2025-12-31",
       "value": 10827000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         10827000000
@@ -232,6 +242,8 @@
       "period": "FY:2025-12-31",
       "value": 131819000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         131819000000
@@ -258,6 +270,8 @@
       "period": "FY:2025-12-31",
       "value": 7695000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         139514000000,
@@ -297,6 +311,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": 93712000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         79975000000,
@@ -349,6 +365,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": 135281000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         77670000000,
@@ -401,6 +419,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": 161403000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         139514000000,
@@ -453,6 +473,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": 173028000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         131819000000,
@@ -505,6 +527,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": -11625000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         139514000000,
@@ -596,6 +620,8 @@
       "period": "@2026-06-30",
       "value": 122988000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         78213000000,
@@ -633,6 +659,8 @@
       "period": "@2026-06-30",
       "value": 242320000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ debt, current + short-term borrowings / commercial paper + debt, noncurrent + operating lease liabilities + finance lease liabilities",
       "operands": [
         3330000000,
@@ -706,6 +734,8 @@
       "period": "@2026-06-30",
       "value": 96320000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         96320000000
@@ -731,6 +761,8 @@
       "period": "@2026-06-30",
       "value": 13451000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         13451000000
@@ -756,6 +788,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": 775680000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         716924000000,
@@ -808,6 +842,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": 22.57702346893415,
       "kind": "ratio",
+      "unit": "%",
+      "currency": null,
       "formula": "(fiscal year + current year to date − prior-year year to date) / (fiscal year + current year to date − prior-year year to date) × 100",
       "operands": [],
       "points": [
@@ -892,6 +928,8 @@
       "period": "LATEST-PERIOD:2026-06-30",
       "value": 10903000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         10903000000
@@ -920,6 +958,8 @@
       "period": "@2026-06-30",
       "value": 23012000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ debt, current + short-term borrowings / commercial paper + debt, noncurrent + finance lease liabilities − cash and short-term investments",
       "operands": [
         3330000000,
@@ -1005,11 +1045,13 @@
       "period": "@2026-06-30",
       "value": 0,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "not presented",
       "operands": [],
       "points": [],
       "notes": [
-        "MinorityInterest is not tagged at 2026-06-30 in filing 0001018724-26-000026: the balance sheet presents no such line, recorded as none presented"
+        "MinorityInterest / NonredeemableNoncontrollingInterest is not tagged at 2026-06-30 in 10-Q 0001018724-26-000026 filed 2026-07-31, and that filing's own XBRL instance discloses no other non-controlling interest element, dimensional member or equity gap at that instant: recorded as none presented"
       ]
     },
     {
@@ -1018,6 +1060,8 @@
       "period": "@2026-06-30",
       "value": 0,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         0
@@ -1043,6 +1087,8 @@
       "period": "@2026-06-30",
       "value": 122300000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         122300000000
@@ -1069,6 +1115,8 @@
       "period": "FY:2025-12-31",
       "value": 506865000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         506865000
@@ -1095,6 +1143,8 @@
       "period": "FY:2025-12-31",
       "value": 117527000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         117527000
@@ -1121,6 +1171,8 @@
       "period": "FY:2025-12-31",
       "value": 133858000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         133858000
@@ -1147,6 +1199,8 @@
       "period": "FY:2025-12-31",
       "value": 0.44,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         0.44
@@ -1173,6 +1227,8 @@
       "period": "FY:2025-12-31",
       "value": 141802002,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         141802002
@@ -1199,6 +1255,8 @@
       "period": "FY:2025-12-31",
       "value": 20649000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         20649000
@@ -1226,6 +1284,8 @@
       "period": "FY:2025-12-31",
       "value": 41919000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending (capitalized software)",
       "operands": [
         62568000,
@@ -1266,6 +1326,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": 201409000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         117527000,
@@ -1318,6 +1380,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": 237127000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         133858000,
@@ -1370,6 +1434,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": -86490000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         62568000,
@@ -1422,6 +1488,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": 23451000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         20649000,
@@ -1475,6 +1543,8 @@
       "period": "TTM:2025-07-01..2026-06-30",
       "value": -109941000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending (capitalized software)",
       "operands": [
         62568000,
@@ -1567,6 +1637,8 @@
       "period": "@2026-06-30",
       "value": 1437511000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         1437511000
@@ -1594,6 +1666,8 @@
       "period": "@2026-06-30",
       "value": 967771000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ borrowings (current, related-party current and noncurrent debt) + operating lease liabilities + finance lease liabilities",
       "operands": [
         962995000,
@@ -1634,6 +1708,8 @@
       "period": "@2026-06-30",
       "value": 4776000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         4776000
@@ -1671,6 +1747,8 @@
       "period": "@2026-06-30",
       "value": 1437511000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         1437511000
@@ -1698,6 +1776,8 @@
       "period": "FY:2025-12-31",
       "value": 200966000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         200966000000
@@ -1724,6 +1804,8 @@
       "period": "FY:2025-12-31",
       "value": 83276000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         83276000000
@@ -1750,6 +1832,8 @@
       "period": "FY:2025-12-31",
       "value": 60458000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         60458000000
@@ -1776,6 +1860,8 @@
       "period": "FY:2025-12-31",
       "value": 23.49,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         23.49
@@ -1802,6 +1888,8 @@
       "period": "FY:2025-12-31",
       "value": 2574000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         2574000000
@@ -1828,6 +1916,8 @@
       "period": "FY:2025-12-31",
       "value": 69691000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         69691000000
@@ -1854,6 +1944,8 @@
       "period": "FY:2025-12-31",
       "value": 46109000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         115800000000,
@@ -1978,6 +2070,8 @@
       "period": "FY:2026-09-03",
       "value": 133188000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         133188000000
@@ -2004,6 +2098,8 @@
       "period": "FY:2026-09-03",
       "value": 99340000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         99340000000
@@ -2030,6 +2126,8 @@
       "period": "FY:2026-09-03",
       "value": 84969000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         84969000000
@@ -2056,6 +2154,8 @@
       "period": "FY:2026-09-03",
       "value": 74.33,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         74.33
@@ -2082,6 +2182,8 @@
       "period": "FY:2026-09-03",
       "value": 1143000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         1143000000
@@ -2108,6 +2210,8 @@
       "period": "FY:2026-09-03",
       "value": 30712000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         30712000000
@@ -2134,6 +2238,8 @@
       "period": "FY:2026-09-03",
       "value": 58963000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         89675000000,
@@ -2173,6 +2279,8 @@
       "period": "TTM:2025-08-29..2026-09-03",
       "value": 99340000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year",
       "operands": [
         99340000000
@@ -2199,6 +2307,8 @@
       "period": "TTM:2025-08-29..2026-09-03",
       "value": 84969000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year",
       "operands": [
         84969000000
@@ -2225,6 +2335,8 @@
       "period": "TTM:2025-08-29..2026-09-03",
       "value": 89675000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year",
       "operands": [
         89675000000
@@ -2251,6 +2363,8 @@
       "period": "TTM:2025-08-29..2026-09-03",
       "value": 30712000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year",
       "operands": [
         30712000000
@@ -2277,6 +2391,8 @@
       "period": "TTM:2025-08-29..2026-09-03",
       "value": 58963000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         89675000000,
@@ -2316,6 +2432,8 @@
       "period": "@2026-09-03",
       "value": 43434000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         38364000000,
@@ -2353,6 +2471,8 @@
       "period": "@2026-09-03",
       "value": 5179000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ debt including finance leases (current and noncurrent) + operating lease liabilities",
       "operands": [
         5179000000
@@ -2387,6 +2507,8 @@
       "period": "@2026-09-03",
       "value": 2387000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         2387000000
@@ -2412,6 +2534,8 @@
       "period": "TTM:2025-08-29..2026-09-03",
       "value": 133188000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year",
       "operands": [
         133188000000
@@ -2438,6 +2562,8 @@
       "period": "TTM:2025-08-29..2026-09-03",
       "value": 14.80972399193346,
       "kind": "ratio",
+      "unit": "%",
+      "currency": null,
       "formula": "(fiscal year) / (fiscal year) × 100",
       "operands": [],
       "points": [
@@ -2474,6 +2600,8 @@
       "period": "LATEST-PERIOD:2026-09-03",
       "value": 1143000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         1143000000
@@ -2502,6 +2630,8 @@
       "period": "@2026-09-03",
       "value": -38255000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ debt including finance leases − cash and short-term investments",
       "operands": [
         5179000000,
@@ -2552,11 +2682,13 @@
       "period": "@2026-09-03",
       "value": 0,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "not presented",
       "operands": [],
       "points": [],
       "notes": [
-        "MinorityInterest is not tagged at 2026-09-03 in filing 0000723125-26-000023: the balance sheet presents no such line, recorded as none presented"
+        "MinorityInterest / NonredeemableNoncontrollingInterest is not tagged at 2026-09-03 in 10-K 0000723125-26-000023 filed 2026-10-09, and that filing's own XBRL instance discloses no other non-controlling interest element, dimensional member or equity gap at that instant: recorded as none presented"
       ]
     },
     {
@@ -2565,11 +2697,13 @@
       "period": "@2026-09-03",
       "value": 0,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "not presented",
       "operands": [],
       "points": [],
       "notes": [
-        "PreferredStockValue is not tagged at 2026-09-03 in filing 0000723125-26-000023: the balance sheet presents no such line, recorded as none presented"
+        "PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount / PreferredStockIncludingAdditionalPaidInCapital / PreferredStockValue is not tagged at 2026-09-03 in 10-K 0000723125-26-000023 filed 2026-10-09, and that filing's own XBRL instance discloses no other preferred stock element or dimensional member at that instant: recorded as none presented"
       ]
     },
     {
@@ -2578,6 +2712,8 @@
       "period": "@2026-09-03",
       "value": 30019000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         30019000000
@@ -2604,6 +2740,8 @@
       "period": "FY:2026-01-25",
       "value": 215938000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         215938000000
@@ -2630,6 +2768,8 @@
       "period": "FY:2026-01-25",
       "value": 130387000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         130387000000
@@ -2656,6 +2796,8 @@
       "period": "FY:2026-01-25",
       "value": 120067000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         120067000000
@@ -2682,6 +2824,8 @@
       "period": "FY:2026-01-25",
       "value": 4.9,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         4.9
@@ -2708,6 +2852,8 @@
       "period": "FY:2026-01-25",
       "value": 24514000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         24514000000
@@ -2734,6 +2880,8 @@
       "period": "FY:2026-01-25",
       "value": 6042000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         6042000000
@@ -2760,6 +2908,8 @@
       "period": "FY:2026-01-25",
       "value": 96676000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         102718000000,
@@ -2799,6 +2949,8 @@
       "period": "TTM:2025-07-28..2026-07-26",
       "value": 197579000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         130387000000,
@@ -2851,6 +3003,8 @@
       "period": "TTM:2025-07-28..2026-07-26",
       "value": 192880000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         120067000000,
@@ -2903,6 +3057,8 @@
       "period": "TTM:2025-07-28..2026-07-26",
       "value": 134360000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         102718000000,
@@ -2955,6 +3111,8 @@
       "period": "TTM:2025-07-28..2026-07-26",
       "value": 7354000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         6042000000,
@@ -3007,6 +3165,8 @@
       "period": "TTM:2025-07-28..2026-07-26",
       "value": 127006000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         102718000000,
@@ -3098,6 +3258,8 @@
       "period": "@2026-07-26",
       "value": 56586000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         22443000000,
@@ -3135,6 +3297,8 @@
       "period": "@2026-07-26",
       "value": 38860000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ debt, current + short-term borrowings / commercial paper + debt, noncurrent + operating lease liabilities + finance lease liabilities",
       "operands": [
         1000000000,
@@ -3187,6 +3351,8 @@
       "period": "@2026-07-26",
       "value": 5494000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         5494000000
@@ -3218,6 +3384,8 @@
       "period": "TTM:2025-07-28..2026-07-26",
       "value": 302970000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         215938000000,
@@ -3270,6 +3438,8 @@
       "period": "TTM:2025-07-28..2026-07-26",
       "value": 16.045320205621064,
       "kind": "ratio",
+      "unit": "%",
+      "currency": null,
       "formula": "(fiscal year + current year to date − prior-year year to date) / (fiscal year + current year to date − prior-year year to date) × 100",
       "operands": [],
       "points": [
@@ -3354,6 +3524,8 @@
       "period": "LATEST-PERIOD:2026-07-26",
       "value": 24285000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         24285000000
@@ -3382,6 +3554,8 @@
       "period": "@2026-07-26",
       "value": -23220000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ debt, current + short-term borrowings / commercial paper + debt, noncurrent + finance lease liabilities − cash and short-term investments",
       "operands": [
         1000000000,
@@ -3446,11 +3620,13 @@
       "period": "@2026-07-26",
       "value": 0,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "not presented",
       "operands": [],
       "points": [],
       "notes": [
-        "MinorityInterest is not tagged at 2026-07-26 in filing 0001045810-26-000075: the balance sheet presents no such line, recorded as none presented"
+        "MinorityInterest / NonredeemableNoncontrollingInterest is not tagged at 2026-07-26 in 10-Q 0001045810-26-000075 filed 2026-08-26, and that filing's own XBRL instance discloses no other non-controlling interest element, dimensional member or equity gap at that instant: recorded as none presented"
       ]
     },
     {
@@ -3459,11 +3635,13 @@
       "period": "@2026-07-26",
       "value": 0,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "not presented",
       "operands": [],
       "points": [],
       "notes": [
-        "PreferredStockValue is not tagged at 2026-07-26 in filing 0001045810-26-000075: the balance sheet presents no such line, recorded as none presented"
+        "PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount / PreferredStockIncludingAdditionalPaidInCapital / PreferredStockValue is not tagged at 2026-07-26 in 10-Q 0001045810-26-000075 filed 2026-08-26, and that filing's own XBRL instance discloses no other preferred stock element or dimensional member at that instant: recorded as none presented"
       ]
     },
     {
@@ -3472,6 +3650,8 @@
       "period": "@2026-07-26",
       "value": 47898000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         47898000000
@@ -3498,6 +3678,8 @@
       "period": "FY:2025-09-28",
       "value": 44284000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         44284000000
@@ -3524,6 +3706,8 @@
       "period": "FY:2025-09-28",
       "value": 12355000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         12355000000
@@ -3550,6 +3734,8 @@
       "period": "FY:2025-09-28",
       "value": 5541000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         5541000000
@@ -3576,6 +3762,8 @@
       "period": "FY:2025-09-28",
       "value": 5.01,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         5.01
@@ -3602,6 +3790,8 @@
       "period": "FY:2025-09-28",
       "value": 1105000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         1105000000
@@ -3628,6 +3818,8 @@
       "period": "FY:2025-09-28",
       "value": 1192000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         1192000000
@@ -3654,6 +3846,8 @@
       "period": "FY:2025-09-28",
       "value": 12820000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         14012000000,
@@ -3693,6 +3887,8 @@
       "period": "TTM:2025-06-30..2026-06-28",
       "value": 10220000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         12355000000,
@@ -3745,6 +3941,8 @@
       "period": "TTM:2025-06-30..2026-06-28",
       "value": 9260000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         5541000000,
@@ -3797,6 +3995,8 @@
       "period": "TTM:2025-06-30..2026-06-28",
       "value": 12401000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         14012000000,
@@ -3849,6 +4049,8 @@
       "period": "TTM:2025-06-30..2026-06-28",
       "value": 1985000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         1192000000,
@@ -3901,6 +4103,8 @@
       "period": "TTM:2025-06-30..2026-06-28",
       "value": 10416000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         14012000000,
@@ -3992,6 +4196,8 @@
       "period": "@2026-06-28",
       "value": 8304000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         4533000000,
@@ -4029,6 +4235,8 @@
       "period": "@2026-06-28",
       "value": 15270000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ short-term debt (current portion of long-term debt and commercial paper) + long-term debt (noncurrent balance-sheet line) + operating lease liabilities + finance lease liabilities",
       "operands": [
         2489000000,
@@ -4082,6 +4290,8 @@
       "period": "TTM:2025-06-30..2026-06-28",
       "value": 44069000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         44284000000,
@@ -4134,6 +4344,8 @@
       "period": "TTM:2025-06-30..2026-06-28",
       "value": 17.409917945058865,
       "kind": "ratio",
+      "unit": "%",
+      "currency": null,
       "formula": "(fiscal year + current year to date − prior-year year to date) / (fiscal year + current year to date − prior-year year to date) × 100",
       "operands": [],
       "points": [
@@ -4218,6 +4430,8 @@
       "period": "LATEST-PERIOD:2026-06-28",
       "value": 1069000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         1069000000
@@ -4246,6 +4460,8 @@
       "period": "@2026-06-28",
       "value": 6966000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ short-term debt + long-term debt (noncurrent balance-sheet line) − cash and short-term investments",
       "operands": [
         2489000000,
@@ -4308,11 +4524,13 @@
       "period": "@2026-06-28",
       "value": 0,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "not presented",
       "operands": [],
       "points": [],
       "notes": [
-        "MinorityInterest is not tagged at 2026-06-28 in filing 0000804328-26-000086: the balance sheet presents no such line, recorded as none presented"
+        "MinorityInterest / NonredeemableNoncontrollingInterest is not tagged at 2026-06-28 in 10-Q 0000804328-26-000086 filed 2026-07-29, and that filing's own XBRL instance discloses no other non-controlling interest element, dimensional member or equity gap at that instant: recorded as none presented"
       ]
     },
     {
@@ -4321,6 +4539,8 @@
       "period": "@2026-06-28",
       "value": 0,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         0
@@ -4352,6 +4572,8 @@
       "period": "FY:2025-12-31",
       "value": 182447000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         182447000000
@@ -4384,6 +4606,8 @@
       "period": "FY:2025-12-31",
       "value": 57048000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         57048000000
@@ -4410,6 +4634,8 @@
       "period": "FY:2025-12-31",
       "value": 20.02,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         20.02
@@ -4436,6 +4662,8 @@
       "period": "FY:2025-12-31",
       "value": 2781500000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         2781500000
@@ -4481,6 +4709,8 @@
       "period": "TTM:2025-01-01..2025-12-31",
       "value": 57048000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year",
       "operands": [
         57048000000
@@ -4507,6 +4737,8 @@
       "period": "TTM:2025-01-01..2025-12-31",
       "value": -147782000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year",
       "operands": [
         -147782000000
@@ -4557,6 +4789,8 @@
       "period": "@2025-12-31",
       "value": 9337000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         9337000000
@@ -4595,6 +4829,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 64527000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         55681000000,
@@ -4647,6 +4883,8 @@
       "period": "LATEST-PERIOD:2026-09-30",
       "value": 2683000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         2683000000
@@ -4681,6 +4919,8 @@
       "period": "FY:2025-12-31",
       "value": 87671000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         87671000000
@@ -4713,6 +4953,8 @@
       "period": "FY:2025-12-31",
       "value": 11308000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         11308000000
@@ -4739,6 +4981,8 @@
       "period": "FY:2025-12-31",
       "value": 19.23,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         19.23
@@ -4765,6 +5009,8 @@
       "period": "FY:2025-12-31",
       "value": 588100000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         588100000
@@ -4791,6 +5037,8 @@
       "period": "FY:2025-12-31",
       "value": 348000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         348000000
@@ -4817,6 +5065,8 @@
       "period": "FY:2025-12-31",
       "value": 17200000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         17548000000,
@@ -4862,6 +5112,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 11622000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         11308000000,
@@ -4914,6 +5166,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 15662000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         17548000000,
@@ -4966,6 +5220,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 438000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         348000000,
@@ -5018,6 +5274,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 15224000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         17548000000,
@@ -5139,6 +5397,8 @@
       "period": "@2026-09-30",
       "value": 34485000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         34485000000
@@ -5164,6 +5424,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 11622000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         11308000000,
@@ -5217,6 +5479,8 @@
       "period": "LATEST-PERIOD:2026-09-30",
       "value": 582200000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         582200000
@@ -5251,6 +5515,8 @@
       "period": "FY:2025-12-31",
       "value": 5749377000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         5749377000
@@ -5283,6 +5549,8 @@
       "period": "FY:2025-12-31",
       "value": 1058590000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         1058590000
@@ -5309,6 +5577,8 @@
       "period": "FY:2025-12-31",
       "value": 1.17,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         1.17
@@ -5335,6 +5605,8 @@
       "period": "FY:2025-12-31",
       "value": 908334000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         908334000
@@ -5381,6 +5653,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 1355748000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         1058590000,
@@ -5434,6 +5708,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 4148994000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         3994754000,
@@ -5500,6 +5776,8 @@
       "period": "@2026-09-30",
       "value": 368534000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         368534000
@@ -5527,6 +5805,8 @@
       "period": "@2026-09-30",
       "value": 28563889000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ notes payable + commercial paper + mortgages payable (secured debt) + credit facility + operating lease liabilities + finance lease liabilities",
       "operands": [
         26451863000,
@@ -5603,6 +5883,8 @@
       "period": "@2026-09-30",
       "value": 409910000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         409910000
@@ -5628,6 +5910,8 @@
       "period": "@2026-09-30",
       "value": 165371000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         165371000
@@ -5659,6 +5943,8 @@
       "period": "FY:2025-12-31",
       "value": 1058590000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         1058590000
@@ -5685,6 +5971,8 @@
       "period": "FY:2025-12-31",
       "value": 2524200000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         2524200000
@@ -5711,6 +5999,8 @@
       "period": "FY:2025-12-31",
       "value": 177640000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         177640000
@@ -5737,6 +6027,8 @@
       "period": "FY:2025-12-31",
       "value": 471335000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         471335000
@@ -5763,6 +6055,8 @@
       "period": "FY:2025-12-31",
       "value": 908334000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         908334000
@@ -5789,6 +6083,8 @@
       "period": "FY:2025-12-31",
       "value": 32237000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         32237000000
@@ -5816,6 +6112,8 @@
       "period": "FY:2025-12-31",
       "value": 8626000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         8626000000
@@ -5842,6 +6140,8 @@
       "period": "FY:2025-12-31",
       "value": 4968000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         4968000000
@@ -5868,6 +6168,8 @@
       "period": "FY:2025-12-31",
       "value": 6.31,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         6.31
@@ -5894,6 +6196,8 @@
       "period": "FY:2025-12-31",
       "value": 777000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         777000000
@@ -5920,6 +6224,8 @@
       "period": "FY:2025-12-31",
       "value": 14024000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         14024000000
@@ -5946,6 +6252,8 @@
       "period": "FY:2025-12-31",
       "value": -1694000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         12330000000,
@@ -5985,6 +6293,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 9640000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         8626000000,
@@ -6037,6 +6347,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 5391000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         4968000000,
@@ -6089,6 +6401,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 11547000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         12330000000,
@@ -6141,6 +6455,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 16709000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         14024000000,
@@ -6193,6 +6509,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": -5162000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         12330000000,
@@ -6284,6 +6602,8 @@
       "period": "@2026-09-30",
       "value": 451000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         451000000
@@ -6311,6 +6631,8 @@
       "period": "@2026-09-30",
       "value": 92789000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ current maturities of long-term debt + notes payable and commercial paper + long-term debt + operating lease liabilities + finance lease liabilities",
       "operands": [
         6116000000,
@@ -6382,6 +6704,8 @@
       "period": "FY:2025-12-31",
       "value": 3809054300000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "TWD",
       "formula": "filed line",
       "operands": [
         3809054300000
@@ -6409,6 +6733,8 @@
       "period": "FY:2025-12-31",
       "value": 1936091700000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "TWD",
       "formula": "filed line",
       "operands": [
         1936091700000
@@ -6436,6 +6762,8 @@
       "period": "FY:2025-12-31",
       "value": 1697604000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "TWD",
       "formula": "filed line",
       "operands": [
         1697604000000
@@ -6463,6 +6791,8 @@
       "period": "FY:2025-12-31",
       "value": 327.35,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "TWD",
       "formula": "filed line",
       "operands": [
         327.35
@@ -6492,6 +6822,8 @@
       "period": "FY:2025-12-31",
       "value": 5186120000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         5186120000
@@ -6521,6 +6853,8 @@
       "period": "FY:2025-12-31",
       "value": 1272410500000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "TWD",
       "formula": "filed line",
       "operands": [
         1272410500000
@@ -6548,6 +6882,8 @@
       "period": "FY:2025-12-31",
       "value": 1002565100000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "TWD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         2274975600000,
@@ -6700,6 +7036,8 @@
       "period": "FY:2025-12-31",
       "value": 5387000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         5387000000
@@ -6726,6 +7064,8 @@
       "period": "FY:2025-12-31",
       "value": -3585000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         -3585000000
@@ -6752,6 +7092,8 @@
       "period": "FY:2025-12-31",
       "value": -3646000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         -3646000000
@@ -6778,6 +7120,8 @@
       "period": "FY:2025-12-31",
       "value": -3.07,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         -3.07
@@ -6804,6 +7148,8 @@
       "period": "FY:2025-12-31",
       "value": 1186000000,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         1186000000
@@ -6830,6 +7176,8 @@
       "period": "FY:2025-12-31",
       "value": 1710000000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         1710000000
@@ -6856,6 +7204,8 @@
       "period": "FY:2025-12-31",
       "value": -2489000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         -779000000,
@@ -6895,6 +7245,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": -3431000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         -3585000000,
@@ -6947,6 +7299,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": -2973000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         -3646000000,
@@ -6999,6 +7353,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": -2629000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         -779000000,
@@ -7051,6 +7407,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": 1563000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         1710000000,
@@ -7103,6 +7461,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": -4192000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating cash flow − capital spending",
       "operands": [
         -779000000,
@@ -7194,6 +7554,8 @@
       "period": "@2026-09-30",
       "value": 5502000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         3509000000,
@@ -7231,6 +7593,8 @@
       "period": "@2026-09-30",
       "value": 5431000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ debt, current + short-term borrowings / commercial paper + debt, noncurrent + operating lease liabilities + finance lease liabilities",
       "operands": [
         4446000000,
@@ -7296,6 +7660,8 @@
       "period": "@2026-09-30",
       "value": 886000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ operating lease liability, current + operating lease liability, noncurrent",
       "operands": [
         122000000,
@@ -7333,6 +7699,8 @@
       "period": "@2026-09-30",
       "value": 99000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ finance lease liability, current + finance lease liability, noncurrent",
       "operands": [
         99000000
@@ -7366,6 +7734,8 @@
       "period": "@2026-09-30",
       "value": 5502000000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         3509000000,
@@ -7403,6 +7773,8 @@
       "period": "FY:2025-12-31",
       "value": 0,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         0
@@ -7429,6 +7801,8 @@
       "period": "FY:2025-12-31",
       "value": -393342000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         -393342000
@@ -7455,6 +7829,8 @@
       "period": "FY:2025-12-31",
       "value": -359639000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         -359639000
@@ -7481,6 +7857,8 @@
       "period": "FY:2025-12-31",
       "value": -3.19,
       "kind": "filed",
+      "unit": "currency/share",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         -3.19
@@ -7507,6 +7885,8 @@
       "period": "FY:2025-12-31",
       "value": 112667303,
       "kind": "filed",
+      "unit": "shares",
+      "currency": null,
       "formula": "filed line",
       "operands": [
         112667303
@@ -7545,6 +7925,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": -648572000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         -393342000,
@@ -7597,6 +7979,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": -627195000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         -359639000,
@@ -7649,6 +8033,8 @@
       "period": "TTM:2025-10-01..2026-09-30",
       "value": -462632000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
         -278685000,
@@ -7713,6 +8099,8 @@
       "period": "@2026-09-30",
       "value": 959813000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         677609000,
@@ -7750,6 +8138,8 @@
       "period": "@2026-09-30",
       "value": 254694000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ convertible notes + operating lease liabilities + finance lease liabilities",
       "operands": [
         250656000,
@@ -7790,6 +8180,8 @@
       "period": "@2026-09-30",
       "value": 4038000,
       "kind": "filed",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "filed line",
       "operands": [
         4038000
@@ -7827,6 +8219,8 @@
       "period": "@2026-09-30",
       "value": 959813000,
       "kind": "derived",
+      "unit": "currency",
+      "currency": "USD",
       "formula": "+ cash and cash equivalents + short-term investments / marketable securities, current",
       "operands": [
         677609000,
