@@ -3,12 +3,13 @@ import { citationSourceId } from "@/pipeline/stageC/citations";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
 import { macroDisplayRows, plainFigureReaderNote } from "@/report/presentation";
+import { SCENARIO_TARGET_UNAVAILABLE_TEXT, VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView, type ScenarioRowView } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
-import { claimReasoning as sharedClaimReasoning, type ClaimReasoningMarkup, num, signedPct, tracedValue } from "@/report/export/readerFormat";
+import { claimReasoning as sharedClaimReasoning, type ClaimReasoningMarkup, num, tracedValue } from "@/report/export/readerFormat";
 import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures } from "@/report/verificationMarks";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
@@ -41,7 +42,6 @@ import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@
 import type { SourceFactSummary } from "@/report/sourceFacts";
 import { compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
 import type {
@@ -575,27 +575,22 @@ function sectionValuation(
 ): string {
   const seen = new Map<string, FigureRow>();
   const parts: string[] = [gradeBlock("Valuation", v.graded, seen, report, gradeContext(report, "valuation"))];
-  const dcfPs = v.dcf.perShare;
   const recordedPerShare = recordedValuationTrace(v.dcf, fairValue);
   const noModel = unavailableCashFlowModel(report);
   if (noModel) parts.push(`<p>${esc(cashFlowModelExplanation(report))}</p>`, bodyTables(unavailableModelInputTables(report)));
-  if (noModel && fairValue) parts.push(`<p class="faint">${prose(fairValueWithheldText(fairValue))}</p>`);
+  // P22: the headline, its caveats and the scenario rows are decided in presentation.ts.
+  const noModelText = noModel ? valuationNoModelWithheldText(fairValue, "print") : null;
+  if (noModelText !== null) parts.push(`<p class="faint">${esc(noModelText)}</p>`);
   if (!noModel) {
+    const headline = valuationHeadlineView(v, fairValue, "print");
     parts.push(
-      dcfPs
-        ? `<h3>${fairValue?.method === "excess-return" ? "Excess-return value" : "DCF"}</h3><p>${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: <strong class="mono">${esc(tracedValue(dcfPs))}</strong>${asOfTag(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` &mdash; upside <span class="mono">${esc(signedPct(v.dcf.upsidePct))}</span>`}</p>`
-        : `<h3>${fairValue?.method === "excess-return" ? "Excess-return value" : "DCF"}</h3><p>${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: <strong>unavailable</strong> &mdash; the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).</p>`,
+      headline.perShare !== null && headline.valueText !== null
+        ? `<h3>${headline.heading}</h3><p>${headline.label}: <strong class="mono">${esc(headline.valueText)}</strong>${asOfTag(headline.perShare.asOf)}${headline.comparison === null ? "" : ` &mdash; ${headline.comparison.label} <span class="mono">${esc(headline.comparison.text)}</span>`}</p>`
+        : `<h3>${headline.heading}</h3><p>${headline.label}: <strong>${VALUATION_WITHHELD_TEXT}</strong> &mdash; ${headline.withheldReason ?? ""}</p>`,
     );
     // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
-    const degraded = dcfPs ? fairValueDegradedText(fairValue) : null;
-    if (degraded) parts.push(`<p class="disclaimer">${prose(degraded)}</p>`);
-    if (fairValue) {
-      parts.push(
-        fairValue.status === "available"
-          ? `<p class="faint">${prose(fairValue.basis.join(" "))}</p>`
-          : `<p class="faint">${esc(fairValueWithheldText(fairValue))}</p>`,
-      );
-    }
+    if (headline.degradedCaveat !== null) parts.push(`<p class="disclaimer">${esc(headline.degradedCaveat)}</p>`);
+    if (headline.basisCaveat !== null) parts.push(`<p class="faint">${esc(headline.basisCaveat)}</p>`);
     parts.push(bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))])));
     parts.push(bodyTables(valuationAuditTables(v.dcf, recordedPerShare)));
 
@@ -635,14 +630,12 @@ function sectionValuation(
   // D-62: consensus and market data, once, beside the multiples.
   parts.push(bodyTables(consensusTables(report)));
 
-  if (!noModel) {
-    parts.push(`<h3>Scenarios</h3>`);
-    if (review.scenarioPresentation?.weightBasis) parts.push(`<p class="faint">${esc(review.scenarioPresentation.weightBasis)}</p>`);
-    if (scenarioTargets) {
-      parts.push(scenarioTargets.status === "available"
-        ? `<p class="faint">Price targets are computed-derived (${esc(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}</p>`
-        : `<p class="faint">Scenario price targets suppressed — ${esc(scenarioTargets.missingReasons.map((m) => m.reason).join("; ") || scenarioTargets.basis.join(" "))}</p>`);
-    }
+  const scenarios = noModel ? null : valuationScenarioView(v, review.scenarioPresentation, "print");
+  if (scenarios !== null) {
+    parts.push(`<h3>${scenarios.heading}</h3>`);
+    if (scenarios.weightBasis !== null) parts.push(`<p class="faint">${esc(scenarios.weightBasis)}</p>`);
+    const targetsCaveat = scenarioTargetsCaveat(scenarioTargets, esc);
+    if (targetsCaveat !== null) parts.push(`<p class="faint">${targetsCaveat}</p>`);
   }
   for (const block of valuationReviewBlocks({ ...review, valuation: v, peerCoverage: v.peerCoverage, symbol: report.meta.symbol })) {
     if (noModel && block.title === "Valuation sensitivity assessment") continue;
@@ -650,10 +643,9 @@ function sectionValuation(
     for (const item of block.items) parts.push(`<h4>${esc(item.title)}</h4>`, ...item.paragraphs.map((p) => `<p>${prose(p)}</p>`));
     if (block.table) parts.push(bodyTable(block.table.headers, block.table.rows));
   }
-  if (!noModel) {
-    const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
-    if (common.length > 0) parts.push(`<p><em>Assumptions common to every scenario</em></p><ul class="claims">${common.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>`);
-    v.scenarios.forEach((sc, index) => parts.push(scenarioCard(sc, specific[index] ?? [], review.scenarioPresentation !== undefined)));
+  if (scenarios !== null) {
+    if (scenarios.common.length > 0) parts.push(`<p><em>Assumptions common to every scenario</em></p><ul class="claims">${scenarios.common.map((line) => `<li>${esc(line)}</li>`).join("")}</ul>`);
+    for (const row of scenarios.rows) parts.push(scenarioCard(row));
   } else {
     parts.push(qualitativeScenarioBlock(v.scenarios));
   }
@@ -674,9 +666,9 @@ function qualitativeScenarioBlock(scenarios: readonly Scenario[]): string {
       `<div class="scenariobody">${list("What would have to be true", c.conditions)}${list("Qualitative commentary (not valuation inputs)", c.commentary)}</div></div>`).join("");
 }
 
-function scenarioCard(sc: Scenario, assumptions: readonly string[], computedWeights = false): string {
+function scenarioCard(row: ScenarioRowView): string {
+  const { scenario: sc, assumptions } = row;
   const list = (items: readonly string[]): string => `<ul>${items.map((i) => `<li>${prose(i)}</li>`).join("")}</ul>`;
-  const probability = sc.probability === null ? "unavailable" : `${(sc.probability * 100).toFixed(0)}%`;
   const blocks = [
     assumptions.length > 0 ? `<div><em>Assumptions</em>${list(assumptions)}</div>` : "",
     sc.whatWouldHaveToBeTrue.length > 0 ? `<div><em>What would have to be true</em>${list(sc.whatWouldHaveToBeTrue.map(scenarioListItem))}</div>` : "",
@@ -684,8 +676,8 @@ function scenarioCard(sc: Scenario, assumptions: readonly string[], computedWeig
   ].join("");
   return `<div class="scenario ${esc(sc.name)}">
     <div class="scenariohead"><strong>${esc(sc.name.toUpperCase())}</strong>
-      <span class="mono">${sc.priceTarget ? esc(tracedValue(sc.priceTarget)) : "per-share target unavailable"}</span>
-      ${computedWeights && sc.probability === null ? "" : `<span class="prob">${computedWeights ? "display weight" : "p"} ${probability}</span>`}
+      <span class="mono">${row.targetText !== null ? esc(row.targetText) : SCENARIO_TARGET_UNAVAILABLE_TEXT}</span>
+      ${row.weight === null ? "" : `<span class="prob">${row.weight.label} ${row.weight.text}</span>`}
       <span class="asof">${esc(sc.horizon)}</span></div>
     <div class="scenariobody">${blocks}</div></div>`;
 }
