@@ -51,6 +51,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { restoreQcom53Task12Lock } from "./helpers/qcom53Task12Lock";
 import { restoreCapexBasisGolden } from "./helpers/capexBasisGolden";
+import { assertFrozenLog, expectFrozenRecord, readFrozenLog, readFrozenRecord, type FrozenJson } from "./helpers/frozenRecord";
 
 import {
   type AuditJsonValue,
@@ -394,4 +395,75 @@ describe("Task 32 provider-free historical fixture comparison", () => {
       assertExactDeltaContract(baseline.projection, arbitraryAllowedPathDrift, deltas),
     ).toThrow(/unexpected current value.*stageB\.technicals\.volumeTrend\.ratio/);
   }, 30_000);
+});
+
+// P27 freeze (round 2, S4.7a): today's provider-free DEMO projection, the
+// exact surface the historical comparison above reaches after applying the
+// whole ledger (Stage B and the assembled report as the generator projects
+// them), as a committed record. Fixture identities stay checked here, and
+// the generator's own integrity (in-process repeat, isolated child process,
+// JSON-safety guard) stays independent of the record. Refresh only through
+// `npm run freeze:refresh` (docs/OPERATIONS.md).
+function auditFrozenRecord(projection: JsonValue): FrozenJson {
+  return {
+    fixture: "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
+    fixtureIdentity: { fmpTreeSha256: fixtureTreeSha256(FMP_FIXTURE_ROOT), reportSha256: sha256File(REPORT_FIXTURE) },
+    projectionSha256: createHash("sha256").update(canonicalJson(projection)).digest("hex"),
+    projection,
+  };
+}
+
+describe("frozen current DEMO fixture projection (P27)", () => {
+  it("pins today's projection to the frozen record in-process and in an isolated child process", async () => {
+    expect(fixtureTreeSha256(FMP_FIXTURE_ROOT)).toBe(AUDITED_FMP_TREE_SHA256);
+    expect(sha256File(REPORT_FIXTURE)).toBe(AUDITED_REPORT_SHA256);
+    for (const key of PROVIDER_ENV_KEYS) vi.stubEnv(key, "");
+    vi.stubEnv("AUDIT_FIXTURE_EMIT", "");
+    vi.stubEnv("AUDIT_FIXTURE_OUTPUT", "");
+    const { buildAuditFixtureComparison } = await import("./helpers/auditFixtureComparison");
+    const result = await buildAuditFixtureComparison({ fmpFixtures: FMP_FIXTURE_ROOT, reportFixture: REPORT_FIXTURE });
+    expect(result.repeatedProjection).toEqual(result.projection);
+    expect(result.calls).toEqual({
+      globalFetch: 0, fmpLiveFetch: 0, finnhubLiveFetch: 0, finraGapTransport: 0, edgarGapTransport: 0, fredGap: 0,
+    });
+    expectFrozenRecord("audit-fixture", auditFrozenRecord(result.projection));
+    const emitted = execFileSync(
+      process.execPath,
+      [path.join(ROOT, "node_modules", "tsx", "dist", "cli.mjs"), "-"],
+      {
+        cwd: ROOT,
+        encoding: "utf8",
+        env: generatorChildEnv(),
+        input: readFileSync(GENERATOR_PATH, "utf8"),
+        maxBuffer: 4 * 1024 * 1024,
+        timeout: 20_000,
+      },
+    );
+    expectFrozenRecord("audit-fixture", auditFrozenRecord(JSON.parse(emitted) as JsonValue));
+  }, 30_000);
+
+  // P27 equivalence proof. Remove together with the historical ledger in the
+  // slimming step. The audited July baseline plus every intended delta in the
+  // ledger reconstructs the frozen projection (after the same two-occurrence
+  // capex wording restore the historical test applies), and the keyed
+  // manifest identity of baseline -> frozen equals the ledger's. With the
+  // test above, old validated projection + ledger == frozen == today.
+  it("rebuilds the frozen projection from the audited baseline plus the whole intended-delta ledger", () => {
+    const frozen = readFrozenRecord("audit-fixture") as { projection: JsonValue } | null;
+    expect(frozen).not.toBeNull();
+    const baseline = loadBaseline();
+    const deltaFile = loadDeltaFile();
+    const deltas = flattenDeltaFile(deltaFile);
+    assertExactDeltaContract(baseline.projection, restoreCapexBasisGolden(frozen!.projection, 2), deltas);
+    expect(computeManifestIdentity(baseline.projection, frozen!.projection, deltaFile.keyedArrays)).toEqual(
+      deltaFile.manifestIdentity,
+    );
+  });
+
+  it("keeps the refresh log bound to both committed frozen records", () => {
+    assertFrozenLog(readFrozenLog(), {
+      "audit-fixture": readFrozenRecord("audit-fixture"),
+      "stagec-payload": readFrozenRecord("stagec-payload"),
+    });
+  });
 });
