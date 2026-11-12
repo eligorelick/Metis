@@ -910,12 +910,12 @@ Deleted with `git rm`, with the release allowlist and every inbound link
 updated in the same change:
 
 - The three earlier audit records
-  (`docs/internal/superpowers/audits/2026-08-07-remediation-verification.md`,
+  ([`docs/internal/superpowers/audits/2026-08-07-remediation-verification.md`](https://github.com/eligorelick/Metis/blob/94560ac608ed67157b625969922167b32d0ec6da/docs/superpowers/audits/2026-08-07-remediation-verification.md),
   `2026-08-30-code-and-docs-audit.md`,
   `2026-08-31-analytical-integrity-verification.md`): every finding they
   record was closed before this audit began, and this audit re-verified the
   same code from the tree rather than from their conclusions.
-- The four executed implementation plans (`docs/internal/superpowers/plans/`):
+- The four executed implementation plans ([`docs/internal/superpowers/plans/`](https://github.com/eligorelick/Metis/tree/94560ac608ed67157b625969922167b32d0ec6da/docs/superpowers/plans)):
   step-by-step task lists whose code excerpts no longer match the tree (the
   keyless plan still specified the 70–110-day quarter band). Design intent
   stays in the specs, decisions in DECISIONS.md.
