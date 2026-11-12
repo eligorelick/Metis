@@ -1,8 +1,9 @@
 import { admitRevenue, admitRevenueGrossProfit, operatingRevenuePolicy, replayIncomeObservations, providerIncomeValue, retainedIncomeRows, type OperatingRevenuePolicy } from "./revenueAdmission";
 import { GROSS_PROFIT_REVENUE_TAGS, REVENUE_COMPONENT_TAGS, PRETAX_EXCLUDING_EQUITY_METHOD_TAG, tagsFor } from "@/edgar/tagSynonyms";
 import { CORE_FACT_FORMS, conceptFactsSchema, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
-import { factsForFilings } from "@/edgar/filedPresentation";
+import { factsForFilings, parsedConceptPoints } from "@/edgar/filedPresentation";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import { memoize } from "@/edgar/computationContext";
 import { sameIncomeScope } from "./revenuePresentation";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FmpIncomeStatementRow, FmpPayload, StatementFieldProvenance } from "@/providers/fmp";
@@ -45,11 +46,14 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
   const originalRow = (row: FmpIncomeStatementRow): FmpIncomeStatementRow | undefined => {
     if (!row.filingDate) return undefined;
     if (!originalFilings.has(row.filingDate)) {
-      const accessions = new Set(Object.values(facts.facts).flatMap(ns => Object.values(ns).flatMap(raw => {
-        const parsed = conceptFactsSchema.safeParse(raw);
-        return parsed.success ? Object.values(parsed.data.units).flatMap(ps => parseFactPoints(ps).filter(p =>
-          p.end === row.date && p.filed === row.filingDate && CORE_FACT_FORMS.has(p.form)).map(p => p.accn)) : [];
-      })));
+      // The scan depends only on the facts and this (period end, filed day); computed once per run step (P13).
+      const filingDate = row.filingDate;
+      const accessions = new Set(memoize("incomeClassification.accessionsFor", facts, { end: row.date, filed: filingDate }, () =>
+        [...new Set(Object.values(facts.facts).flatMap(ns => Object.values(ns).flatMap(raw => {
+          const parsed = parsedConceptPoints(raw);
+          return parsed !== null ? Object.values(parsed.points).flatMap(ps => ps.filter(p =>
+            p.end === row.date && p.filed === filingDate && CORE_FACT_FORMS.has(p.form)).map(p => p.accn)) : [];
+        })))]));
       const original = accessions.size === 1 ? buildStatementsFromCompanyFacts(factsForFilings(facts, [...accessions]), {
         symbol: "", cik: String(facts.cik), asOf: observedAt.slice(0,10), factsObservedAt: observedAt, annualPeriods: 40, quarterlyPeriods: 80,
         bankRevenue: opts.bankRevenue || opts.securitiesRevenue,
