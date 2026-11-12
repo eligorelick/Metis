@@ -72,13 +72,13 @@ describe("valuation headline decisions", () => {
     }
   });
 
-  it("prints the withheld sentence at reader precision in Markdown only (EXCEPTION markdown-withheld-precision)", () => {
+  it("prints the withheld sentence in reader form in Markdown only (EXCEPTION markdown-withheld-reader-form)", () => {
     const reference = fairValue({ status: "dated-reference", perShare: null, reference: { perShare: { ...perShare, value: 31.4876543 }, valuationDate: "2025-12-31", quoteDate: "2026-07-20", basis: [] } });
     expect(valuationHeadlineView(valuation(), reference, "markdown").basisCaveat).toContain("31.49");
     for (const surface of ["print", "classic", "dossier"] as const) expect(valuationHeadlineView(valuation(), reference, surface).basisCaveat).toContain("31.4876543");
   });
 
-  it("prints the no-model sentence as stored in Markdown only (EXCEPTION markdown-no-model-precision)", () => {
+  it("prints the no-model sentence as stored in Markdown only (EXCEPTION markdown-no-model-reader-form)", () => {
     const reference = fairValue({ status: "dated-reference", perShare: null, reference: { perShare: { ...perShare, value: 31.4876543 }, valuationDate: "2025-12-31", quoteDate: "2026-07-20", basis: [] } });
     expect(valuationNoModelWithheldText(reference, "markdown")).toContain("31.4876543");
     expect(valuationNoModelWithheldText(reference, "print")).toContain("31.49");

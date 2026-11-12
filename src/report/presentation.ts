@@ -2496,8 +2496,9 @@ export function valuationHeadlineView(
     degradedCaveat: degraded ? displayProse(degraded) : null,
     basisCaveat: fairValue === undefined ? null
       : fairValue.status === "available" ? displayProse(fairValue.basis.join(" "))
-        // EXCEPTION markdown-withheld-precision: only Markdown prints the withheld or
-        // dated-reference sentence at reader precision; print and the app print it as stored.
+        // EXCEPTION markdown-withheld-reader-form: only Markdown prints the withheld or
+        // dated-reference sentence in reader form (displayProse: registry ids as reader
+        // labels, figures at reader precision); print and the app print it as stored.
         : surface === "markdown" ? displayProse(fairValueWithheldText(fairValue)) : fairValueWithheldText(fairValue),
     provenanceLabel: surface === "dossier" || fairValue?.method === "excess-return" ? "Model value provenance" : "DCF provenance",
   };
@@ -2505,8 +2506,9 @@ export function valuationHeadlineView(
 
 /**
  * Why no value is shown when no cash-flow model applies, or null without a
- * fair value record. EXCEPTION markdown-no-model-precision: Markdown prints
- * this sentence as stored; print and the app print it at reader precision.
+ * fair value record. EXCEPTION markdown-no-model-reader-form: Markdown prints
+ * this sentence as stored; print and the app print it in reader form
+ * (displayProse: registry ids as reader labels, grouped and rounded figures).
  */
 export function valuationNoModelWithheldText(fairValue: FairValue | undefined, surface: ValuationSurface): string | null {
   if (fairValue === undefined) return null;

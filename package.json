@@ -65,6 +65,7 @@
     "research:replay": "node --conditions=react-server --import tsx scripts/replay-run-inputs.ts",
     "golden:run": "node --import tsx scripts/golden/run.ts",
     "golden:diff": "node --import tsx scripts/golden/diff.ts",
+    "report:drift": "node --import tsx --import ./scripts/golden/offline-preload.mjs scripts/report-drift.ts",
     "reports:evaluate": "node --import tsx scripts/evaluate-reports.ts",
     "claims:evaluate": "node --import tsx scripts/evaluate-claims.ts",
     "settings:reset": "node --conditions=react-server --import tsx scripts/settings-reset.ts",
