@@ -4,6 +4,7 @@ import { z } from "zod";
 import { REPORT_SPEC_VERSION } from "@/report/schema";
 import { SCORE_BANDS_VERSION } from "@/pipeline/stageB/grading";
 import { DUAL_WRITTEN_CONFLICT_CAUSES, type StatementConflictCause } from "@/types/refusalCause";
+import { CONFLICT_CAUSES_READ_BY_CODE } from "@/edgar/refusalCauseRead";
 
 export const RUN_INPUT_SNAPSHOT_FORMAT = "RUN_INPUT_SNAPSHOT_1" as const;
 // NVDA_AUDIT_2 (D-65..D-68): all eligible consensus windows, non-operating
@@ -118,9 +119,14 @@ function redact(value: unknown, path: string, fields: string[]): unknown {
 }
 
 /**
- * P11 (D-218) step 1: the dual-written conflict codes are read by nothing yet,
- * so a snapshot keeps the bytes it had before they existed. Mutates a detached
- * JSON copy only; every other `cause` value is kept.
+ * P11 (D-218) step 1: the dual-written conflict codes no reader decides by
+ * yet are removed, so a snapshot keeps the bytes it had before they existed.
+ * D-219 step 2: the five codes the lease-portion recovery and the same-filing
+ * debt completion now read (`CONFLICT_CAUSES_READ_BY_CODE`) are kept, so a run
+ * that computes Stage B from its snapshot decides by them. A snapshot that holds
+ * no code is read by its sentences, as before; no version stamp changes because
+ * no decision changes. Mutates a detached JSON copy only; every other `cause`
+ * value is kept.
  */
 function withoutDualWrittenCauses(value: unknown): void {
   if (Array.isArray(value)) { for (const item of value) withoutDualWrittenCauses(item); return; }
@@ -129,8 +135,8 @@ function withoutDualWrittenCauses(value: unknown): void {
   const conflicts = record.fieldConflicts;
   if (conflicts !== null && typeof conflicts === "object" && !Array.isArray(conflicts)) {
     for (const conflict of Object.values(conflicts as Record<string, unknown>)) {
-      if (conflict !== null && typeof conflict === "object" &&
-          DUAL_WRITTEN_CONFLICT_CAUSES.has((conflict as { cause?: unknown }).cause as StatementConflictCause)) {
+      const cause = conflict !== null && typeof conflict === "object" ? (conflict as { cause?: unknown }).cause as StatementConflictCause : undefined;
+      if (cause !== undefined && DUAL_WRITTEN_CONFLICT_CAUSES.has(cause) && !CONFLICT_CAUSES_READ_BY_CODE.has(cause)) {
         delete (conflict as { cause?: unknown }).cause;
       }
     }

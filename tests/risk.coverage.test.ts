@@ -134,6 +134,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/technicalTrend.ts",
   "src/types/periodContext.ts",
   "src/types/refusalCause.ts",
+  "src/edgar/refusalCauseRead.ts",
   "src/report/execution.ts",
   "src/report/modelEvidence.ts",
   "src/report/query.ts",

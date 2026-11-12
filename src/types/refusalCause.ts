@@ -11,12 +11,19 @@
  * - A code names what the writer established, not how the sentence reads. A
  *   code is written by the writer that composes the sentence; it is never
  *   derived by parsing a sentence.
- * - A conflict without a code is unknown. No reader may treat a missing code
- *   as any member of this list; legacy rows written before a code existed stay
- *   unresolved for code-based readers.
+ * - A reader that has moved to codes (D-219) decides a conflict that carries a
+ *   code by the code alone; an unknown or unrelated code fails its check. A
+ *   conflict without a code (a frozen input, an older snapshot, or a writer
+ *   that writes none) is still read by its sentence, with the reader's original
+ *   pattern, and only through `@/edgar/refusalCauseRead`, the one place that
+ *   holds those legacy patterns. A missing code is never treated as any member
+ *   of this list, never derived by parsing a sentence, and never written onto
+ *   a legacy row.
  * - The first four members were already read as typed causes before D-218.
- *   The rest are dual-written beside their sentences and read by nothing yet;
- *   see `DUAL_WRITTEN_CONFLICT_CAUSES`.
+ *   The rest are dual-written beside their sentences (`DUAL_WRITTEN_CONFLICT_CAUSES`).
+ *   Since D-219 the lease-portion recovery and the same-filing debt completion
+ *   read five of them (`CONFLICT_CAUSES_READ_BY_CODE`); the other seven are read
+ *   by nothing yet.
  */
 export const STATEMENT_CONFLICT_CAUSES = [
   // Read as typed causes before D-218.
@@ -54,10 +61,11 @@ export const STATEMENT_CONFLICT_CAUSES = [
 export type StatementConflictCause = (typeof STATEMENT_CONFLICT_CAUSES)[number];
 
 /**
- * The D-218 step-1 codes. Nothing reads them yet, and they are kept out of run
- * input snapshots (`captureRunInputSnapshot`) so a stored snapshot's bytes stay
- * as they were. A later step that migrates a reader to one of these codes must
- * stop stripping it there, with its own snapshot version note.
+ * The D-218 step-1 codes. Those no reader decides by are kept out of run input
+ * snapshots (`captureRunInputSnapshot`) so a stored snapshot's bytes stay as
+ * they were. A step that migrates a reader to one of these codes stops
+ * stripping it there, with its own snapshot note: D-219 keeps the five codes in
+ * `CONFLICT_CAUSES_READ_BY_CODE` (`@/edgar/refusalCauseRead`).
  */
 export const DUAL_WRITTEN_CONFLICT_CAUSES: ReadonlySet<StatementConflictCause> = new Set<StatementConflictCause>(
   STATEMENT_CONFLICT_CAUSES.slice(STATEMENT_CONFLICT_CAUSES.indexOf("vendor-sec-value-conflict")),

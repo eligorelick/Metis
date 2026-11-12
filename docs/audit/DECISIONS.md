@@ -11,6 +11,53 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-219 - Refusal codes, step 2: the lease and debt-recovery checks read the code (2026-11-11)
+
+Principle P11. Step 2 of the D-218 migration moves two readers from the
+refusal sentence to its typed code. Both decide whether a refused total debt
+may be revisited: the D-186 lease-portion recovery
+(`restoreRefusedOperatingPortion`, `src/pipeline/stageB/leaseScope.ts`, C14)
+and the same-filing debt completion (`completeFiledDebtScope`,
+`src/edgar/financialEnrichment.ts`, C11). Nothing else is switched.
+
+Read rule (owner-directed; revises D-218). A conflict that carries a code is
+decided by the code alone: it passes only if the code is in that reader's set,
+so an unknown or unrelated code fails closed and the sentence is not read. A
+conflict without a code (a frozen input, an older run snapshot, the same-report
+cases, or a writer that writes none) is read by its sentence with the reader's
+original pattern, moved verbatim. Those patterns live in one module,
+`src/edgar/refusalCauseRead.ts`, marked as the only place a conflict without a
+code is read by its wording; nothing is added there except when a reader is
+migrated. A code is still never derived from a sentence or written onto a row
+that has none.
+
+Code sets. C14: `debt-lease-line-no-operating-total`. C11:
+`debt-lease-line-refused`, `debt-lease-line-no-operating-total`,
+`debt-vendor-short-term-zero`, `debt-aggregate-exceeds-components`,
+`debt-combined-aggregate-exceeds-components`. Every current writer of a sentence
+either pattern matches writes a code in that set (the lease-line refusals, the
+vendor short-term zero and the tagged-total check); the only other sentence
+they match is the pre-18ea3137 vendor-sum refusal, which has no writer and is
+read by wording. The identity comparisons beside both readers (C10, C15) are
+unchanged.
+
+Snapshots. `captureRunInputSnapshot` now keeps these five codes, so a run that
+computes Stage B from its snapshot decides by them; the seven step-1 codes no
+reader reads are still removed, and the four earlier codes stay. No version
+stamp changes: the code and the sentence agree on every conflict a current
+writer produces, so no decision changes, and conflicts still reach no Stage B
+output, payload, report or export.
+
+Not changed: every decision. The comparison check (`golden:diff`, 10 cases, 80
+files) shows no difference. `tests/refusalCause.readers.test.ts` runs every
+refusal each reader handles, and every debt refusal it does not, with its codes
+and with them deleted, and requires the same outcome both ways. Left for later
+steps: C1-C4, C7, C9, C12, C13 and the gap, provider, stored-report and
+sector-specific readers. Found while checking: the primary cash-flow repurchase
+resolution (`primaryCapitalBasis.ts`) copies a coded vendor/SEC conflict and
+replaces its sentence, keeping the code; no reader uses that code yet, and it
+must be fixed before a reader of `vendor-sec-value-conflict` moves to codes.
+
 ## D-218 - Refusal codes beside refusal sentences, step 1: write, do not read (2026-11-11)
 
 Principle P11: a refusal is judged from its cause and evidence, never its
@@ -39,13 +86,14 @@ compensation and cash comparison, the SEC statement builder's debt
 withholdings and `guardVendorShareFields`. Each code is chosen by the branch
 that wrote the sentence, never by reading it; a total refused because of a
 refused component takes the component's code only when that component carries
-one. No reader uses the new codes.
+one. No reader uses the new codes. (Revised by D-219: two readers now do.)
 
 Kept out of outputs: conflicts never reach Stage B output, the payload, the
 report or its exports, so nothing a report shows or stores changes.
 `captureRunInputSnapshot` removes the new codes (`DUAL_WRITTEN_CONFLICT_CAUSES`)
 so a new run snapshot keeps the bytes it would have had; the four existing
-codes stay. `ManifestEntry` gets no code in this step: gap entries are copied
+codes stay. (Revised by D-219: snapshots now keep the five codes
+those readers read.) `ManifestEntry` gets no code in this step: gap entries are copied
 into Stage B output, the payload, `appendix.missingData` (strict schema),
 `fairValue.reasons` and snapshots, and keeping a code out of all of them is a
 larger change than this step. The G and P gap readers therefore stay
@@ -68,7 +116,8 @@ that every new code is reached, that an uncoded legacy component leaves its
 total uncoded, and that a snapshot drops the new codes but keeps the old ones.
 A later step that moves a reader to a code must also stop removing that code
 from snapshots, with its own snapshot note, and decide how a frozen input or
-saved row with no code is read.
+saved row with no code is read. (Revised by D-219: by its sentence, through one
+module, and never assigned a code.)
 
 ## D-217 - Stamp new reports with their evidence rules; never rewrite old ones (2026-11-10)
 

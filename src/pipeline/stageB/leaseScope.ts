@@ -3,6 +3,7 @@ import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import type { EdgarBundle } from "@/pipeline/types";
 import { establishedIsoCode } from "@/pipeline/estimateCurrency";
 import { COMBINED_CURRENT_DEBT_TAG, tagsFor } from "@/edgar/tagSynonyms";
+import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 
 export interface LeaseEvidenceContext {
   cutoff?: string | null;
@@ -198,9 +199,8 @@ export function restoreLeaseFinancingProvenance<T extends LeaseScopeRow & { repo
  * existing lease-scope guard still refuses the lease-inclusive convention. */
 function restoreRefusedOperatingPortion<T extends LeaseScopeRow>(row: T, facts: CompanyFacts, observedAt: string): T {
   const refused = row.fieldConflicts?.totalDebt;
-  if (row.totalDebt != null || refused?.usable !== false ||
-    !/^incomplete debt carrying value: the vendor lease line /.test(refused.reason ?? "") ||
-    !/no total operating-lease liability/.test(refused.reason ?? "") ||
+  // P11 (D-219): by its typed cause; a conflict without one by its sentence (`@/edgar/refusalCauseRead`).
+  if (row.totalDebt != null || refused?.usable !== false || !conflictCauseMatches(refused, "leaseLineNoOperatingTotal") ||
     !validDay(row.date) || !validDay(observedAt.slice(0, 10)) || !establishedIsoCode(row.reportedCurrency) ||
     Number((row as { cik?: unknown }).cik) !== facts.cik ||
     ["shortTermDebt", "longTermDebt", "operatingLeaseLiability", "financeLeaseLiability", "capitalLeaseObligations"].some(f => row.fieldConflicts?.[f]?.usable === false)) return row;

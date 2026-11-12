@@ -4,6 +4,7 @@ import type { FetchResult, ManifestEntry } from "@/types/core";
 import type { StatementConflictCause } from "@/types/refusalCause";
 import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtRefusal, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
 import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
+import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
 import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
@@ -952,14 +953,14 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
       (row.cik != null && Number(row.cik) !== facts.cik)) return none;
   // Only our incomplete-scope refusals may be revisited. Collapse,
   // plausibility, vendor/SEC conflicts and refused components stay refused.
-  const recoverable = /^incomplete debt carrying value: (?:the vendor (?:lease line|short-term debt)|same-period )/;
+  // P11 (D-219): by the typed cause; a conflict without one by its sentence (`@/edgar/refusalCauseRead`).
   const refusedCash = row.fieldConflicts?.cashAndCashEquivalents;
   const cashOnlyNetRefusal = refusedCash?.usable === false && row.fieldConflicts?.netDebt?.usable === false &&
     row.fieldConflicts.netDebt.reason === refusedCash.reason;
   for (const field of ["totalDebt", "netDebt"]) {
     const conflict = row.fieldConflicts?.[field];
     if (field === "netDebt" && cashOnlyNetRefusal) continue;
-    if (conflict?.usable === false && !recoverable.test(conflict.reason)) return none;
+    if (conflict?.usable === false && !conflictCauseMatches(conflict, "recoverableDebtScope")) return none;
   }
   const vendorTotal = row.totalDebt ?? row.fieldConflicts?.totalDebt?.vendorValue;
   const at = (tag: string) => points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined && p.val >= 0);
