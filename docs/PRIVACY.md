@@ -424,8 +424,11 @@ ChatGPT credentials stay server-side in protected per-user storage (Windows
 DPAPI; owner-only files on macOS/Linux). Disconnect stops local requests and
 attempts ChatGPT session revocation. See
 [Privacy](PRIVACY.md). The OAuth paths have offline regression coverage.
-Complete reports have run live through a ChatGPT connection (October 2026);
-inference through a live Claude Code connection has not been verified for this release.
+Complete reports have run live through a ChatGPT connection (October 2026).
+One complete report has run live through a Claude Code subscription connection
+(one company, 2026-11-12, Claude Code 2.1.322; every pass finished and $0 API
+cost was recorded). One run is not a guarantee, and subscription usage limits
+still apply.
 
 ### Model and speed controls
 
