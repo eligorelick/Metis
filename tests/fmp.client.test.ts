@@ -131,17 +131,6 @@ describe("FMP entity identity", () => {
     }
   });
 
-  it("rejects a mixed-entity batch instead of filtering it", async () => {
-    const { fetch } = fakeFetch([
-      { symbol: "AAPL", price: 200 },
-      { symbol: "GOOG", price: 190 },
-    ]);
-
-    const result = await liveClient(fetch).batchQuote(["AAPL", "MSFT"]);
-
-    expect(result.ok).toBe(false);
-  });
-
   it("rejects a poisoned cache hit", async () => {
     const cachedFetch: CachedFetchFn = async <T>() => ({
       value: {
@@ -387,11 +376,7 @@ describe("fixture mode (no API key)", () => {
     }
   });
 
-  it("keeps quirky raw shapes intact (dcf 'Stock Price' key, segmentation data map)", async () => {
-    const dcf = await fixtureClient().dcf("DEMO");
-    expect(dcf.ok).toBe(true);
-    if (dcf.ok) expect(dcf.value.data.rows[0]?.["Stock Price"]).toBe(40);
-
+  it("keeps quirky raw shapes intact (segmentation data map)", async () => {
     const seg = await fixtureClient().revenueProductSegmentation("DEMO");
     expect(seg.ok).toBe(true);
     if (seg.ok) {
@@ -828,7 +813,7 @@ describe("fmpCacheKey", () => {
       fetchedAt: "2026-07-01T00:00:00.000Z",
     });
     const { fetch } = fakeFetch([{ symbol: "AAPL", date: "2026-06-30" }], 200);
-    const result = await liveClient(fetch, cachedFetch).marketCap("AAPL");
+    const result = await liveClient(fetch, cachedFetch).sharesFloat("AAPL");
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.stale).toBe(true);

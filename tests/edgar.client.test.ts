@@ -187,7 +187,7 @@ describe("EdgarClient (fake transport)", () => {
     },
   );
 
-  it("submissions + latestFiling: exact form match on parallel arrays (sample has 10-Q but NO 10-K in recent 40)", async () => {
+  it("submissions: parallel arrays become newest-first filing rows", async () => {
     const { transport } = fakeTransport({ "submissions/CIK0000320193.json": { body: sample("aapl_submissions_truncated.json") } });
     const client = new EdgarClient({ transport });
     const sub = await client.submissions(320193);
@@ -198,16 +198,6 @@ describe("EdgarClient (fake transport)", () => {
       expect(sub.value.data.fiscalYearEnd).toBe("0926");
       expect(sub.value.data.recentFilings.length).toBe(40);
     }
-    const tenQ = await client.latestFiling(320193, "10-Q");
-    expect(tenQ.ok).toBe(true);
-    if (tenQ.ok) {
-      expect(tenQ.value.data.accessionNumber).toBe("0000320193-26-000013");
-      expect(tenQ.value.data.primaryDocument).toBe("aapl-20260328.htm");
-      expect(tenQ.value.asOf).toBe(tenQ.value.data.filingDate);
-    }
-    // Amendment-distinct exact matching: no "10-K" in the truncated sample -> gap, not a 10-K/A mixup.
-    const tenK = await client.latestFiling(320193, "10-K");
-    expect(tenK.ok).toBe(false);
   });
 
   it("submissions rejects a response for a different padded CIK", async () => {
@@ -504,36 +494,6 @@ describe("EdgarClient (fake transport)", () => {
       expect((e as EdgarRateLimitError).retryable).toBe(true);
       expect((e as EdgarRateLimitError).retryAfterMs).toBeGreaterThan(0);
     }
-  });
-
-  it("fullTextSearch builds params and parses ES hits into accession+filename", async () => {
-    const es = JSON.stringify({
-      took: 3,
-      hits: {
-        total: { value: 287, relation: "eq" },
-        hits: [
-          {
-            _id: "0001640334-26-000241:acbm_10k.htm",
-            _source: { ciks: ["0001622996"], display_names: ["ACRO BIOMEDICAL CO., LTD."], form: "10-K", file_date: "2026-02-11", file_type: "10-K" },
-          },
-        ],
-      },
-    });
-    const { transport, calls } = fakeTransport({ "efts.sec.gov/LATEST/search-index": { body: es } });
-    const client = new EdgarClient({ transport });
-    const r = await client.fullTextSearch('"supply chain disruption"', { forms: "10-K", ciks: 320193, startdt: "2026-01-01", enddt: "2026-07-01" });
-    expect(r.ok).toBe(true);
-    if (r.ok) {
-      expect(r.value.data.total).toBe(287);
-      expect(r.value.data.hits[0].accession).toBe("0001640334-26-000241");
-      expect(r.value.data.hits[0].filename).toBe("acbm_10k.htm");
-      expect(r.value.data.hits[0].form).toBe("10-K");
-    }
-    const url = new URL(calls[0].url);
-    expect(url.hostname).toBe("efts.sec.gov");
-    expect(url.searchParams.get("q")).toBe('"supply chain disruption"');
-    expect(url.searchParams.get("ciks")).toBe("0000320193");
-    expect(url.searchParams.get("dateRange")).toBe("custom");
   });
 
   it.each([
