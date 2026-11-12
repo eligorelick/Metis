@@ -32,8 +32,6 @@
   "overrides": {
     "postcss": "$postcss",
     "esbuild": "0.28.1",
-    "js-yaml": "4.3.2",
-    "browserslist": "^4.28.8",
     "eslint": { "minimatch": "$minimatch" },
     "@eslint/config-array": { "minimatch": "$minimatch" },
     "@eslint/eslintrc": { "minimatch": "$minimatch" },
@@ -43,8 +41,6 @@
     "@typescript-eslint/typescript-estree": {
       "minimatch": "$minimatch-modern"
     },
-    "source-map-js": "1.2.2",
-    "vite": "8.3.3",
     "@next/eslint-plugin-next@16.4.2": {
       "fast-glob": "$fast-glob"
     }

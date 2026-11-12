@@ -10,15 +10,17 @@ when reviewing that snapshot.
 
 ## Select the report connection first
 
-**Settings → AI connections** chooses AI off, Claude API, or ChatGPT.
-Connecting an account does not generate a report. Save the desired report
-connection after selecting its model and, for ChatGPT, effort and speed.
+**Settings → AI connections** chooses AI off, Claude API, ChatGPT, or Claude
+through the local Claude Code CLI. Connecting an account does not generate a
+report. Save the desired report connection after selecting its model and, for
+ChatGPT, effort and speed, or for Claude Code, an optional effort.
 
 | Connection | Implementation | Cost recorded by Metis |
 | --- | --- | --- |
 | AI off | Fetch, validate and calculate locally; save a data-only report | No inference charge |
 | Claude API | `ANTHROPIC_API_KEY`; Anthropic Messages API | USD estimated from provider usage and the registry, or conservative presumed spend |
 | ChatGPT | Browser OAuth; OpenAI Responses API through the connected account | `$0` API cost; reported input/output tokens and execution evidence |
+| Claude Code | Your installed, unmodified Claude Code CLI 2.1.319+, signed in to your Claude subscription with `claude auth login`; Metis runs it locally with tools, hooks, MCP servers and session saving turned off, uses supplied evidence only (no web search), and never reads the CLI's OAuth tokens | `$0` API cost; the input tokens (cache reads and writes included) and output tokens the CLI reports, the model or models it reports, and the requested effort (the CLI does not report the effort it used). One complete report has run live through this route (2026-11-12; see the limits section) |
 
 A subscription report's `$0` means Metis records no API dollar charge. It does
 not mean free or unlimited provider usage, and Metis cannot read remaining
@@ -380,3 +382,19 @@ and account access before relying on retained entries.
 Offline regression coverage and static request checks do not demonstrate live
 model access, quota, current billing terms or research quality. No live paid
 inference was run as part of this documentation audit.
+
+One complete report has run live through the Claude Code route. On 2026-11-12
+a report for one company ran end to end, on a copy of the database, through
+Claude Code 2.1.322 signed in with a Claude subscription. The model was left at
+the `default` alias, which the CLI reported as `claude-opus-5-5` for both
+analyst passes and the judge, so the judge shared the analysts' model family.
+Effort was left at the CLI default, and the CLI did not report the effort it
+used. Every pass finished on its first attempt, the report saved and exported,
+no paid API fallback occurred, and Metis recorded $0 API cost. The CLI reported
+about 1.29 million input tokens (cache reads and writes included) and 118
+thousand output tokens; the run took about 17 minutes. Metis runs the CLI with
+its tools turned off, so the passes used only the supplied evidence and did no
+web research. One run is not a guarantee. It does not show how subscription
+usage limits apply on other accounts and plans (Metis cannot read remaining
+allowance), nor results with other models, efforts or companies, nor research
+quality.

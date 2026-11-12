@@ -828,16 +828,60 @@ describe("public release contract", () => {
   // Both documents said no live ChatGPT or Gemini inference had been verified,
   // after complete reports had run live through a ChatGPT connection (reports
   // #40 to #45, October 2026; audit DOC-1, deferred under D-97 item 17,
-  // corrected on 2026-10-22). The Gemini route was removed on 2026-11-09;
-  // the local Claude Code route has no live run yet.
+  // corrected on 2026-10-22). The Gemini route was removed on 2026-11-09.
+  // One complete report ran live through the local Claude Code route on
+  // 2026-11-12; both documents say so, and no more than that.
   it("states which subscription connection has run live inference", () => {
     for (const name of ["README.md", "docs/PRIVACY.md"]) {
       const prose = read(name).replace(/\s+/g, " ");
       expect(prose, name).not.toMatch(/live inference has not been verified/);
       expect(prose, name).not.toMatch(/ChatGPT or Gemini account has not been verified/);
       expect(prose, name).toContain("run live through a ChatGPT connection");
-      expect(prose, name).toMatch(/live Claude Code[^.]* has not been verified/);
+      expect(prose, name).not.toMatch(/live Claude Code[^.]* has not been verified/);
+      expect(prose, name).toContain("One complete report has run live through a Claude Code subscription connection");
+      expect(prose, name).toContain("2026-11-12, Claude Code 2.1.322");
+      expect(prose, name).toContain("One run is not a guarantee");
+      expect(prose, name).not.toMatch(/Claude Code[^.]* has been verified/);
     }
+  });
+
+  // docs/CLAUDE-USAGE.md listed every report connection except Claude Code.
+  // Its row now names the one live run (2026-11-12) and the limits section
+  // keeps that run's honest limits.
+  it("lists the Claude Code connection in the usage guide with its one live run and limits", () => {
+    const row = read("docs/CLAUDE-USAGE.md").split("\n").find((line) => line.startsWith("| Claude Code |")) ?? "";
+    expect(row).toContain("`$0` API cost");
+    expect(row).toContain("`claude auth login`");
+    expect(row).toContain("One complete report has run live through this route (2026-11-12");
+    expect(row).toContain("the CLI does not report the effort it used");
+    expect(row).not.toMatch(/\bhas been verified\b/);
+    const prose = read("docs/CLAUDE-USAGE.md").replace(/\s+/g, " ");
+    expect(prose).toContain("One complete report has run live through the Claude Code route.");
+    expect(prose).toContain("Claude Code 2.1.322");
+    expect(prose).toContain("reported as `claude-opus-5-5`");
+    expect(prose).toContain("Metis recorded $0 API cost");
+    expect(prose).toContain("did no web research");
+    expect(prose).toContain("One run is not a guarantee.");
+    expect(prose).toContain("Metis cannot read remaining allowance");
+  });
+
+  // src/ai/store.ts aiDirectory() reads LOCALAPPDATA on Windows and ignores
+  // METIS_DATA_DIR, so a test on a database copy must redirect it as well.
+  it("tells testers on a copy to redirect the AI store", () => {
+    const store = read("src/ai/store.ts");
+    expect(store).toContain("process.env.LOCALAPPDATA");
+    expect(store).not.toContain("METIS_DATA_DIR");
+    const operations = read("docs/OPERATIONS.md").replace(/\s+/g, " ");
+    expect(operations).toContain("A test on a copy must redirect that store too: on Windows it follows `LOCALAPPDATA`");
+  });
+
+  // The simulated demo page kept a Gemini provider option after the Gemini
+  // route was removed (#123); it lists only the providers the app offers.
+  it("lists no removed provider on the simulated demo page", () => {
+    const page = read("public/audit-ui/app.js");
+    expect(page).not.toMatch(/gemini/i);
+    const select = /<select id="ai">(.*?)<\/select>/.exec(page)?.[1] ?? "";
+    expect([...select.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1])).toEqual(["none", "chatgpt", "claude"]);
   });
 
   it("documents setup, privacy, safety, and verification in README", () => {

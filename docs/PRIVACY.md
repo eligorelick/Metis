@@ -30,7 +30,7 @@ telemetry (`telemetry.nextjs.org`). `.env.example` ships
 
 | Recipient | Data/credentials sent by the relevant request | Trigger |
 | --- | --- | --- |
-| SEC EDGAR (`www.sec.gov`, `data.sec.gov`, `efts.sec.gov`) | `EDGAR_CONTACT`, verbatim, as the `User-Agent`; the ticker, CIK, and filing paths being read | A real contact is configured (`src/providers/edgar.ts` `EDGAR_USER_AGENT`, `hasConfiguredEdgarIdentity`) |
+| SEC EDGAR (`www.sec.gov`, `data.sec.gov`) | `EDGAR_CONTACT`, verbatim, as the `User-Agent`; the ticker, CIK, and filing paths being read | A real contact is configured (`src/providers/edgar.ts` `EDGAR_USER_AGENT`, `hasConfiguredEdgarIdentity`) |
 | Anthropic (`api.anthropic.com`) | The analysis prompt and evidence payload for inference; `ANTHROPIC_API_KEY` for authenticated Messages/Models calls | Claude API runs a pass, or `auto` resolves the available model catalog |
 | OpenAI (`auth.openai.com`, `api.openai.com`) | OAuth registration, token renewal/revocation and account model catalog; research prompt and ticker payload for inference | You connect ChatGPT, request its models, or run a report using that connection |
 | Anthropic through the official Claude Code CLI | The research prompt and evidence payload for inference; authentication is handled by the CLI | You sign in using `claude auth login` or run a report through the local CLI; Metis never reads or stores the CLI's OAuth tokens |
@@ -424,8 +424,11 @@ ChatGPT credentials stay server-side in protected per-user storage (Windows
 DPAPI; owner-only files on macOS/Linux). Disconnect stops local requests and
 attempts ChatGPT session revocation. See
 [Privacy](PRIVACY.md). The OAuth paths have offline regression coverage.
-Complete reports have run live through a ChatGPT connection (October 2026);
-inference through a live Claude Code connection has not been verified for this release.
+Complete reports have run live through a ChatGPT connection (October 2026).
+One complete report has run live through a Claude Code subscription connection
+(one company, 2026-11-12, Claude Code 2.1.322; every pass finished and $0 API
+cost was recorded). One run is not a guarantee, and subscription usage limits
+still apply.
 
 ### Model and speed controls
 

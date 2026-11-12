@@ -745,14 +745,6 @@ export interface FmpMarketRiskPremiumRow extends FmpRawRow {
   totalEquityRiskPremium?: number;
 }
 
-export interface FmpDcfRow extends FmpRawRow {
-  symbol?: string;
-  date?: string;
-  dcf?: number;
-  /** the real field name has a space: "Stock Price" */
-  "Stock Price"?: number;
-}
-
 /** Every method returns the typed rows plus the verbatim parsed body. */
 /**
  * Set when the request's `limit` was clamped to the FMP subscription's cap
@@ -806,12 +798,11 @@ const DAY = 24 * HOUR;
 const FOREVER = 3650 * DAY;
 
 /** Endpoints priced off the live quote: their TTL follows the US session (quoteTtlMs). */
-const QUOTE_DRIVEN_METHODS: ReadonlySet<string> = new Set(["quote", "batchQuote", "marketCap"]);
+const QUOTE_DRIVEN_METHODS: ReadonlySet<string> = new Set(["quote"]);
 
 export const FMP_TTLS = {
   profile: DAY,
   quote: 15 * MIN,
-  batchQuote: 15 * MIN,
   incomeStatement: DAY,
   balanceSheet: DAY,
   cashFlow: DAY,
@@ -838,7 +829,6 @@ export const FMP_TTLS = {
   revenueGeographicSegmentation: DAY,
   keyExecutives: 7 * DAY,
   executiveCompensation: 7 * DAY,
-  marketCap: 15 * MIN,
   historicalMarketCap: DAY,
   sharesFloat: DAY,
   secFilingsSearch: 6 * HOUR,
@@ -847,7 +837,6 @@ export const FMP_TTLS = {
   historicalPriceEodFull: DAY,
   treasuryRates: 2 * HOUR,
   marketRiskPremium: 7 * DAY,
-  dcf: DAY,
 } as const satisfies Record<string, number>;
 
 export type FmpMethodName = keyof typeof FMP_TTLS;
@@ -980,7 +969,7 @@ function quoteTimestampProblem(
   acquisitionTimes: readonly (string | undefined)[],
   clientCutoff?: string,
 ): string | null {
-  if (method !== "quote" && method !== "batchQuote") return null;
+  if (method !== "quote") return null;
   const cutoffs = acquisitionTimes.flatMap((iso) => {
     const ms = iso === undefined ? NaN : Date.parse(iso);
     return Number.isFinite(ms) ? [{ iso, ms, kind: "acquisition" }] : [];
@@ -1778,7 +1767,7 @@ export class FmpClient {
       exchange.value.fetchedAt,
     ], this.now().toISOString());
     if (timestampProblem !== null) return gap(spec.gapField, timestampProblem, "warn", [endpointPath]);
-    const rows = validation.rows.map(row => spec.method === "quote" || spec.method === "batchQuote"
+    const rows = validation.rows.map(row => spec.method === "quote"
       ? { ...row, priceAsOf: quotePriceObservationDay(row) } : row);
     const estimateFallback = spec.method === "analystEstimates" ? fetchedAt ?? this.now().toISOString() : null;
     const sourced: Sourced<FmpPayload<TRow>> = {
@@ -1881,18 +1870,6 @@ export class FmpClient {
       entityScope: { expectedSymbols: [symbol], returnedSymbol: "required" },
       fixtureKeys: [symbol],
       gapField: `fmp.quote(${symbol})`,
-    });
-  }
-
-  batchQuote(symbols: string[]): FmpResult<FmpQuoteRow> {
-    const joined = symbols.join(",");
-    return this.call<FmpQuoteRow>({
-      method: "batchQuote",
-      endpoint: "batch-quote",
-      params: { symbols: joined },
-      entityScope: { expectedSymbols: symbols, returnedSymbol: "required" },
-      fixtureKeys: [symbols.join("_"), symbols[0] ?? ""],
-      gapField: `fmp.batchQuote(${joined})`,
     });
   }
 
@@ -2219,17 +2196,6 @@ export class FmpClient {
 
   // -- capitalization ----------------------------------------------------------
 
-  marketCap(symbol: string): FmpResult<FmpMarketCapRow> {
-    return this.call<FmpMarketCapRow>({
-      method: "marketCap",
-      endpoint: "market-capitalization",
-      params: { symbol },
-      entityScope: { expectedSymbols: [symbol], returnedSymbol: "optional" },
-      fixtureKeys: [symbol],
-      gapField: `fmp.marketCap(${symbol})`,
-    });
-  }
-
   historicalMarketCap(symbol: string, from: string, to: string): FmpResult<FmpMarketCapRow> {
     return this.call<FmpMarketCapRow>({
       method: "historicalMarketCap",
@@ -2511,20 +2477,6 @@ export class FmpClient {
       endpoint: "market-risk-premium",
       params: {},
       gapField: "fmp.marketRiskPremium",
-    });
-  }
-
-  // -- valuation ----------------------------------------------------------------
-
-  /** Headline DCF. Beware the literal "Stock Price" field (space in key). */
-  dcf(symbol: string): FmpResult<FmpDcfRow> {
-    return this.call<FmpDcfRow>({
-      method: "dcf",
-      endpoint: "discounted-cash-flow",
-      params: { symbol },
-      entityScope: { expectedSymbols: [symbol], returnedSymbol: "optional" },
-      fixtureKeys: [symbol],
-      gapField: `fmp.dcf(${symbol})`,
     });
   }
 }

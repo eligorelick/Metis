@@ -197,7 +197,7 @@ build (a provider stamp up to 60 seconds ahead of the bundle clock still counts
 as this build's), so facts the build itself fetched are available at its
 cutoff and a cache miss values the same filings exactly as a cache hit
 (audit 2026-10-19, PGR-1). Point-in-time availability still rests on each
-fact's filing and acceptance dates. Live FMP quote/batch-quote observations demonstrably after
+fact's filing and acceptance dates. Live FMP quote observations demonstrably after
 the original acquisition or injected client cutoff fail admission and cache
 retrieval; this adds no arbitrary stale-price expiry rule. Synthetic fixtures
 and historical report bytes retain their original conventions.
