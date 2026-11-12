@@ -253,7 +253,8 @@ describe("the code list", () => {
     if (!bundle.statements.balanceAnnual.ok) throw Error("fixture");
     const rows = bundle.statements.balanceAnnual.value.data.rows as FmpStatementRow[];
     const plain = structuredClone(bundle);
-    rows[0]!.fieldConflicts = { totalDebt: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence", cause: "debt-maturity-scope" },
+    // D-220: debt-maturity-scope is now read, so a code still read by nothing stands in for the step-1 codes.
+    rows[0]!.fieldConflicts = { totalDebt: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence", cause: "debt-total-minor-difference" },
       revenue: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence", cause: "revenue-scope" } };
     (plain.statements.balanceAnnual.ok ? plain.statements.balanceAnnual.value.data.rows[0] as FmpStatementRow : null)!.fieldConflicts = {
       totalDebt: { usable: false, vendorValue: 1, secValue: null, reason: "kept sentence" },
@@ -264,8 +265,8 @@ describe("the code list", () => {
     expect(conflicts?.totalDebt).toEqual({ usable: false, vendorValue: 1, secValue: null, reason: "kept sentence" });
     expect(conflicts?.revenue?.cause).toBe("revenue-scope");
     expect(snapshot.hash).toBe(captureRunInputSnapshot(plain, { evIncludeLeases: false }).hash);
-    expect(canonicalSnapshotJson(snapshot.content.bundle)).not.toContain("debt-maturity-scope");
+    expect(canonicalSnapshotJson(snapshot.content.bundle)).not.toContain("debt-total-minor-difference");
     // The live bundle is not mutated.
-    expect(rows[0]!.fieldConflicts?.totalDebt?.cause).toBe("debt-maturity-scope");
+    expect(rows[0]!.fieldConflicts?.totalDebt?.cause).toBe("debt-total-minor-difference");
   });
 });

@@ -667,8 +667,9 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   // still withholds the total.
   const splitRefusal = (field: string): boolean => {
     const conflict = row.fieldConflicts?.[field];
-    return conflict?.usable === false && (field === "shortTermDebt" ? conflict.reason.startsWith("debt maturity scope unresolved:")
-      : field === "longTermDebt" && conflict.reason.startsWith("noncurrent carrying debt allocation unavailable:"));
+    // P11 (D-220): by the typed code; a conflict with no code by its sentence (`refusalCauseRead`).
+    return conflict?.usable === false && (field === "shortTermDebt" ? conflictCauseMatches(conflict, "shortTermDebtMaturityScope")
+      : field === "longTermDebt" && conflictCauseMatches(conflict, "longTermDebtNoncurrentAllocation"));
   };
   const splitOnly = only("longTermDebt", "LongTermDebt") && only("shortTermDebt", maturityTag) &&
     typeof row.totalDebt === "number" && Number.isFinite(row.totalDebt) && row.fieldConflicts?.totalDebt?.usable !== false &&
@@ -1353,8 +1354,9 @@ function recoverNoteCarryingDebt<T extends FmpStatementRow>(row: T, facts: Compa
   for (const field of ["shortTermDebt", "longTermDebt", "totalDebt", "netDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"]) {
     const conflict = row.fieldConflicts?.[field];
     if (!conflict) continue;
-    const recoverable = field === "shortTermDebt" ? fiscalStandIn && conflict.reason.startsWith("debt maturity scope unresolved:")
-      : ["totalDebt", "netDebt"].includes(field) && (/^incomplete debt carrying value: (?:shortTermDebt is unavailable \(debt maturity scope unresolved:|debt maturity scope unresolved:|current\/noncurrent financing components do not establish the total;)/.test(conflict.reason));
+    // P11 (D-220): by the typed code; a conflict with no code by its sentence (`refusalCauseRead`).
+    const recoverable = field === "shortTermDebt" ? fiscalStandIn && conflictCauseMatches(conflict, "shortTermDebtMaturityScope")
+      : ["totalDebt", "netDebt"].includes(field) && conflictCauseMatches(conflict, "noteRecoverableDebtTotal");
     if (!recoverable || (conflict.vendorValue !== null && !(field === "shortTermDebt" && conflict.vendorValue === maturity?.value)) ||
         (conflict.secEvidence !== undefined && !matches(conflict.secEvidence))) return null;
   }

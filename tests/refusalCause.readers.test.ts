@@ -1,10 +1,15 @@
 /**
- * P11 (D-219) step 2: two readers decide by the typed refusal code, and a
- * conflict without a code is read by its sentence exactly as before.
+ * P11 (D-219, D-220) steps 2 and 3: four readers decide by the typed refusal
+ * code, and a conflict without a code is read by its sentence exactly as before.
  *
  * - C14 `restoreRefusedOperatingPortion` (via `restoreLeaseFinancingProvenance`):
  *   `debt-lease-line-no-operating-total`.
  * - C11 `completeFiledDebtScope` (via `admitDebtFields`): the five incomplete-scope codes.
+ * - C4 `splitRefusal` (via `admitDebtFields`, D-220): `debt-maturity-scope` on
+ *   shortTermDebt and `debt-noncurrent-allocation` on longTermDebt.
+ * - C12 `recoverNoteCarryingDebt` (via `admitDebtFields`, D-220): `debt-maturity-scope`
+ *   on shortTermDebt (behind its `fiscalStandIn` gate) and the three
+ *   missing-taxonomy-class codes on totalDebt/netDebt.
  *
  * Every refusal below is written by the real writer (the debt admission, the
  * SEC statement builder, the cash comparison, the plausibility helper); only
@@ -14,6 +19,7 @@
  * runs twice, with its codes and with every `cause` deleted (the wording path),
  * and both runs must match each other and the stated outcome.
  */
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -25,6 +31,7 @@ import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import type { CompanyFacts, FactPoint } from "@/edgar/xbrl";
 import { captureRunInputSnapshot } from "@/pipeline/runInputSnapshot";
 import { restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
+import type { ExtractedSection } from "@/pipeline/types";
 import type { FmpBalanceSheetRow, FmpStatementRow, StatementFieldConflict } from "@/providers/fmp";
 import { DUAL_WRITTEN_CONFLICT_CAUSES, STATEMENT_CONFLICT_CAUSES, type StatementConflictCause } from "@/types/refusalCause";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -33,7 +40,11 @@ import frozen from "./fixtures/crwv-debt-facts.json";
 
 type Conflict = StatementFieldConflict;
 type Conflicted = { fieldConflicts?: Record<string, Conflict> };
-const READERS: readonly ConflictCodeReader[] = ["leaseLineNoOperatingTotal", "recoverableDebtScope"];
+const READERS: readonly ConflictCodeReader[] = ["leaseLineNoOperatingTotal", "recoverableDebtScope", "shortTermDebtMaturityScope",
+  "longTermDebtNoncurrentAllocation", "noteRecoverableDebtTotal"];
+/** The fields each reader is called on. The D-219 readers are checked on every field, as before. */
+const READ_FIELDS: Record<ConflictCodeReader, readonly string[] | "any"> = { leaseLineNoOperatingTotal: "any", recoverableDebtScope: "any",
+  shortTermDebtMaturityScope: ["shortTermDebt"], longTermDebtNoncurrentAllocation: ["longTermDebt"], noteRecoverableDebtTotal: ["totalDebt", "netDebt"] };
 
 /** A deep copy with every conflict's `cause` removed: the same row as an older stored input. */
 function uncoded<T>(value: T): T {
@@ -294,26 +305,265 @@ function crwvBalanceRows(add: Record<string, number> = {}, remove: string[] = []
   return [...out.balanceQuarterly.rows, ...out.balanceAnnual.rows] as Conflicted[];
 }
 
+// ---- D-220: C4 (`splitRefusal`) and C12 (`recoverNoteCarryingDebt`), both in `admitDebtFields`. ----
+/** `base` with `from`'s sentence and code (or no code): a writer's refusal placed on the reader's row, at that row's amounts. */
+function placed(base: Conflict, from: Conflict): Conflict {
+  const rest: Conflict = structuredClone(base);
+  delete rest.cause;
+  return { ...rest, reason: from.reason, ...(from.cause !== undefined ? { cause: from.cause } : {}) };
+}
+const literalOn = (reason: string, cause?: StatementConflictCause): Conflict => ({ usable: false, vendorValue: null, secValue: null, reason, ...(cause ? { cause } : {}) });
+/** The SEC statement builder's currency withholding (`sameRowEvidence`), which carries no code. */
+const MIXED_UNIT = "mixed_unit: LongTermDebtCurrent uses EUR, conflicting with row reporting currency USD; field/component withheld without a currency conversion";
+/** The SEC statement builder's double-count withholding on longTermDebt, which carries no code. */
+const FINANCING_UNRESOLVED = "financing debt unresolved: DebtLongtermAndShorttermCombinedAmount is all debt, current included, and a current-debt figure also resolved";
+const conflictOn = (row: Conflicted, field: string): Conflict => row.fieldConflicts![field]!;
+const crwvAt = (rows: Conflicted[]): Conflicted => rows.find((row) => (row as { date?: string }).date === AT)!;
+
+// C4: a vendor row whose inclusive LongTermDebt total stands while the maturity-bucket split is refused.
+const SPLIT_FACTS = { LongTermDebt: 104, [MATURITY_TAG]: 4 };
+const splitVendor = vendor({ longTermDebt: 104 * M, shortTermDebt: 4 * M, capitalLeaseObligations: 0, totalDebt: 104 * M, netDebt: 94 * M,
+  fieldProvenance: { shortTermDebt: edgar(MATURITY_TAG), longTermDebt: edgar("LongTermDebt") } });
+/** The split refusals the debt admission writes when the remainder-of-year bucket is tagged. */
+const splitRefused = admitDebtFields(splitVendor, companyFacts({ [Q2]: { ...SPLIT_FACTS, [REMAINDER_TAG]: 2 } }), "USD", OBSERVED).row;
+const crwvSplit = crwvAt(crwvBalanceRows({ LongTermDebt: 30e9 }));
+const crwvInclusive = crwvAt(crwvBalanceRows({ DebtCurrent: 1e9, LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities: 30e9 },
+  [MATURITY_TAG, REMAINDER_TAG, "DebtInstrumentCarryingAmount"]));
+
+type Case = { conflict: Conflict; reads: boolean };
+const SHORT_SPLIT = {
+  "the debt admission's maturity bucket": { conflict: conflictOn(splitRefused, "shortTermDebt"), reads: true },
+  "the SEC statement builder's maturity bucket": { conflict: conflictOn(crwvAt(crwvBalanceRows()), "shortTermDebt"), reads: true },
+  "a currency withholding": { conflict: literalOn(MIXED_UNIT), reads: false },
+  "the allocation refusal, on the wrong field": { conflict: conflictOn(splitRefused, "longTermDebt"), reads: false },
+} satisfies Record<string, Case>;
+const LONG_SPLIT = {
+  "the debt admission's allocation": { conflict: conflictOn(splitRefused, "longTermDebt"), reads: true },
+  "the SEC statement builder's LongTermDebt allocation": { conflict: conflictOn(crwvSplit, "longTermDebt"), reads: true },
+  "the SEC statement builder's inclusive debt-and-lease allocation": { conflict: conflictOn(crwvInclusive, "longTermDebt"), reads: true },
+  "a debt presentation conflict": { conflict: literalOn(PRESENTATION), reads: false },
+  "implausible interest on resolved debt": { conflict: literalOn(implausibleDebtReason({ annualInterestExpense: 50 * M, financingDebt: 100 * M, priorFinancingDebts: [], totalAssets: null })!), reads: false },
+  "a double-counted financing total": { conflict: literalOn(FINANCING_UNRESOLVED), reads: false },
+  "the maturity bucket, on the wrong field": { conflict: conflictOn(splitRefused, "shortTermDebt"), reads: false },
+} satisfies Record<string, Case>;
+const splitRow = (short: Conflict, long: Conflict): FmpBalanceSheetRow => ({ ...structuredClone(splitRefused), fieldConflicts: {
+  shortTermDebt: placed(conflictOn(splitRefused, "shortTermDebt"), short), longTermDebt: placed(conflictOn(splitRefused, "longTermDebt"), long) } });
+/** With the remainder tagged the bucket's scope is refused again on this pass; without it only the row's own refusals decide. */
+const SPLIT_PASSES = [["with the remainder tagged", { ...SPLIT_FACTS, [REMAINDER_TAG]: 2 }], ["without the remainder", SPLIT_FACTS]] as const;
+const C4 = (tags: Record<string, number>) => (row: FmpBalanceSheetRow) => admitDebtFields(row, companyFacts({ [Q2]: tags }), "USD", OBSERVED);
+function expectSplitOnly(out: ReturnType<ReturnType<typeof C4>>, kept: boolean): void {
+  if (kept) {
+    expect(out.row.totalDebt).toBe(104 * M);
+    expect(out.row.fieldConflicts?.totalDebt).toBeUndefined();
+  } else {
+    expect(out.row.totalDebt).toBeNull();
+    expect(out.row.fieldConflicts?.totalDebt?.usable).toBe(false);
+  }
+}
+/** A later pass over the split row whose allocation was refused for another cause: the total names the refused component. */
+const componentRefused = (tags: Record<string, number>): Conflicted =>
+  C4(tags)({ ...structuredClone(splitRefused), fieldConflicts: { ...splitRefused.fieldConflicts, longTermDebt: literalOn(PRESENTATION) } }).row;
+/** With the remainder tagged the bucket is excluded, so the total names the longTermDebt refusal (no code). */
+const longUnavailable = componentRefused(SPLIT_PASSES[0][1]);
+/** Without it the bucket is not exempt, so the total names the shortTermDebt refusal (debt-component-maturity-scope). */
+const shortUnavailable = componentRefused(SPLIT_PASSES[1][1]);
+
+// C12: CRWV's saved 10-Q, whose Note 10 reconciles carrying debt (tests/edgar.debtNoteCarrying.test.ts).
+const NOTE_OBSERVED = "2026-10-18T03:45:24.555Z";
+const NOTE_SECTION: ExtractedSection = { form: "10-Q", accession: "0001769628-26-000366", filingDate: "2026-08-12", reportDate: AT,
+  documentUrl: "https://www.sec.gov/Archives/edgar/data/1769628/000176962826000366/crwv-20260630.htm",
+  sectionName: "tenQNotes", method: "header-regex", chars: 1, text: readFileSync("fixtures/edgar/crwv-debt-note-20260630.txt", "utf8") };
+const noteFacts = structuredClone(frozen.facts) as CompanyFacts;
+const noteRow = buildStatementsFromCompanyFacts(noteFacts, { symbol: "CRWV", cik: "0001769628", asOf: NOTE_OBSERVED.slice(0, 10), factsObservedAt: NOTE_OBSERVED,
+  annualPeriods: 2, quarterlyPeriods: 4, vendorSplits: { status: "retrieved", source: "test:vendor", events: [], coverage: [{ from: "2020-01-01", to: NOTE_OBSERVED.slice(0, 10) }] } })
+  .balanceQuarterly.rows.find((row) => row.date === AT)! as FmpBalanceSheetRow;
+const C12 = (row: FmpBalanceSheetRow) => admitDebtFields(row, noteFacts, "USD", NOTE_OBSERVED, [NOTE_SECTION]);
+const NOTE_TAG = "filing:debt-note:carrying-reconciliation";
+function expectNoteRecovered(out: ReturnType<typeof C12>, recovered: boolean): void {
+  if (recovered) {
+    expect(out.row).toMatchObject({ shortTermDebt: 7513e6, longTermDebt: 27555e6, totalDebt: 51608e6 });
+    expect(out.row.fieldConflicts?.totalDebt).toBeUndefined();
+    expect(out.row.fieldProvenance?.totalDebt?.tags).toContain(NOTE_TAG);
+  } else {
+    expect(out.row.fieldProvenance?.totalDebt?.tags ?? []).not.toContain(NOTE_TAG);
+    expect(out.gaps.filter((gap) => gap.reason.startsWith("same-filing debt note reconciles"))).toEqual([]);
+  }
+}
+/** The CRWV row with the named refusals replaced; `standIn: false` takes the maturity bucket out of the short-term evidence. */
+function noteRowWith(over: Partial<Record<"shortTermDebt" | "totalDebt" | "netDebt", Conflict>>, standIn = true): FmpBalanceSheetRow {
+  const row = structuredClone(noteRow);
+  for (const [field, from] of Object.entries(over)) row.fieldConflicts![field] = placed(conflictOn(noteRow, field), from);
+  if (!standIn) row.fieldProvenance = { ...row.fieldProvenance, shortTermDebt: { ...row.fieldProvenance!.shortTermDebt!, tags: ["us-gaap/LongTermDebtCurrent"] } };
+  return row;
+}
+const cashOnNetDebt = admitBalanceCash(vendor(), recoveryFacts({ CashAndCashEquivalentsAtCarryingValue: 9 }), "quarter", OBSERVED).row;
+
+const SHORT_NOTE = {
+  "the SEC statement builder's maturity bucket": { conflict: conflictOn(noteRow, "shortTermDebt"), reads: true },
+  "the debt admission's maturity bucket": { conflict: conflictOn(splitRefused, "shortTermDebt"), reads: true },
+  "a currency withholding": { conflict: literalOn(MIXED_UNIT), reads: false },
+  "the allocation refusal, on the wrong field": { conflict: conflictOn(splitRefused, "longTermDebt"), reads: false },
+} satisfies Record<string, Case>;
+const TOTAL_NOTE_READ = ["fiscal maturity bucket", "maturity-scoped short-term component", "components do not establish the total", "uncoded refused component"];
+const TOTAL_NOTE: Record<string, Case & { only?: "netDebt" }> = {
+  "the SEC statement builder's maturity-scoped total": { conflict: conflictOn(noteRow, "totalDebt"), reads: true },
+  "the debt admission's maturity-scoped total": { conflict: REFUSALS["fiscal maturity bucket"].totalDebt, reads: true },
+  "a total whose maturity-scoped short-term component is refused": { conflict: REFUSALS["maturity-scoped short-term component"].totalDebt, reads: true },
+  "the same, written by a later split check": { conflict: conflictOn(shortUnavailable, "totalDebt"), reads: true },
+  "a total whose longTermDebt component is refused": { conflict: conflictOn(longUnavailable, "totalDebt"), reads: false },
+  "the debt admission's components that do not establish the total": { conflict: REFUSALS["components do not establish the total"].totalDebt, reads: true },
+  "the SEC statement builder's components that do not establish the total": {
+    conflict: conflictOn(crwvAt(crwvBalanceRows({ LongTermDebtNoncurrent: 10e9 }, [MATURITY_TAG, REMAINDER_TAG])), "totalDebt"), reads: true },
+  "a vendor/SEC cash conflict": { conflict: conflictOn(cashOnNetDebt, "netDebt"), reads: false, only: "netDebt" },
+  ...Object.fromEntries(ALL.filter((name) => !TOTAL_NOTE_READ.includes(name)).map((name) => [name, { conflict: REFUSALS[name].totalDebt, reads: false }])),
+};
+
+describe("C4: the split check reads debt-maturity-scope on shortTermDebt and debt-noncurrent-allocation on longTermDebt", () => {
+  it("the split refusals carry the codes they are tested on", () => {
+    expect(Object.fromEntries(Object.entries(SHORT_SPLIT).map(([name, { conflict }]) => [name, conflict.cause ?? null]))).toEqual({
+      "the debt admission's maturity bucket": "debt-maturity-scope", "the SEC statement builder's maturity bucket": "debt-maturity-scope",
+      "a currency withholding": null, "the allocation refusal, on the wrong field": "debt-noncurrent-allocation" });
+    expect(Object.fromEntries(Object.entries(LONG_SPLIT).map(([name, { conflict }]) => [name, conflict.cause ?? null]))).toEqual({
+      "the debt admission's allocation": "debt-noncurrent-allocation", "the SEC statement builder's LongTermDebt allocation": "debt-noncurrent-allocation",
+      "the SEC statement builder's inclusive debt-and-lease allocation": "debt-noncurrent-allocation", "a debt presentation conflict": null,
+      "implausible interest on resolved debt": null, "a double-counted financing total": null, "the maturity bucket, on the wrong field": "debt-maturity-scope" });
+  });
+
+  describe.each(SPLIT_PASSES)("%s", (_pass, tags) => {
+    it.each(Object.keys(SHORT_SPLIT) as (keyof typeof SHORT_SPLIT)[])("shortTermDebt carrying %s, with its code and without", (name) => {
+      const { conflict, reads } = SHORT_SPLIT[name];
+      expectSplitOnly(bothWays(C4(tags), splitRow(conflict, LONG_SPLIT["the debt admission's allocation"].conflict)), reads);
+    });
+
+    it.each(Object.keys(LONG_SPLIT) as (keyof typeof LONG_SPLIT)[])("longTermDebt carrying %s, with its code and without", (name) => {
+      const { conflict, reads } = LONG_SPLIT[name];
+      expectSplitOnly(bothWays(C4(tags), splitRow(SHORT_SPLIT["the debt admission's maturity bucket"].conflict, conflict)), reads);
+    });
+  });
+});
+
+describe("C12: the debt-note recovery reads the maturity scope on shortTermDebt and three codes on totalDebt/netDebt", () => {
+  it("the CRWV row as built is recovered, with its codes and without", () => {
+    expect([conflictOn(noteRow, "shortTermDebt").cause, conflictOn(noteRow, "totalDebt").cause, conflictOn(noteRow, "netDebt").cause])
+      .toEqual(["debt-maturity-scope", "debt-maturity-scope", "debt-maturity-scope"]);
+    expectNoteRecovered(bothWays(C12, noteRow), true);
+  });
+
+  it("the total/net refusals carry the codes they are tested on", () => {
+    expect(Object.fromEntries(Object.entries(TOTAL_NOTE).filter(([, { reads }]) => reads).map(([name, { conflict }]) => [name, conflict.cause]))).toEqual({
+      "the SEC statement builder's maturity-scoped total": "debt-maturity-scope", "the debt admission's maturity-scoped total": "debt-maturity-scope",
+      "a total whose maturity-scoped short-term component is refused": "debt-component-maturity-scope",
+      "the same, written by a later split check": "debt-component-maturity-scope",
+      "the debt admission's components that do not establish the total": "debt-components-incomplete",
+      "the SEC statement builder's components that do not establish the total": "debt-components-incomplete" });
+    expect(conflictOn(shortUnavailable, "totalDebt").reason).toMatch(/^incomplete debt carrying value: shortTermDebt is unavailable \(debt maturity scope unresolved: /);
+    expect(conflictOn(longUnavailable, "totalDebt").reason).toMatch(/^incomplete debt carrying value: longTermDebt is unavailable \(debt presentation conflict: /);
+    expect(conflictOn(longUnavailable, "totalDebt").cause).toBeUndefined();
+  });
+
+  describe.each([true, false])("shortTermDebt, fiscalStandIn %s", (standIn) => {
+    it.each(Object.keys(SHORT_NOTE) as (keyof typeof SHORT_NOTE)[])("carrying %s, with its code and without", (name) => {
+      const { conflict, reads } = SHORT_NOTE[name];
+      expectNoteRecovered(bothWays(C12, noteRowWith({ shortTermDebt: conflict }, standIn)), standIn && reads);
+    });
+  });
+
+  describe.each([[["totalDebt"]], [["netDebt"]], [["totalDebt", "netDebt"]]] as const)("on %j", (fields) => {
+    it.each(Object.keys(TOTAL_NOTE).filter((name) => TOTAL_NOTE[name]!.only === undefined || fields.every((field) => field === TOTAL_NOTE[name]!.only)))(
+      "%s, with its code and without", (name) => {
+        const { conflict, reads } = TOTAL_NOTE[name]!;
+        expectNoteRecovered(bothWays(C12, noteRowWith(Object.fromEntries(fields.map((field) => [field, conflict])))), reads);
+      });
+  });
+
+  it("a total whose short-term component was refused without a code (an older row) is read by its sentence", () => {
+    const legacy = REFUSALS["uncoded refused component"].totalDebt;
+    expect(legacy.cause).toBeUndefined();
+    expectNoteRecovered(bothWays(C12, noteRowWith({ totalDebt: legacy, netDebt: legacy })), true);
+  });
+});
+
+describe("D-220: the code is what is read", () => {
+  const ALTERED = "a sentence neither reader's wording matches";
+  const UNRELATED = ["debt-lease-line-refused", "vendor-sec-value-conflict", "revenue-scope", "a-code-no-list-has"];
+  const as = (cause: string, reason: string) => literalOn(reason, cause as StatementConflictCause);
+  const SHORT_SENTENCE = conflictOn(splitRefused, "shortTermDebt").reason, LONG_SENTENCE = conflictOn(splitRefused, "longTermDebt").reason;
+  const TOTAL_SENTENCE = conflictOn(noteRow, "totalDebt").reason;
+
+  describe.each(SPLIT_PASSES)("C4, %s", (_pass, tags) => {
+    it("keeps the inclusive total for the split codes whatever their sentences", () => {
+      expectSplitOnly(C4(tags)(splitRow(as("debt-maturity-scope", ALTERED), as("debt-noncurrent-allocation", ALTERED))), true);
+    });
+    it.each([...UNRELATED, "debt-noncurrent-allocation", "debt-component-maturity-scope", "debt-components-incomplete"])(
+      "withholds it when the bucket sentence carries %s", (cause) => {
+        expectSplitOnly(C4(tags)(splitRow(as(cause, SHORT_SENTENCE), LONG_SPLIT["the debt admission's allocation"].conflict)), false);
+      });
+    it.each([...UNRELATED, "debt-maturity-scope", "debt-components-incomplete"])("withholds it when the allocation sentence carries %s", (cause) => {
+      expectSplitOnly(C4(tags)(splitRow(SHORT_SPLIT["the debt admission's maturity bucket"].conflict, as(cause, LONG_SENTENCE))), false);
+    });
+    it("reads a row with no codes by its sentences", () => {
+      expectSplitOnly(C4(tags)(splitRow(literalOn(SHORT_SENTENCE), literalOn(LONG_SENTENCE))), true);
+      expectSplitOnly(C4(tags)(splitRow(literalOn(ALTERED), literalOn(LONG_SENTENCE))), false);
+      expectSplitOnly(C4(tags)(splitRow(literalOn(SHORT_SENTENCE), literalOn(ALTERED))), false);
+    });
+  });
+
+  it("C12 recovers for its codes whatever their sentences, and keeps the fiscal stand-in gate", () => {
+    for (const cause of ["debt-maturity-scope", "debt-component-maturity-scope", "debt-components-incomplete"]) {
+      expectNoteRecovered(C12(noteRowWith({ shortTermDebt: as("debt-maturity-scope", ALTERED), totalDebt: as(cause, ALTERED), netDebt: as(cause, ALTERED) })), true);
+    }
+    expectNoteRecovered(C12(noteRowWith({ shortTermDebt: as("debt-maturity-scope", ALTERED) }, false)), false);
+  });
+
+  it.each([...UNRELATED, "debt-noncurrent-allocation", "debt-component-maturity-scope", "debt-components-incomplete"])(
+    "C12 leaves the bucket sentence refused under %s", (cause) => {
+      expectNoteRecovered(C12(noteRowWith({ shortTermDebt: as(cause, conflictOn(noteRow, "shortTermDebt").reason) })), false);
+    });
+
+  it.each([...UNRELATED, "debt-noncurrent-allocation", "debt-aggregate-exceeds-components"])(
+    "C12 leaves the maturity-scoped total sentence refused under %s, on either field", (cause) => {
+      expectNoteRecovered(C12(noteRowWith({ totalDebt: as(cause, TOTAL_SENTENCE) })), false);
+      expectNoteRecovered(C12(noteRowWith({ netDebt: as(cause, TOTAL_SENTENCE) })), false);
+    });
+
+  it("C12 reads a row with no codes by its sentences", () => {
+    expectNoteRecovered(C12(uncoded(noteRow)), true);
+    expectNoteRecovered(C12(uncoded(noteRowWith({ shortTermDebt: literalOn(ALTERED) }))), false);
+    expectNoteRecovered(C12(uncoded(noteRowWith({ totalDebt: literalOn(ALTERED) }))), false);
+    expectNoteRecovered(C12(uncoded(noteRowWith({ netDebt: conflictOn(longUnavailable, "totalDebt") }))), false);
+  });
+});
+
 describe("refusalCauseRead", () => {
   const MATURITIES = [MATURITY_TAG, REMAINDER_TAG];
-  const conflicts: Conflict[] = [
-    ...Object.values(REFUSALS).flatMap((refusal) => [refusal.totalDebt, refusal.netDebt]),
-    ...Object.values(admitBalanceCash(vendor(), recoveryFacts({ CashAndCashEquivalentsAtCarryingValue: 9 }), "quarter", OBSERVED).row.fieldConflicts ?? {}),
+  const fieldsOf = (row: Conflicted): [string, Conflict][] => Object.entries(row.fieldConflicts ?? {});
+  /** Every conflict the writers above produce, with the field it sits on. */
+  const fielded: [string, Conflict][] = [
+    ...Object.values(REFUSALS).flatMap((refusal): [string, Conflict][] => [["totalDebt", refusal.totalDebt], ["netDebt", refusal.netDebt]]),
+    ...fieldsOf(admitBalanceCash(vendor(), recoveryFacts({ CashAndCashEquivalentsAtCarryingValue: 9 }), "quarter", OBSERVED).row),
     ...[
       crwvBalanceRows(),
       crwvBalanceRows({ LongTermDebt: 30e9 }),
       crwvBalanceRows({ LongTermDebtNoncurrent: 10e9 }, MATURITIES),
       crwvBalanceRows({ LongTermDebtCurrent: 1e9, LongTermDebtNoncurrent: 10e9, DebtLongtermAndShorttermCombinedAmount: 30e9 }, [...MATURITIES, "DebtInstrumentCarryingAmount"]),
       crwvBalanceRows({ LongTermDebtCurrent: 1e9, LongTermDebtNoncurrent: 10e9, LongTermDebtAndCapitalLeaseObligations: 30e9 }, [...MATURITIES, "DebtInstrumentCarryingAmount"]),
-    ].flat().flatMap((row) => Object.values(row.fieldConflicts ?? {})),
+      // D-220: the split and debt-note shapes.
+      crwvBalanceRows({ DebtCurrent: 1e9, LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities: 30e9 }, [...MATURITIES, "DebtInstrumentCarryingAmount"]),
+      [splitRefused, shortUnavailable, longUnavailable, noteRow],
+    ].flat().flatMap(fieldsOf),
   ];
+  const conflicts: Conflict[] = fielded.map(([, conflict]) => conflict);
+  const readsField = (reader: ConflictCodeReader, field: string): boolean => {
+    const fields = READ_FIELDS[reader];
+    return fields === "any" || fields.includes(field);
+  };
 
-  it.each(READERS)("%s: on every sentence the writers produce, the code set and the legacy wording agree", (reader) => {
-    const coded = conflicts.filter((conflict) => conflict.cause !== undefined);
-    expect(coded.length).toBeGreaterThan(20);
-    for (const conflict of coded) {
-      expect({ reason: conflict.reason, cause: conflict.cause, matches: conflictCauseMatches(conflict, reader) })
-        .toEqual({ reason: conflict.reason, cause: conflict.cause, matches: conflictCauseMatches({ reason: conflict.reason }, reader) });
+  it.each(READERS)("%s: on every sentence the writers produce on the fields it reads, the code set and the legacy wording agree", (reader) => {
+    const coded = fielded.filter(([field, conflict]) => conflict.cause !== undefined && readsField(reader, field));
+    expect(coded.length).toBeGreaterThan(READ_FIELDS[reader] === "any" ? 20 : 2);
+    for (const [field, conflict] of coded) {
+      expect({ field, reason: conflict.reason, cause: conflict.cause, matches: conflictCauseMatches(conflict, reader) })
+        .toEqual({ field, reason: conflict.reason, cause: conflict.cause, matches: conflictCauseMatches({ reason: conflict.reason }, reader) });
     }
   });
 
@@ -325,9 +575,21 @@ describe("refusalCauseRead", () => {
     }
   });
 
-  it("reads exactly the five incomplete-scope and lease-line codes, all of them D-218 step-1 codes", () => {
+  it("the D-220 codes sit on their own fields: the same code on another field has another sentence and another reader", () => {
+    const codesOn = (...fields: string[]) => new Set(fielded.filter(([field, conflict]) => fields.includes(field) && conflict.cause !== undefined).map(([, conflict]) => conflict.cause));
+    expect(codesOn("shortTermDebt")).toEqual(new Set(["debt-maturity-scope"]));
+    expect(codesOn("longTermDebt")).toEqual(new Set(["debt-noncurrent-allocation"]));
+    for (const code of ["debt-component-maturity-scope", "debt-maturity-scope", "debt-components-incomplete"] as const) expect(codesOn("totalDebt", "netDebt")).toContain(code);
+    expect(codesOn("totalDebt", "netDebt")).not.toContain("debt-noncurrent-allocation");
+    const maturityTotal = fielded.find(([field, conflict]) => field === "totalDebt" && conflict.cause === "debt-maturity-scope")![1];
+    expect(conflictCauseMatches(maturityTotal, "noteRecoverableDebtTotal")).toBe(true);
+    expect(conflictCauseMatches({ reason: maturityTotal.reason }, "shortTermDebtMaturityScope")).toBe(false);
+  });
+
+  it("reads exactly the incomplete-scope, lease-line and debt-maturity codes, all of them D-218 step-1 codes", () => {
     expect([...CONFLICT_CAUSES_READ_BY_CODE].sort()).toEqual(["debt-aggregate-exceeds-components", "debt-combined-aggregate-exceeds-components",
-      "debt-lease-line-no-operating-total", "debt-lease-line-refused", "debt-vendor-short-term-zero"]);
+      "debt-component-maturity-scope", "debt-components-incomplete", "debt-lease-line-no-operating-total", "debt-lease-line-refused", "debt-maturity-scope",
+      "debt-noncurrent-allocation", "debt-vendor-short-term-zero"]);
     expect([...CONFLICT_CAUSES_READ_BY_CODE].every((cause) => DUAL_WRITTEN_CONFLICT_CAUSES.has(cause))).toBe(true);
   });
 
@@ -340,6 +602,23 @@ describe("refusalCauseRead", () => {
     expect(conflictCauseMatches({ reason: OLD_VENDOR_SUM }, "leaseLineNoOperatingTotal")).toBe(false);
     expect(conflictCauseMatches({}, "leaseLineNoOperatingTotal")).toBe(false);
     expect(conflictCauseMatches({}, "recoverableDebtScope")).toBe(false);
+    // D-220.
+    expect(conflictCauseMatches({ cause: "debt-maturity-scope", reason: "x" }, "shortTermDebtMaturityScope")).toBe(true);
+    expect(conflictCauseMatches({ cause: "debt-component-maturity-scope", reason: "debt maturity scope unresolved: x" }, "shortTermDebtMaturityScope")).toBe(false);
+    expect(conflictCauseMatches({ reason: "debt maturity scope unresolved: x" }, "shortTermDebtMaturityScope")).toBe(true);
+    expect(conflictCauseMatches({ cause: "debt-noncurrent-allocation", reason: "x" }, "longTermDebtNoncurrentAllocation")).toBe(true);
+    expect(conflictCauseMatches({ cause: "debt-maturity-scope", reason: "noncurrent carrying debt allocation unavailable: x" }, "longTermDebtNoncurrentAllocation")).toBe(false);
+    expect(conflictCauseMatches({ reason: "noncurrent carrying debt allocation unavailable: x" }, "longTermDebtNoncurrentAllocation")).toBe(true);
+    for (const cause of ["debt-component-maturity-scope", "debt-maturity-scope", "debt-components-incomplete"] as const) {
+      expect(conflictCauseMatches({ cause, reason: "x" }, "noteRecoverableDebtTotal")).toBe(true);
+    }
+    expect(conflictCauseMatches({ cause: "debt-noncurrent-allocation", reason: "incomplete debt carrying value: debt maturity scope unresolved: x" }, "noteRecoverableDebtTotal")).toBe(false);
+    for (const reason of ["incomplete debt carrying value: shortTermDebt is unavailable (debt maturity scope unresolved: x)", "incomplete debt carrying value: debt maturity scope unresolved: x",
+      "incomplete debt carrying value: current/noncurrent financing components do not establish the total; x"]) {
+      expect(conflictCauseMatches({ reason }, "noteRecoverableDebtTotal")).toBe(true);
+    }
+    expect(conflictCauseMatches({ reason: "incomplete debt carrying value: longTermDebt is unavailable (debt maturity scope unresolved: x)" }, "noteRecoverableDebtTotal")).toBe(false);
+    for (const reader of ["shortTermDebtMaturityScope", "longTermDebtNoncurrentAllocation", "noteRecoverableDebtTotal"] as const) expect(conflictCauseMatches({}, reader)).toBe(false);
   });
 });
 
@@ -354,13 +633,15 @@ describe("run input snapshots", () => {
     const stored = snapshot.content.bundle.statements.balanceAnnual;
     const kept = Object.values((stored.ok ? stored.value.data.rows[0] as FmpStatementRow : row).fieldConflicts ?? {});
     expect(kept.map((conflict) => conflict.reason)).toEqual(STATEMENT_CONFLICT_CAUSES.map(() => "kept sentence"));
+    // D-220 adds the four debt-maturity codes to the nine kept since D-219.
     expect(kept.map((conflict) => conflict.cause).filter((cause) => cause !== undefined).sort()).toEqual([
-      "borrowing-cost-scope", "debt-aggregate-exceeds-components", "debt-combined-aggregate-exceeds-components", "debt-lease-line-no-operating-total",
-      "debt-lease-line-refused", "debt-vendor-short-term-zero", "operating-basis", "operating-scope", "revenue-scope"]);
+      "borrowing-cost-scope", "debt-aggregate-exceeds-components", "debt-combined-aggregate-exceeds-components", "debt-component-maturity-scope",
+      "debt-components-incomplete", "debt-lease-line-no-operating-total", "debt-lease-line-refused", "debt-maturity-scope", "debt-noncurrent-allocation",
+      "debt-vendor-short-term-zero", "operating-basis", "operating-scope", "revenue-scope"]);
     const dropped = STATEMENT_CONFLICT_CAUSES.filter((cause) => DUAL_WRITTEN_CONFLICT_CAUSES.has(cause) && !CONFLICT_CAUSES_READ_BY_CODE.has(cause));
-    expect(dropped).toHaveLength(7);
+    expect(dropped).toEqual(["vendor-sec-value-conflict", "vendor-share-value-conflict", "debt-total-minor-difference"]);
     for (const cause of dropped) expect((stored.ok ? stored.value.data.rows[0] as FmpStatementRow : row).fieldConflicts?.[`field-${cause}`]?.cause).toBeUndefined();
-    // The live bundle is not mutated.
-    expect(row.fieldConflicts?.["field-debt-maturity-scope"]?.cause).toBe("debt-maturity-scope");
+    // The live bundle is not mutated (checked on a code the snapshot drops).
+    expect(row.fieldConflicts?.["field-vendor-sec-value-conflict"]?.cause).toBe("vendor-sec-value-conflict");
   });
 });
