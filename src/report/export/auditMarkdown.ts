@@ -68,7 +68,7 @@ import type {
   Scoring,
   TracedNumber,
 } from "@/report/schema";
-import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, manifestReconciliationRows, usageSummary } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, projectionsNotRecordedNotice, manifestReconciliationRows, usageSummary } from "@/report/presentation";
 
 function auditValue(value: unknown): string {
   if (value === null || value === undefined) return "n/a";
@@ -99,6 +99,8 @@ function provenanceCoverageTable(coverage: ProvenanceCoverage): string {
     ],
   );
 }
+
+const PROJECTION_AUDIT_HEADING = "## Projection audit trail";
 
 const CONSISTENCY_CHECK_LABELS: readonly [keyof ConsistencyChecks, string][] = [
   ["direction", "Direction word vs the sign of the cited change"],
@@ -288,9 +290,15 @@ function renderTiming(report: Report): string {
   return lines.join("\n").trimEnd();
 }
 
+/** D-224: the shared "projections not recorded" note, under this export's projection heading; empty when it does not apply. */
+function renderProjectionsNotRecorded(report: Report): string {
+  const notice = projectionsNotRecordedNotice(report);
+  return notice ? `${PROJECTION_AUDIT_HEADING}\n\n${markdownProse(notice)}` : "";
+}
+
 function renderProjections(p: Projections): string {
   const series = orderedProjectionSeries(p.series);
-  const lines: string[] = ["## Projection audit trail", ""];
+  const lines: string[] = [PROJECTION_AUDIT_HEADING, ""];
   lines.push(
     table(
       ["Field", "Value"],
@@ -544,7 +552,7 @@ export function reportToAuditMarkdown(report: Report, context: ReportPresentatio
     report.valuation.multiples.some(row => row.basis) ? `## Current multiple row bases and limitations\n\n${table(["Multiple", "Current (unrounded)", "Basis and limitations"], report.valuation.multiples.filter(row => row.basis).map(row => [row.name, row.current === null ? "unavailable" : String(row.current), row.basis!]))}` : "",
     renderOwnHistory(report),
     renderTiming(report),
-    report.projections ? renderProjections(report.projections) : "",
+    report.projections ? renderProjections(report.projections) : renderProjectionsNotRecorded(report),
     renderManifest(report),
     table(["Manifest reconciliation", "Displayed groups", "Recorded entries"], manifestReconciliationRows(report.appendix.missingData, deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources)).map(row => [row.label, String(row.groups), String(row.entries)])),
     renderSources(report),

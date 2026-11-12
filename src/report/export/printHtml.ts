@@ -157,7 +157,7 @@ import {
   type FigureRow,
 } from "@/report/presentation";
 import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
-import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, projectionsNotRecordedNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
 import { executiveTenureText, executiveCardClaims, executiveOfficeContext } from "@/report/executiveDecisions";
@@ -808,6 +808,12 @@ function sectionOutlook(report: Report): string {
     ${narratives ? `<h3>Scenario narratives</h3>${narratives}` : ""}</section>`;
 }
 
+/** D-224: the shared "projections not recorded" note, under the section heading; empty when it does not apply. */
+function sectionProjectionsNotRecorded(report: Report): string {
+  const notice = projectionsNotRecordedNotice(report);
+  return notice ? `<section class="block">${sectionHeading("projections")}<p class="faint">${esc(notice)}</p></section>` : "";
+}
+
 function sectionProjections(p: Projections): string {
   const series = orderedProjectionSeries(p.series);
   const available = projectionAvailability(series);
@@ -911,7 +917,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
     competitive: sectionCompetitive(report.competitive, report),
     catalystsRisks: sectionCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     outlook: sectionOutlook(report),
-    projections: report.projections && !unavailableCashFlowModel(report) ? sectionProjections(report.projections) : "",
+    projections: report.projections && !unavailableCashFlowModel(report) ? sectionProjections(report.projections) : sectionProjectionsNotRecorded(report),
     macro: sectionMacro(report.macro),
     appendix: sectionAppendix(report, completeness, context),
   };
