@@ -301,7 +301,10 @@ is missing) remain discoverable and preferred when present; the rebrand never
 moves or overwrites them. `METIS_DB_PATH` overrides the database file;
 `METIS_DATA_DIR` changes the default directory and token location. Neither
 redirects AI credentials, which have their own OS-profile store and legacy
-directory discovery. Canonical `METIS_*` keys take precedence whenever present,
+directory discovery. A test on a copy must redirect that store too: on Windows
+it follows `LOCALAPPDATA` (`%LOCALAPPDATA%/Metis/ai`, or a legacy
+`%LOCALAPPDATA%/Thesis/ai` when present), so start the test server with
+`LOCALAPPDATA` set to a scratch folder or it uses the real AI connections. Canonical `METIS_*` keys take precedence whenever present,
 including blank/invalid values; `THESIS_*` aliases remain supported. See
 [compatibility](BRAND.md#compatibility) for the complete naming contract. SQLite data,
 API cache, saved reports and `.env` have no application-level encryption.
