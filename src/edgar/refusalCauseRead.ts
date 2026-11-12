@@ -47,6 +47,34 @@ const READERS = {
       "debt-vendor-short-term-zero", "debt-aggregate-exceeds-components", "debt-combined-aggregate-exceeds-components"]),
     legacy: (reason) => /^incomplete debt carrying value: (?:the vendor (?:lease line|short-term debt)|same-period )/.test(reason),
   },
+  /**
+   * D-220, on shortTermDebt only: the fiscal maturity bucket refused as current carrying debt. Read by
+   * C4, `splitRefusal` in `admitDebtFields` (the split's own refusal, which leaves an inclusive total
+   * standing), and C12, `recoverNoteCarryingDebt` (behind its `fiscalStandIn` gate), both in
+   * `src/edgar/financialEnrichment.ts`. The same code on totalDebt/netDebt has another sentence and
+   * is read by `noteRecoverableDebtTotal`.
+   */
+  shortTermDebtMaturityScope: {
+    codes: new Set<StatementConflictCause>(["debt-maturity-scope"]),
+    legacy: (reason) => reason.startsWith("debt maturity scope unresolved:"),
+  },
+  /**
+   * D-220, on longTermDebt only: C4, `splitRefusal` in `admitDebtFields`: the noncurrent allocation
+   * that depended on the refused maturity bucket.
+   */
+  longTermDebtNoncurrentAllocation: {
+    codes: new Set<StatementConflictCause>(["debt-noncurrent-allocation"]),
+    legacy: (reason) => reason.startsWith("noncurrent carrying debt allocation unavailable:"),
+  },
+  /**
+   * D-220, on totalDebt/netDebt only: C12, `recoverNoteCarryingDebt`: a total refused for a missing
+   * taxonomy class (the maturity scope, directly or through the short-term component, or components
+   * that do not establish the total), which a same-filing debt note may reconcile.
+   */
+  noteRecoverableDebtTotal: {
+    codes: new Set<StatementConflictCause>(["debt-component-maturity-scope", "debt-maturity-scope", "debt-components-incomplete"]),
+    legacy: (reason) => /^incomplete debt carrying value: (?:shortTermDebt is unavailable \(debt maturity scope unresolved:|debt maturity scope unresolved:|current\/noncurrent financing components do not establish the total;)/.test(reason),
+  },
 } as const satisfies Record<string, CodeReader>;
 
 export type ConflictCodeReader = keyof typeof READERS;

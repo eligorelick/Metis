@@ -123,7 +123,9 @@ function redact(value: unknown, path: string, fields: string[]): unknown {
  * yet are removed, so a snapshot keeps the bytes it had before they existed.
  * D-219 step 2: the five codes the lease-portion recovery and the same-filing
  * debt completion now read (`CONFLICT_CAUSES_READ_BY_CODE`) are kept, so a run
- * that computes Stage B from its snapshot decides by them. A snapshot that holds
+ * that computes Stage B from its snapshot decides by them; D-220 step 3 keeps the
+ * four the debt-maturity split check and the debt-note recovery read, the same
+ * way (the set derives from the readers). A snapshot that holds
  * no code is read by its sentences, as before; no version stamp changes because
  * no decision changes. Mutates a detached JSON copy only; every other `cause`
  * value is kept.

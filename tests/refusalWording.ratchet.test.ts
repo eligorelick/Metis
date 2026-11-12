@@ -18,12 +18,14 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const PINNED: Record<string, number> = {
-  // C1-C5, C7, C9, C12 read conflict wording; C6, C8, C10 compare two refusal sentences for identity.
-  // C11 moved to its code in D-219; its wording, for conflicts with no code, is in refusalCauseRead.ts.
-  "src/edgar/financialEnrichment.ts": 13,
-  // D-219: the one place a conflict without a typed cause is read by its sentence, for the readers
-  // migrated to codes: C14's two patterns and C11's one, moved verbatim.
-  "src/edgar/refusalCauseRead.ts": 3,
+  // C1-C3, C5, C7, C9 read conflict wording; C6, C8, C10 compare two refusal sentences for identity.
+  // C11 moved to its code in D-219, C4 and C12 in D-220; their wording, for conflicts with no code,
+  // is in refusalCauseRead.ts.
+  "src/edgar/financialEnrichment.ts": 9,
+  // D-219, D-220: the one place a conflict without a typed cause is read by its sentence, for the
+  // readers migrated to codes, moved verbatim: C14's two patterns and C11's one (D-219); the
+  // shortTermDebt pattern C4 and C12 share, C4's longTermDebt one and C12's total/net one (D-220).
+  "src/edgar/refusalCauseRead.ts": 6,
   // C13: a vendor loss-quarter EPS conflict rechecked from its wording.
   "src/pipeline/keyless.ts": 1,
   // C15: netDebt removed when its sentence equals totalDebt's. C14 moved to its code in D-219.
