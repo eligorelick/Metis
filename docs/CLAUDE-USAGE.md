@@ -10,15 +10,17 @@ when reviewing that snapshot.
 
 ## Select the report connection first
 
-**Settings → AI connections** chooses AI off, Claude API, or ChatGPT.
-Connecting an account does not generate a report. Save the desired report
-connection after selecting its model and, for ChatGPT, effort and speed.
+**Settings → AI connections** chooses AI off, Claude API, ChatGPT, or Claude
+through the local Claude Code CLI. Connecting an account does not generate a
+report. Save the desired report connection after selecting its model and, for
+ChatGPT, effort and speed, or for Claude Code, an optional effort.
 
 | Connection | Implementation | Cost recorded by Metis |
 | --- | --- | --- |
 | AI off | Fetch, validate and calculate locally; save a data-only report | No inference charge |
 | Claude API | `ANTHROPIC_API_KEY`; Anthropic Messages API | USD estimated from provider usage and the registry, or conservative presumed spend |
 | ChatGPT | Browser OAuth; OpenAI Responses API through the connected account | `$0` API cost; reported input/output tokens and execution evidence |
+| Claude Code | Your installed, unmodified Claude Code CLI 2.1.319+, signed in to your Claude subscription with `claude auth login`; Metis runs it locally with tools, hooks, MCP servers and session saving turned off, uses supplied evidence only (no web search), and never reads the CLI's OAuth tokens | `$0` API cost; the input tokens (cache reads and writes included) and output tokens the CLI reports, the model or models it reports, and the requested effort (the CLI does not report the effort it used). Live inference through this route has not been verified |
 
 A subscription report's `$0` means Metis records no API dollar charge. It does
 not mean free or unlimited provider usage, and Metis cannot read remaining

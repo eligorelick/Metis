@@ -11,6 +11,61 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-226 - Refusal codes: the "Revenue scope unresolved" copy keeps only its own code (2026-11-12)
+
+Principle P11. Revises D-222, which left this copy as it was. When
+`admitRevenue` (`src/edgar/revenueAdmission.ts`) selects no revenue line and
+the filing shows only a contract-revenue note, it keeps the row's refused
+revenue conflict and replaces its sentence with "Revenue scope unresolved: the
+contract-revenue fact is not established as consolidated operating revenue; a
+complete same-period operating line is required." It kept every other
+property of the old refusal, including its `cause`, so a code from another
+sentence could sit beside the new one, which D-222 rules out.
+
+Which codes reach the line. The line runs only on a refused conflict that
+`reconsiderable` accepts: code `revenue-scope`, SEC evidence, or a vendor or
+SEC value that agrees with a filed line. Only `admitRevenue` writes a code on
+revenue, always `revenue-scope` (the sales-basis refusal, the
+conflicting-observations refusal, and this line). Income classification runs
+again on the built statements (`src/pipeline/incomeBasis.ts`), so its own
+`revenue-scope` refusals do reach the line. The other revenue refusals (the
+keyless contract-revenue and filed-operand refusals in
+`src/pipeline/keyless.ts`, and income classification's own `refuse`) carry
+no code. No writer puts any other code on revenue.
+
+Who reads the result. Two readers decide by the code, both in this file: the
+primary-statement override (line 196) and `reconsiderable` (line 68), each
+also accepting SEC evidence. The other readers of the revenue conflict
+(`incomeClassification.ts`, `incomeBasis.ts`, `compute.ts`, `forensics.ts`)
+read `usable`, `resolution`, the values and the evidence, and income
+classification copies the sentence into its own uncoded refusal; none reads
+the code. The code is kept in run input snapshots (it is not a D-218
+dual-written code).
+
+Options considered. (a) Drop the code, as D-222 did for the repurchase copy:
+a sales-basis refusal has no SEC evidence and no agreeing value, so without
+its code the next pass no longer reconsiders it, and both the decision and the
+snapshot bytes change. Rejected. (b) Always write `revenue-scope`: right in
+meaning (the sentence states an unresolved revenue scope), but a keyless
+refusal without a code would gain one, which changes what new run input
+snapshots store and, for a refusal with no SEC evidence, what the two readers
+decide. Not decision-neutral, so not done here; it is an accuracy item for
+later. (c) Keep `revenue-scope`, the code this writer establishes, and drop any
+other code. Choice: (c). A refusal without a code still gets none, because a
+code is never added by copying.
+
+Not changed: every decision, sentence and stored byte. For each refusal that
+can reach the line the result is the same object, in the same key order, as
+before; only a hypothetical conflict carrying another code (none is written
+today) now loses that code. `tests/revenueAdmission.scopeUnresolvedCode.test.ts`
+builds the refusals with the real writer (`admitRevenue`'s sales-basis and
+conflicting-observations refusals, and the keyless sentence from
+`contractRevenueScopeRefusal` in the shape the keyless pass stores), reaches
+the line, and requires the old form byte for byte, plus an unchanged third
+pass. It also shows that dropping the code would change the next pass, and
+that another writer's code is dropped. The comparison check (`golden:diff`)
+shows no difference.
+
 ## D-225 - The "built under older rules" note appears in the audit export (2026-11-12)
 
 Principles P22 and P20. D-217 gave a saved report with no evidence-rules stamp
@@ -218,6 +273,7 @@ The resolution is a calculation view: it is not stored in a run input snapshot,
 and the payload and audit read only its values, resolution and sentence, so no
 stored byte changes. `revenueAdmission.ts` makes the same kind of copy with
 `revenue-scope`, a code read before D-218, on revenue only; it is left as it is.
+(Revised by D-226: that copy now keeps only `revenue-scope`.)
 
 Why code and wording agree for every current writer. One writer writes
 `vendor-sec-value-conflict`: the comparison's refusal branch, which writes the
