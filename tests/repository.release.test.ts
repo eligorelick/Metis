@@ -840,6 +840,15 @@ describe("public release contract", () => {
     }
   });
 
+  // The simulated demo page kept a Gemini provider option after the Gemini
+  // route was removed (#123); it lists only the providers the app offers.
+  it("lists no removed provider on the simulated demo page", () => {
+    const page = read("public/audit-ui/app.js");
+    expect(page).not.toMatch(/gemini/i);
+    const select = /<select id="ai">(.*?)<\/select>/.exec(page)?.[1] ?? "";
+    expect([...select.matchAll(/<option value="([^"]+)"/g)].map((m) => m[1])).toEqual(["none", "chatgpt", "claude"]);
+  });
+
   it("documents setup, privacy, safety, and verification in README", () => {
     const readme = read("README.md");
     const prose = readme.replace(/\s+/g, " ");
