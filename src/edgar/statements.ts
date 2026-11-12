@@ -58,6 +58,7 @@
  */
 
 import { filedRevenueLines, preferredRevenueLine } from "./revenuePresentation";
+import { memoize } from "@/edgar/computationContext";
 import type { FiledIncomeLine, EquityMethodIncomePlacement, FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 import type { StatementConflictCause } from "@/types/refusalCause";
@@ -368,8 +369,18 @@ const isForeignAnnualForm = (form: string): boolean => FOREIGN_ANNUAL_FORM_PREFI
 const ANNUAL_FORMS = new Set([...CORE_FACT_FORMS].filter((f) => f.startsWith("10-K") || isForeignAnnualForm(f)));
 const QUARTERLY_FORMS = new Set([...CORE_FACT_FORMS].filter((f) => f.startsWith("10-Q")));
 
+/** Pure memo of day parsing: the result depends on `d` alone. Bounded so a long-lived process cannot grow it without limit. */
+const DATE_MS_MEMO = new Map<string, number>();
+const DATE_MS_MEMO_LIMIT = 200_000;
+
 function dateMs(d: string): number {
-  return Date.parse(`${d.slice(0, 10)}T00:00:00Z`);
+  let ms = DATE_MS_MEMO.get(d);
+  if (ms === undefined) {
+    ms = Date.parse(`${d.slice(0, 10)}T00:00:00Z`);
+    if (DATE_MS_MEMO.size >= DATE_MS_MEMO_LIMIT) DATE_MS_MEMO.clear();
+    DATE_MS_MEMO.set(d, ms);
+  }
+  return ms;
 }
 
 function withinDays(a: string, b: string, days: number): boolean {
@@ -4268,7 +4279,21 @@ function standInEpsFromContinuingOperations(rows: FmpIncomeStatementRow[], notes
   }
 }
 
+/**
+ * Build the filed statements. Inside a run's computation context
+ * (src/edgar/computationContext.ts) the result is computed once per exact
+ * input: the identity of `facts` (a filtered or rebuilt fact set is a different
+ * object, so a different key) and the canonical encoding of every option
+ * (periods, cutoff, observation time, split evidence, basis day, bank-revenue
+ * routing, identity). Each caller receives its own deep copy, as if freshly
+ * built. Outside a context it is `buildStatementsUncached`.
+ */
 export function buildStatementsFromCompanyFacts(facts: CompanyFacts, opts: StatementBuildOptions): BuiltStatements {
+  return memoize("statements", facts, opts, () => buildStatementsUncached(facts, opts));
+}
+
+/** The statement builder itself, never cached (tests compare it with the cached path). */
+export function buildStatementsUncached(facts: CompanyFacts, opts: StatementBuildOptions): BuiltStatements {
   const splits = discoverStockSplits(facts, { asOf: opts.asOf, vendor: opts.vendorSplits });
   const basisDay = opts.basisDay ?? opts.asOf;
   const shareBasisWithheld: ShareBasisWithheld[] = [];

@@ -1,10 +1,11 @@
+import { GRADE_OVERRIDE_VERSION } from "@/report/versions";
 import type { GradeBlock, Report, VerificationLogEntry } from "@/report/schema";
 import { GRADE_SURFACES } from "@/report/surfaceManifest";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import type { Grade } from "@/types/core";
 import { getEntityRegistry, isEntityWithheldStatement, validateEntityText, type EntityRegistry } from "@/pipeline/stageC/entityValidation";
 
-export const GRADE_OVERRIDE_VERSION = "GRADE_OVERRIDE_1" as const;
+export { GRADE_OVERRIDE_VERSION } from "@/report/versions";
 const ORDER: readonly Grade[] = ["A", "B", "C", "D", "F"];
 
 /** Citation admission is narrower than semantic validation of the whole thesis. */

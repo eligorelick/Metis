@@ -1,7 +1,6 @@
 import type { TracedNumber } from "@/report/schema";
 
-/** Frozen display boundary; explicit retained measured-window labels need no recalculation. */
-export const N4B_CAGR_DISPLAY_CUTOFF = "1.56.0";
+export { N4B_CAGR_DISPLAY_CUTOFF } from "@/report/versions";
 
 /** Collapse only equal measured windows and observations; preserve distinct rates and periods. */
 export function collapseMeasuredCagrValues<T extends { period?: string; value: TracedNumber }>(values: readonly T[]): T[] {

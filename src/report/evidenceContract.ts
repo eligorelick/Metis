@@ -13,10 +13,10 @@
  * The stamp moves only by a deliberate decision entry; nothing bumps it
  * automatically.
  */
+import { EVIDENCE_CONTRACT_VERSION } from "@/report/versions";
 import type { ReportMeta } from "@/report/schema";
 
-/** The evidence-rules contract this build writes on new reports. */
-export const EVIDENCE_CONTRACT_VERSION = "EVIDENCE_CONTRACT_1" as const;
+export { EVIDENCE_CONTRACT_VERSION } from "@/report/versions";
 
 export type EvidenceContractStatus =
   | { state: "current" }
