@@ -4,7 +4,7 @@ import { supplementalNumericAudit } from "@/report/supplementalNumericAudit";
  * Stage C — the four grounded LLM pass runners plus report assembly.
  *
  * Every runner takes the anthropic `runPass` fn INJECTED (a {@link RunPassFn})
- * so tests and the keyless dry-run path drive the passes without a live API.
+ * so tests drive the passes without a live API.
  * The runners never crash the app: a keyless / refusal / max_tokens outcome
  * comes back as a typed failure the orchestrator can branch on and file as a
  * gap (rule #4).

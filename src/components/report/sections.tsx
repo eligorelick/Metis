@@ -369,7 +369,7 @@ export function GradeStripBar({
   }
   return (
     <div
-      className={`grid grid-cols-3 gap-1.5 ${entries.length === 7 ? "lg:grid-cols-7" : "lg:grid-cols-6"} ${compact ? "" : ""}`}
+      className={`grid grid-cols-3 gap-1.5 ${entries.length === 7 ? "lg:grid-cols-7" : "lg:grid-cols-6"} `}
     >
       {entries.map(({ descriptor, block }) => {
         const anchor = sectionAnchorId(descriptor.sectionKey);
