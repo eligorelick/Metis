@@ -16,7 +16,7 @@ import { makeLimiter } from "@/providers/http";
 const FETCHED_AT = "2026-10-15T15:00:00.000Z";
 const FETCHED_SECONDS = Date.parse(FETCHED_AT) / 1000;
 const TEST_KEY = "future-quote-test-key";
-type QuoteMethod = "quote" | "batchQuote";
+type QuoteMethod = "quote";
 let handle: DatabaseHandle;
 
 beforeEach(() => {
@@ -50,15 +50,11 @@ function client(fetchImpl: typeof fetch, cachedFetch: CachedFetchFn = makeFmpCac
   });
 }
 
-const request = (c: FmpClient, method: QuoteMethod) => method === "quote"
-  ? c.quote("AAPL")
-  : c.batchQuote(["AAPL", "MSFT"]);
+const request = (c: FmpClient, _method: QuoteMethod) => c.quote("AAPL");
 
-const endpoint = (method: QuoteMethod) => method === "quote"
-  ? fmpCacheKey("quote", { symbol: "AAPL" })
-  : fmpCacheKey("batch-quote", { symbols: "AAPL,MSFT" });
+const endpoint = (_method: QuoteMethod) => fmpCacheKey("quote", { symbol: "AAPL" });
 
-describe.each<QuoteMethod>(["quote", "batchQuote"])("FMP %s timestamp admission", (method) => {
+describe.each<QuoteMethod>(["quote"])("FMP %s timestamp admission", (method) => {
   it("rejects a future observation before durable storage and recovers on the next cold read", async () => {
     const future = FETCHED_SECONDS + 1; // Same calendar day, demonstrably later instant.
     const fetchImpl = vi.fn<typeof fetch>()
@@ -238,30 +234,6 @@ describe("FMP quote timestamp scope", () => {
       expect(result.gap.reason).toMatch(/client.*cutoff/i);
     }
     expect(cachedEnvelope).not.toHaveProperty("fetchedAt");
-  });
-
-  it("accepts a valid scoped batch with past, boundary and unknown observations", async () => {
-    const body = [
-      { symbol: "AAPL", price: 200, timestamp: FETCHED_SECONDS - 1 },
-      { symbol: "MSFT", price: 400, timestamp: FETCHED_SECONDS },
-      { symbol: "GOOG", price: 150 },
-    ];
-
-    const result = await client(vi.fn(async () => json(body))).batchQuote(["AAPL", "MSFT", "GOOG"]);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value.data.raw).toEqual(body);
-  });
-
-  it("rejects a whole scoped batch when only one issuer has a future observation", async () => {
-    const result = await client(vi.fn(async () => json([
-      { symbol: "AAPL", price: 200, timestamp: FETCHED_SECONDS - 1 },
-      { symbol: "MSFT", price: 400, timestamp: FETCHED_SECONDS + 1 },
-    ]))).batchQuote(["AAPL", "MSFT"]);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.gap.reason).toContain("row 1");
-    expect(cacheRows()).toEqual([]);
   });
 
   it("leaves explicitly synthetic fixture observations outside live admission", async () => {

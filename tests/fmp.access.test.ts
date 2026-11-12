@@ -94,20 +94,6 @@ describe("FMP response-driven subscription access", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(3);
   });
 
-  it("does not attribute a denied batch to every symbol in that batch", async () => {
-    const fetchImpl = vi.fn(async (input: string | URL | Request) => {
-      const url = new URL(input instanceof Request ? input.url : String(input));
-      return url.searchParams.get("symbols") === "AAPL,SCHW"
-        ? new Response(SYMBOL_DENIED, { status: 402 })
-        : json([{ symbol: "AAPL", price: 100 }]);
-    });
-    const c = client(fetchImpl);
-    expect((await c.batchQuote(["AAPL", "SCHW"])).ok).toBe(false);
-    expect((await c.batchQuote(["AAPL"])).ok).toBe(true);
-    expect((await c.batchQuote(["AAPL", "SCHW"])).ok).toBe(false);
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
-  });
-
   it("isolates observations by key and provider base URL", async () => {
     const denied = vi.fn(async () => new Response(ENDPOINT_DENIED, { status: 402 }));
     const allowed = vi.fn(async () => json([{ symbol: "AAPL", price: 100 }]));
