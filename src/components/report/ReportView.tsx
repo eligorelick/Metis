@@ -41,7 +41,7 @@ import { DossierCover } from "./DossierCover";
 import { ClassicReportScrollOffset, ReportContents } from "./ReportContents";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { evidenceIdentity } from "./evidenceIdentity";
-import { dataStateText, plainFigureReaderNote, presentationReportId, routeMetricsForDisplay, withPlainFigureNotes } from "@/report/presentation";
+import { dataStateText, plainFigureReaderNote, presentationReportId, projectionsNotRecordedNotice, routeMetricsForDisplay, withPlainFigureNotes } from "@/report/presentation";
 import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
@@ -201,6 +201,7 @@ export function ReportView({
   const grading = (key: keyof NonNullable<Report["scores"]>["aspects"]) => ({ aspect: report.scores?.aspects[key] ?? null, completeness });
   const figureCaveat = plainFigureReaderNote(report);
   const figureNote = figureCaveat && <p className="mt-2 text-xs text-muted">{figureCaveat}</p>;
+  const projectionsNotice = projectionsNotRecordedNotice(report);
   const sections: Record<ReportSectionKey, ReactNode> = {
     verdict: (
       <div id={sectionAnchorId("verdict")} tabIndex={-1} className="scroll-mt-28">
@@ -228,7 +229,7 @@ export function ReportView({
     competitive: <CompetitiveSection report={report} grading={grading("moat")} competitive={report.competitive} index={reportSection("competitive").index} />,
     catalystsRisks: <CatalystsRisksPanel catalystsRisks={report.catalystsRisks} dataOnly={isDataOnlyReport(report)} index={reportSection("catalystsRisks").index} extraTables={filingDisclosureTables(report.filingDisclosures, "catalystsRisks")} />,
     outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} extraTables={filingDisclosureTables(report.filingDisclosures, "outlook")} />,
-    projections: unavailableCashFlowModel(report) ? null : report.projections ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : <SectionFrame id="projections" index={reportSection("projections").index} title="Weighted Projections"><p className="text-muted">Projections were not recorded in this snapshot. No forecast series or scenario weights are inferred.</p></SectionFrame>,
+    projections: report.projections && !unavailableCashFlowModel(report) ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : projectionsNotice ? <SectionFrame id="projections" index={reportSection("projections").index} title="Weighted Projections"><p className="text-muted">{projectionsNotice}</p></SectionFrame> : null,
     macro: <MacroSection macro={report.macro} index={reportSection("macro").index} />,
     appendix: <AppendixSection report={report} selectedReportId={reportId} selectedReportStatus={selectedReportStatus} completeness={completeness} showTrustDetails={layout === "classic"} index={reportSection("appendix").index} />,
   };
