@@ -54,7 +54,7 @@ import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
 import { operatingHistorySupport } from "@/pipeline/stageB/growth";
 import { incompleteLeaseCoverage, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
-import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
+import { isAmbiguousDuplicateRejection, normalizeQuarterRows, normalizeQuarterRowsWithKinds } from "@/pipeline/stageB/quarterWindows";
 import { calibratedRevenueCurrency, establishedIsoCode, inheritedIssuerCurrency, ownRowCurrency, providerRowCurrency, type InheritedIssuerCurrency } from "@/pipeline/estimateCurrency";
 import { withFilerShareUnits } from "@/pipeline/shareUnits";
 import { withReleaseQuarterEarnings } from "@/pipeline/releaseQuarterEarnings";
@@ -1773,7 +1773,7 @@ function extractStatement<TRow extends FmpRawRow>(
  * carry validated ISO days, never provider text.
  */
 function oneRowPerPeriod<T extends FmpRawRow>(rows: readonly T[], periods: number): { rows: T[]; notes: string[] } {
-  const { rows: winners, rejected } = normalizeQuarterRows(rows);
+  const { rows: winners, rejected, rejectionKinds } = normalizeQuarterRowsWithKinds(rows);
   const kept = new Set<T>(winners);
   const realDay = (row: T): boolean => normalizeQuarterRows([row]).rows.length === 1;
   const out = rows.filter((row) => kept.has(row) || !realDay(row));
@@ -1788,7 +1788,8 @@ function oneRowPerPeriod<T extends FmpRawRow>(rows: readonly T[], periods: numbe
     notes: [
       ...[...served].filter(([day, n]) => n > 1 && shown.includes(day))
         .map(([day, n]) => `Fiscal period ${day} was served ${n} times; only the provably latest filing (by acceptance time, or by filing date where none is given) is shown, the row Stage B uses.`),
-      ...rejected.filter((entry) => entry.reason.startsWith("duplicate fiscal period") && inWindow(entry.period))
+      // P11, D-223: the rejection kind set beside the sentence decides, not the sentence.
+      ...rejected.filter((entry, index) => isAmbiguousDuplicateRejection(rejectionKinds[index]) && inWindow(entry.period))
         .map((entry) => `Fiscal period ${entry.period} was served more than once with no provably latest filing; it is left out, as Stage B leaves it out.`),
     ],
   };

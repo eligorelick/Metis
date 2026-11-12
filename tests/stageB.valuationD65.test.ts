@@ -173,3 +173,98 @@ describe("D-65 EPS interest (P2-8), triggers and peers", () => {
     expect(peerSizeExclusion(nvda, 29e6)).toMatch(/180,526× smaller than the subject's 5.24T/);
   });
 });
+
+/**
+ * P11 (D-223, inventory site O1): the " (the estimates cover through ...)"
+ * suffix follows a typed "not covered" value carried from the gate, not a
+ * regex over the stop sentence. MAIN_STOP was recorded on main (f1b2a556)
+ * before the change. The whole-assumptions comparison with main was made
+ * during development and is recorded in D-223; it is not pinned here, so
+ * unrelated later changes to the assumptions do not fail these tests. The
+ * typed value stays local: the anchor and its consensus path rows keep their
+ * exact key lists.
+ */
+describe("D-65 anchor stop suffix reads a typed value (O1, D-223)", () => {
+  const scaled = (i: number, factor: number) => ({ revenueAvg: ESTIMATES[i].revenueAvg! * factor, revenueLow: ESTIMATES[i].revenueAvg! * factor * 0.95, revenueHigh: ESTIMATES[i].revenueAvg! * factor * 1.05 });
+  const replace = (i: number, row: Partial<AnalystEstimateRow>) => ESTIMATES.map((r, j) => (j === i ? { ...r, ...row } : r));
+  const later = Array.from({ length: 6 }, (_, i) => {
+    const avg = ESTIMATES[4].revenueAvg! * 1.05 ** (i + 1);
+    return { date: `${2032 + i}-01-25`, revenueAvg: avg, analysts: 30, revenueLow: avg * 0.95, revenueHigh: avg * 1.05 };
+  });
+  const CASES: Record<string, Partial<DcfAssumptionInputs>> = {
+    "direct not covered": {},
+    "nested not covered": { analystEstimates: ESTIMATES.slice(1) },
+    "stale against reported": { analystEstimates: replace(0, { revenueAvg: H1 }) },
+    "consensus gate, direct": { analystEstimates: replace(2, { analysts: 2 }) },
+    "consensus gate, nested": { analystEstimates: replace(1, { analysts: 2 }) },
+    "final explicit year": { analystEstimates: [...ESTIMATES, ...later] },
+    "clamp: below the floor": { analystEstimates: replace(3, scaled(3, 0.45)) },
+    "clamp: re-accelerates": { analystEstimates: replace(3, scaled(3, 1.45)) },
+    "clamp: year two clamped": { analystEstimates: replace(2, scaled(2, 0.32)) },
+    "no consensus, no stop": { analystEstimates: null },
+  };
+  const SUFFIX = " (the estimates cover through ";
+  const MAIN_STOP: Record<string, string | null> = {
+    "direct not covered":
+      "; year five is not anchored: 12M ending 2031-07-26 is not covered by the fiscal-year estimates (the estimates cover through 12M ending 2030-07-26)",
+    "nested not covered":
+      "; year two is not anchored: there is no consensus growth into it (year one: 12M ending 2027-07-26 is not covered by the fiscal-year estimates) (the estimates cover through 12M ending 2030-07-26)",
+    "stale against reported":
+      "; year two is not anchored: there is no consensus growth into it (year one: the fiscal-year consensus is at or below the 177.84B already reported through 2026-07-26)",
+    "consensus gate, direct":
+      "; year two is not anchored: the fiscal year ending 2029-01-25 has 2 revenue estimates, fewer than the 3 a consensus needs",
+    "consensus gate, nested":
+      "; year two is not anchored: there is no consensus growth into it (year one: the fiscal year ending 2028-01-25 has 2 revenue estimates, fewer than the 3 a consensus needs)",
+    "final explicit year":
+      "; year ten is not anchored: it is the final explicit year, which the fade sets to the terminal rate",
+    "clamp: below the floor":
+      "; year three is not anchored: consensus growth -12.34% falls below the -10% house floor",
+    "clamp: re-accelerates":
+      "; year three is not anchored: consensus growth 55.74% re-accelerates past max(25%, year two's 40.14%)",
+    "clamp: year two clamped":
+      "; year three is not anchored: year two's consensus growth was clamped",
+    "no consensus, no stop": null,
+  };
+
+  const observe = (name: string) => {
+    const a = build(CASES[name]);
+    const basis = a.revenueAnchor?.basis ?? "";
+    const stop = /; year \w+ is not anchored: .*?(?= \(house rule D-60)/.exec(basis)?.[0] ?? null;
+    return { a, basis, stop };
+  };
+
+  const ANCHOR_KEYS = ["source", "yearOneRevenue", "yearOneGrowthPct", "yearTwoGrowthPct", "runRate", "clampedFrom", "basis",
+    "anchoredGrowthPct", "consensusYears", "consensusPath", "evidence"];
+  const PATH_ROW_KEYS = ["year", "label", "startDate", "endDate", "consensus", "anchored", "status", "fiscalYears"];
+
+  it.each(Object.keys(CASES))("%s (main): the stop clause is main's, and the anchor gains no key", (name) => {
+    const { a, stop } = observe(name);
+    expect(stop).toBe(MAIN_STOP[name]);
+    expect(Object.keys(a.revenueAnchor!)).toEqual(ANCHOR_KEYS);
+    for (const row of a.revenueAnchor!.consensusPath!) {
+      expect(Object.keys(row)).toEqual(PATH_ROW_KEYS);
+      expect(row).not.toHaveProperty("notCovered");
+    }
+    const stored = JSON.stringify(a);
+    expect(stored).not.toContain("notCovered");
+    expect(stored).not.toContain('"gate"');
+  });
+
+  it("each case reaches the stop it is named for, and the suffix follows only a not-covered gate", () => {
+    const stops = Object.fromEntries(Object.keys(CASES).map((name) => [name, observe(name).stop]));
+    expect(stops["direct not covered"]).toMatch(/^; year five is not anchored: 12M ending 2031-07-26 is not covered by the fiscal-year estimates \(the estimates cover through /);
+    expect(stops["nested not covered"]).toMatch(/^; year two is not anchored: there is no consensus growth into it \(year one: 12M ending 2027-07-26 is not covered by the fiscal-year estimates\) \(the estimates cover through /);
+    expect(stops["stale against reported"]).toMatch(/^; year two is not anchored: there is no consensus growth into it \(year one: the fiscal-year consensus is at or below /);
+    expect(stops["consensus gate, direct"]).toMatch(/^; year two is not anchored: the fiscal year ending 2029-01-25 has 2 revenue estimates/);
+    expect(stops["consensus gate, nested"]).toMatch(/^; year two is not anchored: there is no consensus growth into it \(year one: the fiscal year ending 2028-01-25 has 2 revenue estimates/);
+    expect(stops["final explicit year"]).toBe("; year ten is not anchored: it is the final explicit year, which the fade sets to the terminal rate");
+    expect(stops["clamp: below the floor"]).toMatch(/^; year three is not anchored: consensus growth -?[\d.]+% falls below the -10% house floor$/);
+    expect(stops["clamp: re-accelerates"]).toMatch(/^; year three is not anchored: consensus growth [\d.]+% re-accelerates past max\(25%, year two's [\d.]+%\)$/);
+    expect(stops["clamp: year two clamped"]).toBe("; year three is not anchored: year two's consensus growth was clamped");
+    expect(stops["no consensus, no stop"]).toBeNull();
+    const withSuffix = Object.keys(CASES).filter((name) => observe(name).basis.includes(SUFFIX));
+    expect(withSuffix).toEqual(["direct not covered", "nested not covered"]);
+    // The old regex and the typed value agree on every case.
+    expect(Object.keys(CASES).filter((name) => /not covered/.test(stops[name] ?? ""))).toEqual(withSuffix);
+  });
+});

@@ -42,8 +42,7 @@ const PINNED: Record<string, number> = {
   "src/pipeline/stageB/seniorClaims.ts": 1,
   // G6: forensic gaps deduplicated by field and sentence.
   "src/pipeline/stageB/forensics.ts": 1,
-  // G7: a rejected duplicate fiscal period.
-  "src/pipeline/stageC/payload.ts": 1,
+  // G7 (src/pipeline/stageC/payload.ts) moved to the quarter-rejection kind in D-223; that file reads no wording now.
   // P1 (definition and retry callers), P2: FMP quota and empty-array status sentences.
   "src/providers/fmp.ts": 6,
   // P3, P4, P1 caller: empty-array and unlinked-predecessor sentences, member quota.
@@ -64,8 +63,7 @@ const PINNED: Record<string, number> = {
   "src/report/researchReview.ts": 5,
   // S1: the non-bank lender convention (sector-specific; left for an owner decision).
   "src/report/readerConventions.ts": 1,
-  // O1: an estimate-anchor stop sentence, display only.
-  "src/pipeline/stageB/valuation.ts": 1,
+  // O1 (src/pipeline/stageB/valuation.ts) moved to a typed "not covered" value in D-223; that file reads no wording now.
 };
 
 const NOT_TEXT = String.raw`(?!\s*(?:null|undefined)\b)(?!\s*["'\`][a-z0-9-]*["'\`])`;

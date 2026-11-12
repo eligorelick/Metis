@@ -1541,6 +1541,9 @@ function buildRevenueAnchor(args: {
   // reported; each window then passes or fails the breadth and agreement gates.
   const reported = validFiscalYearToDate(inputs.fiscalYearToDate, ttmEnd, ttm?.basis);
   const path: (ConsensusPathRow & { gate: string | null })[] = [];
+  // P11, D-223: notCovered[k - 1] is true when year k's gate is "not covered by the
+  // fiscal-year estimates". Local only, never on the path rows or in the output.
+  const notCovered: boolean[] = [];
   // AMZN audit 2026-10-20 finding 19: how the fiscal years a covered window
   // holds only part of were spread (null when each falls wholly inside one).
   let spread: "seasonal" | "even" | null = null;
@@ -1549,6 +1552,7 @@ function buildRevenueAnchor(args: {
     if (w === null) break;
     const cal = calendarizeConsensusWindow(inputs.analystEstimates, w, reported, inputs.revenueSeasonality, inputs.fiscalCalendar);
     if (cal.value !== null && cal.partialSpread !== null) spread = spread === "even" ? "even" : cal.partialSpread;
+    notCovered.push(cal.value === null && !cal.staleAgainstReported);
     const gate = cal.value === null
       ? cal.staleAgainstReported
         ? `the fiscal-year consensus is at or below the ${fmtMoney((reported as FiscalYearToDate).revenue)} already reported through ${(reported as FiscalYearToDate).through}`
@@ -1698,7 +1702,8 @@ function buildRevenueAnchor(args: {
   const consensusYears: number[] = source === "consensus" ? [1] : [];
   const stepTexts: string[] = [];
   let anchoredLevel = yearOneRevenue;
-  let stop: { year: number; reason: string } | null = null;
+  // notCovered: the reason is, or quotes, a "not covered" gate (P11, D-223).
+  let stop: { year: number; reason: string; notCovered: boolean } | null = null;
   for (let k = 2; k <= path.length; k++) {
     const row = path[k - 1];
     if (stop !== null) {
@@ -1706,13 +1711,13 @@ function buildRevenueAnchor(args: {
       continue;
     }
     if (k >= DCF_HORIZON_YEARS) {
-      stop = { year: k, reason: "it is the final explicit year, which the fade sets to the terminal rate" };
+      stop = { year: k, reason: "it is the final explicit year, which the fade sets to the terminal rate", notCovered: false };
     } else if (!usable(k - 1)) {
-      stop = { year: k, reason: `there is no consensus growth into it (year ${yearWord(k - 1)}: ${path[k - 2].gate ?? "no consensus"})` };
+      stop = { year: k, reason: `there is no consensus growth into it (year ${yearWord(k - 1)}: ${path[k - 2].gate ?? "no consensus"})`, notCovered: notCovered[k - 2] };
     } else if (!usable(k)) {
-      stop = { year: k, reason: row.gate ?? "no consensus" };
+      stop = { year: k, reason: row.gate ?? "no consensus", notCovered: notCovered[k - 1] };
     } else if (k > 2 && !consensusYears.includes(k - 1)) {
-      stop = { year: k, reason: `year ${yearWord(k - 1)} was not anchored` };
+      stop = { year: k, reason: `year ${yearWord(k - 1)} was not anchored`, notCovered: false };
     }
     if (stop !== null) {
       row.status = `not anchored: ${stop.reason}`;
@@ -1731,7 +1736,7 @@ function buildRevenueAnchor(args: {
         clampNote = `, ${fmtNum(rawG)}% clamped to [${NEAR_TERM_GROWTH_CLAMP_PP[0]}%, ${fmtNum(gHi)}%] = [house floor, max(house ceiling ${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, year-one growth)]`;
       }
     } else if (rawG < NEAR_TERM_GROWTH_CLAMP_PP[0] || rawG > gHi) {
-      stop = { year: k, reason: `consensus growth ${fmtNum(rawG)}% ${rawG < NEAR_TERM_GROWTH_CLAMP_PP[0] ? `falls below the ${NEAR_TERM_GROWTH_CLAMP_PP[0]}% house floor` : `re-accelerates past max(${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, year ${yearWord(k - 1)}'s ${fmtNum(prevG)}%)`}` };
+      stop = { year: k, reason: `consensus growth ${fmtNum(rawG)}% ${rawG < NEAR_TERM_GROWTH_CLAMP_PP[0] ? `falls below the ${NEAR_TERM_GROWTH_CLAMP_PP[0]}% house floor` : `re-accelerates past max(${NEAR_TERM_GROWTH_CLAMP_PP[1]}%, year ${yearWord(k - 1)}'s ${fmtNum(prevG)}%)`}`, notCovered: false };
       row.status = `not anchored: ${stop.reason}`;
       continue;
     }
@@ -1746,7 +1751,7 @@ function buildRevenueAnchor(args: {
       (Math.abs(gap) < 0.05 ? "" : `, so year ${yearWord(k)} ${fmtMoney(anchoredLevel)} is ${fmtNum(Math.abs(gap))}% ${gap < 0 ? "below" : "above"} the consensus level`),
     );
     // A clamped year two leaves the consensus levels behind; later years fade.
-    if (g !== rawG) stop = { year: k + 1, reason: "year two's consensus growth was clamped" };
+    if (g !== rawG) stop = { year: k + 1, reason: "year two's consensus growth was clamped", notCovered: false };
   }
   const yearTwoGrowthPct = consensusYears.includes(2) ? anchoredGrowth[1] : null;
   // When consensus sets later years but not year one, the spread is stated with them.
@@ -1755,7 +1760,7 @@ function buildRevenueAnchor(args: {
   const anyConsensus = path.some((r) => r.consensus !== null);
   const lastCovered = [...path].reverse().find((r) => r.consensus !== null);
   const stopText = stop === null || !anyConsensus ? "" :
-    `; year ${yearWord(stop.year)} is not anchored: ${stop.reason}${/not covered/.test(stop.reason) && lastCovered ? ` (the estimates cover through ${lastCovered.label})` : ""}`;
+    `; year ${yearWord(stop.year)} is not anchored: ${stop.reason}${stop.notCovered && lastCovered ? ` (the estimates cover through ${lastCovered.label})` : ""}`;
   const yearOneGap = ntm1 === null || source === "consensus" ? null : (yearOneRevenue / ntm1 - 1) * 100;
   const yearOneGapText = yearOneGap === null || Math.abs(yearOneGap) < 0.05 ? "" :
     `; year one is ${fmtNum(Math.abs(yearOneGap))}% ${yearOneGap < 0 ? "below" : "above"} the consensus ${fmtMoney(ntm1 as number)}`;
