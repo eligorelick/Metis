@@ -11,6 +11,84 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-221 - Refusal codes, step 4: the combined-total recovery and the minor-difference note read the code (2026-11-12)
+
+Principle P11. Step 4 of the D-218 migration moves two more readers from the
+refusal sentence to its typed code, under the D-219 read rule (a coded conflict
+is decided by its code alone, an unknown or unrelated code fails closed, a
+conflict without a code is read by its original sentence pattern in
+`src/edgar/refusalCauseRead.ts`), and moves a third, legacy-only reader there.
+All three are in `admitDebtFields` (`src/edgar/financialEnrichment.ts`), on
+totalDebt: the gross-debt reconciliation (C7), which lifts a combined-total
+refusal when one filing bridges the gross amount to carrying debt; the
+minor-difference note (C9), which records a usable, filed-family total's
+retained vendor difference as a manifest admission; and the old vendor-sum
+guard (C5, `revisitVendorSum`). Every other condition at the three sites is
+unchanged: C7's gross bridge and vendor-value check, C9's `usable === true` and
+`resolution === "filed-family"` checks, C5's vendor-value and issuer checks.
+Nothing else is switched.
+
+| Reader | Field | Codes | Legacy wording (moved verbatim) |
+|---|---|---|---|
+| `combinedAggregateExceedsComponents` (C7) | totalDebt | `debt-combined-aggregate-exceeds-components` | starts `incomplete debt carrying value: same-period DebtLongtermAndShorttermCombinedAmount ` |
+| `debtTotalMinorDifference` (C9) | totalDebt | `debt-total-minor-difference` | starts `vendor total ` and includes `minor difference retained` |
+| `legacyVendorSumRefusal` (C5) | totalDebt | none (legacy-only) | `/^incomplete debt carrying value: the vendor lease line .*?, but the vendor total debt .* is not its short-term debt \+ long-term debt \+ lease line, so its composition is unknown;/` |
+
+Why code and wording agree for every current writer. C7: the combined-total
+sentence and its code are written together by one helper,
+`uncomposedDebtRefusal` (`debtCompleteness.ts`), which picks the code from the
+exceeding tag; it is called by the debt admission's cascade and by the SEC
+statement builder's (whose `NoteSink.causeOf` keys the code to the exact field
+and sentence). Every other tag gets `debt-aggregate-exceeds-components` and a
+sentence naming that tag; every other totalDebt sentence starts otherwise
+(`DebtInstrumentCarryingAmount` appears only after `current/noncurrent
+financing components do not establish the total;`), and a component refusal
+wrapped into the total starts `<field> is unavailable (`. A kept prior refusal
+keeps its own sentence and code. C9: both writers (`completeFiledDebtScope` and
+`completeFromFiling`) write the code only when `minorDebtTotalNote` is not
+empty, and the note then always starts `vendor total ` (from
+`debtTotalComparison`) and contains `minor difference retained`; with no
+difference no conflict is written at all. No other writer puts a usable,
+filed-family conflict on totalDebt, and the minor-limit refusal (`... exceeds
+the minor-difference limit`) is unusable, carries a lease-line code and lacks
+the phrase. C5: no current writer produces the sentence, coded or not: the
+only sentences starting with the lease-line lead come from
+`completeFromFiling`'s `refuse`, and none of its causes contains `is not its
+short-term debt + long-term debt + lease line`; its one `the vendor total
+debt` cause reads `is unavailable, so its composition is unknown`. So the
+reader's code set is empty: a coded conflict with that sentence is never
+revisited, which no current writer can produce, and an older row without a
+code is revisited by its sentence as before. The four codes read before D-218
+are written only on revenue, operating income and interest expense, and
+nothing copies a conflict between those fields and totalDebt; the two copies
+that keep a code and change the sentence (`primaryCapitalBasis.ts`,
+repurchases; `revenueAdmission.ts`, revenue) never reach it. The only
+conflict copied onto a debt field, the vendor/SEC cash conflict on net debt,
+keeps both its sentence and its code.
+
+Snapshots. `CONFLICT_CAUSES_READ_BY_CODE` derives from the readers, so
+`captureRunInputSnapshot` now also keeps `debt-total-minor-difference`; the
+combined-total code was already kept for C11, and the legacy reader adds none.
+Two step-1 codes are still removed (`vendor-sec-value-conflict`,
+`vendor-share-value-conflict`) and the four earlier codes stay. Nothing else
+about snapshots changes. No refusal sentence, writer or version stamp changes:
+the code and the sentence agree on every conflict a current writer produces,
+so no decision changes, and conflicts still reach no Stage B output, payload,
+report or export.
+
+Not changed: every decision. The comparison check (`golden:diff`, 10 cases, 80
+files) shows no difference. `tests/refusalCause.readers.test.ts` runs every
+refusal each reader handles, and the neighbouring ones it must reject (for C7
+the other aggregate code; for C9 the completions with no minor difference and
+qualifications that are refused, not filed-family or minor-retained), built by
+the debt admission and the SEC statement builder, with codes and with them
+deleted, and requires the same outcome; it also shows a coded conflict is
+decided by its code whatever its sentence and a conflict without a code by its
+sentence, and that no coded conflict passes the legacy-only reader. Left for
+later steps: C1-C3 and C13 (whose codes are still removed from snapshots), the
+identity comparisons and the gap, provider, stored-report and sector-specific
+readers.
+
 ## D-220 - Refusal codes, step 3: the two debt-maturity checks read the code (2026-11-11)
 
 Principle P11. Step 3 of the D-218 migration moves two more readers from the
@@ -61,7 +139,8 @@ Snapshots. `CONFLICT_CAUSES_READ_BY_CODE` derives from the readers, so
 `captureRunInputSnapshot` now also keeps these four codes; the three codes no
 reader reads (`vendor-sec-value-conflict`, `vendor-share-value-conflict`,
 `debt-total-minor-difference`) are still removed and the four earlier codes stay.
-Nothing else about snapshots changes. No refusal sentence, writer or version
+(Revised by D-221: `debt-total-minor-difference` is kept too; two are still
+removed.) Nothing else about snapshots changes. No refusal sentence, writer or version
 stamp changes: the code and the sentence agree on every conflict a current
 writer produces, so no decision changes, and conflicts still reach no Stage B
 output, payload, report or export.
@@ -74,7 +153,8 @@ and debt note for C12), with codes and with them deleted, and requires the same
 outcome; it also shows a coded conflict is decided by its code whatever its
 sentence and a conflict without a code by its sentence. Left for later steps:
 C1-C3, C7, C9, C13, the identity comparisons and the gap, provider,
-stored-report and sector-specific readers.
+stored-report and sector-specific readers. (Revised by D-221: C7 and C9 now
+read their codes, and C5 is a legacy-only reader.)
 
 ## D-219 - Refusal codes, step 2: the lease and debt-recovery checks read the code (2026-11-11)
 
@@ -109,7 +189,8 @@ unchanged.
 Snapshots. `captureRunInputSnapshot` now keeps these five codes, so a run that
 computes Stage B from its snapshot decides by them; the seven step-1 codes no
 reader reads are still removed, and the four earlier codes stay. (Revised by
-D-220: the four debt-maturity codes are kept too; three are still removed.) No version
+D-220: the four debt-maturity codes are kept too; three are still removed.
+Revised by D-221: and the minor-difference code; two are still removed.) No version
 stamp changes: the code and the sentence agree on every conflict a current
 writer produces, so no decision changes, and conflicts still reach no Stage B
 output, payload, report or export.
@@ -120,7 +201,7 @@ refusal each reader handles, and every debt refusal it does not, with its codes
 and with them deleted, and requires the same outcome both ways. Left for later
 steps: C1-C4, C7, C9, C12, C13 and the gap, provider, stored-report and
 sector-specific readers. (Revised by D-220: C4 and C12 now read
-their codes.) Found while checking: the primary cash-flow repurchase
+their codes. Revised by D-221: C7 and C9 too, and C5 is legacy-only.) Found while checking: the primary cash-flow repurchase
 resolution (`primaryCapitalBasis.ts`) copies a coded vendor/SEC conflict and
 replaces its sentence, keeping the code; no reader uses that code yet, and it
 must be fixed before a reader of `vendor-sec-value-conflict` moves to codes.
@@ -154,14 +235,15 @@ withholdings and `guardVendorShareFields`. Each code is chosen by the branch
 that wrote the sentence, never by reading it; a total refused because of a
 refused component takes the component's code only when that component carries
 one. No reader uses the new codes. (Revised by D-219: two readers now do.
-Revised by D-220: four do.)
+Revised by D-220: four do. Revised by D-221: six do.)
 
 Kept out of outputs: conflicts never reach Stage B output, the payload, the
 report or its exports, so nothing a report shows or stores changes.
 `captureRunInputSnapshot` removes the new codes (`DUAL_WRITTEN_CONFLICT_CAUSES`)
 so a new run snapshot keeps the bytes it would have had; the four existing
 codes stay. (Revised by D-219: snapshots now keep the five codes
-those readers read. Revised by D-220: and the four debt-maturity codes.) `ManifestEntry` gets no code in this step: gap entries are copied
+those readers read. Revised by D-220: and the four debt-maturity codes.
+Revised by D-221: and the minor-difference code.) `ManifestEntry` gets no code in this step: gap entries are copied
 into Stage B output, the payload, `appendix.missingData` (strict schema),
 `fairValue.reasons` and snapshots, and keeping a code out of all of them is a
 larger change than this step. The G and P gap readers therefore stay
@@ -173,7 +255,8 @@ identity (whether a netDebt refusal is the totalDebt one) need a link between
 the two refusals, not a code, and are left as they are. One reader
 (`financialEnrichment.ts`, the old vendor-sum wording) matches a sentence no
 current writer produces; it reads only rows built before 18ea3137 and needs a
-legacy rule of its own. Sector-specific readers and writers are untouched and
+legacy rule of its own. (Revised by D-221: it is a legacy-only reader in
+`refusalCauseRead.ts`, with no codes.) Sector-specific readers and writers are untouched and
 left for an owner decision.
 
 Guard: `tests/refusalWording.ratchet.test.ts` pins the wording-reading lines

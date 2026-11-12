@@ -75,6 +75,34 @@ const READERS = {
     codes: new Set<StatementConflictCause>(["debt-component-maturity-scope", "debt-maturity-scope", "debt-components-incomplete"]),
     legacy: (reason) => /^incomplete debt carrying value: (?:shortTermDebt is unavailable \(debt maturity scope unresolved:|debt maturity scope unresolved:|current\/noncurrent financing components do not establish the total;)/.test(reason),
   },
+  /**
+   * D-221, on totalDebt only: C7, the gross-debt reconciliation in `admitDebtFields`: a total refused
+   * because the same-period DebtLongtermAndShorttermCombinedAmount exceeded the composed components,
+   * which a same-filing bridge from gross to carrying debt shows was not an omitted borrowing.
+   */
+  combinedAggregateExceedsComponents: {
+    codes: new Set<StatementConflictCause>(["debt-combined-aggregate-exceeds-components"]),
+    legacy: (reason) => reason.startsWith("incomplete debt carrying value: same-period DebtLongtermAndShorttermCombinedAmount "),
+  },
+  /**
+   * D-221, on totalDebt only: C9, the minor-difference note in `admitDebtFields`: a usable,
+   * filed-family total that retains the vendor total's minor difference as a qualification.
+   * Not a refusal; the caller keeps its `usable` and `resolution` checks.
+   */
+  debtTotalMinorDifference: {
+    codes: new Set<StatementConflictCause>(["debt-total-minor-difference"]),
+    legacy: (reason) => reason.startsWith("vendor total ") && reason.includes("minor difference retained"),
+  },
+  /**
+   * D-221, on totalDebt only: C5, `revisitVendorSum` in `admitDebtFields`: the pre-18ea3137
+   * vendor-sum refusal. No current writer produces this sentence, with or without a code, so the
+   * code set is empty: a conflict that carries any code is never revisited, and only an older row
+   * without one is read by its sentence, as before.
+   */
+  legacyVendorSumRefusal: {
+    codes: new Set<StatementConflictCause>(),
+    legacy: (reason) => /^incomplete debt carrying value: the vendor lease line .*?, but the vendor total debt .* is not its short-term debt \+ long-term debt \+ lease line, so its composition is unknown;/.test(reason),
+  },
 } as const satisfies Record<string, CodeReader>;
 
 export type ConflictCodeReader = keyof typeof READERS;

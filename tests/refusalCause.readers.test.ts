@@ -1,5 +1,5 @@
 /**
- * P11 (D-219, D-220) steps 2 and 3: four readers decide by the typed refusal
+ * P11 (D-219, D-220, D-221) steps 2 to 4: seven readers decide by the typed refusal
  * code, and a conflict without a code is read by its sentence exactly as before.
  *
  * - C14 `restoreRefusedOperatingPortion` (via `restoreLeaseFinancingProvenance`):
@@ -10,6 +10,11 @@
  * - C12 `recoverNoteCarryingDebt` (via `admitDebtFields`, D-220): `debt-maturity-scope`
  *   on shortTermDebt (behind its `fiscalStandIn` gate) and the three
  *   missing-taxonomy-class codes on totalDebt/netDebt.
+ * - C7, the gross-debt reconciliation (via `admitDebtFields`, D-221):
+ *   `debt-combined-aggregate-exceeds-components` on totalDebt.
+ * - C9, the minor-difference note (via `admitDebtFields`, D-221): `debt-total-minor-difference`
+ *   on a usable, filed-family totalDebt.
+ * - C5, the old vendor-sum guard (via `admitDebtFields`, D-221): legacy-only, an empty code set.
  *
  * Every refusal below is written by the real writer (the debt admission, the
  * SEC statement builder, the cash comparison, the plausibility helper); only
@@ -41,10 +46,13 @@ import frozen from "./fixtures/crwv-debt-facts.json";
 type Conflict = StatementFieldConflict;
 type Conflicted = { fieldConflicts?: Record<string, Conflict> };
 const READERS: readonly ConflictCodeReader[] = ["leaseLineNoOperatingTotal", "recoverableDebtScope", "shortTermDebtMaturityScope",
-  "longTermDebtNoncurrentAllocation", "noteRecoverableDebtTotal"];
+  "longTermDebtNoncurrentAllocation", "noteRecoverableDebtTotal", "combinedAggregateExceedsComponents", "debtTotalMinorDifference", "legacyVendorSumRefusal"];
 /** The fields each reader is called on. The D-219 readers are checked on every field, as before. */
 const READ_FIELDS: Record<ConflictCodeReader, readonly string[] | "any"> = { leaseLineNoOperatingTotal: "any", recoverableDebtScope: "any",
-  shortTermDebtMaturityScope: ["shortTermDebt"], longTermDebtNoncurrentAllocation: ["longTermDebt"], noteRecoverableDebtTotal: ["totalDebt", "netDebt"] };
+  shortTermDebtMaturityScope: ["shortTermDebt"], longTermDebtNoncurrentAllocation: ["longTermDebt"], noteRecoverableDebtTotal: ["totalDebt", "netDebt"],
+  combinedAggregateExceedsComponents: ["totalDebt"], debtTotalMinorDifference: ["totalDebt"], legacyVendorSumRefusal: ["totalDebt"] };
+/** D-221: a reader no current writer's code reaches; only a row without a code can pass it. */
+const LEGACY_ONLY: readonly ConflictCodeReader[] = ["legacyVendorSumRefusal"];
 
 /** A deep copy with every conflict's `cause` removed: the same row as an older stored input. */
 function uncoded<T>(value: T): T {
@@ -534,6 +542,187 @@ describe("D-220: the code is what is read", () => {
   });
 });
 
+// ---- D-221: C7 (the gross-debt reconciliation), C9 (the minor-difference note), C5 (the old vendor sum), all in `admitDebtFields`. ----
+const ADJUSTMENT_TAG = "DebtInstrumentUnamortizedDiscountPremiumAndDebtIssuanceCostsNet";
+/** Carrying LongTermDebt 104 and a combined gross amount 106 in one filing; the components are 4 + 100. */
+const GROSS_FACTS = { LongTermDebt: 104, DebtLongtermAndShorttermCombinedAmount: 106 };
+const grossVendor = vendor({ shortTermDebt: 4 * M, longTermDebt: 100 * M, capitalLeaseObligations: 0, totalDebt: 104 * M, netDebt: 94 * M });
+/** The tagged-total check's refusal, written while the filing carries no bridge from gross to carrying debt. */
+const combinedRefused = admitDebtFields(grossVendor, companyFacts({ [Q2]: GROSS_FACTS }), "USD", OBSERVED).row;
+/** The same filing with the signed discount and issuance costs that bridge gross 106 to carrying 104. */
+const C7 = (row: FmpBalanceSheetRow) => admitDebtFields(row, companyFacts({ [Q2]: { ...GROSS_FACTS, [ADJUSTMENT_TAG]: -2 } }), "USD", OBSERVED);
+/** The combined-total row with `from`'s sentence and code (or no code) on total and net debt. */
+const grossRow = (from: Conflict): FmpBalanceSheetRow => ({ ...structuredClone(combinedRefused), fieldConflicts: { ...structuredClone(combinedRefused.fieldConflicts),
+  totalDebt: placed(conflictOn(combinedRefused, "totalDebt"), from), netDebt: placed(conflictOn(combinedRefused, "netDebt"), from) } });
+function expectGrossRecovered(out: ReturnType<typeof C7>, recovered: boolean): void {
+  expect(out.gaps.some((gap) => gap.reason.includes("the gross amount is not an omitted borrowing"))).toBe(true);
+  if (recovered) {
+    expect(out.row).toMatchObject({ totalDebt: 104 * M, netDebt: 94 * M });
+    expect(out.row.fieldConflicts?.totalDebt).toBeUndefined();
+    expect(out.row.fieldConflicts?.netDebt).toBeUndefined();
+  } else {
+    expect(out.row.totalDebt).toBeNull();
+    expect(out.row.fieldConflicts?.totalDebt?.usable).toBe(false);
+  }
+}
+const crwvCombined = crwvAt(crwvBalanceRows({ LongTermDebtCurrent: 1e9, LongTermDebtNoncurrent: 10e9, DebtLongtermAndShorttermCombinedAmount: 30e9 },
+  [MATURITY_TAG, REMAINDER_TAG, "DebtInstrumentCarryingAmount"]));
+const crwvTaggedTotal = crwvAt(crwvBalanceRows({ LongTermDebtCurrent: 1e9, LongTermDebtNoncurrent: 10e9, LongTermDebtAndCapitalLeaseObligations: 30e9 },
+  [MATURITY_TAG, REMAINDER_TAG, "DebtInstrumentCarryingAmount"]));
+const C7_READ = ["combined total above the components"];
+const COMBINED_CASES: Record<string, Case> = {
+  "the debt admission's combined-total refusal on this row": { conflict: conflictOn(combinedRefused, "totalDebt"), reads: true },
+  "the SEC statement builder's combined-total refusal": { conflict: conflictOn(crwvCombined, "totalDebt"), reads: true },
+  "the SEC statement builder's tagged-total refusal (another aggregate tag)": { conflict: conflictOn(crwvTaggedTotal, "totalDebt"), reads: false },
+  "a vendor/SEC cash conflict": { conflict: conflictOn(cashOnNetDebt, "netDebt"), reads: false },
+  ...Object.fromEntries(ALL.map((name) => [name, { conflict: REFUSALS[name].totalDebt, reads: C7_READ.includes(name) }])),
+};
+
+/** D-202 minor differences: the filed-total completion (`completeFiledDebtScope`) and the noncurrent-only lease completion (`completeFromFiling`). */
+const MINOR_TAGS = { LongTermDebtNoncurrent: 100, LongTermDebtCurrent: 4, OperatingLeaseLiabilityCurrent: 2, OperatingLeaseLiabilityNoncurrent: 18,
+  FinanceLeaseLiabilityCurrent: 1, FinanceLeaseLiabilityNoncurrent: 5 };
+const C9 = (row: FmpBalanceSheetRow) => admitDebtFields(row, companyFacts({ [Q2]: MINOR_TAGS }), "USD", OBSERVED);
+const minorVendor = (lease: number, total: number) => vendor({ shortTermDebt: 4 * M, capitalLeaseObligations: lease * M, totalDebt: total * M, netDebt: (total - 10) * M });
+const COMPLETIONS = {
+  "the filed-total completion, minor difference": minorVendor(0, 103.48),
+  "the noncurrent-only lease completion, minor difference": minorVendor(23, 126.365),
+  "the filed-total completion, no minor difference": minorVendor(0, 104),
+  "the noncurrent-only lease completion, no minor difference": minorVendor(23, 127),
+} satisfies Record<string, FmpBalanceSheetRow>;
+type CompletionName = keyof typeof COMPLETIONS;
+const MINOR: readonly CompletionName[] = ["the filed-total completion, minor difference", "the noncurrent-only lease completion, minor difference"];
+/** Each completion's own pass: the writer composes the row, then the note reads what it wrote. */
+const completed = Object.fromEntries(Object.entries(COMPLETIONS).map(([name, row]) => [name, C9(row)])) as Record<CompletionName, ReturnType<typeof C9>>;
+const minorKinds = (out: ReturnType<typeof C9>) => out.admissions.filter((admission) => admission.kind === "minor-debt-total");
+function expectMinorNote(out: ReturnType<typeof C9>, detail: string | null): void {
+  expect(out.row.totalDebt).toBe(130 * M);
+  expect(minorKinds(out).map((admission) => admission.detail)).toEqual(detail === null ? [] : [detail]);
+}
+/** A completed row with its totalDebt qualification replaced; the next pass leaves the completed row as it is. */
+const minorRow = (over: Partial<Conflict>): FmpBalanceSheetRow => {
+  const row = structuredClone(completed["the filed-total completion, minor difference"].row);
+  const kept = { ...row.fieldConflicts!.totalDebt! };
+  delete kept.cause;
+  return { ...row, fieldConflicts: { ...row.fieldConflicts, totalDebt: { ...kept, ...over } } };
+};
+
+/** C5: the noncurrent-only lease shape the old vendor-sum guard refused; the completion it revisits proves the total 130. */
+const vendorSumRow = (refusal: Conflict): FmpBalanceSheetRow => ({ ...minorVendor(23, 127), totalDebt: null, netDebt: null,
+  fieldConflicts: { totalDebt: { ...refusal, vendorValue: 127 * M }, netDebt: { ...refusal, vendorValue: 117 * M } } }) as unknown as FmpBalanceSheetRow;
+const C5 = C9;
+function expectRevisited(out: ReturnType<typeof C5>, revisited: boolean): void {
+  if (revisited) {
+    expect(out.row).toMatchObject({ totalDebt: 130 * M, netDebt: 120 * M });
+    expect(out.row.fieldConflicts?.totalDebt).toBeUndefined();
+    expect(out.row.fieldConflicts?.netDebt).toBeUndefined();
+  }
+  expect(out.admissions.some((admission) => admission.kind === "completion")).toBe(revisited);
+}
+
+describe("C7: the gross-debt reconciliation reads debt-combined-aggregate-exceeds-components on totalDebt", () => {
+  it("the refusals carry the codes they are tested on", () => {
+    expect(conflictOn(combinedRefused, "totalDebt")).toMatchObject({ usable: false, cause: "debt-combined-aggregate-exceeds-components" });
+    expect(conflictOn(combinedRefused, "totalDebt").reason).toMatch(/^incomplete debt carrying value: same-period DebtLongtermAndShorttermCombinedAmount 106000000 exceeds /);
+    expect(conflictOn(combinedRefused, "netDebt")).toMatchObject({ usable: false, cause: "debt-combined-aggregate-exceeds-components", reason: conflictOn(combinedRefused, "totalDebt").reason });
+    expect(conflictOn(crwvCombined, "totalDebt").cause).toBe("debt-combined-aggregate-exceeds-components");
+    expect(conflictOn(crwvTaggedTotal, "totalDebt")).toMatchObject({ cause: "debt-aggregate-exceeds-components" });
+    expect(conflictOn(crwvTaggedTotal, "totalDebt").reason).toMatch(/^incomplete debt carrying value: same-period LongTermDebtAndCapitalLeaseObligations /);
+  });
+
+  it("the row its own pass refused is recovered on the next pass, once the filing bridges gross to carrying debt, with its code and without", () => {
+    expectGrossRecovered(bothWays(C7, combinedRefused), true);
+  });
+
+  it.each(Object.keys(COMBINED_CASES))("%s, with its code and without", (name) => {
+    const { conflict, reads } = COMBINED_CASES[name]!;
+    expectGrossRecovered(bothWays(C7, grossRow(conflict)), reads);
+  });
+});
+
+describe("C9: the minor-difference note reads debt-total-minor-difference on a usable, filed-family totalDebt", () => {
+  it("each completion writes the qualification (and its code) only when the vendor total differs", () => {
+    expect(Object.fromEntries(Object.entries(completed).map(([name, out]) => [name, out.row.fieldConflicts?.totalDebt ?? null]))).toEqual({
+      "the filed-total completion, minor difference": expect.objectContaining({ usable: true, resolution: "filed-family", cause: "debt-total-minor-difference",
+        reason: expect.stringMatching(/^vendor total 103\.48M versus component sum 104M .*; minor difference retained as a qualification/) }),
+      "the noncurrent-only lease completion, minor difference": expect.objectContaining({ usable: true, resolution: "filed-family", cause: "debt-total-minor-difference",
+        reason: expect.stringMatching(/^vendor total 126\.365M versus component sum 127M .*; minor difference retained as a qualification/) }),
+      "the filed-total completion, no minor difference": null,
+      "the noncurrent-only lease completion, no minor difference": null,
+    });
+    for (const [name, out] of Object.entries(completed)) {
+      expectMinorNote(out, MINOR.includes(name as CompletionName) ? out.row.fieldConflicts!.totalDebt!.reason : null);
+    }
+  });
+
+  it.each(Object.keys(COMPLETIONS) as CompletionName[])("a later pass over %s, with its code and without", (name) => {
+    const row = completed[name].row;
+    expectMinorNote(bothWays(C9, row), MINOR.includes(name) ? row.fieldConflicts!.totalDebt!.reason : null);
+  });
+
+  it.each(ALL)("a completed row whose total carries %s instead, with its code and without", (name) => {
+    const row = minorRow({});
+    const input = { ...row, totalDebt: null, fieldConflicts: { ...row.fieldConflicts, totalDebt: placed(conflictOn(row, "totalDebt"), REFUSALS[name].totalDebt) } } as unknown as FmpBalanceSheetRow;
+    const out = bothWays(C9, input);
+    expect(minorKinds(out)).toEqual([]);
+  });
+
+  it.each(["refused", "with no resolution", "minor-retained"] as const)(
+    "the usable and resolution checks still decide, with its code and without: a qualification %s", (variant) => {
+      const row = minorRow({ cause: "debt-total-minor-difference", ...(variant === "refused" ? { usable: false } : variant === "minor-retained" ? { resolution: "minor-retained" } : {}) });
+      if (variant === "with no resolution") delete row.fieldConflicts!.totalDebt!.resolution;
+      expect(minorKinds(bothWays(C9, row))).toEqual([]);
+    });
+});
+
+describe("C5: the old vendor-sum guard is legacy-only: an uncoded row is revisited by its sentence, a coded one never", () => {
+  it("revisits the pre-18ea3137 refusal on a row without codes", () => {
+    expectRevisited(bothWays(C5, vendorSumRow(literalOn(OLD_VENDOR_SUM))), true);
+  });
+
+  it.each(ALL.filter((name) => name !== "pre-18ea3137 vendor-sum refusal"))("does not revisit %s, with its code and without", (name) => {
+    expectRevisited(bothWays(C5, vendorSumRow(REFUSALS[name].totalDebt)), false);
+  });
+});
+
+describe("D-221: the code is what is read", () => {
+  const ALTERED = "a sentence neither reader's wording matches";
+  const UNRELATED = ["debt-lease-line-refused", "vendor-sec-value-conflict", "revenue-scope", "a-code-no-list-has"];
+  const as = (cause: string, reason: string) => literalOn(reason, cause as StatementConflictCause);
+  const COMBINED_SENTENCE = conflictOn(combinedRefused, "totalDebt").reason;
+  const MINOR_SENTENCE = conflictOn(completed["the filed-total completion, minor difference"].row, "totalDebt").reason;
+
+  it("C7 recovers the combined-total code whatever its sentence", () => {
+    expectGrossRecovered(C7(grossRow(as("debt-combined-aggregate-exceeds-components", ALTERED))), true);
+  });
+  it.each([...UNRELATED, "debt-aggregate-exceeds-components", "debt-total-minor-difference"])("C7 leaves the combined-total sentence refused under %s", (cause) => {
+    expectGrossRecovered(C7(grossRow(as(cause, COMBINED_SENTENCE))), false);
+  });
+  it("C7 reads a row with no codes by its sentence", () => {
+    expectGrossRecovered(C7(grossRow(literalOn(COMBINED_SENTENCE))), true);
+    expectGrossRecovered(C7(grossRow(literalOn(ALTERED))), false);
+    expectGrossRecovered(C7(grossRow(literalOn(conflictOn(crwvTaggedTotal, "totalDebt").reason))), false);
+  });
+
+  it("C9 notes the minor-difference code whatever its sentence", () => {
+    expectMinorNote(C9(minorRow({ cause: "debt-total-minor-difference", reason: ALTERED })), ALTERED);
+  });
+  it.each([...UNRELATED, "debt-combined-aggregate-exceeds-components"])("C9 does not note the minor-difference sentence under %s", (cause) => {
+    expectMinorNote(C9(minorRow({ cause: cause as StatementConflictCause, reason: MINOR_SENTENCE })), null);
+  });
+  it("C9 reads a row with no codes by its sentence", () => {
+    expectMinorNote(C9(minorRow({ reason: MINOR_SENTENCE })), MINOR_SENTENCE);
+    expectMinorNote(C9(minorRow({ reason: ALTERED })), null);
+  });
+
+  it.each([...UNRELATED, "debt-lease-line-no-operating-total", "debt-total-minor-difference"])("C5 never revisits the old vendor-sum sentence under %s", (cause) => {
+    expectRevisited(C5(vendorSumRow(as(cause, OLD_VENDOR_SUM))), false);
+  });
+  it("C5 reads a row with no codes by its sentence", () => {
+    expectRevisited(C5(vendorSumRow(literalOn(OLD_VENDOR_SUM))), true);
+    expectRevisited(C5(vendorSumRow(literalOn(ALTERED))), false);
+  });
+});
+
 describe("refusalCauseRead", () => {
   const MATURITIES = [MATURITY_TAG, REMAINDER_TAG];
   const fieldsOf = (row: Conflicted): [string, Conflict][] => Object.entries(row.fieldConflicts ?? {});
@@ -550,6 +739,8 @@ describe("refusalCauseRead", () => {
       // D-220: the split and debt-note shapes.
       crwvBalanceRows({ DebtCurrent: 1e9, LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities: 30e9 }, [...MATURITIES, "DebtInstrumentCarryingAmount"]),
       [splitRefused, shortUnavailable, longUnavailable, noteRow],
+      // D-221: the combined-total and minor-difference shapes.
+      [combinedRefused, crwvCombined, crwvTaggedTotal, ...Object.values(completed).map((out) => out.row)],
     ].flat().flatMap(fieldsOf),
   ];
   const conflicts: Conflict[] = fielded.map(([, conflict]) => conflict);
@@ -571,7 +762,9 @@ describe("refusalCauseRead", () => {
     const reached = new Set(conflicts.map((conflict) => conflict.cause).filter((cause) => cause !== undefined));
     expect([...CONFLICT_CAUSES_READ_BY_CODE].filter((cause) => !reached.has(cause))).toEqual([]);
     for (const reader of READERS) {
-      expect(new Set(conflicts.filter((c) => c.cause !== undefined).map((c) => conflictCauseMatches(c, reader)))).toEqual(new Set([true, false]));
+      // D-221: a legacy-only reader passes no coded conflict at all.
+      expect(new Set(conflicts.filter((c) => c.cause !== undefined).map((c) => conflictCauseMatches(c, reader))))
+        .toEqual(new Set(LEGACY_ONLY.includes(reader) ? [false] : [true, false]));
     }
   });
 
@@ -586,10 +779,10 @@ describe("refusalCauseRead", () => {
     expect(conflictCauseMatches({ reason: maturityTotal.reason }, "shortTermDebtMaturityScope")).toBe(false);
   });
 
-  it("reads exactly the incomplete-scope, lease-line and debt-maturity codes, all of them D-218 step-1 codes", () => {
+  it("reads exactly the incomplete-scope, lease-line, debt-maturity and minor-difference codes, all of them D-218 step-1 codes", () => {
     expect([...CONFLICT_CAUSES_READ_BY_CODE].sort()).toEqual(["debt-aggregate-exceeds-components", "debt-combined-aggregate-exceeds-components",
       "debt-component-maturity-scope", "debt-components-incomplete", "debt-lease-line-no-operating-total", "debt-lease-line-refused", "debt-maturity-scope",
-      "debt-noncurrent-allocation", "debt-vendor-short-term-zero"]);
+      "debt-noncurrent-allocation", "debt-total-minor-difference", "debt-vendor-short-term-zero"]);
     expect([...CONFLICT_CAUSES_READ_BY_CODE].every((cause) => DUAL_WRITTEN_CONFLICT_CAUSES.has(cause))).toBe(true);
   });
 
@@ -619,6 +812,23 @@ describe("refusalCauseRead", () => {
     }
     expect(conflictCauseMatches({ reason: "incomplete debt carrying value: longTermDebt is unavailable (debt maturity scope unresolved: x)" }, "noteRecoverableDebtTotal")).toBe(false);
     for (const reader of ["shortTermDebtMaturityScope", "longTermDebtNoncurrentAllocation", "noteRecoverableDebtTotal"] as const) expect(conflictCauseMatches({}, reader)).toBe(false);
+    // D-221.
+    const combined = "incomplete debt carrying value: same-period DebtLongtermAndShorttermCombinedAmount 3 exceeds x";
+    expect(conflictCauseMatches({ cause: "debt-combined-aggregate-exceeds-components", reason: "x" }, "combinedAggregateExceedsComponents")).toBe(true);
+    expect(conflictCauseMatches({ cause: "debt-aggregate-exceeds-components", reason: combined }, "combinedAggregateExceedsComponents")).toBe(false);
+    expect(conflictCauseMatches({ reason: combined }, "combinedAggregateExceedsComponents")).toBe(true);
+    expect(conflictCauseMatches({ reason: "incomplete debt carrying value: same-period LongTermDebt 3 exceeds x" }, "combinedAggregateExceedsComponents")).toBe(false);
+    const minor = "vendor total 1M versus component sum 2M (x); minor difference retained as a qualification, x";
+    expect(conflictCauseMatches({ cause: "debt-total-minor-difference", reason: "x" }, "debtTotalMinorDifference")).toBe(true);
+    expect(conflictCauseMatches({ cause: "vendor-sec-value-conflict", reason: minor }, "debtTotalMinorDifference")).toBe(false);
+    expect(conflictCauseMatches({ reason: minor }, "debtTotalMinorDifference")).toBe(true);
+    expect(conflictCauseMatches({ reason: "vendor total 1M versus component sum 2M (x) exceeds the minor-difference limit" }, "debtTotalMinorDifference")).toBe(false);
+    for (const cause of [...STATEMENT_CONFLICT_CAUSES, "a-code-no-list-has", null]) {
+      expect(conflictCauseMatches({ cause, reason: OLD_VENDOR_SUM }, "legacyVendorSumRefusal")).toBe(false);
+    }
+    expect(conflictCauseMatches({ reason: OLD_VENDOR_SUM }, "legacyVendorSumRefusal")).toBe(true);
+    expect(conflictCauseMatches({ reason: REFUSALS["lease line, any other refusal"].totalDebt.reason }, "legacyVendorSumRefusal")).toBe(false);
+    for (const reader of ["combinedAggregateExceedsComponents", "debtTotalMinorDifference", "legacyVendorSumRefusal"] as const) expect(conflictCauseMatches({}, reader)).toBe(false);
   });
 });
 
@@ -633,13 +843,14 @@ describe("run input snapshots", () => {
     const stored = snapshot.content.bundle.statements.balanceAnnual;
     const kept = Object.values((stored.ok ? stored.value.data.rows[0] as FmpStatementRow : row).fieldConflicts ?? {});
     expect(kept.map((conflict) => conflict.reason)).toEqual(STATEMENT_CONFLICT_CAUSES.map(() => "kept sentence"));
-    // D-220 adds the four debt-maturity codes to the nine kept since D-219.
+    // D-220 adds the four debt-maturity codes to the nine kept since D-219; D-221 adds the minor difference
+    // (the combined-total code C7 reads was already kept for C11).
     expect(kept.map((conflict) => conflict.cause).filter((cause) => cause !== undefined).sort()).toEqual([
       "borrowing-cost-scope", "debt-aggregate-exceeds-components", "debt-combined-aggregate-exceeds-components", "debt-component-maturity-scope",
       "debt-components-incomplete", "debt-lease-line-no-operating-total", "debt-lease-line-refused", "debt-maturity-scope", "debt-noncurrent-allocation",
-      "debt-vendor-short-term-zero", "operating-basis", "operating-scope", "revenue-scope"]);
+      "debt-total-minor-difference", "debt-vendor-short-term-zero", "operating-basis", "operating-scope", "revenue-scope"]);
     const dropped = STATEMENT_CONFLICT_CAUSES.filter((cause) => DUAL_WRITTEN_CONFLICT_CAUSES.has(cause) && !CONFLICT_CAUSES_READ_BY_CODE.has(cause));
-    expect(dropped).toEqual(["vendor-sec-value-conflict", "vendor-share-value-conflict", "debt-total-minor-difference"]);
+    expect(dropped).toEqual(["vendor-sec-value-conflict", "vendor-share-value-conflict"]);
     for (const cause of dropped) expect((stored.ok ? stored.value.data.rows[0] as FmpStatementRow : row).fieldConflicts?.[`field-${cause}`]?.cause).toBeUndefined();
     // The live bundle is not mutated (checked on a code the snapshot drops).
     expect(row.fieldConflicts?.["field-vendor-sec-value-conflict"]?.cause).toBe("vendor-sec-value-conflict");
