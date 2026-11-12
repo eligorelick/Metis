@@ -1,16 +1,15 @@
+import { prepareReportForSurface } from "@/report/readerPreparation";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
-import { withSafeStoredReportView } from "@/report/storedReportView";
-import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
+import { macroDisplayRows, plainFigureReaderNote } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
-import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
-import { legacyScopeQualifications, LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
+import { LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { METIS_LOCKUP_SVG } from "@/brand/identity";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { claimReasoning as sharedClaimReasoning, type ClaimReasoningMarkup, num, signedPct, tracedValue } from "@/report/export/readerFormat";
-import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
+import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures } from "@/report/verificationMarks";
 /**
  * reportToPrintHtml — a self-contained, print-optimized HTML document for a
  * full {@link Report}. This is the dependency-free path to a PDF: the browser
@@ -40,10 +39,9 @@ import { claimStatusMarkText, COMPUTED_MARK_LEGEND, hasComputedFigures, indexVer
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { SourceFactSummary } from "@/report/sourceFacts";
-import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
+import { compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeForDisplay, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
-import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import { valuationReviewBlocks, type ValuationReviewInputs } from "@/report/researchReview";
 import type {
@@ -156,7 +154,7 @@ import {
   type BodyTable,
   type FigureRow,
 } from "@/report/presentation";
-import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
+import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, unavailableModelInputTables } from "@/report/readerConventions";
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, projectionsNotRecordedNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
@@ -897,14 +895,9 @@ function sectionAppendix(report: Report, completeness: ReportCompletenessPresent
  * standalone document and the React print page. Does NOT include <html>/<head>.
  */
 export function reportToPrintBody(report: Report, context: ReportPresentationContext = {}): string {
-  report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
-  report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
-  report = withSafeStoredReportView(report);
-  const lenderTables = lenderConventionTables(report);
-  report = withReaderConventions(report);
-  const scopeQualifications = legacyScopeQualifications(report);
-  indexVerificationMarks(report);
-  const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
+  const prepared = prepareReportForSurface(report, "print");
+  report = prepared.report;
+  const { lenderTables, scopeQualifications, completeness } = prepared;
   const sections: Record<ReportSectionKey, string> = {
     verdict: `${sectionVerdict(report)}${report.scores ? sectionScores(report.scores) : ""}`,
     business: sectionBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),

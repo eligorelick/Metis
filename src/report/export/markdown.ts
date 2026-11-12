@@ -1,9 +1,8 @@
+import { prepareReportForSurface } from "@/report/readerPreparation";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
-import { withSafeStoredReportView } from "@/report/storedReportView";
-import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
+import { macroDisplayRows, plainFigureReaderNote } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
-import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
 /**
  * reportToMarkdown — a clean, DETERMINISTIC Markdown rendering of a full
  * {@link Report} (report sections 1–13 + appendix) for an institutional
@@ -25,12 +24,12 @@ import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
  * Pure and dependency-free — safe to call from a route handler or a test.
  */
 
-import { legacyScopeQualifications, LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
+import { LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { claimReasoning as sharedClaimReasoning, num, PLAIN_CLAIM_REASONING, signedPct, statusMarkSuffix, tracedValue } from "@/report/export/readerFormat";
-import { COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
+import { COMPUTED_MARK_LEGEND, hasComputedFigures } from "@/report/verificationMarks";
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -64,7 +63,6 @@ import type {
   Verdict,
 } from "@/report/schema";
 import {
-  deriveReportCompletenessPresentation,
   type ReportCompletenessPresentation,
 } from "@/report/completeness";
 import {
@@ -132,7 +130,7 @@ import {
   usageSummary,
   type FigureRow,
 } from "@/report/presentation";
-import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
+import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, unavailableModelInputTables } from "@/report/readerConventions";
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, projectionsNotRecordedNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
@@ -162,12 +160,11 @@ import {
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
-import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeHeading, type AspectEvidence } from "@/report/assessment";
+import { compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeHeading, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
 import { executiveTenureText, executiveCardClaims, executiveOfficeContext } from "@/report/executiveDecisions";
 import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
-import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
 /** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
 function evidenceRow(report: Report): string[][] {
@@ -1039,18 +1036,9 @@ function capitalize(s: string): string {
  * present; the audit material is in {@link reportToAuditMarkdown}.
  */
 export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
-  report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
-  report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
-  report = withSafeStoredReportView(report);
-  const lenderTables = lenderConventionTables(report);
-  report = withReaderConventions(report);
-  const scopeQualifications = legacyScopeQualifications(report);
-  indexVerificationMarks(report);
-  const completeness = deriveReportCompletenessPresentation(
-    report.meta.dataCompleteness,
-    report.appendix.missingData,
-    report.appendix.sources,
-  );
+  const prepared = prepareReportForSurface(report, "markdown");
+  report = prepared.report;
+  const { lenderTables, scopeQualifications, completeness } = prepared;
   const blocks: string[] = [
     renderHeader(report),
     scopeQualifications.length ? `## ${LEGACY_SCOPE_HEADING}\n\n${scopeQualifications.map(note => `- ${markdownListItem(note)}`).join("\n")}` : "",
