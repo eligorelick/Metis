@@ -1,5 +1,6 @@
 import { withValuationUseSafety } from "@/report/valuationUseSafety";
 import { RunNotices } from "./RunNotices";
+import { withoutCodeIdentity } from "@/report/codeIdentity";
 /**
  * ReportView — the centerpiece renderer for a persisted {@link Report}
  * (src/report/schema.ts). Renders the full report (report sections 1–14)
@@ -191,7 +192,8 @@ export function ReportView({
   // F-21: the claim chips below read each claim's verification status.
   indexVerificationMarks(report);
   const reportId = presentationReportId(report,{selectedReportId});
-  const inspectionIdentity = layout === "dossier" ? evidenceIdentity("report", report) : "";
+  // D-227: the recorded build identity is stored data, not display identity.
+  const inspectionIdentity = layout === "dossier" ? evidenceIdentity("report", withoutCodeIdentity(report)) : "";
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,
     report.appendix.missingData,

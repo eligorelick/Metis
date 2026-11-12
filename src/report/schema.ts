@@ -38,6 +38,7 @@ import { EstimateTimingSchema } from "@/report/estimateTiming";
 
 import { z } from "zod";
 import { EvidenceTimingSchema } from "@/report/evidenceTiming";
+import { ReportCodeIdentitySchema } from "@/report/codeIdentity";
 import { PeriodContextSchema } from "@/types/periodContext";
 import { SourceFactSummarySchema } from "@/report/sourceFactSchema";
 import { displayedValidationStatus } from "@/report/claimMatching";
@@ -789,6 +790,14 @@ export const MetaSchema = z
      * value parses, so a stamp from another build is disclosed, not refused.
      */
     evidenceContract: z.string().min(1).max(128).optional(),
+    /**
+     * The exact build that assembled the report (P27, P20, D-227); owner
+     * src/report/codeIdentity.ts. Written only when the running app has a
+     * verified runtime artifact identity; absent from every report built
+     * without one and from every report saved before the field existed.
+     * Recorded data only: nothing gates on it and no surface shows it.
+     */
+    codeIdentity: ReportCodeIdentitySchema.optional(),
     /** Mandatory-stage outcome; distinct from process termination and factual verification scope. */
     analysisOutcome: z.enum(["complete", "data-only"]).optional(),
     costUsd: z.number(),
@@ -3288,7 +3297,8 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
       // optional only for older saved reports. Keep them off provider schemas.
       // Exact period contexts come from source evidence; the model uses the
       // registry ID and existing period field instead of guessing boundaries.
-        for (const key of ["tenureYears", "peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming", "multiplesBasis", "marketValueScope"]) {
+      // D-227: the building code's identity is recorded by the runner only.
+        for (const key of ["tenureYears", "peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming", "multiplesBasis", "marketValueScope", "codeIdentity"]) {
         delete props[key];
         if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== key);
       }

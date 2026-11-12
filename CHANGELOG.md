@@ -18,6 +18,16 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Code identity recorded on new reports (2026-11-12)
+
+- A report built by the built app now records which exact build assembled it
+  (`meta.codeIdentity`: commit, uncommitted-diff hash, method-document hash,
+  compiled-artifact hash, combined method-artifact hash and lock-file hash),
+  taken only from the verified build identity; without one (dev server,
+  tests, CLI) the field is omitted (P27, D-227). Nothing reads it, no surface
+  shows it and no model request carries it; saved reports are unchanged and
+  the report spec stays 1.73.0.
+
 ## Unreleased - Claude Code route verified by one live run (2026-11-12)
 
 - README, PRIVACY and the Claude usage guide now record that one complete
