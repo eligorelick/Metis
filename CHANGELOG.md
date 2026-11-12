@@ -18,6 +18,15 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Claude Code route verified by one live run (2026-11-12)
+
+- README, PRIVACY and the Claude usage guide now record that one complete
+  report ran live through the Claude Code subscription connection on
+  2026-11-12 (one company, Claude Code 2.1.322, every pass finished, $0 API
+  cost recorded), with that run's limits. OPERATIONS notes that the AI store
+  follows `LOCALAPPDATA` on Windows, not `METIS_DATA_DIR`, so a test on a copy
+  must redirect it. No code, report or export changes.
+
 ## Unreleased - Evidence-rules stamp on new reports (2026-11-10)
 
 - New reports carry `meta.evidenceContract` (D-217). Saved reports are never
