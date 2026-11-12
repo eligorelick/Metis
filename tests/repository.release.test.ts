@@ -840,6 +840,15 @@ describe("public release contract", () => {
     }
   });
 
+  // docs/CLAUDE-USAGE.md listed every report connection except Claude Code.
+  it("lists the Claude Code connection in the usage guide without claiming a live run", () => {
+    const row = read("docs/CLAUDE-USAGE.md").split("\n").find((line) => line.startsWith("| Claude Code |")) ?? "";
+    expect(row).toContain("`$0` API cost");
+    expect(row).toContain("`claude auth login`");
+    expect(row).toContain("Live inference through this route has not been verified");
+    expect(row).not.toMatch(/\bhas been verified\b/);
+  });
+
   // The simulated demo page kept a Gemini provider option after the Gemini
   // route was removed (#123); it lists only the providers the app offers.
   it("lists no removed provider on the simulated demo page", () => {
