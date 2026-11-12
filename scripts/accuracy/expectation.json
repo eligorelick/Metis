@@ -1,0 +1,1926 @@
+{
+  "about": "Expected accuracy status per headline figure for npm run accuracy:check: status, and for anything that is not a match a SHA-256 prefix of Metis's value (never the value). Update only with --update-expectation --reason, in the same change as the code that moves a figure.",
+  "entries": [
+    {
+      "case": "amzn-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "financeLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.taxRate",
+      "status": "mismatch",
+      "valueSha256": "a1f6d3592897ee90",
+      "cause": "vendor value shown",
+      "note": "The rate's TTM pre-tax denominator is the one the report's P/E caveat states, about 540M below the filed 'Income (loss) before income taxes' TTM of 175,466M (97,311M + 120,691M − 42,536M; IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments). The vendor pre-tax rows net the equity-method result (FY2025 −554M). Filed rate 22.577%.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.netDebt",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "mismatch",
+      "valueSha256": "d1ad6a476c33999a",
+      "cause": "vendor value shown",
+      "note": "AMZN's balance sheet has no long-term-investments line; the amount is the vendor's long-term-investments field, which the bridge describes as on the quarter balance sheet. The filing's own note gives non-marketable equity securities 122,300M (inside other assets); the remaining 0.3% is not identified in the filing.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "netIncome.fy",
+      "status": "mismatch",
+      "valueSha256": "3c85f88938f3f85e",
+      "cause": "definition",
+      "note": "Equals the filed consolidated ProfitLoss 134,281k (including 423k NCI); the filed parent line NetIncomeLoss is 133,858k. The FCF series is documented as consolidated, but the row is labelled net income.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "mismatch",
+      "valueSha256": "1568a746fd84daa9",
+      "cause": "vendor value shown",
+      "note": "Metis's count is exactly twice the filed 141,802,002 (its basic count is likewise twice the filed 114,435,259). The 10-K diluted EPS 0.44 sits on the filed count (0.44 × 141.8M ≈ income to common 62.0M). A filed count existed and was not used (P8); the leadership share-trend signal reads the same value.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "netIncome.ttm",
+      "status": "mismatch",
+      "valueSha256": "46a0c388c41b2be9",
+      "cause": "definition",
+      "note": "Consolidated profit including NCI, as for the fiscal year; the filed parent NetIncomeLoss TTM is 237,127k.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "mismatch",
+      "valueSha256": "e04b4eb0d6df25f6",
+      "cause": "vendor value shown",
+      "note": "The figure is the provider's debt perimeter, which adds payables to third-party loan owners (the report labels it so). Filed borrowings are 962,995k (LongTermDebt = current 222,505k + related-party current 424,640k + noncurrent 315,850k) plus the 4,776k operating lease = 967,771k. The route marks net debt not applicable, but the figure is still shown as the debt used in the report.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "runway.liquidAssets",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "not-established",
+      "valueSha256": "fce47634888cdf78",
+      "note": "The quarter to 2026-09-30 was in META's 8-K earnings release (filed 2026-10-21, before the cutoff, no XBRL); the 10-Q with XBRL was accepted 2026-10-22 00:00:08 UTC, 39 minutes after the cutoff, so it is not admitted. The release's statements were not read.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "not-established",
+      "valueSha256": "4b9bd2a021d0fa3f",
+      "note": "See operating income TTM: the only filing before the cutoff with the quarter is the 8-K release, not read.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "capex.ttm",
+      "status": "not-established",
+      "valueSha256": "694464f2fa354717",
+      "note": "See operating income TTM.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "fcf.ttm",
+      "status": "not-established",
+      "valueSha256": "83547a7307402e0b",
+      "note": "See operating income TTM.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "not-established",
+      "valueSha256": "c3c5fe440032684e",
+      "note": "See operating income TTM: the 2026-09-30 balance sheet before the cutoff is only in the 8-K release.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "ddf5320404cfc752",
+      "note": "See operating income TTM.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "financeLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.startRevenue",
+      "status": "mismatch",
+      "valueSha256": "4edfc87c58e2fc91",
+      "cause": "definition",
+      "note": "MU's fiscal 2026 has 53 weeks; the report states it rescales the TTM to 52 weeks (filed 133,188M × 52/53). No filed value exists for a 52-week window.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.taxRate",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.netDebt",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.preferred",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "mismatch",
+      "valueSha256": "d13d03c911f48c2c",
+      "cause": "definition",
+      "note": "Equals long-term marketable investments 30,019M (AvailableForSaleSecuritiesDebtSecuritiesNoncurrent, a balance-sheet line) plus non-marketable equity securities 1,300M (a note amount inside other noncurrent assets). The report names both, though it calls the total a balance-sheet figure.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "mismatch",
+      "valueSha256": "c6c3515e2812aca6",
+      "cause": "definition",
+      "note": "Metis adds marketable equity securities 42,783M (EquitySecuritiesFvNi) to cash 22,443M and marketable debt securities 34,143M (DebtSecuritiesCurrent), and says so in the bridge basis. The filed cash and short-term investment lines total 56,586M.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.taxRate",
+      "status": "mismatch",
+      "valueSha256": "4523540f1504cd17",
+      "cause": "definition",
+      "note": "Metis uses the 17% GAAP effective rate NVIDIA guided in its 8-K EX-99.1 (0001045810-26-000073) and says so; the filed TTM effective rate is 16.05%.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.netDebt",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "mismatch",
+      "valueSha256": "e74d498e543676a2",
+      "cause": "vendor value shown",
+      "note": "NVDA's balance sheet has no long-term-investments line; the amount is the vendor's field. The filing's note gives non-marketable equity securities 47,898M; the remaining 6% is not identified in the filing.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.taxRate",
+      "status": "mismatch",
+      "valueSha256": "9af87f67ca63331b",
+      "cause": "vendor value shown",
+      "note": "Filed TTM: tax 7,122M − 4,136M − 1,034M = 1,952M over pre-tax 12,663M + 8,241M − 9,692M = 11,212M = 17.410%. The report does not state its operands; a gap of 0.05% of the rate points to vendor quarterly rows. Suspected, not proven.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.netDebt",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "revenue.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "netIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "capex.fy",
+      "status": "not-established",
+      "valueSha256": "5feceb66ffc86f38",
+      "cause": "vendor value shown",
+      "note": "Metis shows zero, but JPM tags no capital-spending line: a vendor zero is undisclosed, not a filed zero (P7).",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "capex.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fv.openingBookValue",
+      "status": "not-established",
+      "valueSha256": "909b8246d7df12ea",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fv.incomeAvailableToCommon",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fv.payoutRatio",
+      "status": "not-established",
+      "valueSha256": "15dbccd9051e2d76",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "netIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "capex.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fv.openingBookValue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fv.incomeAvailableToCommon",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fv.payoutRatio",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "not-established",
+      "valueSha256": "aa469d2aebdd6e97",
+      "cause": "vendor value shown",
+      "note": "O's income statement presents no operating-income line (no OperatingIncomeLoss fact); the figure is a vendor subtotal.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "netIncome.fy",
+      "status": "mismatch",
+      "valueSha256": "1e3e220b3cae5dcc",
+      "cause": "definition",
+      "note": "Equals the filed consolidated ProfitLoss 1,069,783k (including 11,193k NCI); the parent line is 1,058,590k. The FFO reconstruction itself uses the parent figure.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "capex.fy",
+      "status": "not-established",
+      "valueSha256": "5feceb66ffc86f38",
+      "cause": "vendor value shown",
+      "note": "Metis shows zero for FY2025 while showing a positive TTM amount; the filing has no single capital-spending line (acquisitions 4,647.9M and capital improvements 131.8M are separate). The zero is a vendor zero (P7).",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fcf.fy",
+      "status": "not-established",
+      "valueSha256": "ee0f1562da74b5cf",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "netIncome.ttm",
+      "status": "mismatch",
+      "valueSha256": "87e6fbd86677c428",
+      "cause": "definition",
+      "note": "Equals consolidated ProfitLoss TTM (1,069,783k + 1,123,588k − 768,147k = 1,425,224k); income available to common TTM is 1,355,748k.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "capex.ttm",
+      "status": "not-established",
+      "valueSha256": "d8bd9b8322be6629",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fcf.ttm",
+      "status": "not-established",
+      "valueSha256": "a2dc064a8cf04a1f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "financeLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.ffo.netIncome",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.ffo.depreciationAmortization",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.ffo.gainsOnSale",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.ffo.impairments",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.ffo.shares",
+      "status": "mismatch",
+      "valueSha256": "c02ecb9c5d44a0a9",
+      "cause": "Metis error",
+      "note": "FFO per share divides FY2025 FFO by the filed weighted diluted count for the quarter 2026-07-01 to 2026-09-30 (946,115,000; 10-Q 0000726728-26-000059), not FY2025's 908,334,000: numerator and divisor cover different periods (P1, P13). On the FY2025 count FFO per share would be about 4% higher.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "mismatch",
+      "valueSha256": "5d1893d69cd5cc1f",
+      "cause": "vendor value shown",
+      "note": "Filed borrowings: notes payable and commercial paper 2,341M + current maturities 6,116M + long-term debt 84,332M = 92,789M (10-Q 0001326160-26-000051). Metis's total is about 1% higher; the report marks lease coverage unverified and the 10-Q tags no non-dimensional lease liability at 2026-09-30, so the excess looks like a vendor lease line. Filed value for that component not established.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "netIncome.fy",
+      "status": "mismatch",
+      "valueSha256": "2440d9c31cc56e1e",
+      "cause": "vendor value shown",
+      "note": "Neither the filed profit attributable to owners of the parent (1,697,604,000k TWD) nor consolidated profit (1,695,124,900k) in the 2025 20-F (0001628280-26-025362); the figure is stated to the thousand while the filing states 100k.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "mismatch",
+      "valueSha256": "37384224760ac7e6",
+      "cause": "Metis error",
+      "note": "The latest-year EPS row shows FY2024 (it equals the filed FY2024 44.67 per share × 5 per ADS). TSM's 2025 20-F (filed 2026-04-16, before the cutoff) states FY2025 diluted EPS 65.47 per share (327.35 per ADS). A newer compatible filing existed and was not used for this row.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "capex.fy",
+      "status": "mismatch",
+      "valueSha256": "0a03251799c99405",
+      "cause": "definition",
+      "note": "Equals purchases of PP&E 1,272,410.5M + purchases of intangible assets 10,146.9M (2025 20-F); the report's cash-capex definition says the field may include software or other capital spending.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fcf.fy",
+      "status": "mismatch",
+      "valueSha256": "b62f548aa70ff960",
+      "cause": "definition",
+      "note": "Follows capital spending: filed operating cash flow 2,274,975.6M less PP&E and intangible purchases.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "not-established",
+      "valueSha256": "4867f586a8ad7f18",
+      "note": "TSM's quarters are in Form 6-K reports without XBRL; their statements were not read.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "not-established",
+      "valueSha256": "83f2a4420ffbcae8",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "capex.ttm",
+      "status": "not-established",
+      "valueSha256": "08ded51b2a907735",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fcf.ttm",
+      "status": "not-established",
+      "valueSha256": "0c5d02695ce8799a",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "not-established",
+      "valueSha256": "27b6daa2d4cb5aec",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "3e6a40e519762813",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.startRevenue",
+      "status": "not-established",
+      "valueSha256": "62391dba9d1199e2",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.taxRate",
+      "status": "not-established",
+      "valueSha256": "439b46d40b1b980f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "not-established",
+      "valueSha256": "4e3ce38435dd67e9",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.netDebt",
+      "status": "not-established",
+      "valueSha256": "adb0ae8cc79316a7",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "not-established",
+      "valueSha256": "04340fbd59e0cb3b",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.preferred",
+      "status": "not-established",
+      "valueSha256": "5feceb66ffc86f38",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "not-established",
+      "valueSha256": "d0ebf4027e10ecbe",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "netIncome.fy",
+      "status": "mismatch",
+      "valueSha256": "fde44099749d42fc",
+      "cause": "definition",
+      "note": "Equals the filed consolidated ProfitLoss −3,626M (including 20M NCI); the parent NetIncomeLoss is −3,646M.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "netIncome.ttm",
+      "status": "mismatch",
+      "valueSha256": "038a94018a1bc84b",
+      "cause": "definition",
+      "note": "Consolidated profit including NCI, as for the fiscal year; the parent NetIncomeLoss TTM is −2,973M.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "runway.liquidAssets",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "capex.fy",
+      "status": "not-established",
+      "valueSha256": "5feceb66ffc86f38",
+      "note": "VKTX tags no capital-spending line; Metis shows zero.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "fcf.fy",
+      "status": "not-established",
+      "valueSha256": "7e7435f68c9705da",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "capex.ttm",
+      "status": "not-established",
+      "valueSha256": "5feceb66ffc86f38",
+      "note": "VKTX tags no capital-spending line; Metis shows zero.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "fcf.ttm",
+      "status": "not-established",
+      "valueSha256": "2fcfb877fd884cc5",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "runway.liquidAssets",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    }
+  ]
+}

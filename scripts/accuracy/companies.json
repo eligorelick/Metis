@@ -1,0 +1,1442 @@
+{
+  "about": "Companies in the accuracy check: one data-only golden case each, its SEC CIK and statement currency, filings read from their own XBRL instance where SEC companyfacts lacks them, ADS scaling, and per-figure recipe overrides (each with the reason) where the issuer's statements use another concept than the default in scripts/accuracy/recipes.ts.",
+  "companies": [
+    {
+      "ticker": "AMZN",
+      "case": "amzn-data-only",
+      "cik": 1018724,
+      "currency": "USD",
+      "overrides": {
+        "fv.nonOperatingInvestments": {
+          "recipe": {
+            "op": "instant",
+            "concepts": [
+              "EquitySecuritiesWithoutReadilyDeterminableFairValueAmount"
+            ]
+          },
+          "why": "the balance sheet presents no long-term-investments line; the filing's own note amount of non-marketable equity securities (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount) is the filed figure nearest the report's description"
+        }
+      }
+    },
+    {
+      "ticker": "FIGR",
+      "case": "figr-data-only",
+      "cik": 2064124,
+      "currency": "USD",
+      "overrides": {
+        "capex.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "PaymentsToDevelopSoftware"
+            ]
+          },
+          "why": "FIGR's cash-flow statement has no property-and-equipment purchase line; capitalized software development (PaymentsToDevelopSoftware) is its only capital-spending line, the one the report itself names"
+        },
+        "capex.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "PaymentsToDevelopSoftware"
+            ]
+          },
+          "why": "FIGR's cash-flow statement has no property-and-equipment purchase line; capitalized software development (PaymentsToDevelopSoftware) is its only capital-spending line, the one the report itself names"
+        },
+        "fcf.fy": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "NetCashProvidedByUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending (capitalized software)",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "PaymentsToDevelopSoftware"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "FIGR's cash-flow statement has no property-and-equipment purchase line; capitalized software development (PaymentsToDevelopSoftware) is its only capital-spending line, the one the report itself names"
+        },
+        "fcf.ttm": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "NetCashProvidedByUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending (capitalized software)",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "PaymentsToDevelopSoftware"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "FIGR's cash-flow statement has no property-and-equipment purchase line; capitalized software development (PaymentsToDevelopSoftware) is its only capital-spending line, the one the report itself names"
+        },
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "borrowings (current, related-party current and noncurrent debt)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebt"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "OperatingLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "operating lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "operating lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "FinanceLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "finance lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "finance lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              }
+            ]
+          },
+          "why": "FIGR tags its total borrowings (current, current to related parties and noncurrent) as LongTermDebt; the report's own composition note lists the same three lines summing to it"
+        }
+      }
+    },
+    {
+      "ticker": "META",
+      "case": "meta-data-only",
+      "cik": 1326801,
+      "currency": "USD",
+      "overrides": {
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "long-term debt",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebtNoncurrent",
+                    "LongTermDebt"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "OperatingLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "operating lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "operating lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "FinanceLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "finance lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "finance lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              }
+            ]
+          },
+          "why": "META presents one long-term debt line"
+        }
+      }
+    },
+    {
+      "ticker": "MU",
+      "case": "mu-data-only",
+      "cik": 723125,
+      "currency": "USD",
+      "overrides": {
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "debt including finance leases (current and noncurrent)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "DebtAndCapitalLeaseObligations"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "OperatingLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "operating lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "operating lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              }
+            ]
+          },
+          "why": "MU tags total debt including finance-lease obligations as DebtAndCapitalLeaseObligations (current DebtCurrent plus noncurrent LongTermDebtAndCapitalLeaseObligations)"
+        },
+        "fv.netDebt": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "debt including finance leases",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "DebtAndCapitalLeaseObligations"
+                  ]
+                }
+              },
+              {
+                "role": "cash and short-term investments",
+                "sign": -1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "CashCashEquivalentsAndShortTermInvestments"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "cash and cash equivalents",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "CashAndCashEquivalentsAtCarryingValue"
+                            ]
+                          }
+                        },
+                        {
+                          "role": "short-term investments / marketable securities, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "ShortTermInvestments",
+                              "MarketableSecuritiesCurrent",
+                              "AvailableForSaleSecuritiesDebtSecuritiesCurrent",
+                              "DebtSecuritiesCurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "MU tags total debt including finance-lease obligations as DebtAndCapitalLeaseObligations"
+        },
+        "fv.nonOperatingInvestments": {
+          "recipe": {
+            "op": "instant",
+            "concepts": [
+              "AvailableForSaleSecuritiesDebtSecuritiesNoncurrent"
+            ]
+          },
+          "why": "MU's balance-sheet line for long-term marketable investments is AvailableForSaleSecuritiesDebtSecuritiesNoncurrent; it presents no long-term-investments total"
+        }
+      }
+    },
+    {
+      "ticker": "NVDA",
+      "case": "nvda-data-only",
+      "cik": 1045810,
+      "currency": "USD",
+      "overrides": {
+        "fv.nonOperatingInvestments": {
+          "recipe": {
+            "op": "instant",
+            "concepts": [
+              "EquitySecuritiesWithoutReadilyDeterminableFairValueAmount"
+            ]
+          },
+          "why": "the balance sheet presents no long-term-investments line; the filing's own note amount of non-marketable equity securities (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount) is the filed figure nearest the report's description"
+        }
+      }
+    },
+    {
+      "ticker": "QCOM",
+      "case": "qcom-data-only",
+      "cik": 804328,
+      "currency": "USD",
+      "overrides": {
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "short-term debt (current portion of long-term debt and commercial paper)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "DebtCurrent"
+                  ]
+                }
+              },
+              {
+                "role": "long-term debt (noncurrent balance-sheet line)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebt"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "OperatingLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "operating lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "operating lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "FinanceLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "finance lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "finance lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              }
+            ]
+          },
+          "why": "in QCOM's 10-Q for 2026-06-28 the noncurrent balance-sheet line is tagged LongTermDebt (12,781M) beside DebtCurrent (2,489M = current portion 1,991M + commercial paper 498M); total long-term debt was 14,772M at 2026-03-29 with no current portion, so LongTermDebt here is the noncurrent amount"
+        },
+        "fv.netDebt": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "short-term debt",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "DebtCurrent"
+                  ]
+                }
+              },
+              {
+                "role": "long-term debt (noncurrent balance-sheet line)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebt"
+                  ]
+                }
+              },
+              {
+                "role": "cash and short-term investments",
+                "sign": -1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "CashCashEquivalentsAndShortTermInvestments"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "cash and cash equivalents",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "CashAndCashEquivalentsAtCarryingValue"
+                            ]
+                          }
+                        },
+                        {
+                          "role": "short-term investments / marketable securities, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "ShortTermInvestments",
+                              "MarketableSecuritiesCurrent",
+                              "AvailableForSaleSecuritiesDebtSecuritiesCurrent",
+                              "DebtSecuritiesCurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "see totalDebtIncludingLeases.latest"
+        }
+      }
+    },
+    {
+      "ticker": "JPM",
+      "case": "jpm-data-only",
+      "cik": 19617,
+      "currency": "USD",
+      "overrides": {
+        "fv.openingBookValue": {
+          "recipe": {
+            "op": "none",
+            "note": "tangible common equity is a JPM non-GAAP measure (MD&A), not an XBRL line. From the 10-Q filed 2026-11-03 (0001628280-26-069523): StockholdersEquity 372,368M - PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount 21,040M - Goodwill 52,717M = 298,611M; the identifiable intangibles and deferred-tax offsets JPM also removes are not tagged at 2026-09-30, so the filed TCE is not established"
+          },
+          "why": "bank tangible common equity"
+        },
+        "capex.fy": {
+          "recipe": {
+            "op": "none",
+            "note": "JPM's cash-flow statement tags no capital-spending line (no PaymentsToAcquirePropertyPlantAndEquipment / PaymentsToAcquireProductiveAssets fact for FY2025)"
+          },
+          "why": "no filed capital-spending line"
+        }
+      }
+    },
+    {
+      "ticker": "PGR",
+      "case": "pgr-data-only",
+      "cik": 80661,
+      "currency": "USD",
+      "overrides": {
+        "fv.incomeAvailableToCommon": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "NetIncomeLossAvailableToCommonStockholdersBasic",
+              "NetIncomeLoss"
+            ]
+          },
+          "why": "PGR tags no income-available-to-common line for its 2026 quarters and has no preferred stock outstanding (no preferred value or preferred dividends tagged in 2026), so net income is the income available to common for those periods"
+        }
+      }
+    },
+    {
+      "ticker": "O",
+      "case": "o-data-only",
+      "cik": 726728,
+      "currency": "USD",
+      "overrides": {
+        "netIncome.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "NetIncomeLoss",
+              "NetIncomeLossAvailableToCommonStockholdersBasic"
+            ]
+          },
+          "why": "O's 10-Q for 2026-09-30 tags net income available to common stockholders, not NetIncomeLoss; O paid no preferred dividends (PaymentsOfDividendsPreferredStockAndPreferenceStock 0 in FY2025), so the two coincide in FY2025 (1,058,590k)"
+        },
+        "capex.fy": {
+          "recipe": {
+            "op": "none",
+            "note": "no single capital-spending line: investing activities show real-estate acquisitions (PaymentsToAcquireCommercialRealEstate; FY2025 4,647.9M) and capital improvements (PaymentsForCapitalImprovements; FY2025 131.8M) separately (10-K 0000726728-26-000011)"
+          },
+          "why": "REIT investing lines"
+        },
+        "capex.ttm": {
+          "recipe": {
+            "op": "none",
+            "note": "no single capital-spending line: investing activities show real-estate acquisitions (PaymentsToAcquireCommercialRealEstate; FY2025 4,647.9M) and capital improvements (PaymentsForCapitalImprovements; FY2025 131.8M) separately (10-K 0000726728-26-000011)"
+          },
+          "why": "REIT investing lines"
+        },
+        "fcf.fy": {
+          "recipe": {
+            "op": "none",
+            "note": "no single filed capital-spending line to subtract (see capex)"
+          },
+          "why": "REIT investing lines"
+        },
+        "fcf.ttm": {
+          "recipe": {
+            "op": "none",
+            "note": "no single filed capital-spending line to subtract (see capex)"
+          },
+          "why": "REIT investing lines"
+        },
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "notes payable",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "NotesPayable"
+                  ]
+                }
+              },
+              {
+                "role": "commercial paper",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "CommercialPaper"
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "mortgages payable (secured debt)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "SecuredDebt"
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "credit facility",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LineOfCredit",
+                    "LongTermLineOfCredit"
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "OperatingLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "operating lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "operating lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "FinanceLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "finance lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "finance lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              }
+            ]
+          },
+          "why": "O presents notes payable, commercial paper, mortgages and its credit facility as separate lines"
+        }
+      }
+    },
+    {
+      "ticker": "DUK",
+      "case": "duk-data-only",
+      "cik": 1326160,
+      "currency": "USD",
+      "instanceFilings": [
+        {
+          "accn": "0001326160-26-000040",
+          "why": "SEC companyfacts carries no facts from DUK's 10-Q for 2026-06-30"
+        },
+        {
+          "accn": "0001326160-26-000051",
+          "why": "SEC companyfacts carries no facts from DUK's 10-Q for 2026-09-30"
+        }
+      ],
+      "overrides": {
+        "revenue.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "RegulatedAndUnregulatedOperatingRevenue",
+              "Revenues"
+            ]
+          },
+          "why": "DUK's total operating revenues line is RegulatedAndUnregulatedOperatingRevenue; RevenueFromContractWithCustomerIncludingAssessedTax (31,741M) excludes revenue not from contracts with customers (496M)"
+        },
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "current maturities of long-term debt",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebtCurrent"
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "notes payable and commercial paper",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "ShortTermBorrowings",
+                    "CommercialPaper"
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "long-term debt",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebtNoncurrent"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "OperatingLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "operating lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "operating lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "FinanceLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "finance lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "finance lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              }
+            ]
+          },
+          "why": "DUK presents current maturities, notes payable and commercial paper, and long-term debt as separate lines"
+        }
+      }
+    },
+    {
+      "ticker": "TSM",
+      "case": "tsm-data-only",
+      "cik": 1046179,
+      "currency": "TWD",
+      "instanceFilings": [
+        {
+          "accn": "0001628280-26-025362",
+          "why": "SEC companyfacts carries no financial facts from TSM's Form 20-F for 2025 (filed 2026-04-16); its quarterly reports are Form 6-K without XBRL"
+        }
+      ],
+      "scale": {
+        "epsDiluted.fy": {
+          "factor": 5,
+          "why": "the report states EPS per ADS; 1 ADS = 5 ordinary shares (the report's own ratio, which it corroborates against TSM's filings); the filed figure is per ordinary share"
+        },
+        "dilutedShares.fy": {
+          "factor": 0.2,
+          "why": "the report counts ADS-equivalents (1 ADS = 5 ordinary shares); the filed count is ordinary shares"
+        },
+        "fv.dilutedShares": {
+          "factor": 0.2,
+          "why": "the report counts ADS-equivalents (1 ADS = 5 ordinary shares)"
+        }
+      },
+      "overrides": {
+        "revenue.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:Revenue",
+              "ifrs-full:RevenueFromContractsWithCustomers"
+            ]
+          },
+          "why": "IFRS filer: TSM's 2025 20-F tags total net revenue as RevenueFromContractsWithCustomers (its Revenue facts there are segment breakdowns only)"
+        },
+        "operatingIncome.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:ProfitLossFromOperatingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "netIncome.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:ProfitLossAttributableToOwnersOfParent"
+            ]
+          },
+          "why": "IFRS filer: profit attributable to owners of the parent"
+        },
+        "epsDiluted.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:DilutedEarningsLossPerShare"
+            ],
+            "unit": "TWD/shares"
+          },
+          "why": "IFRS filer"
+        },
+        "dilutedShares.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:AdjustedWeightedAverageShares"
+            ],
+            "unit": "shares"
+          },
+          "why": "IFRS filer: weighted average shares adjusted for dilution"
+        },
+        "capex.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "fcf.fy": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "ifrs-full:CashFlowsFromUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "operatingIncome.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:ProfitLossFromOperatingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "netIncome.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:ProfitLossAttributableToOwnersOfParent"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "operatingCashFlow.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:CashFlowsFromUsedInOperatingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "capex.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "fcf.ttm": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "ifrs-full:CashFlowsFromUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "cashAndShortTermInvestments.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "operatingLeases.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read; IFRS 16 also has no operating/finance lease split"
+          },
+          "why": "6-K without XBRL"
+        },
+        "financeLeases.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read; IFRS 16 also has no operating/finance lease split"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.startRevenue": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:Revenue",
+              "ifrs-full:RevenueFromContractsWithCustomers"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "fv.taxRate": {
+          "recipe": {
+            "op": "ratio",
+            "numerator": {
+              "op": "flow",
+              "concepts": [
+                "ifrs-full:IncomeTaxExpenseContinuingOperations"
+              ]
+            },
+            "denominator": {
+              "op": "flow",
+              "concepts": [
+                "ifrs-full:ProfitLossBeforeTax"
+              ]
+            },
+            "scale": 100
+          },
+          "why": "IFRS filer"
+        },
+        "fv.dilutedShares": {
+          "recipe": {
+            "op": "latestShares",
+            "concepts": [
+              "ifrs-full:AdjustedWeightedAverageShares"
+            ],
+            "unit": "shares"
+          },
+          "why": "IFRS filer"
+        },
+        "fv.netDebt": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.minorityInterest": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.preferred": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.nonOperatingInvestments": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        }
+      }
+    },
+    {
+      "ticker": "RIVN",
+      "case": "rivn-data-only",
+      "cik": 1874178,
+      "currency": "USD"
+    },
+    {
+      "ticker": "VKTX",
+      "case": "vktx-data-only",
+      "cik": 1607678,
+      "currency": "USD",
+      "overrides": {
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "convertible notes",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "ConvertibleLongTermNotesPayable",
+                    "LongTermDebtNoncurrent"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "OperatingLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "operating lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "operating lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "OperatingLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "first",
+                  "alternatives": [
+                    {
+                      "op": "instant",
+                      "concepts": [
+                        "FinanceLeaseLiability"
+                      ]
+                    },
+                    {
+                      "op": "sum",
+                      "terms": [
+                        {
+                          "role": "finance lease liability, current",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityCurrent"
+                            ]
+                          },
+                          "optional": true
+                        },
+                        {
+                          "role": "finance lease liability, noncurrent",
+                          "sign": 1,
+                          "recipe": {
+                            "op": "instant",
+                            "concepts": [
+                              "FinanceLeaseLiabilityNoncurrent"
+                            ]
+                          },
+                          "optional": true
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "optional": true
+              }
+            ]
+          },
+          "why": "VKTX's only borrowing line is its convertible notes (ConvertibleLongTermNotesPayable)"
+        }
+      }
+    }
+  ]
+}
