@@ -11,6 +11,44 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-225 - The "built under older rules" note appears in the audit export (2026-11-12)
+
+Principles P22 and P20. D-217 gave a saved report with no evidence-rules stamp
+one reader note, "Built under older rules: this report has no evidence-rules
+stamp, so its figures are shown as saved.", and one whose stamp this app does
+not know a "Built under unrecognised rules: ..." note. The app's header
+notices, the Markdown export and the print export showed it; the audit export
+did not, so the same report disclosed its rules on three surfaces and stayed
+silent on the fourth. Options considered: leave the audit export silent (two
+presentation rules for one fact), write the sentence into the audit export
+(a second hand-kept copy), or have the audit export read the one shared rule.
+Choice: the last.
+
+The audit export (`src/report/export/auditMarkdown.ts`) now reads
+`evidenceContractNotice` (`src/report/presentation.ts`, the one rule from
+D-217) and, when it returns a note, shows it in its header block after the
+synthetic and provider-fallback notices, as a blockquote with the same
+escaping those notices use. That mirrors the Markdown export's header. The
+sentence and its condition are unchanged and still live only in
+`evidenceContractNotice`.
+
+The approved visible difference is only this: the audit export of a saved
+report with no stamp, or with a stamp this app does not recognise, now shows
+that one note as the last notice of its header block, before the run section.
+A report with the current stamp exports exactly as before. No saved report is
+modified (P21), no stamp or version changes, and no other notice, heading,
+number or sentence changes. `tests/report.evidenceContract.test.ts` now checks
+the audit export on every case it already covered: the note appears once, last
+in the header block and after the synthetic or provider-fallback notice; a
+stamped report shows none, and its audit export equals the unstamped one with
+only the note line removed; the unrecognised-rules note appears once; and the
+app, Markdown, print and audit export carry the same sentence for the same
+report. One existing snapshot (`tests/stageC.multiClaimReasoning.test.ts`,
+the catalyst/risk export goldens of an unstamped legacy fixture) changes only
+its audit hash: with the note line removed, the new audit output hashes to the
+earlier value. The comparison check (`golden:diff`, 10 cases, 80 files) shows
+no difference; all its cases are rebuilt with the current stamp.
+
 ## D-224 - The "projections not recorded" note appears in the Markdown, print and audit exports (2026-11-12)
 
 Principles P22 and P20. #125 gave the app's classic layout the dossier's note
@@ -528,7 +566,8 @@ under unrecognised rules: this report's evidence-rules stamp "…" is not one
 this app knows, so its figures are shown as saved." It is neither refused
 nor treated as current. `evidenceContractNotice` (presentation layer, P22)
 derives the note once; the app header notices, the Markdown header and the
-print header show it after the synthetic and provider-fallback notices. Every
+print header show it after the synthetic and provider-fallback notices
+(Revised by D-225: the audit export's header block now shows it too). Every
 existing specific warning is unchanged.
 
 The report spec stays 1.73.0: like `presumedCostUsd`, this adds an optional

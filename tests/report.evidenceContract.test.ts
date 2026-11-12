@@ -12,6 +12,7 @@ import { buildDataOnlyReport } from "@/pipeline/jobRunner";
 import type { ValidationReport } from "@/pipeline/stageA/validate";
 import type { DataBundle } from "@/pipeline/types";
 import { EVIDENCE_CONTRACT_VERSION, evidenceContractStatus } from "@/report/evidenceContract";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { markdownBlockquote } from "@/report/export/markdownEscape";
 import { esc, reportToPrintBody } from "@/report/export/printHtml";
@@ -25,8 +26,8 @@ import { completeCurrencyBundle } from "./helpers/currencyBundle";
 /**
  * P21, D-217: new reports carry `meta.evidenceContract`; saved reports are never
  * rewritten. A stored report without the stamp, or with one this build does not
- * recognise, shows one note on the app screen, Markdown and print, beside (not
- * instead of) the specific warnings it already had.
+ * recognise, shows one note on the app screen, Markdown, print and audit export
+ * (D-225), beside (not instead of) the specific warnings it already had.
  */
 const OLDER = "Built under older rules: this report has no evidence-rules stamp, so its figures are shown as saved.";
 const unrecognised = (stamp: string) =>
@@ -62,8 +63,15 @@ function surfaces(report: Report) {
     header: renderToStaticMarkup(createElement(ReportSnapshotHeader, { snapshot: report, reportId: 7, status: "done", actions: null })),
     markdown: reportToMarkdown(report),
     print: reportToPrintBody(report),
+    audit: reportToAuditMarkdown(report),
   };
 }
+
+/** The audit export's header block: everything before its first section. */
+const auditHeader = (audit: string) => {
+  expect(audit).toContain("\n\n---\n\n## Run execution");
+  return audit.slice(0, audit.indexOf("\n\n---\n\n"));
+};
 
 const count = (text: string, needle: string) => text.split(needle).length - 1;
 
@@ -78,6 +86,10 @@ function expectNoteOnEverySurface(report: Report, note: string): void {
   expect(s.header).toContain(`data-run-notice="evidenceContract">${html(note)}</p>`);
   expect(count(s.markdown, `> ${markdownBlockquote(note)}`)).toBe(1);
   expect(count(s.print, `<p class="disclaimer">${esc(note)}</p>`)).toBe(1);
+  // D-225: the audit export shows the same sentence once, as the header block's last notice.
+  expect(count(s.audit, "Built under")).toBe(1);
+  expect(count(s.audit, `> ${markdownBlockquote(note)}`)).toBe(1);
+  expect(auditHeader(s.audit).endsWith(`\n\n> ${markdownBlockquote(note)}`)).toBe(true);
 }
 
 /** Give the first dated claim or number a month-only as-of, as pre-1.2 builds wrote. */
@@ -149,7 +161,7 @@ describe("evidence-contract stamp (P21, D-217)", () => {
     const fallback = providerFallbackNotice(stored);
     expect(fallback).toMatch(/^Provider fallback ·/);
     const s = surfaces(stored);
-    for (const text of [s.classic, s.header, s.markdown, s.print]) {
+    for (const text of [s.classic, s.header, s.markdown, s.print, s.audit]) {
       expect(text).toContain(fallback!);
       expect(text).toContain(OLDER);
       expect(text.indexOf(fallback!)).toBeLessThan(text.indexOf(OLDER));
@@ -164,9 +176,42 @@ describe("evidence-contract stamp (P21, D-217)", () => {
     const synthetic = syntheticNotice(stored)!;
     expect(synthetic).toMatch(/^Synthetic demonstration/);
     const s = surfaces(stored);
-    for (const text of [s.classic, s.header, s.markdown, s.print]) {
+    for (const text of [s.classic, s.header, s.markdown, s.print, s.audit]) {
       expect(text).toContain(synthetic);
       expect(text).toContain(OLDER);
+    }
+    expect(auditHeader(s.audit).indexOf(synthetic)).toBeLessThan(auditHeader(s.audit).indexOf(OLDER));
+  });
+
+  it("adds only the note to the audit export: a stamped report's audit export is unchanged (D-225)", () => {
+    // Both read back through the stored-report reader, so they differ only in the stamp.
+    const fresh = newReport();
+    const stamped = parseStoredReportWithSafety(JSON.stringify(fresh))!.report;
+    const unstamped = parseStoredReportWithSafety(unstampedJson(fresh))!.report;
+    const recognisedAudit = reportToAuditMarkdown(stamped);
+    expect(recognisedAudit).not.toContain("Built under");
+    // The header block still ends with the export's own purpose notice.
+    expect(auditHeader(recognisedAudit).endsWith("It is not a second report and adds no analysis.")).toBe(true);
+    // The older-rules note is the whole difference between the two audit exports.
+    const olderAudit = reportToAuditMarkdown(unstamped);
+    expect(olderAudit.replace(`\n\n> ${markdownBlockquote(OLDER)}`, "")).toBe(recognisedAudit);
+    const unknownAudit = reportToAuditMarkdown(parseStoredReportWithSafety(JSON.stringify({ ...stamped, meta: { ...stamped.meta, evidenceContract: "EVIDENCE_CONTRACT_99" } }))!.report);
+    expect(count(unknownAudit, `> ${markdownBlockquote(unrecognised("EVIDENCE_CONTRACT_99"))}`)).toBe(1);
+    expect(count(unknownAudit, "Built under")).toBe(1);
+    expect(unknownAudit).not.toContain(OLDER);
+  });
+
+  it("carries the same sentence on the app, Markdown, print and audit export for the same report (P22, D-225)", () => {
+    for (const report of [
+      parseStoredReportWithSafety(unstampedJson(newReport()))!.report,
+      parseStoredReportWithSafety(JSON.stringify({ ...newReport(), meta: { ...newReport().meta, evidenceContract: "EVIDENCE_CONTRACT_99" } }))!.report,
+    ]) {
+      const note = evidenceContractNotice(report)!;
+      const s = surfaces(report);
+      expect(s.header).toContain(`data-run-notice="evidenceContract">${html(note)}</p>`);
+      expect(s.markdown).toContain(`> ${markdownBlockquote(note)}`);
+      expect(s.print).toContain(`<p class="disclaimer">${esc(note)}</p>`);
+      expect(s.audit).toContain(`> ${markdownBlockquote(note)}`);
     }
   });
 });

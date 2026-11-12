@@ -68,7 +68,7 @@ import type {
   Scoring,
   TracedNumber,
 } from "@/report/schema";
-import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, projectionsNotRecordedNotice, manifestReconciliationRows, usageSummary } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, projectionsNotRecordedNotice, manifestReconciliationRows, usageSummary } from "@/report/presentation";
 
 function auditValue(value: unknown): string {
   if (value === null || value === undefined) return "n/a";
@@ -530,6 +530,7 @@ export function reportToAuditMarkdown(report: Report, context: ReportPresentatio
       `> ${markdownBlockquote("Machine-checkable record behind the report: raw values, registry ids, checks and data gaps. It is not a second report and adds no analysis.")}`,
       ...(syntheticNotice(report) ? ["", `> ${markdownBlockquote(syntheticNotice(report)!)}`] : []),
       ...(providerFallbackNotice(report) ? ["", `> ${markdownBlockquote(providerFallbackNotice(report)!)}`] : []),
+      ...(evidenceContractNotice(report) ? ["", `> ${markdownBlockquote(evidenceContractNotice(report)!)}`] : []),
     ].join("\n"),
     renderRun(report,context),
     scopeQualifications.length ? `## ${LEGACY_SCOPE_HEADING}\n\n${scopeQualifications.map(note => markdownProse(note)).join("\n\n")}` : "",
