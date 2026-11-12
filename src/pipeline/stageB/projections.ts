@@ -30,6 +30,7 @@
  * `notApplicableReason` rather than forcing an FCFF fan.
  */
 
+import { PROJECTION_WEIGHTS_VERSION } from "@/report/versions";
 import type { CompanyRouteResult } from "@/pipeline/stageB/sectorRouting";
 import { missingAnnualIntervals, unavailableAnnualPeriods, yearsBetweenDates } from "@/pipeline/stageB/growth";
 import type { FiscalDatedRow } from "./quarterWindows";
@@ -54,8 +55,7 @@ import type {
 
 /** Forward horizon in years (annual). */
 export const PROJECTION_HORIZON_YEARS = 5;
-/** Versioned scenario-weight prior, stamped into the report. */
-export const PROJECTION_WEIGHTS_VERSION = "UNBACKTESTED_SCENARIO_PRIOR_2026_07" as const;
+export { PROJECTION_WEIGHTS_VERSION } from "@/report/versions";
 /** Coarse display prior over the three scenarios (sums to 1; not empirical odds). */
 export const PROJECTION_WEIGHTS = { bull: 0.25, base: 0.5, bear: 0.25 } as const;
 

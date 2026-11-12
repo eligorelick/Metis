@@ -1,3 +1,4 @@
+import { CURRENT_REPORTS_VERSION } from "@/report/versions";
 import { parseQuarterlyEarnings, type QuarterlyEarningsFact } from "@/edgar/quarterlyEarnings";
 import {PRIORITY_EVENT_ITEMS,NON_EVENT_ITEMS} from "@/edgar/currentReports";
 /**
@@ -53,11 +54,7 @@ import {
 } from "@/edgar/segmentFacts";
 import type { FetchResult, Sourced } from "@/types/core";
 
-// 1.3.0 (R1, FIGR paid audit): the newest operating update filed after the
-// latest results release takes a fifth slot and keeps its release text. The
-// same unreleased version ends an outlook block at a webcast notice (D-162).
-// 1.4.0 (D-215): explicit annual guidance bullets retain their fiscal-year scope.
-export const CURRENT_REPORTS_VERSION = "current-reports-1.4.0" as const;
+export { CURRENT_REPORTS_VERSION } from "@/report/versions";
 /** Earnings releases read: four covers a year of guidance-vs-actual. */
 export const MAX_EARNINGS_RELEASES = 4;
 export const MAX_EVENT_FILINGS = 10;

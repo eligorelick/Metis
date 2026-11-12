@@ -22,6 +22,7 @@
  * value is SUPPRESSED, never fabricated.
  */
 
+import { FAIR_VALUE_METHOD_VERSION } from "@/report/versions";
 import {
   consensusYearsText, EXCESS_RETURN_START_GAP_PP, MAX_CONSENSUS_CV_PCT, MIN_CONSENSUS_ANALYSTS, noncontrollingBookReason, noncontrollingProfitShareText,
   type DcfAssumptions, type DcfBridge, type DcfYearRow, type ValuationResult,
@@ -35,12 +36,7 @@ import { classifyValuationUse, valuationUseExplanation } from "./valuationUse";
 import type { ValuationUse } from "@/report/schema";
 import { taxCapitalSensitivity, type TaxCapitalSensitivity } from "./taxCapitalSensitivity";
 
-/** Versioned method prior — bump when the resolution changes. */
-// D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
-// D-135 (audit 2026-10-27 B4a): the bridge every target re-runs counts redeemable equity and the debt-like obligations once, and the DCF reads the covered operating lease in sales-to-capital.
-// FIN-401 / FIN-401-V1: the DCF bridge and its operating margin/capital inputs now share the stake reading.
-// D-178 / D-179: the per-share value converts at one dated FX rate per ADS ratio; completed debt and WACC reach more issuers.
-export const FAIR_VALUE_METHOD_VERSION = "FAIR_VALUE_2026_11_CURRENT_VALUATION_USE_58" as const;
+export { FAIR_VALUE_METHOD_VERSION } from "@/report/versions";
 
 export interface FairValueInputs {
   /** The route-dispatched valuation result (carries the per-route per-share). */

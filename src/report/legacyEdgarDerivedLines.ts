@@ -1,3 +1,4 @@
+import { EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION } from "@/report/versions";
 import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import type { Report } from "@/report/schema";
 
@@ -23,7 +24,7 @@ import type { Report } from "@/report/schema";
  * string: no provider, filing or model text reaches it, because those are
  * untrusted.
  */
-export const EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION = "1.49.0";
+export { EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION } from "@/report/versions";
 
 const SINCE = EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION;
 

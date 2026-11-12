@@ -1,3 +1,4 @@
+import { CORPORATE_ACTION_BRIDGE_WRITING_STAMPS } from "@/report/versions";
 import { z } from "zod";
 import { FilingDisclosuresSchema, type Report } from "@/report/schema";
 
@@ -46,13 +47,6 @@ export interface RetiredStoredField {
   path: "filingDisclosures.corporateActionBridge";
   value: RetiredCorporateActionBridge;
 }
-
-/**
- * The exact spec stamps of the builds that wrote the field: the stash's base
- * is stamped 1.23.1 and its local edits went to 1.23.3; main never used 1.23.2
- * or 1.23.3. Any other stamp, including empty, malformed or pre-release, is refused.
- */
-const CORPORATE_ACTION_BRIDGE_WRITING_STAMPS: ReadonlySet<string> = new Set(["1.23.1", "1.23.2", "1.23.3"]);
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 

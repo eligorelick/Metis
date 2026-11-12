@@ -1,3 +1,4 @@
+import { ANNUALIZATION_CONVENTION_SPEC, DCF_INPUTS_CONVENTION_SPEC } from "@/report/versions";
 import { degradedInputsReason } from "@/pipeline/stageB/fairValue";
 import type { ManifestEntry } from "@/types/core";
 import { periodDays, weeksOf } from "@/pipeline/stageB/fiscalCalendar";
@@ -5,9 +6,8 @@ import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 import type { Report } from "@/report/schema";
 
 export const LEGACY_VALUATION_NOTE_FIELD = "presentation.legacyValuation";
-/** Frozen at this convention's introduction, independent of later report stamps. */
-export const ANNUALIZATION_CONVENTION_SPEC = "1.51.0";
-export const DCF_INPUTS_CONVENTION_SPEC = "1.56.0";
+export { ANNUALIZATION_CONVENTION_SPEC } from "@/report/versions";
+export { DCF_INPUTS_CONVENTION_SPEC } from "@/report/versions";
 
 type FiledPeriod = { start: string; end: string; basis: "fiscal-quarter" | "fiscal-year"; days: number; revenue: number | null };
 function filedPeriods(value: unknown): FiledPeriod[] {

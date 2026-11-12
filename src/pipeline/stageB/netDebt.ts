@@ -3,14 +3,8 @@
  * equity bridge. Pure and deterministic: no provider, clock, or persistence.
  */
 
-/**
- * V3 (D-60): marketable equity securities that the filing places inside cash
- * and short-term investments are not cash. When their sourced fair value is
- * supplied, net debt nets only cash, cash equivalents and the remaining
- * short-term investments, and the equity securities are reported separately
- * as a non-operating asset. Without that input the result equals V2.
- */
-export const NET_DEBT_RESOLVER_VERSION = "NET_DEBT_V3" as const;
+import { NET_DEBT_RESOLVER_VERSION } from "@/report/versions";
+export { NET_DEBT_RESOLVER_VERSION } from "@/report/versions";
 
 export interface LeaseDebtInputs {
   date?: string | null;
