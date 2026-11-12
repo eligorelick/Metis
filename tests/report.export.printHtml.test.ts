@@ -284,7 +284,12 @@ describe("reportToPrintBody — optional sections absent", () => {
 
     // Omitted sections leave no heading behind.
     expect(body).not.toContain("Scorecard (deterministic)");
-    expect(body).not.toContain("Weighted Projections");
+    // D-224: absent projections keep their heading with the shared
+    // "not recorded" note only; no projection content is inferred.
+    expect(body.split("Weighted Projections").length - 1).toBe(1);
+    expect(body).toContain('<section class="block"><h2 class="sec" id="report-projections"><span class="secno">12</span> Weighted Projections</h2><p class="faint">Projections were not recorded in this snapshot. No forecast series or scenario weights are inferred.</p></section>');
+    expect(body).not.toContain("unbacktested display prior weights");
+    expect(body).not.toContain("Assumptions common to every series");
 
     // Still a valid render: no stray undefined/NaN, and the always-on sections
     // remain present.

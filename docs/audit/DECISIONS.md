@@ -11,6 +11,51 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-224 - The "projections not recorded" note appears in the Markdown, print and audit exports (2026-11-12)
+
+Principles P22 and P20. #125 gave the app's classic layout the dossier's note
+for a saved report that recorded no projections: a "Weighted Projections"
+section reading "Projections were not recorded in this snapshot. No forecast
+series or scenario weights are inferred." The Markdown, print and audit
+exports rendered nothing for such a report, so the same report said different
+things on different surfaces, and the exports left the absence undisclosed.
+Options considered: leave the exports silent (keeps two presentation rules for
+one fact), copy the sentence into each export (four hand-kept copies), or one
+rule in the presentation layer that every surface reads. Choice: the last.
+
+`projectionsNotRecordedNotice` (`src/report/presentation.ts`) holds the
+sentence and its condition: the report has no `projections` and the reader
+convention `unavailableCashFlowModel` does not hide the section; otherwise it
+returns null. That is exactly the app's condition since #125. `ReportView.tsx`
+now reads its sentence there (rendered output unchanged), and each export
+renders it in the section's normal position in its own style:
+
+- Markdown: `## 12. Weighted Projections`, then `_<sentence>_`, between Future
+  Outlook and Macro Context.
+- Print: the numbered `report-projections` section heading, then the sentence
+  as `<p class="faint">`, between Future Outlook and Macro Context.
+- Audit: the export's own projection heading, `## Projection audit trail`, then
+  the sentence as a plain paragraph, before the missing-data manifest.
+
+The approved visible difference is only this: a saved report without
+projections, whose cash-flow model is not hidden by its reader convention, now
+shows that heading and sentence in the three exports. A report with
+projections exports exactly as before (the audit export still renders recorded
+projections without the reader-convention check), and a report whose
+cash-flow model is unavailable gains nothing. No saved report is modified
+(P21), no version stamp changes (this is a read-time presentation of older
+reports), and no other heading, note, number or sentence changes. None of the
+exports has a table of contents that lists the projections section, so none
+needed updating. `tests/report.projectionsNotRecordedExports.test.ts` checks
+each export's heading, sentence and position, the with-projections and
+hidden-model cases, the same sentence on all four surfaces, and that the
+sentence is written in only one `src` file. One existing print test
+(`tests/report.export.printHtml.test.ts`, "gracefully omits ...") asserted that
+a report without projections printed no "Weighted Projections" heading; it now
+asserts the heading appears once with the note and no projection content. The
+comparison check (`golden:diff`, 10 cases, 80 files) shows no difference; all
+its cases record projections.
+
 ## D-223 - Refusal codes, step 6: the duplicate-period note and the estimate-anchor suffix read a typed value (2026-11-12)
 
 Principle P11. Step 6 of the D-218 migration moves the two remaining general

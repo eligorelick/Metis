@@ -133,7 +133,7 @@ import {
   type FigureRow,
 } from "@/report/presentation";
 import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
-import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, projectionsNotRecordedNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
 import {
@@ -886,6 +886,12 @@ function renderOutlook(report: Report): string {
   return lines.join("\n").trimEnd();
 }
 
+/** D-224: the shared "projections not recorded" note, under the section heading; empty when it does not apply. */
+function renderProjectionsNotRecorded(report: Report): string {
+  const notice = projectionsNotRecordedNotice(report);
+  return notice ? [sectionHeading("projections"), "", `_${markdownProse(notice)}_`].join("\n") : "";
+}
+
 function renderProjections(p: Projections): string {
   const series = orderedProjectionSeries(p.series);
   const available = projectionAvailability(series);
@@ -1065,7 +1071,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
     renderCompetitive(report.competitive, gradeContext(report, "moat", completeness), report),
     renderCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
     renderOutlook(report),
-    report.projections && !unavailableCashFlowModel(report) ? renderProjections(report.projections) : "",
+    report.projections && !unavailableCashFlowModel(report) ? renderProjections(report.projections) : renderProjectionsNotRecorded(report),
     renderMacro(report.macro),
     renderAppendix(report, completeness, context),
   ].filter((b) => b.length > 0);

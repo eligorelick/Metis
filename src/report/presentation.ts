@@ -1352,6 +1352,18 @@ export function evidenceContractNotice(report: Pick<Report, "meta">): string | n
   return null;
 }
 
+/**
+ * One reader note for a saved report that recorded no projections (P22, P20,
+ * D-224). The app, Markdown, print and audit exports all read the sentence
+ * and its condition from here. A report whose cash-flow model is unavailable
+ * hides the projections section under its reader convention, so it gets no note.
+ */
+export function projectionsNotRecordedNotice(report: Pick<Report, "valuation" | "fairValue" | "projections">): string | null {
+  return report.projections || unavailableCashFlowModel(report)
+    ? null
+    : "Projections were not recorded in this snapshot. No forecast series or scenario weights are inferred.";
+}
+
 export interface ManifestReconciliationRow {
   kind: "expected" | "info" | "data" | "process" | "resolved";
   label: string;
