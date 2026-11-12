@@ -63,8 +63,7 @@ const PINNED: Record<string, number> = {
   "src/report/researchReview.ts": 5,
   // S1: the non-bank lender convention (sector-specific; left for an owner decision).
   "src/report/readerConventions.ts": 1,
-  // O1: an estimate-anchor stop sentence, display only.
-  "src/pipeline/stageB/valuation.ts": 1,
+  // O1 (src/pipeline/stageB/valuation.ts) moved to a typed "not covered" value in D-223; that file reads no wording now.
 };
 
 const NOT_TEXT = String.raw`(?!\s*(?:null|undefined)\b)(?!\s*["'\`][a-z0-9-]*["'\`])`;
