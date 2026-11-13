@@ -447,6 +447,27 @@ that candidate before concluding there is no conflict. SEC-built restatements
 retain their own field-level filing provenance rather than reverting to the
 row's first-reporter date.
 
+**Effective tax base (D-237).** An effective tax rate divides the provision by
+the pre-tax income the provision relates to. A filer whose pre-tax line
+excludes equity-method results (us-gaap
+`IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments`)
+presents those results after its provision, net of tax, so its provision
+relates to that line. A row's pre-tax income is the figure that reconciles to
+net income and, for such a filer, can include the after-tax equity-method
+result (the D-200 bridge). When the complete filed family reconciles, the
+earnings admission therefore records the filed line itself beside the row's
+pre-tax income, with its filing, and every effective tax rate reads it through
+one function (`effectiveTaxPretaxIncome`): the trailing pair behind the DCF's
+year-one rate and the WACC's statement rate, the annual rows behind ROIC's
+tax rate and the DCF's historical rates. Without that reconciled family
+nothing is recorded and the row's own pre-tax income is the base, as before.
+Pre-tax income shown or used for anything else is unchanged. Each period whose
+base is the filed line and differs from the row's figure is named in the
+manifest with both values and the filing (`compute.ttmIncome.taxRatePretaxIncome`,
+`statements.income.annual.taxRatePretaxIncome`). No tolerance is added: the
+row's pair must already be the same observation as the filed family under the
+existing vendor-agreement allowance.
+
 If a reconciled filed family is unavailable, retain the vendor family with a
 note showing both values only when every disagreement is same-sign and no
 larger than **1% of the larger absolute observation**. The independent panel
@@ -778,7 +799,7 @@ rate)` row) and in the report's computed-returns notes.
 | Beta | Provider profile beta, **mean-reversion adjusted** (0.667·raw + 0.333 — the Bloomberg 2/3–1/3 weighting of Blume's finding, not his fitted 0.371 + 0.635·β; see [RESEARCH §7.1](RESEARCH.md)), clamped to [0.6, 2.0] | A plausible provider beta in (0, 4] is unchanged. D-204: a missing or implausible raw beta may use the independently retained issuer/SPY monthly OLS only when its observation and fit checks pass (below); otherwise cost of equity and WACC remain withheld. One set of constants serves the WACC and the keyless beta estimate. D-60: the basis prints the same 60-month OLS the keyless route uses, run on the bundle's own daily prices against SPY (completed months before the analysis day): observation count, window, price basis, slope, R² and standard error. No bottom-up beta is built without an industry data source. |
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
-| Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
+| Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. D-237: the pre-tax income in every statement rate is the provision's own base (see "Effective tax base" below), and where the filings move the TTM pair's denominator off the provider's pre-tax figure, the provider's effective-rate field rests on another basis and the statement pair replaces it, with the basis saying so. |
 | Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60, extended for incomplete dates: the weight uses the latest complete balance in the selected window; a refused newer balance remains refused in its own EV bridge. Effective cost of debt divides a year of interest by the complete quarter-end balances of the trailing-twelve-month window when interest is TTM, else by the complete latest two fiscal-year ends; a single complete balance can stand in, and exclusions are named | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
 
 **Independent beta fallback (D-204).** Only a missing or implausible provider
@@ -906,7 +927,8 @@ ROIC is annual `EBIT × (1 − observed effective tax rate) / invested capital`,
 with the tax rate clamped to [0%, 35%], invested capital equal to debt plus
 temporary equity (redeemable preferred and redeemable non-controlling
 interests) plus stockholders' equity less cash and short-term investments, and
-the operating lease adjustment described below. An unavailable observed tax rate withholds
+the operating lease adjustment described below. The rate is the year's provision over
+its effective tax base (D-237, "Effective tax base"). An unavailable observed tax rate withholds
 that year's NOPAT/ROIC; non-positive invested capital is not interpreted as
 an exceptional return. This historical NOPAT is separate from the forward
 DCF's projected loss-carryforward logic.
@@ -1512,7 +1534,9 @@ states the value with the margin held flat (see "AMZN audit fixes (October 20,
 2026)").
 
 **Tax path (D-58).** The tax rate fades from the observed effective rate to a
-terminal rate. The terminal rate is the company's own historical median,
+terminal rate. The observed rate, and each year of the history, is the
+provision over its effective tax base (D-237, "Effective tax base"). The
+terminal rate is the company's own historical median,
 floored at max(statutory marginal rate, 15% global minimum tax). The
 statutory rates come from `STATUTORY_MARGINAL_TAX_PCT`, which lists only
 sourced national rates: US 21%, 26 U.S.C. §11(b), excluding state taxes. The
@@ -1757,7 +1781,8 @@ change the common FCF convention and require remeasurement of every issuer's
 FCF, P/FCF and DCF seed. In the retained FIG example, PP&E-only capex differs
 by 1.302 million from the retained vendor basis on 231.012 million FCF (0.6%
 rounded). This decision preserves arithmetic and does not claim period-by-period
-software comparability or issuer-defined FCF reconciliation.
+software comparability or issuer-defined FCF reconciliation. A provider figure of
+exactly 0 is the one exception: see "Cash capital spending of zero (D-239)".
 
 
 **Free cash flow subtracts stock-based compensation by default.** The
@@ -8482,3 +8507,30 @@ A row that carries no noncontrolling share, or no statement of its scope, is
 read as reported; nothing is inferred. A filer whose only profit line is
 `NetIncomeLoss` has no noncontrolling interest and does not move. Stored run
 inputs are not rewritten: the rule runs when a report is built.
+
+## Cash capital spending of zero (D-239)
+
+The provider writes 0 on a cash-flow row for a line it did not find, so a cash
+capital-spending figure of exactly 0 on a vendor row is a figure only when the
+filings state it. For the row's own period (the fiscal year, or the standalone
+quarter, directly filed or the difference of two year-to-date figures on one
+presentation) the capital-spending elements are read from the admitted SEC
+facts in the row's currency, filed by the analysis time:
+`PaymentsToAcquirePropertyPlantAndEquipment`,
+`PaymentsToAcquireProductiveAssets` and `PaymentsToDevelopSoftware`, the tag
+basis the quarterly and trailing constructions already use. No synonym or
+component sum is added. When every such line tagged for that period is 0, the
+zero is filed and stays. When none is tagged for it, capital spending is
+undisclosed; when one states an amount, the zero is contradicted. In both
+cases the field and the standardized free cash flow that subtracts it are
+withheld for that period, the provider observations are retained, and one
+manifest entry names the periods and the cause. A non-zero provider figure is
+not this rule's subject (the cash-capex convention is otherwise unchanged), and
+a row whose field already carries filed evidence or an earlier decision is
+left to it. Figures that need a withheld period follow their own rules: a
+trailing twelve months with a withheld quarter is withheld, a growth window
+ends at the newest year that has the figure and says so, the cash runway is
+withheld, and a score aspect left without evidence counts at the neutral
+midpoint. An issuer without confirmed SEC facts is not judged. Stored run
+inputs are not rewritten: the rule runs when a report is built, and the
+company page's free-cash-flow bars read the same admitted rows.

@@ -184,6 +184,524 @@ tests fail without the fix.
 Version stamps are not moved here (P27: the Stage 5 integration change moves
 them together). Stored reports and snapshots keep their bytes.
 
+## D-237 - An effective tax rate divides by the pre-tax income its provision relates to (2026-11-12)
+
+Principles P13 (one basis: a ratio's numerator and denominator share one
+basis, and one definition is computed once and read everywhere), P8 (filed
+beats vendor), P1 (exact period, every operand's evidence retained), P16
+(evidence-led inputs, never tuned) and P20 (provenance and disclosure). Round
+2, Stage 5 (accuracy fixes), tax-rate family. The accuracy baseline
+(r2-base-afb9cddf, ranks 6, 7 and 12) found Amazon's "DCF year-one tax rate
+(TTM effective rate)" at 22.64671918% against 22.57702347% on the filed
+operands, Qualcomm's at 17.41883696% against 17.40991795%, and listed NVIDIA's
+guided 17% as a definition row.
+
+Root cause (Amazon). The rate is the trailing provision over the trailing
+pre-tax income, each summed from the four latest quarterly income rows
+(`ttmIncomeFromNormalized`, `src/pipeline/compute.ts`). Amazon's filed pre-tax
+line is "Income before income taxes" (us-gaap
+`IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments`);
+its provision follows, then "Equity-method investment activity, net of tax",
+then net income. The provider's pre-tax figure for Amazon's 2025 rows is net
+income plus the provision, which is the filed line plus the after-tax
+equity-method result. The earnings admission (D-200,
+`enrichIncomeClassification`, `src/edgar/incomeClassification.ts`) accepts
+that figure as agreeing with the filing, by design: it is the pre-tax income
+of the earnings identity (pre-tax less tax equals net income). Nothing then
+told a tax rate that this figure is not the provision's base. So the trailing
+denominator mixed two scopes: the two 2026 quarters on the filed line (the
+provider reports it there) and the two 2025 quarters 73M and 467M below it,
+540M in all. The same figure divided every annual rate (ROIC's tax rate, the
+DCF's historical rates), and the WACC read the provider's own ratio, which is
+its tax over its pre-tax income.
+
+Which pre-tax line is right. The provision's. A filer that reports both lines
+states its equity-method result after the provision and net of tax (Regulation
+S-X 5-03 order; Amazon's caption says "net of tax"), so the provision relates
+to the line before it, and the filer's own effective rate is the provision
+over that line. Numerator and denominator then share one entity scope and
+period (P13). Micron's rows, which Metis builds from the filings, already
+divide by that line (14.80972399%, a match in the baseline); Amazon's did not
+only because its rows come from the provider. Pre-tax income as a figure of
+its own (the P/E note on non-operating income, the statement tables) keeps the
+earnings-identity definition of D-200.
+
+Qualcomm: the suspected cause is disproved. Each of Qualcomm's four provider
+quarters equals the filed quarterly fact (`IncomeTaxExpenseBenefit`: 460M,
+2026-03-30..2026-06-28, 10-Q 0000804328-26-000086; -5,138M,
+2025-12-29..2026-03-29, 10-Q 0000804328-26-000061; 543M,
+2025-09-29..2025-12-28, 10-Q 0000804328-26-000017; 6,088M for the fourth
+quarter of fiscal 2025 = 7,122M, 10-K 0000804328-25-000085, less 1,034M, 10-Q
+0000804328-25-000045), and the pre-tax quarters likewise (2,462M, 2,232M,
+3,547M, 2,971M = 11,212M). Their sum is 1,953M. The baseline's 1,952M uses the
+filer's nine-month figure, -4,136M, and Qualcomm's own columns differ by its
+rounding: 543M - 5,138M = -4,595M against a filed six months of -4,596M. Both
+figures are built only from filed facts; no filed twelve-month provision
+exists to choose between them. Metis sums four quarters by its existing P1
+rule, so Qualcomm's rate is a definition row and does not move.
+
+NVIDIA: unchanged. Its year-one rate is the guided 17% (D-60), a choice listed
+for the owner; its observed pair (36,865M over 229,744M) equals the filed
+quarters, its pre-tax element includes equity-method results, and nothing in
+its operands has this defect.
+
+What the rate's operands were for each of the thirteen companies (TTM window
+of the four latest quarterly rows; "equals filed" means equal to the SEC XBRL
+quarterly facts, the fourth quarter as fiscal year less nine months):
+
+| Company | Rate read by | Window | Provision / pre-tax income | Source and scope before | After |
+| --- | --- | --- | --- | --- | --- |
+| AMZN | DCF year one, WACC | 2025-07-01..2026-06-30 | 39,615M / 174,926M | provider rows; provision equals filed; pre-tax income on the filed line for two quarters and filed line plus after-tax equity-method result for two | 39,615M / 175,466M, the filed line in all four quarters |
+| MU | DCF year one, WACC | 2025-08-29..2026-09-03 | 14,761M / 99,671M | rows built from filings; the filed line before equity-method results | unchanged |
+| NVDA | DCF comparison text (year one is guided 17%), WACC (provider ratio) | 2025-07-28..2026-07-26 | 36,865M / 229,744M | provider rows equal filed; the element includes equity-method results | unchanged |
+| QCOM | DCF year one, WACC (provider ratio) | 2025-06-30..2026-06-28 | 1,953M / 11,212M | provider rows equal filed; the element includes equity-method results | unchanged |
+| TSM | DCF year one; WACC reads the provider ratio 16.547% | 2025-10-01..2026-09-30 | TWD 525,476,394,000 / 3,053,125,687,000 | provider rows; the stored SEC facts hold no quarterly income facts for TSMC (a Form 20-F filer), so not established against a filing | unchanged |
+| META | WACC only (DCF withheld: share scope) | 2025-10-01..2026-09-30 | 3,613M / 78,862M | provider rows; three quarters equal filed within the filer's rounding, the latest was not yet filed at the analysis time | unchanged |
+| FIGR | WACC only (DCF withheld) | 2025-07-01..2026-06-30 | -36,586K / 200,797K, floored at 0% | provider rows equal filed | unchanged |
+| JPM, PGR | WACC only (excess-return route) | to 2026-09-30 | 19,310M / 85,289M; 3,071M / 14,693M | provider rows equal filed | unchanged |
+| O | WACC only (REIT route) | to 2026-09-30 | provider ratio 2.215% | the provider's ratio; the statement pair, with the filed family adopted for one quarter (D-200), is 97,371K / 1,522,595K | unchanged (see "Not changed") |
+| DUK | WACC only (DCF withheld: regulated utility) | to 2026-09-30 | provider ratio 14.534% | provider rows equal filed; the element includes equity-method results | unchanged |
+| RIVN, VKTX | none: a trailing pre-tax loss, 0% shield | to 2026-09-30 | n/a | existing B-32 rule | unchanged |
+
+Choice, in the owner of the earnings admission (`enrichIncomeClassification`,
+P8), which already runs in the report's calculation view
+(`withIncomeOperatingBasis`), so stored inputs keep their bytes:
+
+1. When the complete filed family reconciles for a row (D-200: filed pre-tax,
+   tax and net income on one filing scope) and its pre-tax element is the one
+   that excludes equity-method results, bridged by the separately filed
+   equity-method amount, the admission records that filed line on the row as
+   `pretaxIncomeBeforeEquityMethod`, a value with its filing. It is kept out of
+   the row's field provenance, so no other rule reads it as period or source
+   evidence. The row's `incomeBeforeTax` is not changed. The row's pair must
+   already be the same observation as the filed family under the existing P8
+   allowance (`vendorAgreesWithFiled`); no tolerance, band, cap, floor or
+   status word is added or changed. Without that family nothing is recorded.
+2. One function, `effectiveTaxPretaxIncome`, returns the recorded line, else
+   the row's pre-tax income, and nothing when the row's pre-tax income is
+   withheld. Every effective tax rate reads it: the trailing pair
+   (`TtmIncome.taxRatePretaxIncome`, behind the DCF's year-one rate and the
+   WACC's statement rate), the annual rows behind ROIC's tax rate and the
+   DCF's historical rates and annual fallback.
+3. The WACC keeps its source order (provider ratio, else the statement pair,
+   B-32) with one exception: where the filings moved the trailing pair's
+   denominator off the provider's figure, the provider's ratio is known to
+   rest on another basis than the provision, and the statement pair replaces
+   it (P8). The basis text says so. The 0-35% clamp, the 0% shield, the
+   terminal floor (D-58) and guidance (D-60) are untouched.
+4. Each period whose base is the filed line and differs from the row's figure
+   is named in the manifest with both values, the element and the filing:
+   `compute.ttmIncome.taxRatePretaxIncome` for the trailing window and
+   `statements.income.annual.taxRatePretaxIncome` for the annual rows (P20).
+
+Options rejected: replacing the row's pre-tax income with the filed line (it
+would undo D-200's earnings identity and move the P/E note and the statement
+table for every such filer); correcting only the DCF's year-one rate where it
+is computed (the annual rates and the WACC would keep the other basis, and one
+report would state two trailing rates for one company); building the trailing
+pair as fiscal year plus year to date less the prior year to date (a change to
+the P1 quarter rule for every flow of every company, and Qualcomm shows the
+two constructions differ only by the filer's rounding); taking the provider's
+ratio out of the WACC for every company (it would reword every report without
+a proven change of value).
+
+D-200 and the B-32 owner decision in D-103 are marked "Revised by D-237": the
+D-200 bridge still admits the provider's pre-tax income, but that figure no
+longer serves as a tax-rate denominator; B-32's order now has the exception in
+point 3.
+
+### Approved report changes
+
+Same-report check, this change against current main (ab6db405, which holds
+D-229, D-231, D-233 and D-234): 16 files in 2 of the 17 cases differ,
+`amzn-data-only` and `amzn-fixed-analyst` (all eight outputs each), plus their
+two payload fingerprints; `golden:diff --approved` with the list below reports
+"18 approved change(s), nothing else". The other 15 cases are byte for byte
+unchanged, as is every figure of Amazon not listed below. Against the round
+baseline r2-base-afb9cddf the difference is these files plus the already
+approved changes of D-231 (TSM, DUK), D-233 (O), D-234 (FIGR) and D-229 (RIVN).
+Leaf-level list: `tmp/accuracy/s5-taxrate-before-after.md` (not committed: it
+quotes vendor data).
+
+Amazon (`amzn-data-only`, USD). Filed values are SEC XBRL facts, stated to the
+million (decimals -6). Trailing window 2025-07-01..2026-06-30:
+
+| Quarter | Filed pre-tax income before equity-method results | Filed provision (`IncomeTaxExpenseBenefit`) | Provider pre-tax before | Filing |
+| --- | --- | --- | --- | --- |
+| 2025-07-01..2025-09-30 | 28,170,000,000 | 6,910,000,000 | 28,097,000,000 | 10-Q 0001018724-25-000123, filed 2025-10-31 |
+| 2025-10-01..2025-12-31 | 26,605,000,000 = 97,311,000,000 - 70,706,000,000 | 4,946,000,000 = 19,087,000,000 - 14,141,000,000 | 26,138,000,000 | fiscal year: 10-K 0001018724-26-000004, filed 2026-02-06; nine months: 10-Q 0001018724-25-000123 |
+| 2026-01-01..2026-03-31 | 39,834,000,000 | 9,560,000,000 | 39,834,000,000 | 10-Q 0001018724-26-000014, filed 2026-04-30 |
+| 2026-04-01..2026-06-30 | 80,857,000,000 | 18,199,000,000 | 80,857,000,000 | 10-Q 0001018724-26-000026, filed 2026-07-31 |
+| Trailing twelve months | 175,466,000,000 | 39,615,000,000 | 174,926,000,000 | the same as the baseline's fiscal year + six months - prior six months: 97,311 + 120,691 - 42,536 and 19,087 + 27,759 - 7,231 |
+
+Cross-check: 175,466M less 39,615M, plus the filed equity-method results of
+the four quarters (-73M, -467M, -19M, -11M), is 135,281M, the twelve-month net
+income Amazon files for 2025-07-01..2026-06-30 (`NetIncomeLoss`, 10-Q
+0001018724-26-000026).
+
+Fiscal years (each from that year's own 10-K; `IncomeTaxExpenseBenefit` is
+unchanged in every year):
+
+| Fiscal year | Filed pre-tax income before equity-method results | Provider pre-tax before | Provision | Rate before -> after | 10-K |
+| --- | --- | --- | --- | --- | --- |
+| 2025 | 97,311,000,000 | 96,757,000,000 | 19,087,000,000 | 19.7267% -> 19.6144% | 0001018724-26-000004, filed 2026-02-06 |
+| 2024 | 68,614,000,000 | 68,513,000,000 | 9,265,000,000 | 13.5230% -> 13.5031% | 0001018724-25-000004, filed 2025-02-07 |
+| 2023 | 37,557,000,000 | 37,545,000,000 | 7,120,000,000 | 18.9639% -> 18.9579% | 0001018724-24-000008, filed 2024-02-02 |
+| 2022 | -5,936,000,000 | -5,939,000,000 | -3,217,000,000 | no rate (pre-tax loss; the 21% floor of the existing rule) | 0001018724-23-000004, filed 2023-02-03 |
+| 2021 | 38,151,000,000 | 38,155,000,000 | 4,791,000,000 | 12.5567% -> 12.5580% | 0001018724-22-000005, filed 2022-02-04 |
+| 2020 | 24,178,000,000 | 24,194,000,000 | 2,863,000,000 | 11.8335% -> 11.8413% | 0001018724-21-000004, filed 2021-02-03 |
+| 2019 | 13,976,000,000 | 13,962,000,000 | 2,374,000,000 | 17.0033% -> 16.9863% | 0001018724-20-000004, filed 2020-01-31 |
+| 2018 | 11,261,000,000 | 11,270,000,000 | 1,197,000,000 | 10.6211% -> 10.6296% | 0001018724-19-000004, filed 2019-02-01 |
+| 2017 | 3,806,000,000 | 3,802,000,000 | 769,000,000 | 20.2262% -> 20.2049% | 0001018724-18-000005, filed 2018-02-02 |
+| 2016 | 3,892,000,000 | 3,796,000,000 | 1,425,000,000 | 37.5395% -> 36.6136%, both read as the existing 35% ceiling | 0001018724-17-000011, filed 2017-02-10 |
+
+Figures that move, each the deterministic result of the operands above with
+every other input unchanged:
+
+| Figure | Before | After |
+| --- | --- | --- |
+| DCF year-one tax rate (TTM effective rate) | 22.646719184112136% | 22.57702346893415% = 39,615 / 175,466 |
+| DCF tax path, years 1 to 10 | 22.65, 22.46, 22.28, 22.10, 21.91, 21.73, 21.55, 21.37, 21.18, 21 | 22.58, 22.40, 22.23, 22.05, 21.88, 21.70, 21.53, 21.35, 21.18, 21 (the 21% terminal floor is unchanged) |
+| Company historical median tax rate (text of the terminal-rate basis) | 17% (fiscal 2019, 17.0033%) | 16.99% (fiscal 2019, 16.9863%) |
+| WACC tax rate and its stated source | 22.6467%, "FMP ratios-ttm effectiveTaxRateTTM" | 22.5770%, the statement pair on the filed line |
+| WACC | 10.470824641874483% | 10.47101427778552% |
+| WACC by fiscal year, 2021 / 2022 / 2023 / 2024 / 2025 | 7.0405 / 9.3735 / 9.3735 / 10.0655 / 9.6701 | 7.0406 / 9.3737 / 9.3737 / 10.0657 / 9.6702 |
+| ROIC tax rate, fiscal 2021 / 2023 / 2024 / 2025 | 0.125567 / 0.189639 / 0.135230 / 0.197267 | 0.125580 / 0.189579 / 0.135031 / 0.196144 |
+| ROIC, fiscal 2021 / 2023 / 2024 | 23.277987% / 16.715786% / 26.521140% | 23.277636% / 16.717036% / 26.527245% |
+| ROIC, fiscal 2025 (latest) | 20.631539% | 20.660404% |
+| ROIC less WACC | 10.160714 points | 10.189389 points |
+| DCF fair value per share | 124.14262846314591 | 124.17775239727463 |
+| Upside against the quote (`fairValue.upsidePct`) | -51.2412% | -51.2255% |
+| Scenario values, bear / base / bull | 104.08 / 124.14 / 149.85 | 104.11 / 124.18 / 149.89 |
+| Reverse-DCF implied starting revenue growth | 50.7470703125% | 50.7275390625% |
+| Present value of explicit cash flows / terminal value | 506.50B / 773.11B | 506.91B / 773.08B |
+| Quality score / moat score / business-quality assessment | 74.52 / 63.53 / 63.46 | 74.54 / 63.55 / 63.47 |
+| Manifest | 164 entries, 117 expected disclosures | 166 entries, 119 expected disclosures: the two new entries of point 4 |
+
+The composite score (57.3), every grade band, the price-based multiples,
+revenue, margins, cash flow and balance-sheet figures do not move. The DCF
+year rows, the sensitivity and growth-margin grids, the mechanical tax and
+capital sensitivities, the forward EPS and free-cash-flow projections and the
+forward P/E (36.2 to 36.1) move with the tax path and WACC; the leaf list has
+each one. The fair value moves 0.04 a share toward a quote of 254.60; the
+operands were chosen by the filing, not by that distance (P16).
+
+`amzn-fixed-analyst` replays a stored analyst text written against the old
+figures. Its deterministic figures change exactly as above. In addition six
+figures the stored text cites (fiscal 2025 ROIC 20.6%, the WACC, their spread
+and three more) no longer equal the payload, so the verification pass marks
+them untraced or contradicted (6 to 12 contradicted claims, 278 to 272 of 288
+figures traced; its manifest goes from 181 to 183 entries). That is the
+verification rule working on stale prose (P19);
+no rule of it changed.
+
+Approvals list for the same-report check (SHA-256, before -> after):
+
+| Case | File | Before (SHA-256) | After (SHA-256) | Reason |
+| --- | --- | --- | --- | --- |
+| amzn-data-only | payload fingerprint | 1.92.0:dfe53665 | 1.92.0:8950eadd | the payload carries the figures below |
+| amzn-data-only | stageB.json | 553fac913dccfba542524f127a158a55b9d53473a8919a36eed4ea456d8c6cd5 | c732caa59b29bc8341f71ddc1efa6367aee96e6737098db6aff3d00d2b51d6c8 | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | payload.txt | 7f2c5cc439cba3008a1da035d8889e97e54e7f3e830e584e7b4509aa91ef79f2 | 9fd88b8fdab1d74ddffb89ad126227f1b93aad3e2f5b3b07c1a223933171bb87 | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | report.json | 7d81faa82ccbebee437d93e78e16534c3ac27eb6a054a166c205567070c70ea1 | 5951cf1d776f6a9d1cf6a839c7957832ade37d08e79dd27aa465b42162f67cc4 | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | report.md | 4b81c65ccc7e3f463dc5397e983c22910c99b3fe671998389ed7e7f1be80f9a9 | 315930a57fc06c9ca787b131da70d9ce32df1db00e6ffb9c7aa852a5d5b3c6e9 | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | print.html | c45fc39d4dc867f9cf452e74f3e3fe32ee7a9b7e8f582cbcd44be2b559cda36c | 63dca549441e73bed607d585f25d950f6f4da6b7c253ed0e6d6a3d21af95b01e | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | audit.md | 6ca116949256f495027c7cb49e2a90215645b3aad0f5b991f3987f4f5f368faa | 3153e61ffe07c7f598915a3b7a45e052214ca7cfabca70dbde83096859ac082a | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | web-classic.html | 57fb2f1c87ffe93aadef34b0645acf2a04f8081c4c5b9ae4b5b93a6cda347d42 | d8d8dacbb02c0b45310904250995622d2df94f0b1983e64231c092adf7713322 | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | web-dossier.html | b95e86f8457dcbfbfdfe4f5c3b7d6237a4d95ea7d7332d9a5572358d79373bd1 | 3db459ebff4f690c50cd8cd1cd7eb475a86b5a386e0bb476dc500c8f7f502f1e | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-fixed-analyst | payload fingerprint | 1.92.0:dfe53665 | 1.92.0:8950eadd | the payload carries the figures below |
+| amzn-fixed-analyst | stageB.json | 553fac913dccfba542524f127a158a55b9d53473a8919a36eed4ea456d8c6cd5 | c732caa59b29bc8341f71ddc1efa6367aee96e6737098db6aff3d00d2b51d6c8 | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | payload.txt | 7f2c5cc439cba3008a1da035d8889e97e54e7f3e830e584e7b4509aa91ef79f2 | 9fd88b8fdab1d74ddffb89ad126227f1b93aad3e2f5b3b07c1a223933171bb87 | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | report.json | 1b6a5923e5cf42972c5e3dc927787bd07c309255f6745105288b7aea2941a015 | 27bd7b59844915af5524a3e86240c789358e7bb0abef83797bf7a5387413c4e8 | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | report.md | dd50987911ebdc8ce0f64b7e65b3f8eab8df442a6e29a79a81874adfa2cdfc0c | 4c073562953b04efbd1666909a2b60c6662c4a0c63c272ae8cca66510d62f20b | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | print.html | 95857dc7b43a51d34390841cbc0a49ea1b0510047a2118ce14d15146357b15a5 | 9b8db4a4792ae9859d6a7036ce4eac6e14749f8389bce15a3b7862b6b5b20c34 | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | audit.md | 9cca7c1534116246bbb935021418ce6326d252b5f75596b1db09e2ce8d3bb3dd | 42307ac6d21a916ca09fa3a72b907ae60b816cdcfded59f28636872d16e516d9 | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | web-classic.html | 30ef712e50cab9296f4a524ee0401779f4cc07b12dc7f505f28f20ac47138c84 | f2bbdb4456acb434119b2c98268211d4953b277d5bb34c1e6721cfcf40bfd94a | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | web-dossier.html | 00da1696ddefca4cea500b1cddb024858bb52a002f237d7e75b8cfa111210cc2 | ad57382b0442394c5890cc4f4bc3245780f979690dfcc936b9fab65da05faaeb | the same figures; the stored analyst text is checked against them |
+
+Accuracy check (`accuracy:check`, the unmerged tool, run against this change's
+17 cases): 156 match, 12 mismatch, 63 gap, 35 not established, one
+difference from its expectation, "BETTER: amzn-data-only fv.taxRate, mismatch
+to match", none worse. Current main gives 155 and 13, every figure as
+expected.
+
+Tests (`tests/effectiveTaxBase.d237.test.ts`, 17 cases; 13 fail on the
+unchanged code): the root cause on Amazon's fiscal 2025 and third-quarter 2025
+operands; the same filer where the provider already reports the filed line
+(no figure moves); a compatible control, Caterpillar's adopted family (2,768M
+over 11,541M, not 11,650M); an unrelated shape, Qualcomm, whose pre-tax
+element includes equity-method results (no base recorded, its four filed
+quarters still sum to 1,953M over 11,212M); three incomplete or unreconciled
+families that record nothing; a stale base dropped; a withheld row; the
+calculation view on a stored bundle (bytes unchanged, idempotent); the
+trailing pair, its manifest entry and the WACC statement rate; and Stage B
+end to end on the general-route fixture, where the DCF's year-one rate, the
+WACC's rate and ROIC's rate all take the filed line and both manifest entries
+appear, beside a control filer whose rates and wording do not move.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change advances the Stage B
+implementation stamp (Stage B behaves differently on identical retained
+inputs). The payload format and the report specification are unchanged;
+Amazon's payload fingerprint moves because its content does. Frozen records
+are unchanged. Saved reports are immutable (P21) and keep the figures they
+were built with.
+
+Not changed, with the reason:
+
+- Qualcomm's rate (definition row, above) and NVIDIA's guided 17% (owner's
+  definition row).
+- Realty Income's WACC tax rate is the provider's ratio, 2.215%, although the
+  filed family was adopted for its fourth quarter of 2025 (D-200) and the
+  statement pair is 6.395%. The provider's ratio is contradicted there by a
+  filed adoption, not by a re-based denominator; extending point 3 to "any
+  trailing quarter whose pair the filings replaced" is the same owner
+  (`computeReturns` in `src/pipeline/compute.ts`, the `vendorTaxRate`
+  selection) and needs Realty Income's four quarters proven and its report
+  changes approved. TSMC's WACC likewise reads the provider's ratio (16.547%)
+  while its DCF reads the provider's rows (17.211%); neither can be proven
+  from the stored SEC facts, which hold no quarterly income facts for TSMC.
+- TSMC's trailing pair, and the newest quarter in Meta's, are provider figures
+  with no filed counterpart, and the tax basis text does not say so. Saying so
+  is a wording change without a change of value, which Stage 5 does not allow;
+  it needs an owner decision (P12).
+- The annual-ratio case: when no trailing window exists, the WACC still reads
+  the provider's ratio even if the latest annual row's base is the filed line.
+  None of the 17 cases reaches it.
+- The WACC sentence in the Markdown, print and web outputs now reads "WACC
+  10.471% ... tax rate 22.577%" where it read "WACC 10.5% ... tax rate 22.6%".
+  The values are right. The reader rule (`readerPrecision`,
+  `src/report/presentation.ts`, P22) rounds a percentage written with four or
+  more decimals and leaves three decimals as written (a coupon such as
+  "4.250% Notes"); 10.4710 and 22.5770 are stored as "10.471" and "22.577".
+  Changing that rule would reword other reports, so it is left for its owner.
+
+## D-239 - A provider zero for capital spending is undisclosed unless the filings state a zero (2026-11-12)
+
+Principles P7 (a vendor zero is undisclosed, not filed), P10 (withhold, never
+guess), P11 (a figure built on a refused input is refused), P12 (a fallback
+carries its qualification) and P17 (an unscored signal counts at the neutral
+midpoint). Round 2, Stage 5 (accuracy fixes), vendor-zero family. Revises the
+D-150 cash-capex convention for a provider figure of exactly 0; that
+convention is otherwise unchanged. The accuracy baseline (r2-base-afb9cddf,
+ranks 8 to 10) found JPMorgan's and Realty Income's "capital spending, latest
+fiscal year" shown as 0 USD with no filed line behind it, and called Realty
+Income's "operating income, latest fiscal year" (2,247,261,000) a vendor
+subtotal.
+
+Root cause, capital spending. The provider writes 0 on a cash-flow row for a
+line it did not find. The cash-flow admissions
+(`src/edgar/financialEnrichment.ts`) checked a non-zero quarterly figure
+against the annual tag basis (`admitQuarterlyCapex`) and the trailing
+construction (`filedCapexTtm`); nothing checked an annual figure, and nothing
+asked whether a figure of exactly 0 was filed. So the 0 was read as a figure:
+capital intensity 0%, and a free cash flow equal to operating cash flow.
+JPMorgan's filings tag no capital-spending line in any period. Realty Income's
+tag capital improvements (`PaymentsForCapitalImprovements`) and real-estate
+acquisitions (`PaymentsToAcquireCommercialRealEstate`) as separate lines, under
+neither capital-spending element; the provider's 2016 to 2024 rows carry the
+capital-improvements amount and its 2025 rows carry 0, so the trailing twelve
+months summed 0 + 26,314,000 + 1,957,862,000 + 38,782,000 across three
+different provider definitions. Viking Therapeutics' filings tag none either;
+the baseline lists its four figures as not established without ranking them.
+
+Choice, in the owner of the cash-flow admissions (`admitZeroCapex`), applied
+to annual and quarterly rows in the report's own data view
+(`withCashFlowSbcBasis`, `src/pipeline/cashFlowBasis.ts`), so the calculation,
+the filing disclosures and the AI context read one admitted value and stored
+inputs keep their bytes:
+
+1. A provider capital-spending figure of exactly 0 with no filed evidence on
+   the field is tested against the capital-spending lines of the admitted SEC
+   facts for the row's own period, in the row's currency, filed by the
+   analysis time: `PaymentsToAcquirePropertyPlantAndEquipment`,
+   `PaymentsToAcquireProductiveAssets` and `PaymentsToDevelopSoftware`, the tag
+   basis the quarterly and trailing rules already use. The period is the
+   fiscal year (350 to 380 days), or the standalone quarter, directly filed or
+   the difference of two year-to-date figures on one presentation.
+2. When every such line tagged for that period is 0, the zero is filed and
+   stays.
+3. When none is tagged for it, capital spending is undisclosed. When one
+   states an amount, the zero is contradicted. In both cases the field and the
+   standardized free cash flow that subtracts it are withheld for that period
+   and the provider observations are retained. The existing refusal record
+   (`StatementFieldConflict`, `usable: false`) carries it; no status word,
+   cause code, tolerance or synonym is added.
+4. One manifest entry (`statements.cashflow.capitalExpenditure`, warn) names
+   every withheld period and the cause.
+5. A non-zero provider figure, a row whose field already carries filed
+   evidence or an earlier decision, and an issuer without confirmed SEC facts
+   are not this rule's subject.
+6. The company page's free-cash-flow bars read the same admitted rows
+   (`fundamentalsChartDataFromBundle`).
+
+Figures that need a withheld period follow their own existing rules: a
+trailing twelve months with a withheld quarter is withheld; a growth window
+ends at the newest year that has the figure and says so; the cash runway is
+withheld; a score signal without its input leaves the average (P17). No
+scoring rule, penalty, cap or guard was changed.
+
+Operating income, Realty Income: checked and left as it is. The figure is not
+a vendor value (the provider's 1,627,080,400 is kept only as an observation).
+It is computed by the statement builder from four lines of Form 10-K
+0000726728-26-000011 (filed 2026-02-25, fiscal year 2025-01-01..2025-12-31):
+`IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest`
+1,155,129,000 + `InterestExpenseOperating` 1,134,879,000 -
+`OtherNonoperatingIncomeExpense` 29,417,000 -
+`IncomeLossFromEquityMethodInvestments` 13,330,000 = 2,247,261,000. The report
+shows it as "EBIT", source "computed", in the interest-coverage block and
+already states that it "is derived from filed pretax/nonoperating operands
+with unverified consolidated operating scope; it is not a directly filed
+operating result" (D-203's status for such a derivation); operating margins on
+it are already withheld. The filing has no `OperatingIncomeLoss` fact, as the
+baseline says, so the accuracy tool keeps the row "not established" until it
+carries a recipe for the derivation.
+
+Options rejected: reading every provider 0 as undisclosed whatever the filings
+say (a filed zero would become a gap); adding capital improvements or
+acquisitions as capital-spending synonyms for REITs (it changes the free cash
+flow convention, D-150, and is a definition decision of its own); taking a
+complete-looking investing section as proof of nil (Viking's two investing
+lines foot exactly to its net investing cash, but a figure inferred from a
+residual is what P10 forbids, and SEC company facts do not say which lines
+make up the section); marking capital intensity "not applicable" on the bank
+route (that is where the symptom showed, and Realty Income and Viking are not
+on that route); withholding every operating figure that is not a tagged
+`OperatingIncomeLoss` (it would reverse D-203 for every filer without the tag).
+
+### Approved report changes
+
+Same-report check, current main 7e59aff3 (with D-231 and D-233) against this
+change: 24 files and 3 payload fingerprints differ, all eight outputs of
+`jpm-data-only`, `o-data-only` and `vktx-data-only`; the other 14 cases, and
+every other figure of those three, are byte for byte unchanged. Against the
+round baseline r2-base-afb9cddf the same files differ, beside the TSM and Duke
+Energy files of D-231 and the three Realty Income leaves of D-233. The full
+leaf-level list and the approvals with their hashes are in
+`tmp/accuracy/s5-vendor-zeros-before-after.md` (not committed: it quotes
+vendor data).
+
+Proof of every new gap: the SEC company facts in each run input (cutoff
+2026-11-12) hold no fact under the three capital-spending elements for any
+period of JPMorgan (CIK 19617; fiscal 2025 is Form 10-K 0001628280-26-008131,
+filed 2026-02-13), Realty Income (CIK 726728; Form 10-K 0000726728-26-000011,
+filed 2026-02-25) or Viking Therapeutics (CIK 1607678; Form 10-K
+0001193125-26-046876, filed 2026-02-11). None of the 13 companies files a zero
+under those elements, so no filed zero is involved.
+
+JPM (`jpm-data-only`, bank route, USD):
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Capital spending, fiscal 2021 to 2025 | 0 each | withheld |
+| Capital spending / revenue, fiscal 2021 to 2024; capital spending / D&A, fiscal 2021 to 2025 | 0 each | withheld |
+| Capital-intensity slope | 0 pp/yr | withheld |
+| Quarterly table column "FCF (CFO - capex)" and the AI payload's statement lines for capital spending and free cash flow (each equal to operating cash flow) | shown | withheld |
+| Data gaps | 21 | 22 |
+
+No JPMorgan score, grade or valuation figure moves; free cash flow, debt/EBITDA
+and interest coverage were already "not applicable" on the bank route.
+
+O (`o-data-only`, equity-REIT route, USD), figures that become gaps:
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Capital spending, fiscal 2025; its ratio to revenue and to D&A; implied maintenance and growth capital spending | 0 each | withheld |
+| Free cash flow, fiscal 2025, before / after SBC | 3,994,754,000 / 3,963,984,000 | withheld |
+| FCF conversion, fiscal 2025, after / before SBC | 3.7054 / 3.7342 | withheld |
+| SBC as % of free cash flow, fiscal 2025 | 0.7703% | withheld |
+| Capital spending, trailing twelve months to 2026-09-30 | 2,022,958,000 | withheld |
+| Standardized free cash flow, trailing twelve months, before / after SBC | 2,126,036,000 / 2,089,882,000 | withheld |
+| FCF conversion before SBC and SBC as % of free cash flow, trailing twelve months | 1.4917 and 1.7005% | withheld |
+| Quarterly free cash flow, the four 2025 quarters | equal to operating cash flow | withheld |
+
+O, figures that move to another number through their own documented
+fallback. Each fiscal year's free cash flow below is the filed
+`NetCashProvidedByUsedInOperatingActivities` less the filed
+`PaymentsForCapitalImprovements`, both from the newest 10-K stating the year:
+
+| Figure | Before | After | Operands of the new value |
+| --- | --- | --- | --- |
+| Free cash flow CAGR, 1 year | 15.7274% (2024 to 2025) | 19.4385% (2023 to 2024) | 2,890,077,000 (2,958,769,000 - 68,692,000) to 3,451,865,000 (3,573,276,000 - 121,411,000), both 10-K 0000726728-26-000011 |
+| Free cash flow CAGR, 3 years | 17.4072% (2022 to 2025) | 38.3644% (2021 to 2024) | 1,303,109,000 (1,322,189,000 - 19,080,000; 10-K 0000726728-24-000047, filed 2024-02-21) to 3,451,865,000 |
+| Free cash flow CAGR, 5 years | 29.2651% (2020 to 2025) | 26.9855% (2019 to 2024) | 1,045,401,000 (1,068,937,000 - 23,536,000; 10-K 0000726728-22-000046, filed 2022-02-23) to 3,451,865,000 |
+| Free cash flow CAGR, "10 years" | 21.1535% over 8 years | 21.9491% over 7 years (2017 to 2024) | 860,603,000 (875,850,000 - 15,247,000; 10-K 0000726728-20-000033, filed 2020-02-24) to 3,451,865,000 |
+| Capital-intensity slope | -0.2387 pp/yr (five years, the last a false 0) | +0.2985 pp/yr (2021 to 2024) | the four unchanged ratios 0.9171%, 2.8566%, 1.6840%, 2.3033%: capital improvements 19,080,000 / 95,514,000 / 68,692,000 / 121,411,000 over `Revenues` 2,080,463,000 / 3,343,681,000 / 4,078,993,000 / 5,271,142,000 |
+| Capital spending / D&A, average | 0.03307 (5 years) | 0.04134 (4 years) | mean of the four unchanged ratios, on `DepreciationDepletionAndAmortization` 897,835,000 / 1,670,389,000 / 1,895,177,000 / 2,395,644,000 |
+
+Each window says "latest 1 period(s) missing - endpoint moved to 2024-12-31".
+Whether capital improvements alone are a REIT's capital spending is not
+decided here (D-150).
+
+O, scores (P17):
+
+| Figure | Before | After | Why |
+| --- | --- | --- | --- |
+| Fundamentals | 86.09 (A) | 85.45 (A) | the free-cash-flow growth signal reads 26.99% instead of 29.27% |
+| Balance sheet | 88.69 on 41.2% of signals, no letter shown | not scored | its two signals were FCF conversion and SBC as % of free cash flow |
+| Business quality | 56.14 (C) | 52.50 (D) | the two rows above |
+| Composite | 53.60, not graded, evidence 33.6% | 51.09, not graded, evidence 27.2% | the composite note now names Balance sheet (15%) as unscored |
+| Data gaps | 32 | 33 | |
+
+FFO, AFFO, their per-share values, P/FFO, P/AFFO, EBIT and interest coverage
+are unchanged for Realty Income.
+
+VKTX (`vktx-data-only`, general route, unprofitable and pre-revenue, USD):
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Capital spending, fiscal 2021 to 2025; capital spending / D&A; implied maintenance and growth capital spending | 0 each | withheld |
+| Free cash flow before SBC, fiscal 2021 to 2025 | -47,586,000 / -48,397,000 / -73,376,000 / -87,790,000 / -278,685,000 (each equal to operating cash flow) | withheld |
+| Free cash flow after SBC, same years | -53,686,000 / -57,070,000 / -90,126,000 / -117,502,000 / -319,503,000 | withheld |
+| Capital spending, trailing twelve months to 2026-09-30 | 0 | withheld |
+| Standardized free cash flow, trailing twelve months, before / after SBC | -462,632,000 / -510,581,000 | withheld |
+| Cash runway (AI payload and stored computation; the data-only report does not print it): average quarterly burn 115,658,000; 8.30 quarters; exhaustion 2028-10-26 | shown | withheld |
+| Balance sheet | 14.57 on 41.2% of signals, no letter shown | 18.00 on 23.5% of signals, no letter shown |
+| Business quality | 44.04 | 45.64 |
+| Composite | 42.46, not graded, evidence 36.3% | 43.95, not graded, evidence 32.6% |
+| Data gaps | 51 | 54 |
+
+Viking's balance-sheet and composite scores rise because the signal that left
+was at the floor ("SBC as % of free cash flow", 10 of 100, free cash flow
+being negative). That is P17's documented neutral-midpoint behaviour; the grade
+was and stays "Not graded". Viking's operating cash flow, liquid assets
+(959,813,000) and income-statement figures are unchanged.
+
+Accuracy check (`accuracy:check`, the unmerged tool at ab12411d, run against
+this change's 17 cases): 153 match, 15 mismatch, 72 gap, 26 not established;
+nine differences from its expectation, all "BETTER, not established to gap"
+(JPM capex.fy; O capex.fy, fcf.fy, capex.ttm, fcf.ttm; VKTX capex.fy, fcf.fy,
+capex.ttm, fcf.ttm), none worse. Current main gives 63 gap and 35 not
+established.
+
+Tests (`tests/financialEnrichment.zeroCapex.test.ts`, 21 cases, 19 of which
+fail before the change): JPMorgan, Realty Income (fiscal 2025, the December
+2025 quarter, and fiscal 2024 unchanged) and Viking on their filed facts; the
+capital block before and after; the compatible control, a constructed issuer
+whose filings tag a zero (fiscal year, direct quarter, year-to-date derived
+quarter, and two elements together); an unrelated issuer, Progressive, whose
+filed 348,000,000 is untouched and against which a 0 is contradicted (fiscal
+year and a year-to-date derived quarter); what the rule never does (filed
+evidence or an earlier decision on the field, another issuer, unknown
+currency, a missing figure; a zero filed after the analysis time, in another
+currency or for another period); the manifest entry; and the data view
+(stored rows untouched, applying it twice changes nothing, the company page's
+bars). No existing test changed.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change advances the Stage B
+implementation stamp only; the report specification and the payload format are
+unchanged. Frozen records are unchanged. Saved reports are immutable (P21) and
+keep the figures they were built with.
+
+Left for follow-up, described in `tmp/accuracy/s5-vendor-zeros-before-after.md`:
+establishing "none presented" from the filing's own cash-flow statement where
+the investing section is complete without a capital-spending or "other
+investing" line (it would restore Viking's free cash flow and runway as proven
+figures); a REIT definition of capital spending; and the interest-coverage
+ratio for Realty Income, which divides the derived EBIT (built with the filed
+`InterestExpenseOperating` 1,134,879,000) by the provider's interest expense
+1,142,201,000.
+
 ## D-234 - FIGR: the 10-K's share counts and the 10-Q's own borrowings replace two vendor figures (2026-11-12)
 
 Principles P8 (filed beats vendor), P3 (share basis), P6 (share classes), P7
@@ -3987,7 +4505,7 @@ Report 1.37.0, payload 1.42.0 and Stage B ACCOUNTING_EVIDENCE_19 mark these conv
 
 The independent audit of 2026-10-22 found figures withheld although the filed evidence was complete, reports that did not say a newer quarter had been published, and a 10-K operating figure argued from after a newer 10-Q had replaced it. Batch 3a covers findings B-32, B-5, A-11, B-7, B-8 (with B-37 as far as B-8 needs it), B-24 (with B-26 as far as B-24 needs it) and C-16. Every rule is class-wide; none names a ticker.
 
-- **Owner decision: WACC tax rate (B-32).** Without a trailing rate, the latest annual effective rate (tax expense over pre-tax income) is used, with the basis stated. A trailing pre-tax loss, or an annual one when it is the basis, gets a 0% shield, disclosed. The existing 0–35% clamp still applies and is disclosed when it moves the rate. With neither a trailing nor an annual pair, the levered WACC is still withheld. On the SEC path, pre-tax income is the sum of its domestic and foreign components when no total is tagged, with the composition disclosed.
+- **Owner decision: WACC tax rate (B-32).** Without a trailing rate, the latest annual effective rate (tax expense over pre-tax income) is used, with the basis stated. (Revised by D-237: pre-tax income in these rates is the provision's own base, and the provider's ratio is not used where the filings moved the trailing pair's denominator off the provider's figure.) A trailing pre-tax loss, or an annual one when it is the basis, gets a 0% shield, disclosed. The existing 0–35% clamp still applies and is disclosed when it moves the rate. With neither a trailing nor an annual pair, the levered WACC is still withheld. On the SEC path, pre-tax income is the sum of its domestic and foreign components when no total is tagged, with the composition disclosed.
 - **Owner decision: principal beside carrying debt (B-5).** A filed debt aggregate above the carrying components by up to 2% of them, or 50 million in the reporting currency, whichever is larger, is read as unamortized discount and issuance cost, and the components are admitted. The band is measured on the financing components (leases excluded), and the 50 million floor reaches at most 10% of them, so a small issuer's notes are never read as mostly discount. Beyond that band total and net debt are withheld with a gap naming both figures. Batch 1's 1% rule for a tagged carrying total (`uncomposedDebtReason`) is unchanged: that total is on the components' own basis, so only rounding can separate them, whereas a principal aggregate is on another basis.
 - **Owner decision: vendor against filed figures (A-11).** A vendor figure and the filed figure for the same period agree when they differ by no more than one reporting unit (the largest power of ten up to a million dividing both) or 0.01% of the larger, whichever is wider. The reporting-unit allowance applies only when the larger figure is at least 100 units, so it never exceeds 1% of it. A zero against a nonzero figure gets no reporting-unit allowance. This judges two statements of one figure, so it is far narrower than the debt band.
 - **Owner decision: D&A from separate lines (B-7).** With no combined tag for a period, D&A is `Depreciation` + `AmortizationOfIntangibleAssets`, else `Depreciation` alone, disclosed as a lower bound for the period. Amortization alone is never D&A. `Depreciation` alone is kept, not withheld: the two-line sum is itself a lower bound (a combined line can hold other amortization), and Alphabet tags amortization in some quarters only, so withholding the one-line form would drop its EBITDA for the quarters that lack it. The disclosure is in the data gaps and audit appendix; carrying it onto the EV/EBITDA row is left for a later batch.
@@ -5480,6 +5998,8 @@ separate complete remeasurement. The measured FIG difference is 1.302M on
 231.012M FCF (0.6% rounded). Preserving the disclosed retained basis avoids
 silently substituting an accounting convention without comparable period
 inputs. METHODOLOGY states this plainly; no stored report is rewritten.
+(Revised by D-239: a provider figure of exactly 0 is no longer retained as
+capital spending unless the filings state a zero for that period.)
 
 ## D-151 - N3: SEC-built rows on a filed-total conflict (2026-11-02)
 
@@ -8482,7 +9002,10 @@ source area was edited. The earnings policy below is the final ordered rule.
 
 Ownership alternatives and independently filed equity-method bridges remain
 valid. A filed pretax line excluding equity-method income is bridged only with
-the separately filed compatible equity-method amount. A separately filed
+the separately filed compatible equity-method amount. (Revised by D-237: the
+bridged figure stays the pre-tax income of the earnings identity, and an
+effective tax rate divides by the filed line itself, which the admission now
+records beside it.) A separately filed
 nonzero discontinued result prevents a continuing pretax/tax family from being
 called a complete total-profit family. Consolidated, parent and common profit
 are not interchangeable labels. Adoption reconciles their aliases and ratios;

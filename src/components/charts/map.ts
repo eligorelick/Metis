@@ -1,4 +1,5 @@
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { withFilerShareUnits } from "@/pipeline/shareUnits";
 /**
  * Chart-data mapping — pure, server-safe adapters that turn the pipeline's rich
@@ -244,7 +245,8 @@ export function fundamentalsChartDataFromBundle(
   bundle: DataBundle,
   computed: ComputedMetrics,
 ): FundamentalsChartData {
-  bundle = bundle.edgar ? withIncomeOperatingBasis(withFilerShareUnits(bundle)) : bundle;
+  // D-239: the FCF bars read the same admitted cash-flow rows as the report (a provider zero capex is not a figure).
+  bundle = bundle.edgar ? withCashFlowSbcBasis(withIncomeOperatingBasis(withFilerShareUnits(bundle))) : bundle;
   bundle = balanceIntegrityView(bundle);
   const incomeAnnual = rowsOf<FmpIncomeStatementRow>(bundle.statements.incomeAnnual);
   const cashflowAnnual = rowsOf<FmpCashFlowRow>(bundle.statements.cashflowAnnual);
