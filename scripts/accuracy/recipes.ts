@@ -111,6 +111,11 @@ const US = {
   operatingIncome: ["OperatingIncomeLoss"],
   // Attributable to the parent (P5); ProfitLoss, which includes non-controlling interests, is never an alias.
   netIncome: ["NetIncomeLoss"],
+  // Consolidated profit, including non-controlling interests: the line a cash-flow statement starts from. The
+  // free-cash-flow series and the current-capital window hold this line by definition (D-212, D-238: consolidated
+  // cash flow is divided by consolidated profit, never the parent's). A filer with one profit line tags only
+  // NetIncomeLoss, and that line is then its consolidated profit.
+  consolidatedProfit: ["ProfitLoss", "NetIncomeLoss"],
   eps: ["EarningsPerShareDiluted"],
   dilutedShares: ["WeightedAverageNumberOfDilutedSharesOutstanding"],
   // The cash-flow statement's purchase line, a positive outflow; filers use one element or the other for it.
@@ -334,13 +339,13 @@ const FCF: Recipe = { op: "sum", terms: [{ role: "operating cash flow", sign: 1,
 export const DEFAULT_RECIPES: Record<string, Recipe> = {
   "revenue.fy": flow(US.revenue),
   "operatingIncome.fy": flow(US.operatingIncome),
-  "netIncome.fy": flow(US.netIncome),
+  "netIncome.fy": flow(US.consolidatedProfit),
   "epsDiluted.fy": flow(US.eps, "{currency}/shares"),
   "dilutedShares.fy": flow(US.dilutedShares, "shares"),
   "capex.fy": flow(US.capex),
   "fcf.fy": FCF,
   "operatingIncome.ttm": flow(US.operatingIncome),
-  "netIncome.ttm": flow(US.netIncome),
+  "netIncome.ttm": flow(US.consolidatedProfit),
   "operatingCashFlow.ttm": flow(US.ocf),
   "capex.ttm": flow(US.capex),
   "fcf.ttm": FCF,

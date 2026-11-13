@@ -1,7 +1,7 @@
 {
   "about": "Filed reference values for npm run accuracy:check, built by npm run accuracy:fetch from SEC EDGAR XBRL companyfacts (public SEC facts). Periods and cutoffs come from the golden run's reports; values come only from the filings. Rebuild with: npm run accuracy:fetch -- --network --run <golden run>.",
   "source": "https://data.sec.gov/api/xbrl/companyfacts/",
-  "builtFrom": "tmp/golden/r2-base-afb9cddf",
+  "builtFrom": "tmp/golden/batch4-s3",
   "cases": {
     "amzn-data-only": {
       "ticker": "AMZN",
@@ -1182,21 +1182,21 @@
       "case": "figr-data-only",
       "figure": "netIncome.fy",
       "period": "FY:2025-12-31",
-      "value": 133858000,
+      "value": 134281000,
       "kind": "filed",
       "unit": "currency",
       "currency": "USD",
       "formula": "filed line",
       "operands": [
-        133858000
+        134281000
       ],
       "points": [
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-12-31",
-          "val": 133858000,
+          "val": 134281000,
           "form": "10-K",
           "accn": "0002064124-26-000009",
           "filed": "2026-03-16",
@@ -1391,23 +1391,23 @@
       "case": "figr-data-only",
       "figure": "netIncome.ttm",
       "period": "TTM:2025-07-01..2026-06-30",
-      "value": 237127000,
+      "value": 237383000,
       "kind": "derived",
       "unit": "currency",
       "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
-        133858000,
-        132391000,
-        29122000
+        134281000,
+        132483000,
+        29381000
       ],
       "points": [
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-12-31",
-          "val": 133858000,
+          "val": 134281000,
           "form": "10-K",
           "accn": "0002064124-26-000009",
           "filed": "2026-03-16",
@@ -1415,11 +1415,11 @@
           "sign": 1
         },
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2026-01-01",
           "end": "2026-06-30",
-          "val": 132391000,
+          "val": 132483000,
           "form": "10-Q",
           "accn": "0001628280-26-057061",
           "filed": "2026-08-14",
@@ -1427,11 +1427,11 @@
           "sign": 1
         },
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-06-30",
-          "val": 29122000,
+          "val": 29381000,
           "form": "10-Q",
           "accn": "0001628280-26-057061",
           "filed": "2026-08-14",
@@ -5541,21 +5541,21 @@
       "case": "o-data-only",
       "figure": "netIncome.fy",
       "period": "FY:2025-12-31",
-      "value": 1058590000,
+      "value": 1069783000,
       "kind": "filed",
       "unit": "currency",
       "currency": "USD",
       "formula": "filed line",
       "operands": [
-        1058590000
+        1069783000
       ],
       "points": [
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-12-31",
-          "val": 1058590000,
+          "val": 1069783000,
           "form": "10-K",
           "accn": "0000726728-26-000011",
           "filed": "2026-02-25",
@@ -5645,23 +5645,23 @@
       "case": "o-data-only",
       "figure": "netIncome.ttm",
       "period": "TTM:2025-10-01..2026-09-30",
-      "value": 1355748000,
+      "value": 1425224000,
       "kind": "derived",
       "unit": "currency",
       "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
-        1058590000,
-        1059663000,
-        762505000
+        1069783000,
+        1123588000,
+        768147000
       ],
       "points": [
         {
-          "concept": "NetIncomeLossAvailableToCommonStockholdersBasic",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-12-31",
-          "val": 1058590000,
+          "val": 1069783000,
           "form": "10-K",
           "accn": "0000726728-26-000011",
           "filed": "2026-02-25",
@@ -5669,11 +5669,11 @@
           "sign": 1
         },
         {
-          "concept": "NetIncomeLossAvailableToCommonStockholdersBasic",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2026-01-01",
           "end": "2026-09-30",
-          "val": 1059663000,
+          "val": 1123588000,
           "form": "10-Q",
           "accn": "0000726728-26-000059",
           "filed": "2026-11-03",
@@ -5681,11 +5681,11 @@
           "sign": 1
         },
         {
-          "concept": "NetIncomeLossAvailableToCommonStockholdersBasic",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-09-30",
-          "val": 762505000,
+          "val": 768147000,
           "form": "10-Q",
           "accn": "0000726728-26-000059",
           "filed": "2026-11-03",
@@ -5693,8 +5693,7 @@
           "sign": -1
         }
       ],
-      "notes": [],
-      "recipeWhy": "O's 10-Q for 2026-09-30 tags net income available to common stockholders, not NetIncomeLoss; O paid no preferred dividends (PaymentsOfDividendsPreferredStockAndPreferenceStock 0 in FY2025), so the two coincide in FY2025 (1,058,590k)"
+      "notes": []
     },
     {
       "case": "o-data-only",
@@ -6142,21 +6141,21 @@
       "case": "duk-data-only",
       "figure": "netIncome.fy",
       "period": "FY:2025-12-31",
-      "value": 4968000000,
+      "value": 5071000000,
       "kind": "filed",
       "unit": "currency",
       "currency": "USD",
       "formula": "filed line",
       "operands": [
-        4968000000
+        5071000000
       ],
       "points": [
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-12-31",
-          "val": 4968000000,
+          "val": 5071000000,
           "form": "10-K",
           "accn": "0001326160-26-000014",
           "filed": "2026-02-26",
@@ -6349,23 +6348,23 @@
       "case": "duk-data-only",
       "figure": "netIncome.ttm",
       "period": "TTM:2025-10-01..2026-09-30",
-      "value": 5391000000,
+      "value": 5578000000,
       "kind": "derived",
       "unit": "currency",
       "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
-        4968000000,
-        4207000000,
-        3784000000
+        5071000000,
+        4372000000,
+        3865000000
       ],
       "points": [
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-12-31",
-          "val": 4968000000,
+          "val": 5071000000,
           "form": "10-K",
           "accn": "0001326160-26-000014",
           "filed": "2026-02-26",
@@ -6373,11 +6372,11 @@
           "sign": 1
         },
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2026-01-01",
           "end": "2026-09-30",
-          "val": 4207000000,
+          "val": 4372000000,
           "form": "10-Q",
           "accn": "0001326160-26-000051",
           "filed": "2026-11-05",
@@ -6385,11 +6384,11 @@
           "sign": 1
         },
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-09-30",
-          "val": 3784000000,
+          "val": 3865000000,
           "form": "10-Q",
           "accn": "0001326160-26-000051",
           "filed": "2026-11-05",
@@ -6715,21 +6714,21 @@
       "case": "tsm-data-only",
       "figure": "netIncome.fy",
       "period": "FY:2025-12-31",
-      "value": 1697604000000,
+      "value": 1695124900000,
       "kind": "filed",
       "unit": "currency",
       "currency": "TWD",
       "formula": "filed line",
       "operands": [
-        1697604000000
+        1695124900000
       ],
       "points": [
         {
-          "concept": "ifrs-full:ProfitLossAttributableToOwnersOfParent",
+          "concept": "ifrs-full:ProfitLoss",
           "unit": "TWD",
           "start": "2025-01-01",
           "end": "2025-12-31",
-          "val": 1697604000000,
+          "val": 1695124900000,
           "form": "20-F",
           "accn": "0001628280-26-025362",
           "filed": "2026-04-16",
@@ -6738,7 +6737,7 @@
         }
       ],
       "notes": [],
-      "recipeWhy": "IFRS filer: profit attributable to owners of the parent"
+      "recipeWhy": "IFRS filer: consolidated profit (D-238), the line the cash-flow statement starts from; the parent's line only where the filing states no other"
     },
     {
       "case": "tsm-data-only",
@@ -6884,8 +6883,8 @@
       "case": "tsm-data-only",
       "figure": "netIncome.ttm",
       "period": "TTM:2025-10-01..2026-09-30",
-      "unresolved": "the TTM to 2026-09-30 cannot be built from filed periods for ifrs-full:ProfitLossAttributableToOwnersOfParent (fiscal year to 2025-12-31): the fiscal year plus the year to date to 2026-09-30 less the prior-year year to date, both year-to-date operands from one filing and all three on one basis (no operand restated by a filing the others predate), are not all tagged in XBRL on or before the cutoff",
-      "recipeWhy": "IFRS filer"
+      "unresolved": "the TTM to 2026-09-30 cannot be built from filed periods for ifrs-full:ProfitLoss (fiscal year to 2025-12-31), ifrs-full:ProfitLossAttributableToOwnersOfParent (fiscal year to 2025-12-31): the fiscal year plus the year to date to 2026-09-30 less the prior-year year to date, both year-to-date operands from one filing and all three on one basis (no operand restated by a filing the others predate), are not all tagged in XBRL on or before the cutoff",
+      "recipeWhy": "IFRS filer: consolidated profit (D-238), the line the cash-flow statement starts from; the parent's line only where the filing states no other"
     },
     {
       "case": "tsm-data-only",
@@ -7045,21 +7044,21 @@
       "case": "rivn-data-only",
       "figure": "netIncome.fy",
       "period": "FY:2025-12-31",
-      "value": -3646000000,
+      "value": -3626000000,
       "kind": "filed",
       "unit": "currency",
       "currency": "USD",
       "formula": "filed line",
       "operands": [
-        -3646000000
+        -3626000000
       ],
       "points": [
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-12-31",
-          "val": -3646000000,
+          "val": -3626000000,
           "form": "10-K",
           "accn": "0001874178-26-000008",
           "filed": "2026-02-12",
@@ -7252,23 +7251,23 @@
       "case": "rivn-data-only",
       "figure": "netIncome.ttm",
       "period": "TTM:2025-10-01..2026-09-30",
-      "value": -2973000000,
+      "value": -2964000000,
       "kind": "derived",
       "unit": "currency",
       "currency": "USD",
       "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
-        -3646000000,
-        -2162000000,
-        -2835000000
+        -3626000000,
+        -2160000000,
+        -2822000000
       ],
       "points": [
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-12-31",
-          "val": -3646000000,
+          "val": -3626000000,
           "form": "10-K",
           "accn": "0001874178-26-000008",
           "filed": "2026-02-12",
@@ -7276,11 +7275,11 @@
           "sign": 1
         },
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2026-01-01",
           "end": "2026-09-30",
-          "val": -2162000000,
+          "val": -2160000000,
           "form": "10-Q",
           "accn": "0001874178-26-000066",
           "filed": "2026-10-29",
@@ -7288,11 +7287,11 @@
           "sign": 1
         },
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-09-30",
-          "val": -2835000000,
+          "val": -2822000000,
           "form": "10-Q",
           "accn": "0001874178-26-000066",
           "filed": "2026-10-29",
@@ -7708,7 +7707,7 @@
       ],
       "points": [
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-12-31",
@@ -7860,7 +7859,7 @@
       ],
       "points": [
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-12-31",
@@ -7872,7 +7871,7 @@
           "sign": 1
         },
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2026-01-01",
           "end": "2026-09-30",
@@ -7884,7 +7883,7 @@
           "sign": 1
         },
         {
-          "concept": "NetIncomeLoss",
+          "concept": "ProfitLoss",
           "unit": "USD",
           "start": "2025-01-01",
           "end": "2025-09-30",

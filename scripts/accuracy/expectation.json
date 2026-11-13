@@ -181,11 +181,10 @@
     {
       "case": "figr-data-only",
       "figure": "netIncome.fy",
-      "status": "mismatch",
-      "valueSha256": "3c85f88938f3f85e",
-      "cause": "definition",
+      "status": "match",
+      "valueSha256": null,
       "note": "Equals the filed consolidated ProfitLoss 134,281k (including 423k NCI); the filed parent line NetIncomeLoss is 133,858k. The FCF series is documented as consolidated, but the row is labelled net income.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
     },
     {
       "case": "figr-data-only",
@@ -226,11 +225,10 @@
     {
       "case": "figr-data-only",
       "figure": "netIncome.ttm",
-      "status": "mismatch",
-      "valueSha256": "46a0c388c41b2be9",
-      "cause": "definition",
+      "status": "match",
+      "valueSha256": null,
       "note": "Consolidated profit including NCI, as for the fiscal year; the filed parent NetIncomeLoss TTM is 237,127k.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
     },
     {
       "case": "figr-data-only",
@@ -1222,11 +1220,10 @@
     {
       "case": "o-data-only",
       "figure": "netIncome.fy",
-      "status": "mismatch",
-      "valueSha256": "1e3e220b3cae5dcc",
-      "cause": "definition",
+      "status": "match",
+      "valueSha256": null,
       "note": "Equals the filed consolidated ProfitLoss 1,069,783k (including 11,193k NCI); the parent line is 1,058,590k. The FFO reconstruction itself uses the parent figure.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
     },
     {
       "case": "o-data-only",
@@ -1267,11 +1264,10 @@
     {
       "case": "o-data-only",
       "figure": "netIncome.ttm",
-      "status": "mismatch",
-      "valueSha256": "87e6fbd86677c428",
-      "cause": "definition",
+      "status": "match",
+      "valueSha256": null,
       "note": "Equals consolidated ProfitLoss TTM (1,069,783k + 1,123,588k − 768,147k = 1,425,224k); income available to common TTM is 1,355,748k.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
     },
     {
       "case": "o-data-only",
@@ -1383,9 +1379,9 @@
     {
       "case": "duk-data-only",
       "figure": "netIncome.fy",
-      "status": "match",
-      "valueSha256": null,
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "mismatch",
+      "valueSha256": "5d2c66c4217aef66",
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
     },
     {
       "case": "duk-data-only",
@@ -1504,10 +1500,10 @@
     {
       "case": "tsm-data-only",
       "figure": "netIncome.fy",
-      "status": "match",
-      "valueSha256": null,
+      "status": "mismatch",
+      "valueSha256": "fe0f7f55a57aedf0",
       "note": "Neither the filed profit attributable to owners of the parent (1,697,604,000k TWD) nor consolidated profit (1,695,124,900k) in the 2025 20-F (0001628280-26-025362); the figure is stated to the thousand while the filing states 100k.",
-      "changeReason": "D-231 (#152): TSM annual cash-flow net income now equals the filed profit attributable to owners of the parent, 1,697,604,000,000 TWD (20-F 0001628280-26-025362)"
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
     },
     {
       "case": "tsm-data-only",
@@ -1673,11 +1669,10 @@
     {
       "case": "rivn-data-only",
       "figure": "netIncome.fy",
-      "status": "mismatch",
-      "valueSha256": "fde44099749d42fc",
-      "cause": "definition",
+      "status": "match",
+      "valueSha256": null,
       "note": "Equals the filed consolidated ProfitLoss −3,626M (including 20M NCI); the parent NetIncomeLoss is −3,646M.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
     },
     {
       "case": "rivn-data-only",
@@ -1717,11 +1712,10 @@
     {
       "case": "rivn-data-only",
       "figure": "netIncome.ttm",
-      "status": "mismatch",
-      "valueSha256": "038a94018a1bc84b",
-      "cause": "definition",
+      "status": "match",
+      "valueSha256": null,
       "note": "Consolidated profit including NCI, as for the fiscal year; the parent NetIncomeLoss TTM is −2,973M.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
     },
     {
       "case": "rivn-data-only",

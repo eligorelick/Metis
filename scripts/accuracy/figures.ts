@@ -125,7 +125,7 @@ export function extractFigures(stageB: Json, report: Json): MetisFigure[] {
   add({ id: "operatingIncome.fy", label: "Operating income, latest fiscal year", group: "statement", value: num(stageB, "capital.interestCoverage.ebit"), period: fyPeriod(fyEnd), unit: "currency", currency: statementCurrency, source: "capital.interestCoverage.ebit" },
     [/^capital\.interestCoverage/, /operatingIncome/]);
   const lastFcf = at(stageB, "capital.fcf.series.-1") as Json | undefined;
-  add({ id: "netIncome.fy", label: "Net income, latest fiscal year", group: "statement", value: lastFcf && lastFcf.date === fyEnd ? num(lastFcf, "netIncome") : null, period: fyPeriod(fyEnd), unit: "currency", currency: statementCurrency, source: "capital.fcf.series[-1].netIncome" },
+  add({ id: "netIncome.fy", label: "Net income, latest fiscal year (consolidated: the free-cash-flow series)", group: "statement", value: lastFcf && lastFcf.date === fyEnd ? num(lastFcf, "netIncome") : null, period: fyPeriod(fyEnd), unit: "currency", currency: statementCurrency, source: "capital.fcf.series[-1].netIncome" },
     [/^capital\.fcf/, /incomeAnnual\.netIncome/, /^statements\.income\.\d{4}-\d{2}-\d{2}\.netIncome$/]);
   add({ id: "epsDiluted.fy", label: "Diluted EPS, latest fiscal year", group: "statement", value: num(stageB, "growth.epsDilutedCagrs.0.endValue"), period: fyPeriod(str(stageB, "growth.epsDilutedCagrs.0.endDate")), unit: "currency/share", currency: statementCurrency, source: "growth.epsDilutedCagrs[0].endValue" },
     [/epsDiluted/, /dilutedEps/i]);
@@ -139,7 +139,7 @@ export function extractFigures(stageB: Json, report: Json): MetisFigure[] {
 
   // ---- Current basis: the TTM cash bridge and the latest balance the report's capital section uses.
   add({ id: "operatingIncome.ttm", label: "Operating income, TTM (current capital; DCF starting-margin numerator)", group: "current", value: num(stageB, "capital.current.ebit"), period: ttm, unit: "currency", currency: currentCurrency, source: "capital.current.ebit", reportNote: num(stageB, "capital.current.ebit") === null ? fallback(stageB) : undefined });
-  add({ id: "netIncome.ttm", label: "Net income, TTM (current capital)", group: "current", value: num(stageB, "capital.current.netIncome"), period: ttm, unit: "currency", currency: currentCurrency, source: "capital.current.netIncome", reportNote: num(stageB, "capital.current.netIncome") === null ? consolidatedWindowNote(stageB) : undefined },
+  add({ id: "netIncome.ttm", label: "Net income, TTM (consolidated: current capital)", group: "current", value: num(stageB, "capital.current.netIncome"), period: ttm, unit: "currency", currency: currentCurrency, source: "capital.current.netIncome", reportNote: num(stageB, "capital.current.netIncome") === null ? consolidatedWindowNote(stageB) : undefined },
     [/compute\.ttmIncome/]);
   add({ id: "operatingCashFlow.ttm", label: "Operating cash flow, TTM", group: "current", value: num(stageB, "capital.current.cashBridge.operatingCashFlow"), period: ttm, unit: "currency", currency: currentCurrency, source: "capital.current.cashBridge.operatingCashFlow", reportNote: num(stageB, "capital.current.cashBridge.operatingCashFlow") === null ? fallback(stageB) : undefined },
     [/compute\.ttmCashFlow\.operatingCashFlow/]);

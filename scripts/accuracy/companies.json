@@ -473,16 +473,6 @@
       "cik": 726728,
       "currency": "USD",
       "overrides": {
-        "netIncome.ttm": {
-          "recipe": {
-            "op": "flow",
-            "concepts": [
-              "NetIncomeLoss",
-              "NetIncomeLossAvailableToCommonStockholdersBasic"
-            ]
-          },
-          "why": "O's 10-Q for 2026-09-30 tags net income available to common stockholders, not NetIncomeLoss; O paid no preferred dividends (PaymentsOfDividendsPreferredStockAndPreferenceStock 0 in FY2025), so the two coincide in FY2025 (1,058,590k)"
-        },
         "capex.fy": {
           "recipe": {
             "op": "none",
@@ -662,10 +652,11 @@
           "recipe": {
             "op": "flow",
             "concepts": [
+              "ifrs-full:ProfitLoss",
               "ifrs-full:ProfitLossAttributableToOwnersOfParent"
             ]
           },
-          "why": "IFRS filer: profit attributable to owners of the parent"
+          "why": "IFRS filer: consolidated profit (D-238), the line the cash-flow statement starts from; the parent's line only where the filing states no other"
         },
         "epsDiluted.fy": {
           "recipe": {
@@ -737,10 +728,11 @@
           "recipe": {
             "op": "flow",
             "concepts": [
+              "ifrs-full:ProfitLoss",
               "ifrs-full:ProfitLossAttributableToOwnersOfParent"
             ]
           },
-          "why": "IFRS filer"
+          "why": "IFRS filer: consolidated profit (D-238), the line the cash-flow statement starts from; the parent's line only where the filing states no other"
         },
         "operatingCashFlow.ttm": {
           "recipe": {
