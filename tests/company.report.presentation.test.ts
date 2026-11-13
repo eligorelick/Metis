@@ -67,6 +67,7 @@ vi.mock("@/components/watchlist/Sidebar", () => ({
 import CompanyPage, { CompanyBody } from "@/app/company/[symbol]/page";
 import { ReportTabs } from "@/app/company/[symbol]/ReportTabs";
 import { ReportNotes } from "@/components/report/ReportNotes";
+import { ResearchNavigation } from "@/components/report/ResearchNavigation";
 import { GenerateReport } from "@/app/company/[symbol]/GenerateReport";
 import { resetConfigCache } from "@/config/env";
 import SavedReportPage from "@/app/company/[symbol]/report/[reportId]/page";
@@ -103,6 +104,17 @@ function structuralText(node: ReactNode): string {
 function invoke(element: ReactElement<Props>): ReactElement<Props> {
   expect(typeof element.type).toBe("function");
   return (element.type as FunctionComponent<Props>)(element.props) as ReactElement<Props>;
+}
+
+/**
+ * The saved page's link to the live ticker data. Classic passes it as a plain
+ * link; the dossier (the default, D-245) renders it inside ResearchNavigation,
+ * which is expanded here so both layouts are searched the same way.
+ */
+function liveLinkWithin(tree: ReactNode, href: string): ReactElement<Props> | undefined {
+  const elements = elementsWithin(tree);
+  const navigation = elements.filter((element) => element.type === ResearchNavigation).flatMap((element) => elementsWithin(invoke(element)));
+  return [...elements, ...navigation].find((element) => element.props.href === href);
 }
 
 async function renderLiveReturnsPanel(
@@ -260,7 +272,7 @@ describe("persisted report presentation", () => {
     expect(elementsWithin(tree).some((element) => element.type === CompanyBody)).toBe(false);
     expect(harness.buildDataBundle).not.toHaveBeenCalled();
     expect(harness.runStageB).not.toHaveBeenCalled();
-    const liveLink = elementsWithin(tree).find((element) => element.props.href === "/company/DEMO?view=live");
+    const liveLink = liveLinkWithin(tree, "/company/DEMO?view=live");
     expect(liveLink).toBeDefined();
     expect(liveLink!.props.prefetch).toBe(false);
     expect(JSON.stringify(report)).toBe(before);
@@ -390,14 +402,14 @@ describe("persisted report presentation", () => {
 
     const reportNode = invoke(companyPersisted);
     expect(reportNode.type).toBe(ReportView);
-    expect(reportNode.props).toEqual({report,selectedReportId:42});
+    expect(reportNode.props).toEqual({report,layout:"dossier",selectedReportId:42}); // The default layout (D-245).
     expect(elementsWithin(reportNode).some((element) => element.type === TechnicalsChartPanel)).toBe(false);
     expect(elementsWithin(reportNode).some((element) => element.type === FundamentalsChartGrid)).toBe(false);
   });
 
   it("keeps the saved-run live link explicit and disables provider-triggering prefetch", async () => {
     const tree = await SavedReportPage({ params: Promise.resolve({ symbol: "DEMO", reportId: "42" }) });
-    const live = elementsWithin(tree).find((element) => element.props.href === "/company/DEMO?view=live");
+    const live = liveLinkWithin(tree, "/company/DEMO?view=live");
     expect(live).toBeDefined();
     expect(live!.props.href).toBe("/company/DEMO?view=live");
     expect(live!.props.prefetch).toBe(false);

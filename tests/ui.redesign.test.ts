@@ -11,8 +11,9 @@ vi.mock("@/watchlist/watchlist", () => ({ getWatchlistView: vi.fn(async () => []
 afterEach(() => { delete process.env.METIS_UI_REDESIGN; delete process.env.THESIS_UI_REDESIGN; resetConfigCache(); });
 
 describe("reversible dossier layout", () => {
-  it("defaults off independently of provider and appearance settings", () => {
-    expect(parseEnv({})).toHaveProperty("uiRedesign", false);
+  it("defaults to the dossier (D-245) independently of provider and appearance settings; 0 still selects classic", () => {
+    expect(parseEnv({})).toMatchObject({ uiRedesign: true, fixtureMode: true, resumeOnStart: true });
+    expect(parseEnv({ METIS_UI_REDESIGN: "" })).toHaveProperty("uiRedesign", true);
     expect(parseEnv({ METIS_UI_REDESIGN: "1" })).toMatchObject({ uiRedesign: true, fixtureMode: true, resumeOnStart: true });
     expect(parseEnv({ METIS_UI_REDESIGN: "0" })).toHaveProperty("uiRedesign", false);
   });
@@ -24,11 +25,11 @@ describe("reversible dossier layout", () => {
     expect(() => parseEnv({ METIS_UI_REDESIGN: "0", THESIS_UI_REDESIGN: "1" })).toThrow(/THESIS_UI_REDESIGN/);
   });
 
-  it.each(["0", "1"])("sets the SSR layout boundary for flag %s without serializing config", async (flag) => {
-    process.env.METIS_UI_REDESIGN = flag;
+  it.each([["unset", "dossier"], ["0", "classic"], ["1", "dossier"]] as const)("sets the SSR layout boundary for flag %s (%s) without serializing config", async (flag, layout) => {
+    if (flag !== "unset") process.env.METIS_UI_REDESIGN = flag;
     resetConfigCache();
     const html = renderToStaticMarkup(await RootLayout({ children: createElement("p", null, "Research") }));
-    expect(html).toContain(`data-ui-layout="${flag === "1" ? "dossier" : "classic"}"`);
+    expect(html).toContain(`data-ui-layout="${layout}"`);
     expect(html).toContain('data-ui-design="current"');
     expect(html).not.toMatch(/fmpApiKey|anthropicApiKey|providerCredentials/);
   });
