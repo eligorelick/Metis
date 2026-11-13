@@ -38,6 +38,9 @@ const PINNED: Record<string, number> = {
   // C16, C17: a gap dropped when its sentence equals the superseded conflict's.
   "src/pipeline/cashFlowBasis.ts": 1,
   "src/pipeline/primaryCapitalBasis.ts": 1,
+  // C18 (D-257): the same, for a revenue refusal the bank rule cleared. A stored snapshot's entry carries no
+  // code (P21), so it is found by field and sentence; whether the refusal clears is decided on its evidence record.
+  "src/pipeline/incomeBasis.ts": 1,
   // G1, G2 and the P1 caller (src/pipeline/compute.ts), G3, G4 (stageB/fairValue.ts) and G5
   // (stageB/seniorClaims.ts) moved to the gap's typed cause in D-242; those files read no wording now.
   // G6: forensic gaps deduplicated by field and sentence.

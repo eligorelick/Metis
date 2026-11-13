@@ -11,6 +11,304 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-257 - A bank's revenue is the filed total net revenue where its filing proves it (2026-11-13)
+
+Principles P8 (a complete reconciled filed family replaces a conflicting
+vendor value), P7 (a total and its components from one filing, no plug; a
+floating-point check is not a materiality allowance), P1 (exact period), P2
+(the newest compatible filing), P11 (a refusal clears only on evidence for
+that field and period, never its wording), P13 (one basis in a series), P14
+(what stays not applicable on the bank route), P10, P17, P20 and P21. Follow-up
+step after round 2, Stage 5 rule, `jpm-data-only`. D-251 described the gap
+("Not changed here") and left it as its own step. Revises D-148 ("Bank
+classification uses issuer SIC routing", DATA-103) for one shape; that entry
+is marked.
+
+Root cause, checked on the cached inputs before anything was changed. A data
+provider states a bank's revenue gross of interest expense. JPMorgan's 10-K
+states total net revenue: net interest income plus noninterest revenue. The
+income classification (`enrichIncomeClassification`,
+`src/edgar/incomeClassification.ts`) compares the provider's revenue with the
+filed total when the filed total's newest filing is the row's own filing, and
+refuses the row when they differ ("Income classification conflict"). It had a
+rule that adopts the filed net revenue for securities firms (D-200, SIC 6211)
+and none for banks. So:
+
+- fiscal 2025 and the four newest quarters had no revenue (refused at
+  acquisition, stored in the run input);
+- with no revenue in the newest four quarters there was no trailing income
+  window, so the P/E used fiscal 2025 and the "current capital" block was
+  labelled fiscal 2025, although the 10-Q for 2026-09-30 is in the inputs;
+- fiscal 2016 to 2024 and the twenty older quarters kept the provider's
+  gross figure, unchecked, because the newest filing that states each of them
+  is a later one. The report showed those figures: a quarterly table with
+  USD 71.90B for the third quarter of 2025 (filed: 46,427M), a "gross margin"
+  of 59.8% and an "operating margin" of 26.1%;
+- because one annual row was refused, the standing eligibility rule
+  (`compute.ts`, "Annual revenue definitions are unreconciled") withheld
+  revenue growth, the net margin history and the forensic revenue inputs.
+
+The provider's figure is not the filed lines regrouped (its noninterest
+revenue for fiscal 2025 is 600M lower than the filed one), so no
+reconciliation proves it.
+
+Choice. A bank rule beside the securities one, in the same owner.
+
+What identifies a filer the rule applies to (filed evidence, not a ticker):
+
+1. The statement is on the bank statement routing the classification already
+   uses: the SEC industry code of the registrant maps to a Banks industry
+   (`bankStatementRouting`; SIC 6021 for JPMorgan). A securities firm (SIC
+   6211) keeps D-200's rule and never gets this one.
+2. The provider's revenue is already established as a different figure from
+   the filed total: at least one row of the statement is refused, or would be
+   refused, against the filed total in the row's own filing (the existing
+   refusal condition, unchanged), or was moved by this rule before. A bank
+   whose provider revenue agrees with its filing is not touched, and an older
+   row that differs only from a later restatement does not start the rule.
+3. For each row, the filing proves the total (`provenBankRevenue`):
+   `us-gaap:Revenues` or `us-gaap:RevenuesNetOfInterestExpense`, in the row's
+   currency, for the row's exact period (and the row's own period start when
+   it states one), with `us-gaap:InterestIncomeExpenseNet` and
+   `us-gaap:NoninterestIncome` for the same start and end, from the same
+   filing, adding up to it exactly (`===`; no tolerance, no balancing
+   figure). A fourth quarter may be the fiscal year less the nine months, by
+   the statement builder's own derivation (P1), when the total and both
+   components come from the same two filings by the same derivation. The
+   filing is the newest that states the period (P2), so a restated year
+   carries the restated total. No provider figure takes part in the proof.
+
+What happens to a row:
+
+- Proven, and the provider's figure differs: the filed total replaces it,
+  with the filing as provenance and the provider's figure kept in the
+  conflict record (usable, resolved by the filed family). The provider's cost
+  of revenue, gross profit, operating income and operating expenses were
+  built on the provider's revenue and are withheld for that row (the four
+  fields the securities rule withholds).
+- A refusal already stored on the row clears only when it is the refusal
+  against this same total: its evidence record names a bank total for the
+  same period and filings and its filed value equals the proven one (P11).
+  Any other refusal stays.
+- Not proven (a component is missing, the components do not add up, the row
+  states a period start that is not the filing's, there is no filed total, or
+  the row belongs to another registrant): a refused row stays refused, as
+  today. A row that still holds a provider figure which is not the filed
+  total is withheld when other rows of the statement were moved, because a
+  provider figure on another basis cannot sit in a growth series, a margin
+  series or a trailing window with them (P13). The standing eligibility rule
+  then withholds the annual revenue series as a whole, exactly as it does
+  today for any refused annual row. When nothing in the statement can be
+  moved, nothing is withheld that was not withheld before.
+
+Where it runs. The rule is in `enrichIncomeClassification`, before the
+`earningsOnly` return, like the securities rule, so it runs at acquisition
+and again in the Stage B data view (`withIncomeOperatingBasis`); stored run
+inputs keep their bytes (P21). The statement builder
+(`src/edgar/statements.ts`) now keeps the two component lines among the
+filed income lines it already retains per row, so the components carry the
+builder's own period and quarter derivation. No tolerance, day band,
+currency normaliser or status word is added: the conflict uses the existing
+`filed-family` resolution.
+
+Disclosure. One informational entry per statement
+(`statements.incomeAnnual.revenue.bankNetRevenue`, `...incomeQuarterly...`)
+names every period, total and filing; the typed refusals of the four
+subtotals are on the rows. Per-row warning entries, as the securities rule
+writes, would have added about 130 warnings to a ten-year, 24-quarter
+history. A cleared refusal's stored manifest entry is retired by exact match
+of field and sentence, in the view and in the report manifests
+(`bankRevenueManifest`, used beside `primaryCapitalManifest`, which does the
+same for its field); other entries on the same field stay. A stored
+snapshot's entry carries no typed cause, so identity of field and sentence is
+the only way to find it, as for the two existing sites of this kind; the
+wording ratchet (`tests/refusalWording.ratchet.test.ts`) pins this third one
+as C18. Whether a refusal clears is never decided by its sentence.
+
+Everything built on a bank's revenue, traced:
+
+| Consumer | On the bank route | After |
+| --- | --- | --- |
+| Revenue growth (CAGRs, latest year, acceleration, log-linear) | applicable, was withheld by the eligibility rule | computed on filed totals |
+| Net margin history and slope | applicable, was withheld | net income over filed revenue |
+| Gross and operating margins | not shown (P14) | not shown; the provider subtotals are now withheld on the rows too |
+| DuPont net margin and asset turnover | shown for 2021 to 2024 on the provider's gross figure, withheld for 2025 | all five years on filed revenue |
+| Trailing income window | absent | four filed quarters to 2026-09-30 |
+| P/E | fiscal 2025 EPS | trailing EPS, by the standing rule |
+| "Current capital" block | not applicable (D-240, D-251); labelled fiscal 2025 | not applicable; labelled with the trailing window |
+| EV/Sales | withheld with the eligibility sentence | "Not applicable to financial companies" |
+| Projections and scenario spread | not applicable on the route | unchanged |
+| Receivables-to-revenue flag, Beneish, Altman, accruals | not applicable to a financial company | unchanged |
+| Efficiency ratio | computed from the filed components already | unchanged (52.4%) |
+| Excess-return fair value and targets | no revenue input | unchanged (USD 247.22) |
+| Fundamentals aspect, composite | one signal (EPS growth) | two signals (revenue and EPS growth) |
+
+Options rejected. Adopting only the rows whose own filing is the newest (what
+the securities rule does): the older years would keep the provider's gross
+figure beside a filed 2025, a mixed series. Comparing each row with its
+original filing instead of the newest: a restated year would carry a figure
+the newest filing no longer states (P2). Leaving an unprovable row untouched
+beside moved rows: a mixed series. Keeping the provider's operating income
+as a "pre-tax margin": a bank's operating income is the filed line or
+nothing (the statement builder's own rule), and JPMorgan tags none.
+Starting the rule from any difference with the newest filing: it would move
+banks whose provider revenue is right and only pre-dates a restatement.
+
+### Approved report changes
+
+Same-report check, main 45883c0c (pinned; identical to 97657ad1 in all 119
+files) against this change: one of the 17 cases differs, `jpm-data-only`,
+all seven outputs plus the payload fingerprint (8 differences, each in the
+approvals list of the pull request). The other 16 cases are byte for byte
+unchanged: PGR (an insurer, not on the bank routing), FIGR (SIC 6163,
+mortgage finance, not on the bank routing) and the rest. The branch built
+twice gives identical bytes. The leaf-level list is in
+`tmp/accuracy/s5-bank-revenue-before-after.md` (not committed: it quotes
+vendor data).
+
+Revenue, fiscal years (USD millions; each filed total is
+`us-gaap:Revenues`, each pair of components `us-gaap:InterestIncomeExpenseNet`
+and `us-gaap:NoninterestIncome`, all three for the fiscal year in the one
+10-K named):
+
+| Fiscal year | Before | After | Net interest income + noninterest revenue | 10-K (newest that states the year) |
+| --- | --- | --- | --- | --- |
+| 2025 | withheld (provider 279,745) | 182,447 | 95,443 + 87,004 | 0001628280-26-008131, filed 2026-02-13 |
+| 2024 | 270,789 (provider, unchecked) | 177,556 | 92,583 + 84,973 | 0001628280-26-008131 |
+| 2023 | 236,273 | 158,104 | 89,267 + 68,837 | 0001628280-26-008131 |
+| 2022 | 153,824 | 128,695 | 66,710 + 61,985 | 0000019617-25-000270, filed 2025-02-14 |
+| 2021 | 127,238 | 121,649 | 52,311 + 69,338 | 0000019617-24-000225, filed 2024-02-16 |
+| 2020 | 129,843 | 119,951 | 54,563 + 65,388 | 0000019617-23-000231, filed 2023-02-21 (restated; the fiscal 2020 10-K stated 119,543) |
+| 2019 | 142,515 | 115,720 | 57,245 + 58,475 | 0000019617-22-000272, filed 2022-02-22 (restated; first stated as 115,627) |
+| 2018 | 129,824 | 108,783 | 55,059 + 53,724 | 0000019617-21-000236, filed 2021-02-23 (restated; first stated as 109,029) |
+| 2017 | 114,579 | 100,705 | 50,097 + 50,608 | 0000019617-20-000257, filed 2020-02-25 (restated; first stated as 99,624) |
+| 2016 | 106,387 | 96,569 | 46,083 + 50,486 | 0000019617-19-000054, filed 2019-02-26 (restated; first stated as 95,668) |
+
+Revenue, quarters (`us-gaap:RevenuesNetOfInterestExpense`, same two
+components, same filing). The eight the report shows:
+
+| Quarter | Before | After | Net interest income + noninterest revenue | Filing |
+| --- | --- | --- | --- | --- |
+| 2026-07-01..2026-09-30 | withheld (provider 76,192) | 50,172 | 27,036 + 23,136 | 10-Q 0001628280-26-069523, filed 2026-11-03 |
+| 2026-04-01..2026-06-30 | withheld (provider 82,460) | 57,347 | 25,511 + 31,836 | 10-Q 0001628280-26-054343, filed 2026-08-06 |
+| 2026-01-01..2026-03-31 | withheld (provider 73,661) | 49,836 | 25,366 + 24,470 | 10-Q 0001628280-26-029344, filed 2026-05-01 |
+| 2025-10-01..2025-12-31 | withheld (provider 69,609) | 45,798 | 24,995 + 20,803 | fiscal 2025 (182,447; 95,443 + 87,004; 10-K 0001628280-26-008131) less the nine months to 2025-09-30 (136,649; 70,448 + 66,201; 10-Q 0001628280-25-048859, filed 2025-11-04) |
+| 2025-07-01..2025-09-30 | 71,903 (provider, unchecked) | 46,427 | 23,966 + 22,461 | 10-Q 0001628280-26-069523 |
+| 2025-04-01..2025-06-30 | 69,914 | 44,912 | 23,209 + 21,703 | 10-Q 0001628280-26-054343 |
+| 2025-01-01..2025-03-31 | 68,907 | 45,310 | 23,273 + 22,037 | 10-Q 0001628280-26-029344 |
+| 2024-10-01..2024-12-31 | 67,007 | 42,768 | 23,350 + 19,418 | fiscal 2024 (10-K 0001628280-26-008131) less the nine months to 2024-09-30 (10-Q 0001628280-25-048859) |
+
+The sixteen older quarters (2020-12-31 to 2024-09-30) move the same way,
+each from the newest 10-Q that states it, or as the fiscal year less the nine
+months for a fourth quarter. After values, USD millions: 2024 Q3 42,654; Q2
+50,200; Q1 41,934; 2023 Q4 38,574; Q3 39,874; Q2 41,307; Q1 38,349; 2022 Q4
+34,547; Q3 32,716; Q2 30,715; Q1 30,717; 2021 Q4 29,257; Q3 29,647; Q2 30,479;
+Q1 32,266; 2020 Q4 29,335. Their filings and components are in the
+informational manifest entry of the report and in the before/after file. All
+175 annual, quarterly and year-to-date totals JPMorgan has filed since 2015
+add up to their two components exactly in the same filing.
+
+Figures computed from them, with every other operand unchanged:
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Revenue growth, 1 year / 3 years / 5 years / 10 years (9 measured) | withheld | 2.7546% / 12.3376% / 8.7493% / 7.3248% (182,447 against 177,556, 128,695, 119,951 and 96,569) |
+| Latest revenue growth; acceleration against the 3-year rate | withheld | 2.7546%; -9.5829 pp |
+| Log-linear revenue growth, 2016 to 2025 | withheld | 7.4774% (R squared 0.9372) |
+| Net margin, fiscal 2016 to 2025 | withheld | 25.61, 24.27, 29.85, 31.48, 24.29, 39.73, 29.28, 31.34, 32.93, 31.27% (net income 24,733; 24,441; 32,474; 36,431; 29,131; 48,334; 37,676; 49,552; 58,471; 57,048, each the `us-gaap:NetIncomeLoss` of the same 10-K as the revenue); slope 0.7745 pp a year |
+| DuPont net margin, fiscal 2021 to 2025 | 37.99, 24.49, 20.97, 21.59%, withheld | 39.73, 29.28, 31.34, 32.93, 31.27% |
+| DuPont asset turnover, fiscal 2021 to 2025 | 0.0357, 0.0415, 0.0627, 0.0687, withheld | 0.0341, 0.0347, 0.0419, 0.0451, 0.0433 |
+| Revenue in the capital-spending series, fiscal 2021 to 2025 | the provider's figures above; 2025 withheld | the filed totals (capital spending itself stays undisclosed, D-239) |
+| Trailing income window | none ("revenue present in only 0/4 latest quarters") | 2025-10-01 to 2026-09-30; revenue 203,153 = 157,355 (nine months 2026) + 182,447 - 136,649 |
+| P/E | 17.18x on fiscal 2025 diluted EPS 20.02 | 14.43x on trailing diluted EPS 23.84 at the same USD 344 price |
+| Trailing net income used by the route's profitability check | fiscal 2025, 57,048 | 65,979 = 52,954 (nine months 2026, 10-Q 0001628280-26-069523) + 57,048 - 44,023 |
+| "Current capital" label | fiscal 2025, approximate window | trailing twelve months to 2026-09-30; the block's figures stay not applicable |
+| EV/Sales reason | the eligibility sentence | not applicable to financial companies |
+| Fundamentals aspect | 74.25 on 20% of its weight (EPS growth only), no letter | 64.3, band C, on 55% (revenue growth 8.7493% scores 58.62; EPS growth 17.655% scores 74.25) |
+| Business-quality assessment | 70.27 | 71.23 |
+| Composite | 55.93, C, Provisional | 56.54, C, Provisional |
+| Evidence available, share of applicable signal weight | 85.82% | 92.86% |
+| Manifest | 102 entries, 22 data issues, "XBRL conflict found; vendor revenue refused" | 90 entries, 14 data issues, "XBRL skipped" |
+
+The trailing EPS is the standing rule (four reported quarterly diluted EPS)
+on operands that are filed: 5.57 (2026 Q3, 10-Q 0001628280-26-069523), 7.70
+(Q2, 10-Q 0001628280-26-054343), 5.94 (Q1, 10-Q 0001628280-26-029344), all
+`us-gaap:EarningsPerShareDiluted`, and 4.63 for the fourth quarter of 2025,
+which equals D-64's rebuild from filed facts: income available to common
+55,681M (10-K) less 42,991M (nine months) = 12,690M, over 2,741.5M shares
+from the day-weighted identity (fiscal 2025 2,781.5M; quarters 2,824.3M,
+2,793.7M and 2,767.6M).
+
+The quarterly table now shows filed revenue for all eight quarters with the
+growth rates computed on it; its gross-margin, operating-expense and
+operating-margin columns, which held provider figures on the gross basis for
+four quarters, are gone (P14). The analyst context no longer carries the
+provider's gross profit or operating income for a bank. No scoring rule,
+band or weight changed (P17): one signal that had no evidence now has it.
+Every other figure of `jpm-data-only`, and every figure of the other 16
+cases, is unchanged.
+
+The accuracy check (`npm run accuracy:check`) on main reports "265 figures in
+13 cases - 169 match, 7 mismatch, 63 gap, 26 not-established ... every figure
+as expected"; on this change "170 match, 7 mismatch, 62 gap, 26
+not-established ... BETTER: jpm-data-only revenue.fy - gap -> match ... 1
+difference(s) from the expectation (0 worse)". The expectation file is left
+for the lead.
+
+What stays withheld or unchanged, with the cause.
+
+- JPMorgan's cost of revenue, gross profit, operating income and operating
+  expenses: provider subtotals on the provider's revenue. JPMorgan files no
+  operating-income line; noninterest expense is read from the filing where a
+  metric needs it (the efficiency ratio).
+- Four warning entries "Gross-profit classification unavailable" for fiscal
+  2025 and the three 2026 quarters, and two notes "FMP revenue missing/zero
+  ... cross-check not possible": they are in the stored run input and its
+  validation, and are still true of the provider rows. The data-completeness
+  line therefore reads "XBRL skipped" rather than "checked". A fresh run
+  adopts the filed revenue at acquisition and cross-checks it.
+- A note "WACC interest expense and EBIT: the TTM window is in USD but the
+  debt balances ... are not established in one currency" now appears on the
+  bank route, because a trailing window exists. WACC is not used on the bank
+  route; the wording is a standing rule's and is listed for a later step.
+- The securities-firm rule is unchanged. It moves only the rows whose own
+  filing is the newest that states the period, so a securities firm's older
+  years can keep the provider's gross figure beside a filed newest year. No
+  case of the 17 is a securities firm, so this is not measured here; the
+  series rule above should be carried to it in a follow-up.
+- The control bank in the tests uses Bank of America's and Wells Fargo's
+  fiscal 2025 totals and components as recorded from SEC companyfacts in
+  `fixtures/edgar/bank_xbrl_tag_matrix.json`; their accession numbers there
+  are placeholders, because that record carries none and this step made no
+  network call.
+
+Version stamps are not moved here (P27; the follow-up integration, D-258,
+moves them). Under the methodology's convention this change calls for the
+Stage B implementation stamp (identical inputs compute different values), the
+payload version (the revenue history, growth, margins and P/E reach the
+analysts) and the report specification (shown figures and an aspect band
+change). The fair-value and scenario-target method stamps are not called
+for. Saved reports are immutable (P21) and keep the figures they were built
+with.
+
+Tests. `tests/financialIncomeClassification.bankRevenue.test.ts` (12 of its
+17 tests fail on main; the other five are the cases that must not change): JPMorgan on its filed facts
+(`fixtures/edgar/jpm_companyfacts_bank_revenue.json`, a trimmed copy of its
+SEC companyfacts): the stored-snapshot shape, the quarters with the derived
+fourth quarter, the acquisition shape and a second pass; the proof itself;
+two control banks (`Revenues` and `RevenuesNetOfInterestExpense` filers);
+components that do not add up and a missing component (stays refused); a
+refusal on other evidence (not cleared); a row with another period start and
+a row of another registrant; a year that cannot be proven beside years that
+can; a statement with nothing established (restated older year untouched);
+the securities-firm rule, alone and with both routes set; an insurer-style
+and an industrial filer the rule must not reach; and through the view and
+Stage B on a synthetic bank: growth on filed totals, the eligibility refusal
+for a mixed history, stored bytes kept, the retired manifest entry.
+`tests/financialIncomeClassification.bankRouting.test.ts`: the DATA-103 test
+that pinned the refusal for a bank row disagreeing with a proven total now
+pins the filed total, with a new case for components that do not add up.
+
 ## D-256 - Three owner-approved reader wordings: gap labels, the band line, consolidated net income (2026-11-13)
 
 Principles P22 (one presentation rule per figure; diagnostics go to the audit
@@ -7786,6 +8084,8 @@ Residuals and limits carried over word for word from the archived [B4b record](h
 ### D-148: Bank classification uses issuer SIC routing
 
 DATA-103: carry the existing bank revenue routing into income classification and SEC peer statement construction. Compare total net revenue on its own definition; retain vendor disagreement refusals and industrial ASC-606 routing. Stored reports retain their bytes.
+
+Revised by D-257 (a bank row whose provider revenue disagrees with a filed total that the same filing proves by its two components now takes the filed total; a disagreement the filing does not prove is still refused).
 
 ### D-148: Presentation currency precedes statement resolution
 

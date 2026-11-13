@@ -6,13 +6,102 @@ import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { memoize } from "@/edgar/computationContext";
 import { sameIncomeScope } from "./revenuePresentation";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
-import type { FmpIncomeStatementRow, FmpPayload, StatementFieldProvenance } from "@/providers/fmp";
+import type { FiledIncomeLine, FmpIncomeStatementRow, FmpPayload, StatementFieldConflict, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const same = vendorAgreesWithFiled;
 /** D-200: the observed minor cluster ends at 0.907%; the next disagreement is 1.544%. */
 const INCOMPLETE_EARNINGS_MINOR_DIFFERENCE = 0.01;
+
+/** A filed line stands for a statement row only on the row's currency and exact period. */
+const coversRowPeriod = (row: FmpIncomeStatementRow, proof: StatementFieldProvenance): boolean =>
+  proof.unit === row.reportedCurrency && proof.periodEnd === row.date && proof.periodStart !== null &&
+  (row.periodStart == null || row.periodStart === proof.periodStart) && proof.filings.length > 0;
+/** The filed line's newest filing is the filing the statement row itself came from. */
+const filedWithRow = (row: FmpIncomeStatementRow, proof: StatementFieldProvenance): boolean =>
+  row.filingDate == null || [...proof.filings].sort((a, b) => b.filed.localeCompare(a.filed))[0]?.filed === row.filingDate;
+
+/** Provider subtotals built on a revenue gross of interest expense: they mean nothing beside a filed net revenue. */
+const GROSS_REVENUE_SUBTOTALS = ["costOfRevenue", "grossProfit", "operatingIncome", "operatingExpenses"] as const;
+const BANK_TOTAL_TAGS = tagsFor("bankRevenueTotal").map(tag => `us-gaap/${tag}`);
+const BANK_COMPONENT_TAGS = tagsFor("bankRevenueComponents");
+const isBankTotal = (proof: StatementFieldProvenance | undefined): proof is StatementFieldProvenance =>
+  proof !== undefined && proof.tags.length === 1 && BANK_TOTAL_TAGS.includes(proof.tags[0]!);
+/** D-257: the row's revenue is refused against a filed bank total (the refusal's own evidence, never its wording). */
+export const refusedAgainstBankRevenue = (row: FmpIncomeStatementRow): boolean => {
+  const conflict = row.fieldConflicts?.revenue;
+  return conflict?.usable === false && finite(conflict.vendorValue) && isBankTotal(conflict.secEvidence);
+};
+/** D-257: the row's revenue is the filed bank total the rule below adopted. */
+export const onFiledBankRevenue = (row: FmpIncomeStatementRow): boolean => {
+  const conflict = row.fieldConflicts?.revenue;
+  return conflict?.usable === true && conflict.resolution === "filed-family" && isBankTotal(row.fieldProvenance?.revenue);
+};
+
+/**
+ * D-257 (P7, P8, P1): a bank's total net revenue as its own filing proves it.
+ * The filed total (`Revenues` or `RevenuesNetOfInterestExpense`) stands for the
+ * statement row's exact period, and the filing's net interest income and
+ * noninterest income, for the same period from the same filing or filings and
+ * by the same quarter derivation, add up to it exactly. The comparison is exact:
+ * a floating-point check is not a materiality allowance. No provider figure
+ * takes part.
+ */
+export interface BankRevenueProof { value: number; proof: StatementFieldProvenance; components: FiledIncomeLine[] }
+export function provenBankRevenue(row: FmpIncomeStatementRow, sec: FmpIncomeStatementRow | undefined): BankRevenueProof | null {
+  const proof = sec?.fieldProvenance?.revenue;
+  if (!sec || !finite(sec.revenue) || !isBankTotal(proof) || !coversRowPeriod(row, proof)) return null;
+  const components = BANK_COMPONENT_TAGS.flatMap(tag => { const line = sec.filedIncomeLines?.[tag]; return line ? [line] : []; });
+  if (components.length !== BANK_COMPONENT_TAGS.length ||
+      !components.every(line => sameIncomeScope(proof, line.proof) && line.proof.derivation === proof.derivation)) return null;
+  return components.reduce((sum, line) => sum + line.value, 0) === sec.revenue ? { value: sec.revenue, proof, components } : null;
+}
+
+/**
+ * D-257 (P13): which rows of one bank statement move to the filed total net
+ * revenue. Nothing moves unless the provider's revenue is already established
+ * as a different figure from the filed total: a row the classification refuses
+ * (or would refuse) against the total in the row's own filing, or a row this
+ * rule moved before. In such a statement every row whose filed total is proven
+ * takes it, the newest filing's figure included (P2); a row that still holds a
+ * provider figure which is neither proven nor the filed total is withheld, so
+ * no series mixes the provider's basis with the filed one.
+ */
+interface BankRevenueBasis {
+  /** Rows an earlier pass already moved to the filed total. */
+  moved: Set<FmpIncomeStatementRow>;
+  adopt: Map<FmpIncomeStatementRow, BankRevenueProof & { vendor: number }>;
+  unproven: Map<FmpIncomeStatementRow, { filed: number | null; proof: StatementFieldProvenance | null }>;
+}
+function bankRevenueBasis(rows: readonly FmpIncomeStatementRow[], filed: readonly FmpIncomeStatementRow[], cik: number): BankRevenueBasis | null {
+  const read = rows.map(row => {
+    const own = !!row.date && /^[A-Z]{3}$/.test(row.reportedCurrency ?? "") && (row.cik == null || row.cik.replace(/^0+/, "") === String(cik).replace(/^0+/, ""));
+    const sec = own ? filed.find(candidate => candidate.date === row.date) : undefined;
+    const proof = sec?.fieldProvenance?.revenue;
+    const total = sec && finite(sec.revenue) && isBankTotal(proof) && coversRowPeriod(row, proof) ? { value: sec.revenue, proof } : null;
+    const conflict = row.fieldConflicts?.revenue;
+    const refused = conflict?.usable === false;
+    const refusedAgainstTotal = refusedAgainstBankRevenue(row);
+    const moved = onFiledBankRevenue(row);
+    const disagrees = !refused && !moved && finite(row.revenue) && total !== null && !same(row.revenue, total.value);
+    return { row, sec, total, conflict, refused, refusedAgainstTotal, moved, disagrees };
+  });
+  if (!read.some(r => r.refusedAgainstTotal || r.moved || r.disagrees && filedWithRow(r.row, r.total!.proof))) return null;
+  const basis: BankRevenueBasis = { moved: new Set(), adopt: new Map(), unproven: new Map() };
+  for (const r of read) {
+    if (r.moved) { basis.moved.add(r.row); continue; }
+    const proven = provenBankRevenue(r.row, r.sec);
+    const vendor = finite(r.row.revenue) ? r.row.revenue : r.refusedAgainstTotal ? r.conflict!.vendorValue : null;
+    // P11: a standing refusal clears only when it is the refusal against this very total, for this period and filing.
+    const clears = !r.refused || r.refusedAgainstTotal && proven !== null && sameIncomeScope(r.conflict!.secEvidence, proven.proof) && r.conflict!.secValue === proven.value;
+    if (proven && finite(vendor) && !same(vendor, proven.value) && clears) basis.adopt.set(r.row, { ...proven, vendor });
+    else if (!r.refused && finite(r.row.revenue) && !(r.total !== null && same(r.row.revenue, r.total.value)))
+      basis.unproven.set(r.row, { filed: r.total?.value ?? null, proof: r.total?.proof ?? null });
+  }
+  return basis;
+}
+const filingList = (proof: StatementFieldProvenance): string => proof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ");
 
 /** An unreconciled ASC-606 amount need not cover the face revenue line. It
  * can omit derivative or lease transactions and can be rounded in a note.
@@ -38,7 +127,10 @@ export function effectiveTaxPretaxIncome(row: Pick<FmpIncomeStatementRow, "incom
 
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
 export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string,
-  opts: { bankRevenue?: boolean; securitiesRevenue?: boolean; earningsOnly?: boolean; filedRows?: FmpIncomeStatementRow[]; revenuePolicy?: OperatingRevenuePolicy } = {}): { income: typeof income; gaps: ManifestEntry[] } {
+  opts: { bankRevenue?: boolean; securitiesRevenue?: boolean; earningsOnly?: boolean; filedRows?: FmpIncomeStatementRow[]; revenuePolicy?: OperatingRevenuePolicy } = {}):
+  { income: typeof income; gaps: ManifestEntry[];
+    /** D-257 (P11): refusals this pass cleared, so a caller holding their stored manifest entries can retire them. */
+    cleared?: { field: string; reason: string }[] } {
   if (!income.ok || income.value.data.rows.length === 0) return { income, gaps: [] };
   if (!opts.bankRevenue && !opts.securitiesRevenue && income.value.source === "fmp")
     income = {...income,value:{...income.value,data:replayIncomeObservations(income.value.data,facts.cik,facts,observedAt.slice(0,10))}};
@@ -47,6 +139,9 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     vendorSplits: { status: "unavailable", source: "income-classification", reason: "Income classification does not resolve per-share values" } });
   const filed = opts.filedRows ?? (scope === "annual" ? built!.incomeAnnual.rows : built!.incomeQuarterly.rows);
   const revenuePolicy = opts.revenuePolicy ?? operatingRevenuePolicy(filed);
+  // D-257: the bank rule sits beside the securities-firm rule and never runs with it.
+  const bankBasis = opts.bankRevenue === true && !opts.securitiesRevenue ? bankRevenueBasis(income.value.data.rows, filed, facts.cik) : null;
+  const cleared: { field: string; reason: string }[] = [];
   const originalFilings = new Map<string, FmpIncomeStatementRow[]>();
   const gaps: ManifestEntry[] = [];
   const allowed: Record<string, string[]> = {
@@ -101,9 +196,8 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
           return { ...revenue, tags: [...revenue.tags, ...cost.tags], calculation: "revenue-minus-cost" };
         }
       }
-      return proof && proof.unit === row.reportedCurrency && proof.periodEnd === row.date && proof.periodStart !== null &&
-        (row.periodStart == null || row.periodStart === proof.periodStart) && proof.filings.length > 0 &&
-        (row.filingDate == null || [...proof.filings].sort((a, b) => b.filed.localeCompare(a.filed))[0]?.filed === row.filingDate ||
+      return proof && coversRowPeriod(row, proof) &&
+        (filedWithRow(row, proof) ||
           field === "revenue" && finite(observedRevenue) && finite(revenueSec.revenue) && same(observedRevenue, revenueSec.revenue) &&
           revenueAdmission?.handled === true) ? proof : null;
     };
@@ -122,7 +216,8 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       out = admitRevenueGrossProfit(out, revenueSec, raw, presentations);
     }
     const gross = out.fieldConflicts?.grossProfit;
-    if (gross?.usable === false) gaps.push({field:`statements.income.${row.date}.grossProfit`,severity:"info",reason:gross.reason});
+    // A row on the filed bank total discloses its withheld subtotals once, in the statement's own entry (D-257).
+    if (gross?.usable === false && !bankBasis?.moved.has(row) && !bankBasis?.adopt.has(row)) gaps.push({field:`statements.income.${row.date}.grossProfit`,severity:"info",reason:gross.reason});
     if (revenueAdmission?.handled && out.fieldConflicts?.revenue?.usable === false) {
       refuse("revenue", out.fieldConflicts.revenue.secValue, out.fieldConflicts.revenue.secEvidence ?? null, out.fieldConflicts.revenue.reason);
       refuse("grossProfit", null, out.fieldConflicts.revenue.secEvidence ?? null, "Gross profit withheld beside unresolved operating revenue.");
@@ -349,11 +444,37 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
         finite(sec.revenue) && finite(row.revenue) && !same(row.revenue, sec.revenue) && row.fieldConflicts?.revenue?.usable !== false) {
       const reason = `Securities-firm revenue reconciled from vendor ${row.revenue} gross of interest expense to directly filed net revenue ${sec.revenue} ${netRevenue.unit}, ${netRevenue.periodStart} through ${row.date}; incompatible gross-revenue costs, profit subtotals and margins withheld`;
       out = { ...out, revenue: sec.revenue, fieldProvenance: { ...out.fieldProvenance, revenue: netRevenue } };
-      for (const field of ["costOfRevenue", "grossProfit", "operatingIncome", "operatingExpenses"]) {
+      for (const field of GROSS_REVENUE_SUBTOTALS) {
         if (finite(row[field])) refuse(field, null, netRevenue, reason);
       }
       out = { ...out, grossProfitRatio: null, grossProfitMargin: null, operatingIncomeRatio: null, netIncomeRatio: null };
       gaps.push({ field: `statements.income.${row.date}.revenue`, reason, severity: "info", expected: true, attemptedSources: ["edgar:companyfacts/us-gaap/RevenuesNetOfInterestExpense", "fmp:income-statement"] });
+    }
+    // D-257 (P8): the bank rule, beside the securities one. The filed total net
+    // revenue, proven by its two components (`provenBankRevenue`), replaces the
+    // provider's figure; the provider subtotals built on that figure are withheld
+    // with it. The refusals are typed on the row; one manifest entry per
+    // statement discloses them (after the loop), so a ten-year history does not
+    // become forty entries.
+    const bankRevenue = bankBasis?.adopt.get(row);
+    if (bankRevenue) {
+      const [netInterest, noninterest] = bankRevenue.components;
+      const reason = `Bank revenue: filed total net revenue ${bankRevenue.value} ${bankRevenue.proof.unit} adopted for ${bankRevenue.proof.periodStart} through ${row.date} ` +
+        `(${filingList(bankRevenue.proof)}${bankRevenue.proof.derivation ? `; quarter derived, ${bankRevenue.proof.derivation}` : ""}): ` +
+        `net interest income ${netInterest!.value} plus noninterest income ${noninterest!.value} for the same period, from the same ${bankRevenue.proof.filings.length === 1 ? "filing" : "filings"}, add up to it exactly. ` +
+        `The provider's revenue ${bankRevenue.vendor} is a different figure and is kept as an observation; the provider's cost of revenue, gross profit, operating income and operating expenses, built on it, are withheld`;
+      const prior = row.fieldConflicts?.revenue;
+      if (prior?.usable === false) cleared.push({ field: `statements.income.${row.date}.revenue`, reason: prior.reason });
+      const fieldConflicts: Record<string, StatementFieldConflict> = { ...out.fieldConflicts, revenue: { usable: true, resolution: "filed-family", vendorValue: bankRevenue.vendor,
+        secValue: bankRevenue.value, reason, secEvidence: bankRevenue.proof } };
+      const withheld: Record<string, null> = {};
+      for (const field of GROSS_REVENUE_SUBTOTALS) {
+        if (!finite(row[field])) continue;
+        withheld[field] = null;
+        if (fieldConflicts[field]?.usable !== false) fieldConflicts[field] = { usable: false, vendorValue: row[field] ?? null, secValue: null, reason, secEvidence: bankRevenue.proof };
+      }
+      out = { ...out, ...withheld, revenue: bankRevenue.value, grossProfitRatio: null, grossProfitMargin: null, operatingIncomeRatio: null, netIncomeRatio: null,
+        fieldProvenance: { ...out.fieldProvenance, revenue: bankRevenue.proof }, fieldConflicts };
     }
     if (opts.earningsOnly) return out;
     const canonicalCostEvidence = evidenceFor("costOfRevenue");
@@ -366,6 +487,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
           revenueProof && out.fieldProvenance?.grossProfit && sameScope(revenueProof, out.fieldProvenance.grossProfit)) continue;
       if (field === "revenue" && revenueAdmission?.handled) continue;
       if (field === "revenue" && out !== row && out.fieldProvenance?.revenue === netRevenue && out.revenue === sec.revenue && opts.securitiesRevenue) continue;
+      if (field === "revenue" && bankRevenue) continue;
       if (row.fieldConflicts?.[field]?.usable === false) { out = { ...out, [field]: null }; continue; }
       const proof = evidenceFor(field);
       if (!proof || (!proof.tags.some(tag => tags.includes(tag)) && !(field === "grossProfit" && proof.calculation === "revenue-minus-cost")) || !finite(sec[field]) || !finite(row[field])) continue;
@@ -390,5 +512,30 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     }
     return out;
   });
-  return { income: { ...income, value: { ...income.value, data: { ...income.value.data, rows } } }, gaps };
+  if (bankBasis === null || bankBasis.adopt.size + bankBasis.moved.size === 0) return { income: { ...income, value: { ...income.value, data: { ...income.value.data, rows } } }, gaps };
+  // D-257 (P13): one basis per statement. A provider figure that is neither the
+  // filed total nor replaced by a proven one cannot share a growth series, a
+  // margin series or a trailing window with the rows moved above; it is withheld.
+  const settled = rows.map((out, index): FmpIncomeStatementRow => {
+    const row = income.value.data.rows[index]!, unproven = bankBasis.unproven.get(row);
+    if (!unproven) return out;
+    const reason = `Bank revenue for ${row.date ?? "an undated period"} withheld: other periods of this statement use the filed total net revenue, and for this period ` +
+      (unproven.filed === null ? "no filed total for the row's own period is available" :
+        `the filed total ${unproven.filed} ${unproven.proof!.unit} (${filingList(unproven.proof!)}) is not proven by net interest income plus noninterest income for the same period in the same filing`) +
+      `. The provider's revenue ${row.revenue} is on another basis and cannot share a series with them; it is kept as an observation`;
+    gaps.push({ field: `statements.income.${row.date}.revenue`, reason, severity: "warn", attemptedSources: ["fmp:income-statement", "edgar:companyfacts"] });
+    const field: string = "revenue";
+    return { ...out, [field]: null, fieldConflicts: { ...out.fieldConflicts, revenue: { usable: false, vendorValue: row.revenue ?? null, secValue: unproven.filed, reason,
+      ...(unproven.proof ? { secEvidence: unproven.proof } : {}) } } };
+  });
+  if (bankBasis.adopt.size > 0) {
+    const adopted = [...bankBasis.adopt].map(([row, proven]) => ({ date: String(row.date), ...proven })).sort((a, b) => b.date.localeCompare(a.date));
+    gaps.push({ field: `statements.${scope === "annual" ? "incomeAnnual" : "incomeQuarterly"}.revenue.bankNetRevenue`, severity: "info", expected: true,
+      attemptedSources: [...new Set(adopted.map(a => `edgar:companyfacts/${a.proof.tags[0]!}`)), "fmp:income-statement"],
+      reason: `Bank revenue: the filed total net revenue replaces the provider's revenue for ${adopted.length} ${scope === "annual" ? "fiscal year" : "quarter"}${adopted.length === 1 ? "" : "s"}. ` +
+        "Each total is proven by the same filing: its net interest income plus its noninterest income for the same period add up to it exactly. " +
+        "The provider's revenue is a different figure and is kept as an observation; the provider's cost of revenue, gross profit, operating income and operating expenses, built on it, are withheld for the same periods. " +
+        adopted.map(a => `${a.date} ${a.value} ${a.proof.unit} (${a.proof.filings.map(f => `${f.form} ${f.accn}`).join(" + ")}${a.proof.derivation ? `, ${a.proof.derivation}` : ""})`).join("; ") + "." });
+  }
+  return { income: { ...income, value: { ...income.value, data: { ...income.value.data, rows: settled } } }, gaps, ...(cleared.length > 0 ? { cleared } : {}) };
 }

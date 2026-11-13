@@ -8527,6 +8527,47 @@ again when a report is built, from the refusal's evidence record and never its
 sentence, and the company page's free-cash-flow bars read the same admitted
 rows.
 
+## Revenue of a bank (D-257)
+
+A data provider states a bank's revenue gross of interest expense. The bank's
+own filing states total net revenue: net interest income plus noninterest
+income. These are different figures, so the income classification refuses a
+provider revenue that conflicts with the filed total in the row's own filing.
+For a filer on the bank statement routing (its SEC industry code maps to a
+Banks industry; a securities firm, SIC 6211, keeps the rule above), the filed
+total replaces the provider's figure where the filing itself proves it: the
+total (`Revenues` or `RevenuesNetOfInterestExpense`) is for the row's exact
+period and currency, and `InterestIncomeExpenseNet` and `NoninterestIncome`
+for the same period, from the same filing, add up to it exactly. A fourth
+quarter may be the fiscal year less the nine months when the total and both
+components are derived from the same two filings in the same way. The check
+is the filing's own arithmetic: no allowance, no balancing figure, and no
+provider figure takes part.
+
+The rule starts only where the provider's revenue is already established as a
+different figure: a row refused, or that would be refused, against the filed
+total in its own filing. In such an annual or quarterly statement every row
+whose total is proven takes the filed figure, from the newest filing that
+states the period, so a restated year carries the restated total. The
+provider's cost of revenue, gross profit, operating income and operating
+expenses were built on the provider's revenue and are withheld for those
+rows. A row whose total cannot be proven (a component is missing, the
+components do not add up, the row states a period start that is not the
+filing's, or there is no filed total) and whose provider figure is not the
+filed total is withheld, so a growth series, a margin series or a trailing
+window never holds both bases; the standing rule then withholds the annual
+revenue series as a whole. Nothing changes for a bank whose provider revenue
+agrees with its filing, for an insurer, for a securities firm or for any other
+industry.
+
+Stored run inputs are not rewritten: a row refused before this rule is judged
+again when a report is built, from the refusal's evidence record (the filed
+total it was refused against) and never its sentence, and the manifest entry
+that disclosed a cleared refusal is retired with it. One informational entry
+per statement names the periods, the totals and the filings. The methods a
+bank route does not use (gross and operating margins, EV/Sales, the revenue
+forensic flags, the free-cash-flow block) stay not applicable.
+
 ## Filed share counts and borrowings over a vendor's figures (D-234)
 
 A vendor weighted-average share count is compared with the filer's count for

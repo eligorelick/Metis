@@ -79,13 +79,31 @@ describe("DATA-103: classification rebuild vs SIC bank routing", () => {
     expect(out.income.value.data.rows[0]!.revenue).toBe(5_000e6);
     expect(out.gaps).toEqual([]);
   });
-  it.each([true, false])("keeps disagreement and industrial refusals (bank routing %s)", bankRevenue => {
+  const disagreeing = (): FetchResult<FmpPayload<FmpIncomeStatementRow>> => {
     const rows = [{ cik: "0000099999", date: "2026-03-31", reportedCurrency: "USD", filingDate: "2026-05-01", revenue: 4_000e6 }];
-    const input: FetchResult<FmpPayload<FmpIncomeStatementRow>> = { ok: true, value: { data: { rows, raw: rows }, asOf: "2026-03-31", source: "fmp", endpoint: "fixture", fetchedAt: at } };
-    const out = enrichIncomeClassification(input, bankFacts(), "quarter", at, { bankRevenue });
+    return { ok: true, value: { data: { rows, raw: rows }, asOf: "2026-03-31", source: "fmp", endpoint: "fixture", fetchedAt: at } };
+  };
+  it("keeps the industrial refusal for a disagreeing row without bank routing", () => {
+    const out = enrichIncomeClassification(disagreeing(), bankFacts(), "quarter", at, { bankRevenue: false });
     expect(out.income.ok && out.income.value.data.rows[0]!.revenue).toBeNull();
-    expect(out.gaps.some(g => bankRevenue ? g.reason.includes(`filed ${5_000e6}`)
-      : g.reason.includes(`contract-revenue fact ${700e6}`) && g.reason.includes("not established as consolidated"))).toBe(true);
+    expect(out.gaps.some(g => g.reason.includes(`contract-revenue fact ${700e6}`) && g.reason.includes("not established as consolidated"))).toBe(true);
+  });
+  // D-257 (revises D-148, DATA-103): this test pinned a refusal ("keeps disagreement ... refusals") for the bank
+  // routing. The filing proves the total it disagrees with (net interest income 3,800M + noninterest income 1,200M =
+  // 5,000M, same period, same 10-Q), so the filed total now replaces the provider's figure.
+  it("replaces a bank row that disagrees with a filed total its own filing proves (D-257)", () => {
+    const out = enrichIncomeClassification(disagreeing(), bankFacts(), "quarter", at, { bankRevenue: true });
+    expect(out.income.ok && out.income.value.data.rows[0]).toMatchObject({ revenue: 5_000e6,
+      fieldProvenance: { revenue: { tags: ["us-gaap/RevenuesNetOfInterestExpense"] } },
+      fieldConflicts: { revenue: { usable: true, resolution: "filed-family", vendorValue: 4_000e6, secValue: 5_000e6 } } });
+    expect(out.gaps.map(g => [g.field, g.severity])).toEqual([["statements.incomeQuarterly.revenue.bankNetRevenue", "info"]]);
+  });
+  it("still refuses a disagreeing bank row when the filing's components do not add up to the total (D-257)", () => {
+    const facts = bankFacts();
+    (facts.facts["us-gaap"]!.NoninterestIncome as { units: { USD: { val: number }[] } }).units.USD[0]!.val = 1_100e6;
+    const out = enrichIncomeClassification(disagreeing(), facts, "quarter", at, { bankRevenue: true });
+    expect(out.income.ok && out.income.value.data.rows[0]!.revenue).toBeNull();
+    expect(out.gaps.some(g => g.reason.includes(`filed ${5_000e6}`))).toBe(true);
   });
 
 });
