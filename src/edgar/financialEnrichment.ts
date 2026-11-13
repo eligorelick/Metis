@@ -232,12 +232,38 @@ export function filedCashFlowTtm(facts: CompanyFacts, tag: string, unit: string,
   if (!prior) return null;
   const value = annual.val + current.val - prior.val;
   const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
-  const name = tag === OPERATING_CASH_FLOW_TAG ? "operating cash flow"
-    : tag === "ShareBasedCompensation" ? "SBC, cash-flow add-back (ShareBasedCompensation)"
-    : tag === "AllocatedShareBasedCompensationExpense" ? "SBC, allocated expense (AllocatedShareBasedCompensationExpense)"
-    : `cash capital expenditure (${tag})`;
+  const name = filedTtmFlowName(tag);
   return { value, operands: [annual.val, current.val, prior.val], start, end, tag, points: [annual, current, prior],
     reason: `TTM ${name} = filed fiscal year ${annual.val} + current YTD ${current.val} - prior-year YTD ${prior.val} = ${value} ${unit} through ${end}. Both YTD operands come from the same current ${current.form} ${current.accn}, filed ${current.filed}; fiscal year from ${annual.form} ${annual.accn}, filed ${annual.filed}. This filed YTD identity does not establish standalone quarters or any other accounting/tag basis.` };
+}
+/** What a filed trailing-twelve-month flow is called in its reason text. */
+function filedTtmFlowName(tag: string): string {
+  return tag === OPERATING_CASH_FLOW_TAG ? "operating cash flow"
+    : tag === "ShareBasedCompensation" ? "SBC, cash-flow add-back (ShareBasedCompensation)"
+    : tag === "AllocatedShareBasedCompensationExpense" ? "SBC, allocated expense (AllocatedShareBasedCompensationExpense)"
+    : tag === "NetIncomeLoss" ? "net income (NetIncomeLoss)"
+    : `cash capital expenditure (${tag})`;
+}
+/**
+ * D-240 (P1): a filed flow for one exact trailing window. The filings state such a window in two ways: the
+ * year-to-date identity (`filedCashFlowTtm`: fiscal year + current year to date - prior-year year to date, when a
+ * 10-Q ends the window), and a fact tagged for exactly that start and end (the fiscal year's own figure when the
+ * window is that fiscal year, or a filer's own twelve-month column). Annual never stands in for TTM: a tagged fact
+ * counts only when its start and its end are the window's, with no day band. An identity that starts on another day
+ * is not this window; when both forms exist they must give one figure; and a filing that states two values for the
+ * window establishes none.
+ */
+export function filedWindowFlow(facts: CompanyFacts, tag: string, unit: string, start: string, end: string, observedAt: string): FiledCashFlowTtm | null {
+  if (!validDay(start) || !validDay(end)) return null;
+  const identity = filedCashFlowTtm(facts, tag, unit, end, observedAt);
+  const copies = points(facts, tag, unit, observedAt).filter(p => p.start === start && p.end === end);
+  const stated = unambiguousNewest(copies);
+  if (copies.length > 0 && !stated) return null;
+  if (identity && (identity.start !== start || stated && stated.val !== identity.value)) return null;
+  if (identity) return identity;
+  if (!stated) return null;
+  return { value: stated.val, operands: [stated.val], start, end, tag, points: [stated],
+    reason: `TTM ${filedTtmFlowName(tag)} = ${stated.val} ${unit}, the figure filed for exactly ${start} through ${end} in ${stated.form} ${stated.accn}, filed ${stated.filed}; nothing is derived.` };
 }
 export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
   return filedCashFlowTtm(facts, OPERATING_CASH_FLOW_TAG, unit, end, observedAt);
