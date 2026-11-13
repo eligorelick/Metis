@@ -98,6 +98,9 @@ export async function fetchCostReport(adminKey, startTime, endTime, fetchImpl = 
 
 async function main(argv) {
   loadMaintenanceEnv();
+  // D-228: refuse retired Thesis-era setting names before any database or paid-account read.
+  const { assertNoStaleSettings } = await import("../src/config/namespace.ts");
+  assertNoStaleSettings();
   const write = argv.includes("--write");
   // The validated config is the single reader of ANTHROPIC_ADMIN_KEY: it
   // trims, treats a blank value as absent, and fails loudly on a malformed

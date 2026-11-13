@@ -591,7 +591,7 @@ export function buildBearFraming(capChars: number = ANALYST_CASE_CHAR_CAP): stri
  * How the case order was decided, in one line the judge reads. A FUNCTION OF
  * THE SETTING, exactly as the length banner is a function of the presentation:
  * telling the judge the order is "randomized per report" when the operator
- * pinned it with `THESIS_JUDGE_ORDER=bull-first` is a false statement in the
+ * pinned it with `METIS_JUDGE_ORDER=bull-first` is a false statement in the
  * prompt, and a model told something false about its own inputs has one less
  * reason to trust the rest of them.
  */

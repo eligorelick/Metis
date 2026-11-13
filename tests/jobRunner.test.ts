@@ -69,9 +69,9 @@ const configMocks = vi.hoisted(() => ({
     // WS8 added these two config fields; this mock returns the full ThesisConfig.
     resumeOnStart: true,
     tokenFile: undefined,
-    // WS6 (D-19): THESIS_EV_INCLUDE_LEASES defaults off.
+    // WS6 (D-19): METIS_EV_INCLUDE_LEASES defaults off.
     evIncludeLeases: false,
-    // WS7 (D-20): THESIS_JUDGE_ORDER defaults to the one-judge-pass random order.
+    // WS7 (D-20): METIS_JUDGE_ORDER defaults to the one-judge-pass random order.
     judgeOrder: "random" as const,
   })),
 }));
@@ -2341,7 +2341,7 @@ describe("runJob - durable paid-pass settlements", () => {
    * maximum only to cover a pass that settles without ever reaching the
    * provider; it is released the moment the first request asks for admission.
    */
-  it("admits a pass's own first request with THESIS_MAX_ACTIVE_LLM_CALLS=1", async () => {
+  it("admits a pass's own first request with METIS_MAX_ACTIVE_LLM_CALLS=1", async () => {
     const { jobId } = createJob("AAPL");
     const scheduler = await import("@/pipeline/jobScheduler");
     const limits = {
@@ -4897,14 +4897,14 @@ describe("runJob - durable paid-pass settlements", () => {
     // A direct invocation must read only local settings before taking its
     // durable claim; durable recovery still avoids every provider/model
     // boundary and never fetches the data prerequisite.
-    // WS6 (D-19): 2 -> 3. Stage B reads THESIS_EV_INCLUDE_LEASES once per run
+    // WS6 (D-19): 2 -> 3. Stage B reads METIS_EV_INCLUDE_LEASES once per run
     // to decide whether lease liabilities count in the enterprise-value bridge
     // (src/pipeline/compute.ts). It is a local settings read like the other
     // two; no provider or model boundary is crossed, which the assertions
     // below still pin.
     // WS7 (D-20), 2026-09 review: 3 -> 4. The count spans this whole test, and
     // the DIRECT pipelinePasses.runVerifyPass call above now reads
-    // THESIS_JUDGE_ORDER — once, and only because no judge pass ran in this
+    // METIS_JUDGE_ORDER — once, and only because no judge pass ran in this
     // process, so the judgement protocol has to be reconstructed from the seed
     // and the setting instead of vanishing. Also a local settings read; the
     // recovery run itself still crosses no provider or model boundary.

@@ -129,7 +129,7 @@ export const WEB_SEARCH_TOOL_TYPE_BASIC = "web_search_20250305" as const;
  * otherwise hold a durable lease (and its reservation) until the 10-minute
  * transport timeout with nothing to show for it. Zero disables the guard.
  *
- * THESIS_STREAM_IDLE_SECONDS has exactly ONE parser: the config schema, which
+ * METIS_STREAM_IDLE_SECONDS has exactly ONE parser: the config schema, which
  * validates it once at startup. This used to re-read and re-parse the raw
  * environment variable here with a different accepted range, so an out-of-range
  * value silently became the default in the provider while the config held
@@ -165,7 +165,7 @@ export function streamIdleTimeoutMs(): number {
  * a dead connection is caught by the layer that CAN see pings and this guard is
  * left as the backstop for a socket kept warm by pings that never produces
  * anything. The ceiling is the model stage's own deadline, past which the guard
- * could never fire. THESIS_STREAM_IDLE_SECONDS scales all of them; zero still
+ * could never fire. METIS_STREAM_IDLE_SECONDS scales all of them; zero still
  * disables the guard entirely.
  */
 export const STREAM_IDLE_EFFORT_MULTIPLIER: Readonly<Record<RegistryEffortLevel, number>> = {
@@ -1505,7 +1505,7 @@ export function maximumRequestCostUsd(
  * stops being reserved.
  *
  * `judgeRequestsPerPass` doubles the JUDGE figure under
- * `THESIS_JUDGE_ORDER=both`, which issues a mirrored second request per attempt
+ * `METIS_JUDGE_ORDER=both`, which issues a mirrored second request per attempt
  * (D-20). Without it the published judge worst case understated the real one by
  * two times for anyone running that setting.
  */

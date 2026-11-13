@@ -116,8 +116,8 @@ describe("buildCacheKey determinism", () => {
 
 describe("default database path", () => {
   it("keeps SQLite WAL/SHM churn outside the project tree by default", () => {
-    vi.stubEnv("THESIS_DB_PATH", "");
-    vi.stubEnv("THESIS_DATA_DIR", "");
+    vi.stubEnv("METIS_DB_PATH", "");
+    vi.stubEnv("METIS_DATA_DIR", "");
 
     const dbPath = path.resolve(defaultDbPath());
     const cwd = path.resolve(process.cwd());
@@ -127,17 +127,17 @@ describe("default database path", () => {
     expect(relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))).toBe(false);
   });
 
-  it("honors THESIS_DB_PATH for explicit local overrides", () => {
+  it("honors METIS_DB_PATH for explicit local overrides", () => {
     const explicit = path.join(process.cwd(), "data", "custom-test.db");
-    vi.stubEnv("THESIS_DB_PATH", explicit);
+    vi.stubEnv("METIS_DB_PATH", explicit);
 
     expect(defaultDbPath()).toBe(explicit);
   });
 
-  it("honors THESIS_DATA_DIR when only the directory is overridden", () => {
+  it("honors METIS_DATA_DIR when only the directory is overridden", () => {
     const dir = path.join(os.tmpdir(), "thesis-db-path-test");
-    vi.stubEnv("THESIS_DB_PATH", "");
-    vi.stubEnv("THESIS_DATA_DIR", dir);
+    vi.stubEnv("METIS_DB_PATH", "");
+    vi.stubEnv("METIS_DATA_DIR", dir);
 
     expect(defaultDbPath()).toBe(path.join(dir, "metis.db"));
   });
@@ -153,9 +153,9 @@ describe("default database path", () => {
     legacy.sqlite.prepare('INSERT INTO "settings" ("key", "value") VALUES (?, ?)').run("legacy.marker", "present");
     legacy.sqlite.close();
     vi.spyOn(process, "cwd").mockReturnValue(projectDir);
-    vi.stubEnv("THESIS_DB_PATH", "");
-    vi.stubEnv("THESIS_DATA_DIR", appDataDir);
-    vi.stubEnv("THESIS_IMPORT_LEGACY_DB", "");
+    vi.stubEnv("METIS_DB_PATH", "");
+    vi.stubEnv("METIS_DATA_DIR", appDataDir);
+    vi.stubEnv("METIS_IMPORT_LEGACY_DB", "");
     const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
@@ -173,8 +173,8 @@ describe("default database path", () => {
 
   it("points drizzle-kit at the same default DB path instead of ./data/thesis.db", async () => {
     const dir = path.join(os.tmpdir(), "thesis-drizzle-path-test");
-    vi.stubEnv("THESIS_DB_PATH", "");
-    vi.stubEnv("THESIS_DATA_DIR", dir);
+    vi.stubEnv("METIS_DB_PATH", "");
+    vi.stubEnv("METIS_DATA_DIR", dir);
     vi.resetModules();
 
     const config = (await import("../drizzle.config")).default as {

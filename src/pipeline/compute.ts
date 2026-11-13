@@ -184,7 +184,7 @@ import {
   classifyInstrumentSupport,
   UnsupportedInstrumentError,
 } from "@/pipeline/stageB/instrumentSupport";
-// WS6 (D-19): THESIS_EV_INCLUDE_LEASES.
+// WS6 (D-19): METIS_EV_INCLUDE_LEASES.
 import { getConfig } from "@/config/env";
 import { periodDays, fiscalYearRule } from "@/pipeline/stageB/fiscalCalendar";
 import { mergeManifest } from "@/pipeline/stageA/manifest";
@@ -1811,7 +1811,7 @@ function riskFreeObservations(bundle: DataBundle): { date: string; value: number
 /**
  * Book debt on the house lease basis: the provider's totalDebt less the
  * operating-lease liability where the balance sheet discloses it (the EDGAR
- * route; FMP publishes no split), unless THESIS_EV_INCLUDE_LEASES keeps
+ * route; FMP publishes no split), unless METIS_EV_INCLUDE_LEASES keeps
  * leases in. The same rule the EV bridge and invested capital apply, so the
  * WACC's debt leg, ROIC and EV share one basis. Interest expense excludes
  * operating-lease interest under ASC 842, so dividing it by a lease-inclusive
@@ -2517,7 +2517,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (isSuppressed("operatingMargin")) growth.margins.operating = { series: [], slopePctPtsPerYear: null };
 
   // --- Returns (WACC / ROIC / DuPont) ---------------------------------------
-  // WS6 (D-19): THESIS_EV_INCLUDE_LEASES is read ONCE per Stage B run and
+  // WS6 (D-19): METIS_EV_INCLUDE_LEASES is read ONCE per Stage B run and
   // handed to both consumers — the returns block (WACC debt leg, invested
   // capital) and the valuation block (both EV bridges) — so the lease basis
   // cannot drift between them and the run makes a single settings read
@@ -3817,7 +3817,7 @@ interface ValuationCtx {
   /** C-10: the trailing-four-quarter common return (financial routes). */
   commonReturnTtm: TtmCommonReturn | null;
   operatingDispositions: OperatingDispositionRead;
-  /** THESIS_EV_INCLUDE_LEASES, read once in runStageB and shared with the returns block. */
+  /** METIS_EV_INCLUDE_LEASES, read once in runStageB and shared with the returns block. */
   evIncludeLeases: boolean;
   profile: FmpRawRow | null;
   quote: FmpRawRow | null;

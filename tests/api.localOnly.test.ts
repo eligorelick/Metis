@@ -20,7 +20,8 @@ it.each(["", "localhost:3000", "127.0.0.1:3000", "[::1]:3000"])("retains loopbac
   expect(assertLocalOnlyRoute(local)).toBeNull();
   expect(assertLocalOnlyRoute(new Request("http://192.168.1.50:3000/settings", { headers: { host: "192.168.1.50:3000" } }))?.status).toBe(403);
 });
-it("honors the legacy LAN alias (SEC-202)", async () => {
-  vi.stubEnv("METIS_ALLOWED_HOST", undefined); vi.stubEnv("THESIS_ALLOWED_HOST", "192.168.1.50:3000");
-  expect((await credentialsGET(new Request("http://localhost/settings", { headers: { host: "localhost", "sec-fetch-site": "same-origin" } }))).status).toBe(403);
+it("refuses credential management when a retired THESIS_ALLOWED_HOST is left set, rather than ignoring it (D-228)", async () => {
+  vi.stubEnv("THESIS_ALLOWED_HOST", "192.168.1.50:3000");
+  await expect(credentialsGET(new Request("http://localhost/settings", { headers: { host: "localhost", "sec-fetch-site": "same-origin" } })))
+    .rejects.toThrow(/THESIS_ALLOWED_HOST -> METIS_ALLOWED_HOST/);
 });

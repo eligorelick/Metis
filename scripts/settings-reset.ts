@@ -28,6 +28,7 @@ import Database from "better-sqlite3";
 
 import { isEntryPoint } from "./lib/entrypoint.mjs";
 import { loadMaintenanceEnv } from "./lib/load-env.mjs";
+import { assertNoStaleSettings } from "@/config/namespace";
 
 import { MAINTENANCE_LAST_RUN_KEY } from "@/cache/maintenance";
 import { defaultDbPath } from "@/db/paths";
@@ -187,6 +188,8 @@ export function runSettingsResetCli(
 if (isEntryPoint(import.meta.url)) {
   try {
     loadMaintenanceEnv();
+    // D-228: refuse retired Thesis-era setting names before touching any database.
+    assertNoStaleSettings();
     runSettingsResetCli(process.argv.slice(2));
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
