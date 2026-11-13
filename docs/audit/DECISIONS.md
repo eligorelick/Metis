@@ -219,9 +219,11 @@ builder's own debt composition (`statements.ts`).
   labels, the currency, the cutoff, the convention and the debt basis.
 - A decision is kept for the run's facts object and found again only by the
   exact inputs that produced it: the same facts object, cutoff, filing
-  sections and currency, and a row with the same content (the lossless
-  `canonicalKey` of `@/edgar/computationContext`). Nothing is keyed on a period
-  and a lease convention alone. Every caller gets its own deep copy; a row the
+  sections and currency, and a row with the same cells in the same order (the
+  lossless `canonicalKey` of `@/edgar/computationContext`). Nothing is keyed on
+  a period and a lease convention alone. The reader whose row causes a
+  decision receives what the owner returned, as before; what is kept is a
+  private copy, and a later reader receives its own deep copy of it. A row the
   admission leaves untouched is returned as the caller's own object, as
   before. A row written in place afterwards is a different row and is decided
   again.
@@ -272,8 +274,10 @@ same-report worker's chain:
 - DEMO: 4 balance rows, no confirmed SEC facts, so no reader admitted a row
   before and none presents one now.
 
-Same-report check against the branch point `9e25b820`: no changes (17 cases,
-136 files compared). The accuracy tool reports the same on both: 266 figures
+Same-report check against the branch point `9e25b820` (batch 4; main
+`355effa7` is its merge and has the same tree), after merging that main: no
+changes (17 cases, 136 files compared). The accuracy tool reports the same on
+both: 266 figures
 in 13 cases, 167 match, 7 mismatch, 67 gap, 25 not established. Frozen records
 unchanged. No stamp moves.
 
@@ -285,7 +289,8 @@ the shared machine (for example DUK Stage B 2,145 and 3,850 ms before, 2,901
 and 3,658 ms after, the same code in two rounds). No speed gain is claimed.
 
 Tests: `tests/admission.debtFamily.test.ts` (one decision for two readers,
-exact-input keying, private copies, the identity, the pass-through without
+exact-input keying including the order of a row's cells, private copies, the
+identity, the pass-through without
 facts, and both conventions pinned on the EXPE filing shape with a control and
 an unrelated shape), the shadow above, and
 `tests/admission.debtFamily.oneOwner.test.ts` (only the enrichment and the
