@@ -746,14 +746,18 @@ describe("public release contract", () => {
         read("tests/edgar.operatingExpenseScope.test.ts"),
       // Independent audit 2026-10-19: five trimmed live-run companyfacts payloads.
       read("tests/audit.issuerFixtures.test.ts"),
+      // D-236: TSMC's fiscal 2025 Form 20-F XBRL instance, trimmed, and SEC's
+      // companyfacts for TSMC as stored on 2026-11-12, reduced to the same concepts.
+      read("tests/edgar.instanceFallback.test.ts"),
     ].join("\n");
 
     // D-87 adds only the referenced public cash and carrying-debt fixtures;
     // the 2026-10-19 independent audit adds five issuer companyfacts.
     // R8 adds one referenced public 8-K item; D-171 one trimmed public TSMC 20-F
     // excerpt (unlettered Risk Factors); Q6 adds eight trimmed public annual
-    // section layouts. No private run artifact is shipped.
-    expect(edgarFixtures).toHaveLength(61);
+    // section layouts; D-236 two public SEC extracts for one TSMC 20-F. No
+    // private run artifact is shipped.
+    expect(edgarFixtures).toHaveLength(63);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }
