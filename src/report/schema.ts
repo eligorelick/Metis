@@ -170,7 +170,10 @@ function maskNamePeriods(text: string): string {
 }
 export function noBuySellHold(text: string): boolean {
   if (typeof text !== "string" || text.length === 0) return true;
-  return !RATING_PATTERNS.some((re) => re.test(maskNamePeriods(text)));
+  // Mask once: every pattern reads the same masked text, and a saved report
+  // sends each of its strings through here on every read.
+  const masked = maskNamePeriods(text);
+  return !RATING_PATTERNS.some((re) => re.test(masked));
 }
 
 /**

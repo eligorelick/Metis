@@ -50,5 +50,7 @@ docs/superpowers/
 .playwright-mcp/
 .worktrees/
 tmp/
+# Local launcher state: the server record and the last build's input record.
+.local/
 # Generated launch videos, stills and local rendering work.
 /brag-output*/

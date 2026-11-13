@@ -31,6 +31,28 @@ original versions and bytes; source merge does not deploy or publish a release.
   and is not placed in the `auto` order until a run on it has succeeded.
 - No calculation, report content or version stamp changes.
 
+## Unreleased - Faster page changes (2026-11-13)
+
+- Opening a company with a saved report, its revisions list, or a saved run
+  rebuilt the report's read-time view on every page change: two full schema
+  validations and a walk over every string. The view is now built once per
+  process for each stored report and shared (`parseStoredReport` in
+  `src/report/history.ts`). It is keyed by the stored bytes, which never change
+  (P21), bounded, and frozen so no reader can alter what the next page shows.
+  Measured on a six-report company: the revisions list fell from about 0.9 s to
+  under 0.05 s on the production build once read, and from about 5 s to 0.2 s on
+  the development server.
+- The rating-language check masked each string once per pattern, sixteen times
+  per string. It now masks once; the result is the same.
+- Pages under `/company/[symbol]` have a loading screen again, so a page change
+  shows the shell and a skeleton at once instead of holding the old page until
+  the new one is fully rendered. The print page keeps a blank placeholder.
+- `npm run app` serves the production build and rebuilds it only when the build
+  is missing or its inputs changed. The development server adds debugging work
+  to every page; a long saved report that takes 2.5 s or more to open there
+  opens in about 0.2 s from the production build.
+- Figures, report content, version stamps and saved reports are unchanged.
+
 ## Unreleased - Build and dev server without warnings (2026-11-13)
 
 - `npm run build` reported three warnings and `npm run dev` repeated one on
