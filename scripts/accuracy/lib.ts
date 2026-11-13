@@ -209,7 +209,7 @@ export function buildTtm(facts: CompanyFacts, concepts: readonly string[], unit:
       && Math.abs(dayNumber(fact.end) - (dayNumber(end) - 365)) <= 7);
     const prior = pickNewest(priorCandidates, concept, unit, cutoff);
     if (!prior) continue;
-    if (!operandsOnOneBasis(facts, concept, unit, fy, ytd, prior, cutoff)) continue;
+    if (!operandsOnOneBasis(facts, concept, unit, fy, ytd, prior)) continue;
     const candidate: FiledDerivation = {
       value: fy.val + ytd.val - prior.val,
       formula: "fiscal year + current year to date − prior-year year to date",
@@ -226,18 +226,23 @@ export function buildTtm(facts: CompanyFacts, concepts: readonly string[], unit:
 
 /**
  * Whether a TTM identity's operands stand on one basis (P1: only compatible operands). The fiscal year comes from one
- * filing and both year-to-date figures from a later one. When that later filing states a prior-year year to date that
- * differs from the figure the issuer first filed for the same period, it recast the prior year, and a fiscal year
- * filed before it is still on the old basis: subtracting the recast part from the unrecast whole is not the filed TTM.
+ * filing and both year-to-date figures from a later one. The fiscal year is on the basis the issuer's filings stated
+ * when it was filed, so the question is whether the prior-year year to date changed AFTER that annual filing: its
+ * value as of the annual filing is the annual filing's own figure for the period when it carries one, else the newest
+ * figure filed on or before it. When the later filing states another value, it recast the prior year after the fiscal
+ * year was filed, and subtracting the recast part from the unrecast whole is not the filed TTM. A recast made on or
+ * before the annual filing is already in the fiscal year: an older, superseded figure for the period does not matter.
  * The same holds the other way round: a fiscal year restated by a filing newer than the year-to-date filing stands
  * beside year-to-date figures filed before that restatement.
  */
-function operandsOnOneBasis(facts: CompanyFacts, concept: string, unit: string, fy: FiledPoint, ytd: FiledPoint, prior: FiledPoint, cutoff: string): boolean {
-  const firstFiled = factsFor(facts, concept, unit)
-    .filter((fact) => fact.start === prior.start && fact.end === prior.end && STATEMENT_FORMS.has(fact.form) && fact.filed <= cutoff && fact.filed < prior.filed)
-    .sort((a, b) => a.filed.localeCompare(b.filed) || a.accn.localeCompare(b.accn))[0];
-  const priorRecast = firstFiled !== undefined && firstFiled.val !== prior.val;
-  if (priorRecast && fy.filed < ytd.filed) return false;
+function operandsOnOneBasis(facts: CompanyFacts, concept: string, unit: string, fy: FiledPoint, ytd: FiledPoint, prior: FiledPoint): boolean {
+  if (fy.filed < ytd.filed) {
+    const knownAtAnnual = factsFor(facts, concept, unit)
+      .filter((fact) => fact.start === prior.start && fact.end === prior.end && STATEMENT_FORMS.has(fact.form) && fact.filed <= fy.filed)
+      .sort((a, b) => a.filed.localeCompare(b.filed) || a.accn.localeCompare(b.accn));
+    const atAnnual = knownAtAnnual.find((fact) => fact.accn === fy.accn) ?? knownAtAnnual.at(-1);
+    if (atAnnual !== undefined && atAnnual.val !== prior.val) return false;
+  }
   if (fy.restated && fy.filed > ytd.filed) return false;
   return true;
 }
@@ -413,6 +418,47 @@ export function mergeFacts(base: CompanyFacts, extra: CompanyFacts): CompanyFact
   return merged;
 }
 
+// ------------------------------------------------------------------ periods
+
+/** A figure's period, parsed from the period syntax of scripts/accuracy/figures.ts. */
+export type Period =
+  | { kind: "FY"; end: string }
+  /** `start` is absent when the report states only the window's end ("TTM-TO:<end>"): the filed window is then the one the filings give (P1: a boundary is never inferred from an end date). */
+  | { kind: "TTM"; start?: string; end: string }
+  | { kind: "Q"; start: string; end: string }
+  | { kind: "LATEST"; end: string }
+  | { kind: "INSTANT"; end: string };
+
+export function parsePeriod(period: string): Period | null {
+  let match = /^FY:(\d{4}-\d{2}-\d{2})$/.exec(period);
+  if (match) return { kind: "FY", end: match[1]! };
+  match = /^TTM:(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(period);
+  if (match) return { kind: "TTM", start: match[1]!, end: match[2]! };
+  match = /^TTM-TO:(\d{4}-\d{2}-\d{2})$/.exec(period);
+  if (match) return { kind: "TTM", end: match[1]! };
+  match = /^Q:(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(period);
+  if (match) return { kind: "Q", start: match[1]!, end: match[2]! };
+  match = /^LATEST-PERIOD:(\d{4}-\d{2}-\d{2})$/.exec(period);
+  if (match) return { kind: "LATEST", end: match[1]! };
+  match = /^@(\d{4}-\d{2}-\d{2})$/.exec(period);
+  if (match) return { kind: "INSTANT", end: match[1]! };
+  return null;
+}
+
+/**
+ * Whether a stored reference built for `referencePeriod` is a reference for the period a figure now asks for. The
+ * resolver records the period it was asked for, with one exception: a TTM's start is the one the filings give for the
+ * window's end (P1), so a TTM reference covers a request for the twelve months ending the same day, stated the same
+ * way (with a start, or its end only). Whether Metis's own window equals the filed one is then the period comparison.
+ */
+export function referenceCoversPeriod(referencePeriod: string, requested: string): boolean {
+  if (referencePeriod === requested) return true;
+  const stored = parsePeriod(referencePeriod);
+  const asked = parsePeriod(requested);
+  return stored !== null && asked !== null && stored.kind === "TTM" && asked.kind === "TTM" && stored.end === asked.end
+    && (stored.start === undefined) === (asked.start === undefined);
+}
+
 // ------------------------------------------------------------ classification
 
 export type FigureStatus = "match" | "mismatch" | "gap" | "not-established";
@@ -464,19 +510,31 @@ export interface Classification {
 
 /**
  * Metis's figure against the filed reference. A withheld figure is a disclosed
- * gap; a reference that could not be established never yields a match; a
- * period other than the reference's is a mismatch whatever the value, and so is
- * a value in another unit, share basis or currency (P3, P4).
+ * gap; a reference that could not be established never yields a match, and
+ * neither does a stored reference built for another period than the one the
+ * report now asks for (`requestedPeriod`): no filed value is established for
+ * that period until the reference is rebuilt (P1, P2). Against a reference
+ * that covers the period asked for, a period other than the reference's is a
+ * mismatch whatever the value, and so is a value in another unit, share basis
+ * or currency (P3, P4).
  */
 export function classifyFigure(input: {
   metis: number | null;
   metisPeriod: string;
+  /**
+   * The period the filed reference must cover: the figure's own period, or the period it is held to (a
+   * latest-fiscal-year row is held to the report's own latest fiscal year). Null when the report states no period.
+   */
+  requestedPeriod: string | null;
   metisMeasure: Measure;
   reference: ReferenceValue | null;
   referencePeriod: string | null;
 }): Classification {
   if (input.metis === null || !Number.isFinite(input.metis)) return { status: "gap", detail: "Metis withholds the figure" };
   if (input.reference === null || input.referencePeriod === null) return { status: "not-established", detail: "filed value not established" };
+  if (input.requestedPeriod !== null && !referenceCoversPeriod(input.referencePeriod, input.requestedPeriod)) {
+    return { status: "not-established", detail: `the stored filed reference is for ${input.referencePeriod}, not the period the report asks for (${input.requestedPeriod}): no filed value is established for that period until the reference is rebuilt` };
+  }
   if (input.metisPeriod !== input.referencePeriod) {
     return { status: "mismatch", detail: `period ${input.metisPeriod} differs from the filed reference period ${input.referencePeriod}` };
   }

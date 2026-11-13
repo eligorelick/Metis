@@ -10,7 +10,10 @@
  * filed reference (scripts/accuracy/reference.json, built by accuracy:fetch)
  * and classifies it: match, mismatch, gap (Metis withholds it) or
  * not-established (no filed value could be established, never a match). "Same
- * value" is the P8 owner's test (src/edgar/vendorAgreement.ts).
+ * value" is the P8 owner's test (src/edgar/vendorAgreement.ts). A stored
+ * reference is reused only for the cutoff it was built for and only for the
+ * period the report now asks for; one built for another period establishes
+ * nothing until accuracy:fetch rebuilds it.
  *
  * It then compares the result with scripts/accuracy/expectation.json and exits
  * 0 only when every figure's status equals the expectation and, for anything
@@ -36,6 +39,7 @@ import {
   diffExpectation,
   expectationKey,
   formatNumber,
+  referenceCoversPeriod,
   updateExpectation,
   type ExpectationEntry,
   type FigureStatus,
@@ -62,6 +66,8 @@ export interface CheckRow {
   filedNotes: string[];
   status: FigureStatus;
   detail: string;
+  /** The stored reference was built for another period than the report now asks for: it is not used, and must be rebuilt. */
+  staleReference?: true;
   cause?: string;
   note?: string;
 }
@@ -102,6 +108,8 @@ export function reportCutoffAt(report: Record<string, unknown>): string | null {
   return typeof cutoffAt === "string" && cutoffAt.length > 0 ? cutoffAt : null;
 }
 
+const REBUILD = "rebuild the filed reference for this run: npm run accuracy:fetch -- --network --run <golden run>";
+
 /**
  * The filed reference may be reused for a run only when it was built for the run's own evidence cutoff (P2): a
  * reference built for a later cutoff can hold filings this report could not have had, and one built for an earlier
@@ -110,19 +118,18 @@ export function reportCutoffAt(report: Record<string, unknown>): string | null {
  * fails loudly, naming the case and both cutoffs: rebuild the reference for this run.
  */
 export function validateReferenceCutoff(caseId: string, runCutoffAt: string | null, reference: ReferenceFile, entries: readonly ReferenceEntry[]): void {
-  const rebuild = "rebuild the filed reference for this run: npm run accuracy:fetch -- --network --run <golden run>";
-  if (runCutoffAt === null) throw new Error(`${caseId}: the report states no evidence cutoff (meta.evidenceTiming.cutoffAt), so the filed reference cannot be validated against it; ${rebuild}`);
+  if (runCutoffAt === null) throw new Error(`${caseId}: the report states no evidence cutoff (meta.evidenceTiming.cutoffAt), so the filed reference cannot be validated against it; ${REBUILD}`);
   const built = reference.cases?.[caseId]?.cutoffAt;
-  if (typeof built !== "string") throw new Error(`${caseId}: reference.json records no evidence cutoff for this case (run cutoff ${runCutoffAt}); ${rebuild}`);
+  if (typeof built !== "string") throw new Error(`${caseId}: reference.json records no evidence cutoff for this case (run cutoff ${runCutoffAt}); ${REBUILD}`);
   const cutoff = cutoffDate(runCutoffAt);
   if (cutoffDate(built) !== cutoff) {
-    throw new Error(`${caseId}: the run's evidence cutoff ${runCutoffAt} differs from the cutoff the filed reference was built for (${built}); ${rebuild}`);
+    throw new Error(`${caseId}: the run's evidence cutoff ${runCutoffAt} differs from the cutoff the filed reference was built for (${built}); ${REBUILD}`);
   }
   for (const entry of entries) {
     if (entry.unresolved) continue;
     const late = (entry.points ?? []).find((point) => point.filed > cutoff);
     if (late) {
-      throw new Error(`${caseId}: the filed reference for ${entry.figure} uses ${late.form} ${late.accn} filed ${late.filed}, after the run's evidence cutoff ${runCutoffAt} (P2); ${rebuild}`);
+      throw new Error(`${caseId}: the filed reference for ${entry.figure} uses ${late.form} ${late.accn} filed ${late.filed}, after the run's evidence cutoff ${runCutoffAt} (P2); ${REBUILD}`);
     }
   }
 }
@@ -147,15 +154,21 @@ function row(ticker: string, caseId: string, figure: MetisFigure, ref: Reference
   const established = ref && !ref.unresolved && typeof ref.value === "number";
   // An established reference must say what it measures; one that does not predates that rule and is rebuilt, never guessed (P3, P4).
   if (established && (ref.unit === undefined || ref.currency === undefined)) {
-    throw new Error(`${caseId}: the filed reference for ${figure.id} records no comparison unit and currency; rebuild the filed reference for this run: npm run accuracy:fetch -- --network --run <golden run>`);
+    throw new Error(`${caseId}: the filed reference for ${figure.id} records no comparison unit and currency; ${REBUILD}`);
   }
+  // The period the reference must cover: the figure's own, or the one it is held to (the report's latest fiscal year).
+  const requested = figure.referencePeriod ?? figure.period;
   const classification = classifyFigure({
     metis: figure.value,
     metisPeriod: figure.period ?? "",
+    requestedPeriod: requested,
     metisMeasure: { unit: figure.unit, currency: figure.currency },
     reference: established ? { kind: ref.kind ?? "filed", value: ref.value!, operands: ref.operands, unit: ref.unit!, currency: ref.currency ?? null } : null,
     referencePeriod: established ? ref.period : null,
   });
+  // A stored value for another period is not the filed value of the period asked for: it is neither shown nor compared.
+  const stale = Boolean(established && requested !== null && ref.period !== null && !referenceCoversPeriod(ref.period, requested));
+  const shown = established && !stale;
   return {
     case: caseId,
     ticker,
@@ -168,13 +181,16 @@ function row(ticker: string, caseId: string, figure: MetisFigure, ref: Reference
     unit: figure.unit,
     source: figure.source,
     ...(figure.reportNote ? { reportNote: figure.reportNote } : {}),
-    filed: established ? ref.value! : null,
-    filedPeriod: established ? ref.period : null,
-    filedKind: established ? ref.kind ?? "filed" : null,
-    filing: filingReference(ref),
-    filedNotes: [...(ref?.unresolved ? [`filed value not established: ${ref.unresolved}`] : []), ...(ref?.notes ?? []), ...(ref?.recipeWhy ? [`recipe: ${ref.recipeWhy}`] : [])],
+    filed: shown ? ref.value! : null,
+    filedPeriod: shown ? ref.period : null,
+    filedKind: shown ? ref.kind ?? "filed" : null,
+    filing: stale ? "—" : filingReference(ref),
+    filedNotes: stale
+      ? [`filed value not established: the stored filed reference is for ${ref!.period}, not the period the report asks for (${requested}); ${REBUILD}`]
+      : [...(ref?.unresolved ? [`filed value not established: ${ref.unresolved}`] : []), ...(ref?.notes ?? []), ...(ref?.recipeWhy ? [`recipe: ${ref.recipeWhy}`] : [])],
     status: classification.status,
     detail: classification.detail,
+    ...(stale ? { staleReference: true as const } : {}),
     ...(expected?.cause && (classification.status === "mismatch" || classification.status === "not-established") ? { cause: expected.cause } : {}),
     ...(expected?.note ? { note: expected.note } : {}),
   };
@@ -192,7 +208,7 @@ const METHOD = [
   "### Method",
   "",
   "- **Figures.** One explicit mapping (scripts/accuracy/figures.ts) reads each data-only case's stored stageB.json and report.json: the latest fiscal year's revenue, operating income, net income, diluted EPS, diluted shares, capital spending and free cash flow; the current-capital TTM operating income, net income, operating cash flow, capital spending and free cash flow; cash and short-term investments, total debt including leases and the lease lines at the latest balance; and every fair-value input taken from filings (DCF base revenue, tax rate, per-share divisor, net debt, NCI, preferred, long-term investments; excess-return opening book, TTM income to common, divisor, payout; REIT FFO operands and divisor; runway liquid assets). Value, period, unit and currency come from the stored output. Market inputs (price, beta, risk-free rate, equity risk premium, consensus, FX spot rates) are not filed values and are not compared.",
-  "- **Filed side.** scripts/accuracy/fetch.ts reads SEC XBRL companyfacts (and, where companyfacts has not ingested a filing or does not carry a filer's extension element, that filing's own XBRL instance) and picks facts by concept, period and form with its own selection code (scripts/accuracy/lib.ts, recipes.ts); it never calls Metis's statement builders. Only filings dated on or before the report's evidence cutoff count, and the newest such filing wins across the alternative elements for one line (P2); earlier differing values are listed as restatements. The reference is used only for the cutoff it was built for. A total is never added to its parts: a total line and its components are alternatives, and total current debt (DebtCurrent) is reconciled with current maturities, short-term borrowings and the current finance lease liability. A composed balance takes every part from one filing, the newest that carries all of it (P7); when a newer filing restates one part without the others, nothing is established. A part the filing does not tag (leases, short-term investments, current debt, NCI, preferred) counts as zero only when no filing within the year tags it and that filing's own XBRL instance shows no other element or dimension member of that kind; an element that is one kind of a class (debt securities among current investments) stands for the class only when the instance shows no other member (P7, P10). TTM flows are fiscal year + current year to date − prior-year year to date, both year-to-date operands from one filing and all three on one basis (P1); per-share values are never built that way; flows in one sum or ratio come from the same filings. A latest-fiscal-year row is held to the report's own latest fiscal year, so an older year shown in its place is a period mismatch.",
+  "- **Filed side.** scripts/accuracy/fetch.ts reads SEC XBRL companyfacts (and, where companyfacts has not ingested a filing or does not carry a filer's extension element, that filing's own XBRL instance) and picks facts by concept, period and form with its own selection code (scripts/accuracy/lib.ts, recipes.ts); it never calls Metis's statement builders. Only filings dated on or before the report's evidence cutoff count, and the newest such filing wins across the alternative elements for one line (P2); earlier differing values are listed as restatements. The reference is used only for the cutoff it was built for, and each stored value only for the period the report asks for. A total is never added to its parts: a total line and its components are alternatives, and total current debt (DebtCurrent) is reconciled with current maturities, short-term borrowings and the current finance lease liability. A composed balance takes every part from one filing, the newest that carries all of it (P7); when a newer filing restates one part without the others, under the same element or another element listed for that line, nothing is established. A part the filing does not tag (leases, short-term investments, current debt, NCI, preferred) counts as zero only when no filing within the year tags it and that filing's own XBRL instance shows no other element or dimension member of that kind; an element that is one kind of a class (debt securities among current investments) stands for the class only when the instance shows no other member (P7, P10). TTM flows are fiscal year + current year to date − prior-year year to date, both year-to-date operands from one filing and all three on one basis: no prior-year figure recast after the fiscal year was filed (P1); per-share values are never built that way; flows in one sum or ratio come from the same filings. A latest-fiscal-year row is held to the report's own latest fiscal year, so an older year shown in its place is a period mismatch.",
   "- **Same value.** The rulebook's P8 owner (src/edgar/vendorAgreement.ts): `vendorAgreesWithFiled` for a filed line, `vendorAgreesWithDerived` for a value built from filed operands. Stored precision is compared, never display text. The unit and currency must agree first; a disagreement is a mismatch (P3, P4).",
   "- **Status.** match; mismatch (with a cause: Metis error, definition, or vendor value shown); gap (Metis withholds the figure, or the route marks it not applicable; the note says whether the value is in the filings); not established (no filed value could be established, never counted as a match). Capital spending is compared as a positive outflow. Per-share and share figures of the 20-F filer TSM are compared per ADS (1 ADS = 5 ordinary shares, the report's own ratio); its statement figures in TWD; its DCF inputs in USD after translating the filed TWD at the report's own stated spot rate (a market input).",
   "",
@@ -289,6 +305,11 @@ function main(argv: string[]): void {
 
   const out: string[] = [`accuracy:check ${path.basename(args.run)}: ${rows.length} figures in ${new Set(rows.map((r) => r.case)).size} cases — ${STATUSES.map((s) => `${rows.filter((r) => r.status === s).length} ${s}`).join(", ")}`];
   if (args.update) {
+    // An expectation records what the filings prove; a reference for another period proves nothing about this run.
+    const stale = rows.filter((r) => r.staleReference);
+    if (stale.length > 0) {
+      throw new Error(`expectation not updated: the stored filed reference is for another period than the report asks for in ${stale.length} figure(s) (${stale.map((r) => `${r.case} ${r.figure}`).join(", ")}); ${REBUILD}`);
+    }
     const entries = updateExpectation(expectation.entries, observed, args.options.get("--reason")!);
     const about = expectation.about || "Expected accuracy status per headline figure for npm run accuracy:check: status, and for anything that is not a match a SHA-256 prefix of Metis's value (never the value). Update only with --update-expectation --reason, in the same change as the code that moves a figure.";
     fs.writeFileSync(expectationFile, `${JSON.stringify({ about, entries }, null, 2)}\n`);

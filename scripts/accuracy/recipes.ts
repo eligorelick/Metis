@@ -33,6 +33,7 @@ import {
   factsFor,
   latestFiscalYearEnd,
   measureOfXbrlUnit,
+  parsePeriod,
   partsAgreeWithTotal,
   selectDuration,
   selectInstant,
@@ -43,6 +44,7 @@ import {
   type FiledPoint,
   type InstanceFact,
   type Measure,
+  type Period,
   type ReferenceKind,
 } from "./lib";
 
@@ -404,30 +406,6 @@ export interface Unresolved {
 /** A filing's own XBRL instance facts, read by accuracy:fetch, keyed by accession. */
 export type InstanceEvidence = Readonly<Record<string, readonly InstanceFact[]>>;
 
-type Period =
-  | { kind: "FY"; end: string }
-  /** `start` is absent when the report states only the window's end ("TTM-TO:<end>"): the filed window is then the one the filings give (P1: a boundary is never inferred from an end date). */
-  | { kind: "TTM"; start?: string; end: string }
-  | { kind: "Q"; start: string; end: string }
-  | { kind: "LATEST"; end: string }
-  | { kind: "INSTANT"; end: string };
-
-export function parsePeriod(period: string): Period | null {
-  let match = /^FY:(\d{4}-\d{2}-\d{2})$/.exec(period);
-  if (match) return { kind: "FY", end: match[1]! };
-  match = /^TTM:(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(period);
-  if (match) return { kind: "TTM", start: match[1]!, end: match[2]! };
-  match = /^TTM-TO:(\d{4}-\d{2}-\d{2})$/.exec(period);
-  if (match) return { kind: "TTM", end: match[1]! };
-  match = /^Q:(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(period);
-  if (match) return { kind: "Q", start: match[1]!, end: match[2]! };
-  match = /^LATEST-PERIOD:(\d{4}-\d{2}-\d{2})$/.exec(period);
-  if (match) return { kind: "LATEST", end: match[1]! };
-  match = /^@(\d{4}-\d{2}-\d{2})$/.exec(period);
-  if (match) return { kind: "INSTANT", end: match[1]! };
-  return null;
-}
-
 /**
  * "Within a year" for this file, one band used twice: a TTM's fiscal year ends at most this many days before the
  * window's end, and a balance tagged this recently still shows the issuer has it (a quarterly report's notes are
@@ -711,7 +689,8 @@ function filingsTagging(concepts: readonly { concept: string; unit: string }[], 
  * A composed balance, filing by filing (P2, P7): the newest filing on or before the cutoff in which the whole
  * composition resolves wins, and every part comes from that one filing. A proof still waiting on a filing's own
  * instance is decided before any older filing is tried. An older filing stands only while no newer filing restates
- * one of the parts it uses: then the newest value (P2) and one filing (P7) cannot both hold, and nothing is established.
+ * one of the parts it uses, under the same element or under another element the recipe lists for that line: then the
+ * newest value (P2) and one filing (P7) cannot both hold, and nothing is established.
  */
 function acrossFilings(recipe: Recipe, end: string, ctx: Context, attempt: (accn: string | undefined) => ResolvedReference | Unresolved): ResolvedReference | Unresolved {
   const candidates = filingsTagging(balanceConcepts(recipe, ctx), end, ctx);
@@ -719,19 +698,58 @@ function acrossFilings(recipe: Recipe, end: string, ctx: Context, attempt: (accn
   let newestFailure: Unresolved | null = null;
   for (const filing of candidates) {
     const result = attempt(filing.accn);
-    if (!("reason" in result)) return restatedSince(result, end, ctx) ?? result;
+    if (!("reason" in result)) return restatedSince(result, recipe, end, ctx) ?? result;
     if (result.needsInstance) return result;
     newestFailure ??= result;
   }
   return newestFailure!;
 }
 
-/** The reason a composition cannot stand on its filing: a newer filing states another value for one of its parts. */
-function restatedSince(result: ResolvedReference, end: string, ctx: Context): Unresolved | null {
+/**
+ * The alternative elements of the line each balance concept belongs to: every concept of an `instant` list maps to
+ * that list, in the recipe's order. A concept no list holds (the parts of current debt) is a line of its own.
+ */
+function lineAlternatives(recipe: Recipe, into: Map<string, readonly string[]> = new Map()): Map<string, readonly string[]> {
+  switch (recipe.op) {
+    case "instant":
+      for (const concept of recipe.concepts) if (!into.has(concept)) into.set(concept, recipe.concepts);
+      break;
+    case "sum":
+      for (const term of recipe.terms) lineAlternatives(term.recipe, into);
+      break;
+    case "first":
+      for (const alternative of recipe.alternatives) lineAlternatives(alternative, into);
+      break;
+    case "ratio":
+      lineAlternatives(recipe.numerator, into);
+      lineAlternatives(recipe.denominator, into);
+      break;
+    case "use":
+      lineAlternatives(NAMED_RECIPES[recipe.name], into);
+      break;
+    default:
+      break;
+  }
+  return into;
+}
+
+/**
+ * The reason a composition cannot stand on its filing: a newer filing states another value for one of its parts. The
+ * newer statement is looked for under the part's own element, and then as a direct selection would find the line
+ * (`selectInstant`): across every alternative element the recipe lists for it, newest filing first, the list's order
+ * breaking a tie within one filing. A newer filing that states the line under another of those elements supersedes
+ * the older part just as one that restates the same element does.
+ */
+function restatedSince(result: ResolvedReference, recipe: Recipe, end: string, ctx: Context): Unresolved | null {
+  const alternatives = lineAlternatives(recipe);
   for (const point of result.points) {
-    const newest = selectInstant(ctx.facts, [point.concept], point.unit, end, ctx.cutoff);
-    if (newest && newest.accn !== point.accn && newest.filed > point.filed && newest.val !== point.val) {
-      return { reason: `${point.concept} at ${end} is ${point.val} in ${point.form} ${point.accn} (filed ${point.filed}), the newest filing that composes the whole balance, but ${newest.form} ${newest.accn} (filed ${newest.filed}) restates it as ${newest.val} without the other parts: the newest value (P2) and one filing (P7) cannot both hold` };
+    // The part's own element first (a newer value under it is a restatement whatever else that filing tags), then the line.
+    const newest = [[point.concept], alternatives.get(point.concept) ?? []]
+      .map((concepts) => selectInstant(ctx.facts, concepts, point.unit, end, ctx.cutoff))
+      .find((found) => found !== null && found.accn !== point.accn && found.filed > point.filed && found.val !== point.val);
+    if (newest) {
+      const restatement = newest.concept === point.concept ? `restates it as ${newest.val}` : `states that line as ${newest.val} under ${newest.concept}, an alternative element for it,`;
+      return { reason: `${point.concept} at ${end} is ${point.val} in ${point.form} ${point.accn} (filed ${point.filed}), the newest filing that composes the whole balance, but ${newest.form} ${newest.accn} (filed ${newest.filed}) ${restatement} without the other parts: the newest value (P2) and one filing (P7) cannot both hold` };
     }
   }
   return null;

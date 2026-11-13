@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { validateReferenceCutoff } from "../scripts/accuracy/check";
+import { buildRows, validateReferenceCutoff } from "../scripts/accuracy/check";
 import { buildEntry } from "../scripts/accuracy/fetch";
 import { extractFigures } from "../scripts/accuracy/figures";
 import { readCompanies, type ReferenceFile } from "../scripts/accuracy/files";
@@ -21,6 +21,7 @@ import {
   latestFiscalYearEnd,
   mergeFacts,
   parseXbrlInstance,
+  referenceCoversPeriod,
   scanXbrlInstance,
   selectDuration,
   selectInstant,
@@ -139,21 +140,21 @@ describe("classification uses the P8 owner", () => {
   const usd = { unit: "currency" as const, currency: "USD" };
   it("treats a filer reporting unit as the same observation and a percent-scale gap as a mismatch", () => {
     const filed = { kind: "filed" as const, value: 5_749_377_000, ...usd };
-    expect(classifyFigure({ metis: 5_749_400_000, metisPeriod: "FY:2025-12-31", metisMeasure: usd, reference: filed, referencePeriod: "FY:2025-12-31" }).status).toBe("match");
-    expect(classifyFigure({ metis: 5_810_000_000, metisPeriod: "FY:2025-12-31", metisMeasure: usd, reference: filed, referencePeriod: "FY:2025-12-31" }).status).toBe("mismatch");
+    expect(classifyFigure({ metis: 5_749_400_000, metisPeriod: "FY:2025-12-31", requestedPeriod: "FY:2025-12-31", metisMeasure: usd, reference: filed, referencePeriod: "FY:2025-12-31" }).status).toBe("match");
+    expect(classifyFigure({ metis: 5_810_000_000, metisPeriod: "FY:2025-12-31", requestedPeriod: "FY:2025-12-31", metisMeasure: usd, reference: filed, referencePeriod: "FY:2025-12-31" }).status).toBe("mismatch");
   });
 
   it("lets a derived value use its operands' rounding, capped at 1%", () => {
     const derived = { kind: "derived" as const, value: 302_970_000_000, operands: [215_938_000_000, 180_000_000_000, 92_968_000_000], ...usd };
-    expect(classifyFigure({ metis: 302_969_000_000, metisPeriod: "TTM:a..b", metisMeasure: usd, reference: derived, referencePeriod: "TTM:a..b" }).status).toBe("match");
+    expect(classifyFigure({ metis: 302_969_000_000, metisPeriod: "TTM:a..b", requestedPeriod: "TTM:a..b", metisMeasure: usd, reference: derived, referencePeriod: "TTM:a..b" }).status).toBe("match");
     const small = { kind: "derived" as const, value: 1_000_000, operands: [3_000_000, 2_000_000], ...usd };
-    expect(classifyFigure({ metis: 2_000_000, metisPeriod: "p", metisMeasure: usd, reference: small, referencePeriod: "p" }).status).toBe("mismatch");
+    expect(classifyFigure({ metis: 2_000_000, metisPeriod: "p", requestedPeriod: "p", metisMeasure: usd, reference: small, referencePeriod: "p" }).status).toBe("mismatch");
   });
 
   it("reports a withheld figure as a gap, an unproven reference as not established, and another period as a mismatch", () => {
-    expect(classifyFigure({ metis: null, metisPeriod: "p", metisMeasure: usd, reference: null, referencePeriod: null }).status).toBe("gap");
-    expect(classifyFigure({ metis: 1, metisPeriod: "p", metisMeasure: usd, reference: null, referencePeriod: null }).status).toBe("not-established");
-    const result = classifyFigure({ metis: 223.35, metisPeriod: "FY:2024-12-31", metisMeasure: usd, reference: { kind: "filed", value: 223.35, ...usd }, referencePeriod: "FY:2025-12-31" });
+    expect(classifyFigure({ metis: null, metisPeriod: "p", requestedPeriod: "p", metisMeasure: usd, reference: null, referencePeriod: null }).status).toBe("gap");
+    expect(classifyFigure({ metis: 1, metisPeriod: "p", requestedPeriod: "p", metisMeasure: usd, reference: null, referencePeriod: null }).status).toBe("not-established");
+    const result = classifyFigure({ metis: 223.35, metisPeriod: "FY:2024-12-31", requestedPeriod: "FY:2025-12-31", metisMeasure: usd, reference: { kind: "filed", value: 223.35, ...usd }, referencePeriod: "FY:2025-12-31" });
     expect(result).toMatchObject({ status: "mismatch" });
     expect(result.detail).toMatch(/period/);
   });
@@ -345,15 +346,15 @@ describe("review round 1: currency and unit must agree before a match (P3, P4)",
   const usd = { unit: "currency" as const, currency: "USD" };
   it("never matches a value in another currency, unit or share basis, however close the number", () => {
     const filedTwd = { kind: "filed" as const, value: 1_000, unit: "currency" as const, currency: "TWD" };
-    const result = classifyFigure({ metis: 1_000, metisPeriod: "p", metisMeasure: usd, reference: filedTwd, referencePeriod: "p" });
+    const result = classifyFigure({ metis: 1_000, metisPeriod: "p", requestedPeriod: "p", metisMeasure: usd, reference: filedTwd, referencePeriod: "p" });
     expect(result).toEqual({ status: "mismatch", detail: "Metis states the figure in USD, the filed reference is in TWD (P4)" });
     const perShare = { kind: "filed" as const, value: 1_000, unit: "currency/share" as const, currency: "USD" };
-    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", metisMeasure: usd, reference: perShare, referencePeriod: "p" }).detail).toMatch(/currency\/share: not the same measure \(P3\)/);
+    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", requestedPeriod: "p", metisMeasure: usd, reference: perShare, referencePeriod: "p" }).detail).toMatch(/currency\/share: not the same measure \(P3\)/);
     const shares = { kind: "filed" as const, value: 1_000, unit: "shares" as const, currency: null };
-    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", metisMeasure: { unit: "%", currency: null }, reference: shares, referencePeriod: "p" }).status).toBe("mismatch");
-    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", metisMeasure: { unit: "currency", currency: null }, reference: { ...filedTwd, currency: "USD" }, referencePeriod: "p" }).detail).toMatch(/states no currency/);
+    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", requestedPeriod: "p", metisMeasure: { unit: "%", currency: null }, reference: shares, referencePeriod: "p" }).status).toBe("mismatch");
+    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", requestedPeriod: "p", metisMeasure: { unit: "currency", currency: null }, reference: { ...filedTwd, currency: "USD" }, referencePeriod: "p" }).detail).toMatch(/states no currency/);
     // Control: the same measure still matches through the P8 owner.
-    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", metisMeasure: usd, reference: { ...filedTwd, currency: "USD" }, referencePeriod: "p" }).status).toBe("match");
+    expect(classifyFigure({ metis: 1_000, metisPeriod: "p", requestedPeriod: "p", metisMeasure: usd, reference: { ...filedTwd, currency: "USD" }, referencePeriod: "p" }).status).toBe("match");
   });
 
   const twd: CompanyConfig = { ticker: "T", case: "t", cik: 1, currency: "TWD", scale: { "fv.dilutedShares": { factor: 0.2, why: "ADS" } } };
@@ -948,7 +949,7 @@ describe("review round 3: the report's own window, never one inferred from its e
     const reference = resolveReference(DEFAULT_RECIPES["fv.incomeAvailableToCommon"]!, figure.period, weeks, "USD", "2026-10-29");
     expect(reference).toMatchObject({ value: 110, period: "TTM-TO:2026-06-28" });
     expect("reason" in reference ? "" : reference.notes[0]).toMatch(/the filed twelve months are 2025-06-30 to 2026-06-28/);
-    expect(classifyFigure({ metis: 110, metisPeriod: figure.period!, metisMeasure: { unit: "currency", currency: "USD" }, reference: { kind: "derived", value: 110, operands: [100, 70, 60], unit: "currency", currency: "USD" }, referencePeriod: "reason" in reference ? null : reference.period }).status).toBe("match");
+    expect(classifyFigure({ metis: 110, metisPeriod: figure.period!, requestedPeriod: figure.period!, metisMeasure: { unit: "currency", currency: "USD" }, reference: { kind: "derived", value: 110, operands: [100, 70, 60], unit: "currency", currency: "USD" }, referencePeriod: "reason" in reference ? null : reference.period }).status).toBe("match");
     // A stated window is still held to the filed one: a calendar-year start is not this filer's window.
     expect(resolveReference(DEFAULT_RECIPES["fv.incomeAvailableToCommon"]!, "TTM:2025-06-29..2026-06-28", weeks, "USD", "2026-10-29")).toMatchObject({ period: "TTM:2025-06-30..2026-06-28" });
   });
@@ -977,5 +978,221 @@ describe("review round 3: a filing's own instance (P3)", () => {
     expect(parsed.facts.ext?.NonMarketableSecurities?.units.USD?.[0]?.val).toBe(51_157_000_000);
     expect(Object.keys(parsed.facts)).toEqual(["ext"]);
     expect(resolveReference({ op: "instant", concepts: ["ext:NonMarketableSecurities"] }, "@2026-06-30", parsed, "USD", "2026-10-29")).toMatchObject({ value: 51_157_000_000, points: [{ concept: "ext:NonMarketableSecurities", accn: Q }] });
+  });
+});
+
+describe("review round 4: an older composition falls to a newer filing's alternative element (P2, P7)", () => {
+  const FEB = "0000000001-26-000061"; // 10-K, filed 2026-02-01
+  const MAR = "0000000001-26-000062"; // a later filing, filed 2026-03-01
+  const at = (val: number, accn = FEB, filed = "2026-02-01", form = "10-K") => fact(undefined, "2025-12-31", val, accn, form, filed);
+  const later = (val: number) => at(val, MAR, "2026-03-01", "10-K/A");
+  const cashAndSti = DEFAULT_RECIPES["cashAndShortTermInvestments.latest"]!;
+  const resolveAt = (recipe: Recipe, rows: CompanyFacts, cutoff = "2026-10-29") => resolveReference(recipe, "@2025-12-31", rows, "USD", cutoff);
+  const valueOf = (result: ReturnType<typeof resolveAt>) => ("reason" in result ? result.reason : result.value);
+  const accnsOf = (result: ReturnType<typeof resolveAt>) => ("reason" in result ? [] : [...new Set(result.points.map((point) => point.accn))]);
+
+  it("the reviewer's case: cash 100 and ShortTermInvestments 50 in February, MarketableSecuritiesCurrent 80 in March with no cash, is not 150", () => {
+    const rows = facts({
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(100)] },
+      ShortTermInvestments: { USD: [at(50)] },
+      MarketableSecuritiesCurrent: { USD: [later(80)] },
+    });
+    // The March filing states the investment line under its other configured element and carries no cash: the
+    // February composition is superseded in part, and nothing is established.
+    expect(valueOf(resolveAt(cashAndSti, rows))).toMatch(/ShortTermInvestments at 2025-12-31 is 50 in 10-K 0000000001-26-000061 \(filed 2026-02-01\), the newest filing that composes the whole balance, but 10-K\/A 0000000001-26-000062 \(filed 2026-03-01\) states that line as 80 under MarketableSecuritiesCurrent, an alternative element for it, without the other parts/);
+    // Before the March filing exists the February composition stands (P2).
+    const before = resolveAt(cashAndSti, rows, "2026-02-28");
+    expect(valueOf(before)).toBe(150);
+    expect(accnsOf(before)).toEqual([FEB]);
+  });
+
+  it("keeps the older composition when the newer filing repeats the line unchanged under the alternative element", () => {
+    const repeated = facts({
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(100)] },
+      ShortTermInvestments: { USD: [at(50)] },
+      MarketableSecuritiesCurrent: { USD: [later(50)] },
+    });
+    const result = resolveAt(cashAndSti, repeated);
+    expect(valueOf(result)).toBe(150);
+    expect(accnsOf(result)).toEqual([FEB]);
+    // Within the newer filing the recipe's order decides, as it does for a direct selection: the first-listed element
+    // repeats the line unchanged, so the element listed after it does not restate it.
+    const both = facts({
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(100)] },
+      ShortTermInvestments: { USD: [at(50), later(50)] },
+      MarketableSecuritiesCurrent: { USD: [later(80)] },
+    });
+    expect(valueOf(resolveAt(cashAndSti, both))).toBe(150);
+  });
+
+  it("holds for any line with alternative elements, and still refuses a restatement under the same element", () => {
+    // Another shape: a recipe of its own, with the alternative elements on the debt line.
+    const netDebt: Recipe = { op: "sum", terms: [
+      { role: "debt", sign: 1, recipe: { op: "instant", concepts: ["LongTermDebtNoncurrent", "LongTermNotesPayable"] } },
+      { role: "cash", sign: -1, recipe: { op: "instant", concepts: ["CashAndCashEquivalentsAtCarryingValue"] } },
+    ] };
+    const renamed = facts({
+      LongTermDebtNoncurrent: { USD: [at(900)] },
+      LongTermNotesPayable: { USD: [later(950)] },
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(100)] },
+    });
+    expect(valueOf(resolveAt(netDebt, renamed))).toMatch(/LongTermDebtNoncurrent at 2025-12-31 is 900 .* states that line as 950 under LongTermNotesPayable, an alternative element for it, without the other parts/);
+    expect(valueOf(resolveAt(netDebt, renamed, "2026-02-28"))).toBe(800);
+    // An element the recipe does not list for the line says nothing about it.
+    const unrelated = facts({
+      LongTermDebtNoncurrent: { USD: [at(900)] },
+      SeniorNotes: { USD: [later(950)] },
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(100)] },
+    });
+    expect(valueOf(resolveAt(netDebt, unrelated))).toBe(800);
+    // The same element restated by the newer filing is refused as before.
+    const same = facts({
+      LongTermDebtNoncurrent: { USD: [at(900), later(950)] },
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(100)] },
+    });
+    expect(valueOf(resolveAt(netDebt, same))).toMatch(/LongTermDebtNoncurrent at 2025-12-31 is 900 .* restates it as 950 without the other parts/);
+    // So is the part's own element restated beside an earlier-listed alternative: the older composition used
+    // LongTermNotesPayable 900, and the newer filing states it as 950 whatever it tags under LongTermDebtNoncurrent.
+    const ownElement = facts({
+      LongTermNotesPayable: { USD: [at(900), later(950)] },
+      LongTermDebtNoncurrent: { USD: [later(900)] },
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(100)] },
+    });
+    expect(valueOf(resolveAt(netDebt, ownElement))).toMatch(/LongTermNotesPayable at 2025-12-31 is 900 .* restates it as 950 without the other parts/);
+  });
+});
+
+describe("review round 4: a comparative recast before the annual filing is on the annual's basis (P1)", () => {
+  const PRIOR_Q = "0000000001-25-000009"; // the prior year's 10-Q, filed 2025-08-01
+  const AMENDED_Q = "0000000001-25-000015"; // a 10-Q/A for the same period, filed 2025-11-01
+  const h1 = (val: number, accn: string, form: string, filed: string) => fact("2025-01-01", "2025-06-30", val, accn, form, filed);
+  // Prior H1 first filed as 40; the 10-K carries the fiscal year 120; the 10-Q carries the current H1 70.
+  const rows = (comparative: number, extra: SecFact[] = []) => facts({ NetIncomeLoss: { USD: [
+    h1(40, PRIOR_Q, "10-Q", "2025-08-01"),
+    fact("2025-01-01", "2025-12-31", 120, K, "10-K", "2026-02-06"),
+    fact("2026-01-01", "2026-06-30", 70, Q, "10-Q", "2026-07-31"),
+    h1(comparative, Q, "10-Q", "2026-07-31"),
+    ...extra,
+  ] } });
+  const ttm = (set: CompanyFacts) => buildTtm(set, ["NetIncomeLoss"], "USD", "2025-12-31", "2026-06-30", "2026-10-29");
+
+  it("the reviewer's case: the 10-K itself carries the recast H1 50, and the 10-Q's comparative is that same 50", () => {
+    const set = rows(50, [h1(50, K, "10-K", "2026-02-06")]);
+    const built = ttm(set);
+    expect(built?.value).toBe(140);
+    expect(built?.operands.map((operand) => operand.point.accn)).toEqual([K, Q, Q]);
+    expect(resolveReference({ op: "flow", concepts: ["NetIncomeLoss"] }, "TTM:2025-07-01..2026-06-30", set, "USD", "2026-10-29")).toMatchObject({ value: 140, kind: "derived" });
+    // The superseded first observation changes nothing: without it the result is the same.
+    const withoutFirst: CompanyFacts = { facts: { "us-gaap": { NetIncomeLoss: { units: { USD: set.facts["us-gaap"]!.NetIncomeLoss!.units.USD!.filter((row) => row.accn !== PRIOR_Q) } } } } };
+    expect(ttm(withoutFirst)?.value).toBe(140);
+  });
+
+  it("accepts a recast made by any filing on or before the annual filing", () => {
+    // A 10-Q/A recast the period before the 10-K was filed; the 10-K does not repeat it.
+    expect(ttm(rows(50, [h1(50, AMENDED_Q, "10-Q/A", "2025-11-01")]))?.value).toBe(140);
+    // Control: a comparative never recast.
+    expect(ttm(rows(40))?.value).toBe(150);
+  });
+
+  it("still refuses a comparative recast after the annual filing", () => {
+    // The 10-K knew the period as 40 (first filing) or as 50 (its own figure); the 10-Q then states another value.
+    expect(ttm(rows(50))).toBeNull();
+    expect(ttm(rows(55, [h1(50, K, "10-K", "2026-02-06")]))).toBeNull();
+    expect(ttm(rows(55, [h1(50, AMENDED_Q, "10-Q/A", "2025-11-01")]))).toBeNull();
+    const result = resolveReference({ op: "flow", concepts: ["NetIncomeLoss"] }, "TTM:2025-07-01..2026-06-30", rows(55, [h1(50, K, "10-K", "2026-02-06")]), "USD", "2026-10-29");
+    expect("reason" in result ? result.reason : result.value).toMatch(/all three on one basis/);
+  });
+});
+
+describe("review round 4: a stored reference is reused only for the period the report asks for (P1, P2)", () => {
+  const usd = { unit: "currency" as const, currency: "USD" };
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const CUTOFF = "2026-10-29T15:09:25.377Z";
+  /** A one-case run folder (AMZN, a company in companies.json) holding the given Stage B output. */
+  const runWith = (stageB: Record<string, unknown>): string => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "accuracy-period-test-"));
+    dirs.push(root);
+    const caseDir = path.join(root, "run", "amzn-data-only");
+    fs.mkdirSync(caseDir, { recursive: true });
+    fs.writeFileSync(path.join(caseDir, "stageB.json"), JSON.stringify({ route: { base: "general" }, gaps: [], valuation: { kind: "multiples" }, fairValue: { status: "available" }, ...stageB }));
+    fs.writeFileSync(path.join(caseDir, "report.json"), JSON.stringify({ filingDisclosures: { currency: "USD" }, meta: { evidenceTiming: { cutoffAt: CUTOFF } } }));
+    return path.join(root, "run");
+  };
+  const stored = (figure: string, period: string, value: number): ReferenceFile => ({
+    about: "", source: "", builtFrom: "",
+    cases: { "amzn-data-only": { ticker: "AMZN", cik: 1, entityName: null, cutoffAt: CUTOFF, currency: "USD" } },
+    entries: [{ case: "amzn-data-only", figure, period, value, kind: "filed", unit: "currency", currency: "USD", operands: [value], points: [], notes: [] }],
+  });
+  const rowOf = (run: string, reference: ReferenceFile, figure: string) => buildRows(run, reference, []).find((row) => row.figure === figure)!;
+  // The report is anchored at fiscal 2025, but its revenue row still shows fiscal 2024's 100.
+  const staleRevenue = { capital: { asOf: "2025-12-31" }, growth: { revenueCagrs: [{ endDate: "2024-12-31", endValue: 100 }] } };
+
+  it("the reviewer's case: a report anchored at FY2025 whose revenue stays FY2024's 100 does not match a stored FY2024 reference of 100", () => {
+    const row = rowOf(runWith(staleRevenue), stored("revenue.fy", "FY:2024-12-31", 100), "revenue.fy");
+    expect(row.period).toBe("FY:2024-12-31");
+    expect(row.status).toBe("not-established");
+    expect(row.detail).toBe("the stored filed reference is for FY:2024-12-31, not the period the report asks for (FY:2025-12-31): no filed value is established for that period until the reference is rebuilt");
+    // The stored value is not shown as the filed value of the period asked for.
+    expect(row).toMatchObject({ filed: null, filedPeriod: null, filing: "—", staleReference: true });
+    expect(row.filedNotes.join(" ")).toMatch(/rebuild the filed reference for this run/);
+  });
+
+  it("classifies against a reference that covers the period asked for, as before", () => {
+    // The reference was built for the report's latest year: the older year Metis shows is a period mismatch.
+    const older = rowOf(runWith(staleRevenue), stored("revenue.fy", "FY:2025-12-31", 120), "revenue.fy");
+    expect(older).toMatchObject({ status: "mismatch", detail: "period FY:2024-12-31 differs from the filed reference period FY:2025-12-31", filed: 120 });
+    expect(older.staleReference).toBeUndefined();
+    // Control: the row and the reference both stand on the latest year.
+    const current = { capital: { asOf: "2025-12-31" }, growth: { revenueCagrs: [{ endDate: "2025-12-31", endValue: 120 }] } };
+    expect(rowOf(runWith(current), stored("revenue.fy", "FY:2025-12-31", 120), "revenue.fy")).toMatchObject({ status: "match", filed: 120 });
+    // The row moved on with the report but the stored reference did not: Metis is not blamed for a stale reference.
+    expect(rowOf(runWith(current), stored("revenue.fy", "FY:2024-12-31", 100), "revenue.fy")).toMatchObject({ status: "not-established", filed: null });
+  });
+
+  it("holds for a balance at an instant, and leaves a TTM's filed window to the period comparison", () => {
+    const balance = { capital: { asOf: "2025-12-31", current: { asOf: "2026-06-30", periodStart: "2025-07-01", basis: "ttm", currency: "USD", ebit: 94, debtBridge: { cashAndShortTermInvestments: 70 } } }, growth: {} };
+    const figure = "cashAndShortTermInvestments.latest";
+    expect(rowOf(runWith(balance), stored(figure, "@2026-06-30", 70), figure).status).toBe("match");
+    expect(rowOf(runWith(balance), stored(figure, "@2026-03-31", 70), figure)).toMatchObject({ status: "not-established", staleReference: true });
+    // A TTM reference states the window the filings give for the end asked for (P1): it covers the request, and a
+    // start that differs from Metis's is still the period mismatch it was.
+    expect(rowOf(runWith(balance), stored("operatingIncome.ttm", "TTM:2025-07-01..2026-06-30", 94), "operatingIncome.ttm").status).toBe("match");
+    expect(rowOf(runWith(balance), stored("operatingIncome.ttm", "TTM:2025-06-29..2026-06-30", 94), "operatingIncome.ttm")).toMatchObject({ status: "mismatch", detail: expect.stringMatching(/^period TTM:2025-07-01\.\.2026-06-30 differs/) });
+    // Twelve months ending another day are another period.
+    expect(rowOf(runWith(balance), stored("operatingIncome.ttm", "TTM:2025-04-01..2026-03-31", 94), "operatingIncome.ttm")).toMatchObject({ status: "not-established", staleReference: true });
+  });
+
+  it("decides it in the classification owner, before the period and the value are compared", () => {
+    const filed = { kind: "filed" as const, value: 100, ...usd };
+    const stale = classifyFigure({ metis: 100, metisPeriod: "FY:2024-12-31", requestedPeriod: "FY:2025-12-31", metisMeasure: usd, reference: filed, referencePeriod: "FY:2024-12-31" });
+    expect(stale.status).toBe("not-established");
+    // A withheld figure is still a gap, and a covered period is compared as before.
+    expect(classifyFigure({ metis: null, metisPeriod: "FY:2024-12-31", requestedPeriod: "FY:2025-12-31", metisMeasure: usd, reference: filed, referencePeriod: "FY:2024-12-31" }).status).toBe("gap");
+    expect(classifyFigure({ metis: 100, metisPeriod: "FY:2025-12-31", requestedPeriod: "FY:2025-12-31", metisMeasure: usd, reference: filed, referencePeriod: "FY:2025-12-31" }).status).toBe("match");
+    expect(referenceCoversPeriod("TTM-TO:2026-06-28", "TTM-TO:2026-06-28")).toBe(true);
+    expect(referenceCoversPeriod("TTM:2025-06-30..2026-06-28", "TTM:2025-06-29..2026-06-28")).toBe(true);
+    expect(referenceCoversPeriod("TTM:2025-06-30..2026-06-28", "TTM-TO:2026-06-28")).toBe(false);
+    expect(referenceCoversPeriod("Q:2026-04-01..2026-06-30", "Q:2026-03-29..2026-06-30")).toBe(false);
+    expect(referenceCoversPeriod("LATEST-PERIOD:2026-06-30", "@2026-06-30")).toBe(false);
+  });
+
+  it("refuses to record an expectation built on a reference for another period", () => {
+    const run = runWith(staleRevenue);
+    const referenceFile = path.join(run, "..", "reference.json");
+    fs.writeFileSync(referenceFile, JSON.stringify(stored("revenue.fy", "FY:2024-12-31", 100)));
+    const expectationFile = path.join(run, "..", "expectation.json");
+    const cli = (args: string[]) => spawnSync(process.execPath, ["--import", "tsx", path.join(process.cwd(), "scripts", "accuracy", "check.ts"), run, "--reference", referenceFile, "--expectation", expectationFile, ...args], { cwd: process.cwd(), encoding: "utf8", timeout: 30_000 });
+    const update = cli(["--update-expectation", "--reason", "synthetic"]);
+    expect(update.status).toBe(1);
+    expect(update.stderr).toMatch(/expectation not updated: .*amzn-data-only revenue\.fy.*rebuild the filed reference for this run/);
+    expect(fs.existsSync(expectationFile)).toBe(false);
+    // The plain check still runs and names the figure.
+    fs.writeFileSync(expectationFile, JSON.stringify({ about: "", entries: [{ case: "amzn-data-only", figure: "revenue.fy", status: "match", valueSha256: null }] }));
+    const check = cli([]);
+    expect(check.status).toBe(1);
+    expect(check.stdout).toContain("WORSE: amzn-data-only revenue.fy — match -> not-established");
   });
 });
