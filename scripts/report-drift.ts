@@ -8,7 +8,7 @@
  *            --out FILE   (Markdown report; default: print to stdout)
  *            --clock ISO  (fixed clock; default 2026-11-12T12:00:00.000Z)
  *
- * For every report, each surface (Markdown, print, classic and dossier app,
+ * For every report, each surface (Markdown, print, the app (dossier layout),
  * and the key-data box) prepares the stored report as it does when rendering
  * (src/report/readerPreparation.ts) and reads the shared valuation decisions
  * (src/report/presentation.ts): headline label, shown value, comparison,
@@ -29,8 +29,8 @@ import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import type { Report } from "../src/report/schema";
 
-type Surface = "markdown" | "print" | "classic" | "dossier" | "key-data";
-const SURFACES: readonly Surface[] = ["markdown", "print", "classic", "dossier", "key-data"];
+type Surface = "markdown" | "print" | "dossier" | "key-data";
+const SURFACES: readonly Surface[] = ["markdown", "print", "dossier", "key-data"];
 const NONE = "(none)";
 
 interface Args { golden?: string; db?: string; out?: string; clock: string }
@@ -160,7 +160,7 @@ async function main(): Promise<void> {
         put(`scenarios: ${row.scenario.name} weight`, surface, row.weight ? `${row.weight.label} ${row.weight.text}` : null, row.weight ? [row.weight.label, row.weight.text] : []);
       }
     }
-    // The key-data box (one shared view; the app's prepared report feeds it in the classic layout).
+    // The key-data box (one shared view; the app's prepared report feeds it on the dossier cover).
     const keyRow = presentation.keyDataRows(prepareReportForSurface(report, "web").report).find((row) => presentation.isFairValueKeyDataLabel(row.label));
     if (keyRow) {
       put("headline: label", "key-data", keyRow.label);
@@ -172,12 +172,10 @@ async function main(): Promise<void> {
 
   /** Every decided text a surface must show, checked against what it renders. */
   function rendered(report: Report): Record<Exclude<Surface, "key-data">, string> {
-    const classic = renderToStaticMarkup(React.createElement(ReportView, { report, layout: "classic", headerNotices: true, selectedReportId: 1, selectedReportStatus: "done" }));
-    const dossier = renderToStaticMarkup(React.createElement(ReportView, { report, layout: "dossier", headerNotices: true, selectedReportId: 1, selectedReportStatus: "done" }));
+    const dossier = renderToStaticMarkup(React.createElement(ReportView, { report, headerNotices: true, selectedReportId: 1, selectedReportStatus: "done" }));
     return {
       markdown: unescapedMarkdown(reportToMarkdown(report, { selectedReportId: 1 })),
       print: readable(reportToPrintBody(report, { selectedReportId: 1 })),
-      classic: readable(classic),
       dossier: readable(dossier),
     };
   }
@@ -203,7 +201,7 @@ async function main(): Promise<void> {
     const shown = rendered(report);
     for (const [field, texts] of fields) {
       (fieldReports.get(field) ?? fieldReports.set(field, new Set()).get(field)!).add(key);
-      for (const surface of ["markdown", "print", "classic", "dossier"] as const) {
+      for (const surface of ["markdown", "print", "dossier"] as const) {
         const text = texts[surface];
         if (text === undefined || text === NONE) continue;
         for (const piece of pieces.get(`${field}\u0000${surface}`) ?? [text]) {
@@ -213,7 +211,7 @@ async function main(): Promise<void> {
       }
       const values = SURFACES.filter((surface) => texts[surface] !== undefined).map((surface) => texts[surface]!);
       if (new Set(values).size <= 1) continue;
-      // Group surfaces that agree: "markdown=print | classic=dossier".
+      // Group surfaces that agree: "markdown=print | dossier=key-data".
       const groups = new Map<string, Surface[]>();
       for (const surface of SURFACES) if (texts[surface] !== undefined) (groups.get(texts[surface]!) ?? groups.set(texts[surface]!, []).get(texts[surface]!)!).push(surface);
       const signature = [...groups.values()].map((group) => group.join("=")).join(" | ");
@@ -267,8 +265,8 @@ async function main(): Promise<void> {
   lines.push(`- Primary-capital evidence tables: printed by Markdown only, present on ${primaryCapital} of ${total} reports.`, "");
   lines.push("## Disagreements", "");
   lines.push("Surfaces that show the same text are joined with `=`; groups that differ are separated by `|`. The texts are from the first report that showed the pattern.", "");
-  lines.push("| Figure field | Surfaces | Markdown | Print | Classic | Dossier | Key data | Reports (golden / saved) |");
-  lines.push("|---|---|---|---|---|---|---|---|");
+  lines.push("| Figure field | Surfaces | Markdown | Print | Dossier | Key data | Reports (golden / saved) |");
+  lines.push("|---|---|---|---|---|---|---|");
   for (const d of sorted) {
     lines.push(`| ${d.field} | ${d.signature} | ${SURFACES.map((surface) => cell(d.texts, surface)).join(" | ")} | ${d.reports.size} (${bySet(d.reports, "golden")} / ${bySet(d.reports, "saved")}) |`);
   }

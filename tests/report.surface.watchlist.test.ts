@@ -59,8 +59,20 @@ vi.mock("@/watchlist/watchlist", async (importOriginal) => {
 import Home from "@/app/page";
 import { Sidebar, WatchlistSidebar } from "@/components/watchlist/Sidebar";
 import { getWatchlistView } from "@/watchlist/watchlist";
+import { GRADE_SURFACES } from "@/report/surfaceManifest";
 
 const EXPECTED_TITLES = ["F: A", "V: B", "T: C", "BS: D", "Q: F", "L: D", "M: A"];
+
+/**
+ * D-246: the Home dashboard is the coverage desk, which titles each grade with
+ * the manifest's full label ("Balance Sheet: D"); the sidebar keeps the short
+ * label ("BS: D"). The same manifest decides both.
+ */
+function deskTitle(sidebarTitle: string): string {
+  const [short, value] = sidebarTitle.split(": ");
+  return `${GRADE_SURFACES.find((descriptor) => descriptor.shortLabel === short)!.label}: ${value}`;
+}
+const count = (html: string, text: string): number => html.split(text).length - 1;
 
 function expectCanonicalGradeTitles(html: string): void {
   let cursor = -1;
@@ -138,9 +150,13 @@ describe("manifest-driven watchlist renderers", () => {
 
   it("renders all seven grades through both actual Home watchlist surfaces", async () => {
     const html = await renderAsync(await Home());
-    expect(html.match(/title="BS: D"/g) ?? []).toHaveLength(2);
+    expect(html.match(/title="BS: D"/g) ?? []).toHaveLength(1);
+    expect(count(html, 'title="Balance Sheet: D"')).toBe(1);
     expect([...html.matchAll(/title="(F: A|V: B|T: C|BS: D|Q: F|L: D|M: A)"/g)]
-      .map((match) => match[1])).toEqual([...EXPECTED_TITLES, ...EXPECTED_TITLES]);
+      .map((match) => match[1])).toEqual(EXPECTED_TITLES);
+    const desk = EXPECTED_TITLES.map(deskTitle);
+    expect(desk.map((title) => html.indexOf(`title="${title}"`))).toEqual([...desk.map((title) => html.indexOf(`title="${title}"`))].sort((a, b) => a - b));
+    for (const title of desk) expect(count(html, `title="${title}"`), title).toBe(1);
   });
 
   it("renders unassessed saved grades neutrally in both sidebar and dashboard while retaining supported letters", async () => {
@@ -149,20 +165,25 @@ describe("manifest-driven watchlist renderers", () => {
     }]);
     const html = await renderAsync(await Home());
     for (const label of ["Q", "V", "M"]) {
-      expect(html.match(new RegExp(`title="${label}: not assessed"`, "g")) ?? []).toHaveLength(2);
+      expect(html.match(new RegExp(`title="${label}: not assessed"`, "g")) ?? []).toHaveLength(1);
+      expect(count(html, `title="${deskTitle(`${label}: not assessed`)}"`)).toBe(1);
     }
     expect(html.match(/aria-label="not assessed"/g)).toHaveLength(6);
-    expect(html.match(/title="F: A"/g)).toHaveLength(2);
+    expect(html.match(/title="F: A"/g)).toHaveLength(1);
+    expect(count(html, `title="${deskTitle("F: A")}"`)).toBe(1);
     expect(html).not.toMatch(/title="(?:Q|V|M): (?:null|[ABCDF])"/);
+    for (const label of ["Q", "V", "M"]) for (const bad of ["null", "A", "B", "C", "D", "F"]) expect(html).not.toContain(`title="${deskTitle(`${label}: ${bad}`)}"`);
   });
 
   it("renders a legacy Home through both surfaces without fabricating optional balance", async () => {
     vi.mocked(getWatchlistView).mockResolvedValue([{ ...WATCH_ROW, grades: legacyGrades() }]);
     const html = await renderAsync(await Home());
     expect(html).not.toContain("BS:");
+    expect(html).not.toContain("Balance Sheet:");
     expect(html).not.toContain("balanceSheet");
     for (const title of EXPECTED_TITLES.filter((title) => !title.startsWith("BS:"))) {
-      expect(html.match(new RegExp(`title="${title}"`, "g")) ?? []).toHaveLength(2);
+      expect(html.match(new RegExp(`title="${title}"`, "g")) ?? []).toHaveLength(1);
+      expect(count(html, `title="${deskTitle(title)}"`), title).toBe(1);
     }
   });
 
@@ -173,9 +194,15 @@ describe("manifest-driven watchlist renderers", () => {
       priceStale: true,
     }]);
     const html = await renderAsync(await Home());
-    expect(html.match(/title="Q: Not assessed — limited evidence \(40% of signals; 50% required\)"/g) ?? []).toHaveLength(2);
-    expect(html.match(/aria-label="Q: Not assessed — limited evidence \(40% of signals; 50% required\)"/g) ?? []).toHaveLength(2);
-    expect(html.match(/cached quote · 2026-08-08 · stale/g) ?? []).toHaveLength(2);
-    expect(html.match(/title="F: A"/g) ?? []).toHaveLength(2);
+    const limited = "Not assessed — limited evidence (40% of signals; 50% required)";
+    expect(count(html, `title="Q: ${limited}"`)).toBe(1);
+    expect(count(html, `aria-label="Q: ${limited}"`)).toBe(1);
+    expect(count(html, `title="${deskTitle(`Q: ${limited}`)}"`)).toBe(1);
+    expect(count(html, `aria-label="${deskTitle(`Q: ${limited}`)}"`)).toBe(1);
+    // The sidebar says "cached quote · date · stale"; the coverage desk's cached-quote column says "date · stale".
+    expect(count(html, "cached quote · 2026-08-08 · stale")).toBe(1);
+    expect(html.match(/2026-08-08(?:<!-- -->)? · stale/g) ?? []).toHaveLength(2);
+    expect(html.match(/title="F: A"/g) ?? []).toHaveLength(1);
+    expect(count(html, `title="${deskTitle("F: A")}"`)).toBe(1);
   });
 });

@@ -23,7 +23,7 @@ describe("recorded capital structure presentation", () => {
     };
     report.valuation.dcf.perShare = { value: 50, unit: "EUR/share", currency: "EUR", period: "FY2026", sourceId: "bridge:original:per-share", source: "computed.fixture.perShare", asOf: "2026-01-15", verified: null };
     const before = JSON.stringify(report);
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     expect(html).toContain('aria-label="Recorded capital structure bridge"');
     const { text } = readableHtml(html);
     for (const label of ["Explicit cash-flow present value", "Terminal present value", "Less net debt (negative means net cash)", "Less minority interest (quoted ownership claim)", "Minority interest at book value (not deducted)", "Less retained investment loss", "Diluted share denominator", "Shares outstanding at the quote (market cap ÷ price; not the divisor)", "Balance sheet in the bridge", "2026-01-15", "2025-12-31", "not disclosed; model uses 0"]) expect(text).toContain(label);
@@ -39,7 +39,7 @@ describe("recorded capital structure presentation", () => {
   it("does not invent an operating-assets bridge for a snapshot that did not record one", () => {
     const report = loadTask28Fixture();
     delete report.valuation.dcf.bridge;
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     expect(html).toContain('aria-label="Recorded capital structure bridge"');
     expect(html).toContain("An operating-assets to common-equity bridge was not recorded in this snapshot");
     expect(html).not.toContain("data-capital-stage=");
@@ -50,7 +50,7 @@ describe("recorded capital structure presentation", () => {
     report.fairValue = { status: "available", method: "excess-return", methodVersion: "recorded-bank-method", perShare: report.valuation.dcf.perShare, upsidePct: 20, basis: ["Recorded book-value excess-return model"], reasons: [] };
     report.valuation.dcf.sensitivityGrid = [];
     delete report.valuation.dcf.bridge;
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     expect(html.includes("Excess-return · model value / share")).toBe(true);
     expect(html.includes("DCF · intrinsic value / share")).toBe(false);
     expect(html.includes('aria-label="Recorded sensitivity cases"')).toBe(false);
@@ -65,7 +65,7 @@ describe("recorded capital structure presentation", () => {
   it("surfaces recorded thesis-review thresholds and their conditional context in the cover", () => {
     const report = loadTask28Fixture();
     report.thesisTriggers = [{ id: "stored-trigger-1", metric: "Year-one revenue growth", comparator: "below", horizon: "Next reported fiscal year", threshold: { value: 7.125, unit: "%", currency: null, period: "FY2026", sourceId: "trigger:stored:1", source: "computed.thesis.original", asOf: "2025-12-31", verified: null }, fixedAssumptions: ["Recorded margins and discount rate held fixed"], consequence: "Review the recorded operating thesis if this condition occurs." }];
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     expect(html.includes('aria-label="Thesis review checkpoints"')).toBe(true);
     const coverEnd = html.indexOf('class="dossier-key-data"');
     const cover = html.slice(0, coverEnd);
@@ -77,7 +77,7 @@ describe("recorded capital structure presentation", () => {
     const report = loadTask28Fixture();
     report.valuation.dcf.sensitivityNotes = ["Ten recorded rolling windows; original mid-year convention"];
     report.valuation.dcf.forecastRows = Array.from({ length: 10 }, (_, i) => ({ year: i + 1, period: `FY${2026 + i}`, revenue: 1000 + i, growthPct: 2.25, ebitMarginPct: 20, taxRatePct: 21, nopat: 158, reinvestment: 15, fcff: i === 9 ? -143.12345 : 143, presentValue: 99 - i }));
-    const text = readableHtml(renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }))).text;
+    const text = readableHtml(renderToStaticMarkup(createElement(ReportView, { report }))).text;
     expect(text).toContain("DCF annual cash-flow path");
     for (const year of [2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035]) expect(text).toContain(`FY${year}`);
     expect(text).toContain("Ten recorded rolling windows; original mid-year convention");
@@ -91,7 +91,7 @@ describe("recorded capital structure presentation", () => {
     delete report.valuation.dcf.bridge;
     report.fairValue = { status: "suppressed", method: null, methodVersion: "stored-reit", perShare: null, upsidePct: null, basis: ["REIT route; no applicable per-share valuation model"], reasons: [{ field: "valuation.fairValue", severity: "info", reason: "REIT route; no applicable per-share valuation model" }] };
     report.routeMetrics = { route: "reit", asOf: "2025-12-31", notes: ["Stored route metric convention"], metrics: [{ key: "ffo", label: "Funds from operations", value: 100, unit: "currency", currency: "EUR", basis: "Recorded FFO basis", sources: ["filing:reit:original"], asOf: "2025-12-31", withheldReason: null, proxy: false }] };
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     const text = readableHtml(html).text;
     for (const value of ["REIT route; no applicable per-share valuation model", "Funds from operations", "Stored route metric convention", "Recorded FFO basis"]) expect(text).toContain(value);
     expect(html.includes("data-capital-stage=")).toBe(false);
@@ -99,10 +99,10 @@ describe("recorded capital structure presentation", () => {
   });
 });
 
-it("RPT-213: names excess return consistently in classic and exports", () => {
+it("RPT-213: names excess return consistently in the app (dossier) and exports", () => {
  const report=loadTask28Fixture();
  report.fairValue={status:"available",method:"excess-return",methodVersion:"test",perShare:report.valuation.dcf.perShare,upsidePct:20,basis:[],reasons:[]};
- const html=renderToStaticMarkup(createElement(ReportView,{report,layout:"classic"}));
+ const html=renderToStaticMarkup(createElement(ReportView,{report}));
  expect(html).toContain("Excess-return"); expect(html).not.toContain("DCF provenance");
  expect(reportToMarkdown(report)).toContain("### Excess-return value");
  expect(reportToPrintBody(report)).toContain("<h3>Excess-return value</h3>");

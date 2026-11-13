@@ -87,7 +87,17 @@ describe("R3 FIGR reader presentation", () => {
   it("3: suppresses absent DCF scaffolding and machine route ids on every reader surface", () => {
     const r = lenderReport();
     r.appendix.missingData.push({ field: "data.route", reason: 'Targets unavailable: company routed to "dcf-suppressed".', severity: "warn" });
-    for (const text of surfaces(r)) {
+    const [markdown, print, app] = surfaces(r);
+    // D-246: the app is the dossier. Its evidence rail lists every recorded
+    // manifest entry verbatim in a collapsed "Recorded gaps" disclosure (as
+    // classic's Ivory appearance did); the only occurrence of the route id is
+    // there, and everything else in the app is held to this test. Owner
+    // decision pending on wording that list for readers.
+    const railGaps = /<details class="mt-3"><summary class="cursor-pointer text-\[12px\] font-medium">Recorded gaps \(\d+\)<\/summary>[\s\S]*?<\/details>/;
+    expect(app.match(new RegExp(railGaps.source, "g"))).toHaveLength(1);
+    expect(app.match(railGaps)![0]).toContain("dcf-suppressed");
+    expect(app.split("dcf-suppressed")).toHaveLength(2);
+    for (const text of [markdown!, print!, app!.replace(railGaps, "")]) {
       expect(text).not.toContain("Implied n/a");
       expect(text).not.toContain("dcf-suppressed");
       expect(text).not.toContain("bull and bear are DCF sensitivities");

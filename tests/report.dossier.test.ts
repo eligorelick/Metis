@@ -46,7 +46,7 @@ describe("complete research dossier composition", () => {
   it("retains the full report semantics while composing one cover and recorded evidence rail", () => {
     const report = freezeReport(loadTask28Fixture());
     const before = reportDigest(report);
-    const live = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const live = renderToStaticMarkup(createElement(ReportView, { report }));
     const admitted = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
     expect(() => assertUiParityContract(captureUiParityContract(admitted), {
       live, markdown: reportToMarkdown(report), print: reportToPrintBody(report), audit: reportToAuditMarkdown(report),
@@ -60,7 +60,7 @@ describe("complete research dossier composition", () => {
 
   it("keeps all 14 destinations reachable for legacy reports without inventing projections or scores", () => {
     const report = task28LegacyMissingBlocksReport();
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     const { ids, text } = readableHtml(html);
     for (const section of REPORT_SECTION_MANIFEST) {
       expect(ids.has(`report-${section.key}`)).toBe(true);
@@ -74,17 +74,10 @@ describe("complete research dossier composition", () => {
   it("does not infer assessment dimensions when stored metadata is absent", () => {
     const report = loadTask28Fixture();
     delete report.scores!.assessments;
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     expect(html).toContain("Business quality");
     expect(html).toContain("Price attractiveness");
     expect(html).toContain("Evidence availability");
     expect(html).toContain("These separate assessment dimensions were not recorded");
-  });
-
-  it("keeps the classic report available without adding the dossier-only evidence rail", () => {
-    const html = renderToStaticMarkup(createElement(ReportView, { report: loadTask28Fixture(), layout: "classic" }));
-    expect(html).not.toContain('aria-label="Executive research dossier"');
-    expect(html).not.toContain('aria-label="Report evidence and gaps"');
-    expect(html).toContain("verdict · synthesis");
   });
 });

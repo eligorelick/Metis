@@ -7,7 +7,7 @@ const subscribe = () => () => {};
 const hydrated = () => true;
 const server = () => false;
 
-/** Inspect only stored cells; never interpolate, rerun the model or alter the headline. The base case is outlined as in classic (P22). */
+/** Inspect only stored cells; never interpolate, rerun the model or alter the headline. The base case is outlined by the shared rule (sensitivityBaseCase, P22). */
 export function RecordedSensitivity({ cells, currency }: { cells: readonly SensitivityCell[]; currency: string | null }) {
   const enhanced = useSyncExternalStore(subscribe, hydrated, server);
   const [selected, setSelected] = useState<SensitivityCell | null>(null);

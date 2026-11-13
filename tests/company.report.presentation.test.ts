@@ -67,6 +67,7 @@ vi.mock("@/components/watchlist/Sidebar", () => ({
 import CompanyPage, { CompanyBody } from "@/app/company/[symbol]/page";
 import { ReportTabs } from "@/app/company/[symbol]/ReportTabs";
 import { ReportNotes } from "@/components/report/ReportNotes";
+import { ResearchNavigation } from "@/components/report/ResearchNavigation";
 import { GenerateReport } from "@/app/company/[symbol]/GenerateReport";
 import { resetConfigCache } from "@/config/env";
 import SavedReportPage from "@/app/company/[symbol]/report/[reportId]/page";
@@ -103,6 +104,16 @@ function structuralText(node: ReactNode): string {
 function invoke(element: ReactElement<Props>): ReactElement<Props> {
   expect(typeof element.type).toBe("function");
   return (element.type as FunctionComponent<Props>)(element.props) as ReactElement<Props>;
+}
+
+/**
+ * The saved page's link to the live ticker data. The page renders it inside
+ * ResearchNavigation, which is expanded here so the link itself is searched.
+ */
+function liveLinkWithin(tree: ReactNode, href: string): ReactElement<Props> | undefined {
+  const elements = elementsWithin(tree);
+  const navigation = elements.filter((element) => element.type === ResearchNavigation).flatMap((element) => elementsWithin(invoke(element)));
+  return [...elements, ...navigation].find((element) => element.props.href === href);
 }
 
 async function renderLiveReturnsPanel(
@@ -246,7 +257,7 @@ describe("persisted report presentation", () => {
     });
   });
 
-  it("P4-2 classic saved research discloses reusable analyst work", async () => {
+  it("P4-2 saved research discloses reusable analyst work", async () => {
     harness.resumableJob.mockReturnValue("finished-job");
     const html = renderToStaticMarkup(await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) }));
     expect(html).toContain("A previous run stopped with reusable analyst work. Resume it using the run controls above.");
@@ -260,14 +271,14 @@ describe("persisted report presentation", () => {
     expect(elementsWithin(tree).some((element) => element.type === CompanyBody)).toBe(false);
     expect(harness.buildDataBundle).not.toHaveBeenCalled();
     expect(harness.runStageB).not.toHaveBeenCalled();
-    const liveLink = elementsWithin(tree).find((element) => element.props.href === "/company/DEMO?view=live");
+    const liveLink = liveLinkWithin(tree, "/company/DEMO?view=live");
     expect(liveLink).toBeDefined();
     expect(liveLink!.props.prefetch).toBe(false);
     expect(JSON.stringify(report)).toBe(before);
   });
 
   it("attaches the dossier saved page to its server-owned active run without invoking research", async () => {
-    vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache();
+    resetConfigCache();
     harness.activeJob.mockReturnValue({ jobId: "existing-job", status: "queued", updatedAt: "2026-10-24T00:00:00.000Z" });
     try {
       const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
@@ -280,7 +291,7 @@ describe("persisted report presentation", () => {
   });
 
   it("binds local notes to the actual saved row across latest, historic and live report views", async () => {
-    vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache(); harness.activeJob.mockReturnValue(null);
+    resetConfigCache(); harness.activeJob.mockReturnValue(null);
     try {
       const latest = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
       const historic = await SavedReportPage({ params: Promise.resolve({ symbol: "DEMO", reportId: "42" }) });
@@ -320,7 +331,7 @@ describe("persisted report presentation", () => {
     ["LIVEPROFILE", "unresolved-profile"],
     ["LIVEETF", "unsupported"],
   ] as const)("keeps direct saved research and revisions recovery after %s Live failure", async (symbol, failure) => {
-    vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache();
+    resetConfigCache();
     const saved = { ...report, meta: { ...report.meta, symbol, companyName: "Saved research issuer" } };
     const before = JSON.stringify(saved);
     harness.getLatestDoneReport.mockReturnValue({ reportId: 42, createdAt: "2026-07-01T12:00:00.000Z", report: saved });
@@ -397,7 +408,7 @@ describe("persisted report presentation", () => {
 
   it("keeps the saved-run live link explicit and disables provider-triggering prefetch", async () => {
     const tree = await SavedReportPage({ params: Promise.resolve({ symbol: "DEMO", reportId: "42" }) });
-    const live = elementsWithin(tree).find((element) => element.props.href === "/company/DEMO?view=live");
+    const live = liveLinkWithin(tree, "/company/DEMO?view=live");
     expect(live).toBeDefined();
     expect(live!.props.href).toBe("/company/DEMO?view=live");
     expect(live!.props.prefetch).toBe(false);

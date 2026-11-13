@@ -115,6 +115,158 @@ reader surfaces of every case from the new `report.json` with 1.73.0 put back:
 all 85 match the reference byte for byte, which shows the identity attribute
 moves only with the stamp.
 
+## D-246 - The classic layout is removed (2026-11-12)
+
+Principle P22 (one presentation rule per figure). Round 2, S4.12c, the last
+of the three layout steps. Owner decision: "make dossier the default once it
+shows everything classic shows, then remove classic", and "What may change in
+a report: nothing a reader sees, except the layout switch and classic's
+removal." D-241 showed the dossier shows everything classic shows; D-245 made
+it the default. Revises D-245 (the setting it kept is now gone).
+
+Removed. The classic layout and everything that only distinguished it: the
+`layout` prop of `ReportView` and of the appearance provider, the
+`presentation` prop of `ValuationSection` and `GradeStripBar`, the `mode` prop
+of `CompositeScorecard`, `showTrustDetails` on `AppendixSection`, the
+"classic" valuation surface in `src/report/presentation.ts` (with its one
+classic-only headline label), classic-only components (the report's anchor
+nav, data-only banner, classic logo header and scroll-offset helper, the
+classic sensitivity grid, the classic export buttons, the home page's classic
+introduction and watchlist rows, the revisions and comparison pages' classic
+sidebars) and the `body[data-ui-layout="classic"]` styles. `METIS_UI_REDESIGN`
+leaves the settings schema, `.env.example` and the generated README table.
+
+Kept. Every shared component behaves as before; the dossier's wording does
+not change. `data-ui-layout="dossier"` and `data-report-layout="dossier"`
+stay on the page because the shared styles and the reading check key on
+them. Trust and audit details stay where the dossier shows them (the
+evidence summary's reconciliation details, the score methodology and
+recorded inputs). `ReportView` keeps three empty child positions where
+classic elements were, so React's generated ids, and with them the dossier
+HTML, are byte-identical.
+
+The removed setting. A leftover `METIS_UI_REDESIGN` in `.env` or the
+environment is ignored: the app starts and renders the dossier, whatever the
+value (it is not a safety setting, so it is not a startup error). The
+retired `THESIS_UI_REDESIGN` name is still refused, as D-228 decided. The
+D-228 settings parity test keeps its frozen table (main at e55519ce) and
+applies one named delta, which replaces D-245's: `uiRedesign` leaves the
+config, every `METIS_UI_REDESIGN` value parses as if unset, and the previously
+refused "true" now starts the app; a test pins the three rows that change.
+
+The parity guarantee without classic. Before classic was removed (the first
+commit of this pull request, on the D-245 code), the facts the D-241 check
+proves were frozen for the seven parity fixture reports:
+`tests/fixtures/dossier-facts-d246.json`, built by `freezeClassicFacts`, is
+every readable segment classic rendered that the dossier also rendered
+(native details count; hidden and screen-reader-only text does not; numbers
+whole, as the D-241 review required), reduced to the longest ones, plus the
+whole-number grid rows the dossier shows at more decimals. That commit's
+test proved that freezing again from both layouts gives exactly the
+committed file. The test that stays checks that the dossier still renders
+every frozen fact (`frozenFactsMissingFromDossier`); a mutation check
+(dropping the executive summary from the dossier cover) fails all seven
+fixtures, and unit cases cover a dropped fact, a row whose parts survive
+apart, a re-rounded grid row, a hidden duplicate and a number inside a longer
+number.
+
+Tests. Cases whose only subject was the classic layout or the setting are
+removed (listed in the pull request). Tests that checked a shared fact
+through classic now check it through the dossier with the same assertions,
+or with the dossier's own words where classic's wording was one of D-241's
+listed differences (for example "Model value provenance" for "DCF
+provenance", the data-only disclosure for the classic banner, the coverage
+desk's full grade names on the home page).
+
+Findings for the owner (not changed here, because they would change dossier
+text): the dossier's evidence rail lists every recorded manifest entry
+verbatim in a collapsed "Recorded gaps" disclosure, so machine identifiers
+such as `fmp.pressReleases(AMZN)` or a `dcf-suppressed` route id reach
+readers (classic showed the same list only in its Ivory appearance); and
+the dossier scorecard's methodology disclosure prints the band policy id
+("Band policy: SCORE_BANDS_..."). The FIGR readability test pins the first
+as the only exception; the scorecard header itself stays plain.
+
+Same-report check. Against the D-245 head, the only difference in 17 cases
+is `web-classic.html`, present only on the old side (the harness now writes
+seven files per case); `web-dossier.html`, `report.md`, `print.html`,
+`audit.md`, `payload.txt`, `report.json` and `stageB.json` are
+byte-identical. Saved reports and the database are untouched (P21): no
+stored field records a layout.
+
+Risks. Correctness and data: none (presentation only). Backward
+compatibility: anyone who set `METIS_UI_REDESIGN=0` now sees the dossier,
+which is the owner's decision. Reversible by one revert.
+
+## D-245 - The dossier is the default layout (2026-11-12)
+
+Revised by D-246 (the setting this entry keeps is removed with classic).
+
+Principle P22 (one presentation rule per figure). Round 2, S4.12b. Owner
+decision: "Layout, last and as its own pull requests: make dossier the default
+once it shows everything classic shows, then remove classic", and "What may
+change in a report: nothing a reader sees, except the layout switch and
+classic's removal." D-241 established that the dossier shows every fact
+classic shows; this entry is the second of the three steps. It changes the
+default and nothing else; classic is still selectable.
+
+Change. `METIS_UI_REDESIGN` (`src/config/env.ts`) now defaults to 1. With no
+setting, or a blank one, every page (home, company, saved report, revisions,
+comparison, sample report, settings) renders the dossier layout. The strict
+parsing is unchanged: 1 selects the dossier as before, 0 still selects
+classic, and any other value (for example "true") is still refused at startup.
+So someone who set the flag to get the dossier keeps it, and someone who
+explicitly set 0 keeps classic in this step. `.env.example` and the generated
+README table say so.
+
+App pages checked before flipping (the PARITY.md items outside the report,
+and every other `uiRedesign` branch in `src/app`). Nothing a reader can do
+from a classic page is missing from the dossier page:
+
+- Export: classic's three buttons and the dossier's Export menu reach the same
+  three destinations (full report Markdown, audit-trail Markdown, print/PDF;
+  `ExportButtons.tsx`).
+- Saved report: classic's "History" and "Ticker data" links are the dossier's
+  Revisions and Ticker data entries (`ResearchNavigation`); delete, rerun and
+  resume are the same components in both, and the dossier adds report notes.
+- Run panel (`GenerateReport`): classic shows the running cost from the first
+  render; the dossier shows "Server state pending" until the server accepts
+  the run. Before that point the panel's cost is only the local starting value,
+  because it is set from validated server snapshots only; from acceptance on,
+  both show the same figure, step list and final cost.
+- Revisions and comparison pages: classic's sidebar offers "back to SYMBOL"
+  and "home" (and on the comparison page "back to history"); the dossier
+  reaches the same pages through the research navigation, the header logo and
+  its Coverage link, with the watchlist sidebar and the revision digest added.
+- Home page: the classic watchlist rows link to the company; the dossier's
+  coverage table links to the company, each grade's section and the history.
+  The connection, keyless-source and model panels are the same panels, inside
+  a details element the reader opens.
+- Display controls, search and the command launcher exist only in the dossier;
+  appearance is also in Settings in both.
+
+Unchanged. Markdown, print, audit export, the Stage C payload and every stored
+report and job row: byte-identical. The same-report harness renders both
+layouts explicitly, so its output is identical to main (no file differs in
+17 cases). Components keep their own defaults; only the setting's default
+moves.
+
+Settings parity (D-228). The frozen table
+(`tests/fixtures/config-parity-before-d228.json`) stays the record of main at
+e55519ce. The test now applies one named delta, D-245: the default
+`uiRedesign` becomes true, "0" becomes the one value that differs from it,
+"1" (alone and in the combined row) no longer differs, and the refusal of
+"true" is unchanged. Every other default and row must still equal the frozen
+file; a test pins exactly which three rows the delta touches.
+
+Options rejected: changing the default inside the components (`ReportView`,
+the appearance context) as well; every page already passes the layout it
+renders, and classic goes in the next step with D-246.
+
+Risks. Correctness and data: none (presentation only). Backward
+compatibility: anyone without the setting now sees the dossier, which is the
+owner's decision. Reversible by setting `METIS_UI_REDESIGN=0` or by one revert.
+
 ## D-251 - A year whose preferred stock was redeemed reads its filed common earnings (2026-11-13)
 
 Principles P5 (entity scope: common earnings are not total net income), P8

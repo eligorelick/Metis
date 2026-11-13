@@ -470,7 +470,8 @@ describe("manifest-driven real report consumers", () => {
       "src/app/company/[symbol]/history/diff/diff-body.tsx",
       "src/watchlist/watchlist.ts",
       "src/components/watchlist/Sidebar.tsx",
-      "src/app/page.tsx",
+      // D-246: the home page's grades are rendered by the coverage desk (the classic home rows were removed).
+      "src/components/watchlist/CoverageDesk.tsx",
       "src/app/api/report/view/[reportId]/route.ts",
       "src/app/company/[symbol]/GenerateReport.tsx",
       "src/pipeline/stageC/payload.ts",

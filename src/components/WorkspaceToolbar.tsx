@@ -10,9 +10,8 @@ const serverSnapshot = () => false;
 
 /** Local display preferences; no research settings or provider requests. */
 export function WorkspaceToolbar() {
-  const { layout, design, saved, chooseDesign, density, densitySaved, chooseDensity } = useUiDesign();
+  const { design, saved, chooseDesign, density, densitySaved, chooseDensity } = useUiDesign();
   const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
-  if (layout !== "dossier") return null;
   return (
     <div className="workspace-tools">
       <CommandLauncher />

@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();vi.restoreAllMocks();vi.unstubAllGlobals();});
 async function render(coverageAvailable=true, allSections=false) {
-  await act(async()=>root.render(createElement(UiDesignProvider,{initialDesign:"current",layout:"dossier",coverage:[{symbol:"DEMO",companyName:"Thesis Example Systems"},{symbol:"BRK.B",companyName:"Berkshire Hathaway"}],coverageAvailable},
+  await act(async()=>root.render(createElement(UiDesignProvider,{initialDesign:"current",coverage:[{symbol:"DEMO",companyName:"Thesis Example Systems"},{symbol:"BRK.B",companyName:"Berkshire Hathaway"}],coverageAvailable},
     createElement(CommandLauncher),createElement("textarea",{"aria-label":"Ordinary editing"}),
     createElement("div",{className:"thesis-report"},
       createElement("section",{id:"report-verdict",tabIndex:-1},createElement("h2",null,"Verdict")),

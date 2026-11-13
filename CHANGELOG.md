@@ -30,6 +30,23 @@ original versions and bytes; source merge does not deploy or publish a release.
   bytes and render exactly as before (P21); no calculation, rule or wording
   changes.
 
+## Unreleased - The classic layout is removed (2026-11-12)
+
+- The dossier is the only layout (P22, D-246). The classic report, home and
+  revisions layouts, their components and styles, and the
+  `METIS_UI_REDESIGN` setting are removed; a leftover value is ignored and
+  the app starts normally. What classic showed stays guaranteed in the
+  dossier by facts frozen from both layouts before the removal. Exports,
+  saved reports and the dossier page are unchanged; the same-report check
+  writes seven files per case, without `web-classic.html`.
+
+## Unreleased - The dossier is the default layout (2026-11-12)
+
+- With no `METIS_UI_REDESIGN` setting every page opens in the dossier layout
+  (P22, D-245). `METIS_UI_REDESIGN=0` still selects the classic layout for
+  now; any value other than 0 or 1 is still refused. Exports, saved reports
+  and the same-report check output are unchanged.
+
 ## Unreleased - Filed common earnings for a year whose preferred stock was redeemed (2026-11-13)
 
 - Common earnings for a fiscal year are refused when preferred claims existed

@@ -19,7 +19,7 @@ export function ReportTrustSummary({report, completeness:c}: {report:Report; com
   </section>;
 }
 
-/** Shared native destination: dossier headline or classic Appendix, never both. */
+/** The trust and verification details, behind a native details element inside the evidence summary. */
 export function ReportTrustDetails({report, completeness:c}: {report:Report; completeness:ReportCompletenessPresentation}) {
   const rows = trustRows(displayedProvenanceCoverage(report, "appendix"), report.appendix.verificationLog);
   const warnings = report.appendix.missingData.filter(gap => gap.expected !== true && gap.severity === "warn").length;

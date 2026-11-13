@@ -17,7 +17,7 @@ beforeEach(() => {
 });
 afterEach(async () => { await act(async () => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 async function render(reportId = 31, symbol = "DEMO") {
-  await act(async () => root.render(createElement(UiDesignProvider, { initialDesign: "current", layout: "dossier" }, createElement(ExportButtons, { reportId, symbol }))));
+  await act(async () => root.render(createElement(UiDesignProvider, { initialDesign: "current" }, createElement(ExportButtons, { reportId, symbol }))));
 }
 async function choose(label: string) {
   const link = [...container.querySelectorAll("a")].find(node => node.textContent === label)!;
