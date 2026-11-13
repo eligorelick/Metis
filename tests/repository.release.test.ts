@@ -60,8 +60,9 @@ const REQUIRED_RELEASE_FILES = [
   "tests/risk.runtime.coverage.test.ts",
   "tests/securityAudit.test.ts",
   "vitest.integration.config.ts",
-  "vitest.risk.config.ts",
+  "vitest.coverage.config.ts",
   "vitest.shared.ts",
+  "scripts/check-coverage.ts",
 ] as const;
 /**
  * Every tracked Markdown document. The design specs are kept as the record of
@@ -339,10 +340,6 @@ describe("public release contract", () => {
       "test:product": "vitest run --config vitest.config.ts",
       "test:changed": "vitest run --config vitest.config.ts --changed origin/main --passWithNoTests",
       "test:integration": "vitest run --config vitest.integration.config.ts",
-      "test:coverage:core":
-        "vitest run --config vitest.config.ts --coverage",
-      "test:coverage:risk":
-        "vitest run --config vitest.risk.config.ts --coverage",
       "test:coverage":
         "vitest run --config vitest.coverage.config.ts --coverage && node --import tsx scripts/check-coverage.ts",
       "audit:security": "node scripts/run-security-audit.mjs",
@@ -356,7 +353,7 @@ describe("public release contract", () => {
   it("partitions every tracked test through the real static Vitest CLI", () => {
     for (const config of [
       "vitest.config.ts",
-      "vitest.risk.config.ts",
+      "vitest.coverage.config.ts",
       "vitest.integration.config.ts",
     ]) {
       expect(existsSync(path.join(ROOT, config)), `${config} must exist`).toBe(
@@ -369,12 +366,12 @@ describe("public release contract", () => {
     );
     const dbCli = "tests/db.cli.test.ts";
     const expectedProduct = tracked.filter((file) => file !== dbCli);
+    // The coverage config shares these exact include/exclude objects (asserted
+    // below); listing the identical suite a second time adds no partition check.
     const product = listedTests("vitest.config.ts");
-    const risk = listedTests("vitest.risk.config.ts");
     const integration = listedTests("vitest.integration.config.ts");
 
     expect(product).toEqual(expectedProduct);
-    expect(risk).toEqual(expectedProduct);
     expect(integration).toEqual([dbCli]);
     expect(product.filter((file) => integration.includes(file))).toEqual([]);
     expect([...new Set([...product, ...integration])].sort()).toEqual(tracked);
@@ -383,26 +380,26 @@ describe("public release contract", () => {
   it("uses isolated forks, shared aliases, and deterministic coverage artifacts", async () => {
     const shared = await loadSharedVitestConfig();
     const product = await loadVitestConfig("vitest.config.ts");
-    const risk = await loadVitestConfig("vitest.risk.config.ts");
+    const coverage = await loadVitestConfig("vitest.coverage.config.ts");
     const integration = await loadVitestConfig("vitest.integration.config.ts");
 
-    for (const config of [product, risk, integration]) {
+    for (const config of [product, coverage, integration]) {
       expect(config.test?.pool).toBe("forks");
       expect(config.test?.isolate).toBe(true);
     }
     expect(shared.DB_CLI_TEST).toBe("tests/db.cli.test.ts");
     expect(product.test?.include).toBe(shared.PRODUCT_TEST_INCLUDE);
-    expect(risk.test?.include).toBe(shared.PRODUCT_TEST_INCLUDE);
+    expect(coverage.test?.include).toBe(shared.PRODUCT_TEST_INCLUDE);
     expect(product.test?.exclude).toBe(shared.PRODUCT_TEST_EXCLUDE);
-    expect(risk.test?.exclude).toBe(shared.PRODUCT_TEST_EXCLUDE);
+    expect(coverage.test?.exclude).toBe(shared.PRODUCT_TEST_EXCLUDE);
     expect(integration.test?.include).toBe(shared.INTEGRATION_TEST_INCLUDE);
     expect(product.test?.maxWorkers).toBe("50%");
-    expect(risk.test?.maxWorkers).toBe("50%");
+    expect(coverage.test?.maxWorkers).toBe("50%");
     expect(product.resolve?.alias).toBe(shared.SHARED_RESOLVE_ALIAS);
-    expect(risk.resolve?.alias).toBe(shared.SHARED_RESOLVE_ALIAS);
+    expect(coverage.resolve?.alias).toBe(shared.SHARED_RESOLVE_ALIAS);
     expect(integration.resolve?.alias).toBe(shared.SHARED_RESOLVE_ALIAS);
     expect(product.test?.exclude).toEqual(["tests/db.cli.test.ts"]);
-    expect(risk.test?.exclude).toEqual(["tests/db.cli.test.ts"]);
+    expect(coverage.test?.exclude).toEqual(["tests/db.cli.test.ts"]);
     expect(integration.test).toMatchObject({
       include: ["tests/db.cli.test.ts"],
       fileParallelism: false,
@@ -410,7 +407,7 @@ describe("public release contract", () => {
       testTimeout: 15_000,
       retry: 0,
     });
-    expect(risk.resolve?.alias).toEqual(product.resolve?.alias);
+    expect(coverage.resolve?.alias).toEqual(product.resolve?.alias);
     expect(integration.resolve?.alias).toEqual(product.resolve?.alias);
     expect(product.resolve?.alias).toEqual({
       "@": path.join(ROOT, "src"),
@@ -427,18 +424,8 @@ describe("public release contract", () => {
         lines: 93,
       },
     });
-    expect(risk.test?.coverage).toMatchObject({
-      provider: "v8",
-      reportsDirectory: "coverage/risk",
-      thresholds: {
-        statements: 85,
-        branches: 75,
-        functions: 85,
-        lines: 85,
-        perFile: true,
-        autoUpdate: false,
-      },
-    });
+    expect(coverage.test?.coverage).toMatchObject({ provider: "v8", reportsDirectory: "coverage/product" });
+    expect(coverage.test?.coverage).not.toHaveProperty("thresholds");
   });
 
   it("keeps the workflow in exact verify parity across supported lanes", async () => {

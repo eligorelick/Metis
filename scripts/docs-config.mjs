@@ -72,8 +72,6 @@ export const COMMAND_DESCRIPTIONS = {
  */
 export const INTERNAL_COMMANDS = new Set([
   "test:product",
-  "test:coverage:core",
-  "test:coverage:risk",
   "golden:run",
   "golden:diff",
   "accuracy:check",

@@ -47,8 +47,6 @@
     "test:changed": "vitest run --config vitest.config.ts --changed origin/main --passWithNoTests",
     "test:product": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
-    "test:coverage:core": "vitest run --config vitest.config.ts --coverage",
-    "test:coverage:risk": "vitest run --config vitest.risk.config.ts --coverage",
     "test:coverage": "vitest run --config vitest.coverage.config.ts --coverage && node --import tsx scripts/check-coverage.ts",
     "test:watch": "vitest --config vitest.config.ts",
     "export:corrected": "tsx src/report/export/correctedCli.ts",
