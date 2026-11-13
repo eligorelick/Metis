@@ -248,7 +248,7 @@ difference from its expectation, "BETTER: amzn-data-only fv.taxRate, mismatch
 to match", none worse. Current main gives 153 and 15, every figure as
 expected.
 
-Tests (`tests/effectiveTaxBase.d237.test.ts`, 15 cases; 12 fail on the
+Tests (`tests/effectiveTaxBase.d237.test.ts`, 17 cases; 13 fail on the
 unchanged code): the root cause on Amazon's fiscal 2025 and third-quarter 2025
 operands; the same filer where the provider already reports the filed line
 (no figure moves); a compatible control, Caterpillar's adopted family (2,768M
@@ -257,7 +257,10 @@ element includes equity-method results (no base recorded, its four filed
 quarters still sum to 1,953M over 11,212M); three incomplete or unreconciled
 families that record nothing; a stale base dropped; a withheld row; the
 calculation view on a stored bundle (bytes unchanged, idempotent); the
-trailing pair, its manifest entry and the WACC statement rate.
+trailing pair, its manifest entry and the WACC statement rate; and Stage B
+end to end on the general-route fixture, where the DCF's year-one rate, the
+WACC's rate and ROIC's rate all take the filed line and both manifest entries
+appear, beside a control filer whose rates and wording do not move.
 
 Version stamps are not moved here (P27: the Stage 5 integration moves them
 together). Under the methodology's convention this change advances the Stage B

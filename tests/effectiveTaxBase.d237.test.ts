@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 
 import { effectiveTaxPretaxIncome, enrichIncomeClassification } from "@/edgar/incomeClassification";
 import type { CompanyFacts } from "@/edgar/xbrl";
-import { effectiveTaxRateFromTtm, taxRatePretaxOperand, ttmIncome, waccTaxRateFromStatements } from "@/pipeline/compute";
+import { effectiveTaxRateFromTtm, runStageB, taxRatePretaxOperand, ttmIncome, waccTaxRateFromStatements } from "@/pipeline/compute";
 import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import type { FmpIncomeStatementRow, FmpPayload } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
@@ -219,5 +219,69 @@ describe("D-237: the TTM tax pair divides by the four quarters' own bases", () =
   it("the annual fallback reads the latest year's base (Amazon fiscal 2025: 19,087M over 97,311M)", () => {
     const { row } = admit(FY2025, { incomeBeforeTax: 96_757, incomeTaxExpense: 19_087, netIncome: 77_670 }, facts(FY2025, AMZN_FY2025));
     expect(waccTaxRateFromStatements(null, row).rate).toBeCloseTo(19_087 / 97_311, 12);
+  });
+});
+
+/**
+ * End to end through Stage B on the general-route fixture (four quarters of
+ * 57M pre-tax, 12M tax, 45M net income; fiscal 2025 190M, 40M, 150M; a provider
+ * ratio of 20%). The filings state a pre-tax line 1M a quarter and 4M a year
+ * above the provider's figure, with the equity-method loss after the provision.
+ */
+function fixtureFacts(pretaxTag: string, equityMethod: boolean): CompanyFacts {
+  const periods: (Period & { pretax: number; tax: number; net: number; equity: number; revenue: number })[] = [
+    { start: "2026-01-01", end: "2026-03-31", filed: "2026-05-02", form: "10-Q", accn: "0000000042-26-000002", fp: "Q1", pretax: 57, tax: 12, net: 45, equity: -1, revenue: 300 },
+    { start: "2025-10-01", end: "2025-12-31", filed: "2026-02-01", form: "10-K", accn: "0000000042-26-000001", fp: "FY", pretax: 57, tax: 12, net: 45, equity: -1, revenue: 300 },
+    { start: "2025-07-01", end: "2025-09-30", filed: "2025-11-01", form: "10-Q", accn: "0000000042-25-000003", fp: "Q3", pretax: 57, tax: 12, net: 45, equity: -1, revenue: 300 },
+    { start: "2025-04-01", end: "2025-06-30", filed: "2025-08-01", form: "10-Q", accn: "0000000042-25-000002", fp: "Q2", pretax: 57, tax: 12, net: 45, equity: -1, revenue: 300 },
+    { start: "2025-01-01", end: "2025-12-31", filed: "2026-02-01", form: "10-K", accn: "0000000042-26-000001", fp: "FY", pretax: 190, tax: 40, net: 150, equity: -4, revenue: 1_000 },
+  ];
+  const series = (value: (p: (typeof periods)[number]) => number, instant = false) => ({ units: { USD: periods.map(p => ({
+    ...(instant ? {} : { start: p.start }), end: p.end, val: value(p) * M, accn: p.accn, filed: p.filed, form: p.form, fy: Number(p.end.slice(0, 4)), fp: p.fp })) } });
+  return { cik: 42, entityName: "Fixture", facts: { "us-gaap": {
+    Assets: series(() => 1, true),
+    Revenues: series(p => p.revenue),
+    // Operating income is filed directly (60M a quarter, 200M for the year), as the provider reports it.
+    OperatingIncomeLoss: series(p => p.revenue / 5),
+    // The filed line sits above the provider's figure by the after-tax equity-method loss.
+    [pretaxTag]: series(p => equityMethod ? p.pretax - p.equity : p.pretax),
+    IncomeTaxExpenseBenefit: series(p => p.tax),
+    NetIncomeLoss: series(p => p.net),
+    ...(equityMethod ? { IncomeLossFromEquityMethodInvestments: series(p => p.equity) } : {}),
+  } } };
+}
+
+describe("D-237: one base in every Stage B tax rate", () => {
+  const stageB = (facts: CompanyFacts) => {
+    const bundle = withIssuerFacts(completeCurrencyBundle({ filingLinks: "shared" }), facts);
+    return runStageB(bundle);
+  };
+  const yearOneTaxPct = (computed: ReturnType<typeof runStageB>) =>
+    computed.valuation.kind === "dcf" ? computed.valuation.assumptions?.taxRatePath.value[0] : undefined;
+
+  it("divides the DCF's year-one rate, the WACC's rate and ROIC's rate by the filed line, and says so", () => {
+    const computed = stageB(fixtureFacts(PRETAX_BEFORE_EQUITY, true));
+    // 48M over the filed 232M, not over the provider's 228M.
+    expect(yearOneTaxPct(computed)).toBeCloseTo((48 / 232) * 100, 10);
+    expect(computed.returns.wacc.taxRateUsed).toBeCloseTo(48 / 232, 12);
+    expect(computed.returns.wacc.taxRateBasis).toContain("filed pre-tax income before equity-method results");
+    // Fiscal 2025: 40M over the filed 194M, not 190M.
+    expect(computed.returns.roic.series.find(year => year.date === "2025-12-31")?.taxRateUsed).toBeCloseTo(40 / 194, 12);
+    const trailing = computed.gaps.find(gap => gap.field === "compute.ttmIncome.taxRatePretaxIncome");
+    expect(trailing).toMatchObject({ severity: "info", expected: true });
+    expect(trailing!.reason).toContain("the provision 48000000 is divided by 232000000");
+    expect(trailing!.reason).toContain("2026-01-01 through 2026-03-31: 58000000 USD (10-Q 0000000042-26-000002, filed 2026-05-02) against 57000000");
+    const annual = computed.gaps.find(gap => gap.field === "statements.income.annual.taxRatePretaxIncome");
+    expect(annual).toMatchObject({ severity: "info", expected: true });
+    expect(annual!.reason).toContain("2025-01-01 through 2025-12-31: 194000000 USD (10-K 0000000042-26-000001, filed 2026-02-01) against 190000000");
+  });
+
+  it("control: a filer whose pre-tax line already includes its equity-method results keeps every rate and its wording", () => {
+    const computed = stageB(fixtureFacts(PRETAX_TOTAL, false));
+    expect(yearOneTaxPct(computed)).toBeCloseTo((48 / 228) * 100, 10);
+    expect(computed.returns.wacc.taxRateUsed).toBe(0.2);
+    expect(computed.returns.wacc.taxRateBasis).toBe("FMP ratios-ttm effectiveTaxRateTTM (observed effective rate)");
+    expect(computed.returns.roic.series.find(year => year.date === "2025-12-31")?.taxRateUsed).toBeCloseTo(40 / 190, 12);
+    expect(computed.gaps.some(gap => /taxRatePretaxIncome$/.test(gap.field))).toBe(false);
   });
 });
