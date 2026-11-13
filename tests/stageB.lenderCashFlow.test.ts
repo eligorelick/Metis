@@ -15,6 +15,7 @@ import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { buildMarketData } from "@/pipeline/marketData";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIssuerFacts } from "./helpers/confirmedIssuer";
 
 function lender(options: { bank?: boolean; sic?: string; statement?: string } = {}) {
   const b = completeCurrencyBundle({ bank: options.bank, sic: options.sic ?? "6163" });
@@ -133,6 +134,67 @@ describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
     // F1: a stale whole-row fallback cannot claim the newer filing's debt components.
     delete b.statements.balanceQuarterly.value.data.rows[0]!.reportedCurrency;
     expect(runStageB(b).valuation.multiples!.enterpriseValue.value).toBeNull();
+  });
+
+  // D-234 (P7, P8): when the same filing's tagged LongTermDebt is exactly the balance sheet's debt lines, the
+  // report's debt is those borrowings plus the operating lease; the provider perimeter is no longer shown as debt.
+  it("D-234 shows the filed borrowings as the debt once the filing's tagged total proves the debt lines", () => {
+    const sheet = "CONSOLIDATED BALANCE SHEETS (in thousands) Liabilities: Payables to third-party loan owners 506,686 383,772 Debt, current ($120,105 at fair value) 222,505 160,959 Debt, current to related parties ($424,640 at fair value) 424,640 166,135 Debt, non-current 315,850 230,143 Total liabilities 1,604,578 1,080,325 ";
+    const build = (longTermDebt: number) => {
+      const b = lender();
+      if (!b.edgar.tenQNotes?.ok || !b.statements.balanceQuarterly.ok) throw new Error("fixture");
+      b.edgar.tenQNotes.value.data.statementsText = sheet + b.edgar.tenQNotes.value.data.statementsText;
+      const row = b.statements.balanceQuarterly.value.data.rows[0]!;
+      Object.assign(row, { date: "2026-03-31", cik: "0000000042", reportedCurrency: "USD", totalDebt: 1_474_457_000, shortTermDebt: 1_153_831_000, longTermDebt: 315_850_000,
+        capitalLeaseObligations: 4_776_000, operatingLeaseLiability: 4_776_000 });
+      delete row.financeLeaseLiability; delete row.fieldProvenance; delete row.fieldConflicts;
+      // The quarter is the report's current balance only when the quarterly rows state their currency.
+      for (const family of [b.statements.balanceQuarterly, b.statements.cashflowQuarterly]) if (family.ok) for (const r of family.value.data.rows) r.reportedCurrency = "USD";
+      const fact = (val: number) => ({ units: { USD: [{ end: "2026-03-31", val, filed: "2026-05-06", accn: "0000000042-26-000001", form: "10-Q", fy: 2026, fp: "Q1" }] } });
+      return withIssuerFacts(b, { cik: 42, entityName: "Example", facts: { "us-gaap": {
+        LongTermDebt: fact(longTermDebt), LongTermDebtNoncurrent: fact(315_850_000), OperatingLeaseLiability: fact(4_776_000) } } });
+    };
+    const b = build(962_995_000), original = JSON.stringify(b);
+    const c = runStageB(b);
+    expect(c.capital.current?.asOf).toBe("2026-03-31");
+    expect(c.capital.current?.debtBridge).toMatchObject({ totalDebtIncludingLeases: 967_771_000, filedBorrowings: 962_995_000, loanOwnerPayables: 506_686_000,
+      filedCurrentDebt: 222_505_000, filedCurrentRelatedPartyDebt: 424_640_000, filedNoncurrentDebt: 315_850_000 });
+    expect(c.capital.current?.debtBridge.providerDebtPerimeterLabel).toBeUndefined();
+    expect(c.capital.current?.debtBridge.compositionNote).toContain("Debt is the filed borrowings plus the recorded operating lease");
+    expect(c.capital.current?.debtBridge.compositionNote).not.toContain("Provider debt perimeter");
+    expect(c.capital.current?.netDebt).toBeNull(); // Net debt stays not applicable to a lender.
+    expect(c.route.cashFlowApplicability?.debtPerimeter).toMatchObject({ borrowings: 962_995_000, loanOwnerPayables: 506_686_000, filedDebt: 967_771_000 });
+    expect(c.route.cashFlowApplicability?.evDebtBasis).toMatch(/^EV context only: debt is the filed Debt, current 222505000; Debt, current to related parties 424640000; Debt, non-current 315850000/);
+    expect(c.route.cashFlowApplicability?.evDebtBasis).toContain("also counted the filed Payables to third-party loan owners 506686000, which is not included");
+    expect(c.valuation.multiples!.enterpriseValue.basis).toMatch(/context only: debt is the filed Debt, current/i);
+    const payload = assembleContextPayload(b, c, { checks: [], flags: [], gaps: [] });
+    const balanceBlocks = payload.statements.filter(block => block.title.startsWith("Balance sheet — quarterly"));
+    expect(balanceBlocks.flatMap(block => block.lineItems).some(line => line.lineItem.startsWith("Provider debt perimeter"))).toBe(false);
+    expect(balanceBlocks[0]?.lineItems.find(line => line.byPeriod.some(cell => cell.value === 967_771_000))?.lineItem).toBe("Debt used in this report");
+    expect(balanceBlocks[0]?.notes.join(" ")).toContain("Debt at 2026-03-31 is the filed borrowings plus the recorded operating lease");
+    const prompt = serializePayloadForPrompt(payload);
+    expect(prompt).toContain("Debt used in this report: 967771000");
+    expect(prompt).not.toContain("1474457000");
+    const report = buildDataOnlyReport({ symbol: b.symbol, companyName: "Example", generatedAt: b.builtAt, model: "none", costUsd: 0,
+      bundle: b, validation: { checks: [], flags: [], gaps: [] }, computed: c, costBreakdown: [], reason: "offline" });
+    const markdown = reportToMarkdown(report);
+    expect(markdown).not.toContain("Provider debt perimeter");
+    expect(markdown).toContain("| Debt used in this report | $967.77M |");
+    expect(markdown).toContain("| Filed borrowings | $963.00M |");
+    expect(markdown).toContain("| Loan owner payables | $506.69M |");
+    expect(JSON.stringify(b)).toBe(original);
+
+    // Compatible control: the tagged total does not prove the lines, so the labelled provider perimeter stays (D-149 F1).
+    const control = runStageB(build(900_000_000));
+    expect(control.capital.current?.debtBridge).toMatchObject({ totalDebtIncludingLeases: 1_474_457_000, filedBorrowings: 962_995_000,
+      providerDebtPerimeterLabel: "Provider debt perimeter (includes payables to third-party loan owners)" });
+    expect(control.route.cashFlowApplicability?.debtPerimeter?.filedDebt).toBeUndefined();
+    expect(control.route.cashFlowApplicability?.evDebtBasis).toMatch(/^EV context only: provider debt includes the filed Payables to third-party loan owners 506686000/);
+
+    // Unrelated shape: a lender whose balance sheet names no such lines has no perimeter evidence and no admission.
+    const plain = runStageB(lender());
+    expect(plain.route.cashFlowApplicability?.debtPerimeter).toBeUndefined();
+    expect(plain.capital.current?.debtBridge.providerDebtPerimeterLabel).toBeUndefined();
   });
 
   it("F12 scores tangible common returns for evidenced lenders while retaining filed operating margin", () => {
