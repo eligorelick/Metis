@@ -43,7 +43,7 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-On macOS/Linux, use `cp .env.example .env`. Production: `npm run build`, then `npm start`. Keep `.env*` private; only the placeholder `.env.example` belongs in Git. **Settings → Provider keys and SEC contact** offers **Save**, **Test**, and **Remove saved** for each value; a green check confirms usable provider test data. Saved values use protected local storage, override environment keys, and apply without restarting. Removing an override restores any environment value and keeps account connections intact. Existing saved keys stay hidden; tests do not generate paid Claude responses.
+On macOS/Linux, use `cp .env.example .env`. For everyday use, `npm run app` serves the faster production build and rebuilds it only when the source changed (or run `npm run build`, then `npm start`). Keep `.env*` private; only the placeholder `.env.example` belongs in Git. **Settings → Provider keys and SEC contact** offers **Save**, **Test**, and **Remove saved** for each value; a green check confirms usable provider test data. Saved values use protected local storage, override environment keys, and apply without restarting. Removing an override restores any environment value and keeps account connections intact. Existing saved keys stay hidden; tests do not generate paid Claude responses.
 
 Open <http://127.0.0.1:3000>; development and production both bind to `127.0.0.1`. Every provider key is optional: with no `FMP_API_KEY`, set
 `EDGAR_CONTACT` to a truthful "Name email" identity and real US-listed tickers
@@ -223,6 +223,7 @@ repository's [private advisory form](https://github.com/eligorelick/Metis/securi
 | `npm run dev` | Run the app on 127.0.0.1 in development. |
 | `npm run build` | Production build. |
 | `npm run start` | Serve the production build on 127.0.0.1. |
+| `npm run app` | Everyday use: serve the production build, rebuilding it first when the source changed. Pages open several times faster than under `dev`. |
 | `npm run sample:build` | Rebuild the fictional sample report and matching charts offline; no provider or model calls. |
 | `npm run typecheck` | Type-check without emitting. |
 | `npm run lint` | ESLint over the repository. |
