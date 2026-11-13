@@ -11,6 +11,73 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-245 - The dossier is the default layout (2026-11-12)
+
+Principle P22 (one presentation rule per figure). Round 2, S4.12b. Owner
+decision: "Layout, last and as its own pull requests: make dossier the default
+once it shows everything classic shows, then remove classic", and "What may
+change in a report: nothing a reader sees, except the layout switch and
+classic's removal." D-241 established that the dossier shows every fact
+classic shows; this entry is the second of the three steps. It changes the
+default and nothing else; classic is still selectable.
+
+Change. `METIS_UI_REDESIGN` (`src/config/env.ts`) now defaults to 1. With no
+setting, or a blank one, every page (home, company, saved report, revisions,
+comparison, sample report, settings) renders the dossier layout. The strict
+parsing is unchanged: 1 selects the dossier as before, 0 still selects
+classic, and any other value (for example "true") is still refused at startup.
+So someone who set the flag to get the dossier keeps it, and someone who
+explicitly set 0 keeps classic in this step. `.env.example` and the generated
+README table say so.
+
+App pages checked before flipping (the PARITY.md items outside the report,
+and every other `uiRedesign` branch in `src/app`). Nothing a reader can do
+from a classic page is missing from the dossier page:
+
+- Export: classic's three buttons and the dossier's Export menu reach the same
+  three destinations (full report Markdown, audit-trail Markdown, print/PDF;
+  `ExportButtons.tsx`).
+- Saved report: classic's "History" and "Ticker data" links are the dossier's
+  Revisions and Ticker data entries (`ResearchNavigation`); delete, rerun and
+  resume are the same components in both, and the dossier adds report notes.
+- Run panel (`GenerateReport`): classic shows the running cost from the first
+  render; the dossier shows "Server state pending" until the server accepts
+  the run. Before that point the panel's cost is only the local starting value,
+  because it is set from validated server snapshots only; from acceptance on,
+  both show the same figure, step list and final cost.
+- Revisions and comparison pages: classic's sidebar offers "back to SYMBOL"
+  and "home" (and on the comparison page "back to history"); the dossier
+  reaches the same pages through the research navigation, the header logo and
+  its Coverage link, with the watchlist sidebar and the revision digest added.
+- Home page: the classic watchlist rows link to the company; the dossier's
+  coverage table links to the company, each grade's section and the history.
+  The connection, keyless-source and model panels are the same panels, inside
+  a details element the reader opens.
+- Display controls, search and the command launcher exist only in the dossier;
+  appearance is also in Settings in both.
+
+Unchanged. Markdown, print, audit export, the Stage C payload and every stored
+report and job row: byte-identical. The same-report harness renders both
+layouts explicitly, so its output is identical to main (no file differs in
+17 cases). Components keep their own defaults; only the setting's default
+moves.
+
+Settings parity (D-228). The frozen table
+(`tests/fixtures/config-parity-before-d228.json`) stays the record of main at
+e55519ce. The test now applies one named delta, D-245: the default
+`uiRedesign` becomes true, "0" becomes the one value that differs from it,
+"1" (alone and in the combined row) no longer differs, and the refusal of
+"true" is unchanged. Every other default and row must still equal the frozen
+file; a test pins exactly which three rows the delta touches.
+
+Options rejected: changing the default inside the components (`ReportView`,
+the appearance context) as well; every page already passes the layout it
+renders, and classic goes in the next step with D-246.
+
+Risks. Correctness and data: none (presentation only). Backward
+compatibility: anyone without the setting now sees the dossier, which is the
+owner's decision. Reversible by setting `METIS_UI_REDESIGN=0` or by one revert.
+
 ## D-241 - The dossier layout shows everything the classic layout shows (2026-11-12)
 
 Principle P22 (one presentation rule per figure). Round 2, S4.12a. Owner

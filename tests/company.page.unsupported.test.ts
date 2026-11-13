@@ -30,6 +30,7 @@ vi.mock("@/app/company/[symbol]/GenerateReport", () => ({
 }));
 
 import CompanyPage, { CompanyBody } from "@/app/company/[symbol]/page";
+import { resetConfigCache } from "@/config/env";
 
 /** An `edgar.cik` FetchResult that resolved — the ticker is a known registrant. */
 function resolvedCik(symbol: string): unknown {
@@ -126,15 +127,33 @@ describe("company page — unsupported instruments", () => {
     expect(pageHarness.buildDataBundle).not.toHaveBeenCalled();
   });
 
-  it("renders the company-only explanation before Stage B, old reports, charts, or GenerateReport", async () => {
+  it("renders the company-only explanation before Stage B, old reports, charts, or GenerateReport (classic, METIS_UI_REDESIGN=0)", async () => {
+    vi.stubEnv("METIS_UI_REDESIGN", "0");
+    resetConfigCache();
+    try {
+      const html = renderToStaticMarkup(await CompanyBody({ symbol: "SPY" }));
+
+      expect(html).toMatch(/SPY/);
+      expect(html).toMatch(/not supported/i);
+      expect(html).toMatch(/individual compan/i);
+      expect(pageHarness.runStageB).not.toHaveBeenCalled();
+      expect(pageHarness.getLatestDoneReport).not.toHaveBeenCalled();
+      expect(pageHarness.generateReport).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); resetConfigCache(); }
+  });
+
+  it("renders the same explanation in the default dossier layout, reading saved research only to link it (D-245)", async () => {
     const html = renderToStaticMarkup(await CompanyBody({ symbol: "SPY" }));
 
     expect(html).toMatch(/SPY/);
     expect(html).toMatch(/not supported/i);
     expect(html).toMatch(/individual compan/i);
     expect(pageHarness.runStageB).not.toHaveBeenCalled();
-    expect(pageHarness.getLatestDoneReport).not.toHaveBeenCalled();
     expect(pageHarness.generateReport).not.toHaveBeenCalled();
+    // The dossier's failed-live view offers a link to an existing saved report
+    // (none here); it renders no old report, chart or run panel.
+    expect(pageHarness.getLatestDoneReport.mock.calls).toEqual([["SPY"]]);
+    expect(html).not.toContain("remains available through Report");
   });
 
   it("coalesces concurrent unclassified loads without computing company values", async () => {

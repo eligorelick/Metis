@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - The dossier is the default layout (2026-11-12)
+
+- With no `METIS_UI_REDESIGN` setting every page opens in the dossier layout
+  (P22, D-245). `METIS_UI_REDESIGN=0` still selects the classic layout for
+  now; any value other than 0 or 1 is still refused. Exports, saved reports
+  and the same-report check output are unchanged.
+
 ## Unreleased - The dossier layout shows everything classic shows (2026-11-12)
 
 - The dossier's WACC × terminal-growth grid now outlines the base-case cell,

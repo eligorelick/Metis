@@ -79,11 +79,49 @@ describe("retired THESIS_ names are refused (D-228)", () => {
   });
 });
 
+/**
+ * Deliberate changes since the table was frozen, each named by its decision.
+ * The frozen file stays the record of main at e55519ce; every default and row
+ * not changed here must still equal it exactly.
+ *
+ * D-245: the layout default became the dossier. `uiRedesign` defaults to true,
+ * so a blank value parses to the dossier, "1" no longer differs from the
+ * default, and "0" is the one value that does (classic). Parsing stays strict:
+ * "true" is still refused with the same issue.
+ */
+function withDeliberateChanges(frozen: ParityTable): { table: ParityTable; changedRows: number[] } {
+  const table = JSON.parse(JSON.stringify(frozen)) as ParityTable;
+  const changedRows: number[] = [];
+  table.defaults.uiRedesign = true;
+  table.rows.forEach((row, index) => {
+    const raw = row.input.METIS_UI_REDESIGN;
+    if (raw === undefined || !("changed" in row.result)) return;
+    const before = JSON.stringify(row.result.changed);
+    if (raw.trim() === "0") row.result.changed.uiRedesign = false;
+    else delete row.result.changed.uiRedesign;
+    if (JSON.stringify(row.result.changed) !== before) changedRows.push(index);
+  });
+  return { table, changedRows };
+}
+
 describe("a clean METIS_-only environment parses exactly as before (D-228)", () => {
-  const frozen = JSON.parse(
+  const recorded = JSON.parse(
     fs.readFileSync(path.join(ROOT, "tests", "fixtures", "config-parity-before-d228.json"), "utf8"),
   ) as ParityTable;
+  const { table: frozen, changedRows } = withDeliberateChanges(recorded);
   const current = buildParityTable(parseEnv, metisEnv);
+
+  it("changes only the rows its decisions name (D-245: the layout default)", () => {
+    expect(recorded.defaults.uiRedesign).toBe(false);
+    expect(changedRows.map((index) => recorded.rows[index]!.input.METIS_UI_REDESIGN)).toEqual(["0", "1", "1"]);
+    expect(changedRows.map((index) => frozen.rows[index]!.result)).toEqual([
+      { changed: { uiRedesign: false } },
+      { changed: {} },
+      { changed: expect.not.objectContaining({ uiRedesign: expect.anything() }) },
+    ]);
+    const refused = frozen.rows.find((row) => row.input.METIS_UI_REDESIGN === "true");
+    expect(refused?.result).toEqual({ issues: [{ path: ["METIS_UI_REDESIGN"], message: "must be 1 or 0" }] });
+  });
 
   it("keeps every default", () => {
     expect(current.defaults).toEqual(frozen.defaults);

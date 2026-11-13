@@ -102,7 +102,7 @@ no longer read: if one is still set, Metis refuses to start and names its `METIS
 | `METIS_DB_PATH` | unset (opt in) | Override the SQLite file (fresh default `<data dir>/metis.db`, with existing `thesis.db` or recovery files reused). |
 | `METIS_DATA_DIR` | unset (opt in) | Override the app-data directory used by the default DB and startup token. |
 | `METIS_IMPORT_LEGACY_DB` | `1` (opt in) | One-time migration only. |
-| `METIS_UI_REDESIGN` | `0` | Opt into the dossier UI. |
+| `METIS_UI_REDESIGN` | `1` | Page layout: 1 or blank is the dossier (default, D-245), 0 the classic layout. |
 | `NEXT_TELEMETRY_DISABLED` | `1` | The Next.js CLI behind `npm run dev` / `npm run build` posts anonymous usage events to telemetry.nextjs.org unless this is set. |
 
 <!-- END GENERATED: config -->

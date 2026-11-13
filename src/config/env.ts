@@ -226,8 +226,12 @@ const envSchema = z.object({
   // WS8
   /** "1" (default) kicks the scheduler at startup; "0" holds queued paid work for an explicit resume. */
   METIS_RESUME_ON_START: binaryFlagEnv(true),
-  /** Opt-in presentation only; existing appearance preferences remain independent. */
-  METIS_UI_REDESIGN: binaryFlagEnv(false),
+  /**
+   * Presentation only; existing appearance preferences remain independent.
+   * D-245: the dossier layout is the default (blank or 1); 0 still selects
+   * the classic layout until classic is removed.
+   */
+  METIS_UI_REDESIGN: binaryFlagEnv(true),
   /** Full path of the X-Metis-Token file; blank means `<data dir>/csrf-token`. */
   METIS_TOKEN_FILE: optionalPath,
   // end WS8

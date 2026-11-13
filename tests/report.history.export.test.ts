@@ -30,6 +30,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // graph resolves — it has no runtime behavior. (Same pattern as watchlist.test.)
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", async importOriginal => ({ ...await importOriginal<typeof import("next/navigation")>(), useRouter: () => ({ refresh: vi.fn(), replace: vi.fn() }) }));
+// The pages render the dossier layout by default (D-245), whose watchlist
+// sidebar is an async server component that reads the watchlist; it is not
+// under test here, and synchronous rendering cannot await it.
+vi.mock("@/components/watchlist/Sidebar", () => ({ WatchlistSidebar: () => null }));
 
 import {
   createDatabase,
@@ -3127,11 +3131,17 @@ describe("history diff route-used SSR renderer", () => {
     });
     const swappedHtml = renderToStaticMarkup(swappedTree as ReactElement);
     expect(swappedHtml).toContain("Selected reports were out of chronological order");
-    expect(swappedHtml.indexOf("pipeline-from-report")).toBeLessThan(
-      swappedHtml.indexOf("pipeline-to-report"),
+    // The order is checked in the full comparison, which both layouts render;
+    // the dossier (the default, D-245) adds a revision digest above it.
+    const comparison = swappedHtml.slice(swappedHtml.indexOf('id="full-comparison"'));
+    expect(swappedHtml).toContain('id="full-comparison"');
+    expect(comparison.indexOf("pipeline-from-report")).toBeGreaterThanOrEqual(0);
+    expect(comparison.indexOf("pipeline-from-report")).toBeLessThan(
+      comparison.indexOf("pipeline-to-report"),
     );
-    expect(swappedHtml.indexOf("1.1.0-row")).toBeLessThan(
-      swappedHtml.indexOf("unknown"),
+    expect(comparison.indexOf("1.1.0-row")).toBeGreaterThanOrEqual(0);
+    expect(comparison.indexOf("1.1.0-row")).toBeLessThan(
+      comparison.indexOf("unknown"),
     );
     expect(swappedHtml).toContain("Source persisted spec version conflicts with embedded metadata");
     expect(swappedHtml).toContain("Target persisted spec version is missing");
