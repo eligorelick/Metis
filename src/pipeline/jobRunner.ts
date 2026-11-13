@@ -33,6 +33,7 @@ import { PIPELINE_VERSION } from "@/report/versions";
 import { createHash, randomUUID } from "node:crypto";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { withPrimaryCapitalBasis, primaryCapitalManifest } from "@/pipeline/primaryCapitalBasis";
+import { bankRevenueManifest } from "@/pipeline/incomeBasis";
 import { ProviderFailureSchema } from "@/ai/providerFailure";
 import { analysisOutcomeFromSteps } from "@/report/analysisCompletion";
 import { captureAiSelection, selectionIsConnected } from "@/ai/connections";
@@ -5449,7 +5450,7 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
     keyNumbers: [],
   });
 
-  const missingData: ManifestEntry[] = input.sterileManifest ? [] : primaryCapitalManifest(input.bundle, collectMissingData(bundle, validation, computed, input.gaps ?? []));
+  const missingData: ManifestEntry[] = input.sterileManifest ? [] : bankRevenueManifest(input.bundle, primaryCapitalManifest(input.bundle, collectMissingData(bundle, validation, computed, input.gaps ?? [])));
   const attemptedAnalysisSources = [
     ...new Set(
       missingData

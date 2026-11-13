@@ -215,7 +215,9 @@ describe("Task 28 complete report surfaces", () => {
     // weights, aspect fields and driver traces are in the audit export (D-62).
     for (const output of values(renderSurfaces(report))) {
       expect(output).toContain("TASK28:composite:methodology");
-      expect(output).toMatch(/TASK28:BANDS:VERSION|House scoring bands/);
+      // D-256: the body states what the band table is; the band constant is in the audit export only.
+      expect(output).toContain("House scoring bands in force when this report was built");
+      expect(output).not.toContain("TASK28:BANDS:VERSION");
       expect(output).not.toContain("TASK28:fundamentals:driver:0:source-display");
     }
     const surfaces = auditSurface(report);

@@ -1,7 +1,7 @@
 import { prepareReportForSurface } from "@/report/readerPreparation";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
-import { macroDisplayRows, plainFigureReaderNote } from "@/report/presentation";
+import { macroDisplayRows, plainFigureReaderNote, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
 import { SCENARIO_TARGET_UNAVAILABLE_TEXT, VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView, type ScenarioRowView } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 /**
@@ -449,7 +449,7 @@ function renderScores(scores: Scoring): string {
     ...(drivers ? auditTableBlocks([drivers]) : []),
     ...(exposure ? auditTableBlocks([exposure]) : []),
     ...auditTableBlocks([factorContributionSensitivityTable(scores)]),
-    `_${markdownProse(c.methodology)}_ _(bands ${markdownProse(scores.bandsVersion)})_`,
+    `_${markdownProse(c.methodology)}_ _(${markdownProse(SCORE_BANDS_READER_NOTE)})_`,
   ].join("\n");
 }
 

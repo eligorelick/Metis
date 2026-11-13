@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.74.0** and
-payload **1.93.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.75.0** and
+payload **1.94.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,56 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Version stamps for the bank revenue and reader-label steps (2026-11-13)
+
+- The bank revenue fix (D-257) and the three reader wordings (D-256) are in
+  this batch without moving a version stamp; the stamps move once here (P27,
+  [D-258](docs/audit/DECISIONS.md)): report spec 1.74.0 -> 1.75.0, payload
+  1.93.0 -> 1.94.0, Stage B `STAGE_B_2026_11_FILED_ACCURACY_67` ->
+  `STAGE_B_2026_11_BANK_REVENUE_68`. The fair-value, scenario-target and
+  net-debt method stamps, the pipeline version and every display cutoff are
+  unchanged. Saved reports keep their bytes.
+- The accuracy check's expectation records JPMorgan's fiscal 2025 revenue as
+  a match (it was a disclosed gap), and its filed reference for JPMorgan's
+  current period is rebuilt for the trailing window ending 2026-09-30.
+
+## Unreleased - A bank's revenue is the filed total net revenue (2026-11-13)
+
+- A data provider states a bank's revenue gross of interest expense; the
+  filing states total net revenue (net interest income plus noninterest
+  income). The income classification refused the conflicting row and had a
+  rule for securities firms only, so a bank's newest year and quarters had no
+  revenue and its older periods kept the provider's figure unchecked. The
+  filed total now replaces the provider's figure on every annual and
+  quarterly row whose filing proves it (the total's two components, same
+  period, same filing, add up to it exactly); the provider's cost of revenue,
+  gross profit, operating income and operating expenses are withheld for
+  those rows, and a row that cannot be proven beside them is withheld (P7,
+  P8, P11, P13, [D-257](docs/audit/DECISIONS.md), revising D-148 for this
+  shape). In the same-report check this changes one of the 17 cases:
+  JPMorgan's fiscal 2016 to 2025 revenue (fiscal 2025: 182,447M, was
+  withheld) and 24 quarters are the filed totals; revenue growth, the net
+  margin history, the trailing twelve-month window (P/E 14.4x on trailing
+  EPS, was 17.2x on fiscal 2025) and the fundamentals aspect are built on
+  them, and the composite moves from 55.93 to 56.54. Version stamps are not
+  moved in this change.
+
+## Unreleased - Three owner-approved reader wordings (2026-11-13)
+
+- [D-256](docs/audit/DECISIONS.md) (P22, P5): the web report's "Recorded gaps"
+  list shows each entry under the same reader label the data-gap tables use
+  ("Press releases (FMP)" instead of `fmp.pressReleases(AMZN)`), with its
+  recorded reason unchanged; the scorecard says "House scoring bands in force
+  when this report was built; the band version is recorded in the audit
+  export" instead of printing the band constant (web, Markdown and print; the
+  audit export keeps the constant); and the FCF-conversion rows, the
+  FCF-conversion score operands and the balance-sheet grading sentence name
+  their denominator "consolidated net income", including noncontrolling
+  interests' share. No number, gap, status, score or grade changes. The first
+  two are read-time wording, so saved reports show them with their bytes
+  unchanged; the third is stored in new reports only (P21). No version stamp
+  moves.
 
 ## Unreleased - Stage 5 version stamps (2026-11-13)
 

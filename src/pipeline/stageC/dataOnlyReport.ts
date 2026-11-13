@@ -1,6 +1,7 @@
 import { withComputationContext } from "@/edgar/computationContext";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { withPrimaryCapitalBasis, primaryCapitalManifest, primaryCapitalAudit } from "@/pipeline/primaryCapitalBasis";
+import { bankRevenueManifest } from "@/pipeline/incomeBasis";
 /**
  * Data-only report enrichment — the deterministic Stage B content a report
  * carries when the LLM passes do not run.
@@ -415,8 +416,10 @@ function fundamentalsSections(
     // income statement's), and a history is never shown across a currency break.
     seriesRow("Free cash flow (after SBC, house default)", cashFlowSeries(cap.fcf.series.map((y) => ({ date: y.date, value: y.fcf })), cf), "currency", "computed.capital.fcf", null),
     seriesRow("Free cash flow (before SBC, vendor convention)", cashFlowSeries(cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfBeforeSbc })), cf), "currency", "computed.capital.fcf.beforeSbc", null),
-    seriesRow("FCF conversion (FCF after SBC / net income)", cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfConversion })), "x", "computed.capital.fcf.conversion", null),
-    seriesRow("FCF conversion (FCF before SBC / net income)", cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfConversionBeforeSbc })), "x", "computed.capital.fcf.conversionBeforeSbc", null),
+    // D-256 (P5, P22): the denominator is consolidated profit (D-238), so the label says so, and the first row
+    // states once that it includes the noncontrolling interests' share.
+    seriesRow("FCF conversion (FCF after SBC / consolidated net income, including noncontrolling interests' share)", cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfConversion })), "x", "computed.capital.fcf.conversion", null),
+    seriesRow("FCF conversion (FCF before SBC / consolidated net income)", cap.fcf.series.map((y) => ({ date: y.date, value: y.fcfConversionBeforeSbc })), "x", "computed.capital.fcf.conversionBeforeSbc", null),
     seriesRow("Capex / revenue", cap.capexIntensity.series.map((y) => ({ date: y.date, value: y.capexToRevenuePct })), "%", "computed.capital.capexIntensity", null),
   ]);
 
@@ -927,7 +930,7 @@ function enrichDataOnlyReportInContext(stub: Report, args: EnrichDataOnlyReportA
   const operatingSupport=operatingHistorySupport(computed.growth.margins.operating,annualFiscalLabels(bundle));
 
   const primaryCapital = primaryCapitalAudit(bundle, computed.capital?.primaryRepurchaseExecutions);
-  const currentManifest = primaryCapitalManifest(args.bundle, stub.appendix.missingData);
+  const currentManifest = bankRevenueManifest(args.bundle, primaryCapitalManifest(args.bundle, stub.appendix.missingData));
   const candidate: Report = {
     ...stub,
     ...(primaryCapital ? { primaryCapitalEvidence: primaryCapital } : {}),

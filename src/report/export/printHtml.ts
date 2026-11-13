@@ -2,7 +2,7 @@ import { prepareReportForSurface } from "@/report/readerPreparation";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
-import { macroDisplayRows, plainFigureReaderNote } from "@/report/presentation";
+import { macroDisplayRows, plainFigureReaderNote, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
 import { SCENARIO_TARGET_UNAVAILABLE_TEXT, VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView, type ScenarioRowView } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
@@ -495,7 +495,7 @@ function sectionScores(scores: Scoring): string {
     ${assessment ? `<p>${esc(assessment)}</p>` : ""}
     ${table(card.headers, card.rows.map((row) => row.map(esc)))}${card.note ? `<p class="faint">${esc(card.note)}</p>` : ""}
     ${bodyTables([gradeReliabilityTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)])}
-    <p class="faint">${esc(c.methodology)} <em>(bands ${esc(scores.bandsVersion)})</em></p></section>`;
+    <p class="faint">${esc(c.methodology)} <em>(${esc(SCORE_BANDS_READER_NOTE)})</em></p></section>`;
 }
 
 /* ======================================================================== *

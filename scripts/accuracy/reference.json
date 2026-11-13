@@ -1,7 +1,7 @@
 {
   "about": "Filed reference values for npm run accuracy:check, built by npm run accuracy:fetch from SEC EDGAR XBRL companyfacts (public SEC facts). Periods and cutoffs come from the golden run's reports; values come only from the filings. Rebuild with: npm run accuracy:fetch -- --network --run <golden run>.",
   "source": "https://data.sec.gov/api/xbrl/companyfacts/",
-  "builtFrom": "tmp/golden/batch4-s3",
+  "builtFrom": "../../../../Documents/Thesis-AI-equity-research/tmp/golden/fu-batch",
   "cases": {
     "amzn-data-only": {
       "ticker": "AMZN",
@@ -4690,20 +4690,22 @@
     {
       "case": "jpm-data-only",
       "figure": "operatingIncome.ttm",
-      "period": "TTM:2025-01-01..2025-12-31",
-      "unresolved": "no fiscal-year OperatingIncomeLoss fact within a year before 2025-12-31 filed on or before the cutoff"
+      "period": "TTM:2025-10-01..2026-09-30",
+      "unresolved": "no fiscal-year OperatingIncomeLoss fact within a year before 2026-09-30 filed on or before the cutoff"
     },
     {
       "case": "jpm-data-only",
       "figure": "netIncome.ttm",
-      "period": "TTM:2025-01-01..2025-12-31",
-      "value": 57048000000,
-      "kind": "filed",
+      "period": "TTM:2025-10-01..2026-09-30",
+      "value": 65979000000,
+      "kind": "derived",
       "unit": "currency",
       "currency": "USD",
-      "formula": "fiscal year",
+      "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
-        57048000000
+        57048000000,
+        52954000000,
+        44023000000
       ],
       "points": [
         {
@@ -4717,6 +4719,30 @@
           "filed": "2026-02-13",
           "role": "fiscal year",
           "sign": 1
+        },
+        {
+          "concept": "NetIncomeLoss",
+          "unit": "USD",
+          "start": "2026-01-01",
+          "end": "2026-09-30",
+          "val": 52954000000,
+          "form": "10-Q",
+          "accn": "0001628280-26-069523",
+          "filed": "2026-11-03",
+          "role": "current year to date",
+          "sign": 1
+        },
+        {
+          "concept": "NetIncomeLoss",
+          "unit": "USD",
+          "start": "2025-01-01",
+          "end": "2025-09-30",
+          "val": 44023000000,
+          "form": "10-Q",
+          "accn": "0001628280-26-069523",
+          "filed": "2026-11-03",
+          "role": "prior-year year to date",
+          "sign": -1
         }
       ],
       "notes": []
@@ -4724,14 +4750,16 @@
     {
       "case": "jpm-data-only",
       "figure": "operatingCashFlow.ttm",
-      "period": "TTM:2025-01-01..2025-12-31",
-      "value": -147782000000,
-      "kind": "filed",
+      "period": "TTM:2025-10-01..2026-09-30",
+      "value": -84159000000,
+      "kind": "derived",
       "unit": "currency",
       "currency": "USD",
-      "formula": "fiscal year",
+      "formula": "fiscal year + current year to date − prior-year year to date",
       "operands": [
-        -147782000000
+        -147782000000,
+        -203883000000,
+        -267506000000
       ],
       "points": [
         {
@@ -4745,6 +4773,30 @@
           "filed": "2026-02-13",
           "role": "fiscal year",
           "sign": 1
+        },
+        {
+          "concept": "NetCashProvidedByUsedInOperatingActivities",
+          "unit": "USD",
+          "start": "2026-01-01",
+          "end": "2026-09-30",
+          "val": -203883000000,
+          "form": "10-Q",
+          "accn": "0001628280-26-069523",
+          "filed": "2026-11-03",
+          "role": "current year to date",
+          "sign": 1
+        },
+        {
+          "concept": "NetCashProvidedByUsedInOperatingActivities",
+          "unit": "USD",
+          "start": "2025-01-01",
+          "end": "2025-09-30",
+          "val": -267506000000,
+          "form": "10-Q",
+          "accn": "0001628280-26-069523",
+          "filed": "2026-11-03",
+          "role": "prior-year year to date",
+          "sign": -1
         }
       ],
       "notes": []
@@ -4752,45 +4804,45 @@
     {
       "case": "jpm-data-only",
       "figure": "capex.ttm",
-      "period": "TTM:2025-01-01..2025-12-31",
-      "unresolved": "no fiscal-year PaymentsToAcquirePropertyPlantAndEquipment / PaymentsToAcquireProductiveAssets fact within a year before 2025-12-31 filed on or before the cutoff"
+      "period": "TTM:2025-10-01..2026-09-30",
+      "unresolved": "no fiscal-year PaymentsToAcquirePropertyPlantAndEquipment / PaymentsToAcquireProductiveAssets fact within a year before 2026-09-30 filed on or before the cutoff"
     },
     {
       "case": "jpm-data-only",
       "figure": "fcf.ttm",
-      "period": "TTM:2025-01-01..2025-12-31",
-      "unresolved": "capital spending: no fiscal-year PaymentsToAcquirePropertyPlantAndEquipment / PaymentsToAcquireProductiveAssets fact within a year before 2025-12-31 filed on or before the cutoff"
+      "period": "TTM:2025-10-01..2026-09-30",
+      "unresolved": "capital spending: no fiscal-year PaymentsToAcquirePropertyPlantAndEquipment / PaymentsToAcquireProductiveAssets fact within a year before 2026-09-30 filed on or before the cutoff"
     },
     {
       "case": "jpm-data-only",
       "figure": "cashAndShortTermInvestments.latest",
-      "period": "@2025-12-31",
-      "unresolved": "no CashCashEquivalentsAndShortTermInvestments (USD) fact at 2025-12-31 filed on or before the cutoff; or cash and cash equivalents: no CashAndCashEquivalentsAtCarryingValue (USD) fact at 2025-12-31 filed on or before the cutoff"
+      "period": "@2026-09-30",
+      "unresolved": "no CashCashEquivalentsAndShortTermInvestments (USD) fact at 2026-09-30 filed on or before the cutoff; or cash and cash equivalents: no CashAndCashEquivalentsAtCarryingValue (USD) fact at 2026-09-30 filed on or before the cutoff"
     },
     {
       "case": "jpm-data-only",
       "figure": "totalDebtIncludingLeases.latest",
-      "period": "@2025-12-31",
-      "unresolved": "debt, noncurrent: no LongTermDebtNoncurrent (USD) fact at 2025-12-31 in filing 0001628280-26-069523 filed on or before the cutoff"
+      "period": "@2026-09-30",
+      "unresolved": "debt, noncurrent: no LongTermDebtNoncurrent (USD) fact at 2026-09-30 in filing 0001628280-26-069523 filed on or before the cutoff"
     },
     {
       "case": "jpm-data-only",
       "figure": "operatingLeases.latest",
-      "period": "@2025-12-31",
-      "value": 9337000000,
+      "period": "@2026-09-30",
+      "value": 9437000000,
       "kind": "filed",
       "unit": "currency",
       "currency": "USD",
       "formula": "filed line",
       "operands": [
-        9337000000
+        9437000000
       ],
       "points": [
         {
           "concept": "OperatingLeaseLiability",
           "unit": "USD",
-          "end": "2025-12-31",
-          "val": 9337000000,
+          "end": "2026-09-30",
+          "val": 9437000000,
           "form": "10-Q",
           "accn": "0001628280-26-069523",
           "filed": "2026-11-03",
@@ -4803,8 +4855,8 @@
     {
       "case": "jpm-data-only",
       "figure": "financeLeases.latest",
-      "period": "@2025-12-31",
-      "unresolved": "no FinanceLeaseLiability (USD) fact at 2025-12-31 filed on or before the cutoff; or finance lease liability, current: no FinanceLeaseLiabilityCurrent (USD) fact at 2025-12-31 filed on or before the cutoff"
+      "period": "@2026-09-30",
+      "unresolved": "no FinanceLeaseLiability (USD) fact at 2026-09-30 filed on or before the cutoff; or finance lease liability, current: no FinanceLeaseLiabilityCurrent (USD) fact at 2026-09-30 filed on or before the cutoff"
     },
     {
       "case": "jpm-data-only",
@@ -5376,12 +5428,6 @@
       "figure": "financeLeases.latest",
       "period": "@2026-09-30",
       "unresolved": "no FinanceLeaseLiability (USD) fact at 2026-09-30 filed on or before the cutoff; or finance lease liability, current: no FinanceLeaseLiabilityCurrent (USD) fact at 2026-09-30 filed on or before the cutoff"
-    },
-    {
-      "case": "pgr-data-only",
-      "figure": "fv.suppressed",
-      "period": null,
-      "unresolved": "the fair value is withheld, so there are no fair-value inputs to compare"
     },
     {
       "case": "pgr-data-only",

@@ -1,8 +1,8 @@
 import { passAttemptName } from "@/report/execution";
 import type { Report } from "@/report/schema";
 import type { ReactNode } from "react";
-import { deriveReportCompletenessPresentation } from "@/report/completeness";
-import { dataStateText, runSummary } from "@/report/presentation";
+import { deriveReportCompletenessPresentation, manifestIssuer } from "@/report/completeness";
+import { dataStateText, manifestEntryLabel, runSummary } from "@/report/presentation";
 import { deriveReportModelEvidence } from "@/report/modelEvidence";
 import { REPORT_SECTION_MANIFEST } from "@/report/sectionManifest";
 import { sectionAnchorId } from "./primitives";
@@ -13,6 +13,8 @@ export function ReportEvidenceRail({ report, inspector, selectedReportId }: { re
   const completeness = deriveReportCompletenessPresentation(report.meta.dataCompleteness, report.appendix.missingData, report.appendix.sources);
   const dates = Object.entries(report.meta.asOfMap);
   const models = deriveReportModelEvidence(report);
+  // D-256 (P22): each entry reads under its reader label; the raw field is in the audit export.
+  const issuer = manifestIssuer(report.appendix.missingData);
   return (
     <aside className="workspace-evidence-rail" aria-label="Report evidence and gaps">
       <h2 className="text-[14px] font-semibold">Evidence &amp; gaps</h2>
@@ -36,7 +38,7 @@ export function ReportEvidenceRail({ report, inspector, selectedReportId }: { re
         <ul className="mt-2 space-y-3 text-[12px]">
           {report.appendix.missingData.map((gap, index) => (
             <li key={`${gap.field}-${index}`}>
-              <span className="block break-words font-medium">{gap.field}</span>
+              <span className="block break-words font-medium">{manifestEntryLabel(gap, issuer)}</span>
               <span className="block text-faint">{gap.severity}{gap.expected ? " · expected omission" : ""}</span>
               <span className="block break-words text-muted">{gap.reason}</span>
             </li>

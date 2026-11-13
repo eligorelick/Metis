@@ -30,6 +30,25 @@ describe("XBRL completeness classification", () => {
     expect(dataStateText(p)).toContain(`XBRL conflict found; vendor revenue ${action}`);
     expect(dataStateText(p)).not.toContain("XBRL skipped");
   });
+  // D-257 (P12): the filed total net revenue of a bank replaced the provider's revenue. That is a completed
+  // comparison with a replacement, like a source switch: the headline says so and never reads "XBRL skipped".
+  it.each(["incomeAnnual", "incomeQuarterly"])("says vendor revenue was replaced when a bank's filed total replaced it (%s, D-257)", family => {
+    const gaps: ManifestEntry[] = [gap({reason:"FMP revenue missing/zero - cross-check not possible"}), {
+      field: `statements.${family}.revenue.bankNetRevenue`, severity: "info", expected: true,
+      reason: "Bank revenue: the filed total net revenue replaces the provider's revenue for 10 fiscal years.",
+    }];
+    const completeness=buildDataCompleteness(gaps);
+    expect(completeness.xbrl).toBe("failed");
+    const p=deriveReportCompletenessPresentation(completeness,gaps);
+    expect(dataStateText(p)).toContain("XBRL conflict found; vendor revenue replaced");
+    expect(dataStateText(p)).not.toContain("XBRL skipped");
+  });
+  it("does not read another revenue disclosure as a replacement (D-257 control)", () => {
+    const gaps: ManifestEntry[] = [gap({reason:"FMP revenue missing/zero - cross-check not possible"}), {
+      field: "statements.incomeAnnual.revenue.definition", severity: "info", expected: true, reason: "Revenue definition note.",
+    }];
+    expect(buildDataCompleteness(gaps).xbrl).toBe("skipped");
+  });
   it("reports checked when nothing is disclosed", () => {
     expect(buildDataCompleteness([]).xbrl).toBe("checked");
   });

@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.74.0 / payload 1.93.0, Stage B `STAGE_B_2026_11_FILED_ACCURACY_67` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.75.0 / payload 1.94.0, Stage B `STAGE_B_2026_11_BANK_REVENUE_68` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -8526,6 +8526,47 @@ Stored run inputs are not rewritten: a row refused before this rule is judged
 again when a report is built, from the refusal's evidence record and never its
 sentence, and the company page's free-cash-flow bars read the same admitted
 rows.
+
+## Revenue of a bank (D-257)
+
+A data provider states a bank's revenue gross of interest expense. The bank's
+own filing states total net revenue: net interest income plus noninterest
+income. These are different figures, so the income classification refuses a
+provider revenue that conflicts with the filed total in the row's own filing.
+For a filer on the bank statement routing (its SEC industry code maps to a
+Banks industry; a securities firm, SIC 6211, keeps the rule above), the filed
+total replaces the provider's figure where the filing itself proves it: the
+total (`Revenues` or `RevenuesNetOfInterestExpense`) is for the row's exact
+period and currency, and `InterestIncomeExpenseNet` and `NoninterestIncome`
+for the same period, from the same filing, add up to it exactly. A fourth
+quarter may be the fiscal year less the nine months when the total and both
+components are derived from the same two filings in the same way. The check
+is the filing's own arithmetic: no allowance, no balancing figure, and no
+provider figure takes part.
+
+The rule starts only where the provider's revenue is already established as a
+different figure: a row refused, or that would be refused, against the filed
+total in its own filing. In such an annual or quarterly statement every row
+whose total is proven takes the filed figure, from the newest filing that
+states the period, so a restated year carries the restated total. The
+provider's cost of revenue, gross profit, operating income and operating
+expenses were built on the provider's revenue and are withheld for those
+rows. A row whose total cannot be proven (a component is missing, the
+components do not add up, the row states a period start that is not the
+filing's, or there is no filed total) and whose provider figure is not the
+filed total is withheld, so a growth series, a margin series or a trailing
+window never holds both bases; the standing rule then withholds the annual
+revenue series as a whole. Nothing changes for a bank whose provider revenue
+agrees with its filing, for an insurer, for a securities firm or for any other
+industry.
+
+Stored run inputs are not rewritten: a row refused before this rule is judged
+again when a report is built, from the refusal's evidence record (the filed
+total it was refused against) and never its sentence, and the manifest entry
+that disclosed a cleared refusal is retired with it. One informational entry
+per statement names the periods, the totals and the filings. The methods a
+bank route does not use (gross and operating margins, EV/Sales, the revenue
+forensic flags, the free-cash-flow block) stay not applicable.
 
 ## Filed share counts and borrowings over a vendor's figures (D-234)
 
