@@ -145,7 +145,7 @@ export interface CapitalOptions {
   repurchaseExecutions?: ReadonlyArray<Pick<RepurchaseExecution, "periodEnd" | "shares" | "value" | "sharesTag" | "valueTag" | "primaryEvidence">>;
   /**
    * AMZN audit 2026-10-20, finding 20 (b): the enterprise value's lease basis
-   * (THESIS_EV_INCLUDE_LEASES). False takes the operating-lease liability out
+   * (METIS_EV_INCLUDE_LEASES). False takes the operating-lease liability out
    * of the net debt/EBITDA numerator wherever enterprise value takes it out,
    * since EBITDA is already after operating-lease cost. Omitted or true: net
    * debt as resolved.
@@ -623,6 +623,10 @@ export function computeCapital(
         : isFiniteNumber(incomeFor(r.date)?.netIncome)
           ? (incomeFor(r.date)?.netIncome as number)
           : null;
+      // D-231 (P12): a withheld cash-flow net income is replaced by the income statement's, and the row says so.
+      if (ni !== null && !isFiniteNumber(r.netIncome) && r.fieldConflicts?.netIncome?.usable === false) {
+        rowNotes.push("net income is the income statement's: the cash-flow statement's figure for this year was withheld");
+      }
       let conversion: number | null = null;
       let conversionBeforeSbc: number | null = null;
       if (fcf !== null && ni !== null) {

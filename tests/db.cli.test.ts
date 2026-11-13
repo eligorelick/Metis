@@ -79,7 +79,7 @@ function providerFreeEnvironment(
   dbPath: string,
   source: NodeJS.ProcessEnv = process.env,
 ): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...source, ...OFFLINE_NPM_ENV, METIS_DB_PATH: dbPath, THESIS_DB_PATH: dbPath };
+  const env: NodeJS.ProcessEnv = { ...source, ...OFFLINE_NPM_ENV, METIS_DB_PATH: dbPath };
   const providerKeys = new Set(PROVIDER_ENV_KEYS);
   for (const key of Object.keys(env)) {
     if (providerKeys.has(key.toUpperCase() as (typeof PROVIDER_ENV_KEYS)[number])) {
@@ -164,7 +164,6 @@ describe("database CLI", () => {
         env: {
           NODE_ENV: "test",
           METIS_DB_PATH: "safe.db",
-          THESIS_DB_PATH: "safe.db",
           SAFE_SETTING: "retained",
           ...OFFLINE_NPM_ENV,
         },

@@ -43,7 +43,7 @@ import {
  * one release as a fallback.
  *
  * WS7 (D-20), 2026-09 review: "every request the pass could make" includes the
- * MIRRORED judge request under `THESIS_JUDGE_ORDER=both`. In "request" mode both
+ * MIRRORED judge request under `METIS_JUDGE_ORDER=both`. In "request" mode both
  * requests are admitted and settled individually, so the pass lease is still one
  * request maximum; in "pass" mode there is no per-request admission at all, and
  * two judge requests were sharing one reservation sized for one order.

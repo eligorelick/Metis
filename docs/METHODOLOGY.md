@@ -3874,7 +3874,7 @@ rate is … (observation …), not FRED DGS10." It is built from the recorded
 both layouts, under the classic report header, at the head of the Markdown,
 audit and print exports, and in the AI context, which is told never to
 attribute a substituted figure to FMP or FRED `DGS10`. A keyless plan, or
-`THESIS_STATEMENT_SOURCE=edgar`, substitutes by design and shows no line, and
+`METIS_STATEMENT_SOURCE=edgar`, substitutes by design and shows no line, and
 neither does a member the key's subscription never serves. The
 fair value's degraded-inputs entry uses the same wording.
 
@@ -8393,3 +8393,22 @@ comparison that the comparability guard withheld.
 
 The [EXPE report audit](audit/2026-11-06-expe-report-1.md) enumerates every
 observed defect and data-gap family, with accepted repairs and retained limits.
+
+## Net income on the annual cash-flow row (D-231)
+
+Free-cash-flow conversion and the cash-flow accrual figures divide by the net
+income carried on the annual cash-flow row. For a vendor row that figure is
+compared with the filer's own profit lines for the exact fiscal year, in the
+row's currency: under us-gaap the statement builder's chain (`ProfitLoss`,
+then the including-noncontrolling-interest element, then `NetIncomeLoss`);
+under IFRS `ProfitLoss`, with `ProfitLossAttributableToOwnersOfParent` as the
+parent-scope line. A figure equal to any filed copy of one of them, within the
+vendor-agreement allowance, stays; the rule does not decide whether the row
+shows consolidated or parent profit. A figure equal to none is replaced by the
+filed consolidated profit from the newest filing that states it, and the
+manifest names both values and the filing. Where the filings state no
+consolidated profit for the year, or the admitted SEC facts hold no profit
+line for it and the figure matches no profit line of the same period's income
+statement, the figure is withheld; conversion and accruals for that year then
+read the income statement's net income, and the row says so. Stored run inputs
+are not rewritten: the check runs when a report is built.

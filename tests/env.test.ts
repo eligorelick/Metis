@@ -86,35 +86,35 @@ describe("parseEnv", () => {
     expect(config.fixtureMode).toBe(true);
   });
 
-  it("holds startup work only for THESIS_RESUME_ON_START=0 and resolves the token file", () => {
+  it("holds startup work only for METIS_RESUME_ON_START=0 and resolves the token file", () => {
     expect(parseEnv({}).resumeOnStart).toBe(true);
-    expect(parseEnv({ THESIS_RESUME_ON_START: "1" }).resumeOnStart).toBe(true);
-    expect(parseEnv({ THESIS_RESUME_ON_START: " 0 " }).resumeOnStart).toBe(false);
-    expect(parseEnv({ THESIS_RESUME_ON_START: "" }).resumeOnStart).toBe(true);
+    expect(parseEnv({ METIS_RESUME_ON_START: "1" }).resumeOnStart).toBe(true);
+    expect(parseEnv({ METIS_RESUME_ON_START: " 0 " }).resumeOnStart).toBe(false);
+    expect(parseEnv({ METIS_RESUME_ON_START: "" }).resumeOnStart).toBe(true);
 
     expect(parseEnv({}).tokenFile).toBeUndefined();
-    expect(parseEnv({ THESIS_TOKEN_FILE: "  " }).tokenFile).toBeUndefined();
-    expect(parseEnv({ THESIS_TOKEN_FILE: " /var/thesis/token " }).tokenFile)
+    expect(parseEnv({ METIS_TOKEN_FILE: "  " }).tokenFile).toBeUndefined();
+    expect(parseEnv({ METIS_TOKEN_FILE: " /var/thesis/token " }).tokenFile)
       .toBe("/var/thesis/token");
   });
 
   it.each(["yes", "true", "2", "00", "-1"])(
-    "rejects THESIS_RESUME_ON_START=%s rather than guessing",
+    "rejects METIS_RESUME_ON_START=%s rather than guessing",
     (value) => {
-      expect(() => parseEnv({ THESIS_RESUME_ON_START: value })).toThrow(/1 or 0/);
+      expect(() => parseEnv({ METIS_RESUME_ON_START: value })).toThrow(/1 or 0/);
     },
   );
 
-  // WS6 (D-19): THESIS_EV_INCLUDE_LEASES decides whether lease liabilities
+  // WS6 (D-19): METIS_EV_INCLUDE_LEASES decides whether lease liabilities
   // count in the enterprise-value bridge and the DCF equity bridge. It is a
   // strict "1" opt-in: any other value leaves the house default (off) in place,
   // so a typo can never silently change every EV multiple.
-  it("parses THESIS_EV_INCLUDE_LEASES as a strict 1 opt-in, defaulting off", () => {
+  it("parses METIS_EV_INCLUDE_LEASES as a strict 1 opt-in, defaulting off", () => {
     expect(parseEnv({}).evIncludeLeases).toBe(false);
-    expect(parseEnv({ THESIS_EV_INCLUDE_LEASES: "1" }).evIncludeLeases).toBe(true);
-    expect(parseEnv({ THESIS_EV_INCLUDE_LEASES: " 1 " }).evIncludeLeases).toBe(true);
+    expect(parseEnv({ METIS_EV_INCLUDE_LEASES: "1" }).evIncludeLeases).toBe(true);
+    expect(parseEnv({ METIS_EV_INCLUDE_LEASES: " 1 " }).evIncludeLeases).toBe(true);
     for (const raw of ["0", "", " ", "true", "yes", "on", "01", "2"]) {
-      expect(parseEnv({ THESIS_EV_INCLUDE_LEASES: raw }).evIncludeLeases, raw).toBe(false);
+      expect(parseEnv({ METIS_EV_INCLUDE_LEASES: raw }).evIncludeLeases, raw).toBe(false);
     }
   });
 
@@ -125,13 +125,13 @@ describe("parseEnv", () => {
 
   it("parses strict scheduler counts, windows, leases, and decimal USD caps", () => {
     const config = parseEnv({
-      THESIS_MAX_ACTIVE_JOBS: "3",
-      THESIS_MAX_ACTIVE_LLM_CALLS: "4",
-      THESIS_MAX_JOB_COST_USD: "12.345678",
-      THESIS_MAX_ROLLING_COST_USD: "99.01",
-      THESIS_ROLLING_COST_WINDOW_MINUTES: "60",
-      THESIS_PAID_PASS_LEASE_SECONDS: "901",
-      THESIS_JOB_LEASE_SECONDS: "1200",
+      METIS_MAX_ACTIVE_JOBS: "3",
+      METIS_MAX_ACTIVE_LLM_CALLS: "4",
+      METIS_MAX_JOB_COST_USD: "12.345678",
+      METIS_MAX_ROLLING_COST_USD: "99.01",
+      METIS_ROLLING_COST_WINDOW_MINUTES: "60",
+      METIS_PAID_PASS_LEASE_SECONDS: "901",
+      METIS_JOB_LEASE_SECONDS: "1200",
     });
     expect(config).toMatchObject({
       maxActiveJobs: 3,
@@ -146,13 +146,13 @@ describe("parseEnv", () => {
 
   it("treats blank scheduler values as defaults/null rather than zero", () => {
     const config = parseEnv({
-      THESIS_MAX_ACTIVE_JOBS: " ",
-      THESIS_MAX_ACTIVE_LLM_CALLS: "\t",
-      THESIS_MAX_JOB_COST_USD: "",
-      THESIS_MAX_ROLLING_COST_USD: " ",
-      THESIS_ROLLING_COST_WINDOW_MINUTES: "",
-      THESIS_PAID_PASS_LEASE_SECONDS: "",
-      THESIS_JOB_LEASE_SECONDS: "",
+      METIS_MAX_ACTIVE_JOBS: " ",
+      METIS_MAX_ACTIVE_LLM_CALLS: "\t",
+      METIS_MAX_JOB_COST_USD: "",
+      METIS_MAX_ROLLING_COST_USD: " ",
+      METIS_ROLLING_COST_WINDOW_MINUTES: "",
+      METIS_PAID_PASS_LEASE_SECONDS: "",
+      METIS_JOB_LEASE_SECONDS: "",
     });
     expect(config.maxActiveJobs).toBe(1);
     expect(config.maxActiveLlmCalls).toBe(2);
@@ -164,30 +164,30 @@ describe("parseEnv", () => {
   });
 
   it.each([
-    ["THESIS_MAX_ACTIVE_JOBS", "0"],
-    ["THESIS_MAX_ACTIVE_LLM_CALLS", "1.5"],
-    ["THESIS_ROLLING_COST_WINDOW_MINUTES", "-1"],
-    ["THESIS_PAID_PASS_LEASE_SECONDS", "600"],
-    ["THESIS_JOB_LEASE_SECONDS", "NaN"],
-    ["THESIS_MAX_ACTIVE_JOBS", "9007199254740992"],
+    ["METIS_MAX_ACTIVE_JOBS", "0"],
+    ["METIS_MAX_ACTIVE_LLM_CALLS", "1.5"],
+    ["METIS_ROLLING_COST_WINDOW_MINUTES", "-1"],
+    ["METIS_PAID_PASS_LEASE_SECONDS", "600"],
+    ["METIS_JOB_LEASE_SECONDS", "NaN"],
+    ["METIS_MAX_ACTIVE_JOBS", "9007199254740992"],
   ])("rejects invalid scheduler integer %s=%s", (key, value) => {
     expect(() => parseEnv({ [key]: value })).toThrow();
   });
 
   it.each([
-    ["THESIS_ROLLING_COST_WINDOW_MINUTES", 60_000, 52_560_000],
-    ["THESIS_PAID_PASS_LEASE_SECONDS", 1_000, 2_147_483],
-    ["THESIS_JOB_LEASE_SECONDS", 1_000, 2_147_483],
+    ["METIS_ROLLING_COST_WINDOW_MINUTES", 60_000, 52_560_000],
+    ["METIS_PAID_PASS_LEASE_SECONDS", 1_000, 2_147_483],
+    ["METIS_JOB_LEASE_SECONDS", 1_000, 2_147_483],
   ] as const)("rejects %s beyond its executable millisecond range", (key, scale, maximumInput) => {
     // The job lease must cover the paid-pass lease, so the paid case is set
     // together with a job lease at least as long rather than on its own.
-    const companion = key === "THESIS_PAID_PASS_LEASE_SECONDS"
-      ? { THESIS_JOB_LEASE_SECONDS: String(2_147_483) }
+    const companion = key === "METIS_PAID_PASS_LEASE_SECONDS"
+      ? { METIS_JOB_LEASE_SECONDS: String(2_147_483) }
       : {};
     expect(parseEnv({ ...companion, [key]: String(maximumInput) })).toMatchObject({
-      [key === "THESIS_ROLLING_COST_WINDOW_MINUTES"
+      [key === "METIS_ROLLING_COST_WINDOW_MINUTES"
         ? "rollingCostWindowMs"
-        : key === "THESIS_PAID_PASS_LEASE_SECONDS"
+        : key === "METIS_PAID_PASS_LEASE_SECONDS"
           ? "paidPassLeaseTtlMs"
           : "jobLeaseTtlMs"]: maximumInput * scale,
     });
@@ -202,55 +202,55 @@ describe("parseEnv", () => {
     expect(parseEnv({}).streamIdleTimeoutMs).toBe(300_000);
 
     // Shorter than two job-claim heartbeats.
-    expect(() => parseEnv({ THESIS_JOB_LEASE_SECONDS: "599" })).toThrow(/greater than 599|heartbeat/i);
+    expect(() => parseEnv({ METIS_JOB_LEASE_SECONDS: "599" })).toThrow(/greater than 599|heartbeat/i);
     // Shorter than the provider request timeout plus its settlement margin.
-    expect(() => parseEnv({ THESIS_PAID_PASS_LEASE_SECONDS: "659" })).toThrow();
-    expect(() => parseEnv({ THESIS_PAID_PASS_LEASE_SECONDS: "600" })).toThrow();
+    expect(() => parseEnv({ METIS_PAID_PASS_LEASE_SECONDS: "659" })).toThrow();
+    expect(() => parseEnv({ METIS_PAID_PASS_LEASE_SECONDS: "600" })).toThrow();
     // A paid lease that would outlive its parent job claim.
     expect(() => parseEnv({
-      THESIS_JOB_LEASE_SECONDS: "700",
-      THESIS_PAID_PASS_LEASE_SECONDS: "800",
-    })).toThrow(/job claim|THESIS_PAID_PASS_LEASE_SECONDS/i);
+      METIS_JOB_LEASE_SECONDS: "700",
+      METIS_PAID_PASS_LEASE_SECONDS: "800",
+    })).toThrow(/job claim|METIS_PAID_PASS_LEASE_SECONDS/i);
     // Equal is allowed: the claim outlasts every renewal of the pass it parents.
     expect(parseEnv({
-      THESIS_JOB_LEASE_SECONDS: "800",
-      THESIS_PAID_PASS_LEASE_SECONDS: "800",
+      METIS_JOB_LEASE_SECONDS: "800",
+      METIS_PAID_PASS_LEASE_SECONDS: "800",
     })).toMatchObject({ jobLeaseTtlMs: 800_000, paidPassLeaseTtlMs: 800_000 });
   });
 
   it.each([
-    ["THESIS_MAX_JOB_COST_USD", "-0.01"],
-    ["THESIS_MAX_ROLLING_COST_USD", "NaN"],
-    ["THESIS_MAX_JOB_COST_USD", "Infinity"],
-    ["THESIS_MAX_ROLLING_COST_USD", "1e3"],
-    ["THESIS_MAX_JOB_COST_USD", "1,000"],
-    ["THESIS_MAX_JOB_COST_USD", "9007199254740992"],
+    ["METIS_MAX_JOB_COST_USD", "-0.01"],
+    ["METIS_MAX_ROLLING_COST_USD", "NaN"],
+    ["METIS_MAX_JOB_COST_USD", "Infinity"],
+    ["METIS_MAX_ROLLING_COST_USD", "1e3"],
+    ["METIS_MAX_JOB_COST_USD", "1,000"],
+    ["METIS_MAX_JOB_COST_USD", "9007199254740992"],
   ])("rejects invalid scheduler USD cap %s=%s", (key, value) => {
     expect(() => parseEnv({ [key]: value })).toThrow();
   });
 
   it("rejects a raw six-place USD cap that binary conversion rounds outside exact micro-USD range", () => {
-    expect(parseEnv({ THESIS_MAX_JOB_COST_USD: "9007199254.740990" }).maxJobCostUsd)
+    expect(parseEnv({ METIS_MAX_JOB_COST_USD: "9007199254.740990" }).maxJobCostUsd)
       .toBe(9_007_199_254.74099);
-    expect(() => parseEnv({ THESIS_MAX_JOB_COST_USD: "9007199254.740991" }))
+    expect(() => parseEnv({ METIS_MAX_JOB_COST_USD: "9007199254.740991" }))
       .toThrow(/micro-USD|exact|range/i);
   });
 });
 
-describe("parseEnv — THESIS_STATEMENT_SOURCE (WS4, D-12)", () => {
+describe("parseEnv — METIS_STATEMENT_SOURCE (WS4, D-12)", () => {
   it("defaults to auto when unset or blank", () => {
     expect(parseEnv({}).statementSource).toBe("auto");
-    expect(parseEnv({ THESIS_STATEMENT_SOURCE: "   " }).statementSource).toBe("auto");
+    expect(parseEnv({ METIS_STATEMENT_SOURCE: "   " }).statementSource).toBe("auto");
   });
 
   it("accepts the three policies, case-insensitively", () => {
-    expect(parseEnv({ THESIS_STATEMENT_SOURCE: "fmp" }).statementSource).toBe("fmp");
-    expect(parseEnv({ THESIS_STATEMENT_SOURCE: "EDGAR" }).statementSource).toBe("edgar");
-    expect(parseEnv({ THESIS_STATEMENT_SOURCE: " Auto " }).statementSource).toBe("auto");
+    expect(parseEnv({ METIS_STATEMENT_SOURCE: "fmp" }).statementSource).toBe("fmp");
+    expect(parseEnv({ METIS_STATEMENT_SOURCE: "EDGAR" }).statementSource).toBe("edgar");
+    expect(parseEnv({ METIS_STATEMENT_SOURCE: " Auto " }).statementSource).toBe("auto");
   });
 
   it("rejects anything else, naming the accepted values", () => {
-    expect(() => parseEnv({ THESIS_STATEMENT_SOURCE: "sec" })).toThrow(/must be one of/);
+    expect(() => parseEnv({ METIS_STATEMENT_SOURCE: "sec" })).toThrow(/must be one of/);
   });
 });
 

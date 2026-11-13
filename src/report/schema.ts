@@ -628,7 +628,7 @@ export const JudgeOrderDisagreementSchema = z
   .strict();
 
 /**
- * `THESIS_JUDGE_ORDER=both` reconciliation. RECONCILIATION MEANS: the two judge
+ * `METIS_JUDGE_ORDER=both` reconciliation. RECONCILIATION MEANS: the two judge
  * passes (identical inputs, swapped case order) must agree on every A-F section
  * grade. Scenario probabilities are not compared: the judge's probabilities are
  * not published (D-52), so a comparison would report agreement on a field it

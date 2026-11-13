@@ -1,5 +1,5 @@
 /**
- * THESIS_RESUME_ON_START and POST /api/jobs/resume (WS8, D-21).
+ * METIS_RESUME_ON_START and POST /api/jobs/resume (WS8, D-21).
  *
  * A queued job is PAID work. With the flag at 0 a Node start must claim
  * nothing and arm no durable wake timer; the queue stays untouched until an
@@ -49,7 +49,7 @@ beforeEach(() => {
   directory = mkdtempSync(join(tmpdir(), "thesis-resume-on-start-"));
   handle = createDatabase(join(directory, "scheduler.db"));
   setDbForTests(handle.db);
-  delete process.env.THESIS_RESUME_ON_START;
+  delete process.env.METIS_RESUME_ON_START;
   resetConfigCache();
 });
 
@@ -58,7 +58,7 @@ afterEach(async () => {
   _resetJobSchedulerForTests();
   vi.useRealTimers();
   vi.restoreAllMocks();
-  delete process.env.THESIS_RESUME_ON_START;
+  delete process.env.METIS_RESUME_ON_START;
   resetConfigCache();
   setDbForTests(null);
   handle.sqlite.close();
@@ -101,13 +101,13 @@ async function bootstrapCapturingClaims(): Promise<{
   return { started, launched };
 }
 
-describe("THESIS_RESUME_ON_START", () => {
+describe("METIS_RESUME_ON_START", () => {
   it("holds a pre-existing queued job on bootstrap when set to 0", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     const { _resetJobSchedulerForTests } = await scheduler();
     _resetJobSchedulerForTests();
-    process.env.THESIS_RESUME_ON_START = "0";
+    process.env.METIS_RESUME_ON_START = "0";
     resetConfigCache();
     seedQueuedJob(handle.db, "held-queued", "AAPL");
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
@@ -136,7 +136,7 @@ describe("THESIS_RESUME_ON_START", () => {
     vi.setSystemTime(NOW);
     const { _resetJobSchedulerForTests, terminalizeClaim } = await scheduler();
     _resetJobSchedulerForTests();
-    process.env.THESIS_RESUME_ON_START = "0";
+    process.env.METIS_RESUME_ON_START = "0";
     resetConfigCache();
     seedQueuedJob(handle.db, "resumed-queued", "AAPL");
     vi.spyOn(console, "info").mockImplementation(() => {});
@@ -168,8 +168,8 @@ describe("THESIS_RESUME_ON_START", () => {
       vi.setSystemTime(NOW);
       const { _resetJobSchedulerForTests } = await scheduler();
       _resetJobSchedulerForTests();
-      if (value === undefined) delete process.env.THESIS_RESUME_ON_START;
-      else process.env.THESIS_RESUME_ON_START = value;
+      if (value === undefined) delete process.env.METIS_RESUME_ON_START;
+      else process.env.METIS_RESUME_ON_START = value;
       resetConfigCache();
       const id = `startup-queued-${value ?? "unset"}`;
       seedQueuedJob(handle.db, id, "AAPL");

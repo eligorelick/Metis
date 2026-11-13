@@ -4045,7 +4045,7 @@ export interface MultiplesFrameworkInputs {
   affoHistoryComparable?: boolean;
   /**
    * WS6 (D-19): keep the OPERATING-lease liability in enterprise value
-   * (THESIS_EV_INCLUDE_LEASES=1). OFF by default, because under US GAAP
+   * (METIS_EV_INCLUDE_LEASES=1). OFF by default, because under US GAAP
    * (ASC 842) the operating-lease cost stays in operating expenses, so EBIT and
    * EBITDA are already AFTER it — adding that liability to EV as well would
    * double-count the leases in EV/EBITDA. It never touches the FINANCE-lease
@@ -4059,6 +4059,9 @@ export interface MultiplesFrameworkInputs {
  * The operator setting the EV bridge basis names (WS6, D-19), exactly as the
  * basis spells it. AMZN audit 2026-10-20 finding 20: the report states the
  * lease convention without the environment variable that changes it.
+ * FROZEN by D-228: the text still spells the retired Thesis-era name (the setting
+ * is now `METIS_EV_INCLUDE_LEASES`); rewording it changes report text, which
+ * needs an owner decision first.
  */
 export const EV_LEASE_SETTING_TEXT = {
   excluded: " (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it)",
@@ -6457,7 +6460,7 @@ export interface ValuationBundleInputs {
    * as reported.
    */
   operatingLeaseLiability?: number | null;
-  /** WS6 (D-19): THESIS_EV_INCLUDE_LEASES — keep leases in the EV bridge. */
+  /** WS6 (D-19): METIS_EV_INCLUDE_LEASES — keep leases in the EV bridge. */
   includeLeasesInEv?: boolean;
   /**
    * D-60: marketable equity securities the house net debt excluded from cash,
@@ -7044,7 +7047,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       // WS6 (D-19): the DCF equity bridge follows the SAME lease convention as
       // the multiples EV. Net debt is built from totalDebt, which already
       // contains the lease liabilities, so the default subtracts the OPERATING
-      // slice back out and THESIS_EV_INCLUDE_LEASES=1 keeps it. Both bridges
+      // slice back out and METIS_EV_INCLUDE_LEASES=1 keeps it. Both bridges
       // are stated.
       // WS6 review (BLOCKER 1): only the OPERATING slice leaves net debt. The
       // finance-lease liability stays as financing debt: its interest is

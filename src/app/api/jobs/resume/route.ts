@@ -1,7 +1,7 @@
 /**
  * POST /api/jobs/resume — start the durable scheduler after a held startup.
  *
- * With `THESIS_RESUME_ON_START=0` the process boots without kicking the
+ * With `METIS_RESUME_ON_START=0` the process boots without kicking the
  * scheduler, so queued PAID work waits for an explicit instruction. This route
  * is that instruction. It is same-origin guarded like every other mutating
  * route, and it is idempotent: kicking an already-running pump is a no-op,

@@ -394,7 +394,7 @@ describe("risk runtime behavior coverage", () => {
 
       setDbForTests(null);
       memory.sqlite.close();
-      vi.stubEnv("THESIS_DB_PATH", singletonFile);
+      vi.stubEnv("METIS_DB_PATH", singletonFile);
       vi.spyOn(console, "info").mockImplementation(() => undefined);
       vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
@@ -422,9 +422,9 @@ describe("risk runtime behavior coverage", () => {
     const importedFile = path.join(dataDir, "metis.db");
     mkdirSync(path.dirname(legacyFile), { recursive: true });
     const cwd = vi.spyOn(process, "cwd").mockReturnValue(projectDir);
-    vi.stubEnv("THESIS_DB_PATH", "");
-    vi.stubEnv("THESIS_DATA_DIR", dataDir);
-    vi.stubEnv("THESIS_IMPORT_LEGACY_DB", "1");
+    vi.stubEnv("METIS_DB_PATH", "");
+    vi.stubEnv("METIS_DATA_DIR", dataDir);
+    vi.stubEnv("METIS_IMPORT_LEGACY_DB", "1");
     vi.spyOn(console, "info").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
 

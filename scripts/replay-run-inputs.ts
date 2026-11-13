@@ -4,10 +4,13 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { canonicalSnapshotJson, createSnapshotArtifactIdentity, verifyRunInputSnapshot } from "../src/pipeline/runInputSnapshot";
 import { readRuntimeArtifactIdentity } from "./runtime-artifact-manifest.mjs";
+import { assertNoStaleSettings } from "../src/config/namespace";
 
 type ReplayFunction = typeof import("../src/pipeline/replayRunInput").replayRunInputSnapshot;
 
 async function main(args: string[]): Promise<void> {
+  // D-228: refuse retired Thesis-era setting names even on the --snapshot path, which reads no setting.
+  assertNoStaleSettings();
   const allowed = new Set(["--snapshot", "--hash", "--job", "--generation", "--output", "--export-snapshot", "--method-artifact", "--dependency-lock", "--dirty-diff", "--code-commit", "--runtime-build", "--trust-local-build"]);
   const options = new Map<string, string>();
   for (let i = 0; i < args.length; i += 2) {
