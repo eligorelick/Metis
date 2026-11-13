@@ -60,9 +60,9 @@
     {
       "case": "amzn-data-only",
       "figure": "netIncome.ttm",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-240 (#163): trailing net income behind FCF conversion read from the filings for single-profit-line filers; AMZN, NVDA, QCOM, MU, VKTX netIncome.ttm gap -> match, each proven against the filing (10-K + 10-Q year-to-date identity, or the fiscal-year fact for MU). D-236 in the same batch changes no stored case."
     },
     {
       "case": "amzn-data-only",
@@ -480,9 +480,9 @@
     {
       "case": "mu-data-only",
       "figure": "netIncome.ttm",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-240 (#163): trailing net income behind FCF conversion read from the filings for single-profit-line filers; AMZN, NVDA, QCOM, MU, VKTX netIncome.ttm gap -> match, each proven against the filing (10-K + 10-Q year-to-date identity, or the fiscal-year fact for MU). D-236 in the same batch changes no stored case."
     },
     {
       "case": "mu-data-only",
@@ -645,9 +645,9 @@
     {
       "case": "nvda-data-only",
       "figure": "netIncome.ttm",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-240 (#163): trailing net income behind FCF conversion read from the filings for single-profit-line filers; AMZN, NVDA, QCOM, MU, VKTX netIncome.ttm gap -> match, each proven against the filing (10-K + 10-Q year-to-date identity, or the fiscal-year fact for MU). D-236 in the same batch changes no stored case."
     },
     {
       "case": "nvda-data-only",
@@ -810,9 +810,9 @@
     {
       "case": "qcom-data-only",
       "figure": "netIncome.ttm",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-240 (#163): trailing net income behind FCF conversion read from the filings for single-profit-line filers; AMZN, NVDA, QCOM, MU, VKTX netIncome.ttm gap -> match, each proven against the filing (10-K + 10-Q year-to-date identity, or the fiscal-year fact for MU). D-236 in the same batch changes no stored case."
     },
     {
       "case": "qcom-data-only",
@@ -1848,9 +1848,9 @@
     {
       "case": "vktx-data-only",
       "figure": "netIncome.ttm",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-240 (#163): trailing net income behind FCF conversion read from the filings for single-profit-line filers; AMZN, NVDA, QCOM, MU, VKTX netIncome.ttm gap -> match, each proven against the filing (10-K + 10-Q year-to-date identity, or the fiscal-year fact for MU). D-236 in the same batch changes no stored case."
     },
     {
       "case": "vktx-data-only",
