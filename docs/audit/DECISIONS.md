@@ -185,6 +185,174 @@ tests fail without the fix.
 Version stamps are not moved here (P27: the Stage 5 integration change moves
 them together). Stored reports and snapshots keep their bytes.
 
+## D-240 - The trailing net income behind FCF conversion is read from the filings when they state one profit line (2026-11-12)
+
+Principles P5 (entity scope), P1 (exact period; an additive flow derived from
+compatible operands, each kept), P8 (filed beats vendor; no new allowance),
+P11 (a refusal clears only on new evidence for that field and period), P13
+(one basis), P17 (honest scoring: no rule changed) and P20 (provenance).
+Round 2, Stage 5 (accuracy fixes), trailing net income family. The accuracy
+baseline (r2-base-afb9cddf, "Gaps whose value is in the filings") found
+"Net income, TTM (current capital)" withheld for eight companies although the
+filings state every operand.
+
+What the figure is. `capital.current.netIncome` has one use: it is the
+denominator of free-cash-flow conversion in the "Current capital" block, and
+the balance-sheet score grades that ratio. D-212 made it consolidated profit,
+because the cash flow above it is consolidated, and required a complete
+consolidated window from the four quarterly rows. It is not the net income
+behind P/E, ROE or the payout ratio; those read the trailing window's parent
+and common figures, which this change does not touch.
+
+Root cause, per company, before anything was changed:
+
+| Company | Why the figure was withheld |
+| --- | --- |
+| AMZN, NVDA, QCOM, VKTX | The four quarters are vendor rows with no entity-scope evidence. A quarter is called consolidated only when its filing states consolidated profit, a noncontrolling allocation and the parent's profit, and they reconcile (D-212). These issuers have no noncontrolling interests, so no quarter ever qualifies. The report's own trailing net income was complete all along (AMZN 135,281M, VKTX -627,195k; NVDA 192,879M and QCOM 9,259M, each 1M from the filed figure because vendor quarters are rounded). |
+| MU | The four quarters are built from SEC facts tagged `NetIncomeLoss`, which is the parent's line, so the window's basis is "parent" and the same rule withholds it. The window, 2025-08-29 to 2026-09-03, is fiscal 2026 itself. |
+| DUK | A different cause, and it stays (below). Duke Energy has noncontrolling interests. Two of the four quarters (2025-12-31 and 2026-03-31) carry no admitted ownership bridge, because each has a nonzero result from discontinued operations (2M and 13M) and a continuing-operations pretax and tax pair is not a complete earnings family beside one. |
+| PGR, JPM | A different cause, and it stays. On the insurer and bank routes the industrial cash-conversion block is not applicable (P14), so it shows no denominator whatever the filings say. |
+| META | Not in the filings at the cutoff: the 10-Q that closes the window was filed after the report was built (P2). |
+| TSM | An IFRS filer with noncontrolling interests; not in this family. |
+
+Choice. Where the quarterly rows establish no consolidated window, the
+filings may, for an issuer whose filings state one profit line.
+
+1. `filedWindowFlow` (`src/edgar/financialEnrichment.ts`, beside the existing
+   identity `filedCashFlowTtm` that operating cash flow, capital spending and
+   stock compensation already use) reads a filed flow for one exact window. It
+   is the fiscal year plus the current year to date less the prior-year year
+   to date, both year-to-date figures from the same 10-Q, under that
+   function's existing rules; or a fact the filer tags for exactly the
+   window's start and end. The second form is how a window that is a fiscal
+   year is read (MU): the fiscal year's figure is the trailing figure only
+   because its start and end are the window's, to the day. No day band is
+   added. An identity that starts on another day is refused; when both forms
+   exist they must give one figure (Amazon's 10-Q tags its own twelve-month
+   column, 135,281M, equal to the identity); a filing that states two values
+   for the window establishes none.
+2. `filedSingleProfitWindow` (`src/pipeline/nciEarnings.ts`, a P5 owner)
+   reads the parent line `NetIncomeLoss` that way and accepts it as the
+   consolidated profit only when the filings that supply the operands show no
+   other profit: every consolidated profit they report (`ProfitLoss`,
+   `NetIncomeLossIncludingPortionAttributableToNonredeemableNoncontrollingInterest`)
+   equals the parent line they report for the same period; they report no
+   nonzero earnings attributable to noncontrolling interests (the total line
+   or either partial line); no nonzero noncontrolling balance, permanent or
+   redeemable; and wherever they tag both total equity and the parent's
+   equity at one date the two are equal (a filer can tag its noncontrolling
+   column only as a dimension, which SEC companyfacts does not carry). This is
+   evidence from the income statements of the exact periods used, not the
+   closing balance D-212 refused.
+3. In `runStageB` (`src/pipeline/compute.ts`) the filed figure is used only
+   when the quarterly window gave none, for the report's own window start and
+   end, and only when it is the same observation as the report's trailing net
+   income (`vendorAgreesWithDerived`, P8's existing allowance for a figure
+   derived from filed operands). A trailing net income that is missing or
+   refused stays refused (P11). The stored value is the filed figure, not the
+   vendor sum.
+4. The operands travel with the figure: `capital.current.filedCashFlows.netIncome`
+   (value, window, tag, each fact with its filing), the sentence in the
+   block's definition note, one informational manifest entry
+   (`compute.ttmIncome.filedNetIncome`) and the operand figures in the AI
+   context.
+
+D-212 is marked "Revised by D-240": it still requires a complete consolidated
+window, and a closing noncontrolling balance of zero still proves nothing, but
+the filings of an issuer that reports a single profit line now establish the
+window.
+
+Options rejected. Showing the parent's net income for every issuer: it would
+change FIGR, O and RIVN, whose figures are the consolidated profit, and decide
+the consolidated-or-parent definition, which is another step. Reading filed
+consolidated profit for an issuer that has an allocation: Duke Energy would
+show 5,578M (`ProfitLoss` 5,071M + 4,372M - 3,865M) where the baseline's
+parent figure is 5,391M, a new "definition" row; D-231 declined the same move
+for the same reason. Treating a zero closing noncontrolling balance as proof
+(D-212 refused it). Publishing the report's own vendor-quarter sum: for NVDA
+and QCOM it is 1M away from the filed figure.
+
+### Approved report changes
+
+Same-report check, current main (be7c11d6, which holds D-229, D-231, D-233,
+D-234, D-237 and D-239) against this change, measured before that on
+7e59aff3, 99234cdf and ab6db405 with the same result: 8 of the 17 cases differ (`amzn`, `nvda`, `mu` in both
+their data-only and fixed-analyst forms, `qcom-data-only`, `vktx-data-only`),
+all eight outputs each plus the payload fingerprint; the other 9 cases
+(`meta` in both forms, `figr`, `jpm`, `pgr`, `o`, `duk`, `tsm`, `rivn`) are
+byte for byte unchanged. Every other figure of the 8 changed cases is
+unchanged. The leaf-level list is in `tmp/accuracy/s5-ttm-net-income-before-after.md`
+(not committed: it quotes vendor data).
+
+All facts are `us-gaap:NetIncomeLoss`, USD, as tagged (whole dollars).
+
+| Company | Net income, TTM, before | After | Proof |
+| --- | --- | --- | --- |
+| AMZN | withheld | 135,281,000,000 | 2025-07-01..2026-06-30 = 77,670,000,000 (2025-01-01..2025-12-31, 10-K 0001018724-26-000004, filed 2026-02-06) + 92,902,000,000 (2026-01-01..2026-06-30) - 35,291,000,000 (2025-01-01..2025-06-30), both 10-Q 0001018724-26-000026, filed 2026-07-31; the same 10-Q tags 135,281,000,000 for 2025-07-01..2026-06-30. Neither filing tags a consolidated profit, noncontrolling earnings or a noncontrolling balance |
+| NVDA | withheld | 192,880,000,000 | 2025-07-28..2026-07-26 = 120,067,000,000 (2025-01-27..2026-01-25, 10-K 0001045810-26-000021, filed 2026-02-25) + 118,010,000,000 (2026-01-26..2026-07-26) - 45,197,000,000 (2025-01-27..2025-07-27), both 10-Q 0001045810-26-000075, filed 2026-08-26. Neither filing tags a consolidated profit, noncontrolling earnings or a noncontrolling balance |
+| QCOM | withheld | 9,260,000,000 | 2025-06-30..2026-06-28 = 5,541,000,000 (2024-09-30..2025-09-28, 10-K 0000804328-25-000085, filed 2025-11-05) + 12,377,000,000 (2025-09-29..2026-06-28) - 8,658,000,000 (2024-09-30..2025-06-29), both 10-Q 0000804328-26-000086, filed 2026-07-29. Neither filing tags a consolidated profit, noncontrolling earnings or a noncontrolling balance |
+| MU | withheld | 84,969,000,000 | 2025-08-29..2026-09-03, the window itself, 10-K 0000723125-26-000023, filed 2026-10-09. That filing tags no consolidated profit, noncontrolling earnings or noncontrolling balance |
+| VKTX | withheld | -627,195,000 | 2025-10-01..2026-09-30 = -359,639,000 (2025-01-01..2025-12-31, 10-K 0001193125-26-046876, filed 2026-02-11) + -469,533,000 (2026-01-01..2026-09-30) - -201,977,000 (2025-01-01..2025-09-30), both 10-Q 0001193125-26-436432, filed 2026-10-29. Both filings also tag `us-gaap:ProfitLoss`, with the same value as `NetIncomeLoss` for every period, and no noncontrolling earnings or balance |
+
+Figures computed from them, on main be7c11d6. Free cash flow before SBC for
+the same window is unchanged in every case. (Two "before" values differ from
+the earlier measurements only because main moved: D-237 put Amazon's
+business-quality assessment at 63.47, and D-239 withholds Viking's trailing
+free cash flow, which set Viking's unchanged scores.)
+
+| Figure | AMZN | NVDA | QCOM | MU | VKTX |
+| --- | --- | --- | --- | --- | --- |
+| FCF conversion before SBC, TTM (free cash flow / net income) | withheld to -0.085932 (-11,625M / 135,281M) | withheld to 0.658472 (127,006M / 192,880M) | withheld to 1.124838 (10,416M / 9,260M) | withheld to 0.693935 (58,963M / 84,969M) | withheld, as before (not computed on a loss) |
+| Balance-sheet signal "FCF conversion before SBC" (weight 0.2 of the aspect, 3.53% of the composite) | unscored to 18 | unscored to 53.98 | unscored to 81.83 | unscored to 55.99 | unscored, as before |
+| Balance-sheet evidence coverage | 76.5% to 100% | 76.5% to 100% | 76.5% to 100% | 76.5% to 100% | 23.5%, unchanged |
+| Balance-sheet score and band | 67.83 C to 56.11 C | 85.09 A to 77.77 B | 72.28 B to 74.53 B | 87.61 A to 80.17 B | 18 F, unchanged |
+| Business-quality assessment | 63.47 to 61.96 | 78.62 to 78.80 | 63.63 to 65.13 | 76.07 to 76.35 | 45.64, unchanged |
+| Composite score and band | 57.25 C to 56.12 C | 75.83 B to 75.97 B | 55.83 C to 56.96 C | 77.70 B to 77.91 B | 43.95 D, unchanged |
+| Evidence available, share of signal weight | 96.47% to 100% | 96.47% to 100% | 79.02% to 82.55% | 90.65% to 94.18% | 32.58%, unchanged |
+| Manifest entries | 164 to 165 | 92 to 93 | 72 to 73 | 163 to 164 | 124 to 125 |
+
+No scoring rule, band or weight changed (P17): one balance-sheet signal that
+had no evidence now has it. The two band changes (NVDA and MU, balance sheet A
+to B) are that signal entering at 54 and 56 beside signals that score higher.
+The composite moves the other way for those two because the aspect now counts
+at its full weight instead of being partly shrunk to the neutral midpoint.
+
+The three fixed-analyst cases replay analyst output stored before D-212, when
+these conversions were still computed, and it agrees with the restored
+figures: Amazon's cited balance-sheet score 56.11 and NVIDIA's "0.6585x net
+income" verify again, and the stored balance-sheet grade B for NVIDIA and
+Micron matches the deterministic band again instead of being rejected.
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports five changes
+against its expectation, all "gap -> match" (`netIncome.ttm` for AMZN, MU,
+NVDA, QCOM and VKTX), and nothing worse.
+
+Not changed here, with the cause. DUK: withheld as before; the filings give a
+consolidated 5,578M and a parent 5,391M, and which one this row shows is the
+definition question left to the FIGR, O and RIVN step. PGR and JPM: the block
+is not applicable on their routes. META: the closing 10-Q postdates the
+report. FIGR, O and RIVN: untouched, their quarterly consolidated window was
+already established. The tax-rate rows and the free-cash-flow gaps are other
+steps.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change calls for the Stage
+B implementation stamp (identical inputs compute different values), the
+payload version (a conversion figure, net-income operand figures and a changed
+note reach the analysts) and the report specification (report figures and two
+aspect bands change). Saved reports are immutable (P21) and keep the figures
+they were built with.
+
+Tests (`tests/nciEarnings.singleProfitWindow.test.ts`): the root cause on a
+synthetic issuer through Stage B (failing before the change); Amazon, NVIDIA,
+Micron and Viking on their filed facts; Duke Energy as the compatible control
+that must stay withheld, with each kind of noncontrolling evidence withholding
+on its own; a window one day off the fiscal year, a 10-Q filed after the
+cutoff, two stated values, another unit and a prior year to date from another
+filing; a filed figure that is not the report's trailing net income; a refused
+trailing net income; an unconfirmed issuer; and an established consolidated
+window left as D-212 built it.
+
 ## D-241 - The dossier layout shows everything the classic layout shows (2026-11-12)
 
 Principle P22 (one presentation rule per figure). Round 2, S4.12a. Owner
@@ -237,6 +405,201 @@ alternative in either layout).
 Risks. Correctness and data: none (presentation only; no stored report,
 export or classic page changes; the same-report check differs only in eight
 `web-dossier.html` files). Reversible by one revert.
+
+## D-236 - A periodic filing SEC's data feed lists but does not carry is read from its own XBRL instance (2026-11-12)
+
+Principles P2 (the newest compatible filing wins), P9 and P10 (a failed
+extraction is a coverage gap, not absence), P20 (provenance) and P3 (unit,
+scale and share basis). Round 2, Stage 5 (accuracy fixes), filing-instance
+family. The accuracy baseline (r2-base-afb9cddf, rank 1) found TSMC's "diluted
+EPS, latest fiscal year" at fiscal 2024 (223.35 TWD per ADS, 44.67 per
+ordinary share) although its fiscal 2025 Form 20-F (accession
+0001628280-26-025362, filed 2026-04-16, before the report's evidence cutoff)
+states 65.47 per ordinary share. D-231 traced the cause to collection and left
+it for this entry.
+
+Root cause, in data collection. SEC's bulk feed (companyfacts) held two facts
+of that filing on 2026-11-12, the cover page's share count
+(`dei:EntityCommonStockSharesOutstanding`) and one srt element, and none of
+its financial statements. The rule that reads a filing's own XBRL instance
+when the feed lags (D-112, B-23) could not help, for two reasons:
+
+1. It saw only the instances the segment-revenue read fetches: the latest
+   Form 10-K and up to three Forms 10-Q. A Form 20-F or 40-F, or an amendment,
+   was never fetched.
+2. `mergeInstanceFacts` (`src/edgar/instanceFacts.ts`) took any accession the
+   feed mentions as fully carried, and measured "the newest periodic report
+   the feed carries" over Forms 10-K and 10-Q only.
+
+Run on that filing, the instance reader reads the EPS (65.47, TWD per share,
+2025-01-01..2025-12-31); the merge then admitted nothing.
+
+Choice, in the owner of the fallback (`src/edgar/instanceFacts.ts`), with the
+fetch beside the existing instance read (`src/providers/currentReports.ts`)
+and the wiring in the bundle builder (`src/pipeline/dataBundle.ts`):
+
+1. One coverage test, `feedCoverage`. A filing is covered only when the feed
+   attributes to its accession at least one fact of a statement taxonomy
+   (us-gaap or ifrs-full). A filing it merely mentions, through a cover-page
+   (dei) or srt fact, is not covered. No count, share or date band is used:
+   one statement fact is evidence that SEC published the filing's statements,
+   and none is evidence that it did not.
+2. The fallback applies to every form the fact index admits
+   (`CORE_FACT_FORMS`: 10-K, 10-Q, 20-F, 40-F and their amendments), and to no
+   other (a Form 6-K instance is never merged). `needsInstance` is the one
+   predicate: a core form, not covered, filed after the newest core report the
+   feed does cover. The bundle builder asks it which instances to fetch and
+   the merge asks it which to admit.
+3. Which filings may be fetched uses the selection the instance read already
+   had, applied to each core form: the latest annual report, or up to three
+   interim reports, of that form within 15 months (`latestPeriodicFilings`;
+   the 460 days and the three are the existing constants, now named). The
+   10-K and 10-Q instances are still fetched by the segment read, as before;
+   `collectPeriodicInstances` reads the others, and only those `needsInstance`
+   names.
+4. Every merged point carries the filing's accession, form, filing date and
+   fiscal focus, its concept, period and unit, exactly as a feed point does
+   (unchanged from B-23), so the cutoff, unit and concept rules downstream
+   treat it as they treat the feed. A point the feed already holds for that
+   filing is not added again. Values are the instance's own: TSMC's amounts
+   are tagged decimals -5 and stated in full; its per-share values are per
+   ordinary share, and the ADS ratio still comes only from the report's
+   existing proof (`resolveForeignShareRatio`). The filing also states EPS per
+   ADS (327.34) on a class-of-share dimension; a dimensioned fact is not read,
+   as the feed does not publish it.
+5. A filing the fallback needed and could not read (index or instance
+   unreadable, no instance in the index, refused metadata) is recorded on the
+   bundle (`companyFactsInstances.unread`) and disclosed as a warning entry,
+   `edgar.companyFacts.unreadFilings`, naming the filing and the reason. An
+   instance that was read and states no new fact adds nothing and says
+   nothing: the filing's own data shows there is nothing to carry.
+
+Requests. All to SEC EDGAR (free), through the existing cached, rate-limited
+client; filed documents are cached as immutable. A filer whose feed carries
+its filings makes no new request. Each filing read is one index request (a
+second when the first index form is unusable) and one instance request. At
+most eight filings can be selected (one each of 10-K/A, 20-F, 20-F/A, 40-F,
+40-F/A and three 10-Q/A), so a run makes at most 24 new requests and a 20-F
+filer with a lagging feed makes two. The existing 10-K and 10-Q reads are
+unchanged.
+
+Options rejected: a threshold on how many facts the feed carries for a filing
+(any number would be invented; the feed either publishes a filing's statements
+or it does not); fetching every 20-F instance regardless of the feed (requests
+for nothing on most runs); reading the EPS where the EPS row is built (the
+symptom's site: every figure that needs a fiscal 2025 filed fact had the same
+gap); adding Forms 20-F and 40-F to the segment-revenue read (it would change
+segment data for foreign filers, which nothing here proves).
+
+This revises D-112's B-23 rule ("a filing companyfacts already carries ... is
+never merged"): carried now means covered by evidence, and the forms are the
+core set. That entry is marked.
+
+### Proof
+
+The same-report check replays stored inputs and does not replay collection.
+
+A. No regression. The 17 cases built from this change are byte for byte the
+17 built from main (be7c11d6): `golden:diff` reports no changes, 136 files.
+No report output, stored input or frozen record moves; there is no approval
+list.
+
+B. On the real filing, offline. The filing's instance was fetched once from
+SEC EDGAR through the pipeline's own client
+(https://www.sec.gov/Archives/edgar/data/1046179/000162828026025362/tsm-20251231_htm.xml,
+10,762,616 bytes, SHA-256
+044effe7f6270a7b89726de7ae4da14f526fcbd1965441c65ff5d026b661361c). Two
+fixtures under `fixtures/edgar/tsm-20f-fy2025` hold public SEC data only: the
+instance trimmed to 121 facts, and TSMC's feed as Metis stored it on
+2026-11-12 reduced to the same concepts (191 points); each file's header cites
+its source and what was removed. `tests/edgar.instanceFallback.test.ts` runs
+the real merge on them:
+
+| What | Before | After | Filing fact |
+| --- | --- | --- | --- |
+| Feed coverage of 20-F 0001628280-26-025362 | taken as carried (two facts: one dei, one srt) | not covered; the feed covers through the 20-F filed 2025-04-17 | - |
+| Facts admitted from it (fixture) | 0 | 63 of the extract's 65 (the two the feed holds are not repeated) | each cites 20-F 0001628280-26-025362, filed 2026-04-16 |
+| Diluted EPS, fiscal 2025, per ordinary share | absent | 65.47 TWD | `ifrs-full:DilutedEarningsLossPerShare`, 2025-01-01..2025-12-31, unit TWD/shares, decimals 2 |
+| Latest-year EPS row (ADR admission, `guardVendorShareFields`) | fiscal 2024: 223.35 per ADS; fiscal 2025 withheld | fiscal 2025: 327.35 per ADS (65.47 x 5, the report's ADS ratio) | same fact |
+| Fiscal 2023 and 2024 EPS per ADS | 164.25, 223.35 | unchanged; now cited to the newer filing, which restates them (P2) | 32.85 and 44.67 in the same 20-F |
+| Every other concept, unit and period of the feed fixture (129) | - | newest value unchanged; the 32 new periods all end 2025-12-31 | - |
+| Same merge, analysis the day before the filing date | - | fiscal 2025 EPS still withheld (P2) | - |
+
+The new tests fail on main (16 of 19).
+
+C. A TSM report rebuilt from the stored TSM inputs with only the SEC part of
+collection re-run through the fixed code, in a scratch folder outside the
+repository (no vendor call, no case added, nothing written to the check
+database): the full instance is merged into the stored feed (781 points; the
+feed already held the other two), the merge's manifest entry is added, and the
+builder's last step, the ADR EPS admission (`withFilerShareUnits`, the only
+collection-time reader of IFRS facts), is run again on the merged facts after
+putting the two fiscal 2025 EPS fields it had withheld back to the vendor
+values the stored bundle kept. The report is built by the same-report worker.
+The rebuilt "before" equals the harness output byte for byte. 117 Stage B
+leaves and 82 report leaves differ; the full list is in
+`tmp/accuracy/s5-instance-fallback-before-after.md` (not committed: it quotes
+vendor data). Every moved figure, each new value a fact of 20-F
+0001628280-26-025362 (filed 2026-04-16, TWD, decimals -5 unless noted) or
+computed from one:
+
+| Figure (TSM, TWD) | Before | After | Proof |
+| --- | --- | --- | --- |
+| Diluted and basic EPS, fiscal 2025, per ADS | withheld (warning) | 327.35 | `ifrs-full:DilutedEarningsLossPerShare` and `BasicEarningsLossPerShare`, 2025-01-01..2025-12-31 = 65.47 TWD per share (decimals 2), x 5 ordinary shares per ADS |
+| Diluted EPS growth, end point | 2024-12-31, 223.35 | 2025-12-31, 327.35 | same |
+| Diluted EPS CAGR 1y / 3y / 5y / 10y | 35.98% / 25.06% / 26.76% / 16.92% (8 years measured) | 46.56% / 19.58% / 27.15% / 19.89% (9 years measured) | computed from 327.35 and the already filed 223.35 (2024), 191.45 (2022), 98.50 (2020), 63.95 (2016) |
+| Net income, fiscal 2025, in the free-cash-flow series and the accrual operands | 1,697,604,000,000 (the income statement's, D-231 rule 4: the vendor's cash-flow figure was withheld) | 1,695,124,900,000 | `ifrs-full:ProfitLoss`, 2025-01-01..2025-12-31 (D-231 rule 3: the vendor's 1,717,882,627,000 equals no filed line and is replaced by the filed consolidated profit; D-231 predicted this value) |
+| FCF conversion, fiscal 2025, after / before SBC | 0.583865 / 0.584599 | 0.584719 / 0.585454 | computed from it |
+| Operating accruals / aggregate accruals (cash-flow) / accrual ratio, fiscal 2025 | -577,371,625,000 / 530,007,456,000 / 0.181118 | -579,850,725,000 / 527,528,356,000 / 0.180271 | computed from it |
+| Non-controlling share of consolidated profit (DCF bridge test) | fiscal 2024 key, noted stale and immaterial | -0.146249% for fiscal 2025 | `ifrs-full:ProfitLossAttributableToNoncontrollingInterests` -2,479,100,000 over `ifrs-full:ProfitLoss` 1,695,124,900,000; the bridge deduction itself (book value) is unchanged |
+| Analyst-estimate currency calibration pair | fiscal 2024 estimate against filed revenue 2,894,307,700,000 | fiscal 2025 estimate against filed revenue 3,809,054,300,000 | `ifrs-full:RevenueFromContractsWithCustomers`, 2025-01-01..2025-12-31; the conclusion (TWD) is unchanged |
+| ADS ratio proof (1 ADS = 5 ordinary shares) | weighted-count leg cited to the fiscal 2024 20-F | same ratio; the leg cites the fiscal 2025 20-F | `ifrs-full:WeightedAverageShares`, 2025-01-01..2025-12-31 = 25,928,300,000 shares |
+| Fundamentals score / evidence share | 78.5 on 80% of signals (EPS growth not current evidence) | 79.74 on 100% | the EPS growth signal is scored again |
+| Quality score / business-quality assessment / composite | 83.21 / 77.27 / 72.35 | 83.23 / 79.12 / 73.74 | computed; every band is unchanged (composite B, Provisional) |
+| Manifest | 7 data issues | 4: the three fiscal 2025 warnings (two EPS, cash-flow net income) are replaced by informational entries naming the filed values, and one entry names the merged filing | - |
+
+No fair value, DCF input, multiple value, balance or TTM figure moves. The
+2023 and 2024 cash-flow corrections of D-231 keep their values and now cite
+the newer filing, which restates them.
+
+The accuracy check (`npm run accuracy:check`, PR #139): on the 17 cases, the
+same output as main, since nothing moves. On those cases with TSM replaced by
+the rebuilt report: "diluted EPS, latest fiscal year" goes from mismatch to
+match, and "net income, latest fiscal year" from match to mismatch. The second
+is the D-231 rule applied to fiscal 2025 as it already applies to 2016-2024:
+the free-cash-flow series now carries the filed consolidated profit
+(1,695,124,900,000), and the check's reference for that row is the filed
+parent profit (1,697,604,000,000). Both are lines of the same 20-F. Whether
+that row should show consolidated or parent profit is the definition question
+D-231 left open; this change does not decide it.
+
+### What changes for new reports, and what does not
+
+A new report of a company that files Form 20-F or 40-F, or of any company
+whose latest core filing the feed lists without its statements, now reads that
+filing's own facts when SEC's feed has not published them: figures that need a
+filed fact of the newest fiscal year (per-share admission for ADRs, the
+cash-flow net income check, the non-controlling share, currency calibration)
+reach that year instead of ending a year early or being withheld, and the
+report says which filing was read. Where the instance cannot be read the
+report says that instead.
+
+Saved reports and stored run inputs keep their bytes (P21): the TSM report in
+the same-report check, and any saved report of a 20-F filer, still ends its
+EPS rows at the earlier year, because collection is not replayed. Not covered
+by this change: interim reports of foreign filers (Form 6-K is not a core
+form and most carry no XBRL), and segment revenue for 20-F and 40-F filers.
+
+Version stamps are not moved by this change: they are shared by the Stage 5
+accuracy changes and move once, at integration (P27).
+
+Tests: `tests/edgar.instanceFallback.test.ts` (the real filing and stored
+feed; a domestic 10-Q the feed mentions by its cover page only; a 10-K filer
+whose feed is complete, with no request; a Canadian 40-F filer on us-gaap; a
+6-K; an amendment that states only its cover page; the selection, the
+eight-filing bound and the unread disclosure; the bundle builder over a
+recorded-shape transport, with and without the filing in the feed).
+`tests/edgar.instanceFacts.test.ts` (B-23) passes unchanged.
 
 ## D-237 - An effective tax rate divides by the pre-tax income its provision relates to (2026-11-12)
 
@@ -1358,7 +1721,8 @@ that year is already withheld with a warning, and the EPS growth rows are
 dated 2024-12-31. The fix belongs to the collection step
 (`src/edgar/instanceFacts.ts`, `src/providers/currentReports.ts`), which the
 same-report check does not replay; with it, rule 3 also replaces TSM's 2025
-figure by the filed consolidated profit 1,695,124,900,000.
+figure by the filed consolidated profit 1,695,124,900,000. (D-236 makes that
+collection fix.)
 
 Version stamps are not moved by this change: the report-spec, payload and
 Stage B stamps are shared by the Stage 5 accuracy changes prepared in parallel
@@ -4695,7 +5059,7 @@ Report 1.42.0, payload 1.47.0, pipeline stage-c-1.6.5 and Stage B ACCOUNTING_EVI
 
 The independent audit of 2026-10-22 found reports that ended a quarter or two before what the issuer had already filed, or that read its newest results release wrongly. Batch 3a fixed B-24 (the newer-results notice) and C-16 (the 10-Q supersession pass); this batch fixes the rest: B-26, B-27, B-23, B-9 with B-20, B-36 in part and FCX-4. Every rule is class-wide; none names a ticker. Each withholds with a specific reason where its evidence is incomplete.
 
-- **Owner decision: 10-Qs that companyfacts lags (B-23).** When the newer 10-Q's XBRL instance is already fetched, its consolidated, undimensioned facts in the taxonomies companyfacts publishes (us-gaap, srt, dei, ifrs-full), for the filer's own CIK, are merged into the companyfacts payload before the statements are built, each point carrying the 10-Q's accession, form, filing date and fiscal focus. A filing companyfacts already carries, or one filed no later than its newest periodic report, is never merged, so a row never mixes bases; a fact stated twice at one precision with different values is dropped. Where a newer 10-Q, 10-K, 20-F or 40-F was filed but its facts could not be read, a "Newer filing not reflected" banner and a warn gap name the filing and its date, with the newer-results notice's 45-day allowance.
+- **Owner decision: 10-Qs that companyfacts lags (B-23).** When the newer 10-Q's XBRL instance is already fetched, its consolidated, undimensioned facts in the taxonomies companyfacts publishes (us-gaap, srt, dei, ifrs-full), for the filer's own CIK, are merged into the companyfacts payload before the statements are built, each point carrying the 10-Q's accession, form, filing date and fiscal focus. A filing companyfacts already carries, or one filed no later than its newest periodic report, is never merged, so a row never mixes bases (Revised by D-236: a filing is carried only when companyfacts holds a statement fact of it, not when it merely mentions it, and the rule covers Forms 20-F and 40-F and amendments as well as 10-K and 10-Q); a fact stated twice at one precision with different values is dropped. Where a newer 10-Q, 10-K, 20-F or 40-F was filed but its facts could not be read, a "Newer filing not reflected" banner and a warn gap name the filing and its date, with the newer-results notice's 45-day allowance.
 - **Owner decision: multiple labels by period (B-9, B-20).** Each multiple records the period its earnings cover ("TTM to 2026-06-30" or "FY2025"); the label follows it in the multiples table, Key data and the exports ("P/E (FY2025)"), and TTM labels are unchanged; in the AI payload a fiscal-year multiple names its year in its label ("P/E (current, FY2025)"), and a TTM record is unchanged. EBITDA adds the cash-flow statement's D&A only on the operating income's own period (beside a fiscal-year operating income, the annual cash-flow row of that year, even when the cash-flow slice is TTM); otherwise EV/EBITDA is withheld with both periods named. The P/E basis names only the formula that produced the figure, and when it is market cap over common income it says why diluted EPS was not used; Key data notes "market cap / common income, not price / diluted EPS" beside such a P/E.
 - **Owner decision: release ordering (B-26).** A results release that states no period goes before the first dated release filed no later than it; dated releases keep period order. For the four releases kept, a results release outranks an operational update, so the kept set covers a year of results when enough were read. This can change which 8-K is newest among those kept (Freeport-McMoRan's 2026-10-02 operational update is no longer kept).
 - **Owner decision: a newer release's currency (B-27).** A release reporting a quarter no statement row covers, or stating no quarter end, reports in the statements' currency when every income row since before its period is established in that one currency. A history in more than one currency, or an unlabelled row at the release's own quarter, still withholds, and the note says the currency is not established.
@@ -12151,7 +12515,8 @@ limitation through checkpoints, successful reports and data-only reports.
 Admit independently compatible quarterly consolidated/parent/signed-NCI earnings,
 even when the vendor parent number agrees. Consolidated cash conversion requires
 a complete consolidated earnings window; zero closing NCI balances prove no
-earnings allocation. Standalone capex/SBC recovery requires compatible direct or
+earnings allocation. (Revised by D-240: the filings of an issuer that reports a
+single profit line establish that window.) Standalone capex/SBC recovery requires compatible direct or
 cumulative operands and retains original vendor observations and independent
 refusals. Retained EXPE replay reconciles the 9M earnings residual, corrects cash
 conversion to 177.199622%, corrects Q3 2025 FCF to −686M and recovers two SBC
