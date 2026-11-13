@@ -100,9 +100,9 @@ and QCOM it is 1M away from the filed figure.
 
 ### Approved report changes
 
-Same-report check, current main (ab6db405, which holds D-229, D-231, D-233
-and D-234; measured before that on 7e59aff3 and 99234cdf with the same
-result) against this change: 8 of the 17 cases differ (`amzn`, `nvda`, `mu` in both
+Same-report check, current main (be7c11d6, which holds D-229, D-231, D-233,
+D-234, D-237 and D-239) against this change, measured before that on
+7e59aff3, 99234cdf and ab6db405 with the same result: 8 of the 17 cases differ (`amzn`, `nvda`, `mu` in both
 their data-only and fixed-analyst forms, `qcom-data-only`, `vktx-data-only`),
 all eight outputs each plus the payload fingerprint; the other 9 cases
 (`meta` in both forms, `figr`, `jpm`, `pgr`, `o`, `duk`, `tsm`, `rivn`) are
@@ -120,19 +120,22 @@ All facts are `us-gaap:NetIncomeLoss`, USD, as tagged (whole dollars).
 | MU | withheld | 84,969,000,000 | 2025-08-29..2026-09-03, the window itself, 10-K 0000723125-26-000023, filed 2026-10-09. That filing tags no consolidated profit, noncontrolling earnings or noncontrolling balance |
 | VKTX | withheld | -627,195,000 | 2025-10-01..2026-09-30 = -359,639,000 (2025-01-01..2025-12-31, 10-K 0001193125-26-046876, filed 2026-02-11) + -469,533,000 (2026-01-01..2026-09-30) - -201,977,000 (2025-01-01..2025-09-30), both 10-Q 0001193125-26-436432, filed 2026-10-29. Both filings also tag `us-gaap:ProfitLoss`, with the same value as `NetIncomeLoss` for every period, and no noncontrolling earnings or balance |
 
-Figures computed from them. Free cash flow before SBC for the same window is
-unchanged in every case.
+Figures computed from them, on main be7c11d6. Free cash flow before SBC for
+the same window is unchanged in every case. (Two "before" values differ from
+the earlier measurements only because main moved: D-237 put Amazon's
+business-quality assessment at 63.47, and D-239 withholds Viking's trailing
+free cash flow, which set Viking's unchanged scores.)
 
 | Figure | AMZN | NVDA | QCOM | MU | VKTX |
 | --- | --- | --- | --- | --- | --- |
 | FCF conversion before SBC, TTM (free cash flow / net income) | withheld to -0.085932 (-11,625M / 135,281M) | withheld to 0.658472 (127,006M / 192,880M) | withheld to 1.124838 (10,416M / 9,260M) | withheld to 0.693935 (58,963M / 84,969M) | withheld, as before (not computed on a loss) |
 | Balance-sheet signal "FCF conversion before SBC" (weight 0.2 of the aspect, 3.53% of the composite) | unscored to 18 | unscored to 53.98 | unscored to 81.83 | unscored to 55.99 | unscored, as before |
-| Balance-sheet evidence coverage | 76.5% to 100% | 76.5% to 100% | 76.5% to 100% | 76.5% to 100% | 41.2%, unchanged |
-| Balance-sheet score and band | 67.83 C to 56.11 C | 85.09 A to 77.77 B | 72.28 B to 74.53 B | 87.61 A to 80.17 B | 14.57 F, unchanged |
-| Business-quality assessment | 63.46 to 61.95 | 78.62 to 78.80 | 63.63 to 65.13 | 76.07 to 76.35 | 44.04, unchanged |
-| Composite score and band | 57.25 C to 56.12 C | 75.83 B to 75.97 B | 55.83 C to 56.96 C | 77.70 B to 77.91 B | 42.46 D, unchanged |
-| Evidence available, share of signal weight | 96.47% to 100% | 96.47% to 100% | 79.02% to 82.55% | 90.65% to 94.18% | 36.30%, unchanged |
-| Manifest entries | 162 to 163 | 92 to 93 | 72 to 73 | 163 to 164 | 121 to 122 |
+| Balance-sheet evidence coverage | 76.5% to 100% | 76.5% to 100% | 76.5% to 100% | 76.5% to 100% | 23.5%, unchanged |
+| Balance-sheet score and band | 67.83 C to 56.11 C | 85.09 A to 77.77 B | 72.28 B to 74.53 B | 87.61 A to 80.17 B | 18 F, unchanged |
+| Business-quality assessment | 63.47 to 61.96 | 78.62 to 78.80 | 63.63 to 65.13 | 76.07 to 76.35 | 45.64, unchanged |
+| Composite score and band | 57.25 C to 56.12 C | 75.83 B to 75.97 B | 55.83 C to 56.96 C | 77.70 B to 77.91 B | 43.95 D, unchanged |
+| Evidence available, share of signal weight | 96.47% to 100% | 96.47% to 100% | 79.02% to 82.55% | 90.65% to 94.18% | 32.58%, unchanged |
+| Manifest entries | 164 to 165 | 92 to 93 | 72 to 73 | 163 to 164 | 124 to 125 |
 
 No scoring rule, band or weight changed (P17): one balance-sheet signal that
 had no evidence now has it. The two band changes (NVDA and MU, balance sheet A
