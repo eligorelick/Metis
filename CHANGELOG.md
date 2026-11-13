@@ -110,6 +110,26 @@ original versions and bytes; source merge does not deploy or publish a release.
   baseline is its own rounding between quarterly and year-to-date columns and
   does not move. Version stamps are left for the Stage 5 integration.
 
+## Unreleased - A fiscal year's operating cash flow is the filed figure when the filing's cash-flow statement reconciles (2026-11-13)
+
+- A vendor operating cash flow that disagrees with the filed one was always
+  withheld, and the year's free cash flow with it. On an annual row it now
+  takes the filed figure when the newest filing's own statement foots
+  exactly: operating + investing + financing + exchange-rate effect = the
+  change in cash, all from that one filing. Anything else stays withheld (P8,
+  P7, [D-252](docs/audit/DECISIONS.md), revising D-89 for this shape). In the
+  same-report check this fills Duke Energy's fiscal 2025 operating cash flow
+  (12,330M, Form 10-K) and free cash flow (-1,694M); its accrual, Beneish and
+  Piotroski figures are computed again, so its quality score moves from 53.8
+  to 72.9 and its composite from 55.6 to 57.3 (still band C, Provisional).
+  Realty Income's longest free-cash-flow growth window now starts in fiscal
+  2016 (20.31% over 8 years instead of 21.95% over 7), and one Progressive
+  note names 2016 instead of 2017. The other 14 cases are unchanged. Figure
+  Technology's free cash flow stays "not applicable" for a lender (D-149);
+  Viking's free cash flow and Micron's two bridge items stay withheld, with
+  the reasons in the entry. Version stamps are left for the Stage 5
+  integration; saved reports are unchanged.
+
 ## Unreleased - A provider zero for capital spending is not a figure (2026-11-12)
 
 - A cash capital-spending figure of exactly 0 on a vendor cash-flow row now

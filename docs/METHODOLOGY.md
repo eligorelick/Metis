@@ -8497,6 +8497,32 @@ statement, the figure is withheld; conversion and accruals for that year then
 read the income statement's net income, and the row says so. Stored run inputs
 are not rewritten: the check runs when a report is built.
 
+## Operating cash flow of a reconciled filed statement (D-252)
+
+A vendor operating cash flow that conflicts with the filed one is withheld,
+with the free cash flow built on it (D-89). One shape is settled by the filing
+itself. On an annual row, the filed figure replaces the vendor's when ONE
+filing, the newest that states the fiscal year's
+`NetCashProvidedByUsedInOperatingActivities`, is also the newest that states,
+for exactly the same start and end and in the same currency, the investing
+total, the financing total and the change in cash, cash equivalents and
+restricted cash, each with one value, and operating + investing + financing +
+the exchange-rate effect on cash (when the filing tags one) equals that change
+exactly. The check is the filing's own arithmetic: no allowance and no
+balancing figure. A statement that does not foot on these lines, a line a
+newer filing restates without the others, two values for a line, a quarterly
+row, a fact filed after the analysis time, another currency or another issuer
+leave the row withheld. The vendor observations stay in the row's conflict
+record, marked as resolved by the filed family, with the filing as the
+field's provenance. Free cash flow is then operating cash flow plus the row's
+capital spending (an outflow is negative), as for any row; capital spending
+keeps its own admission rules, a row without usable capital spending gets no
+free cash flow, and a free cash flow refused for another cause stays refused.
+Stored run inputs are not rewritten: a row refused before this rule is judged
+again when a report is built, from the refusal's evidence record and never its
+sentence, and the company page's free-cash-flow bars read the same admitted
+rows.
+
 ## Filed share counts and borrowings over a vendor's figures (D-234)
 
 A vendor weighted-average share count is compared with the filer's count for
