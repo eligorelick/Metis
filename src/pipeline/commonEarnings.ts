@@ -15,6 +15,13 @@
  * and preferred stock or noncontrolling interests are outstanding, only from a full-year 10-K fact whose
  * period end equals the vendor row's date, never overriding a vendor value, and
  * every filled period is disclosed in the missing-data manifest.
+ *
+ * D-251 (P5): preferred stock redeemed during a fiscal year is absent from that
+ * year's closing balance, yet the earnings selector (`selectCommonIncome`)
+ * refuses total net income for the year because preferred claims existed in it.
+ * The caller therefore passes that selector's own existence test
+ * (`preferredClaimsInPeriod`), and a year it flags has its filed common
+ * earnings read as well: that one field only, and never over a refusal.
  */
 
 import type { CompanyFacts } from "@/edgar/xbrl";
@@ -99,6 +106,11 @@ export function supplementCommonEarnings(
   facts: CompanyFacts | null,
   analysisAsOf?: string,
   factsObservedAt?: string,
+  /**
+   * D-251: whether preferred claims existed during this row's earnings period,
+   * by the same test the earnings selector refuses total net income on.
+   */
+  preferredClaimsInPeriod?: (row: FmpIncomeStatementRow) => boolean,
 ): CommonEarningsSupplement {
   const none: CommonEarningsSupplement = { income, gaps: [] };
   if (facts === null || !income.ok || !balance.ok) return none;
@@ -110,6 +122,8 @@ export function supplementCommonEarnings(
   ] as const;
   const filled = new Map<string, string[]>();
   const selectedTags = new Map<string, Set<string>>();
+  // D-251: years filled only because preferred claims existed during the year (none at its end).
+  const redeemed: string[] = [];
   const rows = income.value.data.rows.map((row) => {
     if (typeof row.date !== "string") return row;
     // The filed fact is read from the USD unit only.
@@ -119,11 +133,14 @@ export function supplementCommonEarnings(
     const nci = bal?.minorityInterest;
     const hasPreferred = typeof preferred === "number" && Number.isFinite(preferred) && preferred > 0;
     const hasNci = typeof nci === "number" && Number.isFinite(nci) && nci !== 0;
-    if (!hasPreferred && !hasNci) return row;
+    const closing = hasPreferred || hasNci;
+    if (!closing && preferredClaimsInPeriod?.(row) !== true) return row;
     const explicitStarts = [row.periodStart, ...Object.values(row.fieldProvenance ?? {}).map(p => p.periodStart)].filter(start => start !== undefined && start !== null);
     let out = row;
     for (const [field, tags] of supplemented) {
       if (typeof row[field] === "number" && Number.isFinite(row[field])) continue;
+      // D-251: a year without a closing claim gets its common earnings only, and a refusal stays (P11).
+      if (!closing && (field !== "netIncomeAvailableToCommon" || row.fieldConflicts?.[field]?.usable === false)) continue;
       const selected = tags.map(tag => ({ tag, fact: selectAnnualEarnings(facts, tag, row.date!, analysisAsOf) }))
         .find(candidate => candidate.fact !== null && !explicitStarts.some(start => start !== candidate.fact!.start));
       if (selected === undefined) continue;
@@ -134,25 +151,39 @@ export function supplementCommonEarnings(
         observedAt: factsObservedAt ?? "", tags: [`us-gaap/${tag}`],
         filings: [{ accn: filed.accn ?? "", filed: filed.filed, form: filed.form }],
       };
-      filled.set(field, [...(filled.get(field) ?? []), `${row.date} (${filed.accn ?? "10-K"} filed ${filed.filed})`]);
-      selectedTags.set(field, new Set([...(selectedTags.get(field) ?? []), tag]));
+      const period = `${row.date} (${filed.accn ?? "10-K"} filed ${filed.filed})`;
+      if (closing) {
+        filled.set(field, [...(filled.get(field) ?? []), period]);
+        selectedTags.set(field, new Set([...(selectedTags.get(field) ?? []), tag]));
+      } else redeemed.push(period);
       out = { ...out, [field]: filed.value, fieldProvenance: { ...out.fieldProvenance, [field]: provenance } };
     }
     return out;
   });
-  if (filled.size === 0) return none;
+  if (filled.size === 0 && redeemed.length === 0) return none;
 
   return {
     income: { ...income, value: { ...income.value, data: { ...income.value.data, rows } } },
-    gaps: supplemented.filter(([field]) => filled.has(field)).map(([field]) => ({
+    // Its own field: the manifest keeps one entry per field, and a closing-claim entry for other years may exist.
+    gaps: [...(redeemed.length === 0 ? [] : [{
+        field: "statements.incomeAnnual.netIncomeAvailableToCommon.redeemedPreferred",
+        reason:
+          "the vendor income statement carries no netIncomeAvailableToCommon for a fiscal year with preferred stock or preferred dividends on record in its earnings window " +
+          "(the widest annual window when the vendor row states no period start) and none at its end, " +
+          `so that scope field was taken from SEC EDGAR companyfacts (us-gaap/${TAG}, full-year 10-K, same period end) ` +
+          `for ${redeemed.join(", ")}; vendor observations are preserved`,
+        severity: "info" as const,
+        attemptedSources: [`edgar:companyfacts us-gaap/${TAG}`],
+        expected: true,
+      }]), ...supplemented.filter(([field]) => filled.has(field)).map(([field]) => ({
         field: `statements.incomeAnnual.${field}`,
         reason:
           `the vendor income statement carries no ${field} beside outstanding preferred stock or noncontrolling interests, ` +
           `so that scope field was taken from SEC EDGAR companyfacts (${[...selectedTags.get(field)!].map(tag => `us-gaap/${tag}`).join(", ")}, full-year 10-K, same period end) ` +
           `for ${filled.get(field)!.join(", ")}; vendor observations are preserved`,
-        severity: "info",
+        severity: "info" as const,
         attemptedSources: [...selectedTags.get(field)!].map(tag => `edgar:companyfacts us-gaap/${tag}`),
         expected: true,
-      })),
+      }))],
   };
 }

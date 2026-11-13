@@ -138,3 +138,96 @@ describe("supplementCommonEarnings", () => {
     expect(supplementCommonEarnings(failed, balance, facts([FY2025])).income).toBe(failed);
   });
 });
+
+/**
+ * D-251 (P5): preferred stock redeemed during a fiscal year is absent from that year's closing balance, so the closing
+ * balance alone never asked for the filed common earnings, while the earnings selector refused total net income for the
+ * year because preferred claims existed in it. The caller passes the selector's own existence test.
+ * Progressive's figures are the SEC XBRL facts of 10-K 0000080661-26-000086 (fiscal 2025, filed 2026-03-02) and
+ * 10-K 0000080661-25-000007 (fiscal 2024, filed 2025-03-03); its Series B preferred was redeemed in the first quarter of 2024.
+ */
+describe("D-251: filed common earnings for a year whose preferred stock was redeemed before its end", () => {
+  const PGR_2025 = { accn: "0000080661-26-000086", form: "10-K", fp: "FY", filed: "2026-03-02" };
+  const PGR_2024 = { accn: "0000080661-25-000007", form: "10-K", fp: "FY", filed: "2025-03-03" };
+  const pgrFacts = (): CompanyFacts => ({ cik: 80661, entityName: "PROGRESSIVE CORP/OH/", facts: { "us-gaap": { [TAG]: { units: { USD: [
+    { start: "2025-01-01", end: "2025-12-31", val: 11_308_000_000, ...PGR_2025 },
+    { start: "2024-01-01", end: "2024-12-31", val: 8_463_000_000, ...PGR_2025 },
+    { start: "2024-01-01", end: "2024-12-31", val: 8_463_000_000, ...PGR_2024 },
+    { start: "2023-01-01", end: "2023-12-31", val: 3_865_000_000, ...PGR_2025 },
+  ] } } } } });
+  const pgrIncome = () => env([
+    { date: "2025-12-31", reportedCurrency: "USD", netIncome: 11_308_000_000 },
+    { date: "2024-12-31", reportedCurrency: "USD", netIncome: 8_480_000_000 },
+    { date: "2023-12-31", reportedCurrency: "USD", netIncome: 3_902_400_000, netIncomeAvailableToCommon: 3_864_800_000 },
+  ]);
+  // Closing balances: the preferred is gone at the end of 2024 and 2025.
+  const pgrBalance = env([
+    { date: "2025-12-31", preferredStock: 0, minorityInterest: 0 },
+    { date: "2024-12-31", preferredStock: 0, minorityInterest: 0 },
+    { date: "2023-12-31", preferredStock: 494_000_000, minorityInterest: 0 },
+  ]);
+  const claimsIn = (...years: string[]) => (row: { date?: string }) => years.includes(String(row.date));
+
+  it("root cause: the closing balance alone never reads the filed figure for the redemption year", () => {
+    const income = pgrIncome();
+    const out = supplementCommonEarnings(income, pgrBalance, pgrFacts(), "2026-11-12");
+    expect(out.income).toBe(income);
+    expect(out.gaps).toEqual([]);
+  });
+
+  it("Progressive: fiscal 2025 and 2024 take the filed income available to common, each from the newest 10-K", () => {
+    const out = supplementCommonEarnings(pgrIncome(), pgrBalance, pgrFacts(), "2026-11-12", "2026-11-12T18:18:20.407Z", claimsIn("2025-12-31", "2024-12-31"));
+    const rows = rowsOf(out.income);
+    expect(rows[0]).toMatchObject({ netIncome: 11_308_000_000, netIncomeAvailableToCommon: 11_308_000_000, fieldProvenance: { netIncomeAvailableToCommon: {
+      source: "edgar", unit: "USD", periodStart: "2025-01-01", periodEnd: "2025-12-31", tags: [`us-gaap/${TAG}`], observedAt: "2026-11-12T18:18:20.407Z",
+      filings: [{ accn: "0000080661-26-000086", filed: "2026-03-02", form: "10-K" }] } } });
+    // 8,480M net income less the 17M the 10-K attributes to the preferred (dividends and the redemption).
+    expect(rows[1]).toMatchObject({ netIncome: 8_480_000_000, netIncomeAvailableToCommon: 8_463_000_000, fieldProvenance: { netIncomeAvailableToCommon: {
+      periodStart: "2024-01-01", periodEnd: "2024-12-31", filings: [{ accn: "0000080661-26-000086", filed: "2026-03-02", form: "10-K" }] } } });
+    // The vendor's own 2023 figure is never overridden.
+    expect(rows[2]).toMatchObject({ netIncomeAvailableToCommon: 3_864_800_000 });
+    expect(out.gaps).toHaveLength(1);
+    expect(out.gaps[0]).toMatchObject({ field: "statements.incomeAnnual.netIncomeAvailableToCommon.redeemedPreferred", severity: "info", expected: true });
+    expect(out.gaps[0]!.reason).toMatch(/preferred stock or preferred dividends on record in its earnings window .* and none at its end/);
+    expect(out.gaps[0]!.reason).toContain("2025-12-31 (0000080661-26-000086 filed 2026-03-02)");
+    expect(out.gaps[0]!.reason).toContain("2024-12-31 (0000080661-26-000086 filed 2026-03-02)");
+  });
+
+  it("compatible control: a year with no preferred claim in it is left alone", () => {
+    const income = pgrIncome();
+    const out = supplementCommonEarnings(income, pgrBalance, pgrFacts(), "2026-11-12", undefined, claimsIn("2024-12-31"));
+    expect(rowsOf(out.income)[0]!.netIncomeAvailableToCommon).toBeUndefined();
+    expect(rowsOf(out.income)[1]!.netIncomeAvailableToCommon).toBe(8_463_000_000);
+    const none = supplementCommonEarnings(income, pgrBalance, pgrFacts(), "2026-11-12", undefined, claimsIn());
+    expect(none.income).toBe(income);
+  });
+
+  it("fills only the common earnings for such a year, never the consolidated or noncontrolling lines", () => {
+    const filed = pgrFacts();
+    filed.facts["us-gaap"]!.ProfitLoss = { units: { USD: [{ start: "2025-01-01", end: "2025-12-31", val: 11_308_000_000, ...PGR_2025 }] } };
+    filed.facts["us-gaap"]!.NetIncomeLossAttributableToNoncontrollingInterest = { units: { USD: [{ start: "2025-01-01", end: "2025-12-31", val: 0, ...PGR_2025 }] } };
+    const row = rowsOf(supplementCommonEarnings(pgrIncome(), pgrBalance, filed, "2026-11-12", undefined, claimsIn("2025-12-31")).income)[0]!;
+    expect(row.netIncomeAvailableToCommon).toBe(11_308_000_000);
+    expect(row.netIncomeConsolidated).toBeUndefined();
+    expect(row.netIncomeAttributableToNoncontrollingInterest).toBeUndefined();
+  });
+
+  it("a refused common-earnings field stays refused, and a fact filed after the cutoff is not read", () => {
+    const refused = env([{ date: "2025-12-31", reportedCurrency: "USD", netIncome: 11_308_000_000,
+      fieldConflicts: { netIncomeAvailableToCommon: { usable: false, vendorValue: null, secValue: null, reason: "refused" } } }]);
+    expect(supplementCommonEarnings(refused, pgrBalance, pgrFacts(), "2026-11-12", undefined, claimsIn("2025-12-31")).income).toBe(refused);
+    const income = pgrIncome();
+    const early = supplementCommonEarnings(income, pgrBalance, pgrFacts(), "2026-03-01", undefined, claimsIn("2025-12-31"));
+    expect(early.income).toBe(income);
+  });
+
+  it("unrelated shape: a bank with preferred outstanding at the year end is read exactly as before", () => {
+    const income = env([{ date: "2025-12-31", netIncome: 57_048_000_000 }]);
+    const balance = env([{ date: "2025-12-31", preferredStock: 20_045_000_000 }]);
+    const before = supplementCommonEarnings(income, balance, facts([FY2025]), "2026-10-14");
+    const after = supplementCommonEarnings(income, balance, facts([FY2025]), "2026-10-14", undefined, () => true);
+    expect(after).toEqual(before);
+    expect(after.gaps).toHaveLength(1);
+    expect(after.gaps[0]!.reason).toMatch(/beside outstanding preferred stock or noncontrolling interests/);
+  });
+});

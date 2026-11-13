@@ -18,6 +18,22 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Filed common earnings for a year whose preferred stock was redeemed (2026-11-13)
+
+- Common earnings for a fiscal year are refused when preferred claims existed
+  in it, and the filed figure was read only when preferred stock or
+  noncontrolling interests stood on the year's closing balance. A year in
+  which the preferred was redeemed therefore had no common earnings, and the
+  payout history and the excess-return valuation built on it were withheld.
+  The filed income available to common (full-year 10-K) is now also read for
+  such a year: that one field, never over a vendor value or a refusal (P5,
+  P11, P13, [D-251](docs/audit/DECISIONS.md)). In the same-report check this
+  changes one of the 17 cases: Progressive's fiscal 2025 and 2024 common
+  earnings (11,308M and 8,463M) are read, its payout ratio (15.37%) and
+  excess-return fair value (USD 160.42 per share on the filed 582.2M diluted
+  shares) are built, and its valuation aspect, quality aspect and composite
+  move with them. Version stamps are not moved in this change.
+
 ## Unreleased - Trailing net income behind FCF conversion read from the filings (2026-11-12)
 
 - The "Current capital" block divides trailing free cash flow by consolidated

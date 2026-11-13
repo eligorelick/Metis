@@ -11,6 +11,177 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-251 - A year whose preferred stock was redeemed reads its filed common earnings (2026-11-13)
+
+Principles P5 (entity scope: common earnings are not total net income), P8
+(a filed line, read whole), P10 and P11 (a refusal stays unless the filed
+figure for that field and year exists), P13 (one existence test, used by the
+refusal and by the read), P14 (what stays not applicable), P17 (no scoring
+rule changed) and P20 (provenance and disclosure). Round 2, Stage 5 (accuracy
+fixes), the bank and the insurer (`jpm-data-only`, `pgr-data-only`). The
+accuracy baseline (r2-base-afb9cddf, "Gaps whose value is in the filings")
+lists eleven rows for the two.
+
+Root causes, found before anything was changed:
+
+| Row (accuracy tool id) | Cause | Outcome |
+| --- | --- | --- |
+| PGR `fv.dilutedShares` (and the withheld fair value) | The excess-return valuation was withheld for want of a payout history: fiscal 2025 and 2024 had no common earnings. Cause below | Fixed here |
+| JPM `netIncome.fy`, PGR `netIncome.fy` | The tool reads fiscal-year net income from the free-cash-flow series, which is not applicable on the bank and insurer routes (P14) | Not a defect |
+| JPM `netIncome.ttm`, `operatingCashFlow.ttm`, `operatingLeases.latest`; PGR `netIncome.ttm`, `operatingCashFlow.ttm`, `capex.ttm`, `fcf.fy`, `fcf.ttm` | The "current capital" block (cash bridge and debt bridge, lease lines included) is switched off as a whole on the bank, insurer and mortgage-REIT routes (`attachCurrentCapital`, `industrialMetricsApplicable`; D-240 recorded it) | Not a defect |
+| JPM `revenue.fy` | A real gap with a different cause; not fixed here (below) | Left, described |
+
+Progressive's cause. Its Series B preferred shares were redeemed in the first
+quarter of 2024, and the vendor's annual income rows for 2024 and 2025 carry
+no income available to common. Two rules disagreed about when preferred
+"exists". The earnings selector (`selectCommonIncome`) refuses total net
+income as common earnings when preferred stock stands on any balance, or
+preferred dividends in any cash-flow row, inside the earnings window; with no
+period start on the vendor row it uses the widest annual window, which for
+fiscal 2025 still reaches the 2024 dividend. The rule that reads the filed
+figure (`supplementCommonEarnings`, commit 80f30f98, widened to noncontrolling
+interests by D-212) looked only at the year's closing balance. At 2024-12-31
+and 2025-12-31 Progressive has no preferred, so the filed figure was never
+read, both years stayed refused, one usable payout year remained where two
+are needed, and the valuation was withheld.
+
+Choice. `supplementCommonEarnings` (`src/pipeline/commonEarnings.ts`, a P5
+owner) takes the selector's own existence test from its caller and also reads
+`us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic` (full-year 10-K,
+same period end, filed by the cutoff) for a year that test flags when no
+claim stands at the year end. For such a year it fills that one field only,
+never over a vendor value and never over a refusal (P11); the consolidated
+and noncontrolling lines keep their closing-balance condition. Stage B applies
+it as a calculation view (`filedCommonEarningsView`, `src/pipeline/compute.ts`)
+that passes `preferredClaimsInFlow` over the same balances and cash rows the
+selector is given, so the year the selector refuses is the year the filed
+figure is read for, and stored inputs stay as they are. One informational
+manifest entry names the years and the filing
+(`statements.incomeAnnual.netIncomeAvailableToCommon.redeemedPreferred`).
+No tolerance, day band or status word is added. D-212 is marked "Revised by
+D-251"; the closing-balance condition has no entry of its own.
+
+Options rejected. Narrowing the selector so fiscal 2025 no longer counts as a
+year with preferred claims: that loosens a refusal where the period start is
+unknown, and the filed figure settles the year without it. Treating total net
+income as common earnings when the closing balance shows no preferred: a
+closing zero cannot erase a claim that existed in the year (fiscal 2024's
+figure is 17M lower than net income). Reading the figure for every year
+whether or not a claim existed: wider than the gap, and it would touch issuers
+whose rows are complete.
+
+### Approved report changes
+
+Same-report check, current main (629cf3c9, which holds D-229, D-231, D-233,
+D-234, D-236, D-237, D-239, D-240 and D-241) against this change: one of the
+17 cases differs, `pgr-data-only`, all eight outputs plus the payload
+fingerprint. The other 16 cases, `jpm-data-only` among them, are byte for
+byte unchanged, and every other figure of `pgr-data-only` is unchanged. The
+leaf-level list and the approvals are in
+`tmp/accuracy/s5-bank-insurer-before-after.md` (not committed: it quotes
+vendor data).
+
+Figures from the filings (USD as tagged):
+
+| PGR figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| Income available to common, fiscal 2025 | withheld | 11,308,000,000 | `us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic` 2025-01-01..2025-12-31, 10-K 0000080661-26-000086, filed 2026-03-02 |
+| Income available to common, fiscal 2024 | withheld | 8,463,000,000 | same concept 2024-01-01..2024-12-31, same 10-K (and 10-K 0000080661-25-000007, filed 2025-03-03); `NetIncomeLoss` 8,480,000,000 less `PreferredStockDividendsIncomeStatementImpact` 17,000,000 |
+| Excess-return per-share divisor | withheld | 582,200,000 shares | `us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding` 2026-07-01..2026-09-30, 10-Q 0000080661-26-000379, filed 2026-11-02 |
+| Year-one payout ratio | withheld | 15.366577% | below |
+
+The payout ratio is the average of three fiscal years of common dividends
+plus net common buybacks over income available to common, each operand in
+10-K 0000080661-26-000086: 2025, (2,871M `PaymentsOfDividendsCommonStock` +
+92M + 74M) / 11,308M = 26.857%; 2024, (674M + 121M + 13M) / 8,463M = 9.547%;
+2023, (234M + 140.7M) / 3,864.8M = 9.695% (the fiscal 2023 10-K
+0000080661-24-000007 in tenths of a million; the later 10-K rounds to 141M
+and 3,865M). The buyback lines are Progressive's own elements
+(`pgr:PaymentsforRepurchaseofCommonStockforRestrictedStockTaxLiabilities`,
+`pgr:PaymentsforRepurchaseofCommonStockintheOpenMarket`), absent from SEC's
+companyfacts feed and read from the 10-K's XBRL instance. For fiscal 2024 the
+stored operands are the vendor's 634M "repurchased" and 500M "issued": the
+vendor booked the 500M preferred redemption
+(`PaymentsForRepurchaseOfPreferredStockAndPreferenceStock`) as a common
+repurchase and offset it with an issuance. Their net, 134M, is the filed
+figure and the ratio uses only the net. The two vendor lines are not filed
+lines; they were shown before this change and are left for a follow-up.
+
+What moves with it:
+
+| PGR figure | Before | After |
+| --- | --- | --- |
+| Fair value per share (excess-return) | withheld | USD 160.42 (equity value 93,394.7M on 582.2M shares; opening book 34,485M at 2026-09-30 and trailing income to common 11,622M are unchanged and match the filings) |
+| Difference to the price | withheld | -32.20% |
+| Implied price to book; market-implied current ROE | withheld | 2.685x; 45.16% |
+| Scenario targets | withheld (no payout path) | withheld; the reason now names the unresolved preferred capital at 2024-12-31 |
+| Quality signal, equity return less cost of equity | unscored | 25.68 pp, score 92 |
+| Valuation signal, ROE implied by the price against achievable | unscored | 11.92 pp, score 32.44 |
+| Quality aspect | 96 A on 7.3% of its weight | 92.69 A on 42.3% |
+| Valuation aspect and assessment | 70.19 B on 50% | 51.31 D on 100% |
+| Business-quality assessment | 55 C | 65.19 C |
+| Composite | 56.79 C | 59.72 C |
+| Evidence available, share of signal weight | 52.46% | 83.62% |
+
+No scoring rule, band or weight changed (P17): two signals that had no
+evidence now have it. The fiscal 2024 and 2025 returns on equity in the
+history stay withheld (the preferred capital at 2024-12-31 is unresolved, so
+there is no average book for either year).
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports three changes
+against its expectation: `fv.dilutedShares` gap to match; `fv.payoutRatio`
+gap to not-established (the tool does not compose the house average, as for
+JPM; the operands are above); and `fv.suppressed` no longer produced.
+
+Not changed here, with the cause.
+
+- JPM revenue, fiscal 2025 (`Revenues` 182,447,000,000, 10-K
+  0001628280-26-008131). The vendor's revenue for a bank is gross of interest
+  expense (279,745M: interest income 193,341M plus noninterest revenue
+  86,404M); the filing's total net revenue is net interest income 95,443M
+  plus noninterest revenue 87,004M. `enrichIncomeClassification` compares the
+  two and refuses the row ("Income classification conflict"); it has a rule
+  that adopts the filed net revenue for securities firms
+  (`RevenuesNetOfInterestExpense`, SIC 6211) and none for banks. The vendor
+  figure is not the filed lines regrouped (its noninterest revenue is 600M
+  lower), so no reconciliation proves it. The same refusal stands on the four
+  latest quarters, which is why JPM has no trailing income window and its
+  "current capital" block is labelled with fiscal 2025: the 10-Q for
+  2026-09-30 (0001628280-26-069523, filed 2026-11-03) is before the cutoff
+  and in the cached facts, and D-236 plays no part. Older fiscal years keep
+  the vendor's gross figure unchecked, because their filed line's newest
+  filing is a later 10-K. The fix is a bank rule beside the securities one:
+  adopt the filed total (`Revenues`, tied to `InterestIncomeExpenseNet` plus
+  `NoninterestIncome` in the same filing) for every annual and quarterly row,
+  withhold the gross-revenue cost and profit subtotals, and replay it in the
+  Stage B view. It moves JPM's whole revenue history, growth rates, margins,
+  projections, scenario spread, the trailing window and the scores built on
+  them, each to be proven per fiscal year; that is its own step.
+- The "not applicable" rows above. The accuracy tool should classify them as
+  not applicable; nothing in Metis changes.
+- The lease note on these routes reads "Balance date unavailable: No valid
+  combined lease-line observation is available" where the reason is that the
+  block is not applicable. A wording change without a figure change is not
+  allowed in this stage; listed for a later one.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change calls for the Stage
+B implementation stamp (identical inputs compute different values), the
+payload version (the fair value, the payout ratio and two signals reach the
+analysts) and the report specification (a fair value and an aspect band
+change). Saved reports are immutable (P21) and keep the figures they were
+built with.
+
+Tests. `tests/commonEarnings.test.ts`: the root cause (the closing balance
+alone reads nothing); Progressive's fiscal 2025 and 2024 on the filed facts;
+a year with no preferred claim left alone (compatible control); only the
+common-earnings field filled; a refusal and a fact filed after the cutoff;
+a bank with preferred outstanding at the year end read exactly as before
+(unrelated shape). `tests/commonEarnings.redeemedPreferred.test.ts`: the same
+through Stage B on a synthetic insurer (failing before the change), the
+withheld case without a filed figure, an insurer that never had preferred,
+and one with preferred throughout.
+
 ## D-240 - The trailing net income behind FCF conversion is read from the filings when they state one profit line (2026-11-12)
 
 Principles P5 (entity scope), P1 (exact period; an additive flow derived from
@@ -12338,7 +12509,9 @@ Admit independently compatible quarterly consolidated/parent/signed-NCI earnings
 even when the vendor parent number agrees. Consolidated cash conversion requires
 a complete consolidated earnings window; zero closing NCI balances prove no
 earnings allocation. (Revised by D-240: the filings of an issuer that reports a
-single profit line establish that window.) Standalone capex/SBC recovery requires compatible direct or
+single profit line establish that window. Revised by D-251: filed common
+earnings are also read for a fiscal year in which preferred claims existed
+although none stand at its end.) Standalone capex/SBC recovery requires compatible direct or
 cumulative operands and retains original vendor observations and independent
 refusals. Retained EXPE replay reconciles the 9M earnings residual, corrects cash
 conversion to 177.199622%, corrects Q3 2025 FCF to −686M and recovers two SBC
