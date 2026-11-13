@@ -357,18 +357,49 @@ describe("models-refresh adds newly published models", () => {
     }
   });
 
-  it("treats a dated snapshot as the same model as its entry when names are compared", async () => {
+  it("treats only a snapshot id the registry records as the same model as its entry", async () => {
+    const { refreshRegistryFile } = await load();
+    const cheap: PriceRow = { inputPerMTok: 0.1, outputPerMTok: 0.5, cacheWrite5mPerMTok: 0.125, cacheWrite1hPerMTok: 0.2, cacheReadPerMTok: 0.01 };
+    // Recorded in the registry as Haiku 4.5's snapshot: one model, one name, nothing withheld.
+    await withRegistryFile((registryPath) => {
+      const api = [...listed(), { id: "claude-haiku-4-5-20251001", display_name: "Claude Haiku 4.5" }];
+      const { report } = refreshRegistryFile(registryPath, api, pricingPage(), "2027-02-10", true);
+      expect(parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8"))).models).toEqual(MODEL_REGISTRY.models);
+      expect(report.some((line) => line.startsWith("pricing:"))).toBe(false);
+    });
+    // An id that only looks like a snapshot is another model: the entry is renamed to its name, and the one row is not the entry's.
+    await withRegistryFile((registryPath) => {
+      const original = readFileSync(registryPath, "utf8");
+      const api = [
+        ...listed().map((m) => (m.id === "claude-haiku-4-5" ? { ...m, display_name: "Claude Budget" } : m)),
+        { id: "claude-haiku-4-5-20250901", display_name: "Claude Budget" },
+      ];
+      const html = pricingPage([priceRow("Claude Budget", cheap)]);
+      expect(() => refreshRegistryFile(registryPath, api, html, "2027-02-10", true))
+        .toThrow(/Claude Budget: this display name is carried by more than one model \(claude-haiku-4-5, claude-haiku-4-5-20250901\).*datedSnapshotIds/);
+      expect(readFileSync(registryPath, "utf8")).toBe(original);
+      const dryRun = refreshRegistryFile(registryPath, api, html, "2027-02-10", false);
+      expect(dryRun.registry.models.find((m) => m.id === "claude-haiku-4-5")!.pricing)
+        .toEqual(MODEL_REGISTRY.models.find((m) => m.id === "claude-haiku-4-5")!.pricing);
+    });
+  });
+
+  it("leaves out a new model the API lists under two ids with one name, and still adds the rest", async () => {
     const { refreshRegistryFile } = await load();
     await withRegistryFile((registryPath) => {
       const api = [
         ...listed(),
-        // Recorded in the registry as Haiku 4.5's snapshot, and one the registry has not recorded yet.
-        { id: "claude-haiku-4-5-20251001", display_name: "Claude Haiku 4.5" },
-        { id: "claude-opus-5-5-20260801", display_name: "Claude Opus 5.5" },
+        // Nothing in either record says the dated id is the same model.
+        apiModel("claude-sonnet-6", "sonnet", "Claude Sonnet 6"),
+        { id: "claude-sonnet-6-20270203", display_name: "Claude Sonnet 6" },
+        apiModel("claude-opus-6", "opus", "Claude Opus 6"),
       ];
-      const { report } = refreshRegistryFile(registryPath, api, pricingPage(), "2027-02-10", true);
-      expect(parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8"))).models).toEqual(MODEL_REGISTRY.models);
-      expect(report.some((line) => line.startsWith("pricing:"))).toBe(false);
+      const html = pricingPage([priceRow("Claude Sonnet 6", NEW_PRICE), priceRow("Claude Opus 6", NEW_PRICE)]);
+      const { report } = refreshRegistryFile(registryPath, api, html, "2027-02-10", true);
+      const ids = parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8"))).models.map((m) => m.id);
+      expect(ids).toContain("claude-opus-6");
+      expect(ids).not.toContain("claude-sonnet-6");
+      expect(report).toContainEqual(expect.stringMatching(/^claude-sonnet-6: .*not added: its display name "Claude Sonnet 6" is also carried by claude-sonnet-6-20270203/));
     });
   });
 

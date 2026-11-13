@@ -117,7 +117,7 @@ export function refreshRegistryFile(registryPath, apiModels, pricingHtml, today,
   // Only an existing entry without a price row of its own blocks a write; a new model without one is left out.
   const unparsed = [
     ...pricing.unparsed.filter((line) => existingNames.some((name) => line.startsWith(`${name}:`))),
-    ...sharedExisting.map((name) => `${name}: this display name is carried by more than one model (${merged.sharedNames.get(name).join(", ")}), so its price row cannot be matched to one of them`),
+    ...sharedExisting.map((name) => `${name}: this display name is carried by more than one model (${merged.sharedNames.get(name).join(", ")}), so its price row cannot be matched to one of them; if one is a dated snapshot of the other, record it in that entry's datedSnapshotIds`),
   ];
   const added = addNewModels(merged.registry, merged.candidates, pricing.parsed, pricing.unparsed);
   const priced = applyPricing(added.registry, pricing.parsed);
@@ -171,10 +171,9 @@ export function mergeModelList(registry, apiModels, today) {
   }
   // A price row is matched by display name, so a name must belong to one model. Every
   // model counts: registry entries under their names before and after the sync, and
-  // every id the API lists, whether or not it can be added. A dated snapshot is the
-  // same model as its entry.
-  const entryIdOf = (id) => registry.models.find((model) => model.id === id || model.datedSnapshotIds.includes(id)
-    || (id.startsWith(`${model.id}-`) && /^\d{8}$/.test(id.slice(model.id.length + 1))))?.id ?? id;
+  // every id the API lists, whether or not it can be added. Only a snapshot id the
+  // registry records is the same model as its entry: the shape of an id proves nothing.
+  const entryIdOf = (id) => registry.models.find((model) => model.id === id || model.datedSnapshotIds.includes(id))?.id ?? id;
   const carriers = new Map();
   const carry = (name, id) => {
     if (typeof name === "string") carriers.set(name, (carriers.get(name) ?? new Set()).add(id));
