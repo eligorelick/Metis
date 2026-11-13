@@ -383,7 +383,9 @@ web search tool version, refusal fallback) are copied from the newest entry of
 the same line and named in the new entry's notes. A model with a missing or
 ambiguous price row, such as one priced in tiers by prompt size, is left out
 with the reason in the report, and so is an older model, a model of a line the
-registry does not carry and a model the API does not fully describe. A new
+registry does not carry, a model the API does not fully describe, a model that
+takes only some of the five effort levels, and a model whose display name
+another entry or new model also carries. A new
 entry is selectable at once but is not placed in the `auto` order; add it to
 `autoPreference` after a run on it has succeeded. Review an added entry,
 lifecycle changes and existing capability policy before merging.

@@ -119,6 +119,10 @@ export function refreshRegistryFile(registryPath, apiModels, pricingHtml, today,
   const report = [...merged.report, ...added.report, ...priced.report, ...unparsed.map((line) => `pricing: ${line}`)];
   if (write) {
     if (unparsed.length > 0) throw new Error(`Refusing to write incomplete pricing: ${unparsed.join("; ")}`);
+    // The app validates the registry when it loads; a repeated id would stop it starting.
+    const ids = priced.registry.models.map((model) => model.id);
+    const repeated = ids.filter((id, index) => ids.indexOf(id) !== index);
+    if (repeated.length > 0) throw new Error(`Refusing to write a registry that repeats a model id: ${[...new Set(repeated)].join(", ")}`);
     writeFileSync(registryPath, `${JSON.stringify(priced.registry, null, 2)}\n`, "utf8");
   }
   return { registry: priced.registry, report };
@@ -149,17 +153,43 @@ export function mergeModelList(registry, apiModels, today) {
     }),
   };
   const known = new Set(registry.models.flatMap((m) => [m.id, ...m.datedSnapshotIds]));
-  const candidates = [];
+  const notAdded = (id, reason) => report.push(`${id}: listed by the API but not in the registry — not added: ${reason}`);
+  // One record per id. The same record listed twice (overlapping pages) counts once;
+  // two different records for one id describe nothing reliably and are both withheld.
+  const records = new Map();
+  const conflicting = new Set();
   for (const api of apiModels) {
-    if (typeof api.id === "string" && api.id.startsWith("claude-") && !known.has(api.id)) {
-      const described = describeNewModel(registry, api, today);
-      if ("reason" in described) {
-        report.push(`${api.id}: listed by the API but not in the registry — not added: ${described.reason}`);
-      } else {
-        candidates.push(described);
-      }
-    }
+    if (typeof api.id !== "string" || !api.id.startsWith("claude-") || known.has(api.id)) continue;
+    const seen = records.get(api.id);
+    if (seen === undefined) records.set(api.id, api);
+    else if (JSON.stringify(seen) !== JSON.stringify(api)) conflicting.add(api.id);
   }
+  let candidates = [];
+  for (const [id, api] of records) {
+    if (conflicting.has(id)) {
+      notAdded(id, "the Models API lists it more than once with different details");
+      continue;
+    }
+    const described = describeNewModel(registry, api, today);
+    if ("reason" in described) notAdded(id, described.reason);
+    else candidates.push(described);
+  }
+  // A price row is matched by display name, so a name that is not this model's alone
+  // could hand it another model's prices. Names before and after the sync both count.
+  const takenNames = new Set([...registry.models, ...next.models].map((model) => model.displayName));
+  const nameCounts = new Map();
+  for (const { entry } of candidates) nameCounts.set(entry.displayName, (nameCounts.get(entry.displayName) ?? 0) + 1);
+  candidates = candidates.filter(({ entry }) => {
+    if (takenNames.has(entry.displayName)) {
+      notAdded(entry.id, `its display name "${entry.displayName}" is already a registry entry's, so a price row cannot be matched to it alone`);
+      return false;
+    }
+    if (nameCounts.get(entry.displayName) > 1) {
+      notAdded(entry.id, `another new model has the same display name "${entry.displayName}", so a price row cannot be matched to it alone`);
+      return false;
+    }
+    return true;
+  });
   return { registry: next, report, candidates };
 }
 
@@ -213,6 +243,10 @@ export function describeNewModel(registry, api, today) {
   }
   const levels = effort.supported ? EFFORT_LEVELS.filter((level) => isSupported(effort[level])) : [];
   if (effort.supported && levels.length === 0) return { reason: "the Models API says it takes an effort level but lists none" };
+  // Metis sends whichever of the five levels is configured to any model that takes effort.
+  if (effort.supported && levels.length !== EFFORT_LEVELS.length) {
+    return { reason: `it takes only some effort levels (${levels.join(", ")}), and Metis sends any of the five to a model that takes effort; add it by hand` };
+  }
   const thinkingCapability = capabilities.thinking;
   if (thinkingCapability === null || typeof thinkingCapability !== "object" || typeof thinkingCapability.supported !== "boolean") {
     return { reason: "the Models API does not say whether it thinks" };

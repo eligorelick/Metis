@@ -214,8 +214,12 @@ describe("models-refresh adds newly published models", () => {
     expect(describe6({ thinking: { supported: false, types: { adaptive: no, disabled: yes } } })).toMatchObject({
       entry: { thinking: { mode: "none", sendParam: false } },
     });
+    // Metis sends any of the five levels to a model that takes effort, so a model taking only some is left out.
     expect(describe6({ effort: { supported: true, low: yes, medium: yes, high: yes, xhigh: null, max: no } })).toMatchObject({
-      entry: { effort: { supported: true, levels: ["low", "medium", "high"] } },
+      reason: expect.stringMatching(/only some effort levels \(low, medium, high\)/),
+    });
+    expect(describe6({ effort: { supported: true, low: yes, medium: yes, high: yes, xhigh: yes, max: yes } })).toMatchObject({
+      entry: { effort: { supported: true, levels: ["low", "medium", "high", "xhigh", "max"] } },
     });
     expect(describe6({ effort: { supported: false, low: no, medium: no, high: no, max: no } })).toMatchObject({
       entry: { effort: { supported: false, levels: [] } },
@@ -297,6 +301,65 @@ describe("models-refresh adds newly published models", () => {
       expect(report).toContainEqual(expect.stringMatching(/^claude-sonnet-6: .*not added: no single complete price row .*ambiguous/));
       // A new model's missing price is not an existing entry's missing price: it does not block the write.
       expect(report.some((line) => line.startsWith("pricing:"))).toBe(false);
+    });
+  });
+
+  it("never gives a new model a price row that is not its own alone", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const api = [
+        ...listed(),
+        // Carries the name of an entry the registry already holds: that row is Opus 5.5's price.
+        apiModel("claude-opus-6", "opus", "Claude Opus 5.5"),
+        // Two new models under one name: the single row cannot belong to both.
+        apiModel("claude-sonnet-6", "sonnet", "Claude Next"),
+        apiModel("claude-fable-6", "fable", "Claude Next"),
+      ];
+      const html = pricingPage([priceRow("Claude Next", NEW_PRICE)]);
+      const { report } = refreshRegistryFile(registryPath, api, html, "2027-02-10", true);
+      const written = parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8")));
+      expect(written.models).toEqual(MODEL_REGISTRY.models);
+      expect(report).toContainEqual(expect.stringMatching(/^claude-opus-6: .*not added: its display name "Claude Opus 5\.5" is already a registry entry's/));
+      expect(report).toContainEqual(expect.stringMatching(/^claude-sonnet-6: .*not added: another new model has the same display name "Claude Next"/));
+      expect(report).toContainEqual(expect.stringMatching(/^claude-fable-6: .*not added: another new model has the same display name "Claude Next"/));
+    });
+  });
+
+  it("counts a record listed twice once, and leaves out an id listed with two different records", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const api = [
+        ...listed(),
+        // The same record on two overlapping pages.
+        apiModel("claude-opus-6", "opus", "Claude Opus 6"),
+        apiModel("claude-opus-6", "opus", "Claude Opus 6"),
+        // One id, two different descriptions.
+        apiModel("claude-fable-6", "fable", "Claude Fable 6"),
+        apiModel("claude-fable-6", "fable", "Claude Fable 6", { max_tokens: 64_000 }),
+      ];
+      const html = pricingPage([priceRow("Claude Opus 6", NEW_PRICE), priceRow("Claude Fable 6", NEW_PRICE)]);
+      const { report } = refreshRegistryFile(registryPath, api, html, "2027-02-10", true);
+      // The written file is one the application can load: every id once.
+      const ids = parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8"))).models.map((m) => m.id);
+      expect(ids.filter((id) => id === "claude-opus-6")).toEqual(["claude-opus-6"]);
+      expect(ids).not.toContain("claude-fable-6");
+      expect(report.filter((line) => line.startsWith("claude-opus-6: added"))).toHaveLength(1);
+      expect(report).toContainEqual(expect.stringMatching(/^claude-fable-6: .*not added: the Models API lists it more than once with different details/));
+    });
+  });
+
+  it("still refuses to write when an existing entry has lost its price row, whatever new model is present", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const original = readFileSync(registryPath, "utf8");
+      const api = [...listed(), apiModel("claude-opus-6", "opus", "Claude Opus 6")];
+      const missing = MODEL_REGISTRY.models.find((m) => m.id === "claude-sonnet-5")!;
+      const html = `<table>${PRICING_HEADERS}${MODEL_REGISTRY.models
+        .filter((m) => m.id !== missing.id)
+        .map((m) => priceRow(m.displayName, m.pricing))
+        .join("")}${priceRow("Claude Opus 6", NEW_PRICE)}</table>`;
+      expect(() => refreshRegistryFile(registryPath, api, html, "2027-02-10", true)).toThrow(/incomplete pricing/);
+      expect(readFileSync(registryPath, "utf8")).toBe(original);
     });
   });
 

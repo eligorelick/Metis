@@ -52,6 +52,14 @@ What changed.
      takes an effort level and which levels, and whether thinking can be
      turned off; it supports structured output and web search, which the
      passes need;
+   - it takes all five effort levels or none. The request builder sends the
+     configured level to any model that takes effort, so a model taking only
+     some levels is added by hand, not sent a level it rejects;
+   - the API lists it once. The same record on two pages counts once; two
+     different records for one id are both left out;
+   - its display name is its own: no registry entry and no other new model
+     carries it. A price row is matched by display name, so a shared name
+     could give a model another model's prices (P23);
    - the pricing page has exactly one complete row under its display name. A
      model priced in tiers by prompt size (Claude Haiku 5.5 today) has no such
      row and is left out, because one price per model is all the registry and
@@ -83,8 +91,15 @@ requests, which are the owner's to grant.
 Tests: `tests/modelsRefresh.test.ts` (a complete model is added above the
 entry it copied from, with limits, effort and thinking from the API and the
 price from the page; every incomplete case is left out with its reason; a new
-model without a price row does not block the rest; the `auto` order is
-untouched), `tests/modelRegistry.test.ts`.
+model without a price row does not block the rest; a shared display name, a
+partial set of effort levels and an id listed with two different records are
+left out; a record listed twice is added once; a missing price row for an
+existing entry still stops the write when a new model is present; the `auto`
+order is untouched), `tests/modelRegistry.test.ts`.
+
+Second-model review (Codex, 2026-11-13) found the display-name, repeated
+record and partial effort cases; the three rules above and the last check
+before writing (no repeated id) answer it.
 
 ## D-258 - The bank revenue and reader-label steps move the version stamps once (2026-11-13)
 
