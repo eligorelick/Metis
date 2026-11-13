@@ -1648,7 +1648,7 @@ export interface RoicOptions {
   unusualByYear?: ReadonlyMap<string, number>;
   /**
    * Keep the operating-lease liability inside invested capital
-   * (THESIS_EV_INCLUDE_LEASES=1), so ROIC and the EV bridge share one lease
+   * (METIS_EV_INCLUDE_LEASES=1), so ROIC and the EV bridge share one lease
    * basis whichever way the option is set. Default false: the slice is
    * removed where the balance sheet discloses it.
    */

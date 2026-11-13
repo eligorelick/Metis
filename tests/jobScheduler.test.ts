@@ -1183,13 +1183,13 @@ describe("durable scheduler pump", () => {
     };
 
     try {
-      vi.stubEnv("THESIS_MAX_ACTIVE_JOBS", "0");
+      vi.stubEnv("METIS_MAX_ACTIVE_JOBS", "0");
       resetConfigCache();
       kickJobScheduler(async () => ({} as never), options);
       await vi.advanceTimersByTimeAsync(0);
       expect(launched).toEqual([]);
 
-      vi.stubEnv("THESIS_MAX_ACTIVE_JOBS", "1");
+      vi.stubEnv("METIS_MAX_ACTIVE_JOBS", "1");
       resetConfigCache();
       kickJobScheduler(async () => ({} as never), options);
       await vi.advanceTimersByTimeAsync(0);

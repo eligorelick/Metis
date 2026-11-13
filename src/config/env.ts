@@ -14,7 +14,7 @@
 import "server-only";
 
 import { z } from "zod";
-import { withMetisAliases } from "./namespace";
+import { projectMetisSettings } from "./namespace";
 import { providerCredentialSnapshot } from "@/ai/store";
 
 import {
@@ -352,7 +352,7 @@ export interface ThesisConfig {
 export function parseEnv(
   env: Record<string, string | undefined>,
 ): ThesisConfig {
-  const parsed = envSchema.parse(withMetisAliases(env, Object.keys(envSchema.shape)));
+  const parsed = envSchema.parse(projectMetisSettings(env, Object.keys(envSchema.shape)));
   const config: ThesisConfig = {
     uiRedesign: parsed.METIS_UI_REDESIGN,
     fmpApiKey: parsed.FMP_API_KEY,
@@ -397,7 +397,8 @@ export function getConfig(): ThesisConfig {
   const signature = JSON.stringify({ credentials, unreadable });
   if (cached === undefined || signature !== credentialSignature) {
     // Resolve native env lookups before copying: Windows keys are case-insensitive.
-    cached = parseEnv({ ...withMetisAliases(process.env, Object.keys(envSchema.shape)), ...credentials, ...(unreadable ? { ANTHROPIC_API_KEY: undefined, ANTHROPIC_ADMIN_KEY: undefined } : {}) });
+    // The projection refuses retired Thesis-era setting names on process.env itself (D-228).
+    cached = parseEnv({ ...projectMetisSettings(process.env, Object.keys(envSchema.shape)), ...credentials, ...(unreadable ? { ANTHROPIC_API_KEY: undefined, ANTHROPIC_ADMIN_KEY: undefined } : {}) });
     credentialSignature = signature;
   }
   return cached;

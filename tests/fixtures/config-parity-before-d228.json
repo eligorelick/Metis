@@ -1,0 +1,1794 @@
+{
+  "defaults": {
+    "uiRedesign": false,
+    "analysisModel": "auto",
+    "hasFmpKey": false,
+    "hasFinnhubKey": false,
+    "hasFredKey": false,
+    "hasAnthropicKey": false,
+    "fixtureMode": true,
+    "statementSource": "auto",
+    "maxActiveJobs": 1,
+    "maxActiveLlmCalls": 2,
+    "maxJobCostUsd": null,
+    "maxRollingCostUsd": null,
+    "rollingCostWindowMs": 86400000,
+    "paidPassLeaseTtlMs": 900000,
+    "jobLeaseTtlMs": 900000,
+    "streamIdleTimeoutMs": 300000,
+    "reservationMode": "request",
+    "resumeOnStart": true,
+    "evIncludeLeases": false,
+    "judgeOrder": "random"
+  },
+  "rows": [
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "1"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "3"
+      },
+      "result": {
+        "changed": {
+          "maxActiveJobs": 3
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": " 7 "
+      },
+      "result": {
+        "changed": {
+          "maxActiveJobs": 7
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "0"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_ACTIVE_JOBS"
+            ],
+            "message": "must be a safe integer greater than 0 and at most 9007199254740991"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "-1"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_ACTIVE_JOBS"
+            ],
+            "message": "must be a positive base-10 integer"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "1.5"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_ACTIVE_JOBS"
+            ],
+            "message": "must be a positive base-10 integer"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "abc"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_ACTIVE_JOBS"
+            ],
+            "message": "must be a positive base-10 integer"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "9007199254740991"
+      },
+      "result": {
+        "changed": {
+          "maxActiveJobs": 9007199254740991
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "9007199254740992"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_ACTIVE_JOBS"
+            ],
+            "message": "must be a safe integer greater than 0 and at most 9007199254740991"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_LLM_CALLS": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_LLM_CALLS": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_LLM_CALLS": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_LLM_CALLS": "2"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_LLM_CALLS": "4"
+      },
+      "result": {
+        "changed": {
+          "maxActiveLlmCalls": 4
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_LLM_CALLS": "0"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_ACTIVE_LLM_CALLS"
+            ],
+            "message": "must be a safe integer greater than 0 and at most 9007199254740991"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_LLM_CALLS": "x"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_ACTIVE_LLM_CALLS"
+            ],
+            "message": "must be a positive base-10 integer"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "0"
+      },
+      "result": {
+        "changed": {
+          "maxJobCostUsd": 0
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "5"
+      },
+      "result": {
+        "changed": {
+          "maxJobCostUsd": 5
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": " 5 "
+      },
+      "result": {
+        "changed": {
+          "maxJobCostUsd": 5
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "12.345678"
+      },
+      "result": {
+        "changed": {
+          "maxJobCostUsd": 12.345678
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "0.0000001"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_JOB_COST_USD"
+            ],
+            "message": "must be a nonnegative ordinary decimal with at most six places"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "-0.01"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_JOB_COST_USD"
+            ],
+            "message": "must be a nonnegative ordinary decimal with at most six places"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "1e3"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_JOB_COST_USD"
+            ],
+            "message": "must be a nonnegative ordinary decimal with at most six places"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "1,000"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_JOB_COST_USD"
+            ],
+            "message": "must be a nonnegative ordinary decimal with at most six places"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "Infinity"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_JOB_COST_USD"
+            ],
+            "message": "must be a nonnegative ordinary decimal with at most six places"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "9007199254.740990"
+      },
+      "result": {
+        "changed": {
+          "maxJobCostUsd": 9007199254.74099
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_JOB_COST_USD": "9007199254.740991"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_JOB_COST_USD"
+            ],
+            "message": "USD cap cannot be represented as exact micro-USD"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ROLLING_COST_USD": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ROLLING_COST_USD": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ROLLING_COST_USD": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ROLLING_COST_USD": "0"
+      },
+      "result": {
+        "changed": {
+          "maxRollingCostUsd": 0
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ROLLING_COST_USD": "20"
+      },
+      "result": {
+        "changed": {
+          "maxRollingCostUsd": 20
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ROLLING_COST_USD": "99.01"
+      },
+      "result": {
+        "changed": {
+          "maxRollingCostUsd": 99.01
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ROLLING_COST_USD": "NaN"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_ROLLING_COST_USD"
+            ],
+            "message": "must be a nonnegative ordinary decimal with at most six places"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ROLLING_COST_USD": "-1"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_MAX_ROLLING_COST_USD"
+            ],
+            "message": "must be a nonnegative ordinary decimal with at most six places"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_ROLLING_COST_WINDOW_MINUTES": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_ROLLING_COST_WINDOW_MINUTES": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_ROLLING_COST_WINDOW_MINUTES": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_ROLLING_COST_WINDOW_MINUTES": "60"
+      },
+      "result": {
+        "changed": {
+          "rollingCostWindowMs": 3600000
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_ROLLING_COST_WINDOW_MINUTES": "1440"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_ROLLING_COST_WINDOW_MINUTES": "0"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_ROLLING_COST_WINDOW_MINUTES"
+            ],
+            "message": "must be a safe integer greater than 0 and at most 52560000"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_ROLLING_COST_WINDOW_MINUTES": "52560000"
+      },
+      "result": {
+        "changed": {
+          "rollingCostWindowMs": 3153600000000
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_ROLLING_COST_WINDOW_MINUTES": "52560001"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_ROLLING_COST_WINDOW_MINUTES"
+            ],
+            "message": "must be a safe integer greater than 0 and at most 52560000"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_STATEMENT_SOURCE": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_STATEMENT_SOURCE": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_STATEMENT_SOURCE": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_STATEMENT_SOURCE": "auto"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_STATEMENT_SOURCE": "fmp"
+      },
+      "result": {
+        "changed": {
+          "statementSource": "fmp"
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_STATEMENT_SOURCE": "EDGAR"
+      },
+      "result": {
+        "changed": {
+          "statementSource": "edgar"
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_STATEMENT_SOURCE": " Auto "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_STATEMENT_SOURCE": "sec"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_STATEMENT_SOURCE"
+            ],
+            "message": "must be one of \"auto\", \"fmp\" or \"edgar\""
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "900"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "800"
+      },
+      "result": {
+        "changed": {
+          "paidPassLeaseTtlMs": 800000
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "600"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_PAID_PASS_LEASE_SECONDS"
+            ],
+            "message": "must be a safe integer greater than 659 and at most 2147483"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "659"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_PAID_PASS_LEASE_SECONDS"
+            ],
+            "message": "must be a safe integer greater than 659 and at most 2147483"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "660"
+      },
+      "result": {
+        "changed": {
+          "paidPassLeaseTtlMs": 660000
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "1000"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_JOB_LEASE_SECONDS"
+            ],
+            "message": "must be at least METIS_PAID_PASS_LEASE_SECONDS (1000s): a paid-pass lease must never outlive its parent job claim"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "2147483"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_JOB_LEASE_SECONDS"
+            ],
+            "message": "must be at least METIS_PAID_PASS_LEASE_SECONDS (2147483s): a paid-pass lease must never outlive its parent job claim"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "2147484"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_PAID_PASS_LEASE_SECONDS"
+            ],
+            "message": "must be a safe integer greater than 659 and at most 2147483"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_JOB_LEASE_SECONDS": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_JOB_LEASE_SECONDS": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_JOB_LEASE_SECONDS": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_JOB_LEASE_SECONDS": "900"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_JOB_LEASE_SECONDS": "599"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_JOB_LEASE_SECONDS"
+            ],
+            "message": "must be a safe integer greater than 599 and at most 2147483"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_JOB_LEASE_SECONDS": "600"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_JOB_LEASE_SECONDS"
+            ],
+            "message": "must be at least METIS_PAID_PASS_LEASE_SECONDS (900s): a paid-pass lease must never outlive its parent job claim"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_JOB_LEASE_SECONDS": "1200"
+      },
+      "result": {
+        "changed": {
+          "jobLeaseTtlMs": 1200000
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_JOB_LEASE_SECONDS": "NaN"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_JOB_LEASE_SECONDS"
+            ],
+            "message": "must be a positive base-10 integer"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_STREAM_IDLE_SECONDS": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_STREAM_IDLE_SECONDS": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_STREAM_IDLE_SECONDS": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_STREAM_IDLE_SECONDS": "0"
+      },
+      "result": {
+        "changed": {
+          "streamIdleTimeoutMs": 0
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_STREAM_IDLE_SECONDS": "1"
+      },
+      "result": {
+        "changed": {
+          "streamIdleTimeoutMs": 1000
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_STREAM_IDLE_SECONDS": "300"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_STREAM_IDLE_SECONDS": "3600"
+      },
+      "result": {
+        "changed": {
+          "streamIdleTimeoutMs": 3600000
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_STREAM_IDLE_SECONDS": "3601"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_STREAM_IDLE_SECONDS"
+            ],
+            "message": "must be a safe integer greater than -1 and at most 3600"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_STREAM_IDLE_SECONDS": "-1"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_STREAM_IDLE_SECONDS"
+            ],
+            "message": "must be a positive base-10 integer"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_RESERVATION_MODE": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_RESERVATION_MODE": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_RESERVATION_MODE": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_RESERVATION_MODE": "request"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_RESERVATION_MODE": "pass"
+      },
+      "result": {
+        "changed": {
+          "reservationMode": "pass"
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_RESERVATION_MODE": "PASS"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_RESERVATION_MODE"
+            ],
+            "message": "must be \"request\" or \"pass\""
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_RESERVATION_MODE": "x"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_RESERVATION_MODE"
+            ],
+            "message": "must be \"request\" or \"pass\""
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_RESUME_ON_START": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_RESUME_ON_START": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_RESUME_ON_START": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_RESUME_ON_START": "0"
+      },
+      "result": {
+        "changed": {
+          "resumeOnStart": false
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_RESUME_ON_START": "1"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_RESUME_ON_START": " 0 "
+      },
+      "result": {
+        "changed": {
+          "resumeOnStart": false
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_RESUME_ON_START": "true"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_RESUME_ON_START"
+            ],
+            "message": "must be 1 or 0"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_RESUME_ON_START": "yes"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_RESUME_ON_START"
+            ],
+            "message": "must be 1 or 0"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_UI_REDESIGN": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_UI_REDESIGN": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_UI_REDESIGN": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_UI_REDESIGN": "0"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_UI_REDESIGN": "1"
+      },
+      "result": {
+        "changed": {
+          "uiRedesign": true
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_UI_REDESIGN": "true"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_UI_REDESIGN"
+            ],
+            "message": "must be 1 or 0"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_TOKEN_FILE": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_TOKEN_FILE": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_TOKEN_FILE": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_TOKEN_FILE": " /x/token "
+      },
+      "result": {
+        "changed": {
+          "tokenFile": "/x/token"
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_TOKEN_FILE": "relative-token"
+      },
+      "result": {
+        "changed": {
+          "tokenFile": "relative-token"
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_JUDGE_ORDER": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_JUDGE_ORDER": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_JUDGE_ORDER": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_JUDGE_ORDER": "random"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_JUDGE_ORDER": "bull-first"
+      },
+      "result": {
+        "changed": {
+          "judgeOrder": "bull-first"
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_JUDGE_ORDER": "BEAR-FIRST"
+      },
+      "result": {
+        "changed": {
+          "judgeOrder": "bear-first"
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_JUDGE_ORDER": "both"
+      },
+      "result": {
+        "changed": {
+          "judgeOrder": "both"
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_JUDGE_ORDER": "nonsense"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_EV_INCLUDE_LEASES": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_EV_INCLUDE_LEASES": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_EV_INCLUDE_LEASES": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_EV_INCLUDE_LEASES": "1"
+      },
+      "result": {
+        "changed": {
+          "evIncludeLeases": true
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_EV_INCLUDE_LEASES": " 1 "
+      },
+      "result": {
+        "changed": {
+          "evIncludeLeases": true
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_EV_INCLUDE_LEASES": "0"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_EV_INCLUDE_LEASES": "true"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_EV_INCLUDE_LEASES": "yes"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "FMP_API_KEY": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "FMP_API_KEY": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "FMP_API_KEY": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "FMP_API_KEY": " fixture-fmp "
+      },
+      "result": {
+        "changed": {
+          "fmpApiKey": "fixture-fmp",
+          "hasFmpKey": true,
+          "fixtureMode": false
+        }
+      }
+    },
+    {
+      "input": {
+        "FINNHUB_API_KEY": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "FINNHUB_API_KEY": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "FINNHUB_API_KEY": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "FINNHUB_API_KEY": "fixture-finnhub"
+      },
+      "result": {
+        "changed": {
+          "finnhubApiKey": "fixture-finnhub",
+          "hasFinnhubKey": true
+        }
+      }
+    },
+    {
+      "input": {
+        "FRED_API_KEY": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "FRED_API_KEY": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "FRED_API_KEY": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "FRED_API_KEY": "fixture-fred"
+      },
+      "result": {
+        "changed": {
+          "fredApiKey": "fixture-fred",
+          "hasFredKey": true
+        }
+      }
+    },
+    {
+      "input": {
+        "ANTHROPIC_API_KEY": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "ANTHROPIC_API_KEY": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "ANTHROPIC_API_KEY": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "ANTHROPIC_API_KEY": "fixture-anthropic"
+      },
+      "result": {
+        "changed": {
+          "anthropicApiKey": "fixture-anthropic",
+          "hasAnthropicKey": true
+        }
+      }
+    },
+    {
+      "input": {
+        "ANTHROPIC_ADMIN_KEY": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "ANTHROPIC_ADMIN_KEY": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "ANTHROPIC_ADMIN_KEY": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "ANTHROPIC_ADMIN_KEY": "fixture-admin"
+      },
+      "result": {
+        "changed": {
+          "anthropicAdminKey": "fixture-admin"
+        }
+      }
+    },
+    {
+      "input": {
+        "ANALYSIS_MODEL": ""
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "ANALYSIS_MODEL": "   "
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "ANALYSIS_MODEL": "\t"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "ANALYSIS_MODEL": " fixture-model "
+      },
+      "result": {
+        "changed": {
+          "analysisModel": "fixture-model"
+        }
+      }
+    },
+    {
+      "input": {
+        "ANALYSIS_MODEL": "auto"
+      },
+      "result": {
+        "changed": {}
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "1000",
+        "METIS_JOB_LEASE_SECONDS": "900"
+      },
+      "result": {
+        "issues": [
+          {
+            "path": [
+              "METIS_JOB_LEASE_SECONDS"
+            ],
+            "message": "must be at least METIS_PAID_PASS_LEASE_SECONDS (1000s): a paid-pass lease must never outlive its parent job claim"
+          }
+        ]
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "800",
+        "METIS_JOB_LEASE_SECONDS": "800"
+      },
+      "result": {
+        "changed": {
+          "paidPassLeaseTtlMs": 800000,
+          "jobLeaseTtlMs": 800000
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "700",
+        "METIS_JOB_LEASE_SECONDS": "800"
+      },
+      "result": {
+        "changed": {
+          "paidPassLeaseTtlMs": 700000,
+          "jobLeaseTtlMs": 800000
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_PAID_PASS_LEASE_SECONDS": "2147483",
+        "METIS_JOB_LEASE_SECONDS": "2147483"
+      },
+      "result": {
+        "changed": {
+          "paidPassLeaseTtlMs": 2147483000,
+          "jobLeaseTtlMs": 2147483000
+        }
+      }
+    },
+    {
+      "input": {
+        "METIS_MAX_ACTIVE_JOBS": "3",
+        "METIS_MAX_ACTIVE_LLM_CALLS": "4",
+        "METIS_MAX_JOB_COST_USD": "1.234567",
+        "METIS_MAX_ROLLING_COST_USD": "2.5",
+        "METIS_ROLLING_COST_WINDOW_MINUTES": "60",
+        "METIS_STATEMENT_SOURCE": "edgar",
+        "METIS_PAID_PASS_LEASE_SECONDS": "800",
+        "METIS_JOB_LEASE_SECONDS": "1100",
+        "METIS_STREAM_IDLE_SECONDS": "0",
+        "METIS_RESERVATION_MODE": "pass",
+        "METIS_RESUME_ON_START": "0",
+        "METIS_UI_REDESIGN": "1",
+        "METIS_TOKEN_FILE": "custom-token",
+        "METIS_JUDGE_ORDER": "both",
+        "METIS_EV_INCLUDE_LEASES": "1",
+        "FMP_API_KEY": "fixture-fmp",
+        "ANALYSIS_MODEL": "fixture-model"
+      },
+      "result": {
+        "changed": {
+          "uiRedesign": true,
+          "fmpApiKey": "fixture-fmp",
+          "analysisModel": "fixture-model",
+          "hasFmpKey": true,
+          "fixtureMode": false,
+          "statementSource": "edgar",
+          "maxActiveJobs": 3,
+          "maxActiveLlmCalls": 4,
+          "maxJobCostUsd": 1.234567,
+          "maxRollingCostUsd": 2.5,
+          "rollingCostWindowMs": 3600000,
+          "paidPassLeaseTtlMs": 800000,
+          "jobLeaseTtlMs": 1100000,
+          "streamIdleTimeoutMs": 0,
+          "reservationMode": "pass",
+          "resumeOnStart": false,
+          "tokenFile": "custom-token",
+          "evIncludeLeases": true,
+          "judgeOrder": "both"
+        }
+      }
+    }
+  ],
+  "outOfSchema": [
+    {
+      "suffix": "ALLOWED_HOST",
+      "raw": null,
+      "read": null
+    },
+    {
+      "suffix": "ALLOWED_HOST",
+      "raw": "",
+      "read": ""
+    },
+    {
+      "suffix": "ALLOWED_HOST",
+      "raw": "   ",
+      "read": "   "
+    },
+    {
+      "suffix": "ALLOWED_HOST",
+      "raw": "\t",
+      "read": "\t"
+    },
+    {
+      "suffix": "ALLOWED_HOST",
+      "raw": " value ",
+      "read": " value "
+    },
+    {
+      "suffix": "ALLOWED_HOST",
+      "raw": "1",
+      "read": "1"
+    },
+    {
+      "suffix": "ALLOWED_HOST",
+      "raw": "0",
+      "read": "0"
+    },
+    {
+      "suffix": "DB_PATH",
+      "raw": null,
+      "read": null
+    },
+    {
+      "suffix": "DB_PATH",
+      "raw": "",
+      "read": ""
+    },
+    {
+      "suffix": "DB_PATH",
+      "raw": "   ",
+      "read": "   "
+    },
+    {
+      "suffix": "DB_PATH",
+      "raw": "\t",
+      "read": "\t"
+    },
+    {
+      "suffix": "DB_PATH",
+      "raw": " value ",
+      "read": " value "
+    },
+    {
+      "suffix": "DB_PATH",
+      "raw": "1",
+      "read": "1"
+    },
+    {
+      "suffix": "DB_PATH",
+      "raw": "0",
+      "read": "0"
+    },
+    {
+      "suffix": "DATA_DIR",
+      "raw": null,
+      "read": null
+    },
+    {
+      "suffix": "DATA_DIR",
+      "raw": "",
+      "read": ""
+    },
+    {
+      "suffix": "DATA_DIR",
+      "raw": "   ",
+      "read": "   "
+    },
+    {
+      "suffix": "DATA_DIR",
+      "raw": "\t",
+      "read": "\t"
+    },
+    {
+      "suffix": "DATA_DIR",
+      "raw": " value ",
+      "read": " value "
+    },
+    {
+      "suffix": "DATA_DIR",
+      "raw": "1",
+      "read": "1"
+    },
+    {
+      "suffix": "DATA_DIR",
+      "raw": "0",
+      "read": "0"
+    },
+    {
+      "suffix": "IMPORT_LEGACY_DB",
+      "raw": null,
+      "read": null
+    },
+    {
+      "suffix": "IMPORT_LEGACY_DB",
+      "raw": "",
+      "read": ""
+    },
+    {
+      "suffix": "IMPORT_LEGACY_DB",
+      "raw": "   ",
+      "read": "   "
+    },
+    {
+      "suffix": "IMPORT_LEGACY_DB",
+      "raw": "\t",
+      "read": "\t"
+    },
+    {
+      "suffix": "IMPORT_LEGACY_DB",
+      "raw": " value ",
+      "read": " value "
+    },
+    {
+      "suffix": "IMPORT_LEGACY_DB",
+      "raw": "1",
+      "read": "1"
+    },
+    {
+      "suffix": "IMPORT_LEGACY_DB",
+      "raw": "0",
+      "read": "0"
+    }
+  ]
+}

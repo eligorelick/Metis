@@ -338,7 +338,7 @@ describe("what one request may cost", () => {
   });
 
   it("sizes the JUDGE worst case and pass bound for the orders the setting runs", () => {
-    // WS7 (D-20), 2026-09 review: `THESIS_JUDGE_ORDER=both` issues a MIRRORED
+    // WS7 (D-20), 2026-09 review: `METIS_JUDGE_ORDER=both` issues a MIRRORED
     // second judge request per attempt. The published worst case and the
     // "pass"-mode reservation were both sized for one order, so the figure
     // understated the real exposure by two times and, in pass mode (which has
@@ -527,7 +527,7 @@ describe("every provider request is admitted and settled on its own", () => {
     seedJob(first.db, "job-c", "AAPL");
     const claim = claimNextQueuedJob("owner", NOW, LIMITS, first.db)!;
     const { admission } = schedulerAdmission(claim, "bull", "pass-attempt", first.db);
-    process.env.THESIS_STREAM_IDLE_SECONDS = "1";
+    process.env.METIS_STREAM_IDLE_SECONDS = "1";
     resetConfigCache();
     try {
       _resetAnthropicForTests(fakeClient([
@@ -545,7 +545,7 @@ describe("every provider request is admitted and settled on its own", () => {
       expect(rows[0]!.costUsd).toBeGreaterThan(0);
       expect(rows[0]!.costUsd).toBeLessThanOrEqual(maximumRequestCostUsd("claude-sonnet-5", "bull"));
     } finally {
-      delete process.env.THESIS_STREAM_IDLE_SECONDS;
+      delete process.env.METIS_STREAM_IDLE_SECONDS;
       resetConfigCache();
     }
   }, 15_000);

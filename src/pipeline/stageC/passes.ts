@@ -417,7 +417,7 @@ export interface PassDeps {
    */
   jobSeed?: string;
   /**
-   * `THESIS_JUDGE_ORDER`. Absent means "read the environment", which is what
+   * `METIS_JUDGE_ORDER`. Absent means "read the environment", which is what
    * production does; tests pass it explicitly so no test depends on env state.
    */
   judgeOrder?: JudgeOrderSetting;
@@ -2963,7 +2963,7 @@ export async function runJudgePass(
 
   if (!run.ok) return settlePassRun(run, judgeModel, settlement);
 
-  // WS7 (D-20): `THESIS_JUDGE_ORDER=both` runs the judge a SECOND time with the
+  // WS7 (D-20): `METIS_JUDGE_ORDER=both` runs the judge a SECOND time with the
   // two cases swapped and reconciles the pair. It costs two judge passes, which
   // is why it is not the default. The second request rides the same authorized
   // launch (exactly as the provider's own transport retries do) and is admitted

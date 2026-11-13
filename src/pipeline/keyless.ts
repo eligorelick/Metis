@@ -127,7 +127,7 @@ export interface KeylessInputs {
   /** No FMP key configured → the substitution gaps are `expected`. */
   fmpKeyless: boolean;
   /**
-   * WS4 (D-12) statement-history policy, from `THESIS_STATEMENT_SOURCE`:
+   * WS4 (D-12) statement-history policy, from `METIS_STATEMENT_SOURCE`:
    *  - `auto`: FMP first, then EDGAR companyfacts for periods older than the
    *    oldest FMP row (a plan that caps `limit` truncates history);
    *  - `fmp`: never backfill;
@@ -200,7 +200,7 @@ const STATEMENT_ENDPOINTS = {
   cashflowQuarterly: "companyfacts→cash-flow(quarter)",
 } as const;
 
-/** The members `THESIS_STATEMENT_SOURCE` governs. */
+/** The members `METIS_STATEMENT_SOURCE` governs. */
 const STATEMENT_MEMBERS = Object.keys(STATEMENT_ENDPOINTS) as (keyof typeof STATEMENT_ENDPOINTS)[];
 
 const ENTERPRISE_VALUES_ENDPOINT = "derived:enterprise-values(balance×close×shares)";
@@ -897,7 +897,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     member !== "spy" && member !== "sectorEtf";
 
   /**
-   * WS4 (D-12): `THESIS_STATEMENT_SOURCE=edgar` rebuilds the six statement
+   * WS4 (D-12): `METIS_STATEMENT_SOURCE=edgar` rebuilds the six statement
    * members from companyfacts even when FMP served rows, so a reader who
    * distrusts the vendor's normalisation can run on filed facts alone. It never
    * lifts the issuer gate.
@@ -915,7 +915,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     );
   }
 
-  /** Did `THESIS_STATEMENT_SOURCE=edgar` set aside vendor rows FMP actually served for this member? */
+  /** Did `METIS_STATEMENT_SOURCE=edgar` set aside vendor rows FMP actually served for this member? */
   const vendorRowsOverridden = (member: keyof KeylessMembers): number => {
     if (!statementsFromEdgarOnly || !(STATEMENT_MEMBERS as readonly string[]).includes(member)) return 0;
     const original = inputs.fmp[member] as AnyMemberResult;
@@ -974,7 +974,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   };
 
   /**
-   * `THESIS_STATEMENT_SOURCE=edgar` promises statements from filed facts
+   * `METIS_STATEMENT_SOURCE=edgar` promises statements from filed facts
    * alone. When EDGAR cannot build a member, the vendor's rows are NOT kept as
    * a silent stand-in: the member becomes a gap naming both the EDGAR failure
    * and the rows the policy set aside, so a run that asked for EDGAR-only
@@ -1455,7 +1455,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       ),
     );
   }
-  // `THESIS_STATEMENT_SOURCE=fmp` keeps the statements vendor-only (D-12:
+  // `METIS_STATEMENT_SOURCE=fmp` keeps the statements vendor-only (D-12:
   // "never backfill"); the predecessor's filed history is EDGAR rows like any
   // other backfill and used to be appended in every mode.
   if (predecessor !== null && inputs.edgarConfirmedIssuer && inputs.statementSource === "fmp") {

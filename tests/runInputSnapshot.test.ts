@@ -186,7 +186,7 @@ describe("immutable normalized run inputs", () => {
     expect(expected.valuation).not.toEqual(runStageB(bundle, { evIncludeLeases: false }).valuation);
     persistRunInputSnapshot("run-a", 0, snapshot, capturedAt);
     handle.sqlite.exec('DELETE FROM api_cache');
-    vi.stubEnv("THESIS_EV_INCLUDE_LEASES", "false");
+    vi.stubEnv("METIS_EV_INCLUDE_LEASES", "false");
     vi.spyOn(globalThis, "fetch").mockImplementation(() => { throw new Error("network forbidden during replay"); });
     vi.useFakeTimers(); vi.setSystemTime(new Date("2035-01-01"));
     try {

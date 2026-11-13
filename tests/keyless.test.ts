@@ -482,7 +482,7 @@ describe("applyKeylessFallbacks", () => {
     expect(out.gaps.find((g) => g.field === "keyless.quote")?.expected).toBe(false);
   });
 
-  it("leaves the vendor member untouched under THESIS_STATEMENT_SOURCE=fmp", async () => {
+  it("leaves the vendor member untouched under METIS_STATEMENT_SOURCE=fmp", async () => {
     const fmp = allGaps();
     fmp.incomeAnnual = okRows([{ date: "2025-09-27", revenue: 1 }]);
     const out = await applyKeylessFallbacks(inputs({ fmp, fmpKeyless: false, statementSource: "fmp" }));
@@ -588,7 +588,7 @@ describe("applyKeylessFallbacks", () => {
     expect(out.notes.some((n) => n.startsWith("incomeAnnual: operatingIncome EBIT derived as pretax income"))).toBe(true);
   });
 
-  it("rebuilds every statement member from companyfacts under THESIS_STATEMENT_SOURCE=edgar", async () => {
+  it("rebuilds every statement member from companyfacts under METIS_STATEMENT_SOURCE=edgar", async () => {
     const fmp = allGaps();
     fmp.incomeAnnual = okRows([{ date: "2025-09-27", revenue: 1 }]);
     fmp.balanceAnnual = okRows([{ date: "2025-09-27", totalAssets: 2 }]);
@@ -610,7 +610,7 @@ describe("applyKeylessFallbacks", () => {
     expect(cashflow?.expected).toBe(false);
   });
 
-  it("withholds FMP's rows, naming the policy, when EDGAR cannot build a member under THESIS_STATEMENT_SOURCE=edgar", async () => {
+  it("withholds FMP's rows, naming the policy, when EDGAR cannot build a member under METIS_STATEMENT_SOURCE=edgar", async () => {
     const fmp = allGaps();
     fmp.incomeAnnual = okRows([{ date: "2025-09-27", revenue: 1 }, { date: "2024-09-28", revenue: 0.9 }]);
     const edgar = {
@@ -638,7 +638,7 @@ describe("applyKeylessFallbacks", () => {
     expect(auto.members.incomeAnnual.ok && auto.members.incomeAnnual.value.source).toBe("fmp");
   });
 
-  it("does not append predecessor history under THESIS_STATEMENT_SOURCE=fmp", async () => {
+  it("does not append predecessor history under METIS_STATEMENT_SOURCE=fmp", async () => {
     const fmp = allGaps();
     fmp.incomeAnnual = okRows([{ date: "2025-09-27", revenue: 1 }]);
     const predecessor: PredecessorFacts = {

@@ -4919,7 +4919,7 @@ describe("mock-driven bull/bear/judge passes", () => {
 
   /**
    * The standalone loop issues one judge request per attempt and never runs
-   * the mirrored pass. Under `THESIS_JUDGE_ORDER=both` it used to frame that
+   * the mirrored pass. Under `METIS_JUDGE_ORDER=both` it used to frame that
    * one request as "judged TWICE", stamp `setting=both` into the protocol and
    * record no reconciliation — a report that overstated the protocol run.
    */
