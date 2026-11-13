@@ -1,8 +1,8 @@
 import type { DataBundle } from "./types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
-import { admitStockCompensation, admitBalanceCash, admitQuarterlyCapex, admitCashFlowNetIncome, admitZeroCapex, zeroCapexEntries, type ZeroCapexRefusal } from "@/edgar/financialEnrichment";
+import { admitStockCompensation, admitBalanceCash, admitQuarterlyCapex, admitCashFlowNetIncome, admitZeroCapex, readmitFiledOperatingCashFlow, zeroCapexEntries, type ZeroCapexRefusal } from "@/edgar/financialEnrichment";
 
-/** Reapply SBC, annual cash-flow net income (D-231), the cash-capex zero rule (D-239) and same-filing cash admission without modifying the snapshot. */
+/** Reapply SBC, annual cash-flow net income (D-231), the cash-capex zero rule (D-239), the filed operating cash flow of a reconciled statement (D-252) and same-filing cash admission without modifying the snapshot. */
 export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   if (!facts) return bundle;
@@ -23,8 +23,12 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
       if (prior?.usable === false && current?.usable === true && current.resolution === "filed-family")
         superseded.set(`statements.cashflow.${row.date}.stockBasedCompensation`, prior.reason);
       if (key === "cashflowAnnual") {
+        // D-252 (P8): a stored operating cash-flow refusal whose filing's own cash-flow statement reconciles takes the filed figure.
+        const operating = readmitFiledOperatingCashFlow(admitted.row, facts, "annual", bundle.builtAt);
+        gaps.push(...operating.gaps);
+        if (operating.superseded !== null) superseded.set(`statements.cashflow.${row.date}.operatingCashFlow`, operating.superseded);
         // D-231 (P8): the row's net income against the filer's own profit for that fiscal year.
-        const profit = admitCashFlowNetIncome(admitted.row, facts, annualIncome.find(income => income.date === row.date), bundle.builtAt);
+        const profit = admitCashFlowNetIncome(operating.row, facts, annualIncome.find(income => income.date === row.date), bundle.builtAt);
         gaps.push(...profit.gaps);
         return profit.row;
       }
