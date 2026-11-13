@@ -221,6 +221,24 @@ describe("D-251: filed common earnings for a year whose preferred stock was rede
     expect(early.income).toBe(income);
   });
 
+  it("a refused field stays refused when a claim stands at the year end too (P11): no earnings line is refilled over its refusal", () => {
+    // The Stage B view runs after the income classification may have refused the earnings family.
+    const refusal = { usable: false, vendorValue: null, secValue: null, reason: "refused" };
+    const refused = env([{ date: "2025-12-31", reportedCurrency: "USD", netIncome: 57_048_000_000,
+      fieldConflicts: { netIncomeAvailableToCommon: refusal, netIncomeConsolidated: refusal, netIncomeAttributableToNoncontrollingInterest: refusal } }]);
+    const balance = env([{ date: "2025-12-31", preferredStock: 20_045_000_000, minorityInterest: 1_000_000 }]);
+    const filed = facts([FY2025]);
+    filed.facts["us-gaap"]!.ProfitLoss = { units: { USD: [{ ...FY2025, val: 57_100_000_000 }] } };
+    const out = supplementCommonEarnings(refused, balance, filed, "2026-10-14", undefined, () => true);
+    expect(out.income).toBe(refused);
+    expect(out.gaps).toEqual([]);
+    // One refused field does not stop another that is not refused.
+    const partly = env([{ date: "2025-12-31", reportedCurrency: "USD", netIncome: 57_048_000_000, fieldConflicts: { netIncomeConsolidated: refusal } }]);
+    const row = rowsOf(supplementCommonEarnings(partly, balance, filed, "2026-10-14").income)[0]!;
+    expect(row.netIncomeConsolidated).toBeUndefined();
+    expect(typeof row.netIncomeAvailableToCommon).toBe("number");
+  });
+
   it("unrelated shape: a bank with preferred outstanding at the year end is read exactly as before", () => {
     const income = env([{ date: "2025-12-31", netIncome: 57_048_000_000 }]);
     const balance = env([{ date: "2025-12-31", preferredStock: 20_045_000_000 }]);

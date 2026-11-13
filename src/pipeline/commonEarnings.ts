@@ -139,8 +139,11 @@ export function supplementCommonEarnings(
     let out = row;
     for (const [field, tags] of supplemented) {
       if (typeof row[field] === "number" && Number.isFinite(row[field])) continue;
-      // D-251: a year without a closing claim gets its common earnings only, and a refusal stays (P11).
-      if (!closing && (field !== "netIncomeAvailableToCommon" || row.fieldConflicts?.[field]?.usable === false)) continue;
+      // P11 (D-251): a refused field stays refused in every year. Stage B applies this after the income
+      // classification, which may have withheld the earnings family; the filed figure never refills it.
+      if (row.fieldConflicts?.[field]?.usable === false) continue;
+      // D-251: a year without a closing claim gets its common earnings only.
+      if (!closing && field !== "netIncomeAvailableToCommon") continue;
       const selected = tags.map(tag => ({ tag, fact: selectAnnualEarnings(facts, tag, row.date!, analysisAsOf) }))
         .find(candidate => candidate.fact !== null && !explicitStarts.some(start => start !== candidate.fact!.start));
       if (selected === undefined) continue;

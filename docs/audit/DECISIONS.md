@@ -61,6 +61,14 @@ manifest entry names the years and the filing
 No tolerance, day band or status word is added. D-212 is marked "Revised by
 D-251"; the closing-balance condition has no entry of its own.
 
+Review fix (Codex, P11). Because Stage B now applies the rule after the income
+classification, which can withhold an issuer's whole earnings family, the
+refusal guard covers every field the rule fills in every year, not only the
+redeemed-preferred year: a field marked refused is never refilled from the
+filed fact, whether or not a claim stands at the year end
+(`tests/commonEarnings.test.ts`, failing before the fix). No case of the 17
+changes with it.
+
 Options rejected. Narrowing the selector so fiscal 2025 no longer counts as a
 year with preferred claims: that loosens a refusal where the period start is
 unknown, and the filed figure settles the year without it. Treating total net
