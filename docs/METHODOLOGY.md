@@ -6907,6 +6907,20 @@ later than companyfacts' newest periodic report, is never merged, so nothing
 is counted twice and a row never mixes the two bases. The merge runs after
 the predecessor check, so a successor's merged quarter cannot hide missing
 history. An info entry names each merged filing, its period and filing date.
+Since D-236 "already carries" is decided by evidence and the rule covers every
+core periodic form. A filing counts as carried only when companyfacts
+attributes to its accession at least one us-gaap or ifrs-full fact; a filing
+it merely mentions, by a cover-page (dei) or srt fact, does not. Forms 20-F
+and 40-F and amendments are read as well as 10-K and 10-Q, under the same
+selection (the latest annual report, or up to three interim reports, of each
+form within 15 months), and their instances are fetched only when companyfacts
+does not carry the filing: none for a complete feed, two requests for a 20-F
+filer whose feed lags, at most 24 in a run. The case was TSMC: on 2026-11-12
+companyfacts held the cover-page share count and one srt element of its
+fiscal 2025 Form 20-F (filed 2026-04-16) and none of its statements, so the
+filed fiscal 2025 EPS (65.47 TWD per ordinary share) was never admitted and
+the EPS rows ended at fiscal 2024. A filing the rule needed and could not
+read is a warn entry naming it and the reason.
 Where a newer 10-Q, 10-K, 20-F or 40-F was filed before the build but its
 facts could not be read (for instance a filing whose instance was not
 fetched), the report shows a "Newer filing not reflected" banner and a warn
