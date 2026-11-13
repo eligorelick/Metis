@@ -1976,6 +1976,12 @@ belong in EV. Undisclosed preferred stock is treated as zero. Minority interest
 is not zero-filled. When consolidated equity has no resolved parent/NCI split,
 or differs from parent equity with no NCI figure, the NCI allocation is unknown.
 EV, the EV multiples and the DCF's per-share equity bridge are then withheld.
+One test decides this for the DCF's bridge-row choice and gate, EV, the
+own-history bands and the cash multiples (`noncontrollingOwnershipUnresolved`,
+`src/pipeline/stageB/ownership.ts`; D-248). Consolidated and parent equity are
+one amount only within one currency unit or one part in ten billion of
+consolidated equity: an allowance for arithmetic noise, never for materiality,
+so one reporting unit of difference is a difference.
 NCI is taken as zero only from the filing itself. That happens when the filer
 tags only equity including NCI at that date, its net income attributable to NCI
 for the period ending there is explicitly zero, and its latest earlier NCI

@@ -11,6 +11,112 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-248 - One test of unresolved noncontrolling ownership, with one allowance (2026-11-13)
+
+Principles P5 (entity scope is never plugged) and P10 (unproven is withheld),
+with P13 (one definition) and P11 (a refusal is not cured by a missing
+number). Round 2, Stage 5, "one owner" step, part 2. The architecture review's
+critique (row 6) reproduced that the two copies of the ownership test disagree.
+
+Root cause. "Is the split between the parent's holders and outside
+(noncontrolling) holders unresolved on this balance?" was answered twice:
+`noncontrollingOwnershipUnresolvedAt` in `src/pipeline/compute.ts` (the DCF's
+bridge-row choice and the DCF gate's input) and `unknownNoncontrollingAllocation`
+in `src/pipeline/stageB/valuation.ts` (enterprise value and its multiples, the
+own-history bands, the cash multiples and the DCF gate). Both mean
+"consolidated equity differs from parent equity and no NCI is filed", with two
+different allowances for "differs": compute.ts used one part in a billion of
+the larger figure, valuation.ts one currency unit or one part in ten billion
+of consolidated equity. On a consolidated-only basis compute.ts answered
+"unresolved" whatever numbers survived; valuation.ts only if one did.
+
+Which answer is right. Consolidated and parent equity are two different filed
+lines, equal only when there are no outside holders. The only allowance that
+belongs between them is for arithmetic noise; a filed difference, however
+small, proves outside ownership whose amount is not filed, and D-78 and D-79
+forbid treating it as zero. So:
+
+- The P8 "same observation" rule (`src/edgar/vendorAgreement.ts`) is not the
+  right comparison. It compares two copies of one figure and allows a reporting
+  unit up to a million or 0.01%; here it would read 10,001 million against
+  10,000 million as "the same" and a filed one-million NCI as none. P8 itself
+  keeps checks of different quantities on their own named allowances.
+- The ownership owner had no named allowance, so the choice was between the
+  two existing ones. No number is new.
+- Total 10,000,000,000 against parent 9,999,999,995, no NCI (a gap above one
+  unit and within one part in a billion): compute.ts said resolved,
+  valuation.ts unknown. Two whole numbers five apart are not arithmetic noise,
+  so the lines differ. Unknown is right.
+- Total 500,000,000 against parent 499,999,999.4, no NCI (a gap of at most
+  one currency unit on equity under a billion): compute.ts said unresolved,
+  valuation.ts resolved. A balance sheet states whole currency units or
+  larger, so a sub-unit gap is not a filed difference. Resolved is right.
+- A consolidated-only basis with no surviving number: compute.ts said
+  unresolved, valuation.ts resolved. The evidence still shows a consolidated
+  total with no parent split. Unresolved is right.
+
+valuation.ts's allowance gives the right answer in both zones, so it is the
+one kept.
+
+Choice, in the owner (`src/pipeline/stageB/ownership.ts`):
+`EQUITY_SAME_AMOUNT_ALLOWANCE` (one currency unit, or one part in ten billion
+of consolidated equity; `sameEquityAmount`) and the one predicate
+`noncontrollingOwnershipUnresolved`. compute.ts passes it the row's own
+figures and what the row's provenance establishes
+(`statementEquityOwnershipBasis`, unchanged); valuation.ts calls it directly
+at its six sites. The DCF gate still reads both the caller's input and the
+bridge balance; they are now one test.
+
+Truth table, NCI not filed unless stated ("compute" and "valuation" are the
+two old copies on the same inputs):
+
+| Balance | compute before | valuation before | After (both) |
+| --- | --- | --- | --- |
+| NCI filed (any number, zero included) | resolved | resolved | resolved |
+| Consolidated-only basis, total or parent present | unresolved | unresolved | unresolved |
+| Consolidated-only basis, no number present | unresolved | resolved | unresolved |
+| No consolidated total (parent alone, or no equity) | resolved | resolved | resolved |
+| Total present, parent absent | unresolved | unresolved | unresolved |
+| Total equals parent, or a gap within both allowances | resolved | resolved | resolved |
+| Gap above one unit, within one part in a billion | resolved | unresolved | unresolved |
+| Gap of at most one unit, above one part in a billion | unresolved | resolved | resolved |
+| Gap beyond both allowances | unresolved | unresolved | unresolved |
+
+Two rows tighten an earlier answer (valuation.ts's on a consolidated-only
+basis with no number; compute.ts's for a whole-unit gap) and one loosens one
+(compute.ts's for a sub-unit gap, which is not a filed difference). None is
+reached by any of the 17 cases. The FIN-103 bullet of D-135, which introduced
+compute.ts's copy for the bridge-row choice, is marked "Revised by D-248".
+`docs/METHODOLOGY.md` ("EV bridge") states the one test.
+
+### Replay and approved report changes
+
+None. Every call of the predicate during a full rebuild of the 17 cases was
+logged with what each old copy would have answered for the same input
+(temporary instrumentation, removed before the commit): 1,553 calls in 17
+case processes; 1,235 with NCI filed, 308 with parent equity only, 8 with
+consolidated equal to parent exactly, 2 with no equity. No call has a nonzero
+gap between consolidated and parent equity with NCI unfiled, and in no call
+does an old copy answer differently from the new predicate. Same-report
+check, main `be7c11d6` against this change: no changes (17 cases, 136 files
+compared). Every figure of all 17 cases is unchanged, so there was no company
+input for which today's behaviour had to be kept.
+
+Tests (`tests/stageB.ownership.oneOwner.test.ts`): the owner's truth table;
+then the reviewed disagreement, its mirror, equal figures and a real
+difference (compatible controls), a filed NCI and a consolidated total with no
+parent line (unrelated shapes), each through compute.ts's bridge-row choice
+(`dcfBridgeRow`) and valuation.ts's EV and DCF gates (`runStageB`), which must
+give one answer. Before the change the first two rows gave two.
+
+### Not changed
+
+`statementEquityOwnershipBasis` stays in compute.ts: it reads a statement
+row's provenance tags to say what the row's equity evidence establishes, and
+hands the answer to the owner's predicate. `resolveConsolidatedEquity`,
+`commonHolderCapital` (`src/pipeline/stageB/securityBasis.ts`) and the peers'
+basis are other rules and were not touched.
+
 ## D-247 - One definition of a quarter, a fiscal year and the period-end allowance for the conversion-share readers (2026-11-13)
 
 Principle P1 (exact period), with P13 (a definition used in several places is
@@ -5083,7 +5189,7 @@ Audit 2026-10-27, batch B4, part A (B4a): FIN-103, FIN-119, FIN-119-V1, FIN-119-
   - Revises: D-26's sentence "the REIT implied cap rate uses the house enterprise value", made true by construction instead of by a parallel formula.
   - Sources: Deloitte Roadmap 9.4 (that OP units redeemable for cash are such an NCI is filer practice, not the roadmap's); METHODOLOGY ("a report carries one EV").
 - **FIN-403: a successor reads its predecessor's retirement obligations.** A holding-company successor whose own companyfacts carry no retirement obligation reads the predecessor's, as one reporting entity under B-36, until the successor's own annual report; a family the successor files, including a zero, ends the predecessor read for that family, and a family both file is read once, from the successor. Extends E-7 and B-36.
-- **FIN-103: the DCF bridge reads the statement-date balance.** When an annual base is rolled forward, D-65's promise that the bridge stays at the statement-date balance is now checked: the bridge row follows the DCF's basis with one refusal rule (a newer quarter with no debt line falls back to the older complete balance), and the bridge note and an info gap `valuation.dcf.bridgeBalanceDate` name the date used. The refusal rule is the one the DCF reads on the row: a parser refusal, unresolved ownership, a lease conflict, a lease-scope refusal (on the run's own lease switch) or a refused temporary-equity operand. The first clean candidate at the statement date is the row; when every candidate is refused, or the anchor is, the anchor (main's row) stands, never cured by another date, so no report main publishes is blocked by the choice (final review I-2).
+- **FIN-103: the DCF bridge reads the statement-date balance.** When an annual base is rolled forward, D-65's promise that the bridge stays at the statement-date balance is now checked: the bridge row follows the DCF's basis with one refusal rule (a newer quarter with no debt line falls back to the older complete balance), and the bridge note and an info gap `valuation.dcf.bridgeBalanceDate` name the date used. The refusal rule is the one the DCF reads on the row: a parser refusal, unresolved ownership, a lease conflict, a lease-scope refusal (on the run's own lease switch) or a refused temporary-equity operand. (Revised by D-248: "unresolved ownership" is now the P5 owner's one predicate and allowance, `noncontrollingOwnershipUnresolved` in `src/pipeline/stageB/ownership.ts`; the row choice no longer keeps a copy with its own one-part-in-a-billion allowance, so a gap of under one currency unit between consolidated and parent equity no longer refuses a row and a whole-unit gap now does.) The first clean candidate at the statement date is the row; when every candidate is refused, or the anchor is, the anchor (main's row) stands, never cured by another date, so no report main publishes is blocked by the choice (final review I-2).
 - **Final whole-branch review (fix round 1), the merge rule: no report main publishes becomes Blocked, and no figure is worse than main.** (I-1) Lease-emptied invested capital withholds the DCF at warn (OD-3). (M-1) A row with a refused temporary-equity operand and a lease conflict or lease-scope refusal keeps main's critical lease gap beside the warn. (M-7) A null book NCI beside a redeemable NCI takes the P/FCF 1% floor on the redeemable NCI alone; with no redeemable NCI the guard is main's. (M-9) A positive `preferredStock` equal to the admitted redeemable preferred within max(1, 1e-6 x amount) at the same date (the filer tagged one mezzanine series `PreferredStockValue` and `TemporaryEquityCarryingAmountAttributableToParent`) is counted once: `temporaryEquityClaims`, the one reader, leaves the parent part out and the preferred line main already deducts stands, so no balance row is altered; an info gap `valuation.preferredOverlap` names both tags once per date; unequal amounts are both deducted (B4b's overlap territory, OD-2). (M-8) The rate-regulated note states the reading, not rate recovery.
 - **House constants.**
   - The pension family order (a), (b), (c) and its date-first look-back.
