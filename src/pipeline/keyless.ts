@@ -981,6 +981,10 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         gap: {
           ...original.gap,
           reason: appendReason ? `${original.gap.reason}; ${reason}` : original.gap.reason,
+          // P11 (D-242): FMP's empty array with the public fallback's failure appended is not the bare
+          // empty-array status the confirmed-miss check reads, so it carries its own code. Every other
+          // code keeps naming its cause: the extended sentence still states it.
+          ...(appendReason && original.gap.cause === "fmp-empty-array" ? { cause: "fmp-empty-array-fallback-failed" as const } : {}),
           attemptedSources: [...(original.gap.attemptedSources ?? []), ...attemptedSources],
         },
       };

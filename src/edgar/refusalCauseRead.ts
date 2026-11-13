@@ -1,6 +1,6 @@
 /**
  * P11 (D-219): how a reader that has moved to typed refusal codes decides on a
- * `StatementFieldConflict`.
+ * `StatementFieldConflict`, and (D-242) on a missing-data entry (`ManifestEntry`).
  *
  * - A conflict that carries a `cause` is decided by that code alone: it passes
  *   only when the code is in the reader's set. The sentence is not read, so an
@@ -11,14 +11,14 @@
  *
  * ===================================================================
  * LEGACY WORDING: this module is the only place where a conflict
- * without a typed cause is read by its sentence. Add nothing here
+ * or missing-data entry without a typed cause is read by its sentence. Add nothing here
  * except when a reader is migrated from wording to codes; that step
  * moves the reader's pattern here verbatim and lowers its count in
  * tests/refusalWording.ratchet.test.ts. A code is never derived from
  * a sentence and never written onto a row that has none.
  * ===================================================================
  */
-import type { StatementConflictCause } from "@/types/refusalCause";
+import type { GapCause, StatementConflictCause } from "@/types/refusalCause";
 
 interface CodeReader {
   /** The codes that pass this reader's check. */
@@ -145,4 +145,109 @@ export function conflictCauseMatches(conflict: { readonly cause?: unknown; reado
   const { codes, legacy }: CodeReader = READERS[reader];
   if (conflict.cause !== undefined) return codes.has(conflict.cause as StatementConflictCause);
   return legacy(conflict.reason ?? "");
+}
+
+// ---------------------------------------------------------------------------
+// Missing-data entries (`ManifestEntry.cause`, `GAP_CAUSES`), D-242
+// ---------------------------------------------------------------------------
+
+interface GapReader {
+  /** The codes that pass this reader's check. */
+  readonly codes: ReadonlySet<GapCause>;
+  /** The consumer's pre-D-242 wording test, moved here verbatim, for entries that carry no code. */
+  readonly legacy: (reason: string) => boolean;
+}
+
+/**
+ * P10, P11 (D-242): the gap readers (inventory G1-G5) and provider-status checks (P1-P5, P7a) that
+ * decide by a missing-data entry's typed cause. Same rule as the conflict readers above: an entry
+ * that carries a `cause` is decided by that code alone (an unknown or unrelated code fails); an entry
+ * without one (written before D-229, restored from a run-input snapshot, or by a writer that has no
+ * code) is read by its sentence with the consumer's original test, here. Each consumer keeps its
+ * other conditions (field, severity, path) at its own site. The sentences are spelled out rather
+ * than imported so the legacy test stays what it was even if a writer's wording later changes.
+ */
+const GAP_READERS = {
+  /** G1 (`compute.ts` FIN-OTHER retained-suppression rewrite) and G2 (`compute.ts` observed-trigger suffix). */
+  dcfUnprofitableOverlay: {
+    codes: new Set<GapCause>(["dcf-unprofitable-overlay"]),
+    legacy: (reason) => reason.startsWith("DCF suppressed for unprofitable overlay"),
+  },
+  /**
+   * G3, `dcfWithheldWarnGap` (`stageB/fairValue.ts`): the warn gap that withheld the DCF for a refused
+   * temporary-equity operand (`TEMPORARY_EQUITY_REFUSAL_LEAD`) or lease-emptied invested capital
+   * (`LEASE_EMPTIED_CAPITAL_LEAD`, both `stageB/seniorClaims.ts`).
+   */
+  investedCapitalClaimWithheld: {
+    codes: new Set<GapCause>(["invested-capital-temporary-equity-refused", "invested-capital-lease-emptied"]),
+    legacy: (reason) => reason.startsWith("Temporary equity refused for invested capital: ") ||
+      reason.startsWith("Invested capital emptied by the operating-lease removal: "),
+  },
+  /** G4, `dcfWithheldReason` (`stageB/fairValue.ts`): the critical invested-capital gap whose upstream quote is net debt. */
+  investedCapitalBalanceFieldsMissing: {
+    codes: new Set<GapCause>(["invested-capital-balance-fields-missing"]),
+    legacy: (reason) => reason.startsWith("balance-sheet fields missing"),
+  },
+  /**
+   * G5, `temporaryEquityUnknownAt` (`stageB/seniorClaims.ts`): a temporary-equity enrichment refusal that
+   * leaves a bridge date's claim unknown. The SEC-silent sentence (no current writer; R2's legacy row)
+   * says the period holds none and does not pass.
+   */
+  temporaryEquityEnrichmentRefused: {
+    codes: new Set<GapCause>(["temporary-equity-enrichment-withheld", "temporary-equity-operands-unmatched"]),
+    legacy: (reason) => reason.startsWith("temporary-equity SEC enrichment withheld: ") &&
+      !reason.endsWith("temporary carrying amounts are absent or explicitly refused for this SEC period"),
+  },
+  /** P1, `isFmpQuotaGap` (`providers/fmp.ts`; the retry loop, `rateLimitedValuationEntry`, the analyst-estimate refusal): an FMP rate limit. */
+  fmpQuota: {
+    codes: new Set<GapCause>(["fmp-quota"]),
+    legacy: (reason) => reason.startsWith("FMP quota/rate limit"),
+  },
+  /**
+   * P2 (`fmp.ts` no-new-bar check) and P5 (`jobRunner.ts`, `app/company/[symbol]/page.tsx` confirmed
+   * miss): exactly `FMP_EMPTY_ARRAY_REASON`. An empty array to which the public fallback appended its
+   * own failure carries `fmp-empty-array-fallback-failed` and does not pass, as `===` did not.
+   */
+  fmpEmptyArrayAlone: {
+    codes: new Set<GapCause>(["fmp-empty-array"]),
+    legacy: (reason) => reason === "FMP returned an empty array (no data for this query)",
+  },
+  /** P3, `markSegmentationGapExpected` (`pipeline/dataBundle.ts`): a sentence that states FMP's empty array, alone or extended. */
+  fmpEmptyArrayStated: {
+    codes: new Set<GapCause>(["fmp-empty-array", "fmp-empty-array-fallback-failed"]),
+    legacy: (reason) => reason.includes("FMP returned an empty array (no data for this query)"),
+  },
+  /** P5 (`jobRunner.ts`, company page): the FMP client had no key and no fixture. */
+  fmpNoApiKey: {
+    codes: new Set<GapCause>(["fmp-no-api-key"]),
+    legacy: (reason) => /no API key/.test(reason),
+  },
+  /** P5 (`jobRunner.ts`, company page): SEC's ticker table does not list the symbol. */
+  secTickerNotListed: {
+    codes: new Set<GapCause>(["sec-ticker-not-listed"]),
+    legacy: (reason) => /not in SEC company_tickers\.json/.test(reason),
+  },
+  /** P4, `withResolvedPredecessor` (`pipeline/dataBundle.ts`): a successor whose predecessor EDGAR does not link. */
+  secUnlinkedPredecessor: {
+    codes: new Set<GapCause>(["sec-unlinked-predecessor"]),
+    legacy: (reason) => reason.includes(" — its predecessor's annual reports live under another CIK that EDGAR does not link"),
+  },
+  /** P7a, `symbolRefused` (`pipeline/peers.ts`): FMP refused this one symbol on this endpoint. */
+  fmpSymbolRestricted: {
+    codes: new Set<GapCause>(["fmp-symbol-restricted"]),
+    legacy: (reason) => /this symbol is unavailable on this endpoint/i.test(reason),
+  },
+} as const satisfies Record<string, GapReader>;
+
+export type GapCodeReader = keyof typeof GAP_READERS;
+
+/** The missing-data codes a reader decides by. */
+export const GAP_CAUSES_READ_BY_CODE: ReadonlySet<GapCause> =
+  new Set(Object.values(GAP_READERS).flatMap((reader) => [...reader.codes]));
+
+/** Whether a missing-data entry passes `reader`'s check: by its code when it has one, else by its sentence. */
+export function gapCauseMatches(entry: { readonly cause?: unknown; readonly reason?: string }, reader: GapCodeReader): boolean {
+  const { codes, legacy }: GapReader = GAP_READERS[reader];
+  if (entry.cause !== undefined) return codes.has(entry.cause as GapCause);
+  return legacy(entry.reason ?? "");
 }
