@@ -137,3 +137,33 @@ export function reconcileDebtPresentation(input: DebtPresentationInput): DebtPre
     reason: scope === "noncurrent" ? "the exact tagged amount is the reconciled noncurrent balance-sheet line; current maturities must not be subtracted again"
       : "the tagged amount includes current maturities; subtracting the sourced current maturities reconciles to the noncurrent balance-sheet line" };
 }
+
+/** One named balance-sheet line of a filing, in the statement currency's units. */
+export interface FiledDebtLine { name: string; value: number }
+
+/** The provenance tag of a debt figure whose composition the filing's own balance-sheet lines name. */
+export const BALANCE_SHEET_DEBT_LINES_TAG = "filing:balance-sheet:debt-lines";
+
+/**
+ * The debt lines and the payables to third-party loan owners that a
+ * held-for-sale lender's balance sheet names (D-149 F1), first amount column,
+ * stated in thousands. Narrow on purpose: any other caption or scale
+ * establishes nothing. The caller binds the amounts to a period (D-234: by the
+ * same filing's tagged totals), never from this text alone.
+ */
+export function lenderDebtLines(statementsText: string | undefined): FiledDebtLine[] {
+  const sheet = (statementsText ?? "").split(/\bBALANCE SHEETS?\b/i)[1]?.split(/\b(?:CONSOLIDATED )?STATEMENTS OF\b/i)[0] ?? "";
+  return /in thousands/i.test(sheet) ? [...sheet.matchAll(/\b(Payables to third-party loan owners|Debt, (?:non-current|current(?: to related parties)?))\s*(?:\([^)]*\)\s*)?\$?\s*([\d,]+)/gi)]
+    .map(m => ({ name: m[1]!, value: Number(m[2]!.replaceAll(",", "")) * 1000 })) : [];
+}
+
+/** True when the document is the named accession's own file under the issuer's EDGAR folder. */
+export function filingDocumentBinds(source: { accession: string; documentUrl: string }, cik: number | string): boolean {
+  if (!/^\d{10}-\d{2}-\d{6}$/.test(source.accession) || !/^\d+$/.test(String(cik))) return false;
+  try {
+    const url = new URL(source.documentUrl);
+    const path = /^\/Archives\/edgar\/data\/(\d+)\/(\d{18})\/[^/]+$/.exec(url.pathname);
+    return url.protocol === "https:" && (url.hostname === "www.sec.gov" || url.hostname === "sec.gov") && !url.port && !url.username && !url.password &&
+      path !== null && Number(path[1]) === Number(cik) && path[2] === source.accession.replaceAll("-", "");
+  } catch { return false; }
+}

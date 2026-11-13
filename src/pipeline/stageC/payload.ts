@@ -1684,9 +1684,16 @@ function statementExtracts(bundle: DataBundle, cashFlowApplicability?: CompanyRo
   push(extractStatement("Cash flow \u2014 annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), cashItems, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
   push(extractStatement("Cash flow \u2014 quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), cashItems, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
   if (cashFlowApplicability?.debtPerimeter) {
+    const perimeter = cashFlowApplicability.debtPerimeter;
     for (const block of blocks.filter(b => b.title.startsWith("Balance sheet"))) {
-      for (const line of block.lineItems) if (line.lineItem === LEASE_DEBT_LABELS.totalDebtIncludingLeases) line.lineItem = cashFlowApplicability.debtPerimeter.label;
-      block.notes.push(`${cashFlowApplicability.debtPerimeter.label} at ${cashFlowApplicability.asOf}; ${cashFlowApplicability.evDebtBasis}`);
+      // D-234: once the debt at the filing's date is the filed borrowings, the row keeps its neutral caption
+      // and the note says which periods are still the provider's figure.
+      if (perimeter.filedDebt !== undefined) {
+        block.notes.push(`Debt at ${cashFlowApplicability.asOf} is the filed borrowings plus the recorded operating lease. ${cashFlowApplicability.evDebtBasis} Other periods on this line are the provider's debt figure, which is not checked against a filed composition and can count payables to third-party loan owners.`);
+        continue;
+      }
+      for (const line of block.lineItems) if (line.lineItem === LEASE_DEBT_LABELS.totalDebtIncludingLeases) line.lineItem = perimeter.label;
+      block.notes.push(`${perimeter.label} at ${cashFlowApplicability.asOf}; ${cashFlowApplicability.evDebtBasis}`);
     }
   }
   return blocks;
