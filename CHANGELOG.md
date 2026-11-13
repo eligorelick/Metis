@@ -26,6 +26,28 @@ original versions and bytes; source merge does not deploy or publish a release.
   --target audit-fixture` (docs/OPERATIONS.md). No report output changes
   ([D-232](docs/audit/DECISIONS.md), P27).
 
+## Unreleased - Lint workaround packages removed (2026-11-12)
+
+- ESLint and Next's ESLint plugin use upstream minimatch 3.1.5 and fast-glob
+  3.3.1 again. The local `scripts/legacy-minimatch` and
+  `scripts/next-eslint-glob` stand-ins and their seven overrides are gone,
+  because the braces advisory was withdrawn and the minimatch advisory no
+  longer covers minimatch 3 (P26, P27, D-230). The security audit still
+  reports 0 vulnerabilities, lint results are identical, and no report, export
+  or golden output changes.
+
+## Unreleased - Cash-flow net income checked against the filing (2026-11-12)
+
+- The net income on a vendor annual cash-flow row, which free-cash-flow
+  conversion and the cash-flow accrual figures divide by, is compared with the
+  filer's own profit for that fiscal year (us-gaap, and ifrs-full for Form 20-F
+  filers). A figure that is no filed profit line is replaced by the filed
+  consolidated profit with its filing as provenance, or withheld when no filing
+  settles it (P8, P5, P10, D-231). In the same-report check this moves TSM
+  (fiscal 2021 to 2025 conversion, fiscal 2025 accruals, quality score 83 to
+  83.21) and Duke Energy's fiscal 2022 conversion; nothing else. Version stamps
+  are left for the Stage 5 integration; saved reports are unchanged.
+
 ## Unreleased - METIS_ settings names only (2026-11-12)
 
 - Only `METIS_*` names configure Metis. The `THESIS_*` aliases kept since the
