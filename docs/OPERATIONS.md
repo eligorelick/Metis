@@ -573,3 +573,13 @@ To add a case:
 2. The run freezes its inputs in the `run_input_snapshots` table. Read the run's snapshot hash from `job_run_inputs.snapshotHash` for that job.
 3. Add `{ "id": "<ticker>-data-only", "snapshot": "<hash>" }` to `scripts/golden/cases.json`.
 4. Run `golden:run` with `--db` twice into two output folders and confirm `golden:diff` reports no changes, every case has status `ok` and `reportSchema` `ok`, and the route in `manifest.json` is the one you meant to cover.
+
+## Report-surface drift (valuation)
+
+`npm run report:drift` measures where the reader surfaces still word the valuation figures differently (P22). It reads `golden:run` output folders (`--golden DIR`) and/or a copy of a database (`--db FILE`, opened read-only; the application database itself is refused), prepares each report as every surface does (`src/report/readerPreparation.ts`), and compares the valuation texts decided in `src/report/presentation.ts` (headline label, shown value, comparison, caveats, scenario rows) across Markdown, print, the classic and dossier app and the key-data box. It also renders each surface and checks that every decided text appears in it. It runs offline with a fixed clock (`--clock ISO`).
+
+```powershell
+npm run report:drift -- --golden tmp/golden/after --db tmp/check-copy.db --out tmp/drift/REPORT.md
+```
+
+The output lists each disagreement with the surfaces that agree, example texts and the number of reports that show it, plus the named per-surface exceptions in the shared code. It contains report text, so keep it under `tmp/`.

@@ -67,8 +67,8 @@ export const COMMAND_DESCRIPTIONS = {
 
 /**
  * Commands that exist for the suite's own plumbing and are not user-facing.
- * The same-report harness and the frozen-record refresh are developer tooling,
- * documented in docs/OPERATIONS.md.
+ * The same-report harness, the report-surface drift measurement and the
+ * frozen-record refresh are developer tooling, documented in docs/OPERATIONS.md.
  */
 export const INTERNAL_COMMANDS = new Set([
   "test:product",
@@ -76,6 +76,7 @@ export const INTERNAL_COMMANDS = new Set([
   "test:coverage:risk",
   "golden:run",
   "golden:diff",
+  "report:drift",
   "freeze:refresh",
 ]);
 

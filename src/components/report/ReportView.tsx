@@ -1,4 +1,4 @@
-import { withValuationUseSafety } from "@/report/valuationUseSafety";
+import { prepareReportForSurface } from "@/report/readerPreparation";
 import { RunNotices } from "./RunNotices";
 import { withoutCodeIdentity } from "@/report/codeIdentity";
 /**
@@ -31,10 +31,8 @@ import { withoutCodeIdentity } from "@/report/codeIdentity";
  * chart module stays decoupled from this renderer.
  */
 
-import { legacyScopeQualifications, LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
-import { withStoredReportView } from "@/report/storedReportView";
+import { LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
 import { MetisLogo } from "@/brand/MetisLogo";
-import { indexVerificationMarks } from "@/report/verificationMarks";
 import type { ReactNode } from "react";
 import { WorkspaceOnly } from "@/appearance/UiDesignProvider";
 import { ReportEvidenceRail } from "./ReportEvidenceRail";
@@ -42,13 +40,12 @@ import { DossierCover } from "./DossierCover";
 import { ClassicReportScrollOffset, ReportContents } from "./ReportContents";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { evidenceIdentity } from "./evidenceIdentity";
-import { dataStateText, plainFigureReaderNote, presentationReportId, projectionsNotRecordedNotice, routeMetricsForDisplay, withPlainFigureNotes } from "@/report/presentation";
+import { dataStateText, plainFigureReaderNote, presentationReportId, projectionsNotRecordedNotice, routeMetricsForDisplay } from "@/report/presentation";
 import { SourceEvidenceCatalog } from "./SourceEvidenceCatalog";
 
 import type { Report } from "@/report/schema";
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
-import { deriveReportCompletenessPresentation, withClassifiedDataOnlyGapCount } from "@/report/completeness";
-import { withReaderConventions, unavailableCashFlowModel, lenderConventionTables } from "@/report/readerConventions";
+import { unavailableCashFlowModel } from "@/report/readerConventions";
 import {
   REPORT_SECTION_MANIFEST,
   reportSection,
@@ -186,19 +183,11 @@ export function ReportView({
   selectedReportId?: number;
   selectedReportStatus?: string;
 }) {
-  const report = withValuationUseSafety(withPlainFigureNotes(withClassifiedDataOnlyGapCount(withReaderConventions(withStoredReportView(sourceReport)))));
-  const lenderTables = lenderConventionTables(sourceReport);
-  const scopeQualifications = legacyScopeQualifications(report);
-  // F-21: the claim chips below read each claim's verification status.
-  indexVerificationMarks(report);
+  // The shared preparation also indexes the verification marks the claim chips read (F-21).
+  const { report, lenderTables, scopeQualifications, completeness } = prepareReportForSurface(sourceReport, "web");
   const reportId = presentationReportId(report,{selectedReportId});
   // D-227: the recorded build identity is stored data, not display identity.
   const inspectionIdentity = layout === "dossier" ? evidenceIdentity("report", withoutCodeIdentity(report)) : "";
-  const completeness = deriveReportCompletenessPresentation(
-    report.meta.dataCompleteness,
-    report.appendix.missingData,
-    report.appendix.sources,
-  );
   // D-67: each grade line gets its aspect score (limited-evidence label) and the data state (confidence cap).
   const grading = (key: keyof NonNullable<Report["scores"]>["aspects"]) => ({ aspect: report.scores?.aspects[key] ?? null, completeness });
   const figureCaveat = plainFigureReaderNote(report);
