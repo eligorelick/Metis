@@ -359,10 +359,13 @@ that moves P2/P5 to the code must keep that outcome.
 
 Frozen record. The DEMO audit-fixture record (`tests/fixtures/frozen/
 audit-fixture-current.json`) gains exactly 22 leaves, all `fmp-no-api-key`:
-`stageB.gaps[0..10].cause` and `report.appendix.missingData[0..10].cause`. It
-was re-recorded with `npm run freeze:refresh -- --target audit-fixture
---decision D-229` scoped to those 22 paths; the log entry is in
-`tests/fixtures/frozen/refresh-log.json`. The Stage C payload record is
+`stageB.gaps[0..10].cause` and `report.appendix.missingData[0..10].cause`;
+the record's own digest of the projection (`projectionSha256`) changes with
+them. It was re-recorded with `npm run freeze:refresh -- --target
+audit-fixture --decision D-229` scoped to exactly those 23 paths (record
+SHA-256 2face745... to 47950c52...); the log entry is in
+`tests/fixtures/frozen/refresh-log.json`, and with `cause` and the digest
+removed the record is identical to before. The Stage C payload record is
 unchanged.
 
 Same-report check (17 cases, 136 files, against main at e5f0a3d6): two files
