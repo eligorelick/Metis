@@ -173,6 +173,7 @@ export const RISK_SOURCE_MANIFEST = [
   "src/report/storedReportRead.ts",
   "src/report/storedReportView.ts",
   "src/report/evidenceContract.ts",
+  "src/report/codeIdentity.ts",
   "src/report/sectionManifest.ts",
   "src/report/surfaceManifest.ts",
   "src/report/export/correctedCli.ts",

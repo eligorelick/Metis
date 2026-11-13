@@ -54,11 +54,12 @@ export function createRuntimeArtifactManifest({ distDir, buildId, methodArtifact
 }
 
 /**
+ * The verified manifest and a fresh enumeration of its compiled artifacts, or
+ * undefined when any part of the build evidence is missing or does not match.
  * Never substitute the current checkout for missing build evidence.
  * @param {{ distDir: string, buildId?: string }} input
- * @returns {Readonly<{ methodArtifactHash: string, dependencyLockHash: string, codeCommit: string | null, dirtyDiffHash: string | null }> | undefined}
  */
-export function readRuntimeArtifactIdentity({ distDir, buildId }) {
+function readVerifiedRuntimeManifest({ distDir, buildId }) {
   if (!buildId) return undefined;
   try {
     for (const path of [join(distDir, "BUILD_ID"), join(distDir, "runtime-artifact-identity.json")]) {
@@ -78,9 +79,46 @@ export function readRuntimeArtifactIdentity({ distDir, buildId }) {
     const artifacts = compiledArtifacts(distDir);
     if (JSON.stringify(manifest.artifacts) !== JSON.stringify(artifacts) ||
       methodHash(manifest.methodSourceHash, artifacts) !== identity.methodArtifactHash) return undefined;
-    return Object.freeze({ methodArtifactHash: identity.methodArtifactHash, dependencyLockHash: identity.dependencyLockHash,
-      codeCommit: identity.codeCommit, dirtyDiffHash: identity.dirtyDiffHash });
+    return { manifest, identity, artifacts };
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Never substitute the current checkout for missing build evidence.
+ * @param {{ distDir: string, buildId?: string }} input
+ * @returns {Readonly<{ methodArtifactHash: string, dependencyLockHash: string, codeCommit: string | null, dirtyDiffHash: string | null }> | undefined}
+ */
+export function readRuntimeArtifactIdentity({ distDir, buildId }) {
+  const verified = readVerifiedRuntimeManifest({ distDir, buildId });
+  if (!verified) return undefined;
+  const { identity } = verified;
+  return Object.freeze({ methodArtifactHash: identity.methodArtifactHash, dependencyLockHash: identity.dependencyLockHash,
+    codeCommit: identity.codeCommit, dirtyDiffHash: identity.dirtyDiffHash });
+}
+
+/**
+ * The code identity a newly built report records (P27, D-227): the same
+ * verified build evidence as {@link readRuntimeArtifactIdentity}, with the
+ * method-document hash and the compiled-artifact hash also given on their own.
+ * `compiledArtifactHash` is the SHA-256 of the verified, sorted list of
+ * compiled module paths (relative to the build directory) and their SHA-256
+ * hashes. No machine path, timestamp or build id is returned. Undefined
+ * whenever the build evidence is missing or does not verify.
+ * @param {{ distDir: string, buildId?: string }} input
+ * @returns {Readonly<{ codeCommit: string | null, dirtyDiffHash: string | null, methodDocumentHash: string, compiledArtifactHash: string, methodArtifactHash: string, dependencyLockHash: string }> | undefined}
+ */
+export function readRuntimeCodeIdentity({ distDir, buildId }) {
+  const verified = readVerifiedRuntimeManifest({ distDir, buildId });
+  if (!verified) return undefined;
+  const { manifest, identity, artifacts } = verified;
+  return Object.freeze({
+    codeCommit: identity.codeCommit,
+    dirtyDiffHash: identity.dirtyDiffHash,
+    methodDocumentHash: manifest.methodSourceHash,
+    compiledArtifactHash: sha(JSON.stringify(artifacts)),
+    methodArtifactHash: identity.methodArtifactHash,
+    dependencyLockHash: identity.dependencyLockHash,
+  });
 }

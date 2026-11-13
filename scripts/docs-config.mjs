@@ -67,8 +67,8 @@ export const COMMAND_DESCRIPTIONS = {
 
 /**
  * Commands that exist for the suite's own plumbing and are not user-facing.
- * The same-report harness and the accuracy check beside it are developer
- * tooling, documented in docs/OPERATIONS.md.
+ * The same-report harness, the accuracy check beside it and the frozen-record
+ * refresh are developer tooling, documented in docs/OPERATIONS.md.
  */
 export const INTERNAL_COMMANDS = new Set([
   "test:product",
@@ -78,6 +78,7 @@ export const INTERNAL_COMMANDS = new Set([
   "golden:diff",
   "accuracy:check",
   "accuracy:fetch",
+  "freeze:refresh",
 ]);
 
 /**

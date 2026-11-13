@@ -1,7 +1,7 @@
 # B5a: seasonality, calendars and the guided quarter
 
 Prepared 2026-10-29 for review; merge date is pending. This is Part A of the
-[B5 plan](../internal/superpowers/plans/2026-10-27-audit-fix-05-seasonality-calendars-and-dcf-inputs.md),
+[B5 plan](https://github.com/eligorelick/Metis/blob/d4bf240068ff1faa3d57fe84a0359488602dd6d6/docs/internal/superpowers/plans/2026-10-27-audit-fix-05-seasonality-calendars-and-dcf-inputs.md),
 after B4a main `222f92a082aa63e254783291ca21ee299a5dad9b`.
 [D-136](DECISIONS.md#d-136---audit-b5a-2026-10-27-seasonality-5253-week-calendars-and-the-guided-quarter-on-one-basis)
 records the choices; [METHODOLOGY](../METHODOLOGY.md) describes the implemented rules.

@@ -11,6 +11,69 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-227 - New reports record which exact build assembled them; nothing reads it yet (2026-11-12)
+
+Principles P27 and P20. A saved report names its rules only through
+hand-kept stamps (`meta.specVersion`, `meta.pipelineVersion`,
+`meta.evidenceContract`), and many commits share the same stamps, so a report
+could not say which code made it. The built app already proves its own
+identity: `scripts/build-with-identity.mjs` writes
+`.next/runtime-artifact-identity.json`, and run-input snapshot custody records
+it. The architecture review proposed replacing the stamps with that identity
+(Proposal 1); its critique revised that: add the identity without deleting any
+format, method or display contract until each consumer is inventoried; an
+identity locates code, it does not retain or execute it; a report made by
+different code is not a report whose figures are stale; and a documentation
+or renderer change must not demand a paid rerun. The owner chose the
+critique's form, never forcing a rerun.
+
+Options: replace the stamps now (rejected by the critique); derive an
+identity from the checkout at run time (a dev server's working tree is not the
+code that ran, so that would be a guess, P10); or record the verified build
+identity as an optional added field. Choice: optional `meta.codeIdentity`,
+owned by `src/report/codeIdentity.ts`:
+
+- `codeCommit` (40-64 hex, or null when the build had no project git
+  metadata), `dirtyDiffHash` (SHA-256 of the build-time diff of the built
+  sources, or null), `methodDocumentHash` (SHA-256 of docs/METHODOLOGY.md as
+  the build captured it), `compiledArtifactHash` (SHA-256 of the verified,
+  sorted list of compiled module paths relative to the build directory and
+  their SHA-256 hashes), `methodArtifactHash` (the combined hash snapshot
+  custody already records, so a report can be matched to its snapshot), and
+  `dependencyLockHash` (SHA-256 of package-lock.json as the build captured
+  it). No machine path, timestamp or build id is stored.
+- It comes from `readRuntimeCodeIdentity`
+  (`scripts/runtime-artifact-manifest.mjs`), which runs the same checks as the
+  snapshot custody reader (build token, manifest format, hash shapes and a
+  fresh enumeration of the compiled bytes); that reader's own output is
+  unchanged. The job runner is the only writer: after the passes, it records
+  the identity on the assembled report and on a data-only report. When no
+  verified identity exists (dev server, tests, the same-report harness, the
+  CLI, or build evidence that no longer matches) the field is omitted, never
+  guessed or filled with placeholders. Linking a recovered verify artifact
+  keeps that artifact's own record, as D-217 does for its stamp.
+- Saved reports are not migrated (P21). The report schema, and so both read
+  modes of the stored-report reader, accept a report with or without it; the
+  identity object itself is strict, and unknown fields elsewhere are still
+  refused.
+
+Nothing reads it yet: no staleness state, notice, banner, rerun prompt, cache
+or resume key, or replay decision. A different identity never forces a rerun.
+No surface shows it: the app (both layouts), Markdown, print and audit export
+render byte for byte the same with and without it; the dossier's
+`data-report-identity` hash leaves it out. It never reaches a model: it is
+written after the last pass, no request schema holds report metadata, and it
+is on the pipeline-owned removal list, so the judge, analyst and full-report
+request schemas are byte-identical to before (SHA-256 compared against main).
+`tests/report.codeIdentity.test.ts` fails if any other src file reads it.
+
+The report spec stays 1.73.0 and no stamp moves: as with D-217's
+`meta.evidenceContract` and `presumedCostUsd`, this adds one optional meta
+field and changes no figure. Out of scope: removing or changing any stamp,
+pin, cutoff or contract; any reader of the field. Evidence: `golden:diff`
+reports no changes (17 cases, 136 files); the harness has no built identity,
+so the field is omitted there.
+
 ## D-226 - Refusal codes: the "Revenue scope unresolved" copy keeps only its own code (2026-11-12)
 
 Principle P11. Revises D-222, which left this copy as it was. When
@@ -838,7 +901,7 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 - **Final review corrections (2026-10-16):** Executive evidence categories are derived from the validated metric contract; compensation cannot unlock a performance grade. Multi-party transaction notes withhold ambiguous attribution. Figure deduplication requires the same metric and period/unit/currency basis, preserving equal-valued cash and debt. Data-only DCF tables inherit the established model currency. A read-only reviewer reproduced these boundaries and the retained credit-support clauses and dated Groq accrual at `bb73f2b`, finding no remaining material issue within that code-review scope; generated-prose review remains a separate release gate.
 - **Frozen calculation:** The integrated engine reproduces base/bull/bear $217.04/$365.94/$120.49 on the original acquired inputs, versus $296.32/$501.15/$163.44 under `6e5367a`. This is a calculation comparison with fixed inputs, not a new forecast backdated to the original run.
 - **Limits:** Consensus breadth/dispersion and peer-size gates are disclosed house rules. Unreported fiscal revenue is calendarized evenly. Dimension-only locked-up equity is not guessed into the bridge. Same-family model review is disclosed; software tests and numeric matches establish bounded consistency, not forecast accuracy or institutional readiness.
-- **Release gates:** Full combined verification, a fresh live NVDA run, report/export review and fresh required CI are tracked in `docs/internal/superpowers/plans/2026-10-15-nvda-round3-recovery.md`. The interrupted baseline run passed product/integration/core coverage and was stopped during risk coverage to validate the combined source instead; it is not claimed as a full gate pass.
+- **Release gates:** Full combined verification, a fresh live NVDA run, report/export review and fresh required CI are tracked in [`docs/internal/superpowers/plans/2026-10-15-nvda-round3-recovery.md`](https://github.com/eligorelick/Metis/blob/d4bf240068ff1faa3d57fe84a0359488602dd6d6/docs/internal/superpowers/plans/2026-10-15-nvda-round3-recovery.md). The interrupted baseline run passed product/integration/core coverage and was stopped during risk coverage to validate the combined source instead; it is not claimed as a full gate pass.
 
 ## D-68 (NVDA final-report audit, forensics round 3, 2026-10-16) Name what is missing, what was bought, and what is a note
 
@@ -3515,7 +3578,7 @@ Audit of AMZN report #51 (2026-10-29): VAL-1 to VAL-4, VAL-10, FIG-1, FIG-2, FIG
 
 ## D-134 - Audit 2026-10-27 batch B13: operating lines derived from filed tags are the filer's totals, on one presentation (2026-10-29)
 
-Audit 2026-10-27, batch B13: FIN-507, FIN-507-V1, FIN-508, FIN-509, FIN-509-V1, FIN-510, FIN-510-V1, FIN-510-V2, FIN-511, FIN-511-V1 and FIN-511-V2, with two tasks added during the batch (10b, from the R1 pre-flight review, I3; 9b, from the replay). GRD-03 is not in this batch: it moved to batch R1c. The owner delegated the calls ("use your recommendation based on research to make this a professional accurate repository"); following the one-entry-per-batch practice, OD-1 to OD-6 are recorded here, one bullet each, with their full sources in the batch plan (`docs/internal/superpowers/plans/2026-10-27-audit-fix-14-edgar-derived-lines.md`) and the [disposition record](2026-10-27-audit-batch-b13-edgar-derived-lines.md). Conflict C-9 and open item O-1 were decided by the main session on the owner's delegation (decisions spec, sections 4.3 and 4.5). Every rule is class-wide; none names a ticker. Where the plan's text and a later review differ, the rules below are the code's.
+Audit 2026-10-27, batch B13: FIN-507, FIN-507-V1, FIN-508, FIN-509, FIN-509-V1, FIN-510, FIN-510-V1, FIN-510-V2, FIN-511, FIN-511-V1 and FIN-511-V2, with two tasks added during the batch (10b, from the R1 pre-flight review, I3; 9b, from the replay). GRD-03 is not in this batch: it moved to batch R1c. The owner delegated the calls ("use your recommendation based on research to make this a professional accurate repository"); following the one-entry-per-batch practice, OD-1 to OD-6 are recorded here, one bullet each, with their full sources in the batch plan ([`docs/internal/superpowers/plans/2026-10-27-audit-fix-14-edgar-derived-lines.md`](https://github.com/eligorelick/Metis/blob/d4bf240068ff1faa3d57fe84a0359488602dd6d6/docs/internal/superpowers/plans/2026-10-27-audit-fix-14-edgar-derived-lines.md)) and the [disposition record](2026-10-27-audit-batch-b13-edgar-derived-lines.md). Conflict C-9 and open item O-1 were decided by the main session on the owner's delegation (decisions spec, sections 4.3 and 4.5). Every rule is class-wide; none names a ticker. Where the plan's text and a later review differ, the rules below are the code's.
 
 - **Evidence.**
   - FIN-510 (High): D&A took the first combined tag with the period, so McDonald's FY2025 D&A was 457M (`DepreciationDepletionAndAmortization`, a subset line) beside its own `Depreciation` of 1,600M and `DepreciationAndAmortization` of 2,199M. FIN-510-V1 (Low): the same first-hit rule gave Johnson & Johnson's annual R&D as 109M against 14,665M on the face, JPMorgan's interest income as 28.0B against 193.3B and Home Depot's deferred revenue as 1,500M against 2,575M. FIN-510-V2 (Low): the REIT FFO stand-in for total D&A had its own first-hit chain.
@@ -3557,7 +3620,7 @@ Audit 2026-10-27, batch B13: FIN-507, FIN-507-V1, FIN-508, FIN-509, FIN-509-V1, 
 
 ## D-135 - Audit 2026-10-27 batch B4a: the equity bridge, EV and invested capital count every claim once (2026-10-29)
 
-Audit 2026-10-27, batch B4, part A (B4a): FIN-103, FIN-119, FIN-119-V1, FIN-119-V2, FIN-303, FIN-303-V1, FIN-108, FIN-304, FIN-305, FIN-305-V1, FIN-305-V2, FIN-403, FIN-404, FIN-109 and FIN-311, three of them High (FIN-119, FIN-303, FIN-305). Part B (B4b: convertibles, equity-method stakes, fair-value financial assets) is a separate batch with its own entry. The owner delegated the calls ("use your recommendation based on research to make this a professional accurate repository"); following the one-entry-per-batch practice, OD-1, OD-3, OD-4, OD-6, OD-7 and OD-8 are recorded here, one bullet each, with their full sources in the batch plan (`docs/internal/superpowers/plans/2026-10-27-audit-fix-04-equity-bridge-and-invested-capital.md`) and the [disposition record](2026-10-27-audit-batch-b4-equity-bridge.md). The after-tax convention of OD-4 was decided by the main session on the owner's delegation (decisions spec, section 4.3). Every rule is class-wide; none names a ticker. The number D-135 is next after B13's D-134 and is renumbered at merge, with the stamps below, if another batch lands first.
+Audit 2026-10-27, batch B4, part A (B4a): FIN-103, FIN-119, FIN-119-V1, FIN-119-V2, FIN-303, FIN-303-V1, FIN-108, FIN-304, FIN-305, FIN-305-V1, FIN-305-V2, FIN-403, FIN-404, FIN-109 and FIN-311, three of them High (FIN-119, FIN-303, FIN-305). Part B (B4b: convertibles, equity-method stakes, fair-value financial assets) is a separate batch with its own entry. The owner delegated the calls ("use your recommendation based on research to make this a professional accurate repository"); following the one-entry-per-batch practice, OD-1, OD-3, OD-4, OD-6, OD-7 and OD-8 are recorded here, one bullet each, with their full sources in the batch plan ([`docs/internal/superpowers/plans/2026-10-27-audit-fix-04-equity-bridge-and-invested-capital.md`](https://github.com/eligorelick/Metis/blob/d4bf240068ff1faa3d57fe84a0359488602dd6d6/docs/internal/superpowers/plans/2026-10-27-audit-fix-04-equity-bridge-and-invested-capital.md)) and the [disposition record](2026-10-27-audit-batch-b4-equity-bridge.md). The after-tax convention of OD-4 was decided by the main session on the owner's delegation (decisions spec, section 4.3). Every rule is class-wide; none names a ticker. The number D-135 is next after B13's D-134 and is renumbered at merge, with the stamps below, if another batch lands first.
 
 - **OD-1: redeemable (temporary) equity is a claim senior to common.**
   - Decision: one house definition of claims senior to common: permanent preferred plus redeemable preferred (`TemporaryEquityCarryingAmountAttributableToParent`), and book NCI plus redeemable NCI (`RedeemableNoncontrollingInterestEquityCarryingAmount`). The DCF bridge deducts the redeemable preferred beside preferred; the redeemable NCI joins book NCI as the book floor of E-5's `max(book, profit share x consolidated equity value)`, so it is never deducted twice. The market EV, the own-history EV and the REIT EV add both. Invested capital (ROIC, sales-to-capital, the A-2 history) adds the admitted total, because the cash it raised is already netted. The claims reach every guard that asks whether preferred or NCI exists: forecast operating EPS, the P/FCF cash-ownership guard and the own-history common-allocation checks.
@@ -3614,7 +3677,7 @@ Audit 2026-10-27, batch B4, part A (B4a): FIN-103, FIN-119, FIN-119-V1, FIN-119-
 
 PR review clarification (2026-10-30): without a filed start, a quarterly length is inferred only when the predecessor's end is adjacent under the existing 70–135-day quarter rule. Missing earlier quarters leave duration unknown; an otherwise complete latest TTM is retained. Annual fallback separately uses the previous annual end. This fixes the erroneous 182-day quarter and synthetic 100% growth in PR #77's gap case, without changing the annual convention.
 
-Recorded after the E1/E5 replay and threshold gates passed. D-136 and the versions below are next after the fetched B4a main (`222f92a`); recheck numbering before merge. This entry covers Part A of the [B5 plan](../internal/superpowers/plans/2026-10-27-audit-fix-05-seasonality-calendars-and-dcf-inputs.md). Part B's terminal-return, transition-period, WACC, margin, tax and reverse-DCF changes are not implemented here.
+Recorded after the E1/E5 replay and threshold gates passed. D-136 and the versions below are next after the fetched B4a main (`222f92a`); recheck numbering before merge. This entry covers Part A of the [B5 plan](https://github.com/eligorelick/Metis/blob/d4bf240068ff1faa3d57fe84a0359488602dd6d6/docs/internal/superpowers/plans/2026-10-27-audit-fix-05-seasonality-calendars-and-dcf-inputs.md). Part B's terminal-return, transition-period, WACC, margin, tax and reverse-DCF changes are not implemented here.
 
 - **OD-1: one period basis.** Revise D-58's run-rate and guidance level, D-60 choice 3's guidance-consistency floor, and D-98's sequential fallback. An exact whole-week quarter is scaled by 13/w before annualisation or a year-over-year comparison; 90-92-day calendar quarters stay unchanged. Non-whole-week lengths stay unscaled. An unknown length is read as 13 weeks and disclosed. A 371-day DCF starting period is scaled by 52/53, including its operating flows and tagged one-off. Ratios use the filed operands because that common factor cancels: this preserves the exact existing margin, tax, capital-efficiency and scenario-shock calculations, including floating-point precision. Filed historical statements are unchanged.
 - **R1's guidance level and floor.** For the same fiscal quarter a year earlier, let q be its 13-week revenue, T its four-quarter total, P the preceding four-quarter total, and rho = (T/P)^0.25. Its growth-adjusted seasonal factor is (q/T) / [rho^3/(1 + rho + rho^2 + rho^3)]. Average up to three such yearly factors. Divide the guided midpoint, on a 13-week basis, by that mean, multiply by four, then carry it 4.5 months at the guided year-over-year rate. With fewer than eight usable quarters ending at the year-ago quarter, year one is TTM times (1 + guided YoY). Without a usable year-ago comparison, keep the existing run-rate/TTM anchor and disclose why; a sequential change never substitutes for YoY. The consistency floor is the 13-week guided low plus the other three quarters of the starting base, held at their year-ago level for growth or reduced at the guided low's YoY pace for contraction. A known weekday calendar establishes Q4's end and length; other guided quarters on it stay weekly even when the preceding end coincides with month end. A future quarter whose extra-week placement is unknown says it assumes 13 weeks.
@@ -3631,7 +3694,7 @@ Recorded after the E1/E5 replay and threshold gates passed. D-136 and the versio
 
 ## D-138 - Receivables concept continuity for forensic comparisons (2026-10-30, unreleased)
 
-Task 3 of the [report-53 audit plan](../internal/superpowers/plans/2026-10-30-qcom-report-53-audit.md), governed by its [receivables contract](../internal/superpowers/specs/2026-10-30-qcom-report-53-audit-design.md). This opening entry records the receivables change; subsequent additions record implemented tasks. Final release acceptance remains separate.
+Task 3 of the [report-53 audit plan](https://github.com/eligorelick/Metis/blob/d4bf240068ff1faa3d57fe84a0359488602dd6d6/docs/internal/superpowers/plans/2026-10-30-qcom-report-53-audit.md), governed by its [receivables contract](../internal/superpowers/specs/2026-10-30-qcom-report-53-audit-design.md). This opening entry records the receivables change; subsequent additions record implemented tasks. Final release acceptance remains separate.
 
 - **Decision.** DSRI and the receivables-versus-revenue growth flag consume one pair resolved after existing annual alignment and continuity checks. Preserve an admitted same-concept pair. Unknown vendor scope keeps the same numbers, adverse flag presence/severity and thresholds, with a visible unverified-scope qualification instead of a company-specific channel-stuffing explanation. The combined report carries the shared qualifier once; both standalone consumers retain it.
 - **Uncertainty versus contradiction.** Missing metadata and unsupported multi-tag/derived/calculated shapes alone remain unverified and preserve existing numerical behavior. Explicit matching field units can supply a missing duplicate row currency label. Explicit incompatible units/issuer identities/endpoints, duration-versus-instant evidence, field conflicts or directly selected different concepts require repair or local refusal. QName equality establishes concept continuity, not a guessed trade-versus-total label.

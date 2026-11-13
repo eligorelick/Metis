@@ -1,0 +1,32 @@
+[
+  {
+    "date": "2026-11-12",
+    "target": "stagec-payload",
+    "decision": "initial-freeze",
+    "reason": "P27 round-2 S4.7a: first freeze of today's un-restored Stage C payload on unchanged code, before the historical restore ledger is slimmed.",
+    "scope": [
+      "$"
+    ],
+    "beforeSha256": null,
+    "afterSha256": "951546d3084c876aae8690ce36f91b98a50ae6d35a5b2c3c54415db77ad24e6f",
+    "changedLeaves": 1,
+    "changedPaths": [
+      "$"
+    ]
+  },
+  {
+    "date": "2026-11-12",
+    "target": "audit-fixture",
+    "decision": "initial-freeze",
+    "reason": "P27 round-2 S4.7a: first freeze of today's provider-free DEMO projection on unchanged code, before the audit delta ledger is slimmed.",
+    "scope": [
+      "$"
+    ],
+    "beforeSha256": null,
+    "afterSha256": "2face745abefe6a7f31c0782a2ce3138c6b4d5082212940538aa88e07ecb2247",
+    "changedLeaves": 1,
+    "changedPaths": [
+      "$"
+    ]
+  }
+]
