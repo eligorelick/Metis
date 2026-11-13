@@ -100,8 +100,9 @@ and QCOM it is 1M away from the filed figure.
 
 ### Approved report changes
 
-Same-report check, current main (7e59aff3, which holds D-231 and D-233)
-against this change: 8 of the 17 cases differ (`amzn`, `nvda`, `mu` in both
+Same-report check, current main (99234cdf, which holds D-231, D-233 and
+D-234; measured before that on 7e59aff3 with the same result) against this
+change: 8 of the 17 cases differ (`amzn`, `nvda`, `mu` in both
 their data-only and fixed-analyst forms, `qcom-data-only`, `vktx-data-only`),
 all eight outputs each plus the payload fingerprint; the other 9 cases
 (`meta` in both forms, `figr`, `jpm`, `pgr`, `o`, `duk`, `tsm`, `rivn`) are
