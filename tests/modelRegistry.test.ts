@@ -1,7 +1,7 @@
 /**
  * The model registry (config/models.json via src/models/registry.ts) is the
  * single source for model ids, request shaping and prices. These tests pin
- * the facts verified on 2026-10-03 and the acceptance rules for
+ * the facts verified on 2026-11-13 and the acceptance rules for
  * ANALYSIS_MODEL. No network.
  */
 import { describe, expect, it } from "vitest";
@@ -37,9 +37,10 @@ import { modelSupportsEffort } from "@/report/execution";
 describe("config/models.json", () => {
   it("is stamped with a snapshot date and retains old active models alongside the two 5.5 releases", () => {
     expect(REGISTRY_SNAPSHOT_DATE).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(REGISTRY_SNAPSHOT_DATE).toBe("2026-10-03");
+    expect(REGISTRY_SNAPSHOT_DATE).toBe("2026-11-13");
     expect(MODEL_REGISTRY_SNAPSHOT_DATE).toBe(REGISTRY_SNAPSHOT_DATE);
     expect(activeModelIds()).toEqual([
+      "claude-fable-5-2",
       "claude-fable-5-1",
       "claude-fable-5",
       "claude-opus-5-5",
@@ -55,6 +56,9 @@ describe("config/models.json", () => {
 
   it("carries the verified prices per MTok, including per-model cache prices", () => {
     const price = (id: string) => assertRegistryModel(id).entry.pricing;
+    expect(price("claude-fable-5-2")).toEqual({
+      inputPerMTok: 8, outputPerMTok: 40, cacheWrite5mPerMTok: 10, cacheWrite1hPerMTok: 16, cacheReadPerMTok: 0.2,
+    });
     expect(price("claude-fable-5-1")).toEqual({
       inputPerMTok: 10, outputPerMTok: 50, cacheWrite5mPerMTok: 12.5, cacheWrite1hPerMTok: 20, cacheReadPerMTok: 0.25,
     });
@@ -75,7 +79,7 @@ describe("config/models.json", () => {
 
   it("records context, output, effort, sampling, thinking and tool support per family", () => {
     const entry = (id: string) => assertRegistryModel(id).entry;
-    for (const id of ["claude-fable-5-1", "claude-fable-5", "claude-opus-5-5", "claude-opus-5", "claude-opus-4-8", "claude-sonnet-5-5", "claude-sonnet-5"]) {
+    for (const id of ["claude-fable-5-2", "claude-fable-5-1", "claude-fable-5", "claude-opus-5-5", "claude-opus-5", "claude-opus-4-8", "claude-sonnet-5-5", "claude-sonnet-5"]) {
       expect(entry(id).contextWindowTokens).toBe(1_000_000);
       expect(entry(id).maxOutputTokens).toBe(128_000);
       expect(entry(id).effort).toEqual({ supported: true, levels: ["low", "medium", "high", "xhigh", "max"] });
@@ -93,6 +97,8 @@ describe("config/models.json", () => {
     expect(modelSupportsEffort("claude-haiku-4-5")).toBe(false);
     expect(modelSupportsEffort("claude-haiku-4-5-20251001")).toBe(false);
     expect(modelSupportsEffort("claude-sonnet-4-5")).toBe(false);
+    expect(entry("claude-fable-5-2").thinking).toEqual({ mode: "always-on", sendParam: false });
+    expect(entry("claude-fable-5-2").taskBudget).toEqual(entry("claude-fable-5-1").taskBudget);
     expect(entry("claude-fable-5-1").thinking).toEqual({ mode: "always-on", sendParam: false });
     expect(entry("claude-fable-5").thinking).toEqual({ mode: "always-on", sendParam: false });
     expect(entry("claude-opus-5-5").thinking).toEqual({ mode: "always-on", sendParam: false });
@@ -102,7 +108,7 @@ describe("config/models.json", () => {
     expect(entry("claude-opus-5").thinking).toEqual({ mode: "adaptive", sendParam: true });
     expect(entry("claude-opus-4-8").thinking).toEqual({ mode: "adaptive", sendParam: true });
     expect(entry("claude-sonnet-5").thinking).toEqual({ mode: "adaptive", sendParam: false });
-    for (const id of ["claude-fable-5-1", "claude-fable-5"]) {
+    for (const id of ["claude-fable-5-2", "claude-fable-5-1", "claude-fable-5"]) {
       expect(entry(id).serverSideFallback).toEqual({
         beta: "server-side-fallback-2026-06-01",
         model: "claude-opus-4-8",
@@ -120,6 +126,7 @@ describe("config/models.json", () => {
       "claude-opus-4-8",
       "claude-sonnet-5-5",
       "claude-sonnet-5",
+      "claude-fable-5-2",
       "claude-fable-5-1",
       "claude-fable-5",
     ]);
@@ -168,6 +175,7 @@ describe("ANALYSIS_MODEL acceptance", () => {
       ["claude-opus-5-20260115", "claude-opus-5"],
       ["claude-opus-4-8-20260601", "claude-opus-4-8"],
       ["claude-sonnet-5-20260808", "claude-sonnet-5"],
+      ["claude-fable-5-2-20261109", "claude-fable-5-2"],
       ["claude-fable-5-1-20260901", "claude-fable-5-1"],
       ["claude-fable-5-20260901", "claude-fable-5"],
     ] as const) {
@@ -214,7 +222,7 @@ describe("registry validation", () => {
 
     const badDated = valid();
     badDated.models[0]!.datedSnapshotIds = ["claude-other-20260101"];
-    expect(() => parseModelRegistry(badDated)).toThrow(/is not claude-fable-5-1-YYYYMMDD/);
+    expect(() => parseModelRegistry(badDated)).toThrow(/is not claude-fable-5-2-YYYYMMDD/);
 
     const badAuto = valid();
     badAuto.autoPreference = ["claude-nope"];
