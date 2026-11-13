@@ -116,7 +116,9 @@ export interface CompanyRoute {
   modelEligibility?: { status: "unresolved"; reason: string; sources: string[] };
   /** Filed non-bank lending makes industrial owner-FCF measures inapplicable. */
   cashFlowApplicability?: { status: "not-applicable"; reason: string; sourceIds: string[]; asOf: string; evDebtBasis?: string;
-    debtPerimeter?: { label: string; borrowings: number; loanOwnerPayables: number; components: { name: string; value: number }[]; currency: string; source: string } };
+    debtPerimeter?: { label: string; borrowings: number; loanOwnerPayables: number; components: { name: string; value: number }[]; currency: string; source: string;
+      /** D-234: set when the report's debt at `asOf` is the filed borrowings plus the operating lease, not the provider perimeter `label` names. */
+      filedDebt?: number } };
 }
 
 /** Grades used across the report. */

@@ -6230,8 +6230,17 @@ export interface ReitInputs {
    * publish a P/FFO from a withheld price.
    */
   sharePrice: number | null;
-  /** The weighted diluted count FFO and AFFO per share divide by. */
+  /**
+   * The weighted diluted count FFO and AFFO per share divide by: the count of
+   * FFO's own period (its fiscal year), so the flow and its divisor cover one
+   * period (D-233, P13). Never the latest quarter's count, which divides a
+   * value per share.
+   */
   shares: number | null;
+  /** D-233: the period end of that count, named beside the per-share figures. */
+  sharesPeriodEnd?: string | null;
+  /** D-233: why no count for FFO's own period is established; the per-share figures are withheld with it. */
+  sharesWithheldReason?: string | null;
   /**
    * FIN-311: the market cap the multiples framework priced P/FFO and P/AFFO on
    * (the quote's admitted market cap), so a report carries one P/FFO.
@@ -6342,6 +6351,14 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
     );
   }
   const shares = posOrNull(inputs.shares);
+  // D-233 (P13, P10): a flow per share divides by its own period's count, or is withheld with the reason.
+  if (shares === null && inputs.sharesWithheldReason) {
+    gaps.push(gapEntry(
+      "valuation.reit.perShareDivisor",
+      `FFO and AFFO per share withheld: ${inputs.sharesWithheldReason}. FFO and AFFO are flows of the fiscal year${inputs.sharesPeriodEnd ? ` ending ${inputs.sharesPeriodEnd}` : ""}, so they divide only by that year's weighted-average diluted share count; another period's count is not substituted.`,
+      "warn",
+    ));
+  }
   const mcap = posOrNull(inputs.sharePrice) !== null ? posOrNull(inputs.marketCap) : null;
   if (mcap === null) {
     gaps.push(gapEntry("valuation.reit.marketCap", "market cap withheld or unavailable (a currency, security-basis or per-share guard, or no admitted market cap)", "warn"));
@@ -6367,6 +6384,11 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
     notes.push("implied cap rate = NOI(approx = operatingIncome + D&A) / EV — a sketch, not an appraisal");
   } else {
     gaps.push(gapEntry("valuation.reit.impliedCapRate", "NOI not derivable (or EV missing) — implied cap rate disclosed as gap", "info"));
+  }
+  if (shares !== null && inputs.sharesPeriodEnd && (ffo !== null || affo !== null)) {
+    notes.push(
+      `FFO and AFFO per share divide by the weighted-average diluted share count of FFO's own period, the fiscal year ending ${inputs.sharesPeriodEnd} (${shares} shares), so each flow and its divisor cover one period; the latest quarter's count is not used.`,
+    );
   }
   return {
     pToFfo: safeDiv(mcap, ffo),
@@ -6753,8 +6775,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     gaps.push(gapEntry("valuation.perShare.economicClassBasis", inputs.dilutedShareEconomicBasis, "info"));
   }
   // FIN-404: said once, and only where a per-share value that divides by the count is published (the DCF, the excess-return route and the REIT FFO/AFFO per share).
-  const divisorDisclosure = (perShare: number | null | undefined): void => {
-    if (inputs.dilutedShareDivisor === undefined || !isNum(perShare) || !isNum(inputs.dilutedShares) || inputs.dilutedShares <= 0) return;
+  const divisorDisclosure = (perShare: number | null | undefined, shares: number | null | undefined = inputs.dilutedShares): void => {
+    if (inputs.dilutedShareDivisor === undefined || !isNum(perShare) || !isNum(shares) || shares <= 0) return;
     gaps.push(gapEntry("valuation.perShare.lossPeriodDivisor", inputs.dilutedShareDivisor.note, "info"));
     if (inputs.dilutedShareDivisor.basis !== "loss-period-substituted" || !notes.some((n) => n.startsWith("Per-share values divide by the latest period's basic count plus"))) {
       notes.push(inputs.dilutedShareDivisor.note);
@@ -6959,7 +6981,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     }
     gaps.push(...reit.gaps);
     // FIN-404: FFO and AFFO per share divide by the same count; said once, where one is published.
-    divisorDisclosure(reit.ffoPerShare ?? reit.affoPerShare);
+    // D-233: that count is the REIT block's own (FFO's fiscal year), and the disclosure describes that row.
+    divisorDisclosure(reit.ffoPerShare ?? reit.affoPerShare, reitInputs?.shares);
     return { kind: "reit", route: route.base, reit, multiples, notes, gaps };
   }
 

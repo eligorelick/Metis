@@ -11,6 +11,354 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-234 - FIGR: the 10-K's share counts and the 10-Q's own borrowings replace two vendor figures (2026-11-12)
+
+Principles P8 (filed beats vendor), P3 (share basis), P6 (share classes), P7
+(compose once, from one filing), P9 (text only inside proved bounds), P2
+(newest compatible filing), P10 (withhold, never guess) and P12 (a
+substitution is disclosed). Round 2, Stage 5 (accuracy fixes), FIGR family.
+The accuracy baseline (r2-base-afb9cddf) found two FIGR figures that were the
+data vendor's and not the filing's: the fiscal 2025 weighted-average share
+counts, exactly twice the 10-K's, and the "debt used in this report" at
+2026-06-30, the vendor's debt perimeter. Two causes, two owners.
+
+### Weighted-average share counts (P3, P8, P6)
+
+Root cause. The vendor's raw fiscal 2025 income row carries a basic count of
+228,870,518 and a diluted count of 283,604,000: twice the 10-K's 114,435,259
+and 141,802,002 (the diluted figure after rounding to thousands). FIGR's
+registrant lists two symbols (FIGR, FGRS), so a vendor count is compared with
+the filed one only once some comparable period shows that the vendor counts
+shares in the filer's unit (review M-1, 2026-11-01). The producer applies that
+across both income series: FIGR's 2026 quarters match the 10-Qs, so they
+govern the annual row. D-200's filed admission in the report's calculation
+view (`withFiledShareValues`, `src/pipeline/shareUnits.ts`) asked each series
+alone. FIGR has one comparable annual row, and it is the doubled one, so the
+annual series never showed the unit, the row was never compared, and the
+doubled counts stood, while the same view corrected the doubled Q3 2025 count
+and the year-to-date counts on the Q2 2026 row.
+
+The doubling is the vendor's (the stored raw vendor response carries it). The
+10-K tags each count once, for all classes together, and its diluted EPS of
+0.44 sits on that count. It is not a split effect: the 1-for-5 reverse split
+of August 2025 would be a factor of five, and the 10-K was filed after it. A
+factor of exactly two in both fields fits a two-class EPS presentation read as
+two counts, but the vendor's method cannot be observed and nothing here rests
+on it.
+
+Choice. The rule "a series that shows the vendor's share unit governs the
+other" has one owner, `vendorShareUnitShownAcross` (`src/pipeline/keyless.ts`),
+used by the producer and by the calculation view. With the unit shown, the
+existing D-200 rule replaces a vendor count that differs from the filed count
+for the exact period by more than rounding (0.01%, at least one share) with
+the filed count, keeps the vendor value in `fieldConflicts`, and writes one
+manifest entry per field. No tolerance, class rule or split rule changes.
+Metis combines no class counts here: the value is the filer's single
+undimensioned fact (D-149 and D-206 are untouched).
+
+Options rejected: withholding the counts (the filed counts are in the stored
+SEC facts, for the exact fiscal year, in one filing); treating every
+multi-ticker registrant as comparable without the unit evidence (Berkshire's
+1,500-to-1 class unit would then be "corrected" to a count in another unit).
+
+### Debt at the latest balance (P7, P8, P9)
+
+Root cause. The vendor's "total debt" for FIGR at 2026-06-30, 1,474,457,000,
+is the 10-Q's three debt lines (962,995,000) plus its "Payables to third-party
+loan owners" (506,686,000), which the vendor files under short-term debt, plus
+the operating lease liability (4,776,000). The debt admission
+(`admitDebtFields`, `src/edgar/financialEnrichment.ts`) checks that a vendor
+row has not left a filed component out (a tagged total above the composed
+parts, a zero short-term debt beside a tagged current debt, a lease line that
+is only the noncurrent part). It never asked whether a vendor row added
+something the filing does not present as debt, and the 10-Q tags its current
+debt only by related-party member, so no undimensioned current-debt fact
+existed to contradict the vendor's short-term debt. D-149 (lender review
+conventions, F1) kept the vendor figure, labelled "Provider debt perimeter
+(includes payables to third-party loan owners)", with the filed borrowings
+beside it.
+
+Choice, in `admitDebtFields` (`filedBorrowingsOverVendorPerimeter`), which
+runs when data is collected and again when a report is built, so stored inputs
+keep their bytes. A vendor row's debt becomes the filing's own borrowings plus
+its operating lease liability only when one filing, at the row's date and in
+its currency, proves every part:
+
+1. The filing whose balance sheet is retained for that report date (10-K or
+   10-Q, its document under the issuer's own EDGAR folder) tags `LongTermDebt`
+   (current and noncurrent), `LongTermDebtNoncurrent` and
+   `OperatingLeaseLiability` at the instant, each with one value, and no newer
+   filing states another value for it (P2).
+2. The filing tags no other borrowing at that instant: no `DebtCurrent`,
+   `ShortTermBorrowings`, `CommercialPaper`, combined current debt, debt-and-
+   lease total, gross combined debt or finance lease; a `LongTermDebtCurrent`
+   only when it equals `LongTermDebt` less `LongTermDebtNoncurrent`.
+3. The filing's balance sheet (`lenderDebtLines`,
+   `src/edgar/debtPresentation.ts`; the captions D-149 already reads, stated in
+   thousands) names one "Debt, non-current" line equal to
+   `LongTermDebtNoncurrent`, debt lines that add up to `LongTermDebt` exactly,
+   and one "Payables to third-party loan owners" line. The text only names the
+   composition; every amount used is a tagged fact (P9).
+4. The vendor's long-term debt and lease line agree with the filed ones, and
+   its short-term debt and total are the filed amounts plus that payable
+   (`vendorAgreesWithFiled`, the P8 allowance; no new tolerance).
+
+Then short-term debt is `LongTermDebt` less `LongTermDebtNoncurrent`, long-term
+debt is `LongTermDebtNoncurrent`, total debt is `LongTermDebt` plus
+`OperatingLeaseLiability`, and net debt follows it as in the existing
+same-filing completion. The vendor total and short-term debt stay in
+`fieldConflicts` (`usable: true`, `resolution: "filed-family"`), the fields
+carry the filing as provenance, and the manifest gets one informational entry
+naming both totals, the lines and the filing. Anything unproven leaves the row
+to the unchanged checks. A finance lease is not shown to be nil by its
+absence: none is tagged, none is added, and the lease evidence still says
+finance-lease coverage is unverified.
+
+The lender evidence (`lenderCashFlowApplicability`) and its readers follow the
+admitted row: the debt line is "Debt used in this report", the provider label
+names nothing the report shows, the EV context sentence says the debt is the
+filed lines and that the provider's figure also counted the payables, and the
+filed borrowings, their three lines and the loan-owner payables stay as
+separate rows. Net debt, net debt to EBITDA, interest coverage and EV multiples
+stay not applicable to a held-for-sale lender (D-149 F1/F2 otherwise
+unchanged).
+
+Options rejected: a disclosed gap (every part is proven from the one filing);
+deriving current debt from the two tags alone for every issuer (the SEC facts
+Metis stores are undimensioned, so they cannot show that a vendor's excess is
+not a borrowing tagged by member or by a filer element; the balance sheet's own
+line names can); summing the related-party members (the stored facts do not
+carry them).
+
+### Approved report changes
+
+Same-report check against main at bda87e4c (which includes D-231, D-230 and D-232): 8
+files differ, all in `figr-data-only`, plus its payload fingerprint; the other
+16 cases are byte for byte unchanged. Against the round's baseline
+(r2-base-afb9cddf) the same 8 files differ, plus D-231's approved TSM and DUK
+changes. The leaf-level list is in `tmp/accuracy/s5-figr-before-after.md` (not
+committed: it quotes vendor data).
+
+FIGR (`figr-data-only`, CIK 2064124, USD). Filed values are SEC XBRL facts,
+stated to the unit (share counts) or the thousand (money, decimals -3).
+
+| Figure | Before (vendor) | After | Proof |
+| --- | --- | --- | --- |
+| Basic weighted-average shares, fiscal 2025 | 228,870,518 | 114,435,259 | `us-gaap:WeightedAverageNumberOfSharesOutstandingBasic`, 2025-01-01..2025-12-31, shares, 10-K 0002064124-26-000009, filed 2026-03-16 |
+| Diluted weighted-average shares, fiscal 2025 | 283,604,000 | 141,802,002 | `us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding`, same period and filing |
+| Debt used in this report, 2026-06-30 | 1,474,457,000 | 967,771,000 | `us-gaap:LongTermDebt` 962,995,000 + `us-gaap:OperatingLeaseLiability` 4,776,000, both at 2026-06-30, 10-Q 0001628280-26-057061, filed 2026-08-14 |
+
+The 10-Q's own balance-sheet facts behind the 962,995,000 (the filing's XBRL
+instance, context date 2026-06-30): `us-gaap:LongTermDebtCurrent` 222,505,000
+(NonrelatedPartyMember) and 424,640,000 (RelatedPartyMember),
+`us-gaap:LongTermDebtNoncurrent` 315,850,000. The payables line is
+`figr:ServicingLiabilityCurrent` 506,686,000, a filer element outside the debt
+elements. The instance has no finance-lease element. The five current
+liability lines add up to `us-gaap:LiabilitiesCurrent` 1,285,124,000, and with
+the two noncurrent lines to `us-gaap:Liabilities` 1,604,578,000, so no other
+liability line exists.
+
+What the two figures feed, with every other operand unchanged:
+
+| Downstream figure | Before | After |
+| --- | --- | --- |
+| Diluted/basic share gap (dilution overhang), fiscal 2025 | withheld (IPO conversion in the year) | withheld, same reason |
+| Diluted share-count trend and its leadership signal | unavailable (one year of counts) | unavailable, same reason |
+| Diluted and basic EPS, fiscal 2025 | 0.44 / 0.54 | unchanged (already the 10-K's) |
+| Net debt, net debt to EBITDA, interest coverage | not applicable (lender) | not applicable |
+| Net-debt working note (debt less cash and short-term investments) | 36,946,000 | -469,740,000 (967,771,000 - 1,437,511,000; not a published metric) |
+| Enterprise value and EV multiples | withheld (share-class scope) | withheld; the context sentence names the filed lines |
+| WACC and its debt weight, DCF, fair value | withheld | withheld |
+| Scores, grades, composite | | unchanged |
+| Key-data row "Provider debt perimeter ... $1.47B" | shown | removed; the debt profile shows "Debt used in this report $967.77M" |
+| Filed borrowings 963.00M, loan-owner payables 506.69M, the three debt lines, operating lease 4.78M | | unchanged |
+| Statement tables | "Provider debt perimeter" line, 2026-06-30 = 1,474,457,000 | "Debt used in this report", 2026-06-30 = 967,771,000; a note says earlier periods on the line are the provider's figure |
+| Manifest | 92 entries | 95 (three informational entries: two share counts, one debt total) |
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports two changes
+against its expectation, nothing worse: FIGR "diluted weighted-average shares,
+latest fiscal year" and "total debt including lease liabilities, latest
+balance", each from mismatch to match.
+
+### Limits, and what is not fixed here
+
+- A report built from newly collected data: the producer already refuses a
+  vendor count that differs from the filed one by more than 3% once the unit
+  is shown (review M-1), and the calculation view corrects only a count still
+  on the row. So newly collected FIGR data shows the fiscal 2025 counts as a
+  disclosed gap, while a report rebuilt from inputs collected before M-1 (the
+  same-report case) shows the filed counts. Both are honest. Having the
+  producer adopt the filed count instead of refusing would change its rule for
+  every issuer and is a separate decision.
+- The debt rule is narrow on purpose: the balance at the report date of a
+  retained 10-K or 10-Q, the captions D-149 reads, amounts in thousands.
+  Earlier balance dates keep the vendor's figure. FIGR's 2025-12-31 balance
+  (948,198,000 in the annual capital record and the statement tables; no
+  published metric uses it for a lender) is the vendor's perimeter with
+  383,772,000 of loan-owner payables. The filed figure is 562,918,000
+  (`LongTermDebt` 557,237,000 + `OperatingLeaseLiability` 5,681,000, 10-K
+  0002064124-26-000009), but the stored 10-K has no balance-sheet text (the
+  statement prefix was not extracted) and the 10-Q's comparative column tags
+  no lease total, so no single filing in the inputs proves every part. The
+  statement-table note now says those periods are the provider's figure.
+- The baseline's FIGR "definition" rows (consolidated profit shown as net
+  income) and its free-cash-flow gaps belong to other Stage 5 steps.
+
+Revises D-149 (lender review conventions, F1): the provider debt perimeter is
+no longer the report's debt where the filing proves the debt lines as above;
+where it does not, D-149's labelled perimeter stands.
+
+Version stamps are not moved by this change: the report-spec, payload and
+Stage B stamps are shared by the Stage 5 accuracy changes and move once, at
+integration (P27). Saved reports and stored run inputs keep their bytes (P21).
+
+## D-233 - FFO and AFFO per share divide by the share count of FFO's own fiscal year (2026-11-12)
+
+Principles P13 (one basis: a ratio's numerator and denominator share one
+basis), P1 (exact period), P3 (share basis) and P10 (withhold, never guess).
+Round 2, Stage 5 (accuracy fixes), REIT FFO divisor family. The accuracy
+baseline (r2-base-afb9cddf, rank 2) found Realty Income's "FFO per-share
+divisor" to be 946,115,000 shares, the filed weighted diluted count of the
+quarter 2026-07-01..2026-09-30, under an FFO of fiscal year 2025.
+
+Root cause. On the equity-REIT route `computeValuation`
+(`src/pipeline/compute.ts`) handed the REIT block the divisor every
+value-per-share model reads: the weighted diluted count of the newest income
+row, a quarter whenever one is as new as the fiscal year ("Share basis
+(D-65)"). That count is right for a value per share (the DCF and the
+excess-return model divide a value of today's capital by today's count). FFO
+and AFFO are not values: `computeNareitFfo` measures them on the latest fiscal
+year only. So a twelve-month flow was divided by a count from a later
+three-month period. For an issuer that issues shares continuously, as REITs
+do, the later count is larger and the per-share figure is understated
+(Realty Income: by 4.0%).
+
+What each per-share figure on the equity-REIT route covered, before this
+change:
+
+| Figure | Numerator period | Divisor period before | Divisor period now |
+| --- | --- | --- | --- |
+| FFO per share | latest fiscal year | newest income row: the latest quarter when it is as new as the fiscal year, else the fiscal year | the same fiscal year |
+| AFFO per share | latest fiscal year | same as FFO per share | the same fiscal year |
+
+The route has no other per-share figure. P/FFO and P/AFFO are the quote's
+market cap over fiscal-year FFO and AFFO (OD-8): no share count enters them,
+and the existing note already says the market cap is current while FFO is up
+to three quarters old. The implied cap rate is NOI over enterprise value.
+The route publishes no fair value per share, no scenario targets and no
+projections, and its valuation grade reads the P/FFO and P/AFFO own-history
+ranks. None of these moves.
+
+Choice, in the owner that selects the REIT block's divisor (`computeValuation`,
+`src/pipeline/compute.ts`), for every issuer on the route:
+
+1. The divisor is the weighted diluted count of FFO's own period: the annual
+   income row whose period end is FFO's, read through the one divisor owner
+   (`incomeDivisors` and `awardDilutedDivisor`, FIN-404) and the one
+   common-class rule (`issuerEconomicDilutedShares`, B-37). No new tolerance,
+   day band or status word is added.
+2. The latest quarter's count is never used for these two figures. It is a
+   different figure's divisor (a value per share on today's capital, P3), and
+   the route publishes no such figure, so nothing is redefined: FFO and AFFO
+   per share are flows per share of the fiscal year, and the REIT block's new
+   note says so with the period and the count.
+3. When no count is established for that fiscal year (no annual row at FFO's
+   period end, no count on it, a multi-class count the class rule cannot show
+   spans every class, or, for a translated ADR, a count the quoted-unit rule
+   in `src/pipeline/foreignCurrency.ts` cannot place on the quoted security)
+   both figures are withheld with the warn gap
+   `valuation.reit.perShareDivisor`, which names the cause. Another period's
+   count is not substituted. P/FFO and P/AFFO need no count and stand.
+4. The loss-period disclosure (`valuation.perShare.lossPeriodDivisor`,
+   FIN-404) now describes the row the REIT block divides by. A loss fiscal
+   year takes its basic count plus the newest profitable period's award
+   dilution, as OD-7 decided; a loss quarter beside a profitable fiscal year
+   no longer touches FFO per share. OD-7 and OD-8 in the 2026-10-27 batch B4
+   entry are marked "Revised by D-233" for this.
+
+Other routes, checked as far as needed to say whether the same mismatch
+exists: it does not. General and utility: the DCF, reverse DCF and scenario
+values are values per share on the latest count; P/E reads filed EPS; forecast
+EPS divides a forecast year by today's count by stated convention (no filed
+count exists for a future year); the buyback price proxy divides a fiscal
+year's average market cap by that same year's count. Bank, insurer and
+mortgage REIT: the excess-return value and tangible book per share divide a
+balance at one date by the count of the newest income period ending on or
+before that date; a mortgage REIT's book value per share uses period-end
+shares, or that fiscal year's weighted count as a disclosed stand-in. No
+figure on those routes divides a past flow by another period's count, so
+nothing there changes.
+
+Options rejected: moving the whole route's divisor selection to the fiscal
+year (it would also change the convertible reading, the divisor note and the
+class-basis note that other code reads for the newest row); restating FFO to a
+trailing twelve months so the latest count could stay (the NAREIT components
+resolve as annual facts only, and a trailing weighted count is not a filed
+figure); keeping the latest count and relabelling the figure "FFO per current
+share" (a silent redefinition of a figure readers compare with the issuer's
+own FFO per share).
+
+### Approved report changes
+
+Same-report check, this change against current main (bda87e4c, which holds
+D-231): 1 file in 1 of the 17 cases differs, `o-data-only/stageB.json`, in
+three leaves. The other 16 cases, and every other figure, note and gap of
+Realty Income (its other seven outputs and its payload fingerprint included),
+are byte for byte unchanged. Against the round baseline r2-base-afb9cddf the
+difference is that one file plus D-231's own approved changes to TSM and Duke
+Energy, which this change does not touch. Leaf-level list:
+`tmp/accuracy/s5-ffo-before-after.md` (not committed).
+
+Realty Income (`o-data-only`, USD). Filed values are SEC XBRL facts of Form
+10-K 0000726728-26-000011, filed 2026-02-25, for the fiscal year
+2025-01-01..2025-12-31, stated to the thousand (decimals -3).
+
+| Figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| FFO per-share divisor | 946,115,000 shares (`WeightedAverageNumberOfDilutedSharesOutstanding`, quarter 2026-07-01..2026-09-30, 10-Q 0000726728-26-000059, filed 2026-11-03) | 908,334,000 shares | `us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding`, 2025-01-01..2025-12-31 = 908,334,000 shares, 10-K 0000726728-26-000011 |
+| FFO per share (`valuation.reit.ffoPerShare`) | 4.097266188571157 | 4.267686776009706 | 3,876,485,000 / 908,334,000. FFO as the report already cites it, all from the same 10-K and fiscal year: `NetIncomeLoss` 1,058,590,000 + `DepreciationDepletionAndAmortization` 2,524,200,000 - `GainLossOnSaleOfProperties` 177,640,000 + `ImpairmentOfRealEstate` 471,335,000 |
+| AFFO per share (`valuation.reit.affoPerShare`) | 3.95795965606718 | 4.122585965074521 | 3,744,685,000 / 908,334,000. AFFO = FFO 3,876,485,000 - `PaymentsForCapitalImprovements` 131,800,000 (same 10-K and fiscal year) |
+| REIT block note (`valuation.reit.notes.3`) | absent | "FFO and AFFO per share divide by the weighted-average diluted share count of FFO's own period, the fiscal year ending 2025-12-31 (908334000 shares), so each flow and its divisor cover one period; the latest quarter's count is not used." | discloses the divisor above |
+
+FFO (3,876,485,000), AFFO (3,744,685,000), P/FFO (14.5858) and P/AFFO
+(15.0991) are unchanged. FFO per share is shown on the company page; it is not
+in the Stage C payload or the report, so no report text, score or grade moves.
+
+Approvals list for the same-report check:
+
+| Case | File | Before (SHA-256) | After (SHA-256) | Reason |
+| --- | --- | --- | --- | --- |
+| o-data-only | stageB.json | 640b7efdbbf674b8bb9c15b1ee5bf0bde84a5c2b9252b87eb868dd975afdf346 | 675c5a40750d81b6741913f801322d8dbc9b250991339e30c3e71ba3c6d97b6e | the three leaves above |
+
+Accuracy check (`accuracy:check`, the unmerged tool, run against this
+change's 17 cases): 153 match, 15 mismatch, 63 gap, 35 not established, one
+difference from its expectation, "BETTER: o-data-only fv.ffo.shares, mismatch
+to match", none worse. Current main (with D-231) gives 152 and 16.
+
+Tests (`tests/stageB.reitFfoDivisor.test.ts`): the root cause on a synthetic
+REIT whose fiscal-year and latest-quarter counts differ; Realty Income on its
+filed operands and counts; controls (equal counts change nothing, P/FFO does
+not move, no fiscal-year count withholds with the gap); a loss fiscal year;
+and two unrelated shapes, a general company's DCF and a bank's excess-return
+value, which still divide by the latest quarter's count. One existing test
+(`tests/stageB.lossPeriodDivisor.audit20261027.test.ts`) pinned the old wiring
+(a loss quarter changing the REIT divisor); it now puts the loss on the fiscal
+year, and a second case states that a loss quarter leaves FFO per share on the
+year's filed count.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change advances the Stage B
+implementation stamp only; the report specification and the payload are
+unchanged. Frozen records are unchanged. Saved reports are immutable (P21) and
+keep the figure they were built with.
+
+Not changed, because they belong to other steps or are wording only: Realty
+Income's consolidated-or-parent net income rows and its vendor-zero rows
+(capital spending 0, operating income); the company page label "FFO / share",
+which does not name the fiscal year; and the route-level note "diluted share
+count from the latest ANNUAL statement ... per-share values may lag", which is
+still raised on its old condition.
+
 ## D-232 - The DEMO fixture's frozen record replaces the audited baseline and its delta ledger (2026-11-12)
 
 Principle P27. Revises D-23.
@@ -4111,12 +4459,12 @@ Audit 2026-10-27, batch B4, part A (B4a): FIN-103, FIN-119, FIN-119-V1, FIN-119-
   - Revises: the D-58 fallback in METHODOLOGY and the code note "When removing them would leave no operating capital the D-58 basis stands" (both rewritten); D-65 item 4 stays true and now also covers what sales-to-capital could not remove.
   - Sources: D-65's own principle ("an asset left out of operating capital is never left out of value too"); Damodaran, "Holdings in Other Firms".
 - **OD-7: the divisor in a loss period.**
-  - Decision: a loss row's filed diluted count equals basic, so the divisor is the loss row's basic count plus the newest award-dilution increment from a profitable period among the latest four quarters and the latest fiscal year (that period's diluted count less its basic count, less any filed conversion increment). The substitution is dated and disclosed (info gap `valuation.perShare.lossPeriodDivisor`) and reaches the DCF, excess-return and REIT per share and forecast EPS. With no profitable donor, the basic count stands and the D-60 note and METHODOLOGY say it carries no option or RSU dilution. Detection (`dilutedDivisor.ts`): both counts are positive, the diluted count is at most basic plus 1 (`diluted <= basic + 1`), and the row's income from continuing operations (net income when that is not filed) is below zero. The conversion subtraction: the donor's filed if-converted share increment (debt and preferred) is taken out of its increment, because the bridge deducts those claims. The not-restored case: when the issuer has a convertible instrument filed with a nonzero balance (in any reporting currency) within 366 days and the donor period files no conversion increment, the award increment could hold conversion shares, so it is not restored, the filed count divides, and an info note says so (`loss-period-withheld`).
+  - Decision: a loss row's filed diluted count equals basic, so the divisor is the loss row's basic count plus the newest award-dilution increment from a profitable period among the latest four quarters and the latest fiscal year (that period's diluted count less its basic count, less any filed conversion increment). The substitution is dated and disclosed (info gap `valuation.perShare.lossPeriodDivisor`) and reaches the DCF, excess-return and REIT per share and forecast EPS. (Revised by D-233: the REIT per share divides by the latest fiscal year's count, so the substitution reaches it when that fiscal year is the loss period, not when the latest quarter is.) With no profitable donor, the basic count stands and the D-60 note and METHODOLOGY say it carries no option or RSU dilution. Detection (`dilutedDivisor.ts`): both counts are positive, the diluted count is at most basic plus 1 (`diluted <= basic + 1`), and the row's income from continuing operations (net income when that is not filed) is below zero. The conversion subtraction: the donor's filed if-converted share increment (debt and preferred) is taken out of its increment, because the bridge deducts those claims. The not-restored case: when the issuer has a convertible instrument filed with a nonzero balance (in any reporting currency) within 366 days and the donor period files no conversion increment, the award increment could hold conversion shares, so it is not restored, the filed count divides, and an info note says so (`loss-period-withheld`).
   - Rejected: the newest profitable period's diluted count (it carries that period's older basic count); disclose only.
   - Revises: D-65 item 5 and the D-60 divisor disclosure; METHODOLOGY "Share basis".
   - Sources: Deloitte Roadmap, *Earnings per Share* 8.7 (with a loss from continuing operations, diluted EPS is computed as basic EPS); ASC 260-10-45-17 to 45-20.
 - **OD-8: one REIT market cap and EV.**
-  - Decision: the REIT block takes its market cap and its EV from the multiples framework: the quote's admitted market cap and the house EV, which after OD-1 holds preferred, redeemable preferred, book NCI and redeemable NCI. P/FFO and P/AFFO are market cap over FFO at both sites; FFO and AFFO per share stay on the diluted count. A quote with a price but no market cap withholds P/FFO and EV with a warn gap. OP units, permanent or redeemable, are not common shares, so adding them as NCI never double counts.
+  - Decision: the REIT block takes its market cap and its EV from the multiples framework: the quote's admitted market cap and the house EV, which after OD-1 holds preferred, redeemable preferred, book NCI and redeemable NCI. P/FFO and P/AFFO are market cap over FFO at both sites; FFO and AFFO per share stay on the diluted count. (Revised by D-233: the diluted count of FFO's own fiscal year, not the latest quarter's.) A quote with a price but no market cap withholds P/FFO and EV with a warn gap. OP units, permanent or redeemable, are not common shares, so adding them as NCI never double counts.
   - Rejected: price times weighted diluted shares (two P/FFOs and two EVs per report, and OP units counted twice once redeemable NCI joins the EV); moving the multiples to price over FFO per diluted share (it touches peer and own-history P/FFO, not in this batch).
   - Revises: D-26's sentence "the REIT implied cap rate uses the house enterprise value", made true by construction instead of by a parallel formula.
   - Sources: Deloitte Roadmap 9.4 (that OP units redeemable for cash are such an NCI is filer practice, not the roadmap's); METHODOLOGY ("a report carries one EV").
@@ -4811,7 +5159,7 @@ A balance-sheet alternative does not override newer-dated unresolved inline cove
 
 ### D-149: Lender review conventions (F1, F2, F12)
 
-Owner delegated to the coordinator on 2026-11-01. For evidenced held-for-sale lenders, industrial EV/EBITDA, EV/Sales, net debt, net debt/EBITDA, interest coverage, gross margin, ROIC and ROIC-vs-WACC are not applicable. Warehouse and loan-owner funding is operating inventory finance; industrial leverage/coverage cannot measure solvency. Capital adequacy is not modelled, and the Balance Sheet aspect is not modelled. ROTE is scored instead of ROIC; filed operating margin remains. EV is context only with named filed debt components tied to the retained debt perimeter. No common-income gate is relaxed. The retained FIGR common-earnings observation postdates its bundle cutoff by 3.097 seconds, so its ROTE remains withheld with that reason; the filed two-class allocation itself is supported. Stored reports and shared stamps are unchanged.
+Owner delegated to the coordinator on 2026-11-01. For evidenced held-for-sale lenders, industrial EV/EBITDA, EV/Sales, net debt, net debt/EBITDA, interest coverage, gross margin, ROIC and ROIC-vs-WACC are not applicable. Warehouse and loan-owner funding is operating inventory finance; industrial leverage/coverage cannot measure solvency. Capital adequacy is not modelled, and the Balance Sheet aspect is not modelled. ROTE is scored instead of ROIC; filed operating margin remains. EV is context only with named filed debt components tied to the retained debt perimeter. (Revised by D-234: where one filing's tagged long-term debt proves those debt lines, the report's debt is the filed borrowings plus the operating lease, and the provider perimeter is no longer shown as the debt.) No common-income gate is relaxed. The retained FIGR common-earnings observation postdates its bundle cutoff by 3.097 seconds, so its ROTE remains withheld with that reason; the filed two-class allocation itself is supported. Stored reports and shared stamps are unchanged.
 
 ### D-149: Class-scope review disclosures (F3, F5, F6, F7, F8)
 

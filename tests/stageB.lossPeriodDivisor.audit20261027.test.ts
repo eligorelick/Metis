@@ -222,7 +222,14 @@ describe("FIN-404 fix round 1: scope and sentinel", () => {
 
 describe("FIN-404 carried minors (Task 9 review)", () => {
   it("the REIT block raises the divisor gap and note where its FFO per share divides by the substituted count", () => {
-    const b = withLossQuarter({ reit: true });
+    // D-233: FFO is a fiscal-year flow and divides by that fiscal year's count, so the substitution reaches the REIT
+    // block through a loss FISCAL YEAR (this test put the loss on the latest quarter, whose count no longer divides FFO).
+    const b = withLossQuarter({ reit: true }, false);
+    const fy = rowsOf(b, "incomeAnnual")[0]!;
+    fy.netIncome = -40 * M;
+    fy.epsDiluted = -0.41;
+    fy.weightedAverageShsOut = 98.5 * M;
+    fy.weightedAverageShsOutDil = 98.5 * M;
     const out = runStageB(b);
     if (out.valuation.kind !== "reit") throw new Error("expected the REIT route");
     expect(out.valuation.reit.ffoPerShare).not.toBeNull();
@@ -230,6 +237,14 @@ describe("FIN-404 carried minors (Task 9 review)", () => {
     expect(gap?.severity).toBe("info");
     expect(gap?.reason).toMatch(/2025-12-31/);
     expect(out.valuation.notes.some((n) => n === gap?.reason)).toBe(true);
+  });
+
+  it("D-233: a loss quarter beside a profitable fiscal year leaves the REIT's FFO per share on the year's filed count", () => {
+    const out = runStageB(withLossQuarter({ reit: true }));
+    if (out.valuation.kind !== "reit") throw new Error("expected the REIT route");
+    // FFO = fiscal 2025 net income 150 M + D&A 50 M, over the fiscal 2025 filed diluted count 100 M.
+    expect(out.valuation.reit.ffoPerShare).toBe(2);
+    expect(out.valuation.gaps.some((g) => g.field === "valuation.perShare.lossPeriodDivisor")).toBe(false);
   });
 
   it("control: a loss-period REIT whose FFO and AFFO per share are both withheld raises no gap and no note", () => {
