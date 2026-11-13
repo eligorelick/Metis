@@ -90,6 +90,8 @@ describe("D-234: the filing's own debt replaces a vendor total that adds payable
     ["the filing tags no inclusive LongTermDebt", { tags: { LongTermDebt: [] } }],
     ["the filing tags short-term borrowings as well", { tags: { ShortTermBorrowings: [point(50_000_000)] } }],
     ["the filing tags a finance lease", { tags: { FinanceLeaseLiability: [point(2_000_000)] } }],
+    ["the filing tags a debt total above the composed borrowings", { tags: { LongTermNotesAndLoans: [point(2_000_000_000)] } }],
+    ["the filing tags convertible notes the non-current debt does not cover", { tags: { ConvertibleLongTermNotesPayable: [point(400_000_000)] } }],
     ["a newer filing restates the borrowings at the same date", { tags: { LongTermDebt: [point(962_995_000), point(970_000_000, { filed: "2026-10-20", accn: "0001628280-26-066000" })] } }],
     ["the tagged totals come from another filing than the balance sheet read", { section: { accession: "0001628280-26-040000", documentUrl: "https://www.sec.gov/Archives/edgar/data/2064124/000162828026040000/figr-20260630.htm" } }],
     ["the balance sheet is for another report date", { section: { reportDate: "2026-03-31" } }],
@@ -106,6 +108,18 @@ describe("D-234: the filing's own debt replaces a vendor total that adds payable
     const row = vendorRow(change.row), companyFacts = facts(change.tags), presentations = [section(change.section)];
     expect(filedBorrowingsOverVendorPerimeter(row, companyFacts, "USD", OBSERVED, presentations)).toBeNull();
     expect(admitDebtFields(row, companyFacts, "USD", OBSERVED, presentations)).toEqual(before(row, companyFacts));
+  });
+
+  // Review of D-234: the completeness checks of the unchanged path still decide. A tagged total above the
+  // composition, or uncovered convertible notes, withholds total debt; the filed composition is not published over them.
+  it.each([
+    ["a tagged LongTermNotesAndLoans above the borrowings", { LongTermNotesAndLoans: [point(2_000_000_000)] }, /LongTermNotesAndLoans 2000000000 exceeds the composed/],
+    ["uncovered convertible notes", { ConvertibleLongTermNotesPayable: [point(400_000_000)] }, /noncurrent convertible carrying debt 400000000 is not covered/],
+  ] as [string, Record<string, FactPoint[]>, RegExp][])("keeps the existing refusal for %s", (_name, tags, reason) => {
+    const out = admitDebtFields(vendorRow(), facts(tags), "USD", OBSERVED, [section()]);
+    expect(out.row.totalDebt).toBeNull();
+    expect(out.row.fieldConflicts?.totalDebt).toMatchObject({ usable: false, reason: expect.stringMatching(reason) });
+    expect(filedBorrowingsAdmitted(out.row)).toBe(false);
   });
 
   it("compatible control: an unestablished currency admits nothing", () => {

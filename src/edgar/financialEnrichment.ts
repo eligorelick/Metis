@@ -765,7 +765,10 @@ export interface FiledBorrowings {
  * - its balance sheet (`lenderDebtLines`) names one non-current debt line equal to LongTermDebtNoncurrent,
  *   debt lines that add up to LongTermDebt exactly, and one payables-to-third-party-loan-owners line;
  * - the vendor's long-term debt and lease line agree with the filed ones, and the vendor's short-term
- *   debt and total are the filed amounts plus that payable (`vendorAgreesWithFiled`; no new allowance).
+ *   debt and total are the filed amounts plus that payable (`vendorAgreesWithFiled`; no new allowance);
+ * - no same-date debt total the filing tags exceeds the composed borrowings (`uncomposedDebtRefusal`), and a
+ *   tagged non-current convertible carrying amount is covered by them (`omittedConvertibleCarryingReason`):
+ *   the completeness checks of the unchanged path, applied to the filed composition.
  *
  * Anything else returns null and the row goes through the unchanged checks. A finance lease is not
  * shown to be nil by its absence: none is tagged, so none is added, and the lease evidence stays unverified.
@@ -797,6 +800,13 @@ export function filedBorrowingsOverVendorPerimeter(row: FmpStatementRow, facts: 
   if (["DebtCurrent", "ShortTermBorrowings", "CommercialPaper", COMBINED_CURRENT_DEBT_TAG, "LongTermDebtAndCapitalLeaseObligations",
     "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities", "DebtLongtermAndShorttermCombinedAmount", ...financeLease].some(tag => at(tag).length > 0) ||
       at("LongTermDebtCurrent").some(p => p.val !== currentDebt)) return null;
+  // The unchanged path's completeness checks hold for the filed composition too (review of D-234): a tagged debt
+  // total above it, or a convertible carrying amount the non-current debt does not cover, shows a component is
+  // missing. The row then goes through the unchanged checks, which withhold it.
+  const filedAt = (tag: string): number | null => instant(facts, tag, currency, row.date!, observedAt)?.value ?? null;
+  if (uncomposedDebtRefusal({ shortTermDebt: currentDebt, longTermDebt: noncurrentDebt, financeLeaseLiability: null },
+        DEBT_AGGREGATE_TAGS.map(tag => ({ tag, value: filedAt(tag) }))) !== null ||
+      omittedConvertibleCarryingReason({ longTermDebt: noncurrentDebt }, filedAt("ConvertibleLongTermNotesPayable")) !== null) return null;
   const lines = lenderDebtLines(section.statementsText);
   const debtLines = lines.filter(line => /^Debt,/i.test(line.name));
   const payables = lines.filter(line => /^Payables to third-party loan owners$/i.test(line.name));
