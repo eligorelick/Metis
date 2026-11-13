@@ -1,9 +1,9 @@
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
-import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
+import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldConflict, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 import type { StatementConflictCause } from "@/types/refusalCause";
-import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtRefusal, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
-import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
+import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, partialFinanceLeaseReason, uncomposedDebtRefusal, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
+import { BALANCE_SHEET_DEBT_LINES_TAG, BALANCE_SHEET_LIABILITY_LINES_TAG, filingDocumentBinds, lenderDebtLines, reconcileDebtPresentation, unclassifiedLiabilityLines, type FiledDebtLine } from "@/edgar/debtPresentation";
 import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
@@ -11,7 +11,7 @@ import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRow
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
-import { COMBINED_CURRENT_DEBT_TAG, tagsFor } from "@/edgar/tagSynonyms";
+import { COMBINED_CURRENT_DEBT_TAG, CONSOLIDATED_NET_INCOME_TAGS, tagsFor } from "@/edgar/tagSynonyms";
 import { millions, millionsPair } from "@/pipeline/stageB/netDebt";
 import { oneBasisPair, representationLabelled, type LabelCopy } from "@/edgar/presentationLineage";
 import { DISCONTINUED_LABEL_TAGS, RESTATEMENT_THRESHOLD_PCT, longTermInvestmentsChainAt } from "@/edgar/statements";
@@ -66,13 +66,17 @@ const CASH_MOVEMENT_TAG = "CashCashEquivalentsRestrictedCashAndRestrictedCashEqu
 const OPERATING_CASH_FLOW_TAG = "NetCashProvidedByUsedInOperatingActivities";
 const PRINCIPAL_TAG = "FinanceLeasePrincipalPayments";
 
+/** The taxonomies a filed line is read from: us-gaap, or ifrs-full for a filer reporting under IFRS (D-231). */
+type FiledNamespace = "us-gaap" | "ifrs-full";
+/** A fiscal year's length in days, for a filed flow matched to an annual row. */
+const ANNUAL_FLOW_DAYS = [350, 380] as const;
 /** Dated facts, exact monetary unit only; no implicit USD or million scaling. */
-function points(facts: CompanyFacts, tag: string, unit: string, observedAt: string): FactPoint[] {
-  const c = facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
+function points(facts: CompanyFacts, tag: string, unit: string, observedAt: string, namespace: FiledNamespace = "us-gaap"): FactPoint[] {
+  const c = facts.facts[namespace]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
   return parseFactPoints(c?.units?.[unit] ?? []).filter((p) => CORE_FACT_FORMS.has(p.form) && validDay(p.end) && p.end <= observedAt.slice(0, 10) && validDay(p.filed) && p.filed <= observedAt.slice(0, 10) && (p.start === undefined || validDay(p.start)));
 }
-function resolved(value: number, tags: string[], ps: FactPoint[], unit: string, observedAt: string, periodStart: string | null, periodEnd: string): Resolved {
-  return { value, evidence: { source: "edgar", unit, periodStart, periodEnd, observedAt, tags: tags.map((t) => `us-gaap/${t}`), filings: ps.map((p) => ({ accn: p.accn, filed: p.filed, form: p.form })) } };
+function resolved(value: number, tags: string[], ps: FactPoint[], unit: string, observedAt: string, periodStart: string | null, periodEnd: string, namespace: FiledNamespace = "us-gaap"): Resolved {
+  return { value, evidence: { source: "edgar", unit, periodStart, periodEnd, observedAt, tags: tags.map((t) => `${namespace}/${t}`), filings: ps.map((p) => ({ accn: p.accn, filed: p.filed, form: p.form })) } };
 }
 function instant(facts: CompanyFacts, tag: string, unit: string, end: string, observedAt: string, filingDate?: string, filings?: StatementFieldProvenance["filings"]): Resolved | null {
   const candidates = points(facts, tag, unit, observedAt).filter(p => p.end === end && p.start === undefined &&
@@ -132,7 +136,7 @@ function labelCopies(facts: CompanyFacts, observedAt: string): LabelCopy[] {
  */
 function filedFlow(facts: CompanyFacts, tag: string, unit: string, end: string, scope: "annual" | "quarter", observedAt: string, signed: boolean, ctx: DerivationContext): Resolved | null {
   const ps = points(facts, tag, unit, observedAt).filter(p => p.start !== undefined);
-  const [min, max] = scope === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
+  const [min, max] = scope === "annual" ? ANNUAL_FLOW_DAYS : QUARTER_DURATION_DAYS;
   const directCandidates = ps.filter(p => p.end === end && span(p)! >= min! && span(p)! <= max!);
   const direct = unambiguousNewest(directCandidates);
   if (directCandidates.length > 0) return direct && (signed || direct.val >= 0)
@@ -228,22 +232,51 @@ export function filedCashFlowTtm(facts: CompanyFacts, tag: string, unit: string,
   if (!prior) return null;
   const value = annual.val + current.val - prior.val;
   const start = new Date(Date.parse(prior.end) + DAY).toISOString().slice(0, 10);
-  const name = tag === OPERATING_CASH_FLOW_TAG ? "operating cash flow"
-    : tag === "ShareBasedCompensation" ? "SBC, cash-flow add-back (ShareBasedCompensation)"
-    : tag === "AllocatedShareBasedCompensationExpense" ? "SBC, allocated expense (AllocatedShareBasedCompensationExpense)"
-    : `cash capital expenditure (${tag})`;
+  const name = filedTtmFlowName(tag);
   return { value, operands: [annual.val, current.val, prior.val], start, end, tag, points: [annual, current, prior],
     reason: `TTM ${name} = filed fiscal year ${annual.val} + current YTD ${current.val} - prior-year YTD ${prior.val} = ${value} ${unit} through ${end}. Both YTD operands come from the same current ${current.form} ${current.accn}, filed ${current.filed}; fiscal year from ${annual.form} ${annual.accn}, filed ${annual.filed}. This filed YTD identity does not establish standalone quarters or any other accounting/tag basis.` };
+}
+/** What a filed trailing-twelve-month flow is called in its reason text. */
+function filedTtmFlowName(tag: string): string {
+  return tag === OPERATING_CASH_FLOW_TAG ? "operating cash flow"
+    : tag === "ShareBasedCompensation" ? "SBC, cash-flow add-back (ShareBasedCompensation)"
+    : tag === "AllocatedShareBasedCompensationExpense" ? "SBC, allocated expense (AllocatedShareBasedCompensationExpense)"
+    : tag === "NetIncomeLoss" ? "net income (NetIncomeLoss)"
+    : `cash capital expenditure (${tag})`;
+}
+/**
+ * D-240 (P1): a filed flow for one exact trailing window. The filings state such a window in two ways: the
+ * year-to-date identity (`filedCashFlowTtm`: fiscal year + current year to date - prior-year year to date, when a
+ * 10-Q ends the window), and a fact tagged for exactly that start and end (the fiscal year's own figure when the
+ * window is that fiscal year, or a filer's own twelve-month column). Annual never stands in for TTM: a tagged fact
+ * counts only when its start and its end are the window's, with no day band. An identity that starts on another day
+ * is not this window; when both forms exist they must give one figure; and a filing that states two values for the
+ * window establishes none.
+ */
+export function filedWindowFlow(facts: CompanyFacts, tag: string, unit: string, start: string, end: string, observedAt: string): FiledCashFlowTtm | null {
+  if (!validDay(start) || !validDay(end)) return null;
+  const identity = filedCashFlowTtm(facts, tag, unit, end, observedAt);
+  const copies = points(facts, tag, unit, observedAt).filter(p => p.start === start && p.end === end);
+  const stated = unambiguousNewest(copies);
+  if (copies.length > 0 && !stated) return null;
+  if (identity && (identity.start !== start || stated && stated.val !== identity.value)) return null;
+  if (identity) return identity;
+  if (!stated) return null;
+  return { value: stated.val, operands: [stated.val], start, end, tag, points: [stated],
+    reason: `TTM ${filedTtmFlowName(tag)} = ${stated.val} ${unit}, the figure filed for exactly ${start} through ${end} in ${stated.form} ${stated.accn}, filed ${stated.filed}; nothing is derived.` };
 }
 export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
   return filedCashFlowTtm(facts, OPERATING_CASH_FLOW_TAG, unit, end, observedAt);
 }
 
+/** The capital-spending lines a cash-capex figure may stand on (R9: no new synonyms, no component sums). */
+const CASH_CAPEX_TAGS: readonly string[] = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"];
+
 /** R9: retain exactly the annual capex tag basis; no new quarterly capex synonyms or component sums. */
 export function filedCapexTtm(facts: CompanyFacts, annualRow: FmpCashFlowRow | undefined, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
   if (!annualRow || annualRow.fieldConflicts?.capitalExpenditure?.usable === false || annualRow.reportedCurrency !== unit || typeof annualRow.capitalExpenditure !== "number" || !Number.isFinite(annualRow.capitalExpenditure)) return null;
   const provenance = annualRow.fieldProvenance?.capitalExpenditure;
-  const candidates = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"].filter(tag =>
+  const candidates = CASH_CAPEX_TAGS.filter(tag =>
     !provenance || provenance.source === "edgar" && provenance.unit === unit && provenance.tags.length === 1 && provenance.tags[0] === `us-gaap/${tag}`)
     .flatMap(tag => {
       const ttm = filedCashFlowTtm(facts, tag, unit, end, observedAt);
@@ -280,7 +313,7 @@ export function admitQuarterlyCapex(row: FmpCashFlowRow, facts: CompanyFacts, an
   const admittedTags = (r: FmpCashFlowRow, tag: string) => !r.fieldProvenance?.capitalExpenditure ||
     r.fieldProvenance.capitalExpenditure.source === "edgar" && r.fieldProvenance.capitalExpenditure.unit === unit &&
     r.fieldProvenance.capitalExpenditure.tags.length === 1 && r.fieldProvenance.capitalExpenditure.tags[0] === `us-gaap/${tag}`;
-  const candidates = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"].filter(tag => admittedTags(annual, tag) && admittedTags(row, tag)).flatMap(tag => {
+  const candidates = CASH_CAPEX_TAGS.filter(tag => admittedTags(annual, tag) && admittedTags(row, tag)).flatMap(tag => {
     const p = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p => p.end === annual.date && span(p) !== null && span(p)! >= 350 && span(p)! <= 380 &&
       (!validDay(annual.filingDate) || p.filed === annual.filingDate)));
     return p && p.val >= 0 && vendorAgreesWithFiled(Math.abs(annual.capitalExpenditure!), p.val) ? [{ tag, annual: p }] : [];
@@ -335,6 +368,52 @@ export function admitQuarterlyCapex(row: FmpCashFlowRow, facts: CompanyFacts, an
     gaps: [{ field: `statements.cashflow.${row.date}.capitalExpenditure`, reason, severity: usable ? "info" : "warn", ...(usable ? { expected: true } : {}) }] };
 }
 
+/** One cash-capex zero refused by `admitZeroCapex`, kept for the single manifest entry that discloses them. */
+export interface ZeroCapexRefusal { date: string; scope: "annual" | "quarter"; filed: boolean }
+
+/**
+ * D-239 (P7, P10): the provider writes 0 for a line it did not find, so a cash-capex of exactly 0 is a figure
+ * only when the filings state it. It stands when the capital-spending lines the filings tag for the row's own
+ * period (the fiscal year, or the standalone quarter, directly filed or year-to-date derived) are 0. With no
+ * such line for that period it is undisclosed; against a filed amount it is contradicted. Either way the field
+ * and the standardized FCF that subtracts it are refused, and the provider observations are retained. A row
+ * whose field already carries filed evidence or an earlier decision is left to it.
+ */
+export function admitZeroCapex<T extends FmpCashFlowRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; refusal: ZeroCapexRefusal | null } {
+  const unit = row.reportedCurrency;
+  if (!validDay(row.date) || !unit || !/^[A-Z]{3}$/.test(unit) || row.cik != null && Number(row.cik) !== facts.cik ||
+      row.capitalExpenditure !== 0 || row.fieldProvenance?.capitalExpenditure || row.fieldConflicts?.capitalExpenditure) return { row, refusal: null };
+  const ctx: DerivationContext = { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() };
+  const filed = CASH_CAPEX_TAGS.flatMap(tag => {
+    const sec = filedFlow(facts, tag, unit, row.date!, scope, observedAt, false, ctx);
+    return sec ? [{ tag, sec }] : [];
+  });
+  if (filed.length > 0 && filed.every(f => f.sec.value === 0)) return { row, refusal: null };
+  const stated = filed.find(f => f.sec.value !== 0);
+  const cause = stated
+    ? `the provider records 0 but the filings state ${stated.tag} ${millions(stated.sec.value)} ${unit} for ${stated.sec.evidence.periodStart} through ${row.date}${stated.sec.operands ? ` ${derivedFrom(stated.sec)}` : ""}`
+    : `the provider records 0 and the SEC facts establish no capital-spending line (${CASH_CAPEX_TAGS.join(", ")}) for the ${scope === "annual" ? "fiscal year" : "quarter"} ending that day; a provider zero marks a line it did not find, not a filed zero`;
+  const reason = `Cash capital spending ${stated ? "withheld" : "undisclosed"} at ${row.date}: ${cause}. Capital spending and dependent standardized FCF withheld; vendor observations retained.`;
+  const unavailable: Record<string, null> = { capitalExpenditure: null, freeCashFlow: null };
+  return { refusal: { date: row.date, scope, filed: stated !== undefined },
+    row: { ...row, ...unavailable, fieldConflicts: { ...row.fieldConflicts,
+      capitalExpenditure: { usable: false, vendorValue: 0, secValue: stated ? -stated.sec.value : null, reason, ...(stated ? { secEvidence: stated.sec.evidence } : {}) },
+      freeCashFlow: row.fieldConflicts?.freeCashFlow?.usable === false ? row.fieldConflicts.freeCashFlow : {
+        usable: false, vendorValue: typeof row.freeCashFlow === "number" && Number.isFinite(row.freeCashFlow) ? row.freeCashFlow : null, secValue: null,
+        reason: `Standardized FCF withheld because cash capex was refused: ${reason}` } } } };
+}
+
+/** One manifest entry for every cash-capex zero `admitZeroCapex` refused, naming the periods and the cause (P10). */
+export function zeroCapexEntries(refusals: readonly ZeroCapexRefusal[]): ManifestEntry[] {
+  if (refusals.length === 0) return [];
+  const dates = (scope: ZeroCapexRefusal["scope"]) => [...new Set(refusals.filter(r => r.scope === scope).map(r => r.date))].sort().reverse();
+  const years = dates("annual"), quarters = dates("quarter");
+  const periods = [years.length ? `fiscal years ending ${years.join(", ")}` : "", quarters.length ? `quarters ending ${quarters.join(", ")}` : ""].filter(Boolean).join("; and ");
+  const contradicted = [...new Set(refusals.filter(r => r.filed).map(r => r.date))].sort().reverse();
+  return [{ field: "statements.cashflow.capitalExpenditure", severity: "warn",
+    reason: `Cash capital spending is undisclosed, not zero, for ${periods}: the provider records 0 and the SEC facts establish no zero capital-spending line (${CASH_CAPEX_TAGS.join(", ")}) for those periods${contradicted.length ? ` (the filings state an amount for ${contradicted.join(", ")})` : ""}. A provider zero marks a line it did not find, not a filed zero. Capital spending and the standardized free cash flow that subtracts it are withheld for those periods; the provider observations are retained.` }];
+}
+
 /** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
  * Compare only where BOTH filed scopes agree, with an FX-inclusive flow and
  * compatible instants. The interval comes from the filing, not an invented
@@ -376,7 +455,7 @@ function filedCashAmounts(facts: CompanyFacts, unit: string, row: FmpStatementRo
 function matchingCashChange(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string): Resolved | null {
   if (!validDay(row.periodStart) || !validDay(row.date)) return null;
   const days = (Date.parse(row.date) - Date.parse(row.periodStart)) / DAY;
-  const [min, max] = scope === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
+  const [min, max] = scope === "annual" ? ANNUAL_FLOW_DAYS : QUARTER_DURATION_DAYS;
   if (days < min! || days > max!) return null;
   const tag = "CashAndCashEquivalentsAtCarryingValue";
   const beginningDay = new Date(Date.parse(row.periodStart) - DAY).toISOString().slice(0, 10);
@@ -586,6 +665,226 @@ export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: Compa
     { labels: [], withheld: new Set(), unverified: new Map() });
 }
 
+/**
+ * The profit lines a filer reports for a fiscal year, by taxonomy (D-231). `chain` is the order the cash-flow
+ * statement's net income is read in (consolidated profit first; for us-gaap the statement builder's own chain).
+ * A `parent` line is the same year's profit on another entity scope, and a parent line never replaces a
+ * consolidated one (P5). `consolidated` names the lines that include the noncontrolling interests' share (D-238):
+ * a cash-flow statement starts from that profit, so a vendor figure equal only to the parent's line is not the
+ * statement's figure when the filings state a different consolidated profit for the year. us-gaap `NetIncomeLoss`
+ * is in the chain because it is the consolidated profit of a filer with no noncontrolling interests.
+ */
+const FILED_PROFIT_LINES: readonly { namespace: FiledNamespace; chain: readonly string[]; parent: readonly string[]; consolidated: readonly string[] }[] = [
+  { namespace: "us-gaap", chain: tagsFor("cashflowNetIncome"), parent: [], consolidated: CONSOLIDATED_NET_INCOME_TAGS },
+  { namespace: "ifrs-full", chain: ["ProfitLoss"], parent: ["ProfitLossAttributableToOwnersOfParent"], consolidated: ["ProfitLoss"] },
+];
+/** The profit lines of the same period's income-statement row that a vendor cash-flow net income can be a copy of. */
+function incomeProfitLines(income: FmpStatementRow | undefined): number[] {
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  const continuing = income?.netIncomeFromContinuingOperations, discontinued = income?.netIncomeFromDiscontinuedOperations;
+  return [income?.netIncome, income?.netIncomeConsolidated, continuing, income?.bottomLineNetIncome,
+    finite(continuing) && finite(discontinued) ? continuing + discontinued : null].filter(finite);
+}
+
+/**
+ * D-231 (P8, P5, P10): the net income on a vendor's annual cash-flow row, against the filer's own profit for that
+ * exact fiscal year. The row's free-cash-flow conversion and accrual figures use it, and no rule checked it: the
+ * rows of one Form 20-F filer carried profit before tax for 2016 to 2022 and a figure on another accounting basis
+ * after that, neither of them a line of its annual report.
+ *
+ * - A figure equal (the P8 allowance) to any filed copy of a consolidated profit line for the year is a filed
+ *   figure and stays. So does one equal to the only profit line the filings state for the year.
+ * - D-238 (P5): a figure equal to the parent's line only, in a year for which the newest filing states that line
+ *   and a different consolidated profit side by side, is the profit of another entity scope. The filed
+ *   consolidated profit replaces it, as below.
+ * - A figure equal to none of them is replaced by the filed consolidated profit, from the newest filing that states
+ *   it (P2), with that filing as its provenance. When the filings state no consolidated line for the year, or the
+ *   newest one states two values, the figure is withheld instead.
+ * - When the admitted SEC facts hold no profit line for the year, the figure is tested against the same period's
+ *   income-statement row. Equal to none of that row's profit lines, it is withheld: two statements of one period
+ *   disagree and no filing settles which is right. An agreeing figure proves nothing and stays unverified.
+ *
+ * A withheld figure leaves the row; readers then use the income statement's net income for that year, as they
+ * already do for a row that never carried one. Annual rows only.
+ */
+export function admitCashFlowNetIncome<T extends FmpStatementRow>(row: T, facts: CompanyFacts, income: FmpStatementRow | undefined, observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  const vendor = row.netIncome, currency = row.reportedCurrency;
+  if (!validDay(row.date) || typeof currency !== "string" || !/^[A-Z]{3}$/.test(currency) || row.source === "edgar" ||
+      typeof vendor !== "number" || !Number.isFinite(vendor) || row.fieldConflicts?.netIncome !== undefined || row.fieldProvenance?.netIncome !== undefined ||
+      (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
+  const date = row.date;
+  const field = `statements.cashflow.${date}.netIncome`;
+  const refuse = (reason: string, attemptedSources: string[]): { row: T; gaps: ManifestEntry[] } => ({
+    row: { ...row, netIncome: null, fieldConflicts: { ...row.fieldConflicts, netIncome: { vendorValue: vendor, secValue: null, usable: false, reason } } },
+    gaps: [{ field, reason, severity: "warn", attemptedSources }],
+  });
+  for (const line of FILED_PROFIT_LINES) {
+    const copies = [...line.chain, ...line.parent].map((tag) => ({ tag, points: points(facts, tag, currency, observedAt, line.namespace)
+      .filter((p) => p.start !== undefined && p.end === date && span(p)! >= ANNUAL_FLOW_DAYS[0] && span(p)! <= ANNUAL_FLOW_DAYS[1]) }))
+      .filter((copy) => copy.points.length > 0);
+    if (copies.length === 0) continue;
+    const agrees = (copy: (typeof copies)[number]): boolean => copy.points.some((p) => vendorAgreesWithFiled(vendor, p.val));
+    const agreeing = copies.filter(agrees);
+    // D-238 (P5): the lines that include the noncontrolling share. With none filed for the year, the year's only
+    // profit line is the consolidated profit (a filer without noncontrolling interests), as before.
+    const consolidated = copies.filter((copy) => line.consolidated.includes(copy.tag));
+    // One filing must settle the scope: the newest filing that states any profit line for the year states the
+    // consolidated profit and, beside it, the line the vendor figure equals (P2, P7). An older consolidated copy
+    // is never set against a newer restatement of the parent's line.
+    const latest = newest(copies.flatMap((copy) => copy.points));
+    const sameFiling = (p: FactPoint): boolean => p.filed === latest?.filed && p.accn === latest.accn;
+    const parentOnly = agreeing.length > 0 && consolidated.length > 0 && !consolidated.some(agrees) &&
+      consolidated[0]!.points.some(sameFiling) && agreeing.some((copy) => copy.points.some((p) => sameFiling(p) && vendorAgreesWithFiled(vendor, p.val)));
+    if (agreeing.length > 0 && !parentOnly) return { row, gaps: [] };
+    const sources = ["fmp:cash-flow-statement", ...copies.map((copy) => `edgar:companyfacts/${line.namespace}/${copy.tag}`)];
+    const stated = copies.map((copy) => { const p = newest(copy.points)!; return `${line.namespace}/${copy.tag} ${p.val} (${p.form.trim()} ${p.accn}, filed ${p.filed})`; }).join("; ");
+    const head = parentOnly ? consolidated[0] : copies.find((copy) => line.chain.includes(copy.tag));
+    const filed = head ? unambiguousNewest(head.points) : null;
+    if (!head || !filed) return refuse(`Vendor cash-flow net income for ${date} (${vendor} ${currency}) is withheld: ` +
+      (parentOnly ? `it equals the profit attributable to the parent, not the consolidated profit a cash-flow statement starts from (${stated}), ` : `it agrees with no profit line the filer reports for that fiscal year (${stated}), `) +
+      `and ${head ? "the newest filing states more than one consolidated profit for it" : "the filings state no consolidated profit for it"}; figures that need that year's net income read the income statement.`, sources);
+    const sec = resolved(filed.val, [head.tag], [filed], currency, observedAt, filed.start!, date, line.namespace);
+    const reason = parentOnly
+      ? `Cash-flow net income for ${date} corrected from vendor ${vendor} to filed ${filed.val} ${currency}: the vendor figure equals the filer's profit attributable to the parent for ` +
+        `${filed.start} through ${date}, not its consolidated profit (${stated}); a cash-flow statement starts from consolidated profit, including the noncontrolling interests' share, so the filed consolidated profit replaces it.`
+      : `Cash-flow net income for ${date} corrected from vendor ${vendor} to filed ${filed.val} ${currency}: the vendor figure agrees with no profit line the filer reports for ` +
+        `${filed.start} through ${date} (${stated}), so the filed consolidated profit replaces it.`;
+    return { row: { ...row, netIncome: filed.val,
+        fieldConflicts: { ...row.fieldConflicts, netIncome: { vendorValue: vendor, secValue: filed.val, usable: true, resolution: "filed-line", reason, secEvidence: sec.evidence } },
+        fieldProvenance: { ...row.fieldProvenance, netIncome: sec.evidence } },
+      gaps: [{ field, reason, severity: "info", expected: true, attemptedSources: sources }] };
+  }
+  const lines = income?.date === date && income.reportedCurrency === currency ? incomeProfitLines(income) : [];
+  if (lines.length === 0 || lines.some((value) => vendorAgreesWithFiled(vendor, value))) return { row, gaps: [] };
+  return refuse(`Vendor cash-flow net income for ${date} (${vendor} ${currency}) is withheld: the SEC facts admitted for this report hold no profit line for that fiscal year, and the figure agrees with no ` +
+    `profit line of the same period's income statement, which states ${[...new Set(lines)].join(" and ")} ${currency}; figures that need that year's net income read the income statement.`, ["fmp:cash-flow-statement", "fmp:income-statement"]);
+}
+
+const INVESTING_CASH_FLOW_TAG = "NetCashProvidedByUsedInInvestingActivities";
+const FINANCING_CASH_FLOW_TAG = "NetCashProvidedByUsedInFinancingActivities";
+/** The exchange-rate line between the three section totals and the change in cash; at most one per statement. */
+const CASH_FX_EFFECT_TAGS: readonly string[] = ["EffectOfExchangeRateOnCashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+  "EffectOfExchangeRateOnCashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsIncludingDisposalGroupAndDiscontinuedOperations"];
+const OPERATING_CASH_FLOW_FIELDS = ["operatingCashFlow", "netCashProvidedByOperatingActivities"] as const;
+
+/** The lines of one filing's cash-flow statement that reconcile around its operating cash flow (D-252). */
+interface FiledCashFlowFamily { investing: FactPoint; financing: FactPoint; fx: FactPoint | null; movement: FactPoint }
+
+/**
+ * D-252 (P7, P8): the complete reconciled filed family of a fiscal year's operating cash flow. ONE filing, the
+ * newest that states the year's operating cash flow, must also be the newest that states, for exactly the same
+ * start and end and in the same unit, the investing total, the financing total and the change in cash, cash
+ * equivalents and restricted cash, each with one value; when it tags the exchange-rate effect on cash it must state
+ * one value for it too. The family reconciles when operating + investing + financing + exchange-rate effect equals
+ * the change in cash exactly: the filing's own arithmetic, no allowance and no plug. A statement that does not foot
+ * on these lines (cash of a disposal group, a line under another element, a restated part) gives no family.
+ */
+function filedCashFlowFamily(facts: CompanyFacts, unit: string, cfo: Resolved, observedAt: string): FiledCashFlowFamily | null {
+  const filing = cfo.evidence.filings[0], start = cfo.evidence.periodStart, end = cfo.evidence.periodEnd;
+  if (cfo.operands !== undefined || cfo.evidence.filings.length !== 1 || !filing || start === null) return null;
+  const copies = (tag: string): FactPoint[] => points(facts, tag, unit, observedAt).filter(p => p.start === start && p.end === end);
+  /** One value, from the same filing as the operating figure, which no newer filing restates. */
+  const own = (tag: string): FactPoint | null => {
+    const p = unambiguousNewest(copies(tag));
+    return p && p.accn === filing.accn && p.filed === filing.filed && p.form === filing.form ? p : null;
+  };
+  const investing = own(INVESTING_CASH_FLOW_TAG), financing = own(FINANCING_CASH_FLOW_TAG), movement = own(CASH_MOVEMENT_TAG);
+  if (!investing || !financing || !movement) return null;
+  const fxTagged = CASH_FX_EFFECT_TAGS.filter(tag => copies(tag).length > 0);
+  const fx = fxTagged.length === 1 ? own(fxTagged[0]!) : null;
+  if (fxTagged.length > 1 || (fxTagged.length === 1 && !fx)) return null;
+  return cfo.value + investing.val + financing.val + (fx?.val ?? 0) === movement.val ? { investing, financing, fx, movement } : null;
+}
+
+/**
+ * D-252 (P8, P7, P10; revises D-89 for this one shape): a vendor operating cash flow that conflicts with the filed
+ * one is replaced by the filed figure when the filing's own cash-flow statement reconciles around it
+ * (`filedCashFlowFamily`). D-89 withheld every such conflict; P8 says a complete reconciled filed family replaces a
+ * conflicting vendor value. Annual rows only: a standalone quarter is usually the difference of two year-to-date
+ * figures from two filings, which is not one filing's family, and stays under D-89.
+ *
+ * The vendor observations are kept in `fieldConflicts` (`usable: true`, `resolution: "filed-family"`). The row
+ * then stands as a row whose vendor operating figure had agreed with the filing: its standardized free cash flow
+ * is the identity every reader uses (`deriveFcf`: operating cash flow plus capital spending, an outflow being
+ * negative), on the row's own capital spending, which keeps its own admission rules (D-150, D-239). A row without
+ * usable capital spending gets no free cash flow, and a free cash flow refused for another cause stays refused
+ * (P11).
+ */
+function adoptFiledOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, cfo: Resolved, observedAt: string,
+  vendor: { operating: Record<string, number | null>; freeCashFlow: number | null; freeCashFlowOpen: boolean }): { row: T; gaps: ManifestEntry[] } | null {
+  const family = filedCashFlowFamily(facts, unit, cfo, observedAt);
+  if (!family) return null;
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  const filing = cfo.evidence.filings[0]!, start = cfo.evidence.periodStart!, date = cfo.evidence.periodEnd;
+  const vendorCfo = OPERATING_CASH_FLOW_FIELDS.map(field => vendor.operating[field]).find(finite) ?? null;
+  const [vendorText, filedText] = vendorCfo === null ? ["(none)", millions(cfo.value)] : millionsPair(vendorCfo, cfo.value);
+  const reason = `Operating cash flow for ${date} corrected from vendor ${vendorText} to filed ${filedText} ${unit}: ` +
+    `the ${filing.form.trim()} ${filing.accn} (filed ${filing.filed}) states, for ${start} through ${date}, operating ${millions(cfo.value)} + investing ${millions(family.investing.val)} + financing ${millions(family.financing.val)}` +
+    `${family.fx ? ` + exchange-rate effect ${millions(family.fx.val)}` : ""} = its change in cash, cash equivalents and restricted cash ${millions(family.movement.val)}, so the filed cash-flow statement reconciles and its operating figure replaces the vendor's.`;
+  const amounts: Record<string, number | null> = {};
+  const fieldConflicts = { ...row.fieldConflicts };
+  const fieldProvenance = { ...row.fieldProvenance };
+  for (const field of OPERATING_CASH_FLOW_FIELDS) {
+    if (!(field in vendor.operating)) continue;
+    amounts[field] = cfo.value;
+    fieldProvenance[field] = cfo.evidence;
+    fieldConflicts[field] = { usable: true, vendorValue: vendor.operating[field] ?? null, secValue: cfo.value, resolution: "filed-family", reason, secEvidence: cfo.evidence };
+  }
+  const gaps: ManifestEntry[] = [{ field: `statements.cashflow.${date}.operatingCashFlow`, reason, severity: "info", expected: true,
+    attemptedSources: ["fmp:cash-flow-statement", ...[OPERATING_CASH_FLOW_TAG, INVESTING_CASH_FLOW_TAG, FINANCING_CASH_FLOW_TAG, CASH_MOVEMENT_TAG].map(tag => `edgar:companyfacts/us-gaap/${tag}`)] }];
+  // P11: a free cash flow refused for another cause keeps that refusal.
+  if (!vendor.freeCashFlowOpen) return { row: { ...row, ...amounts, fieldConflicts, fieldProvenance }, gaps };
+  const capex = row.fieldConflicts?.capitalExpenditure?.usable === false ? null : row.capitalExpenditure;
+  if (!finite(capex)) {
+    const fcfReason = `Standardized FCF unavailable at ${date}: operating cash flow is the filed ${millions(cfo.value)} ${unit}, but the row has no usable capital spending to subtract; vendor observations retained.`;
+    amounts.freeCashFlow = null;
+    fieldConflicts.freeCashFlow = { usable: false, vendorValue: vendor.freeCashFlow, secValue: null, reason: fcfReason, secEvidence: cfo.evidence };
+    return { row: { ...row, ...amounts, fieldConflicts, fieldProvenance }, gaps };
+  }
+  const fcf = cfo.value + capex;
+  amounts.freeCashFlow = fcf;
+  fieldConflicts.freeCashFlow = { usable: true, vendorValue: vendor.freeCashFlow, secValue: fcf, resolution: "filed-family", secEvidence: cfo.evidence,
+    reason: `${reason} Standardized FCF is that operating cash flow plus the row's capital spending ${millions(capex)} ${unit} (an outflow is negative): ${millions(fcf)} ${unit}.` };
+  return { row: { ...row, ...amounts, fieldConflicts, fieldProvenance }, gaps };
+}
+
+/**
+ * D-252 at the report's data view (`withCashFlowSbcBasis`): a stored annual row that `admitOperatingCashFlow`
+ * refused before D-252 is judged again from the refusal's evidence, never its wording (P11). It is that refusal
+ * only when the operating field is withheld, carries no typed cause, and its record holds the vendor figure, the
+ * filed figure and one directly filed NetCashProvidedByUsedInOperatingActivities fact for the row's own period;
+ * the admitted SEC facts must still state that same figure from that same filing. The free cash flow is reopened
+ * only when its refusal carries the identical evidence record, so a refusal of another cause is untouched.
+ * A row without such a record, a quarterly row, and a figure the filings no longer state are returned unchanged.
+ */
+export function readmitFiledOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[]; superseded: string | null } {
+  const unchanged = { row, gaps: [], superseded: null };
+  const unit = row.reportedCurrency;
+  const prior = row.fieldConflicts?.operatingCashFlow, evidence = prior?.secEvidence;
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  if (scope !== "annual" || !validDay(row.date) || typeof unit !== "string" || !/^[A-Z]{3}$/.test(unit) || (row.cik != null && Number(row.cik) !== facts.cik) ||
+      row.operatingCashFlow != null || !prior || prior.usable !== false || prior.cause !== undefined || !finite(prior.vendorValue) || !finite(prior.secValue) ||
+      evidence?.source !== "edgar" || evidence.unit !== unit || evidence.periodEnd !== row.date || typeof evidence.periodStart !== "string" ||
+      evidence.derivation !== undefined || evidence.calculation !== undefined || evidence.filings.length !== 1 ||
+      evidence.tags.length !== 1 || evidence.tags[0] !== `us-gaap/${OPERATING_CASH_FLOW_TAG}`) return unchanged;
+  const ctx: DerivationContext = { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() };
+  const cfo = filedOperatingCashFlow(facts, unit, row.date, "annual", observedAt, ctx);
+  const filing = evidence.filings[0]!, current = cfo?.evidence.filings[0];
+  if (!cfo || cfo.operands !== undefined || cfo.value !== prior.secValue || cfo.evidence.periodStart !== evidence.periodStart || cfo.evidence.filings.length !== 1 ||
+      current?.accn !== filing.accn || current.filed !== filing.filed || current.form !== filing.form || vendorAgreesWithFiled(prior.vendorValue, cfo.value)) return unchanged;
+  const sameRecord = (other: StatementFieldConflict | undefined): boolean => other?.usable === false && other.cause === undefined &&
+    JSON.stringify(other.secEvidence) === JSON.stringify(evidence);
+  const alias = row.fieldConflicts?.netCashProvidedByOperatingActivities;
+  // The alias is either absent from the row or withheld by the same record.
+  if ("netCashProvidedByOperatingActivities" in row && (row.netCashProvidedByOperatingActivities != null || !sameRecord(alias) || alias!.secValue !== prior.secValue)) return unchanged;
+  const freeCashFlow = row.fieldConflicts?.freeCashFlow;
+  const freeCashFlowOpen = row.freeCashFlow == null && sameRecord(freeCashFlow) && freeCashFlow!.secValue === null;
+  const adopted = adoptFiledOperatingCashFlow(row, facts, unit, cfo, observedAt, {
+    operating: { operatingCashFlow: prior.vendorValue, ...(alias ? { netCashProvidedByOperatingActivities: alias.vendorValue } : {}) },
+    freeCashFlow: freeCashFlowOpen ? freeCashFlow!.vendorValue : null, freeCashFlowOpen });
+  return adopted ? { ...adopted, superseded: prior.reason } : unchanged;
+}
+
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
 function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string, ctx: DerivationContext): { row: T; gaps: ManifestEntry[] } {
   if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) return { row, gaps: [] };
@@ -597,6 +896,13 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
   if (!sec || (typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart)) return { row, gaps: [] };
   const conflict = fields.some(field => finite(row[field]) && !agreesWithSec(row[field], sec.value, [sec]));
   if (!conflict) return { row, gaps: [] };
+  // D-252 (P8): a fiscal year whose filed cash-flow statement reconciles around its operating figure takes that figure.
+  if (scope === "annual" && canonical !== null && !fields.some(field => row.fieldConflicts?.[field]?.usable === false)) {
+    const adopted = adoptFiledOperatingCashFlow(row, facts, currency, canonical, observedAt, {
+      operating: Object.fromEntries(fields.filter(field => field in row).map(field => [field, finite(row[field]) ? row[field] : null])),
+      freeCashFlow: finite(row.freeCashFlow) ? row.freeCashFlow : null, freeCashFlowOpen: row.fieldConflicts?.freeCashFlow?.usable !== false });
+    if (adopted) return adopted;
+  }
   // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
   const secText = sec.operands
     ? `derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
@@ -654,6 +960,110 @@ function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyF
     gaps: [{ field: `statements.cashflow.${row.date}.financialInvestments`, reason, severity: "warn", attemptedSources: tags.map(tag => `edgar:companyfacts/us-gaap/${tag}`) }] };
 }
 
+/** What `filedBorrowingsOverVendorPerimeter` established from one filing (D-234). */
+export interface FiledBorrowings {
+  /** The filing's tagged LongTermDebt: current and noncurrent borrowings. */
+  borrowings: number;
+  currentDebt: number;
+  noncurrentDebt: number;
+  /** The balance sheet's payables to third-party loan owners, inside the vendor's debt and outside the filer's. */
+  loanOwnerPayables: number;
+  operatingLease: number;
+  /** Borrowings plus the operating lease liability. */
+  totalDebt: number;
+  vendorTotal: number;
+  vendorCurrent: number;
+  lines: FiledDebtLine[];
+  filing: { accn: string; filed: string; form: string };
+  /** The filing document whose balance sheet names the lines. */
+  source: string;
+  reason: string;
+}
+
+/**
+ * D-234 (P7, P8): a vendor debt total that is the filing's debt plus a payable the filer does not present
+ * as debt. A held-for-sale lender's vendor row can carry "payables to third-party loan owners" inside
+ * short-term debt (FIGR, 2026-06-30: 1,474.457M against filed borrowings of 962.995M). The debt checks
+ * above only ask whether a vendor row left a filed component out, never whether it added one, so that
+ * total stood. Established only when ONE filing, at the row's date and in its currency, proves every part:
+ *
+ * - it tags LongTermDebt (current and noncurrent), LongTermDebtNoncurrent and OperatingLeaseLiability at
+ *   the instant, each with one value that no newer filing changes, and tags no other borrowing: no
+ *   short-term borrowings, commercial paper or inclusive current debt, no debt-and-lease total, no
+ *   finance lease, and a LongTermDebtCurrent only when it is the difference of the first two;
+ * - its balance sheet (`lenderDebtLines`) names one non-current debt line equal to LongTermDebtNoncurrent,
+ *   debt lines that add up to LongTermDebt exactly, and one payables-to-third-party-loan-owners line;
+ * - the vendor's long-term debt and lease line agree with the filed ones, and the vendor's short-term
+ *   debt and total are the filed amounts plus that payable (`vendorAgreesWithFiled`; no new allowance);
+ * - no same-date debt total the filing tags exceeds the composed borrowings (`uncomposedDebtRefusal`), and a
+ *   tagged non-current convertible carrying amount is covered by them (`omittedConvertibleCarryingReason`):
+ *   the completeness checks of the unchanged path, applied to the filed composition.
+ *
+ * Anything else returns null and the row goes through the unchanged checks. A finance lease is not
+ * shown to be nil by its absence: none is tagged, so none is added, and the lease evidence stays unverified.
+ */
+export function filedBorrowingsOverVendorPerimeter(row: FmpStatementRow, facts: CompanyFacts, currency: string | null, observedAt: string, presentations: readonly ExtractedSection[]): FiledBorrowings | null {
+  const amount = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+  if (!validDay(row.date) || currency === null || !/^[A-Z]{3}$/.test(currency) || (row.cik != null && Number(row.cik) !== facts.cik)) return null;
+  const vendorTotal = row.totalDebt, vendorCurrent = row.shortTermDebt, vendorNoncurrent = row.longTermDebt, lease = row.capitalLeaseObligations;
+  if (!amount(vendorTotal) || !amount(vendorCurrent) || !amount(vendorNoncurrent) || !amount(lease)) return null;
+  // Vendor fields only: nothing here was built from SEC facts, refused or already resolved.
+  if (["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"].some(field => row.fieldConflicts?.[field] !== undefined) ||
+      ["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "financeLeaseLiability"].some(field => row.fieldProvenance?.[field] !== undefined) ||
+      (row.financeLeaseLiability != null && row.financeLeaseLiability !== 0)) return null;
+  const cutoff = observedAt.slice(0, 10);
+  const sections = presentations.filter(section => section.reportDate === row.date && /^10-[KQ](?:\/A)?$/.test(section.form) &&
+    validDay(section.filingDate) && section.filingDate <= cutoff);
+  const section = sections[0];
+  if (sections.length !== 1 || !section || !filingDocumentBinds(section, facts.cik)) return null;
+  const at = (tag: string): FactPoint[] => points(facts, tag, currency, observedAt).filter(p => p.start === undefined && p.end === row.date);
+  /** The section's own filing states one value that the newest filing for the instant does not change. */
+  const own = (tag: string): number | null => {
+    const values = [...new Set(at(tag).filter(p => p.accn === section.accession && p.filed === section.filingDate && p.form === section.form).map(p => p.val))];
+    return values.length === 1 && values[0]! >= 0 && instant(facts, tag, currency, row.date!, observedAt)?.value === values[0] ? values[0]! : null;
+  };
+  const borrowings = own("LongTermDebt"), noncurrentDebt = own("LongTermDebtNoncurrent"), operatingLease = own("OperatingLeaseLiability");
+  if (borrowings === null || noncurrentDebt === null || operatingLease === null || noncurrentDebt > borrowings) return null;
+  const currentDebt = borrowings - noncurrentDebt;
+  const financeLease = [...new Set([...tagsFor("financeLeaseLiability").flatMap(tag => [tag, `${tag}Current`, `${tag}Noncurrent`]), ...tagsFor("financeLeaseLiabilityParts")])];
+  if (["DebtCurrent", "ShortTermBorrowings", "CommercialPaper", COMBINED_CURRENT_DEBT_TAG, "LongTermDebtAndCapitalLeaseObligations",
+    "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities", "DebtLongtermAndShorttermCombinedAmount", ...financeLease].some(tag => at(tag).length > 0) ||
+      at("LongTermDebtCurrent").some(p => p.val !== currentDebt)) return null;
+  // The unchanged path's completeness checks hold for the filed composition too (review of D-234): a tagged debt
+  // total above it, or a convertible carrying amount the non-current debt does not cover, shows a component is
+  // missing. The row then goes through the unchanged checks, which withhold it.
+  const filedAt = (tag: string): number | null => instant(facts, tag, currency, row.date!, observedAt)?.value ?? null;
+  if (uncomposedDebtRefusal({ shortTermDebt: currentDebt, longTermDebt: noncurrentDebt, financeLeaseLiability: null },
+        DEBT_AGGREGATE_TAGS.map(tag => ({ tag, value: filedAt(tag) }))) !== null ||
+      omittedConvertibleCarryingReason({ longTermDebt: noncurrentDebt }, filedAt("ConvertibleLongTermNotesPayable")) !== null) return null;
+  const lines = lenderDebtLines(section.statementsText);
+  const debtLines = lines.filter(line => /^Debt,/i.test(line.name));
+  const payables = lines.filter(line => /^Payables to third-party loan owners$/i.test(line.name));
+  const noncurrentLines = debtLines.filter(line => /^Debt, non-current$/i.test(line.name));
+  if (debtLines.length < 2 || debtLines.length + payables.length !== lines.length || new Set(debtLines.map(line => line.name.toLowerCase())).size !== debtLines.length ||
+      noncurrentLines.length !== 1 || payables.length !== 1 || !(payables[0]!.value > 0) ||
+      noncurrentLines[0]!.value !== noncurrentDebt || debtLines.reduce((sum, line) => sum + line.value, 0) !== borrowings) return null;
+  const loanOwnerPayables = payables[0]!.value;
+  if (!vendorAgreesWithFiled(vendorNoncurrent, noncurrentDebt) || !vendorAgreesWithFiled(lease, operatingLease) ||
+      (row.operatingLeaseLiability != null && row.operatingLeaseLiability !== operatingLease) ||
+      !vendorAgreesWithFiled(vendorCurrent, currentDebt + loanOwnerPayables) ||
+      !vendorAgreesWithFiled(vendorTotal, borrowings + loanOwnerPayables + operatingLease)) return null;
+  const totalDebt = borrowings + operatingLease;
+  const filing = { accn: section.accession, filed: section.filingDate, form: section.form };
+  return { borrowings, currentDebt, noncurrentDebt, loanOwnerPayables, operatingLease, totalDebt, vendorTotal, vendorCurrent, lines: debtLines, filing, source: section.documentUrl,
+    reason: `debt is the filed borrowings, not the vendor total: the ${filing.form} ${filing.accn} for ${row.date} tags LongTermDebt ${millions(borrowings)} ` +
+      `(LongTermDebtNoncurrent ${millions(noncurrentDebt)}, so ${millions(currentDebt)} current), and its balance sheet names it as ` +
+      `${debtLines.map(line => `${line.name} ${millions(line.value)}`).join(" + ")}; with OperatingLeaseLiability ${millions(operatingLease)}, total debt is ${millions(totalDebt)} ${currency}. ` +
+      `The vendor total ${millions(vendorTotal)} also counted the balance sheet's Payables to third-party loan owners ${millions(loanOwnerPayables)}, which the filing does not present as debt. ` +
+      "The filing tags no finance lease, so none is included" };
+}
+
+/** True for a row whose debt `admitDebtFields` took from `filedBorrowingsOverVendorPerimeter` (D-234), read from its provenance. */
+export function filedBorrowingsAdmitted(row: FmpStatementRow | null | undefined): boolean {
+  const total = row?.fieldProvenance?.totalDebt;
+  return total?.source === "edgar" && total.calculation === "same-filing-debt-completed" && total.tags.includes(BALANCE_SHEET_DEBT_LINES_TAG);
+}
+
 /** Admit debt only after currency is established, including same-filing currency evidence supplied by Stage B. */
 export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string, presentations: readonly ExtractedSection[] = []): { row: T; gaps: ManifestEntry[]; admissions: BalanceAdmission[] } {
   const gaps: ManifestEntry[] = [];
@@ -662,6 +1072,30 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   const recovered = recoverNoteCarryingDebt(row, facts, currency, observedAt, presentations);
   if (recovered !== null) return { row: recovered, gaps: [{ field: `statements.balance.${row.date}.totalDebt`,
     reason: "same-filing debt note reconciles principal less discounts to current and noncurrent carrying debt; recognized operating and finance leases added exactly once", severity: "info", expected: true }], admissions };
+  // D-234 (P7, P8): the filing's own debt replaces a vendor total that adds its payables to third-party loan owners.
+  const filed = filedBorrowingsOverVendorPerimeter(row, facts, currency, observedAt, presentations);
+  if (filed !== null) {
+    const evidence = (tags: string[], calculation?: StatementFieldProvenance["calculation"]): StatementFieldProvenance => ({ source: "edgar", unit: currency, observedAt,
+      periodStart: null, periodEnd: row.date!, tags, filings: [filed.filing], ...(calculation ? { calculation } : {}) });
+    const totalEvidence = evidence(["us-gaap/LongTermDebt", "us-gaap/OperatingLeaseLiability", BALANCE_SHEET_DEBT_LINES_TAG], "same-filing-debt-completed");
+    const cash = row.cashAndCashEquivalents;
+    const cashUsable = typeof cash === "number" && Number.isFinite(cash) && row.fieldConflicts?.cashAndCashEquivalents?.usable !== false;
+    const resolved = (vendorValue: number, secValue: number, secEvidence: StatementFieldProvenance) =>
+      ({ usable: true, vendorValue, secValue, resolution: "filed-family" as const, reason: filed.reason, secEvidence });
+    const admitted = { ...row, shortTermDebt: filed.currentDebt, longTermDebt: filed.noncurrentDebt, totalDebt: filed.totalDebt,
+      // A net debt already refused for its cash stays refused; otherwise it follows the admitted total, as the same-filing completion does.
+      ...(row.fieldConflicts?.netDebt?.usable === false ? {} : { netDebt: cashUsable ? filed.totalDebt - cash : null }),
+      vendorNetDebt: row.vendorNetDebt ?? row.netDebt ?? row.fieldConflicts?.netDebt?.vendorValue ?? null,
+      fieldConflicts: { ...row.fieldConflicts,
+        shortTermDebt: resolved(filed.vendorCurrent, filed.currentDebt, evidence(["us-gaap/LongTermDebt", "us-gaap/LongTermDebtNoncurrent"])),
+        totalDebt: resolved(filed.vendorTotal, filed.totalDebt, totalEvidence) },
+      fieldProvenance: { ...row.fieldProvenance,
+        shortTermDebt: evidence(["us-gaap/LongTermDebt", "us-gaap/LongTermDebtNoncurrent", BALANCE_SHEET_DEBT_LINES_TAG], "same-filing-debt-completed"),
+        longTermDebt: evidence(["us-gaap/LongTermDebtNoncurrent"], "same-filing-debt-completed"),
+        totalDebt: totalEvidence } } as T;
+    return { row: admitted, gaps: [{ field: `statements.balance.${row.date}.totalDebt`, reason: filed.reason, severity: "info", expected: true,
+      attemptedSources: ["edgar:companyfacts/us-gaap/LongTermDebt", "edgar:companyfacts/us-gaap/LongTermDebtNoncurrent", "edgar:companyfacts/us-gaap/OperatingLeaseLiability", filed.source] }], admissions };
+  }
   let out = row;
   const maturityTag = "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths";
   const maturitySourced = out.fieldProvenance?.shortTermDebt?.tags.some((tag) => tag === `us-gaap/${maturityTag}`) === true;
@@ -741,6 +1175,20 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
       else if (leaseLineReason === null) { leaseLineReason = completion.reason; leaseLineCause = completion.cause; }
     }
   }
+  // D-250 (P7): an unclassified balance sheet has no current/noncurrent anchor for the completions above. One
+  // filing whose own liability lines and tags prove every borrowing and both lease liabilities completes the row.
+  if (componentReason === null && admissions.length === 0) {
+    const completion = completeUnclassifiedSheetDebt(out, facts, currency, observedAt, presentations);
+    if (completion.status === "completed") {
+      out = completion.row;
+      admissions.push(completion.admission);
+      leaseLineReason = null;
+      leaseLineCause = undefined;
+      compositionFallback = null;
+    }
+  }
+  // D-250 (P7; D-202 rule 1): a provider total beside a finance lease family the filing discloses only in part.
+  const financeFamilyReason = componentReason === null && admissions.length === 0 ? partialFinanceFamilyReason(out, facts, currency, observedAt) : null;
   let presentationReason: string | null = null;
   const longTerm = out.fieldProvenance?.longTermDebt;
   const tagged = longTerm?.tags.includes("us-gaap/LongTermDebt") && longTerm.unit === currency && longTerm.periodEnd === row.date
@@ -842,6 +1290,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   let cause: StatementConflictCause | undefined;
   if (componentReason != null) { reason = componentReason; cause = componentCause; }
   else if (leaseLineReason != null) { reason = leaseLineReason; cause = leaseLineCause; }
+  else if (financeFamilyReason != null) reason = financeFamilyReason;
   else if (presentationReason != null) reason = presentationReason;
   else if (convertibleReason != null) reason = convertibleReason;
   else if (zeroCurrentReason != null) { reason = zeroCurrentReason; cause = "debt-vendor-short-term-zero"; }
@@ -1117,6 +1566,142 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
     } catch { /* Ambiguous or incomplete facts never authorize a completion. */ }
   }
   return refusal;
+}
+
+/** A borrowing-like caption the unclassified-sheet completion cannot place: its presence leaves the row unchanged. */
+const BORROWING_CAPTION = /\b(?:debt|borrowings?|notes?|loans?|bonds?|debentures?|credit|commercial paper|mortgages?|financ\w*|lease liabilit\w*)\b/i;
+/** The balance sheet's own line for drawn credit lines and commercial paper. */
+const CREDIT_FACILITY_CAPTION = /^(?:Revolving credit facilit(?:y|ies)|Lines? of credit(?: payable)?)(?: and commercial paper)?$/i;
+/** One instrument class each; a class total and its noncurrent variant never both name a line (`tagSynonyms`). */
+const UNCLASSIFIED_SHEET_DEBT_FAMILIES = ["longTermDebtNotes", "longTermDebtLoans", "longTermDebtSecured", "longTermDebtConvertible", "longTermDebtRevolver"] as const;
+
+/**
+ * D-250 (P7). An equity REIT presents an unclassified balance sheet and tags its borrowings by instrument
+ * (NotesPayable, LoansPayable, SecuredDebt) with no LongTermDebt aggregate, so neither completion above has an
+ * anchor: the provider's borrowings-only total stood beside a provider lease line of zero, and the lease guard
+ * refused the row because the filed lease liabilities exceed that zero (O, 2026-09-30). A provider zero is
+ * undisclosed, not filed. The row is completed only when ONE filing, at the row's date and in its currency,
+ * proves every part:
+ *
+ * - its balance sheet (`unclassifiedLiabilityLines`) lists liability lines that add up to its total exactly, and
+ *   that total is the filing's tagged Liabilities;
+ * - every instrument-debt fact the filing tags at the instant is one of those lines, each line once; at most one
+ *   further line is the sheet's own credit-facility and commercial-paper line, which a tagged CommercialPaper
+ *   does not exceed; no other line carries a borrowing-like caption;
+ * - the filing tags none of the debt aggregates or current-debt lines the other completions read;
+ * - the provider's long-term debt is the instrument lines, its short-term debt the credit-facility line (zero
+ *   without one) and its total their sum (`vendorAgreesWithFiled`; no new allowance);
+ * - the filing states the operating and the finance lease liability in full (a total, or both maturities), and
+ *   they are not both zero.
+ *
+ * Total debt is then those borrowings plus the two lease liabilities, each counted once. Anything else leaves the
+ * row to the unchanged checks. The completeness checks after this call run on the completed row as on any other.
+ */
+function completeUnclassifiedSheetDebt<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, observedAt: string, presentations: readonly ExtractedSection[]): LeaseLineCompletion<T> {
+  const none = { status: "none" } as const;
+  const amount = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+  const vendorTotal = row.totalDebt, vendorShort = row.shortTermDebt, vendorLong = row.longTermDebt;
+  if (!validDay(row.date) || !amount(vendorTotal) || !amount(vendorShort) || !amount(vendorLong) || row.capitalLeaseObligations !== 0 ||
+      [row.capitalLeaseObligationsCurrent, row.capitalLeaseObligationsNonCurrent].some(v => v != null && v !== 0) ||
+      (row.cik != null && Number(row.cik) !== facts.cik)) return none;
+  // Provider debt fields only, none refused or already resolved; a lease field may carry the enrichment's filed
+  // evidence. A row whose cash or net debt was refused stays with the unchanged checks.
+  if (["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations"].some(field => row.fieldProvenance?.[field] !== undefined) ||
+      ["totalDebt", "netDebt", "cashAndCashEquivalents", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"]
+        .some(field => row.fieldConflicts?.[field] !== undefined)) return none;
+  const cutoff = observedAt.slice(0, 10);
+  const sections = presentations.filter(section => section.reportDate === row.date && /^10-[KQ](?:\/A)?$/.test(section.form) &&
+    validDay(section.filingDate) && section.filingDate <= cutoff);
+  const section = sections[0];
+  if (sections.length !== 1 || !section || !filingDocumentBinds(section, facts.cik)) return none;
+  const sheet = unclassifiedLiabilityLines(section.statementsText, section.reportDate, row.date);
+  if (sheet === null) return none;
+  const at = (tag: string): FactPoint[] => points(facts, tag, unit, observedAt).filter(p => p.start === undefined && p.end === row.date);
+  /** The section's own filing states one value that the newest filing for the instant does not change; "elsewhere" when only another filing does. */
+  const own = (tag: string): number | null | "elsewhere" => {
+    const all = at(tag);
+    if (all.length === 0) return null;
+    const values = [...new Set(all.filter(p => p.accn === section.accession && p.filed === section.filingDate && p.form === section.form).map(p => p.val))];
+    return values.length === 1 && values[0]! >= 0 && instant(facts, tag, unit, row.date!, observedAt)?.value === values[0] ? values[0]! : "elsewhere";
+  };
+  if (own("Liabilities") !== sheet.total) return none;
+  // The other completions own a filer with an aggregate or a current-debt line.
+  const paper = own("CommercialPaper");
+  if ([...tagsFor("longTermDebt"), ...tagsFor("longTermNotesAndLoans"), ...DEBT_AGGREGATE_TAGS, ...CURRENT_DEBT_TAGS.filter(tag => tag !== "CommercialPaper"),
+    COMBINED_CURRENT_DEBT_TAG, ...INSTRUMENT_CURRENT_DEBT_TAGS].some(tag => at(tag).length > 0) || paper === "elsewhere") return none;
+  const debtLines = new Map<number, string[]>();
+  for (const tag of UNCLASSIFIED_SHEET_DEBT_FAMILIES.flatMap(tagsFor)) {
+    const value = own(tag);
+    if (value === null) continue;
+    const index = value === "elsewhere" ? [] : sheet.lines.flatMap((line, position) => line.value === value ? [position] : []);
+    if (index.length !== 1) return none;
+    debtLines.set(index[0]!, [...(debtLines.get(index[0]!) ?? []), tag]);
+  }
+  if (debtLines.size === 0) return none;
+  const others = sheet.lines.filter((_line, position) => !debtLines.has(position));
+  const facilities = others.filter(line => CREDIT_FACILITY_CAPTION.test(line.name));
+  const facility = facilities[0] ?? null;
+  if (facilities.length > 1 || (facility !== null && !(facility.value > 0)) || others.some(line => line !== facility && BORROWING_CAPTION.test(line.name)) ||
+      (paper !== null && (facility === null || paper > facility.value))) return none;
+  const instruments = [...debtLines.keys()].sort((a, b) => a - b).map(position => ({ line: sheet.lines[position]!, tags: debtLines.get(position)! }));
+  const noncurrent = instruments.reduce((sum, { line }) => sum + line.value, 0), current = facility?.value ?? 0;
+  if (!vendorAgreesWithFiled(vendorLong, noncurrent) || (current === 0 ? vendorShort !== 0 : !vendorAgreesWithFiled(vendorShort, current)) ||
+      !vendorAgreesWithFiled(vendorTotal, current + noncurrent)) return none;
+  const lease = (prefix: "Operating" | "Finance"): { value: number; tags: string[] } | null => {
+    const tag = `${prefix}LeaseLiability`;
+    const total = own(tag), currentPart = own(`${tag}Current`), noncurrentPart = own(`${tag}Noncurrent`);
+    if (total === "elsewhere" || currentPart === "elsewhere" || noncurrentPart === "elsewhere" || incompatibleLeaseMaturities(total, currentPart, noncurrentPart)) return null;
+    if (total !== null) return { value: total, tags: [tag] };
+    return currentPart !== null && noncurrentPart !== null ? { value: currentPart + noncurrentPart, tags: [`${tag}Current`, `${tag}Noncurrent`] } : null;
+  };
+  const operating = lease("Operating"), finance = lease("Finance");
+  if (operating === null || finance === null || operating.value + finance.value <= 0 || own("CapitalLeaseObligations") !== null ||
+      (row.operatingLeaseLiability != null && row.operatingLeaseLiability !== operating.value) ||
+      (row.financeLeaseLiability != null && row.financeLeaseLiability !== finance.value)) return none;
+  const leases = operating.value + finance.value, totalDebt = current + noncurrent + leases;
+  const filing = { accn: section.accession, filed: section.filingDate, form: section.form };
+  const evidence = (tags: string[], calculation?: StatementFieldProvenance["calculation"]): StatementFieldProvenance => ({ source: "edgar", unit, observedAt,
+    periodStart: null, periodEnd: row.date!, tags, filings: [filing], ...(calculation ? { calculation } : {}) });
+  const gaap = (tags: readonly string[]): string[] => tags.map(tag => `us-gaap/${tag}`);
+  const instrumentTags = gaap(instruments.flatMap(({ tags }) => tags)), leaseTags = gaap([...operating.tags, ...finance.tags]);
+  const borrowingText = [...(facility === null ? [] : [`${facility.name} ${millions(facility.value)} (balance-sheet line)`]),
+    ...instruments.map(({ line, tags }) => `${line.name} ${millions(line.value)} (${tags.join(", ")})`)].join(" + ");
+  return { status: "completed", row: { ...row, shortTermDebt: current, longTermDebt: noncurrent, capitalLeaseObligations: leases,
+    operatingLeaseLiability: operating.value, financeLeaseLiability: finance.value, totalDebt,
+    netDebt: amount(row.cashAndCashEquivalents) ? totalDebt - row.cashAndCashEquivalents : null,
+    vendorNetDebt: row.vendorNetDebt ?? row.netDebt ?? null,
+    fieldProvenance: { ...row.fieldProvenance,
+      shortTermDebt: evidence([BALANCE_SHEET_LIABILITY_LINES_TAG], "same-filing-debt-completed"),
+      longTermDebt: evidence(instrumentTags, "same-filing-debt-completed"),
+      // The lease line is the two filed liabilities and nothing else, as the D-133 completion records it.
+      capitalLeaseObligations: evidence(leaseTags),
+      ...(row.fieldProvenance?.operatingLeaseLiability ? {} : { operatingLeaseLiability: evidence(gaap(operating.tags)) }),
+      ...(row.fieldProvenance?.financeLeaseLiability ? {} : { financeLeaseLiability: evidence(gaap(finance.tags)) }),
+      totalDebt: evidence([...instrumentTags, ...leaseTags, BALANCE_SHEET_LIABILITY_LINES_TAG], "same-filing-debt-completed") } } as T,
+    admission: { kind: "filing-completion", date: row.date!, summary: `${millions(totalDebt)} (vendor ${millions(vendorTotal)}; ${filing.accn})`,
+      detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: the balance sheet is unclassified and its ${sheet.lines.length} liability lines add up to the tagged Liabilities ${millions(sheet.total)}; ` +
+        `borrowings ${borrowingText} = ${millions(current + noncurrent)} + operating leases ${millions(operating.value)} + finance leases ${millions(finance.value)} = total debt ${millions(totalDebt)} ${unit}; ` +
+        "undisclosed vendor lease zero replaced by filed liabilities; vendor borrowings reconciled to the filing's lines" } };
+}
+
+/**
+ * D-250 (P7; D-202 rule 1). A provider total is not established while the filing discloses its finance leases
+ * only in part: one maturity of the finance lease liability tagged at the row's date, with neither the other
+ * maturity nor a total in any filing. The SEC statements builder withholds its own row for the same shape
+ * (`partialFinanceLeaseReason`); a provider row, whose lease line can hold that one maturity, passed unchecked
+ * (RIVN, 2026-09-30: FinanceLeaseLiabilityNoncurrent 99M, the current portion inside a combined current line).
+ * A row the statements builder made carries its lease tags and is left to that builder's rule.
+ */
+function partialFinanceFamilyReason(row: FmpStatementRow, facts: CompanyFacts, unit: string, observedAt: string): string | null {
+  if (row.fieldProvenance?.capitalLeaseObligations !== undefined || row.fieldProvenance?.financeLeaseLiability !== undefined ||
+      (row.cik != null && Number(row.cik) !== facts.cik)) return null;
+  const at = (tag: string): FactPoint[] => points(facts, tag, unit, observedAt).filter(p => p.start === undefined && p.end === row.date && p.val >= 0);
+  if (tagsFor("financeLeaseLiability").some(tag => at(tag).length > 0)) return null;
+  const [currentTag, noncurrentTag] = tagsFor("financeLeaseLiabilityParts") as [string, string];
+  const current = newest(at(currentTag)), noncurrent = newest(at(noncurrentTag));
+  if ((current === undefined) === (noncurrent === undefined)) return null;
+  const [tag, missing, part] = current !== undefined ? [currentTag, noncurrentTag, current] : [noncurrentTag, currentTag, noncurrent!];
+  return partialFinanceLeaseReason(`${tag} ${millions(part.val)} is tagged at ${row.date} in ${part.form} ${part.accn}; no ${missing} or finance-lease total is`);
 }
 
 /**

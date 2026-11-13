@@ -50,9 +50,23 @@
  * | ANNUALIZATION_CONVENTION_SPEC, DCF_INPUTS_CONVENTION_SPEC | display cutoff | `report/legacyValuationNotes.ts` (same read path). |
  * | IMPLIED_RETURN_SHARE_BASIS_SPEC | display cutoff | `report/legacyImpliedReturnShareBasis.ts` (same read path). |
  * | LEGACY_SCOPE_SINCE_SPEC, LEGACY_PLACEHOLDER_DISPLAY_CUTOFF | display cutoff | `report/legacyScopeQualifications.ts` (same read path). |
- * | INSIDER_ROLES_READ_FROM | display cutoff | `legacyCheckNote` (`report/claimMatching.ts`), used by the audit export (`report/export/auditMarkdown.ts`). |
+ * | INSIDER_ROLES_READ_FROM | display cutoff | `legacyCheckNote` (`report/claimMatching.ts`), used by the audit export (`report/export/auditMarkdown.ts`); read through `specVersionBefore` like every other display cutoff (D-249). |
  * | N4B_CAGR_DISPLAY_CUTOFF | display cutoff | no src reader (`report/cagrPresentation.ts` only re-exports it); pinned by tests/report.versionStamps.test.ts. |
  * | CORPORATE_ACTION_BRIDGE_WRITING_STAMPS | format gate (exact saved stamps) | `report/legacyRetiredFields.ts`, on the stored-report read (`report/storedReportRead.ts`, `report/legacyEntitySafety.ts`). |
+ *
+ * Reading a saved stamp against a display cutoff (P21, D-249). Every "display
+ * cutoff" row above is compared with a saved report's `meta.specVersion` by
+ * the one function at the end of this file, `specVersionBefore`, which reads
+ * the stamp with `parseSpecStamp`. No reader parses or orders a spec stamp
+ * itself (tests/report.savedStampOrder.oneOwner.test.ts). The comparison lives
+ * here, not in the P21 owner `report/legacyEntitySafety.ts`, because that
+ * module imports every legacy reader (a helper there would be a circular
+ * import) and this one imports nothing and already defines every cutoff the
+ * comparison reads. Stamps that are not ordered are read by equality and keep
+ * their own readers: `meta.evidenceContract` (`report/evidenceContract.ts`:
+ * absent, current or unrecognised), the exact writing stamps of
+ * CORPORATE_ACTION_BRIDGE_WRITING_STAMPS, and the two stored stamps the
+ * history diff compares (`report/diff.ts`).
  *
  * Deliberately not here: request/AI identity (`ai/fingerprint.ts` "ai-v1",
  * the `ai/mutex.ts` lock-file format), Anthropic tool types
@@ -201,7 +215,10 @@
 // D-217 (P21): optional `meta.evidenceContract` on newly built reports (src/report/evidenceContract.ts).
 // Like `presumedCostUsd`, an optional meta field with no figure change, so the spec stays 1.73.0. Stored
 // reports keep their bytes; one without the stamp, or with an unrecognised one, shows a "figures as saved" note.
-export const REPORT_SPEC_VERSION = "1.73.0" as const;
+// 1.74.0 (D-255, Stage 5 integration of D-231, D-233, D-234, D-236 to D-240, D-247, D-248, D-250 to D-252): filed
+// figures replace vendor ones where the filings prove them, so report figures, a fair value, aspect bands and
+// withheld/shown figures change meaning for new reports. No display cutoff is added; stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.74.0" as const;
 
 /**
  * Current payload format version.
@@ -352,7 +369,9 @@ export const REPORT_SPEC_VERSION = "1.73.0" as const;
 // 1.90.0 (D-214): quarterly release corrections and their source lineage agree with Stage B; unsafe split/inline numeric bases are refused.
 // 1.91.0 (D-215): restored revenue and annual guidance, with separately scoped borrowing-cost evidence.
 // 1.92.0: admitted primary cash, exact execution shares/cost and their definition/source reach the analysts.
-export const PAYLOAD_VERSION = "1.92.0" as const;
+// 1.93.0 (D-255, Stage 5 integration): filed net income, common earnings, share counts, debt, operating cash flow and
+// tax-rate operands (D-231, D-234, D-236, D-238, D-240, D-250, D-251) change the figures and signals the analysts receive.
+export const PAYLOAD_VERSION = "1.93.0" as const;
 
 /** pipelineVersion stamped into meta (bump when the orchestration changes). 1.6.5 (D-111): the plan-connection runtime claim before the data fetch (audit 2026-10-22 F-12), and the per-section schema check on sections carried from a cut-off response (D-3). 1.6.6 (D-113): a schema-valid analyst case with an empty thesis, drivers or risks list, or a price target without a positive value and a horizon, is repaired like a schema failure. 1.6.7 (D-114): a blank `sourceId` in an analyst or judge output is read as absent, and a side whose rejected output waits for its repair stays running under a plain note. 1.6.8 (D-115): every run-panel note and report missing-data reason gives a rejected output's issues in words, also when the stored detail was cut short; a failed repair closes its row the same way; a dropped connection is not queued as a repair. 1.6.9 (D-116): a section kept from an earlier attempt keeps the evidence of the request that wrote it, so a resumed plan pass names its model, effort and speed when every writer reported them; the run details say what a resumed pass's tokens cover, and a failed attempt whose sections were kept is not called thrown away. 1.6.10 (D-117..D-123): a failed paid request is recorded at what it may have billed and each pass, step and audit export states the ledger's cost; the mirrored judge pass is skipped and disclosed on a retry that keeps sections, and only section grades are compared. 1.6.11 (D-124, audit 2026-10-27 B3 AI-507): the analysts' and judge's reconciliation rule prefers the 10-Q or 10-K notes by reporting period, not the 10-Q by default. 1.6.12 (D-128): the verify pass computes the newest registered period of every reported series once and passes it to the claim check. 1.6.13 (D-132, audit batch 8a): an accepted Retry of a data-only fallback is dispatched and runs the judge and verify on the settled analyst passes instead of closing as done; if it fails again it links a new data-only report and stays resumable (DB-001). 1.6.19 (R1/R4, FIGR paid audit 2026-11-02): blank claim and number dates are read as no date, a FACT keeps only its sourced statement (an embedded "In our judgment" sentence becomes its own JUDGMENT), and the analysts and judge get the evidence-reading, valuation-stance, unassessed-grade, business-model, insider-motive and voting-control rules. 1.6.20 (D-163 to D-167, FIGR extra-high audit 2026-11-02): the analysts and judge get the accounting-scope, multiple-direction, return-basis, matched-window, share-of-total, met-versus-beat, post-transaction liquidity, attribution and specialist-term rules; a catalyst or risk reasoning is one claim; a rejected structured answer records how it ended; the verifier reads producer-bound metric paraphrases, complete table headers and footnotes (R7, D-167); filing excerpts keep qualifying context and the MD&A primary tables (R8, D-167). 1.6.21 (D-168 to D-172, priority fixes 2026-11-03): analysts research in plain text with web search, then write the case without tools; synthesis caches its prefix for one hour; catalyst and risk reasoning is a list of sourced claims; the judge writes market-structure and competitor claims and takes a price stance from the available multiples. 1.6.22 (D-175 to D-181, Q round 2026-11-02): the judge writes dated recent developments and management actions from the news, insider and leadership evidence, and states once that a fresh filing's figures are provisional when the manifest carries the fresh-filing caution. 1.6.23 (D-182, META paid test 2026-11-03): a valid month-only or year-only claim date is read as no date instead of costing a repair round; the judge lists each material dated development and management action without padding, and describes the industry from the filing when no market size is sourced; the verifier no longer reads "Motive is not established" as a person, accepts an issuer document on EDGAR's archive cited by URL and a payload gap row for a credibility statement naming nobody, and reads "trailing P/E" as the P/E (TTM) record (TSM paid test). 1.6.24 (D-183, 2026-11-03): a paid run whose largest remaining request reservation a job or rolling cap can never admit stops before its first paid request, at $0, with the pass, model, reservation, cap and smallest workable cap disclosed; the same check runs before a resumed run's first new paid request. 1.6.25 (D-185, 2026-11-03): the analyst request schema no longer requires `sourceId` beside `source` (its placeholder drew a one-claim skeleton case from Opus 5.5 on ASML); an analyst case rejected as incomplete is asked on its repair turn to write the missing sections from the payload and research, keeping its correct claims, instead of repairing in place with the same evidence (ASML Opus 5.5 paid run); expired leases count in the pre-launch budget check as admission's presumed spend dated at acquisition. 1.6.26 (D-187, 2026-11-03): headline claims bind to their producing records, and a statement buyback or capex amount may be stated as a positive magnitude. 1.6.27 (D-189): plain aspect-score, P/TBV, ROTE, P/E, excess-return, estimate and other headline wording binds to its producing record. 1.6.28 (D-190): executive cards admit exactly quoted dated decisions within an evidenced tenure and the judge is told both grade routes 1.6.29 (D-191): annual filing evidence now reaches the analysts through explicit page references, with honest coverage labels 1.6.30 (D-192): executive cards carry filing-sourced office tenure, which can open the dated decision route 1.6.31 (D-194): annual notes recovered from proved filing indexes reach the analysts 1.6.32 (D-193): bull, base and bear targets for banks and insurers 1.6.33 (D-198): computed valuation inputs changed for material sale gains and preferred capital 1.6.34 (D-197): figures in reader prose are checked deterministically; executive tenure is derived, not model-written 1.6.35 (D-204): unknown and malformed tickers end unsupported before any data, model or paid admission */
 // 1.6.36 (D-203): repaired operating admission and dated qualifications reach reports.
@@ -420,7 +439,10 @@ export const EVIDENCE_CONTRACT_VERSION = "EVIDENCE_CONTRACT_1" as const;
 // D-214: direct quarterly release EPS/shares require canonical, covered split-basis agreement.
 // D-215: operating-revenue concept corroboration and capitalized-interest evidence change calculation inputs.
 // Primary capital evidence is acquired before truncation and admitted on one shared source basis.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_PRIMARY_CAPITAL_66" as const;
+// D-255 (Stage 5 integration): D-231, D-233, D-234, D-236, D-237, D-238, D-239, D-240, D-247, D-248, D-250, D-251 and
+// D-252 change Stage B results on identical retained inputs (filed figures replace unproven vendor ones; one owner
+// for the conversion-share period and the noncontrolling-ownership test).
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_FILED_ACCURACY_67" as const;
 
 /** Versioned method prior — bump when the resolution changes. */
 // D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.
@@ -546,3 +568,46 @@ export const INSIDER_ROLES_READ_FROM = "1.56.0";
  * or 1.23.3. Any other stamp, including empty, malformed or pre-release, is refused.
  */
 export const CORPORATE_ACTION_BRIDGE_WRITING_STAMPS: ReadonlySet<string> = new Set(["1.23.1", "1.23.2", "1.23.3"]);
+
+/* ------------------------------------------------------------------------ *
+ * Reading a saved report's spec stamp against a frozen cutoff (P21, D-249)
+ * ------------------------------------------------------------------------ */
+
+/**
+ * A spec stamp's three numbers, or null when it cannot be read. A stamp is
+ * text of exactly three dotted whole numbers once surrounding whitespace is
+ * trimmed. Anything else is unreadable: a missing or non-text stamp, an empty
+ * one, two parts ("1.56"), a pre-release or build suffix ("1.56.0-rc1"), a
+ * prefix ("v1.56.0"). Numbers compare as numbers, so "1.9.0" precedes "1.10.0".
+ */
+export function parseSpecStamp(stamp: unknown): readonly [number, number, number] | null {
+  if (typeof stamp !== "string") return null;
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(stamp.trim());
+  return m === null ? null : [Number(m[1]), Number(m[2]), Number(m[3])];
+}
+
+/**
+ * Whether a saved report was written before the rule a frozen cutoff names:
+ * the ONE comparison of a saved `meta.specVersion` with a display cutoff.
+ *
+ * - A stamp that cannot be read (`parseSpecStamp`) is before every cutoff: the
+ *   report cannot be shown to follow the newer rule, so it gets the legacy
+ *   read-time view (P10: unproven is not treated as current).
+ * - A stamp at or above the cutoff is not before it. That includes a stamp
+ *   newer than this build's REPORT_SPEC_VERSION: a report from a newer build
+ *   is never given an older rule's correction. (Whether this build recognises
+ *   that report's evidence rules is a separate question, answered by the
+ *   evidence-contract stamp's own reader, `report/evidenceContract.ts`.)
+ * - A cutoff that cannot be read never fires. Cutoffs are the constants above,
+ *   pinned by tests/report.versionStamps.test.ts.
+ *
+ * Stored bytes are never changed by this; it only chooses a read-time view.
+ */
+export function specVersionBefore(saved: unknown, cutoff: string): boolean {
+  const a = parseSpecStamp(saved);
+  const b = parseSpecStamp(cutoff);
+  if (a === null) return true;
+  if (b === null) return false;
+  for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i]! < b[i]!;
+  return false;
+}

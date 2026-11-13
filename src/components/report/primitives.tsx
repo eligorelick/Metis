@@ -33,7 +33,7 @@ import type {
   SourcedClaim,
   TracedNumber,
 } from "@/report/schema";
-import { claimCitation, displayClaimText, displayConfidence, displayProse, figureRows, figureValueText, seeAlsoText, withoutTabled } from "@/report/presentation";
+import { claimCitation, displayClaimText, displayConfidence, displayProse, figureRows, figureValueText, SCENARIO_TARGET_UNAVAILABLE_TEXT, scenarioWeightView, seeAlsoText, withoutTabled, type ScenarioWeightView } from "@/report/presentation";
 import {
   unitLabel,
   numericCitationTraceLabel,
@@ -451,7 +451,7 @@ export function ScenarioCard({
   horizon,
   assumptions,
   whatWouldHaveToBeTrue,
-  weightLabel = "p",
+  weight = scenarioWeightView(probability, false, "dossier"),
   qualitativeCommentary,
 }: {
   name: "bull" | "base" | "bear";
@@ -460,12 +460,12 @@ export function ScenarioCard({
   horizon: string;
   assumptions: readonly string[];
   whatWouldHaveToBeTrue: readonly string[];
-  weightLabel?: string;
+  /** The shared scenario weight decision (presentation.ts); null when no weight is shown. Default: a stored probability. */
+  weight?: ScenarioWeightView | null;
   qualitativeCommentary?: readonly string[];
 }) {
   const meta = SCENARIO_META[name];
   // D-60: computed price targets carry no weight; only a stored weight is shown.
-  const unweighted = weightLabel !== "p" && probability === null;
   const borderColor =
     meta.tone === "pos"
       ? "border-pos/40"
@@ -476,9 +476,9 @@ export function ScenarioCard({
     <div className={`flex flex-col border ${borderColor} bg-panel`}>
       <div className="flex items-center justify-between gap-2 border-b border-edge px-2.5 py-1.5">
         <Badge tone={meta.tone}>{meta.label}</Badge>
-        {unweighted ? null : (
+        {weight === null ? null : (
           <span className="mono text-[11px] text-muted">
-            {`${weightLabel} = ${probability === null ? "n/a" : `${(probability * 100).toFixed(0)}%`}`}
+            {`${weight.label} = ${weight.text}`}
           </span>
         )}
       </div>
@@ -488,14 +488,14 @@ export function ScenarioCard({
         ) : (
           // Deterministic target suppressed (insufficient valuation inputs) —
           // show "unavailable", never a fabricated number.
-          <span className="mono text-[13px] text-faint">per-share target unavailable</span>
+          <span className="mono text-[13px] text-faint">{SCENARIO_TARGET_UNAVAILABLE_TEXT}</span>
         )}
         <span className="mono text-[10px] text-faint">{horizon}</span>
       </div>
       {priceTarget && <div className="border-b border-edge px-2.5 py-1.5"><TracedNumberSourceDetails n={priceTarget} label="Target provenance" /></div>}
-      {unweighted ? null : probability === null ? (
+      {weight === null ? null : probability === null ? (
         <div className="border-b border-edge px-2.5 py-1 text-[10px] text-faint">
-          {weightLabel === "p" ? "scenario probability unavailable" : "display weight unavailable"}
+          {weight.unavailableNote}
         </div>
       ) : (
         <ProbabilityBar value={probability} tone={meta.tone} />

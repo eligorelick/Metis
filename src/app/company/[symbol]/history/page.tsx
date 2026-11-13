@@ -16,7 +16,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/shell";
-import { getConfig } from "@/config/env";
 import { WatchlistSidebar } from "@/components/watchlist/Sidebar";
 import { ResearchNavigation } from "@/components/report/ResearchNavigation";
 import { RevisionDigest } from "@/components/report/RevisionDigest";
@@ -41,37 +40,6 @@ import { HistoryCompare, type CompareOption } from "./HistoryCompare";
 
 // Reads persisted rows at request time — never statically pre-render.
 export const dynamic = "force-dynamic";
-
-/* ------------------------------------------------------------------------ *
- * Sidebar (matches the company-page shell)
- * ------------------------------------------------------------------------ */
-
-function Sidebar({ symbol }: { symbol: string }) {
-  return (
-    <div className="flex flex-col gap-3 p-3">
-      <div className="border border-edge bg-bg">
-        <div className="border-b border-edge px-2 py-1.5">
-          <span className="mono text-[11px] uppercase tracking-[0.14em] text-muted">
-            history
-          </span>
-        </div>
-        <div className="px-2 py-1.5 text-[11px] text-muted">
-          <span className="mono text-fg">{symbol}</span>
-          <span className="text-faint"> · saved reports</span>
-        </div>
-      </div>
-      <Link
-        href={`/company/${encodeURIComponent(symbol)}`}
-        className="px-2 text-[11px] text-accent hover:underline"
-      >
-        ← back to {symbol}
-      </Link>
-      <Link href="/" className="px-2 text-[11px] text-accent hover:underline">
-        ← home
-      </Link>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------------ *
  * Grade strip (compact, in-table)
@@ -216,10 +184,9 @@ export default async function HistoryPage({
   }));
   const displayedGradeSurfaces = GRADE_SURFACES.filter((descriptor) =>
     reports.some((report) => report.gradeStrip?.some((cell) => cell.key === descriptor.key)));
-  const dossier = getConfig().uiRedesign;
   const readable = reports.filter(report => report.gradeStrip !== null);
   let revision = null;
-  if (dossier && readable.length >= 2) {
+  if (readable.length >= 2) {
     try {
       const pair = loadReportPairForSymbol(readable[1]!.id, readable[0]!.id, symbol);
       if (pair) {
@@ -233,7 +200,7 @@ export default async function HistoryPage({
   }
 
   return (
-    <AppShell sidebar={dossier ? <WatchlistSidebar activeSymbol={symbol} /> : <Sidebar symbol={symbol} />}>
+    <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} />}>
       <div className="mx-auto flex max-w-5xl flex-col gap-3 p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="dossier-company-title mono text-[16px] font-semibold tracking-[0.08em] text-fg">
@@ -244,8 +211,8 @@ export default async function HistoryPage({
           </span>
         </div>
 
-        {dossier && <ResearchNavigation symbol={symbol} active="revisions" />}
-        {dossier && !loadError && (revision ? <><p className="text-[12px] text-muted">Latest readable pair: #{revision.older} → #{revision.newer}. All saved rows remain listed below.</p><RevisionDigest diff={revision.diff} compareHref={`/company/${encodeURIComponent(symbol)}/history/diff?a=${revision.older}&b=${revision.newer}`} /></> : <p className="text-[13px] text-muted">{readable.length < 2 ? "No prior readable report is available for comparison." : "The latest readable pair could not be compared. Select reports below to inspect availability."}</p>)}
+        <ResearchNavigation symbol={symbol} active="revisions" />
+        {!loadError && (revision ? <><p className="text-[12px] text-muted">Latest readable pair: #{revision.older} → #{revision.newer}. All saved rows remain listed below.</p><RevisionDigest diff={revision.diff} compareHref={`/company/${encodeURIComponent(symbol)}/history/diff?a=${revision.older}&b=${revision.newer}`} /></> : <p className="text-[13px] text-muted">{readable.length < 2 ? "No prior readable report is available for comparison." : "The latest readable pair could not be compared. Select reports below to inspect availability."}</p>)}
         {loadError ? (
           <div className="border border-neg/40 bg-neg/10 px-4 py-3 text-[12px] text-neg">
             <div className="mono font-semibold">could not load history</div>

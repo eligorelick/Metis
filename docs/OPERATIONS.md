@@ -26,8 +26,9 @@ Some existing Windows installations have local-only `./Start-Thesis.ps1` and
 references, not shipped scripts. Where installed, the start launcher runs an already-built production installation
 in a hidden process on port 3000 and opens Chrome at its standard installation
 path, or the default browser. `-SkipBrowser` suppresses browser launch. The
-legacy launcher sets `THESIS_RESUME_ON_START=0` (accepted as an alias of
-`METIS_RESUME_ON_START`), `NEXT_TELEMETRY_DISABLED=1` and
+launcher sets `METIS_RESUME_ON_START=0` (older copies set the retired
+`THESIS_RESUME_ON_START=0`, which now stops startup until it is renamed; see
+[Settings names](#settings-names)), `NEXT_TELEMETRY_DISABLED=1` and
 `NODE_ENV=production` in the child process, records its PID and start time in
 `.local/server.json`, and writes `.local/server.log` and
 `.local/server-error.log`. It reuses the matching recorded process and rejects
@@ -132,10 +133,40 @@ Appearance is a per-browser `thesis-ui-design` cookie (`current` or `workspace`)
 with a 180-day maximum age and `SameSite=Lax`; HTTPS adds `Secure`. It changes
 presentation independently of stored research/model settings.
 
-The shipped `.env.example` comments out canonical `METIS_*` settings to preserve
-legacy shell and launcher values. Uncomment only intentional overrides: even a
-blank canonical assignment wins. Startup warns about conflicting aliases using
-key names only, never their values.
+The shipped `.env.example` comments out its `METIS_*` settings so that shell and
+launcher values are kept. Uncomment only intentional overrides: even a blank
+assignment counts as set, and a blank value means the built-in default.
+
+### Settings names
+
+Only `METIS_*` names configure Metis (D-228). The `THESIS_*` names that were
+accepted as aliases after the rebrand are no longer read. If any of them is
+still set, in `.env`, a launcher or the shell, even to a blank value, the
+server refuses to start and every script that reads a setting stops, with one
+error naming each old key and its replacement, never a value:
+
+```text
+Metis will not start: these settings use the retired THESIS_ prefix, which is no longer read. Rename each one in your .env file, launcher or shell (keep the value), then start again:
+  THESIS_RESUME_ON_START -> METIS_RESUME_ON_START
+See docs/OPERATIONS.md (Settings names).
+```
+
+To migrate, rename each listed key and keep its value, then start again. The
+refused names are the `THESIS_` forms of `STATEMENT_SOURCE`, `JUDGE_ORDER`,
+`MAX_ACTIVE_JOBS`, `MAX_ACTIVE_LLM_CALLS`, `MAX_JOB_COST_USD`,
+`MAX_ROLLING_COST_USD`, `RESERVATION_MODE`, `STREAM_IDLE_SECONDS`,
+`ROLLING_COST_WINDOW_MINUTES`, `PAID_PASS_LEASE_SECONDS`, `JOB_LEASE_SECONDS`,
+`RESUME_ON_START`, `EV_INCLUDE_LEASES`, `ALLOWED_HOST`, `TOKEN_FILE`, `DB_PATH`,
+`DATA_DIR`, `IMPORT_LEGACY_DB` and `UI_REDESIGN`. Refusing, rather than
+ignoring, keeps a startup hold, spend cap or database path from being dropped
+without notice. Every setting keeps its meaning and default under its
+`METIS_*` name, except the layout setting: `METIS_UI_REDESIGN` was removed
+with the classic layout (D-246). The dossier is the only layout; a leftover
+`METIS_UI_REDESIGN` value is ignored and the app starts normally, while the
+retired `THESIS_UI_REDESIGN` name is still refused like the others. Legacy data folders (`Thesis`, `thesis.db`, `Thesis/ai`) are
+unaffected and are still found in place. Some report and judge-prompt wording
+still spells the old names (for example "set THESIS_EV_INCLUDE_LEASES=1"); the
+setting to use is the `METIS_*` one.
 
 ## Report lifecycle and recovery
 
@@ -233,13 +264,13 @@ Temporary provider rate limits, 5xx, overload and unavailable responses share
 the bounded backoff classification and are described as busy or unavailable.
 Cut-off streams keep their own wording. Retry-After parsing remains deferred.
 
-Generate starts a new run that runs every pass again, at full cost on a paid connection. The classic saved view points to Live analysis when reusable analyst work is available.
+Generate starts a new run that runs every pass again, at full cost on a paid connection. The saved report view says when a previous run left reusable analyst work, which the run controls can resume.
 
 ## Local HTTP API
 
 All paths below pass the request-wide direct-Host allowlist. Mutations also
 require accepted browser metadata/matching Origin or the startup
-`X-Metis-Token` (`X-Thesis-Token` is accepted only when the primary header is absent); cross-site or mismatched Origin requests remain rejected even
+`X-Metis-Token` (the old `X-Thesis-Token` header is refused with a 403 naming `X-Metis-Token`); cross-site or mismatched Origin requests remain rejected even
 with a token. This is a browser-CSRF boundary, not authentication of local
 processes. Heavy company GET/HEAD requests additionally filter cross-origin
 embeds and speculation. AI connection GET/POST requires the mutation guard
@@ -305,7 +336,7 @@ directory discovery. A test on a copy must redirect that store too: on Windows
 it follows `LOCALAPPDATA` (`%LOCALAPPDATA%/Metis/ai`, or a legacy
 `%LOCALAPPDATA%/Thesis/ai` when present), so start the test server with
 `LOCALAPPDATA` set to a scratch folder or it uses the real AI connections. Canonical `METIS_*` keys take precedence whenever present,
-including blank/invalid values; `THESIS_*` aliases remain supported. See
+including blank/invalid values; retired `THESIS_*` names stop startup (see [Settings names](#settings-names)). See
 [compatibility](BRAND.md#compatibility) for the complete naming contract. SQLite data,
 API cache, saved reports and `.env` have no application-level encryption.
 
@@ -367,9 +398,7 @@ npm run docs:pricing -- --write
 prints a diff, and only writes the registry with `--write`; existing capability
 and request policies still require review. `costs:reconcile` previews presumed
 spend and can read the admin cost report; `--write` applies conservative downward
-reconciliation, not a new report. `audit:deltas` compares offline fixtures;
-`--write --group <name>` records newly classified changes, whose reason must be
-reviewed. Regenerating deltas is not evidence that a financial change is correct.
+reconciliation, not a new report.
 
 Two frozen records under `tests/fixtures/frozen/` pin today's output of the
 offline fixtures leaf by leaf: `stagec-payload-current.json` (the Stage C
@@ -393,6 +422,10 @@ never sets its variables. Each refresh appends date, decision, reason, scope, be
 hash and changed paths to `tests/fixtures/frozen/refresh-log.json`, and a test
 requires the log's last entry to match each committed record, so a hand edit or
 an unlogged re-record fails. Commit the record and its log entry together.
+Re-recording is not evidence that a financial change is correct. The refresh
+log is the intentional-delta record for both fixtures. For the DEMO fixture it
+replaces the July 2026 audited baseline and its intended-delta ledger
+(`npm run audit:deltas`), retired by D-232 and kept in git history.
 
 ## Verification and troubleshooting
 
@@ -536,7 +569,7 @@ Core coverage holds every Stage B and report-schema file to 85/75/85/85 (stateme
 
 ## Same-report check before a refactor
 
-`npm run golden:run` and `npm run golden:diff` show whether a code change leaves reports identical. They rebuild seventeen stored cases offline and compare two commits' output byte for byte: thirteen companies with saved run inputs. Each company gets a data-only report, and AMZN, META, MU and NVDA also get a report from their stored analyst output. For every case the harness pins the Stage B output, the Stage C payload and its fingerprint, the report JSON, the Markdown, print and audit Markdown exports, and both web layouts (classic and dossier) rendered from the saved-report reader. `scripts/golden/cases.json` lists the inputs by SHA-256 only.
+`npm run golden:run` and `npm run golden:diff` show whether a code change leaves reports identical. They rebuild seventeen stored cases offline and compare two commits' output byte for byte: thirteen companies with saved run inputs. Each company gets a data-only report, and AMZN, META, MU and NVDA also get a report from their stored analyst output. For every case the harness pins the Stage B output, the Stage C payload and its fingerprint, the report JSON, the Markdown, print and audit Markdown exports, and the web page (the dossier layout) rendered from the saved-report reader. `scripts/golden/cases.json` lists the inputs by SHA-256 only.
 
 ```powershell
 npm run golden:run -- --ref main --out tmp/golden/before
@@ -547,7 +580,7 @@ npm run golden:diff -- tmp/golden/before tmp/golden/after
 - `--ref REF` extracts that commit with `git archive` into `tmp/golden/trees/` and runs its code. Without `--ref`, the run uses the working tree and records a hash of any uncommitted changes. Both use the installed `node_modules`; the diff notes when the two commits' `package-lock.json` differ.
 - The first run reads the inputs from a database in read-only mode (`--db FILE` or `METIS_DB_PATH` chooses it) and caches them under `tmp/golden/inputs`. They contain vendor data, so they stay local and are never committed. Pass the check database (below) with `--db "%USERPROFILE%\metis-check\check.db"`.
 - Each case runs in its own Node process. Fetch, sockets, TLS and DNS are blocked. Provider keys and `METIS_*`/`THESIS_*` settings are removed from its environment. The clock is fixed to the inputs' build time, and the time zone is UTC. A scratch database and data directory sit inside the output folder. No model is called and nothing is spent.
-- `golden:diff` exits 0 only when every case, field and file matches. Otherwise it lists each changed file, with JSON leaf paths or the start of a text diff. An intended change passes only when listed in `--approved FILE`, with its before and after hash and a reason; a file that only one run produced uses `missing` as the hash on the other side.
+- `golden:diff` exits 0 only when every case, field and file matches. Otherwise it lists each changed file, with JSON leaf paths or the start of a text diff. An intended change passes only when listed in `--approved FILE`, with its before and after hash and a reason; a file that only one run produced uses `missing` as the hash on the other side. Comparing a run from before D-246 with a later one lists each `web-classic.html` as present only on the old side (the classic layout was removed); approve those entries with `after: "missing"`.
 - A run takes about 1–2 minutes on four processes (`--jobs N` changes the count; `--only id,id` picks cases). Run it twice on one commit to confirm the output repeats exactly.
 - Limits: the analyst-output cases cover only the general route. The verify step uses no fetched URLs, and the cost table is empty.
 
@@ -595,3 +628,13 @@ npm run accuracy:check -- tmp/golden/after --report tmp/accuracy/BASELINE.md --j
 - **A deliberate change.** Update the expectation in the same change, with a reason: `npm run accuracy:check -- tmp/golden/after --update-expectation --reason "D-nnn: ..."`. Every changed entry gets that reason as `changeReason`; review the diff of `expectation.json` like code. A number may move only when the new value is proven against the filing: a mismatch that becomes a match, or a wrong value that becomes a disclosed gap, is better; anything else needs a decision entry that says why.
 - **Rebuilding the reference.** `npm run accuracy:fetch -- --network --run tmp/golden/after` downloads SEC XBRL company facts (cached under `tmp/accuracy/edgar`; `--refresh` downloads again), reads from the golden run only each figure's period and the report's cutoff, and rewrites `reference.json`. It is the only part that uses the network and refuses to run without `--network`. Set `EDGAR_CONTACT` (a name and email; SEC requires it in the User-Agent) in the environment first. Where SEC's company facts lack a filing, `companies.json` names it under `instanceFilings` and the fetch reads that filing's own XBRL instance. A balance-sheet line tagged with the filer's own element is read the same way, as `ext:Name`. When two facts in an instance state the same value at different precision, the more precise one is used; two different values at the same precision are dropped. Where an issuer files a line under another concept, `companies.json` overrides the recipe for that figure and says why. An override states what was checked in one filing and has no period of its own: read the filing again when the reference is rebuilt for a later period.
 - **Limits.** Values in filings without XBRL (8-K earnings releases, Form 6-K quarterly reports) are not read, so those figures stay not established. A quarterly report that leaves the lease note untagged leaves total debt including leases not established, even when the borrowings are filed. The concept lists are finite: a line filed under a concept no recipe lists is missed until an override names it. Filing dates carry no time of day, so a filing dated on the cutoff day counts as before the cutoff. The causes in `expectation.json` are a reviewer's reading of each mismatch, not computed. CI cannot run the real check because the golden inputs are local; `tests/accuracyCheck.test.ts` covers its logic on synthetic data.
+
+## Report-surface drift (valuation)
+
+`npm run report:drift` measures where the reader surfaces still word the valuation figures differently (P22). It reads `golden:run` output folders (`--golden DIR`) and/or a copy of a database (`--db FILE`, opened read-only; the application database itself is refused), prepares each report as every surface does (`src/report/readerPreparation.ts`), and compares the valuation texts decided in `src/report/presentation.ts` (headline label, shown value, comparison, caveats, scenario rows) across Markdown, print, the app (dossier) and the key-data box. It also renders each surface and checks that every decided text appears in it. It runs offline with a fixed clock (`--clock ISO`).
+
+```powershell
+npm run report:drift -- --golden tmp/golden/after --db tmp/check-copy.db --out tmp/drift/REPORT.md
+```
+
+The output lists each disagreement with the surfaces that agree, example texts and the number of reports that show it, plus the named per-surface exceptions in the shared code. It contains report text, so keep it under `tmp/`.

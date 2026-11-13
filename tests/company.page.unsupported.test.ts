@@ -126,15 +126,18 @@ describe("company page — unsupported instruments", () => {
     expect(pageHarness.buildDataBundle).not.toHaveBeenCalled();
   });
 
-  it("renders the company-only explanation before Stage B, old reports, charts, or GenerateReport", async () => {
+  it("renders the company-only explanation before Stage B, charts or GenerateReport, reading saved research only to link it (D-245, D-246)", async () => {
     const html = renderToStaticMarkup(await CompanyBody({ symbol: "SPY" }));
 
     expect(html).toMatch(/SPY/);
     expect(html).toMatch(/not supported/i);
     expect(html).toMatch(/individual compan/i);
     expect(pageHarness.runStageB).not.toHaveBeenCalled();
-    expect(pageHarness.getLatestDoneReport).not.toHaveBeenCalled();
     expect(pageHarness.generateReport).not.toHaveBeenCalled();
+    // The dossier's failed-live view offers a link to an existing saved report
+    // (none here); it renders no old report, chart or run panel.
+    expect(pageHarness.getLatestDoneReport.mock.calls).toEqual([["SPY"]]);
+    expect(html).not.toContain("remains available through Report");
   });
 
   it("coalesces concurrent unclassified loads without computing company values", async () => {

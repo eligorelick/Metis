@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "3d8823ab7318d6106e86268e8b168bd33ec91303076314bbe3133e12728fcb0a",
+  "projectionSha256": "59b425917379db50abe45da6e90ba2dae97612b55d7b8fd8ea514fa235b42782",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -1771,67 +1771,78 @@
           "field": "fmp.historicalMarketCap(DEMO)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/historical-market-capitalization?from=2021-07-06&limit=5000&symbol=DEMO&to=2026-07-06", "fixture:fixtures/fmp/historicalMarketCap/DEMO_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalMarketCap/DEMO.json", "fixture:fixtures/fmp/historicalMarketCap/default.json"]
+          "attemptedSources": ["/stable/historical-market-capitalization?from=2021-07-06&limit=5000&symbol=DEMO&to=2026-07-06", "fixture:fixtures/fmp/historicalMarketCap/DEMO_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalMarketCap/DEMO.json", "fixture:fixtures/fmp/historicalMarketCap/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {
           "field": "fmp.historicalPriceEodFull(SPY)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/historical-price-eod/full?from=2021-07-06&symbol=SPY&to=2026-07-06", "fixture:fixtures/fmp/historicalPriceEodFull/SPY_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalPriceEodFull/SPY.json", "fixture:fixtures/fmp/historicalPriceEodFull/default.json"]
+          "attemptedSources": ["/stable/historical-price-eod/full?from=2021-07-06&symbol=SPY&to=2026-07-06", "fixture:fixtures/fmp/historicalPriceEodFull/SPY_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalPriceEodFull/SPY.json", "fixture:fixtures/fmp/historicalPriceEodFull/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {
           "field": "fmp.historicalPriceEodFull(XLK)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/historical-price-eod/full?from=2021-07-06&symbol=XLK&to=2026-07-06", "fixture:fixtures/fmp/historicalPriceEodFull/XLK_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalPriceEodFull/XLK.json", "fixture:fixtures/fmp/historicalPriceEodFull/default.json"]
+          "attemptedSources": ["/stable/historical-price-eod/full?from=2021-07-06&symbol=XLK&to=2026-07-06", "fixture:fixtures/fmp/historicalPriceEodFull/XLK_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalPriceEodFull/XLK.json", "fixture:fixtures/fmp/historicalPriceEodFull/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {
           "field": "fmp.institutionalHolderAnalytics(DEMO,2026Q1)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/institutional-ownership/extract-analytics/holder?limit=50&page=0&quarter=1&symbol=DEMO&year=2026", "fixture:fixtures/fmp/institutionalHolderAnalytics/DEMO_2026_Q1.json", "fixture:fixtures/fmp/institutionalHolderAnalytics/DEMO.json", "fixture:fixtures/fmp/institutionalHolderAnalytics/default.json"]
+          "attemptedSources": ["/stable/institutional-ownership/extract-analytics/holder?limit=50&page=0&quarter=1&symbol=DEMO&year=2026", "fixture:fixtures/fmp/institutionalHolderAnalytics/DEMO_2026_Q1.json", "fixture:fixtures/fmp/institutionalHolderAnalytics/DEMO.json", "fixture:fixtures/fmp/institutionalHolderAnalytics/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {
           "field": "fmp.keyMetricsTtm(DEMO)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/key-metrics-ttm?symbol=DEMO", "fixture:fixtures/fmp/keyMetricsTtm/DEMO.json", "fixture:fixtures/fmp/keyMetricsTtm/default.json"]
+          "attemptedSources": ["/stable/key-metrics-ttm?symbol=DEMO", "fixture:fixtures/fmp/keyMetricsTtm/DEMO.json", "fixture:fixtures/fmp/keyMetricsTtm/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {
           "field": "fmp.pressReleases(DEMO)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/news/press-releases?from=2026-06-06&limit=50&page=0&symbols=DEMO&to=2026-07-06", "fixture:fixtures/fmp/pressReleases/DEMO.json", "fixture:fixtures/fmp/pressReleases/default.json"]
+          "attemptedSources": ["/stable/news/press-releases?from=2026-06-06&limit=50&page=0&symbols=DEMO&to=2026-07-06", "fixture:fixtures/fmp/pressReleases/DEMO.json", "fixture:fixtures/fmp/pressReleases/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {
           "field": "fmp.ratiosTtm(DEMO)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/ratios-ttm?symbol=DEMO", "fixture:fixtures/fmp/ratiosTtm/DEMO.json", "fixture:fixtures/fmp/ratiosTtm/default.json"]
+          "attemptedSources": ["/stable/ratios-ttm?symbol=DEMO", "fixture:fixtures/fmp/ratiosTtm/DEMO.json", "fixture:fixtures/fmp/ratiosTtm/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {
           "field": "fmp.secFilingsSearch(DEMO)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/sec-filings-search/symbol?from=2025-07-06&limit=100&page=0&symbol=DEMO&to=2026-07-06", "fixture:fixtures/fmp/secFilingsSearch/DEMO_2025-07-06_2026-07-06.json", "fixture:fixtures/fmp/secFilingsSearch/DEMO.json", "fixture:fixtures/fmp/secFilingsSearch/default.json"]
+          "attemptedSources": ["/stable/sec-filings-search/symbol?from=2025-07-06&limit=100&page=0&symbol=DEMO&to=2026-07-06", "fixture:fixtures/fmp/secFilingsSearch/DEMO_2025-07-06_2026-07-06.json", "fixture:fixtures/fmp/secFilingsSearch/DEMO.json", "fixture:fixtures/fmp/secFilingsSearch/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {
           "field": "fmp.stockNews(DEMO)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/news/stock?from=2026-06-06&limit=50&page=0&symbols=DEMO&to=2026-07-06", "fixture:fixtures/fmp/stockNews/DEMO.json", "fixture:fixtures/fmp/stockNews/default.json"]
+          "attemptedSources": ["/stable/news/stock?from=2026-06-06&limit=50&page=0&symbols=DEMO&to=2026-07-06", "fixture:fixtures/fmp/stockNews/DEMO.json", "fixture:fixtures/fmp/stockNews/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {
           "field": "fmp.symbolPositionsSummary(DEMO,2026Q1)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/institutional-ownership/symbol-positions-summary?quarter=1&symbol=DEMO&year=2026", "fixture:fixtures/fmp/symbolPositionsSummary/DEMO_2026_Q1.json", "fixture:fixtures/fmp/symbolPositionsSummary/DEMO.json", "fixture:fixtures/fmp/symbolPositionsSummary/default.json"]
+          "attemptedSources": ["/stable/institutional-ownership/symbol-positions-summary?quarter=1&symbol=DEMO&year=2026", "fixture:fixtures/fmp/symbolPositionsSummary/DEMO_2026_Q1.json", "fixture:fixtures/fmp/symbolPositionsSummary/DEMO.json", "fixture:fixtures/fmp/symbolPositionsSummary/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {
           "field": "fmp.transcript(DEMO,2025Q4)",
           "reason": "no API key + no fixture",
           "severity": "warn",
-          "attemptedSources": ["/stable/earning-call-transcript?quarter=4&symbol=DEMO&year=2025", "fixture:fixtures/fmp/transcript/DEMO_2025_Q4.json", "fixture:fixtures/fmp/transcript/DEMO.json", "fixture:fixtures/fmp/transcript/default.json"]
+          "attemptedSources": ["/stable/earning-call-transcript?quarter=4&symbol=DEMO&year=2025", "fixture:fixtures/fmp/transcript/DEMO_2025_Q4.json", "fixture:fixtures/fmp/transcript/DEMO.json", "fixture:fixtures/fmp/transcript/default.json"],
+          "cause": "fmp-no-api-key"
         },
         {"field": "technicals.relativeStrength.SPY", "reason": "no valid SPY closes supplied for relative-strength alignment", "severity": "warn"},
         {"field": "valuation.reverseDcf.growthBracket", "reason": "no root bracket for the fading year-one growth anchor: the price 40 is below the DCF value at every year-one growth on the [-20, 60]% pre-scan grid (72.91 at -20%), and value rises with growth across the grid, so the price implies year-one growth below -20%", "severity": "warn"},
@@ -2083,7 +2094,7 @@
         "symbol": "DEMO",
         "companyName": "Thesis Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.73.0",
+        "specVersion": "1.74.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",
@@ -3342,67 +3353,78 @@
             "field": "fmp.historicalMarketCap(DEMO)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/historical-market-capitalization?from=2021-07-06&limit=5000&symbol=DEMO&to=2026-07-06", "fixture:fixtures/fmp/historicalMarketCap/DEMO_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalMarketCap/DEMO.json", "fixture:fixtures/fmp/historicalMarketCap/default.json"]
+            "attemptedSources": ["/stable/historical-market-capitalization?from=2021-07-06&limit=5000&symbol=DEMO&to=2026-07-06", "fixture:fixtures/fmp/historicalMarketCap/DEMO_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalMarketCap/DEMO.json", "fixture:fixtures/fmp/historicalMarketCap/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {
             "field": "fmp.historicalPriceEodFull(SPY)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/historical-price-eod/full?from=2021-07-06&symbol=SPY&to=2026-07-06", "fixture:fixtures/fmp/historicalPriceEodFull/SPY_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalPriceEodFull/SPY.json", "fixture:fixtures/fmp/historicalPriceEodFull/default.json"]
+            "attemptedSources": ["/stable/historical-price-eod/full?from=2021-07-06&symbol=SPY&to=2026-07-06", "fixture:fixtures/fmp/historicalPriceEodFull/SPY_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalPriceEodFull/SPY.json", "fixture:fixtures/fmp/historicalPriceEodFull/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {
             "field": "fmp.historicalPriceEodFull(XLK)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/historical-price-eod/full?from=2021-07-06&symbol=XLK&to=2026-07-06", "fixture:fixtures/fmp/historicalPriceEodFull/XLK_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalPriceEodFull/XLK.json", "fixture:fixtures/fmp/historicalPriceEodFull/default.json"]
+            "attemptedSources": ["/stable/historical-price-eod/full?from=2021-07-06&symbol=XLK&to=2026-07-06", "fixture:fixtures/fmp/historicalPriceEodFull/XLK_2021-07-06_2026-07-06.json", "fixture:fixtures/fmp/historicalPriceEodFull/XLK.json", "fixture:fixtures/fmp/historicalPriceEodFull/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {
             "field": "fmp.institutionalHolderAnalytics(DEMO,2026Q1)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/institutional-ownership/extract-analytics/holder?limit=50&page=0&quarter=1&symbol=DEMO&year=2026", "fixture:fixtures/fmp/institutionalHolderAnalytics/DEMO_2026_Q1.json", "fixture:fixtures/fmp/institutionalHolderAnalytics/DEMO.json", "fixture:fixtures/fmp/institutionalHolderAnalytics/default.json"]
+            "attemptedSources": ["/stable/institutional-ownership/extract-analytics/holder?limit=50&page=0&quarter=1&symbol=DEMO&year=2026", "fixture:fixtures/fmp/institutionalHolderAnalytics/DEMO_2026_Q1.json", "fixture:fixtures/fmp/institutionalHolderAnalytics/DEMO.json", "fixture:fixtures/fmp/institutionalHolderAnalytics/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {
             "field": "fmp.keyMetricsTtm(DEMO)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/key-metrics-ttm?symbol=DEMO", "fixture:fixtures/fmp/keyMetricsTtm/DEMO.json", "fixture:fixtures/fmp/keyMetricsTtm/default.json"]
+            "attemptedSources": ["/stable/key-metrics-ttm?symbol=DEMO", "fixture:fixtures/fmp/keyMetricsTtm/DEMO.json", "fixture:fixtures/fmp/keyMetricsTtm/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {
             "field": "fmp.pressReleases(DEMO)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/news/press-releases?from=2026-06-06&limit=50&page=0&symbols=DEMO&to=2026-07-06", "fixture:fixtures/fmp/pressReleases/DEMO.json", "fixture:fixtures/fmp/pressReleases/default.json"]
+            "attemptedSources": ["/stable/news/press-releases?from=2026-06-06&limit=50&page=0&symbols=DEMO&to=2026-07-06", "fixture:fixtures/fmp/pressReleases/DEMO.json", "fixture:fixtures/fmp/pressReleases/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {
             "field": "fmp.ratiosTtm(DEMO)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/ratios-ttm?symbol=DEMO", "fixture:fixtures/fmp/ratiosTtm/DEMO.json", "fixture:fixtures/fmp/ratiosTtm/default.json"]
+            "attemptedSources": ["/stable/ratios-ttm?symbol=DEMO", "fixture:fixtures/fmp/ratiosTtm/DEMO.json", "fixture:fixtures/fmp/ratiosTtm/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {
             "field": "fmp.secFilingsSearch(DEMO)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/sec-filings-search/symbol?from=2025-07-06&limit=100&page=0&symbol=DEMO&to=2026-07-06", "fixture:fixtures/fmp/secFilingsSearch/DEMO_2025-07-06_2026-07-06.json", "fixture:fixtures/fmp/secFilingsSearch/DEMO.json", "fixture:fixtures/fmp/secFilingsSearch/default.json"]
+            "attemptedSources": ["/stable/sec-filings-search/symbol?from=2025-07-06&limit=100&page=0&symbol=DEMO&to=2026-07-06", "fixture:fixtures/fmp/secFilingsSearch/DEMO_2025-07-06_2026-07-06.json", "fixture:fixtures/fmp/secFilingsSearch/DEMO.json", "fixture:fixtures/fmp/secFilingsSearch/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {
             "field": "fmp.stockNews(DEMO)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/news/stock?from=2026-06-06&limit=50&page=0&symbols=DEMO&to=2026-07-06", "fixture:fixtures/fmp/stockNews/DEMO.json", "fixture:fixtures/fmp/stockNews/default.json"]
+            "attemptedSources": ["/stable/news/stock?from=2026-06-06&limit=50&page=0&symbols=DEMO&to=2026-07-06", "fixture:fixtures/fmp/stockNews/DEMO.json", "fixture:fixtures/fmp/stockNews/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {
             "field": "fmp.symbolPositionsSummary(DEMO,2026Q1)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/institutional-ownership/symbol-positions-summary?quarter=1&symbol=DEMO&year=2026", "fixture:fixtures/fmp/symbolPositionsSummary/DEMO_2026_Q1.json", "fixture:fixtures/fmp/symbolPositionsSummary/DEMO.json", "fixture:fixtures/fmp/symbolPositionsSummary/default.json"]
+            "attemptedSources": ["/stable/institutional-ownership/symbol-positions-summary?quarter=1&symbol=DEMO&year=2026", "fixture:fixtures/fmp/symbolPositionsSummary/DEMO_2026_Q1.json", "fixture:fixtures/fmp/symbolPositionsSummary/DEMO.json", "fixture:fixtures/fmp/symbolPositionsSummary/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {
             "field": "fmp.transcript(DEMO,2025Q4)",
             "reason": "no API key + no fixture",
             "severity": "warn",
-            "attemptedSources": ["/stable/earning-call-transcript?quarter=4&symbol=DEMO&year=2025", "fixture:fixtures/fmp/transcript/DEMO_2025_Q4.json", "fixture:fixtures/fmp/transcript/DEMO.json", "fixture:fixtures/fmp/transcript/default.json"]
+            "attemptedSources": ["/stable/earning-call-transcript?quarter=4&symbol=DEMO&year=2025", "fixture:fixtures/fmp/transcript/DEMO_2025_Q4.json", "fixture:fixtures/fmp/transcript/DEMO.json", "fixture:fixtures/fmp/transcript/default.json"],
+            "cause": "fmp-no-api-key"
           },
           {"field": "technicals.relativeStrength.SPY", "reason": "no valid SPY closes supplied for relative-strength alignment", "severity": "warn"},
           {"field": "validation.xbrlCrossCheck", "reason": "FMP↔XBRL cross-check skipped — companyfacts unavailable (DEMO is a reserved fixture symbol — no provider request was made (D-11); this member has no fixture, so it is disclosed absent)", "severity": "warn"},

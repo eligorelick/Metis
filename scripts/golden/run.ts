@@ -14,7 +14,7 @@
  * database and data directory inside the output folder. No model is called.
  *
  * Output: DIR/<case>/{stageB.json, payload.txt, report.json, report.md,
- * print.html, audit.md, web-classic.html, web-dossier.html} and DIR/manifest.json
+ * print.html, audit.md, web-dossier.html} and DIR/manifest.json
  * with the SHA-256 of each. Compare two runs with golden:diff.
  */
 import fs from "node:fs";
@@ -24,6 +24,7 @@ import { createHash } from "node:crypto";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import type { GoldenWorkerJob, GoldenWorkerResult } from "./worker";
+import { metisEnv } from "../../src/config/namespace";
 
 const REPO = path.resolve(__dirname, "..", "..");
 const GOLDEN_TMP = path.join(REPO, "tmp", "golden");
@@ -107,9 +108,10 @@ function materializeCommit(commit: string): string {
 }
 
 function defaultDbPath(): string {
-  const explicit = process.env.METIS_DB_PATH?.trim() || process.env.THESIS_DB_PATH?.trim();
+  // metisEnv refuses retired Thesis-era setting names (D-228); workers get a stripped env (workerEnv).
+  const explicit = metisEnv("DB_PATH")?.trim();
   if (explicit) return explicit;
-  const dataDir = process.env.METIS_DATA_DIR?.trim() || process.env.THESIS_DATA_DIR?.trim() || (() => {
+  const dataDir = metisEnv("DATA_DIR")?.trim() || (() => {
     const base = process.platform === "win32"
       ? (process.env.LOCALAPPDATA?.trim() || process.env.APPDATA?.trim() || os.homedir())
       : process.platform === "darwin" ? path.join(os.homedir(), "Library", "Application Support")
@@ -164,7 +166,7 @@ async function exportInputs(cases: GoldenCase[], dbPath: string): Promise<Map<st
   return result;
 }
 
-/** Only what Node, tsx and Windows need; no provider keys, no METIS_/THESIS_ settings. */
+/** Only what Node, tsx and Windows need; no provider keys, no METIS_ settings and no retired Thesis-era setting names. */
 function workerEnv(scratch: string): NodeJS.ProcessEnv {
   const keep = ["PATH", "Path", "PATHEXT", "SystemRoot", "SYSTEMROOT", "windir", "ComSpec", "COMSPEC", "SystemDrive"];
   const env: NodeJS.ProcessEnv = { NODE_ENV: "production" };

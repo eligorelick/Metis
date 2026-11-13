@@ -32,17 +32,8 @@
   "overrides": {
     "postcss": "$postcss",
     "esbuild": "0.28.1",
-    "eslint": { "minimatch": "$minimatch" },
-    "@eslint/config-array": { "minimatch": "$minimatch" },
-    "@eslint/eslintrc": { "minimatch": "$minimatch" },
-    "eslint-plugin-import": { "minimatch": "$minimatch" },
-    "eslint-plugin-react": { "minimatch": "$minimatch" },
-    "eslint-plugin-jsx-a11y": { "minimatch": "$minimatch" },
     "@typescript-eslint/typescript-estree": {
       "minimatch": "$minimatch-modern"
-    },
-    "@next/eslint-plugin-next@16.4.2": {
-      "fast-glob": "$fast-glob"
     }
   },
   "scripts": {
@@ -67,6 +58,7 @@
     "golden:diff": "node --import tsx scripts/golden/diff.ts",
     "accuracy:check": "node --import tsx scripts/accuracy/check.ts",
     "accuracy:fetch": "node --import tsx scripts/accuracy/fetch.ts",
+    "report:drift": "node --import tsx --import ./scripts/golden/offline-preload.mjs scripts/report-drift.ts",
     "reports:evaluate": "node --import tsx scripts/evaluate-reports.ts",
     "claims:evaluate": "node --import tsx scripts/evaluate-claims.ts",
     "settings:reset": "node --conditions=react-server --import tsx scripts/settings-reset.ts",
@@ -76,7 +68,6 @@
     "costs:reconcile": "node --conditions=react-server --import tsx scripts/reconcile-presumed-costs.mjs",
     "docs:config": "node scripts/docs-config.mjs",
     "docs:pricing": "node --conditions=react-server --import tsx scripts/docs-pricing.mjs",
-    "audit:deltas": "node --conditions=react-server --import tsx scripts/audit-deltas.mjs",
     "freeze:refresh": "node scripts/freeze-refresh.mjs",
     "audit:security": "node scripts/run-security-audit.mjs",
     "verify": "npm run check:dependencies && npm run typecheck && npm run lint && npm run test:integration && npm run test:coverage && npm run build && npm run audit:security"
@@ -106,9 +97,7 @@
     "esbuild": "0.28.1",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.4.2",
-    "fast-glob": "file:scripts/next-eslint-glob",
     "happy-dom": "^21.0.4",
-    "minimatch": "file:scripts/legacy-minimatch",
     "minimatch-modern": "npm:minimatch@11.0.1",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",

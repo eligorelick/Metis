@@ -100,8 +100,8 @@ describe("per-claim validation marks (audit 2026-10-22 F-21)", () => {
     expect(tally(html, (mark) => new RegExp(`</span> <span class="claim-status">\\[${mark}\\]</span>|\\[${mark}\\]</td>`, "g"))).toEqual(EXPECTED);
   });
 
-  it.each(["classic", "dossier"] as const)("marks each factual claim in the %s layout and leaves judgments unmarked", (layout) => {
-    const html = renderToStaticMarkup(createElement(ReportView, { report: markedReport(), layout }));
+  it("marks each factual claim in the dossier layout and leaves judgments unmarked", () => {
+    const html = renderToStaticMarkup(createElement(ReportView, { report: markedReport() }));
     expect(tally(html, (mark) => new RegExp(`class="claim-status[^"]*">\\[${mark}\\]<`, "g"))).toEqual(EXPECTED);
   });
 

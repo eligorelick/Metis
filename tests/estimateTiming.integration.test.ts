@@ -147,7 +147,7 @@ describe("estimate periods are not publication vintage", () => {
     expect(payload.provenanceRegistry?.map(withoutEstimateTiming)).toEqual(before.provenanceRegistry?.map(withoutEstimateTiming));
   });
 
-  it("uses the same timing disclosure in classic, dossier, Markdown, print and audit without mutating a saved report", async () => {
+  it("uses the same timing disclosure in the dossier, Markdown, print and audit without mutating a saved report", async () => {
     const { report } = await consumers();
     const original = JSON.stringify(report);
     const note = consensusTables(report)[0]!.note!;
@@ -155,7 +155,7 @@ describe("estimate periods are not publication vintage", () => {
     expect(note).toContain("publication/update vintage not established");
     expect(note).not.toContain("Provider consensus as of");
     const outputs = [reportToMarkdown(report), reportToPrintBody(report), reportToAuditMarkdown(report),
-      ...(["classic", "dossier"] as const).map(layout => renderToStaticMarkup(createElement(ReportView, { report, layout })))];
+      renderToStaticMarkup(createElement(ReportView, { report }))];
     for (const output of outputs) {
       expect(output).toContain(ACQUIRED);
       expect(output).toContain("publication/update vintage not established");

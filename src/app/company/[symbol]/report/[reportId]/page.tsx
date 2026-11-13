@@ -27,7 +27,6 @@ import { ReportNotes } from "@/components/report/ReportNotes";
 import { ReportSnapshotHeader } from "@/components/report/ReportSnapshotHeader";
 import { getReportByIdForSymbol, parseReportId } from "@/report/history";
 import { normalizeRouteSymbol } from "@/symbol";
-import { getConfig } from "@/config/env";
 import { ResearchNavigation } from "@/components/report/ResearchNavigation";
 import { DeleteReportButton } from "@/components/report/DeleteReportButton";
 import { GenerateReport } from "../../GenerateReport";
@@ -82,7 +81,6 @@ export default async function RunReportPage({
   }
 
   const { row, report } = loaded;
-  const dossier = getConfig().uiRedesign;
   let route = null;
   try { route = describeAnalysisRoute(); } catch { /* The report remains readable without connection storage. */ }
 
@@ -90,9 +88,9 @@ export default async function RunReportPage({
     <AppShell sidebar={<WatchlistSidebar activeSymbol={symbol} activeReportId={row.id} />}>
       <div className="saved-research-workspace flex flex-col gap-3 p-4">
         <ReportSnapshotHeader snapshot={report} reportId={row.id} status={row.status}
-          actions={<><ExportButtons reportId={row.id} symbol={symbol} /><DeleteReportButton reportId={row.id} symbol={symbol} redirect />{!dossier && <Link href={`/company/${encodeURIComponent(symbol)}/history`}>History</Link>}</>}
-          navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" reportHref={`/company/${encodeURIComponent(symbol)}/report/${row.id}`} /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Ticker data</Link>}
-          controls={<div className="snapshot-controls"><GenerateReport symbol={symbol} initialJobId={await activeRunIdentity(symbol)} route={route} renderedReportId={row.id} liveView />{dossier && <ReportNotes symbol={symbol} reportId={row.id} />}</div>}
+          actions={<><ExportButtons reportId={row.id} symbol={symbol} /><DeleteReportButton reportId={row.id} symbol={symbol} redirect /></>}
+          navigation={<ResearchNavigation symbol={symbol} active="report" reportHref={`/company/${encodeURIComponent(symbol)}/report/${row.id}`} />}
+          controls={<div className="snapshot-controls"><GenerateReport symbol={symbol} initialJobId={await activeRunIdentity(symbol)} route={route} renderedReportId={row.id} liveView /><ReportNotes symbol={symbol} reportId={row.id} /></div>}
         />
         <PersistedReportView key={row.id} report={report} selectedReportId={row.id} selectedReportStatus={row.status} headerNotices />
       </div>

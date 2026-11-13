@@ -4,14 +4,13 @@ import { renderToPipeableStream } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
-  redesign: false,
   route: { provider: "chatgpt", model: "gpt-6.1-sol", effort: "max", ready: true, label: "ChatGPT plan · gpt-6.1-sol · max effort" } as unknown,
   throws: false,
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/config/env", () => ({
   getConfig: () => ({ fixtureMode: true, hasFmpKey: false, hasFinnhubKey: false, hasFredKey: false, hasAnthropicKey: false,
-    uiRedesign: h.redesign, analysisModel: "claude-opus-5-5" }),
+    analysisModel: "claude-opus-5-5" }),
 }));
 vi.mock("@/ai/connections", () => ({
   describeAnalysisRoute: () => { if (h.throws) throw new Error("store unreadable"); return h.route; },
@@ -34,13 +33,12 @@ function renderAsync(node: ReactElement): Promise<string> {
 }
 
 beforeEach(() => {
-  h.redesign = false; h.throws = false;
+  h.throws = false;
   h.route = { provider: "chatgpt", model: "gpt-6.1-sol", effort: "max", ready: true, label: "ChatGPT plan · gpt-6.1-sol · max effort" };
 });
 
-describe.each([[false, "classic"], [true, "redesign"]])("Home AI route (redesign=%s, %s)", (redesign) => {
+describe("Home AI route (dossier)", () => {
   it("shows the route reports run on, with a Settings link, not the env default as the analysis model", async () => {
-    h.redesign = redesign;
     const html = await renderAsync(await Home());
     expect(html).toContain('href="/report/sample"');
     expect(html).toContain("View sample report");
@@ -51,7 +49,6 @@ describe.each([[false, "classic"], [true, "redesign"]])("Home AI route (redesign
     expect(html).toContain('href="/settings"');
   });
   it("says plainly when the route is not ready, and survives an unreadable store", async () => {
-    h.redesign = redesign;
     h.route = { provider: "chatgpt", model: "gpt-6.1-sol", effort: "max", ready: false, label: "ChatGPT plan · sign-in needed" };
     expect(await renderAsync(await Home())).toContain("ChatGPT plan · sign-in needed");
     h.throws = true;

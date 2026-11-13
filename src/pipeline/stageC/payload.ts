@@ -40,6 +40,7 @@ import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimate
  */
 
 import type { ManifestEntry, CompanyRoute } from "@/types/core";
+import { withoutGapCauses } from "@/pipeline/stageA/manifest";
 import { quotePriceObservationDay, type FmpInsiderTradeStatisticsRow } from "@/providers/fmp";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
@@ -51,8 +52,7 @@ import { withPrimaryCapitalBasis, primaryCapitalAudit, primaryCapitalManifest } 
 import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
-import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
-import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { debtFamilyAdmission, type DebtFamilyStatement } from "@/pipeline/admission/debtFamily";
 import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
 import { operatingHistorySupport } from "@/pipeline/stageB/growth";
 import { incompleteLeaseCoverage, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
@@ -1026,7 +1026,8 @@ function computedSections(
     if (currentCapital.allocatedSbcExpense !== undefined) add("allocatedSbcExpense", currentCapital.allocatedSbcExpense, "currency");
     for (const [field, construction] of Object.entries(currentCapital.filedCashFlows ?? {})) {
       for (const [i, operand] of construction.points.entries()) figures.push({
-        label: `${field === "stockBasedCompensation" ? "SBC, cash-flow add-back" : field === "allocatedSbcExpense" ? "SBC, allocated expense" : field} filed ${["fiscal year", "current YTD", "prior-year YTD"][i]} operand (${construction.tag})`,
+        // D-240: a figure filed for exactly the window is one operand, not the fiscal-year leg of the identity.
+        label: `${field === "stockBasedCompensation" ? "SBC, cash-flow add-back" : field === "allocatedSbcExpense" ? "SBC, allocated expense" : field === "netIncome" ? "net income" : field} filed ${construction.points.length === 1 ? "exact window" : ["fiscal year", "current YTD", "prior-year YTD"][i]} operand (${construction.tag})`,
         value: operand.val, unit: "currency", currency: currentCapital.currency, period: `${operand.start} to ${operand.end}`,
         periodContext: { kind: "duration", start: operand.start!, end: operand.end },
         source: `edgar:companyfacts/us-gaap/${construction.tag}; ${operand.form} ${operand.accn}, filed ${operand.filed}`,
@@ -1652,12 +1653,13 @@ function statementExtracts(bundle: DataBundle, cashFlowApplicability?: CompanyRo
   const blocks: StatementExtractBlock[] = [];
   const A = PAYLOAD_BUDGETS.annualPeriods;
   const Q = PAYLOAD_BUDGETS.quarterlyPeriods;
-  const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const currencyEvidence = statementCurrencyEvidence(bundle);
-  // Stage B may admit an old/raw snapshot locally. Repeat the same immutable
+  // Stage B may admit an old/raw snapshot locally. Read the same immutable
   // admission before raw statement cells can enter the analyst or verifier registry.
-  const balances = (rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => facts === null ? rows : rows.map((row) =>
-    admitDebtFields(row, facts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar)).row);
+  // D-254 (P13): the run's shared preparation decides; a row Stage B already presented is not decided again.
+  const debtAdmission = debtFamilyAdmission(bundle);
+  const balances = (statement: DebtFamilyStatement, rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => debtAdmission.issuer === null ? rows : rows.map((row) =>
+    debtAdmission.admit(row, { statement, convention: "bundle-statement-row", currency: establishedCurrencyOn([row], isoDay(row.date), currencyEvidence) }).row);
   const push = (b: StatementExtractBlock | null, notes: readonly string[] = []): void => {
     if (b) blocks.push(notes.length > 0 ? { ...b, notes: [...notes, ...b.notes] } : b);
   };
@@ -1678,14 +1680,21 @@ function statementExtracts(bundle: DataBundle, cashFlowApplicability?: CompanyRo
   }
   push(extractStatement("Income statement — annual", income.rows, A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")), income.notes);
   push(extractStatement("Income statement — quarterly", incomeQ.rows, Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")), incomeQ.notes);
-  push(extractStatement("Balance sheet — annual", balances(bal.rows), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), bal.notes);
-  push(extractStatement("Balance sheet — quarterly", balances(balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), balQ.notes);
+  push(extractStatement("Balance sheet — annual", balances("balanceAnnual", bal.rows), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), bal.notes);
+  push(extractStatement("Balance sheet — quarterly", balances("balanceQuarterly", balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), balQ.notes);
   push(extractStatement("Cash flow \u2014 annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), cashItems, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
   push(extractStatement("Cash flow \u2014 quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), cashItems, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
   if (cashFlowApplicability?.debtPerimeter) {
+    const perimeter = cashFlowApplicability.debtPerimeter;
     for (const block of blocks.filter(b => b.title.startsWith("Balance sheet"))) {
-      for (const line of block.lineItems) if (line.lineItem === LEASE_DEBT_LABELS.totalDebtIncludingLeases) line.lineItem = cashFlowApplicability.debtPerimeter.label;
-      block.notes.push(`${cashFlowApplicability.debtPerimeter.label} at ${cashFlowApplicability.asOf}; ${cashFlowApplicability.evDebtBasis}`);
+      // D-234: once the debt at the filing's date is the filed borrowings, the row keeps its neutral caption
+      // and the note says which periods are still the provider's figure.
+      if (perimeter.filedDebt !== undefined) {
+        block.notes.push(`Debt at ${cashFlowApplicability.asOf} is the filed borrowings plus the recorded operating lease. ${cashFlowApplicability.evDebtBasis} Other periods on this line are the provider's debt figure, which is not checked against a filed composition and can count payables to third-party loan owners.`);
+        continue;
+      }
+      for (const line of block.lineItems) if (line.lineItem === LEASE_DEBT_LABELS.totalDebtIncludingLeases) line.lineItem = perimeter.label;
+      block.notes.push(`${perimeter.label} at ${cashFlowApplicability.asOf}; ${cashFlowApplicability.evDebtBasis}`);
     }
   }
   return blocks;
@@ -3685,7 +3694,9 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
-  return withComputationContext(() => assembleContextPayloadInContext(bundle, computed, validation));
+  // D-229: the payload boundary. Missing-data entries carry a typed cause for the pipeline's own
+  // readers; the model receives nothing new, so no entry anywhere in the payload keeps one.
+  return withoutGapCauses(withComputationContext(() => assembleContextPayloadInContext(bundle, computed, validation)));
 }
 
 function assembleContextPayloadInContext(

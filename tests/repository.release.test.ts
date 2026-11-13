@@ -25,7 +25,6 @@ const publicFiles = () => trackedFiles();
 
 const REQUIRED_RELEASE_FILES = [
   "docs/audit/2026-11-08-grading-evidence-recovery.md",
-  "docs/audit/2026-11-08-dhi-report-4.md",
   "docs/internal/superpowers/specs/2026-11-07-evidence-backed-report-remediation.md",
   "docs/audit/2026-11-07-evidence-backed-report-remediation.md",
   "docs/audit/2026-11-06-expe-report-1.md",
@@ -34,28 +33,10 @@ const REQUIRED_RELEASE_FILES = [
   "docs/ARCHIVE.md",
   "docs/audit/2026-11-03-valuation-inputs.md",
   "docs/audit/2026-11-03-valuation-coverage.md",
-  "docs/audit/2026-11-04-foreign-sections.md",
   "docs/audit/2026-11-03-q4-dcf-bias-study.md",
-  "docs/audit/2026-11-02-r9-figr-deterministic-fixes.md",
-  "docs/audit/2026-11-02-r8-figr-evidence-selection.md",
   "docs/audit/2026-11-02-r7-figr-xhigh-verifier.md",
-  "docs/audit/2026-11-02-r6-figr-governance-bridge.md",
   "docs/audit/2026-11-02-r1-figr-paid-audit.md",
-  "docs/audit/2026-11-02-r2-figr-figures.md",
   "docs/audit/2026-11-02-r5-figr-verifier.md",
-  "docs/audit/2026-11-02-r3-figr-readability.md",
-  "docs/audit/2026-11-02-n4b-figr-qtr.md",
-  "docs/audit/2026-11-02-n4a-figr-cap.md",
-  "docs/audit/2026-11-02-p2-dcf-inputs.md",
-  "docs/audit/2026-11-02-p8-docs-tests.md",
-  "docs/audit/2026-11-02-n3-sec-rows.md",
-  "docs/audit/2026-11-02-p9-methodology.md",
-  "docs/audit/2026-11-02-n2-figr-readiness.md",
-  "docs/audit/2026-11-02-p7-display.md",
-  "docs/audit/2026-11-02-p0-review-fixes.md",
-  "docs/audit/2026-11-02-p5-primary-data.md",
-  "docs/audit/2026-11-02-p5-primary-data-lows.md",
-  "docs/audit/2026-11-02-verifier-and-trust-labels.md",
   ".github/workflows/ci.yml",
   "docs/internal/superpowers/specs/2026-08-07-audit-remediation-design.md",
   "docs/audit/2026-10-27-audit-fix-03-payload-records.md",
@@ -69,8 +50,8 @@ const REQUIRED_RELEASE_FILES = [
   "scripts/reconcile-presumed-costs.mjs",
   "scripts/docs-pricing.mjs",
   "scripts/docs-config.mjs",
-  "scripts/audit-deltas.mjs",
-  "tests/fixtures/audit-intended-deltas.json",
+  "scripts/freeze-refresh.mjs",
+  "tests/fixtures/frozen/refresh-log.json",
   "scripts/run-security-audit.mjs",
   "tests/dependencyShape.test.ts",
   "tests/report.correctedCli.test.ts",
@@ -91,7 +72,6 @@ const REQUIRED_RELEASE_FILES = [
  */
 const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-11-08-grading-evidence-recovery.md",
-  "docs/audit/2026-11-08-dhi-report-4.md",
   "docs/internal/superpowers/specs/2026-11-07-evidence-backed-report-remediation.md",
   "docs/audit/2026-11-07-evidence-backed-report-remediation.md",
   "docs/audit/2026-11-06-expe-report-1.md",
@@ -100,33 +80,11 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/ARCHIVE.md",
   "docs/audit/2026-11-03-valuation-inputs.md",
   "docs/audit/2026-11-03-valuation-coverage.md",
-  "docs/audit/2026-11-04-foreign-sections.md",
   // R9's requested audit record is part of the tracked release documentation.
   "docs/audit/2026-11-03-q4-dcf-bias-study.md",
-  "docs/audit/2026-11-02-r9-figr-deterministic-fixes.md",
-  "docs/audit/2026-11-02-r8-figr-evidence-selection.md",
   "docs/audit/2026-11-02-r7-figr-xhigh-verifier.md",
-  "docs/audit/2026-11-02-r6-figr-governance-bridge.md",
   "docs/audit/2026-11-02-r1-figr-paid-audit.md",
-  "docs/audit/2026-11-02-r2-figr-figures.md",
   "docs/audit/2026-11-02-r5-figr-verifier.md",
-  "docs/audit/2026-11-02-r3-figr-readability.md",
-  "docs/audit/2026-11-02-n4b-figr-qtr.md",
-  "docs/audit/2026-11-02-n4a-figr-cap.md",
-  "docs/audit/2026-11-02-p2-dcf-inputs.md",
-  "docs/audit/2026-11-02-p8-docs-tests.md",
-  "docs/audit/2026-11-02-n3-sec-rows.md",
-  "docs/audit/2026-11-02-p9-methodology.md",
-  "docs/audit/2026-11-02-n2-figr-readiness.md",
-  "docs/audit/2026-11-02-b4b-equity-bridge.md",
-  "docs/audit/2026-11-02-p7-display.md",
-  "docs/audit/2026-11-02-p6-local-security.md",
-  "docs/audit/2026-11-02-p0-review-fixes.md",
-  "docs/audit/2026-11-02-p5-primary-data.md",
-  "docs/audit/2026-11-02-p5-primary-data-lows.md",
-  "docs/audit/2026-11-02-paid-work-lifecycle.md",
-  "docs/audit/2026-11-02-verifier-and-trust-labels.md",
-  "docs/audit/2026-11-01-current-main-integration.md",
   "README.md",
   "CONTRIBUTING.md",
   "SECURITY.md",
@@ -141,11 +99,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/REMEDIATION-REPORT.md",
   "docs/audit/2026-10-03-repository-audit.md",
   "docs/audit/2026-10-04-recommendations.md",
-  "docs/audit/2026-10-15-amzn-integrity.md",
-  "docs/audit/2026-10-15-nvda-report-34-audit.md",
   "docs/audit/2026-10-17-expe-issue-disposition.md",
-  "docs/audit/2026-10-17-expe-remediation-plan.md",
-  "docs/audit/2026-10-17-safeguard-plan.md",
   "docs/audit/2026-10-17-safeguard-verification.md",
   "docs/audit/2026-10-17-book-to-code-disposition.md",
   "docs/audit/2026-10-17-ttm-eps-convention.md",
@@ -153,9 +107,7 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-18-common-earnings-admission.md",
   "docs/audit/2026-10-18-commitment-payment-evidence.md",
   "docs/audit/2026-10-18-accounting-evidence-remediation.md",
-  "docs/audit/2026-10-18-sqlite-test-diagnostics.md",
   "docs/audit/2026-10-19-phase-one-evidence-completion.md",
-  "docs/audit/2026-10-19-phase-one-review-corrections.md",
   "docs/audit/2026-10-19-first-report-remediation.md",
   "docs/audit/2026-10-19-phase-two-evidence-foundations.md",
   "docs/audit/2026-10-19-company-eligibility-affo.md",
@@ -179,7 +131,6 @@ const ALLOWED_MARKDOWN = new Set([
   "docs/audit/2026-10-27-audit-fix-03-payload-records.md",
   "docs/audit/2026-10-27-audit-fix-01-claim-verifier-periods.md",
   "docs/audit/2026-10-27-audit-fix-02-claim-verifier-numbers.md",
-  "docs/audit/2026-10-29-audit-fix-08a-retry-data-only-fallback.md",
   "docs/audit/2026-10-29-amzn51-lease-scope.md",
   "docs/audit/2026-10-30-qcom-report-53-integrity.md",
   "docs/PRIVACY.md",
@@ -746,14 +697,18 @@ describe("public release contract", () => {
         read("tests/edgar.operatingExpenseScope.test.ts"),
       // Independent audit 2026-10-19: five trimmed live-run companyfacts payloads.
       read("tests/audit.issuerFixtures.test.ts"),
+      // D-236: TSMC's fiscal 2025 Form 20-F XBRL instance, trimmed, and SEC's
+      // companyfacts for TSMC as stored on 2026-11-12, reduced to the same concepts.
+      read("tests/edgar.instanceFallback.test.ts"),
     ].join("\n");
 
     // D-87 adds only the referenced public cash and carrying-debt fixtures;
     // the 2026-10-19 independent audit adds five issuer companyfacts.
     // R8 adds one referenced public 8-K item; D-171 one trimmed public TSMC 20-F
     // excerpt (unlettered Risk Factors); Q6 adds eight trimmed public annual
-    // section layouts. No private run artifact is shipped.
-    expect(edgarFixtures).toHaveLength(61);
+    // section layouts; D-236 two public SEC extracts for one TSMC 20-F. No
+    // private run artifact is shipped.
+    expect(edgarFixtures).toHaveLength(63);
     for (const fixture of edgarFixtures) {
       expect(edgarTests).toContain(path.basename(fixture));
     }
@@ -780,10 +735,10 @@ describe("public release contract", () => {
     expect(implementationText).not.toMatch(/research[\\/]/);
   });
 
-  it("records every methodology and audited-delta decision in the decisions ledger", () => {
+  it("records every methodology and frozen-record refresh decision in the decisions ledger", () => {
     const decisions = readFileSync(path.join(ROOT, "docs/audit/DECISIONS.md"), "utf8");
     const recorded = new Set([...decisions.matchAll(/^## D-(\d+)\b/gm)].map(match => Number(match[1])));
-    for (const file of ["docs/METHODOLOGY.md", "tests/fixtures/audit-intended-deltas.json"]) {
+    for (const file of ["docs/METHODOLOGY.md", "tests/fixtures/frozen/refresh-log.json"]) {
       const text = readFileSync(path.join(ROOT, file), "utf8");
       for (const match of text.matchAll(/\bD-(\d+)\b/g)) {
         expect(recorded.has(Number(match[1])), `${file} cites unrecorded ${match[0]}`).toBe(true);

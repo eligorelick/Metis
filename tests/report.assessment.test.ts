@@ -47,7 +47,7 @@ describe("business-quality evidence floor", () => {
   });
   it("RPT-101 withholds the business letter on the dossier cover", () => {
     const { report } = businessAssessment();
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     const row = html.slice(html.indexOf("Business quality"), html.indexOf("Price attractiveness"));
     expect(row).toMatch(/not graded: evidence \d+\.\d%/);
     expect(row).not.toMatch(/\/ [A-F]\b/);
@@ -57,7 +57,7 @@ describe("business-quality evidence floor", () => {
     delete computed.scores.assessments!.businessQuality.evidenceCompleteness;
     report.scores = computed.scores;
     expect(assessmentLine(computed.scores)).toMatch(/Business quality [\d.]+ \([A-F]/);
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     expect(html.slice(html.indexOf("Business quality"), html.indexOf("Price attractiveness"))).toMatch(/\/ [A-F]\b/);
   });
   it("RPT-101 retains a supported general-issuer letter and stores an unrounded share", () => {

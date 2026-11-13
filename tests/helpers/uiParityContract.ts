@@ -2,7 +2,19 @@ import { createHash } from "node:crypto";
 import { Window } from "happy-dom";
 import type { Report, TracedNumber } from "@/report/schema";
 import { REPORT_SECTION_MANIFEST } from "@/report/sectionManifest";
-import { displayClaimText, displayProse } from "@/report/presentation";
+import {
+  displayClaimText,
+  displayProse,
+  SCENARIO_TARGET_UNAVAILABLE_TEXT,
+  scenarioTargetsCaveat,
+  VALUATION_WITHHELD_TEXT,
+  valuationHeadlineView,
+  valuationNoModelWithheldText,
+  valuationScenarioView,
+  type ValuationSurface,
+} from "@/report/presentation";
+import { unavailableCashFlowModel } from "@/report/readerConventions";
+import { prepareReportForSurface } from "@/report/readerPreparation";
 
 export interface UiParityContract {
   digest: string;
@@ -57,6 +69,118 @@ export function readableHtml(html: string): { text: string; ids: Set<string> } {
 }
 
 function normalize(value: string): string { return value.replace(/\s+/g, " ").trim(); }
+
+/**
+ * A whole-number cell and a cell at more decimals that can both be roundings of
+ * one stored value: "$161" and "$161.37", "$112" and "$112.50" (stored 112.4999).
+ */
+function roundsTo(frozenCell: string, dossierCell: string): boolean {
+  if (frozenCell === dossierCell) return true;
+  const shape = /^(-?[^\d\s-]*)([\d,]+)(\.\d+)?$/;
+  const whole = shape.exec(frozenCell);
+  const precise = shape.exec(dossierCell);
+  if (!whole || !precise || whole[3] !== undefined || precise[3] === undefined || whole[1] !== precise[1]) return false;
+  const decimals = precise[3].length - 1;
+  const gap = Math.abs(Number(whole[2]!.replaceAll(",", "")) - Number(`${precise[2]!.replaceAll(",", "")}${precise[3]}`));
+  return gap <= 0.5 + 0.5 * 10 ** -decimals + 1e-9;
+}
+
+function readableDocument(html: string): Window {
+  const window = new Window();
+  window.document.body.innerHTML = html;
+  window.document.querySelectorAll("script,style,[hidden],[aria-hidden=true],.sr-only").forEach((element) => element.remove());
+  return window;
+}
+
+/**
+ * A document's readable text without whitespace, with the positions where the
+ * original had a break: whitespace, or the start of another element's text.
+ */
+interface ReadableText { text: string; breaks: Set<number> }
+function readableText(window: Window): ReadableText {
+  const breaks = new Set<number>();
+  let text = "";
+  let parent: unknown = null;
+  const walker = window.document.createTreeWalker(window.document.body, 4);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    let pending = node.parentElement !== parent;
+    let wrote = false;
+    for (const char of node.textContent ?? "") {
+      if (/\s/.test(char)) { pending = true; continue; }
+      if (pending) breaks.add(text.length);
+      pending = false;
+      wrote = true;
+      text += char;
+    }
+    if (wrote) parent = node.parentElement;
+    // Trailing whitespace separates this node's text from whatever follows.
+    if (pending && wrote) breaks.add(text.length);
+  }
+  return { text, breaks };
+}
+
+const isDigit = (char: string | undefined): boolean => char !== undefined && char >= "0" && char <= "9";
+const isNumberMark = (char: string | undefined): boolean => char === "." || char === ",";
+
+/**
+ * True when `needle` (whitespace removed) occurs in the text and the occurrence
+ * is not a piece of a longer number: "$161" is not shown by "$1610.00" or
+ * "$161.37", and "61" is not shown by "$161". A break in the original (space
+ * or another element) ends a number, so adjacent cells do not run together.
+ */
+function shownWhole(needle: string, hay: ReadableText): boolean {
+  const numericStart = isDigit(needle[0]), numericEnd = isDigit(needle.at(-1));
+  for (let at = hay.text.indexOf(needle); at !== -1; at = hay.text.indexOf(needle, at + 1)) {
+    const end = at + needle.length;
+    const cutBefore = numericStart && !hay.breaks.has(at) &&
+      (isDigit(hay.text[at - 1]) || (isNumberMark(hay.text[at - 1]) && !hay.breaks.has(at - 1) && isDigit(hay.text[at - 2])));
+    const cutAfter = numericEnd && !hay.breaks.has(end) &&
+      (isDigit(hay.text[end]) || (isNumberMark(hay.text[end]) && !hay.breaks.has(end + 1) && isDigit(hay.text[end + 1])));
+    if (!cutBefore && !cutAfter) return true;
+  }
+  return false;
+}
+
+type ReadableElement = ReturnType<Window["document"]["querySelectorAll"]>[number];
+const rowCells = (row: ReadableElement) => Array.from(row.querySelectorAll("th,td")).map((cell) => normalize(cell.textContent ?? ""));
+
+/**
+ * D-246: what the D-241 classic-versus-dossier comparison proved, kept after
+ * the classic layout was removed (tests/fixtures/dossier-facts-d246.json).
+ * For one report, the facts are every readable classic segment (text node, or
+ * whole table row, list item, term pair, paragraph, heading, caption or
+ * summary; native details count, hidden and screen-reader-only text does not)
+ * that the dossier also rendered when both layouts existed, reduced to the
+ * longest ones (a shorter segment inside a kept one was dropped only when it
+ * neither starts nor ends with a digit, so its presence follows from the
+ * longer one's), plus each whole-number classic grid row that the dossier
+ * shows cell for cell at more decimals (the D-241 rounding allowance).
+ * Classic's own wording (D-241's 13 listed differences) is not a fact.
+ */
+export interface FrozenLayoutFacts {
+  segments: string[];
+  roundedRows: string[][];
+}
+
+const squashText = (value: string) => value.replace(/\s+/g, "");
+
+/**
+ * The frozen facts the dossier no longer renders; empty means it still shows
+ * every one. Text is compared without whitespace and a number must appear
+ * whole (D-241 review): "$161" is not shown by "$1610.00".
+ */
+export function frozenFactsMissingFromDossier(facts: FrozenLayoutFacts, dossierHtml: string): string[] {
+  const dossierWindow = readableDocument(dossierHtml);
+  const dossier = readableText(dossierWindow);
+  const dossierRows = Array.from(dossierWindow.document.querySelectorAll("tr")).map(rowCells);
+  void dossierWindow.happyDOM.close();
+  const missing = facts.segments.filter((text) => !shownWhole(squashText(text), dossier));
+  for (const cells of facts.roundedRows) {
+    if (!dossierRows.some((other) => other.length === cells.length && cells.every((cell, index) => roundsTo(cell, other[index]!)))) missing.push(cells.join(" | "));
+  }
+  return missing;
+}
+
 function plainMarkdown(value: string): string {
   return normalize(value.replace(/\\([\\`*_{}[\]()#+\-.!|>])/g, "$1").replace(/[`*]/g, ""));
 }
@@ -95,4 +219,63 @@ export function freezeReport<T>(value: T): T {
     for (const child of Object.values(value)) freezeReport(child);
   }
   return value;
+}
+
+/**
+ * P22: the valuation texts each surface must show, as the shared decisions in
+ * presentation.ts state them for that surface: the headline label, shown value
+ * or withheld text, comparison, caveats, and every scenario row. Captured from
+ * the report each surface prepares (readerPreparation.ts), so a renderer that
+ * re-decides any of them, or drops one, fails {@link assertValuationParity}.
+ */
+export type ValuationParityContract = Record<ValuationSurface, { label: string; text: string }[]>;
+
+export function captureValuationParity(report: Report): ValuationParityContract {
+  const surfaces: ValuationSurface[] = ["markdown", "print", "dossier"];
+  return Object.fromEntries(surfaces.map((surface) => {
+    const prepared = prepareReportForSurface(report, surface === "markdown" || surface === "print" ? surface : "web").report;
+    const texts: { label: string; text: string }[] = [];
+    const add = (label: string, text: string | null | undefined) => { if (text) texts.push({ label, text }); };
+    if (unavailableCashFlowModel(prepared)) {
+      add("no-model withheld text", valuationNoModelWithheldText(prepared.fairValue, surface));
+    } else {
+      const headline = valuationHeadlineView(prepared.valuation, prepared.fairValue, surface);
+      add("headline label", headline.label);
+      add("headline value", headline.valueText ?? VALUATION_WITHHELD_TEXT);
+      add("withheld reason", headline.perShare === null ? headline.withheldReason : null);
+      add("comparison label", headline.comparison?.label);
+      add("comparison", headline.comparison?.text);
+      add("degraded caveat", headline.degradedCaveat);
+      add("basis caveat", headline.basisCaveat);
+      const scenarios = valuationScenarioView(prepared.valuation, prepared.scenarioPresentation, surface);
+      add("scenario heading", scenarios.heading);
+      add("weight basis", scenarios.weightBasis);
+      add("scenario targets caveat", scenarioTargetsCaveat(prepared.scenarioTargets, (text) => text));
+      for (const row of scenarios.rows) {
+        add(`${row.scenario.name} target`, row.targetText ?? SCENARIO_TARGET_UNAVAILABLE_TEXT);
+        add(`${row.scenario.name} weight label`, row.weight?.label);
+        add(`${row.scenario.name} weight`, row.weight?.text);
+      }
+    }
+    return [surface, texts];
+  })) as ValuationParityContract;
+}
+
+/** Markdown with every inline escape the exports apply removed, for text comparison. */
+function unescapedMarkdown(value: string): string {
+  return normalize(value.replace(/\\([\\`*_~[\]<>&#@{}()+\-.!|])/g, "$1").replace(/[`*]/g, ""));
+}
+
+/** Every surface shows its own decided valuation texts; the app is the dossier layout. */
+export function assertValuationParity(contract: ValuationParityContract, surfaces: { live: string; markdown: string; print: string }): void {
+  const bodies: [ValuationSurface, string][] = [
+    ["markdown", unescapedMarkdown(surfaces.markdown)],
+    ["print", readableHtml(surfaces.print).text],
+    ["dossier", readableHtml(surfaces.live).text],
+  ];
+  for (const [surface, body] of bodies) {
+    for (const { label, text } of contract[surface]) {
+      if (!body.includes(normalize(text))) throw new Error(`Missing ${surface} valuation ${label}: ${text}`);
+    }
+  }
 }

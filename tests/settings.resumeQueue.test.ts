@@ -2,7 +2,7 @@
  * The Settings page "resume queued work" control (WS8 R-42/D-21, review F8).
  *
  * The panel is only useful when startup held the queue
- * (`THESIS_RESUME_ON_START=0`), so `SettingsPageView` renders it only when the
+ * (`METIS_RESUME_ON_START=0`), so `SettingsPageView` renders it only when the
  * server reports `capabilities.resumeOnStart === false`. On the default `1` the
  * scheduler already claimed whatever was queued and the button would do nothing
  * visible.
@@ -100,7 +100,7 @@ describe("ResumeQueueControl rendering", () => {
   });
 
   it("is offered only when the server says startup held the queue", () => {
-    // The default THESIS_RESUME_ON_START=1 is every user's normal case; the
+    // The default METIS_RESUME_ON_START=1 is every user's normal case; the
     // panel used to render there too, offering a button with nothing to do.
     expect(renderSettingsPage(true)).not.toContain(BUTTON_LABEL);
     expect(renderSettingsPage(false)).toContain(BUTTON_LABEL);

@@ -19,6 +19,7 @@ import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { leaseDebtScopeRefusal, leaseEvidenceNote, type LeaseFieldEvidence, type LeaseEvidenceContext } from "./leaseScope";
 import type { ManifestEntry, SectorRoute } from "@/types/core";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
+import { resolveConsolidatedProfit } from "@/pipeline/stageB/ownership";
 import {
   IRREGULAR_SPACING_TOLERANCE_YEARS,
   hasIrregularAnnualSpacing,
@@ -51,6 +52,10 @@ export interface CapitalIncomeRow extends FiscalDatedRow {
   /** FMP zero-for-undisclosed applies (AAPL artifact) — 0 treated as null here. */
   interestExpense?: number | null;
   netIncome?: number | null;
+  /** D-238 (P5): the entity scope of `netIncome`, and the row's other profit lines, for `resolveConsolidatedProfit`. */
+  netIncomeOwnershipBasis?: "parent" | "consolidated";
+  netIncomeConsolidated?: number | null;
+  noncontrollingIncome?: number | null;
   weightedAverageShsOutDil?: number | null;
   /** Basic weighted-avg shares — matches marketCap's (undiluted) base for the buyback proxy. */
   weightedAverageShsOut?: number | null;
@@ -145,7 +150,7 @@ export interface CapitalOptions {
   repurchaseExecutions?: ReadonlyArray<Pick<RepurchaseExecution, "periodEnd" | "shares" | "value" | "sharesTag" | "valueTag" | "primaryEvidence">>;
   /**
    * AMZN audit 2026-10-20, finding 20 (b): the enterprise value's lease basis
-   * (THESIS_EV_INCLUDE_LEASES). False takes the operating-lease liability out
+   * (METIS_EV_INCLUDE_LEASES). False takes the operating-lease liability out
    * of the net debt/EBITDA numerator wherever enterprise value takes it out,
    * since EBITDA is already after operating-lease cost. Omitted or true: net
    * debt as resolved.
@@ -618,11 +623,17 @@ export function computeCapital(
       } else if (fcfBeforeSbc !== null) {
         rowNotes.push("stock-based compensation not disclosed for this year — FCF is unadjusted (before SBC)");
       }
-      const ni = isFiniteNumber(r.netIncome)
-        ? r.netIncome
-        : isFiniteNumber(incomeFor(r.date)?.netIncome)
-          ? (incomeFor(r.date)?.netIncome as number)
-          : null;
+      // D-238 (P5): the conversion divides consolidated cash flow, so its net income is consolidated profit: the
+      // cash-flow statement's own starting line, else the income statement's profit on that scope.
+      const incomeProfit = isFiniteNumber(r.netIncome) ? null : resolveConsolidatedProfit(incomeFor(r.date) ?? {});
+      const ni = isFiniteNumber(r.netIncome) ? r.netIncome : incomeProfit!.value;
+      // D-231 (P12): a withheld cash-flow net income is replaced by the income statement's, and the row says so.
+      if (ni !== null && !isFiniteNumber(r.netIncome) && r.fieldConflicts?.netIncome?.usable === false) {
+        rowNotes.push("net income is the income statement's: the cash-flow statement's figure for this year was withheld");
+      }
+      if (ni !== null && incomeProfit !== null && ni !== incomeFor(r.date)?.netIncome) {
+        rowNotes.push(`the income statement's net income is read on the consolidated scope: ${incomeProfit.reason} (${incomeProfit.basis})`);
+      }
       let conversion: number | null = null;
       let conversionBeforeSbc: number | null = null;
       if (fcf !== null && ni !== null) {

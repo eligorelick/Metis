@@ -95,7 +95,7 @@ import {
 } from "@/pipeline/stageC/judgeProtocol";
 import type { RequestAdmission, RequestPermit } from "@/providers/anthropic";
 import { buildDataBundle, type BuildDataBundleOptions } from "@/pipeline/dataBundle";
-import { FMP_EMPTY_ARRAY_REASON } from "@/providers/fmp";
+import { isConfirmedUnknownProfile } from "@/pipeline/unknownTicker";
 import { isValidSymbol } from "@/symbol";
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
 import { captureRunInputSnapshot, CURRENT_SNAPSHOT_VERSIONS } from "@/pipeline/runInputSnapshot";
@@ -1367,7 +1367,7 @@ function createSettlementCheckpoint<T>(
       // reserves for itself. Release it BEFORE that request asks for
       // admission, not after: while both are live the pass's own lease
       // occupies a paid slot (and job/rolling headroom) that its own first
-      // request then has to fit beside. At THESIS_MAX_ACTIVE_LLM_CALLS=1 that
+      // request then has to fit beside. At METIS_MAX_ACTIVE_LLM_CALLS=1 that
       // refused every first request with "capacity" — a transient reason, so
       // the loop below retried forever and no provider request was ever sent —
       // and at the default of 2 it serialised bull and bear, which costs bear
@@ -3077,10 +3077,8 @@ export async function runJob<TPayload = unknown>(
     if (!validatedSupport.supported) {
       // A positive empty response is different from a transport failure. Neither
       // admits a company report, a model resolution, or a paid request lease.
-      const confirmedMiss = bundle.profile.ok ? bundle.profile.value.data.rows.length === 0
-        : bundle.profile.gap.reason === FMP_EMPTY_ARRAY_REASON ||
-          (/no API key/.test(bundle.profile.gap.reason) && !bundle.edgar.cik.ok &&
-            /not in SEC company_tickers\.json/.test(bundle.edgar.cik.gap.reason));
+      // P5 (P11, D-242): by the typed causes; entries without one by their sentences.
+      const confirmedMiss = isConfirmedUnknownProfile(bundle);
       if (validatedSupport.kind === "unknown" && confirmedMiss) {
         return finishUnsupported(state, { ...validatedSupport,
           reason: `Ticker ${bundle.symbol} was not found in the company sources. It may be invalid or delisted; no report was saved and no AI request was admitted.` });

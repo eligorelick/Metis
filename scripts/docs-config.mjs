@@ -55,7 +55,6 @@ export const COMMAND_DESCRIPTIONS = {
   "costs:reconcile": "Lower presumed spend rows against the Usage and Cost API. Needs ANTHROPIC_ADMIN_KEY.",
   "docs:pricing": "Print registry-derived pricing; add -- --write to update README.",
   "docs:config": "Print config/commands tables; add -- --write to update README.",
-  "audit:deltas": "Print fixture comparison's intended deltas; add -- --write to update the intended-delta list.",
   "audit:security": "Audit production and dev dependencies; fail on low or higher severity.",
   "check:dependencies": "Assert the dependency tree's shape.",
   "export:corrected": "Write corrected HTML/JSON from a stored run; requires new output filenames.",
@@ -67,8 +66,9 @@ export const COMMAND_DESCRIPTIONS = {
 
 /**
  * Commands that exist for the suite's own plumbing and are not user-facing.
- * The same-report harness, the accuracy check beside it and the frozen-record
- * refresh are developer tooling, documented in docs/OPERATIONS.md.
+ * The same-report harness, the accuracy check beside it, the report-surface
+ * drift measurement and the frozen-record refresh are developer tooling,
+ * documented in docs/OPERATIONS.md.
  */
 export const INTERNAL_COMMANDS = new Set([
   "test:product",
@@ -78,6 +78,7 @@ export const INTERNAL_COMMANDS = new Set([
   "golden:diff",
   "accuracy:check",
   "accuracy:fetch",
+  "report:drift",
   "freeze:refresh",
 ]);
 
@@ -177,8 +178,8 @@ export function renderConfigBlock(sections, schemaKeys) {
   }
   const lines = [CONFIG_BEGIN, ""];
   lines.push("Every key is optional. This table is generated from `.env.example`, which carries the long form of each one.");
-  lines.push("Its `METIS_*` lines ship commented out: a key that is set, even blank or invalid, wins over its legacy");
-  lines.push("`THESIS_*` alias, so uncomment only what you mean to set. See [compatibility](docs/BRAND.md#compatibility).");
+  lines.push("Its `METIS_*` lines ship commented out, so uncomment only what you mean to set. Old `THESIS_*` names are");
+  lines.push("no longer read: if one is still set, Metis refuses to start and names its `METIS_*` replacement. See [compatibility](docs/BRAND.md#compatibility).");
   lines.push("");
   lines.push("| Key | Shipped value, built-in default or opt-in example | What it does |");
   lines.push("| --- | --- | --- |");

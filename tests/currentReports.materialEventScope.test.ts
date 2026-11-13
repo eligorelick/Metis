@@ -55,8 +55,7 @@ function outputs(disclosures: FilingDisclosures | undefined) {
   report.filingDisclosures = disclosures;
   const before = JSON.stringify(report);
   const rendered = {
-    classic: readableHtml(renderToStaticMarkup(createElement(ReportView, { report, layout: "classic" }))).text,
-    dossier: readableHtml(renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }))).text,
+    dossier: readableHtml(renderToStaticMarkup(createElement(ReportView, { report }))).text,
     markdown: reportToMarkdown(report).replace(/\\(.)/g, "$1"),
     print: readableHtml(reportToPrintHtml(report, { autoPrint: false })).text,
     audit: reportToAuditMarkdown(report).replace(/\\(.)/g, "$1"),

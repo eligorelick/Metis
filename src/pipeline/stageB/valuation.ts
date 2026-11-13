@@ -22,13 +22,14 @@ import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { displayClassName } from "@/edgar/classEvidence";
 import { parseIssuerGrowthEffect } from "@/edgar/currentReports";
 import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf, periodDays, fiscalYearEndFor, snapToFiscalYearEnd, type FiscalYearRule } from "./fiscalCalendar";
-import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
+import { noncontrollingOwnershipUnresolved, resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
 import { preferredCapitalRefusal, commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type PreferredCapitalInputs, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, type LeaseFieldEvidence, type LeaseEvidenceContext } from "@/pipeline/stageB/leaseScope";
 import type { DebtLikeObligations } from "@/pipeline/stageB/debtLikeObligations";
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
+import type { GapCause } from "@/types/refusalCause";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
 import { RATE_REGULATED_UTILITY_SIC } from "@/edgar/sic";
 import { leaseDebtConflict, millions, operatingLeaseOutOfDebt, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
@@ -214,7 +215,9 @@ const gapEntry = (
   field: string,
   reason: string,
   severity: ManifestEntry["severity"],
-): ManifestEntry => ({ field, reason, severity });
+  /** P10, P11 (D-229): the typed cause beside the sentence, for the writers whose wording a reader tells apart. */
+  cause?: GapCause,
+): ManifestEntry => (cause === undefined ? { field, reason, severity } : { field, reason, severity, cause });
 
 /**
  * Audit 2026-10-22 A-2: the issuer's own sales-to-capital, the median of the
@@ -2368,10 +2371,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     bal && icDebt !== null && equity.value !== null && admittedLiquidity
       ? icDebt + equity.value + (temporary === null ? 0 : temporary.capitalTotal) - bal.cashAndShortTermInvestments!
       : null;
-  const mainCapitalGap = (lead: string): ManifestEntry => gapEntry(
+  const mainCapitalGap = (lead: string, cause?: GapCause): ManifestEntry => gapEntry(
     "valuation.dcf.salesToCapital",
     `${lead} - this sales-to-capital DCF is suppressed instead of inventing a capital-efficiency input. An explicit operating-cash-flow model requires separately supported reinvestment assumptions; negative book capital alone does not prohibit valuation`,
     "critical",
+    cause,
   );
   if (bal === null || ic === null) {
     const operand = (field: string) => `${field}${bal?.fieldConflicts?.[field]?.usable === false ? ` withheld (${bal.fieldConflicts[field]!.reason ?? "source conflict"})` : ""}`;
@@ -2380,7 +2384,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       ...(equity.value === null ? ["consolidated equity (totalEquity / totalStockholdersEquity)"] : []),
       ...(!admittedLiquidity ? [operand("cashAndShortTermInvestments"), ...(bal.fieldConflicts?.cashAndCashEquivalents?.usable === false ? [operand("cashAndCashEquivalents")] : [])] : []),
     ];
-    gaps.push(mainCapitalGap(`balance-sheet fields missing for invested capital: ${missing.join(", ")}${bal ? ` at ${bal.date}` : ""}`));
+    gaps.push(mainCapitalGap(`balance-sheet fields missing for invested capital: ${missing.join(", ")}${bal ? ` at ${bal.date}` : ""}`, "invested-capital-balance-fields-missing"));
     return { assumptions: null, notes, gaps };
   }
   // FIN-303 (pre-flight I6): invested capital that the lease subtraction itself emptied (positive lease-inclusive, not
@@ -2399,7 +2403,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       // lease-inclusive capital, and a critical gap would block the report.
       gaps.push(gapEntry("valuation.dcf.salesToCapital",
         `${LEASE_EMPTIED_CAPITAL_LEAD}invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (lease-excluded basis, D-25), and the issuer's own filed history does not establish a sales-to-capital ratio on that basis (${history.basis}) - ` +
-        `this sales-to-capital DCF is withheld instead of falling back to the lease-inclusive basis`, "warn"));
+        `this sales-to-capital DCF is withheld instead of falling back to the lease-inclusive basis`, "warn", "invested-capital-lease-emptied"));
       return { assumptions: null, notes, gaps };
     }
     emptiedHistory = history;
@@ -2414,7 +2418,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     if (leaseConflict !== null) gaps.push(gapEntry("valuation.dcf.leaseIntegrity", leaseConflict, "critical"));
     const scopeRefusal = leaseDebtScopeRefusal(bal, inputs.includeLeasesInEv === true);
     if (scopeRefusal) gaps.push(gapEntry("valuation.dcf.netDebt.leaseScope", scopeRefusal, "critical"));
-    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${TEMPORARY_EQUITY_REFUSAL_LEAD}${temporary.refusal} (balance ${bal.date.slice(0, 10)}) - invested capital for sales-to-capital cannot be established, so the DCF cannot be built without the claim's amount and is withheld instead of zero-filling it`, "warn"));
+    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${TEMPORARY_EQUITY_REFUSAL_LEAD}${temporary.refusal} (balance ${bal.date.slice(0, 10)}) - invested capital for sales-to-capital cannot be established, so the DCF cannot be built without the claim's amount and is withheld instead of zero-filling it`, "warn", "invested-capital-temporary-equity-refused"));
     return { assumptions: null, notes, gaps };
   }
   // D-60: long-term investments (strategic and non-marketable stakes, long
@@ -4041,7 +4045,7 @@ export interface MultiplesFrameworkInputs {
   affoHistoryComparable?: boolean;
   /**
    * WS6 (D-19): keep the OPERATING-lease liability in enterprise value
-   * (THESIS_EV_INCLUDE_LEASES=1). OFF by default, because under US GAAP
+   * (METIS_EV_INCLUDE_LEASES=1). OFF by default, because under US GAAP
    * (ASC 842) the operating-lease cost stays in operating expenses, so EBIT and
    * EBITDA are already AFTER it — adding that liability to EV as well would
    * double-count the leases in EV/EBITDA. It never touches the FINANCE-lease
@@ -4055,6 +4059,9 @@ export interface MultiplesFrameworkInputs {
  * The operator setting the EV bridge basis names (WS6, D-19), exactly as the
  * basis spells it. AMZN audit 2026-10-20 finding 20: the report states the
  * lease convention without the environment variable that changes it.
+ * FROZEN by D-228: the text still spells the retired Thesis-era name (the setting
+ * is now `METIS_EV_INCLUDE_LEASES`); rewording it changes report text, which
+ * needs an owner decision first.
  */
 export const EV_LEASE_SETTING_TEXT = {
   excluded: " (house default; set THESIS_EV_INCLUDE_LEASES=1 to keep it)",
@@ -4239,14 +4246,8 @@ const DERIVED_HISTORY_KEYS: readonly MultipleKey[] = [
 ];
 const OWN_HISTORY_EV_MAX_AGE_DAYS = 45;
 
-/** A consolidated/parent difference proves outside ownership, never its market value. */
-function unknownNoncontrollingAllocation(balance: { totalEquity?: number | null; totalStockholdersEquity?: number | null; minorityInterest?: number | null; equityOwnershipBasis?: "parent" | "consolidated" } | null): boolean {
-  if (!balance || isNum(balance.minorityInterest)) return false;
-  if (balance.equityOwnershipBasis === "consolidated" && (isNum(balance.totalEquity) || isNum(balance.totalStockholdersEquity))) return true;
-  if (!isNum(balance.totalEquity)) return false;
-  return !isNum(balance.totalStockholdersEquity) ||
-    Math.abs(balance.totalEquity - balance.totalStockholdersEquity) > Math.max(1, Math.abs(balance.totalEquity) * 1e-10);
-}
+// A consolidated/parent difference proves outside ownership, never its market value. The test is the P5 owner's
+// (`noncontrollingOwnershipUnresolved`, src/pipeline/stageB/ownership.ts; D-248); compute.ts reads the same one.
 
 /**
  * Known NCI at or below this share of consolidated equity cannot move a
@@ -4310,9 +4311,9 @@ function bookNciImmaterial(row: (Parameters<typeof temporaryEquityClaims>[0] & {
   return immaterialNoncontrollingInterest(redeemableOnly ? { ...row, minorityInterest: 0 } : row, noncontrollingIncome);
 }
 
-function unresolvedCashOwnership(row: Parameters<typeof unknownNoncontrollingAllocation>[0] & Parameters<typeof temporaryEquityClaims>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
+function unresolvedCashOwnership(row: Parameters<typeof noncontrollingOwnershipUnresolved>[0] & Parameters<typeof temporaryEquityClaims>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
   const nciImmaterial = bookNciImmaterial(row, row?.noncontrollingIncome);
-  return preferredCapitalRefusal(row) !== null || unknownNoncontrollingAllocation(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
+  return preferredCapitalRefusal(row) !== null || noncontrollingOwnershipUnresolved(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
     (!nciImmaterial && isNum(row?.noncontrollingIncome) && row.noncontrollingIncome !== 0) ||
     (isNum(row?.preferredStock) && row.preferredStock !== 0) ||
     temporaryEquityBlocksCashOwnership(row) ||
@@ -4436,7 +4437,7 @@ function deriveOwnHistory(
     const windowTemporary = temporaryEquityClaims(b);
     if (windowTemporary?.refusal != null) temporaryEquityRejectedWindows.push({ anchor: b.date, reason: windowTemporary.refusal });
     const evVal =
-      leaseBasisMatches && leaseScopeRefusal === null && preferredCapitalRefusal(b) === null && !unknownNoncontrollingAllocation(b) && windowTemporary?.refusal == null && isNum(mcap) && historicalNetDebt.value !== null
+      leaseBasisMatches && leaseScopeRefusal === null && preferredCapitalRefusal(b) === null && !noncontrollingOwnershipUnresolved(b) && windowTemporary?.refusal == null && isNum(mcap) && historicalNetDebt.value !== null
         ? mcap +
           historicalNetDebt.value +
           (isNum(b.preferredStock) ? b.preferredStock : 0) +
@@ -4669,7 +4670,7 @@ export function multiplesFramework(
   // short-term investments. FMP's totalDebt already contains the lease
   // liability, so the default (leases NOT in EV) subtracts it back out.
   const netDebt = resolveNetDebt(bal ?? {});
-  const unknownNciAllocation = unknownNoncontrollingAllocation(bal);
+  const unknownNciAllocation = noncontrollingOwnershipUnresolved(bal);
   // FIN-119 (OD-1): redeemable preferred and redeemable NCI sit in temporary
   // equity, outside every equity field above, and are claims on the enterprise
   // like permanent preferred and book NCI. A refused operand withholds the EV.
@@ -5006,7 +5007,7 @@ export function multiplesFramework(
     notes.push(reason);
     gaps.push(gapEntry("valuation.multiples.ownHistory.evTemporaryEquity", reason, "warn"));
   }
-  if (unknownNciAllocation || inputs.quarterlyFundamentals?.some(unknownNoncontrollingAllocation)) {
+  if (unknownNciAllocation || inputs.quarterlyFundamentals?.some(noncontrollingOwnershipUnresolved)) {
     for (const key of vendorEvKeys) delete vendor[key];
     const reason = "Known outside ownership has an unavailable NCI allocation in current or historical balance evidence; affected historical EV windows and vendor EV-ratio fallback without ownership allocation evidence are withheld. Equity-only history is evaluated separately.";
     notes.push(reason);
@@ -6223,8 +6224,17 @@ export interface ReitInputs {
    * publish a P/FFO from a withheld price.
    */
   sharePrice: number | null;
-  /** The weighted diluted count FFO and AFFO per share divide by. */
+  /**
+   * The weighted diluted count FFO and AFFO per share divide by: the count of
+   * FFO's own period (its fiscal year), so the flow and its divisor cover one
+   * period (D-233, P13). Never the latest quarter's count, which divides a
+   * value per share.
+   */
   shares: number | null;
+  /** D-233: the period end of that count, named beside the per-share figures. */
+  sharesPeriodEnd?: string | null;
+  /** D-233: why no count for FFO's own period is established; the per-share figures are withheld with it. */
+  sharesWithheldReason?: string | null;
   /**
    * FIN-311: the market cap the multiples framework priced P/FFO and P/AFFO on
    * (the quote's admitted market cap), so a report carries one P/FFO.
@@ -6335,6 +6345,14 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
     );
   }
   const shares = posOrNull(inputs.shares);
+  // D-233 (P13, P10): a flow per share divides by its own period's count, or is withheld with the reason.
+  if (shares === null && inputs.sharesWithheldReason) {
+    gaps.push(gapEntry(
+      "valuation.reit.perShareDivisor",
+      `FFO and AFFO per share withheld: ${inputs.sharesWithheldReason}. FFO and AFFO are flows of the fiscal year${inputs.sharesPeriodEnd ? ` ending ${inputs.sharesPeriodEnd}` : ""}, so they divide only by that year's weighted-average diluted share count; another period's count is not substituted.`,
+      "warn",
+    ));
+  }
   const mcap = posOrNull(inputs.sharePrice) !== null ? posOrNull(inputs.marketCap) : null;
   if (mcap === null) {
     gaps.push(gapEntry("valuation.reit.marketCap", "market cap withheld or unavailable (a currency, security-basis or per-share guard, or no admitted market cap)", "warn"));
@@ -6360,6 +6378,11 @@ export function reitValuation(inputs: ReitInputs): ReitValuationResult {
     notes.push("implied cap rate = NOI(approx = operatingIncome + D&A) / EV — a sketch, not an appraisal");
   } else {
     gaps.push(gapEntry("valuation.reit.impliedCapRate", "NOI not derivable (or EV missing) — implied cap rate disclosed as gap", "info"));
+  }
+  if (shares !== null && inputs.sharesPeriodEnd && (ffo !== null || affo !== null)) {
+    notes.push(
+      `FFO and AFFO per share divide by the weighted-average diluted share count of FFO's own period, the fiscal year ending ${inputs.sharesPeriodEnd} (${shares} shares), so each flow and its divisor cover one period; the latest quarter's count is not used.`,
+    );
   }
   return {
     pToFfo: safeDiv(mcap, ffo),
@@ -6453,7 +6476,7 @@ export interface ValuationBundleInputs {
    * as reported.
    */
   operatingLeaseLiability?: number | null;
-  /** WS6 (D-19): THESIS_EV_INCLUDE_LEASES — keep leases in the EV bridge. */
+  /** WS6 (D-19): METIS_EV_INCLUDE_LEASES — keep leases in the EV bridge. */
   includeLeasesInEv?: boolean;
   /**
    * D-60: marketable equity securities the house net debt excluded from cash,
@@ -6643,7 +6666,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   let dcfWithheldCause: string | null = null;
   // FIN-103: the DCF-only gates read the balance the bridge reads.
   const bridgeBalance = inputs.bridgeBalance ?? inputs.multiples.balance;
-  if ((inputs.noncontrollingOwnershipUnresolved === true || unknownNoncontrollingAllocation(bridgeBalance)) && inputs.dcfInputs !== null) {
+  if ((inputs.noncontrollingOwnershipUnresolved === true || noncontrollingOwnershipUnresolved(bridgeBalance)) && inputs.dcfInputs !== null) {
     const reason = "Consolidated equity has no resolved parent/NCI split, or differs from parent equity, and the NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
     gaps.push(gapEntry("valuation.dcf.noncontrollingOwnership", reason, "warn"));
     notes.push(reason);
@@ -6746,8 +6769,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     gaps.push(gapEntry("valuation.perShare.economicClassBasis", inputs.dilutedShareEconomicBasis, "info"));
   }
   // FIN-404: said once, and only where a per-share value that divides by the count is published (the DCF, the excess-return route and the REIT FFO/AFFO per share).
-  const divisorDisclosure = (perShare: number | null | undefined): void => {
-    if (inputs.dilutedShareDivisor === undefined || !isNum(perShare) || !isNum(inputs.dilutedShares) || inputs.dilutedShares <= 0) return;
+  const divisorDisclosure = (perShare: number | null | undefined, shares: number | null | undefined = inputs.dilutedShares): void => {
+    if (inputs.dilutedShareDivisor === undefined || !isNum(perShare) || !isNum(shares) || shares <= 0) return;
     gaps.push(gapEntry("valuation.perShare.lossPeriodDivisor", inputs.dilutedShareDivisor.note, "info"));
     if (inputs.dilutedShareDivisor.basis !== "loss-period-substituted" || !notes.some((n) => n.startsWith("Per-share values divide by the latest period's basic count plus"))) {
       notes.push(inputs.dilutedShareDivisor.note);
@@ -6952,7 +6975,8 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
     }
     gaps.push(...reit.gaps);
     // FIN-404: FFO and AFFO per share divide by the same count; said once, where one is published.
-    divisorDisclosure(reit.ffoPerShare ?? reit.affoPerShare);
+    // D-233: that count is the REIT block's own (FFO's fiscal year), and the disclosure describes that row.
+    divisorDisclosure(reit.ffoPerShare ?? reit.affoPerShare, reitInputs?.shares);
     return { kind: "reit", route: route.base, reit, multiples, notes, gaps };
   }
 
@@ -6985,6 +7009,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         "valuation.dcf",
         reason,
         "info",
+        "dcf-unprofitable-overlay",
       ),
     );
     return { kind: "dcf-suppressed", suppressionKind: "route-policy", route: route.base, multiples, suppressionReason: reason, notes, gaps };
@@ -7039,7 +7064,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
       // WS6 (D-19): the DCF equity bridge follows the SAME lease convention as
       // the multiples EV. Net debt is built from totalDebt, which already
       // contains the lease liabilities, so the default subtracts the OPERATING
-      // slice back out and THESIS_EV_INCLUDE_LEASES=1 keeps it. Both bridges
+      // slice back out and METIS_EV_INCLUDE_LEASES=1 keeps it. Both bridges
       // are stated.
       // WS6 review (BLOCKER 1): only the OPERATING slice leaves net debt. The
       // finance-lease liability stays as financing debt: its interest is

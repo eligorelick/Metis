@@ -36,7 +36,7 @@ describe("current fictional visitor sample", () => {
     expect(reportToMarkdown(view)).toContain("Provisional");
     expect(JSON.stringify(original)).toBe(bytes);
   });
-  it("renders current USD research with explicit assessment gaps in both layouts", () => {
+  it("renders current USD research with explicit assessment gaps in the dossier layout", () => {
     const report = ReportSchema.parse(JSON.parse(readFileSync("fixtures/report/DEMO-current.json", "utf8")));
     expect(legacyScopeQualifications(report)).toEqual([]);
     expect(report.meta.companyName).toBe("Thesis Example Systems");
@@ -73,12 +73,10 @@ describe("current fictional visitor sample", () => {
     expect(charts.market.bars.at(-1).close).toBe(report.marketData?.quote?.price);
     expect(charts.fundamentals.currency).toBe(report.marketData?.currency);
     expect(report.appendix.verificationLog?.filter(entry => entry.validationStatus === "contradicted")).toEqual([]);
-    for (const layout of ["classic", "dossier"] as const) {
-      const html = renderToStaticMarkup(createElement(ReportView, { report, layout }));
-      expect(html).not.toMatch(/currency unknown|Read-time saved-report clarifications|Built before report spec/);
-      expect(html).toContain("USD");
-      for (const section of ["verdict", "business", "fundamentals", "balanceSheet", "valuation", "quality", "technicals", "leadership", "competitive", "catalystsRisks", "outlook", "appendix"]) expect(html).toContain(`id="report-${section}"`);
-    }
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
+    expect(html).not.toMatch(/currency unknown|Read-time saved-report clarifications|Built before report spec/);
+    expect(html).toContain("USD");
+    for (const section of ["verdict", "business", "fundamentals", "balanceSheet", "valuation", "quality", "technicals", "leadership", "competitive", "catalystsRisks", "outlook", "appendix"]) expect(html).toContain(`id="report-${section}"`);
   });
   it("shows readers no internal decision numbers", () => {
     const markdown = reportToMarkdown(ReportSchema.parse(JSON.parse(readFileSync("fixtures/report/DEMO-current.json", "utf8"))));

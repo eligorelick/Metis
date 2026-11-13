@@ -127,7 +127,7 @@ export interface KeylessInputs {
   /** No FMP key configured → the substitution gaps are `expected`. */
   fmpKeyless: boolean;
   /**
-   * WS4 (D-12) statement-history policy, from `THESIS_STATEMENT_SOURCE`:
+   * WS4 (D-12) statement-history policy, from `METIS_STATEMENT_SOURCE`:
    *  - `auto`: FMP first, then EDGAR companyfacts for periods older than the
    *    oldest FMP row (a plan that caps `limit` truncates history);
    *  - `fmp`: never backfill;
@@ -200,7 +200,7 @@ const STATEMENT_ENDPOINTS = {
   cashflowQuarterly: "companyfacts→cash-flow(quarter)",
 } as const;
 
-/** The members `THESIS_STATEMENT_SOURCE` governs. */
+/** The members `METIS_STATEMENT_SOURCE` governs. */
 const STATEMENT_MEMBERS = Object.keys(STATEMENT_ENDPOINTS) as (keyof typeof STATEMENT_ENDPOINTS)[];
 
 const ENTERPRISE_VALUES_ENDPOINT = "derived:enterprise-values(balance×close×shares)";
@@ -401,7 +401,7 @@ const VENDOR_SHARE_FIELD_LABELS: Record<(typeof VENDOR_SHARE_FIELDS)[number], st
   eps: "eps",
 };
 
-interface PrimaryShareReconciliation {
+export interface PrimaryShareReconciliation {
   companyFacts: CompanyFacts;
   observedAt?: string;
   /** An ADR's quoted unit is not established by the filer's ordinary-share facts. */
@@ -555,6 +555,24 @@ function vendorShareUnitShown(rows: readonly FmpRawRow[], splits: StockSplits, b
       return primary !== null && Math.abs(vendorValue - primary.value) <= primary.value * VENDOR_SHARES_TOLERANCE;
     });
   });
+}
+
+/**
+ * With several listed symbols, the vendor's share unit is its convention for
+ * the listing, not for one period type: a series that shows it governs the
+ * other too (review M-1; FIGR's FY2025 vendor counts are twice the 10-K's,
+ * while its 2026 quarters match the 10-Qs). One rule for the producer and for
+ * the calculation view's filed admission (`withFiledShareValues`, D-234): a
+ * view that asked each series alone left the annual row uncompared. False for
+ * a registrant with one listed symbol, an ADR or an unknown listing, whose
+ * comparison does not depend on it.
+ */
+export function vendorShareUnitShownAcross(
+  families: readonly { rows: readonly FmpRawRow[]; reconciliation: PrimaryShareReconciliation | undefined }[],
+  splits: StockSplits, basisDay: string,
+): boolean {
+  return families.some(({ reconciliation }) => registrantShareUnit(reconciliation) === "to-establish") &&
+    families.some(({ rows, reconciliation }) => vendorShareUnitShown(rows, splits, basisDay, reconciliation));
 }
 
 /**
@@ -897,7 +915,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     member !== "spy" && member !== "sectorEtf";
 
   /**
-   * WS4 (D-12): `THESIS_STATEMENT_SOURCE=edgar` rebuilds the six statement
+   * WS4 (D-12): `METIS_STATEMENT_SOURCE=edgar` rebuilds the six statement
    * members from companyfacts even when FMP served rows, so a reader who
    * distrusts the vendor's normalisation can run on filed facts alone. It never
    * lifts the issuer gate.
@@ -915,7 +933,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
     );
   }
 
-  /** Did `THESIS_STATEMENT_SOURCE=edgar` set aside vendor rows FMP actually served for this member? */
+  /** Did `METIS_STATEMENT_SOURCE=edgar` set aside vendor rows FMP actually served for this member? */
   const vendorRowsOverridden = (member: keyof KeylessMembers): number => {
     if (!statementsFromEdgarOnly || !(STATEMENT_MEMBERS as readonly string[]).includes(member)) return 0;
     const original = inputs.fmp[member] as AnyMemberResult;
@@ -963,6 +981,10 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         gap: {
           ...original.gap,
           reason: appendReason ? `${original.gap.reason}; ${reason}` : original.gap.reason,
+          // P11 (D-242): FMP's empty array with the public fallback's failure appended is not the bare
+          // empty-array status the confirmed-miss check reads, so it carries its own code. Every other
+          // code keeps naming its cause: the extended sentence still states it.
+          ...(appendReason && original.gap.cause === "fmp-empty-array" ? { cause: "fmp-empty-array-fallback-failed" as const } : {}),
           attemptedSources: [...(original.gap.attemptedSources ?? []), ...attemptedSources],
         },
       };
@@ -974,7 +996,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
   };
 
   /**
-   * `THESIS_STATEMENT_SOURCE=edgar` promises statements from filed facts
+   * `METIS_STATEMENT_SOURCE=edgar` promises statements from filed facts
    * alone. When EDGAR cannot build a member, the vendor's rows are NOT kept as
    * a silent stand-in: the member becomes a gap naming both the EDGAR failure
    * and the rows the policy set aside, so a run that asked for EDGAR-only
@@ -1455,7 +1477,7 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
       ),
     );
   }
-  // `THESIS_STATEMENT_SOURCE=fmp` keeps the statements vendor-only (D-12:
+  // `METIS_STATEMENT_SOURCE=fmp` keeps the statements vendor-only (D-12:
   // "never backfill"); the predecessor's filed history is EDGAR rows like any
   // other backfill and used to be appended in every mode.
   if (predecessor !== null && inputs.edgarConfirmedIssuer && inputs.statementSource === "fmp") {
@@ -1588,15 +1610,11 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         registrantTickers: registrant?.tickers,
         isAdr: typeof vendorProfile?.isAdr === "boolean" ? vendorProfile.isAdr : null,
         fiscalYearEnd: registrant?.fiscalYearEnd ?? null, period: member === "incomeAnnual" ? "annual" : "quarter" } : undefined;
-    // With several listed symbols, the vendor's share unit is its convention for
-    // the listing, not for one period type: a series that shows it governs the
-    // other too. (FIGR's FY2025 vendor counts are twice the 10-K's, while its
-    // 2026 quarters match the 10-Qs.)
-    const shareUnitShown = registrantShareUnit(reconciliationFor("incomeQuarterly")) === "to-establish" && incomeMembers.some(([member]) => {
+    // A series that shows the vendor's share unit governs the other too (`vendorShareUnitShownAcross`).
+    const shareUnitShown = vendorShareUnitShownAcross(incomeMembers.flatMap(([member]) => {
       const current = members[member];
-      return current.ok && current.value.source !== "edgar" &&
-        vendorShareUnitShown(current.value.data.rows, built.splits, basisDay, reconciliationFor(member));
-    });
+      return current.ok && current.value.source !== "edgar" ? [{ rows: current.value.data.rows, reconciliation: reconciliationFor(member) }] : [];
+    }), built.splits, basisDay);
     for (const [member, edgarRows] of incomeMembers) {
       const current = members[member];
       if (!current.ok || current.value.source === "edgar") continue;

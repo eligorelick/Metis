@@ -1,19 +1,19 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { SensitivityHeatmap, type SensitivityCell } from "@/components/charts/SensitivityHeatmap";
+import { SensitivityHeatmap, sensitivityBaseCase, type SensitivityCell } from "@/components/charts/SensitivityHeatmap";
 
 const subscribe = () => () => {};
 const hydrated = () => true;
 const server = () => false;
 
-/** Inspect only stored cells; never interpolate, rerun the model or alter the headline. */
+/** Inspect only stored cells; never interpolate, rerun the model or alter the headline. The base case is outlined by the shared rule (sensitivityBaseCase, P22). */
 export function RecordedSensitivity({ cells, currency }: { cells: readonly SensitivityCell[]; currency: string | null }) {
   const enhanced = useSyncExternalStore(subscribe, hydrated, server);
   const [selected, setSelected] = useState<SensitivityCell | null>(null);
   return <section className="recorded-sensitivity" aria-label="Recorded sensitivity cases">
     <p className="analysis-visual-description">Model estimates under the recorded sensitivity conventions. This inspection leaves the saved headline valuation and assessment unchanged.</p>
-    <SensitivityHeatmap cells={cells} currency={currency} digits={2} onCellSelect={enhanced ? setSelected : undefined} selectedCell={selected} />
+    <SensitivityHeatmap cells={cells} {...sensitivityBaseCase(cells)} currency={currency} digits={2} onCellSelect={enhanced ? setSelected : undefined} selectedCell={selected} />
     <div className="recorded-sensitivity-selection" role="status">
       {selected ? <>
         <p>Selected recorded case · WACC {selected.waccPct}% · terminal growth {selected.gTermPct}%</p>

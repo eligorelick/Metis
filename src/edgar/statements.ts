@@ -62,7 +62,7 @@ import { memoize } from "@/edgar/computationContext";
 import type { FiledIncomeLine, EquityMethodIncomePlacement, FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 import type { StatementConflictCause } from "@/types/refusalCause";
-import { commercialPaperInsideBorrowings, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtRefusal, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
+import { commercialPaperInsideBorrowings, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, partialFinanceLeaseReason, uncomposedDebtRefusal, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
 import {
   describeChangePct,
@@ -103,6 +103,9 @@ import {
 import { belowComponentFloor } from "@/edgar/synonymFloor";
 import {
   CORE_FACT_FORMS,
+  CORE_INTERIM_FORMS,
+  FISCAL_YEAR_DURATION_DAYS,
+  PERIOD_END_TOLERANCE_DAYS,
   QUARTER_DURATION_DAYS,
   conceptFactsSchema,
   dedupByPeriod,
@@ -351,9 +354,9 @@ export interface StatementFactExclusion {
 
 const DAY_MS = 86_400_000;
 /** 52/53-week fiscal calendars move period ends by a few days between filings. */
-const TOLERANCE_DAYS = 3;
-const ANNUAL_MIN_DAYS = 300;
-const ANNUAL_MAX_DAYS = 400;
+const TOLERANCE_DAYS = PERIOD_END_TOLERANCE_DAYS;
+const ANNUAL_MIN_DAYS = FISCAL_YEAR_DURATION_DAYS[0];
+const ANNUAL_MAX_DAYS = FISCAL_YEAR_DURATION_DAYS[1];
 /**
  * A quarter is 13 weeks give or take a 53rd week — except on a 12-12-12-16
  * calendar, where the fourth quarter runs 16 or 17 weeks (Costco). The upper
@@ -367,7 +370,7 @@ const QUARTER_MAX_DAYS = QUARTER_DURATION_DAYS[1];
 const FOREIGN_ANNUAL_FORM_PREFIXES = ["20-F", "40-F"] as const;
 const isForeignAnnualForm = (form: string): boolean => FOREIGN_ANNUAL_FORM_PREFIXES.some((p) => form.startsWith(p));
 const ANNUAL_FORMS = new Set([...CORE_FACT_FORMS].filter((f) => f.startsWith("10-K") || isForeignAnnualForm(f)));
-const QUARTERLY_FORMS = new Set([...CORE_FACT_FORMS].filter((f) => f.startsWith("10-Q")));
+const QUARTERLY_FORMS = CORE_INTERIM_FORMS;
 
 /** Pure memo of day parsing: the result depends on `d` alone. Bounded so a long-lived process cannot grow it without limit. */
 const DATE_MS_MEMO = new Map<string, number>();
@@ -3069,7 +3072,7 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   let incomplete: string | null;
   let incompleteCause: StatementConflictCause | undefined;
   if (partialLease !== undefined) {
-    incomplete = `${partialLease} lease liability incomplete: current and noncurrent portions are both required when no tagged total is available; complete debt is withheld`;
+    incomplete = partialFinanceLeaseReason();
   } else if (refusedCurrent) {
     incomplete = `incomplete debt carrying value: ${refusedCurrent.text}`;
     if (notes.causeOf(refusedCurrent) === "debt-maturity-scope") incompleteCause = "debt-maturity-scope";

@@ -11,6 +11,3460 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-255 - The Stage 5 accuracy fixes move the version stamps once (2026-11-13)
+
+Principles P27 (version stamps move together) and P21 (saved reports are
+immutable; a change of meaning gets a stamp). Round 2, Stage 5, integration.
+The accuracy decisions D-231, D-233, D-234, D-236, D-237, D-238, D-239, D-240,
+D-247, D-248, D-250, D-251 and D-252 merged without moving a stamp, on
+purpose, so that the stamps move once. Owner: `src/report/versions.ts`, which
+gains one history comment per moved stamp naming these decisions. No
+calculation, rule, label or wording changes.
+
+What each decision calls for (its own closing paragraph where it names
+stamps; otherwise each stamp's own rule in `versions.ts` and
+`docs/METHODOLOGY.md`):
+
+| Decision | Stage B implementation | Payload | Report spec |
+| --- | --- | --- | --- |
+| D-231 TSM/DUK cash-flow net income | yes | yes (figures reach the analysts) | yes (report figures) |
+| D-233 FFO per-share divisor | yes (entry) | no (entry) | no (entry) |
+| D-234 FIGR share counts and debt | yes | yes | yes |
+| D-236 20-F/40-F instance fallback | yes | yes (fresh runs) | yes (fresh runs) |
+| D-237 effective tax rate | yes (entry) | no (entry) | no (entry) |
+| D-238 net-income entity scope | yes | yes | yes |
+| D-239 provider capex zero | yes (entry) | no (entry) | no (entry) |
+| D-240 trailing net income | yes (entry) | yes (entry) | yes (entry) |
+| D-247 conversion-share period | yes (wider admission on identical inputs) | no | no |
+| D-248 noncontrolling-ownership test | yes (two truth-table rows) | no | no |
+| D-250 debt totals and lease coverage | yes (entry) | yes (entry) | yes (debt and EV figures) |
+| D-251 filed common earnings | yes (entry) | yes (entry) | yes (entry) |
+| D-252 filed operating cash flow | yes (entry) | no (entry) | no (entry) |
+
+D-241 to D-246, D-249 and D-254 are presentation, reader or structure
+changes and call for none.
+
+Moved, each once:
+
+- `STAGE_B_IMPLEMENTATION_VERSION`: `STAGE_B_2026_11_PRIMARY_CAPITAL_66` ->
+  `STAGE_B_2026_11_FILED_ACCURACY_67`. Every decision above changes Stage B
+  results on identical retained inputs, so a stored input snapshot or Stage B
+  result from the old engine is not reused or replayed as current.
+- `PAYLOAD_VERSION`: `1.92.0` -> `1.93.0`. D-240, D-250 and D-251 name it;
+  the filed net income, common earnings, share counts, debt and operating
+  cash flow of D-231, D-234, D-236 and D-238 also reach the analysts. An
+  analyst or judge pass stored under 1.92.0 is not resumed.
+- `REPORT_SPEC_VERSION`: `1.73.0` -> `1.74.0`. D-240 and D-251 name it: a fair
+  value, aspect bands and shown or withheld figures change meaning for new
+  reports. A history comparison of a 1.73.0 report with a 1.74.0 one is marked
+  "spec-version-mismatch", as for every earlier spec move.
+
+Not moved, by each stamp's own rule: `FAIR_VALUE_METHOD_VERSION` ("bump when
+the resolution changes") and `SCENARIO_TARGET_METHOD_VERSION` ("bump when the
+construction changes"), because these decisions change inputs, not how the
+fair value is resolved or the targets built, and none names them;
+`NET_DEBT_RESOLVER_VERSION`, which D-250 says is unchanged;
+`CURRENT_REPORTS_VERSION`, which stamps the 8-K read record that D-236 does
+not change; `PIPELINE_VERSION` (no orchestration change); the score-band,
+scenario-path, projection-weight, evidence-selection, grade-override and
+evidence-contract stamps; every format version; and every frozen display
+cutoff. No display cutoff is added, because no decision asks for a read-time
+rule for older reports.
+
+Moved with them, as earlier stamp moves did: the stamp pins in
+`tests/report.versionStamps.test.ts` (and 1.92.0 joins its list of payload
+versions that never resume), `tests/jobRunner.test.ts` and
+`tests/stageC.payload.passes.test.ts`; the built-in sample
+(`fixtures/report/DEMO-current.json`, its `specVersion` and default
+`pipelineVersion`, which `tests/report.currentSample.test.ts` ties to the
+current spec); the declared versions in `docs/METHODOLOGY.md` and
+`CHANGELOG.md`. Frozen records, refreshed with `npm run freeze:refresh`
+under D-255: `stagec-payload` (`$.payloadVersion`, `$.payload.payloadVersion`,
+`$.fingerprint`, `$.summary.promptFnv1a32`, `$.prompt.sha256` and
+`$.prompt.sections[0].sha256`: the prompt's first line names the payload
+version, so its hashes move with it; prompt length unchanged) and
+`audit-fixture` (`$.projection.report.meta.specVersion` and
+`$.projectionSha256`). `scripts/freeze-stageb-replay.mjs` needs no change: the
+frozen Stage B replay is compiled from `versions.ts` at each build
+(`scripts/build-with-identity.mjs`), and `tests/runtimeReplay.test.ts`
+replaces the stamp in its copy of that file by pattern, which still matches.
+
+Saved reports (P21). Stored bytes are not touched. The 68 saved reports of the
+check database copy (read-only) were rendered before and after this change
+through the saved-report reader (`parseStoredReportWithSafety`) with a fixed
+clock, on seven surfaces each (the read-time view, Markdown, print HTML,
+audit Markdown, both web layouts and the key-data rows): 476 outputs, all
+byte-identical. Read modes 56 strict and 12 legacy, the same before and after;
+nine of the 68 carry 1.73.0. Display cutoffs compare a saved stamp only with
+their own frozen values (D-249), never with the current spec, so no
+"built before spec" note can appear on a new report.
+
+Same-report check (17 cases, 136 files, `origin/claude/r2-batch-5` e0393b01
+against this change): every case differs, in exactly 136 approved items and
+nothing else: the payload fingerprint of each case, and in each case
+`payload.txt` (its header line), `report.json` (`meta.specVersion` only),
+`report.md` and `print.html` (the "Versions" and "Spec version" rows),
+`audit.md` (the "Spec version" row), `web-classic.html` (two spec labels) and
+`web-dossier.html` (two spec labels and the report identity attribute, a
+SHA-256 of the report). `stageB.json` is unchanged in all 17 cases. A
+throwaway check (not committed) replaced the old and new stamp strings, the
+fingerprints and the identity attribute with placeholders in both trees: all
+136 files then match byte for byte. It also confirmed each fingerprint is the
+version plus the FNV-1a of that tree's payload text, and re-rendered the five
+reader surfaces of every case from the new `report.json` with 1.73.0 put back:
+all 85 match the reference byte for byte, which shows the identity attribute
+moves only with the stamp.
+
+## D-246 - The classic layout is removed (2026-11-12)
+
+Principle P22 (one presentation rule per figure). Round 2, S4.12c, the last
+of the three layout steps. Owner decision: "make dossier the default once it
+shows everything classic shows, then remove classic", and "What may change in
+a report: nothing a reader sees, except the layout switch and classic's
+removal." D-241 showed the dossier shows everything classic shows; D-245 made
+it the default. Revises D-245 (the setting it kept is now gone).
+
+Removed. The classic layout and everything that only distinguished it: the
+`layout` prop of `ReportView` and of the appearance provider, the
+`presentation` prop of `ValuationSection` and `GradeStripBar`, the `mode` prop
+of `CompositeScorecard`, `showTrustDetails` on `AppendixSection`, the
+"classic" valuation surface in `src/report/presentation.ts` (with its one
+classic-only headline label), classic-only components (the report's anchor
+nav, data-only banner, classic logo header and scroll-offset helper, the
+classic sensitivity grid, the classic export buttons, the home page's classic
+introduction and watchlist rows, the revisions and comparison pages' classic
+sidebars) and the `body[data-ui-layout="classic"]` styles. `METIS_UI_REDESIGN`
+leaves the settings schema, `.env.example` and the generated README table.
+
+Kept. Every shared component behaves as before; the dossier's wording does
+not change. `data-ui-layout="dossier"` and `data-report-layout="dossier"`
+stay on the page because the shared styles and the reading check key on
+them. Trust and audit details stay where the dossier shows them (the
+evidence summary's reconciliation details, the score methodology and
+recorded inputs). `ReportView` keeps three empty child positions where
+classic elements were, so React's generated ids, and with them the dossier
+HTML, are byte-identical.
+
+The removed setting. A leftover `METIS_UI_REDESIGN` in `.env` or the
+environment is ignored: the app starts and renders the dossier, whatever the
+value (it is not a safety setting, so it is not a startup error). The
+retired `THESIS_UI_REDESIGN` name is still refused, as D-228 decided. The
+D-228 settings parity test keeps its frozen table (main at e55519ce) and
+applies one named delta, which replaces D-245's: `uiRedesign` leaves the
+config, every `METIS_UI_REDESIGN` value parses as if unset, and the previously
+refused "true" now starts the app; a test pins the three rows that change.
+
+The parity guarantee without classic. Before classic was removed (the first
+commit of this pull request, on the D-245 code), the facts the D-241 check
+proves were frozen for the seven parity fixture reports:
+`tests/fixtures/dossier-facts-d246.json`, built by `freezeClassicFacts`, is
+every readable segment classic rendered that the dossier also rendered
+(native details count; hidden and screen-reader-only text does not; numbers
+whole, as the D-241 review required), reduced to the longest ones, plus the
+whole-number grid rows the dossier shows at more decimals. That commit's
+test proved that freezing again from both layouts gives exactly the
+committed file. The test that stays checks that the dossier still renders
+every frozen fact (`frozenFactsMissingFromDossier`); a mutation check
+(dropping the executive summary from the dossier cover) fails all seven
+fixtures, and unit cases cover a dropped fact, a row whose parts survive
+apart, a re-rounded grid row, a hidden duplicate and a number inside a longer
+number.
+
+Tests. Cases whose only subject was the classic layout or the setting are
+removed (listed in the pull request). Tests that checked a shared fact
+through classic now check it through the dossier with the same assertions,
+or with the dossier's own words where classic's wording was one of D-241's
+listed differences (for example "Model value provenance" for "DCF
+provenance", the data-only disclosure for the classic banner, the coverage
+desk's full grade names on the home page).
+
+Findings for the owner (not changed here, because they would change dossier
+text): the dossier's evidence rail lists every recorded manifest entry
+verbatim in a collapsed "Recorded gaps" disclosure, so machine identifiers
+such as `fmp.pressReleases(AMZN)` or a `dcf-suppressed` route id reach
+readers (classic showed the same list only in its Ivory appearance); and
+the dossier scorecard's methodology disclosure prints the band policy id
+("Band policy: SCORE_BANDS_..."). The FIGR readability test pins the first
+as the only exception; the scorecard header itself stays plain.
+
+Same-report check. Against the D-245 head, the only difference in 17 cases
+is `web-classic.html`, present only on the old side (the harness now writes
+seven files per case); `web-dossier.html`, `report.md`, `print.html`,
+`audit.md`, `payload.txt`, `report.json` and `stageB.json` are
+byte-identical. Saved reports and the database are untouched (P21): no
+stored field records a layout.
+
+Risks. Correctness and data: none (presentation only). Backward
+compatibility: anyone who set `METIS_UI_REDESIGN=0` now sees the dossier,
+which is the owner's decision. Reversible by one revert.
+
+## D-245 - The dossier is the default layout (2026-11-12)
+
+Revised by D-246 (the setting this entry keeps is removed with classic).
+
+Principle P22 (one presentation rule per figure). Round 2, S4.12b. Owner
+decision: "Layout, last and as its own pull requests: make dossier the default
+once it shows everything classic shows, then remove classic", and "What may
+change in a report: nothing a reader sees, except the layout switch and
+classic's removal." D-241 established that the dossier shows every fact
+classic shows; this entry is the second of the three steps. It changes the
+default and nothing else; classic is still selectable.
+
+Change. `METIS_UI_REDESIGN` (`src/config/env.ts`) now defaults to 1. With no
+setting, or a blank one, every page (home, company, saved report, revisions,
+comparison, sample report, settings) renders the dossier layout. The strict
+parsing is unchanged: 1 selects the dossier as before, 0 still selects
+classic, and any other value (for example "true") is still refused at startup.
+So someone who set the flag to get the dossier keeps it, and someone who
+explicitly set 0 keeps classic in this step. `.env.example` and the generated
+README table say so.
+
+App pages checked before flipping (the PARITY.md items outside the report,
+and every other `uiRedesign` branch in `src/app`). Nothing a reader can do
+from a classic page is missing from the dossier page:
+
+- Export: classic's three buttons and the dossier's Export menu reach the same
+  three destinations (full report Markdown, audit-trail Markdown, print/PDF;
+  `ExportButtons.tsx`).
+- Saved report: classic's "History" and "Ticker data" links are the dossier's
+  Revisions and Ticker data entries (`ResearchNavigation`); delete, rerun and
+  resume are the same components in both, and the dossier adds report notes.
+- Run panel (`GenerateReport`): classic shows the running cost from the first
+  render; the dossier shows "Server state pending" until the server accepts
+  the run. Before that point the panel's cost is only the local starting value,
+  because it is set from validated server snapshots only; from acceptance on,
+  both show the same figure, step list and final cost.
+- Revisions and comparison pages: classic's sidebar offers "back to SYMBOL"
+  and "home" (and on the comparison page "back to history"); the dossier
+  reaches the same pages through the research navigation, the header logo and
+  its Coverage link, with the watchlist sidebar and the revision digest added.
+- Home page: the classic watchlist rows link to the company; the dossier's
+  coverage table links to the company, each grade's section and the history.
+  The connection, keyless-source and model panels are the same panels, inside
+  a details element the reader opens.
+- Display controls, search and the command launcher exist only in the dossier;
+  appearance is also in Settings in both.
+
+Unchanged. Markdown, print, audit export, the Stage C payload and every stored
+report and job row: byte-identical. The same-report harness renders both
+layouts explicitly, so its output is identical to main (no file differs in
+17 cases). Components keep their own defaults; only the setting's default
+moves.
+
+Settings parity (D-228). The frozen table
+(`tests/fixtures/config-parity-before-d228.json`) stays the record of main at
+e55519ce. The test now applies one named delta, D-245: the default
+`uiRedesign` becomes true, "0" becomes the one value that differs from it,
+"1" (alone and in the combined row) no longer differs, and the refusal of
+"true" is unchanged. Every other default and row must still equal the frozen
+file; a test pins exactly which three rows the delta touches.
+
+Options rejected: changing the default inside the components (`ReportView`,
+the appearance context) as well; every page already passes the layout it
+renders, and classic goes in the next step with D-246.
+
+Risks. Correctness and data: none (presentation only). Backward
+compatibility: anyone without the setting now sees the dossier, which is the
+owner's decision. Reversible by setting `METIS_UI_REDESIGN=0` or by one revert.
+
+## D-251 - A year whose preferred stock was redeemed reads its filed common earnings (2026-11-13)
+
+Principles P5 (entity scope: common earnings are not total net income), P8
+(a filed line, read whole), P10 and P11 (a refusal stays unless the filed
+figure for that field and year exists), P13 (one existence test, used by the
+refusal and by the read), P14 (what stays not applicable), P17 (no scoring
+rule changed) and P20 (provenance and disclosure). Round 2, Stage 5 (accuracy
+fixes), the bank and the insurer (`jpm-data-only`, `pgr-data-only`). The
+accuracy baseline (r2-base-afb9cddf, "Gaps whose value is in the filings")
+lists eleven rows for the two.
+
+Root causes, found before anything was changed:
+
+| Row (accuracy tool id) | Cause | Outcome |
+| --- | --- | --- |
+| PGR `fv.dilutedShares` (and the withheld fair value) | The excess-return valuation was withheld for want of a payout history: fiscal 2025 and 2024 had no common earnings. Cause below | Fixed here |
+| JPM `netIncome.fy`, PGR `netIncome.fy` | The tool reads fiscal-year net income from the free-cash-flow series, which is not applicable on the bank and insurer routes (P14) | Not a defect |
+| JPM `netIncome.ttm`, `operatingCashFlow.ttm`, `operatingLeases.latest`; PGR `netIncome.ttm`, `operatingCashFlow.ttm`, `capex.ttm`, `fcf.fy`, `fcf.ttm` | The "current capital" block (cash bridge and debt bridge, lease lines included) is switched off as a whole on the bank, insurer and mortgage-REIT routes (`attachCurrentCapital`, `industrialMetricsApplicable`; D-240 recorded it) | Not a defect |
+| JPM `revenue.fy` | A real gap with a different cause; not fixed here (below) | Left, described |
+
+Progressive's cause. Its Series B preferred shares were redeemed in the first
+quarter of 2024, and the vendor's annual income rows for 2024 and 2025 carry
+no income available to common. Two rules disagreed about when preferred
+"exists". The earnings selector (`selectCommonIncome`) refuses total net
+income as common earnings when preferred stock stands on any balance, or
+preferred dividends in any cash-flow row, inside the earnings window; with no
+period start on the vendor row it uses the widest annual window, which for
+fiscal 2025 still reaches the 2024 dividend. The rule that reads the filed
+figure (`supplementCommonEarnings`, commit 80f30f98, widened to noncontrolling
+interests by D-212) looked only at the year's closing balance. At 2024-12-31
+and 2025-12-31 Progressive has no preferred, so the filed figure was never
+read, both years stayed refused, one usable payout year remained where two
+are needed, and the valuation was withheld.
+
+Choice. `supplementCommonEarnings` (`src/pipeline/commonEarnings.ts`, a P5
+owner) takes the selector's own existence test from its caller and also reads
+`us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic` (full-year 10-K,
+same period end, filed by the cutoff) for a year that test flags when no
+claim stands at the year end. For such a year it fills that one field only,
+never over a vendor value and never over a refusal (P11); the consolidated
+and noncontrolling lines keep their closing-balance condition. Stage B applies
+it as a calculation view (`filedCommonEarningsView`, `src/pipeline/compute.ts`)
+that passes `preferredClaimsInFlow` over the same balances and cash rows the
+selector is given, so the year the selector refuses is the year the filed
+figure is read for, and stored inputs stay as they are. One informational
+manifest entry names the years and the filing
+(`statements.incomeAnnual.netIncomeAvailableToCommon.redeemedPreferred`).
+No tolerance, day band or status word is added. D-212 is marked "Revised by
+D-251"; the closing-balance condition has no entry of its own.
+
+Review fix (Codex, P11). Because Stage B now applies the rule after the income
+classification, which can withhold an issuer's whole earnings family, the
+refusal guard covers every field the rule fills in every year, not only the
+redeemed-preferred year: a field marked refused is never refilled from the
+filed fact, whether or not a claim stands at the year end
+(`tests/commonEarnings.test.ts`, failing before the fix). No case of the 17
+changes with it.
+
+Options rejected. Narrowing the selector so fiscal 2025 no longer counts as a
+year with preferred claims: that loosens a refusal where the period start is
+unknown, and the filed figure settles the year without it. Treating total net
+income as common earnings when the closing balance shows no preferred: a
+closing zero cannot erase a claim that existed in the year (fiscal 2024's
+figure is 17M lower than net income). Reading the figure for every year
+whether or not a claim existed: wider than the gap, and it would touch issuers
+whose rows are complete.
+
+### Approved report changes
+
+Same-report check, current main (238a2a71, which holds D-229, D-231, D-233,
+D-234, D-236, D-237, D-239, D-240, D-241 and D-242) against this change,
+measured before that on 629cf3c9 with the same hashes: one of the
+17 cases differs, `pgr-data-only`, all eight outputs plus the payload
+fingerprint. The other 16 cases, `jpm-data-only` among them, are byte for
+byte unchanged, and every other figure of `pgr-data-only` is unchanged. The
+leaf-level list and the approvals are in
+`tmp/accuracy/s5-bank-insurer-before-after.md` (not committed: it quotes
+vendor data).
+
+Figures from the filings (USD as tagged):
+
+| PGR figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| Income available to common, fiscal 2025 | withheld | 11,308,000,000 | `us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic` 2025-01-01..2025-12-31, 10-K 0000080661-26-000086, filed 2026-03-02 |
+| Income available to common, fiscal 2024 | withheld | 8,463,000,000 | same concept 2024-01-01..2024-12-31, same 10-K (and 10-K 0000080661-25-000007, filed 2025-03-03); `NetIncomeLoss` 8,480,000,000 less `PreferredStockDividendsIncomeStatementImpact` 17,000,000 |
+| Excess-return per-share divisor | withheld | 582,200,000 shares | `us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding` 2026-07-01..2026-09-30, 10-Q 0000080661-26-000379, filed 2026-11-02 |
+| Year-one payout ratio | withheld | 15.366577% | below |
+
+The payout ratio is the average of three fiscal years of common dividends
+plus net common buybacks over income available to common, each operand in
+10-K 0000080661-26-000086: 2025, (2,871M `PaymentsOfDividendsCommonStock` +
+92M + 74M) / 11,308M = 26.857%; 2024, (674M + 121M + 13M) / 8,463M = 9.547%;
+2023, (234M + 140.7M) / 3,864.8M = 9.695% (the fiscal 2023 10-K
+0000080661-24-000007 in tenths of a million; the later 10-K rounds to 141M
+and 3,865M). The buyback lines are Progressive's own elements
+(`pgr:PaymentsforRepurchaseofCommonStockforRestrictedStockTaxLiabilities`,
+`pgr:PaymentsforRepurchaseofCommonStockintheOpenMarket`), absent from SEC's
+companyfacts feed and read from the 10-K's XBRL instance. For fiscal 2024 the
+stored operands are the vendor's 634M "repurchased" and 500M "issued": the
+vendor booked the 500M preferred redemption
+(`PaymentsForRepurchaseOfPreferredStockAndPreferenceStock`) as a common
+repurchase and offset it with an issuance. Their net, 134M, is the filed
+figure and the ratio uses only the net. The two vendor lines are not filed
+lines; they were shown before this change and are left for a follow-up.
+
+What moves with it:
+
+| PGR figure | Before | After |
+| --- | --- | --- |
+| Fair value per share (excess-return) | withheld | USD 160.42 (equity value 93,394.7M on 582.2M shares; opening book 34,485M at 2026-09-30 and trailing income to common 11,622M are unchanged and match the filings) |
+| Difference to the price | withheld | -32.20% |
+| Implied price to book; market-implied current ROE | withheld | 2.685x; 45.16% |
+| Scenario targets | withheld (no payout path) | withheld; the reason now names the unresolved preferred capital at 2024-12-31 |
+| Quality signal, equity return less cost of equity | unscored | 25.68 pp, score 92 |
+| Valuation signal, ROE implied by the price against achievable | unscored | 11.92 pp, score 32.44 |
+| Quality aspect | 96 A on 7.3% of its weight | 92.69 A on 42.3% |
+| Valuation aspect and assessment | 70.19 B on 50% | 51.31 D on 100% |
+| Business-quality assessment | 55 C | 65.19 C |
+| Composite | 56.79 C | 59.72 C |
+| Evidence available, share of signal weight | 52.46% | 83.62% |
+
+No scoring rule, band or weight changed (P17): two signals that had no
+evidence now have it. The fiscal 2024 and 2025 returns on equity in the
+history stay withheld (the preferred capital at 2024-12-31 is unresolved, so
+there is no average book for either year).
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports three changes
+against its expectation: `fv.dilutedShares` gap to match; `fv.payoutRatio`
+gap to not-established (the tool does not compose the house average, as for
+JPM; the operands are above); and `fv.suppressed` no longer produced.
+
+Not changed here, with the cause.
+
+- JPM revenue, fiscal 2025 (`Revenues` 182,447,000,000, 10-K
+  0001628280-26-008131). The vendor's revenue for a bank is gross of interest
+  expense (279,745M: interest income 193,341M plus noninterest revenue
+  86,404M); the filing's total net revenue is net interest income 95,443M
+  plus noninterest revenue 87,004M. `enrichIncomeClassification` compares the
+  two and refuses the row ("Income classification conflict"); it has a rule
+  that adopts the filed net revenue for securities firms
+  (`RevenuesNetOfInterestExpense`, SIC 6211) and none for banks. The vendor
+  figure is not the filed lines regrouped (its noninterest revenue is 600M
+  lower), so no reconciliation proves it. The same refusal stands on the four
+  latest quarters, which is why JPM has no trailing income window and its
+  "current capital" block is labelled with fiscal 2025: the 10-Q for
+  2026-09-30 (0001628280-26-069523, filed 2026-11-03) is before the cutoff
+  and in the cached facts, and D-236 plays no part. Older fiscal years keep
+  the vendor's gross figure unchecked, because their filed line's newest
+  filing is a later 10-K. The fix is a bank rule beside the securities one:
+  adopt the filed total (`Revenues`, tied to `InterestIncomeExpenseNet` plus
+  `NoninterestIncome` in the same filing) for every annual and quarterly row,
+  withhold the gross-revenue cost and profit subtotals, and replay it in the
+  Stage B view. It moves JPM's whole revenue history, growth rates, margins,
+  projections, scenario spread, the trailing window and the scores built on
+  them, each to be proven per fiscal year; that is its own step.
+- The "not applicable" rows above. The accuracy tool should classify them as
+  not applicable; nothing in Metis changes.
+- The lease note on these routes reads "Balance date unavailable: No valid
+  combined lease-line observation is available" where the reason is that the
+  block is not applicable. A wording change without a figure change is not
+  allowed in this stage; listed for a later one.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change calls for the Stage
+B implementation stamp (identical inputs compute different values), the
+payload version (the fair value, the payout ratio and two signals reach the
+analysts) and the report specification (a fair value and an aspect band
+change). Saved reports are immutable (P21) and keep the figures they were
+built with.
+
+Tests. `tests/commonEarnings.test.ts`: the root cause (the closing balance
+alone reads nothing); Progressive's fiscal 2025 and 2024 on the filed facts;
+a year with no preferred claim left alone (compatible control); only the
+common-earnings field filled; a refusal and a fact filed after the cutoff;
+a bank with preferred outstanding at the year end read exactly as before
+(unrelated shape). `tests/commonEarnings.redeemedPreferred.test.ts`: the same
+through Stage B on a synthetic insurer (failing before the change), the
+withheld case without a filed figure, an insurer that never had preferred,
+and one with preferred throughout.
+
+## D-242 - The gap readers and provider checks read the missing-data entry's typed cause (2026-11-12)
+
+Principles P11 (a refusal is judged from its cause, never its wording), P10
+(an unknown cause stays unknown), P21 and P27. Round 2, step S4.5b. D-229
+wrote an optional typed `cause` beside the sentence of the missing-data
+entries that 12 run-time consumers (inventory groups G and P) tell apart by
+wording; nothing read it. This step moves those consumers to the code. The
+owner's ruling for the stage applies: nothing a reader sees changes; saved
+reports are never rewritten, migrated or rerun.
+
+Choice: dual reading, as D-219 to D-226 did for conflicts. Each consumer
+calls `gapCauseMatches(entry, reader)` (`src/edgar/refusalCauseRead.ts`): an
+entry that carries a code is decided by the code alone (an unknown or
+unrelated code fails); an entry without one (any entry stored before D-229, an
+entry restored from a run-input snapshot, or a writer that has no code) is
+read by the consumer's original wording test, moved verbatim into that file.
+No wording test remains at a consumer. Each consumer keeps its other
+conditions (field, severity, path) at its own site.
+
+Sites now reading the code (reader name in `refusalCauseRead.ts`):
+
+- G1, `compute.ts` FIN-OTHER retained-suppression rewrite
+  (`isUnprofitableOverlayGap`), and G2, the observed-trigger suffix
+  (`isUnprofitableOverlaySuppression`): `dcfUnprofitableOverlay`. G2 reads a
+  result, not an entry: the writer records the code on the result's own
+  `valuation.dcf` gap beside the sentence it gives `suppressionReason`, so G2
+  reads that gap's code, and `suppressionReason`'s wording only when the
+  result's `valuation.dcf` gap carries none. No field is added to the
+  valuation result.
+- G3, `dcfWithheldWarnGap`: `investedCapitalClaimWithheld`; G4, the upstream
+  net-debt quote (`quotesUpstreamNetDebt`, `stageB/fairValue.ts`):
+  `investedCapitalBalanceFieldsMissing`; G5, `temporaryEquityUnknownAt`
+  (`stageB/seniorClaims.ts`): `temporaryEquityEnrichmentRefused`.
+- P1, `isFmpQuotaGap` (replaces `isFmpQuotaReason`; the retry loop,
+  `rateLimitedValuationEntry` and the analyst-estimate refusal): `fmpQuota`.
+- P2, the no-new-bar check in `fmp.ts`: `fmpEmptyArrayAlone`.
+- P3, `markSegmentationGapExpected`: `fmpEmptyArrayStated`; P4,
+  `withResolvedPredecessor`: `secUnlinkedPredecessor`.
+- P5: the job runner's and the company page's confirmed-miss checks were two
+  copies of one test; they are now one function, `isConfirmedUnknownProfile`
+  (`src/pipeline/unknownTicker.ts`), reading `fmpEmptyArrayAlone`,
+  `fmpNoApiKey` and `secTickerNotListed`.
+- P7a, `symbolRefused` (`peers.ts`): `fmpSymbolRestricted`.
+
+Not moved, and why: P6 (`jobRunner.ts`, the AI-skip disclosure compared
+with `NO_KEY_SKIP_REASON`) is an in-memory disclosure, not a missing-data
+entry, and has no code. P7b (`peers.ts`, `PEER_PROVIDER_TERMINAL` over a
+peer fetch's failure) matches text the vendor and transport write; no single
+writer composes it, so there is nothing to code.
+
+D-229's known disagreement. When the keyless fallback fails after FMP
+returned an empty profile, `failKeyless` (`pipeline/keyless.ts`) appends the
+fallback's failure to FMP's sentence. The entry kept `fmp-empty-array`, but
+P5's exact comparison never matched the longer sentence (so such a ticker is
+not called unknown although EDGAR confirmed the issuer). Two choices were
+weighed: drop the code on the combined sentence (true, but loses what is
+known), or a distinct code. Chosen: a distinct code,
+`fmp-empty-array-fallback-failed`, written by `failKeyless` when it appends
+to an `fmp-empty-array` entry. It keeps stored data honest: the entry still
+says FMP returned an empty array (P3's containment reader reads both codes,
+as `includes` matched both sentences), and it names the one fact the exact
+readers (P2, P5) tell apart: the issuer was looked for elsewhere and that
+search failed, which is not an affirmative "no such ticker". Every other code
+keeps naming its cause on an extended sentence (the extended sentence still
+states it, and each of their readers' wording tests still matched it).
+
+Equality proof (tests/gapCause.readers.test.ts, table in
+tests/helpers/gapCauseAgreement.ts). Each site lists the wording test it had
+on main, copied verbatim (`wording`), and the consumer's decision now
+(`current`, the consumer's own function where it is exported); the test
+compares them on every entry with its code and on the same entry without it:
+every entry the producers write (each site with a passing coded and uncoded
+case, plus controls), 24 hand-written legacy rows (each wording's edges), the
+DEMO audit fixture rebuilt from current code, G2 over three Stage B runs with
+and without codes, and P5 over every pair of 18 profile and 8 CIK entries.
+No mismatch. Over the 17 same-report cases built from this tree (5,518
+entries in Stage B outputs and reports; 3 carry a code, the rest are restored
+from snapshots taken before D-229), the same comparison finds no mismatch and
+no coded entry its wording contradicts.
+
+Stored data and boundaries. The only new stored value is the new member of
+`GAP_CAUSES`; it is removed wherever every gap code is removed (Stage C
+payload, run-input snapshots, request schemas, dossier identity, report
+summary API). Run-input snapshots keep removing all gap codes although they
+are now read: keeping them would change a snapshot's bytes, and with them the
+`runSnapshot.hash` a new report records, for the same inputs. A run replayed
+from a snapshot reads its entries by their sentences, which the test above
+shows decide as the codes do. The judge, analyst and full-report request
+schemas keep their SHA-256 (f66130f4..., 27e0dcd9..., 1e1e8574..., the same
+as on main at be7c11d6).
+
+Same-report check (17 cases, 136 files, this tree against main at be7c11d6,
+and again after merging main at 83582c62): no differences. Frozen records:
+the Stage C payload record and the DEMO audit-fixture record are unchanged
+(no refresh). No version stamp moves.
+
+Ratchet (tests/refusalWording.ratchet.test.ts): `compute.ts`,
+`stageB/fairValue.ts`, `stageB/seniorClaims.ts`, `providers/fmp.ts`,
+`pipeline/dataBundle.ts` and the company page leave the list; `jobRunner.ts`
+goes from 4 to 1 (P6) and `peers.ts` from 2 to 1 (P7b);
+`refusalCauseRead.ts` goes from 12 to 25 (the 13 moved wording lines).
+
+Step c (planned as D-243, a stored link from a copied refusal to its source
+for C6, C8, C10, C15, C16, C17 and G6) was not done. The requirement was
+that every clear/keep decision stay as the sentence comparison decides it,
+including when the source is reworded after the copy. A typed link (field,
+period, and the source's code) cannot guarantee that. The vendor/SEC
+comparison (`admitCashFields`, `financialEnrichment.ts`), which writes the
+stock-compensation, cash and repurchase refusals C16 and C17 read, leaves an
+already refused field's conflict as it was but still pushes a missing-data
+entry with its new sentence for the same field and period. Today that newer
+entry survives when the older refusal is superseded, because its sentence
+differs; a link naming the
+field, period and code would remove it, clearing a disclosed refusal without
+new evidence for it (P11). Any stored token goes stale the same way when a
+writer rebuilds a refusal from a spread of the old one with a new sentence,
+and there is no single place every such rewrite passes through. Making it
+safe needs either a refusal identity minted by the writer and an audited
+rule for every rewrite of these fields' conflicts and entries, or an owner
+decision that a copy clears with its source whatever its wording (which
+changes decisions). G6 (`forensics.ts`) is not a copy at all: it removes a
+duplicate that two in-memory Altman computations write with the same field
+and sentence. Step d (planned as D-244, saved-report readers R1-R16) was not
+started, as the plan stops at the first step that cannot be done safely.
+
+## D-254 - Pilot: the debt family is admitted once per run, by one shared preparation (2026-11-13)
+
+Principle P13 (a definition used in several places is computed once and read
+everywhere), with P7 (its owner, `admitDebtFields`, decides the debt family
+and is unchanged) and P27 (replayed offline before shipping). Round 2, Stage
+5, "evidence checked once per run". This is the pilot the architecture
+review's critique asked for before any wider move: one figure family, a
+separate admitted-row interface, one shared preparation, current outputs and
+every named exception kept. It changes no report output.
+
+What the family is. The eight cells of a balance row that `admitDebtFields`
+may write, each with its refusal or resolution and its filing evidence: total
+debt, net debt, the provider's own net debt, short-term and long-term debt,
+the lease line, and the operating and finance lease liabilities.
+
+### Inventory: where a run decided the debt family before this change
+
+| Site | Row it is given | Facts | Currency | What it does with the result |
+| --- | --- | --- | --- | --- |
+| The data bundle's enrichment (`enrichFinancialFields`, `src/edgar/financialEnrichment.ts`), once when the bundle is built | each balance row after the lease and temporary-equity enrichment | the confirmed issuer's facts | the row's own currency label; an unlabelled row is skipped | writes the row into the bundle; entries and completions go to the bundle's gaps |
+| Stage B (`admitBalance`, `src/pipeline/compute.ts`) | its working row: after the view chain, the lease-refusal reversal, marketable equity, the fiscal-year-end balance, the model-currency subset and the tangible-book classification | `admittedIssuerFacts` | `establishedCurrencyOn` over Stage B's reported and normalised rows | keeps the row, the manifest entries and the completions |
+| The payload's statement extract (`statementExtracts`, `src/pipeline/stageC/payload.ts`) | every balance row of the bundle after the payload's view chain | `confirmedIssuerFacts` | `establishedCurrencyOn` over the bundle's six statement families | keeps the row only; entries and completions are dropped |
+| The same extract again, when the data-only report (`dataOnlyReport.ts`) or the report assembly (`passes.ts`) assembles the payload a second time | as above | as above | as above | as above |
+
+All four pass the bundle's build time as the cutoff and the bundle's 10-Q and
+10-K notes as the filing sections. So after the bundle was built, a data-only
+run with 34 balance rows called the admission 102 times.
+
+Where the sites differ:
+
+- **Facts.** Two function names, one answer: both return the same facts
+  object or nothing (the same object on 416 of 416 rows compared).
+- **Currency.** The enrichment trusts the row's label. Stage B and the
+  payload ask the P4 rule with two different evidence lists. The two lists
+  established the same currency on 416 of 416 rows.
+- **The row.** Stage B's row and the payload's row for the same balance date
+  were the same object on 376 of 416 rows. On 17 they differed, always
+  outside the family (marketable equity on META and NVDA, preferred capital on
+  PGR, O and RIVN, tangible book on FIGR), and the family was decided the
+  same.
+- **The lease-refusal reversal** (`restoreLeaseFinancingProvenance`, D-186).
+  Only Stage B runs it, before admission. It changed no row of the 17 cases.
+  On the filing shape it was written for (a refused noncurrent-only operating
+  lease with every borrowing stated in one filing; the public EXPE 10-Q
+  0001324424-26-000053) the two readers end differently on the same row. Both
+  hold total debt 5,685M. The payload's row is completed by the admission from
+  the one filing (evidence marked "same-filing-debt-completed"), with net debt
+  -997M, the provider's net debt -997M and a finance lease of 0. Stage B's row
+  had the total restored first, so the admission completes nothing: the total
+  carries the reversal's plain filing tags, and net debt, the provider's net
+  debt and the finance lease stay empty on the row.
+- **The interest check** (`withholdImplausibleDebt`, audit O-2). Only Stage B
+  runs it, after admission. It withheld RIVN 2019-12-31, VKTX 2016-12-31 and
+  2017-12-31 (total, net and long-term debt) and DUK 2025-12-31 (long-term
+  debt). The payload's extract does not repeat it. None of those totals is
+  shown by the extract in the 17 cases (the first three are outside its five
+  annual periods; DUK's total was already refused by the admission), but a
+  total inside the window would be shown there and withheld in Stage B.
+- **What the payload admits and shows.** It admits every balance row (34) and
+  shows five annual and four quarterly periods, and of the family only total
+  debt.
+
+Other readers decide from the admitted row without calling the admission and
+are not touched: `leaseDebtScopeRefusal` (17 call sites), `resolveNetDebt` (8),
+the historical enterprise value's reader (`marketData.ts`, which learns what
+Stage B withheld from the manifest's field names), and the SEC statement
+builder's own debt composition (`statements.ts`).
+
+### Choice
+
+`src/pipeline/admission/debtFamily.ts`:
+
+- `debtFamilyAdmission(bundle)` is the run's preparation. It derives the
+  issuer's facts, the cutoff and the filing sections from the bundle in one
+  place, and is the only caller of `admitDebtFields` outside the enrichment.
+- A reader presents its own balance row with the statement family, the name
+  of its row convention and the currency the P4 rule established. It gets
+  back its row with the family written in, and an `AdmittedDebtRow`: the
+  decision without the statement row. Its identity carries the issuer (symbol
+  and CIK), the statement family and its source, the balance date and fiscal
+  labels, the currency, the cutoff, the convention and the debt basis.
+- A decision is kept for the run's facts object and found again only by the
+  exact inputs that produced it: the same facts object, cutoff, filing
+  sections and currency, and a row with the same cells in the same order (the
+  lossless `canonicalKey` of `@/edgar/computationContext`). Nothing is keyed on
+  a period and a lease convention alone. The reader whose row causes a
+  decision receives what the owner returned, as before; what is kept is a
+  private copy, and a later reader receives its own deep copy of it. A row the
+  admission leaves untouched is returned as the caller's own object, as
+  before. A row written in place afterwards is a different row and is decided
+  again.
+- The two conventions are named: `stage-b-balance-row` and
+  `bundle-statement-row`. The lease-refusal reversal's rule stays in
+  `leaseScope.ts`; only its result reaches the preparation, as the row Stage B
+  presents. Where the two readers' rows have the same content one decision
+  serves both; where they differ each reader keeps its own, as today.
+
+Switched: Stage B and the payload's statement extract (including its second
+assembly). Both showed no difference in the shadow. The store outlives one run
+step on purpose: the per-step computation context cannot share a decision
+between Stage B and the payload, which are separate steps.
+
+Left, and why:
+
+- The enrichment keeps its own call. It is the admission's owner, runs when
+  the bundle is built, not in the run's later steps, and uses the row's own
+  currency label.
+- The currency rule (`establishedCurrencyOn`) stays in `compute.ts`, and each
+  reader still passes the currency it established from its own evidence list.
+  The preparation cannot import `compute.ts` without a circular import.
+- The lease-refusal reversal, the interest check, the lease-scope refusal and
+  the net-debt resolver keep their rules and their call sites.
+
+Options rejected: a brand on the bundle (the raw rows stay reachable, the
+critique's first objection); preparing every row from the bundle alone and
+handing Stage B the result (it would silently drop the reversal's effect on
+Stage B's row); keeping the decision only within one run step (nothing would
+be shared between Stage B and the payload).
+
+### Proof
+
+Shadow (`tests/admission.debtFamily.shadow.test.ts`), on the 13 frozen inputs
+behind the 17 same-report cases and on the DEMO fixture, through the
+same-report worker's chain:
+
+- Before the switch, the preparation ran beside both call sites: 832 calls
+  (416 in Stage B, 416 in the payload), each compared on the whole row, the
+  manifest entries, the completions and 24 cells of the family (19,968
+  cells). No difference. No call wrote outside the family.
+- After the switch, with the data-only report's second assembly: 1,248 rows
+  presented, each compared with what that reader's own call decides from its
+  own arguments (29,952 cells), and 832 pairs of readers compared on the same
+  balance date. No difference.
+- The admission decided 433 times for those 1,248 rows (1,248 before). The 17
+  beyond one per balance row are the rows that differ outside the family.
+- DEMO: 4 balance rows, no confirmed SEC facts, so no reader admitted a row
+  before and none presents one now.
+
+Same-report check against the branch point `9e25b820` (batch 4; main
+`355effa7` is its merge and has the same tree), after merging that main: no
+changes (17 cases, 136 files compared). The accuracy tool reports the same on
+both: 266 figures
+in 13 cases, 167 match, 7 mismatch, 67 gap, 25 not established. Frozen records
+unchanged. No stamp moves.
+
+Speed. The review's H9 named repeated admission as slow. The debt admission
+is not where the time goes: across the 13 inputs it took 193 ms of Stage B's
+23,062 ms and 176 ms of the payload's 12,999 ms. Stage B and payload wall time
+for DUK and QCOM before and after differ by less than the run-to-run spread on
+the shared machine (for example DUK Stage B 2,145 and 3,850 ms before, 2,901
+and 3,658 ms after, the same code in two rounds). No speed gain is claimed.
+
+Tests: `tests/admission.debtFamily.test.ts` (one decision for two readers,
+exact-input keying including the order of a row's cells, private copies, the
+identity, the pass-through without
+facts, and both conventions pinned on the EXPE filing shape with a control and
+an unrelated shape), the shadow above, and
+`tests/admission.debtFamily.oneOwner.test.ts` (only the enrichment and the
+preparation call the admission; no reader is left on its own call).
+
+### What "extend" would mean, for the owner to approve after this is proven
+
+1. Move the currency rule out of `compute.ts` into its own module, so the
+   preparation establishes the currency itself, and decide whether Stage B's
+   and the payload's evidence lists become one.
+2. Decide the lease-refusal reversal: run it inside the preparation for every
+   reader, or retire it if the admission's own completion now covers every
+   stored input. Either way the convention label then goes.
+3. Bring the interest check into the prepared row, so the payload's extract
+   cannot show a total Stage B withheld. Where that changes a report it is an
+   accuracy decision with before and after values.
+4. Then the next family, in this order: the cash side of net debt (cash
+   admission and marketable equity), the lease-scope refusal and the net-debt
+   resolver as named conventions over the prepared row, and last the view
+   chain that Stage B and the payload still copy.
+
+## D-249 - One reading of a saved report's spec stamp against a display cutoff (2026-11-13)
+
+Principle P21 (saved reports are immutable; corrections are read-time views
+chosen by the report's own stamp), with P10 (a stamp that cannot be read is
+not treated as current) and P13 (one definition). Round 2, Stage 5, "one
+owner" step, part 3. The rule consolidation critique ("Qualification logic and
+version handling disagree") reproduced two ways of deciding "was this saved
+report written before rule X".
+
+Root cause. A saved report's `meta.specVersion` was parsed in three places:
+
+| Reader | Where | Unreadable stamp |
+| --- | --- | --- |
+| `specVersionBefore`, used for nine frozen cutoffs by six legacy views | `src/report/legacyPayloadRecordSafety.ts` | trimmed first; unreadable counts as before the cutoff |
+| `legacyCheckNote` (`INSIDER_ROLES_READ_FROM`), used by the audit export | `src/report/claimMatching.ts` | not trimmed; unreadable counts as not before (no note) |
+| the scope note's wording | `src/report/legacyScopeQualifications.ts` | its own copy of the "three dotted numbers" pattern |
+
+For three dotted numbers all agree. For a missing, empty, padded (" 1.55.0 "),
+two-part ("1.55") or pre-release ("1.55.0-rc1") stamp the first two disagreed,
+and four cutoffs sit on the same 1.56.0 line, so one report could be "before
+1.56.0" for the valuation notes and "not before 1.56.0" for the insider note.
+
+Choice. One parse (`parseSpecStamp`) and one comparison (`specVersionBefore`)
+in `src/report/versions.ts`; `legacyCheckNote` and the scope note's wording
+call them, and the six legacy views keep importing the same function through
+its old module. One stated behaviour:
+
+- a stamp that cannot be read (missing, not text, or not exactly three dotted
+  whole numbers after trimming) is before every cutoff, so the report gets
+  the legacy read-time view. It cannot be shown to follow the newer rule, and
+  this is what the nine cutoffs on the shared helper already did;
+- a stamp at or above a cutoff is not before it, a newer build's included
+  (whether this build recognises that report's evidence rules is a separate
+  question, answered by the evidence-contract stamp's own reader);
+- a cutoff that cannot be read never fires (cutoffs are pinned constants).
+
+Where it lives, and why. P21's owner is `src/report/legacyEntitySafety.ts`,
+but that module imports every legacy reader and `claimMatching.ts`, so a
+helper there would be a circular import. `src/report/versions.ts` imports
+nothing and already defines every cutoff the comparison reads, so the
+comparison sits beside them; its header table says so, and its guard test
+(`tests/versions.oneFile.test.ts`) names the two functions as its only
+exports that are not a stamp or a cutoff.
+
+Options rejected: making unreadable stamps "not before" everywhere (it would
+drop the legacy corrections from a report whose stamp is damaged, the
+fail-open reading); leaving `legacyCheckNote` alone because no saved report
+reaches the difference (two readers of one cutoff must not be able to
+disagree).
+
+No stamp value changes, no stamp is added and nothing is rewritten.
+
+### Inventory of every version comparison
+
+Ordered against a cutoff (now one helper): the nine cutoffs
+`PAYLOAD_RECORD_CORRECTION_SPEC`, `EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION`,
+`BRIDGE_METHOD_SINCE_SPEC_VERSION`, `BRIDGE_READINGS_SINCE_SPEC_VERSION`,
+`ANNUALIZATION_CONVENTION_SPEC`, `DCF_INPUTS_CONVENTION_SPEC`,
+`IMPLIED_RETURN_SHARE_BASIS_SPEC`, `LEGACY_SCOPE_SINCE_SPEC`,
+`LEGACY_PLACEHOLDER_DISPLAY_CUTOFF`, and `INSIDER_ROLES_READ_FROM`.
+`N4B_CAGR_DISPLAY_CUTOFF` has no reader.
+
+Read by equality, each with its own stated behaviour, unchanged:
+
+- `CORPORATE_ACTION_BRIDGE_WRITING_STAMPS` (`src/report/legacyRetiredFields.ts`):
+  exact membership in the three builds that wrote one retired field; any other
+  text is refused.
+- `meta.evidenceContract` (`src/report/evidenceContract.ts`): absent, current
+  or unrecognised; never inferred from spec or pipeline text.
+- The history diff (`src/report/diff.ts`) and the forecast and evaluation
+  records (`src/report/forecastAdapter.ts`, `src/report/evaluation.ts`): two
+  stored texts compared as stored.
+- `syntheticNotice` (`src/report/presentation.ts`): the built-in sample is
+  told by `meta.model` and a pipeline text beginning "synthetic-sample-". It
+  identifies a fixture, not a rule cutoff.
+- `meta.codeIdentity` (D-227): written, read by nothing.
+
+### Proof on saved reports, and approved report changes
+
+None. The check database copy (`%USERPROFILE%\metis-check\check.db`, opened
+read-only; the application database was never opened) holds 68 saved reports
+with eighteen distinct spec stamps (1.0.0, 1.1.0, 1.2.0, 1.5.0, 1.6.0, 1.10.0,
+1.23.1, 1.23.2, 1.33.0, 1.35.0, 1.38.0, 1.43.0, 1.44.0, 1.45.0, 1.48.0,
+1.49.0, 1.53.0, 1.73.0), identical in the `specVersion` column and in
+`meta.specVersion`. All are three dotted numbers with no padding, so no saved
+report carries a stamp on which two readers disagreed: there are no "both
+outputs" to show and no surface whose output had to be kept against the
+helper. Each report was read by the saved-report reader and rendered as its
+read-time view, the Markdown export, print HTML, the audit Markdown, the
+classic and dossier web layouts and the key-data rows, with main `629cf3c9`
+and with this change merged with it (and with `be7c11d6` before the merge),
+under one fixed clock: 68 reports, 7 outputs each, 476 outputs, all
+byte-identical (56 strict reads, 12 legacy reads, the same on
+both sides). The set exercises the readers: 58 reports show "Built before
+report spec", 14 "Built before spec", and 2 audit exports carry the insider
+note. Same-report check, main `629cf3c9` against this change after merging
+it: no changes (17 cases, 136 files compared).
+
+Tests (`tests/report.savedStampOrder.oneOwner.test.ts`): the eighteen saved
+stamps and the current one against every cutoff; missing, malformed, padded
+and future stamps; the insider note and the scope wording follow the helper
+for each; and a source guard that no file outside `versions.ts` writes a
+dotted-version pattern or splits a spec stamp by hand (the Claude CLI's own
+version text in `src/ai/claude.ts` is the one named exception).
+
+### Listed for the owner, not changed
+
+- The exact-stamp gate does not trim and the ordering helper does. A padded
+  " 1.23.1 " would be 1.23.1 to the helper and "not a writing stamp" to the
+  gate. No saved report is padded, and the gate's documented rule refuses
+  "any other stamp".
+- `N4B_CAGR_DISPLAY_CUTOFF` and `meta.codeIdentity` still have no reader.
+
+## D-248 - One test of unresolved noncontrolling ownership, with one allowance (2026-11-13)
+
+Principles P5 (entity scope is never plugged) and P10 (unproven is withheld),
+with P13 (one definition) and P11 (a refusal is not cured by a missing
+number). Round 2, Stage 5, "one owner" step, part 2. The architecture review's
+critique (row 6) reproduced that the two copies of the ownership test disagree.
+
+Root cause. "Is the split between the parent's holders and outside
+(noncontrolling) holders unresolved on this balance?" was answered twice:
+`noncontrollingOwnershipUnresolvedAt` in `src/pipeline/compute.ts` (the DCF's
+bridge-row choice and the DCF gate's input) and `unknownNoncontrollingAllocation`
+in `src/pipeline/stageB/valuation.ts` (enterprise value and its multiples, the
+own-history bands, the cash multiples and the DCF gate). Both mean
+"consolidated equity differs from parent equity and no NCI is filed", with two
+different allowances for "differs": compute.ts used one part in a billion of
+the larger figure, valuation.ts one currency unit or one part in ten billion
+of consolidated equity. On a consolidated-only basis compute.ts answered
+"unresolved" whatever numbers survived; valuation.ts only if one did.
+
+Which answer is right. Consolidated and parent equity are two different filed
+lines, equal only when there are no outside holders. The only allowance that
+belongs between them is for arithmetic noise; a filed difference, however
+small, proves outside ownership whose amount is not filed, and D-78 and D-79
+forbid treating it as zero. So:
+
+- The P8 "same observation" rule (`src/edgar/vendorAgreement.ts`) is not the
+  right comparison. It compares two copies of one figure and allows a reporting
+  unit up to a million or 0.01%; here it would read 10,001 million against
+  10,000 million as "the same" and a filed one-million NCI as none. P8 itself
+  keeps checks of different quantities on their own named allowances.
+- The ownership owner had no named allowance, so the choice was between the
+  two existing ones. No number is new.
+- Total 10,000,000,000 against parent 9,999,999,995, no NCI (a gap above one
+  unit and within one part in a billion): compute.ts said resolved,
+  valuation.ts unknown. Two whole numbers five apart are not arithmetic noise,
+  so the lines differ. Unknown is right.
+- Total 500,000,000 against parent 499,999,999.4, no NCI (a gap of at most
+  one currency unit on equity under a billion): compute.ts said unresolved,
+  valuation.ts resolved. A balance sheet states whole currency units or
+  larger, so a sub-unit gap is not a filed difference. Resolved is right.
+- A consolidated-only basis with no surviving number: compute.ts said
+  unresolved, valuation.ts resolved. The evidence still shows a consolidated
+  total with no parent split. Unresolved is right.
+
+valuation.ts's allowance gives the right answer in both zones, so it is the
+one kept.
+
+Choice, in the owner (`src/pipeline/stageB/ownership.ts`):
+`EQUITY_SAME_AMOUNT_ALLOWANCE` (one currency unit, or one part in ten billion
+of consolidated equity; `sameEquityAmount`) and the one predicate
+`noncontrollingOwnershipUnresolved`. compute.ts passes it the row's own
+figures and what the row's provenance establishes
+(`statementEquityOwnershipBasis`, unchanged); valuation.ts calls it directly
+at its six sites. The DCF gate still reads both the caller's input and the
+bridge balance; they are now one test.
+
+Truth table, NCI not filed unless stated ("compute" and "valuation" are the
+two old copies on the same inputs):
+
+| Balance | compute before | valuation before | After (both) |
+| --- | --- | --- | --- |
+| NCI filed (any number, zero included) | resolved | resolved | resolved |
+| Consolidated-only basis, total or parent present | unresolved | unresolved | unresolved |
+| Consolidated-only basis, no number present | unresolved | resolved | unresolved |
+| No consolidated total (parent alone, or no equity) | resolved | resolved | resolved |
+| Total present, parent absent | unresolved | unresolved | unresolved |
+| Total equals parent, or a gap within both allowances | resolved | resolved | resolved |
+| Gap above one unit, within one part in a billion | resolved | unresolved | unresolved |
+| Gap of at most one unit, above one part in a billion | unresolved | resolved | resolved |
+| Gap beyond both allowances | unresolved | unresolved | unresolved |
+
+Two rows tighten an earlier answer (valuation.ts's on a consolidated-only
+basis with no number; compute.ts's for a whole-unit gap) and one loosens one
+(compute.ts's for a sub-unit gap, which is not a filed difference). None is
+reached by any of the 17 cases. The FIN-103 bullet of D-135, which introduced
+compute.ts's copy for the bridge-row choice, is marked "Revised by D-248".
+`docs/METHODOLOGY.md` ("EV bridge") states the one test.
+
+### Replay and approved report changes
+
+None. Every call of the predicate during a full rebuild of the 17 cases was
+logged with what each old copy would have answered for the same input
+(temporary instrumentation, removed before the commit): 1,553 calls in 17
+case processes; 1,235 with NCI filed, 308 with parent equity only, 8 with
+consolidated equal to parent exactly, 2 with no equity. No call has a nonzero
+gap between consolidated and parent equity with NCI unfiled, and in no call
+does an old copy answer differently from the new predicate (logged twice,
+before and after merging main, with the same counts). Same-report check, main
+`629cf3c9` against this change after merging it (and `be7c11d6` before): no
+changes (17 cases, 136 files compared). Every figure of all 17 cases is unchanged, so there was no company
+input for which today's behaviour had to be kept.
+
+Tests (`tests/stageB.ownership.oneOwner.test.ts`): the owner's truth table;
+then the reviewed disagreement, its mirror, equal figures and a real
+difference (compatible controls), a filed NCI and a consolidated total with no
+parent line (unrelated shapes), each through compute.ts's bridge-row choice
+(`dcfBridgeRow`) and valuation.ts's EV and DCF gates (`runStageB`), which must
+give one answer. Before the change the first two rows gave two.
+
+### Not changed
+
+`statementEquityOwnershipBasis` stays in compute.ts: it reads a statement
+row's provenance tags to say what the row's equity evidence establishes, and
+hands the answer to the owner's predicate. `resolveConsolidatedEquity`,
+`commonHolderCapital` (`src/pipeline/stageB/securityBasis.ts`) and the peers'
+basis are other rules and were not touched.
+
+## D-247 - One definition of a quarter, a fiscal year and the period-end allowance for the conversion-share readers (2026-11-13)
+
+Principle P1 (exact period), with P13 (a definition used in several places is
+computed once). Round 2, Stage 5, "one owner" step, part 1. The rule
+consolidation review and its critique (row "Quarter admission differs for the
+same conversion tags") reproduced that the same two SEC tags are admitted
+differently in two places.
+
+Root cause. The filed if-converted share increment of an income period
+(`IncrementalCommonSharesAttributableToConversionOfDebtSecurities` and
+`...OfPreferredStock`) has two readers, each with a private window written after
+the owner's:
+
+| | Equity bridge (`convertibleInstrumentsAt`, `src/pipeline/stageB/convertibles.ts`) | Loss-period divisor (`conversionSharesFiled`, `src/pipeline/stageB/dilutedDivisor.ts`) | P1 owner (`src/edgar/xbrl.ts`) |
+| --- | --- | --- | --- |
+| A quarter's own length | 80 to 100 days | 70 to 110 days | 70 to 125 days (`QUARTER_DURATION_DAYS`) |
+| A fiscal year's own length | 350 to 380 days | 300 to 400 days | 300 to 400 days (a bare literal) |
+| The fact's end against the row's | the same day | within 3 days | within 3 days (a bare default) |
+
+Same check or a different one. The same. Each reader asks which filed fact is
+the increment of exactly one income row's period, because that increment is a
+slice of that row's diluted count: the bridge takes it out of the divisor (or
+restores the claim), the loss-period rule takes it out of a donor row's award
+dilution. The row's own count was matched to its period by the owner's rule.
+Neither narrower window protects anything the owner's does not: 80 to 100 and
+70 to 110 days exclude the 16-week quarter of a 12-12-12-16 calendar, which
+the owner's band exists to hold, while the year-to-date facts that end on the
+same day are 181 and 272 days and fall outside every band; 350 to 380 days
+excludes a transition year the statement builder itself accepts as the row's
+fiscal year; "the same day" refuses an increment whose fact ends one to three
+days from the row although every other field of that row was matched within
+three days.
+
+Choice, in the owner. `src/edgar/xbrl.ts` now names the fiscal-year band
+(`FISCAL_YEAR_DURATION_DAYS`, 300 to 400) and the end allowance
+(`PERIOD_END_TOLERANCE_DAYS`, 3) beside `QUARTER_DURATION_DAYS`, and exports
+one predicate, `factCoversPeriod`: the fact states its own start, its own
+length is in the quarter or fiscal-year band, and it ends within the allowance
+of the row. Both readers call it and keep no number. `src/edgar/statements.ts`
+and `src/edgar/successor.ts` read the two newly named constants in place of
+their own copies of 300, 400 and 3 (same values). A boundary is still never
+inferred from an end date (D-56): an instant never covers a period. D-59 is
+not involved; these facts carry their own start. No number is new: every value
+is the owner's existing one.
+
+What moves, by the rule:
+
+| Reader | Before | After |
+| --- | --- | --- |
+| Bridge, quarter | 80-100 days, same day | 70-125 days, within 3 days |
+| Bridge, fiscal year | 350-380 days, same day | 300-400 days, within 3 days |
+| Loss period, quarter | 70-110 days, within 3 days | 70-125 days, within 3 days |
+| Loss period, fiscal year | 300-400 days, within 3 days | unchanged |
+
+Nothing narrows, so no figure can become a gap by this change. The FIN-302
+paragraph of D-147 ("exact period/end") is marked "Revised by D-247", and
+`docs/METHODOLOGY.md` ("Convertibles", "Loss periods") states the one rule.
+
+### Replay (rule 4) and approved report changes
+
+None. Same-report check, main `629cf3c9` against this change after merging
+it (and `be7c11d6` before): no changes (17 cases, 136 files compared). The
+accuracy check reports every figure as expected. Every duration fact of the
+two tags in the 13
+companies' cached SEC company facts was tested against every income-statement
+row date of its company under the old bridge rule, the old loss-period rule
+and the new rule: 65 facts (NVDA 61, VKTX 2, DUK 2; the other ten companies
+file none), of 89, 90, 181, 272, 363 and 370 days. None is in a zone where the
+windows differ (70-79, 101-125, 300-349 or 381-400 days) and none ends one to
+three days from a row's end, so all three rules admit the same facts: 0
+differing admissions. No value is newly admitted in the 17 cases, so there is
+no value to prove against a filing and no intentional-delta record. Every
+figure of all 17 cases is unchanged. The widened inputs are pinned on synthetic
+facts (`tests/stageB.conversionPeriod.oneOwner.test.ts`: every length from 69
+to 401 days at end offsets of -4 to +4 days, on both readers; the 16-week
+quarter; the 13-week control; year-to-date and neighbouring-quarter facts).
+
+### Not changed, with the reason
+
+- Every other private quarter or fiscal-year day band in `src` is listed with
+  what it admits in `tmp/accuracy/s5-one-owner-before-after.md` (not
+  committed). Besides the owner's there are quarter-length bands of 60-100,
+  60-120, 70-105, 70-110, 80-100, 84-98, 84-105 and 70-135 days across twelve
+  sites, fiscal-year bands of 350-380 (about twenty sites), 330-400, 364-371
+  and 357-380 days, and a family that measures the gap between two period
+  ends, which is a different measurement. They are not all one check: 84-98
+  and 364-371 are deliberately exact-calendar tests and 350-380 means "a full
+  year, never a transition year". Each needs this entry's per-site ruling and
+  its own replay before it moves. Suggested order: `src/edgar/cashInvestment.ts`
+  (70-110 and the same day: the pair fixed here),
+  `src/edgar/borrowingCosts.ts:96` and
+  `src/pipeline/stageB/repurchaseExecutions.ts:78` (the owner's numbers as
+  literals), then one named annual band in the owner for the 350-380 family
+  (with `ANNUAL_FLOW_DAYS`, D-231).
+- The bridge reader drops facts filed after the analysis time and facts with a
+  dimension; the loss-period reader does neither. That is P2 and scope, not
+  the length of a quarter.
+
+## D-238 - The entity scope of net income: each metric reads consolidated or parent profit, never a mixture (2026-11-12)
+
+Principles P5 (entity scope), P13 (one basis, one definition), P8 (filed
+beats vendor), P2 (newest compatible filing), P10 (withhold, never guess) and
+P12 (a substitution is disclosed). Round 2, Stage 5 (accuracy fixes), the
+"net income scope" family. The accuracy baseline (r2-base-afb9cddf) labelled
+six rows "definition": FIGR, O and RIVN "net income, latest fiscal year" and
+"net income, TTM (current capital)" equal the filed consolidated profit
+(`ProfitLoss`, including the noncontrolling interests' share), not the profit
+attributable to the parent (`NetIncomeLoss`). This entry decides the question
+D-231 left open, and revises D-231's rule 2 for that reason.
+
+Three profit lines exist for an issuer with noncontrolling interests (NCI):
+consolidated profit, the parent's profit (consolidated less the NCI share)
+and income available to common (the parent's less preferred claims). They are
+not interchangeable (P5), and a ratio's two operands share one scope (P13).
+
+### Inventory: which line each figure uses, and which it needs
+
+| Figure | Line used before this change | Scope the metric needs | Outcome |
+| --- | --- | --- | --- |
+| Free-cash-flow series net income and FCF conversion (annual), `capital.fcf.series` (the baseline's "net income, latest fiscal year") | The vendor cash-flow row's net income, whichever line the vendor served: consolidated for FIGR, RIVN and most years of O and DUK; the parent's for O 2023 and DUK 2025 and 2017 | Consolidated: the numerator is consolidated cash flow, and a cash-flow statement starts from consolidated profit | **Fixed**: the parent-line years now carry the filed consolidated profit. FIGR, O 2025 and RIVN were already right and do not move |
+| Current-capital net income and FCF conversion (TTM), `capital.current` (the baseline's "net income, TTM") | The complete consolidated window (`compute.ts`, "Consolidated cash cannot be divided by a mixture of parent and total profit"); since D-240, the one filed profit line of an issuer without NCI; withheld otherwise | Consolidated | Right scope; unchanged. The builder is not touched here |
+| Operating and aggregate accruals, Piotroski accrual quality and return on assets | Consolidated profit first (`forensics.ts`), over consolidated cash flow and total assets | Consolidated | Right scope; unchanged |
+| ROIC | Operating profit after tax over consolidated capital (`resolveConsolidatedEquity`) | Consolidated operating figure | Right scope; unchanged |
+| Net margin (growth rows) | The income row's `netIncome`, on whatever basis the row was admitted: the parent's in general (D-108), but consolidated for a year whose filed earnings family was adopted on the consolidated basis (O 2025) | The parent's profit (D-108) in every year of one series | **Fixed** for O 2025 |
+| DuPont net margin and ROE | The same `netIncome`, over the parent's equity (`totalStockholdersEquity`) | The parent's profit: the denominator is parent equity | **Fixed** for O 2025 |
+| Return on common equity, ROTE, payout and dividend coverage, excess-return income | Income available to common through `selectCommonIncome` / `incomeAvailableToCommon` (`securityBasis.ts`), which reads the row's ownership basis and deducts the NCI share once | Common | Right scope; unchanged |
+| P/E, earnings yield, EPS growth | Filed diluted EPS; TTM common income only when all four quarters share one ownership basis, otherwise withheld | Common | Right scope; unchanged |
+| Equity-REIT FFO | The filer's `NetIncomeLoss` read by the FFO builder itself (O: 1,058,590,000, the parent's and, with no preferred outstanding, common's) | The parent's / common's | Right scope; unchanged |
+| Unprofitable-overlay test (route) | TTM or annual `netIncome` (FIGR 237,127,000 and RIVN -2,973,000,000: the parent's) | Sign only | Unchanged |
+| DCF | Operating income, revenue and tax; no net income | Consolidated operating figure | Unchanged |
+
+So the six baseline rows are not errors of scope: FCF conversion divides a
+consolidated cash flow and needs the consolidated profit those rows hold.
+What was wrong is that the same series held the parent's profit in other
+years, and that two parent-scope ratios read a consolidated figure.
+
+### Root causes and the owners changed
+
+1. **The cash-flow statement's net income had no scope rule.** D-231's
+   admission (`admitCashFlowNetIncome`, `src/edgar/financialEnrichment.ts`)
+   kept any vendor figure equal to any filed profit line and said the scope
+   "is not decided here". The vendor serves the parent's line for some years
+   and the consolidated line for others, so one FCF-conversion series mixed
+   the two. Rule now: a figure equal (the P8 allowance, no new tolerance) to
+   the parent's line only, in a year for which the newest filing that states
+   any profit line states that line and a different consolidated profit side
+   by side, is replaced by that filing's consolidated profit, with the filing
+   as its provenance and an informational manifest entry naming both values.
+   One filing must state both lines (P2, P7): an older consolidated copy is
+   never set against a newer restatement of the parent's line. If that filing
+   states two consolidated values the figure is withheld (P10). A filer whose
+   only profit line is `NetIncomeLoss` has no NCI, and nothing moves. A
+   consolidated figure is never replaced by a parent line. Applied, like
+   D-231, in the report's own data view (`withCashFlowSbcBasis`), so stored
+   inputs keep their bytes.
+2. **Parent-scope ratios read `netIncome` without its ownership basis.** The
+   income admission (`src/edgar/incomeClassification.ts`) marks each row's
+   `netIncome` "parent" or "consolidated"; common-income readers honour the
+   mark, the net margin and DuPont did not. The P5 owner
+   `src/pipeline/stageB/ownership.ts` now has `resolveParentProfit` and
+   `resolveConsolidatedProfit` beside `resolveConsolidatedEquity`: a
+   consolidated-basis figure less the signed NCI share is the parent's
+   profit; a parent-basis figure plus that share is the consolidated profit;
+   a row that carries no NCI share or no ownership mark is read as reported,
+   named as unverified, never plugged. The net margin
+   (`toGrowthIncome`, `src/pipeline/compute.ts`) and DuPont
+   (`computeDupont`, `src/pipeline/stageB/returns.ts`) read the parent's
+   profit; the FCF series' fallback to the income statement
+   (`src/pipeline/stageB/capital.ts`), used when a cash-flow row carries no
+   net income, reads the consolidated profit. Each derived figure stores how
+   it was reached (the margin's note, the DuPont year's note, the FCF row's
+   note).
+
+D-231 is revised: its rule 2 ("a vendor figure equal to any filed copy of
+any of those lines stays") no longer covers a figure equal only to the
+parent's line, and its statement that Duke Energy's 2025 row stays is
+reversed below.
+
+Options rejected: moving the FCF-series net income to the parent's profit so
+the baseline rows "match" (it would divide consolidated cash flow by parent
+profit, the mixture P5 forbids, and contradict the filers' own cash-flow
+statements); rewriting each income row's `netIncome` to the parent's profit
+in the data view (right in the end, but it turns O's mixed-basis quarters
+into one basis and so releases withheld TTM figures in the same change; left
+as a follow-up); adding a stored "basis" leaf to every FCF-series row (a
+change to every company's report with no number behind it).
+
+### Approved report changes
+
+Same-report check against current main (629cf3c9, which includes D-229,
+D-231, D-233, D-234, D-236, D-237, D-239, D-240 and D-241), with that main
+merged into this branch: 16 files in 2 of the 17 cases differ (O and DUK,
+all eight outputs each, plus their two payload fingerprints); the other 15
+cases, and every other figure of O and DUK, are byte for byte unchanged.
+FIGR, RIVN and every company without NCI do not move. The same leaves, and
+no others, moved each time this was measured as main moved (99234cdf,
+ab6db405, be7c11d6, 83582c62). Against the round's first baseline
+(r2-base-afb9cddf) the same files differ, plus the approved changes of the
+decisions merged since it. The leaf-level list is in
+`tmp/accuracy/s5-net-income-scope-before-after.md` (not committed: it quotes
+vendor data).
+
+Realty Income (`o-data-only`, USD). Filed values are SEC XBRL facts of 10-K
+0000726728-26-000011, filed 2026-02-25.
+
+| Figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| Net income, fiscal 2023 (cash-flow statement row; free-cash-flow series) | 872,309,000 (vendor; equals `us-gaap:NetIncomeLoss`, the parent's) | 876,914,000 | `us-gaap:ProfitLoss`, 2023-01-01..2023-12-31 = 876,914,000 (the same value in 10-K 0000726728-24-000047 and 0000726728-25-000055) |
+| FCF conversion after SBC / before SBC, fiscal 2023 | 3.283068 / 3.313134 | 3.265828 / 3.295736 | computed from it; free cash flow unchanged |
+| Net margin, fiscal 2025 | 18.606863% (consolidated 1,069,783,000 over revenue) | 18.412182% | parent profit 1,058,590,000 = `us-gaap:ProfitLoss` 1,069,783,000 less `us-gaap:NetIncomeLossAttributableToNoncontrollingInterest` 11,193,000, and equal to `us-gaap:NetIncomeLoss` 1,058,590,000, all 2025-01-01..2025-12-31; over `us-gaap:Revenues` 5,749,377,000 |
+| Net margin slope | -1.248342 pp/yr | -1.258962 pp/yr | computed from the series |
+| DuPont net margin / ROE, fiscal 2025 | 0.186069 / 2.733242% | 0.184122 / 2.704644% | the same parent profit; turnover and leverage unchanged |
+| Manifest | 216 entries | 217 (one informational entry for the 2023 correction) | |
+
+Duke Energy (`duk-data-only`, USD):
+
+| Figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| Net income, fiscal 2025 (cash-flow statement row; free-cash-flow series) | 4,967,000,000 (vendor; the parent's 4,968,000,000 within the filer's reporting unit) | 5,071,000,000 | `us-gaap:ProfitLoss`, 2025-01-01..2025-12-31 = 5,071,000,000, 10-K 0001326160-26-000014, filed 2026-02-26; the same filing's `us-gaap:NetIncomeLoss` is 4,968,000,000 |
+| Cash-flow row net income, fiscal 2017 (outside the five-year series; manifest entry only) | 3,059,000,000 (the parent's) | 3,064,000,000 | `us-gaap:ProfitLoss`, 2017-01-01..2017-12-31 = 3,064,000,000, 10-K 0001326160-20-000034, filed 2020-02-20 |
+| Manifest | 295 entries | 297 (two informational entries) | |
+
+Duke Energy's fiscal 2025 FCF conversion is withheld before and after (the
+row's free cash flow is withheld), and its accruals already used
+5,071,000,000. No score, grade or headline of either company moves.
+
+### Tests
+
+`tests/financialEnrichment.cashFlowNetIncome.test.ts`: Realty Income 2023
+and Duke Energy 2025 and 2017 (the named cases); a Form 20-F IFRS filer
+(unrelated shape); Rivian 2025 and 2024, a figure equal to an earlier
+consolidated copy, Amazon, and a filer tagging both lines with one value
+(controls and unrelated issuers that do not move); two-filing, ambiguous and
+after-cutoff refusals. Two D-231 cases that pinned "a figure equal to the
+parent's line stays" are updated to this decision. `tests/ownership.profitScope.test.ts`:
+the two owner functions on Realty Income, Rivian, Figure, Duke Energy and
+Amazon figures, the FCF-series fallback, DuPont, and a whole Stage B run with
+the consolidated-basis, parent-basis and no-NCI shapes. Fifteen of the new
+tests fail without the fix.
+
+### Not changed here, with the reason
+
+- **The six baseline rows stay as they are**, because their scope is right
+  for FCF conversion. They will keep reading "mismatch (definition)" in the
+  accuracy check until its reference for these two figures is the
+  consolidated line; Duke Energy's fiscal 2025 row joins them (it was a
+  "match" against the parent's line only because the vendor had served the
+  parent's figure).
+- **Labels that name a consolidated figure "net income"** are wording on
+  numbers this change does not move, so they are listed for the owner, not
+  edited: the report rows "FCF conversion (FCF after SBC / net income)" and
+  "FCF conversion (FCF before SBC / net income)"; the score operands "net
+  income" and "FCF / net income"; the balance-sheet aspect's sentence "FCF
+  conversion is graded as free cash flow BEFORE stock-based compensation over
+  net income"; "accrual operand net income (NI)"; and the Piotroski details
+  "CFO ... vs NI ..." and "ROA ... (NI / beginning-of-year TA)". Each would
+  read "consolidated net income (including noncontrolling interests)".
+- **The income-statement row "net income" on a consolidated-basis period**
+  (O fiscal 2025 1,069,783,000, its quarters ended 2025-12-31 and 2026-06-30,
+  and three Duke Energy quarters) still shows the consolidated profit beside
+  an identical "consolidated net income" row. Showing the parent's profit
+  there is the follow-up named above.
+- **TSM fiscal 2025** in the FCF series is the parent's profit standing in
+  for a consolidated profit the admitted facts do not hold (D-231 rule 5);
+  the TSM rows are outside this step.
+- The accrual code (`forensics.ts`) keeps its own consolidated-first read; it
+  gives the same figures as `resolveConsolidatedProfit` on all 17 cases and
+  can call it in a follow-up.
+
+Version stamps are not moved here (P27: the Stage 5 integration change moves
+them together). Stored reports and snapshots keep their bytes.
+
+## D-240 - The trailing net income behind FCF conversion is read from the filings when they state one profit line (2026-11-12)
+
+Principles P5 (entity scope), P1 (exact period; an additive flow derived from
+compatible operands, each kept), P8 (filed beats vendor; no new allowance),
+P11 (a refusal clears only on new evidence for that field and period), P13
+(one basis), P17 (honest scoring: no rule changed) and P20 (provenance).
+Round 2, Stage 5 (accuracy fixes), trailing net income family. The accuracy
+baseline (r2-base-afb9cddf, "Gaps whose value is in the filings") found
+"Net income, TTM (current capital)" withheld for eight companies although the
+filings state every operand.
+
+What the figure is. `capital.current.netIncome` has one use: it is the
+denominator of free-cash-flow conversion in the "Current capital" block, and
+the balance-sheet score grades that ratio. D-212 made it consolidated profit,
+because the cash flow above it is consolidated, and required a complete
+consolidated window from the four quarterly rows. It is not the net income
+behind P/E, ROE or the payout ratio; those read the trailing window's parent
+and common figures, which this change does not touch.
+
+Root cause, per company, before anything was changed:
+
+| Company | Why the figure was withheld |
+| --- | --- |
+| AMZN, NVDA, QCOM, VKTX | The four quarters are vendor rows with no entity-scope evidence. A quarter is called consolidated only when its filing states consolidated profit, a noncontrolling allocation and the parent's profit, and they reconcile (D-212). These issuers have no noncontrolling interests, so no quarter ever qualifies. The report's own trailing net income was complete all along (AMZN 135,281M, VKTX -627,195k; NVDA 192,879M and QCOM 9,259M, each 1M from the filed figure because vendor quarters are rounded). |
+| MU | The four quarters are built from SEC facts tagged `NetIncomeLoss`, which is the parent's line, so the window's basis is "parent" and the same rule withholds it. The window, 2025-08-29 to 2026-09-03, is fiscal 2026 itself. |
+| DUK | A different cause, and it stays (below). Duke Energy has noncontrolling interests. Two of the four quarters (2025-12-31 and 2026-03-31) carry no admitted ownership bridge, because each has a nonzero result from discontinued operations (2M and 13M) and a continuing-operations pretax and tax pair is not a complete earnings family beside one. |
+| PGR, JPM | A different cause, and it stays. On the insurer and bank routes the industrial cash-conversion block is not applicable (P14), so it shows no denominator whatever the filings say. |
+| META | Not in the filings at the cutoff: the 10-Q that closes the window was filed after the report was built (P2). |
+| TSM | An IFRS filer with noncontrolling interests; not in this family. |
+
+Choice. Where the quarterly rows establish no consolidated window, the
+filings may, for an issuer whose filings state one profit line.
+
+1. `filedWindowFlow` (`src/edgar/financialEnrichment.ts`, beside the existing
+   identity `filedCashFlowTtm` that operating cash flow, capital spending and
+   stock compensation already use) reads a filed flow for one exact window. It
+   is the fiscal year plus the current year to date less the prior-year year
+   to date, both year-to-date figures from the same 10-Q, under that
+   function's existing rules; or a fact the filer tags for exactly the
+   window's start and end. The second form is how a window that is a fiscal
+   year is read (MU): the fiscal year's figure is the trailing figure only
+   because its start and end are the window's, to the day. No day band is
+   added. An identity that starts on another day is refused; when both forms
+   exist they must give one figure (Amazon's 10-Q tags its own twelve-month
+   column, 135,281M, equal to the identity); a filing that states two values
+   for the window establishes none.
+2. `filedSingleProfitWindow` (`src/pipeline/nciEarnings.ts`, a P5 owner)
+   reads the parent line `NetIncomeLoss` that way and accepts it as the
+   consolidated profit only when the filings that supply the operands show no
+   other profit: every consolidated profit they report (`ProfitLoss`,
+   `NetIncomeLossIncludingPortionAttributableToNonredeemableNoncontrollingInterest`)
+   equals the parent line they report for the same period; they report no
+   nonzero earnings attributable to noncontrolling interests (the total line
+   or either partial line); no nonzero noncontrolling balance, permanent or
+   redeemable; and wherever they tag both total equity and the parent's
+   equity at one date the two are equal (a filer can tag its noncontrolling
+   column only as a dimension, which SEC companyfacts does not carry). This is
+   evidence from the income statements of the exact periods used, not the
+   closing balance D-212 refused.
+3. In `runStageB` (`src/pipeline/compute.ts`) the filed figure is used only
+   when the quarterly window gave none, for the report's own window start and
+   end, and only when it is the same observation as the report's trailing net
+   income (`vendorAgreesWithDerived`, P8's existing allowance for a figure
+   derived from filed operands). A trailing net income that is missing or
+   refused stays refused (P11). The stored value is the filed figure, not the
+   vendor sum.
+4. The operands travel with the figure: `capital.current.filedCashFlows.netIncome`
+   (value, window, tag, each fact with its filing), the sentence in the
+   block's definition note, one informational manifest entry
+   (`compute.ttmIncome.filedNetIncome`) and the operand figures in the AI
+   context.
+
+D-212 is marked "Revised by D-240": it still requires a complete consolidated
+window, and a closing noncontrolling balance of zero still proves nothing, but
+the filings of an issuer that reports a single profit line now establish the
+window.
+
+Options rejected. Showing the parent's net income for every issuer: it would
+change FIGR, O and RIVN, whose figures are the consolidated profit, and decide
+the consolidated-or-parent definition, which is another step. Reading filed
+consolidated profit for an issuer that has an allocation: Duke Energy would
+show 5,578M (`ProfitLoss` 5,071M + 4,372M - 3,865M) where the baseline's
+parent figure is 5,391M, a new "definition" row; D-231 declined the same move
+for the same reason. Treating a zero closing noncontrolling balance as proof
+(D-212 refused it). Publishing the report's own vendor-quarter sum: for NVDA
+and QCOM it is 1M away from the filed figure.
+
+### Approved report changes
+
+Same-report check, current main (be7c11d6, which holds D-229, D-231, D-233,
+D-234, D-237 and D-239) against this change, measured before that on
+7e59aff3, 99234cdf and ab6db405 with the same result: 8 of the 17 cases differ (`amzn`, `nvda`, `mu` in both
+their data-only and fixed-analyst forms, `qcom-data-only`, `vktx-data-only`),
+all eight outputs each plus the payload fingerprint; the other 9 cases
+(`meta` in both forms, `figr`, `jpm`, `pgr`, `o`, `duk`, `tsm`, `rivn`) are
+byte for byte unchanged. Every other figure of the 8 changed cases is
+unchanged. The leaf-level list is in `tmp/accuracy/s5-ttm-net-income-before-after.md`
+(not committed: it quotes vendor data).
+
+All facts are `us-gaap:NetIncomeLoss`, USD, as tagged (whole dollars).
+
+| Company | Net income, TTM, before | After | Proof |
+| --- | --- | --- | --- |
+| AMZN | withheld | 135,281,000,000 | 2025-07-01..2026-06-30 = 77,670,000,000 (2025-01-01..2025-12-31, 10-K 0001018724-26-000004, filed 2026-02-06) + 92,902,000,000 (2026-01-01..2026-06-30) - 35,291,000,000 (2025-01-01..2025-06-30), both 10-Q 0001018724-26-000026, filed 2026-07-31; the same 10-Q tags 135,281,000,000 for 2025-07-01..2026-06-30. Neither filing tags a consolidated profit, noncontrolling earnings or a noncontrolling balance |
+| NVDA | withheld | 192,880,000,000 | 2025-07-28..2026-07-26 = 120,067,000,000 (2025-01-27..2026-01-25, 10-K 0001045810-26-000021, filed 2026-02-25) + 118,010,000,000 (2026-01-26..2026-07-26) - 45,197,000,000 (2025-01-27..2025-07-27), both 10-Q 0001045810-26-000075, filed 2026-08-26. Neither filing tags a consolidated profit, noncontrolling earnings or a noncontrolling balance |
+| QCOM | withheld | 9,260,000,000 | 2025-06-30..2026-06-28 = 5,541,000,000 (2024-09-30..2025-09-28, 10-K 0000804328-25-000085, filed 2025-11-05) + 12,377,000,000 (2025-09-29..2026-06-28) - 8,658,000,000 (2024-09-30..2025-06-29), both 10-Q 0000804328-26-000086, filed 2026-07-29. Neither filing tags a consolidated profit, noncontrolling earnings or a noncontrolling balance |
+| MU | withheld | 84,969,000,000 | 2025-08-29..2026-09-03, the window itself, 10-K 0000723125-26-000023, filed 2026-10-09. That filing tags no consolidated profit, noncontrolling earnings or noncontrolling balance |
+| VKTX | withheld | -627,195,000 | 2025-10-01..2026-09-30 = -359,639,000 (2025-01-01..2025-12-31, 10-K 0001193125-26-046876, filed 2026-02-11) + -469,533,000 (2026-01-01..2026-09-30) - -201,977,000 (2025-01-01..2025-09-30), both 10-Q 0001193125-26-436432, filed 2026-10-29. Both filings also tag `us-gaap:ProfitLoss`, with the same value as `NetIncomeLoss` for every period, and no noncontrolling earnings or balance |
+
+Figures computed from them, on main be7c11d6. Free cash flow before SBC for
+the same window is unchanged in every case. (Two "before" values differ from
+the earlier measurements only because main moved: D-237 put Amazon's
+business-quality assessment at 63.47, and D-239 withholds Viking's trailing
+free cash flow, which set Viking's unchanged scores.)
+
+| Figure | AMZN | NVDA | QCOM | MU | VKTX |
+| --- | --- | --- | --- | --- | --- |
+| FCF conversion before SBC, TTM (free cash flow / net income) | withheld to -0.085932 (-11,625M / 135,281M) | withheld to 0.658472 (127,006M / 192,880M) | withheld to 1.124838 (10,416M / 9,260M) | withheld to 0.693935 (58,963M / 84,969M) | withheld, as before (not computed on a loss) |
+| Balance-sheet signal "FCF conversion before SBC" (weight 0.2 of the aspect, 3.53% of the composite) | unscored to 18 | unscored to 53.98 | unscored to 81.83 | unscored to 55.99 | unscored, as before |
+| Balance-sheet evidence coverage | 76.5% to 100% | 76.5% to 100% | 76.5% to 100% | 76.5% to 100% | 23.5%, unchanged |
+| Balance-sheet score and band | 67.83 C to 56.11 C | 85.09 A to 77.77 B | 72.28 B to 74.53 B | 87.61 A to 80.17 B | 18 F, unchanged |
+| Business-quality assessment | 63.47 to 61.96 | 78.62 to 78.80 | 63.63 to 65.13 | 76.07 to 76.35 | 45.64, unchanged |
+| Composite score and band | 57.25 C to 56.12 C | 75.83 B to 75.97 B | 55.83 C to 56.96 C | 77.70 B to 77.91 B | 43.95 D, unchanged |
+| Evidence available, share of signal weight | 96.47% to 100% | 96.47% to 100% | 79.02% to 82.55% | 90.65% to 94.18% | 32.58%, unchanged |
+| Manifest entries | 164 to 165 | 92 to 93 | 72 to 73 | 163 to 164 | 124 to 125 |
+
+No scoring rule, band or weight changed (P17): one balance-sheet signal that
+had no evidence now has it. The two band changes (NVDA and MU, balance sheet A
+to B) are that signal entering at 54 and 56 beside signals that score higher.
+The composite moves the other way for those two because the aspect now counts
+at its full weight instead of being partly shrunk to the neutral midpoint.
+
+The three fixed-analyst cases replay analyst output stored before D-212, when
+these conversions were still computed, and it agrees with the restored
+figures: Amazon's cited balance-sheet score 56.11 and NVIDIA's "0.6585x net
+income" verify again, and the stored balance-sheet grade B for NVIDIA and
+Micron matches the deterministic band again instead of being rejected.
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports five changes
+against its expectation, all "gap -> match" (`netIncome.ttm` for AMZN, MU,
+NVDA, QCOM and VKTX), and nothing worse.
+
+Not changed here, with the cause. DUK: withheld as before; the filings give a
+consolidated 5,578M and a parent 5,391M, and which one this row shows is the
+definition question left to the FIGR, O and RIVN step. PGR and JPM: the block
+is not applicable on their routes. META: the closing 10-Q postdates the
+report. FIGR, O and RIVN: untouched, their quarterly consolidated window was
+already established. The tax-rate rows and the free-cash-flow gaps are other
+steps.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change calls for the Stage
+B implementation stamp (identical inputs compute different values), the
+payload version (a conversion figure, net-income operand figures and a changed
+note reach the analysts) and the report specification (report figures and two
+aspect bands change). Saved reports are immutable (P21) and keep the figures
+they were built with.
+
+Tests (`tests/nciEarnings.singleProfitWindow.test.ts`): the root cause on a
+synthetic issuer through Stage B (failing before the change); Amazon, NVIDIA,
+Micron and Viking on their filed facts; Duke Energy as the compatible control
+that must stay withheld, with each kind of noncontrolling evidence withholding
+on its own; a window one day off the fiscal year, a 10-Q filed after the
+cutoff, two stated values, another unit and a prior year to date from another
+filing; a filed figure that is not the report's trailing net income; a refused
+trailing net income; an unconfirmed issuer; and an established consolidated
+window left as D-212 built it.
+
+## D-241 - The dossier layout shows everything the classic layout shows (2026-11-12)
+
+Principle P22 (one presentation rule per figure). Round 2, S4.12a. Owner
+decision: "Layout, last and as its own pull requests: make dossier the default
+once it shows everything classic shows, then remove classic." This entry is
+the first of those pull requests; it does not change the default and does not
+remove classic.
+
+Inventory. Both web layouts of the 17 same-report cases (data-only and
+analyst output; general, bank, insurer, REIT, utility, 20-F/ADR, recent IPO,
+loss-making, pre-revenue) were compared as readable text: every classic text
+node, table row, list item, term/value pair, paragraph, heading, tooltip and
+link, against everything the dossier renders (native details count as shown;
+hidden and screen-reader-only duplicates do not). Each candidate was then
+confirmed in the components. No fact rendered as text by classic is missing
+from the dossier: the dossier already carried classic's trust and
+verification block, the key data, the verdict, the scorecard tables, the
+bridge and every audit table. What remained was one visual signal and
+wording.
+
+Gained. The WACC × terminal-growth grid's base-case cell. Classic outlines
+the middle WACC and middle terminal growth of the stored grid (the valuation
+builds the grid symmetrically around its base inputs); the dossier's grid did
+not mark it. The rule now has one owner, `sensitivityBaseCase`
+(`src/components/charts/SensitivityHeatmap.tsx`), called by the classic grid
+and by the dossier's `RecordedSensitivity`. Classic output is unchanged byte
+for byte; the dossier outlines the same cell.
+
+Not changed. Thirteen places where the two layouts state the same fact in
+different words (headings such as "composite scorecard" against
+"Deterministic scorecard", the data-only banner against the dossier's
+data-only details with the same counts, valuation labels, and grid cells in
+whole currency against two decimals). Those the parity test meets are listed,
+with what the dossier shows instead, in `CLASSIC_ONLY_WORDING`
+(`tests/helpers/uiParityContract.ts`); the grid rounding is its own stated
+allowance. Changing wording was out of scope and is the owner's call.
+
+Guard. `classicFactsMissingFromDossier` (`tests/helpers/uiParityContract.ts`)
+fails when a fact classic renders is absent from the dossier, for every
+fixture report the UI parity tests use, with two stated allowances: the
+listed classic wording, and a whole-number grid row that a dossier row shows
+cell for cell as another rounding of the same stored value. A separate test
+pins the base-case cell in both grids.
+
+Options rejected: copying classic's middle-cell expression into the dossier
+(two copies of one rule, P22); a text label for the base case (a new label the
+classic layout does not have; left to the owner, as the marker has no text
+alternative in either layout).
+
+Risks. Correctness and data: none (presentation only; no stored report,
+export or classic page changes; the same-report check differs only in eight
+`web-dossier.html` files). Reversible by one revert.
+
+## D-236 - A periodic filing SEC's data feed lists but does not carry is read from its own XBRL instance (2026-11-12)
+
+Principles P2 (the newest compatible filing wins), P9 and P10 (a failed
+extraction is a coverage gap, not absence), P20 (provenance) and P3 (unit,
+scale and share basis). Round 2, Stage 5 (accuracy fixes), filing-instance
+family. The accuracy baseline (r2-base-afb9cddf, rank 1) found TSMC's "diluted
+EPS, latest fiscal year" at fiscal 2024 (223.35 TWD per ADS, 44.67 per
+ordinary share) although its fiscal 2025 Form 20-F (accession
+0001628280-26-025362, filed 2026-04-16, before the report's evidence cutoff)
+states 65.47 per ordinary share. D-231 traced the cause to collection and left
+it for this entry.
+
+Root cause, in data collection. SEC's bulk feed (companyfacts) held two facts
+of that filing on 2026-11-12, the cover page's share count
+(`dei:EntityCommonStockSharesOutstanding`) and one srt element, and none of
+its financial statements. The rule that reads a filing's own XBRL instance
+when the feed lags (D-112, B-23) could not help, for two reasons:
+
+1. It saw only the instances the segment-revenue read fetches: the latest
+   Form 10-K and up to three Forms 10-Q. A Form 20-F or 40-F, or an amendment,
+   was never fetched.
+2. `mergeInstanceFacts` (`src/edgar/instanceFacts.ts`) took any accession the
+   feed mentions as fully carried, and measured "the newest periodic report
+   the feed carries" over Forms 10-K and 10-Q only.
+
+Run on that filing, the instance reader reads the EPS (65.47, TWD per share,
+2025-01-01..2025-12-31); the merge then admitted nothing.
+
+Choice, in the owner of the fallback (`src/edgar/instanceFacts.ts`), with the
+fetch beside the existing instance read (`src/providers/currentReports.ts`)
+and the wiring in the bundle builder (`src/pipeline/dataBundle.ts`):
+
+1. One coverage test, `feedCoverage`. A filing is covered only when the feed
+   attributes to its accession at least one fact of a statement taxonomy
+   (us-gaap or ifrs-full). A filing it merely mentions, through a cover-page
+   (dei) or srt fact, is not covered. No count, share or date band is used:
+   one statement fact is evidence that SEC published the filing's statements,
+   and none is evidence that it did not.
+2. The fallback applies to every form the fact index admits
+   (`CORE_FACT_FORMS`: 10-K, 10-Q, 20-F, 40-F and their amendments), and to no
+   other (a Form 6-K instance is never merged). `needsInstance` is the one
+   predicate: a core form, not covered, filed after the newest core report the
+   feed does cover. The bundle builder asks it which instances to fetch and
+   the merge asks it which to admit.
+3. Which filings may be fetched uses the selection the instance read already
+   had, applied to each core form: the latest annual report, or up to three
+   interim reports, of that form within 15 months (`latestPeriodicFilings`;
+   the 460 days and the three are the existing constants, now named). The
+   10-K and 10-Q instances are still fetched by the segment read, as before;
+   `collectPeriodicInstances` reads the others, and only those `needsInstance`
+   names.
+4. Every merged point carries the filing's accession, form, filing date and
+   fiscal focus, its concept, period and unit, exactly as a feed point does
+   (unchanged from B-23), so the cutoff, unit and concept rules downstream
+   treat it as they treat the feed. A point the feed already holds for that
+   filing is not added again. Values are the instance's own: TSMC's amounts
+   are tagged decimals -5 and stated in full; its per-share values are per
+   ordinary share, and the ADS ratio still comes only from the report's
+   existing proof (`resolveForeignShareRatio`). The filing also states EPS per
+   ADS (327.34) on a class-of-share dimension; a dimensioned fact is not read,
+   as the feed does not publish it.
+5. A filing the fallback needed and could not read (index or instance
+   unreadable, no instance in the index, refused metadata) is recorded on the
+   bundle (`companyFactsInstances.unread`) and disclosed as a warning entry,
+   `edgar.companyFacts.unreadFilings`, naming the filing and the reason. An
+   instance that was read and states no new fact adds nothing and says
+   nothing: the filing's own data shows there is nothing to carry.
+
+Requests. All to SEC EDGAR (free), through the existing cached, rate-limited
+client; filed documents are cached as immutable. A filer whose feed carries
+its filings makes no new request. Each filing read is one index request (a
+second when the first index form is unusable) and one instance request. At
+most eight filings can be selected (one each of 10-K/A, 20-F, 20-F/A, 40-F,
+40-F/A and three 10-Q/A), so a run makes at most 24 new requests and a 20-F
+filer with a lagging feed makes two. The existing 10-K and 10-Q reads are
+unchanged.
+
+Options rejected: a threshold on how many facts the feed carries for a filing
+(any number would be invented; the feed either publishes a filing's statements
+or it does not); fetching every 20-F instance regardless of the feed (requests
+for nothing on most runs); reading the EPS where the EPS row is built (the
+symptom's site: every figure that needs a fiscal 2025 filed fact had the same
+gap); adding Forms 20-F and 40-F to the segment-revenue read (it would change
+segment data for foreign filers, which nothing here proves).
+
+This revises D-112's B-23 rule ("a filing companyfacts already carries ... is
+never merged"): carried now means covered by evidence, and the forms are the
+core set. That entry is marked.
+
+### Proof
+
+The same-report check replays stored inputs and does not replay collection.
+
+A. No regression. The 17 cases built from this change are byte for byte the
+17 built from main (be7c11d6): `golden:diff` reports no changes, 136 files.
+No report output, stored input or frozen record moves; there is no approval
+list.
+
+B. On the real filing, offline. The filing's instance was fetched once from
+SEC EDGAR through the pipeline's own client
+(https://www.sec.gov/Archives/edgar/data/1046179/000162828026025362/tsm-20251231_htm.xml,
+10,762,616 bytes, SHA-256
+044effe7f6270a7b89726de7ae4da14f526fcbd1965441c65ff5d026b661361c). Two
+fixtures under `fixtures/edgar/tsm-20f-fy2025` hold public SEC data only: the
+instance trimmed to 121 facts, and TSMC's feed as Metis stored it on
+2026-11-12 reduced to the same concepts (191 points); each file's header cites
+its source and what was removed. `tests/edgar.instanceFallback.test.ts` runs
+the real merge on them:
+
+| What | Before | After | Filing fact |
+| --- | --- | --- | --- |
+| Feed coverage of 20-F 0001628280-26-025362 | taken as carried (two facts: one dei, one srt) | not covered; the feed covers through the 20-F filed 2025-04-17 | - |
+| Facts admitted from it (fixture) | 0 | 63 of the extract's 65 (the two the feed holds are not repeated) | each cites 20-F 0001628280-26-025362, filed 2026-04-16 |
+| Diluted EPS, fiscal 2025, per ordinary share | absent | 65.47 TWD | `ifrs-full:DilutedEarningsLossPerShare`, 2025-01-01..2025-12-31, unit TWD/shares, decimals 2 |
+| Latest-year EPS row (ADR admission, `guardVendorShareFields`) | fiscal 2024: 223.35 per ADS; fiscal 2025 withheld | fiscal 2025: 327.35 per ADS (65.47 x 5, the report's ADS ratio) | same fact |
+| Fiscal 2023 and 2024 EPS per ADS | 164.25, 223.35 | unchanged; now cited to the newer filing, which restates them (P2) | 32.85 and 44.67 in the same 20-F |
+| Every other concept, unit and period of the feed fixture (129) | - | newest value unchanged; the 32 new periods all end 2025-12-31 | - |
+| Same merge, analysis the day before the filing date | - | fiscal 2025 EPS still withheld (P2) | - |
+
+The new tests fail on main (16 of 19).
+
+C. A TSM report rebuilt from the stored TSM inputs with only the SEC part of
+collection re-run through the fixed code, in a scratch folder outside the
+repository (no vendor call, no case added, nothing written to the check
+database): the full instance is merged into the stored feed (781 points; the
+feed already held the other two), the merge's manifest entry is added, and the
+builder's last step, the ADR EPS admission (`withFilerShareUnits`, the only
+collection-time reader of IFRS facts), is run again on the merged facts after
+putting the two fiscal 2025 EPS fields it had withheld back to the vendor
+values the stored bundle kept. The report is built by the same-report worker.
+The rebuilt "before" equals the harness output byte for byte. 117 Stage B
+leaves and 82 report leaves differ; the full list is in
+`tmp/accuracy/s5-instance-fallback-before-after.md` (not committed: it quotes
+vendor data). Every moved figure, each new value a fact of 20-F
+0001628280-26-025362 (filed 2026-04-16, TWD, decimals -5 unless noted) or
+computed from one:
+
+| Figure (TSM, TWD) | Before | After | Proof |
+| --- | --- | --- | --- |
+| Diluted and basic EPS, fiscal 2025, per ADS | withheld (warning) | 327.35 | `ifrs-full:DilutedEarningsLossPerShare` and `BasicEarningsLossPerShare`, 2025-01-01..2025-12-31 = 65.47 TWD per share (decimals 2), x 5 ordinary shares per ADS |
+| Diluted EPS growth, end point | 2024-12-31, 223.35 | 2025-12-31, 327.35 | same |
+| Diluted EPS CAGR 1y / 3y / 5y / 10y | 35.98% / 25.06% / 26.76% / 16.92% (8 years measured) | 46.56% / 19.58% / 27.15% / 19.89% (9 years measured) | computed from 327.35 and the already filed 223.35 (2024), 191.45 (2022), 98.50 (2020), 63.95 (2016) |
+| Net income, fiscal 2025, in the free-cash-flow series and the accrual operands | 1,697,604,000,000 (the income statement's, D-231 rule 4: the vendor's cash-flow figure was withheld) | 1,695,124,900,000 | `ifrs-full:ProfitLoss`, 2025-01-01..2025-12-31 (D-231 rule 3: the vendor's 1,717,882,627,000 equals no filed line and is replaced by the filed consolidated profit; D-231 predicted this value) |
+| FCF conversion, fiscal 2025, after / before SBC | 0.583865 / 0.584599 | 0.584719 / 0.585454 | computed from it |
+| Operating accruals / aggregate accruals (cash-flow) / accrual ratio, fiscal 2025 | -577,371,625,000 / 530,007,456,000 / 0.181118 | -579,850,725,000 / 527,528,356,000 / 0.180271 | computed from it |
+| Non-controlling share of consolidated profit (DCF bridge test) | fiscal 2024 key, noted stale and immaterial | -0.146249% for fiscal 2025 | `ifrs-full:ProfitLossAttributableToNoncontrollingInterests` -2,479,100,000 over `ifrs-full:ProfitLoss` 1,695,124,900,000; the bridge deduction itself (book value) is unchanged |
+| Analyst-estimate currency calibration pair | fiscal 2024 estimate against filed revenue 2,894,307,700,000 | fiscal 2025 estimate against filed revenue 3,809,054,300,000 | `ifrs-full:RevenueFromContractsWithCustomers`, 2025-01-01..2025-12-31; the conclusion (TWD) is unchanged |
+| ADS ratio proof (1 ADS = 5 ordinary shares) | weighted-count leg cited to the fiscal 2024 20-F | same ratio; the leg cites the fiscal 2025 20-F | `ifrs-full:WeightedAverageShares`, 2025-01-01..2025-12-31 = 25,928,300,000 shares |
+| Fundamentals score / evidence share | 78.5 on 80% of signals (EPS growth not current evidence) | 79.74 on 100% | the EPS growth signal is scored again |
+| Quality score / business-quality assessment / composite | 83.21 / 77.27 / 72.35 | 83.23 / 79.12 / 73.74 | computed; every band is unchanged (composite B, Provisional) |
+| Manifest | 7 data issues | 4: the three fiscal 2025 warnings (two EPS, cash-flow net income) are replaced by informational entries naming the filed values, and one entry names the merged filing | - |
+
+No fair value, DCF input, multiple value, balance or TTM figure moves. The
+2023 and 2024 cash-flow corrections of D-231 keep their values and now cite
+the newer filing, which restates them.
+
+The accuracy check (`npm run accuracy:check`, PR #139): on the 17 cases, the
+same output as main, since nothing moves. On those cases with TSM replaced by
+the rebuilt report: "diluted EPS, latest fiscal year" goes from mismatch to
+match, and "net income, latest fiscal year" from match to mismatch. The second
+is the D-231 rule applied to fiscal 2025 as it already applies to 2016-2024:
+the free-cash-flow series now carries the filed consolidated profit
+(1,695,124,900,000), and the check's reference for that row is the filed
+parent profit (1,697,604,000,000). Both are lines of the same 20-F. Whether
+that row should show consolidated or parent profit is the definition question
+D-231 left open; this change does not decide it.
+
+### What changes for new reports, and what does not
+
+A new report of a company that files Form 20-F or 40-F, or of any company
+whose latest core filing the feed lists without its statements, now reads that
+filing's own facts when SEC's feed has not published them: figures that need a
+filed fact of the newest fiscal year (per-share admission for ADRs, the
+cash-flow net income check, the non-controlling share, currency calibration)
+reach that year instead of ending a year early or being withheld, and the
+report says which filing was read. Where the instance cannot be read the
+report says that instead.
+
+Saved reports and stored run inputs keep their bytes (P21): the TSM report in
+the same-report check, and any saved report of a 20-F filer, still ends its
+EPS rows at the earlier year, because collection is not replayed. Not covered
+by this change: interim reports of foreign filers (Form 6-K is not a core
+form and most carry no XBRL), and segment revenue for 20-F and 40-F filers.
+
+Version stamps are not moved by this change: they are shared by the Stage 5
+accuracy changes and move once, at integration (P27).
+
+Tests: `tests/edgar.instanceFallback.test.ts` (the real filing and stored
+feed; a domestic 10-Q the feed mentions by its cover page only; a 10-K filer
+whose feed is complete, with no request; a Canadian 40-F filer on us-gaap; a
+6-K; an amendment that states only its cover page; the selection, the
+eight-filing bound and the unread disclosure; the bundle builder over a
+recorded-shape transport, with and without the filing in the feed).
+`tests/edgar.instanceFacts.test.ts` (B-23) passes unchanged.
+
+## D-250 - Debt totals and lease coverage: one filing completes an unclassified balance sheet, and half a finance lease withholds a provider total (2026-11-13)
+
+Principles P7 (compose once, from one filing: one filing, instant, issuer and
+currency; each part once; no balancing plug; a vendor zero is undisclosed, not
+filed), P10 (withhold, never guess), P12 (qualifications inherit) and P13 (one
+definition, read everywhere). Round 2, Stage 5 (accuracy fixes), debt and lease
+family. Owner changed: `admitDebtFields` (`src/edgar/financialEnrichment.ts`),
+with one reader beside the existing one in `src/edgar/debtPresentation.ts` and
+one shared sentence in `src/edgar/debtCompleteness.ts`. No tolerance, day band,
+currency rule, status word or label is added or changed. D-202 is marked
+"Revised by D-250" for the two provider-row shapes below.
+
+The accuracy baseline (r2-base-afb9cddf) listed five things. Each was checked
+against the code, the cached inputs and the filings' own XBRL instances.
+
+### 1. Realty Income (O): the gap becomes the filed number
+
+Root cause. O's 10-Q for 2026-09-30 (0000726728-26-000059, filed 2026-11-03)
+presents an unclassified balance sheet and tags its borrowings by instrument,
+with no long-term-debt aggregate. The provider row holds the borrowings
+(short-term 2,127,928,000 + long-term 29,260,948,000 = 31,388,876,000) and a
+lease line of 0, while the filing tags `OperatingLeaseLiability` 409,910,000
+and `FinanceLeaseLiability` 165,371,000. Both completions that replace an
+undisclosed provider lease zero with filed liabilities (D-133, D-202) start
+from a current/noncurrent anchor (`LongTermDebtNoncurrent`,
+`LongTermNotesAndLoans`, `LongTermDebtAndCapitalLeaseObligations` or
+`OperatingLeaseLiabilityNoncurrent`), which an unclassified sheet does not
+have. So the row stayed as served and the lease guard (`leaseDebtConflict`)
+refused it: "operating-lease liability 409.91M exceeds the vendor lease line
+0M". The refusal rested on a provider zero, which P7 calls undisclosed.
+
+Rule (`completeUnclassifiedSheetDebt`). A provider row whose lease line is 0
+is completed when ONE filing at the row's date and currency proves every part:
+its balance sheet lists liability lines that add up to its total exactly in
+both columns (`unclassifiedLiabilityLines`, the header grammar
+`reconcileDebtPresentation` already reads) and that total is the filing's
+tagged `Liabilities`; every instrument-debt fact the filing tags at the
+instant is one of those lines, each line once; at most one further line is the
+sheet's own credit-facility and commercial-paper line, which a tagged
+`CommercialPaper` does not exceed; no other line has a borrowing-like caption;
+the filing tags none of the aggregates or current-debt lines the other
+completions read; the provider's long-term debt, short-term debt and total
+agree with those lines (`vendorAgreesWithFiled`, the P8 owner); and the filing
+states both lease liabilities in full, not both zero. Anything else leaves the
+row to the unchanged checks, which still run on the completed row.
+
+Filed proof, all in 10-Q 0000726728-26-000059, instant 2026-09-30, USD:
+
+| Part | Filing line | Element | Value |
+| --- | --- | --- | ---: |
+| Credit lines and commercial paper | Revolving credit facilities and commercial paper | `o:RevolvingCreditFacilityAndCommercialPaper` (the filer's element; read off the balance sheet) | 2,127,928,000 |
+| Term loans | Term loans, net | `us-gaap:LoansPayable` | 2,772,340,000 |
+| Mortgages | Mortgages payable, net | `us-gaap:SecuredDebt` | 36,745,000 |
+| Notes | Notes payable, net | `us-gaap:NotesPayable` | 26,451,863,000 |
+| Operating leases | (in other liabilities) | `us-gaap:OperatingLeaseLiability` | 409,910,000 |
+| Finance leases | (in other liabilities) | `us-gaap:FinanceLeaseLiability` | 165,371,000 |
+| **Total debt including leases** | | | **31,964,157,000** |
+
+Completeness: the eight liability lines (those four, distributions payable
+265,518,000, accounts payable and accrued expenses 1,094,942,000, lease
+intangible liabilities 1,463,929,000, other liabilities 1,062,753,000) add up
+to `us-gaap:Liabilities` 35,276,018,000. Cash is
+`us-gaap:CashAndCashEquivalentsAtCarryingValue` 368,534,000.
+
+### 2. Rivian (RIVN): a finance lease disclosed with one maturity only
+
+Root cause. RIVN's 10-Q for 2026-09-30 (0001874178-26-000066, filed
+2026-10-29) tags `FinanceLeaseLiabilityNoncurrent` 99,000,000 and neither the
+current portion nor a total; the current portion sits inside a combined
+current line under the filer's own element
+(`rivn:DeferredRevenuesLeaseLiabilitiesAndOtherLiabilitiesCurrent`
+1,598,000,000; the 10-K 0001874178-26-000008 tagged
+`FinanceLeaseLiabilityCurrent` 3,000,000 at 2025-12-31). The provider's lease
+line 985,000,000 is the filed operating leases 886,000,000 plus that
+99,000,000, so its total debt 5,431,000,000 holds half a finance lease. The
+SEC statements builder withholds its own row for this shape ("Finance lease
+liability incomplete", audit FCX-1) and D-202 rule 1 says a disclosed but
+incomplete family refuses an unsupported total, but a provider row was never
+asked: both completions decline it without a refusal and the total stood.
+
+Rule (`partialFinanceFamilyReason`). On a provider row, when the filings tag
+one maturity of the finance lease liability at the row's date and neither the
+other maturity nor a total, total debt and net debt are withheld with the
+statements builder's sentence, now one function (`partialFinanceLeaseReason`),
+followed by the tag, amount and filing that show it. A row the statements
+builder made keeps that builder's rule. The rule fires for RIVN's three 2026
+quarter ends (99M, 99M and 97M noncurrent) and for nothing else in the 17
+cases (a scan of every balance date of the 13 companies; META 2018-12-31 has
+the shape and was already refused).
+
+### 3. What does not change, and why
+
+- Micron (MU) 5,179,000,000 and Qualcomm (QCOM) 15,270,000,000. Each is filed
+  financing debt and is right on the house basis, which excludes operating
+  leases (D-202): MU's is `DebtAndCapitalLeaseObligations` 5,179,000,000 (10-K
+  0000723125-26-000023: `DebtCurrent` 491,000,000 +
+  `LongTermDebtAndCapitalLeaseObligations` 4,688,000,000, finance leases
+  2,387,000,000 inside); QCOM's is `DebtCurrent` 2,489,000,000 + `LongTermDebt`
+  12,781,000,000 (10-Q 0000804328-26-000086). Neither filing tags an operating
+  lease liability at the balance date (MU's 10-Q 0000723125-25-000046 tagged
+  737,000,000 at 2025-11-27, QCOM's 10-K 0000804328-25-000085 tagged
+  832,000,000 at 2025-09-28), so a total including operating leases is not
+  established and Metis does not claim one: the report's caption is "Debt used
+  in this report", its operating-lease line is a gap, and its note says
+  operating lease coverage is unverified and undisclosed lease components are
+  not assumed zero. Net debt (-38,255,000,000 and 6,966,000,000) matches the
+  filed operands in the baseline. Only the stored key's name
+  (`totalDebtIncludingLeases`, a stable id) says "including leases". Renaming
+  it is a wording change not tied to a number: listed for the owner, not made.
+- Duke Energy (DUK) 93,780,000,000. The 991,000,000 above the filed borrowings
+  (`LongTermDebtCurrent` 6,116,000,000 + `ShortTermBorrowings` 2,341,000,000 +
+  `LongTermDebtNoncurrent` 84,332,000,000 = 92,789,000,000, 10-Q
+  0001326160-26-000051) is established: it is the consolidated balance sheet's
+  "Operating lease liabilities" line under other noncurrent liabilities,
+  tagged with the filer's own element `duk:OtherOperatingLeaseLiabilityNoncurrent`
+  (991,000,000 at 2026-09-30; its comparative 1,033,000,000 is
+  `us-gaap:OperatingLeaseLiabilityNoncurrent` in the 10-K
+  0001326160-26-000014). So one filing proves the provider's lease line is the
+  noncurrent operating lease liability. It does not prove a total including
+  leases: the current operating portion is not presented, and Duke's finance
+  leases sit inside its debt lines. The existing treatment for exactly this
+  (D-186, D-202 rule 3: debt including the disclosed lease portion, net debt
+  excluding it, here 92,789,000,000 - 451,000,000 = 92,338,000,000) is reached
+  only through the us-gaap noncurrent tag, which this 10-Q does not use, and
+  the cached inputs hold neither filer elements nor a single-issuer statement
+  text for this combined filing (nine registrants' balance sheets). Proving it
+  needs a new reader; not done here. DUK keeps its figures and its
+  "coverage is unverified" note. Described for a follow-up in the pull request.
+- NVIDIA (NVDA). 99,369,000,000 and 56,586,000,000 are two named quantities,
+  not one computed twice (D-60): "Cash and short-term investments" (cash
+  22,443,000,000 + `DebtSecuritiesCurrent` 34,143,000,000 +
+  `EquitySecuritiesFvNi` 42,783,000,000, 10-Q 0001045810-26-000075),
+  "Marketable equity securities" 42,783,000,000 and "Cash for net debt"
+  56,586,000,000, each on its own line of the debt bridge; net debt and EV net
+  the last, and the equity bridge adds the equity securities once as a
+  non-operating asset. Nothing changes.
+- The long-term-debt tag list (`src/edgar/tagSynonyms.ts`, `longTermDebt`). It
+  is read as ordered alternatives, first match wins, and `resolveDebtOverlaps`
+  nets the two known overlaps (current maturities out of `LongTermDebt`,
+  finance leases counted once beside `LongTermDebtAndCapitalLeaseObligations`).
+  Traced over every balance row of the 13 companies: only MU's rows are built
+  from SEC facts, and all of them read `LongTermDebtAndCapitalLeaseObligations`
+  beside `DebtCurrent`, which composes the filed total above; the other twelve
+  use the provider's long-term debt, which equals `LongTermDebtNoncurrent`
+  wherever a filing tags several of the four. No row reads `LongTermDebt` or
+  the inclusive total, so no case counts current maturities twice or loses a
+  current portion today. One weakness remains in principle: a filer that tags
+  `LongTermDebt` on its noncurrent line (QCOM's practice) would, on an
+  SEC-built row, have `LongTermDebtCurrent` subtracted from it unless the
+  statement text proves the line's scope (`reconcileDebtPresentation`). No case
+  exercises it, so it is recorded, not changed.
+
+### Before and after (same-report check, 17 cases, against main 629cf3c9)
+
+Only `o-data-only` and `rivn-data-only` change; every file of the other 15
+cases is byte-identical. The leaf list is in
+`tmp/accuracy/s5-debt-leases-before-after.md`.
+
+| Company | Figure (2026-09-30) | Before | After | Proof |
+| --- | --- | ---: | ---: | --- |
+| O | Debt used in this report (`totalDebtIncludingLeases`) | withheld | 31,964,157,000 | the table in section 1 |
+| O | Net debt on the retained basis | withheld | 31,595,623,000 | total less cash 368,534,000 |
+| O | Net debt on the selected operating-lease basis; `capital.current.netDebt` | withheld | 31,185,713,000 | less `OperatingLeaseLiability` 409,910,000 |
+| O | Enterprise value (operating-lease basis; also the REIT sketch's) | withheld | 90,909,686,635 | market cap 56,541,526,635 (a market input) + debt 31,554,247,000 + noncontrolling interests 3,182,447,000 - cash 368,534,000 |
+| O | EV/Sales, current | withheld | 14.648712 | that EV over TTM revenue |
+| O | EV/Sales own-history percentile and observations | none; 12 | 29.58; 13 | the current point joins; each quarter's EV is now on the operating-lease basis the current one uses |
+| O | WACC; debt weight | 6.901924%; 34.4765% | 6.847546%; 35.8181% | the debt weight reads the 2026-09-30 balance where it read 2026-03-31; the WACC history follows |
+| RIVN | Debt used in this report | 5,431,000,000 | withheld | section 2 |
+| RIVN | Net debt on the retained basis | -71,000,000 | withheld | built on that total |
+| RIVN | Net debt on the selected operating-lease basis; `capital.current.netDebt` | -957,000,000 | withheld | built on that total |
+| RIVN | Provider enterprise value at 2026-09-30 | 23,525,240,000 | withheld | its debt operand is the refused 5,431M |
+| RIVN | Pre-tax cost of debt | 4.929513% | 4.201550% | TTM interest over the fiscal-year-end balances, since the 2026-09-30 balance is refused (the existing fallback) |
+
+O's fair value stays withheld (equity REIT route) and RIVN's stays withheld
+(loss-making overlay; its EV was already withheld for share scope, and now
+names the debt first). No score, grade or fair value moves in any case.
+
+### Limits
+
+- The same-report check replays frozen inputs, so the completion runs in
+  Stage B. `buildMarketData`'s provider-EV check reads the stored row, not the
+  admitted one, so O's replayed "provider enterprise value" note still quotes
+  the old lease refusal. That value is withheld before and after. A fresh run
+  completes the row at acquisition and the note names the composed total. The
+  same gap between replay and fresh run exists for FIGR since D-234.
+- The wider 104-company census of D-202 is not replayed here. Other providers'
+  rows with half a finance lease will be withheld by rule 2; other
+  unclassified sheets complete only when every condition of rule 1 holds.
+- Version stamps are not moved (the lead moves them once, P27). This change
+  calls for `STAGE_B_IMPLEMENTATION_VERSION` and `PAYLOAD_VERSION`;
+  `NET_DEBT_RESOLVER_VERSION` is unchanged (the resolver's convention is).
+
+Tests (`tests/financialEnrichment.debtLeases.d250.test.ts`, 39 tests; five
+fail on the previous admission): O on its filed lines, 25 compatible controls
+with one part unproven, an unrelated net-lease REIT with no credit facility,
+the reader; RIVN, seven compatible controls, an unrelated filer with the
+current maturity only, a filer with no finance lease, and the shared sentence.
+
+## D-237 - An effective tax rate divides by the pre-tax income its provision relates to (2026-11-12)
+
+Principles P13 (one basis: a ratio's numerator and denominator share one
+basis, and one definition is computed once and read everywhere), P8 (filed
+beats vendor), P1 (exact period, every operand's evidence retained), P16
+(evidence-led inputs, never tuned) and P20 (provenance and disclosure). Round
+2, Stage 5 (accuracy fixes), tax-rate family. The accuracy baseline
+(r2-base-afb9cddf, ranks 6, 7 and 12) found Amazon's "DCF year-one tax rate
+(TTM effective rate)" at 22.64671918% against 22.57702347% on the filed
+operands, Qualcomm's at 17.41883696% against 17.40991795%, and listed NVIDIA's
+guided 17% as a definition row.
+
+Root cause (Amazon). The rate is the trailing provision over the trailing
+pre-tax income, each summed from the four latest quarterly income rows
+(`ttmIncomeFromNormalized`, `src/pipeline/compute.ts`). Amazon's filed pre-tax
+line is "Income before income taxes" (us-gaap
+`IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments`);
+its provision follows, then "Equity-method investment activity, net of tax",
+then net income. The provider's pre-tax figure for Amazon's 2025 rows is net
+income plus the provision, which is the filed line plus the after-tax
+equity-method result. The earnings admission (D-200,
+`enrichIncomeClassification`, `src/edgar/incomeClassification.ts`) accepts
+that figure as agreeing with the filing, by design: it is the pre-tax income
+of the earnings identity (pre-tax less tax equals net income). Nothing then
+told a tax rate that this figure is not the provision's base. So the trailing
+denominator mixed two scopes: the two 2026 quarters on the filed line (the
+provider reports it there) and the two 2025 quarters 73M and 467M below it,
+540M in all. The same figure divided every annual rate (ROIC's tax rate, the
+DCF's historical rates), and the WACC read the provider's own ratio, which is
+its tax over its pre-tax income.
+
+Which pre-tax line is right. The provision's. A filer that reports both lines
+states its equity-method result after the provision and net of tax (Regulation
+S-X 5-03 order; Amazon's caption says "net of tax"), so the provision relates
+to the line before it, and the filer's own effective rate is the provision
+over that line. Numerator and denominator then share one entity scope and
+period (P13). Micron's rows, which Metis builds from the filings, already
+divide by that line (14.80972399%, a match in the baseline); Amazon's did not
+only because its rows come from the provider. Pre-tax income as a figure of
+its own (the P/E note on non-operating income, the statement tables) keeps the
+earnings-identity definition of D-200.
+
+Qualcomm: the suspected cause is disproved. Each of Qualcomm's four provider
+quarters equals the filed quarterly fact (`IncomeTaxExpenseBenefit`: 460M,
+2026-03-30..2026-06-28, 10-Q 0000804328-26-000086; -5,138M,
+2025-12-29..2026-03-29, 10-Q 0000804328-26-000061; 543M,
+2025-09-29..2025-12-28, 10-Q 0000804328-26-000017; 6,088M for the fourth
+quarter of fiscal 2025 = 7,122M, 10-K 0000804328-25-000085, less 1,034M, 10-Q
+0000804328-25-000045), and the pre-tax quarters likewise (2,462M, 2,232M,
+3,547M, 2,971M = 11,212M). Their sum is 1,953M. The baseline's 1,952M uses the
+filer's nine-month figure, -4,136M, and Qualcomm's own columns differ by its
+rounding: 543M - 5,138M = -4,595M against a filed six months of -4,596M. Both
+figures are built only from filed facts; no filed twelve-month provision
+exists to choose between them. Metis sums four quarters by its existing P1
+rule, so Qualcomm's rate is a definition row and does not move.
+
+NVIDIA: unchanged. Its year-one rate is the guided 17% (D-60), a choice listed
+for the owner; its observed pair (36,865M over 229,744M) equals the filed
+quarters, its pre-tax element includes equity-method results, and nothing in
+its operands has this defect.
+
+What the rate's operands were for each of the thirteen companies (TTM window
+of the four latest quarterly rows; "equals filed" means equal to the SEC XBRL
+quarterly facts, the fourth quarter as fiscal year less nine months):
+
+| Company | Rate read by | Window | Provision / pre-tax income | Source and scope before | After |
+| --- | --- | --- | --- | --- | --- |
+| AMZN | DCF year one, WACC | 2025-07-01..2026-06-30 | 39,615M / 174,926M | provider rows; provision equals filed; pre-tax income on the filed line for two quarters and filed line plus after-tax equity-method result for two | 39,615M / 175,466M, the filed line in all four quarters |
+| MU | DCF year one, WACC | 2025-08-29..2026-09-03 | 14,761M / 99,671M | rows built from filings; the filed line before equity-method results | unchanged |
+| NVDA | DCF comparison text (year one is guided 17%), WACC (provider ratio) | 2025-07-28..2026-07-26 | 36,865M / 229,744M | provider rows equal filed; the element includes equity-method results | unchanged |
+| QCOM | DCF year one, WACC (provider ratio) | 2025-06-30..2026-06-28 | 1,953M / 11,212M | provider rows equal filed; the element includes equity-method results | unchanged |
+| TSM | DCF year one; WACC reads the provider ratio 16.547% | 2025-10-01..2026-09-30 | TWD 525,476,394,000 / 3,053,125,687,000 | provider rows; the stored SEC facts hold no quarterly income facts for TSMC (a Form 20-F filer), so not established against a filing | unchanged |
+| META | WACC only (DCF withheld: share scope) | 2025-10-01..2026-09-30 | 3,613M / 78,862M | provider rows; three quarters equal filed within the filer's rounding, the latest was not yet filed at the analysis time | unchanged |
+| FIGR | WACC only (DCF withheld) | 2025-07-01..2026-06-30 | -36,586K / 200,797K, floored at 0% | provider rows equal filed | unchanged |
+| JPM, PGR | WACC only (excess-return route) | to 2026-09-30 | 19,310M / 85,289M; 3,071M / 14,693M | provider rows equal filed | unchanged |
+| O | WACC only (REIT route) | to 2026-09-30 | provider ratio 2.215% | the provider's ratio; the statement pair, with the filed family adopted for one quarter (D-200), is 97,371K / 1,522,595K | unchanged (see "Not changed") |
+| DUK | WACC only (DCF withheld: regulated utility) | to 2026-09-30 | provider ratio 14.534% | provider rows equal filed; the element includes equity-method results | unchanged |
+| RIVN, VKTX | none: a trailing pre-tax loss, 0% shield | to 2026-09-30 | n/a | existing B-32 rule | unchanged |
+
+Choice, in the owner of the earnings admission (`enrichIncomeClassification`,
+P8), which already runs in the report's calculation view
+(`withIncomeOperatingBasis`), so stored inputs keep their bytes:
+
+1. When the complete filed family reconciles for a row (D-200: filed pre-tax,
+   tax and net income on one filing scope) and its pre-tax element is the one
+   that excludes equity-method results, bridged by the separately filed
+   equity-method amount, the admission records that filed line on the row as
+   `pretaxIncomeBeforeEquityMethod`, a value with its filing. It is kept out of
+   the row's field provenance, so no other rule reads it as period or source
+   evidence. The row's `incomeBeforeTax` is not changed. The row's pair must
+   already be the same observation as the filed family under the existing P8
+   allowance (`vendorAgreesWithFiled`); no tolerance, band, cap, floor or
+   status word is added or changed. Without that family nothing is recorded.
+2. One function, `effectiveTaxPretaxIncome`, returns the recorded line, else
+   the row's pre-tax income, and nothing when the row's pre-tax income is
+   withheld. Every effective tax rate reads it: the trailing pair
+   (`TtmIncome.taxRatePretaxIncome`, behind the DCF's year-one rate and the
+   WACC's statement rate), the annual rows behind ROIC's tax rate and the
+   DCF's historical rates and annual fallback.
+3. The WACC keeps its source order (provider ratio, else the statement pair,
+   B-32) with one exception: where the filings moved the trailing pair's
+   denominator off the provider's figure, the provider's ratio is known to
+   rest on another basis than the provision, and the statement pair replaces
+   it (P8). The basis text says so. The 0-35% clamp, the 0% shield, the
+   terminal floor (D-58) and guidance (D-60) are untouched.
+4. Each period whose base is the filed line and differs from the row's figure
+   is named in the manifest with both values, the element and the filing:
+   `compute.ttmIncome.taxRatePretaxIncome` for the trailing window and
+   `statements.income.annual.taxRatePretaxIncome` for the annual rows (P20).
+
+Options rejected: replacing the row's pre-tax income with the filed line (it
+would undo D-200's earnings identity and move the P/E note and the statement
+table for every such filer); correcting only the DCF's year-one rate where it
+is computed (the annual rates and the WACC would keep the other basis, and one
+report would state two trailing rates for one company); building the trailing
+pair as fiscal year plus year to date less the prior year to date (a change to
+the P1 quarter rule for every flow of every company, and Qualcomm shows the
+two constructions differ only by the filer's rounding); taking the provider's
+ratio out of the WACC for every company (it would reword every report without
+a proven change of value).
+
+D-200 and the B-32 owner decision in D-103 are marked "Revised by D-237": the
+D-200 bridge still admits the provider's pre-tax income, but that figure no
+longer serves as a tax-rate denominator; B-32's order now has the exception in
+point 3.
+
+### Approved report changes
+
+Same-report check, this change against current main (ab6db405, which holds
+D-229, D-231, D-233 and D-234): 16 files in 2 of the 17 cases differ,
+`amzn-data-only` and `amzn-fixed-analyst` (all eight outputs each), plus their
+two payload fingerprints; `golden:diff --approved` with the list below reports
+"18 approved change(s), nothing else". The other 15 cases are byte for byte
+unchanged, as is every figure of Amazon not listed below. Against the round
+baseline r2-base-afb9cddf the difference is these files plus the already
+approved changes of D-231 (TSM, DUK), D-233 (O), D-234 (FIGR) and D-229 (RIVN).
+Leaf-level list: `tmp/accuracy/s5-taxrate-before-after.md` (not committed: it
+quotes vendor data).
+
+Amazon (`amzn-data-only`, USD). Filed values are SEC XBRL facts, stated to the
+million (decimals -6). Trailing window 2025-07-01..2026-06-30:
+
+| Quarter | Filed pre-tax income before equity-method results | Filed provision (`IncomeTaxExpenseBenefit`) | Provider pre-tax before | Filing |
+| --- | --- | --- | --- | --- |
+| 2025-07-01..2025-09-30 | 28,170,000,000 | 6,910,000,000 | 28,097,000,000 | 10-Q 0001018724-25-000123, filed 2025-10-31 |
+| 2025-10-01..2025-12-31 | 26,605,000,000 = 97,311,000,000 - 70,706,000,000 | 4,946,000,000 = 19,087,000,000 - 14,141,000,000 | 26,138,000,000 | fiscal year: 10-K 0001018724-26-000004, filed 2026-02-06; nine months: 10-Q 0001018724-25-000123 |
+| 2026-01-01..2026-03-31 | 39,834,000,000 | 9,560,000,000 | 39,834,000,000 | 10-Q 0001018724-26-000014, filed 2026-04-30 |
+| 2026-04-01..2026-06-30 | 80,857,000,000 | 18,199,000,000 | 80,857,000,000 | 10-Q 0001018724-26-000026, filed 2026-07-31 |
+| Trailing twelve months | 175,466,000,000 | 39,615,000,000 | 174,926,000,000 | the same as the baseline's fiscal year + six months - prior six months: 97,311 + 120,691 - 42,536 and 19,087 + 27,759 - 7,231 |
+
+Cross-check: 175,466M less 39,615M, plus the filed equity-method results of
+the four quarters (-73M, -467M, -19M, -11M), is 135,281M, the twelve-month net
+income Amazon files for 2025-07-01..2026-06-30 (`NetIncomeLoss`, 10-Q
+0001018724-26-000026).
+
+Fiscal years (each from that year's own 10-K; `IncomeTaxExpenseBenefit` is
+unchanged in every year):
+
+| Fiscal year | Filed pre-tax income before equity-method results | Provider pre-tax before | Provision | Rate before -> after | 10-K |
+| --- | --- | --- | --- | --- | --- |
+| 2025 | 97,311,000,000 | 96,757,000,000 | 19,087,000,000 | 19.7267% -> 19.6144% | 0001018724-26-000004, filed 2026-02-06 |
+| 2024 | 68,614,000,000 | 68,513,000,000 | 9,265,000,000 | 13.5230% -> 13.5031% | 0001018724-25-000004, filed 2025-02-07 |
+| 2023 | 37,557,000,000 | 37,545,000,000 | 7,120,000,000 | 18.9639% -> 18.9579% | 0001018724-24-000008, filed 2024-02-02 |
+| 2022 | -5,936,000,000 | -5,939,000,000 | -3,217,000,000 | no rate (pre-tax loss; the 21% floor of the existing rule) | 0001018724-23-000004, filed 2023-02-03 |
+| 2021 | 38,151,000,000 | 38,155,000,000 | 4,791,000,000 | 12.5567% -> 12.5580% | 0001018724-22-000005, filed 2022-02-04 |
+| 2020 | 24,178,000,000 | 24,194,000,000 | 2,863,000,000 | 11.8335% -> 11.8413% | 0001018724-21-000004, filed 2021-02-03 |
+| 2019 | 13,976,000,000 | 13,962,000,000 | 2,374,000,000 | 17.0033% -> 16.9863% | 0001018724-20-000004, filed 2020-01-31 |
+| 2018 | 11,261,000,000 | 11,270,000,000 | 1,197,000,000 | 10.6211% -> 10.6296% | 0001018724-19-000004, filed 2019-02-01 |
+| 2017 | 3,806,000,000 | 3,802,000,000 | 769,000,000 | 20.2262% -> 20.2049% | 0001018724-18-000005, filed 2018-02-02 |
+| 2016 | 3,892,000,000 | 3,796,000,000 | 1,425,000,000 | 37.5395% -> 36.6136%, both read as the existing 35% ceiling | 0001018724-17-000011, filed 2017-02-10 |
+
+Figures that move, each the deterministic result of the operands above with
+every other input unchanged:
+
+| Figure | Before | After |
+| --- | --- | --- |
+| DCF year-one tax rate (TTM effective rate) | 22.646719184112136% | 22.57702346893415% = 39,615 / 175,466 |
+| DCF tax path, years 1 to 10 | 22.65, 22.46, 22.28, 22.10, 21.91, 21.73, 21.55, 21.37, 21.18, 21 | 22.58, 22.40, 22.23, 22.05, 21.88, 21.70, 21.53, 21.35, 21.18, 21 (the 21% terminal floor is unchanged) |
+| Company historical median tax rate (text of the terminal-rate basis) | 17% (fiscal 2019, 17.0033%) | 16.99% (fiscal 2019, 16.9863%) |
+| WACC tax rate and its stated source | 22.6467%, "FMP ratios-ttm effectiveTaxRateTTM" | 22.5770%, the statement pair on the filed line |
+| WACC | 10.470824641874483% | 10.47101427778552% |
+| WACC by fiscal year, 2021 / 2022 / 2023 / 2024 / 2025 | 7.0405 / 9.3735 / 9.3735 / 10.0655 / 9.6701 | 7.0406 / 9.3737 / 9.3737 / 10.0657 / 9.6702 |
+| ROIC tax rate, fiscal 2021 / 2023 / 2024 / 2025 | 0.125567 / 0.189639 / 0.135230 / 0.197267 | 0.125580 / 0.189579 / 0.135031 / 0.196144 |
+| ROIC, fiscal 2021 / 2023 / 2024 | 23.277987% / 16.715786% / 26.521140% | 23.277636% / 16.717036% / 26.527245% |
+| ROIC, fiscal 2025 (latest) | 20.631539% | 20.660404% |
+| ROIC less WACC | 10.160714 points | 10.189389 points |
+| DCF fair value per share | 124.14262846314591 | 124.17775239727463 |
+| Upside against the quote (`fairValue.upsidePct`) | -51.2412% | -51.2255% |
+| Scenario values, bear / base / bull | 104.08 / 124.14 / 149.85 | 104.11 / 124.18 / 149.89 |
+| Reverse-DCF implied starting revenue growth | 50.7470703125% | 50.7275390625% |
+| Present value of explicit cash flows / terminal value | 506.50B / 773.11B | 506.91B / 773.08B |
+| Quality score / moat score / business-quality assessment | 74.52 / 63.53 / 63.46 | 74.54 / 63.55 / 63.47 |
+| Manifest | 164 entries, 117 expected disclosures | 166 entries, 119 expected disclosures: the two new entries of point 4 |
+
+The composite score (57.3), every grade band, the price-based multiples,
+revenue, margins, cash flow and balance-sheet figures do not move. The DCF
+year rows, the sensitivity and growth-margin grids, the mechanical tax and
+capital sensitivities, the forward EPS and free-cash-flow projections and the
+forward P/E (36.2 to 36.1) move with the tax path and WACC; the leaf list has
+each one. The fair value moves 0.04 a share toward a quote of 254.60; the
+operands were chosen by the filing, not by that distance (P16).
+
+`amzn-fixed-analyst` replays a stored analyst text written against the old
+figures. Its deterministic figures change exactly as above. In addition six
+figures the stored text cites (fiscal 2025 ROIC 20.6%, the WACC, their spread
+and three more) no longer equal the payload, so the verification pass marks
+them untraced or contradicted (6 to 12 contradicted claims, 278 to 272 of 288
+figures traced; its manifest goes from 181 to 183 entries). That is the
+verification rule working on stale prose (P19);
+no rule of it changed.
+
+Approvals list for the same-report check (SHA-256, before -> after):
+
+| Case | File | Before (SHA-256) | After (SHA-256) | Reason |
+| --- | --- | --- | --- | --- |
+| amzn-data-only | payload fingerprint | 1.92.0:dfe53665 | 1.92.0:8950eadd | the payload carries the figures below |
+| amzn-data-only | stageB.json | 553fac913dccfba542524f127a158a55b9d53473a8919a36eed4ea456d8c6cd5 | c732caa59b29bc8341f71ddc1efa6367aee96e6737098db6aff3d00d2b51d6c8 | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | payload.txt | 7f2c5cc439cba3008a1da035d8889e97e54e7f3e830e584e7b4509aa91ef79f2 | 9fd88b8fdab1d74ddffb89ad126227f1b93aad3e2f5b3b07c1a223933171bb87 | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | report.json | 7d81faa82ccbebee437d93e78e16534c3ac27eb6a054a166c205567070c70ea1 | 5951cf1d776f6a9d1cf6a839c7957832ade37d08e79dd27aa465b42162f67cc4 | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | report.md | 4b81c65ccc7e3f463dc5397e983c22910c99b3fe671998389ed7e7f1be80f9a9 | 315930a57fc06c9ca787b131da70d9ce32df1db00e6ffb9c7aa852a5d5b3c6e9 | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | print.html | c45fc39d4dc867f9cf452e74f3e3fe32ee7a9b7e8f582cbcd44be2b559cda36c | 63dca549441e73bed607d585f25d950f6f4da6b7c253ed0e6d6a3d21af95b01e | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | audit.md | 6ca116949256f495027c7cb49e2a90215645b3aad0f5b991f3987f4f5f368faa | 3153e61ffe07c7f598915a3b7a45e052214ca7cfabca70dbde83096859ac082a | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | web-classic.html | 57fb2f1c87ffe93aadef34b0645acf2a04f8081c4c5b9ae4b5b93a6cda347d42 | d8d8dacbb02c0b45310904250995622d2df94f0b1983e64231c092adf7713322 | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-data-only | web-dossier.html | b95e86f8457dcbfbfdfe4f5c3b7d6237a4d95ea7d7332d9a5572358d79373bd1 | 3db459ebff4f690c50cd8cd1cd7eb475a86b5a386e0bb476dc500c8f7f502f1e | Amazon's effective tax base is the filed pre-tax line (table above) |
+| amzn-fixed-analyst | payload fingerprint | 1.92.0:dfe53665 | 1.92.0:8950eadd | the payload carries the figures below |
+| amzn-fixed-analyst | stageB.json | 553fac913dccfba542524f127a158a55b9d53473a8919a36eed4ea456d8c6cd5 | c732caa59b29bc8341f71ddc1efa6367aee96e6737098db6aff3d00d2b51d6c8 | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | payload.txt | 7f2c5cc439cba3008a1da035d8889e97e54e7f3e830e584e7b4509aa91ef79f2 | 9fd88b8fdab1d74ddffb89ad126227f1b93aad3e2f5b3b07c1a223933171bb87 | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | report.json | 1b6a5923e5cf42972c5e3dc927787bd07c309255f6745105288b7aea2941a015 | 27bd7b59844915af5524a3e86240c789358e7bb0abef83797bf7a5387413c4e8 | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | report.md | dd50987911ebdc8ce0f64b7e65b3f8eab8df442a6e29a79a81874adfa2cdfc0c | 4c073562953b04efbd1666909a2b60c6662c4a0c63c272ae8cca66510d62f20b | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | print.html | 95857dc7b43a51d34390841cbc0a49ea1b0510047a2118ce14d15146357b15a5 | 9b8db4a4792ae9859d6a7036ce4eac6e14749f8389bce15a3b7862b6b5b20c34 | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | audit.md | 9cca7c1534116246bbb935021418ce6326d252b5f75596b1db09e2ce8d3bb3dd | 42307ac6d21a916ca09fa3a72b907ae60b816cdcfded59f28636872d16e516d9 | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | web-classic.html | 30ef712e50cab9296f4a524ee0401779f4cc07b12dc7f505f28f20ac47138c84 | f2bbdb4456acb434119b2c98268211d4953b277d5bb34c1e6721cfcf40bfd94a | the same figures; the stored analyst text is checked against them |
+| amzn-fixed-analyst | web-dossier.html | 00da1696ddefca4cea500b1cddb024858bb52a002f237d7e75b8cfa111210cc2 | ad57382b0442394c5890cc4f4bc3245780f979690dfcc936b9fab65da05faaeb | the same figures; the stored analyst text is checked against them |
+
+Accuracy check (`accuracy:check`, the unmerged tool, run against this change's
+17 cases): 156 match, 12 mismatch, 63 gap, 35 not established, one
+difference from its expectation, "BETTER: amzn-data-only fv.taxRate, mismatch
+to match", none worse. Current main gives 155 and 13, every figure as
+expected.
+
+Tests (`tests/effectiveTaxBase.d237.test.ts`, 17 cases; 13 fail on the
+unchanged code): the root cause on Amazon's fiscal 2025 and third-quarter 2025
+operands; the same filer where the provider already reports the filed line
+(no figure moves); a compatible control, Caterpillar's adopted family (2,768M
+over 11,541M, not 11,650M); an unrelated shape, Qualcomm, whose pre-tax
+element includes equity-method results (no base recorded, its four filed
+quarters still sum to 1,953M over 11,212M); three incomplete or unreconciled
+families that record nothing; a stale base dropped; a withheld row; the
+calculation view on a stored bundle (bytes unchanged, idempotent); the
+trailing pair, its manifest entry and the WACC statement rate; and Stage B
+end to end on the general-route fixture, where the DCF's year-one rate, the
+WACC's rate and ROIC's rate all take the filed line and both manifest entries
+appear, beside a control filer whose rates and wording do not move.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change advances the Stage B
+implementation stamp (Stage B behaves differently on identical retained
+inputs). The payload format and the report specification are unchanged;
+Amazon's payload fingerprint moves because its content does. Frozen records
+are unchanged. Saved reports are immutable (P21) and keep the figures they
+were built with.
+
+Not changed, with the reason:
+
+- Qualcomm's rate (definition row, above) and NVIDIA's guided 17% (owner's
+  definition row).
+- Realty Income's WACC tax rate is the provider's ratio, 2.215%, although the
+  filed family was adopted for its fourth quarter of 2025 (D-200) and the
+  statement pair is 6.395%. The provider's ratio is contradicted there by a
+  filed adoption, not by a re-based denominator; extending point 3 to "any
+  trailing quarter whose pair the filings replaced" is the same owner
+  (`computeReturns` in `src/pipeline/compute.ts`, the `vendorTaxRate`
+  selection) and needs Realty Income's four quarters proven and its report
+  changes approved. TSMC's WACC likewise reads the provider's ratio (16.547%)
+  while its DCF reads the provider's rows (17.211%); neither can be proven
+  from the stored SEC facts, which hold no quarterly income facts for TSMC.
+- TSMC's trailing pair, and the newest quarter in Meta's, are provider figures
+  with no filed counterpart, and the tax basis text does not say so. Saying so
+  is a wording change without a change of value, which Stage 5 does not allow;
+  it needs an owner decision (P12).
+- The annual-ratio case: when no trailing window exists, the WACC still reads
+  the provider's ratio even if the latest annual row's base is the filed line.
+  None of the 17 cases reaches it.
+- The WACC sentence in the Markdown, print and web outputs now reads "WACC
+  10.471% ... tax rate 22.577%" where it read "WACC 10.5% ... tax rate 22.6%".
+  The values are right. The reader rule (`readerPrecision`,
+  `src/report/presentation.ts`, P22) rounds a percentage written with four or
+  more decimals and leaves three decimals as written (a coupon such as
+  "4.250% Notes"); 10.4710 and 22.5770 are stored as "10.471" and "22.577".
+  Changing that rule would reword other reports, so it is left for its owner.
+
+## D-252 - A fiscal year's operating cash flow is the filed figure when the filing's own cash-flow statement reconciles (2026-11-13)
+
+Principles P8 (a complete reconciled filed family replaces a conflicting vendor
+value), P7 (compose once, from one filing; no plug), P2 (the newest compatible
+filing), P10 (withhold, never guess), P11 (a refusal clears on its cause and
+evidence, never its wording), P14 (method applicability) and P17 (a signal
+that regains its input is scored as computed). Round 2, Stage 5 (accuracy
+fixes), free-cash-flow gaps family. Owner changed: the operating cash-flow
+admission (`admitOperatingCashFlow`, `src/edgar/financialEnrichment.ts`),
+applied to stored rows in the report's own data view (`withCashFlowSbcBasis`,
+`src/pipeline/cashFlowBasis.ts`). No tolerance, day band, currency rule,
+status word, cause code or line-item synonym is added or changed; the two
+us-gaap exchange-rate-effect elements are read only as an operand of the
+identity below. D-89 is marked "Revised by D-252" for the one shape below.
+
+The accuracy baseline (r2-base-afb9cddf, "Gaps whose value is in the filings")
+listed four things. Each was checked against the code, the cached run inputs
+and the filings' own facts. One is fixed; three are left, with the reason.
+
+### 1. Duke Energy (DUK): the gap becomes the filed number
+
+Root cause. The provider's fiscal 2025 cash-flow row carries operating cash
+flow 12,352,000,000 and investing cash flow -14,360,000,000; Form 10-K
+0001326160-26-000014 (filed 2026-02-26) states 12,330,000,000 and
+-14,338,000,000 for 2025-01-01..2025-12-31: the provider moved 22,000,000
+between the two sections. D-89 withholds every vendor operating cash flow that
+conflicts with the filed one, and with it the row's free cash flow: "preserve
+original vendor data and conflict records, withhold processed CFO aliases and
+dependent standardized FCF". It never asked whether the filing itself settles
+the figure, which is what P8 (D-200, written later for earnings) requires. So
+the fiscal year's operating cash flow, free cash flow, FCF conversion and the
+forensic figures that need operating cash flow were all gaps, although every
+operand is in the 10-K.
+
+Rule (`filedCashFlowFamily`, `adoptFiledOperatingCashFlow`). On an annual
+row, a vendor operating cash flow that conflicts with the directly filed one
+(`vendorAgreesWithFiled`, the P8 owner) takes the filed figure when ONE filing
+proves the statement around it:
+
+1. it is the newest filing that states the fiscal year's
+   `NetCashProvidedByUsedInOperatingActivities`, with one value;
+2. it is also the newest filing that states, for exactly the same start and
+   end and in the same currency, `NetCashProvidedByUsedInInvestingActivities`,
+   `NetCashProvidedByUsedInFinancingActivities` and the change in cash, cash
+   equivalents and restricted cash
+   (`CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect`),
+   each with one value; when it tags the exchange-rate effect on cash it
+   states one value for it under one element;
+3. operating + investing + financing + exchange-rate effect equals the change
+   in cash exactly. This is the filing's own arithmetic: no allowance and no
+   balancing figure.
+
+Anything else leaves the row withheld under D-89: a statement that does not
+foot on these lines (cash of a disposal group, a line under another element),
+a line a newer filing restates without the others, two values for a line, a
+quarterly row (a standalone quarter is usually the difference of two
+year-to-date figures from two filings, which is not one filing's statement),
+a figure filed after the analysis time, another currency or issuer.
+
+The vendor observations stay in the row's conflict record (`usable: true`,
+`resolution: "filed-family"`), with the filing as the field's provenance. The
+row then stands as a row whose vendor figure had agreed with the filing: its
+free cash flow is operating cash flow plus capital spending (an outflow is
+negative), the identity every reader already uses (`deriveFcf`), on the row's
+own capital spending, which keeps its own admission rules (D-150, D-239). A
+row without usable capital spending gets no free cash flow, and a free cash
+flow refused for another cause stays refused.
+
+Stored run inputs keep their bytes. A row refused before this decision is
+judged again when a report is built (`readmitFiledOperatingCashFlow`), from
+the refusal's evidence and never its sentence: the operating field is
+withheld, carries no typed cause, and its record holds the vendor figure, the
+filed figure and one directly filed operating cash-flow fact for the row's own
+period; the admitted SEC facts must still state that figure from that filing.
+The free cash flow is reopened only when its refusal carries the identical
+evidence record. The stale warning for that period leaves the missing-data
+list and one entry states the correction and its operands.
+
+Filed proof, all in Form 10-K 0001326160-26-000014 (filed 2026-02-26), fiscal
+year 2025-01-01..2025-12-31 or the instants named, USD:
+
+| Line | Element | Value |
+| --- | --- | ---: |
+| Operating cash flow | `NetCashProvidedByUsedInOperatingActivities` | 12,330,000,000 |
+| Investing cash flow | `NetCashProvidedByUsedInInvestingActivities` | -14,338,000,000 |
+| Financing cash flow | `NetCashProvidedByUsedInFinancingActivities` | 1,950,000,000 |
+| Change in cash, cash equivalents and restricted cash | `CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect` | -58,000,000 |
+| Capital spending | `PaymentsToAcquirePropertyPlantAndEquipment` | 14,024,000,000 |
+| Consolidated profit | `ProfitLoss` | 5,071,000,000 |
+| Profit from continuing operations, including noncontrolling interests | `IncomeLossFromContinuingOperationsIncludingPortionAttributableToNoncontrollingInterest` | 5,070,000,000 |
+| Total assets at 2025-12-31 / 2024-12-31 | `Assets` | 195,736,000,000 / 186,343,000,000 |
+
+12,330 - 14,338 + 1,950 = -58 (millions): the statement foots.
+
+DUK (`duk-data-only`, general route, regulated-utility overlay, USD):
+
+| Figure | Before | After | Operands of the new value |
+| --- | --- | --- | --- |
+| Operating cash flow, fiscal 2025 (cash-flow row) | withheld | 12,330,000,000 | filed line |
+| Free cash flow before and after SBC, fiscal 2025 (no SBC is disclosed for the year, so the two are equal) | withheld | -1,694,000,000 | 12,330,000,000 - 14,024,000,000 |
+| FCF conversion, fiscal 2025, after and before SBC | withheld | -0.3341 | -1,694,000,000 / 5,071,000,000 |
+| Free-cash-flow growth windows | end at fiscal 2024 ("latest 1 period(s) missing") | end at fiscal 2025 | each stays "undefined across a sign flip or non-positive endpoint"; no growth rate is shown before or after |
+| Cash-flow accruals, fiscal 2025 | withheld | -7,259,000,000; ratio -3.80% of average total assets, "unremarkable" | 5,071,000,000 - 12,330,000,000; / ((195,736,000,000 + 186,343,000,000) / 2) |
+| Beneish TATA | withheld | -0.03709 | (5,070,000,000 - 12,330,000,000) / 195,736,000,000 |
+| Beneish M-score | withheld (TATA missing) | -2.717, "unlikely" | the seven other indices are unchanged (DSRI 0.849, GMI 1, AQI 1.029, SGI 1.062, DEPI 1.067, SGAI 1, LVGI 1) |
+| Piotroski F | 3 of 5 signals | 5 of 7 signals | positive operating cash flow (12,330,000,000 / 186,343,000,000 = 6.62% of opening assets) and operating cash flow above profit are now evaluable; both pass |
+| Quality score | 53.83 (D) on 12.2% of signals, limited evidence | 72.93 (B) on 44.1% of signals, limited evidence | the accrual ratio and the M-score are scored again and Piotroski has two more signals (P17) |
+| Business quality | 54.14 (D) | 56.14 (C) | the row above |
+| Composite | 55.56 (C, Provisional), evidence 65.59% | 57.29 (C, Provisional), evidence 71.31% | the rows above |
+| Data gaps | 77 | 75 | |
+
+The trailing twelve months were already built from the filings (D-240 and the
+filed year-to-date identity) and are unchanged: operating cash flow
+11,547,000,000, capital spending 16,709,000,000, standardized free cash flow
+-5,162,000,000. Fair value, valuation multiples and every other figure of the
+case are unchanged. Duke's fiscal 2016 row has the same kind of conflict
+(vendor 6,798,000,000 against 6,863,000,000 in Form 10-K 0001326160-19-000057,
+filed 2019-02-28) and stays withheld: that filing's operating 6,863 +
+investing -11,528 + financing 4,251 = -414 (millions) against a tagged change
+in cash of 60, so the statement does not foot on these lines.
+
+### The same rule on the other stored cases
+
+Two older rows carry the same refusal and their filings reconcile.
+
+O (`o-data-only`, equity-REIT route, USD). Form 10-K/A 0000726728-19-000041
+(filed 2019-03-01), fiscal year 2016-01-01..2016-12-31: operating 799,863,000
++ investing -1,700,707,000 + financing 866,192,000 = change in cash
+-34,652,000. The vendor row held 804,045,000, the figure of the original
+10-K (0001104659-17-011170), which the later filings restate.
+
+| Figure | Before | After | Operands of the new value |
+| --- | --- | --- | --- |
+| Operating cash flow, fiscal 2016 (cash-flow row) | withheld | 799,863,000 | filed line |
+| Free cash flow, fiscal 2016 (not printed; the start of the longest growth window) | withheld | 786,437,000 | 799,863,000 - 13,426,000 (`PaymentsForCapitalImprovements`, the same filing; the capital line the case's other years use, D-239) |
+| Free cash flow CAGR, "10 years" | 21.9491% over 7 years (2017 to 2024) | 20.3092% over 8 years (2016 to 2024) | 786,437,000 to 3,451,865,000 (unchanged end, D-239) |
+| Fundamentals growth signal, "longest retained window" context sentence | 7.00 years, 21.95% | 8.00 years, 20.31% | the row above; the scoring window and the score are unchanged |
+
+No Realty Income score, grade, FFO, AFFO or valuation figure moves.
+
+PGR (`pgr-data-only`, insurer route, USD). Form 10-K 0000080661-19-000008
+(filed 2019-02-27), fiscal year 2016-01-01..2016-12-31: operating
+2,732,700,000 + investing -2,480,700,000 + financing -250,400,000 +
+exchange-rate effect 400,000
+(`EffectOfExchangeRateOnCashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents`)
+= change in cash 2,000,000; capital spending
+`PaymentsToAcquirePropertyPlantAndEquipment` 215,000,000. The vendor row held
+2,701,900,000. The fiscal 2016 row's operating cash flow becomes 2,732,700,000
+and its free cash flow 2,517,700,000. Neither is printed: industrial free cash
+flow is not applicable on the insurer route. The one reader-visible change is
+the growth note "Free cash flow 10y CAGR is computed over 8.0 years
+(2017-12-31 to 2025-12-31)", which now reads "9.0 years (2016-12-31 to
+2025-12-31)"; the growth rate itself stays not applicable.
+
+Each of the three cases also swaps one missing-data entry: the D-89 warning
+for that fiscal year leaves and an entry stating the correction and its
+operands is added. Every other figure of all 17 cases is unchanged: the other
+14 cases are byte for byte identical.
+
+### 2. Figure Technology (FIGR): checked and left as it is
+
+Its free cash flow (fiscal 2025 and trailing) is not a missing input. The
+capital-spending reader does find the filer's line: fiscal 2025
+`PaymentsToDevelopSoftware` 20,649,000 (Form 10-K 0002064124-26-000009) and
+the trailing 23,451,000, both matching the filings, and
+`PaymentsToDevelopSoftware` is already one of the three capital-spending
+elements. The figure is withheld on purpose by D-149 (R-FIGR-1, P14): FIGR is
+a held-for-sale lender (SIC 6163) whose cash-flow statement places loan
+originations and loan-sale proceeds in operating activities, so operating cash
+flow less capital spending measures loan inventory funding, not cash available
+to owners. The report says so beside the figure. Showing 41,919,000 or
+-109,941,000 as "free cash flow" would reverse that applicability decision,
+which no finding here supports; the swing from +62,568,000 to -86,490,000 of
+operating cash flow within one year is what D-149 describes.
+
+### 3. Viking Therapeutics (VKTX): left, and what is missing
+
+D-239 made the provider's capital-spending zero "undisclosed", so free cash
+flow and the cash runway became gaps. Its fiscal 2025 investing section does
+foot without a capital-spending line (`PaymentsToAcquireInvestments`
+418,037,000 and `ProceedsFromSaleMaturityAndCollectionsOfInvestments`
+759,425,000 against net investing cash 341,388,000, Form 10-K
+0001193125-26-046876). That is not yet a proof the rulebook accepts, for two
+reasons. (a) No rule reads the absence of a line as nil: D-239 rejected the
+footing of tagged facts as a residual inference (SEC company facts do not say
+which lines make up the section), and the two rules that do read a filing's
+own statement lines (D-234, D-250) expressly decline to treat an absent line
+as nil. A "none presented" rule for the cash-flow statement would be a new
+kind of evidence and needs its own decision. (b) Even with such a rule, the
+stored Viking inputs cannot prove fiscal 2025: the 10-K's statement text was
+not captured (the input records "no substantive financial-statement rows were
+established before the notes"), which P9 calls a coverage gap, not absence.
+Only the 10-Q's nine-month columns (0001193125-26-436432: purchases, sales
+and maturities of investments only) are in the inputs, and the fiscal year
+and the trailing twelve months both need the 10-K.
+
+### 4. Micron (MU), the equity bridge's noncontrolling interest and preferred equity: left, and what differs
+
+The bridge reads both from the latest balance row. Amazon, NVIDIA, Qualcomm
+and Viking show 0 because their balance rows are provider rows that carry 0
+in both fields (Amazon also files `PreferredStockValue` 0). Micron's stored
+balance sheet is built from SEC facts, and the statement builder leaves an
+untagged line empty (P10): Form 10-K 0000723125-26-000023 tags neither
+element at 2026-09-03. So the difference is the source of the row, not a
+reader that misses evidence. The one rule that turns an untagged
+noncontrolling interest into a zero (audit SNOW-2, `inferredZeroNciPeriods`)
+needs explicit zero noncontrolling earnings for the period and a zero balance
+within about a year; Micron's last tagged balance (0) is at 2020-09-03 and its
+last tagged noncontrolling earnings (0) are for fiscal 2022, so that evidence
+is too old. The filing does tag `Assets` 195,888,000,000 = `Liabilities`
+57,510,000,000 + `StockholdersEquity` 138,378,000,000, which leaves no room
+for equity outside the parent's; reading a zero off that identity is an
+inference from a residual (P10), and it says nothing about preferred stock,
+which sits inside stockholders' equity. No bridge arithmetic depends on the
+difference: an empty deduction and a zero deduction give the same equity
+value, and Micron's fair value is unchanged either way. D-253 was reserved for
+this and is not used.
+
+### Options rejected
+
+Replacing every conflicting vendor operating cash flow with the filed fact
+whatever the rest of the statement says (a fact can be a continuing-operations
+or other partial total; the identity is what shows it is the statement's
+operating total). Adopting the filed investing and financing totals in the
+same step (they have their own field check, `admitCashFields`, which still
+refuses Duke's investing total; the accrual figure falls back to its
+operating definition and says so; left for a follow-up). Requiring a filed
+capital-spending element before free cash flow returns (the growth series and
+the company page derive operating cash flow plus capital spending whenever
+both are present, so a second withholding state on the same row would be read
+differently by different readers, and capital spending has its own owners).
+Applying the rule to quarterly rows (no stored case has a directly filed
+quarterly conflict, and a derived quarter spans two filings). Widening the
+capital-spending definition or the lender route to make FIGR's number appear
+(P14, P16).
+
+### Approved report changes
+
+Same-report check, this change (with main merged) against current main
+355effa7 (#168, batch 4, with D-238 and D-247 to D-250; the same tree as the
+commit this change branched from, 9e25b820, which is the build compared): 24
+files and 3 payload fingerprints differ, all eight outputs of `duk-data-only`, `o-data-only` and
+`pgr-data-only`; the other 14 cases are byte for byte unchanged. The leaf-level
+list and the approvals with their hashes are in
+`tmp/accuracy/s5-fcf-gaps-before-after.md` (not committed: it quotes vendor
+data).
+
+Accuracy check (`accuracy:check`, the unmerged tool at 43c27a8f, whose
+expectation is for main after batch 4): current main gives 167 match, 7
+mismatch, 67 gap, 25 not established, every figure as expected; this change
+gives 168 match, 7 mismatch, 66 gap, 25 not established. One row moves:
+"BETTER: duk-data-only fcf.fy - gap -> match". None is worse.
+
+Tests (`tests/financialEnrichment.operatingCashFlowFamily.test.ts`, 22 cases,
+16 of which fail before the change): Duke Energy fiscal 2025 on its filed
+facts, as a vendor row, as the stored refusal, and in the capital block; the
+compatible control, Duke Energy fiscal 2016, whose statement does not foot
+and stays withheld; two unrelated issuers, Realty Income (no exchange-rate
+line, a capital line outside the three elements) and Progressive (an insurer,
+with an exchange-rate line); a constructed issuer for the rule's edges (off by
+one unit, a missing line, a line from another filing, two values, a newer
+filing restating one line or the whole statement, two exchange-rate elements,
+a fact filed after the analysis time, another currency or issuer, a quarterly
+row); free cash flow with, without and with refused capital spending; what a
+stored refusal must carry to be reopened and what leaves it alone (a typed
+cause, a derived or calculated figure, another tag, filing, period or figure);
+and the data view (stored rows untouched, applying it twice changes nothing,
+the stale warning replaced). No existing test changed.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change advances the Stage B
+implementation stamp only; the report specification and the payload format are
+unchanged. Frozen records are unchanged. Saved reports are immutable (P21) and
+keep the figures they were built with.
+
+Left for follow-up: the filed investing and financing totals of a reconciled
+statement (Duke's fiscal 2025 investing cash flow stays withheld on the
+provider's -14,360,000,000 against the filed -14,338,000,000, so its accrual
+figure uses the operating definition); a "none presented" rule for the
+cash-flow statement and the capture of Viking's 10-K statement text (item 3);
+an instance-level "none presented" reader for the equity bridge (item 4); and
+Progressive's fiscal 2025 free cash flow, which the baseline also lists as in
+the filings and which is "not applicable" on the insurer route (P14), as
+FIGR's is.
+
+## D-239 - A provider zero for capital spending is undisclosed unless the filings state a zero (2026-11-12)
+
+Principles P7 (a vendor zero is undisclosed, not filed), P10 (withhold, never
+guess), P11 (a figure built on a refused input is refused), P12 (a fallback
+carries its qualification) and P17 (an unscored signal counts at the neutral
+midpoint). Round 2, Stage 5 (accuracy fixes), vendor-zero family. Revises the
+D-150 cash-capex convention for a provider figure of exactly 0; that
+convention is otherwise unchanged. The accuracy baseline (r2-base-afb9cddf,
+ranks 8 to 10) found JPMorgan's and Realty Income's "capital spending, latest
+fiscal year" shown as 0 USD with no filed line behind it, and called Realty
+Income's "operating income, latest fiscal year" (2,247,261,000) a vendor
+subtotal.
+
+Root cause, capital spending. The provider writes 0 on a cash-flow row for a
+line it did not find. The cash-flow admissions
+(`src/edgar/financialEnrichment.ts`) checked a non-zero quarterly figure
+against the annual tag basis (`admitQuarterlyCapex`) and the trailing
+construction (`filedCapexTtm`); nothing checked an annual figure, and nothing
+asked whether a figure of exactly 0 was filed. So the 0 was read as a figure:
+capital intensity 0%, and a free cash flow equal to operating cash flow.
+JPMorgan's filings tag no capital-spending line in any period. Realty Income's
+tag capital improvements (`PaymentsForCapitalImprovements`) and real-estate
+acquisitions (`PaymentsToAcquireCommercialRealEstate`) as separate lines, under
+neither capital-spending element; the provider's 2016 to 2024 rows carry the
+capital-improvements amount and its 2025 rows carry 0, so the trailing twelve
+months summed 0 + 26,314,000 + 1,957,862,000 + 38,782,000 across three
+different provider definitions. Viking Therapeutics' filings tag none either;
+the baseline lists its four figures as not established without ranking them.
+
+Choice, in the owner of the cash-flow admissions (`admitZeroCapex`), applied
+to annual and quarterly rows in the report's own data view
+(`withCashFlowSbcBasis`, `src/pipeline/cashFlowBasis.ts`), so the calculation,
+the filing disclosures and the AI context read one admitted value and stored
+inputs keep their bytes:
+
+1. A provider capital-spending figure of exactly 0 with no filed evidence on
+   the field is tested against the capital-spending lines of the admitted SEC
+   facts for the row's own period, in the row's currency, filed by the
+   analysis time: `PaymentsToAcquirePropertyPlantAndEquipment`,
+   `PaymentsToAcquireProductiveAssets` and `PaymentsToDevelopSoftware`, the tag
+   basis the quarterly and trailing rules already use. The period is the
+   fiscal year (350 to 380 days), or the standalone quarter, directly filed or
+   the difference of two year-to-date figures on one presentation.
+2. When every such line tagged for that period is 0, the zero is filed and
+   stays.
+3. When none is tagged for it, capital spending is undisclosed. When one
+   states an amount, the zero is contradicted. In both cases the field and the
+   standardized free cash flow that subtracts it are withheld for that period
+   and the provider observations are retained. The existing refusal record
+   (`StatementFieldConflict`, `usable: false`) carries it; no status word,
+   cause code, tolerance or synonym is added.
+4. One manifest entry (`statements.cashflow.capitalExpenditure`, warn) names
+   every withheld period and the cause.
+5. A non-zero provider figure, a row whose field already carries filed
+   evidence or an earlier decision, and an issuer without confirmed SEC facts
+   are not this rule's subject.
+6. The company page's free-cash-flow bars read the same admitted rows
+   (`fundamentalsChartDataFromBundle`).
+
+Figures that need a withheld period follow their own existing rules: a
+trailing twelve months with a withheld quarter is withheld; a growth window
+ends at the newest year that has the figure and says so; the cash runway is
+withheld; a score signal without its input leaves the average (P17). No
+scoring rule, penalty, cap or guard was changed.
+
+Operating income, Realty Income: checked and left as it is. The figure is not
+a vendor value (the provider's 1,627,080,400 is kept only as an observation).
+It is computed by the statement builder from four lines of Form 10-K
+0000726728-26-000011 (filed 2026-02-25, fiscal year 2025-01-01..2025-12-31):
+`IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest`
+1,155,129,000 + `InterestExpenseOperating` 1,134,879,000 -
+`OtherNonoperatingIncomeExpense` 29,417,000 -
+`IncomeLossFromEquityMethodInvestments` 13,330,000 = 2,247,261,000. The report
+shows it as "EBIT", source "computed", in the interest-coverage block and
+already states that it "is derived from filed pretax/nonoperating operands
+with unverified consolidated operating scope; it is not a directly filed
+operating result" (D-203's status for such a derivation); operating margins on
+it are already withheld. The filing has no `OperatingIncomeLoss` fact, as the
+baseline says, so the accuracy tool keeps the row "not established" until it
+carries a recipe for the derivation.
+
+Options rejected: reading every provider 0 as undisclosed whatever the filings
+say (a filed zero would become a gap); adding capital improvements or
+acquisitions as capital-spending synonyms for REITs (it changes the free cash
+flow convention, D-150, and is a definition decision of its own); taking a
+complete-looking investing section as proof of nil (Viking's two investing
+lines foot exactly to its net investing cash, but a figure inferred from a
+residual is what P10 forbids, and SEC company facts do not say which lines
+make up the section); marking capital intensity "not applicable" on the bank
+route (that is where the symptom showed, and Realty Income and Viking are not
+on that route); withholding every operating figure that is not a tagged
+`OperatingIncomeLoss` (it would reverse D-203 for every filer without the tag).
+
+### Approved report changes
+
+Same-report check, current main 7e59aff3 (with D-231 and D-233) against this
+change: 24 files and 3 payload fingerprints differ, all eight outputs of
+`jpm-data-only`, `o-data-only` and `vktx-data-only`; the other 14 cases, and
+every other figure of those three, are byte for byte unchanged. Against the
+round baseline r2-base-afb9cddf the same files differ, beside the TSM and Duke
+Energy files of D-231 and the three Realty Income leaves of D-233. The full
+leaf-level list and the approvals with their hashes are in
+`tmp/accuracy/s5-vendor-zeros-before-after.md` (not committed: it quotes
+vendor data).
+
+Proof of every new gap: the SEC company facts in each run input (cutoff
+2026-11-12) hold no fact under the three capital-spending elements for any
+period of JPMorgan (CIK 19617; fiscal 2025 is Form 10-K 0001628280-26-008131,
+filed 2026-02-13), Realty Income (CIK 726728; Form 10-K 0000726728-26-000011,
+filed 2026-02-25) or Viking Therapeutics (CIK 1607678; Form 10-K
+0001193125-26-046876, filed 2026-02-11). None of the 13 companies files a zero
+under those elements, so no filed zero is involved.
+
+JPM (`jpm-data-only`, bank route, USD):
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Capital spending, fiscal 2021 to 2025 | 0 each | withheld |
+| Capital spending / revenue, fiscal 2021 to 2024; capital spending / D&A, fiscal 2021 to 2025 | 0 each | withheld |
+| Capital-intensity slope | 0 pp/yr | withheld |
+| Quarterly table column "FCF (CFO - capex)" and the AI payload's statement lines for capital spending and free cash flow (each equal to operating cash flow) | shown | withheld |
+| Data gaps | 21 | 22 |
+
+No JPMorgan score, grade or valuation figure moves; free cash flow, debt/EBITDA
+and interest coverage were already "not applicable" on the bank route.
+
+O (`o-data-only`, equity-REIT route, USD), figures that become gaps:
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Capital spending, fiscal 2025; its ratio to revenue and to D&A; implied maintenance and growth capital spending | 0 each | withheld |
+| Free cash flow, fiscal 2025, before / after SBC | 3,994,754,000 / 3,963,984,000 | withheld |
+| FCF conversion, fiscal 2025, after / before SBC | 3.7054 / 3.7342 | withheld |
+| SBC as % of free cash flow, fiscal 2025 | 0.7703% | withheld |
+| Capital spending, trailing twelve months to 2026-09-30 | 2,022,958,000 | withheld |
+| Standardized free cash flow, trailing twelve months, before / after SBC | 2,126,036,000 / 2,089,882,000 | withheld |
+| FCF conversion before SBC and SBC as % of free cash flow, trailing twelve months | 1.4917 and 1.7005% | withheld |
+| Quarterly free cash flow, the four 2025 quarters | equal to operating cash flow | withheld |
+
+O, figures that move to another number through their own documented
+fallback. Each fiscal year's free cash flow below is the filed
+`NetCashProvidedByUsedInOperatingActivities` less the filed
+`PaymentsForCapitalImprovements`, both from the newest 10-K stating the year:
+
+| Figure | Before | After | Operands of the new value |
+| --- | --- | --- | --- |
+| Free cash flow CAGR, 1 year | 15.7274% (2024 to 2025) | 19.4385% (2023 to 2024) | 2,890,077,000 (2,958,769,000 - 68,692,000) to 3,451,865,000 (3,573,276,000 - 121,411,000), both 10-K 0000726728-26-000011 |
+| Free cash flow CAGR, 3 years | 17.4072% (2022 to 2025) | 38.3644% (2021 to 2024) | 1,303,109,000 (1,322,189,000 - 19,080,000; 10-K 0000726728-24-000047, filed 2024-02-21) to 3,451,865,000 |
+| Free cash flow CAGR, 5 years | 29.2651% (2020 to 2025) | 26.9855% (2019 to 2024) | 1,045,401,000 (1,068,937,000 - 23,536,000; 10-K 0000726728-22-000046, filed 2022-02-23) to 3,451,865,000 |
+| Free cash flow CAGR, "10 years" | 21.1535% over 8 years | 21.9491% over 7 years (2017 to 2024) | 860,603,000 (875,850,000 - 15,247,000; 10-K 0000726728-20-000033, filed 2020-02-24) to 3,451,865,000 |
+| Capital-intensity slope | -0.2387 pp/yr (five years, the last a false 0) | +0.2985 pp/yr (2021 to 2024) | the four unchanged ratios 0.9171%, 2.8566%, 1.6840%, 2.3033%: capital improvements 19,080,000 / 95,514,000 / 68,692,000 / 121,411,000 over `Revenues` 2,080,463,000 / 3,343,681,000 / 4,078,993,000 / 5,271,142,000 |
+| Capital spending / D&A, average | 0.03307 (5 years) | 0.04134 (4 years) | mean of the four unchanged ratios, on `DepreciationDepletionAndAmortization` 897,835,000 / 1,670,389,000 / 1,895,177,000 / 2,395,644,000 |
+
+Each window says "latest 1 period(s) missing - endpoint moved to 2024-12-31".
+Whether capital improvements alone are a REIT's capital spending is not
+decided here (D-150).
+
+O, scores (P17):
+
+| Figure | Before | After | Why |
+| --- | --- | --- | --- |
+| Fundamentals | 86.09 (A) | 85.45 (A) | the free-cash-flow growth signal reads 26.99% instead of 29.27% |
+| Balance sheet | 88.69 on 41.2% of signals, no letter shown | not scored | its two signals were FCF conversion and SBC as % of free cash flow |
+| Business quality | 56.14 (C) | 52.50 (D) | the two rows above |
+| Composite | 53.60, not graded, evidence 33.6% | 51.09, not graded, evidence 27.2% | the composite note now names Balance sheet (15%) as unscored |
+| Data gaps | 32 | 33 | |
+
+FFO, AFFO, their per-share values, P/FFO, P/AFFO, EBIT and interest coverage
+are unchanged for Realty Income.
+
+VKTX (`vktx-data-only`, general route, unprofitable and pre-revenue, USD):
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Capital spending, fiscal 2021 to 2025; capital spending / D&A; implied maintenance and growth capital spending | 0 each | withheld |
+| Free cash flow before SBC, fiscal 2021 to 2025 | -47,586,000 / -48,397,000 / -73,376,000 / -87,790,000 / -278,685,000 (each equal to operating cash flow) | withheld |
+| Free cash flow after SBC, same years | -53,686,000 / -57,070,000 / -90,126,000 / -117,502,000 / -319,503,000 | withheld |
+| Capital spending, trailing twelve months to 2026-09-30 | 0 | withheld |
+| Standardized free cash flow, trailing twelve months, before / after SBC | -462,632,000 / -510,581,000 | withheld |
+| Cash runway (AI payload and stored computation; the data-only report does not print it): average quarterly burn 115,658,000; 8.30 quarters; exhaustion 2028-10-26 | shown | withheld |
+| Balance sheet | 14.57 on 41.2% of signals, no letter shown | 18.00 on 23.5% of signals, no letter shown |
+| Business quality | 44.04 | 45.64 |
+| Composite | 42.46, not graded, evidence 36.3% | 43.95, not graded, evidence 32.6% |
+| Data gaps | 51 | 54 |
+
+Viking's balance-sheet and composite scores rise because the signal that left
+was at the floor ("SBC as % of free cash flow", 10 of 100, free cash flow
+being negative). That is P17's documented neutral-midpoint behaviour; the grade
+was and stays "Not graded". Viking's operating cash flow, liquid assets
+(959,813,000) and income-statement figures are unchanged.
+
+Accuracy check (`accuracy:check`, the unmerged tool at ab12411d, run against
+this change's 17 cases): 153 match, 15 mismatch, 72 gap, 26 not established;
+nine differences from its expectation, all "BETTER, not established to gap"
+(JPM capex.fy; O capex.fy, fcf.fy, capex.ttm, fcf.ttm; VKTX capex.fy, fcf.fy,
+capex.ttm, fcf.ttm), none worse. Current main gives 63 gap and 35 not
+established.
+
+Tests (`tests/financialEnrichment.zeroCapex.test.ts`, 21 cases, 19 of which
+fail before the change): JPMorgan, Realty Income (fiscal 2025, the December
+2025 quarter, and fiscal 2024 unchanged) and Viking on their filed facts; the
+capital block before and after; the compatible control, a constructed issuer
+whose filings tag a zero (fiscal year, direct quarter, year-to-date derived
+quarter, and two elements together); an unrelated issuer, Progressive, whose
+filed 348,000,000 is untouched and against which a 0 is contradicted (fiscal
+year and a year-to-date derived quarter); what the rule never does (filed
+evidence or an earlier decision on the field, another issuer, unknown
+currency, a missing figure; a zero filed after the analysis time, in another
+currency or for another period); the manifest entry; and the data view
+(stored rows untouched, applying it twice changes nothing, the company page's
+bars). No existing test changed.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change advances the Stage B
+implementation stamp only; the report specification and the payload format are
+unchanged. Frozen records are unchanged. Saved reports are immutable (P21) and
+keep the figures they were built with.
+
+Left for follow-up, described in `tmp/accuracy/s5-vendor-zeros-before-after.md`:
+establishing "none presented" from the filing's own cash-flow statement where
+the investing section is complete without a capital-spending or "other
+investing" line (it would restore Viking's free cash flow and runway as proven
+figures); a REIT definition of capital spending; and the interest-coverage
+ratio for Realty Income, which divides the derived EBIT (built with the filed
+`InterestExpenseOperating` 1,134,879,000) by the provider's interest expense
+1,142,201,000.
+
+## D-234 - FIGR: the 10-K's share counts and the 10-Q's own borrowings replace two vendor figures (2026-11-12)
+
+Principles P8 (filed beats vendor), P3 (share basis), P6 (share classes), P7
+(compose once, from one filing), P9 (text only inside proved bounds), P2
+(newest compatible filing), P10 (withhold, never guess) and P12 (a
+substitution is disclosed). Round 2, Stage 5 (accuracy fixes), FIGR family.
+The accuracy baseline (r2-base-afb9cddf) found two FIGR figures that were the
+data vendor's and not the filing's: the fiscal 2025 weighted-average share
+counts, exactly twice the 10-K's, and the "debt used in this report" at
+2026-06-30, the vendor's debt perimeter. Two causes, two owners.
+
+### Weighted-average share counts (P3, P8, P6)
+
+Root cause. The vendor's raw fiscal 2025 income row carries a basic count of
+228,870,518 and a diluted count of 283,604,000: twice the 10-K's 114,435,259
+and 141,802,002 (the diluted figure after rounding to thousands). FIGR's
+registrant lists two symbols (FIGR, FGRS), so a vendor count is compared with
+the filed one only once some comparable period shows that the vendor counts
+shares in the filer's unit (review M-1, 2026-11-01). The producer applies that
+across both income series: FIGR's 2026 quarters match the 10-Qs, so they
+govern the annual row. D-200's filed admission in the report's calculation
+view (`withFiledShareValues`, `src/pipeline/shareUnits.ts`) asked each series
+alone. FIGR has one comparable annual row, and it is the doubled one, so the
+annual series never showed the unit, the row was never compared, and the
+doubled counts stood, while the same view corrected the doubled Q3 2025 count
+and the year-to-date counts on the Q2 2026 row.
+
+The doubling is the vendor's (the stored raw vendor response carries it). The
+10-K tags each count once, for all classes together, and its diluted EPS of
+0.44 sits on that count. It is not a split effect: the 1-for-5 reverse split
+of August 2025 would be a factor of five, and the 10-K was filed after it. A
+factor of exactly two in both fields fits a two-class EPS presentation read as
+two counts, but the vendor's method cannot be observed and nothing here rests
+on it.
+
+Choice. The rule "a series that shows the vendor's share unit governs the
+other" has one owner, `vendorShareUnitShownAcross` (`src/pipeline/keyless.ts`),
+used by the producer and by the calculation view. With the unit shown, the
+existing D-200 rule replaces a vendor count that differs from the filed count
+for the exact period by more than rounding (0.01%, at least one share) with
+the filed count, keeps the vendor value in `fieldConflicts`, and writes one
+manifest entry per field. No tolerance, class rule or split rule changes.
+Metis combines no class counts here: the value is the filer's single
+undimensioned fact (D-149 and D-206 are untouched).
+
+Options rejected: withholding the counts (the filed counts are in the stored
+SEC facts, for the exact fiscal year, in one filing); treating every
+multi-ticker registrant as comparable without the unit evidence (Berkshire's
+1,500-to-1 class unit would then be "corrected" to a count in another unit).
+
+### Debt at the latest balance (P7, P8, P9)
+
+Root cause. The vendor's "total debt" for FIGR at 2026-06-30, 1,474,457,000,
+is the 10-Q's three debt lines (962,995,000) plus its "Payables to third-party
+loan owners" (506,686,000), which the vendor files under short-term debt, plus
+the operating lease liability (4,776,000). The debt admission
+(`admitDebtFields`, `src/edgar/financialEnrichment.ts`) checks that a vendor
+row has not left a filed component out (a tagged total above the composed
+parts, a zero short-term debt beside a tagged current debt, a lease line that
+is only the noncurrent part). It never asked whether a vendor row added
+something the filing does not present as debt, and the 10-Q tags its current
+debt only by related-party member, so no undimensioned current-debt fact
+existed to contradict the vendor's short-term debt. D-149 (lender review
+conventions, F1) kept the vendor figure, labelled "Provider debt perimeter
+(includes payables to third-party loan owners)", with the filed borrowings
+beside it.
+
+Choice, in `admitDebtFields` (`filedBorrowingsOverVendorPerimeter`), which
+runs when data is collected and again when a report is built, so stored inputs
+keep their bytes. A vendor row's debt becomes the filing's own borrowings plus
+its operating lease liability only when one filing, at the row's date and in
+its currency, proves every part:
+
+1. The filing whose balance sheet is retained for that report date (10-K or
+   10-Q, its document under the issuer's own EDGAR folder) tags `LongTermDebt`
+   (current and noncurrent), `LongTermDebtNoncurrent` and
+   `OperatingLeaseLiability` at the instant, each with one value, and no newer
+   filing states another value for it (P2).
+2. The filing tags no other borrowing at that instant: no `DebtCurrent`,
+   `ShortTermBorrowings`, `CommercialPaper`, combined current debt, debt-and-
+   lease total, gross combined debt or finance lease; a `LongTermDebtCurrent`
+   only when it equals `LongTermDebt` less `LongTermDebtNoncurrent`.
+3. The filing's balance sheet (`lenderDebtLines`,
+   `src/edgar/debtPresentation.ts`; the captions D-149 already reads, stated in
+   thousands) names one "Debt, non-current" line equal to
+   `LongTermDebtNoncurrent`, debt lines that add up to `LongTermDebt` exactly,
+   and one "Payables to third-party loan owners" line. The text only names the
+   composition; every amount used is a tagged fact (P9).
+4. The vendor's long-term debt and lease line agree with the filed ones, and
+   its short-term debt and total are the filed amounts plus that payable
+   (`vendorAgreesWithFiled`, the P8 allowance; no new tolerance).
+
+Then short-term debt is `LongTermDebt` less `LongTermDebtNoncurrent`, long-term
+debt is `LongTermDebtNoncurrent`, total debt is `LongTermDebt` plus
+`OperatingLeaseLiability`, and net debt follows it as in the existing
+same-filing completion. The vendor total and short-term debt stay in
+`fieldConflicts` (`usable: true`, `resolution: "filed-family"`), the fields
+carry the filing as provenance, and the manifest gets one informational entry
+naming both totals, the lines and the filing. Anything unproven leaves the row
+to the unchanged checks. A finance lease is not shown to be nil by its
+absence: none is tagged, none is added, and the lease evidence still says
+finance-lease coverage is unverified.
+
+The lender evidence (`lenderCashFlowApplicability`) and its readers follow the
+admitted row: the debt line is "Debt used in this report", the provider label
+names nothing the report shows, the EV context sentence says the debt is the
+filed lines and that the provider's figure also counted the payables, and the
+filed borrowings, their three lines and the loan-owner payables stay as
+separate rows. Net debt, net debt to EBITDA, interest coverage and EV multiples
+stay not applicable to a held-for-sale lender (D-149 F1/F2 otherwise
+unchanged).
+
+Options rejected: a disclosed gap (every part is proven from the one filing);
+deriving current debt from the two tags alone for every issuer (the SEC facts
+Metis stores are undimensioned, so they cannot show that a vendor's excess is
+not a borrowing tagged by member or by a filer element; the balance sheet's own
+line names can); summing the related-party members (the stored facts do not
+carry them).
+
+### Approved report changes
+
+Same-report check against main at bda87e4c (which includes D-231, D-230 and D-232): 8
+files differ, all in `figr-data-only`, plus its payload fingerprint; the other
+16 cases are byte for byte unchanged. Against the round's baseline
+(r2-base-afb9cddf) the same 8 files differ, plus D-231's approved TSM and DUK
+changes. The leaf-level list is in `tmp/accuracy/s5-figr-before-after.md` (not
+committed: it quotes vendor data).
+
+FIGR (`figr-data-only`, CIK 2064124, USD). Filed values are SEC XBRL facts,
+stated to the unit (share counts) or the thousand (money, decimals -3).
+
+| Figure | Before (vendor) | After | Proof |
+| --- | --- | --- | --- |
+| Basic weighted-average shares, fiscal 2025 | 228,870,518 | 114,435,259 | `us-gaap:WeightedAverageNumberOfSharesOutstandingBasic`, 2025-01-01..2025-12-31, shares, 10-K 0002064124-26-000009, filed 2026-03-16 |
+| Diluted weighted-average shares, fiscal 2025 | 283,604,000 | 141,802,002 | `us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding`, same period and filing |
+| Debt used in this report, 2026-06-30 | 1,474,457,000 | 967,771,000 | `us-gaap:LongTermDebt` 962,995,000 + `us-gaap:OperatingLeaseLiability` 4,776,000, both at 2026-06-30, 10-Q 0001628280-26-057061, filed 2026-08-14 |
+
+The 10-Q's own balance-sheet facts behind the 962,995,000 (the filing's XBRL
+instance, context date 2026-06-30): `us-gaap:LongTermDebtCurrent` 222,505,000
+(NonrelatedPartyMember) and 424,640,000 (RelatedPartyMember),
+`us-gaap:LongTermDebtNoncurrent` 315,850,000. The payables line is
+`figr:ServicingLiabilityCurrent` 506,686,000, a filer element outside the debt
+elements. The instance has no finance-lease element. The five current
+liability lines add up to `us-gaap:LiabilitiesCurrent` 1,285,124,000, and with
+the two noncurrent lines to `us-gaap:Liabilities` 1,604,578,000, so no other
+liability line exists.
+
+What the two figures feed, with every other operand unchanged:
+
+| Downstream figure | Before | After |
+| --- | --- | --- |
+| Diluted/basic share gap (dilution overhang), fiscal 2025 | withheld (IPO conversion in the year) | withheld, same reason |
+| Diluted share-count trend and its leadership signal | unavailable (one year of counts) | unavailable, same reason |
+| Diluted and basic EPS, fiscal 2025 | 0.44 / 0.54 | unchanged (already the 10-K's) |
+| Net debt, net debt to EBITDA, interest coverage | not applicable (lender) | not applicable |
+| Net-debt working note (debt less cash and short-term investments) | 36,946,000 | -469,740,000 (967,771,000 - 1,437,511,000; not a published metric) |
+| Enterprise value and EV multiples | withheld (share-class scope) | withheld; the context sentence names the filed lines |
+| WACC and its debt weight, DCF, fair value | withheld | withheld |
+| Scores, grades, composite | | unchanged |
+| Key-data row "Provider debt perimeter ... $1.47B" | shown | removed; the debt profile shows "Debt used in this report $967.77M" |
+| Filed borrowings 963.00M, loan-owner payables 506.69M, the three debt lines, operating lease 4.78M | | unchanged |
+| Statement tables | "Provider debt perimeter" line, 2026-06-30 = 1,474,457,000 | "Debt used in this report", 2026-06-30 = 967,771,000; a note says earlier periods on the line are the provider's figure |
+| Manifest | 92 entries | 95 (three informational entries: two share counts, one debt total) |
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports two changes
+against its expectation, nothing worse: FIGR "diluted weighted-average shares,
+latest fiscal year" and "total debt including lease liabilities, latest
+balance", each from mismatch to match.
+
+### Limits, and what is not fixed here
+
+- A report built from newly collected data: the producer already refuses a
+  vendor count that differs from the filed one by more than 3% once the unit
+  is shown (review M-1), and the calculation view corrects only a count still
+  on the row. So newly collected FIGR data shows the fiscal 2025 counts as a
+  disclosed gap, while a report rebuilt from inputs collected before M-1 (the
+  same-report case) shows the filed counts. Both are honest. Having the
+  producer adopt the filed count instead of refusing would change its rule for
+  every issuer and is a separate decision.
+- The debt rule is narrow on purpose: the balance at the report date of a
+  retained 10-K or 10-Q, the captions D-149 reads, amounts in thousands.
+  Earlier balance dates keep the vendor's figure. FIGR's 2025-12-31 balance
+  (948,198,000 in the annual capital record and the statement tables; no
+  published metric uses it for a lender) is the vendor's perimeter with
+  383,772,000 of loan-owner payables. The filed figure is 562,918,000
+  (`LongTermDebt` 557,237,000 + `OperatingLeaseLiability` 5,681,000, 10-K
+  0002064124-26-000009), but the stored 10-K has no balance-sheet text (the
+  statement prefix was not extracted) and the 10-Q's comparative column tags
+  no lease total, so no single filing in the inputs proves every part. The
+  statement-table note now says those periods are the provider's figure.
+- The baseline's FIGR "definition" rows (consolidated profit shown as net
+  income) and its free-cash-flow gaps belong to other Stage 5 steps.
+
+Revises D-149 (lender review conventions, F1): the provider debt perimeter is
+no longer the report's debt where the filing proves the debt lines as above;
+where it does not, D-149's labelled perimeter stands.
+
+Version stamps are not moved by this change: the report-spec, payload and
+Stage B stamps are shared by the Stage 5 accuracy changes and move once, at
+integration (P27). Saved reports and stored run inputs keep their bytes (P21).
+
+## D-233 - FFO and AFFO per share divide by the share count of FFO's own fiscal year (2026-11-12)
+
+Principles P13 (one basis: a ratio's numerator and denominator share one
+basis), P1 (exact period), P3 (share basis) and P10 (withhold, never guess).
+Round 2, Stage 5 (accuracy fixes), REIT FFO divisor family. The accuracy
+baseline (r2-base-afb9cddf, rank 2) found Realty Income's "FFO per-share
+divisor" to be 946,115,000 shares, the filed weighted diluted count of the
+quarter 2026-07-01..2026-09-30, under an FFO of fiscal year 2025.
+
+Root cause. On the equity-REIT route `computeValuation`
+(`src/pipeline/compute.ts`) handed the REIT block the divisor every
+value-per-share model reads: the weighted diluted count of the newest income
+row, a quarter whenever one is as new as the fiscal year ("Share basis
+(D-65)"). That count is right for a value per share (the DCF and the
+excess-return model divide a value of today's capital by today's count). FFO
+and AFFO are not values: `computeNareitFfo` measures them on the latest fiscal
+year only. So a twelve-month flow was divided by a count from a later
+three-month period. For an issuer that issues shares continuously, as REITs
+do, the later count is larger and the per-share figure is understated
+(Realty Income: by 4.0%).
+
+What each per-share figure on the equity-REIT route covered, before this
+change:
+
+| Figure | Numerator period | Divisor period before | Divisor period now |
+| --- | --- | --- | --- |
+| FFO per share | latest fiscal year | newest income row: the latest quarter when it is as new as the fiscal year, else the fiscal year | the same fiscal year |
+| AFFO per share | latest fiscal year | same as FFO per share | the same fiscal year |
+
+The route has no other per-share figure. P/FFO and P/AFFO are the quote's
+market cap over fiscal-year FFO and AFFO (OD-8): no share count enters them,
+and the existing note already says the market cap is current while FFO is up
+to three quarters old. The implied cap rate is NOI over enterprise value.
+The route publishes no fair value per share, no scenario targets and no
+projections, and its valuation grade reads the P/FFO and P/AFFO own-history
+ranks. None of these moves.
+
+Choice, in the owner that selects the REIT block's divisor (`computeValuation`,
+`src/pipeline/compute.ts`), for every issuer on the route:
+
+1. The divisor is the weighted diluted count of FFO's own period: the annual
+   income row whose period end is FFO's, read through the one divisor owner
+   (`incomeDivisors` and `awardDilutedDivisor`, FIN-404) and the one
+   common-class rule (`issuerEconomicDilutedShares`, B-37). No new tolerance,
+   day band or status word is added.
+2. The latest quarter's count is never used for these two figures. It is a
+   different figure's divisor (a value per share on today's capital, P3), and
+   the route publishes no such figure, so nothing is redefined: FFO and AFFO
+   per share are flows per share of the fiscal year, and the REIT block's new
+   note says so with the period and the count.
+3. When no count is established for that fiscal year (no annual row at FFO's
+   period end, no count on it, a multi-class count the class rule cannot show
+   spans every class, or, for a translated ADR, a count the quoted-unit rule
+   in `src/pipeline/foreignCurrency.ts` cannot place on the quoted security)
+   both figures are withheld with the warn gap
+   `valuation.reit.perShareDivisor`, which names the cause. Another period's
+   count is not substituted. P/FFO and P/AFFO need no count and stand.
+4. The loss-period disclosure (`valuation.perShare.lossPeriodDivisor`,
+   FIN-404) now describes the row the REIT block divides by. A loss fiscal
+   year takes its basic count plus the newest profitable period's award
+   dilution, as OD-7 decided; a loss quarter beside a profitable fiscal year
+   no longer touches FFO per share. OD-7 and OD-8 in the 2026-10-27 batch B4
+   entry are marked "Revised by D-233" for this.
+
+Other routes, checked as far as needed to say whether the same mismatch
+exists: it does not. General and utility: the DCF, reverse DCF and scenario
+values are values per share on the latest count; P/E reads filed EPS; forecast
+EPS divides a forecast year by today's count by stated convention (no filed
+count exists for a future year); the buyback price proxy divides a fiscal
+year's average market cap by that same year's count. Bank, insurer and
+mortgage REIT: the excess-return value and tangible book per share divide a
+balance at one date by the count of the newest income period ending on or
+before that date; a mortgage REIT's book value per share uses period-end
+shares, or that fiscal year's weighted count as a disclosed stand-in. No
+figure on those routes divides a past flow by another period's count, so
+nothing there changes.
+
+Options rejected: moving the whole route's divisor selection to the fiscal
+year (it would also change the convertible reading, the divisor note and the
+class-basis note that other code reads for the newest row); restating FFO to a
+trailing twelve months so the latest count could stay (the NAREIT components
+resolve as annual facts only, and a trailing weighted count is not a filed
+figure); keeping the latest count and relabelling the figure "FFO per current
+share" (a silent redefinition of a figure readers compare with the issuer's
+own FFO per share).
+
+### Approved report changes
+
+Same-report check, this change against current main (bda87e4c, which holds
+D-231): 1 file in 1 of the 17 cases differs, `o-data-only/stageB.json`, in
+three leaves. The other 16 cases, and every other figure, note and gap of
+Realty Income (its other seven outputs and its payload fingerprint included),
+are byte for byte unchanged. Against the round baseline r2-base-afb9cddf the
+difference is that one file plus D-231's own approved changes to TSM and Duke
+Energy, which this change does not touch. Leaf-level list:
+`tmp/accuracy/s5-ffo-before-after.md` (not committed).
+
+Realty Income (`o-data-only`, USD). Filed values are SEC XBRL facts of Form
+10-K 0000726728-26-000011, filed 2026-02-25, for the fiscal year
+2025-01-01..2025-12-31, stated to the thousand (decimals -3).
+
+| Figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| FFO per-share divisor | 946,115,000 shares (`WeightedAverageNumberOfDilutedSharesOutstanding`, quarter 2026-07-01..2026-09-30, 10-Q 0000726728-26-000059, filed 2026-11-03) | 908,334,000 shares | `us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding`, 2025-01-01..2025-12-31 = 908,334,000 shares, 10-K 0000726728-26-000011 |
+| FFO per share (`valuation.reit.ffoPerShare`) | 4.097266188571157 | 4.267686776009706 | 3,876,485,000 / 908,334,000. FFO as the report already cites it, all from the same 10-K and fiscal year: `NetIncomeLoss` 1,058,590,000 + `DepreciationDepletionAndAmortization` 2,524,200,000 - `GainLossOnSaleOfProperties` 177,640,000 + `ImpairmentOfRealEstate` 471,335,000 |
+| AFFO per share (`valuation.reit.affoPerShare`) | 3.95795965606718 | 4.122585965074521 | 3,744,685,000 / 908,334,000. AFFO = FFO 3,876,485,000 - `PaymentsForCapitalImprovements` 131,800,000 (same 10-K and fiscal year) |
+| REIT block note (`valuation.reit.notes.3`) | absent | "FFO and AFFO per share divide by the weighted-average diluted share count of FFO's own period, the fiscal year ending 2025-12-31 (908334000 shares), so each flow and its divisor cover one period; the latest quarter's count is not used." | discloses the divisor above |
+
+FFO (3,876,485,000), AFFO (3,744,685,000), P/FFO (14.5858) and P/AFFO
+(15.0991) are unchanged. FFO per share is shown on the company page; it is not
+in the Stage C payload or the report, so no report text, score or grade moves.
+
+Approvals list for the same-report check:
+
+| Case | File | Before (SHA-256) | After (SHA-256) | Reason |
+| --- | --- | --- | --- | --- |
+| o-data-only | stageB.json | 640b7efdbbf674b8bb9c15b1ee5bf0bde84a5c2b9252b87eb868dd975afdf346 | 675c5a40750d81b6741913f801322d8dbc9b250991339e30c3e71ba3c6d97b6e | the three leaves above |
+
+Accuracy check (`accuracy:check`, the unmerged tool, run against this
+change's 17 cases): 153 match, 15 mismatch, 63 gap, 35 not established, one
+difference from its expectation, "BETTER: o-data-only fv.ffo.shares, mismatch
+to match", none worse. Current main (with D-231) gives 152 and 16.
+
+Tests (`tests/stageB.reitFfoDivisor.test.ts`): the root cause on a synthetic
+REIT whose fiscal-year and latest-quarter counts differ; Realty Income on its
+filed operands and counts; controls (equal counts change nothing, P/FFO does
+not move, no fiscal-year count withholds with the gap); a loss fiscal year;
+and two unrelated shapes, a general company's DCF and a bank's excess-return
+value, which still divide by the latest quarter's count. One existing test
+(`tests/stageB.lossPeriodDivisor.audit20261027.test.ts`) pinned the old wiring
+(a loss quarter changing the REIT divisor); it now puts the loss on the fiscal
+year, and a second case states that a loss quarter leaves FFO per share on the
+year's filed count.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change advances the Stage B
+implementation stamp only; the report specification and the payload are
+unchanged. Frozen records are unchanged. Saved reports are immutable (P21) and
+keep the figure they were built with.
+
+Not changed, because they belong to other steps or are wording only: Realty
+Income's consolidated-or-parent net income rows and its vendor-zero rows
+(capital spending 0, operating income); the company page label "FFO / share",
+which does not name the fiscal year; and the route-level note "diluted share
+count from the latest ANNUAL statement ... per-share values may lag", which is
+still raised on its old condition.
+
+## D-232 - The DEMO fixture's frozen record replaces the audited baseline and its delta ledger (2026-11-12)
+
+Principle P27. Revises D-23.
+
+**Problem.** The provider-free DEMO fixture comparison replayed the July 2026
+audited projection (commit 524d09e) plus a ledger of 1,285 intended leaf
+changes in 55 groups to reach today's projection, maintained by
+`npm run audit:deltas`. Since #144 the same projection is also pinned leaf by
+leaf in `tests/fixtures/frozen/audit-fixture-current.json`, and a test proved
+that baseline plus ledger equals that record. Keeping both meant every
+intended change was recorded twice.
+
+**Options.** (a) Keep both. (b) Keep the ledger and drop the frozen record.
+(c) Keep the frozen record and retire the baseline, the ledger and its tools,
+after one last proof on the starting commit that the two agree.
+
+**Choice: (c).** Removed: `tests/fixtures/audit-baseline-stageb-report.json`,
+`tests/fixtures/audit-intended-deltas.json`, `scripts/audit-deltas.mjs` and its
+`audit:deltas` script, the ledger half of the delta contract helper and its
+tests, and the temporary equivalence test. The generic leaf-path half
+(`diffPaths`, `comparePaths`, `canonicalJson`), which `npm run golden:diff`
+and the frozen record still use, moved to `tests/helpers/jsonLeafPaths.ts`.
+Checks the frozen record cannot hold stay as direct checks on today's tree:
+the package-lock pin (with its metadata and Task 12 restore), the generator
+file's sha256, and the generator's JSON-safety guard. An intended change to
+the projection is now recorded only with `npm run freeze:refresh -- --target
+audit-fixture`, which needs a decision id, a reason and the changed leaf
+paths, and appends to `tests/fixtures/frozen/refresh-log.json`. That log is
+the intentional-delta record named by rule 4 of the rulebook's "How to change
+a rule". P27's code owner for this procedure is now `scripts/freeze-refresh.mjs`
+(with `scripts/freeze-stageb-replay.mjs` unchanged).
+
+**Why.** A current-value record with a scoped, decision-linked refresh keeps
+the review guarantees the ledger gave (named decision, real reason, every
+moved leaf listed, nothing outside scope) without replaying months of history
+on every run. The history is not lost: it is reachable in git, and the last
+proof that baseline plus ledger equals the frozen record ran on c3deae0b.
+
+**Risk.** A refresh records today's values, not the path from July; a reviewer
+sees each change once, in its own refresh. Mitigated by the scope check, the
+append-only log bound to each committed record, and the decision entry each
+refresh must cite.
+
+## D-230 - The two lint workaround packages are removed (2026-11-12)
+
+Principles P26 and P27. Revises D-32 and the D-138 Task 12 addition. Each
+added a local package that stood in for an upstream lint dependency only to
+keep a flagged version out of the security audit:
+`scripts/next-eslint-glob` (D-32) replaced fast-glob for Next's ESLint
+plugin because of the braces advisory
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), and
+`scripts/legacy-minimatch` (Task 12) replaced minimatch for ESLint 9 and five
+of its plugins because of
+[GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). Both
+reasons have gone. GitHub withdrew the braces advisory on 2026-10-23, and on
+2026-11-04 narrowed the minimatch one to `>=7.0.0 <11.0.1`, which no longer
+covers minimatch 3. The owner's rule: remove the workarounds only after a clean
+install is proven in CI.
+
+Options: keep both (two hand-written adapters and seven overrides that tie the
+lint tooling to Next 16.4.2 and need their own review on every consumer
+upgrade); remove one; or remove both once each is proven separately. Choice:
+both are removed, along with their two `file:` devDependencies, the six
+`$minimatch` overrides and the `@next/eslint-plugin-next@16.4.2` fast-glob
+override. The TypeScript parser's `minimatch-modern` (11.0.1) override stays,
+because without it the parser gets minimatch 10.2.6, which the advisory still
+covers. Cost: a future advisory against fast-glob, micromatch or minimatch 3
+would again need a decision; the exact-version gate below catches that.
+
+Proof, for each package separately:
+
+- Security. `npm audit --include=dev --audit-level=low` (the `audit:security`
+  command) reports 0 vulnerabilities. Every reintroduced version sits outside
+  every advisory range GitHub lists for it: braces 3.0.3 (only the withdrawn
+  advisory covers it), micromatch 4.0.8, picomatch 2.3.2, glob-parent 5.1.2,
+  minimatch 3.1.5 and brace-expansion 1.1.21.
+- Lock. Regenerated with `npx npm@10 install --package-lock-only
+  --ignore-scripts` after the shims' own lock entries were dropped, so npm
+  placed the upstream packages normally. A second run changes nothing. 23
+  entries changed. Removed: `scripts/next-eslint-glob` and
+  `scripts/legacy-minimatch`. Changed from links to registry packages:
+  `node_modules/fast-glob` (3.3.1) and `node_modules/minimatch` (3.1.5).
+  Added: `@nodelib/fs.scandir` 2.1.5, `@nodelib/fs.stat` 2.0.5,
+  `@nodelib/fs.walk` 1.2.8, braces 3.0.3, `fast-glob/node_modules/glob-parent`
+  5.1.2, fastq 1.20.3, fill-range 7.1.1, is-number 7.0.0, merge2 1.4.1,
+  micromatch 4.0.8, `micromatch/node_modules/picomatch` 2.3.2,
+  queue-microtask 1.2.3, reusify 1.1.0, run-parallel 1.2.0, to-regex-range
+  5.0.1, concat-map 0.0.1, `minimatch/node_modules/balanced-match` 1.0.2 and
+  `minimatch/node_modules/brace-expansion` 1.1.21. The root entry's
+  devDependencies changed too. No other entry changed; all 19 `@emnapi` and
+  wasm optional entries remain. npm would have picked brace-expansion 1.1.22,
+  published the day before; the lock keeps 1.1.21, the version reviewed for
+  this lock on 2026-09-30.
+- Clean install. `npm ci` from the new lock succeeds on Windows with Node 24.
+  The pull request's `full` (Linux) and `windows-smoke` checks each run a
+  clean install too.
+- Lint. `eslint . --format json` gives identical results before and after, with
+  the same 1,244 files and the same messages. The `--debug` lists of linted
+  files are identical. Both were compared on the same source tree. On this
+  branch the only difference is the two deleted adapter files.
+- Glob and match behaviour. The probes from the two deleted adapter tests were
+  replayed against both installs. Next's directory globbing, its
+  `no-html-link-for-pages` rule for every tested `rootDir`, minimatch's legacy
+  options (trimming, `..` segments, Windows separators, `dot`, `flipNegate`,
+  `matchBase`), `makeRe(...).test`, ESLint's file enumerator, the eslintrc
+  overrides and TypeScript project-service admission all give the same results.
+  The only differences: the resolved package names, and six complex patterns
+  that the adapter refused and upstream fast-glob accepts. This repository
+  sets no `rootDir`, so lint never calls fast-glob.
+- Dependency shape. `check-dependency-shape.mjs` now approves minimatch
+  exactly 3.1.5 and 11.0.1, and brace-expansion exactly 1.1.21 and 5.0.12; the
+  facade's own entry is gone. It still pins next, eslint-config-next, postcss,
+  sharp and js-yaml, and still checks lock edges and the installed tree.
+- Audit fixture provenance (P27). The Task 12 addition asked for a reviewed
+  restoration or provenance decision for any later lock change; this entry is
+  that decision. `comparisonPackageLockBlob` moves forward a fifth time, from
+  `76cc4d445212431bd8f10eab94eb8bc464a6945d` to
+  `6d6c85343416e7692da93c5e2c2769e87e04c8fd`. The audit fixture comparison
+  recomputed the Stage B projection under Node 24 and it matched the audited
+  baseline byte for byte. The lock normalization now restores the root's name
+  and license only. The exact-byte inverse in `tests/helpers/qcom53Task12Lock.ts`
+  and its test described only the removed package's lock entries, so they go.
+  So do `tests/nextEslintGlob.test.ts` and `tests/minimatch.tooling.test.ts`,
+  whose only subjects were the two adapters.
+- Reports. `golden:diff` against the round-2 baseline reports no changes
+  (17 cases, 136 files); it notes only that the two commits' lock files differ.
+
+Nothing a reader sees changes: no report figure, schema, stamp, payload,
+export, golden or intended delta moves.
+
+## D-231 - The net income on a vendor's annual cash-flow row is checked against the filer's own profit (2026-11-12)
+
+Principles P8 (filed beats vendor), P5 (entity scope), P10 (withhold, never
+guess), P2 (newest compatible filing) and P12 (a substitution is disclosed).
+Round 2, Stage 5 (accuracy fixes), TSM family. The accuracy baseline
+(r2-base-afb9cddf) found TSM's "net income, latest fiscal year"
+(1,717,882,627,000 TWD) equal to neither profit line of its Form 20-F.
+
+Root cause. Free-cash-flow conversion and the cash-flow accrual figures divide
+by the net income carried on the vendor's annual cash-flow row
+(`src/pipeline/stageB/capital.ts`, `src/pipeline/stageB/forensics.ts`), and no
+rule ever compared that field with a filing: the cash-flow admissions in
+`src/edgar/financialEnrichment.ts` check operating cash flow, capital
+spending, stock compensation and cash, and read us-gaap elements only. For
+TSMC the vendor's field was profit before tax for 2016 to 2022 (2022:
+1,144,190,718,000 against a filed profit of 993,294,700,000) and, from 2023, a
+net income on another accounting basis; none of the ten values is a line of
+the company's annual reports.
+
+Choice, in the owner of the cash-flow admissions
+(`admitCashFlowNetIncome`, `src/edgar/financialEnrichment.ts`), applied to
+annual rows in the report's own data view (`withCashFlowSbcBasis`,
+`src/pipeline/cashFlowBasis.ts`), so the calculation, the filing disclosures
+and the AI context read one admitted value and stored inputs keep their bytes:
+
+1. The filed profit lines for the row's exact fiscal year (350 to 380 days,
+   the row's own currency, filed by the analysis time) are read from the
+   admitted SEC facts: for us-gaap the statement builder's own chain
+   (`ProfitLoss`, `NetIncomeLossIncludingPortionAttributableToNonredeemableNoncontrollingInterest`,
+   `NetIncomeLoss`); for ifrs-full `ProfitLoss`, with
+   `ProfitLossAttributableToOwnersOfParent` as the same year's parent-scope line.
+2. A vendor figure equal to any filed copy of any of those lines, within the
+   P8 allowance (`vendorAgreesWithFiled`; no new tolerance), is a filed figure
+   and stays. Whether the row should show consolidated or parent profit is not
+   decided here, so no "definition" row of the baseline moves. (Revised by
+   D-238: a figure equal only to the parent's line, where the newest filing
+   states a different consolidated profit beside it, is replaced by that
+   consolidated profit.)
+3. A vendor figure equal to none of them is replaced by the filed consolidated
+   profit from the newest filing that states it, with that filing as its
+   provenance and an informational manifest entry naming both values. A parent
+   line never replaces it (P5). If the filings state no consolidated profit
+   for the year, or the newest states two values, the figure is withheld.
+4. When the admitted SEC facts hold no profit line for the year, the figure is
+   compared with the same period's income-statement row. If it equals none of
+   that row's profit lines it is withheld with a warning entry: two statements
+   of one period disagree and no filing settles which is right. A figure that
+   does equal one stays, unverified as before (vendor agreement proves nothing).
+5. A withheld figure leaves the row. Readers then use the income statement's
+   net income for that year, as they already did for a row that never carried
+   one; the free-cash-flow row now says so.
+
+Options rejected: replacing every vendor figure that differs from the filed
+consolidated profit (it would move Duke Energy's 2025 row from the parent
+figure to the consolidated one, and decide the consolidated-or-parent question
+for every issuer, which is a separate definition decision); withholding every
+unverified vendor figure (it would remove the conversion and accrual figures
+of most issuers); correcting the value where it is shown (the rule belongs to
+the admission, not to its readers).
+
+### Approved report changes
+
+Same-report check, baseline r2-base-afb9cddf against this change: 16 files in
+2 of the 17 cases differ (TSM and DUK, all eight outputs each, plus their two
+payload fingerprints); the other 15 cases, and every other figure of TSM and
+DUK, are byte for byte unchanged. The full leaf-level list is in
+`tmp/accuracy/s5-tsm-before-after.md` (not committed: it quotes vendor data).
+
+TSM (`tsm-data-only`, TWD). Filed values are SEC XBRL facts of TSMC's Form
+20-F filings, in TWD, stated to the hundred thousand (decimals -5).
+
+| Figure | Before (vendor) | After | Proof |
+| --- | --- | --- | --- |
+| Net income, fiscal 2025 (free-cash-flow series, accrual operand) | 1,717,882,627,000 | 1,697,604,000,000 | Withheld (rule 4); the income statement's figure is read instead. It equals `ifrs-full:ProfitLossAttributableToOwnersOfParent`, 2025-01-01..2025-12-31, 20-F 0001628280-26-025362, filed 2026-04-16 (read from the filing's own XBRL instance; SEC companyfacts carries only two cover facts of that filing) |
+| Net income, fiscal 2024 | 1,173,268,000,000 | 1,157,523,900,000 | `ifrs-full:ProfitLoss`, 2024-01-01..2024-12-31, 20-F 0001193125-25-083423, filed 2025-04-17 |
+| Net income, fiscal 2023 | 838,497,664,000 | 851,027,700,000 | `ifrs-full:ProfitLoss`, 2023-01-01..2023-12-31, same 20-F |
+| Net income, fiscal 2022 | 1,144,190,718,000 | 993,294,700,000 | `ifrs-full:ProfitLoss`, 2022-01-01..2022-12-31, same 20-F |
+| Net income, fiscal 2021 | 663,126,314,000 | 592,880,600,000 | `ifrs-full:ProfitLoss`, 2021-01-01..2021-12-31, 20-F 0001193125-24-099840, filed 2024-04-18 |
+| Cash-flow row net income, fiscal 2020 (outside the five-year series; manifest entry only) | 584,777,180,000 | 511,008,000,000 | `ifrs-full:ProfitLoss`, 20-F 0001193125-23-107214, filed 2023-04-20 |
+| Same, fiscal 2019 | 389,845,336,000 | 354,027,000,000 | 20-F 0001193125-22-104891, filed 2022-04-14 |
+| Same, fiscal 2018 | 397,510,263,000 | 363,106,200,000 | 20-F 0001193125-21-118512, filed 2021-04-16 |
+| Same, fiscal 2017 | 396,133,030,000 | 345,039,000,000 | 20-F 0001193125-20-107579, filed 2020-04-15 |
+| Same, fiscal 2016 | 385,959,380,000 | 331,797,300,000 | 20-F 0001193125-19-108390, filed 2019-04-17 |
+
+Figures computed from them, with every other operand unchanged:
+
+| Figure | Before | After |
+| --- | --- | --- |
+| FCF conversion after SBC, fiscal 2021 / 2022 / 2023 / 2024 / 2025 | 0.396179 / 0.455056 / 0.341115 / 0.740260 / 0.576973 | 0.443119 / 0.524185 / 0.336093 / 0.750329 / 0.583865 |
+| FCF conversion before SBC, same years | 0.396190 / 0.455320 / 0.341765 / 0.741663 / 0.577698 | 0.443132 / 0.524490 / 0.336733 / 0.751751 / 0.584599 |
+| Operating accruals, fiscal 2025 (net income less operating cash flow) | -557,092,998,000 | -577,371,625,000 |
+| Aggregate accruals (cash-flow), fiscal 2025 | 550,286,083,000 | 530,007,456,000 |
+| Accrual ratio (cash-flow), fiscal 2025 | 0.188048 | 0.181118 |
+| Quality score / business-quality assessment / composite | 83 / 77.23 / 72.32 | 83.21 / 77.27 / 72.35 |
+| Manifest | 65 entries, 6 data issues | 75 entries (nine corrections, one withheld figure), 7 data issues |
+
+DUK (`duk-data-only`, USD):
+
+| Figure | Before (vendor) | After | Proof |
+| --- | --- | --- | --- |
+| Net income, fiscal 2022 (free-cash-flow series) | 2,588,000,000 | 2,455,000,000 | `us-gaap:ProfitLoss`, 2022-01-01..2022-12-31, 10-K 0001326160-25-000072, filed 2025-02-27 (the same value in 10-K 0001326160-23-000073 and 0001326160-24-000037); the parent line `us-gaap:NetIncomeLoss` is 2,550,000,000, and the vendor figure is neither |
+| FCF conversion, fiscal 2022 (after and before SBC) | -2.102009 | -2.215886 | computed from it |
+| Manifest | | one more informational entry | |
+
+No score, grade or headline of DUK moves. Its 2025 row (4,967,000,000) stays:
+it equals the filed parent profit 4,968,000,000 within the filer's reporting
+unit (rule 2). (Revised by D-238: that row now carries the filed consolidated
+profit 5,071,000,000.)
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports one change
+against its expectation: TSM "net income, latest fiscal year" from mismatch to
+match, nothing worse.
+
+Not fixed here, with the cause. TSM's "diluted EPS, latest fiscal year" still
+ends at fiscal 2024. The fiscal 2025 EPS (65.47 per ordinary share, 327.35 per
+ADS; `ifrs-full:DilutedEarningsLossPerShare`, 20-F 0001628280-26-025362) is
+not in the stored inputs: SEC companyfacts carries only two cover facts of
+that filing, and the rule that reads a filing's own XBRL instance when
+companyfacts lags (D-112, B-23) fetches only 10-K and 10-Q filings and treats
+any accession companyfacts mentions as fully carried. The vendor's EPS for
+that year is already withheld with a warning, and the EPS growth rows are
+dated 2024-12-31. The fix belongs to the collection step
+(`src/edgar/instanceFacts.ts`, `src/providers/currentReports.ts`), which the
+same-report check does not replay; with it, rule 3 also replaces TSM's 2025
+figure by the filed consolidated profit 1,695,124,900,000. (D-236 makes that
+collection fix.)
+
+Version stamps are not moved by this change: the report-spec, payload and
+Stage B stamps are shared by the Stage 5 accuracy changes prepared in parallel
+and move once, at integration (P27). Saved reports and stored run inputs keep
+their bytes (P21); the correction is applied when a report is built.
+
+Tests: `tests/financialEnrichment.cashFlowNetIncome.test.ts` (TSM 2022, 2024
+and 2025 with and without the filing's own facts; an IFRS filer whose vendor
+figure is a filed line; Amazon, Realty Income and Duke Energy as domestic
+10-K filers; the cases the check must leave alone).
+
+## D-229 - Missing-data entries carry an optional typed cause beside their sentence; nothing reads it yet (2026-11-12)
+
+Principles P10 (an unknown cause stays unknown), P11 (decide by codes, not
+wording), P20 and P21. Round 2, step S4.5a. D-218 put typed codes beside
+field-conflict sentences and D-219 to D-226 moved those readers to them; the
+gap and provider-status readers (inventory groups G and P) were left because a
+code on a `ManifestEntry` is stored with Stage B output and reports. The
+owner's ruling for this step: "New reports may store codes, missing-data
+entries may carry codes ... Additions to stored data only." This step only
+writes; no reader decides by a code yet.
+
+Choice: optional `ManifestEntry.cause`, listed once in `GAP_CAUSES`
+(`src/types/refusalCause.ts`, beside the conflict list; no name is shared).
+The writer that composes the sentence writes the code beside it, unchanged;
+a code is never derived from a sentence, never filled in on an older entry,
+and an entry without one is unresolved. `ManifestEntrySchema` accepts the
+listed codes only, so an unknown value is refused, never mapped to a member.
+
+Producer sites and their codes:
+
+- `valueCompanyCore` (`stageB/valuation.ts`), the unprofitable-overlay DCF
+  suppression on `valuation.dcf`: `dcf-unprofitable-overlay` (G1, G2).
+- `buildDcfAssumptions`, on `valuation.dcf.salesToCapital`: missing balance
+  fields `invested-capital-balance-fields-missing` (G4); a refused
+  temporary-equity claim `invested-capital-temporary-equity-refused` and
+  lease-emptied capital `invested-capital-lease-emptied` (G3).
+- `supplementTemporaryEquity` (`edgar/temporaryEquityEnrichment.ts`): a
+  withheld balance date `temporary-equity-enrichment-withheld`, an unmatched
+  category `temporary-equity-operands-unmatched` (G5).
+- The FMP client: `FmpQuotaError` `fmp-quota` (P1; the retry note appended
+  later keeps it, the sentence still states the rate limit); a 200 with an
+  empty array, live and fixture paths, `fmp-empty-array` (P2, P3, P5);
+  "no API key + no fixture" `fmp-no-api-key` (P5); a symbol-scope
+  `FmpAccessError` `fmp-symbol-restricted` (P7a). An endpoint-scope
+  refusal, an object body, HTTP and schema errors carry none.
+- The EDGAR ticker lookup: `ticker "<symbol>" not in SEC company_tickers.json`
+  `sec-ticker-not-listed` (P5).
+- `selectAnnualFiling` (`dataBundle.ts`), a successor registrant's
+  no-annual-report gap: `sec-unlinked-predecessor` (P4), and the item 1A,
+  MD&A, business and 10-K notes gaps that quote that gap whole, since
+  `withResolvedPredecessor` reads all five.
+
+Three rewrites turn a gap into a sentence that no longer states its cause, so
+they drop the code (`withoutGapCause`, `stageA/manifest.ts`): the FIN-OTHER
+"Prior DCF suppression retained" sentence (`compute.ts`), the expected
+segmentation gap (`markSegmentationGapExpected`) and a resolved predecessor
+(`withResolvedPredecessor`). Not coded: P6 and P7b (their readers match
+sentences no single writer composes), S1 (non-bank lenders, owner decision),
+the C sites (conflicts, D-218), G6 and the identity comparisons (they need a
+link between refusals), G7 and O1 (already typed, D-223) and the R group
+(saved reports, P21).
+
+Where the code is removed, and why. It is stored data for the pipeline's own
+readers, so it never reaches a model or a reader: the Stage C payload
+(`assembleContextPayload` returns the payload without any entry's code: the
+model receives nothing new; the frozen Stage C payload record and every
+same-report `payload.txt` are byte-identical); run-input snapshots
+(`captureRunInputSnapshot`, as D-218 did for conflict codes until read, so a
+snapshot of the same inputs has the same bytes); the full-report request
+schema (`removePipelineOwnedRequestFields`); the dossier's
+`data-report-identity` hash; and the report-summary API
+(`/api/report/view/[reportId]`, whose client check refuses unknown entry
+keys). The judge, analyst and full-report request schemas have the SHA-256
+they have on main (f66130f4..., 27e0dcd9..., 1e1e8574...). The surface
+manifest declares `cause` the one stored-only `ManifestEntry` field
+(`MANIFEST_ENTRY_STORED_ONLY_KEYS`); its test still checks the full field set.
+
+Agreement. For each consumer, its wording test was compared with the code
+test that keeps the consumer's other conditions (`tests/helpers/
+gapCauseAgreement.ts`). Over every entry the producers write in
+`tests/gapCause.dualWrite.test.ts` (each site with a positive case and
+controls) and over the DEMO audit fixture rebuilt from current code, they
+agree on every site. Over the 17 same-report cases (5,490 entries in Stage B
+output and reports) no entry carries a code its wording contradicts: G1 and
+G2 agree on RIVN; every other wording match (76 P7a, 76 G5, 2 P2 entries) is
+an entry restored from a run-input snapshot taken before D-229, which has no
+code and is unresolved, as intended. One disagreement is pinned in the test,
+not hidden: when the keyless fallback fails after FMP returned an empty
+profile, it appends its failure to FMP's sentence, which still states the
+empty array and keeps `fmp-empty-array`; the job runner's and company page's
+`reason === FMP_EMPTY_ARRAY_REASON` no longer matches it (and so, today, does
+not call the ticker unknown although EDGAR confirmed the issuer). The step
+that moves P2/P5 to the code must keep that outcome.
+
+Frozen record. The DEMO audit-fixture record (`tests/fixtures/frozen/
+audit-fixture-current.json`) gains exactly 22 leaves, all `fmp-no-api-key`:
+`stageB.gaps[0..10].cause` and `report.appendix.missingData[0..10].cause`;
+the record's own digest of the projection (`projectionSha256`) changes with
+them. It was re-recorded with `npm run freeze:refresh -- --target
+audit-fixture --decision D-229` scoped to exactly those 23 paths (record
+SHA-256 2face745... to 47950c52...); the log entry is in
+`tests/fixtures/frozen/refresh-log.json`, and with `cause` and the digest
+removed the record is identical to before. The Stage C payload record is
+unchanged.
+
+Same-report check (17 cases, 136 files, against main at e5f0a3d6): two files
+differ, both RIVN and both only by added `cause` leaves:
+`rivn-data-only/stageB.json` (`gaps.113.cause`, `valuation.gaps.14.cause`) and
+`rivn-data-only/report.json` (`appendix.missingData.114.cause`), each
+`dcf-unprofitable-overlay`. Every `payload.txt`, `report.md`, `print.html`,
+`audit.md`, `web-classic.html` and `web-dossier.html` is byte-identical.
+
+P21: saved reports are untouched and not migrated; a saved report without
+codes parses as before. No version stamp moves (report spec 1.73.0, payload
+1.92.0, Stage B implementation version): nothing a reader sees or a model
+receives changes.
+
+Later steps: move each G and P consumer to its code, with the entry's legacy
+wording read in one place for entries without a code (as
+`src/edgar/refusalCauseRead.ts` does for conflicts), and lower its count in
+`tests/refusalWording.ratchet.test.ts`; stop removing a code from snapshots
+once a reader reads it; G2 reads the result's `suppressionReason`, so moving it
+needs the code on the valuation result as well. Out of scope here: switching
+any consumer, links between copied refusals, saved-report readers, S1.
+
+## D-228 - Only METIS_ names configure Metis; a leftover THESIS_ name stops startup (2026-11-12)
+
+Principles P23, P24 and P26. Revises D-21 (the `X-Thesis-Token` header and the
+`THESIS_RESUME_ON_START` name) and D-143 / B11-OD-5 (the startup warning about
+conflicting aliases and canonical-over-alias precedence), and the rebrand's
+compatibility promise in docs/BRAND.md that `THESIS_*` names stay accepted.
+
+**Problem.** Since the rebrand every `METIS_*` setting also answered to a
+`THESIS_*` alias (`metisEnv`, `withMetisAliases` in `src/config/namespace.ts`).
+The owner's `.env` and launcher have now been renamed, with a proof that every
+setting reads the same value before and after. Removing the aliases quietly
+would be unsafe for anyone still on an old file: a leftover
+`THESIS_RESUME_ON_START=0` would be ignored and queued paid work would resume
+at startup, a `THESIS_MAX_JOB_COST_USD` cap would vanish, and a
+`THESIS_DB_PATH` would move the app to a different database.
+
+**Options.** (a) Keep the aliases. (b) Remove them and ignore old names.
+(c) Remove them and refuse old names explicitly.
+
+**Choice: (c).** Only `METIS_*` names configure Metis. Each of the 19 names
+that used to be an alias (`RETIRED_ALIAS_SUFFIXES`: the 15 `METIS_*` schema
+keys plus `ALLOWED_HOST`, `DB_PATH`, `DATA_DIR` and `IMPORT_LEGACY_DB`) is
+refused when its `THESIS_` form is present, set to anything including blank.
+The refusal is one `StaleSettingsError` that lists every stale name with its
+`METIS_` replacement and never a value. Names are looked up directly, so a
+native Windows environment matches case-insensitively exactly where the old
+alias read did, and ordinary records keep exact case.
+
+**Where the refusal runs.** It lives in one owner, `src/config/namespace.ts`.
+`metisEnv` and `projectMetisSettings` are the only readers of a formerly
+aliased setting, and both refuse before they read; a source-scan test
+(`tests/config.retiredSettings.test.ts`) fails if src reads a `METIS_*` or
+`THESIS_*` environment name any other way (only `METIS_RUNTIME_BUILD_ID`,
+which never had an alias, is read directly). So `getConfig`/`parseEnv`, the
+database and data paths, the legacy-import switch, the allowed host and the
+judge-order fallback all refuse on first use, in the server, the request
+proxy, the job runner and scheduler bootstrap, and every script that reads a
+setting. The server also refuses eagerly in `src/instrumentation.ts` before it
+mints the request token or starts the scheduler, prints the message and
+exits with code 1. (Next.js only logs a `register()` failure and keeps
+listening; checked on the production build, every page and API route then
+answered a bare 500, no token file or database was created and the scheduler
+never ran. Exiting makes the refusal plain.) The settings:reset,
+costs:reconcile, research:replay and export:corrected entry points refuse
+eagerly as well, because replay of a `--snapshot` file and the corrected
+export read no setting. The golden harness reads its database path through
+`metisEnv`; its workers get a stripped environment and run unchanged.
+
+**Request header.** `X-Metis-Token` behaves exactly as before. A request that
+carries only `X-Thesis-Token` is refused with the same 403 as any other token
+failure and the reason "the X-Thesis-Token header is no longer accepted; send
+the same token in the X-Metis-Token header instead". The old header is never
+read as a credential, including by the company-page proxy check. Every client
+in the repository sends `X-Metis-Token`.
+
+**Kept.** Every setting's meaning, validation and default (spend caps, resume
+hold, statement source, rolling window, concurrency, token path, lease timings,
+stream idle, reservation mode, judge order, EV leases, allowed host, UI flag);
+legacy data-folder and file discovery (`Thesis`, `thesis.db`, `Thesis/ai`);
+`METIS_IMPORT_LEGACY_DB` and its warning; old-database upgrades; the Claude API
+integration. A table of 157 METIS_-only inputs (blank, padded, valid, boundary
+and invalid values for every setting, plus lease combinations) parses to
+exactly the same result as main at e55519ce, frozen in
+`tests/fixtures/config-parity-before-d228.json`.
+
+**Frozen wording.** Ten strings that reach saved reports, exports or the
+judge prompt still spell `THESIS_STATEMENT_SOURCE`, `THESIS_EV_INCLUDE_LEASES`
+and `THESIS_JUDGE_ORDER` (`src/pipeline/keyless.ts`, `stageB/valuation.ts`,
+`stageB/returns.ts`, `stageC/judgeProtocol.ts`'s `JUDGE_ORDER_ENV_KEY`). They
+are unchanged byte for byte here, because rewording them changes report text
+and prompt bytes and needs an owner decision; the source-scan test pins each
+line. Comments, Settings text, logs and docs use the `METIS_*` names.
+
+**Risks and reversibility.** Anyone with an old `.env`, launcher or shell
+variable must rename keys before the next start; the error says which and how.
+Reverting this change restores the aliases. No stored report, ledger row or
+data file changes.
+
 ## D-227 - New reports record which exact build assembled them; nothing reads it yet (2026-11-12)
 
 Principles P27 and P20. A saved report names its rules only through
@@ -748,7 +4202,7 @@ source; recognized rows do not authorize arbitrary dates or unparsed metrics.
 Keep evidence floors, source conflicts and historical reports unchanged. The
 new report/payload/Stage B/pipeline stamps identify changed semantics; no band
 threshold or valuation-target adjustment is introduced. See the
-[audit and verification record](2026-11-08-dhi-report-4.md).
+[audit and verification record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-08-dhi-report-4.md).
 
 ## D-214 - Quarterly evidence propagation and reader consistency (2026-11-07)
 
@@ -812,7 +4266,7 @@ real-run files and historical synthetic baselines remain unchanged.
 - **Recovery and cost.** Synthesis uses subset prompts with a six-launch allowance per case order and explicit generation, shared by automatic retries/restarts. Valid sections retain their digests and actual writer provenance. A billed or uncertain transport failure never replays the original request automatically. Proven pre-send failures retain free bounded retries; resumed input is checked using the existing D-121 policy. Advisory task pacing is distinct from hard limits. No provider completion guarantee is made.
 - **Outcome and compatibility.** Mandatory bull, bear, synthesis and verification stages must succeed (or have explicitly covered durable reuse) before the new optional completion marker says complete. Final validation can still withhold that marker. Process termination, workflow completion and the scope of verified claims remain separate. Cost provenance joins exact attempt IDs. Historical schemas remain readable and no saved report is rewritten.
 - **Stamps and regression evidence.** Report 1.54.0, payload 1.56.0, Stage B 35 and pipeline stage-c-1.6.14 invalidate reuse across changed generation/calculation conventions. Financial method stamps and score bands stay fixed. The canonical payload fixture changes only its version: an exact fingerprint/byte assertion restores 1.55.0 in memory before every older golden check. The audit comparison changes only `report.meta.specVersion`; all other financial/provenance pins remain enforced. New source modules join the existing risk coverage inventory without lowering thresholds.
-- **Limits.** Offline fixtures and mocked providers establish regression behavior, not successful live QCOM/FIGR generation. Full earnings normalization, capital reconciliation and paid reruns are deferred. Verified batches, remaining release gates and merge-history checks are recorded in [the integration checkpoint](2026-11-01-current-main-integration.md).
+- **Limits.** Offline fixtures and mocked providers establish regression behavior, not successful live QCOM/FIGR generation. Full earnings normalization, capital reconciliation and paid reruns are deferred. Verified batches, remaining release gates and merge-history checks are recorded in [the integration checkpoint](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-01-current-main-integration.md).
 
 ## D-139 - Prospective measurement and report reliability (2026-10-31)
 
@@ -1108,7 +4562,7 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 ## D-61 (NVDA report #34 audit, WP5, 2026-10-15) Forensic and grading signals that measured the wrong thing
 
 - **Evidence**: report 34 and the 2026-10-15 integration rerun
-  (docs/audit/2026-10-15-nvda-report-34-audit.md, P0-6, P2-1…P2-5):
+  ([docs/audit/2026-10-15-nvda-report-34-audit.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-10-15-nvda-report-34-audit.md), P0-6, P2-1…P2-5):
   - **Accruals 0.91, "red".** NI − CFO − CFI over average NOA charged all of
     NVDA's FY2026 investing cash flow (−$52.2B) as accruals. Of that, $58.1B was
     purchases of investments: $40.6B of debt securities and $17.5B of equity
@@ -1279,7 +4733,7 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
 ## D-59 (NVDA report 34 audit, WP4 + WP6, 2026-10-15) Make the peer and executive gates reachable and stop the verifier's false contradictions
 
-- **Evidence**: report 34 (docs/audit/2026-10-15-nvda-report-34-audit.md) showed gates that could never pass. `PeerCandidate.economicEvidence` and `subjectEconomicEvidence` were read but never populated, so every peer of every issuer was excluded; one symbol's HTTP 402 (AVGO) stopped collection, so 2 of 10 candidates were evaluated. `assessExecutiveEvidence` required a `verified` log outcome that the verify pass never assigns to prose, so every executive was "not-assessed". The headline "0/90 validated; 1 contradicted" came from a year-set period rule ("ended 2026-07-26" against "ttm: 2025-07-27 to 2026-07-26"), a symmetric label match against internal key paths ("debt Bridge total Debt Including Leases"), and 60 figure-free claims counted as "unchecked". The earnings reconciliation was "unavailable" because FMP quarters carry no SEC start date.
+- **Evidence**: report 34 ([docs/audit/2026-10-15-nvda-report-34-audit.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-10-15-nvda-report-34-audit.md)) showed gates that could never pass. `PeerCandidate.economicEvidence` and `subjectEconomicEvidence` were read but never populated, so every peer of every issuer was excluded; one symbol's HTTP 402 (AVGO) stopped collection, so 2 of 10 candidates were evaluated. `assessExecutiveEvidence` required a `verified` log outcome that the verify pass never assigns to prose, so every executive was "not-assessed". The headline "0/90 validated; 1 contradicted" came from a year-set period rule ("ended 2026-07-26" against "ttm: 2025-07-27 to 2026-07-26"), a symmetric label match against internal key paths ("debt Bridge total Debt Including Leases"), and 60 figure-free claims counted as "unchecked". The earnings reconciliation was "unavailable" because FMP quarters carry no SEC start date.
 - **Options**: (a) populate economic evidence from SEC filings; (b) replace the hard exclusion with a disclosed caveat; (c) remove executive grades; (d) accept the verify pass's own numeric validation as attributable evidence.
 - **Choice**: (b) and (d). Absent comparability evidence is a caveat stated beside the median; supplied evidence that is invalid, unavailable or different from the subject's still excludes, and evidence that does not describe the observation is contrary, never absent. SIC equality establishes industry only for the SEC fallback used when FMP refuses a symbol. Candidates rise from 6 to 10 within 25 seconds. An executive grade survives when a FACT in that executive's own evidence names them and its figure matched the cited record with no failing check. The period check accepts an exact date inside or at the end of a window; the numeric matcher reads registry labels with time words and FCF/SBC/capex normalized, treats a bare "trailing" as twelve months, and requires a named window to be the record's own. A fully named person is attribution, not metric text. An FMP quarter without SEC dates is bounded by the issuer's consecutive preceding quarter (12-14 weeks apart).
 - **Why**: (a) needs a business-model taxonomy and per-metric definitions no source supplies; SIC alone cannot certify accounting or metric comparability, so claiming it would overstate the evidence. (c) discards the design the prompt already describes (capital-allocation record over tenure). The changes only make existing rules reachable; contrary evidence, contradictions and named-individual restrictions are unchanged.
@@ -1415,7 +4869,7 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
   fixture changes five version/disclosure leaves, without numeric regrading.
 - **Limits**: bounded passages are not comprehensive coverage; source gaps,
   ambiguous periods, unvalidated prose and uncalibrated forecasts remain visible.
-  See the [audit record](2026-10-15-amzn-integrity.md) for reproductions and checks.
+  See the [audit record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-10-15-amzn-integrity.md) for reproductions and checks.
 
 ## D-54 (research validation 2026-10-14) Add offline checks before changing research methods
 
@@ -2271,7 +5725,7 @@ not a fresh verification of historical runs or external account permissions.
 | D-11–D-17 and D-34: sources and financial routes | [Bundle](../../src/pipeline/dataBundle.ts), [keyless](../../src/pipeline/keyless.ts), [successor](../../src/edgar/successor.ts) and [routing](../../src/pipeline/stageB/sectorRouting.ts) implement reserved fixtures, issuer-gated fallback, predecessor history, beta and corroborated financial classification. Recorded `fixtures/edgar/xom_successor_*` headers supersede the original deferred synthetic-only fixture choice. Keyless Form 4 trade reconstruction remains deferred. |
 | D-18/D-19/D-24–D-26/D-28–D-31/D-35/D-37–D-39: financial conventions | [Compute](../../src/pipeline/compute.ts), [Stage B](../../src/pipeline/stageB) and [split resolution](../../src/edgar/splits.ts) implement the evolving growth, capital, currency, common-ownership, share-basis and calendar rules. Report spec 1.10.0 and payload 1.11.0 identify the latest conventions; older version stamps below describe their individual batches. See [METHODOLOGY](../METHODOLOGY.md) for a coherent current formula description. |
 | D-20/D-40: judge protocol | [Judge protocol](../../src/pipeline/stageC/judgeProtocol.ts) and [Stage C](../../src/pipeline/stageC/index.ts) implement selected order, protected-content-aware shortening, exact excess and reconstructed-resume disclosure. Persisting the original complete protocol on the synthesize artifact remains unimplemented; a resumed protocol can re-derive order using the current setting, with unknown lengths disclosed. [Protocol tests](../../tests/stageC.judgeProtocol.test.ts) cover the recorded metadata. Scenario horizon labels are set by `applyScenarioTargets` in [passes](../../src/pipeline/stageC/passes.ts), not the judge (D-40); [pass tests](../../tests/stageC.payload.passes.test.ts) cover null and suppressed targets. |
-| D-21/D-22/D-27/D-32: local boundaries and tooling | [Request security](../../src/app/requestSecurity.ts), [environment](../../src/config/env.ts), [scripts](../../package.json) and the [Next lint adapter](../../scripts/next-eslint-glob/index.cjs) are authoritative. Node is now `>=24` (2026-10-22 audit, F-10); historical package targets and README line counts are not current dependency state. |
+| D-21/D-22/D-27/D-32: local boundaries and tooling | [Request security](../../src/app/requestSecurity.ts), [environment](../../src/config/env.ts), [scripts](../../package.json) and the [Next lint adapter](https://github.com/eligorelick/Metis/blob/8f529d7a954a495db4c093cb73fe07414fab6ad4/scripts/next-eslint-glob/index.cjs) are authoritative (Revised by D-230: that adapter was removed; the link points to the last commit that had it). Node is now `>=24` (2026-10-22 audit, F-10); historical package targets and README line counts are not current dependency state. |
 | D-33/D-36/D-37/D-38: connections and display | [AI connections](../../src/ai/connections.ts), [credential store](../../src/ai/store.ts), [native mutex](../../src/ai/mutex.ts) and [appearance](../../src/appearance/preference.ts) implement explicit connections and browser appearance persistence. Current is the default; Research workspace is optional and Decision brief remains a prototype. The permanent SQLite mutex replaces the F08 stale-PID protocol; stopped-server upgrades and local-filesystem requirements remain. Recorded grade/DCF evidence and paginated chart tables are implemented; see the [recommendations ledger](2026-10-04-recommendations.md). |
 
 Live OAuth approval, current account access, macOS credential behavior, empirical
@@ -2450,6 +5904,9 @@ behavior; historical measured costs remain the observations recorded below.
   or options require explicit review. Clean install, dependency shape, lint,
   security audit, and Linux/Windows tests remain release requirements. The
   lockfile provenance changes; financial fixture and baseline bytes do not.
+- **Revised by D-230 (2026-11-12)**: the braces advisory was withdrawn on
+  2026-10-23, so the adapter was removed and Next's ESLint plugin uses
+  upstream fast-glob 3.3.1 again.
 
 ---
 
@@ -2623,6 +6080,7 @@ behavior; historical measured costs remain the observations recorded below.
 
 - **Choice**: keep the existing guard; add route-level tests for a cross-site form POST (navigate mode) and a cross-site fetch. When both Fetch Metadata and Origin are missing, require a token: minted at startup into `<data dir>/csrf-token` and accepted via `X-Thesis-Token`; browsers never need it. `THESIS_RESUME_ON_START` (default `1`); when `0`, bootstrap does not kick the scheduler and queued paid work waits for `POST /api/jobs/resume` or the Settings page. `npm run settings:reset -- --yes` deletes stored settings rows.
 - **Why**: brief; token path only touches header-less clients.
+- **Revised by D-228 (2026-11-12)**: the token header is `X-Metis-Token` and the setting is `METIS_RESUME_ON_START`; the old `X-Thesis-Token` header is refused, never accepted, and a leftover `THESIS_RESUME_ON_START` stops startup until renamed.
 
 ## D-22 (WS9) Node requirement and generated docs
 
@@ -2637,6 +6095,7 @@ behavior; historical measured costs remain the observations recorded below.
 - **Why**: (a) throws away the evidence the comparison exists to provide, which is that this tree still computes what the audited commit computed apart from changes somebody wrote down. (c) is the failure mode the test was built to prevent. The remediation legitimately moves 709 leaves; without grouping and an identity view nobody would read them, and a contract nobody reads is a rubber stamp.
 - **Risk**: the list is long enough that a real regression could hide inside a group. Mitigated by the identity view, by the per-group reason, and by the fresh-context review of each workstream's diff.
 - **Also fixed**: dotted paths could not address an object key containing a dot (`asOfMap["edgar.cik"]`), reading as absent on both sides and slipping past the value checks. Keys now escape their dots and backslashes.
+- **Revised by D-232 (2026-11-12)**: the audited baseline, the intended-delta ledger and `npm run audit:deltas` are retired. Today's projection is pinned by `tests/fixtures/frozen/audit-fixture-current.json`, and an intended change is recorded with `npm run freeze:refresh` in `tests/fixtures/frozen/refresh-log.json`. The dotted-key escaping stays, in `tests/helpers/jsonLeafPaths.ts`.
 
 ## D-24 (audit 2026-09-06) Evidence-weighted graded signals and forensic disclosures
 
@@ -2833,7 +6292,7 @@ behavior; historical measured costs remain the observations recorded below.
 ## D-89 Filed CFO conflicts and explicit fraction units (2026-10-18)
 
 - **Problem:** A subsequent acceptance audit found vendor quarterly CFO inconsistent with compatible filed cumulative cash flows. The difference entered current standardized FCF and cash-conversion ratios. Separately, numeric prose correctly expressing a declared fraction as a percentage was classified as a unit contradiction because canonicalization had discarded the fraction declaration.
-- **Cash-flow admission:** Compare only compatible currency, issuer, date and duration evidence available by the observation cutoff. A signed quarter can come from a direct filed quarter or compatible same-start cumulative operands; negative CFO is valid. Ambiguous direct facts must not be bypassed by a different derivation. Preserve original vendor data and conflict records, withhold processed CFO aliases and dependent standardized FCF, and retain independent capital/valuation evidence. Do not silently select the more favorable observation or overwrite an earlier explicit refusal.
+- **Cash-flow admission:** Compare only compatible currency, issuer, date and duration evidence available by the observation cutoff. A signed quarter can come from a direct filed quarter or compatible same-start cumulative operands; negative CFO is valid. Ambiguous direct facts must not be bypassed by a different derivation. Preserve original vendor data and conflict records, withhold processed CFO aliases and dependent standardized FCF, and retain independent capital/valuation evidence. Do not silently select the more favorable observation or overwrite an earlier explicit refusal. (Revised by D-252: on an annual row, a conflicting vendor operating cash flow takes the filed figure when the newest filing's own cash-flow statement reconciles around it; every other conflict is still withheld.)
 - **Fraction semantics:** Retain an optional explicit unit-fraction declaration in numeric provenance. It permits percentage prose to be compared after scaling both its value and rounding quantum. Ordinary ratios/multiples, legacy records without that declaration, percentage-point changes, wrong values and hundredfold errors retain their existing refusals. No metric-name heuristic establishes the scale.
 - **Versions:** Report `1.28.0`, payload `1.33.0`, pipeline `stage-c-1.4.2`. Stage B remains `STAGE_B_2026_10_ACCOUNTING_EVIDENCE_8`: its calculation engine is unchanged for identical admitted inputs. Changed input admission/context must not resume old narrative as if equivalent. Saved reports retain their bytes and historical stamps.
 - **Evidence and limitations:** See the [acceptance safeguards and phased plan](2026-10-18-accounting-evidence-remediation.md#subsequent-acceptance-safeguards). Source tracing is not proof of accounting truth. A deterministic replay can demonstrate withheld claims and rendering; it does not regenerate stale analyst prose or establish investment performance. Integration still requires fresh gates and independent review.
@@ -2850,7 +6309,7 @@ behavior; historical measured costs remain the observations recorded below.
 - **Problem:** Independent review reproduced partial-service costs becoming a canonical gross-profit subtotal, EDGAR admission skipped by envelope, raw refused rows reappearing in disclosures, and a Unicode dateline regression.
 - **Choice:** Require full compatible same-filing industrial operands for canonical GP arithmetic; preserve directly filed GP and serialize explicit unknown/refusal state. Revalidate EDGAR and mixed backfill rows. Propagate new canonical refusals only with source evidence compatible with the vendor row's currency, explicit interval and filing; retain existing refusals. Share immutable refusal-aware reads across Stage B and disclosures, including dependent CFO aliases/standardized FCF. Restore hyphen/en-dash/em-dash boundaries with Unicode escapes without loosening issuer matching.
 - **Versions:** Report `1.29.1`, payload `1.34.1`, pipeline `stage-c-1.5.1`, Stage B `STAGE_B_2026_10_ACCOUNTING_EVIDENCE_10`. Consumer results change on identical retained inputs. Keep old reports immutable and old engines distinct; score bands/weights remain unchanged.
-- **Evidence/gates:** [Review-correction record](2026-10-19-phase-one-review-corrections.md). Red/green source, serialization, actual report/read/export and Unicode controls precede new exact-head full gates. Independent final review and ADBE source/narrative acceptance remain pending; no live run/push/merge is authorized by this note.
+- **Evidence/gates:** [Review-correction record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-10-19-phase-one-review-corrections.md). Red/green source, serialization, actual report/read/export and Unicode controls precede new exact-head full gates. Independent final review and ADBE source/narrative acceptance remain pending; no live run/push/merge is authorized by this note.
 
 
 ## D-92 First-report source reconciliation and disclosure (2026-10-19)
@@ -3002,7 +6461,7 @@ Report 1.37.0, payload 1.42.0 and Stage B ACCOUNTING_EVIDENCE_19 mark these conv
 
 The independent audit of 2026-10-22 found figures withheld although the filed evidence was complete, reports that did not say a newer quarter had been published, and a 10-K operating figure argued from after a newer 10-Q had replaced it. Batch 3a covers findings B-32, B-5, A-11, B-7, B-8 (with B-37 as far as B-8 needs it), B-24 (with B-26 as far as B-24 needs it) and C-16. Every rule is class-wide; none names a ticker.
 
-- **Owner decision: WACC tax rate (B-32).** Without a trailing rate, the latest annual effective rate (tax expense over pre-tax income) is used, with the basis stated. A trailing pre-tax loss, or an annual one when it is the basis, gets a 0% shield, disclosed. The existing 0–35% clamp still applies and is disclosed when it moves the rate. With neither a trailing nor an annual pair, the levered WACC is still withheld. On the SEC path, pre-tax income is the sum of its domestic and foreign components when no total is tagged, with the composition disclosed.
+- **Owner decision: WACC tax rate (B-32).** Without a trailing rate, the latest annual effective rate (tax expense over pre-tax income) is used, with the basis stated. (Revised by D-237: pre-tax income in these rates is the provision's own base, and the provider's ratio is not used where the filings moved the trailing pair's denominator off the provider's figure.) A trailing pre-tax loss, or an annual one when it is the basis, gets a 0% shield, disclosed. The existing 0–35% clamp still applies and is disclosed when it moves the rate. With neither a trailing nor an annual pair, the levered WACC is still withheld. On the SEC path, pre-tax income is the sum of its domestic and foreign components when no total is tagged, with the composition disclosed.
 - **Owner decision: principal beside carrying debt (B-5).** A filed debt aggregate above the carrying components by up to 2% of them, or 50 million in the reporting currency, whichever is larger, is read as unamortized discount and issuance cost, and the components are admitted. The band is measured on the financing components (leases excluded), and the 50 million floor reaches at most 10% of them, so a small issuer's notes are never read as mostly discount. Beyond that band total and net debt are withheld with a gap naming both figures. Batch 1's 1% rule for a tagged carrying total (`uncomposedDebtReason`) is unchanged: that total is on the components' own basis, so only rounding can separate them, whereas a principal aggregate is on another basis.
 - **Owner decision: vendor against filed figures (A-11).** A vendor figure and the filed figure for the same period agree when they differ by no more than one reporting unit (the largest power of ten up to a million dividing both) or 0.01% of the larger, whichever is wider. The reporting-unit allowance applies only when the larger figure is at least 100 units, so it never exceeds 1% of it. A zero against a nonzero figure gets no reporting-unit allowance. This judges two statements of one figure, so it is far narrower than the debt band.
 - **Owner decision: D&A from separate lines (B-7).** With no combined tag for a period, D&A is `Depreciation` + `AmortizationOfIntangibleAssets`, else `Depreciation` alone, disclosed as a lower bound for the period. Amortization alone is never D&A. `Depreciation` alone is kept, not withheld: the two-line sum is itself a lower bound (a combined line can hold other amortization), and Alphabet tags amortization in some quarters only, so withholding the one-line form would drop its EBITDA for the quarters that lack it. The disclosure is in the data gaps and audit appendix; carrying it onto the EV/EBITDA row is left for a later batch.
@@ -3138,7 +6597,7 @@ Report 1.42.0, payload 1.47.0, pipeline stage-c-1.6.5 and Stage B ACCOUNTING_EVI
 
 The independent audit of 2026-10-22 found reports that ended a quarter or two before what the issuer had already filed, or that read its newest results release wrongly. Batch 3a fixed B-24 (the newer-results notice) and C-16 (the 10-Q supersession pass); this batch fixes the rest: B-26, B-27, B-23, B-9 with B-20, B-36 in part and FCX-4. Every rule is class-wide; none names a ticker. Each withholds with a specific reason where its evidence is incomplete.
 
-- **Owner decision: 10-Qs that companyfacts lags (B-23).** When the newer 10-Q's XBRL instance is already fetched, its consolidated, undimensioned facts in the taxonomies companyfacts publishes (us-gaap, srt, dei, ifrs-full), for the filer's own CIK, are merged into the companyfacts payload before the statements are built, each point carrying the 10-Q's accession, form, filing date and fiscal focus. A filing companyfacts already carries, or one filed no later than its newest periodic report, is never merged, so a row never mixes bases; a fact stated twice at one precision with different values is dropped. Where a newer 10-Q, 10-K, 20-F or 40-F was filed but its facts could not be read, a "Newer filing not reflected" banner and a warn gap name the filing and its date, with the newer-results notice's 45-day allowance.
+- **Owner decision: 10-Qs that companyfacts lags (B-23).** When the newer 10-Q's XBRL instance is already fetched, its consolidated, undimensioned facts in the taxonomies companyfacts publishes (us-gaap, srt, dei, ifrs-full), for the filer's own CIK, are merged into the companyfacts payload before the statements are built, each point carrying the 10-Q's accession, form, filing date and fiscal focus. A filing companyfacts already carries, or one filed no later than its newest periodic report, is never merged, so a row never mixes bases (Revised by D-236: a filing is carried only when companyfacts holds a statement fact of it, not when it merely mentions it, and the rule covers Forms 20-F and 40-F and amendments as well as 10-K and 10-Q); a fact stated twice at one precision with different values is dropped. Where a newer 10-Q, 10-K, 20-F or 40-F was filed but its facts could not be read, a "Newer filing not reflected" banner and a warn gap name the filing and its date, with the newer-results notice's 45-day allowance.
 - **Owner decision: multiple labels by period (B-9, B-20).** Each multiple records the period its earnings cover ("TTM to 2026-06-30" or "FY2025"); the label follows it in the multiples table, Key data and the exports ("P/E (FY2025)"), and TTM labels are unchanged; in the AI payload a fiscal-year multiple names its year in its label ("P/E (current, FY2025)"), and a TTM record is unchanged. EBITDA adds the cash-flow statement's D&A only on the operating income's own period (beside a fiscal-year operating income, the annual cash-flow row of that year, even when the cash-flow slice is TTM); otherwise EV/EBITDA is withheld with both periods named. The P/E basis names only the formula that produced the figure, and when it is market cap over common income it says why diluted EPS was not used; Key data notes "market cap / common income, not price / diluted EPS" beside such a P/E.
 - **Owner decision: release ordering (B-26).** A results release that states no period goes before the first dated release filed no later than it; dated releases keep period order. For the four releases kept, a results release outranks an operational update, so the kept set covers a year of results when enough were read. This can change which 8-K is newest among those kept (Freeport-McMoRan's 2026-10-02 operational update is no longer kept).
 - **Owner decision: a newer release's currency (B-27).** A release reporting a quarter no statement row covers, or stating no quarter end, reports in the statements' currency when every income row since before its period is established in that one currency. A history in more than one currency, or an unlabelled row at the release's own quarter, still withholds, and the note says the currency is not established.
@@ -3651,17 +7110,17 @@ Audit 2026-10-27, batch B4, part A (B4a): FIN-103, FIN-119, FIN-119-V1, FIN-119-
   - Revises: the D-58 fallback in METHODOLOGY and the code note "When removing them would leave no operating capital the D-58 basis stands" (both rewritten); D-65 item 4 stays true and now also covers what sales-to-capital could not remove.
   - Sources: D-65's own principle ("an asset left out of operating capital is never left out of value too"); Damodaran, "Holdings in Other Firms".
 - **OD-7: the divisor in a loss period.**
-  - Decision: a loss row's filed diluted count equals basic, so the divisor is the loss row's basic count plus the newest award-dilution increment from a profitable period among the latest four quarters and the latest fiscal year (that period's diluted count less its basic count, less any filed conversion increment). The substitution is dated and disclosed (info gap `valuation.perShare.lossPeriodDivisor`) and reaches the DCF, excess-return and REIT per share and forecast EPS. With no profitable donor, the basic count stands and the D-60 note and METHODOLOGY say it carries no option or RSU dilution. Detection (`dilutedDivisor.ts`): both counts are positive, the diluted count is at most basic plus 1 (`diluted <= basic + 1`), and the row's income from continuing operations (net income when that is not filed) is below zero. The conversion subtraction: the donor's filed if-converted share increment (debt and preferred) is taken out of its increment, because the bridge deducts those claims. The not-restored case: when the issuer has a convertible instrument filed with a nonzero balance (in any reporting currency) within 366 days and the donor period files no conversion increment, the award increment could hold conversion shares, so it is not restored, the filed count divides, and an info note says so (`loss-period-withheld`).
+  - Decision: a loss row's filed diluted count equals basic, so the divisor is the loss row's basic count plus the newest award-dilution increment from a profitable period among the latest four quarters and the latest fiscal year (that period's diluted count less its basic count, less any filed conversion increment). The substitution is dated and disclosed (info gap `valuation.perShare.lossPeriodDivisor`) and reaches the DCF, excess-return and REIT per share and forecast EPS. (Revised by D-233: the REIT per share divides by the latest fiscal year's count, so the substitution reaches it when that fiscal year is the loss period, not when the latest quarter is.) With no profitable donor, the basic count stands and the D-60 note and METHODOLOGY say it carries no option or RSU dilution. Detection (`dilutedDivisor.ts`): both counts are positive, the diluted count is at most basic plus 1 (`diluted <= basic + 1`), and the row's income from continuing operations (net income when that is not filed) is below zero. The conversion subtraction: the donor's filed if-converted share increment (debt and preferred) is taken out of its increment, because the bridge deducts those claims. The not-restored case: when the issuer has a convertible instrument filed with a nonzero balance (in any reporting currency) within 366 days and the donor period files no conversion increment, the award increment could hold conversion shares, so it is not restored, the filed count divides, and an info note says so (`loss-period-withheld`).
   - Rejected: the newest profitable period's diluted count (it carries that period's older basic count); disclose only.
   - Revises: D-65 item 5 and the D-60 divisor disclosure; METHODOLOGY "Share basis".
   - Sources: Deloitte Roadmap, *Earnings per Share* 8.7 (with a loss from continuing operations, diluted EPS is computed as basic EPS); ASC 260-10-45-17 to 45-20.
 - **OD-8: one REIT market cap and EV.**
-  - Decision: the REIT block takes its market cap and its EV from the multiples framework: the quote's admitted market cap and the house EV, which after OD-1 holds preferred, redeemable preferred, book NCI and redeemable NCI. P/FFO and P/AFFO are market cap over FFO at both sites; FFO and AFFO per share stay on the diluted count. A quote with a price but no market cap withholds P/FFO and EV with a warn gap. OP units, permanent or redeemable, are not common shares, so adding them as NCI never double counts.
+  - Decision: the REIT block takes its market cap and its EV from the multiples framework: the quote's admitted market cap and the house EV, which after OD-1 holds preferred, redeemable preferred, book NCI and redeemable NCI. P/FFO and P/AFFO are market cap over FFO at both sites; FFO and AFFO per share stay on the diluted count. (Revised by D-233: the diluted count of FFO's own fiscal year, not the latest quarter's.) A quote with a price but no market cap withholds P/FFO and EV with a warn gap. OP units, permanent or redeemable, are not common shares, so adding them as NCI never double counts.
   - Rejected: price times weighted diluted shares (two P/FFOs and two EVs per report, and OP units counted twice once redeemable NCI joins the EV); moving the multiples to price over FFO per diluted share (it touches peer and own-history P/FFO, not in this batch).
   - Revises: D-26's sentence "the REIT implied cap rate uses the house enterprise value", made true by construction instead of by a parallel formula.
   - Sources: Deloitte Roadmap 9.4 (that OP units redeemable for cash are such an NCI is filer practice, not the roadmap's); METHODOLOGY ("a report carries one EV").
 - **FIN-403: a successor reads its predecessor's retirement obligations.** A holding-company successor whose own companyfacts carry no retirement obligation reads the predecessor's, as one reporting entity under B-36, until the successor's own annual report; a family the successor files, including a zero, ends the predecessor read for that family, and a family both file is read once, from the successor. Extends E-7 and B-36.
-- **FIN-103: the DCF bridge reads the statement-date balance.** When an annual base is rolled forward, D-65's promise that the bridge stays at the statement-date balance is now checked: the bridge row follows the DCF's basis with one refusal rule (a newer quarter with no debt line falls back to the older complete balance), and the bridge note and an info gap `valuation.dcf.bridgeBalanceDate` name the date used. The refusal rule is the one the DCF reads on the row: a parser refusal, unresolved ownership, a lease conflict, a lease-scope refusal (on the run's own lease switch) or a refused temporary-equity operand. The first clean candidate at the statement date is the row; when every candidate is refused, or the anchor is, the anchor (main's row) stands, never cured by another date, so no report main publishes is blocked by the choice (final review I-2).
+- **FIN-103: the DCF bridge reads the statement-date balance.** When an annual base is rolled forward, D-65's promise that the bridge stays at the statement-date balance is now checked: the bridge row follows the DCF's basis with one refusal rule (a newer quarter with no debt line falls back to the older complete balance), and the bridge note and an info gap `valuation.dcf.bridgeBalanceDate` name the date used. The refusal rule is the one the DCF reads on the row: a parser refusal, unresolved ownership, a lease conflict, a lease-scope refusal (on the run's own lease switch) or a refused temporary-equity operand. (Revised by D-248: "unresolved ownership" is now the P5 owner's one predicate and allowance, `noncontrollingOwnershipUnresolved` in `src/pipeline/stageB/ownership.ts`; the row choice no longer keeps a copy with its own one-part-in-a-billion allowance, so a gap of under one currency unit between consolidated and parent equity no longer refuses a row and a whole-unit gap now does.) The first clean candidate at the statement date is the row; when every candidate is refused, or the anchor is, the anchor (main's row) stands, never cured by another date, so no report main publishes is blocked by the choice (final review I-2).
 - **Final whole-branch review (fix round 1), the merge rule: no report main publishes becomes Blocked, and no figure is worse than main.** (I-1) Lease-emptied invested capital withholds the DCF at warn (OD-3). (M-1) A row with a refused temporary-equity operand and a lease conflict or lease-scope refusal keeps main's critical lease gap beside the warn. (M-7) A null book NCI beside a redeemable NCI takes the P/FCF 1% floor on the redeemable NCI alone; with no redeemable NCI the guard is main's. (M-9) A positive `preferredStock` equal to the admitted redeemable preferred within max(1, 1e-6 x amount) at the same date (the filer tagged one mezzanine series `PreferredStockValue` and `TemporaryEquityCarryingAmountAttributableToParent`) is counted once: `temporaryEquityClaims`, the one reader, leaves the parent part out and the preferred line main already deducts stands, so no balance row is altered; an info gap `valuation.preferredOverlap` names both tags once per date; unequal amounts are both deducted (B4b's overlap territory, OD-2). (M-8) The rate-regulated note states the reading, not rate recovery.
 - **House constants.**
   - The pension family order (a), (b), (c) and its date-first look-back.
@@ -3775,15 +7234,22 @@ The Task 3 receivables decision above is unchanged. This addition records only T
 - **Compatibility boundary and cost.** Legacy patterns retain trimming, literal parent segments (optimization level zero) and native Windows separator handling; callers' explicit options remain effective. The project already requires Node >=24. The facade uses Node's documented [synchronous ESM/CommonJS interoperability export](https://nodejs.org/api/modules.html#loading-ecmascript-modules-using-require) plus an ESM default export, retaining existing lint rules without a suppression. Cost: this is a scoped adapter for the installed consumer APIs, not full minimatch 3 compatibility; future consumer upgrades require the same real rule/selection regressions. Upstream 11's matching semantics apply outside the explicitly adapted legacy options.
 - **Enforcement and invariants.** The dependency-shape gate checks real package identities through npm `--long` metadata and lock link targets, including nested and aliased upstream copies. The genuine upstream version set is exactly 11.0.1, while the own facade is separately identified as 1.0.0; brace-expansion is exactly 5.0.12 after removal of the old engine. Unrelated lock entries, optional cross-platform dependencies, ESLint 9.39.5, Next 16.4.2, lint configuration and the include-dev/low/failure audit script remain intact. No report source, financial arithmetic, schema, stamp, payload, golden or intended delta changes; methodology therefore requires no financial revision. Focused execution receipts and remaining final-head acceptance are recorded separately in the private Task 12 report.
 - **Historical fixture provenance (corrective round 1).** The first Product run at `6ce14d60` correctly rejected the changed comparison-lock fingerprint. Keep the published `76cc4d445212431bd8f10eab94eb8bc464a6945d` pin and all original generator/projection/fixture evidence. A separate test-only inverse requires the complete current lock's 327,884 bytes/SHA256 `9626141684a0c02a95ee949bd7a2ecb06c44d6706956ae7b069b3d8ee903668f`, checks each of the eleven closed reviewed node changes, and reconstructs exactly the pre-task 327,945 bytes/SHA256 `39ef0024e898fa8db387dfeef99bb97a9463fd7a8a584082e961feaec8770d95`. Only that verified in-memory string feeds the existing unchanged five-field branding/license normalization. Neither the installed lock nor historical provenance is rewritten; no arbitrary development dependency is exempted. Added controls reject owned/unowned field changes, additions/removals, formatting and duplicate-key drift, while checking 148 non-root runtime entries, the existing development link and root runtime declarations separately. Future lock changes require a fresh explicitly reviewed restoration or provenance decision; they cannot silently pass this exact-byte check.
+- **Revised by D-230 (2026-11-12).** The advisory was narrowed to `>=7.0.0 <11.0.1` on 2026-11-04, so the `@metis/legacy-minimatch` facade and its six overrides were removed and the ESLint consumers use upstream minimatch 3.1.5 again. The TypeScript parser keeps 11.0.1 through `minimatch-modern`. D-230 is the provenance decision this entry asks for: the comparison pin moved forward and the exact-byte inverse went with the facade.
 
 ## D-142 - P0 review corrections: source comparison, date qualification and recovery (2026-11-02)
 
 No-split share comparisons require a confirmed single-ticker ordinary-share scope. Cent rounding is symmetric; earlier matching exact-interval filings are described as superseded. Provider calendar qualification binds within punctuation-delimited clauses, yields to registered SEC/official issuer sources, preserves citation credit, and uses non-counted audit rows. Complete rejected responses persist as rejectedText only. Report spec 1.56.0, payload 1.60.0, Stage B STAGE_B_2026_11_CLAUDE_REPAIRS_39. No prompt text changed; pipeline remains stage-c-1.6.17. Stored reports are never rewritten.
 
+Residuals and limits carried over word for word from the archived [P0 review record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p0-review-fixes.md#L18) when it left the tree (2026-11-12):
+
+> Residuals: optional technicalTrendText equality wording was deferred. Multi-class vendor conventions were reproduced synthetically, not verified against live FMP data. Previously written complete rejections in partialText retain their historical cost labels. Older strict readers still cannot read rejectedText artifacts (review L-5); rollback requires the compatible artifact reader.
+
 ## D-143 - P4: preserve accepted work, paid lifecycle and spend limits (2026-11-02)
 
 B11-OD-5 (DOC-203): comment canonical defaults in the example; report conflicting
 alias names at startup without values. Keep explicit canonical precedence.
+(Revised by D-228: the aliases are retired; any leftover `THESIS_*` name now
+stops startup with its replacement named, so there is no conflict warning.)
 
 B8-OD-9 (AI-510, JOB-201): share analyst recovery across fresh and resumed
 sides. Rejected-output repair and zero-cost plan resends have independent
@@ -3893,6 +7359,10 @@ RPT-211 completes the D-62 figure registry for fundamentals tables, model value,
 
 Job-panel controls (RPT-206, RPT-504) apply the same classified data-state word and hide a recorded citation rate when the summary has analysis.llm. The summary API and stored rate remain unchanged; no completed check is inferred.
 
+Residuals and limits carried over word for word from the archived [P3 record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L48) when it left the tree (2026-11-12):
+
+> AI-407 still detects conflicts rather than requiring full paraphrase agreement. Segment shares remain computed before number verification. The verifier deliberately withholds uncertain metric, period, operand and comparative attribution instead of inferring another figure. AI-502 does not infer the standard meant by a comparative. AI-111's closed mask retains fail-closed ambiguous initial continuations and whole-sentence ratings. No claim of full historical re-verification is made.
+
 ## D-145 - P6: local security (2026-11-02)
 
 ### D-145: Company landing methods
@@ -3922,6 +7392,10 @@ PERF-201 caches successes by exact bytes/path and returns clones; unchanged call
 ### D-145: Effective legacy Fast speed
 
 SEC-205 normalizes captured unsupported Fast to Standard, matching Settings. The effective fingerprint changes, so existing resume guards may refuse mismatched jobs. Stored reports and selections remain unchanged; supported Fast and save validation retain their existing rules.
+
+Residuals and limits carried over word for word from the archived [P6 record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p6-local-security.md#L17) when it left the tree (2026-11-12):
+
+> LAN mode remains unauthenticated for report reads and job starts within existing spending safeguards. It is an opt-in trusted-network deployment, not an authentication boundary.
 
 ## D-146 - P7: display and history (2026-11-02)
 
@@ -4009,10 +7483,14 @@ The rebuilt census, including review R-1/R-3/R-6, moves XOM 191.7389267225
 to 196.0576271333 per share. The revised R-2 placement-evidence guard restores
 BA from 27.7411147513 to the FIN-401-V1 value 27.1152067083; GOOGL, AMZN and the other required controls
 keep their values or refusals. Evidence and the explicitly unstarted items are recorded in
-[the B4b disposition](2026-11-02-b4b-equity-bridge.md).
+[the B4b disposition](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md).
 
 FIN-302 / FIN-302-V1 implement OD-2. Claim and converted variants use exact
-period/end and acquisition cutoffs on both routes. Unknown settlement retains
+period/end and acquisition cutoffs on both routes. (Revised by D-247: the
+conversion increment is matched to the divisor's period by the P1 owner's one
+rule, a quarter of 70 to 125 days or a fiscal year of 300 to 400 days ending
+within 3 days of the divisor end, not by a private 80-100 / 350-380 day window
+on the same day.) Unknown settlement retains
 the conservative claim-plus-shares value and a quantified bound; cash-principal
 notes retain spread shares. Each preferred claim is deducted once, using the
 larger ambiguous overlap or the sum only when an independent filed inclusive
@@ -4161,6 +7639,10 @@ N x V(BV0)/D=118.79M on conversion. The holder keeps the claim; what is
 better for the holder is worse for common. Thus the minimum rule selects
 11.8104675494/share, while the converted reading is 11.8790002431. The
 coordinator corrected the original brief pin, which assumed conversion binds.
+
+Residuals and limits carried over word for word from the archived [B4b record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md#L323) when it left the tree (2026-11-12):
+
+> OD-5's known evidence limits remain: partial inclusion and aggregate ambiguity, provider rows without placement (prior note retained), other mixed windows, unavailable same-date stake breakouts and untagged income amounts. No amount is estimated to fill a gap.
 
 ## D-148 - P5: primary-source data and freshness, with the low-severity items and review corrections (2026-11-02)
 
@@ -4328,6 +7810,14 @@ Remove an unsupported maxRetries option from the FMP test fixture; the real clie
 
 Give the two integrity fixtures coherent statement/release fiscal labels without changing their restatement or currency assertions. The full product suite exposed two synthetic fixtures whose real NVIDIA labels contradicted their unrelated calendar-year statement metadata. The shared contradiction rule is retained; source labels now agree for these must-not-move currency and whole-row controls. Stored report bytes are unchanged.
 
+Residuals and limits carried over word for word from the archived [P5 low-severity record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data-lows.md#L30) when it left the tree (2026-11-12):
+
+> DATA-115 deliberately retries based on the leader's aborted caller signal, as the reviewed plan specifies. A transport timeout without caller cancellation is still an ordinary shared failure. The new prose reader is conservative and does not promise complete coverage of every Item 408(a) prose format.
+
+And from the archived [P5 record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L87):
+
+> Residual methodology limits: a recast first seen in a 10-K remains unproven until a later shared window; the cross-filing estimate remains explicitly computed under OD-11. Historical levels remain visible but their growth is withheld when their individual prior bases cannot be established.
+
 ## D-149 - N2: FIGR readiness - filed share classes, lender applicability and the recent-IPO discount rate (2026-11-02)
 
 ### D-149: Filed common-class economics (R-FIGR-3)
@@ -4348,7 +7838,7 @@ A balance-sheet alternative does not override newer-dated unresolved inline cove
 
 ### D-149: Lender review conventions (F1, F2, F12)
 
-Owner delegated to the coordinator on 2026-11-01. For evidenced held-for-sale lenders, industrial EV/EBITDA, EV/Sales, net debt, net debt/EBITDA, interest coverage, gross margin, ROIC and ROIC-vs-WACC are not applicable. Warehouse and loan-owner funding is operating inventory finance; industrial leverage/coverage cannot measure solvency. Capital adequacy is not modelled, and the Balance Sheet aspect is not modelled. ROTE is scored instead of ROIC; filed operating margin remains. EV is context only with named filed debt components tied to the retained debt perimeter. No common-income gate is relaxed. The retained FIGR common-earnings observation postdates its bundle cutoff by 3.097 seconds, so its ROTE remains withheld with that reason; the filed two-class allocation itself is supported. Stored reports and shared stamps are unchanged.
+Owner delegated to the coordinator on 2026-11-01. For evidenced held-for-sale lenders, industrial EV/EBITDA, EV/Sales, net debt, net debt/EBITDA, interest coverage, gross margin, ROIC and ROIC-vs-WACC are not applicable. Warehouse and loan-owner funding is operating inventory finance; industrial leverage/coverage cannot measure solvency. Capital adequacy is not modelled, and the Balance Sheet aspect is not modelled. ROTE is scored instead of ROIC; filed operating margin remains. EV is context only with named filed debt components tied to the retained debt perimeter. (Revised by D-234: where one filing's tagged long-term debt proves those debt lines, the report's debt is the filed borrowings plus the operating lease, and the provider perimeter is no longer shown as the debt.) No common-income gate is relaxed. The retained FIGR common-earnings observation postdates its bundle cutoff by 3.097 seconds, so its ROTE remains withheld with that reason; the filed two-class allocation itself is supported. Stored reports and shared stamps are unchanged.
 
 ### D-149: Class-scope review disclosures (F3, F5, F6, F7, F8)
 
@@ -4468,6 +7958,8 @@ separate complete remeasurement. The measured FIG difference is 1.302M on
 231.012M FCF (0.6% rounded). Preserving the disclosed retained basis avoids
 silently substituting an accounting convention without comparable period
 inputs. METHODOLOGY states this plainly; no stored report is rewritten.
+(Revised by D-239: a provider figure of exactly 0 is no longer retained as
+capital spending unless the filings state a zero for that period.)
 
 ## D-151 - N3: SEC-built rows on a filed-total conflict (2026-11-02)
 
@@ -4535,6 +8027,10 @@ B12-OD-4/5/7: cancellation writes error and Retry may reuse compatible durable w
 ### D-152: Hermetic checks and per-file coverage
 
 B12-OD-2/3/6: TSX sources receive named coverage placements; every core source has a single-file 85/75/85/85 glob floor alongside the 90/84/95/93 aggregate. Compiler and lint gates use declared roots, preserving tracked inputs. Shared test setup guards HTTP/HTTPS request/get and DNS lookup, synchronizes builtin ESM exports, and isolates XDG_DATA_HOME and APPDATA. No company-IR production seam is added. Recorded reading measurements must refuse main/document overflow and no-op jumps, with 48px landing slack. Live confirmation is skipped under section 4.3. DOC-301 remains deferred to B5.
+
+Residuals and limits carried over word for word from the archived [P8 record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L38) when it left the tree (2026-11-12):
+
+> No calibration or forecast-accuracy evidence is claimed. The manual reading script retains 48px slack based on the recorded samples; broader live-layout confirmation remains future manual work.
 
 ## D-153 - P2: DCF inputs and seasonality, with N1 (2026-11-02)
 
@@ -5297,7 +8793,7 @@ Tests: `tests/r9.figrDeterministic.test.ts`,
 composition and Stage C byte pins remain covered. R9 restores only its reviewed
 SBC label/id leaves before historical byte pins; no shared stamp is changed.
 Read-only frozen-input replay and check receipts:
-`docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`.
+[`docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-r9-figr-deterministic-fixes.md).
 
 ## D-165 - R8: qualifying source context within existing payload caps (2026-11-02)
 
@@ -5333,7 +8829,7 @@ wording restoration; the public fixture inventory adds one referenced item.
 Offline frozen replay: 342,155 → 341,152 characters (−1,003), fingerprint
 `1.61.0:cef2673b`; all eleven requested evidence items retained. No paid API,
 real database, prompts, report/export code or verifier was changed. See
-[R8 audit and replay lines](2026-11-02-r8-figr-evidence-selection.md).
+[R8 audit and replay lines](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-r8-figr-evidence-selection.md).
 
 ## D-166 - R7: FIGR extra-high verifier false negatives (2026-11-02)
 
@@ -6528,7 +10024,7 @@ The frozen 33-company panel retained four missing business/MD&A sections:
 INTC 10-K Items 1/7 and ASML 20-F Items 4/5. PEP, DIS and EXPE retained
 underlying financial-note item failures; MSFT, MCD and ORCL had separate
 notes-recognition gaps after successful item extraction. The full census, source URLs, before/after lengths and
-first lines are in the [evidence report](2026-11-04-foreign-sections.md).
+first lines are in the [evidence report](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-04-foreign-sections.md).
 
 - **Shared pages revise D-184/D-185.** A filing's explicit incorporation of
   the same pages into two items is not an exclusive-ownership conflict. Admit
@@ -7466,7 +10962,10 @@ source area was edited. The earnings policy below is the final ordered rule.
 
 Ownership alternatives and independently filed equity-method bridges remain
 valid. A filed pretax line excluding equity-method income is bridged only with
-the separately filed compatible equity-method amount. A separately filed
+the separately filed compatible equity-method amount. (Revised by D-237: the
+bridged figure stays the pre-tax income of the earnings identity, and an
+effective tax rate divides by the filed line itself, which the admission now
+records beside it.) A separately filed
 nonzero discontinued result prevents a continuing pretax/tax family from being
 called a complete total-profit family. Consolidated, parent and common profit
 are not interchangeable labels. Adoption reconciles their aliases and ratios;
@@ -8386,6 +11885,13 @@ No full `npm run verify`, build, server/port action, paid call, push, PR or merg
 is performed. Release stamps remain the integrator's required follow-up above.
 
 ## D-202 - Lease and debt admission beyond the test panel (2026-11-04)
+
+(Revised by D-250: rule 1's "a disclosed but incomplete family still refuses an
+unsupported total" now also holds for a provider row whose filing tags one
+finance-lease maturity only, so RIVN's 2026 quarter-end totals are withheld
+where this entry lists RIVN as unchanged; and an undisclosed provider lease
+zero on an unclassified balance sheet is completed from the one filing, so O's
+2026-09-30 debt is a number.)
 
 Implementation commits: `6e825122` and `979e3e73` on
 `t3/balance-round2-fix`, based on `e6110f17`.
@@ -10110,29 +13616,29 @@ This table records implementation/regression closure at production source `871b6
 | AI-303-V3 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
 | AI-303-V4 | fixed-verified | fixed-and-verified | [stageC.claimPeriods.audit20261027.test.ts](../../tests/stageC.claimPeriods.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
 | AI-101 | fixed-verified | fixed-and-verified | [evidenceSelection.eventReferent.test.ts](../../tests/evidenceSelection.eventReferent.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 55) |
-| AI-103 | still-reproducible | fixed-and-verified | [stageC.entities.lly.test.ts](../../tests/stageC.entities.lly.test.ts)<br>[stageC.judgeProtocol.test.ts](../../tests/stageC.judgeProtocol.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 13) |
-| AI-116 | still-reproducible | fixed-and-verified | [report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts)<br>[stageC.insiderRoles.test.ts](../../tests/stageC.insiderRoles.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 12) |
+| AI-103 | still-reproducible | fixed-and-verified | [stageC.entities.lly.test.ts](../../tests/stageC.entities.lly.test.ts)<br>[stageC.judgeProtocol.test.ts](../../tests/stageC.judgeProtocol.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L13) (line 13) |
+| AI-116 | still-reproducible | fixed-and-verified | [report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts)<br>[stageC.insiderRoles.test.ts](../../tests/stageC.insiderRoles.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L12) (line 12) |
 | AI-304-V1 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.tokens.test.ts](../../tests/stageC.claimEvidence.tokens.test.ts) | Earlier adjudication; mapped current regression |
 | AI-304-V2 | fixed-verified | fixed-and-verified | [stageC.verifyChecks.test.ts](../../tests/stageC.verifyChecks.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 102) |
 | AI-305-V1 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.ownDescription.test.ts](../../tests/stageC.claimEvidence.ownDescription.test.ts) | Earlier adjudication; mapped current regression |
-| AI-407 | still-reproducible | fixed-and-verified | [stageC.excerptCurrencyScale.test.ts](../../tests/stageC.excerptCurrencyScale.test.ts)<br>[stageC.tracedNumberDescription.test.ts](../../tests/stageC.tracedNumberDescription.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 7) |
-| AI-408 | partially-fixed | fixed-and-verified | [report.p3Records.test.ts](../../tests/report.p3Records.test.ts)<br>[stageC.metricRowPeriod.test.ts](../../tests/stageC.metricRowPeriod.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 8) |
-| AI-501 | still-reproducible | fixed-and-verified | [stageC.claimEvidence.recordMetric.test.ts](../../tests/stageC.claimEvidence.recordMetric.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 116)<br>[2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 9) |
-| AI-502 | still-reproducible | fixed-and-verified | [stageC.claimEvidence.recordMetric.test.ts](../../tests/stageC.claimEvidence.recordMetric.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 117)<br>[2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 10) |
+| AI-407 | still-reproducible | fixed-and-verified | [stageC.excerptCurrencyScale.test.ts](../../tests/stageC.excerptCurrencyScale.test.ts)<br>[stageC.tracedNumberDescription.test.ts](../../tests/stageC.tracedNumberDescription.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L7) (line 7) |
+| AI-408 | partially-fixed | fixed-and-verified | [report.p3Records.test.ts](../../tests/report.p3Records.test.ts)<br>[stageC.metricRowPeriod.test.ts](../../tests/stageC.metricRowPeriod.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L8) (line 8) |
+| AI-501 | still-reproducible | fixed-and-verified | [stageC.claimEvidence.recordMetric.test.ts](../../tests/stageC.claimEvidence.recordMetric.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 116)<br>[2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L9) (line 9) |
+| AI-502 | still-reproducible | fixed-and-verified | [stageC.claimEvidence.recordMetric.test.ts](../../tests/stageC.claimEvidence.recordMetric.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 117)<br>[2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L10) (line 10) |
 | AI-511 | fixed-verified | fixed-and-verified | [report.legacyPayloadRecords.test.ts](../../tests/report.legacyPayloadRecords.test.ts)<br>[stageC.gradedFcfConversion.test.ts](../../tests/stageC.gradedFcfConversion.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 53) |
 | AI-512 | fixed-verified | fixed-and-verified | [stageC.releaseFiscalLabel.test.ts](../../tests/stageC.releaseFiscalLabel.test.ts) | Earlier adjudication; mapped current regression |
 | SEC-203 | fixed-verified | fixed-and-verified | [stageC.numberScanLinearity.test.ts](../../tests/stageC.numberScanLinearity.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 99) |
-| AI-104 | still-reproducible | fixed-and-verified | [stageC.excessReturnVisibility.audit20261022.test.ts](../../tests/stageC.excessReturnVisibility.audit20261022.test.ts)<br>[stageC.returnPathOrigin.test.ts](../../tests/stageC.returnPathOrigin.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 14) |
-| AI-111 | still-reproducible | fixed-and-verified | [report.schema.test.ts](../../tests/report.schema.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 15) |
+| AI-104 | still-reproducible | fixed-and-verified | [stageC.excessReturnVisibility.audit20261022.test.ts](../../tests/stageC.excessReturnVisibility.audit20261022.test.ts)<br>[stageC.returnPathOrigin.test.ts](../../tests/stageC.returnPathOrigin.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L14) (line 14) |
+| AI-111 | still-reproducible | fixed-and-verified | [report.schema.test.ts](../../tests/report.schema.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L15) (line 15) |
 | AI-409 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.bounds.test.ts](../../tests/stageC.claimEvidence.bounds.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 106) |
 | AI-410 | fixed-verified | fixed-and-verified | [report.legacyPayloadRecords.test.ts](../../tests/report.legacyPayloadRecords.test.ts)<br>[stageB.capexToDaAverage.test.ts](../../tests/stageB.capexToDaAverage.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 50) |
-| AI-504 | still-reproducible | fixed-and-verified | [stageC.claimEvidence.recordMetric.test.ts](../../tests/stageC.claimEvidence.recordMetric.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 121)<br>[2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 11) |
+| AI-504 | still-reproducible | fixed-and-verified | [stageC.claimEvidence.recordMetric.test.ts](../../tests/stageC.claimEvidence.recordMetric.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 121)<br>[2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L11) (line 11) |
 | AI-509 | fixed-verified | fixed-and-verified | [report.legacyPayloadRecords.test.ts](../../tests/report.legacyPayloadRecords.test.ts)<br>[stageA.validate.test.ts](../../tests/stageA.validate.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts)<br>[stageC.providerGeography.test.ts](../../tests/stageC.providerGeography.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 52) |
 | FIN-119 | fixed-verified | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.redeemableNciCashOwnership.test.ts](../../tests/stageB.redeemableNciCashOwnership.test.ts)<br>[stageB.temporaryEquity.audit20261027.test.ts](../../tests/stageB.temporaryEquity.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
-| FIN-302 | still-reproducible | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.convertibleReader.audit20261027.test.ts](../../tests/stageB.convertibleReader.audit20261027.test.ts)<br>[stageB.convertibles.audit20261027.test.ts](../../tests/stageB.convertibles.audit20261027.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 17) |
-| FIN-302-V1 | still-reproducible | fixed-and-verified | [stageB.convertibles.audit20261027.test.ts](../../tests/stageB.convertibles.audit20261027.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 18) |
+| FIN-302 | still-reproducible | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.convertibleReader.audit20261027.test.ts](../../tests/stageB.convertibleReader.audit20261027.test.ts)<br>[stageB.convertibles.audit20261027.test.ts](../../tests/stageB.convertibles.audit20261027.test.ts) | [2026-11-02-b4b-equity-bridge.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md#L17) (line 17) |
+| FIN-302-V1 | still-reproducible | fixed-and-verified | [stageB.convertibles.audit20261027.test.ts](../../tests/stageB.convertibles.audit20261027.test.ts) | [2026-11-02-b4b-equity-bridge.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md#L18) (line 18) |
 | FIN-305 | fixed-verified | fixed-and-verified | [edgar.sic.test.ts](../../tests/edgar.sic.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.debtLikeObligations.audit20261027.test.ts](../../tests/stageB.debtLikeObligations.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
-| FIN-401 | still-reproducible | fixed-and-verified | [edgar.equityMethodPlacement.audit20261027.test.ts](../../tests/edgar.equityMethodPlacement.audit20261027.test.ts)<br>[report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.countEveryClaimOnce.audit20261027.test.ts](../../tests/stageB.countEveryClaimOnce.audit20261027.test.ts)<br>[stageB.dcfDomain.audit20261022.test.ts](../../tests/stageB.dcfDomain.audit20261022.test.ts)<br>[stageB.equityMethodReview.audit20261027.test.ts](../../tests/stageB.equityMethodReview.audit20261027.test.ts)<br>[stageB.equityMethodStake.audit20261027.test.ts](../../tests/stageB.equityMethodStake.audit20261027.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 15) |
+| FIN-401 | still-reproducible | fixed-and-verified | [edgar.equityMethodPlacement.audit20261027.test.ts](../../tests/edgar.equityMethodPlacement.audit20261027.test.ts)<br>[report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.countEveryClaimOnce.audit20261027.test.ts](../../tests/stageB.countEveryClaimOnce.audit20261027.test.ts)<br>[stageB.dcfDomain.audit20261022.test.ts](../../tests/stageB.dcfDomain.audit20261022.test.ts)<br>[stageB.equityMethodReview.audit20261027.test.ts](../../tests/stageB.equityMethodReview.audit20261027.test.ts)<br>[stageB.equityMethodStake.audit20261027.test.ts](../../tests/stageB.equityMethodStake.audit20261027.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-11-02-b4b-equity-bridge.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md#L15) (line 15) |
 | FIN-509 | fixed-verified | fixed-and-verified | [edgar.derivedLines.audit20261027.test.ts](../../tests/edgar.derivedLines.audit20261027.test.ts)<br>[edgar.statements.test.ts](../../tests/edgar.statements.test.ts)<br>[edgar.tagSynonyms.test.ts](../../tests/edgar.tagSynonyms.test.ts)<br>[report.legacyEdgarDerivedLines.test.ts](../../tests/report.legacyEdgarDerivedLines.test.ts) | [2026-10-27-audit-batch-b13-edgar-derived-lines.md](2026-10-27-audit-batch-b13-edgar-derived-lines.md) (line 120) |
 | FIN-510 | fixed-verified | fixed-and-verified | [edgar.derivedLines.audit20261027.test.ts](../../tests/edgar.derivedLines.audit20261027.test.ts)<br>[report.legacyEdgarDerivedLines.test.ts](../../tests/report.legacyEdgarDerivedLines.test.ts) | Earlier adjudication; mapped current regression |
 | FIN-120 | fixed-verified | fixed-and-verified | [stageB.bankDisclosure.audit20261027.test.ts](../../tests/stageB.bankDisclosure.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 25) |
@@ -10141,140 +13647,140 @@ This table records implementation/regression closure at production source `871b6
 | FIN-123 | fixed-verified | fixed-and-verified | [stageB.ineligibleValuationGrade.audit20261027.test.ts](../../tests/stageB.ineligibleValuationGrade.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 29) |
 | FIN-124 | fixed-verified | fixed-and-verified | [stageB.unresolvedEligibilityForensics.audit20261027.test.ts](../../tests/stageB.unresolvedEligibilityForensics.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 28) |
 | FIN-305-V1 | fixed-verified | fixed-and-verified | [stageB.debtLikeObligations.audit20261027.test.ts](../../tests/stageB.debtLikeObligations.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
-| FIN-306 | still-reproducible | fixed-and-verified | [report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts)<br>[stageB.forensics.test.ts](../../tests/stageB.forensics.test.ts)<br>[stageB.grading.test.ts](../../tests/stageB.grading.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 30)<br>[2026-11-02-p9-methodology.md](2026-11-02-p9-methodology.md) (line 8) |
-| FIN-307 | partially-fixed | superseded | [audit.dcfOwnership.test.ts](../../tests/audit.dcfOwnership.test.ts)<br>[stageB.adrMarketEquityScope.audit20261027.test.ts](../../tests/stageB.adrMarketEquityScope.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 32)<br>[2026-11-02-p9-methodology.md](2026-11-02-p9-methodology.md) (line 9) |
-| FIN-308 | still-reproducible | fixed-and-verified | [audit.issuerPipeline.test.ts](../../tests/audit.issuerPipeline.test.ts)<br>[report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts)<br>[stageB.grading.test.ts](../../tests/stageB.grading.test.ts)<br>[stageB.routingEvidence.test.ts](../../tests/stageB.routingEvidence.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 31)<br>[2026-11-02-p9-methodology.md](2026-11-02-p9-methodology.md) (line 10) |
-| FIN-401-V1 | still-reproducible | fixed-and-verified | [edgar.equityMethodPlacement.audit20261027.test.ts](../../tests/edgar.equityMethodPlacement.audit20261027.test.ts)<br>[report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.dcfDomain.audit20261022.test.ts](../../tests/stageB.dcfDomain.audit20261022.test.ts)<br>[stageB.equityMethodStake.audit20261027.test.ts](../../tests/stageB.equityMethodStake.audit20261027.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 16) |
+| FIN-306 | still-reproducible | fixed-and-verified | [report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts)<br>[stageB.forensics.test.ts](../../tests/stageB.forensics.test.ts)<br>[stageB.grading.test.ts](../../tests/stageB.grading.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 30)<br>[2026-11-02-p9-methodology.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p9-methodology.md#L8) (line 8) |
+| FIN-307 | partially-fixed | superseded | [audit.dcfOwnership.test.ts](../../tests/audit.dcfOwnership.test.ts)<br>[stageB.adrMarketEquityScope.audit20261027.test.ts](../../tests/stageB.adrMarketEquityScope.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 32)<br>[2026-11-02-p9-methodology.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p9-methodology.md#L9) (line 9) |
+| FIN-308 | still-reproducible | fixed-and-verified | [audit.issuerPipeline.test.ts](../../tests/audit.issuerPipeline.test.ts)<br>[report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts)<br>[stageB.grading.test.ts](../../tests/stageB.grading.test.ts)<br>[stageB.routingEvidence.test.ts](../../tests/stageB.routingEvidence.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 31)<br>[2026-11-02-p9-methodology.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p9-methodology.md#L10) (line 10) |
+| FIN-401-V1 | still-reproducible | fixed-and-verified | [edgar.equityMethodPlacement.audit20261027.test.ts](../../tests/edgar.equityMethodPlacement.audit20261027.test.ts)<br>[report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.dcfDomain.audit20261022.test.ts](../../tests/stageB.dcfDomain.audit20261022.test.ts)<br>[stageB.equityMethodStake.audit20261027.test.ts](../../tests/stageB.equityMethodStake.audit20261027.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-11-02-b4b-equity-bridge.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md#L16) (line 16) |
 | FIN-403 | fixed-verified | fixed-and-verified | [stageB.successorObligations.audit20261027.test.ts](../../tests/stageB.successorObligations.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
 | FIN-503 | fixed-verified | fixed-and-verified | [report.versionStamps.test.ts](../../tests/report.versionStamps.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 39) |
-| FIN-302-V2 | still-reproducible | fixed-and-verified | [stageB.convertibleForecastEps.audit20261027.test.ts](../../tests/stageB.convertibleForecastEps.audit20261027.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 19) |
+| FIN-302-V2 | still-reproducible | fixed-and-verified | [stageB.convertibleForecastEps.audit20261027.test.ts](../../tests/stageB.convertibleForecastEps.audit20261027.test.ts) | [2026-11-02-b4b-equity-bridge.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md#L19) (line 19) |
 | FIN-305-V2 | fixed-verified | fixed-and-verified | [stageB.debtLikeObligations.audit20261027.test.ts](../../tests/stageB.debtLikeObligations.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
-| FIN-309 | still-reproducible | fixed-and-verified | [audit.issuerPipeline.test.ts](../../tests/audit.issuerPipeline.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.excessReturnValuationDate.audit20261027.test.ts](../../tests/stageB.excessReturnValuationDate.audit20261027.test.ts)<br>[stageC.excessReturnVisibility.audit20261022.test.ts](../../tests/stageC.excessReturnVisibility.audit20261022.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 20)<br>[2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 22) |
+| FIN-309 | still-reproducible | fixed-and-verified | [audit.issuerPipeline.test.ts](../../tests/audit.issuerPipeline.test.ts)<br>[report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.excessReturnValuationDate.audit20261027.test.ts](../../tests/stageB.excessReturnValuationDate.audit20261027.test.ts)<br>[stageC.excessReturnVisibility.audit20261022.test.ts](../../tests/stageC.excessReturnVisibility.audit20261022.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 20)<br>[2026-11-02-b4b-equity-bridge.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md#L22) (line 22) |
 | FIN-311 | fixed-verified | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.financialValuation.test.ts](../../tests/stageB.financialValuation.test.ts)<br>[stageB.reitOneMarketCap.audit20261027.test.ts](../../tests/stageB.reitOneMarketCap.audit20261027.test.ts)<br>[stageB.valuation.test.ts](../../tests/stageB.valuation.test.ts) | Earlier adjudication; mapped current regression |
 | FIN-312 | fixed-verified | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 33) |
 | FIN-313 | fixed-verified | fixed-and-verified | [stageB.adrDisclosure.audit20261027.test.ts](../../tests/stageB.adrDisclosure.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 26) |
-| FIN-407 | still-reproducible | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.multiclassForecastEps.audit20261027.test.ts](../../tests/stageB.multiclassForecastEps.audit20261027.test.ts)<br>[stageB.projections.test.ts](../../tests/stageB.projections.test.ts) | [2026-11-02-b4b-equity-bridge.md](2026-11-02-b4b-equity-bridge.md) (line 20) |
+| FIN-407 | still-reproducible | fixed-and-verified | [report.legacyBridgeMethod.test.ts](../../tests/report.legacyBridgeMethod.test.ts)<br>[stageB.multiclassForecastEps.audit20261027.test.ts](../../tests/stageB.multiclassForecastEps.audit20261027.test.ts)<br>[stageB.projections.test.ts](../../tests/stageB.projections.test.ts) | [2026-11-02-b4b-equity-bridge.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md#L20) (line 20) |
 | FIN-505 | fixed-verified | fixed-and-verified | [stageB.peRankConstruction.audit20261027.test.ts](../../tests/stageB.peRankConstruction.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 40) |
 | FIN-506 | fixed-verified | fixed-and-verified | [report.legacyImpliedReturnShareBasis.test.ts](../../tests/report.legacyImpliedReturnShareBasis.test.ts)<br>[stageB.excessReturnReverseShareBasis.audit20261027.test.ts](../../tests/stageB.excessReturnReverseShareBasis.audit20261027.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 21) |
-| FIN-510-V1 | partially-fixed | fixed-and-verified | [edgar.derivedLines.audit20261027.test.ts](../../tests/edgar.derivedLines.audit20261027.test.ts)<br>[edgar.statements.test.ts](../../tests/edgar.statements.test.ts) | [2026-11-02-p9-methodology.md](2026-11-02-p9-methodology.md) (line 11) |
+| FIN-510-V1 | partially-fixed | fixed-and-verified | [edgar.derivedLines.audit20261027.test.ts](../../tests/edgar.derivedLines.audit20261027.test.ts)<br>[edgar.statements.test.ts](../../tests/edgar.statements.test.ts) | [2026-11-02-p9-methodology.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p9-methodology.md#L11) (line 11) |
 | RPT-101 | fixed-verified | fixed-and-verified | [report.assessment.test.ts](../../tests/report.assessment.test.ts) | [2026-10-27-audit-b6-financial-routes.md](2026-10-27-audit-b6-financial-routes.md) (line 37) |
 | FIN-510-V2 | fixed-verified | fixed-and-verified | [stageB.reitFfoTotalDa.audit20261027.test.ts](../../tests/stageB.reitFfoTotalDa.audit20261027.test.ts) | Earlier adjudication; mapped current regression |
 | FIN-301 | fixed-verified | fixed-and-verified | [stageB.periodLength.test.ts](../../tests/stageB.periodLength.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 16) |
 | FIN-301-V1 | fixed-verified | fixed-and-verified | [stageB.seasonalGuidance.test.ts](../../tests/stageB.seasonalGuidance.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 17) |
 | FIN-101-V1 | fixed-verified | fixed-and-verified | [stageC.reverseDcfContext.test.ts](../../tests/stageC.reverseDcfContext.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 19) |
-| FIN-102 | still-reproducible | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[stageB.terminalOperatingLoss.test.ts](../../tests/stageB.terminalOperatingLoss.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 15) |
-| FIN-111 | still-reproducible | fixed-and-verified | [stageB.seasonalGuidance.test.ts](../../tests/stageB.seasonalGuidance.test.ts)<br>[stageB.transitionPeriod.test.ts](../../tests/stageB.transitionPeriod.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 16) |
-| FIN-114 | still-reproducible | fixed-and-verified | [stageB.erpCountryLabel.test.ts](../../tests/stageB.erpCountryLabel.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 22) |
-| FIN-116 | still-reproducible | fixed-and-verified | [stageB.debtAdmission.test.ts](../../tests/stageB.debtAdmission.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 19) |
-| FIN-127 | still-reproducible | fixed-and-verified | [stageB.projectionFiscalLabels.test.ts](../../tests/stageB.projectionFiscalLabels.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 21) |
-| FIN-402 | still-reproducible | fixed-and-verified | [stageB.oneOperatingIncome.test.ts](../../tests/stageB.oneOperatingIncome.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 11) |
-| FIN-402-V1 | still-reproducible | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 12) |
-| FIN-402-V2 | still-reproducible | fixed-and-verified | [incomeBasis.standaloneProof.test.ts](../../tests/incomeBasis.standaloneProof.test.ts)<br>[incomeBasis.retainedOperating.test.ts](../../tests/incomeBasis.retainedOperating.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 13) |
-| FIN-405 | still-reproducible | fixed-and-verified | [stageB.latestGrowth.test.ts](../../tests/stageB.latestGrowth.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 20) |
-| FIN-501 | still-reproducible | fixed-and-verified | [stageB.reverseDcfDomain.test.ts](../../tests/stageB.reverseDcfDomain.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 17) |
-| FIN-502 | still-reproducible | fixed-and-verified | [report.legacyValuationNotes.test.ts](../../tests/report.legacyValuationNotes.test.ts)<br>[stageB.taxSeedOneOff.test.ts](../../tests/stageB.taxSeedOneOff.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 14) |
-| FIN-104 | still-reproducible | fixed-and-verified | [stageB.reverseDcfDomain.test.ts](../../tests/stageB.reverseDcfDomain.test.ts)<br>[stageB.valuation.test.ts](../../tests/stageB.valuation.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 18) |
-| FIN-113 | still-reproducible | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[stageB.currentCapital.test.ts](../../tests/stageB.currentCapital.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 23) |
-| FIN-115 | still-reproducible | fixed-and-verified | [stageB.waccPriorYearCostOfDebt.test.ts](../../tests/stageB.waccPriorYearCostOfDebt.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 24) |
-| FIN-118 | still-reproducible | fixed-and-verified | [fairValue.degradedInputs.test.ts](../../tests/fairValue.degradedInputs.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 25) |
+| FIN-102 | still-reproducible | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[stageB.terminalOperatingLoss.test.ts](../../tests/stageB.terminalOperatingLoss.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L15) (line 15) |
+| FIN-111 | still-reproducible | fixed-and-verified | [stageB.seasonalGuidance.test.ts](../../tests/stageB.seasonalGuidance.test.ts)<br>[stageB.transitionPeriod.test.ts](../../tests/stageB.transitionPeriod.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L16) (line 16) |
+| FIN-114 | still-reproducible | fixed-and-verified | [stageB.erpCountryLabel.test.ts](../../tests/stageB.erpCountryLabel.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L22) (line 22) |
+| FIN-116 | still-reproducible | fixed-and-verified | [stageB.debtAdmission.test.ts](../../tests/stageB.debtAdmission.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L19) (line 19) |
+| FIN-127 | still-reproducible | fixed-and-verified | [stageB.projectionFiscalLabels.test.ts](../../tests/stageB.projectionFiscalLabels.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L21) (line 21) |
+| FIN-402 | still-reproducible | fixed-and-verified | [stageB.oneOperatingIncome.test.ts](../../tests/stageB.oneOperatingIncome.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L11) (line 11) |
+| FIN-402-V1 | still-reproducible | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L12) (line 12) |
+| FIN-402-V2 | still-reproducible | fixed-and-verified | [incomeBasis.standaloneProof.test.ts](../../tests/incomeBasis.standaloneProof.test.ts)<br>[incomeBasis.retainedOperating.test.ts](../../tests/incomeBasis.retainedOperating.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L13) (line 13) |
+| FIN-405 | still-reproducible | fixed-and-verified | [stageB.latestGrowth.test.ts](../../tests/stageB.latestGrowth.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L20) (line 20) |
+| FIN-501 | still-reproducible | fixed-and-verified | [stageB.reverseDcfDomain.test.ts](../../tests/stageB.reverseDcfDomain.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L17) (line 17) |
+| FIN-502 | still-reproducible | fixed-and-verified | [report.legacyValuationNotes.test.ts](../../tests/report.legacyValuationNotes.test.ts)<br>[stageB.taxSeedOneOff.test.ts](../../tests/stageB.taxSeedOneOff.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L14) (line 14) |
+| FIN-104 | still-reproducible | fixed-and-verified | [stageB.reverseDcfDomain.test.ts](../../tests/stageB.reverseDcfDomain.test.ts)<br>[stageB.valuation.test.ts](../../tests/stageB.valuation.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L18) (line 18) |
+| FIN-113 | still-reproducible | fixed-and-verified | [report.forensicObservationContext.test.ts](../../tests/report.forensicObservationContext.test.ts)<br>[stageB.currentCapital.test.ts](../../tests/stageB.currentCapital.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L23) (line 23) |
+| FIN-115 | still-reproducible | fixed-and-verified | [stageB.waccPriorYearCostOfDebt.test.ts](../../tests/stageB.waccPriorYearCostOfDebt.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L24) (line 24) |
+| FIN-118 | still-reproducible | fixed-and-verified | [fairValue.degradedInputs.test.ts](../../tests/fairValue.degradedInputs.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L25) (line 25) |
 | FIN-301-V2 | fixed-verified | fixed-and-verified | [stageB.seasonalGuidance.test.ts](../../tests/stageB.seasonalGuidance.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 21) |
 | FIN-301-V3 | fixed-verified | fixed-and-verified | [stageB.fiscalCalendar.test.ts](../../tests/stageB.fiscalCalendar.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 22) |
-| FIN-406 | still-reproducible | fixed-and-verified | [stageB.lossTaxShield.test.ts](../../tests/stageB.lossTaxShield.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 26) |
-| FIN-512 | still-reproducible | fixed-and-verified | [report.legacyValuationNotes.test.ts](../../tests/report.legacyValuationNotes.test.ts)<br>[stageB.projections.test.ts](../../tests/stageB.projections.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 27) |
-| RPT-502 | still-reproducible | fixed-and-verified | [report.scenarioPresentation.test.ts](../../tests/report.scenarioPresentation.test.ts) | [2026-11-02-p2-dcf-inputs.md](2026-11-02-p2-dcf-inputs.md) (line 28) |
+| FIN-406 | still-reproducible | fixed-and-verified | [stageB.lossTaxShield.test.ts](../../tests/stageB.lossTaxShield.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L26) (line 26) |
+| FIN-512 | still-reproducible | fixed-and-verified | [report.legacyValuationNotes.test.ts](../../tests/report.legacyValuationNotes.test.ts)<br>[stageB.projections.test.ts](../../tests/stageB.projections.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L27) (line 27) |
+| RPT-502 | still-reproducible | fixed-and-verified | [report.scenarioPresentation.test.ts](../../tests/report.scenarioPresentation.test.ts) | [2026-11-02-p2-dcf-inputs.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p2-dcf-inputs.md#L28) (line 28) |
 | FIN-101-V2 | fixed-verified | fixed-and-verified | [stageB.seasonalGuidance.test.ts](../../tests/stageB.seasonalGuidance.test.ts) | [2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md](2026-10-27-audit-b5-seasonality-calendars-dcf-inputs.md) (line 20) |
 | AI-108 | fixed-verified | fixed-and-verified | [stageC.judgeProtocol.test.ts](../../tests/stageC.judgeProtocol.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 39)<br>[2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 54) |
-| DB-001 | fixed-verified | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-10-29-audit-fix-08a-retry-data-only-fallback.md](2026-10-29-audit-fix-08a-retry-data-only-fallback.md) (line 21) |
-| AI-110 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts)<br>[repository.release.test.ts](../../tests/repository.release.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 50) |
-| AI-115 | still-reproducible | fixed-and-verified | [ai.mutex.test.ts](../../tests/ai.mutex.test.ts)<br>[ai.store.test.ts](../../tests/ai.store.test.ts)<br>[repository.release.test.ts](../../tests/repository.release.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 51) |
+| DB-001 | fixed-verified | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-10-29-audit-fix-08a-retry-data-only-fallback.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-10-29-audit-fix-08a-retry-data-only-fallback.md#L21) (line 21) |
+| AI-110 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts)<br>[repository.release.test.ts](../../tests/repository.release.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L50) (line 50) |
+| AI-115 | still-reproducible | fixed-and-verified | [ai.mutex.test.ts](../../tests/ai.mutex.test.ts)<br>[ai.store.test.ts](../../tests/ai.store.test.ts)<br>[repository.release.test.ts](../../tests/repository.release.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L51) (line 51) |
 | AI-307 | fixed-verified | fixed-and-verified | [requestAdmission.test.ts](../../tests/requestAdmission.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 61) |
 | AI-308 | fixed-verified | fixed-and-verified | [requestAdmission.test.ts](../../tests/requestAdmission.test.ts) | Earlier adjudication; mapped current regression |
-| AI-510 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 47) |
-| JOB-201 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 48) |
-| JOB-202 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 43) |
-| JOB-206 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 44) |
+| AI-510 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L47) (line 47) |
+| JOB-201 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L48) (line 48) |
+| JOB-202 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L43) (line 43) |
+| JOB-206 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L44) (line 44) |
 | JOB-208 | fixed-verified | fixed-and-verified | [degradation.providers.test.ts](../../tests/degradation.providers.test.ts)<br>[degradation.outage.simulation.test.ts](../../tests/degradation.outage.simulation.test.ts) | Earlier adjudication; mapped current regression |
-| JOB-213 | still-reproducible | fixed-and-verified | [api.routes.report.test.ts](../../tests/api.routes.report.test.ts)<br>[company.generateReport.persistence.test.ts](../../tests/company.generateReport.persistence.test.ts)<br>[db.jobs.migration.test.ts](../../tests/db.jobs.migration.test.ts)<br>[jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 45) |
-| JOB-301 | unverified | fixed-and-verified | [company.generateReport.stream.test.ts](../../tests/company.generateReport.stream.test.ts)<br>[companyJobIdentity.test.ts](../../tests/companyJobIdentity.test.ts)<br>[jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 49) |
+| JOB-213 | still-reproducible | fixed-and-verified | [api.routes.report.test.ts](../../tests/api.routes.report.test.ts)<br>[company.generateReport.persistence.test.ts](../../tests/company.generateReport.persistence.test.ts)<br>[db.jobs.migration.test.ts](../../tests/db.jobs.migration.test.ts)<br>[jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L45) (line 45) |
+| JOB-301 | unverified | fixed-and-verified | [company.generateReport.stream.test.ts](../../tests/company.generateReport.stream.test.ts)<br>[companyJobIdentity.test.ts](../../tests/companyJobIdentity.test.ts)<br>[jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L49) (line 49) |
 | AI-109 | fixed-verified | fixed-and-verified | [stageC.judgeProtocol.test.ts](../../tests/stageC.judgeProtocol.test.ts) | Earlier adjudication; mapped current regression |
 | AI-112 | fixed-verified | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 43)<br>[2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 64) |
 | AI-113-V1 | fixed-verified | fixed-and-verified | [anthropic.test.ts](../../tests/anthropic.test.ts)<br>[requestAdmission.test.ts](../../tests/requestAdmission.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 38) |
 | AI-114 | fixed-verified | fixed-and-verified | [anthropic.test.ts](../../tests/anthropic.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 60) |
 | JOB-204 | fixed-verified | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 65) |
-| JOB-205 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 53) |
-| JOB-207 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 52) |
-| JOB-214 | still-reproducible | fixed-and-verified | [company.generateReport.persistence.test.ts](../../tests/company.generateReport.persistence.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 54) |
-| JOB-215 | still-reproducible | fixed-and-verified | [company.generateReport.persistence.test.ts](../../tests/company.generateReport.persistence.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 55) |
-| PERF-202 | still-reproducible | fixed-and-verified | [api.routes.stream.test.ts](../../tests/api.routes.stream.test.ts)<br>[risk.runtime.coverage.test.ts](../../tests/risk.runtime.coverage.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 56) |
+| JOB-205 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L53) (line 53) |
+| JOB-207 | still-reproducible | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L52) (line 52) |
+| JOB-214 | still-reproducible | fixed-and-verified | [company.generateReport.persistence.test.ts](../../tests/company.generateReport.persistence.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L54) (line 54) |
+| JOB-215 | still-reproducible | fixed-and-verified | [company.generateReport.persistence.test.ts](../../tests/company.generateReport.persistence.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L55) (line 55) |
+| PERF-202 | still-reproducible | fixed-and-verified | [api.routes.stream.test.ts](../../tests/api.routes.stream.test.ts)<br>[risk.runtime.coverage.test.ts](../../tests/risk.runtime.coverage.test.ts) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L56) (line 56) |
 | RPT-210 | fixed-verified | fixed-and-verified | [jobRunner.test.ts](../../tests/jobRunner.test.ts)<br>[report.markdownCostTotal.test.ts](../../tests/report.markdownCostTotal.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 55) |
-| AI-202-V1 | still-reproducible | fixed-and-verified | [currentReports.guidanceRanges.test.ts](../../tests/currentReports.guidanceRanges.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 8) |
-| AI-506 | still-reproducible | fixed-and-verified | [adbeReportAudit.regressions.test.ts](../../tests/adbeReportAudit.regressions.test.ts)<br>[currentReports.compactFreeCashFlow.test.ts](../../tests/currentReports.compactFreeCashFlow.test.ts)<br>[currentReports.resultsNarrative.test.ts](../../tests/currentReports.resultsNarrative.test.ts)<br>[currentReports.retention.test.ts](../../tests/currentReports.retention.test.ts)<br>[report.keyDataDividendCurrency.audit20261027.test.ts](../../tests/report.keyDataDividendCurrency.audit20261027.test.ts)<br>[stageC.releaseFiscalLabel.test.ts](../../tests/stageC.releaseFiscalLabel.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 14) |
-| AI-508 | still-reproducible | fixed-and-verified | [segmentFacts.presentation.test.ts](../../tests/segmentFacts.presentation.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 7) |
-| AI-512-V1 | still-reproducible | fixed-and-verified | [currentReports.newerResults.test.ts](../../tests/currentReports.newerResults.test.ts)<br>[filingDisclosures.integrity.test.ts](../../tests/filingDisclosures.integrity.test.ts)<br>[filingDisclosures.releaseLabels.test.ts](../../tests/filingDisclosures.releaseLabels.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 16) |
-| DATA-101 | still-reproducible | fixed-and-verified | [edgar.temporaryEquityEnrichment.test.ts](../../tests/edgar.temporaryEquityEnrichment.test.ts)<br>[report.completeness.test.ts](../../tests/report.completeness.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 17) |
-| DATA-103 | still-reproducible | fixed-and-verified | [financialIncomeClassification.bankRouting.test.ts](../../tests/financialIncomeClassification.bankRouting.test.ts)<br>[financialIncomeClassification.test.ts](../../tests/financialIncomeClassification.test.ts)<br>[pipeline.peerFilings.test.ts](../../tests/pipeline.peerFilings.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 5) |
-| DATA-104 | still-reproducible | fixed-and-verified | [edgar.statements.presentationCurrency.test.ts](../../tests/edgar.statements.presentationCurrency.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 6) |
-| DATA-107 | still-reproducible | fixed-and-verified | [currentReports.eventItems.test.ts](../../tests/currentReports.eventItems.test.ts)<br>[currentReports.materialEventScope.test.ts](../../tests/currentReports.materialEventScope.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 15) |
-| DATA-111 | still-reproducible | fixed-and-verified | [companyEvents.dateGrammar.test.ts](../../tests/companyEvents.dateGrammar.test.ts)<br>[filingDisclosures.timeZone.test.ts](../../tests/filingDisclosures.timeZone.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 13) |
-| DATA-112 | still-reproducible | fixed-and-verified | [db.cache.test.ts](../../tests/db.cache.test.ts)<br>[providers.usSession.test.ts](../../tests/providers.usSession.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 11) |
-| DATA-113 | still-reproducible | fixed-and-verified | [keyless.test.ts](../../tests/keyless.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 12) |
-| DATA-114 | still-reproducible | fixed-and-verified | [db.cache.test.ts](../../tests/db.cache.test.ts)<br>[fmp.client.test.ts](../../tests/fmp.client.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 10) |
-| RPT-201 | still-reproducible | fixed-and-verified | [currentReports.dividendFrequency.test.ts](../../tests/currentReports.dividendFrequency.test.ts)<br>[currentReports.resultsNarrative.test.ts](../../tests/currentReports.resultsNarrative.test.ts)<br>[report.presentation.dividendYield.test.ts](../../tests/report.presentation.dividendYield.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 9) |
+| AI-202-V1 | still-reproducible | fixed-and-verified | [currentReports.guidanceRanges.test.ts](../../tests/currentReports.guidanceRanges.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L8) (line 8) |
+| AI-506 | still-reproducible | fixed-and-verified | [adbeReportAudit.regressions.test.ts](../../tests/adbeReportAudit.regressions.test.ts)<br>[currentReports.compactFreeCashFlow.test.ts](../../tests/currentReports.compactFreeCashFlow.test.ts)<br>[currentReports.resultsNarrative.test.ts](../../tests/currentReports.resultsNarrative.test.ts)<br>[currentReports.retention.test.ts](../../tests/currentReports.retention.test.ts)<br>[report.keyDataDividendCurrency.audit20261027.test.ts](../../tests/report.keyDataDividendCurrency.audit20261027.test.ts)<br>[stageC.releaseFiscalLabel.test.ts](../../tests/stageC.releaseFiscalLabel.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L14) (line 14) |
+| AI-508 | still-reproducible | fixed-and-verified | [segmentFacts.presentation.test.ts](../../tests/segmentFacts.presentation.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L7) (line 7) |
+| AI-512-V1 | still-reproducible | fixed-and-verified | [currentReports.newerResults.test.ts](../../tests/currentReports.newerResults.test.ts)<br>[filingDisclosures.integrity.test.ts](../../tests/filingDisclosures.integrity.test.ts)<br>[filingDisclosures.releaseLabels.test.ts](../../tests/filingDisclosures.releaseLabels.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L16) (line 16) |
+| DATA-101 | still-reproducible | fixed-and-verified | [edgar.temporaryEquityEnrichment.test.ts](../../tests/edgar.temporaryEquityEnrichment.test.ts)<br>[report.completeness.test.ts](../../tests/report.completeness.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L17) (line 17) |
+| DATA-103 | still-reproducible | fixed-and-verified | [financialIncomeClassification.bankRouting.test.ts](../../tests/financialIncomeClassification.bankRouting.test.ts)<br>[financialIncomeClassification.test.ts](../../tests/financialIncomeClassification.test.ts)<br>[pipeline.peerFilings.test.ts](../../tests/pipeline.peerFilings.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L5) (line 5) |
+| DATA-104 | still-reproducible | fixed-and-verified | [edgar.statements.presentationCurrency.test.ts](../../tests/edgar.statements.presentationCurrency.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L6) (line 6) |
+| DATA-107 | still-reproducible | fixed-and-verified | [currentReports.eventItems.test.ts](../../tests/currentReports.eventItems.test.ts)<br>[currentReports.materialEventScope.test.ts](../../tests/currentReports.materialEventScope.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L15) (line 15) |
+| DATA-111 | still-reproducible | fixed-and-verified | [companyEvents.dateGrammar.test.ts](../../tests/companyEvents.dateGrammar.test.ts)<br>[filingDisclosures.timeZone.test.ts](../../tests/filingDisclosures.timeZone.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L13) (line 13) |
+| DATA-112 | still-reproducible | fixed-and-verified | [db.cache.test.ts](../../tests/db.cache.test.ts)<br>[providers.usSession.test.ts](../../tests/providers.usSession.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L11) (line 11) |
+| DATA-113 | still-reproducible | fixed-and-verified | [keyless.test.ts](../../tests/keyless.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L12) (line 12) |
+| DATA-114 | still-reproducible | fixed-and-verified | [db.cache.test.ts](../../tests/db.cache.test.ts)<br>[fmp.client.test.ts](../../tests/fmp.client.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L10) (line 10) |
+| RPT-201 | still-reproducible | fixed-and-verified | [currentReports.dividendFrequency.test.ts](../../tests/currentReports.dividendFrequency.test.ts)<br>[currentReports.resultsNarrative.test.ts](../../tests/currentReports.resultsNarrative.test.ts)<br>[report.presentation.dividendYield.test.ts](../../tests/report.presentation.dividendYield.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L9) (line 9) |
 | RPT-202 | fixed-verified | fixed-and-verified | [estimateTiming.test.ts](../../tests/estimateTiming.test.ts)<br>[estimateTiming.integration.test.ts](../../tests/estimateTiming.integration.test.ts) | Earlier adjudication; mapped current regression |
-| DATA-102 | still-reproducible | fixed-and-verified | [pipeline.peerFilings.test.ts](../../tests/pipeline.peerFilings.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 9)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 18) |
-| DATA-106 | still-reproducible | fixed-and-verified | [settings.credentials.test.ts](../../tests/settings.credentials.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 5)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 19) |
-| DATA-108 | still-reproducible | fixed-and-verified | [currentReports.eventItems.test.ts](../../tests/currentReports.eventItems.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 20) |
-| DATA-109 | still-reproducible | fixed-and-verified | [currentReports.eventItems.test.ts](../../tests/currentReports.eventItems.test.ts) | [2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 21) |
-| DATA-110 | still-reproducible | fixed-and-verified | [edgar.filingFacts.test.ts](../../tests/edgar.filingFacts.test.ts)<br>[filingDisclosures.composition.test.ts](../../tests/filingDisclosures.composition.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 10)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 22) |
-| DATA-115 | still-reproducible | fixed-and-verified | [dataBundle.providerCache.test.ts](../../tests/dataBundle.providerCache.test.ts)<br>[db.cache.test.ts](../../tests/db.cache.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 8)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 23) |
-| DATA-116 | still-reproducible | fixed-and-verified | [fmp.access.test.ts](../../tests/fmp.access.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 6)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 24) |
-| PERF-101 | still-reproducible | fixed-and-verified | [fmp.access.test.ts](../../tests/fmp.access.test.ts) | [2026-11-02-p5-primary-data-lows.md](2026-11-02-p5-primary-data-lows.md) (line 7)<br>[2026-11-02-p5-primary-data.md](2026-11-02-p5-primary-data.md) (line 25) |
-| AI-201 | still-reproducible | fixed-and-verified | [stageC.dataOnlyMacro.test.ts](../../tests/stageC.dataOnlyMacro.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 5) |
-| DB-002 | still-reproducible | fixed-and-verified | [report.history.export.test.ts](../../tests/report.history.export.test.ts)<br>[report.revisionDigest.test.ts](../../tests/report.revisionDigest.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 6) |
-| RPT-206 | still-reproducible | fixed-and-verified | [report.completeness.test.ts](../../tests/report.completeness.test.ts)<br>[report.snapshotResearch.test.ts](../../tests/report.snapshotResearch.test.ts)<br>[report.surface.client.test.ts](../../tests/report.surface.client.test.ts)<br>[report.surface.completeness.test.ts](../../tests/report.surface.completeness.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 20) |
-| RPT-501 | still-reproducible | fixed-and-verified | [currency.companyPage.test.ts](../../tests/currency.companyPage.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 7) |
-| DB-003 | still-reproducible | fixed-and-verified | [report.executionMetadata.test.ts](../../tests/report.executionMetadata.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 15) |
-| DB-004 | still-reproducible | fixed-and-verified | [report.completeness.test.ts](../../tests/report.completeness.test.ts)<br>[report.correctedCli.test.ts](../../tests/report.correctedCli.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 17) |
-| DB-005 | still-reproducible | fixed-and-verified | [report.history.export.test.ts](../../tests/report.history.export.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 8) |
-| DB-006 | still-reproducible | fixed-and-verified | [report.revisionDigest.test.ts](../../tests/report.revisionDigest.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 16) |
-| RPT-001 | still-reproducible | fixed-and-verified | [company.report.presentation.test.ts](../../tests/company.report.presentation.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 17) |
-| RPT-102 | still-reproducible | fixed-and-verified | [charts.missingObservations.test.ts](../../tests/charts.missingObservations.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 9) |
-| RPT-103 | still-reproducible | fixed-and-verified | [stageB.technicals.test.ts](../../tests/stageB.technicals.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 18) |
-| RPT-203 | still-reproducible | fixed-and-verified | [report.presentation.d67.test.ts](../../tests/report.presentation.d67.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 10) |
-| RPT-204 | still-reproducible | fixed-and-verified | [report.format.shared.test.ts](../../tests/report.format.shared.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 19) |
-| RPT-205 | still-reproducible | fixed-and-verified | [report.presentation.labels.test.ts](../../tests/report.presentation.labels.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 11) |
-| RPT-207 | still-reproducible | fixed-and-verified | [report.issuerGapFallback.test.ts](../../tests/report.issuerGapFallback.test.ts)<br>[report.presentation.d67.test.ts](../../tests/report.presentation.d67.test.ts)<br>[report.refinement.trust.test.ts](../../tests/report.refinement.trust.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 21) |
-| RPT-208 | still-reproducible | fixed-and-verified | [report.publicReadiness.test.ts](../../tests/report.publicReadiness.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 20) |
-| RPT-209 | still-reproducible | fixed-and-verified | [report.completeness.test.ts](../../tests/report.completeness.test.ts)<br>[report.legacyEntitySafety.test.ts](../../tests/report.legacyEntitySafety.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 18) |
-| RPT-211 | still-reproducible | fixed-and-verified | [report.auditSurfaces.test.ts](../../tests/report.auditSurfaces.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 22) |
-| RPT-212 | still-reproducible | fixed-and-verified | [report.providerFallback.test.ts](../../tests/report.providerFallback.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 19) |
-| RPT-213 | still-reproducible | fixed-and-verified | [report.capitalBridge.test.ts](../../tests/report.capitalBridge.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 12) |
-| RPT-214 | still-reproducible | fixed-and-verified | [report.researchReview.test.ts](../../tests/report.researchReview.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 21) |
-| RPT-215 | still-reproducible | fixed-and-verified | [report.capitalBridge.test.ts](../../tests/report.capitalBridge.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 13) |
-| RPT-216 | still-reproducible | fixed-and-verified | [report.capitalBridge.test.ts](../../tests/report.capitalBridge.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 22) |
-| RPT-217 | still-reproducible | fixed-and-verified | [report.presentation.labels.test.ts](../../tests/report.presentation.labels.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 14) |
-| RPT-503 | partially-fixed | fixed-and-verified | [report.modelEvidence.test.ts](../../tests/report.modelEvidence.test.ts)<br>[report.runDisclosure.test.ts](../../tests/report.runDisclosure.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 23) |
-| RPT-504 | still-reproducible | fixed-and-verified | [company.generateReport.stream.test.ts](../../tests/company.generateReport.stream.test.ts)<br>[report.computedMark.test.ts](../../tests/report.computedMark.test.ts)<br>[report.surface.client.test.ts](../../tests/report.surface.client.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 16) |
-| DOC-203 | still-reproducible | fixed-and-verified | [env.exampleAliases.test.ts](../../tests/env.exampleAliases.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 46) |
-| SEC-201 | still-reproducible | fixed-and-verified | [api.routes.sameOrigin.test.ts](../../tests/api.routes.sameOrigin.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 7) |
-| SEC-202 | still-reproducible | fixed-and-verified | [api.localOnly.test.ts](../../tests/api.localOnly.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 8) |
-| SEC-204 | still-reproducible | fixed-and-verified | [ai.storeUnreadable.test.ts](../../tests/ai.storeUnreadable.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 9) |
-| SEC-206 | still-reproducible | fixed-and-verified | [ai.settingsSelection.test.ts](../../tests/ai.settingsSelection.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 10) |
-| SEC-207 | still-reproducible | fixed-and-verified | [privacy.recovery.test.ts](../../tests/privacy.recovery.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 11) |
-| DOC-101 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 7) |
-| DOC-102 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 9) |
-| DOC-201 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 10) |
-| DOC-202 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 11) |
-| DOC-204 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 12) |
+| DATA-102 | still-reproducible | fixed-and-verified | [pipeline.peerFilings.test.ts](../../tests/pipeline.peerFilings.test.ts) | [2026-11-02-p5-primary-data-lows.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data-lows.md#L9) (line 9)<br>[2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L18) (line 18) |
+| DATA-106 | still-reproducible | fixed-and-verified | [settings.credentials.test.ts](../../tests/settings.credentials.test.ts) | [2026-11-02-p5-primary-data-lows.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data-lows.md#L5) (line 5)<br>[2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L19) (line 19) |
+| DATA-108 | still-reproducible | fixed-and-verified | [currentReports.eventItems.test.ts](../../tests/currentReports.eventItems.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L20) (line 20) |
+| DATA-109 | still-reproducible | fixed-and-verified | [currentReports.eventItems.test.ts](../../tests/currentReports.eventItems.test.ts) | [2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L21) (line 21) |
+| DATA-110 | still-reproducible | fixed-and-verified | [edgar.filingFacts.test.ts](../../tests/edgar.filingFacts.test.ts)<br>[filingDisclosures.composition.test.ts](../../tests/filingDisclosures.composition.test.ts) | [2026-11-02-p5-primary-data-lows.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data-lows.md#L10) (line 10)<br>[2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L22) (line 22) |
+| DATA-115 | still-reproducible | fixed-and-verified | [dataBundle.providerCache.test.ts](../../tests/dataBundle.providerCache.test.ts)<br>[db.cache.test.ts](../../tests/db.cache.test.ts) | [2026-11-02-p5-primary-data-lows.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data-lows.md#L8) (line 8)<br>[2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L23) (line 23) |
+| DATA-116 | still-reproducible | fixed-and-verified | [fmp.access.test.ts](../../tests/fmp.access.test.ts) | [2026-11-02-p5-primary-data-lows.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data-lows.md#L6) (line 6)<br>[2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L24) (line 24) |
+| PERF-101 | still-reproducible | fixed-and-verified | [fmp.access.test.ts](../../tests/fmp.access.test.ts) | [2026-11-02-p5-primary-data-lows.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data-lows.md#L7) (line 7)<br>[2026-11-02-p5-primary-data.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p5-primary-data.md#L25) (line 25) |
+| AI-201 | still-reproducible | fixed-and-verified | [stageC.dataOnlyMacro.test.ts](../../tests/stageC.dataOnlyMacro.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L5) (line 5) |
+| DB-002 | still-reproducible | fixed-and-verified | [report.history.export.test.ts](../../tests/report.history.export.test.ts)<br>[report.revisionDigest.test.ts](../../tests/report.revisionDigest.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L6) (line 6) |
+| RPT-206 | still-reproducible | fixed-and-verified | [report.completeness.test.ts](../../tests/report.completeness.test.ts)<br>[report.snapshotResearch.test.ts](../../tests/report.snapshotResearch.test.ts)<br>[report.surface.client.test.ts](../../tests/report.surface.client.test.ts)<br>[report.surface.completeness.test.ts](../../tests/report.surface.completeness.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L20) (line 20) |
+| RPT-501 | still-reproducible | fixed-and-verified | [currency.companyPage.test.ts](../../tests/currency.companyPage.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L7) (line 7) |
+| DB-003 | still-reproducible | fixed-and-verified | [report.executionMetadata.test.ts](../../tests/report.executionMetadata.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L15) (line 15) |
+| DB-004 | still-reproducible | fixed-and-verified | [report.completeness.test.ts](../../tests/report.completeness.test.ts)<br>[report.correctedCli.test.ts](../../tests/report.correctedCli.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L17) (line 17) |
+| DB-005 | still-reproducible | fixed-and-verified | [report.history.export.test.ts](../../tests/report.history.export.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L8) (line 8) |
+| DB-006 | still-reproducible | fixed-and-verified | [report.revisionDigest.test.ts](../../tests/report.revisionDigest.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L16) (line 16) |
+| RPT-001 | still-reproducible | fixed-and-verified | [company.report.presentation.test.ts](../../tests/company.report.presentation.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L17) (line 17) |
+| RPT-102 | still-reproducible | fixed-and-verified | [charts.missingObservations.test.ts](../../tests/charts.missingObservations.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L9) (line 9) |
+| RPT-103 | still-reproducible | fixed-and-verified | [stageB.technicals.test.ts](../../tests/stageB.technicals.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L18) (line 18) |
+| RPT-203 | still-reproducible | fixed-and-verified | [report.presentation.d67.test.ts](../../tests/report.presentation.d67.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L10) (line 10) |
+| RPT-204 | still-reproducible | fixed-and-verified | [report.format.shared.test.ts](../../tests/report.format.shared.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L19) (line 19) |
+| RPT-205 | still-reproducible | fixed-and-verified | [report.presentation.labels.test.ts](../../tests/report.presentation.labels.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L11) (line 11) |
+| RPT-207 | still-reproducible | fixed-and-verified | [report.issuerGapFallback.test.ts](../../tests/report.issuerGapFallback.test.ts)<br>[report.presentation.d67.test.ts](../../tests/report.presentation.d67.test.ts)<br>[report.refinement.trust.test.ts](../../tests/report.refinement.trust.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L21) (line 21) |
+| RPT-208 | still-reproducible | fixed-and-verified | [report.publicReadiness.test.ts](../../tests/report.publicReadiness.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L20) (line 20) |
+| RPT-209 | still-reproducible | fixed-and-verified | [report.completeness.test.ts](../../tests/report.completeness.test.ts)<br>[report.legacyEntitySafety.test.ts](../../tests/report.legacyEntitySafety.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L18) (line 18) |
+| RPT-211 | still-reproducible | fixed-and-verified | [report.auditSurfaces.test.ts](../../tests/report.auditSurfaces.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L22) (line 22) |
+| RPT-212 | still-reproducible | fixed-and-verified | [report.providerFallback.test.ts](../../tests/report.providerFallback.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L19) (line 19) |
+| RPT-213 | still-reproducible | fixed-and-verified | [report.capitalBridge.test.ts](../../tests/report.capitalBridge.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L12) (line 12) |
+| RPT-214 | still-reproducible | fixed-and-verified | [report.researchReview.test.ts](../../tests/report.researchReview.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L21) (line 21) |
+| RPT-215 | still-reproducible | fixed-and-verified | [report.capitalBridge.test.ts](../../tests/report.capitalBridge.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L13) (line 13) |
+| RPT-216 | still-reproducible | fixed-and-verified | [report.capitalBridge.test.ts](../../tests/report.capitalBridge.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L22) (line 22) |
+| RPT-217 | still-reproducible | fixed-and-verified | [report.presentation.labels.test.ts](../../tests/report.presentation.labels.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L14) (line 14) |
+| RPT-503 | partially-fixed | fixed-and-verified | [report.modelEvidence.test.ts](../../tests/report.modelEvidence.test.ts)<br>[report.runDisclosure.test.ts](../../tests/report.runDisclosure.test.ts) | [2026-11-02-p7-display.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p7-display.md#L23) (line 23) |
+| RPT-504 | still-reproducible | fixed-and-verified | [company.generateReport.stream.test.ts](../../tests/company.generateReport.stream.test.ts)<br>[report.computedMark.test.ts](../../tests/report.computedMark.test.ts)<br>[report.surface.client.test.ts](../../tests/report.surface.client.test.ts) | [2026-11-02-verifier-and-trust-labels.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-verifier-and-trust-labels.md#L16) (line 16) |
+| DOC-203 | still-reproducible | fixed-and-verified | [env.exampleCopy.test.ts](../../tests/env.exampleCopy.test.ts) (renamed from env.exampleAliases.test.ts by D-228) | [2026-11-02-paid-work-lifecycle.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md#L46) (line 46) |
+| SEC-201 | still-reproducible | fixed-and-verified | [api.routes.sameOrigin.test.ts](../../tests/api.routes.sameOrigin.test.ts) | [2026-11-02-p6-local-security.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p6-local-security.md#L7) (line 7) |
+| SEC-202 | still-reproducible | fixed-and-verified | [api.localOnly.test.ts](../../tests/api.localOnly.test.ts) | [2026-11-02-p6-local-security.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p6-local-security.md#L8) (line 8) |
+| SEC-204 | still-reproducible | fixed-and-verified | [ai.storeUnreadable.test.ts](../../tests/ai.storeUnreadable.test.ts) | [2026-11-02-p6-local-security.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p6-local-security.md#L9) (line 9) |
+| SEC-206 | still-reproducible | fixed-and-verified | [ai.settingsSelection.test.ts](../../tests/ai.settingsSelection.test.ts) | [2026-11-02-p6-local-security.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p6-local-security.md#L10) (line 10) |
+| SEC-207 | still-reproducible | fixed-and-verified | [privacy.recovery.test.ts](../../tests/privacy.recovery.test.ts) | [2026-11-02-p6-local-security.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p6-local-security.md#L11) (line 11) |
+| DOC-101 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L7) (line 7) |
+| DOC-102 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L9) (line 9) |
+| DOC-201 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L10) (line 10) |
+| DOC-202 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L11) (line 11) |
+| DOC-204 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L12) (line 12) |
 | DOC-205 | superseded | superseded | Historical documentation freeze | [Current validation status](../VALIDATION-STATUS.md) |
-| DOC-301 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 17) |
-| JOB-212 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 8) |
-| PERF-201 | still-reproducible | fixed-and-verified | [ai.storeCache.test.ts](../../tests/ai.storeCache.test.ts)<br>[ai.storeFailures.test.ts](../../tests/ai.storeFailures.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 12) |
-| SEC-205 | still-reproducible | fixed-and-verified | [ai.selection.test.ts](../../tests/ai.selection.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 13) |
-| TEST-201 | still-reproducible | fixed-and-verified | [risk.coverage.test.ts](../../tests/risk.coverage.test.ts)<br>[stageB.economicShareScope.test.ts](../../tests/stageB.economicShareScope.test.ts)<br>[stageB.forensicsD61.test.ts](../../tests/stageB.forensicsD61.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 13) |
-| TEST-202 | still-reproducible | fixed-and-verified | [sourceScope.p8.test.ts](../../tests/sourceScope.p8.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 14) |
-| TEST-203 | still-reproducible | fixed-and-verified | [setup.nodeNetwork.p8.test.ts](../../tests/setup.nodeNetwork.p8.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 15) |
-| TEST-204 | still-reproducible | fixed-and-verified | [scripts.reportReading.test.ts](../../tests/scripts.reportReading.test.ts) | [2026-11-02-p8-docs-tests.md](2026-11-02-p8-docs-tests.md) (line 16) |
+| DOC-301 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L17) (line 17) |
+| JOB-212 | still-reproducible | fixed-and-verified | [docs.p8Agreement.test.ts](../../tests/docs.p8Agreement.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L8) (line 8) |
+| PERF-201 | still-reproducible | fixed-and-verified | [ai.storeCache.test.ts](../../tests/ai.storeCache.test.ts)<br>[ai.storeFailures.test.ts](../../tests/ai.storeFailures.test.ts) | [2026-11-02-p6-local-security.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p6-local-security.md#L12) (line 12) |
+| SEC-205 | still-reproducible | fixed-and-verified | [ai.selection.test.ts](../../tests/ai.selection.test.ts) | [2026-11-02-p6-local-security.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p6-local-security.md#L13) (line 13) |
+| TEST-201 | still-reproducible | fixed-and-verified | [risk.coverage.test.ts](../../tests/risk.coverage.test.ts)<br>[stageB.economicShareScope.test.ts](../../tests/stageB.economicShareScope.test.ts)<br>[stageB.forensicsD61.test.ts](../../tests/stageB.forensicsD61.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L13) (line 13) |
+| TEST-202 | still-reproducible | fixed-and-verified | [sourceScope.p8.test.ts](../../tests/sourceScope.p8.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L14) (line 14) |
+| TEST-203 | still-reproducible | fixed-and-verified | [setup.nodeNetwork.p8.test.ts](../../tests/setup.nodeNetwork.p8.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L15) (line 15) |
+| TEST-204 | still-reproducible | fixed-and-verified | [scripts.reportReading.test.ts](../../tests/scripts.reportReading.test.ts) | [2026-11-02-p8-docs-tests.md](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-p8-docs-tests.md#L16) (line 16) |
 | AI-301 | fixed-verified | fixed-and-verified | [pipeline.peerDiscoveryScreen.test.ts](../../tests/pipeline.peerDiscoveryScreen.test.ts)<br>[report.legacyPayloadRecords.test.ts](../../tests/report.legacyPayloadRecords.test.ts)<br>[stageC.gapCitations.test.ts](../../tests/stageC.gapCitations.test.ts)<br>[stageC.payload.passes.test.ts](../../tests/stageC.payload.passes.test.ts)<br>[stageC.peerConventionClosed.test.ts](../../tests/stageC.peerConventionClosed.test.ts)<br>[stageC.peerCurrency.test.ts](../../tests/stageC.peerCurrency.test.ts) | [2026-10-27-audit-fix-03-payload-records.md](2026-10-27-audit-fix-03-payload-records.md) (line 48) |
 | AI-113 | fixed-verified | fixed-and-verified | [anthropic.test.ts](../../tests/anthropic.test.ts) | [2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 37)<br>[2026-10-27-audit-batch7-paid-spend-accounting.md](2026-10-27-audit-batch7-paid-spend-accounting.md) (line 59) |
 | AI-202 | fixed-verified | fixed-and-verified | [stageC.claimEvidence.d66.test.ts](../../tests/stageC.claimEvidence.d66.test.ts) | [2026-10-27-audit-fix-02-claim-verifier-numbers.md](2026-10-27-audit-fix-02-claim-verifier-numbers.md) (line 100) |
@@ -10558,7 +14064,10 @@ limitation through checkpoints, successful reports and data-only reports.
 Admit independently compatible quarterly consolidated/parent/signed-NCI earnings,
 even when the vendor parent number agrees. Consolidated cash conversion requires
 a complete consolidated earnings window; zero closing NCI balances prove no
-earnings allocation. Standalone capex/SBC recovery requires compatible direct or
+earnings allocation. (Revised by D-240: the filings of an issuer that reports a
+single profit line establish that window. Revised by D-251: filed common
+earnings are also read for a fiscal year in which preferred claims existed
+although none stand at its end.) Standalone capex/SBC recovery requires compatible direct or
 cumulative operands and retains original vendor observations and independent
 refusals. Retained EXPE replay reconciles the 9M earnings residual, corrects cash
 conversion to 177.199622%, corrects Q3 2025 FCF to −686M and recovers two SBC

@@ -9,27 +9,27 @@
  *
  * The invariants the config enforces (DECISIONS D-08):
  *
- *  1. `THESIS_JOB_LEASE_SECONDS ≥ MIN_JOB_LEASE_SECONDS` (600 s, two beats of
+ *  1. `METIS_JOB_LEASE_SECONDS ≥ MIN_JOB_LEASE_SECONDS` (600 s, two beats of
  *     the legacy fixed heartbeat below). The runner does NOT renew on that
  *     heartbeat: it renews the job claim every TTL / JOB_LEASE_RENEWAL_DIVISOR,
  *     so a claim always has four beats of slack whatever the TTL, and the
  *     floor is in practice subsumed by invariants 3 and 4 (a job TTL is never
  *     shorter than a paid TTL, which is never shorter than the provider
  *     timeout). It is kept as the range floor the config has always applied.
- *  2. `THESIS_PAID_PASS_LEASE_SECONDS × 1000 ≥ 2 × paid renewal interval`.
+ *  2. `METIS_PAID_PASS_LEASE_SECONDS × 1000 ≥ 2 × paid renewal interval`.
  *     The paid renewal interval is TTL / PAID_LEASE_RENEWAL_DIVISOR, so this
  *     holds for any divisor ≥ 2; it is asserted rather than assumed so a
  *     future divisor change cannot silently break it.
- *  3. `THESIS_JOB_LEASE_SECONDS ≥ THESIS_PAID_PASS_LEASE_SECONDS`. A paid
+ *  3. `METIS_JOB_LEASE_SECONDS ≥ METIS_PAID_PASS_LEASE_SECONDS`. A paid
  *     lease outliving its parent job claim would let the claim be reconciled
  *     while a provider call is still in flight and still billing.
- *  4. `THESIS_PAID_PASS_LEASE_SECONDS × 1000 > ANTHROPIC_REQUEST_TIMEOUT_MS +
+ *  4. `METIS_PAID_PASS_LEASE_SECONDS × 1000 > ANTHROPIC_REQUEST_TIMEOUT_MS +
  *     STREAM_IDLE_TIMEOUT_MARGIN_MS`. The lease must outlive the longest wait
  *     for response headers the provider can hold open, plus the margin the
  *     idle-timeout abort needs to settle. Every paid request streams, and for
  *     a stream the request timeout bounds only that wait: once the response
  *     has started, silence is bounded per event by the idle guard
- *     (THESIS_STREAM_IDLE_SECONDS, scaled by effort) and the lease is renewed
+ *     (METIS_STREAM_IDLE_SECONDS, scaled by effort) and the lease is renewed
  *     every TTL / PAID_LEASE_RENEWAL_DIVISOR while the request is in flight
  *     (invariant 2), so a healthy generation may run far longer than the
  *     timeout without the lease ever lapsing.
@@ -52,7 +52,7 @@ export const PAID_LEASE_RENEWAL_DIVISOR = 4;
 export const ANTHROPIC_REQUEST_TIMEOUT_MS = 600_000;
 
 /**
- * Default idle gap that aborts a stalled stream (THESIS_STREAM_IDLE_SECONDS),
+ * Default idle gap that aborts a stalled stream (METIS_STREAM_IDLE_SECONDS),
  * BEFORE the provider scales it by analysis effort.
  *
  * 300s, not 120s, because the app's guard must never fire before the transport

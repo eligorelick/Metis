@@ -1,12 +1,5 @@
-import { restoreEvidenceRemediationGolden } from "./helpers/evidenceRemediationGolden";
-import { restoreCurrentValuationPolicyGolden } from "./helpers/currentValuationPolicyGolden";
-import { restoreExpeReport1ScopeGolden } from "./helpers/expeReport1ScopeGolden";
 import { unavailableValuationUseFixture } from "./helpers/valuationUse";
-import { restorePublicPolishGolden } from "./helpers/publicPolishGolden";
-import { restoreP2DcfInputsGolden } from "./helpers/p2DcfInputsGolden";
-import { restoreR2FigurePayloadGolden } from "./helpers/r2FigurePayloadGolden";
-import { restoreR9SbcBasisGolden } from "./helpers/r9SbcBasisPayloadGolden";
-import { expectFrozenRecord, promptDigest, toFrozenJson, type FrozenJson } from "./helpers/frozenRecord";
+import { expectFrozenRecord, promptDigest, sha256Text, toFrozenJson, type FrozenJson } from "./helpers/frozenRecord";
 /**
  * Stage C tests — payload assembly determinism + provenance, prompt rule blocks,
  * verify-pass tracing, report assembly + schema validation + retry-on-zod, and a
@@ -191,15 +184,6 @@ describe("current-main report generation integrity regressions", () => {
     expect(checkCarriedJudgeSections(output).dropped).toContain(section);
   });
 });
-import { restoreN4aPeerWordingGolden } from "./helpers/n4aPeerWordingGolden";
-import { restoreB6Golden } from "./helpers/b6PayloadGolden";
-import { restoreQcom53Task11Golden } from "./helpers/qcom53Task11PayloadGolden";
-import { restoreQcom53Task4Golden } from "./helpers/qcom53Task4PayloadGolden";
-import { restoreResearchReliabilityGolden } from "./helpers/researchReliabilityPayloadGolden";
-import { restoreB4bEquityMethodGolden } from "./helpers/b4bEquityMethodPayloadGolden";
-import { restoreR6InsiderCoverageGolden } from "./helpers/r6InsiderCoverageGolden";
-import { restoreR8EvidenceBasisGolden } from "./helpers/r8EvidenceBasisGolden";
-import { restoreQ1PersonTradesGolden } from "./helpers/q1PersonTradesGolden";
 
 it.each(["success", "schema", "transport"] as const)("forwards presumed billing through a %s pass settlement", async (kind) => {
   const { payload } = buildInputs();
@@ -1055,819 +1039,16 @@ describe("payload determinism + provenance", () => {
     expect(payloadFingerprint(a.payload).startsWith(`${PAYLOAD_VERSION}:`)).toBe(true);
   });
 
-  // N4a L6 adds only these 48 methodology characters in this general fixture.
-  // Count the exact changed text, then preserve every earlier byte/numeric pin.
-  // This helper owns no stamp transition.
-  const restoreN4aGolden = <T extends ReturnType<typeof buildInputs>>(input: T): T => {
-    const r2 = restoreR2FigurePayloadGolden(input);
-    return { ...input, computed: restoreN4aPeerWordingGolden(r2.computed, 2), payload: restoreN4aPeerWordingGolden(r2.payload, 1) };
-  };
-  it("pins the complete pre-manifest Stage C serialized payload, registries, and finance order byte-for-byte", () => {
-    // FIN-401 / FIN-401-V1: preserve every prior financial and byte pin after restoring only the new stamps.
-    // R6 (FIGR paid audit): restore only the reviewed insider-coverage text first.
-    // R9 changes SBC basis labels and their semantic ids; preserve all earlier byte/stamp pins.
-    // R8 restores only its reviewed evidence qualifications before the R6 pin.
-    // Q1 restores only its per-person Form 4 summary first.
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(restorePublicPolishGolden(restoreCurrentValuationPolicyGolden(restoreExpeReport1ScopeGolden(restoreEvidenceRemediationGolden(buildInputs())))))))))))))));
-    const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
-    const prompt = serializePayloadForPrompt(payload);
-    const computedFigureLabelMatrix = payload.computed.map((section) =>
-      section.figures.map((figure) => figure.label));
-    const projectionPathPeriodMatrix = computed.projections.series.flatMap((series) =>
-      paths.map((path) => ({
-        metric: series.metric,
-        path,
-        periods: series[path].map((point) => point.period),
-      })));
-    expect(fnv1a32(JSON.stringify(projectionPathPeriodMatrix))).toBe("fb9c4bf0");
-    const finance = {
-      scores: computed.scores,
-      projections: computed.projections,
-      valuation: computed.valuation,
-      fairValue: computed.fairValue,
-      scenarioTargets: computed.scenarioTargets,
-    };
-    // D-83 adds this exact EPS disclosure. D-85 corrects only the fallback
-    // basis wording in this unaffected fixture; restore those exact strings
-    // to retain the complete preceding financial pin without masking numbers.
-    const epsDisclosure = ". EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.";
-    const currentBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; parent income; no outside preferred claims known and no second NCI deduction)";
-    const precedingBasis = "price / epsDiluted (TTM); fallback marketCap / common income (TTM; net income less disclosed preferred distributions (parent income; no second NCI deduction))";
-    // Audit 2026-10-22 B-20 (D-112) names only the formula that ran, and
-    // B-9 records each multiple's period; restore the D-85 wording and drop
-    // the period leaf for the preceding pin.
-    const ranBasis = "price / epsDiluted (TTM)";
-    expect(computed.valuation.multiples?.multiples[0]?.basis).toBe(ranBasis + epsDisclosure);
-    expect(computed.valuation.multiples?.multiples.filter((m) => m.period !== undefined).map((m) => [m.key, m.period])).toEqual(
-      ["peTtm", "evToEbitda", "evToSales"].map((key) => [key, "TTM to 2026-03-28"]));
-    const precedingFinance = JSON.parse(JSON.stringify(finance, (key, value) => {
-      if (key === "period" && value === "TTM to 2026-03-28") return undefined;
-      if (typeof value !== "string") return value;
-      const withoutEps = value.replace(epsDisclosure, "");
-      return withoutEps === ranBasis ? precedingBasis : withoutEps === currentBasis ? precedingBasis : withoutEps;
-    }));
-    // D-87 changes these seven explanatory leaves only. Assert their exact
-    // paths/content before restoring the preceding wording for the whole-finance
-    // pin. No score, weight, operand value, date, availability flag or order is
-    // normalized; any such change still breaks the preceding hash below.
-    const stewardship = precedingFinance.scores.aspects.leadership;
-    expect(stewardship.drivers).toHaveLength(1);
-    expect(stewardship.signals).toHaveLength(1);
-    const shareTrend = stewardship.signals[0];
-    expect(shareTrend.operands).toHaveLength(2);
-    expect({
-      balanceSheetNote: precedingFinance.scores.aspects.balanceSheet.note,
-      leadershipNote: stewardship.note,
-      driverSource: stewardship.drivers[0].source,
-      driverPeriod: stewardship.drivers[0].period,
-      signalId: shareTrend.id,
-      signalPeriod: shareTrend.period,
-      signalReason: shareTrend.fallbackReason,
-      operandSources: shareTrend.operands.map((operand: { source: string }) => operand.source),
-      operandNames: shareTrend.operands.map((operand: { name: string }) => operand.name),
-    }).toEqual({
-      balanceSheetNote: "Financial strength on ttm flows and the corresponding balance date 2026-03-28.  Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership.",
-      leadershipNote: "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and the annualized weighted-average diluted common-share trend, scored here only. That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability. ROIC - WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.",
-      driverSource: "computed.scores.leadership.shareCountTrend",
-      driverPeriod: "Annualized weighted-average diluted common-share trend; 2021-09-25 to 2025-09-27",
-      signalId: "shareCountTrend",
-      signalPeriod: "Annualized weighted-average diluted common-share trend; 2021-09-25 to 2025-09-27",
-      signalReason: "This income-statement denominator trend does not measure point-in-time outstanding shares or economic dilution; IPOs, conversions and anti-dilutive exclusions can affect comparability.",
-      operandSources: ["computed.capital.shareCount.startShares", "computed.capital.shareCount.endShares"],
-      operandNames: ["start weighted-average diluted common shares", "end weighted-average diluted common shares"],
-    });
-    precedingFinance.scores.aspects.balanceSheet.note = "Financial strength on ttm flows and the corresponding balance date 2026-03-28.  Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. Net share-count change is scored once, under leadership.";
-    stewardship.note = "Capital-stewardship proxy, not an assessment of executives: repurchase timing (the price actually paid, from the filer's tagged repurchase cost and shares, against the same fiscal year's average price; withheld without those tags) and net share-count change after buybacks, which is scored here only. ROIC − WACC is scored once, under quality. Stock-based compensation is scored once, under balance sheet as a share of FCF; SBC as a share of revenue is shown with the capital figures, unscored. Management quality, guidance execution and governance are not score inputs; they are assessed only in the analyst grade.";
-    stewardship.drivers[0].period = "2021-09-25 to 2025-09-27";
-    shareTrend.period = "2021-09-25 to 2025-09-27";
-    shareTrend.fallbackReason = null;
-    shareTrend.operands[0].name = "start shares";
-    shareTrend.operands[1].name = "end shares";
-    // D-92 adds this explicit existing grid convention to the finance block.
-    // Assert the exact explanatory leaf before restoring the preceding pin;
-    // no numeric value, availability flag or ordering is normalized.
-    expect(precedingFinance.valuation.sensitivity.notes[0]).toBe("Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.");
-    precedingFinance.valuation.sensitivity.notes.shift();
-    if (precedingFinance.valuation.growthMarginGrid) {
-      expect(precedingFinance.valuation.growthMarginGrid.notes[0]).toBe("Explicit-period reinvestment is floored at zero: contracting revenue does not release invested capital in these grid cells.");
-      precedingFinance.valuation.growthMarginGrid.notes.shift();
-    }
-    // D-93 changes these two explanation leaves in this fixture. Restore only
-    // the asserted words, preserving the preceding whole-finance numeric pin.
-    const epsCapital = precedingFinance.projections.series.find((s: { metric: string }) => s.metric === "epsDiluted").capitalReturn;
-    expect(epsCapital.basis).toContain("Positive dilution is retained only when the observed share-count trend is positive.");
-    epsCapital.basis = epsCapital.basis.replace("Positive dilution is retained only when the observed share-count trend is positive.", "A positive dilution trend is retained.");
-    const accrualSignal = precedingFinance.scores.aspects.quality.signals.find((s: { id: string }) => s.id === "accrualsRatioAbs");
-    expect(accrualSignal.fallbackReason).toBe("Financial-asset-adjusted accrual inputs are unavailable or unreconciled; graded on operating accruals (NI \u2212 CFO).");
-    accrualSignal.fallbackReason = "Investment purchase/sale components or long-term investments not reported; graded on operating accruals (NI \u2212 CFO).";
-    // Audit 2026-10-19 FCX-14 names a data gap rather than route applicability
-    // when an applicable aspect has no data. Restore only that text.
-    expect(precedingFinance.scores.aspects.technicals.notApplicableReason).toBe("applicable signals unavailable (data gap: their inputs were withheld or missing; see the data gaps) — aspect not scored");
-    precedingFinance.scores.aspects.technicals.notApplicableReason = "no applicable signals available for this route — aspect not scored";
-    // AMZN audit 2026-10-20 (D-98): the assumptions record the marginal rate
-    // the bridge taxes non-operating investments at. This fixture holds none,
-    // so no bridge line or value moves; remove only that leaf.
-    expect(precedingFinance.valuation.assumptions.investmentTax.ratePct).toBe(21);
-    delete precedingFinance.valuation.assumptions.investmentTax;
-    // D-99 (the deferred AMZN audit fixes) changes explanatory leaves of
-    // this fixture's finance block and no number: the scenario margin's
-    // direction clause (finding 11) and the even-spread reason of the
-    // consensus calendarization (finding 19). Each exact occurrence is
-    // asserted, then the preceding wording is restored for the whole pin.
-    const d99Restorations: [string, string, number][] = [
-      ["observed growth/margin correlation (0.19), applied only when it moves with the scenario.", "observed growth/margin correlation (0.19).", 4],
-      ["(0.19), not assumed perfectly correlated, and the margin shift is applied only when it moves with the scenario.", "(0.19), not assumed perfectly correlated.", 1],
-      ["fiscal-year estimates weighted by day overlap, each fiscal year spread evenly over its days because the last complete fiscal year has no four reported quarterly revenues to shape it;", "fiscal-year estimates weighted by day overlap;", 3],
-      // AMZN audit finding 20(h), from its independent review: the undisclosed
-      // lease gap no longer names the environment variable.
-      ["stays in EV under either lease setting", "stays in EV regardless of THESIS_EV_INCLUDE_LEASES", 2],
-      // Codex review of PR #42: the scenario construction's method stamps.
-      // Codex review of PR #49 (D-102): the fair-value and scenario-target
-      // stamps move again; restored to the preceding pin's wording. D-135
-      // (B4a) moves them to ..._D135; the restoration follows the live stamp.
-      ["SCENARIO_TARGETS_2026_10_D135", "SCENARIO_TARGETS_2026_10_D60", 1],
-      ["FAIR_VALUE_2026_10_D135", "FAIR_VALUE_2026_07", 1],
-      ["SHARED_SCENARIO_PATHS_2026_10_D99", "SHARED_SCENARIO_PATHS_2026_10_D60", 2],
-      // Codex review of PR #49 (audit 2026-10-22 B-29): a fan with a run
-      // outside the DCF's domain is withheld, no longer floored at 0.
-      ["so the higher scenario is always bull; a fan with either run outside the DCF's domain is withheld.", "so the higher scenario is always bull and per-share is floored at 0.", 1],
-      // Audit batch 2b (D-104): the band tables gain the regulated-utility
-      // ranges, which this general-route fixture does not use; only the stamp moves.
-      ["SCORE_BANDS_2026_10_REGULATED_UTILITY", "SCORE_BANDS_2026_10_FRESHNESS_AUDIT", 1],
-      // D-107: the EV bridge note prints its amounts with grouped digits (this
-      // fixture's only one is its EV, in four notes), and the grid guard note
-      // says the cells are withheld rather than "rendered null". No value moves.
-      ["3,196,000,000,000", "3196000000000", 8],
-      ["are withheld and shown as —", "rendered null", 1],
-      // Audit 2026-10-27 B3 Task 1 (AI-301): the peer methodology sentence names the
-      // established-currency or same-market basis of the size screen; two copies in the finance block.
-      [", compared only between established equal currencies or same-market listings", "", 2],
-    ];
-    const restoreD99 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
-      typeof leaf === "string" ? d99Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
-    const financeText = JSON.stringify(precedingFinance);
-    for (const [now, , count] of d99Restorations) expect(financeText.split(now).length - 1).toBe(count);
-    // 2026-10-29 B5a Task 2: restored wording, new calendarized numeric path.
-    expect(fnv1a32(JSON.stringify(restoreD99(precedingFinance)))).toBe("f753dc38");
-    // D-89 adds only declared fraction-scale metadata to this registry.
-    // Removing that one optional property must reproduce the preceding whole
-    // registry, preserving every value, unit, identity, date and order.
-    // Codex review of PR #42 (D-99): the method stamps restored above and the
-    // notes and risk readings' selection version are the only registry text
-    // that moves; restore them as well.
-    // Audit 2026-10-27 B3 Task 1 (AI-301): the two stock-peer caps lost their inherited
-    // USD records. The preceding registry carried them straight after the last
-    // payload.estimates.* record; re-insert exactly those two (this fixture's peers).
-    const inheritedPeerRecord = (id: string, label: string, value: number) => ({
-      id, label, kind: "provider" as const, value, unit: "currency", currency: "USD", currencyBasis: "inherited" as const,
-      period: null, asOf: "2026-07-01", origin: "fmp:stock-peers", formulaVersion: null, displayPrecision: 4,
-    });
-    const restoredPeerRecords = [
-      inheritedPeerRecord("payload.peers.msft-microsoft", "MSFT — Microsoft", 3400000000000),
-      inheritedPeerRecord("payload.peers.googl-alphabet", "GOOGL — Alphabet", 2200000000000),
-    ];
-    // Audit 2026-10-27 B3 Task 3 (AI-117): the five windowed insider-statistics records
-    // replaced the three quarter-row records; the preceding registry carried exactly these
-    // three (constants of the preceding fixture row: 0 and 500000 shares, ratio 0.1, no period).
-    const oldInsiderRecord = (id: string, label: string, value: number, unit: string) => ({
-      id, label, kind: "provider" as const, value, unit, currency: null,
-      period: null, asOf: "2026-06-30", origin: "fmp:insider-statistics", formulaVersion: null, displayPrecision: 4,
-    });
-    const restoredInsiderRecords = [
-      oldInsiderRecord("payload.insiders.insider-total-purchases", "insider total purchases", 0, "shares"),
-      oldInsiderRecord("payload.insiders.insider-total-sales", "insider total sales", 500000, "shares"),
-      oldInsiderRecord("payload.insiders.acquired-disposed-ratio", "acquired/disposed ratio", 0.1, "ratio"),
-    ];
-    const withOldInsiderRecords = (registry: NonNullable<typeof payload.provenanceRegistry>) => {
-      const first = registry.findIndex((record) => record.origin === "fmp:insider-statistics");
-      expect(registry.filter((record) => record.origin === "fmp:insider-statistics")).toHaveLength(5);
-      expect(registry.slice(first, first + 5).every((record) => record.origin === "fmp:insider-statistics")).toBe(true);
-      return [...registry.slice(0, first), ...restoredInsiderRecords as unknown as typeof registry, ...registry.slice(first + 5)];
-    };
-    // Audit 2026-10-27 B3 Task 4 (AI-306): the share-count change names the span it measured
-    // (this fixture has five annual rows, so four years). The preceding label and id said "5y total".
-    const b4Restorations: [string, string][] = [
-      ["weighted-average diluted common-share change (4y total)", "weighted-average diluted common-share change (5y total)"],
-      ["weighted-average-diluted-common-share-change-4y-total", "weighted-average-diluted-common-share-change-5y-total"],
-    ];
-    const restoreB4Text = (text: string): string => b4Restorations.reduce((out, [now, before]) => out.split(now).join(before), text);
-    // Audit 2026-10-27 B3 Task 8C (AI-511): the fiscal-year FCF conversion is no longer called the graded ratio.
-    // Counted separately on the registry JSON and the payload JSON (the d99 counts are asserted on the finance text).
-    const b3Restorations: [string, string][] = [
-      ["FCF conversion (latest fiscal year, before SBC)", "FCF conversion (latest, before SBC — the graded ratio)"],
-      ["fcf-conversion-latest-fiscal-year-before-sbc", "fcf-conversion-latest-before-sbc-the-graded-ratio"],
-    ];
-    const restoreB3Text = (text: string): string => b3Restorations.reduce((out, [now, before]) => out.split(now).join(before), text);
-    // Audit 2026-10-27 B3 Task 8D (AI-509): provider segment keys are no longer called as-reported, and two fixed notes say
-    // whose names they are. This fixture's product and geographic rows are FMP rows with no XBRL axis to contradict them.
-    const b8dRestorations: [string, string][] = [
-      ["Revenue segmentation (keys as each source names them — never hard-coded)", "Revenue segmentation (as-reported keys — never hard-coded)"],
-    ];
-    const restoreB8dText = (text: string): string => b8dRestorations.reduce((out, [now, before]) => out.split(now).join(before), text);
-    const isProviderKeyNote = (item: unknown): boolean => typeof item === "string" && / keys are FMP's normalised names, not read from the filing's XBRL; /.test(item);
-    const registryJson = JSON.stringify(payload.provenanceRegistry ?? []);
-    expect(b8dRestorations.map(([now]) => registryJson.split(now).length - 1)).toEqual([0]);
-    expect(b3Restorations.map(([now]) => registryJson.split(now).length - 1)).toEqual([1, 1]);
-    expect([registryJson.split(b4Restorations[0]![0]).length - 1, registryJson.split(b4Restorations[1]![0]).length - 1]).toEqual([1, 1]);
-    // Audit 2026-10-27 B3 Task 8E (residual a): the (latest) and accrual-year computed records carry the issuer's fiscal
-    // label of the year they were computed over, and the (latest) ones that year's end as their period. Neither is printed.
-    // 1.36.0 carried neither: delete the labels, then reset the period on the labelled non-accrual records (the accrual-year
-    // records already carried their period). Each counted first.
-    const isB8eOrigin = (origin: string): boolean => origin.startsWith("computed.forensics.accruals.") || [
-      "computed.growth.margins.gross", "computed.growth.margins.operating", "computed.growth.margins.net", "computed.returns.roic", "computed.returns.dupont",
-      "computed.capital.fcf", "computed.capital.fcf.beforeSbc", "computed.capital.fcf.conversion", "computed.capital.fcf.conversionBeforeSbc",
-      "computed.capital.capexIntensity", "computed.capital.maintenanceVsGrowthCapex",
-    ].includes(origin);
-    let b8eLabelsRemoved = 0, b8ePeriodsReset = 0;
-    const restoreB8e = (record: NonNullable<typeof payload.provenanceRegistry>[number]): NonNullable<typeof payload.provenanceRegistry>[number] => {
-      if (record.kind !== "computed" || !isB8eOrigin(record.origin) || record.fiscalPeriod === undefined) return record;
-      const { fiscalPeriod, ...rest } = record;
-      expect(fiscalPeriod).toMatch(/^FY\d{4}$/);
-      b8eLabelsRemoved += 1;
-      if (record.origin.startsWith("computed.forensics.accruals.")) return rest;
-      expect(record.period).toBe(record.asOf);
-      b8ePeriodsReset += 1;
-      return { ...rest, period: null };
-    };
-    const registryWithoutPeers = withOldInsiderRecords(restoreD99(JSON.parse(restoreB3Text(restoreB4Text(registryJson)).split("section-evidence-4/").join("section-evidence-3/")) as NonNullable<typeof payload.provenanceRegistry>)).map(restoreB8e).map(record => {
-      const before = { ...record };
-      if (before.unitScale !== undefined) expect(before.unitScale).toBe("fraction");
-      delete before.unitScale;
-      return before;
-    });
-    // Measured on this fixture: 39 labelled records, 11 of them (the (latest) rows) also reset to a null period.
-    expect([b8eLabelsRemoved, b8ePeriodsReset]).toEqual([39, 11]);
-    expect(registryWithoutPeers.filter((record) => record.origin === "fmp:stock-peers")).toHaveLength(0);
-    const lastEstimate = registryWithoutPeers.reduce((last, record, index) => record.id.startsWith("payload.estimates.") ? index : last, -1);
-    expect(lastEstimate).toBe(355);
-    const precedingRegistry = [...registryWithoutPeers.slice(0, lastEstimate + 1), ...restoredPeerRecords as unknown as typeof registryWithoutPeers, ...registryWithoutPeers.slice(lastEstimate + 1)];
-    // 2026-10-29 B5a Task 2: same records/ids, new calendarized figures.
-    expect(fnv1a32(JSON.stringify(precedingRegistry))).toBe("4f799b1a");
-    // Restoring only the preceding version must reproduce its whole prompt.
-    // D-99 adds one payload note, the consensus-target reconciliation (AMZN
-    // audit finding 18), and carries the reworded finance notes above.
-    // Dropping that note and restoring the wording reproduces the preceding
-    // version's whole prompt.
-    const isTargetNote = (item: unknown): boolean => typeof item === "string" && item.startsWith("Consensus target vs our value:");
-    expect(JSON.stringify(payload).split("Consensus target vs our value:").length - 1).toBe(1);
-    // Codex review of PR #42: the notes and risk readings' selection version.
-    expect(JSON.stringify(payload).split("section-evidence-4/").length - 1).toBe(2);
-    // Audit 2026-10-22 F-19 (D-100) names the band thresholds and the neutral
-    // range in the scores note, and marks a 45–55 band letter neutral. Each
-    // exact occurrence is asserted, then the preceding wording is restored.
-    const f19Restorations: [string, string, number][] = [
-      // 2026-10-29 B5a Task 4 (D136/R2): restore exactly one context note.
-      ["Reverse-DCF context (D-60, D136): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided quarter's year-over-year growth, consensus year one and the latest quarter's year-over-year growth rows. The base and consensus levels are measured over the same TTM revenue; each quarter is compared with its own year-ago quarter. Describe the price as demanding only relative to those figures.", "Reverse-DCF context (D-60): the implied rate is year-one revenue growth over TTM on the base path's convergent family. Read it against the base-case year one, the guided run-rate, consensus year one and the latest quarter's year-over-year growth rows, all measured over the same TTM revenue; describe the price as demanding only relative to those figures.", 1],
-      [" (A ≥85, B ≥70, C ≥55, D ≥40, F below 40; 45–55 neutral: a 45–55 score is the neutral prior, neither weak nor strong)", "", 1],
-      [", neutral 45–55)", ")", 1],
-      // Audit 2026-10-22 B-20 (D-112): the P/E note names only the formula that ran.
-      ["peTtm: price / epsDiluted (TTM). EPS convention", "peTtm: price / epsDiluted (TTM); fallback marketCap / common income (TTM; parent income; no outside preferred claims known and no second NCI deduction). EPS convention", 1],
-    ];
-    const payloadText = JSON.stringify(payload);
-    for (const [now, , count] of f19Restorations) expect(payloadText.split(now).length - 1).toBe(count);
-    const restoreF19 = <T,>(value: T): T => JSON.parse(JSON.stringify(value, (_key, leaf: unknown) =>
-      typeof leaf === "string" ? f19Restorations.reduce((text, [now, before]) => text.split(now).join(before), leaf) : leaf)) as T;
-    // Audit 2026-10-27 B3 Task 4 (AI-306): drop the share-count window note and restore the "5y total" label and id.
-    const isShareWindowNote = (item: unknown): boolean => typeof item === "string" && item.startsWith("Diluted share-count change: ");
-    // Audit 2026-10-27 B3 Task 8C (AI-511): drop the graded-window note and restore the "graded ratio" label and id.
-    const isGradedWindowNote = (item: unknown): boolean => typeof item === "string" && item.startsWith("The balance-sheet score grades ");
-    expect(JSON.stringify(payload).split("The balance-sheet score grades ").length - 1).toBe(1);
-    expect(JSON.stringify(payload).split("Diluted share-count change: ").length - 1).toBe(1);
-    const payloadJson = JSON.stringify(payload);
-    // Audit 2026-10-27 B13 Task 6 (FIN-509-V1): when no lookback year can be evaluated the one-time-items rule adds an
-    // info entry to the missing-data manifest. The preceding version had none; the entry is dropped and its count asserted.
-    const isOneTimeGap = (item: unknown): boolean => typeof item === "object" && item !== null && (item as { field?: unknown }).field === "forensics.flags.oneTimeItems";
-    expect(JSON.stringify(payload).split("one-time-items rule not evaluated").length - 1).toBe(1);
-    // The label: the figure, its provenance record (the payload embeds its registry) and the graded-window note that quotes it
-    // (dropped below, so it is never restored). The slug: the figure's and the record's id.
-    expect(b3Restorations.map(([now]) => payloadJson.split(now).length - 1)).toEqual([3, 2]);
-    // The title is printed once (the segments section); the two provider-key notes (product, geographic) are dropped below.
-    expect(b8dRestorations.map(([now]) => payloadJson.split(now).length - 1)).toEqual([1]);
-    expect(payloadJson.split(" keys are FMP's normalised names, not read from the filing's XBRL; ").length - 1).toBe(2);
-    // Two each: the figure itself and its provenance record (the payload embeds its registry).
-    expect([payloadJson.split(b4Restorations[0]![0]).length - 1, payloadJson.split(b4Restorations[1]![0]).length - 1]).toEqual([2, 2]);
-    const precedingPayload = JSON.parse(JSON.stringify(restoreF19(restoreD99(payload)), (_key, leaf: unknown) =>
-      Array.isArray(leaf) ? leaf.filter((item) => !isTargetNote(item) && !isShareWindowNote(item) && !isGradedWindowNote(item) && !isProviderKeyNote(item) && !isOneTimeGap(item))
-        : typeof leaf === "string" ? restoreB8dText(restoreB3Text(restoreB4Text(leaf.split("section-evidence-4/").join("section-evidence-3/")))) : leaf)) as typeof payload;
-    // Audit 2026-10-27 B3 Task 1 (AI-301): restore the inherited-USD peer figures and the
-    // D-57 inheritance note, and drop the fixed peer-currency note that replaced it.
-    expect(precedingPayload.peers.figures.map((figure) => [figure.label, figure.currency])).toEqual([["MSFT — Microsoft", null], ["GOOGL — Alphabet", null]]);
-    expect(precedingPayload.peers.notes).toEqual(["Peer market caps are money only in the listing currency this run read for that peer (its own provider row or its profile in the peer collection); a cap shown \"(currency unknown)\" is not citable as money, and the subject's currency is never assumed for a peer."]);
-    precedingPayload.peers.figures = precedingPayload.peers.figures.map((figure) => {
-      const { label, value, unit, source, asOf, period } = figure;
-      return { label, value, unit, currency: "USD", currencyInherited: true, source, asOf, period, provenanceId: restoredPeerRecords.find((record) => record.label === figure.label)!.id } as unknown as typeof figure;
-    });
-    precedingPayload.peers.notes = ["Money rows marked \"inherited\": currency inherited from the issuer's reporting currency USD: the statements and the listing agree and the issuer is not an ADR; the provider row carries no currency of its own (D-57)."];
-    // Audit 2026-10-27 B3 Task 2 (AI-102): the peer exclusion reasons (and any collection
-    // notes) moved from "Comparable peers (computed)" into their own untrusted envelope.
-    // This fixture has no peer collection, so the section holds exactly the one subject-level
-    // exclusion, which sat last in the computed notes; fold it back and drop the section.
-    expect(precedingPayload.peerScreen?.notes.length).toBe(1);
-    expect(precedingPayload.peerScreen?.figures).toEqual([]);
-    const precedingPeerCoverage = precedingPayload.computed.filter((section) => section.title === "Comparable peers (computed)");
-    expect(precedingPeerCoverage.length).toBe(1);
-    precedingPeerCoverage[0]!.notes.push(...precedingPayload.peerScreen!.notes);
-    delete precedingPayload.peerScreen;
-    // Audit 2026-10-27 B3 Task 3 (AI-117): restore the three quarter-row insider figures
-    // (same positions as the five windowed ones) and drop the window note.
-    const insiderStatFigures = precedingPayload.insiders.figures.filter((figure) => figure.source === "fmp:insider-statistics");
-    expect(insiderStatFigures).toHaveLength(5);
-    expect(precedingPayload.insiders.figures.slice(0, 5)).toEqual(insiderStatFigures);
-    precedingPayload.insiders.figures = [
-      ...restoredInsiderRecords.map((record) => ({
-        label: record.label, value: record.value, unit: record.unit === "ratio" ? "x" : record.unit, source: record.origin, asOf: record.asOf, currency: null, period: null, provenanceId: record.id,
-      }) as unknown as (typeof insiderStatFigures)[number]),
-      ...precedingPayload.insiders.figures.slice(5),
-    ];
-    expect(precedingPayload.insiders.notes.filter((note) => note.startsWith("Insider statistics: "))).toHaveLength(1);
-    precedingPayload.insiders.notes = precedingPayload.insiders.notes.filter((note) => !note.startsWith("Insider statistics: "));
-    // Audit 2026-10-22 F-5 moves the data-quality flags and the missing-data
-    // manifest into untrusted-data envelopes, under new headings. Unwrapping
-    // exactly those two blocks back to their preceding raw lines must
-    // reproduce the preceding version's whole prompt byte-for-byte.
-    const unwrapF5 = (prompt: string): string => [
-      ["## Data-quality flags (Stage A validation; untrusted provider data)", "## Data-quality flags (Stage A validation)"],
-      ["## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4)"],
-    ].reduce((text, [now, before]) => {
-      const pattern = new RegExp(`${now!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n<<<BEGIN_UNTRUSTED_SOURCE_DATA chars=\\d+>>>\\n(.*)\\n<<<END_UNTRUSTED_SOURCE_DATA>>>`);
-      const match = pattern.exec(text);
-      expect(match).not.toBeNull();
-      return text.replace(match![0], `${before}\n${(JSON.parse(match![1]!) as { content: string }).content}`);
-    }, prompt);
-    const precedingPrompt = unwrapF5(serializePayloadForPrompt({ ...precedingPayload, payloadVersion: "1.36.0" }));
-    // 2026-10-29 B5a: Task 4's wording restored above; Task 2's numbers remain.
-    expect(`1.36.0:${fnv1a32(precedingPrompt)}`).toBe("1.36.0:540e897a");
-    expect({
-      fingerprint: payloadFingerprint(payload),
-      promptBytes: Buffer.byteLength(prompt, "utf8"),
-      provenanceCount: (payload.provenanceRegistry ?? []).length,
-      provenanceHash: fnv1a32(JSON.stringify(payload.provenanceRegistry ?? [])),
-      provenanceIdsHash: fnv1a32(JSON.stringify(
-        (payload.provenanceRegistry ?? []).map((entry) => entry.id),
-      )),
-      citationCount: (payload.citationRegistry ?? []).length,
-      citationHash: fnv1a32(JSON.stringify(payload.citationRegistry ?? [])),
-      computedFigureLabelHash: fnv1a32(JSON.stringify(computedFigureLabelMatrix)),
-      projectionPathPeriodHash: fnv1a32(JSON.stringify(projectionPathPeriodMatrix)),
-      financeHash: fnv1a32(JSON.stringify(finance)),
-    }).toEqual({
-      // Changed 2026-08-31 again: ROIC invested capital now nets cash +
-      // short-term investments, which moves financeHash/provenanceHash and the
-      // ROIC-derived figures in the prompt. See the audit fixture allowlist.
-      // Changed 2026-08-31 (+1,580 prompt bytes): runForensics now aggregates
-      // the four models' own house-rule notes into ForensicsReport.notes,
-      // mirroring the gaps aggregation it already did. Those caveats — the
-      // Altman variant rationale and X4 clamp, Beneish/Piotroski/accruals
-      // thresholds — were previously dropped, so the Stage C passes reasoned
-      // about forensic scores without seeing the conditions attached to them.
-      // The larger prompt is the point of the fix, not a side effect.
-      // Changed 2026-09-02 (+1 prompt byte): macro figures now carry their
-      // FRED display units (DGS10 "%", the YoY CPI "%") instead of an empty
-      // unit the registry read as an index level, so a cited yield traces —
-      // provenanceHash moves with the two registered units. financeHash moves
-      // because the DCF assumption notes now state why the terminal ROIC was
-      // held at WACC (the terminal excess-return house rule reads the ROIC
-      // history and this fixture has too few years of it).
-      // Changed 2026-09-02 by WS6 (D-18/D-19). The payload grows because the
-      // report now STATES its valuation inputs instead of implying them: the
-      // WACC disclosure sentence (risk-free series and observation date, ERP
-      // source and date, cost-of-debt method, tax-rate basis, market-value E/D
-      // weights), the growth anchor's methods, point estimate and range, and
-      // the sentence saying which cost of capital each ROIC year was measured
-      // against. financeHash and provenanceHash also move because the growth
-      // anchor is now the median of the available methods rather than the 3y
-      // CAGR alone, so the DCF figures themselves change. The larger prompt is
-      // the point of the change, not a side effect. The same commit also
-      // subtracts stock-based compensation from free cash flow (both figures
-      // are reported), states the enterprise-value bridge both with and
-      // without lease liabilities, and publishes the own-history figure as a
-      // rank among N quarters rather than a percentile.
-      // Changed 2026-09-02 by the WS6 financial-correctness review. The EV
-      // bridge and the DCF equity bridge now remove ONLY the operating-lease
-      // liability (EBIT and EBITDA are before finance-lease cost, so that
-      // liability is debt in both frames), the own-history EV carries the same
-      // adjustment, the growth anchor states its clamp, the free-cash-flow
-      // conversion names the definition it is graded on, and the multiples
-      // table publishes N beside each rank. Every one of those is extra stated
-      // basis in the prompt, so promptBytes/financeHash/provenanceHash move.
-      // The same review also wires the dilution overhang to the payload (it had
-      // no reader before), states the risk-free SOURCE split between the current
-      // WACC and its per-year history, and anchors the SBC disclosure on the
-      // free-cash-flow row's own fiscal year end.
-      // Changed 2026-09-06 by the full-codebase audit (+16 prompt bytes): the
-      // Piotroski figure now carries the forensic layer's own label — the
-      // variant, the denominator and the withheld signals by name — instead
-      // of "Piotroski F (/N)", so a reduced score is never read against the
-      // 9-point scale (its registry id moves with the label); the quality
-      // score's Altman driver is named altmanZOriginalScale, the value it
-      // actually carries; the Beneish notes state the D&A basis of DEPI; and
-      // an undisclosed equity issuance no longer scores a Piotroski point.
-      // Changed 2026-09-06 (audit, valuation and routing): the projections
-      // assumption line names the growth anchor's actual methods instead of
-      // claiming an analyst anchor, the WACC notes print the debt basis and
-      // the 2/3–1/3 Blume formula, the ROIC notes state the lease and cash
-      // basis, and the sensitivity grid states the terminal excess it holds.
-      // Changed 2026-09-06 (audit §6, −46 prompt bytes): the payload copy
-      // cited section numbers of a specification that no longer exists
-      // ("SPEC §1 rule #1", "SPEC §1 rule #4"); the rules are cited by number
-      // alone, and one route note the finance block carries lost the same
-      // dead reference, so financeHash moves with it.
-      // Changed 2026-09-07 (post-audit live run, −26 prompt bytes): the WACC
-      // notes print the Blume weights to three decimals ("0.667·raw + 0.333")
-      // instead of the raw 2/3 and 1/3 floats the label had interpolated since
-      // the constants moved to betaEstimate.ts; financeHash moves with the
-      // WACC method label.
-      // Changed 2026-09-28 (period identity): each statement-cell registry
-      // record now carries the source row's own fiscal label (`fiscalPeriod`,
-      // "FY2025" / "Q1 FY2026") so the verifier can read a fiscal spelling as
-      // that period only when the issuer's calendar says so. The label is not
-      // rendered, so fingerprint, promptBytes and the ids are unchanged; only
-      // provenanceHash moves.
-      // Changed 2026-09-29 (currency integrity): no payload-wide currency
-      // default. Every money figure in a section now renders its own currency
-      // or "(currency unknown)" (+182 prompt bytes), and registers only when
-      // its own evidence establishes one. 11 records leave the registry: the
-      // two latest-FCF figures (this fixture's cash-flow rows carry no
-      // reportedCurrency; the income statement's label is not theirs), the
-      // two peers' market caps, the one executive-compensation row and the six
-      // segment rows (none carries a currency, and the listing's is not
-      // evidence for them).
-      // Changed 2026-09-29 again (quarter currency evidence): this fixture
-      // labels only its income rows. Its cash-flow quarters therefore form no
-      // TTM sum (a window not shown to share one currency is not summed; the
-      // income rows share a date but no filing identity), so P/FCF reads the
-      // annual FCF; and the TTM interest is no longer divided by debt balances
-      // of unestablished currency, so the cost of debt (3.736% → 3.775%), the
-      // WACC and the DCF per share (104.249 → 104.234) take the annual basis.
-      // Both are disclosed (+725 prompt bytes of gap and note), so
-      // fingerprint, promptBytes, provenanceHash and financeHash move.
-      // Changed 2026-09-30 (annual currency compatibility): rows are combined
-      // across statements or years only when each is established in the
-      // model currency, so the fixture now labels its balance-sheet and
-      // cash-flow rows USD as FMP's do (reportedIn). Those cells register
-      // (+75 records), the TTM cash flow and the TTM cost-of-debt basis come
-      // back, and financeHash returns to its pre-currency-work f9ea3f0e: on
-      // correctly labelled data the finance figures are unchanged.
-      // Changed 2026-09-30 again (analyst-estimate currency): an estimate's
-      // currency comes only from its own row or a documented provider
-      // convention. This fixture's estimate and price-target rows state none,
-      // so their 7 records leave the registry (4 estimates, 3 targets), their
-      // prompt lines say "(currency unknown)", and the DCF growth anchor no
-      // longer takes the analyst-consensus case — the DCF, projection and
-      // scenario values (financeHash) move with it.
-      // Changed 2026-09-30 (PAYLOAD_VERSION 1.3.0 → 1.4.0): the version is in
-      // the fingerprint and the prompt header; nothing else moved.
-      // Changed 2026-09-30 again (PAYLOAD_VERSION 1.4.0 → 1.5.0, stock-split
-      // correctness): the version is in the fingerprint and the prompt header;
-      // the DEMO fixture has no split, so no figure, byte count or registry
-      // entry moved (promptBytes and every hash below are unchanged).
-      // 2026-10-02 release review (D-31): payload 1.6.0 invalidates stored
-      // analysis under prior financial conventions. Only the version moves
-      // in this fixture; all finance/provenance hashes below stay unchanged.
-      // 2026-10-03 (D-34): payload 1.7.0 invalidates prior financial-route
-      // assumptions. This general-company prompt and its numeric registry stay unchanged.
-      // 2026-10-03 (D-35): payload 1.8.0 invalidates changed beta/FRED/reverse-DCF
-      // semantics. The finance hash changes only for corrected finance-lease
-      // accounting prose; this DEMO case has no numeric or registry delta.
-      // 2026-10-04 (D-37): payload 1.9.0 separates acceleration-horizon and
-      // date-validity rules. The pre-manifest prompt and numeric registry stay
-      // unchanged here; only the fingerprint's version-bearing data changes.
-      // 2026-10-04 (D-38): calendar conventions; only version bytes changed here.
-      // 2026-10-05 (D-39, payload 1.11.0): this fixture's five annual years
-      // span 4.00 years, so its "5y" revenue CAGR is no longer a growth-anchor
-      // method (listed unavailable with its measured span; +97 prompt bytes of
-      // anchor text). The anchor becomes the median of the regression and the
-      // 3y CAGR, so the DCF figures in the registry (provenanceHash) and the
-      // finance block (financeHash) move; counts and ids are unchanged.
-      // 2026-10-13 (D-43, citation registry): every printed tag is now
-      // citable. n/a rows, unestablished money rows (the peer caps, the
-      // compensation row, the estimate/target and quarter-statement cells of
-      // unknown currency) and each missing-data manifest entry register a
-      // citation record (11 → 48; kinds payload-gap / payload-unestablished).
-      // Each manifest line gains its [manifest.<field>] tag and the projections
-      // section gains its scenario-weights row (+872 prompt bytes;
-      // computedFigureLabelHash moves with the new row). No numeric record,
-      // id or finance figure moved.
-      // 2026-10-13 (D-44, units): each aspect score's completeness moves out
-      // of the score row's unit qualifier into its own row and record
-      // (`<aspect> evidence completeness`, unit fraction): +7 records
-      // (365 → 372), provenanceHash/provenanceIdsHash and
-      // computedFigureLabelHash move with them. RSI-14, MACD histogram and the
-      // MSPR rows now print the unit "index" they were already registered
-      // under (no existing record changed). Net +829 prompt bytes. No
-      // citation record or finance figure moved.
-      // 2026-10-13 (review of D-42..D-45): PAYLOAD_VERSION 1.11.0 → 1.12.0,
-      // once for the four decisions. Only the version in the fingerprint and
-      // the prompt header moved (same byte length); no hash or count did.
-      // 2026-10-13 (D-49, PAYLOAD_VERSION 1.13.0): balanceSheet no longer
-      // scores shareCountTrend and leadership no longer scores
-      // sbcPctOfRevenue, so their two driver records leave the registry
-      // (372 → 370) and the moved aspect scores change provenanceHash and
-      // financeHash. Prompt bytes are unchanged (same-length version and band
-      // stamps, same-width scores).
-      // 2026-10-13 (D-48, same 1.13.0): the technicals section gains the
-      // 12-1 month and 6-month relative-strength rows. This fixture has no SPY
-      // history, so both print n/a and register as payload-gap citations
-      // (48 → 50; +196 prompt bytes; computedFigureLabelHash moves). The
-      // technicals aspect's drivers and note change (financeHash); no numeric
-      // record moved.
-      // 2026-10-13 (D-46, PAYLOAD_VERSION 1.14.0): only the version moved for
-      // this general-company fixture (a bank gains its own section).
-      // 2026-10-13 (review of D-46..D-50, PAYLOAD_VERSION 1.15.0): the
-      // technicals aspect note names the 52-week-high distance (financeHash);
-      // no registered record, citation or prompt byte moved.
-      // META audit: matched reverse curve and dates, current TTM/financial
-      // bridges, exact signal metadata, retained evidence and alternative EPS
-      // paths change finance/registries/prompt. Legacy fixture bytes stay pinned.
-      // The merged 1.17.0 payload also carries comparable peers and scenario
-      // interpretation; refresh these goldens only after reviewing merged outputs.
-      // Main adds two scenario/comparability records and two gap citations;
-      // reviewed deterministic finance includes its peer-coverage disclosures.
-      // Economic-evidence gating adds a 325-byte methodology disclosure;
-      // figure registries and all projection-period records are unchanged.
-      // Evidence gates release: version stamp and truthful common-holder basis labels.
-      // Numeric finance outputs, provenance and citation registries remain unchanged.
-      // Current mixed-input WACC is dated to calculation day, not the fiscal
-      // statement date; only the payload fingerprint and provenance date move.
-      // D-54: payload version only; finance, provenance/citation registries,
-      // projection paths and prompt byte length remain pinned below.
-      // D-55: optional signed equity-method rows add explicit unavailable
-      // entries where this fixture has no such data (+1,337 prompt bytes).
-      // NET_DEBT_V2 changes only finance disclosure/version text here; all
-      // numeric registries, IDs, projection periods and figure labels stay pinned.
-      // 1.22.0 preserves statement provider origins; this all-FMP fixture
-      // changes only its version-bearing fingerprint, not finance or IDs.
-      // 1.23.0 (audit work package 3): the fixture's quarterly statements now
-      // also yield the computed quarterly-trend section (+15 records, +3,068
-      // prompt bytes); it has no 8-K or XBRL segment data, so nothing else
-      // moves — finance, citations and projection periods stay pinned.
-      // D-59: current-capital bridge rows are labelled by their metric ("total
-      // debt including leases", not "debt Bridge total Debt Including Leases"),
-      // so their labels, registry ids and figure-label hash move (-132 prompt
-      // bytes); values, units and periods do not. financeHash moves with the
-      // peer-coverage methodology (comparability caveat, 10 candidates, 25s).
-      // 1.23.0 (D-57, D-58): the fixture's USD listing matches its USD
-      // statements, so its uncurrencied rows inherit USD: 4 estimate rows, 3
-      // price targets, 2 peer caps and 1 compensation total become numeric
-      // records (499 -> 509) and their 5 unestablished tags leave the citation
-      // registry (65 -> 60). Prompt bytes grow by the "(USD, inherited)"
-      // markers, the section notes, the new prompt line and the year-one
-      // anchor text; financeHash moves with the anchored, convergent DCF.
-      // NVDA audit integration (D-57, D-58, D-59, WP3 combined): +15 records from
-      // the computed quarterly-trend section (509 -> 524); the D-59 current-capital
-      // labels set the figure-label hash; prompt bytes add the WP3 issuer-filing
-      // bullets; financeHash moves with the combined DCF and peer coverage.
-      // D-60: the vendor cash-only "net debt" statement rows leave the extracts and the reverse-DCF context rows join (524 -> 520); the DCF, scenario, WACC and EPS text and values move financeHash and prompt bytes.
-      // D-61 (forensics and grading signals; PAYLOAD_VERSION unchanged): the
-      // forensic section gains the eight Beneish indices, the SGI-neutral M
-      // (+9 numeric records, 524 -> 535 with the two accrual growth rows), the
-      // growth-led flag, the nine Piotroski signal outcomes and the accrual
-      // definition (string rows register as citations, 60 -> 73 with the two
-      // buyback-timing rows this fixture cannot measure: no XBRL execution
-      // prices). The accrual note and the buyback premium label are reworded,
-      // and the aspect-score section says what the leadership score measures
-      // (+3,856 prompt bytes). financeHash moves with the operating-accrual
-      // fallback (this fixture does not separate investment purchases), the
-      // ROIC floor and the stewardship signals.
-      // D-63: Item 1A is read with the risk profile, whose adjacent passages
-      // print as one run instead of being split by the 29-character omission
-      // separator; the fixture's 54,000-char Item 1A stays under the 14,000
-      // floor. Its coverage now lists the risk families. Net -1,119 prompt
-      // bytes (the separators carried multi-byte ellipses); no record, citation
-      // or finance figure moved. The fixture has no Item 1, 10-Q notes or 8-K.
-      // Integration of D-60..D-64: D-61 adds 11 records and 13 citations (Beneish
-      // indices, Piotroski signals, accrual operands), D-60 removes 4 (vendor
-      // cash-only net debt) -> 531; prompt bytes add D-63 evidence, D-61 and D-60
-      // payload text (126,290 + 3,856 + 1,592 = 131,738, +4 from merged labels).
-      // D-68: the two accrual growth rows compare one fiscal year with the
-      // prior, so "over the accrual years" becomes "in the accrual fiscal year
-      // (year over year)"; their labels and registry ids move (+80 prompt
-      // bytes), values and periods do not. The fixture made no acquisition and
-      // its Beneish M (-2.49) is in the "unlikely" band, so no D-68 context row joins.
-      // D-65 (+1,045 prompt bytes; no record or citation added or removed): the
-      // year-one window takes FY2026 consensus less the $219B already reported
-      // for Q1-Q2 (2025-12-28, 2026-03-28) instead of an even share; the value is
-      // rolled forward 99 days from 2026-03-28 to the 2026-07-05 quote; forecast
-      // EPS deducts Q2's $0.95B × 4 of interest. The anchor basis names the
-      // years consensus sets (year one: FY2028 has no estimate) and the D-65
-      // gates, a consensus-anchoring note joins the valuation notes, the
-      // analyst-consensus method prints both legs, and the scenario-decay and
-      // flat-share paragraphs each appear once. Values move provenanceHash.
-      // D-66: the trend and momentum reads print their own tags
-      // (computed.technicals.trend-read / momentum-read) instead of sharing
-      // computed.technicals.read, so one more citation is registered (73 -> 74)
-      // and the two tags add 15 prompt bytes; no number moved.
-      // D-72 version stamp only; the payload fields/registries above stay pinned.
-      // D-73 changes only the version stamp for this complete-debt fixture.
-      // D-78: explicit ownership/reconciliation, SBC and growth basis; values separately pinned in audit deltas.
-      // D-79: explicit carrying-book and model-extrapolation qualifications;
-      // quote dates come from actual observations, not envelope retrieval.
-      // D-80 changes only the payload version in this complete-debt fixture;
-      // finance, all registry hashes and prompt byte count remain pinned.
-      // D-81 adds admitted per-multiple basis notes and advances payload1.28.0.
-      // Registry/finance hashes and numeric values remain pinned unchanged.
-      // D-83: exact EPS convention text adds 283 bytes; registries unchanged.
-      // D-84: version-only change for this unaffected general-route fixture.
-      // D-85: exact fallback basis wording removes 14 prompt bytes; financial
-      // numbers, availability and registry identities remain unchanged.
-      // D-87 (+446 prompt bytes): stewardship notes name the weighted-average
-      // diluted common-share denominator and its limits. The total-change
-      // figure is relabeled (same value/window), so its derived registry id,
-      // provenance hash/id hash and label matrix change; counts/citations and
-      // projection periods do not. The exact seven metadata leaves above
-      // account for financeHash while retaining the preceding whole-finance pin.
-      // D-88 changes only the version in this fixture: its registry, finance,
-      // prompt bytes and all other preceding pins remain exactly unchanged.
-      // D-89 retains explicit fraction scale; prompt bytes, IDs and all
-      // financial leaves remain pinned. The versioned fingerprint changes.
-      // D-90: only the versioned fingerprint changes for this unaffected fixture;
-      // finance, registries, numeric values, bytes and counts remain pinned.
-      // D-91 also changes only the version in this unaffected fixture.
-      // D-92: +376 prompt bytes qualify provider EPS accounting basis. The
-      // finance hash changes only for the separately asserted reinvestment
-      // floor note; preceding-finance and numeric registry pins remain exact.
-      // D-93: admitted-input explanations add 150 prompt bytes. The exact
-      // preceding whole-finance hash and every numeric registry pin stay above.
-      // D-96 changes the versioned header and its hash only for this control.
-      // D-97: only the versioned header and its hash change here; prompt bytes,
-      // registries and every numeric pin stay exact.
-      // D-98: the versioned header moves with the payload version; the finance
-      // hash change for the investment-tax leaf is pinned and explained below.
-      // D-99 (+820 prompt bytes): the consensus-target reconciliation note
-      // (AMZN audit finding 18) and the reworded scenario, calendarization and
-      // lease-gap notes; dropping the one and restoring the others reproduces
-      // the preceding prompt above, and no registry or citation record moves.
-      // Codex review of PR #42: the scenario and notes/risk selection method
-      // stamps move the fingerprint, the provenance hash and financeHash;
-      // restoring them reproduces every preceding pin above.
-      // Audit 2026-10-22 F-19 (D-100, +146 prompt bytes): the band thresholds
-      // in the scores note and one neutral-band qualifier; restoring them
-      // reproduces the preceding prompt above, and no record moves. The
-      // versioned header moves with payload 1.41.0.
-      // Audit 2026-10-22 F-5 (D-101, +260 prompt bytes): the flags and the
-      // manifest travel in untrusted-data envelopes; unwrapping them reproduces
-      // the preceding prompt above, and no registry, citation or finance record
-      // moves. Audit batch 2 (D-102): only the versioned header moves with
-      // payload 1.42.0; prompt bytes and every registry pin stay exact.
-      // Audit batch 3a (D-103, re-pinned 2026-10-22 after merging batch 2):
-      // only the versioned header moves with payload 1.43.0; no byte of this
-      // fixture's prompt or any record changes. Audit batch 2b (D-104): the
-      // versioned header moves with payload 1.44.0, and the score-bands stamp
-      // SCORE_BANDS_2026_10_REGULATED_UTILITY (two characters longer) moves the
-      // prompt bytes, the registry and the finance block. With the preceding
-      // stamp every other pin here is unchanged; no value moves. Audit batch 3
-      // (D-105): only the versioned header moves with payload 1.45.0; no byte
-      // of this fixture's prompt or any record changes. D-107: payload 1.46.0
-      // prints the EV bridge note's amounts with grouped digits; this
-      // fixture's EV appears four times in the prompt's notes, so the prompt
-      // grows by sixteen commas and no record or registry moves.
-      // Audit batch 6 (D-111): only the versioned header moved with payload
-      // 1.47.0; this fixture's rate is FRED DGS10 and no member fell back, so
-      // no degraded-inputs note or provider-fallback line enters its prompt.
-      // Audit batch 4 (D-112, -120 prompt bytes): the P/E note names only the
-      // formula that ran (B-20); restoring it above reproduces every preceding
-      // pin, and the versioned header moves with payload 1.48.0. This
-      // fixture's multiples are TTM, so their records keep their labels, ids
-      // and null period (B-9 names only a fiscal-year multiple's year).
-      // Audit 2026-10-27 B3 Task 1 (AI-301): stock-peer caps no longer inherit the
-      // subject's currency. The two fixture peers (MSFT, GOOGL) lose their inherited
-      // USD records (531 -> 529) and read "(currency unknown)"; their shared
-      // fmp:stock-peers tag becomes one payload-unestablished citation (74 -> 75);
-      // the peers block states the fixed currency note instead of the D-57 note and
-      // the peer methodology names the established-currency or same-market basis
-      // (financeHash). The preceding pins above are reproduced by exact restorations.
-      // Audit 2026-10-27 B3 Task 2 (AI-102): peer exclusion reasons travel in their own untrusted envelope
-      // (the fixture's one subject-level exclusion leaves "Comparable peers (computed)" for it, +157 bytes);
-      // no record, figure or citation moves, so only fingerprint and promptBytes change.
-      // Audit 2026-10-27 B3 Task 3 (AI-117): insider statistics as counts and share volumes over a
-      // named window. The fixture's five synthetic quarter rows give five windowed records in place
-      // of three (529 -> 531), a window note and longer labels; no citation or finance leaf moves.
-      // Audit 2026-10-27 B3 Task 4 (AI-306): the share-count change names the span it measured.
-      // The fixture has five annual income rows, so four years: the label reads "(4y total)"
-      // (its registry id follows), and the capital notes state the short window (+120 bytes);
-      // no count, citation or finance leaf moves. Restored in the preceding-pin chain above.
-      // Audit 2026-10-27 B3 Task 8C (AI-511): the fiscal-year FCF conversion is no longer called the graded
-      // ratio; the current-capital section names the graded window. One registry record changes label and id
-      // (provenanceHash, provenanceIdsHash, computedFigureLabelHash); the fixture's balance-sheet aspect grades
-      // fcfConversionBeforeSbc, so the section gains one note (+249 bytes with the shorter label). Count,
-      // citations and financeHash do not move. Restored by b3Restorations in the preceding-pin chain above.
-      // Audit 2026-10-27 B3 Task 8D (AI-509): provider segment keys are no longer called as-reported. The section
-      // title reads "keys as each source names them" and two fixed notes (product, geographic) say the keys are
-      // FMP's normalised names (+340 bytes). The fixture's rows are FMP rows with no XBRL axis to contradict them,
-      // so nothing is withheld; no record, count, citation or finance leaf moves, only fingerprint and promptBytes.
-      // Restored by b8dRestorations and isProviderKeyNote in the preceding-pin chain above.
-      // Audit 2026-10-27 B3 Task 8E (residual a): (latest) and accrual-year computed records carry the issuer's fiscal
-      // label of the year they were computed over, and the (latest) ones its period end, as the annual statement cell
-      // does; nothing printed moves. 39 records gain fiscalPeriod (FY2025, FY2024 for a prior-year operand) and 11 of
-      // them also gain period (the 28 accrual-year records already carried theirs), so only provenanceHash moves;
-      // fingerprint, promptBytes, counts, ids, citations, labels and financeHash do not. Restored by restoreB8e in the
-      // preceding-pin chain above.
-      // Audit 2026-10-27 B3 Task 9: the versioned header moves with payload 1.49.0 (same byte length), so only the
-      // fingerprint moves; the preceding-pin chain serializes payloadVersion "1.36.0" and is untouched.
-      // Audit 2026-10-27 B13 Task 6 (FIN-509-V1), 2026-10-28: the fixture's income rows carry no totalOtherIncomeExpensesNet, so
-      // the one-time-items rule adds one info entry (forensics.flags.oneTimeItems) to the missing-data manifest (+432 bytes) and
-      // one citation for it. Fingerprint 1.49.0:c74b6cd9 -> 1.49.0:f42dbc29, promptBytes 143_867 -> 144_299, citationCount 75 -> 76,
-      // citationHash 423bbedf -> 77d52670. provenanceHash, provenanceIdsHash and financeHash do not move. The preceding-pin chain
-      // drops the entry (isOneTimeGap, count asserted) and its 1.36.0 pins are unchanged.
-      // Audit 2026-10-27 B13 Task 6 review, 2026-10-28 (FIN-509-V1): the gap reason reads "in every fiscal year of the
-      // lookback" in place of "in every one of the last 5 fiscal years" (-3 bytes). Fingerprint 1.49.0:f42dbc29 ->
-      // 1.49.0:2cdc3384, promptBytes 144_299 -> 144_296; no count, citation or finance leaf moves.
-      // Audit 2026-10-29 of AMZN #51 (D-133, VAL-1 to VAL-4, FIG-2, FIG-4): payload 1.50.0. The fixture's rows carry
-      // no noncurrent-only lease line, no zero short-term debt beside filed current debt, no vendor stakes and no
-      // refused debt, so only the versioned header moves (same byte length) and with it the fingerprint.
-      // Merge of main into B13, 2026-10-29: both changes together, payload 1.50.0 (D-133's header) with B13's +429 bytes
-      // (Task 6 and its review). promptBytes 144_296 as B13; every other leaf as on both sides; fingerprint 1.50.0:6f42a9e6.
-      // 2026-10-29 B13 (D-134): payload 1.51.0. The only changed line of the serialized payload is the versioned header
-      // ("payloadVersion 1.50.0" -> "1.51.0", same byte length; Task 11's stamp). The fixture is FMP-shaped DEMO data
-      // with a filed-shaped income block, no EDGAR provenance, no re-presentation flag on its quarterly rows (Task 9)
-      // and no derived EBIT, D&A or R&D (Tasks 1-5, 7, 8), so no other line moves: the old prompt with its header
-      // restored hashes to the preceding 6f42a9e6. promptBytes 144_296, the 531 records, the 76 citations and every
-      // other leaf are unchanged; only the fingerprint moves, 1.50.0:6f42a9e6 -> 1.51.0:9120109f.
-      // 2026-10-29 B4a (D-135): payload 1.52.0, next after the preceding merge. Dumped before (bda2b94) and after
-      // with this test's own serializer (tmp/b4-payload, untracked): the prompt differs in one line, the versioned
-      // header ("payloadVersion 1.51.0" -> "1.52.0", same byte length), so promptBytes 144_296, the 531 records, the
-      // 76 citations, the labels and the ids do not move. The finance block differs in two leaves, fairValue.methodVersion
-      // and scenarioTargets.methodVersion (..._D102 -> ..._D135, Task 16), and the registry in the four formulaVersion
-      // leaves that echo them, so financeHash 3fc254c2 -> e5b05d9e and provenanceHash 3fc51d0c -> 8eccd2f0.
-      // This fixture is FMP-shaped DEMO data with no covered lease, no temporary equity, no pension, loss-contingency
-      // or earn-out tag and no loss-period divisor, so no DCF figure, EV-basis sentence or lease wording moves (Tasks 4 and 6
-      // change none of its lines). Fingerprint 1.51.0:9120109f -> 1.52.0:4257f13c. The preceding-pin chain restores the
-      // ..._D135 stamps to the earlier wording (d99Restorations) and is otherwise untouched.
-      // 2026-10-29 B5a (D136): payload 1.53.0, next after main 222f92a.
-      // Task 2 calendarizes on last-Saturday-of-September fiscal ends:
-      // FY2026 2026-09-26, FY2027 2027-09-25. Year one moves
-      // 451493150684.9315 -> 457291208791.2088; DCF/share
-      // 120.65687010874173 -> 125.54216204255545, with downstream
-      // growth, DCF, reverse DCF, grids, scenarios and their cited figures.
-      // Complete base / Task 1 / Task 2 / final dumps were compared:
-      // Task 1 changes no fixture leaf; all 257 changed finance numbers and
-      // 182 payload numbers are Task 2. Task 4 changes exactly one context
-      // note (counted/restored above); Task 23 changes the version header.
-      // This fixture is unguided and consensus-anchored: neither Task 3's
-      // level nor Task 3b's caveats fires. Its old evidence shape is pinned.
-      // Record/citation counts, ids, labels, periods and method stamps stay.
-      fingerprint: "1.53.0:e5c9eae4",
-      promptBytes: 144_691,
-      provenanceCount: 531,
-      // Codex review of PR #49 (D-102): the fair-value and scenario-target
-      // method stamps the registry records as computation basis move
-      // (restored above for the preceding pin); no value or byte moves.
-      // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      provenanceHash: "d39061ff",
-      provenanceIdsHash: "fe7c2621",
-      citationCount: 76,
-      citationHash: "d1514dcc",
-      computedFigureLabelHash: "ec8c7355",
-      projectionPathPeriodHash: "fb9c4bf0",
-      // Changed 2026-08-31: the projections fcf series now states that its
-      // HISTORICAL points are the reported levered figure while the PROJECTED
-      // points are unlevered FCFF, instead of claiming the whole series is
-      // FCFF. That is a deliberate content correction to the finance payload;
-      // fingerprint and promptBytes are unchanged, so the model prompt is not
-      // affected. See tests/stageB.projections.test.ts "FCF basis change".
-      // 2026-10-03: P/TBV basis now explicitly deducts preferred equity;
-      // this general-company fixture has zero preferred, so values are unchanged.
-      // 2026-10-05 (D-39): the growth anchor drops the 4-year "5y" CAGR.
-      // 2026-10-12 (D-41): the quality aspect's note names the equity-side
-      // value-creation measure financial routes use. This general-company
-      // fixture scores no new driver; fingerprint and promptBytes are unchanged.
-      // D-61: moat durability is the ROIC floor, leadership drops the second
-      // ROIC − WACC read and grades buyback timing (unmeasurable here), and the
-      // accruals signal reads operating accruals — see the comment above.
-      // D-65: the DCF (reported-half year one, quote-date roll-forward), the
-      // EPS interest run-rate and the scenario construction text — see above.
-      // Audit 2026-10-19 FCX-14: only the technicals aspect's no-data note
-      // changes (restored above); prompt bytes and registries are unchanged.
-      // AMZN audit 2026-10-20 (D-98): only the new assumptions.investmentTax
-      // leaf (removed above for the preceding pin) moves financeHash; this
-      // fixture has no investments, so no bridge value, byte or record moves.
-      // D-99: only the reworded leaves restored above (scenario margin
-      // direction, even-spread calendarization reason, the undisclosed lease
-      // gap without the environment variable) move financeHash.
-      // Codex review of PR #49 (audit 2026-10-22 B-29): only the scenario
-      // basis sentence restored above moves financeHash; the fan is withheld
-      // when a run is outside the DCF's domain instead of floored at 0, and
-      // this fixture's runs are inside it, so no target or byte moves. The
-      // same review moves the two method stamps (D-102), restored above.
-      // Audit batch 2b (D-104): the score-bands stamp; see the fingerprint.
-      // D-107: the grouped EV digits and the grid guard wording, restored above.
-      // Audit batch 4 (D-112): the P/E basis and the Stage B multiples' period
-      // leaves, restored above for the preceding pin; no value moves.
-      financeHash: "05d61d6c",
-    });
-  });
-
   // P27 freeze (round 2, S4.7a): today's UN-restored payload, finance and
-  // registries as a committed leaf-level record. Every dimension the
-  // historical pin above hashes is here, read from buildInputs() with no
-  // restore step: finance (scores, projections, valuation, fair value,
+  // registries as a committed leaf-level record, read from buildInputs() with
+  // no restore step: finance (scores, projections, valuation, fair value,
   // scenario targets), the projection path/period matrix and its order, the
   // computed figure-label matrix, both registries record by record, the
   // whole payload (strings over 4,000 characters as a digest), the prompt's
-  // bytes and hash per section, and the fingerprint. The same-named
-  // fnv1a32 summary values are computed exactly as the historical block
-  // computes them, on today's values. Refresh only through
-  // `npm run freeze:refresh` (docs/OPERATIONS.md).
+  // bytes and hash per section, and the fingerprint. The fnv1a32 summary
+  // values are those the retired pre-manifest pin (removed in round 2, S4.7b;
+  // see git history before that change) computed, on today's values. Refresh
+  // only through `npm run freeze:refresh` (docs/OPERATIONS.md).
   const stageCFrozenRecord = ({ computed, payload }: ReturnType<typeof buildInputs>): FrozenJson => {
     const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
     const prompt = serializePayloadForPrompt(payload);
@@ -1913,30 +1094,45 @@ describe("payload determinism + provenance", () => {
     expectFrozenRecord("stagec-payload", stageCFrozenRecord(buildFreshInputs()));
   });
 
-  // P27 equivalence proof. Remove together with the historical pin above in
-  // the slimming step. On one built object: today's output equals the frozen
-  // record, AND the historical restore chain on that same object still
-  // reproduces the historical pin's closing values (its intermediate
-  // preceding-version hashes are proved by the unchanged test above on the
-  // same commit). Hence old validated payload + reviewed changes == frozen.
-  it("proves the historical restore chain and the frozen record describe the same output (P27 equivalence)", () => {
-    const today = buildInputs();
-    expectFrozenRecord("stagec-payload", stageCFrozenRecord(structuredClone(today)));
-    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(restorePublicPolishGolden(restoreCurrentValuationPolicyGolden(restoreExpeReport1ScopeGolden(restoreEvidenceRemediationGolden(today)))))))))))))));
-    const restored = stageCFrozenRecord({ ...today, computed, payload }) as { fingerprint: string; summary: Record<string, unknown> };
-    expect({ fingerprint: restored.fingerprint, ...restored.summary }).toEqual({
-      fingerprint: "1.53.0:e5c9eae4",
-      promptBytes: 144_691,
-      promptFnv1a32: "e5c9eae4",
-      provenanceCount: 531,
-      provenanceHash: "d39061ff",
-      provenanceIdsHash: "fe7c2621",
-      citationCount: 76,
-      citationHash: "d1514dcc",
-      computedFigureLabelHash: "ec8c7355",
-      projectionPathPeriodHash: "fb9c4bf0",
-      financeHash: "05d61d6c",
-    });
+  // P27 (round 2, S4.7b). The retired restore chain also hashed the WHOLE
+  // Stage B output (`computedHash` in its QCOM-53 Task 4/11 steps), so it
+  // caught drift in Stage B subtrees that never reach the payload. The frozen
+  // record above pins only the five finance subtrees of `computed`; this pins
+  // every other top-level subtree of today's un-restored output, in order, one
+  // sha256 each, so a failure names the subtree that moved. After a reviewed
+  // change, compare the subtree yourself, then update its digest here in the
+  // same change as the decision entry that explains it.
+  it("pins today's un-restored Stage B subtrees outside the frozen finance record, one digest each (P27)", () => {
+    const finance = new Set(["scores", "projections", "valuation", "fairValue", "scenarioTargets"]);
+    const digests = ({ computed }: ReturnType<typeof buildInputs>) => {
+      const written = JSON.parse(JSON.stringify(computed)) as Record<string, unknown>;
+      // Every top-level key in its serialized order; finance keys are pinned leaf by leaf above.
+      return Object.entries(written).map(([key, value]) =>
+        finance.has(key) ? `${key} (frozen record)` : `${key} ${sha256Text(JSON.stringify(value)).slice(0, 16)}`);
+    };
+    const expected = [
+      "symbol 7137fbcfb7bf03dd",
+      "builtAt ccc7a9c3ef9713ba",
+      "route 67088d486e79efec",
+      "degradation f591b71ec31aefa2",
+      "growth 3b108cfa32943129",
+      "returns 04acba1118ea2ecc",
+      "capital 1e4c3fff2067cefb",
+      "forensics 0d59d3ffecb6f45c",
+      "technicals 0d0c7b3f39a71e07",
+      "valuation (frozen record)",
+      "financialMetrics 116fd090c9036a74",
+      "runway 74234e98afe7498f",
+      "scores (frozen record)",
+      "projections (frozen record)",
+      "scenarioTargets (frozen record)",
+      "fairValue (frozen record)",
+      "suppressed 4f53cda18c2baa0c",
+      "notes 2e5b1aca5def94d8",
+      "gaps 35fe2af3b01151ef",
+    ];
+    expect(digests(buildInputs())).toEqual(expected);
+    expect(digests(buildFreshInputs())).toEqual(expected);
   });
 
   it("uses canonical manifest orders in the real Stage C adapter despite reversed input insertion order", () => {
@@ -2059,7 +1255,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.92.0");
+    expect(first.payloadVersion).toBe("1.93.0"); // D-255
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -3735,7 +2931,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.73.0"); // operating-evidence report semantics
+    expect(report.meta.specVersion).toBe("1.74.0"); // D-255: Stage 5 integration report semantics
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -4919,7 +4115,7 @@ describe("mock-driven bull/bear/judge passes", () => {
 
   /**
    * The standalone loop issues one judge request per attempt and never runs
-   * the mirrored pass. Under `THESIS_JUDGE_ORDER=both` it used to frame that
+   * the mirrored pass. Under `METIS_JUDGE_ORDER=both` it used to frame that
    * one request as "judged TWICE", stamp `setting=both` into the protocol and
    * record no reconciliation — a report that overstated the protocol run.
    */

@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.73.0** and
-payload **1.92.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.74.0** and
+payload **1.93.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,268 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Stage 5 version stamps (2026-11-13)
+
+- The Stage 5 accuracy fixes (D-231, D-233, D-234, D-236 to D-240, D-247,
+  D-248, D-250 to D-252) merged without moving a version stamp; they move
+  once here (P27, [D-255](docs/audit/DECISIONS.md)): report spec 1.73.0 ->
+  1.74.0, payload 1.92.0 -> 1.93.0, Stage B
+  `STAGE_B_2026_11_PRIMARY_CAPITAL_66` -> `STAGE_B_2026_11_FILED_ACCURACY_67`.
+  The fair-value, scenario-target and net-debt method stamps, the pipeline
+  version and every display cutoff are unchanged. Saved reports keep their
+  bytes and render exactly as before (P21); no calculation, rule or wording
+  changes.
+
+## Unreleased - The classic layout is removed (2026-11-12)
+
+- The dossier is the only layout (P22, D-246). The classic report, home and
+  revisions layouts, their components and styles, and the
+  `METIS_UI_REDESIGN` setting are removed; a leftover value is ignored and
+  the app starts normally. What classic showed stays guaranteed in the
+  dossier by facts frozen from both layouts before the removal. Exports,
+  saved reports and the dossier page are unchanged; the same-report check
+  writes seven files per case, without `web-classic.html`.
+
+## Unreleased - The dossier is the default layout (2026-11-12)
+
+- With no `METIS_UI_REDESIGN` setting every page opens in the dossier layout
+  (P22, D-245). `METIS_UI_REDESIGN=0` still selects the classic layout for
+  now; any value other than 0 or 1 is still refused. Exports, saved reports
+  and the same-report check output are unchanged.
+
+## Unreleased - Filed common earnings for a year whose preferred stock was redeemed (2026-11-13)
+
+- Common earnings for a fiscal year are refused when preferred claims existed
+  in it, and the filed figure was read only when preferred stock or
+  noncontrolling interests stood on the year's closing balance. A year in
+  which the preferred was redeemed therefore had no common earnings, and the
+  payout history and the excess-return valuation built on it were withheld.
+  The filed income available to common (full-year 10-K) is now also read for
+  such a year: that one field, never over a vendor value or a refusal (P5,
+  P11, P13, [D-251](docs/audit/DECISIONS.md)). In the same-report check this
+  changes one of the 17 cases: Progressive's fiscal 2025 and 2024 common
+  earnings (11,308M and 8,463M) are read, its payout ratio (15.37%) and
+  excess-return fair value (USD 160.42 per share on the filed 582.2M diluted
+  shares) are built, and its valuation aspect, quality aspect and composite
+  move with them. Version stamps are not moved in this change.
+
+## Unreleased - The gap and provider checks read the missing-data entry's typed cause (2026-11-12)
+
+- D-242 (P11): twelve checks that decided by the wording of a missing-data
+  entry (which DCF gap names a withheld value, a temporary-equity refusal, the
+  FMP rate limit, an empty response, a missing key, an unlisted ticker, an
+  unlinked predecessor, a refused peer symbol) now decide by the entry's typed
+  cause, and by the old wording test only for an entry that has none (every
+  saved report and run-input snapshot). The wording tests live only in
+  `src/edgar/refusalCauseRead.ts`. FMP's empty profile with the public
+  fallback's failure appended now carries its own code, so the "unknown
+  ticker" check keeps today's answer for it. Nothing a reader sees or a model
+  receives changes: the 17 same-report cases are byte-identical, the frozen
+  records and request-schema hashes are unchanged, and no version stamp moves.
+- The planned stored link between a copied refusal and its source (D-243) was
+  not built: it cannot keep every decision unchanged when a source sentence is
+  reworded (D-242 explains); the saved-report readers (D-244) were not started.
+
+## Unreleased - Net income is read on the scope each metric needs (2026-11-12)
+
+- For a company with noncontrolling interests, free-cash-flow conversion now
+  divides by consolidated profit in every year: a vendor cash-flow net income
+  equal only to the parent's profit is replaced by the consolidated profit the
+  same filing states. The net margin and DuPont now use the profit attributable
+  to the parent in every year, including a year whose reported net income is
+  the consolidated figure (P5, P13, P8, [D-238](docs/audit/DECISIONS.md), which
+  revises D-231). In the same-report check this moves Realty Income (fiscal
+  2023 cash-flow net income 872,309,000 to 876,914,000 and its FCF conversion;
+  fiscal 2025 net margin 18.61% to 18.41% and DuPont ROE 2.73% to 2.70%) and
+  Duke Energy (fiscal 2025 cash-flow net income 4,967,000,000 to
+  5,071,000,000). No score or grade moves, and companies without
+  noncontrolling interests are unchanged. Version stamps are left for the
+  Stage 5 integration; saved reports are unchanged.
+
+## Unreleased - Trailing net income behind FCF conversion read from the filings (2026-11-12)
+
+- The "Current capital" block divides trailing free cash flow by consolidated
+  net income and showed none for an issuer without noncontrolling interests,
+  because no quarter of such an issuer is ever tagged "consolidated". The
+  figure is now read from the filings when they state one profit line: fiscal
+  year plus current year to date less prior-year year to date, or a figure
+  tagged for exactly the window, accepted only when those filings report no
+  other consolidated profit and no noncontrolling earnings or balance (P5, P1,
+  P8, P11, [D-240](docs/audit/DECISIONS.md)). In the same-report check this
+  fills the figure for Amazon (135,281M), NVIDIA (192,880M), Qualcomm (9,260M),
+  Micron (84,969M) and Viking (-627,195k). FCF conversion and its balance-sheet
+  signal are scored again for the first four, so their balance-sheet and
+  composite scores move (the entry lists them); no scoring rule changed. Duke
+  Energy, which has noncontrolling interests, stays withheld. Version stamps
+  are left for the Stage 5 integration; saved reports are unchanged.
+
+## Unreleased - The dossier layout shows everything classic shows (2026-11-12)
+
+- The dossier's WACC × terminal-growth grid now outlines the base-case cell,
+  as the classic grid does, through one shared rule (P22, D-241). An
+  inventory of both layouts over the 17 same-report cases found no other fact
+  that classic shows and the dossier does not; a new parity test keeps it so.
+  The default layout is unchanged.
+
+## Unreleased - A filing SEC's data feed lists but does not carry is read from its own XBRL data (2026-11-12)
+
+- SEC's bulk data feed can list a periodic filing by its cover page without
+  publishing its financial statements: on 2026-11-12 it held two facts of
+  TSMC's fiscal 2025 Form 20-F and none of its statements. Metis reads a
+  filing's own XBRL data when the feed lags, but did so only for Forms 10-K
+  and 10-Q and took any filing the feed mentions as carried. The rule now
+  covers every core periodic form (20-F, 40-F and amendments too) and counts a
+  filing as carried only when the feed holds a statement fact of it (P2, P9,
+  P10, P20, [D-236](docs/audit/DECISIONS.md)). New reports of such filers reach
+  the newest fiscal year's filed facts: for TSMC, diluted EPS of fiscal 2025
+  (65.47 TWD per ordinary share, 327.35 per ADS) instead of ending at fiscal
+  2024. A filer whose feed is complete makes no new SEC request; a 20-F filer
+  whose feed lags makes two. The same-report check is unchanged (it does not
+  replay collection), saved reports keep their bytes, and version stamps are
+  left for integration.
+
+## Unreleased - Effective tax rates divide by the pre-tax income the provision relates to (2026-11-12)
+
+- A filer whose pre-tax line excludes equity-method results presents those
+  results after its provision, net of tax. The provider's pre-tax income for
+  such a filer can include that after-tax result, so a tax rate over it mixed
+  two bases. When the complete filed family reconciles, the earnings admission
+  now records the filed line beside the row's pre-tax income, and every
+  effective tax rate (the DCF's year-one and historical rates, ROIC's tax
+  rate, the WACC's statement rate) divides by it; where the filings move the
+  trailing pair's denominator, the provider's ratio no longer supplies the
+  WACC tax rate (P13, P8, P20, [D-237](docs/audit/DECISIONS.md)). In the
+  same-report check this moves Amazon only: DCF year-one tax rate 22.6467% to
+  22.5770% (39,615M over the filed 175,466M), fair value 124.14 to 124.18 a
+  share, fiscal 2025 ROIC 20.63% to 20.66%. Qualcomm's 1M difference from the
+  baseline is its own rounding between quarterly and year-to-date columns and
+  does not move. Version stamps are left for the Stage 5 integration.
+
+## Unreleased - A fiscal year's operating cash flow is the filed figure when the filing's cash-flow statement reconciles (2026-11-13)
+
+- A vendor operating cash flow that disagrees with the filed one was always
+  withheld, and the year's free cash flow with it. On an annual row it now
+  takes the filed figure when the newest filing's own statement foots
+  exactly: operating + investing + financing + exchange-rate effect = the
+  change in cash, all from that one filing. Anything else stays withheld (P8,
+  P7, [D-252](docs/audit/DECISIONS.md), revising D-89 for this shape). In the
+  same-report check this fills Duke Energy's fiscal 2025 operating cash flow
+  (12,330M, Form 10-K) and free cash flow (-1,694M); its accrual, Beneish and
+  Piotroski figures are computed again, so its quality score moves from 53.8
+  to 72.9 and its composite from 55.6 to 57.3 (still band C, Provisional).
+  Realty Income's longest free-cash-flow growth window now starts in fiscal
+  2016 (20.31% over 8 years instead of 21.95% over 7), and one Progressive
+  note names 2016 instead of 2017. The other 14 cases are unchanged. Figure
+  Technology's free cash flow stays "not applicable" for a lender (D-149);
+  Viking's free cash flow and Micron's two bridge items stay withheld, with
+  the reasons in the entry. Version stamps are left for the Stage 5
+  integration; saved reports are unchanged.
+
+## Unreleased - A provider zero for capital spending is not a figure (2026-11-12)
+
+- A cash capital-spending figure of exactly 0 on a vendor cash-flow row now
+  stands only when the filings tag a capital-spending line at 0 for that exact
+  period. Otherwise capital spending and the free cash flow that subtracts it
+  are withheld for that period, with one data-gap entry naming the periods and
+  the cause (P7, P10, [D-239](docs/audit/DECISIONS.md)). In the same-report
+  check this moves three companies whose filings tag no capital-spending line:
+  JPMorgan (capital intensity 0% becomes a gap), Realty Income (fiscal 2025 and
+  trailing free cash flow become gaps; free-cash-flow growth is measured to
+  fiscal 2024; composite 53.6 to 51.1, still not graded) and Viking
+  Therapeutics (free cash flow and the cash runway become gaps; composite 42.5
+  to 44.0, still not graded). Nothing else moves. Version stamps are left for
+  the Stage 5 integration; saved reports are unchanged.
+
+## Unreleased - Missing-data entries carry a typed cause code (2026-11-12)
+
+- New reports store a short code beside the sentence of the missing-data
+  entries whose wording the pipeline itself checks (for example
+  `fmp-quota`, `fmp-empty-array`, `sec-unlinked-predecessor`,
+  `dcf-unprofitable-overlay`). The sentences are unchanged and nothing reads
+  the codes yet; a later step moves those checks from wording to codes. The
+  code is never sent to a model, never kept in run-input snapshots and shown
+  on no surface (app, Markdown, print, audit export, report summary), so in the
+  same-report check only RIVN's stored Stage B output and report gain three
+  `cause` fields. Saved reports are unchanged and no version stamp moves
+  (P10, P11, P20, P21, D-229).
+
+## Unreleased - FIGR share counts and debt taken from the filings (2026-11-12)
+
+- For a registrant with several listed symbols, the filed share-count check in
+  the report's calculation view now lets an income series that shows the
+  vendor's share unit govern the other, as the collection step already did
+  (P3, P8, D-234). FIGR's fiscal 2025 weighted-average counts, which the vendor
+  states at exactly twice the 10-K's, become the filed 114,435,259 basic and
+  141,802,002 diluted.
+- A vendor debt total that is a filing's debt lines plus its payables to
+  third-party loan owners is replaced by the filing's own borrowings plus its
+  operating lease liability, when that one filing's tagged long-term debt
+  equals the balance sheet's debt lines exactly (P7, P8, D-234; revises D-149's
+  retained provider perimeter for that case). FIGR's debt at 2026-06-30 moves
+  from the vendor's 1,474,457,000 to the filed 967,771,000; the "Provider debt
+  perimeter" key-data row is gone and the debt profile shows "Debt used in this
+  report". Net debt, EV multiples and coverage stay not applicable to the
+  lender, and no score moves.
+- In the same-report check only FIGR changes. Version stamps are left for the
+  Stage 5 integration; saved reports are unchanged.
+
+## Unreleased - FFO per share divides by its own fiscal year's share count (2026-11-12)
+
+- On the equity-REIT route, FFO and AFFO per share divided the latest fiscal
+  year's FFO and AFFO by the latest quarter's weighted diluted share count.
+  They now divide by the weighted diluted count of that same fiscal year, and
+  are withheld with a stated reason when that count is not established (P13,
+  P1, P3, P10, [D-233](docs/audit/DECISIONS.md)). In the same-report check this
+  moves Realty Income only: FFO per share 4.0973 to 4.2677 and AFFO per share
+  3.9580 to 4.1226, on the filed fiscal 2025 count of 908,334,000 shares. P/FFO
+  and P/AFFO price on the market cap and do not move. Version stamps are left
+  for the Stage 5 integration; saved reports are unchanged.
+
+## Unreleased - DEMO fixture history ledger retired (2026-11-12)
+
+- `npm run audit:deltas`, the July 2026 audited baseline and its
+  intended-delta ledger are removed. The DEMO fixture projection is pinned by
+  its frozen record; record an intended change with `npm run freeze:refresh --
+  --target audit-fixture` (docs/OPERATIONS.md). No report output changes
+  ([D-232](docs/audit/DECISIONS.md), P27).
+
+## Unreleased - Lint workaround packages removed (2026-11-12)
+
+- ESLint and Next's ESLint plugin use upstream minimatch 3.1.5 and fast-glob
+  3.3.1 again. The local `scripts/legacy-minimatch` and
+  `scripts/next-eslint-glob` stand-ins and their seven overrides are gone,
+  because the braces advisory was withdrawn and the minimatch advisory no
+  longer covers minimatch 3 (P26, P27, D-230). The security audit still
+  reports 0 vulnerabilities, lint results are identical, and no report, export
+  or golden output changes.
+
+## Unreleased - Cash-flow net income checked against the filing (2026-11-12)
+
+- The net income on a vendor annual cash-flow row, which free-cash-flow
+  conversion and the cash-flow accrual figures divide by, is compared with the
+  filer's own profit for that fiscal year (us-gaap, and ifrs-full for Form 20-F
+  filers). A figure that is no filed profit line is replaced by the filed
+  consolidated profit with its filing as provenance, or withheld when no filing
+  settles it (P8, P5, P10, D-231). In the same-report check this moves TSM
+  (fiscal 2021 to 2025 conversion, fiscal 2025 accruals, quality score 83 to
+  83.21) and Duke Energy's fiscal 2022 conversion; nothing else. Version stamps
+  are left for the Stage 5 integration; saved reports are unchanged.
+
+## Unreleased - METIS_ settings names only (2026-11-12)
+
+- Only `METIS_*` names configure Metis. The `THESIS_*` aliases kept since the
+  rebrand are retired. If an old name is still set (in `.env`, a launcher or
+  the shell, even blank), the server will not start and scripts that read a
+  setting stop, with one error that lists each old name and its `METIS_*`
+  replacement and shows no values. Rename the key and keep its value. This
+  keeps a leftover startup hold, spend cap or database path from being
+  dropped without notice ([D-228](docs/audit/DECISIONS.md), P23, P24, P26).
+- Scripts must send `X-Metis-Token`; a request with only the old
+  `X-Thesis-Token` header is refused with a 403 that names the new header.
+- Every setting's meaning and default is unchanged; legacy `Thesis` data
+  folders and `thesis.db` are still found in place. Report and judge-prompt
+  wording that spells the old names is unchanged in this release.
 
 ## Unreleased - Code identity recorded on new reports (2026-11-12)
 
@@ -81,7 +343,7 @@ original versions and bytes; source merge does not deploy or publish a release.
   `STAGE_B_2026_11_OPERATING_EVIDENCE_65`, pipeline `stage-c-1.6.43`, and
   current-reports 1.4.0 and general evidence selection `section-evidence-8`.
   Score thresholds and historical report bytes stay fixed.
-  See [the audit record](docs/audit/2026-11-08-dhi-report-4.md).
+  See [the audit record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-08-dhi-report-4.md).
 
 ## Unreleased - PDF first-page pagination (2026-11-07)
 
@@ -517,7 +779,7 @@ debt admission and version constants are unchanged. See D-205.
   navigation pages and refuse unresolved, ambiguous or wrong-page references.
 - Disclose unresolved financial-statement index references and exhibit-based
   40-F structure instead of unexplained item failures. Frozen-panel evidence,
-  limits and verification are recorded in [D-191's audit](docs/audit/2026-11-04-foreign-sections.md).
+  limits and verification are recorded in [D-191's audit](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-04-foreign-sections.md).
 - Version constants remain unchanged. Release needs a payload-version advance;
   stored reports remain immutable.
 
@@ -704,7 +966,7 @@ debt admission and version constants are unchanged. See D-205.
 - Deterministic (R9): Admit explicitly combined, equal-economic-class EPS denominators using same-period filed evidence instead of requiring a weighted average to equal a later cover count; retain unresolved-class protections.
 - Deterministic (R9): Derive TTM capex on the retained annual tag basis using filed FY + current YTD - prior-year YTD, with both YTD operands from one 10-Q. FIGR software capex is $23.451M; lender owner-FCF restrictions remain.
 - Deterministic (R9): Name the cash-flow add-back and allocated-expense SBC bases separately, register TTM allocated expense ($113.732M for FIGR), name the revenue-ratio basis, and remove allocated expense as a cash-flow fallback.
-- Deterministic bases (R9): Tests, read-only snapshot replay and new registry IDs are recorded in `docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`.
+- Deterministic bases (R9): Tests, read-only snapshot replay and new registry IDs are recorded in [`docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-r9-figr-deterministic-fixes.md).
 - Evidence (R8): Keep complete filing sentences, referenced KPI definitions and footnotes,
   financing lifecycle qualifications, material component and sensitivity tables,
   expense drivers, dated repurchase capacity and third-party cash context.
@@ -715,7 +977,7 @@ debt admission and version constants are unchanged. See D-205.
   FRED monthly observation dates and CPI year-over-year transforms.
 - Evidence (R8): Frozen FIGR replay: all 11 requested evidence items retained, 342,155 to
   341,152 characters (−1,003). Stored data are unchanged.
-  See [R8 audit](docs/audit/2026-11-02-r8-figr-evidence-selection.md).
+  See [R8 audit](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-r8-figr-evidence-selection.md).
 - Verifier (R7): Match conservative producer-bound metric paraphrases, simple inflections, explicit fraction annotations, percentage-point slopes and signed distances below the 52-week high.
 - Verifier (R7): Establish annual and calendar-quarter fiscal names only from the retained annual filing basis; match the cash bridge's complete TTM interval and declared basis without changing payload labels.
 - Verifier (R7): Bind complete SEC and operating-update table headers, scoped exclusion footnotes, dated level comparisons and accounting-negative percentages. Retain numeric-only prose support and all ambiguity, unit, period and operand-order refusals.
@@ -741,7 +1003,7 @@ debt admission and version constants are unchanged. See D-205.
 - Render lender conventions once, with short metric-specific references elsewhere; keep the full EV bridge and guidance diagnostics in the audit companion.
 - Match captions and visible valuation sections to the retained model and available quarters, naming gaps without inventing rows. Use readable metric labels, percentages, scaled case-strength labels and grouped amounts.
 - Keep print numbers, units and dates together, split wide tables with repeated row labels, name the downloaded audit companion, and identify excluded provider peers as scale context.
-- Presentation only, including saved reports: no stored rows, computations, payload strings, prompts or version stamps change. Regression and gate receipts are recorded in `docs/audit/2026-11-02-r3-figr-readability.md`.
+- Presentation only, including saved reports: no stored rows, computations, payload strings, prompts or version stamps change. Regression and gate receipts are recorded in [`docs/audit/2026-11-02-r3-figr-readability.md`](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-r3-figr-readability.md).
 - Integration review: when no cash-flow model exists, keep each case's "What would have to be true" and qualitative commentary under "Scenario conditions (qualitative)" on every reader surface (R3 had dropped the scenario cards with the scaffolding; on the paid FIGR report they are the analysis's own bull/base/bear conditions); lines every case shares are stated once.
 - Integration review: print the quarterly trend's own notes (rejected or currency-cut rows, derived cash flow, withheld operating amounts and R2's operating-expense basis) beside the trend, with a status row when no quarter is shown, instead of under management guidance.
 - Integration review (final data-only FIGR run): a quarter whose every shown value is withheld (FIGR's Q4 FY2024: refused revenue, then R2's withheld operating expenses) is named as a missing quarter instead of printed as a row of dashes.
@@ -793,7 +1055,7 @@ debt admission and version constants are unchanged. See D-205.
   statement is one citable figure; it was also printed as an identical note.
 
 Fictional regression tests and a read-only replay of the paid snapshot are
-recorded in [the R6 disposition](docs/audit/2026-11-02-r6-figr-governance-bridge.md).
+recorded in [the R6 disposition](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-r6-figr-governance-bridge.md).
 Stored reports are unchanged. Shared version stamps are reserved for the integrator.
 
 ## Unreleased - R1/R4 FIGR paid-run audit: evidence, run accounting and analysis rules (2026-11-02)
@@ -1174,7 +1436,7 @@ JOB-202: Retry reuses compatible frozen inputs and Stage B configuration when
 reusing accepted analyst or synthesis work. The snapshot hash and capture time
 stay unchanged; current-clock validation and the payload fingerprint still
 guard reuse. No automatic paid replay, ledger rewrite or stored-report rewrite.
-See the [disposition](docs/audit/2026-11-02-paid-work-lifecycle.md).
+See the [disposition](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md).
 
 ## Unreleased - P0 review fixes (2026-11-02)
 
@@ -1186,7 +1448,7 @@ Preserves rejected provider responses for diagnosis separately from accepted sec
 
 ## Unreleased - bounded report recovery and integrity (2026-11-01)
 
-Retains validated synthesis sections within shared request and monetary limits, prevents automatic replay of billed or uncertain requests, and records mandatory workflow completion separately from verification scope. Fiscal aliases require comparable source scope; refused recent cash flows withhold runway. Exact-attempt provenance and the quote-unit correction are shared with exports. Built on updated main; historical reports and DCF arithmetic are preserved. See [D-140](docs/audit/DECISIONS.md#d-140---current-main-report-integrity-and-bounded-recovery-2026-11-01) and [the verification checkpoint](docs/audit/2026-11-01-current-main-integration.md). No new live provider success is claimed.
+Retains validated synthesis sections within shared request and monetary limits, prevents automatic replay of billed or uncertain requests, and records mandatory workflow completion separately from verification scope. Fiscal aliases require comparable source scope; refused recent cash flows withhold runway. Exact-attempt provenance and the quote-unit correction are shared with exports. Built on updated main; historical reports and DCF arithmetic are preserved. See [D-140](docs/audit/DECISIONS.md#d-140---current-main-report-integrity-and-bounded-recovery-2026-11-01) and [the verification checkpoint](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-01-current-main-integration.md). No new live provider success is claimed.
 
 ## Unreleased - prospective measurement and report reliability (2026-10-31)
 
@@ -1712,7 +1974,7 @@ PR37 review follow-up expands ingestion to retain source/value-distinct parsed r
 
 - Guard canonical EDGAR gross-profit construction and admission, preserving directly filed subtotals and serializing partial-cost refusals. Propagation requires compatible vendor/source scope and preserves existing refusals.
 - Use immutable refusal-aware disclosure reads for guidance and quarterly trends, including CFO aliases; restore Unicode dateline separators.
-- Advance report1.29.1/payload1.34.1/pipeline stage-c-1.5.1/Stage B ACCOUNTING_EVIDENCE_10. Full gates and fresh independent review remain required. See [correction record](docs/audit/2026-10-19-phase-one-review-corrections.md).
+- Advance report1.29.1/payload1.34.1/pipeline stage-c-1.5.1/Stage B ACCOUNTING_EVIDENCE_10. Full gates and fresh independent review remain required. See [correction record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-10-19-phase-one-review-corrections.md).
 
 ## Proposed phase-one evidence completion (2026-10-19)
 
@@ -1839,7 +2101,7 @@ See the [disposition](docs/audit/2026-10-17-book-to-code-disposition.md) and
   periods explicitly, and distinguish an untraced figure from a missing citation.
   Keep the remaining generated bridge/citation defects documented in the audit.
 - Advance report/payload and replay implementation identities. Stored report
-  bytes remain unchanged; see the [audit record](docs/audit/2026-10-15-amzn-integrity.md)
+  bytes remain unchanged; see the [audit record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-10-15-amzn-integrity.md)
   for reproductions, verification and reliance limits.
 
 ## Unreleased - Metis identity (2026-10-14)

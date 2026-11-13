@@ -83,27 +83,34 @@ function liabilityRows(text: string): { label: string; values: number[] }[] | nu
   return null;
 }
 
-export function reconcileDebtPresentation(input: DebtPresentationInput): DebtPresentationResult {
-  if (!sourceMatches(input)) return result("unestablished", "statement and tagged debt lack matching issuer, filing, period or currency identity");
-  if (!Number.isFinite(input.tagValue) || input.tagValue < 0) return result("unestablished", "tagged debt amount is not a nonnegative finite value");
-  const text = normalizeFilingText(input.text);
+/** The consolidated balance sheet's header: its scale and the period's column, or why they are not established. */
+function balanceSheetHeader(rawText: string, reportDate: string, periodEnd: string): { rest: string; header: string; scale: number; column: number } | { reason: string } {
+  const text = normalizeFilingText(rawText);
   const heading = /\b(?:CONDENSED\s+)?CONSOLIDATED BALANCE SHEETS?\b/i.exec(text);
-  if (heading === null) return result("unestablished", "no supported consolidated balance-sheet heading");
+  if (heading === null) return { reason: "no supported consolidated balance-sheet heading" };
   const rest = text.slice(heading.index, heading.index + 10_000);
   const assetsAt = /\bASSETS\b/i.exec(rest)?.index;
-  if (assetsAt === undefined || assetsAt > 800) return result("unestablished", "balance-sheet header is incomplete");
+  if (assetsAt === undefined || assetsAt > 800) return { reason: "balance-sheet header is incomplete" };
   const header = rest.slice(0, assetsAt);
   const scaleName = SCALE_HEADER.exec(header)?.[1]?.toLowerCase();
   const scale = scaleName === "thousands" ? 1e3 : scaleName === "millions" ? 1e6 : scaleName === "billions" ? 1e9 : null;
   const dates = [...header.matchAll(new RegExp(MONTH_DATE, "g"))].map((m) => isoFromMonthDate(m[0]));
   if (scale === null || dates.length !== 2 || dates.some((date) => date === null) || dates[0] === dates[1] ||
-      dates[0] !== input.source.reportDate || !dates.includes(input.periodEnd)) return result("unestablished", "statement scale or date columns do not bind to the source reporting period");
+      dates[0] !== reportDate || !dates.includes(periodEnd)) return { reason: "statement scale or date columns do not bind to the source reporting period" };
   // A narrow supported header grammar prevents an explicit foreign currency
   // or a second unit declaration from being silently ignored.
   const headerRemainder = header.replace(heading[0], "").replace(SCALE_HEADER, "")
     .replace(new RegExp(MONTH_DATE, "g"), "").replace(/\(?Unaudited\)?|\bUSD\b|\bU\.S\. dollars\b/gi, "").replace(/[\s,$()]/g, "");
-  if (headerRemainder !== "") return result("unestablished", "statement header has an unsupported currency or additional unit/context declaration");
-  const column = dates.indexOf(input.periodEnd);
+  if (headerRemainder !== "") return { reason: "statement header has an unsupported currency or additional unit/context declaration" };
+  return { rest, header, scale, column: dates.indexOf(periodEnd) };
+}
+
+export function reconcileDebtPresentation(input: DebtPresentationInput): DebtPresentationResult {
+  if (!sourceMatches(input)) return result("unestablished", "statement and tagged debt lack matching issuer, filing, period or currency identity");
+  if (!Number.isFinite(input.tagValue) || input.tagValue < 0) return result("unestablished", "tagged debt amount is not a nonnegative finite value");
+  const sheet = balanceSheetHeader(input.text, input.source.reportDate, input.periodEnd);
+  if ("reason" in sheet) return result("unestablished", sheet.reason);
+  const { rest, header, scale, column } = sheet;
   const current = /\bCurrent liabilities\s*:/i.exec(rest);
   if (current === null) return result("unestablished", "no current-liability group");
   const body = rest.slice(current.index + current[0].length);
@@ -136,4 +143,64 @@ export function reconcileDebtPresentation(input: DebtPresentationInput): DebtPre
       text: `${header}Current liabilities: ${bounded}` },
     reason: scope === "noncurrent" ? "the exact tagged amount is the reconciled noncurrent balance-sheet line; current maturities must not be subtracted again"
       : "the tagged amount includes current maturities; subtracting the sourced current maturities reconciles to the noncurrent balance-sheet line" };
+}
+
+/** One named balance-sheet line of a filing, in the statement currency's units. */
+export interface FiledDebtLine { name: string; value: number }
+
+/** The provenance tag of a debt figure whose composition the filing's own balance-sheet lines name. */
+export const BALANCE_SHEET_DEBT_LINES_TAG = "filing:balance-sheet:debt-lines";
+
+/**
+ * The debt lines and the payables to third-party loan owners that a
+ * held-for-sale lender's balance sheet names (D-149 F1), first amount column,
+ * stated in thousands. Narrow on purpose: any other caption or scale
+ * establishes nothing. The caller binds the amounts to a period (D-234: by the
+ * same filing's tagged totals), never from this text alone.
+ */
+export function lenderDebtLines(statementsText: string | undefined): FiledDebtLine[] {
+  const sheet = (statementsText ?? "").split(/\bBALANCE SHEETS?\b/i)[1]?.split(/\b(?:CONSOLIDATED )?STATEMENTS OF\b/i)[0] ?? "";
+  return /in thousands/i.test(sheet) ? [...sheet.matchAll(/\b(Payables to third-party loan owners|Debt, (?:non-current|current(?: to related parties)?))\s*(?:\([^)]*\)\s*)?\$?\s*([\d,]+)/gi)]
+    .map(m => ({ name: m[1]!, value: Number(m[2]!.replaceAll(",", "")) * 1000 })) : [];
+}
+
+/** The provenance tag of a figure read off the liability lines of a filing's unclassified balance sheet (D-250). */
+export const BALANCE_SHEET_LIABILITY_LINES_TAG = "filing:balance-sheet:liability-lines";
+
+/**
+ * D-250 (P7): every liability line of an unclassified consolidated balance sheet (one with no current-liability
+ * group, as an equity REIT presents), in the statement currency's units, with the total they add up to. Established
+ * only when the header binds the scale and the period's column (the grammar `reconcileDebtPresentation` reads), the
+ * rows from the liabilities heading to "Total liabilities" align in the two columns, and in both columns the rows
+ * add up to that total exactly. A classified sheet, a negative amount or any row that does not align establishes
+ * nothing. The caller binds the amounts to the filing's tagged facts; this text alone proves no figure.
+ */
+export function unclassifiedLiabilityLines(statementsText: string | undefined, reportDate: string, periodEnd: string): { lines: FiledDebtLine[]; total: number } | null {
+  const sheet = balanceSheetHeader(statementsText ?? "", reportDate, periodEnd);
+  if ("reason" in sheet) return null;
+  const heading = /\bLIABILITIES AND (?:STOCKHOLDERS['’] |SHAREHOLDERS['’] )?EQUITY\b/.exec(sheet.rest);
+  if (heading === null) return null;
+  const body = sheet.rest.slice(heading.index + heading[0].length);
+  const total = /\bTotal liabilities\b(?!\s+and)/i.exec(body);
+  if (total === null) return null;
+  const bounded = body.slice(0, total.index + total[0].length + 100);
+  if (/\bcurrent liabilities\b/i.test(bounded)) return null;
+  const rows = liabilityRows(bounded);
+  if (rows === null || rows.length < 2) return null;
+  const lines = rows.slice(0, -1);
+  for (const index of [0, 1]) {
+    if (lines.some((row) => row.values[index]! < 0) || !same(lines.reduce((sum, row) => sum + row.values[index]!, 0), rows.at(-1)!.values[index]!)) return null;
+  }
+  return { lines: lines.map((row) => ({ name: row.label, value: row.values[sheet.column]! * sheet.scale })), total: rows.at(-1)!.values[sheet.column]! * sheet.scale };
+}
+
+/** True when the document is the named accession's own file under the issuer's EDGAR folder. */
+export function filingDocumentBinds(source: { accession: string; documentUrl: string }, cik: number | string): boolean {
+  if (!/^\d{10}-\d{2}-\d{6}$/.test(source.accession) || !/^\d+$/.test(String(cik))) return false;
+  try {
+    const url = new URL(source.documentUrl);
+    const path = /^\/Archives\/edgar\/data\/(\d+)\/(\d{18})\/[^/]+$/.exec(url.pathname);
+    return url.protocol === "https:" && (url.hostname === "www.sec.gov" || url.hostname === "sec.gov") && !url.port && !url.username && !url.password &&
+      path !== null && Number(path[1]) === Number(cik) && path[2] === source.accession.replaceAll("-", "");
+  } catch { return false; }
 }

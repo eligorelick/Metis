@@ -17,7 +17,7 @@ function editing(target: EventTarget | null) {
 
 /** Only the small launcher is eager. The modal code loads on first request. */
 export function CommandLauncher() {
-  const { layout, coverage, coverageAvailable } = useUiDesign();
+  const { coverage, coverageAvailable } = useUiDesign();
   const [Palette, setPalette] = useState<ComponentType<CommandPaletteProps> | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -45,7 +45,6 @@ export function CommandLauncher() {
     finally { pending.current = false; if (live.current) setLoading(false); }
   }, [Palette]);
   useEffect(() => {
-    if (layout !== "dossier") return;
     function shortcut(event: KeyboardEvent) {
       if (event.defaultPrevented || event.isComposing || event.repeat || editing(event.target) || hasModal()) return;
       const slash = event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey;
@@ -55,8 +54,7 @@ export function CommandLauncher() {
     }
     document.addEventListener("keydown", shortcut);
     return () => document.removeEventListener("keydown", shortcut);
-  }, [layout, requestOpen]);
-  if (layout !== "dossier") return null;
+  }, [requestOpen]);
   return <div className="command-launcher">
     <button ref={button} type="button" aria-label="Search research" title="Search research · Ctrl/Cmd+K or /" disabled={!hydrated || loading} onClick={() => void requestOpen(button.current)}>
       <svg aria-hidden="true" width="15" height="15" viewBox="0 0 20 20" fill="none"><circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" strokeWidth="1.5" /><path d="m13 13 4 4" stroke="currentColor" strokeWidth="1.5" /></svg>

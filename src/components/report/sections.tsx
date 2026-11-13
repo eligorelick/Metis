@@ -1,5 +1,6 @@
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { reverseDcfValueText } from "@/report/presentation";
+import { VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView } from "@/report/presentation";
 import { macroDisplayRows, type MacroDisplayRow } from "@/report/presentation";
 import { shownDataState } from "@/report/completeness";
 import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, unavailableModelInputTables } from "@/report/readerConventions";
@@ -20,13 +21,12 @@ import { displayedProvenanceCoverage } from "@/report/presentation";
  */
 
 import type { ReactNode } from "react";
-import { ReportTrustDetails, ReportTrustSummary } from "./ReportTrustSummary";
+import { ReportTrustSummary } from "./ReportTrustSummary";
 import { ReportSnapshotDetails } from "./ReportSnapshotHeader";
 import { evidencePercentText, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
-import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
+import { projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import {
   annualSegmentHeading,
   assessmentLine,
@@ -143,7 +143,6 @@ import {
   projectionUnavailabilityNote,
 } from "@/report/surfaceManifest";
 
-import { SensitivityHeatmap } from "@/components/charts/SensitivityHeatmap";
 import { CapitalBridge } from "./CapitalBridge";
 import { RecordedSensitivity } from "./RecordedSensitivity";
 import { ValuationSensitivityTables } from "./ValuationSensitivityTables";
@@ -160,7 +159,6 @@ import {
   ClaimReasoning,
   formatMultiple,
   formatNumber,
-  formatPct,
   GradeReasoning,
   HeadlineGrade,
   ScenarioCard,
@@ -346,16 +344,15 @@ export function GradeStripBar({
   gradeStrip,
   compact = false,
   scores,
-  presentation = "default",
 }: {
   gradeStrip: Verdict["gradeStrip"];
+  /** The sticky section-assessment shortcuts; otherwise the full grade cards with rationales. */
   compact?: boolean;
   /** D-67: the deterministic scores, so a limited-evidence aspect shows its score and marker. */
   scores?: Scoring;
-  presentation?: "default" | "dossier";
 }) {
   const entries = gradeSurfaceEntries(gradeStrip);
-  if (compact && presentation === "dossier") {
+  if (compact) {
     const nav = <nav className="dossier-grade-navigation" aria-label="Section assessment shortcuts">
     {entries.map(({ descriptor, block }) => <a key={descriptor.id} href={`#${sectionAnchorId(descriptor.sectionKey)}`} title={`${descriptor.label}: ${block.oneLineWhy}`} aria-label={`${descriptor.label}: ${gradeDisplayLabel(block, scores?.aspects[descriptor.key])}`}>
       <span className="text-muted">{descriptor.key === "leadership" ? "Leadership proxy" : descriptor.label}</span><HeadlineGrade block={block} aspect={scores?.aspects[descriptor.key]} />
@@ -386,11 +383,9 @@ export function GradeStripBar({
               </span>
               <HeadlineGrade block={block} aspect={scores?.aspects[descriptor.key]} />
             </div>
-            {!compact && (
-              <p className="line-clamp-2 text-[10px] leading-snug text-faint">
-                {displayProse(block.oneLineWhy)}
-              </p>
-            )}
+            <p className="line-clamp-2 text-[10px] leading-snug text-faint">
+              {displayProse(block.oneLineWhy)}
+            </p>
             {plainFigureWarning(block.oneLineWhy) ? <span role="note" className="text-[10px] leading-snug text-muted">{plainFigureWarning(block.oneLineWhy)}</span> : null}
           </a>
         );
@@ -421,17 +416,16 @@ function ExtraAuditTables({ tables }: { tables: readonly (ReportAuditTable | Bod
   })}</>;
 }
 
-export function CompositeScorecard({ scores, mode = "default" }: { scores: Scoring; mode?: "default" | "cover" }) {
+export function CompositeScorecard({ scores }: { scores: Scoring }) {
   const c = scores.composite;
   // F-19: no letter under the evidence floor; the qualifier inside 45–55.
   const shown = compositeDisplay(scores);
   return (
-    <div className={`${mode === "cover" ? "dossier-scorecard" : ""} border border-edge-strong bg-panel`}>
+    <div className="dossier-scorecard border border-edge-strong bg-panel">
       <div className="flex items-center justify-between gap-2 border-b border-edge px-3 py-1.5">
-        <SectionHeading>{mode === "cover" ? "Deterministic scorecard" : "composite scorecard"}</SectionHeading>
-        {mode !== "cover" && <span className="mono text-[9px] text-faint">House scoring bands</span>}
+        <SectionHeading>Deterministic scorecard</SectionHeading>
       </div>
-      {mode === "cover" && <p className="scorecard-scale">All aspect bars: 0–100; center marker 50. Limited evidence withholds the headline band.</p>}
+      <p className="scorecard-scale">All aspect bars: 0–100; center marker 50. Limited evidence withholds the headline band.</p>
       <div className="scorecard-summary flex flex-col gap-3 px-3 py-3 lg:flex-row lg:items-center">
         <div className="flex shrink-0 items-center gap-3 border-b border-edge pb-3 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4">
           <div className="flex flex-col">
@@ -463,7 +457,7 @@ export function CompositeScorecard({ scores, mode = "default" }: { scores: Scori
                 title={withoutDecisionNumbers(a.notApplicableReason ?? a.note)}
               >
                 <span className="text-[9px] uppercase tracking-[0.09em] text-faint">{descriptor.label}</span>
-                {mode === "cover" && a.score !== null && !hasLimitedEvidence(a) && <span className="factor-score-track" aria-hidden="true"><i style={{ width: `${a.score}%` }} /></span>}
+                {a.score !== null && !hasLimitedEvidence(a) && <span className="factor-score-track" aria-hidden="true"><i style={{ width: `${a.score}%` }} /></span>}
                 <div className="flex items-center justify-between gap-1">
                   {hasLimitedEvidence(a)
                     ? <span className="mono text-[10px] text-warn">limited evidence</span>
@@ -473,12 +467,12 @@ export function CompositeScorecard({ scores, mode = "default" }: { scores: Scori
                       className="mono text-[9px] text-warn"
                       title={`Signal evidence availability ${evidencePercentText(a.dataCompleteness)}; recorded fraction ${a.dataCompleteness}`}
                     >
-                      {evidencePercentText(a.dataCompleteness)}{mode === "cover" ? " evidence" : ""}
+                      {evidencePercentText(a.dataCompleteness)} evidence
                     </span>
                   )}
                 </div>
                 {!hasLimitedEvidence(a) && scores.qualification?.aspects[descriptor.key].status === "provisional" && <span className="text-[9px] text-warn">Provisional</span>}
-                {mode === "cover" && <span className="scorecard-weight">{a.weightPct}% weight</span>}
+                <span className="scorecard-weight">{a.weightPct}% weight</span>
               </a>
             );
           })}
@@ -488,12 +482,8 @@ export function CompositeScorecard({ scores, mode = "default" }: { scores: Scori
         <p className="text-[11px] text-muted">Composite: {compositeNote(scores)}</p>
         {assessmentLine(scores) && <p className="text-[11px] text-muted">{assessmentLine(scores)}</p>}
         <ExtraAuditTables tables={[gradeReliabilityTable(scores)]} />
-        {mode === "cover" ? <details className="dossier-score-audit"><summary>Score methodology &amp; recorded inputs</summary><p className="mono">Band policy: {scores.bandsVersion}</p><p>{c.methodology}</p><div><ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} /></div></details>
-          : <ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} />}
+        <details className="dossier-score-audit"><summary>Score methodology &amp; recorded inputs</summary><p className="mono">Band policy: {scores.bandsVersion}</p><p>{c.methodology}</p><div><ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} /></div></details>
       </div>
-      {mode !== "cover" && <div className="border-t border-edge px-3 py-1.5">
-        <p className="text-[10px] leading-snug text-faint">{c.methodology}</p>
-      </div>}
     </div>
   );
 }
@@ -921,28 +911,6 @@ export function BalanceSheetSection({
  * §7.5 Valuation (graded)
  * ======================================================================== */
 
-function SensitivityGrid({ dcf, recordedPerShare = dcf.perShare }: { dcf: Valuation["dcf"]; recordedPerShare?: Valuation["dcf"]["perShare"] }) {
-  const cells = dcf.sensitivityGrid;
-  if (cells.length === 0) {
-    return <div className="text-[11px] text-faint">no sensitivity grid</div>;
-  }
-  // Highlight the middle (WACC, g) pair as the base case — the single shared
-  // SensitivityHeatmap (src/components/charts) owns axis derivation + coloring.
-  const waccs = [...new Set(cells.map((c) => c.waccPct))].sort((a, b) => a - b);
-  const gs = [...new Set(cells.map((c) => c.gTermPct))].sort((a, b) => a - b);
-  const baseWacc = waccs[Math.floor(waccs.length / 2)] ?? null;
-  const baseG = gs[Math.floor(gs.length / 2)] ?? null;
-
-  return (
-    <SensitivityHeatmap
-      cells={cells}
-      baseWacc={baseWacc}
-      baseG={baseG}
-      currency={recordedPerShare ? establishedCurrency(recordedPerShare.unit, recordedPerShare.currency) : null}
-    />
-  );
-}
-
 function MultiplesTable({ rows }: { rows: readonly MultipleRow[] }) {
   const cols: Column<MultipleRow>[] = [
     {
@@ -1076,7 +1044,6 @@ export function ValuationSection({
   thesisTriggers,
   report,
   grading = {},
-  presentation = "classic",
 }: {
   /** D-62: consensus/market data and the filing tables that are some figures' home. */
   report?: Report;
@@ -1087,14 +1054,15 @@ export function ValuationSection({
   routeMetrics?: RouteMetrics;
   index: number;
   openReasoning?: boolean;
-  presentation?: "classic" | "dossier";
 } & ValuationReviewInputs) {
   const { dcf, reverseDcf } = valuation;
   const noModel = report ? unavailableCashFlowModel(report) : false;
   const recordedPerShare = recordedValuationTrace(dcf, fairValue);
-  const modelLabel = presentation === "classic" ? (fairValue?.method === "excess-return" ? "Excess-return \u00b7 model value / share" : "DCF \u00b7 intrinsic value / share")
-    : fairValue?.method === "excess-return" ? "Excess-return · model value / share"
-      : fairValue?.method === "fcff-dcf" ? "FCFF DCF · model value / share" : "Recorded model value / share";
+  // P22: the headline, its caveats and the scenario rows are decided in presentation.ts.
+  const headline = valuationHeadlineView(valuation, fairValue, "dossier");
+  const noModelText = valuationNoModelWithheldText(fairValue, "dossier");
+  const scenarioView = valuationScenarioView(valuation, scenarioPresentation, "dossier");
+  const targetsCaveat = scenarioTargetsCaveat(scenarioTargets, (text) => text);
   return (
     <SectionFrame id="valuation" index={index} title="Valuation">
       {/* D-62: evidence timing is in the audit export. */}
@@ -1107,41 +1075,39 @@ export function ValuationSection({
       />
 
       {/* DCF headline + reverse-DCF callout */}
-      {noModel ? <><p className="text-[11px] leading-snug text-muted">{cashFlowModelExplanation(report!)}</p>{fairValue && <p className="text-[11px] leading-snug text-faint">{displayProse(fairValueWithheldText(fairValue))}</p>}<ExtraAuditTables tables={unavailableModelInputTables(report!)} /></> : <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      {noModel ? <><p className="text-[11px] leading-snug text-muted">{cashFlowModelExplanation(report!)}</p>{noModelText !== null && <p className="text-[11px] leading-snug text-faint">{noModelText}</p>}<ExtraAuditTables tables={unavailableModelInputTables(report!)} /></> : <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="flex flex-col gap-2 border border-edge bg-raised px-3 py-2.5">
           <div className="text-[9px] uppercase tracking-[0.1em] text-faint">
-            {modelLabel}
+            {headline.label}
           </div>
-          {dcf.perShare ? (
-            <TracedFigure n={dcf.perShare} tone="accent" className="text-[24px]" />
+          {headline.perShare ? (
+            <TracedFigure n={headline.perShare} tone="accent" className="text-[24px]" />
           ) : (
             // Deterministic fair value suppressed (no per-share model / insufficient
             // inputs) — show "unavailable", never a fabricated number.
-            <span className="mono text-[15px] text-faint">unavailable</span>
+            <span className="mono text-[15px] text-faint">{VALUATION_WITHHELD_TEXT}</span>
           )}
-          {dcf.perShare && dcf.upsidePct !== null && (
+          {headline.comparison && (
             <div className="mono text-[12px]">
-              <span className="text-faint">vs price </span>
-              <span className={dcf.upsidePct >= 0 ? "text-pos" : "text-neg"}>
-                {formatPct(dcf.upsidePct, 1, true)}
+              <span className="text-faint">{`${headline.comparison.label} `}</span>
+              <span className={headline.comparison.tone === "pos" ? "text-pos" : "text-neg"}>
+                {headline.comparison.text}
               </span>
             </div>
           )}
           {/* Audit 2026-10-22 F-13: substituted inputs are named beside the value they moved. */}
-          {dcf.perShare && fairValueDegradedText(fairValue) && (
-            <p className="text-[11px] leading-snug text-warn">{displayProse(fairValueDegradedText(fairValue)!)}</p>
+          {headline.degradedCaveat !== null && (
+            <p className="text-[11px] leading-snug text-warn">{headline.degradedCaveat}</p>
           )}
-          {dcf.perShare && <TracedNumberSourceDetails n={dcf.perShare} label={presentation === "dossier" || fairValue?.method === "excess-return" ? "Model value provenance" : "DCF provenance"} />}
-          {fairValue ? (
+          {headline.perShare && <TracedNumberSourceDetails n={headline.perShare} label={headline.provenanceLabel} />}
+          {headline.basisCaveat !== null ? (
             <p className="text-[10px] leading-snug text-faint">
-              {fairValue.status === "available"
-                ? displayProse(fairValue.basis.join(" "))
-                : fairValueWithheldText(fairValue)}
+              {headline.basisCaveat}
             </p>
           ) : null}
           <div className="mt-1 border-t border-edge pt-2">
             <div className="text-[9px] uppercase tracking-[0.1em] text-faint">
-              {presentation === "dossier" ? "Reverse valuation — market-implied assumptions" : "reverse DCF — market is pricing"}
+              Reverse valuation — market-implied assumptions
             </div>
             <div className="mono mt-0.5 text-[13px] text-warn">
               {reverseDcfValueText(reverseDcf.impliedMetric, reverseDcf.impliedValue) === "\u2014"
@@ -1154,7 +1120,7 @@ export function ValuationSection({
           </div>
         </div>
 
-        <SubBlock label={presentation === "dossier" ? "Recorded valuation assumptions" : fairValue?.method === "excess-return" ? "Valuation assumptions" : "DCF assumptions"}>
+        <SubBlock label="Recorded valuation assumptions">
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[11px]">
               <thead>
@@ -1191,10 +1157,10 @@ export function ValuationSection({
         </SubBlock>
       </div>}
 
-      {!noModel && presentation === "dossier" && <CapitalBridge dcf={dcf} recordedPerShare={recordedPerShare} />}
-      {!noModel && <SubBlock label={presentation === "dossier" ? "Recorded sensitivity cases" : fairValue?.method === "excess-return" ? "sensitivity \u00b7 per share" : "sensitivity · per share (rows = WACC, cols = terminal g) — green high → red low"}>
-        {presentation === "dossier" ? dcf.sensitivityGrid.length > 0 ? <RecordedSensitivity key={JSON.stringify([dcf.sensitivityGrid, dcf.perShare?.currency, dcf.perShare?.unit])} cells={dcf.sensitivityGrid} currency={recordedPerShare ? establishedCurrency(recordedPerShare.unit, recordedPerShare.currency) : null} /> : <p className="text-muted">No WACC × terminal growth grid was recorded for this valuation method.</p> : <SensitivityGrid dcf={dcf} recordedPerShare={recordedPerShare} />}
-        {presentation === "dossier" ? <ValuationSensitivityTables dcf={dcf} recordedPerShare={recordedPerShare} /> : <ExtraAuditTables tables={valuationAuditTables(dcf, recordedPerShare)} />}
+      {!noModel && <CapitalBridge dcf={dcf} recordedPerShare={recordedPerShare} />}
+      {!noModel && <SubBlock label="Recorded sensitivity cases">
+        {dcf.sensitivityGrid.length > 0 ? <RecordedSensitivity key={JSON.stringify([dcf.sensitivityGrid, dcf.perShare?.currency, dcf.perShare?.unit])} cells={dcf.sensitivityGrid} currency={recordedPerShare ? establishedCurrency(recordedPerShare.unit, recordedPerShare.currency) : null} /> : <p className="text-muted">No WACC × terminal growth grid was recorded for this valuation method.</p>}
+        <ValuationSensitivityTables dcf={dcf} recordedPerShare={recordedPerShare} />
       </SubBlock>}
 
       <SubBlock label="multiples vs peers & own 5-yr history">
@@ -1205,22 +1171,17 @@ export function ValuationSection({
 
       <ValuationReview valuation={valuation} scenarioPresentation={noModel ? undefined : scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} symbol={report?.meta.symbol} />
 
-      {!noModel && <SubBlock label={scenarioPresentation ? "scenarios · sensitivity cases (bull / base / bear)" : "scenarios · probability-weighted (bull / base / bear)"}>
+      {!noModel && <SubBlock label={scenarioView.heading}>
         <p className="mb-2 text-[11px] leading-snug text-faint">
-          {scenarioPresentation?.weightBasis ?? "Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable."}
+          {scenarioView.weightBasis}
         </p>
-        {scenarioTargets ? (
+        {targetsCaveat !== null ? (
           <p className="mb-2 text-[11px] leading-snug text-faint">
-            {scenarioTargets.status === "available"
-              ? `Price targets are computed-derived (${scenarioTargets.method}), not analyst targets. ${displayProse(scenarioTargets.basis.join(" "))}`
-              : `Scenario price targets suppressed — ${
-                  scenarioTargets.missingReasons.map((m) => m.reason).join("; ") ||
-                  scenarioTargets.basis.join(" ")
-                }`}
+            {targetsCaveat}
           </p>
         ) : null}
         {(() => {
-          const { common } = splitCommonLines(valuation.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
+          const { common } = scenarioView;
           return common.length > 0 ? (
             <div className="mb-2">
               <div className="mb-1 text-[9px] uppercase tracking-[0.1em] text-faint">assumptions common to every scenario</div>
@@ -1229,25 +1190,19 @@ export function ValuationSection({
           ) : null;
         })()}
         <div className="grid gap-3 lg:grid-cols-3">
-          {["bull", "base", "bear"].map((name) => {
-            const s = valuation.scenarios.find((sc) => sc.name === name);
-            if (!s) return null;
-            const scenarioIndex = valuation.scenarios.indexOf(s);
-            const specific = splitCommonLines(valuation.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line))))).specific[scenarioIndex] ?? [];
-            return (
-              <ScenarioCard
-                key={name}
-                name={s.name}
-                probability={s.probability}
-                priceTarget={s.priceTarget}
-                horizon={s.horizon}
-                assumptions={specific}
-                whatWouldHaveToBeTrue={s.whatWouldHaveToBeTrue.map(scenarioListItem)}
-                weightLabel={scenarioPresentation ? "Display weight" : "p"}
-                qualitativeCommentary={s.qualitativeCommentary?.map(scenarioListItem)}
-              />
-            );
-          })}
+          {scenarioView.rows.map(({ scenario: s, target, weight, assumptions }) => (
+            <ScenarioCard
+              key={s.name}
+              name={s.name}
+              probability={s.probability}
+              priceTarget={target}
+              horizon={s.horizon}
+              assumptions={assumptions}
+              whatWouldHaveToBeTrue={s.whatWouldHaveToBeTrue.map(scenarioListItem)}
+              weight={weight}
+              qualitativeCommentary={s.qualitativeCommentary?.map(scenarioListItem)}
+            />
+          ))}
         </div>
       </SubBlock>}
       {noModel && <QualitativeScenarios scenarios={valuation.scenarios} />}
@@ -2149,14 +2104,12 @@ export function AppendixSection({
   selectedReportId,
   selectedReportStatus,
   completeness,
-  showTrustDetails = false,
   index,
 }: {
   report: Report;
   selectedReportId?: number;
   selectedReportStatus?: string;
   completeness?: ReportCompletenessPresentation;
-  showTrustDetails?: boolean;
   index: number;
 }) {
   const appendix: Appendix = report.appendix;
@@ -2193,7 +2146,7 @@ export function AppendixSection({
         <ReportSnapshotDetails report={report} reportId={selectedReportId} status={selectedReportStatus} />
         <ReportMetaStrip report={report} selectedReportId={selectedReportId} completeness={presentation} />
       </SubBlock>
-      {showTrustDetails ? <ReportTrustDetails report={report} completeness={presentation} /> : <ReportTrustSummary report={report} completeness={presentation} />}
+      <ReportTrustSummary report={report} completeness={presentation} />
       {/* D-62: the standard limitations, stated once. */}
       <SubBlock label="methodology and limitations">
         <ul className="flex flex-col gap-1">

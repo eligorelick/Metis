@@ -71,8 +71,8 @@ Saved reports have a **Rerun ticker** control and a **Delete** action with confi
 <!-- BEGIN GENERATED: config -->
 
 Every key is optional. This table is generated from `.env.example`, which carries the long form of each one.
-Its `METIS_*` lines ship commented out: a key that is set, even blank or invalid, wins over its legacy
-`THESIS_*` alias, so uncomment only what you mean to set. See [compatibility](docs/BRAND.md#compatibility).
+Its `METIS_*` lines ship commented out, so uncomment only what you mean to set. Old `THESIS_*` names are
+no longer read: if one is still set, Metis refuses to start and names its `METIS_*` replacement. See [compatibility](docs/BRAND.md#compatibility).
 
 | Key | Shipped value, built-in default or opt-in example | What it does |
 | --- | --- | --- |
@@ -102,12 +102,11 @@ Its `METIS_*` lines ship commented out: a key that is set, even blank or invalid
 | `METIS_DB_PATH` | unset (opt in) | Override the SQLite file (fresh default `<data dir>/metis.db`, with existing `thesis.db` or recovery files reused). |
 | `METIS_DATA_DIR` | unset (opt in) | Override the app-data directory used by the default DB and startup token. |
 | `METIS_IMPORT_LEGACY_DB` | `1` (opt in) | One-time migration only. |
-| `METIS_UI_REDESIGN` | `0` | Opt into the dossier UI. |
 | `NEXT_TELEMETRY_DISABLED` | `1` | The Next.js CLI behind `npm run dev` / `npm run build` posts anonymous usage events to telemetry.nextjs.org unless this is set. |
 
 <!-- END GENERATED: config -->
 
-Claude model/effort settings beat environment/defaults; reset with `npm run settings:reset -- --yes`. [Operations](docs/OPERATIONS.md) covers AI selection, jobs, exports and API contracts.
+Claude model/effort settings beat environment/defaults; reset with `npm run settings:reset -- --yes`. `METIS_UI_REDESIGN` is gone with the classic layout (D-246): the dossier is the only layout, and a leftover value is ignored. [Operations](docs/OPERATIONS.md) covers AI selection, jobs, exports and API contracts.
 
 ## Where the numbers come from
 
@@ -209,7 +208,7 @@ Metis has no telemetry, analytics or update check; its own outbound traffic goes
 The application is single-user and has no authentication; keep it on loopback
 unless you add a security layer of your own. Mutating routes reject a request
 carrying neither browser Fetch Metadata nor a matching `Origin`; browsers send
-those automatically; scripts send `X-Metis-Token` (legacy `X-Thesis-Token` accepted) with the contents of
+those automatically; scripts send `X-Metis-Token` (the old `X-Thesis-Token` is refused) with the contents of
 the `csrf-token` file the server writes at every start and names on stdout. That
 is a browser-CSRF boundary, not local access control: any process on the machine
 can present the same headers. Report security problems through the
@@ -244,7 +243,6 @@ repository's [private advisory form](https://github.com/eligorelick/Metis/securi
 | `npm run costs:reconcile` | Lower presumed spend rows against the Usage and Cost API. Needs ANTHROPIC_ADMIN_KEY. |
 | `npm run docs:config` | Print config/commands tables; add -- --write to update README. |
 | `npm run docs:pricing` | Print registry-derived pricing; add -- --write to update README. |
-| `npm run audit:deltas` | Print fixture comparison's intended deltas; add -- --write to update the intended-delta list. |
 | `npm run audit:security` | Audit production and dev dependencies; fail on low or higher severity. |
 | `npm run verify` | Everything the release gate runs, in order. |
 

@@ -17,7 +17,6 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 
 import { AppShell } from "@/components/shell";
-import { getConfig } from "@/config/env";
 import { CompanyBodySkeleton, SidebarSkeleton } from "./skeletons";
 import {
   AsOf,
@@ -71,7 +70,7 @@ import { readCompanyData, retainCompanyData } from "@/pipeline/companyData";
 import { RefreshCompanyData } from "@/components/report/RefreshCompanyData";
 import { normalizeRouteSymbol } from "@/symbol";
 import { notFound } from "next/navigation";
-import { FMP_EMPTY_ARRAY_REASON } from "@/providers/fmp";
+import { isConfirmedUnknownProfile } from "@/pipeline/unknownTicker";
 
 // The bundle reads keys from process.env at request time and hits the network
 // (live EDGAR/FINRA/FRED even keyless) — never statically render this route.
@@ -106,23 +105,6 @@ type PageData = SupportedPageData | UnsupportedPageData;
 const COMPANY_LOAD_MAX_CONCURRENT = 2;
 const COMPANY_LOAD_MAX_QUEUED = 8;
 const UNKNOWN_SYMBOL_NEGATIVE_TTL_MS = 15_000;
-
-/**
- * "This ticker does not exist" — as opposed to "we could not reach anyone who
- * would know". Only an affirmative answer counts: FMP replying with an empty
- * result, or, on a plan with no FMP key, SEC's own ticker table not listing the
- * symbol at all. A transport failure, a cooldown or a 403 is a degraded run and
- * must render the disclosed-gap page, never a 404.
- */
-function isConfirmedUnknownProfile(bundle: DataBundle): boolean {
-  if (bundle.profile.ok) return bundle.profile.value.data.rows.length === 0;
-  if (bundle.profile.gap.reason === FMP_EMPTY_ARRAY_REASON) return true;
-  // Keyless: FMP had nothing (no key, no fixture) AND EDGAR's ticker table has
-  // no such registrant.
-  const edgarMiss =
-    !bundle.edgar.cik.ok && /not in SEC company_tickers\.json/.test(bundle.edgar.cik.gap.reason);
-  return edgarMiss && /no API key/.test(bundle.profile.gap.reason);
-}
 
 async function loadCompany(symbol: string): Promise<PageData | null> {
   let stored: DataBundle | null = null;
@@ -206,14 +188,12 @@ function QuoteHeader({ bundle, computed }: { bundle: DataBundle; computed: Compu
   const changeTone: Tone = change === null ? "muted" : change >= 0 ? "pos" : "neg";
 
   const route = computed.route;
-  const NameTag = getConfig().uiRedesign ? "h1" : "span";
-
   return (
     <div className="live-company-masthead border border-edge bg-panel">
       <div className="live-company-heading flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-edge px-3 py-2">
         <div className="live-company-identity flex items-baseline gap-3">
           <span className="live-company-ticker mono text-[20px] font-semibold tracking-[0.08em] text-fg">{bundle.symbol}</span>
-          <NameTag className="live-company-name text-[13px] text-muted">{String(name)}</NameTag>
+          <h1 className="live-company-name text-[13px] text-muted">{String(name)}</h1>
           {exchange ? <span className="mono text-[10px] text-faint">{String(exchange)}</span> : null}
         </div>
         <Stamp sourced={quoteSourced} />
@@ -933,7 +913,6 @@ function readRunRoute(): { label: string; ready: boolean } | null {
 
 /** A failed refresh must not strand a reader who already has saved research. */
 function UnavailableLiveAnalysis({ symbol, children }: { symbol: string; children: ReactNode }) {
-  if (!getConfig().uiRedesign) return <>{children}<div className="p-4"><RefreshCompanyData symbol={symbol} /></div></>;
   let saved: LatestReport | null = null;
   try { saved = getLatestDoneReport(symbol); } catch { /* Keep the original failure and history route readable. */ }
   const reportHref = saved?.report
@@ -971,7 +950,6 @@ export default async function CompanyPage({ params, searchParams }: {
     try { saved = getLatestDoneReport(symbol); } catch { /* Existing live fallback remains available. */ }
   }
   if (saved?.report) {
-    const dossier = getConfig().uiRedesign;
     const initialJobId = await activeRunIdentity(symbol);
     const resumableJobId = (await import("@/pipeline/jobRunner")).getLatestResumableJobForSymbol(symbol);
     return (
@@ -979,9 +957,9 @@ export default async function CompanyPage({ params, searchParams }: {
         {fictionalBanner}
         <div className="saved-research-workspace flex flex-col gap-3 p-4">
           <ReportSnapshotHeader snapshot={saved.report} reportId={saved.reportId} status={saved.status}
-            actions={<><ExportButtons reportId={saved.reportId} symbol={symbol} /><DeleteReportButton reportId={saved.reportId} symbol={symbol} redirect />{!dossier && <Link href={`/company/${encodeURIComponent(symbol)}/history`}>History</Link>}</>}
-            navigation={dossier ? <ResearchNavigation symbol={symbol} active="report" /> : <Link href={`/company/${encodeURIComponent(symbol)}?view=live`} prefetch={false}>Ticker data</Link>}
-            controls={<div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId ?? resumableJobId} route={readRunRoute()} renderedReportId={saved.reportId} />{dossier && <ReportNotes symbol={symbol} reportId={saved.reportId} />}</div>}
+            actions={<><ExportButtons reportId={saved.reportId} symbol={symbol} /><DeleteReportButton reportId={saved.reportId} symbol={symbol} redirect /></>}
+            navigation={<ResearchNavigation symbol={symbol} active="report" />}
+            controls={<div className="snapshot-controls"><GenerateReport key={symbol} symbol={symbol} initialJobId={initialJobId ?? resumableJobId} route={readRunRoute()} renderedReportId={saved.reportId} /><ReportNotes symbol={symbol} reportId={saved.reportId} /></div>}
           />
           <p className="text-xs text-faint">Showing the saved report. Rerun ticker checks for updated source data and creates a new report using your current settings.</p>
           {resumableJobId !== null && initialJobId === resumableJobId && <p className="text-xs text-muted">A previous run stopped with reusable analyst work. Resume it using the run controls above.</p>}
@@ -1122,8 +1100,8 @@ export async function CompanyBody({ symbol, liveRequested = false }: { symbol: s
 
         {hasReport && data.latestReport ? (
           <ReportTabs
-            reportNotes={getConfig().uiRedesign ? <ReportNotes symbol={symbol} reportId={data.latestReport.reportId} /> : undefined}
-            revisionsHref={getConfig().uiRedesign ? `/company/${encodeURIComponent(symbol)}/history` : undefined}
+            reportNotes={<ReportNotes symbol={symbol} reportId={data.latestReport.reportId} />}
+            revisionsHref={`/company/${encodeURIComponent(symbol)}/history`}
             initialTab={liveRequested ? "analysis" : "report"}
             reportMeta={`#${data.latestReport.reportId} · ${data.latestReport.createdAt.slice(0, 10)}`}
             report={

@@ -16,6 +16,7 @@
 import { NextResponse } from "next/server";
 import { getReportRecordById, parseReportId } from "@/report/history";
 import type { Report } from "@/report/schema";
+import { withoutGapCauses } from "@/pipeline/stageA/manifest";
 import type { CompletenessSource } from "@/report/completeness";
 import { gradeForDisplay } from "@/report/assessment";
 import {
@@ -122,7 +123,8 @@ export async function GET(
     grades,
     dataOnly,
     dataCompleteness: report?.meta.dataCompleteness ?? null,
-    missingData: report?.appendix.missingData ?? null,
+    // D-229: the entries' typed causes are stored data for the pipeline, not part of this summary.
+    missingData: report ? withoutGapCauses(report.appendix.missingData) : null,
     retainedSources: report?.appendix.sources.map(({ provider, endpoint }) => ({ provider, endpoint })) ?? null,
   });
 }

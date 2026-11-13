@@ -37,7 +37,6 @@ import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import {
   createFmpClient,
   isPlanLimited,
-  FMP_EMPTY_ARRAY_REASON,
   type FmpPlanLimit,
   type CachedFetchFn,
   type CachedFetchPolicy,
@@ -49,14 +48,14 @@ import {
   type FmpPayload,
   type FmpRawRow,
   FMP_RATE_LIMIT_WAIT_BUDGET_MS,
-  isFmpQuotaReason,
+  isFmpQuotaGap,
 } from "@/providers/fmp";
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
 import { annualGeographyFallback, parseAnnualGeography } from "@/edgar/annualGeography";
 import { balanceAdmissionEntries, debtPresentationSections, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { resolveAcquisitionGaps } from "@/report/gapResolution";
 import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseEarningsAnnouncements } from "@/providers/companyEvents";
-import { collectCurrentReports, collectQuarterlySegments } from "@/providers/currentReports";
+import { collectCurrentReports, collectPeriodicInstances, collectQuarterlySegments, type UnreadInstance } from "@/providers/currentReports";
 import { discoverCompanyIrEarnings, discoverCompanyIrMaterialEvents, verifiedCompanyIrAliases, type CompanyIrOptions } from "@/providers/companyIr";
 import { enrichIncomeClassification } from "@/edgar/incomeClassification";
 import { withFilerShareUnits } from "@/pipeline/shareUnits";
@@ -91,7 +90,7 @@ import {
   type SectionSpec,
 } from "@/edgar/extract";
 import { latestEligibleFactEnd, latestFactEnd, looksLikeBankTagging, type CompanyFacts } from "@/edgar/xbrl";
-import { mergeInstanceFacts, parseInstanceFacts, type InstanceFacts } from "@/edgar/instanceFacts";
+import { feedCoverage, mergeInstanceFacts, needsInstance, parseInstanceFacts, type InstanceFacts } from "@/edgar/instanceFacts";
 // WS4 (D-14): successor registrants — the predecessor CIK and its facts.
 import {
   SUCCESSOR_FORM,
@@ -149,7 +148,9 @@ import {
   type TranscriptBundle,
   type XbrlSummary,
 } from "@/pipeline/types";
-import { mergeManifest } from "@/pipeline/stageA/manifest";
+import { mergeManifest, withoutGapCause } from "@/pipeline/stageA/manifest";
+import { gapCauseMatches } from "@/edgar/refusalCauseRead";
+import type { GapCause } from "@/types/refusalCause";
 import { bankStatementRouting, applyKeylessFallbacks, type KeylessOutcome } from "@/pipeline/keyless";
 
 // ---------------------------------------------------------------------------
@@ -611,10 +612,13 @@ function gapResult<T>(
   severity: ManifestEntry["severity"],
   attemptedSources?: string[],
   expected = false,
+  /** P10, P11 (D-229): the typed cause beside the sentence, for the statuses a reader tells apart by wording. */
+  cause?: GapCause,
 ): FetchResult<T> {
   const gap: ManifestEntry = { field, reason, severity };
   if (attemptedSources !== undefined) gap.attemptedSources = attemptedSources;
   if (expected) gap.expected = true;
+  if (cause !== undefined) gap.cause = cause;
   return { ok: false, gap };
 }
 
@@ -689,12 +693,14 @@ function rowKey(row: FmpRawRow, field: string): string {
  * the manifest can count it separately instead of inflating the headline gap
  * count on every report. Transport/plan errors keep their original gap.
  */
-function markSegmentationGapExpected<T>(result: FetchResult<T>): FetchResult<T> {
-  if (result.ok || !result.gap.reason.includes(FMP_EMPTY_ARRAY_REASON)) return result;
+export function markSegmentationGapExpected<T>(result: FetchResult<T>): FetchResult<T> {
+  // P3 (P11, D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+  if (result.ok || !gapCauseMatches(result.gap, "fmpEmptyArrayStated")) return result;
   return {
     ok: false,
     gap: {
-      ...result.gap,
+      // D-229: the new sentence no longer is the empty-array status, so its code is not kept.
+      ...withoutGapCause(result.gap),
       severity: "info",
       expected: true,
       reason:
@@ -1202,6 +1208,8 @@ export function selectAnnualFiling(
         : `; the registrant is a successor issuer (Form 8-K12B filed ${successor.filingDate})${UNLINKED_PREDECESSOR}`),
     "critical",
     [sub.endpoint],
+    false,
+    successor === undefined ? undefined : "sec-unlinked-predecessor",
   );
 }
 
@@ -1213,9 +1221,11 @@ const UNLINKED_PREDECESSOR = " — its predecessor's annual reports live under a
  * gap says why its 10-K is not read in the registrant's place.
  */
 export function withResolvedPredecessor<T>(result: FetchResult<T>, predecessor: { cik10: string; name: string | null } | null): FetchResult<T> {
-  if (result.ok || predecessor === null || !result.gap.reason.includes(UNLINKED_PREDECESSOR)) return result;
+  // P4 (P11, D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+  if (result.ok || predecessor === null || !gapCauseMatches(result.gap, "secUnlinkedPredecessor")) return result;
   const named = `; its predecessor, ${predecessor.name ?? "the co-registrant"} (CIK ${predecessor.cik10}), was resolved for the XBRL history, but annual-report sections are read only from this registrant's own filings, so they return with its first annual report`;
-  return { ok: false, gap: { ...result.gap, reason: result.gap.reason.replace(UNLINKED_PREDECESSOR, named) } };
+  // D-229: the predecessor is now linked, so the unlinked-predecessor code is not kept on the new sentence.
+  return { ok: false, gap: { ...withoutGapCause(result.gap), reason: result.gap.reason.replace(UNLINKED_PREDECESSOR, named) } };
 }
 
 /**
@@ -1341,10 +1351,23 @@ async function buildEdgarBundle(
   // Audit 2026-10-22 B-23: the same instances carry each filing's own facts,
   // merged below where companyfacts has not yet caught up with the filing.
   const instanceFacts: InstanceFacts[] = [];
+  const readInstance = (filing: EdgarFiling, xml: string): void => {
+    instanceFacts.push(parseInstanceFacts(xml, { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate }, String(cik)));
+  };
   const pQuarterlySegments = sub.ok && filingDisclosures
-    ? settle(`edgar.quarterlySegments(${symbol})`, collectQuarterlySegments(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10),
-      (filing, xml) => instanceFacts.push(parseInstanceFacts(xml, { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate }, String(cik)))))
+    ? settle(`edgar.quarterlySegments(${symbol})`, collectQuarterlySegments(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10), readInstance))
     : null;
+  // D-236: the core periodic filings the segment read does not fetch (Forms
+  // 20-F and 40-F, amendments), each read only where companyfacts does not
+  // carry its statement facts. No request when it carries them all.
+  const pUnreadInstances: Promise<UnreadInstance[]> = sub.ok && filingDisclosures
+    ? pFacts.then((facts) => {
+      if (!facts.ok) return [];
+      const coverage = feedCoverage(facts.value.data);
+      return collectPeriodicInstances(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10),
+        (filing) => needsInstance(coverage, { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate }), readInstance);
+    })
+    : Promise.resolve([]);
 
   const economicShareInventory: FilingEconomicShares[] = [];
   const cashInvestment: FilingCashInvestment[] = [];
@@ -1366,9 +1389,9 @@ async function buildEdgarBundle(
   let tenQOther: FetchResult<ExtractedSection> | undefined;
   let annualGeography: EdgarBundle["annualGeography"];
   let officerBiographies: EdgarBundle["officerBiographies"];
-  const withBusiness = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[]): void => {
-    if (filingDisclosures) business = gapResult(`edgar.business(${symbol})`, reason, severity, attempted);
-    if (filingDisclosures) tenKNotes = gapResult(`edgar.tenKNotes(${symbol})`, reason, severity, attempted);
+  const withBusiness = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[], cause?: GapCause): void => {
+    if (filingDisclosures) business = gapResult(`edgar.business(${symbol})`, reason, severity, attempted, false, cause);
+    if (filingDisclosures) tenKNotes = gapResult(`edgar.tenKNotes(${symbol})`, reason, severity, attempted, false, cause);
   };
   const withTenQNotes = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[], expected?: boolean): void => {
     if (filingDisclosures) tenQNotes = gapResult(`edgar.tenQNotes(${symbol})`, reason, severity, attempted, expected);
@@ -1493,9 +1516,12 @@ async function buildEdgarBundle(
       }
     } else {
       const reason = `no annual primary filing (10-K or 20-F) to extract from: ${latestTenK.gap.reason}`;
-      item1a = gapResult(`edgar.item1a(${symbol})`, reason, "critical");
-      mdna = gapResult(`edgar.mdna(${symbol})`, reason, "critical");
-      withBusiness(reason);
+      // D-229: these sentences quote the annual-filing gap whole, so a successor's unlinked-predecessor
+      // clause (and its code) travels with them; `withResolvedPredecessor` rewrites all five.
+      const cause = latestTenK.gap.cause === "sec-unlinked-predecessor" ? latestTenK.gap.cause : undefined;
+      item1a = gapResult(`edgar.item1a(${symbol})`, reason, "critical", undefined, false, cause);
+      mdna = gapResult(`edgar.mdna(${symbol})`, reason, "critical", undefined, false, cause);
+      withBusiness(reason, "warn", undefined, cause);
     }
 
     // 10-Q MD&A (Part I Item 2).
@@ -1611,7 +1637,7 @@ async function buildEdgarBundle(
   const currentReports = pCurrentReports === null ? null : await pCurrentReports;
   const quarterlySegments = pQuarterlySegments === null ? null : await pQuarterlySegments;
 
-  const { companyFacts, companyFactsInstances } = withNewerFilings(filedFacts, instanceFacts);
+  const { companyFacts, companyFactsInstances } = withNewerFilings(filedFacts, instanceFacts, await pUnreadInstances);
   let xbrlSummary: XbrlSummary | null = null;
   if (companyFacts.ok) {
     const facts = companyFacts.value.data;
@@ -1672,7 +1698,17 @@ async function buildEdgarBundle(
 
 /** Audit 2026-10-22 B-23: the disclosure of each filing merged into companyfacts. */
 export function companyFactsInstanceEntries(instances: CompanyFactsInstances | undefined): ManifestEntry[] {
-  if (instances === undefined || instances.merged.length === 0) return [];
+  if (instances === undefined) return [];
+  // D-236 (P9, P10): a filing companyfacts lacks whose instance could not be
+  // read is a coverage gap, named, never taken as the filing stating nothing.
+  const unread: ManifestEntry[] = (instances.unread ?? []).map((f) => ({
+    field: "edgar.companyFacts.unreadFilings",
+    reason: `SEC companyfacts does not carry the financial statements of ${f.form} ${f.accession} (filed ${f.filingDate}) and the filing's own XBRL instance could not be read: ${f.reason}; ` +
+      "figures that need its filed facts rest on earlier filings or are withheld",
+    severity: "warn",
+    attemptedSources: [f.accession],
+  }));
+  if (instances.merged.length === 0) return unread;
   const filings = instances.merged.map((f) => `${f.form} ${f.accession} (${f.periodEnd === null ? "period end not stated" : `period ended ${f.periodEnd}`}, filed ${f.filingDate})`).join("; ");
   return [{
     field: "edgar.companyFacts.newerFilings",
@@ -1682,7 +1718,7 @@ export function companyFactsInstanceEntries(instances: CompanyFactsInstances | u
         : `the facts of ${filings} were read from each filing's own XBRL instance and merged, each citing its filing`),
     severity: "info",
     attemptedSources: instances.merged.map((f) => f.accession),
-  }];
+  }, ...unread];
 }
 
 /**
@@ -1695,10 +1731,15 @@ export function companyFactsInstanceEntries(instances: CompanyFactsInstances | u
 export function withNewerFilings(
   facts: FetchResult<CompanyFacts>,
   instances: readonly InstanceFacts[],
+  /** D-236: filings the fallback needed and could not read. */
+  unread: readonly UnreadInstance[] = [],
 ): { companyFacts: FetchResult<CompanyFacts>; companyFactsInstances: CompanyFactsInstances | null } {
-  if (!facts.ok || instances.length === 0) return { companyFacts: facts, companyFactsInstances: null };
+  if (!facts.ok || (instances.length === 0 && unread.length === 0)) return { companyFacts: facts, companyFactsInstances: null };
   const merge = mergeInstanceFacts(facts.value.data, instances);
-  if (merge.merged.length === 0) return { companyFacts: facts, companyFactsInstances: null };
+  const gaps = unread.length === 0 ? {} : { unread: unread.map((f) => ({ ...f })) };
+  if (merge.merged.length === 0) {
+    return { companyFacts: facts, companyFactsInstances: unread.length === 0 ? null : { companyFactsThrough: merge.companyFactsThrough, merged: [], ...gaps } };
+  }
   const fetchedDay = facts.value.fetchedAt.slice(0, 10);
   const named = merge.merged.map((f) => `${f.form} ${f.accession} XBRL instance (filed ${f.filingDate})`).join(" + ");
   return {
@@ -1708,7 +1749,7 @@ export function withNewerFilings(
       endpoint: `${facts.value.endpoint} + ${named}`,
       asOf: latestEligibleFactEnd(merge.facts, fetchedDay) ?? facts.value.asOf,
     } },
-    companyFactsInstances: { companyFactsThrough: merge.companyFactsThrough, merged: merge.merged },
+    companyFactsInstances: { companyFactsThrough: merge.companyFactsThrough, merged: merge.merged, ...gaps },
   };
 }
 
@@ -1918,7 +1959,7 @@ export function planLimitManifestEntry(
 export function rateLimitedValuationEntry(
   members: ReadonlyArray<readonly [string, FetchResult<unknown>]>,
 ): ManifestEntry | null {
-  const refused = members.filter(([, result]) => !result.ok && isFmpQuotaReason(result.gap.reason));
+  const refused = members.filter(([, result]) => !result.ok && isFmpQuotaGap(result.gap));
   if (refused.length === 0) return null;
   const consensus = refused.some(([label]) => label === "analyst estimates");
   const statements = refused.some(([label]) => label !== "analyst estimates");

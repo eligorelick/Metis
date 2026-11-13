@@ -36,7 +36,7 @@ describe("public-readiness regressions", () => {
     const before = reportDigest(report);
     const window = new Window();
     try {
-      window.document.body.innerHTML = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+      window.document.body.innerHTML = renderToStaticMarkup(createElement(ReportView, { report }));
       const dimension = [...window.document.querySelectorAll(".assessment-dimensions dl > div")].find(row => row.querySelector("dt")?.textContent === "Price attractiveness");
       const value = dimension?.querySelector(".assessment-value")?.textContent;
       // RPT-208: reader precision; audit remains two decimals.
@@ -68,7 +68,7 @@ describe("public-readiness regressions", () => {
     const before = reportDigest(report);
     const row = trustRows(coverage).find(r => r.label.startsWith("Numeric factual"))?.value;
     const outputs = [row, trustHeadline(coverage), factualValidationText(coverage), reportToMarkdown(report), reportToAuditMarkdown(report), reportToPrintBody(report),
-      renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }))];
+      renderToStaticMarkup(createElement(ReportView, { report }))];
     for (const text of outputs) {
       expect(text).toContain("numeric-claim denominator unknown");
       expect(text).not.toContain(`${factual.validated}/${factual.total} numeric`);
@@ -79,11 +79,11 @@ describe("public-readiness regressions", () => {
     expect(reportDigest(report)).toBe(before);
   });
 
-  it.each(["classic", "dossier"] as const)("gives the reconciliation link one native, focusable destination in %s", layout => {
+  it("gives the reconciliation link one native, focusable destination in dossier", () => {
     const report = loadTask28Fixture();
     const window = new Window();
     try {
-      window.document.body.innerHTML = renderToStaticMarkup(createElement(UiDesignProvider, { initialDesign: "workspace", layout }, createElement(ReportView, { report, layout })));
+      window.document.body.innerHTML = renderToStaticMarkup(createElement(UiDesignProvider, { initialDesign: "workspace" }, createElement(ReportView, { report })));
       expect(window.document.querySelector('.workspace-evidence-rail a[href="#report-trust-details"]')).not.toBeNull();
       const targets = window.document.querySelectorAll("#report-trust-details");
       expect(targets).toHaveLength(1);
@@ -91,7 +91,6 @@ describe("public-readiness regressions", () => {
       expect(targets[0].getAttribute("tabindex")).toBe("-1");
       expect(targets[0].textContent).toContain("original manifest entries remain in the audit");
       expect(targets[0].querySelector('[aria-label="Manifest reconciliation table"]')).not.toBeNull();
-      if (layout === "classic") expect(targets[0].closest("#report-appendix")).not.toBeNull();
     } finally { void window.happyDOM.close(); }
   });
 
@@ -112,7 +111,7 @@ describe("public-readiness regressions", () => {
 
 it("RPT-208: cover assessment scores use reader precision",()=>{
  const report=loadTask28Fixture(); report.scores!.assessments={businessQuality:{score:78.8,band:"B",basis:"Quality"},valuation:{score:85,band:"A",basis:"Value"},evidenceCompleteness:1,calibration:"unbacktested-house-rules"};
- const html=renderToStaticMarkup(createElement(ReportView,{report,layout:"dossier"}));
+ const html=renderToStaticMarkup(createElement(ReportView,{report}));
  expect(html).not.toContain("78.80");
  expect(scoreAuditTables(report.scores!).find(t=>t.heading==="Assessment dimensions")!.rows[0]![1]).toContain("78.80");
 });
@@ -126,9 +125,13 @@ it("offers an audit download only for an identified saved report and uses reader
   const saved = renderToStaticMarkup(createElement(AppendixSection, { report, index: 14, selectedReportId: 42 }));
   expect(saved).toContain('/api/export/42?format=audit');
   expect(saved).toContain("download the audit trail");
-  const header = renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores! }));
+  // D-246: the dossier scorecard's header names the scorecard plainly; the band
+  // policy version is a recorded input inside its methodology disclosure.
+  const scorecard = renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores! }));
+  const header = scorecard.slice(0, scorecard.indexOf('<details class="dossier-score-audit">'));
+  expect(header.length).toBeGreaterThan(0);
   expect(header).not.toContain("SCORE_BANDS_");
-  expect(header).toContain("House scoring bands");
+  expect(header).toContain("Deterministic scorecard");
 });
 
 it("removes narrowly owned workstream annotations while preserving company text", async () => {
@@ -143,8 +146,11 @@ it("removes narrowly owned workstream annotations while preserving company text"
 it("uses a plain scorecard header", async () => {
   const { CompositeScorecard } = await import("@/components/report/sections");
   const html = renderToStaticMarkup(createElement(CompositeScorecard, { scores: loadTask28Fixture().scores! }));
-  expect(html).not.toContain("SCORE_BANDS_");
-  expect(html).toContain("House scoring bands");
+  // D-246: everything before the methodology disclosure, which records the band policy version.
+  const audit = html.indexOf('<details class="dossier-score-audit"><summary>Score methodology &amp; recorded inputs</summary>');
+  expect(audit).toBeGreaterThan(0);
+  expect(html.slice(0, audit)).not.toContain("SCORE_BANDS_");
+  expect(html.slice(0, audit)).toContain("Deterministic scorecard");
 });
 it("explains the sample's separate fictional dataset beside its company link", async () => {
   const { default: SamplePage } = await import("@/app/report/sample/page");

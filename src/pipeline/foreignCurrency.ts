@@ -149,6 +149,13 @@ export function quotedDilutedCount(count: number | null, basis: ForeignValuation
   return null;
 }
 
+/** D-233: the REIT block's own count on the quoted unit; a count that cannot be placed on it is withheld with the reason. */
+function quotedReitCount(reit: NonNullable<ValuationBundleInputs["reit"]>, basis: ForeignValuationBasis): Pick<NonNullable<ValuationBundleInputs["reit"]>, "shares" | "sharesWithheldReason"> {
+  const shares = quotedDilutedCount(reit.shares, basis);
+  return { shares, sharesWithheldReason: shares !== null || reit.shares === null ? reit.sharesWithheldReason
+    : `the weighted-average diluted share count of the fiscal year${reit.sharesPeriodEnd ? ` ending ${reit.sharesPeriodEnd}` : ""} is not established in units of the quoted security` };
+}
+
 /** Explicit monetary operands only. Percentages, dates, counts and source facts never change. */
 function money<T extends object>(row: T, keys: readonly string[], basis: ForeignValuationBasis): T {
   const k = basis.fx.usdPerReportingUnit;
@@ -232,7 +239,8 @@ export function translateValuationInputs(input: ValuationBundleInputs, basis: Fo
     excessReturn: input.excessReturn && { ...money(input.excessReturn, ["bookValue", "tangibleCommonEquity", "totalDebt", "convertiblePreferredClaim", "permanentPreferred"], basis), dilutedShares: d,
       startAlternative: input.excessReturn.startAlternative && money(input.excessReturn.startAlternative, ["bookValue", "convertiblePreferredClaim", "permanentPreferred"], basis),
       convertibles: input.excessReturn.convertibles?.map(r => ({ ...r, claim: r.claim === null ? null : r.claim * k, conversionShares: r.conversionShares / basis.ratio, conversionPrice: r.conversionPrice === null ? null : r.conversionPrice * k * basis.ratio })) },
-    reit: input.reit && { ...money(input.reit, ["ffoApprox", "affoApprox", "noiApprox"], basis), shares: d,
+    // D-233: the REIT block's count is FFO's own fiscal year's, restated to the quoted unit by the same rule as `d`.
+    reit: input.reit && { ...money(input.reit, ["ffoApprox", "affoApprox", "noiApprox"], basis), ...quotedReitCount(input.reit, basis),
       // valueCompany supplies the house EV from translated multiples. A
       // preassembled aggregate may contain a USD capitalization already.
       enterpriseValue: undefined },

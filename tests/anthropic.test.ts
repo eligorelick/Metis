@@ -1241,7 +1241,7 @@ describe("runPass resumes a paused turn end-to-end", () => {
    * remainder rather than retried.
    */
   it("abandons a resumption that goes silent under the idle guard instead of retrying it", async () => {
-    process.env.THESIS_STREAM_IDLE_SECONDS = "1";
+    process.env.METIS_STREAM_IDLE_SECONDS = "1";
     resetConfigCache();
     try {
       const pausedMsg = syntheticMessage({
@@ -1288,7 +1288,7 @@ describe("runPass resumes a paused turn end-to-end", () => {
       // message_start (2K in) are both in the usage; the remainder is presumed.
       expect(result.error.usage).toMatchObject({ input_tokens: 3_000 });
     } finally {
-      delete process.env.THESIS_STREAM_IDLE_SECONDS;
+      delete process.env.METIS_STREAM_IDLE_SECONDS;
       resetConfigCache();
     }
   }, 15_000);
@@ -2218,8 +2218,8 @@ describe("stream idle timeout", () => {
 
   /** The provider reads the validated config, so the cache must be dropped. */
   const setIdleSeconds = (value: string | undefined): void => {
-    if (value === undefined) delete process.env.THESIS_STREAM_IDLE_SECONDS;
-    else process.env.THESIS_STREAM_IDLE_SECONDS = value;
+    if (value === undefined) delete process.env.METIS_STREAM_IDLE_SECONDS;
+    else process.env.METIS_STREAM_IDLE_SECONDS = value;
     resetConfigCache();
   };
 
@@ -2227,7 +2227,7 @@ describe("stream idle timeout", () => {
     setIdleSeconds(undefined);
   });
 
-  it("reads the idle limit from the validated THESIS_STREAM_IDLE_SECONDS config", () => {
+  it("reads the idle limit from the validated METIS_STREAM_IDLE_SECONDS config", () => {
     setIdleSeconds(undefined);
     expect(streamIdleTimeoutMs()).toBe(300_000);
     setIdleSeconds("30");

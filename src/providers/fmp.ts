@@ -28,7 +28,8 @@
 import "server-only";
 import { quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
 import { coerceVendorNumber } from "@/providers/vendorNumber";
-import type { StatementConflictCause } from "@/types/refusalCause";
+import type { GapCause, StatementConflictCause } from "@/types/refusalCause";
+import { gapCauseMatches } from "@/edgar/refusalCauseRead";
 import { buildEstimateTiming, type EstimateTiming } from "@/report/estimateTiming";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getProviderCredential } from "@/ai/store";
@@ -247,6 +248,13 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   incomeTaxExpense?: number;
   /** Signed SEC equity-method result as filed; tax presentation varies by issuer. */
   equityMethodIncomeLoss?: number;
+  /**
+   * D-237 (P13): the filed pre-tax line that excludes equity-method results, with its filing, recorded by
+   * the earnings admission when the filer presents those results after its provision. An effective tax rate
+   * divides by it (`effectiveTaxPretaxIncome`); `incomeBeforeTax` stays the pre-tax income of the earnings
+   * identity. It is kept out of `fieldProvenance` so that it is evidence for a tax rate and nothing else.
+   */
+  pretaxIncomeBeforeEquityMethod?: FiledIncomeLine;
   equityMethodIncomePlacement?: EquityMethodIncomePlacement;
   netIncome?: number;
   /** Filed consolidated profit including noncontrolling interests (SEC ProfitLoss). */
@@ -1231,12 +1239,14 @@ const RATE_LIMIT_MAX_RETRIES = 3;
 const fmpRetryDeadline = /* @__PURE__ */ new AsyncLocalStorage<number>();
 
 /**
- * True for the gap an FmpQuotaError leaves (its message starts this way), so a
- * consumer can name the rate limit as the cause. Kept here, not in fmpAccess,
- * because the offline Stage B replay may use this module but not that one.
+ * True for the gap an FmpQuotaError leaves, so a consumer can name the rate
+ * limit as the cause. Kept here, not in fmpAccess, because the offline Stage B
+ * replay may use this module but not that one. P1 (P11, D-242): decided by the
+ * entry's typed cause (`fmp-quota`); an entry without one (an older snapshot or
+ * a writer without a code) by its sentence, through `@/edgar/refusalCauseRead`.
  */
-export function isFmpQuotaReason(reason: string): boolean {
-  return reason.startsWith("FMP quota/rate limit");
+export function isFmpQuotaGap(gap: { readonly reason: string; readonly cause?: unknown }): boolean {
+  return gapCauseMatches(gap, "fmpQuota");
 }
 
 function abortableSleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
@@ -1410,7 +1420,7 @@ export class FmpClient {
     let beyondBound = false;
     let outOfTime = false;
     let retries = 0;
-    for (let attempt = 0; attempt < RATE_LIMIT_MAX_RETRIES && !result.ok && isFmpQuotaReason(result.gap.reason); attempt++) {
+    for (let attempt = 0; attempt < RATE_LIMIT_MAX_RETRIES && !result.ok && isFmpQuotaGap(result.gap); attempt++) {
       const now = this.now().getTime();
       const pause = currentFmpQuota(key, now);
       const resumeAt = pause === undefined
@@ -1433,7 +1443,7 @@ export class FmpClient {
         outOfTime = true;
         break;
       }
-      if (!retried.ok && !isFmpQuotaReason(retried.gap.reason) && this.now().getTime() >= deadline) {
+      if (!retried.ok && !isFmpQuotaGap(retried.gap) && this.now().getTime() >= deadline) {
         // The retry was cut off by the bound, not refused for another reason:
         // the rate limit is still the cause the report should name.
         outOfTime = true;
@@ -1441,7 +1451,7 @@ export class FmpClient {
       }
       result = retried;
     }
-    if (result.ok || !isFmpQuotaReason(result.gap.reason)) return result;
+    if (result.ok || !isFmpQuotaGap(result.gap)) return result;
     const waitedS = Math.round((this.now().getTime() - start) / 1000);
     const boundS = FMP_RATE_LIMIT_WAIT_BUDGET_MS / 1000;
     const note = outOfTime
@@ -1707,10 +1717,10 @@ export class FmpClient {
       }
       if (err instanceof FmpParameterRefusalError) return gap(spec.gapField, err.message, "warn", [endpointPath], true);
       if (err instanceof FmpAccessError) {
-        return gap(spec.gapField, err.message, "warn", [endpointPath], true);
+        return gap(spec.gapField, err.message, "warn", [endpointPath], true, err.scope === "symbol" ? "fmp-symbol-restricted" : undefined);
       }
       if (err instanceof FmpQuotaError) {
-        return gap(spec.gapField, err.message, "warn", [endpointPath]);
+        return gap(spec.gapField, err.message, "warn", [endpointPath], false, "fmp-quota");
       }
       if (err instanceof FmpApiError) {
         return gap(spec.gapField, `FMP error (HTTP ${err.status}): ${err.message}`, "warn", [endpointPath]);
@@ -1755,10 +1765,11 @@ export class FmpClient {
     }
     const normalizedRows = normalizeRows<TRow>(body, spec.allowObjectBody === true);
     if (normalizedRows.length === 0) {
-      const reason = isRecord(body)
+      const objectBody = isRecord(body);
+      const reason = objectBody
         ? "FMP returned an unrecognized object body where an array was expected"
         : FMP_EMPTY_ARRAY_REASON;
-      return gap(spec.gapField, reason, "info", [endpointPath]);
+      return gap(spec.gapField, reason, "info", [endpointPath], false, objectBody ? undefined : "fmp-empty-array");
     }
     const validation = validateCriticalRows<TRow>(spec.method, normalizedRows);
     if (!validation.ok) return gap(spec.gapField, validation.reason, "warn", [endpointPath]);
@@ -1829,7 +1840,7 @@ export class FmpClient {
       }
       const normalizedRows = normalizeRows<TRow>(body, spec.allowObjectBody === true);
       if (normalizedRows.length === 0) {
-        return gap(spec.gapField, FMP_EMPTY_ARRAY_REASON, "info", attempted);
+        return gap(spec.gapField, FMP_EMPTY_ARRAY_REASON, "info", attempted, false, "fmp-empty-array");
       }
       const validation = validateCriticalRows<TRow>(spec.method, normalizedRows);
       if (!validation.ok) return gap(spec.gapField, validation.reason, "warn", attempted);
@@ -1846,7 +1857,7 @@ export class FmpClient {
       return { ok: true, value: sourced };
     }
 
-    return gap(spec.gapField, "no API key + no fixture", "warn", attempted);
+    return gap(spec.gapField, "no API key + no fixture", "warn", attempted, false, "fmp-no-api-key");
   }
 
   // -- company & reference --------------------------------------------------
@@ -2343,7 +2354,8 @@ export class FmpClient {
     const newestIsNoNewBar =
       newestResult !== undefined &&
       !newestResult.ok &&
-      newestResult.gap.reason === FMP_EMPTY_ARRAY_REASON &&
+      // P2 (P11, D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+      gapCauseMatches(newestResult.gap, "fmpEmptyArrayAlone") &&
       newestSpanDays <= NO_NEW_BAR_MAX_SPAN_DAYS &&
       priorBarLagDays <= NO_NEW_BAR_MAX_SPAN_DAYS &&
       priorResult?.ok === true &&
@@ -2551,8 +2563,10 @@ function gap(
   severity: ManifestEntry["severity"],
   attemptedSources: string[],
   expected = false,
+  /** P10, P11 (D-229): the typed cause beside the sentence, for the statuses a reader tells apart by wording. */
+  cause?: GapCause,
 ): { ok: false; gap: ManifestEntry } {
-  return { ok: false, gap: { field, reason, severity, attemptedSources, ...(expected ? { expected: true } : {}) } };
+  return { ok: false, gap: { field, reason, severity, attemptedSources, ...(expected ? { expected: true } : {}), ...(cause === undefined ? {} : { cause }) } };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

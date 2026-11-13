@@ -58,8 +58,7 @@ function unstampedJson(report: Report): string {
 
 function surfaces(report: Report) {
   return {
-    classic: renderToStaticMarkup(createElement(ReportView, { report, layout: "classic" })),
-    dossier: renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" })),
+    dossier: renderToStaticMarkup(createElement(ReportView, { report })),
     header: renderToStaticMarkup(createElement(ReportSnapshotHeader, { snapshot: report, reportId: 7, status: "done", actions: null })),
     markdown: reportToMarkdown(report),
     print: reportToPrintBody(report),
@@ -81,7 +80,6 @@ const html = (text: string) => text.replaceAll('"', "&quot;").replaceAll("'", "&
 function expectNoteOnEverySurface(report: Report, note: string): void {
   expect(evidenceContractNotice(report)).toBe(note);
   const s = surfaces(report);
-  expect(count(s.classic, html(note))).toBe(1);
   expect(count(s.dossier, html(note))).toBe(1);
   expect(s.header).toContain(`data-run-notice="evidenceContract">${html(note)}</p>`);
   expect(count(s.markdown, `> ${markdownBlockquote(note)}`)).toBe(1);
@@ -161,7 +159,7 @@ describe("evidence-contract stamp (P21, D-217)", () => {
     const fallback = providerFallbackNotice(stored);
     expect(fallback).toMatch(/^Provider fallback ·/);
     const s = surfaces(stored);
-    for (const text of [s.classic, s.header, s.markdown, s.print, s.audit]) {
+    for (const text of [s.dossier, s.header, s.markdown, s.print, s.audit]) {
       expect(text).toContain(fallback!);
       expect(text).toContain(OLDER);
       expect(text.indexOf(fallback!)).toBeLessThan(text.indexOf(OLDER));
@@ -176,7 +174,7 @@ describe("evidence-contract stamp (P21, D-217)", () => {
     const synthetic = syntheticNotice(stored)!;
     expect(synthetic).toMatch(/^Synthetic demonstration/);
     const s = surfaces(stored);
-    for (const text of [s.classic, s.header, s.markdown, s.print, s.audit]) {
+    for (const text of [s.dossier, s.header, s.markdown, s.print, s.audit]) {
       expect(text).toContain(synthetic);
       expect(text).toContain(OLDER);
     }

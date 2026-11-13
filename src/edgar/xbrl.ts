@@ -78,6 +78,11 @@ export const companyFactsSchema = z.looseObject({
  * content is not a standardized quarterly statement.
  */
 export const CORE_FACT_FORMS = new Set(["10-K", "10-Q", "10-K/A", "10-Q/A", "20-F", "20-F/A", "40-F", "40-F/A"]);
+/**
+ * The interim reports among CORE_FACT_FORMS; every other core form is an
+ * annual report. Derived so a change there cannot silently desync.
+ */
+export const CORE_INTERIM_FORMS = new Set([...CORE_FACT_FORMS].filter((f) => f.startsWith("10-Q")));
 
 // ---------------------------------------------------------------------------
 // Concept chains
@@ -214,7 +219,7 @@ function withinDays(a: string, b: string, days: number): boolean {
 }
 
 /** Length of a fact's own period in days; null for instants (no `start`). */
-function durationDays(p: FactPoint): number | null {
+function durationDays(p: Pick<FactPoint, "start" | "end">): number | null {
   return p.start !== undefined ? (dateMs(p.end) - dateMs(p.start)) / DAY_MS : null;
 }
 
@@ -225,17 +230,38 @@ function durationDays(p: FactPoint): number | null {
  * them. FY ≈ 300–400 d (52/53-week calendars); Q ≈ 70–125 d — the band has to
  * hold a 12-12-12-16/17-week calendar (Costco's fourth quarter is 16 or 17
  * weeks), and nothing standardized is four months long, so the upper bound
- * admits no other period. Mirrors QUARTER_MIN_DAYS/QUARTER_MAX_DAYS in
- * statements.ts.
+ * admits no other period. statements.ts reads these constants; it keeps no
+ * band of its own.
  */
 export const QUARTER_DURATION_DAYS: readonly [number, number] = [70, 125];
+/** A fiscal year's own length: 300 to 400 days (52/53-week calendars and a short or long transition year). */
+export const FISCAL_YEAR_DURATION_DAYS: readonly [number, number] = [300, 400];
+/**
+ * How far a fact's period end may sit from the row's and still be that row's
+ * period: 52/53-week fiscal calendars move a period end by a few days between
+ * a statement row and a filed fact. The default of `PeriodQuery.toleranceDays`.
+ */
+export const PERIOD_END_TOLERANCE_DAYS = 3;
 
-function durationMatchesHint(p: FactPoint, hint: "FY" | "Q"): boolean {
+function durationMatchesHint(p: Pick<FactPoint, "start" | "end">, hint: "FY" | "Q"): boolean {
   const dur = durationDays(p);
   if (dur === null) return true;
-  return hint === "FY"
-    ? dur >= 300 && dur <= 400
-    : dur >= QUARTER_DURATION_DAYS[0] && dur <= QUARTER_DURATION_DAYS[1];
+  const [min, max] = hint === "FY" ? FISCAL_YEAR_DURATION_DAYS : QUARTER_DURATION_DAYS;
+  return dur >= min && dur <= max;
+}
+
+/**
+ * Whether a duration fact is the fact of exactly one income period (P1,
+ * D-247): it states its own start, its own length is a quarter's or a fiscal
+ * year's (the two bands above), and it ends within `PERIOD_END_TOLERANCE_DAYS`
+ * of the period's end. An instant never covers a period: a boundary is not
+ * inferred from an end date alone (D-56). A year-to-date fact that ends on the
+ * same day is longer than a quarter and shorter than a year, so it covers
+ * neither. Readers that match a filed duration fact to a statement row's
+ * quarter or fiscal year ask this, and keep no day band of their own.
+ */
+export function factCoversPeriod(p: Pick<FactPoint, "start" | "end">, periodEnd: string, period: "FY" | "Q"): boolean {
+  return p.start !== undefined && withinDays(p.end, periodEnd, PERIOD_END_TOLERANCE_DAYS) && durationMatchesHint(p, period);
 }
 
 /** Parse the raw unit array of a concept into validated FactPoints (invalid rows skipped). */
@@ -319,7 +345,7 @@ export function dedupFactPoints(points: FactPoint[]): FactPoint[] {
 
 /** Find the deduped point matching a period query, or null. */
 export function findPointForPeriod(points: FactPoint[], q: PeriodQuery): { point: FactPoint | null; note?: string } {
-  const tol = q.toleranceDays ?? 3;
+  const tol = q.toleranceDays ?? PERIOD_END_TOLERANCE_DAYS;
   const deduped = dedupFactPoints(points);
   let matches = deduped.filter((p) => withinDays(p.end, q.end, tol));
   if (q.start !== undefined) {

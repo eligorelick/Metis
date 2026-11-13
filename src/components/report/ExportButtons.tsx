@@ -1,24 +1,23 @@
 "use client";
 
 /**
- * ExportButtons — the "Export MD" / "Export PDF" pair the integrator mounts on
- * the report/company pages .
+ * ExportButtons — the report's Export menu, mounted on the report and company
+ * pages. Three exports of the saved report:
  *
- *   - Export MD  → navigates to /api/export/[reportId]?format=md, which returns
- *     a text/markdown attachment (the browser downloads it).
- *   - Audit trail → /api/export/[reportId]?format=audit, the separate audit
- *     file (verification log, data-gap manifest, raw values; D-62).
- *   - Export PDF → opens the light print page
+ *   - Full report · Markdown → /api/export/[reportId]?format=md (a
+ *     text/markdown attachment).
+ *   - Audit trail · Markdown → /api/export/[reportId]?format=audit, the
+ *     separate audit file (verification log, data-gap manifest, raw values; D-62).
+ *   - Print / Save as PDF → the light print page
  *     /company/[symbol]/report/[reportId]/print?autoprint=1 in a new tab, which
  *     auto-fires the browser print dialog (dependency-free PDF via print-to-PDF).
  *
- * Pure client interactivity — no data fetching, no server-only imports. Styled
- * to match the dense terminal UI (this component renders on the dark app pages,
- * NOT on the light print page). Takes only the ids/symbol it needs as props.
+ * Pure client interactivity — no server-only imports. Takes only the
+ * ids/symbol it needs as props. D-246: the classic layout's three buttons were
+ * removed with that layout; the menu reaches the same three exports.
  */
 
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { useUiDesign } from "@/appearance/UiDesignProvider";
 
 export function ExportButtons({
   reportId,
@@ -30,61 +29,11 @@ export function ExportButtons({
   /** Optional extra classes for the wrapper (layout at the mount site). */
   className?: string;
 }) {
-  const [busy, setBusy] = useState<null | "md" | "audit" | "pdf">(null);
-  const { layout } = useUiDesign();
-
   const sym = encodeURIComponent(symbol);
   const mdHref = `/api/export/${reportId}?format=md`;
   const auditHref = `/api/export/${reportId}?format=audit`;
   const printHref = `/company/${sym}/report/${reportId}/print?autoprint=1`;
-
-  const download = (kind: "md" | "audit", href: string): void => {
-    setBusy(kind);
-    // Trigger a download without navigating away: a transient anchor click.
-    const a = document.createElement("a");
-    a.href = href;
-    a.rel = "noopener";
-    // `download` hints the filename; the route's Content-Disposition is
-    // authoritative and carries the symbol-derived name.
-    a.download = "";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => setBusy(null), 600);
-  };
-  const onExportMd = (): void => download("md", mdHref);
-  const onExportAudit = (): void => download("audit", auditHref);
-
-  const onExportPdf = (): void => {
-    setBusy("pdf");
-    window.open(printHref, "_blank", "noopener,noreferrer");
-    window.setTimeout(() => setBusy(null), 600);
-  };
-
-  if (layout === "dossier") return <DossierExportMenu key={`${symbol}:${reportId}`} reportId={reportId} mdHref={mdHref} auditHref={auditHref} printHref={printHref} className={className} />;
-
-  return (
-    <div className={`flex items-center gap-1.5 ${className ?? ""}`}>
-      <ExportButton
-        onClick={onExportMd}
-        busy={busy === "md"}
-        label="Export MD"
-        title="Download the full report as Markdown"
-      />
-      <ExportButton
-        onClick={onExportAudit}
-        busy={busy === "audit"}
-        label="Audit trail"
-        title="Download the audit trail: verification log, data gaps and raw values"
-      />
-      <ExportButton
-        onClick={onExportPdf}
-        busy={busy === "pdf"}
-        label="Export PDF"
-        title="Open a print-optimized page and print to PDF"
-      />
-    </div>
-  );
+  return <DossierExportMenu key={`${symbol}:${reportId}`} reportId={reportId} mdHref={mdHref} auditHref={auditHref} printHref={printHref} className={className} />;
 }
 
 function positionExportMenu(root: HTMLDivElement | null): void {
@@ -165,28 +114,4 @@ function DossierExportMenu({ reportId, mdHref, auditHref, printHref, className }
     {error && <p role="alert">{error}</p>}
     {handedOff && <p role="status">Download handed to your browser. Check its downloads for completion.</p>}
   </div>;
-}
-
-function ExportButton({
-  onClick,
-  busy,
-  label,
-  title,
-}: {
-  onClick: () => void;
-  busy: boolean;
-  label: string;
-  title: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={busy}
-      title={title}
-      className="mono border border-edge-strong px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60"
-    >
-      {busy ? "…" : label}
-    </button>
-  );
 }

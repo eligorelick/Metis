@@ -30,7 +30,7 @@
 import type { ManifestEntry } from "@/types/core";
 import type { FilingFiler } from "@/providers/edgar";
 import { tagsFor } from "@/edgar/tagSynonyms";
-import { conceptFactsSchema, filterToCoreForms, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
+import { FISCAL_YEAR_DURATION_DAYS, conceptFactsSchema, filterToCoreForms, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 
 /** The form a successor issuer files to register under the predecessor's listing. */
 export const SUCCESSOR_FORM = "8-K12B";
@@ -148,8 +148,8 @@ export function usGaapConceptCount(facts: CompanyFacts | null): number {
   return Object.keys(facts.facts["us-gaap"] ?? {}).length;
 }
 
-const ANNUAL_MIN_DAYS = 300;
-const ANNUAL_MAX_DAYS = 400;
+const ANNUAL_MIN_DAYS = FISCAL_YEAR_DURATION_DAYS[0];
+const ANNUAL_MAX_DAYS = FISCAL_YEAR_DURATION_DAYS[1];
 const DAY_MS = 86_400_000;
 
 /**

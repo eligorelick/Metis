@@ -25,7 +25,7 @@ describe("spacing-only reading density", () => {
   });
   it("applies compact spacing immediately and exposes a visit-only state when saving is blocked", async () => {
     vi.spyOn(document, "cookie", "get").mockReturnValue(""); vi.spyOn(document, "cookie", "set").mockImplementation(() => {});
-    await act(async () => root.render(createElement(UiDesignProvider, { initialDesign: "current", layout: "dossier" }, createElement(WorkspaceToolbar))));
+    await act(async () => root.render(createElement(UiDesignProvider, { initialDesign: "current" }, createElement(WorkspaceToolbar))));
     const compact = container.querySelector<HTMLInputElement>('input[name="uiDensity"][value="compact"]')!;
     await act(async () => compact.click());
     expect(document.body.dataset.uiDensity).toBe("compact"); expect(compact.checked).toBe(true);

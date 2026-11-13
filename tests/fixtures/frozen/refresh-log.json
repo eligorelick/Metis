@@ -28,5 +28,106 @@
     "changedPaths": [
       "$"
     ]
+  },
+  {
+    "date": "2026-11-13",
+    "target": "audit-fixture",
+    "decision": "D-229",
+    "reason": "optional typed cause code on missing-data entries (stored addition, no reader-visible change)",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.stageB.gaps[0].cause",
+      "$.projection.stageB.gaps[1].cause",
+      "$.projection.stageB.gaps[2].cause",
+      "$.projection.stageB.gaps[3].cause",
+      "$.projection.stageB.gaps[4].cause",
+      "$.projection.stageB.gaps[5].cause",
+      "$.projection.stageB.gaps[6].cause",
+      "$.projection.stageB.gaps[7].cause",
+      "$.projection.stageB.gaps[8].cause",
+      "$.projection.stageB.gaps[9].cause",
+      "$.projection.stageB.gaps[10].cause",
+      "$.projection.report.appendix.missingData[0].cause",
+      "$.projection.report.appendix.missingData[1].cause",
+      "$.projection.report.appendix.missingData[2].cause",
+      "$.projection.report.appendix.missingData[3].cause",
+      "$.projection.report.appendix.missingData[4].cause",
+      "$.projection.report.appendix.missingData[5].cause",
+      "$.projection.report.appendix.missingData[6].cause",
+      "$.projection.report.appendix.missingData[7].cause",
+      "$.projection.report.appendix.missingData[8].cause",
+      "$.projection.report.appendix.missingData[9].cause",
+      "$.projection.report.appendix.missingData[10].cause"
+    ],
+    "beforeSha256": "2face745abefe6a7f31c0782a2ce3138c6b4d5082212940538aa88e07ecb2247",
+    "afterSha256": "47950c52b890f1e215b865a4493d48efb3e7b2f47bb142e7b07d034432c1632a",
+    "changedLeaves": 23,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.stageB.gaps[0].cause",
+      "$.projection.stageB.gaps[1].cause",
+      "$.projection.stageB.gaps[2].cause",
+      "$.projection.stageB.gaps[3].cause",
+      "$.projection.stageB.gaps[4].cause",
+      "$.projection.stageB.gaps[5].cause",
+      "$.projection.stageB.gaps[6].cause",
+      "$.projection.stageB.gaps[7].cause",
+      "$.projection.stageB.gaps[8].cause",
+      "$.projection.stageB.gaps[9].cause",
+      "$.projection.stageB.gaps[10].cause",
+      "$.projection.report.appendix.missingData[0].cause",
+      "$.projection.report.appendix.missingData[1].cause",
+      "$.projection.report.appendix.missingData[2].cause",
+      "$.projection.report.appendix.missingData[3].cause",
+      "$.projection.report.appendix.missingData[4].cause",
+      "$.projection.report.appendix.missingData[5].cause",
+      "$.projection.report.appendix.missingData[6].cause",
+      "$.projection.report.appendix.missingData[7].cause",
+      "$.projection.report.appendix.missingData[8].cause",
+      "$.projection.report.appendix.missingData[9].cause",
+      "$.projection.report.appendix.missingData[10].cause"
+    ]
+  },
+  {
+    "date": "2026-11-13",
+    "target": "stagec-payload",
+    "decision": "D-255",
+    "reason": "Stage 5 integration (P27): payload stamp 1.92.0 -> 1.93.0 only; the prompt header line names the stamp, so the fingerprint, prompt hash and first-section hash move with it. No figure, period or identity moves.",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ],
+    "beforeSha256": "951546d3084c876aae8690ce36f91b98a50ae6d35a5b2c3c54415db77ad24e6f",
+    "afterSha256": "1446ccd9d3b5ad6dae3a1b58ed916e65b216ffefe74a31f4a5a793f952114eea",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ]
+  },
+  {
+    "date": "2026-11-13",
+    "target": "audit-fixture",
+    "decision": "D-255",
+    "reason": "Stage 5 integration (P27): report spec stamp 1.73.0 -> 1.74.0 only, and the projection hash that covers it. No figure, period, gap or identity moves.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "47950c52b890f1e215b865a4493d48efb3e7b2f47bb142e7b07d034432c1632a",
+    "afterSha256": "296874498bf2f681f47ff1805002360e83e2135a0625ac318e8a9b6d80c82a0a",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

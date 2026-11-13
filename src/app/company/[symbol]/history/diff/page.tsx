@@ -8,7 +8,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { AppShell } from "@/components/shell";
-import { getConfig } from "@/config/env";
 import { WatchlistSidebar } from "@/components/watchlist/Sidebar";
 import { ResearchNavigation } from "@/components/report/ResearchNavigation";
 import { RevisionDigest } from "@/components/report/RevisionDigest";
@@ -23,27 +22,6 @@ import { normalizeRouteSymbol } from "@/symbol";
 import { DiffBody } from "./diff-body";
 
 export const dynamic = "force-dynamic";
-
-function Sidebar({ symbol }: { symbol: string }) {
-  return (
-    <div className="flex flex-col gap-3 p-3">
-      <div className="border border-edge bg-bg px-2 py-1.5">
-        <span className="mono text-[11px] uppercase tracking-[0.14em] text-muted">
-          {symbol} report diff
-        </span>
-      </div>
-      <Link
-        href={"/company/" + encodeURIComponent(symbol) + "/history"}
-        className="px-2 text-[11px] text-accent hover:underline"
-      >
-        back to report history
-      </Link>
-      <Link href="/" className="px-2 text-[11px] text-accent hover:underline">
-        home
-      </Link>
-    </div>
-  );
-}
 
 function ReportStamp({ label, loaded }: { label: string; loaded: LoadedReport }) {
   const row = loaded.row;
@@ -123,8 +101,7 @@ export default async function DiffPage({
   const { a: fromRaw, b: toRaw } = await searchParams;
   const symbol = normalizeRouteSymbol(routeSymbol);
   if (symbol === null) notFound();
-  const dossier = getConfig().uiRedesign;
-  const sidebar = dossier ? <WatchlistSidebar activeSymbol={symbol} /> : <Sidebar symbol={symbol} />;
+  const sidebar = <WatchlistSidebar activeSymbol={symbol} />;
 
   const fromId = parseReportId(fromRaw);
   const toId = parseReportId(toRaw);
@@ -205,10 +182,10 @@ export default async function DiffPage({
     <AppShell sidebar={sidebar}>
       <div className="mx-auto flex max-w-5xl flex-col gap-3 p-4">
         {header}
-        {dossier && <ResearchNavigation symbol={symbol} active="revisions" />}
+        <ResearchNavigation symbol={symbol} active="revisions" />
         <CompareHeader older={older} newer={newer} swapped={swapped} />
-        {dossier && <RevisionDigest diff={diff} compareHref="#full-comparison" />}
-        <div id="full-comparison" tabIndex={dossier ? -1 : undefined}><DiffBody diff={diff} /></div>
+        <RevisionDigest diff={diff} compareHref="#full-comparison" />
+        <div id="full-comparison" tabIndex={-1}><DiffBody diff={diff} /></div>
       </div>
     </AppShell>
   );

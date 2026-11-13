@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.73.0 / payload 1.92.0, Stage B `STAGE_B_2026_11_PRIMARY_CAPITAL_66` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.74.0 / payload 1.93.0, Stage B `STAGE_B_2026_11_FILED_ACCURACY_67` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -106,7 +106,13 @@ clarification section before the affected body in classic, dossier, Markdown,
 print and audit. The sidecar is not recorded evidence or a manifest entry; it
 changes no stored figures, flags/severities, grades, trust counts, source/date
 identities, verification or report state. Missing/malformed versions get
-unrecorded-version wording without broader parser admission. Current/future
+unrecorded-version wording without broader parser admission. Every read-time
+view that depends on when a report was written compares its saved
+`meta.specVersion` with a frozen cutoff through one function
+(`specVersionBefore`, `src/report/versions.ts`; D-249): a stamp that cannot be
+read (missing, not text, or not three dotted numbers after trimming, such as
+"1.56" or "1.56.0-rc1") is before every cutoff and gets the legacy view; a
+stamp at or above a cutoff, including one from a newer build, is not before it. Current/future
 versions get no historical migration notes. If a current/future report contains
 an exact owned older receivables/discontinued flag wrapper, only a fixed
 non-migration interpretation caveat appears; the flag is not rewritten. Normal
@@ -447,6 +453,27 @@ that candidate before concluding there is no conflict. SEC-built restatements
 retain their own field-level filing provenance rather than reverting to the
 row's first-reporter date.
 
+**Effective tax base (D-237).** An effective tax rate divides the provision by
+the pre-tax income the provision relates to. A filer whose pre-tax line
+excludes equity-method results (us-gaap
+`IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments`)
+presents those results after its provision, net of tax, so its provision
+relates to that line. A row's pre-tax income is the figure that reconciles to
+net income and, for such a filer, can include the after-tax equity-method
+result (the D-200 bridge). When the complete filed family reconciles, the
+earnings admission therefore records the filed line itself beside the row's
+pre-tax income, with its filing, and every effective tax rate reads it through
+one function (`effectiveTaxPretaxIncome`): the trailing pair behind the DCF's
+year-one rate and the WACC's statement rate, the annual rows behind ROIC's
+tax rate and the DCF's historical rates. Without that reconciled family
+nothing is recorded and the row's own pre-tax income is the base, as before.
+Pre-tax income shown or used for anything else is unchanged. Each period whose
+base is the filed line and differs from the row's figure is named in the
+manifest with both values and the filing (`compute.ttmIncome.taxRatePretaxIncome`,
+`statements.income.annual.taxRatePretaxIncome`). No tolerance is added: the
+row's pair must already be the same observation as the filed family under the
+existing vendor-agreement allowance.
+
 If a reconciled filed family is unavailable, retain the vendor family with a
 note showing both values only when every disagreement is same-sign and no
 larger than **1% of the larger absolute observation**. The independent panel
@@ -778,7 +805,7 @@ rate)` row) and in the report's computed-returns notes.
 | Beta | Provider profile beta, **mean-reversion adjusted** (0.667·raw + 0.333 — the Bloomberg 2/3–1/3 weighting of Blume's finding, not his fitted 0.371 + 0.635·β; see [RESEARCH §7.1](RESEARCH.md)), clamped to [0.6, 2.0] | A plausible provider beta in (0, 4] is unchanged. D-204: a missing or implausible raw beta may use the independently retained issuer/SPY monthly OLS only when its observation and fit checks pass (below); otherwise cost of equity and WACC remain withheld. One set of constants serves the WACC and the keyless beta estimate. D-60: the basis prints the same 60-month OLS the keyless route uses, run on the bundle's own daily prices against SPY (completed months before the analysis day): observation count, window, price basis, slope, R² and standard error. No bottom-up beta is built without an industry data source. |
 | Cost of equity | rf + beta × ERP | Clamped to [rf + 2.5%, 25%]. |
 | Cost of debt | `effective` (interest expense ÷ average debt), `historical` (the issuer's last year that still disclosed interest), or `synthetic` (rf + rating spread from interest coverage, Damodaran's January 2026 table) | The method actually used is named. An effective rate outside [rf − 1, rf + 19] is rejected in favour of the synthetic rating. Debt below 2% of assets is treated as noise, and the note says whether a synthetic rating then ran. Interest expense and the EBIT it is scored against come from **one** statement basis — the trailing twelve months when both are available, else the latest annual statement for both legs — and the basis is named; a mixed pair is the last resort and is labelled as such. |
-| Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. |
+| Tax rate | Select the first ratios-TTM row, or the first annual-ratios row when no TTM row exists; use its effective-rate field, otherwise TTM tax expense ÷ pre-tax income. Audit 2026-10-22 B-32: with no vendor rate, a TTM pre-tax loss gets a **0% shield**; with no complete TTM tax pair, the **latest annual** tax expense ÷ pre-tax income is used, or a 0% shield when that year's pre-tax income is not positive | A present TTM row lacking tax does not cause a second lookup in annual ratios. Clamped to [0%, 35%], and a clamp is disclosed. Where it came from is named, and an annual or 0% fallback is also an info entry (`returns.wacc.effectiveTaxRate.basis`). With neither a TTM nor an annual pair the levered WACC is still withheld. On the EDGAR path, a filer that tags only domestic and foreign pre-tax income has them summed into pre-tax income, with the composition disclosed; the derived EBIT reads the same pre-tax evidence. No universal statutory rate is assumed. D-237: the pre-tax income in every statement rate is the provision's own base (see "Effective tax base" below), and where the filings move the TTM pair's denominator off the provider's pre-tax figure, the provider's effective-rate field rests on another basis and the statement pair replaces it, with the basis saying so. |
 | Weights | Market value of equity (market capitalisation) and book debt as a market-value proxy: total debt **less the operating-lease liability** where the balance sheet discloses it (the EV bridge's lease rule, below), D-60, extended for incomplete dates: the weight uses the latest complete balance in the selected window; a refused newer balance remains refused in its own EV bridge. Effective cost of debt divides a year of interest by the complete quarter-end balances of the trailing-twelve-month window when interest is TTM, else by the complete latest two fiscal-year ends; a single complete balance can stand in, and exclusions are named | Stated as E% / D%, with the balance dates and the lease basis named. When the statements' currency differs from the quote currency (the ADR case) the weights are suppressed rather than silently mixed. On the financial routes, which value on the cost of equity alone, the WACC and the cost of debt are not computed at all (audit 2026-10-22 B-31, below). |
 
 **Independent beta fallback (D-204).** Only a missing or implausible provider
@@ -906,7 +933,8 @@ ROIC is annual `EBIT × (1 − observed effective tax rate) / invested capital`,
 with the tax rate clamped to [0%, 35%], invested capital equal to debt plus
 temporary equity (redeemable preferred and redeemable non-controlling
 interests) plus stockholders' equity less cash and short-term investments, and
-the operating lease adjustment described below. An unavailable observed tax rate withholds
+the operating lease adjustment described below. The rate is the year's provision over
+its effective tax base (D-237, "Effective tax base"). An unavailable observed tax rate withholds
 that year's NOPAT/ROIC; non-positive invested capital is not interpreted as
 an exceptional return. This historical NOPAT is separate from the forward
 DCF's projected loss-carryforward logic.
@@ -1512,7 +1540,9 @@ states the value with the margin held flat (see "AMZN audit fixes (October 20,
 2026)").
 
 **Tax path (D-58).** The tax rate fades from the observed effective rate to a
-terminal rate. The terminal rate is the company's own historical median,
+terminal rate. The observed rate, and each year of the history, is the
+provision over its effective tax base (D-237, "Effective tax base"). The
+terminal rate is the company's own historical median,
 floored at max(statutory marginal rate, 15% global minimum tax). The
 statutory rates come from `STATUTORY_MARGINAL_TAX_PCT`, which lists only
 sourced national rates: US 21%, 26 U.S.C. §11(b), excluding state taxes. The
@@ -1757,7 +1787,8 @@ change the common FCF convention and require remeasurement of every issuer's
 FCF, P/FCF and DCF seed. In the retained FIG example, PP&E-only capex differs
 by 1.302 million from the retained vendor basis on 231.012 million FCF (0.6%
 rounded). This decision preserves arithmetic and does not claim period-by-period
-software comparability or issuer-defined FCF reconciliation.
+software comparability or issuer-defined FCF reconciliation. A provider figure of
+exactly 0 is the one exception: see "Cash capital spending of zero (D-239)".
 
 
 **Free cash flow subtracts stock-based compensation by default.** The
@@ -1951,6 +1982,12 @@ belong in EV. Undisclosed preferred stock is treated as zero. Minority interest
 is not zero-filled. When consolidated equity has no resolved parent/NCI split,
 or differs from parent equity with no NCI figure, the NCI allocation is unknown.
 EV, the EV multiples and the DCF's per-share equity bridge are then withheld.
+One test decides this for the DCF's bridge-row choice and gate, EV, the
+own-history bands and the cash multiples (`noncontrollingOwnershipUnresolved`,
+`src/pipeline/stageB/ownership.ts`; D-248). Consolidated and parent equity are
+one amount only within one currency unit or one part in ten billion of
+consolidated equity: an allowance for arithmetic noise, never for materiality,
+so one reporting unit of difference is a difference.
 NCI is taken as zero only from the filing itself. That happens when the filer
 tags only equity including NCI at that date, its net income attributable to NCI
 for the period ending there is explicitly zero, and its latest earlier NCI
@@ -2419,7 +2456,10 @@ saved figures and dates are never rewritten.
 **Share basis (D-65).** Per-share values divide by the latest weighted-average
 diluted count, which carries option and RSU dilution (except a loss period's, below); the bridge table also
 prints the shares outstanding the quote implies (market cap ÷ price) and says
-which one divides.
+which one divides. That is the rule for a value per share (the DCF and the
+excess-return model). A flow per share is different: FFO and AFFO per share
+divide by the weighted count of the flow's own fiscal year (D-233, "FFO and
+AFFO (NAREIT)").
 
 *Convertibles (FIN-302 / FIN-302-V1; OD-2).* Both DCF and excess-return
 compare claim and converted readings at the model's own value, publishing the
@@ -2431,9 +2471,12 @@ Preferred option-value claims join the permanent preferred deduction. When
 both tags may overlap, deduct the larger and warn; add them only with an
 independently filed inclusive carrying total equal to their sum. Names in free
 text are not series evidence. Inclusive notes payable is never added to its
-current component. Claims match the bridge date; increments match the exact
-divisor end and a quarter of 80-100 days or year of 350-380 days, on core forms
-filed by acquisition. An unestablished claim or full-share settlement retains
+current component. Claims match the bridge date; increments match the divisor's
+own period by the one period rule (`factCoversPeriod`, `src/edgar/xbrl.ts`;
+D-247): a duration fact whose own length is a quarter (70-125 days) or a fiscal
+year (300-400 days) and which ends within 3 days of the divisor end, on core
+forms filed by acquisition. The loss-period divisor below reads the same
+increment by the same rule. An unestablished claim or full-share settlement retains
 both claim and shares with a warning bounding understatement at N/(D - N).
 A cash-principal note keeps its principal and conversion-spread shares.
 Forecast operating EPS follows the selected divisor. A converted note removes
@@ -2472,7 +2515,8 @@ quarters and the latest fiscal year that shows one; the note names the donor as
 a quarter or a fiscal year with its date. Award dilution is the donor's diluted
 minus basic count, less the if-converted shares the filer reports for that exact
 period (`IncrementalCommonSharesAttributableToConversionOfDebtSecurities` and
-`...OfPreferredStock`, a duration fact of the period's own length, core forms),
+`...OfPreferredStock`, a duration fact of the period's own length by the same
+period rule as the bridge's reader, D-247, core forms),
 floored at 0, because the equity bridge already deducts those convertible
 instruments as claims; the note names the amount taken out. When the issuer
 files a convertible carrying value (the families `ConvertibleNotesPayable`,
@@ -2491,8 +2535,11 @@ info gap `valuation.perShare.lossPeriodDivisor` (and the D-60 divisor note's
 wording on the DCF route) is raised only where a DCF, excess-return or REIT
 FFO/AFFO per share that divides by the count is published, in the substituted, basic and
 not-restored cases; an unprofitable report with no DCF gains neither. The DCF,
-the excess-return route, the REIT block, the scenario paths and forecast EPS
+the excess-return route, the scenario paths and forecast EPS
 (`dilutedSharesProj`, on its pre-B-37 count) read the same substituted divisor.
+The REIT block's divisor row is the latest fiscal year (D-233), so the same rule
+applies to it when that year is the loss period; a loss quarter beside a
+profitable year does not touch FFO or AFFO per share.
 A profitable divisor row is unchanged.
 
 `src/pipeline/stageB/netDebt.ts` owns the versioned net-debt resolver: debt minus
@@ -3155,6 +3202,10 @@ with, all printed as assumptions in their own right:
   is common dividends plus net common buybacks over income available to common,
   averaging up to three years with at least two usable years. Missing history suppresses the model
   rather than assuming a universal payout.
+  A fiscal year in which preferred claims existed but none stand at its end
+  (the preferred was redeemed) reads its filed income available to common from
+  the full-year 10-K as well; a closing balance without preferred does not make
+  total net income the common holders' for that year (D-251).
   If preferred stock is outstanding and SEC facts give only aggregate cash
   dividends, the total is not labeled common dividends. A preferred earnings
   allocation is not a cash payment. Common payout and the valuation remain
@@ -3517,8 +3568,18 @@ USD 12.105 million below common FFO, disproving an unconditional upper bound.
 The REIT block takes its market cap and its enterprise value from the multiples
 framework (FIN-311, FIN-108, FIN-119-V2; it builds neither itself). P/FFO and
 P/AFFO are the quote's admitted market cap divided by FFO and AFFO, the same
-figures the multiples publish, so a report carries one P/FFO; FFO and AFFO per
-share divide by the weighted diluted count ("Share basis (D-65)"). The implied
+figures the multiples publish, so a report carries one P/FFO. FFO and AFFO per
+share divide by the weighted-average diluted share count of FFO's own period,
+the latest fiscal year (D-233): the annual income row whose period end is FFO's,
+through the loss-period rule and the common-class rule of "Share basis (D-65)".
+The latest quarter's count, which divides a value per share, is never used for
+them, because a ratio's numerator and denominator cover one period. When no
+count is established for that fiscal year (no annual row at FFO's period end, no
+count on it, a count that cannot be shown to span every common class, or, for a
+translated ADR, one that cannot be placed on the quoted unit) both figures are
+withheld with the warn gap `valuation.reit.perShareDivisor`; P/FFO and P/AFFO
+need no share count and stand. The block's notes name the period and the count
+it divides by. The implied
 cap rate divides NOI by the **house enterprise value** — market capitalisation
 + total debt + preferred + redeemable preferred + minority interest +
 redeemable noncontrolling interest − cash and short-term investments, less the
@@ -3874,7 +3935,7 @@ rate is … (observation …), not FRED DGS10." It is built from the recorded
 both layouts, under the classic report header, at the head of the Markdown,
 audit and print exports, and in the AI context, which is told never to
 attribute a substituted figure to FMP or FRED `DGS10`. A keyless plan, or
-`THESIS_STATEMENT_SOURCE=edgar`, substitutes by design and shows no line, and
+`METIS_STATEMENT_SOURCE=edgar`, substitutes by design and shows no line, and
 neither does a member the key's subscription never serves. The
 fair value's degraded-inputs entry uses the same wording.
 
@@ -6891,6 +6952,20 @@ later than companyfacts' newest periodic report, is never merged, so nothing
 is counted twice and a row never mixes the two bases. The merge runs after
 the predecessor check, so a successor's merged quarter cannot hide missing
 history. An info entry names each merged filing, its period and filing date.
+Since D-236 "already carries" is decided by evidence and the rule covers every
+core periodic form. A filing counts as carried only when companyfacts
+attributes to its accession at least one us-gaap or ifrs-full fact; a filing
+it merely mentions, by a cover-page (dei) or srt fact, does not. Forms 20-F
+and 40-F and amendments are read as well as 10-K and 10-Q, under the same
+selection (the latest annual report, or up to three interim reports, of each
+form within 15 months), and their instances are fetched only when companyfacts
+does not carry the filing: none for a complete feed, two requests for a 20-F
+filer whose feed lags, at most 24 in a run. The case was TSMC: on 2026-11-12
+companyfacts held the cover-page share count and one srt element of its
+fiscal 2025 Form 20-F (filed 2026-04-16) and none of its statements, so the
+filed fiscal 2025 EPS (65.47 TWD per ordinary share) was never admitted and
+the EPS rows ended at fiscal 2024. A filing the rule needed and could not
+read is a warn entry naming it and the reason.
 Where a newer 10-Q, 10-K, 20-F or 40-F was filed before the build but its
 facts could not be read (for instance a filing whose instance was not
 fetched), the report shows a "Newer filing not reflected" banner and a warn
@@ -8383,6 +8458,19 @@ difference with preserved filing lineage. Sign normalization does not establish
 that a cumulative vendor amount belongs to a quarter. Conflicting presentations
 and independent refusals remain unavailable.
 
+The consolidated denominator can also come from the filings themselves, for an
+issuer whose filings state one profit line (D-240). The trailing net income is
+read for the report's exact window: the fiscal year plus the current year to
+date less the prior-year year to date, both year-to-date figures from the same
+10-Q, or a figure the filer tags for exactly that start and end (a window that
+is the fiscal year, to the day). It counts as consolidated profit only when the
+filings that supply it report no other consolidated profit, no earnings
+attributable to noncontrolling interests, no noncontrolling balance, and total
+equity equal to the parent's wherever both are tagged; and only when it is the
+same observation as the report's own trailing net income. An issuer with a
+noncontrolling allocation keeps the quarterly rule above, and a closing
+noncontrolling balance of zero still proves nothing.
+
 Current WACC, its component statement periods and risk-free/quote observations
 retain separate dates. Historical ROIC is not relabeled as current. Beneish
 neutralized/clamped inputs and D&A proxy limitations accompany the score; the
@@ -8393,3 +8481,129 @@ comparison that the comparability guard withheld.
 
 The [EXPE report audit](audit/2026-11-06-expe-report-1.md) enumerates every
 observed defect and data-gap family, with accepted repairs and retained limits.
+
+## Net income on the annual cash-flow row (D-231)
+
+Free-cash-flow conversion and the cash-flow accrual figures divide by the net
+income carried on the annual cash-flow row. For a vendor row that figure is
+compared with the filer's own profit lines for the exact fiscal year, in the
+row's currency: under us-gaap the statement builder's chain (`ProfitLoss`,
+then the including-noncontrolling-interest element, then `NetIncomeLoss`);
+under IFRS `ProfitLoss`, with `ProfitLossAttributableToOwnersOfParent` as the
+parent-scope line. A figure equal to any filed copy of one of them, within the
+vendor-agreement allowance, stays, except a figure equal only to the parent's
+line (D-238, below). A figure equal to none is replaced by the
+filed consolidated profit from the newest filing that states it, and the
+manifest names both values and the filing. Where the filings state no
+consolidated profit for the year, or the admitted SEC facts hold no profit
+line for it and the figure matches no profit line of the same period's income
+statement, the figure is withheld; conversion and accruals for that year then
+read the income statement's net income, and the row says so. Stored run inputs
+are not rewritten: the check runs when a report is built.
+
+## Operating cash flow of a reconciled filed statement (D-252)
+
+A vendor operating cash flow that conflicts with the filed one is withheld,
+with the free cash flow built on it (D-89). One shape is settled by the filing
+itself. On an annual row, the filed figure replaces the vendor's when ONE
+filing, the newest that states the fiscal year's
+`NetCashProvidedByUsedInOperatingActivities`, is also the newest that states,
+for exactly the same start and end and in the same currency, the investing
+total, the financing total and the change in cash, cash equivalents and
+restricted cash, each with one value, and operating + investing + financing +
+the exchange-rate effect on cash (when the filing tags one) equals that change
+exactly. The check is the filing's own arithmetic: no allowance and no
+balancing figure. A statement that does not foot on these lines, a line a
+newer filing restates without the others, two values for a line, a quarterly
+row, a fact filed after the analysis time, another currency or another issuer
+leave the row withheld. The vendor observations stay in the row's conflict
+record, marked as resolved by the filed family, with the filing as the
+field's provenance. Free cash flow is then operating cash flow plus the row's
+capital spending (an outflow is negative), as for any row; capital spending
+keeps its own admission rules, a row without usable capital spending gets no
+free cash flow, and a free cash flow refused for another cause stays refused.
+Stored run inputs are not rewritten: a row refused before this rule is judged
+again when a report is built, from the refusal's evidence record and never its
+sentence, and the company page's free-cash-flow bars read the same admitted
+rows.
+
+## Filed share counts and borrowings over a vendor's figures (D-234)
+
+A vendor weighted-average share count is compared with the filer's count for
+the exact period. For a registrant that lists several symbols the comparison
+waits until a comparable period shows that the vendor counts shares in the
+filer's unit, within the existing 3% unit allowance; an income series that
+shows it governs the other series too, when data is collected and when a
+report is built. A count that then differs from the filed one by more than
+rounding (0.01%, at least one share) is replaced by the filed count, and the
+manifest names both.
+
+A vendor debt total can include an amount the filing does not present as debt.
+For a held-for-sale lender whose balance sheet names "Payables to third-party
+loan owners" beside its debt lines, the report's debt is the filing's own
+borrowings plus its operating lease liability when one filing proves every
+part: it tags `LongTermDebt`, `LongTermDebtNoncurrent` and
+`OperatingLeaseLiability` at the balance date and no other borrowing or
+finance lease; its balance-sheet debt lines add up to `LongTermDebt` exactly
+and its non-current line equals `LongTermDebtNoncurrent`; and the vendor's
+figures are those amounts plus the named payable. The vendor total is kept
+beside the filed one in the audit trail, the loan-owner payables stay a
+separate line, and no finance lease is added or assumed nil. Where a part is
+unproven the earlier rule stands: the vendor figure is shown under the label
+"Provider debt perimeter (includes payables to third-party loan owners)".
+Stored run inputs are not rewritten: both checks run when a report is built.
+
+## The entity scope of net income (D-238)
+
+An issuer with noncontrolling interests reports three profit lines:
+consolidated profit, the profit attributable to the parent (consolidated less
+the noncontrolling share) and income available to common. Each metric reads
+the line its other operand is on, through one owner
+(`src/pipeline/stageB/ownership.ts`):
+
+- Consolidated profit: free-cash-flow conversion (annual and trailing), the
+  accrual figures and return on assets, because cash flow and total assets are
+  consolidated. A cash-flow statement starts from consolidated profit, so a
+  vendor cash-flow figure equal only to the parent's line is replaced by the
+  consolidated profit the newest filing states beside that line; the manifest
+  names both values and the filing. One filing must state both lines, and a
+  filing that states two consolidated values leaves the figure withheld. When
+  a cash-flow row carries no net income, the income statement's profit is read
+  on the consolidated scope, and the row says how.
+- The parent's profit: the net margin and DuPont (whose equity is the
+  parent's). A year whose reported net income is the consolidated profit is
+  reduced by the signed noncontrolling share, and the figure's note says so.
+- Income available to common: earnings per share, P/E, return on common
+  equity, payout and the excess-return model, as before.
+
+A row that carries no noncontrolling share, or no statement of its scope, is
+read as reported; nothing is inferred. A filer whose only profit line is
+`NetIncomeLoss` has no noncontrolling interest and does not move. Stored run
+inputs are not rewritten: the rule runs when a report is built.
+
+## Cash capital spending of zero (D-239)
+
+The provider writes 0 on a cash-flow row for a line it did not find, so a cash
+capital-spending figure of exactly 0 on a vendor row is a figure only when the
+filings state it. For the row's own period (the fiscal year, or the standalone
+quarter, directly filed or the difference of two year-to-date figures on one
+presentation) the capital-spending elements are read from the admitted SEC
+facts in the row's currency, filed by the analysis time:
+`PaymentsToAcquirePropertyPlantAndEquipment`,
+`PaymentsToAcquireProductiveAssets` and `PaymentsToDevelopSoftware`, the tag
+basis the quarterly and trailing constructions already use. No synonym or
+component sum is added. When every such line tagged for that period is 0, the
+zero is filed and stays. When none is tagged for it, capital spending is
+undisclosed; when one states an amount, the zero is contradicted. In both
+cases the field and the standardized free cash flow that subtracts it are
+withheld for that period, the provider observations are retained, and one
+manifest entry names the periods and the cause. A non-zero provider figure is
+not this rule's subject (the cash-capex convention is otherwise unchanged), and
+a row whose field already carries filed evidence or an earlier decision is
+left to it. Figures that need a withheld period follow their own rules: a
+trailing twelve months with a withheld quarter is withheld, a growth window
+ends at the newest year that has the figure and says so, the cash runway is
+withheld, and a score aspect left without evidence counts at the neutral
+midpoint. An issuer without confirmed SEC facts is not judged. Stored run
+inputs are not rewritten: the rule runs when a report is built, and the
+company page's free-cash-flow bars read the same admitted rows.

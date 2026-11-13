@@ -1,5 +1,6 @@
 import type { Dcf } from "@/report/schema";
 import { valuationAuditTables } from "@/report/auditTables";
+import { recordedPerShareLabel } from "@/report/presentation";
 import { RecordedAuditTable } from "./RecordedAuditTable";
 import { TracedFigure, TracedNumberSourceDetails } from "./primitives";
 
@@ -21,7 +22,7 @@ export function CapitalBridge({ dcf, recordedPerShare = dcf.perShare }: { dcf: D
     <div className="capital-bridge-stages">{stages.map(stage => <div key={stage.key} data-capital-stage={stage.key}>
       <h4>{stage.title}</h4><dl>{stage.rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd className="mono">{value}</dd></div>)}</dl>
       {stage.key === "common" && recordedPerShare && <div className="capital-per-share" role="group" aria-label="Recorded bridge per-share endpoint">
-        <p>Recorded model value per share{dcf.perShare === null ? " (audit only)" : ""}</p>
+        <p>{recordedPerShareLabel(dcf)}</p>
         <TracedFigure n={recordedPerShare} tone={dcf.perShare === null ? "muted" : "accent"} />
         <TracedNumberSourceDetails n={recordedPerShare} label="Per-share endpoint provenance" />
       </div>}

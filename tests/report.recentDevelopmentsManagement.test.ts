@@ -58,8 +58,7 @@ function withAnalysis(): Report {
 const surfaces = (report: Report): Record<string, string> => ({
   markdown: reportToMarkdown(report),
   print: readableHtml(reportToPrintBody(report)).text,
-  classic: readableHtml(renderToStaticMarkup(createElement(ReportView, { report, layout: "classic" }))).text,
-  dossier: readableHtml(renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }))).text,
+  dossier: readableHtml(renderToStaticMarkup(createElement(ReportView, { report }))).text,
 });
 
 describe("stored-report compatibility", () => {

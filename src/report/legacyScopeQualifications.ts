@@ -1,6 +1,5 @@
-import { LEGACY_SCOPE_SINCE_SPEC, LEGACY_PLACEHOLDER_DISPLAY_CUTOFF } from "@/report/versions";
+import { LEGACY_SCOPE_SINCE_SPEC, LEGACY_PLACEHOLDER_DISPLAY_CUTOFF, parseSpecStamp, specVersionBefore } from "@/report/versions";
 import type { Report } from "@/report/schema";
-import { specVersionBefore } from "@/report/legacyPayloadRecordSafety";
 
 export { LEGACY_SCOPE_SINCE_SPEC } from "@/report/versions";
 export const LEGACY_SCOPE_HEADING = "Read-time saved-report clarifications";
@@ -27,7 +26,7 @@ export function legacyScopeQualifications(report: Pick<Report, "meta"> & Partial
     return notes;
   }
   return [
-    (/^\d+\.\d+\.\d+$/.test(saved)
+    (parseSpecStamp(saved) !== null
       ? `Built before report spec ${LEGACY_SCOPE_SINCE_SPEC}.`
       : `Historical scope evidence is not recorded; this read-time convention was introduced in ${LEGACY_SCOPE_SINCE_SPEC}.`) +
       " These are display qualifications, not newly recorded run evidence. Stored figures, grades and recorded evidence are unchanged.",
