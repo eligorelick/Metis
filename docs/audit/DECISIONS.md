@@ -42,9 +42,9 @@ its old module. One stated behaviour:
   whole numbers after trimming) is before every cutoff, so the report gets
   the legacy read-time view. It cannot be shown to follow the newer rule, and
   this is what the nine cutoffs on the shared helper already did;
-- a stamp at or above a cutoff is not before it, a newer build's included (the
-  evidence-contract stamp separately discloses a report this build does not
-  recognise);
+- a stamp at or above a cutoff is not before it, a newer build's included
+  (whether this build recognises that report's evidence rules is a separate
+  question, answered by the evidence-contract stamp's own reader);
 - a cutoff that cannot be read never fires (cutoffs are pinned constants).
 
 Where it lives, and why. P21's owner is `src/report/legacyEntitySafety.ts`,

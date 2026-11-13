@@ -587,8 +587,9 @@ export function parseSpecStamp(stamp: unknown): readonly [number, number, number
  *   read-time view (P10: unproven is not treated as current).
  * - A stamp at or above the cutoff is not before it. That includes a stamp
  *   newer than this build's REPORT_SPEC_VERSION: a report from a newer build
- *   is never given an older rule's correction (its evidence-contract stamp
- *   discloses separately that this build does not recognise it).
+ *   is never given an older rule's correction. (Whether this build recognises
+ *   that report's evidence rules is a separate question, answered by the
+ *   evidence-contract stamp's own reader, `report/evidenceContract.ts`.)
  * - A cutoff that cannot be read never fires. Cutoffs are the constants above,
  *   pinned by tests/report.versionStamps.test.ts.
  *
