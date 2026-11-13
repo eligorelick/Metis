@@ -1400,9 +1400,9 @@
     {
       "case": "duk-data-only",
       "figure": "fcf.fy",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-252 (#174): Duke Energy fiscal 2025 operating cash flow is the filed 12,330,000,000 (10-K 0001326160-26-000014; the filing's cash-flow statement foots exactly), so free cash flow before SBC is -1,694,000,000: fcf.fy gap -> match. D-255 in the same pull request moves version stamps only."
     },
     {
       "case": "duk-data-only",
