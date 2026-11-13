@@ -111,9 +111,14 @@ export function refreshRegistryFile(registryPath, apiModels, pricingHtml, today,
   const merged = mergeModelList(registry, apiModels, today);
   const existingNames = merged.registry.models.map((model) => model.displayName);
   const candidateNames = merged.candidates.map((candidate) => candidate.entry.displayName).filter((name) => !existingNames.includes(name));
-  const pricing = parsePricingText(pricingHtml, [...existingNames, ...candidateNames]);
-  // Only an existing entry without a price row blocks a write; a new model without one is left out.
-  const unparsed = pricing.unparsed.filter((line) => existingNames.some((name) => line.startsWith(`${name}:`)));
+  // A name more than one model carries is not looked up: its row could be any of theirs.
+  const sharedExisting = [...new Set(existingNames.filter((name) => merged.sharedNames.has(name)))];
+  const pricing = parsePricingText(pricingHtml, [...existingNames.filter((name) => !merged.sharedNames.has(name)), ...candidateNames]);
+  // Only an existing entry without a price row of its own blocks a write; a new model without one is left out.
+  const unparsed = [
+    ...pricing.unparsed.filter((line) => existingNames.some((name) => line.startsWith(`${name}:`))),
+    ...sharedExisting.map((name) => `${name}: this display name is carried by more than one model (${merged.sharedNames.get(name).join(", ")}), so its price row cannot be matched to one of them`),
+  ];
   const added = addNewModels(merged.registry, merged.candidates, pricing.parsed, pricing.unparsed);
   const priced = applyPricing(added.registry, pricing.parsed);
   const report = [...merged.report, ...added.report, ...priced.report, ...unparsed.map((line) => `pricing: ${line}`)];
@@ -162,35 +167,47 @@ export function mergeModelList(registry, apiModels, today) {
     if (typeof api.id !== "string" || !api.id.startsWith("claude-") || known.has(api.id)) continue;
     const seen = records.get(api.id);
     if (seen === undefined) records.set(api.id, api);
-    else if (JSON.stringify(seen) !== JSON.stringify(api)) conflicting.add(api.id);
+    else if (canonicalJson(seen) !== canonicalJson(api)) conflicting.add(api.id);
   }
-  let candidates = [];
+  // A price row is matched by display name, so a name must belong to one model. Every
+  // model counts: registry entries under their names before and after the sync, and
+  // every id the API lists, whether or not it can be added. A dated snapshot is the
+  // same model as its entry.
+  const entryIdOf = (id) => registry.models.find((model) => model.id === id || model.datedSnapshotIds.includes(id)
+    || (id.startsWith(`${model.id}-`) && /^\d{8}$/.test(id.slice(model.id.length + 1))))?.id ?? id;
+  const carriers = new Map();
+  const carry = (name, id) => {
+    if (typeof name === "string") carriers.set(name, (carriers.get(name) ?? new Set()).add(id));
+  };
+  for (const model of [...registry.models, ...next.models]) carry(model.displayName, model.id);
+  for (const api of apiModels) if (typeof api.id === "string") carry(api.display_name, entryIdOf(api.id));
+  const sharedNames = new Map([...carriers].filter(([, ids]) => ids.size > 1).map(([name, ids]) => [name, [...ids]]));
+  const candidates = [];
   for (const [id, api] of records) {
     if (conflicting.has(id)) {
       notAdded(id, "the Models API lists it more than once with different details");
       continue;
     }
     const described = describeNewModel(registry, api, today);
-    if ("reason" in described) notAdded(id, described.reason);
-    else candidates.push(described);
+    if ("reason" in described) {
+      notAdded(id, described.reason);
+      continue;
+    }
+    const others = (sharedNames.get(described.entry.displayName) ?? []).filter((other) => other !== id);
+    if (others.length > 0) {
+      notAdded(id, `its display name "${described.entry.displayName}" is also carried by ${others.join(", ")}, so a price row cannot be matched to it alone`);
+      continue;
+    }
+    candidates.push(described);
   }
-  // A price row is matched by display name, so a name that is not this model's alone
-  // could hand it another model's prices. Names before and after the sync both count.
-  const takenNames = new Set([...registry.models, ...next.models].map((model) => model.displayName));
-  const nameCounts = new Map();
-  for (const { entry } of candidates) nameCounts.set(entry.displayName, (nameCounts.get(entry.displayName) ?? 0) + 1);
-  candidates = candidates.filter(({ entry }) => {
-    if (takenNames.has(entry.displayName)) {
-      notAdded(entry.id, `its display name "${entry.displayName}" is already a registry entry's, so a price row cannot be matched to it alone`);
-      return false;
-    }
-    if (nameCounts.get(entry.displayName) > 1) {
-      notAdded(entry.id, `another new model has the same display name "${entry.displayName}", so a price row cannot be matched to it alone`);
-      return false;
-    }
-    return true;
-  });
-  return { registry: next, report, candidates };
+  return { registry: next, report, candidates, sharedNames };
+}
+
+/** JSON text that is the same for the same data whatever order its keys were written in. */
+function canonicalJson(value) {
+  return JSON.stringify(value, (_key, item) => (item !== null && typeof item === "object" && !Array.isArray(item)
+    ? Object.fromEntries(Object.keys(item).sort().map((key) => [key, item[key]]))
+    : item));
 }
 
 /** Lines the registry schema accepts. A line outside this list is never mapped onto one of them. */

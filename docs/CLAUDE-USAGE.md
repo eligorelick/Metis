@@ -385,7 +385,9 @@ ambiguous price row, such as one priced in tiers by prompt size, is left out
 with the reason in the report, and so is an older model, a model of a line the
 registry does not carry, a model the API does not fully describe, a model that
 takes only some of the five effort levels, and a model whose display name
-another entry or new model also carries. A new
+another model the API lists also carries. When a registry entry shares its
+display name with another model, nothing is written, because the price row
+under that name cannot be matched to one of them. A new
 entry is selectable at once but is not placed in the `auto` order; add it to
 `autoPreference` after a run on it has succeeded. Review an added entry,
 lifecycle changes and existing capability policy before merging.

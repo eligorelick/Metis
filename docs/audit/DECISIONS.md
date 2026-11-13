@@ -55,11 +55,16 @@ What changed.
    - it takes all five effort levels or none. The request builder sends the
      configured level to any model that takes effort, so a model taking only
      some levels is added by hand, not sent a level it rejects;
-   - the API lists it once. The same record on two pages counts once; two
-     different records for one id are both left out;
-   - its display name is its own: no registry entry and no other new model
-     carries it. A price row is matched by display name, so a shared name
-     could give a model another model's prices (P23);
+   - the API lists it once. The same record on two pages counts once, in
+     whatever order its fields come; two different records for one id are
+     both left out;
+   - its display name is its own. A price row is matched by display name, so
+     a shared name could give a model another model's prices (P23). Every
+     model counts as a carrier of its name: registry entries under their
+     names before and after the refresh, and every id the API lists, whether
+     or not it can be added. A dated snapshot is the same model as its entry.
+     A name with two carriers prices neither: a new model is left out, and
+     when a registry entry is one of the carriers nothing is written;
    - the pricing page has exactly one complete row under its display name. A
      model priced in tiers by prompt size (Claude Haiku 5.5 today) has no such
      row and is left out, because one price per model is all the registry and
@@ -97,9 +102,10 @@ left out; a record listed twice is added once; a missing price row for an
 existing entry still stops the write when a new model is present; the `auto`
 order is untouched), `tests/modelRegistry.test.ts`.
 
-Second-model review (Codex, 2026-11-13) found the display-name, repeated
-record and partial effort cases; the three rules above and the last check
-before writing (no repeated id) answer it.
+Second-model review (Codex, 2026-11-13, two rounds) found the display-name,
+repeated record and partial effort cases, then that the name rule had to
+cover registry entries and models that cannot be added; the rules above and
+the last check before writing (no repeated id) answer it.
 
 ## D-258 - The bank revenue and reader-label steps move the version stamps once (2026-11-13)
 
