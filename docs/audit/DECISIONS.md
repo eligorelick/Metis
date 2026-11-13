@@ -869,6 +869,204 @@ eight-filing bound and the unread disclosure; the bundle builder over a
 recorded-shape transport, with and without the filing in the feed).
 `tests/edgar.instanceFacts.test.ts` (B-23) passes unchanged.
 
+## D-250 - Debt totals and lease coverage: one filing completes an unclassified balance sheet, and half a finance lease withholds a provider total (2026-11-13)
+
+Principles P7 (compose once, from one filing: one filing, instant, issuer and
+currency; each part once; no balancing plug; a vendor zero is undisclosed, not
+filed), P10 (withhold, never guess), P12 (qualifications inherit) and P13 (one
+definition, read everywhere). Round 2, Stage 5 (accuracy fixes), debt and lease
+family. Owner changed: `admitDebtFields` (`src/edgar/financialEnrichment.ts`),
+with one reader beside the existing one in `src/edgar/debtPresentation.ts` and
+one shared sentence in `src/edgar/debtCompleteness.ts`. No tolerance, day band,
+currency rule, status word or label is added or changed. D-202 is marked
+"Revised by D-250" for the two provider-row shapes below.
+
+The accuracy baseline (r2-base-afb9cddf) listed five things. Each was checked
+against the code, the cached inputs and the filings' own XBRL instances.
+
+### 1. Realty Income (O): the gap becomes the filed number
+
+Root cause. O's 10-Q for 2026-09-30 (0000726728-26-000059, filed 2026-11-03)
+presents an unclassified balance sheet and tags its borrowings by instrument,
+with no long-term-debt aggregate. The provider row holds the borrowings
+(short-term 2,127,928,000 + long-term 29,260,948,000 = 31,388,876,000) and a
+lease line of 0, while the filing tags `OperatingLeaseLiability` 409,910,000
+and `FinanceLeaseLiability` 165,371,000. Both completions that replace an
+undisclosed provider lease zero with filed liabilities (D-133, D-202) start
+from a current/noncurrent anchor (`LongTermDebtNoncurrent`,
+`LongTermNotesAndLoans`, `LongTermDebtAndCapitalLeaseObligations` or
+`OperatingLeaseLiabilityNoncurrent`), which an unclassified sheet does not
+have. So the row stayed as served and the lease guard (`leaseDebtConflict`)
+refused it: "operating-lease liability 409.91M exceeds the vendor lease line
+0M". The refusal rested on a provider zero, which P7 calls undisclosed.
+
+Rule (`completeUnclassifiedSheetDebt`). A provider row whose lease line is 0
+is completed when ONE filing at the row's date and currency proves every part:
+its balance sheet lists liability lines that add up to its total exactly in
+both columns (`unclassifiedLiabilityLines`, the header grammar
+`reconcileDebtPresentation` already reads) and that total is the filing's
+tagged `Liabilities`; every instrument-debt fact the filing tags at the
+instant is one of those lines, each line once; at most one further line is the
+sheet's own credit-facility and commercial-paper line, which a tagged
+`CommercialPaper` does not exceed; no other line has a borrowing-like caption;
+the filing tags none of the aggregates or current-debt lines the other
+completions read; the provider's long-term debt, short-term debt and total
+agree with those lines (`vendorAgreesWithFiled`, the P8 owner); and the filing
+states both lease liabilities in full, not both zero. Anything else leaves the
+row to the unchanged checks, which still run on the completed row.
+
+Filed proof, all in 10-Q 0000726728-26-000059, instant 2026-09-30, USD:
+
+| Part | Filing line | Element | Value |
+| --- | --- | --- | ---: |
+| Credit lines and commercial paper | Revolving credit facilities and commercial paper | `o:RevolvingCreditFacilityAndCommercialPaper` (the filer's element; read off the balance sheet) | 2,127,928,000 |
+| Term loans | Term loans, net | `us-gaap:LoansPayable` | 2,772,340,000 |
+| Mortgages | Mortgages payable, net | `us-gaap:SecuredDebt` | 36,745,000 |
+| Notes | Notes payable, net | `us-gaap:NotesPayable` | 26,451,863,000 |
+| Operating leases | (in other liabilities) | `us-gaap:OperatingLeaseLiability` | 409,910,000 |
+| Finance leases | (in other liabilities) | `us-gaap:FinanceLeaseLiability` | 165,371,000 |
+| **Total debt including leases** | | | **31,964,157,000** |
+
+Completeness: the eight liability lines (those four, distributions payable
+265,518,000, accounts payable and accrued expenses 1,094,942,000, lease
+intangible liabilities 1,463,929,000, other liabilities 1,062,753,000) add up
+to `us-gaap:Liabilities` 35,276,018,000. Cash is
+`us-gaap:CashAndCashEquivalentsAtCarryingValue` 368,534,000.
+
+### 2. Rivian (RIVN): a finance lease disclosed with one maturity only
+
+Root cause. RIVN's 10-Q for 2026-09-30 (0001874178-26-000066, filed
+2026-10-29) tags `FinanceLeaseLiabilityNoncurrent` 99,000,000 and neither the
+current portion nor a total; the current portion sits inside a combined
+current line under the filer's own element
+(`rivn:DeferredRevenuesLeaseLiabilitiesAndOtherLiabilitiesCurrent`
+1,598,000,000; the 10-K 0001874178-26-000008 tagged
+`FinanceLeaseLiabilityCurrent` 3,000,000 at 2025-12-31). The provider's lease
+line 985,000,000 is the filed operating leases 886,000,000 plus that
+99,000,000, so its total debt 5,431,000,000 holds half a finance lease. The
+SEC statements builder withholds its own row for this shape ("Finance lease
+liability incomplete", audit FCX-1) and D-202 rule 1 says a disclosed but
+incomplete family refuses an unsupported total, but a provider row was never
+asked: both completions decline it without a refusal and the total stood.
+
+Rule (`partialFinanceFamilyReason`). On a provider row, when the filings tag
+one maturity of the finance lease liability at the row's date and neither the
+other maturity nor a total, total debt and net debt are withheld with the
+statements builder's sentence, now one function (`partialFinanceLeaseReason`),
+followed by the tag, amount and filing that show it. A row the statements
+builder made keeps that builder's rule. The rule fires for RIVN's three 2026
+quarter ends (99M, 99M and 97M noncurrent) and for nothing else in the 17
+cases (a scan of every balance date of the 13 companies; META 2018-12-31 has
+the shape and was already refused).
+
+### 3. What does not change, and why
+
+- Micron (MU) 5,179,000,000 and Qualcomm (QCOM) 15,270,000,000. Each is filed
+  financing debt and is right on the house basis, which excludes operating
+  leases (D-202): MU's is `DebtAndCapitalLeaseObligations` 5,179,000,000 (10-K
+  0000723125-26-000023: `DebtCurrent` 491,000,000 +
+  `LongTermDebtAndCapitalLeaseObligations` 4,688,000,000, finance leases
+  2,387,000,000 inside); QCOM's is `DebtCurrent` 2,489,000,000 + `LongTermDebt`
+  12,781,000,000 (10-Q 0000804328-26-000086). Neither filing tags an operating
+  lease liability at the balance date (MU's 10-Q 0000723125-25-000046 tagged
+  737,000,000 at 2025-11-27, QCOM's 10-K 0000804328-25-000085 tagged
+  832,000,000 at 2025-09-28), so a total including operating leases is not
+  established and Metis does not claim one: the report's caption is "Debt used
+  in this report", its operating-lease line is a gap, and its note says
+  operating lease coverage is unverified and undisclosed lease components are
+  not assumed zero. Net debt (-38,255,000,000 and 6,966,000,000) matches the
+  filed operands in the baseline. Only the stored key's name
+  (`totalDebtIncludingLeases`, a stable id) says "including leases". Renaming
+  it is a wording change not tied to a number: listed for the owner, not made.
+- Duke Energy (DUK) 93,780,000,000. The 991,000,000 above the filed borrowings
+  (`LongTermDebtCurrent` 6,116,000,000 + `ShortTermBorrowings` 2,341,000,000 +
+  `LongTermDebtNoncurrent` 84,332,000,000 = 92,789,000,000, 10-Q
+  0001326160-26-000051) is established: it is the consolidated balance sheet's
+  "Operating lease liabilities" line under other noncurrent liabilities,
+  tagged with the filer's own element `duk:OtherOperatingLeaseLiabilityNoncurrent`
+  (991,000,000 at 2026-09-30; its comparative 1,033,000,000 is
+  `us-gaap:OperatingLeaseLiabilityNoncurrent` in the 10-K
+  0001326160-26-000014). So one filing proves the provider's lease line is the
+  noncurrent operating lease liability. It does not prove a total including
+  leases: the current operating portion is not presented, and Duke's finance
+  leases sit inside its debt lines. The existing treatment for exactly this
+  (D-186, D-202 rule 3: debt including the disclosed lease portion, net debt
+  excluding it, here 92,789,000,000 - 451,000,000 = 92,338,000,000) is reached
+  only through the us-gaap noncurrent tag, which this 10-Q does not use, and
+  the cached inputs hold neither filer elements nor a single-issuer statement
+  text for this combined filing (nine registrants' balance sheets). Proving it
+  needs a new reader; not done here. DUK keeps its figures and its
+  "coverage is unverified" note. Described for a follow-up in the pull request.
+- NVIDIA (NVDA). 99,369,000,000 and 56,586,000,000 are two named quantities,
+  not one computed twice (D-60): "Cash and short-term investments" (cash
+  22,443,000,000 + `DebtSecuritiesCurrent` 34,143,000,000 +
+  `EquitySecuritiesFvNi` 42,783,000,000, 10-Q 0001045810-26-000075),
+  "Marketable equity securities" 42,783,000,000 and "Cash for net debt"
+  56,586,000,000, each on its own line of the debt bridge; net debt and EV net
+  the last, and the equity bridge adds the equity securities once as a
+  non-operating asset. Nothing changes.
+- The long-term-debt tag list (`src/edgar/tagSynonyms.ts`, `longTermDebt`). It
+  is read as ordered alternatives, first match wins, and `resolveDebtOverlaps`
+  nets the two known overlaps (current maturities out of `LongTermDebt`,
+  finance leases counted once beside `LongTermDebtAndCapitalLeaseObligations`).
+  Traced over every balance row of the 13 companies: only MU's rows are built
+  from SEC facts, and all of them read `LongTermDebtAndCapitalLeaseObligations`
+  beside `DebtCurrent`, which composes the filed total above; the other twelve
+  use the provider's long-term debt, which equals `LongTermDebtNoncurrent`
+  wherever a filing tags several of the four. No row reads `LongTermDebt` or
+  the inclusive total, so no case counts current maturities twice or loses a
+  current portion today. One weakness remains in principle: a filer that tags
+  `LongTermDebt` on its noncurrent line (QCOM's practice) would, on an
+  SEC-built row, have `LongTermDebtCurrent` subtracted from it unless the
+  statement text proves the line's scope (`reconcileDebtPresentation`). No case
+  exercises it, so it is recorded, not changed.
+
+### Before and after (same-report check, 17 cases, against main 629cf3c9)
+
+Only `o-data-only` and `rivn-data-only` change; every file of the other 15
+cases is byte-identical. The leaf list is in
+`tmp/accuracy/s5-debt-leases-before-after.md`.
+
+| Company | Figure (2026-09-30) | Before | After | Proof |
+| --- | --- | ---: | ---: | --- |
+| O | Debt used in this report (`totalDebtIncludingLeases`) | withheld | 31,964,157,000 | the table in section 1 |
+| O | Net debt on the retained basis | withheld | 31,595,623,000 | total less cash 368,534,000 |
+| O | Net debt on the selected operating-lease basis; `capital.current.netDebt` | withheld | 31,185,713,000 | less `OperatingLeaseLiability` 409,910,000 |
+| O | Enterprise value (operating-lease basis; also the REIT sketch's) | withheld | 90,909,686,635 | market cap 56,541,526,635 (a market input) + debt 31,554,247,000 + noncontrolling interests 3,182,447,000 - cash 368,534,000 |
+| O | EV/Sales, current | withheld | 14.648712 | that EV over TTM revenue |
+| O | EV/Sales own-history percentile and observations | none; 12 | 29.58; 13 | the current point joins; each quarter's EV is now on the operating-lease basis the current one uses |
+| O | WACC; debt weight | 6.901924%; 34.4765% | 6.847546%; 35.8181% | the debt weight reads the 2026-09-30 balance where it read 2026-03-31; the WACC history follows |
+| RIVN | Debt used in this report | 5,431,000,000 | withheld | section 2 |
+| RIVN | Net debt on the retained basis | -71,000,000 | withheld | built on that total |
+| RIVN | Net debt on the selected operating-lease basis; `capital.current.netDebt` | -957,000,000 | withheld | built on that total |
+| RIVN | Provider enterprise value at 2026-09-30 | 23,525,240,000 | withheld | its debt operand is the refused 5,431M |
+| RIVN | Pre-tax cost of debt | 4.929513% | 4.201550% | TTM interest over the fiscal-year-end balances, since the 2026-09-30 balance is refused (the existing fallback) |
+
+O's fair value stays withheld (equity REIT route) and RIVN's stays withheld
+(loss-making overlay; its EV was already withheld for share scope, and now
+names the debt first). No score, grade or fair value moves in any case.
+
+### Limits
+
+- The same-report check replays frozen inputs, so the completion runs in
+  Stage B. `buildMarketData`'s provider-EV check reads the stored row, not the
+  admitted one, so O's replayed "provider enterprise value" note still quotes
+  the old lease refusal. That value is withheld before and after. A fresh run
+  completes the row at acquisition and the note names the composed total. The
+  same gap between replay and fresh run exists for FIGR since D-234.
+- The wider 104-company census of D-202 is not replayed here. Other providers'
+  rows with half a finance lease will be withheld by rule 2; other
+  unclassified sheets complete only when every condition of rule 1 holds.
+- Version stamps are not moved (the lead moves them once, P27). This change
+  calls for `STAGE_B_IMPLEMENTATION_VERSION` and `PAYLOAD_VERSION`;
+  `NET_DEBT_RESOLVER_VERSION` is unchanged (the resolver's convention is).
+
+Tests (`tests/financialEnrichment.debtLeases.d250.test.ts`, 39 tests; five
+fail on the previous admission): O on its filed lines, 25 compatible controls
+with one part unproven, an unrelated net-lease REIT with no credit facility,
+the reader; RIVN, seven compatible controls, an unrelated filer with the
+current maturity only, a filer with no finance lease, and the shared sentence.
+
 ## D-237 - An effective tax rate divides by the pre-tax income its provision relates to (2026-11-12)
 
 Principles P13 (one basis: a ratio's numerator and denominator share one
@@ -10611,6 +10809,13 @@ No full `npm run verify`, build, server/port action, paid call, push, PR or merg
 is performed. Release stamps remain the integrator's required follow-up above.
 
 ## D-202 - Lease and debt admission beyond the test panel (2026-11-04)
+
+(Revised by D-250: rule 1's "a disclosed but incomplete family still refuses an
+unsupported total" now also holds for a provider row whose filing tags one
+finance-lease maturity only, so RIVN's 2026 quarter-end totals are withheld
+where this entry lists RIVN as unchanged; and an undisclosed provider lease
+zero on an unclassified balance sheet is completed from the one filing, so O's
+2026-09-30 debt is a number.)
 
 Implementation commits: `6e825122` and `979e3e73` on
 `t3/balance-round2-fix`, based on `e6110f17`.
