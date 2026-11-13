@@ -90,6 +90,13 @@ function redact(value: unknown, path: string, fields: string[]): unknown {
  * removed here the same way: a snapshot's gap entries keep the bytes they had
  * before the codes existed. A step that moves a reader to these codes stops
  * removing the ones it reads, with its own snapshot note.
+ *
+ * D-242 snapshot note: the G and P readers now decide by these codes, and the
+ * codes are still removed here. Keeping them would change the bytes, and so the
+ * hash a new report records (`runSnapshot.hash`), of a snapshot of the same
+ * inputs, which this step must not do; a run replayed from a snapshot reads its
+ * entries by their sentences (`@/edgar/refusalCauseRead`), which decide exactly
+ * as the codes do (tests/gapCause.readers.test.ts).
  */
 function withoutDualWrittenCauses(value: unknown): void {
   if (Array.isArray(value)) { for (const item of value) withoutDualWrittenCauses(item); return; }

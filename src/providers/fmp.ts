@@ -29,6 +29,7 @@ import "server-only";
 import { quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
 import { coerceVendorNumber } from "@/providers/vendorNumber";
 import type { GapCause, StatementConflictCause } from "@/types/refusalCause";
+import { gapCauseMatches } from "@/edgar/refusalCauseRead";
 import { buildEstimateTiming, type EstimateTiming } from "@/report/estimateTiming";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getProviderCredential } from "@/ai/store";
@@ -1231,12 +1232,14 @@ const RATE_LIMIT_MAX_RETRIES = 3;
 const fmpRetryDeadline = /* @__PURE__ */ new AsyncLocalStorage<number>();
 
 /**
- * True for the gap an FmpQuotaError leaves (its message starts this way), so a
- * consumer can name the rate limit as the cause. Kept here, not in fmpAccess,
- * because the offline Stage B replay may use this module but not that one.
+ * True for the gap an FmpQuotaError leaves, so a consumer can name the rate
+ * limit as the cause. Kept here, not in fmpAccess, because the offline Stage B
+ * replay may use this module but not that one. P1 (P11, D-242): decided by the
+ * entry's typed cause (`fmp-quota`); an entry without one (an older snapshot or
+ * a writer without a code) by its sentence, through `@/edgar/refusalCauseRead`.
  */
-export function isFmpQuotaReason(reason: string): boolean {
-  return reason.startsWith("FMP quota/rate limit");
+export function isFmpQuotaGap(gap: { readonly reason: string; readonly cause?: unknown }): boolean {
+  return gapCauseMatches(gap, "fmpQuota");
 }
 
 function abortableSleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
@@ -1410,7 +1413,7 @@ export class FmpClient {
     let beyondBound = false;
     let outOfTime = false;
     let retries = 0;
-    for (let attempt = 0; attempt < RATE_LIMIT_MAX_RETRIES && !result.ok && isFmpQuotaReason(result.gap.reason); attempt++) {
+    for (let attempt = 0; attempt < RATE_LIMIT_MAX_RETRIES && !result.ok && isFmpQuotaGap(result.gap); attempt++) {
       const now = this.now().getTime();
       const pause = currentFmpQuota(key, now);
       const resumeAt = pause === undefined
@@ -1433,7 +1436,7 @@ export class FmpClient {
         outOfTime = true;
         break;
       }
-      if (!retried.ok && !isFmpQuotaReason(retried.gap.reason) && this.now().getTime() >= deadline) {
+      if (!retried.ok && !isFmpQuotaGap(retried.gap) && this.now().getTime() >= deadline) {
         // The retry was cut off by the bound, not refused for another reason:
         // the rate limit is still the cause the report should name.
         outOfTime = true;
@@ -1441,7 +1444,7 @@ export class FmpClient {
       }
       result = retried;
     }
-    if (result.ok || !isFmpQuotaReason(result.gap.reason)) return result;
+    if (result.ok || !isFmpQuotaGap(result.gap)) return result;
     const waitedS = Math.round((this.now().getTime() - start) / 1000);
     const boundS = FMP_RATE_LIMIT_WAIT_BUDGET_MS / 1000;
     const note = outOfTime
@@ -2344,7 +2347,8 @@ export class FmpClient {
     const newestIsNoNewBar =
       newestResult !== undefined &&
       !newestResult.ok &&
-      newestResult.gap.reason === FMP_EMPTY_ARRAY_REASON &&
+      // P2 (P11, D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+      gapCauseMatches(newestResult.gap, "fmpEmptyArrayAlone") &&
       newestSpanDays <= NO_NEW_BAR_MAX_SPAN_DAYS &&
       priorBarLagDays <= NO_NEW_BAR_MAX_SPAN_DAYS &&
       priorResult?.ok === true &&

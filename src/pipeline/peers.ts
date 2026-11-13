@@ -4,6 +4,7 @@ import type { FmpFetch } from "@/pipeline/types";
 import { statementIntegrityRows } from "@/pipeline/balanceIntegrity";
 import { establishedIsoCode as isoCode, ownRowCurrency } from "@/pipeline/estimateCurrency";
 import { PEER_PROVIDER_TERMINAL } from "@/pipeline/peerProviderFailure";
+import { gapCauseMatches } from "@/edgar/refusalCauseRead";
 import type { MultipleKey, MultiplesFrameworkInputs, PeerMultiples } from "@/pipeline/stageB/valuation";
 import { GAIN_INFLATED_NON_OPERATING_SHARE, nonOperatingShareOfPretax } from "@/pipeline/stageB/valuation";
 import { normalizeQuarterRows, quarterWindowViolation } from "@/pipeline/stageB/quarterWindows";
@@ -116,7 +117,8 @@ type PeerClient = Pick<FmpClient, "profile" | "quote" | "incomeStatement" | "bal
 /** Fundamentals for one candidate from SEC filings; a reason when they cannot be established. */
 export type PeerFilingFallback = (symbol: string, signal: AbortSignal) => Promise<PeerFundamentals | { reason: string }>;
 /** FMP's refusal of one symbol on one endpoint (fmpAccess.ts); other symbols remain servable. */
-const symbolRefused = (r: FmpFetch<FmpRawRow>): boolean => !r.ok && /this symbol is unavailable on this endpoint/i.test(r.gap.reason);
+// P7a (P11, D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+export const symbolRefused = (r: FmpFetch<FmpRawRow>): boolean => !r.ok && gapCauseMatches(r.gap, "fmpSymbolRestricted");
 const normalize = (v: unknown): string => typeof v === "string" ? v.trim().toUpperCase() : "";
 const issuer = (v: unknown): string => typeof v === "string" && /^\d+$/.test(v.trim()) ? v.trim().replace(/^0+/, "") : "";
 const companyName = (v: unknown): string => normalize(v).replace(/[^A-Z0-9]/g, "").replace(/(?:INCORPORATED|CORPORATION|CORP|INC|PLC|LTD)$/, "");

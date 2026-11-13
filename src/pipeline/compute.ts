@@ -3,7 +3,8 @@ import { forwardAnnualEstimates } from "./forwardEstimates";
 import { withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
 import { resolveForeignValuation, translateValuationInputs, translateProjectionInputs, type ForeignValuationBasis } from "@/pipeline/foreignCurrency";
 import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
-import { admittedStatementRow, isFmpQuotaReason, quotePriceObservationDay } from "@/providers/fmp";
+import { admittedStatementRow, isFmpQuotaGap, quotePriceObservationDay } from "@/providers/fmp";
+import { gapCauseMatches } from "@/edgar/refusalCauseRead";
 /**
  * Stage B orchestrator — runStageB(bundle) adapts the raw DataBundle into each
  * pure Stage B module's own input types, runs sector routing FIRST, then feeds
@@ -4321,7 +4322,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           revenueLogLinear: growth.revenueLogLinear,
           analystEstimates,
           // AMZN audit 2026-10-20, finding 2: a rate-limit refusal is named, not shown as "uncovered".
-          ...(!bundle.analystEstimates.ok && isFmpQuotaReason(bundle.analystEstimates.gap.reason)
+          ...(!bundle.analystEstimates.ok && isFmpQuotaGap(bundle.analystEstimates.gap)
             ? { analystEstimatesRefusal: bundle.analystEstimates.gap.reason }
             : {}),
           waccPct: wacc.waccPct ?? 0,
@@ -4994,7 +4995,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         // Keep the prior suppression's classification; no input check or gap
         // severity is changed. Replace its obsolete profitability explanation.
         // D-229: the new sentence no longer states the unprofitable-overlay cause, so its code is not kept.
-        gaps: prior.gaps.map(g => g.field === "valuation.dcf" && g.reason.startsWith("DCF suppressed for unprofitable overlay")
+        gaps: prior.gaps.map(g => isUnprofitableOverlayGap(g)
           ? { ...withoutGapCause(g), reason } : g),
       };
     }
@@ -5104,7 +5105,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       `diluted share count from the latest ANNUAL statement (${isoDay(inc0?.date) ?? "?"}) — latest-quarter weightedAverageShsOutDil unavailable, zero, or older than the annual row; per-share values may lag recent buybacks/dilution`,
     );
   }
-  if (result.kind === "dcf-suppressed" && route.overlays.includes("unprofitable") && result.suppressionReason?.startsWith("DCF suppressed for unprofitable overlay")) {
+  if (result.kind === "dcf-suppressed" && route.overlays.includes("unprofitable") && isUnprofitableOverlaySuppression(result)) {
     const trigger = route.notes.find(n => n.startsWith("unprofitable overlay applied:"));
     if (trigger) result.suppressionReason += ` Observed trigger: ${trigger}`;
   }
@@ -5129,6 +5130,22 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
  * so it is retained only as a diagnostic component and never used as a
  * fallback for the house convention.
  */
+/**
+ * G2 (P11, D-242): whether a suppressed valuation is the unprofitable-overlay suppression. The writer
+ * (`valueCompany`) records the cause on the result's own `valuation.dcf` gap beside the same sentence it
+ * gives `suppressionReason`; a rewrite that replaces that sentence drops the code (`withoutGapCause`).
+ * A result whose `valuation.dcf` gap carries no code (an older writer) is read by `suppressionReason`'s
+ * wording, through `@/edgar/refusalCauseRead`.
+ */
+export const isUnprofitableOverlayGap = (g: ManifestEntry): boolean => g.field === "valuation.dcf" && gapCauseMatches(g, "dcfUnprofitableOverlay");
+
+/** G1 (P11, D-242): the result's unprofitable-overlay suppression gap, which the FIN-OTHER retained suppression rewrites. */
+export function isUnprofitableOverlaySuppression(result: { suppressionReason?: string; gaps: readonly ManifestEntry[] }): boolean {
+  const coded = result.gaps.find(g => g.field === "valuation.dcf" && g.cause !== undefined);
+  return coded !== undefined ? gapCauseMatches(coded, "dcfUnprofitableOverlay")
+    : result.suppressionReason !== undefined && gapCauseMatches({ reason: result.suppressionReason }, "dcfUnprofitableOverlay");
+}
+
 function netDebtFromBalance(
   bal: FmpBalanceSheetRow | null | undefined,
 ): NetDebtResolution {

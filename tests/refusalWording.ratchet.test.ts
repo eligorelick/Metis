@@ -27,31 +27,29 @@ const PINNED: Record<string, number> = {
   // shortTermDebt pattern C4 and C12 share, C4's longTermDebt one and C12's total/net one (D-220);
   // C7's combined-total pattern, C9's minor-difference one and C5's legacy vendor-sum one (D-221);
   // the stock-compensation pattern C1 and C2 share, C3's cash one and C13's share-count one (D-222).
-  "src/edgar/refusalCauseRead.ts": 12,
+  // D-242: the gap and provider-status tests, for missing-data entries with no code, moved verbatim:
+  // G1/G2's overlay one, G3's two leads, G4's balance-fields one, G5's prefix and SEC-silent suffix,
+  // P1's quota one, P2/P5's exact empty-array one, P3's containment one, P5's no-key and
+  // unlisted-ticker ones, P4's unlinked-predecessor one and P7a's symbol-refusal one (13 lines).
+  "src/edgar/refusalCauseRead.ts": 25,
   // C13 (src/pipeline/keyless.ts) moved to its code in D-222; that file reads no wording now.
   // C15: netDebt removed when its sentence equals totalDebt's. C14 moved to its code in D-219.
   "src/pipeline/stageB/leaseScope.ts": 1,
   // C16, C17: a gap dropped when its sentence equals the superseded conflict's.
   "src/pipeline/cashFlowBasis.ts": 1,
   "src/pipeline/primaryCapitalBasis.ts": 1,
-  // G1, G2: the unprofitable-overlay DCF suppression sentence; P1 caller: analyst-estimate quota.
-  "src/pipeline/compute.ts": 3,
-  // G3, G4: which DCF gap names the withheld fair value.
-  "src/pipeline/stageB/fairValue.ts": 2,
-  // G5: the temporary-equity enrichment gap that leaves a bridge claim unknown.
-  "src/pipeline/stageB/seniorClaims.ts": 1,
+  // G1, G2 and the P1 caller (src/pipeline/compute.ts), G3, G4 (stageB/fairValue.ts) and G5
+  // (stageB/seniorClaims.ts) moved to the gap's typed cause in D-242; those files read no wording now.
   // G6: forensic gaps deduplicated by field and sentence.
   "src/pipeline/stageB/forensics.ts": 1,
   // G7 (src/pipeline/stageC/payload.ts) moved to the quarter-rejection kind in D-223; that file reads no wording now.
-  // P1 (definition and retry callers), P2: FMP quota and empty-array status sentences.
-  "src/providers/fmp.ts": 6,
-  // P3, P4, P1 caller: empty-array and unlinked-predecessor sentences, member quota.
-  "src/pipeline/dataBundle.ts": 3,
-  // P5, P6: empty-array / no-key / unknown-ticker status and the no-key skip sentence.
-  "src/pipeline/jobRunner.ts": 4,
-  "src/app/company/[symbol]/page.tsx": 3,
-  // P7: peer profile refusals.
-  "src/pipeline/peers.ts": 2,
+  // P1 and P2 (src/providers/fmp.ts), P3, P4 and the P1 caller (src/pipeline/dataBundle.ts), P5
+  // (src/pipeline/jobRunner.ts and src/app/company/[symbol]/page.tsx, now one check in
+  // src/pipeline/unknownTicker.ts) and P7a (src/pipeline/peers.ts) moved to the typed cause in D-242.
+  // P6: the in-memory AI-skip disclosure (not a missing-data entry; no code exists for it).
+  "src/pipeline/jobRunner.ts": 1,
+  // P7b: PEER_PROVIDER_TERMINAL over provider-written failure text (no single writer composes it).
+  "src/pipeline/peers.ts": 1,
   // R1-R16: readers of a saved report's stored sentences (P21: old reports carry no code).
   "src/report/completeness.ts": 2,
   "src/report/gapResolution.ts": 3,
