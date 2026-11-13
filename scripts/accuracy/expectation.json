@@ -1366,11 +1366,10 @@
     {
       "case": "o-data-only",
       "figure": "fv.ffo.shares",
-      "status": "mismatch",
-      "valueSha256": "c02ecb9c5d44a0a9",
-      "cause": "Metis error",
+      "status": "match",
+      "valueSha256": null,
       "note": "FFO per share divides FY2025 FFO by the filed weighted diluted count for the quarter 2026-07-01 to 2026-09-30 (946,115,000; 10-Q 0000726728-26-000059), not FY2025's 908,334,000: numerator and divisor cover different periods (P1, P13). On the FY2025 count FFO per share would be about 4% higher.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "D-233 (#154): O FFO per-share divisor is the FY2025 weighted diluted count 908,334,000 (10-K 0000726728-26-000011)"
     },
     {
       "case": "duk-data-only",
