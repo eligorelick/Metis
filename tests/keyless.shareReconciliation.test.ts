@@ -365,6 +365,70 @@ describe("vendor EPS and weighted shares with independently comparable primary f
   });
 });
 
+// D-234 (P3, P8): the calculation view's filed admission asked each series alone whether it shows a
+// multi-ticker registrant's share unit. FIGR's one comparable annual row (FY2025) carried vendor counts
+// exactly twice the 10-K's, so the annual series never showed it and the doubled counts stood, while
+// the same view corrected the quarters.
+describe("D-234: in the calculation view a series that shows a multi-ticker share unit governs the other", () => {
+  // FIGR: 10-K 0002064124-26-000009 files 114,435,259 basic and 141,802,002 diluted for 2025; 10-Q 0002064124-26-000029 files Q1 2026.
+  const filedYear = fiscalRow("2025-12-31", "FY", { eps: 0.54, epsDiluted: 0.44, weightedAverageShsOut: 114_435_259, weightedAverageShsOutDil: 141_802_002 });
+  const vendorYear = { ...filedYear, weightedAverageShsOut: 228_870_518, weightedAverageShsOutDil: 283_604_000 };
+  const matchingQuarter = fiscalRow("2026-03-31", "Q1", { eps: 0.21, epsDiluted: 0.18, weightedAverageShsOut: 217_277_605, weightedAverageShsOutDil: 248_829_672 });
+  function view(tickers: string[], annual: FmpIncomeStatementRow[], quarterly: FmpIncomeStatementRow[], filed: FmpIncomeStatementRow[]) {
+    const facts = factsFor(filed);
+    const b = withIssuerFacts(completeCurrencyBundle({}), facts);
+    b.builtAt = FETCHED;
+    if (!b.profile.ok || !b.statements.incomeQuarterly.ok || !b.statements.incomeAnnual.ok) throw Error("fixture");
+    b.profile.value.data.rows[0]!.isAdr = false;
+    b.edgar.registrant = { cik10: CIK, name: "Example", tickers, sic: null, sicDescription: null,
+      exchanges: [], fiscalYearEnd: "1231", forms: ["10-K", "10-Q"], stateOfIncorporation: null };
+    b.edgar.shareBasis = { splits: built(facts).splits, basisDay: AS_OF };
+    b.statements.incomeAnnual.value.data.rows = annual;
+    b.statements.incomeQuarterly.value.data.rows = quarterly;
+    const original = JSON.stringify(b);
+    const out = withFilerShareUnits(b);
+    expect(JSON.stringify(b)).toBe(original);
+    return { year: rowsOf(out.statements.incomeAnnual)[0]!, quarter: rowsOf(out.statements.incomeQuarterly)[0]!, gaps: out.gaps };
+  }
+
+  it("replaces FIGR's doubled FY2025 counts with the 10-K's once its 2026 quarter shows the vendor's unit", () => {
+    const { year, quarter, gaps } = view(["FIGR", "FGRS"], [vendorYear], [matchingQuarter], [filedYear, matchingQuarter]);
+    expect(year).toMatchObject({ weightedAverageShsOut: 114_435_259, weightedAverageShsOutDil: 141_802_002, eps: 0.54, epsDiluted: 0.44 });
+    expect(year.fieldConflicts?.weightedAverageShsOutDil).toMatchObject({ usable: true, resolution: "filed-line", vendorValue: 283_604_000, secValue: 141_802_002 });
+    expect(year.fieldProvenance?.weightedAverageShsOutDil).toMatchObject({ source: "edgar", unit: "shares", periodStart: "2025-01-01", periodEnd: "2025-12-31",
+      tags: ["us-gaap/WeightedAverageNumberOfDilutedSharesOutstanding"] });
+    expect(quarter).toEqual(matchingQuarter);
+    expect(gaps.filter(gap => gap.field.startsWith("statements.income.2025-12-31.") && gap.field.endsWith(".filedReconciliation")).map(gap => gap.reason)).toEqual([
+      "basic count for 2025-12-31 corrected from vendor 228870518 to filed 114435259; exact 2025-01-01 through 2025-12-31 shares; discrepancy exceeds rounding",
+      "diluted count for 2025-12-31 corrected from vendor 283604000 to filed 141802002; exact 2025-01-01 through 2025-12-31 shares; discrepancy exceeds rounding",
+    ]);
+  });
+
+  it("compatible control: with no series showing the unit, the annual row is left uncompared", () => {
+    // The only quarter is doubled too, so nothing shows the vendor counts shares in the filer's unit.
+    const doubledQuarter = { ...matchingQuarter, weightedAverageShsOut: 434_555_210, weightedAverageShsOutDil: 497_659_344 };
+    const { year, quarter, gaps } = view(["FIGR", "FGRS"], [vendorYear], [doubledQuarter], [filedYear, matchingQuarter]);
+    expect(year).toEqual(vendorYear);
+    expect(quarter).toEqual(doubledQuarter);
+    expect(gaps.some(gap => gap.field.startsWith("statements.income."))).toBe(false);
+  });
+
+  it("unrelated shape: a class unit that never agrees (1,500 to 1) is not compared through the other series", () => {
+    const classYear = { ...filedYear, symbol: "BRK.B", weightedAverageShsOut: 114_435_259 * 1500, weightedAverageShsOutDil: 141_802_002 * 1500 };
+    const classQuarter = { ...matchingQuarter, symbol: "BRK.B", weightedAverageShsOut: 217_277_605 * 1500, weightedAverageShsOutDil: 248_829_672 * 1500 };
+    const { year, quarter } = view(["BRK.A", "BRK.B"], [classYear], [classQuarter], [filedYear, matchingQuarter]);
+    expect(year).toEqual(classYear);
+    expect(quarter).toEqual(classQuarter);
+  });
+
+  it("unrelated shape: a registrant with one listed symbol is compared as before, with or without a matching quarter", () => {
+    for (const quarterly of [[matchingQuarter], []]) {
+      const { year } = view(["FIG"], [vendorYear], quarterly, [filedYear, matchingQuarter]);
+      expect(year).toMatchObject({ weightedAverageShsOut: 114_435_259, weightedAverageShsOutDil: 141_802_002 });
+    }
+  });
+});
+
 function rowsOf(member: FetchResult<FmpPayload<FmpIncomeStatementRow>>) { return member.ok ? member.value.data.rows : []; }
 
 function producerFixture() {
