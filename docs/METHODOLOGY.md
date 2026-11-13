@@ -8487,8 +8487,8 @@ row's currency: under us-gaap the statement builder's chain (`ProfitLoss`,
 then the including-noncontrolling-interest element, then `NetIncomeLoss`);
 under IFRS `ProfitLoss`, with `ProfitLossAttributableToOwnersOfParent` as the
 parent-scope line. A figure equal to any filed copy of one of them, within the
-vendor-agreement allowance, stays; the rule does not decide whether the row
-shows consolidated or parent profit. A figure equal to none is replaced by the
+vendor-agreement allowance, stays, except a figure equal only to the parent's
+line (D-238, below). A figure equal to none is replaced by the
 filed consolidated profit from the newest filing that states it, and the
 manifest names both values and the filing. Where the filings state no
 consolidated profit for the year, or the admitted SEC facts hold no profit
@@ -8522,6 +8522,34 @@ separate line, and no finance lease is added or assumed nil. Where a part is
 unproven the earlier rule stands: the vendor figure is shown under the label
 "Provider debt perimeter (includes payables to third-party loan owners)".
 Stored run inputs are not rewritten: both checks run when a report is built.
+
+## The entity scope of net income (D-238)
+
+An issuer with noncontrolling interests reports three profit lines:
+consolidated profit, the profit attributable to the parent (consolidated less
+the noncontrolling share) and income available to common. Each metric reads
+the line its other operand is on, through one owner
+(`src/pipeline/stageB/ownership.ts`):
+
+- Consolidated profit: free-cash-flow conversion (annual and trailing), the
+  accrual figures and return on assets, because cash flow and total assets are
+  consolidated. A cash-flow statement starts from consolidated profit, so a
+  vendor cash-flow figure equal only to the parent's line is replaced by the
+  consolidated profit the newest filing states beside that line; the manifest
+  names both values and the filing. One filing must state both lines, and a
+  filing that states two consolidated values leaves the figure withheld. When
+  a cash-flow row carries no net income, the income statement's profit is read
+  on the consolidated scope, and the row says how.
+- The parent's profit: the net margin and DuPont (whose equity is the
+  parent's). A year whose reported net income is the consolidated profit is
+  reduced by the signed noncontrolling share, and the figure's note says so.
+- Income available to common: earnings per share, P/E, return on common
+  equity, payout and the excess-return model, as before.
+
+A row that carries no noncontrolling share, or no statement of its scope, is
+read as reported; nothing is inferred. A filer whose only profit line is
+`NetIncomeLoss` has no noncontrolling interest and does not move. Stored run
+inputs are not rewritten: the rule runs when a report is built.
 
 ## Cash capital spending of zero (D-239)
 
