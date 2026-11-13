@@ -18,6 +18,16 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Build and dev server without warnings (2026-11-13)
+
+- `npm run build` reported three warnings and `npm run dev` repeated one on
+  every compile. The startup hook (`src/instrumentation.ts`) now guards its
+  Node-only body with a positive runtime check, so the Edge compile drops it
+  instead of warning about `process.exit`; the Claude CLI launch in
+  `src/ai/claude.ts` carries the same `turbopackIgnore` hint as the other
+  runtime-path calls, so Turbopack no longer traces the whole project.
+  Behaviour, figures, version stamps and saved reports are unchanged.
+
 ## Unreleased - Version stamps for the bank revenue and reader-label steps (2026-11-13)
 
 - The bank revenue fix (D-257) and the three reader wordings (D-256) are in

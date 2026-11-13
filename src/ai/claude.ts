@@ -80,7 +80,7 @@ async function invoke(args: string[], input = "", signal?: AbortSignal, timeoutM
   const executable = claudeExecutable();
   if (!executable) throw new Error("Install the official Claude Code CLI, then restart Metis.");
   const cwd = path.join(aiDirectory(), "claude-work"); ensurePrivateDirectory(cwd);
-  const child = spawn(executable.command, [...executable.prefix, ...args], { cwd, env: claudeEnvironment(), windowsHide: true, shell: false, stdio: "pipe" });
+  const child = spawn(/* turbopackIgnore: true */ executable.command, [...executable.prefix, ...args], { cwd, env: claudeEnvironment(), windowsHide: true, shell: false, stdio: "pipe" });
   runtime().children.add(child);
   child.stderr.resume(); // Never surface CLI diagnostics or account details.
   child.stdin.on("error", () => {});
