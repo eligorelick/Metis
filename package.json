@@ -76,6 +76,7 @@
     "docs:config": "node scripts/docs-config.mjs",
     "docs:pricing": "node --conditions=react-server --import tsx scripts/docs-pricing.mjs",
     "audit:deltas": "node --conditions=react-server --import tsx scripts/audit-deltas.mjs",
+    "freeze:refresh": "node scripts/freeze-refresh.mjs",
     "audit:security": "node scripts/run-security-audit.mjs",
     "verify": "npm run check:dependencies && npm run typecheck && npm run lint && npm run test:integration && npm run test:coverage && npm run build && npm run audit:security"
   },
