@@ -1,4 +1,4 @@
-import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, factCoversPeriod, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 import type { ManifestEntry } from "@/types/core";
 import { millions } from "@/pipeline/stageB/netDebt";
 
@@ -52,8 +52,9 @@ export function convertibleInstrumentsAt(facts: CompanyFacts | null | undefined,
   for (const kind of ["notes", "preferred"] as const) {
     const claim = kind === "notes" ? notesClaim : convertiblePreferredClaim;
     const tag = `IncrementalCommonSharesAttributableToConversionOf${kind === "notes" ? "DebtSecurities" : "PreferredStock"}`;
-    const [min, max] = divisor.basis === "quarter" ? [80, 100] : [350, 380];
-    const n = points(tag, "shares").find(p => p.end === divisor.end && p.start && days(p.start, p.end) >= min && days(p.start, p.end) <= max && p.val >= 0);
+    // D-247 (P1): the divisor's own period, by the owner's one definition of a quarter, a fiscal year and the end
+    // allowance (`factCoversPeriod`); the loss-period divisor's reader (`conversionSharesFiled`) asks the same.
+    const n = points(tag, "shares").find(p => factCoversPeriod(p, divisor.end, divisor.basis === "quarter" ? "Q" : "FY") && p.val >= 0);
     if (!n || n.val === 0) {
       if ((claim ?? 0) > 0) gaps.push({ field: "valuation.perShare.convertibleShares", severity: "info",
         reason: `Convertible ${kind}: no positive if-converted increment is filed for the divisor's ${divisor.basis} ending ${divisor.end}; the divisor may hold conversion shares. Claim and count are retained.` });

@@ -11,6 +11,102 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-247 - One definition of a quarter, a fiscal year and the period-end allowance for the conversion-share readers (2026-11-13)
+
+Principle P1 (exact period), with P13 (a definition used in several places is
+computed once). Round 2, Stage 5, "one owner" step, part 1. The rule
+consolidation review and its critique (row "Quarter admission differs for the
+same conversion tags") reproduced that the same two SEC tags are admitted
+differently in two places.
+
+Root cause. The filed if-converted share increment of an income period
+(`IncrementalCommonSharesAttributableToConversionOfDebtSecurities` and
+`...OfPreferredStock`) has two readers, each with a private window written after
+the owner's:
+
+| | Equity bridge (`convertibleInstrumentsAt`, `src/pipeline/stageB/convertibles.ts`) | Loss-period divisor (`conversionSharesFiled`, `src/pipeline/stageB/dilutedDivisor.ts`) | P1 owner (`src/edgar/xbrl.ts`) |
+| --- | --- | --- | --- |
+| A quarter's own length | 80 to 100 days | 70 to 110 days | 70 to 125 days (`QUARTER_DURATION_DAYS`) |
+| A fiscal year's own length | 350 to 380 days | 300 to 400 days | 300 to 400 days (a bare literal) |
+| The fact's end against the row's | the same day | within 3 days | within 3 days (a bare default) |
+
+Same check or a different one. The same. Each reader asks which filed fact is
+the increment of exactly one income row's period, because that increment is a
+slice of that row's diluted count: the bridge takes it out of the divisor (or
+restores the claim), the loss-period rule takes it out of a donor row's award
+dilution. The row's own count was matched to its period by the owner's rule.
+Neither narrower window protects anything the owner's does not: 80 to 100 and
+70 to 110 days exclude the 16-week quarter of a 12-12-12-16 calendar, which
+the owner's band exists to hold, while the year-to-date facts that end on the
+same day are 181 and 272 days and fall outside every band; 350 to 380 days
+excludes a transition year the statement builder itself accepts as the row's
+fiscal year; "the same day" refuses an increment whose fact ends one to three
+days from the row although every other field of that row was matched within
+three days.
+
+Choice, in the owner. `src/edgar/xbrl.ts` now names the fiscal-year band
+(`FISCAL_YEAR_DURATION_DAYS`, 300 to 400) and the end allowance
+(`PERIOD_END_TOLERANCE_DAYS`, 3) beside `QUARTER_DURATION_DAYS`, and exports
+one predicate, `factCoversPeriod`: the fact states its own start, its own
+length is in the quarter or fiscal-year band, and it ends within the allowance
+of the row. Both readers call it and keep no number. `src/edgar/statements.ts`
+and `src/edgar/successor.ts` read the two newly named constants in place of
+their own copies of 300, 400 and 3 (same values). A boundary is still never
+inferred from an end date (D-56): an instant never covers a period. D-59 is
+not involved; these facts carry their own start. No number is new: every value
+is the owner's existing one.
+
+What moves, by the rule:
+
+| Reader | Before | After |
+| --- | --- | --- |
+| Bridge, quarter | 80-100 days, same day | 70-125 days, within 3 days |
+| Bridge, fiscal year | 350-380 days, same day | 300-400 days, within 3 days |
+| Loss period, quarter | 70-110 days, within 3 days | 70-125 days, within 3 days |
+| Loss period, fiscal year | 300-400 days, within 3 days | unchanged |
+
+Nothing narrows, so no figure can become a gap by this change. The FIN-302
+paragraph of D-147 ("exact period/end") is marked "Revised by D-247", and
+`docs/METHODOLOGY.md` ("Convertibles", "Loss periods") states the one rule.
+
+### Replay (rule 4) and approved report changes
+
+None. Same-report check, main `be7c11d6` against this change: no changes (17
+cases, 136 files compared). Every duration fact of the two tags in the 13
+companies' cached SEC company facts was tested against every income-statement
+row date of its company under the old bridge rule, the old loss-period rule
+and the new rule: 65 facts (NVDA 61, VKTX 2, DUK 2; the other ten companies
+file none), of 89, 90, 181, 272, 363 and 370 days. None is in a zone where the
+windows differ (70-79, 101-125, 300-349 or 381-400 days) and none ends one to
+three days from a row's end, so all three rules admit the same facts: 0
+differing admissions. No value is newly admitted in the 17 cases, so there is
+no value to prove against a filing and no intentional-delta record. Every
+figure of all 17 cases is unchanged. The widened inputs are pinned on synthetic
+facts (`tests/stageB.conversionPeriod.oneOwner.test.ts`: every length from 69
+to 401 days at end offsets of -4 to +4 days, on both readers; the 16-week
+quarter; the 13-week control; year-to-date and neighbouring-quarter facts).
+
+### Not changed, with the reason
+
+- Every other private quarter or fiscal-year day band in `src` is listed with
+  what it admits in `tmp/accuracy/s5-one-owner-before-after.md` (not
+  committed). Besides the owner's there are quarter-length bands of 60-100,
+  60-120, 70-105, 70-110, 80-100, 84-98, 84-105 and 70-135 days across twelve
+  sites, fiscal-year bands of 350-380 (about twenty sites), 330-400, 364-371
+  and 357-380 days, and a family that measures the gap between two period
+  ends, which is a different measurement. They are not all one check: 84-98
+  and 364-371 are deliberately exact-calendar tests and 350-380 means "a full
+  year, never a transition year". Each needs this entry's per-site ruling and
+  its own replay before it moves. Suggested order: `src/edgar/cashInvestment.ts`
+  (70-110 and the same day: the pair fixed here),
+  `src/edgar/borrowingCosts.ts:96` and
+  `src/pipeline/stageB/repurchaseExecutions.ts:78` (the owner's numbers as
+  literals), then one named annual band in the owner for the 350-380 family
+  (with `ANNUAL_FLOW_DAYS`, D-231).
+- The bridge reader drops facts filed after the analysis time and facts with a
+  dimension; the loss-period reader does neither. That is P2 and scope, not
+  the length of a quarter.
+
 ## D-237 - An effective tax rate divides by the pre-tax income its provision relates to (2026-11-12)
 
 Principles P13 (one basis: a ratio's numerator and denominator share one
@@ -5353,7 +5449,11 @@ keep their values or refusals. Evidence and the explicitly unstarted items are r
 [the B4b disposition](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md).
 
 FIN-302 / FIN-302-V1 implement OD-2. Claim and converted variants use exact
-period/end and acquisition cutoffs on both routes. Unknown settlement retains
+period/end and acquisition cutoffs on both routes. (Revised by D-247: the
+conversion increment is matched to the divisor's period by the P1 owner's one
+rule, a quarter of 70 to 125 days or a fiscal year of 300 to 400 days ending
+within 3 days of the divisor end, not by a private 80-100 / 350-380 day window
+on the same day.) Unknown settlement retains
 the conservative claim-plus-shares value and a quantified bound; cash-principal
 notes retain spread shares. Each preferred claim is deducted once, using the
 larger ambiguous overlap or the sum only when an independent filed inclusive

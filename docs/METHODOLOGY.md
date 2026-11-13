@@ -2459,9 +2459,12 @@ Preferred option-value claims join the permanent preferred deduction. When
 both tags may overlap, deduct the larger and warn; add them only with an
 independently filed inclusive carrying total equal to their sum. Names in free
 text are not series evidence. Inclusive notes payable is never added to its
-current component. Claims match the bridge date; increments match the exact
-divisor end and a quarter of 80-100 days or year of 350-380 days, on core forms
-filed by acquisition. An unestablished claim or full-share settlement retains
+current component. Claims match the bridge date; increments match the divisor's
+own period by the one period rule (`factCoversPeriod`, `src/edgar/xbrl.ts`;
+D-247): a duration fact whose own length is a quarter (70-125 days) or a fiscal
+year (300-400 days) and which ends within 3 days of the divisor end, on core
+forms filed by acquisition. The loss-period divisor below reads the same
+increment by the same rule. An unestablished claim or full-share settlement retains
 both claim and shares with a warning bounding understatement at N/(D - N).
 A cash-principal note keeps its principal and conversion-spread shares.
 Forecast operating EPS follows the selected divisor. A converted note removes
@@ -2500,7 +2503,8 @@ quarters and the latest fiscal year that shows one; the note names the donor as
 a quarter or a fiscal year with its date. Award dilution is the donor's diluted
 minus basic count, less the if-converted shares the filer reports for that exact
 period (`IncrementalCommonSharesAttributableToConversionOfDebtSecurities` and
-`...OfPreferredStock`, a duration fact of the period's own length, core forms),
+`...OfPreferredStock`, a duration fact of the period's own length by the same
+period rule as the bridge's reader, D-247, core forms),
 floored at 0, because the equity bridge already deducts those convertible
 instruments as claims; the note names the amount taken out. When the issuer
 files a convertible carrying value (the families `ConvertibleNotesPayable`,
