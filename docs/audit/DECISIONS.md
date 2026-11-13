@@ -72,8 +72,9 @@ whose rows are complete.
 
 ### Approved report changes
 
-Same-report check, current main (629cf3c9, which holds D-229, D-231, D-233,
-D-234, D-236, D-237, D-239, D-240 and D-241) against this change: one of the
+Same-report check, current main (238a2a71, which holds D-229, D-231, D-233,
+D-234, D-236, D-237, D-239, D-240, D-241 and D-242) against this change,
+measured before that on 629cf3c9 with the same hashes: one of the
 17 cases differs, `pgr-data-only`, all eight outputs plus the payload
 fingerprint. The other 16 cases, `jpm-data-only` among them, are byte for
 byte unchanged, and every other figure of `pgr-data-only` is unchanged. The
