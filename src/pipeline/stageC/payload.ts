@@ -1026,7 +1026,8 @@ function computedSections(
     if (currentCapital.allocatedSbcExpense !== undefined) add("allocatedSbcExpense", currentCapital.allocatedSbcExpense, "currency");
     for (const [field, construction] of Object.entries(currentCapital.filedCashFlows ?? {})) {
       for (const [i, operand] of construction.points.entries()) figures.push({
-        label: `${field === "stockBasedCompensation" ? "SBC, cash-flow add-back" : field === "allocatedSbcExpense" ? "SBC, allocated expense" : field} filed ${["fiscal year", "current YTD", "prior-year YTD"][i]} operand (${construction.tag})`,
+        // D-240: a figure filed for exactly the window is one operand, not the fiscal-year leg of the identity.
+        label: `${field === "stockBasedCompensation" ? "SBC, cash-flow add-back" : field === "allocatedSbcExpense" ? "SBC, allocated expense" : field === "netIncome" ? "net income" : field} filed ${construction.points.length === 1 ? "exact window" : ["fiscal year", "current YTD", "prior-year YTD"][i]} operand (${construction.tag})`,
         value: operand.val, unit: "currency", currency: currentCapital.currency, period: `${operand.start} to ${operand.end}`,
         periodContext: { kind: "duration", start: operand.start!, end: operand.end },
         source: `edgar:companyfacts/us-gaap/${construction.tag}; ${operand.form} ${operand.accn}, filed ${operand.filed}`,

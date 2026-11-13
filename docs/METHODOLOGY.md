@@ -8399,6 +8399,19 @@ difference with preserved filing lineage. Sign normalization does not establish
 that a cumulative vendor amount belongs to a quarter. Conflicting presentations
 and independent refusals remain unavailable.
 
+The consolidated denominator can also come from the filings themselves, for an
+issuer whose filings state one profit line (D-240). The trailing net income is
+read for the report's exact window: the fiscal year plus the current year to
+date less the prior-year year to date, both year-to-date figures from the same
+10-Q, or a figure the filer tags for exactly that start and end (a window that
+is the fiscal year, to the day). It counts as consolidated profit only when the
+filings that supply it report no other consolidated profit, no earnings
+attributable to noncontrolling interests, no noncontrolling balance, and total
+equity equal to the parent's wherever both are tagged; and only when it is the
+same observation as the report's own trailing net income. An issuer with a
+noncontrolling allocation keeps the quarterly rule above, and a closing
+noncontrolling balance of zero still proves nothing.
+
 Current WACC, its component statement periods and risk-free/quote observations
 retain separate dates. Historical ROIC is not relabeled as current. Beneish
 neutralized/clamped inputs and D&A proxy limitations accompany the score; the

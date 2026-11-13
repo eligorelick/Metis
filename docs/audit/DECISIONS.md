@@ -11,6 +11,170 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-240 - The trailing net income behind FCF conversion is read from the filings when they state one profit line (2026-11-12)
+
+Principles P5 (entity scope), P1 (exact period; an additive flow derived from
+compatible operands, each kept), P8 (filed beats vendor; no new allowance),
+P11 (a refusal clears only on new evidence for that field and period), P13
+(one basis), P17 (honest scoring: no rule changed) and P20 (provenance).
+Round 2, Stage 5 (accuracy fixes), trailing net income family. The accuracy
+baseline (r2-base-afb9cddf, "Gaps whose value is in the filings") found
+"Net income, TTM (current capital)" withheld for eight companies although the
+filings state every operand.
+
+What the figure is. `capital.current.netIncome` has one use: it is the
+denominator of free-cash-flow conversion in the "Current capital" block, and
+the balance-sheet score grades that ratio. D-212 made it consolidated profit,
+because the cash flow above it is consolidated, and required a complete
+consolidated window from the four quarterly rows. It is not the net income
+behind P/E, ROE or the payout ratio; those read the trailing window's parent
+and common figures, which this change does not touch.
+
+Root cause, per company, before anything was changed:
+
+| Company | Why the figure was withheld |
+| --- | --- |
+| AMZN, NVDA, QCOM, VKTX | The four quarters are vendor rows with no entity-scope evidence. A quarter is called consolidated only when its filing states consolidated profit, a noncontrolling allocation and the parent's profit, and they reconcile (D-212). These issuers have no noncontrolling interests, so no quarter ever qualifies. The report's own trailing net income was complete all along (AMZN 135,281M, VKTX -627,195k; NVDA 192,879M and QCOM 9,259M, each 1M from the filed figure because vendor quarters are rounded). |
+| MU | The four quarters are built from SEC facts tagged `NetIncomeLoss`, which is the parent's line, so the window's basis is "parent" and the same rule withholds it. The window, 2025-08-29 to 2026-09-03, is fiscal 2026 itself. |
+| DUK | A different cause, and it stays (below). Duke Energy has noncontrolling interests. Two of the four quarters (2025-12-31 and 2026-03-31) carry no admitted ownership bridge, because each has a nonzero result from discontinued operations (2M and 13M) and a continuing-operations pretax and tax pair is not a complete earnings family beside one. |
+| PGR, JPM | A different cause, and it stays. On the insurer and bank routes the industrial cash-conversion block is not applicable (P14), so it shows no denominator whatever the filings say. |
+| META | Not in the filings at the cutoff: the 10-Q that closes the window was filed after the report was built (P2). |
+| TSM | An IFRS filer with noncontrolling interests; not in this family. |
+
+Choice. Where the quarterly rows establish no consolidated window, the
+filings may, for an issuer whose filings state one profit line.
+
+1. `filedWindowFlow` (`src/edgar/financialEnrichment.ts`, beside the existing
+   identity `filedCashFlowTtm` that operating cash flow, capital spending and
+   stock compensation already use) reads a filed flow for one exact window. It
+   is the fiscal year plus the current year to date less the prior-year year
+   to date, both year-to-date figures from the same 10-Q, under that
+   function's existing rules; or a fact the filer tags for exactly the
+   window's start and end. The second form is how a window that is a fiscal
+   year is read (MU): the fiscal year's figure is the trailing figure only
+   because its start and end are the window's, to the day. No day band is
+   added. An identity that starts on another day is refused; when both forms
+   exist they must give one figure (Amazon's 10-Q tags its own twelve-month
+   column, 135,281M, equal to the identity); a filing that states two values
+   for the window establishes none.
+2. `filedSingleProfitWindow` (`src/pipeline/nciEarnings.ts`, a P5 owner)
+   reads the parent line `NetIncomeLoss` that way and accepts it as the
+   consolidated profit only when the filings that supply the operands show no
+   other profit: every consolidated profit they report (`ProfitLoss`,
+   `NetIncomeLossIncludingPortionAttributableToNonredeemableNoncontrollingInterest`)
+   equals the parent line they report for the same period; they report no
+   nonzero earnings attributable to noncontrolling interests (the total line
+   or either partial line); no nonzero noncontrolling balance, permanent or
+   redeemable; and wherever they tag both total equity and the parent's
+   equity at one date the two are equal (a filer can tag its noncontrolling
+   column only as a dimension, which SEC companyfacts does not carry). This is
+   evidence from the income statements of the exact periods used, not the
+   closing balance D-212 refused.
+3. In `runStageB` (`src/pipeline/compute.ts`) the filed figure is used only
+   when the quarterly window gave none, for the report's own window start and
+   end, and only when it is the same observation as the report's trailing net
+   income (`vendorAgreesWithDerived`, P8's existing allowance for a figure
+   derived from filed operands). A trailing net income that is missing or
+   refused stays refused (P11). The stored value is the filed figure, not the
+   vendor sum.
+4. The operands travel with the figure: `capital.current.filedCashFlows.netIncome`
+   (value, window, tag, each fact with its filing), the sentence in the
+   block's definition note, one informational manifest entry
+   (`compute.ttmIncome.filedNetIncome`) and the operand figures in the AI
+   context.
+
+D-212 is marked "Revised by D-240": it still requires a complete consolidated
+window, and a closing noncontrolling balance of zero still proves nothing, but
+the filings of an issuer that reports a single profit line now establish the
+window.
+
+Options rejected. Showing the parent's net income for every issuer: it would
+change FIGR, O and RIVN, whose figures are the consolidated profit, and decide
+the consolidated-or-parent definition, which is another step. Reading filed
+consolidated profit for an issuer that has an allocation: Duke Energy would
+show 5,578M (`ProfitLoss` 5,071M + 4,372M - 3,865M) where the baseline's
+parent figure is 5,391M, a new "definition" row; D-231 declined the same move
+for the same reason. Treating a zero closing noncontrolling balance as proof
+(D-212 refused it). Publishing the report's own vendor-quarter sum: for NVDA
+and QCOM it is 1M away from the filed figure.
+
+### Approved report changes
+
+Same-report check, current main (7e59aff3, which holds D-231 and D-233)
+against this change: 8 of the 17 cases differ (`amzn`, `nvda`, `mu` in both
+their data-only and fixed-analyst forms, `qcom-data-only`, `vktx-data-only`),
+all eight outputs each plus the payload fingerprint; the other 9 cases
+(`meta` in both forms, `figr`, `jpm`, `pgr`, `o`, `duk`, `tsm`, `rivn`) are
+byte for byte unchanged. Every other figure of the 8 changed cases is
+unchanged. The leaf-level list is in `tmp/accuracy/s5-ttm-net-income-before-after.md`
+(not committed: it quotes vendor data).
+
+All facts are `us-gaap:NetIncomeLoss`, USD, as tagged (whole dollars).
+
+| Company | Net income, TTM, before | After | Proof |
+| --- | --- | --- | --- |
+| AMZN | withheld | 135,281,000,000 | 2025-07-01..2026-06-30 = 77,670,000,000 (2025-01-01..2025-12-31, 10-K 0001018724-26-000004, filed 2026-02-06) + 92,902,000,000 (2026-01-01..2026-06-30) - 35,291,000,000 (2025-01-01..2025-06-30), both 10-Q 0001018724-26-000026, filed 2026-07-31; the same 10-Q tags 135,281,000,000 for 2025-07-01..2026-06-30. Neither filing tags a consolidated profit, noncontrolling earnings or a noncontrolling balance |
+| NVDA | withheld | 192,880,000,000 | 2025-07-28..2026-07-26 = 120,067,000,000 (2025-01-27..2026-01-25, 10-K 0001045810-26-000021, filed 2026-02-25) + 118,010,000,000 (2026-01-26..2026-07-26) - 45,197,000,000 (2025-01-27..2025-07-27), both 10-Q 0001045810-26-000075, filed 2026-08-26. Neither filing tags a consolidated profit, noncontrolling earnings or a noncontrolling balance |
+| QCOM | withheld | 9,260,000,000 | 2025-06-30..2026-06-28 = 5,541,000,000 (2024-09-30..2025-09-28, 10-K 0000804328-25-000085, filed 2025-11-05) + 12,377,000,000 (2025-09-29..2026-06-28) - 8,658,000,000 (2024-09-30..2025-06-29), both 10-Q 0000804328-26-000086, filed 2026-07-29. Neither filing tags a consolidated profit, noncontrolling earnings or a noncontrolling balance |
+| MU | withheld | 84,969,000,000 | 2025-08-29..2026-09-03, the window itself, 10-K 0000723125-26-000023, filed 2026-10-09. That filing tags no consolidated profit, noncontrolling earnings or noncontrolling balance |
+| VKTX | withheld | -627,195,000 | 2025-10-01..2026-09-30 = -359,639,000 (2025-01-01..2025-12-31, 10-K 0001193125-26-046876, filed 2026-02-11) + -469,533,000 (2026-01-01..2026-09-30) - -201,977,000 (2025-01-01..2025-09-30), both 10-Q 0001193125-26-436432, filed 2026-10-29. Both filings also tag `us-gaap:ProfitLoss`, with the same value as `NetIncomeLoss` for every period, and no noncontrolling earnings or balance |
+
+Figures computed from them. Free cash flow before SBC for the same window is
+unchanged in every case.
+
+| Figure | AMZN | NVDA | QCOM | MU | VKTX |
+| --- | --- | --- | --- | --- | --- |
+| FCF conversion before SBC, TTM (free cash flow / net income) | withheld to -0.085932 (-11,625M / 135,281M) | withheld to 0.658472 (127,006M / 192,880M) | withheld to 1.124838 (10,416M / 9,260M) | withheld to 0.693935 (58,963M / 84,969M) | withheld, as before (not computed on a loss) |
+| Balance-sheet signal "FCF conversion before SBC" (weight 0.2 of the aspect, 3.53% of the composite) | unscored to 18 | unscored to 53.98 | unscored to 81.83 | unscored to 55.99 | unscored, as before |
+| Balance-sheet evidence coverage | 76.5% to 100% | 76.5% to 100% | 76.5% to 100% | 76.5% to 100% | 41.2%, unchanged |
+| Balance-sheet score and band | 67.83 C to 56.11 C | 85.09 A to 77.77 B | 72.28 B to 74.53 B | 87.61 A to 80.17 B | 14.57 F, unchanged |
+| Business-quality assessment | 63.46 to 61.95 | 78.62 to 78.80 | 63.63 to 65.13 | 76.07 to 76.35 | 44.04, unchanged |
+| Composite score and band | 57.25 C to 56.12 C | 75.83 B to 75.97 B | 55.83 C to 56.96 C | 77.70 B to 77.91 B | 42.46 D, unchanged |
+| Evidence available, share of signal weight | 96.47% to 100% | 96.47% to 100% | 79.02% to 82.55% | 90.65% to 94.18% | 36.30%, unchanged |
+| Manifest entries | 162 to 163 | 92 to 93 | 72 to 73 | 163 to 164 | 121 to 122 |
+
+No scoring rule, band or weight changed (P17): one balance-sheet signal that
+had no evidence now has it. The two band changes (NVDA and MU, balance sheet A
+to B) are that signal entering at 54 and 56 beside signals that score higher.
+The composite moves the other way for those two because the aspect now counts
+at its full weight instead of being partly shrunk to the neutral midpoint.
+
+The three fixed-analyst cases replay analyst output stored before D-212, when
+these conversions were still computed, and it agrees with the restored
+figures: Amazon's cited balance-sheet score 56.11 and NVIDIA's "0.6585x net
+income" verify again, and the stored balance-sheet grade B for NVIDIA and
+Micron matches the deterministic band again instead of being rejected.
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports five changes
+against its expectation, all "gap -> match" (`netIncome.ttm` for AMZN, MU,
+NVDA, QCOM and VKTX), and nothing worse.
+
+Not changed here, with the cause. DUK: withheld as before; the filings give a
+consolidated 5,578M and a parent 5,391M, and which one this row shows is the
+definition question left to the FIGR, O and RIVN step. PGR and JPM: the block
+is not applicable on their routes. META: the closing 10-Q postdates the
+report. FIGR, O and RIVN: untouched, their quarterly consolidated window was
+already established. The tax-rate rows and the free-cash-flow gaps are other
+steps.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change calls for the Stage
+B implementation stamp (identical inputs compute different values), the
+payload version (a conversion figure, net-income operand figures and a changed
+note reach the analysts) and the report specification (report figures and two
+aspect bands change). Saved reports are immutable (P21) and keep the figures
+they were built with.
+
+Tests (`tests/nciEarnings.singleProfitWindow.test.ts`): the root cause on a
+synthetic issuer through Stage B (failing before the change); Amazon, NVIDIA,
+Micron and Viking on their filed facts; Duke Energy as the compatible control
+that must stay withheld, with each kind of noncontrolling evidence withholding
+on its own; a window one day off the fiscal year, a 10-Q filed after the
+cutoff, two stated values, another unit and a prior year to date from another
+filing; a filed figure that is not the report's trailing net income; a refused
+trailing net income; an unconfirmed issuer; and an established consolidated
+window left as D-212 built it.
+
 ## D-233 - FFO and AFFO per share divide by the share count of FFO's own fiscal year (2026-11-12)
 
 Principles P13 (one basis: a ratio's numerator and denominator share one
@@ -11053,7 +11217,8 @@ limitation through checkpoints, successful reports and data-only reports.
 Admit independently compatible quarterly consolidated/parent/signed-NCI earnings,
 even when the vendor parent number agrees. Consolidated cash conversion requires
 a complete consolidated earnings window; zero closing NCI balances prove no
-earnings allocation. Standalone capex/SBC recovery requires compatible direct or
+earnings allocation. (Revised by D-240: the filings of an issuer that reports a
+single profit line establish that window.) Standalone capex/SBC recovery requires compatible direct or
 cumulative operands and retains original vendor observations and independent
 refusals. Retained EXPE replay reconciles the 9M earnings residual, corrects cash
 conversion to 177.199622%, corrects Q3 2025 FCF to −686M and recovers two SBC

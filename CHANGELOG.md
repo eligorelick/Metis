@@ -18,6 +18,23 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Trailing net income behind FCF conversion read from the filings (2026-11-12)
+
+- The "Current capital" block divides trailing free cash flow by consolidated
+  net income and showed none for an issuer without noncontrolling interests,
+  because no quarter of such an issuer is ever tagged "consolidated". The
+  figure is now read from the filings when they state one profit line: fiscal
+  year plus current year to date less prior-year year to date, or a figure
+  tagged for exactly the window, accepted only when those filings report no
+  other consolidated profit and no noncontrolling earnings or balance (P5, P1,
+  P8, P11, [D-240](docs/audit/DECISIONS.md)). In the same-report check this
+  fills the figure for Amazon (135,281M), NVIDIA (192,880M), Qualcomm (9,260M),
+  Micron (84,969M) and Viking (-627,195k). FCF conversion and its balance-sheet
+  signal are scored again for the first four, so their balance-sheet and
+  composite scores move (the entry lists them); no scoring rule changed. Duke
+  Energy, which has noncontrolling interests, stays withheld. Version stamps
+  are left for the Stage 5 integration; saved reports are unchanged.
+
 ## Unreleased - FFO per share divides by its own fiscal year's share count (2026-11-12)
 
 - On the equity-REIT route, FFO and AFFO per share divided the latest fiscal
