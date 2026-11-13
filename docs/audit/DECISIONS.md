@@ -100,13 +100,14 @@ report carries a stamp on which two readers disagreed: there are no "both
 outputs" to show and no surface whose output had to be kept against the
 helper. Each report was read by the saved-report reader and rendered as its
 read-time view, the Markdown export, print HTML, the audit Markdown, the
-classic and dossier web layouts and the key-data rows, with main `be7c11d6`
-and with this change, under one fixed clock: 68 reports, 7 outputs each, 476
-outputs, all byte-identical (56 strict reads, 12 legacy reads, the same on
+classic and dossier web layouts and the key-data rows, with main `629cf3c9`
+and with this change merged with it (and with `be7c11d6` before the merge),
+under one fixed clock: 68 reports, 7 outputs each, 476 outputs, all
+byte-identical (56 strict reads, 12 legacy reads, the same on
 both sides). The set exercises the readers: 58 reports show "Built before
 report spec", 14 "Built before spec", and 2 audit exports carry the insider
-note. Same-report check, main `be7c11d6` against this change: no changes (17
-cases, 136 files compared).
+note. Same-report check, main `629cf3c9` against this change after merging
+it: no changes (17 cases, 136 files compared).
 
 Tests (`tests/report.savedStampOrder.oneOwner.test.ts`): the eighteen saved
 stamps and the current one against every cutoff; missing, malformed, padded
@@ -209,9 +210,10 @@ logged with what each old copy would have answered for the same input
 case processes; 1,235 with NCI filed, 308 with parent equity only, 8 with
 consolidated equal to parent exactly, 2 with no equity. No call has a nonzero
 gap between consolidated and parent equity with NCI unfiled, and in no call
-does an old copy answer differently from the new predicate. Same-report
-check, main `be7c11d6` against this change: no changes (17 cases, 136 files
-compared). Every figure of all 17 cases is unchanged, so there was no company
+does an old copy answer differently from the new predicate (logged twice,
+before and after merging main, with the same counts). Same-report check, main
+`629cf3c9` against this change after merging it (and `be7c11d6` before): no
+changes (17 cases, 136 files compared). Every figure of all 17 cases is unchanged, so there was no company
 input for which today's behaviour had to be kept.
 
 Tests (`tests/stageB.ownership.oneOwner.test.ts`): the owner's truth table;
@@ -289,8 +291,10 @@ paragraph of D-147 ("exact period/end") is marked "Revised by D-247", and
 
 ### Replay (rule 4) and approved report changes
 
-None. Same-report check, main `be7c11d6` against this change: no changes (17
-cases, 136 files compared). Every duration fact of the two tags in the 13
+None. Same-report check, main `629cf3c9` against this change after merging
+it (and `be7c11d6` before): no changes (17 cases, 136 files compared). The
+accuracy check reports every figure as expected. Every duration fact of the
+two tags in the 13
 companies' cached SEC company facts was tested against every income-statement
 row date of its company under the old bridge rule, the old loss-period rule
 and the new rule: 65 facts (NVDA 61, VKTX 2, DUK 2; the other ten companies
