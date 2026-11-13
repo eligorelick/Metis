@@ -8412,3 +8412,29 @@ line for it and the figure matches no profit line of the same period's income
 statement, the figure is withheld; conversion and accruals for that year then
 read the income statement's net income, and the row says so. Stored run inputs
 are not rewritten: the check runs when a report is built.
+
+## Filed share counts and borrowings over a vendor's figures (D-234)
+
+A vendor weighted-average share count is compared with the filer's count for
+the exact period. For a registrant that lists several symbols the comparison
+waits until a comparable period shows that the vendor counts shares in the
+filer's unit, within the existing 3% unit allowance; an income series that
+shows it governs the other series too, when data is collected and when a
+report is built. A count that then differs from the filed one by more than
+rounding (0.01%, at least one share) is replaced by the filed count, and the
+manifest names both.
+
+A vendor debt total can include an amount the filing does not present as debt.
+For a held-for-sale lender whose balance sheet names "Payables to third-party
+loan owners" beside its debt lines, the report's debt is the filing's own
+borrowings plus its operating lease liability when one filing proves every
+part: it tags `LongTermDebt`, `LongTermDebtNoncurrent` and
+`OperatingLeaseLiability` at the balance date and no other borrowing or
+finance lease; its balance-sheet debt lines add up to `LongTermDebt` exactly
+and its non-current line equals `LongTermDebtNoncurrent`; and the vendor's
+figures are those amounts plus the named payable. The vendor total is kept
+beside the filed one in the audit trail, the loan-owner payables stay a
+separate line, and no finance lease is added or assumed nil. Where a part is
+unproven the earlier rule stands: the vendor figure is shown under the label
+"Provider debt perimeter (includes payables to third-party loan owners)".
+Stored run inputs are not rewritten: both checks run when a report is built.
