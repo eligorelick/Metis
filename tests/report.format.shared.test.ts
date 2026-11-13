@@ -558,3 +558,54 @@ it("RPT-204: Beneish m is a dimensionless score",()=>{
  expect(formatFinancialValue(-2.68279,"m",null)).toBe("-2.68");
  expect(formatFinancialValue(959,"M",null)).toBe("959.00 M");
 });
+
+/**
+ * P22 guard: the valuation display decisions and the report preparation each
+ * live in one owner (src/report/presentation.ts, src/report/readerPreparation.ts).
+ * A renderer may import and lay out what they decide; it may not grow its own
+ * copy of a decision. Each entry names the decision it protects.
+ */
+describe("valuation display decisions and report preparation stay in their owners (P22)", () => {
+  const VALUATION_RENDERERS = [
+    "src/report/export/markdown.ts",
+    "src/report/export/printHtml.ts",
+    "src/components/report/sections.tsx",
+    "src/components/report/primitives.tsx",
+    "src/components/report/CapitalBridge.tsx",
+    "src/components/report/DossierCover.tsx",
+    "src/components/report/ReportView.tsx",
+  ];
+  const VALUATION_DECISIONS: ReadonlyArray<readonly [decision: string, pattern: RegExp]> = [
+    ["headline label", /intrinsic value (?:per|\/) share|model value (?:per|\/) share/i],
+    ["key-data fair-value label", /["'`]Model fair value/],
+    ["withheld headline reason", /fair value could not be computed/],
+    ["comparison sign and rounding", /\bupsidePct\b/],
+    ["withheld, dated-reference and degraded caveats", /\bfairValue(?:Withheld|Degraded)Text\b/],
+    ["scenario weight wording", /display weight|probability \* 100/i],
+    ["suppressed scenario target text", /per-share target unavailable/],
+    ["scenario price-target caveat", /computed-derived|targets suppressed/],
+    ["app weight-basis fallback", /Narrative probabilities are model/],
+    ["scenario order and heading", /\["bull",\s*"base",\s*"bear"\]|probability-weighted \(bull/],
+  ];
+  it.each(VALUATION_RENDERERS)("%s makes no valuation display decision of its own", (file) => {
+    const source = readFileSync(path.join(process.cwd(), file), "utf8");
+    for (const [decision, pattern] of VALUATION_DECISIONS) expect(source, `${file}: ${decision}`).not.toMatch(pattern);
+  });
+
+  it("keeps each moved decision in presentation.ts", () => {
+    const owner = readFileSync(path.join(process.cwd(), "src/report/presentation.ts"), "utf8");
+    for (const [decision, pattern] of VALUATION_DECISIONS) expect(owner, decision).toMatch(pattern);
+  });
+
+  const PREPARATION_ENTRY_POINTS = [
+    "src/report/export/markdown.ts",
+    "src/report/export/printHtml.ts",
+    "src/report/export/auditMarkdown.ts",
+    "src/components/report/ReportView.tsx",
+  ];
+  it.each(PREPARATION_ENTRY_POINTS)("%s prepares its report only through prepareReportForSurface", (file) => {
+    const source = readFileSync(path.join(process.cwd(), file), "utf8");
+    expect(source).toMatch(/prepareReportForSurface\(/);
+    expect(source).not.toMatch(/\b(?:withSafeStoredReportView|withStoredReportView|withReaderConventions|withPlainFigureNotes|withClassifiedDataOnlyGapCount|withValuationUseSafety|applyGradeOverrideContract|applyReportAssessmentStatus|indexVerificationMarks|lenderConventionTables|legacyScopeQualifications)\(/);
+  });
+});
