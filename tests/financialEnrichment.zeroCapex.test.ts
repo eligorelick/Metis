@@ -125,11 +125,13 @@ describe("D-239: a provider zero for cash capital spending is a figure only as a
   });
 
   it("the capital block then shows no capital spending and no free cash flow for that year, where it showed 0 and operating cash flow", () => {
-    const before = computeCapital([{ date: "2025-12-31", revenue: 5_749_400_000 }], [oCash("2025-12-31", 3_994_754_000, 0)], [], [], { price: null });
+    const capitalRow = (row: FmpCashFlowRow) => ({ date: "2025-12-31", operatingCashFlow: row.operatingCashFlow, capitalExpenditure: row.capitalExpenditure,
+      freeCashFlow: row.freeCashFlow, fieldConflicts: row.fieldConflicts });
+    const before = computeCapital([{ date: "2025-12-31", revenue: 5_749_400_000 }], [capitalRow(oCash("2025-12-31", 3_994_754_000, 0))], [], [], { price: null });
     expect(before.capexIntensity.series.at(-1)).toMatchObject({ capex: 0, capexToRevenuePct: 0 });
     expect(before.fcf.series.at(-1)!.fcfBeforeSbc).toBe(3_994_754_000);
     const admitted = admitZeroCapex(oCash("2025-12-31", 3_994_754_000, 0), oFacts(), "annual", observedAt).row;
-    const after = computeCapital([{ date: "2025-12-31", revenue: 5_749_400_000 }], [admitted], [], [], { price: null });
+    const after = computeCapital([{ date: "2025-12-31", revenue: 5_749_400_000 }], [capitalRow(admitted)], [], [], { price: null });
     expect(after.capexIntensity.series.at(-1)).toMatchObject({ capex: null, capexToRevenuePct: null });
     expect(after.capexIntensity.latestPct).toBeNull();
     expect(after.fcf.series.at(-1)).toMatchObject({ fcf: null, fcfBeforeSbc: null, fcfConversion: null });
@@ -219,7 +221,7 @@ describe("D-239: a provider zero for cash capital spending is a figure only as a
 
     it("keeps an earlier free-cash-flow refusal as it was written", () => {
       const earlier = { vendorValue: 1, secValue: null, usable: false, reason: "earlier operating cash-flow conflict" };
-      const out = admitZeroCapex({ ...jpmCash, fieldConflicts: { freeCashFlow: earlier } }, jpmFacts(), "annual", observedAt);
+      const out = admitZeroCapex<FmpCashFlowRow>({ ...jpmCash, fieldConflicts: { freeCashFlow: earlier } }, jpmFacts(), "annual", observedAt);
       expect(out.row.fieldConflicts?.freeCashFlow).toBe(earlier);
       expect(out.row.fieldConflicts?.capitalExpenditure?.usable).toBe(false);
     });
