@@ -18,6 +18,16 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Lint workaround packages removed (2026-11-12)
+
+- ESLint and Next's ESLint plugin use upstream minimatch 3.1.5 and fast-glob
+  3.3.1 again. The local `scripts/legacy-minimatch` and
+  `scripts/next-eslint-glob` stand-ins and their seven overrides are gone,
+  because the braces advisory was withdrawn and the minimatch advisory no
+  longer covers minimatch 3 (P26, P27, D-230). The security audit still
+  reports 0 vulnerabilities, lint results are identical, and no report, export
+  or golden output changes.
+
 ## Unreleased - Code identity recorded on new reports (2026-11-12)
 
 - A report built by the built app now records which exact build assembled it
