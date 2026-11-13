@@ -38,7 +38,9 @@ export function buildDataCompleteness(
 
 /** Retained statement evidence records a completed comparison before refusal. */
 function revenueConflictLabel(gaps: readonly ManifestEntry[]): string | null {
-  const replaced = gaps.some(g => /^statements\.sourceSwitch\.income(?:Annual|Quarterly)\./.test(g.field));
+  // D-257 (P12): a bank's provider revenue replaced by its filed total net revenue is a replacement too.
+  const replaced = gaps.some(g => /^statements\.sourceSwitch\.income(?:Annual|Quarterly)\./.test(g.field) ||
+    /^statements\.income(?:Annual|Quarterly)\.revenue\.bankNetRevenue$/.test(g.field));
   const refused = gaps.some(g => /^statements\.income\.[^.]+\.revenue$/.test(g.field) && /Income classification conflict for revenue:/.test(g.reason));
   return replaced || refused ? `conflict found; vendor revenue ${refused ? "refused" : "replaced"}` : null;
 }

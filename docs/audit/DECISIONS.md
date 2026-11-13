@@ -264,9 +264,18 @@ What stays withheld or unchanged, with the cause.
 - Four warning entries "Gross-profit classification unavailable" for fiscal
   2025 and the three 2026 quarters, and two notes "FMP revenue missing/zero
   ... cross-check not possible": they are in the stored run input and its
-  validation, and are still true of the provider rows. The data-completeness
-  line therefore reads "XBRL skipped" rather than "checked". A fresh run
-  adopts the filed revenue at acquisition and cross-checks it.
+  validation, and are still true of the provider rows. A fresh run adopts
+  the filed revenue at acquisition and cross-checks it.
+- Review fix (lead, P12): with the refusal entries retired, the
+  data-completeness line fell back to "XBRL skipped", which reads as if the
+  filing had not been consulted. The headline's revenue-conflict reader
+  (`revenueConflictLabel`, `src/report/completeness.ts`) now treats the bank
+  rule's statement entry (`statements.incomeAnnual.revenue.bankNetRevenue`,
+  `...incomeQuarterly...`) as it treats a source switch, so the line reads
+  "XBRL conflict found; vendor revenue replaced" (before this step: "XBRL
+  conflict found; vendor revenue refused"). It reads the entry's field, not
+  its sentence. `tests/report.completenessXbrl.test.ts` pins both statements
+  and a control.
 - A note "WACC interest expense and EBIT: the TTM window is in USD but the
   debt balances ... are not established in one currency" now appears on the
   bank route, because a trailing window exists. WACC is not used on the bank
