@@ -2,7 +2,7 @@
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
   "payloadVersion": "1.93.0",
   "fingerprint": "1.93.0:8542adc4",
-  "summary": {"promptBytes": 155033, "promptFnv1a32": "8542adc4", "provenanceCount": 536, "provenanceHash": "67a18127", "provenanceIdsHash": "1f4e2f3b", "citationCount": 79, "citationHash": "7c7763ca", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "bf8ce0a9"},
+  "summary": {"promptBytes": 155033, "promptFnv1a32": "8542adc4", "provenanceCount": 536, "provenanceHash": "67a18127", "provenanceIdsHash": "1f4e2f3b", "citationCount": 79, "citationHash": "7c7763ca", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "de666f21"},
   "prompt": {
     "bytes": 155033,
     "sha256": "9c99661efd7acc767be954c830d50cbdef3f5f8ad3020f5c4a92e780dcd018bd",
@@ -670,7 +670,7 @@
             }
           ],
           "notApplicableReason": null,
-          "note": "Financial strength on ttm flows and the corresponding balance date 2026-03-28.  Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
+          "note": "Financial strength on ttm flows and the corresponding balance date 2026-03-28.  Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over consolidated net income (including noncontrolling interests' share) — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
         },
         "moat": {
           "score": 87.77,

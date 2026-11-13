@@ -18,6 +18,22 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Three owner-approved reader wordings (2026-11-13)
+
+- [D-256](docs/audit/DECISIONS.md) (P22, P5): the web report's "Recorded gaps"
+  list shows each entry under the same reader label the data-gap tables use
+  ("Press releases (FMP)" instead of `fmp.pressReleases(AMZN)`), with its
+  recorded reason unchanged; the scorecard says "House scoring bands in force
+  when this report was built; the band version is recorded in the audit
+  export" instead of printing the band constant (web, Markdown and print; the
+  audit export keeps the constant); and the FCF-conversion rows, the
+  FCF-conversion score operands and the balance-sheet grading sentence name
+  their denominator "consolidated net income", including noncontrolling
+  interests' share. No number, gap, status, score or grade changes. The first
+  two are read-time wording, so saved reports show them with their bytes
+  unchanged; the third is stored in new reports only (P21). No version stamp
+  moves.
+
 ## Unreleased - Stage 5 version stamps (2026-11-13)
 
 - The Stage 5 accuracy fixes (D-231, D-233, D-234, D-236 to D-240, D-247,

@@ -1,5 +1,5 @@
 import { recordedValuationTrace } from "@/report/fairValueText";
-import { reverseDcfValueText } from "@/report/presentation";
+import { reverseDcfValueText, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
 import { VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView } from "@/report/presentation";
 import { macroDisplayRows, type MacroDisplayRow } from "@/report/presentation";
 import { shownDataState } from "@/report/completeness";
@@ -482,7 +482,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
         <p className="text-[11px] text-muted">Composite: {compositeNote(scores)}</p>
         {assessmentLine(scores) && <p className="text-[11px] text-muted">{assessmentLine(scores)}</p>}
         <ExtraAuditTables tables={[gradeReliabilityTable(scores)]} />
-        <details className="dossier-score-audit"><summary>Score methodology &amp; recorded inputs</summary><p className="mono">Band policy: {scores.bandsVersion}</p><p>{c.methodology}</p><div><ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} /></div></details>
+        <details className="dossier-score-audit"><summary>Score methodology &amp; recorded inputs</summary><p>{SCORE_BANDS_READER_NOTE}.</p><p>{c.methodology}</p><div><ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} /></div></details>
       </div>
     </div>
   );

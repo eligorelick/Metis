@@ -1040,7 +1040,8 @@ export function computeScores(inputs: ScoringInputs): Scoring {
         weights.balanceSheet,
         inputs.asOf,
         `Financial strength on ${currentCapital?.basis ?? "annual"} flows and the corresponding balance date${currentCapital?.asOf ? ` ${currentCapital.asOf}` : ""}. ${currentCapital?.fallbackReason ?? ""} Leverage, coverage, FCF conversion and the cost of stock-based compensation. ` +
-          "FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition " +
+          "FCF conversion is graded as free cash flow BEFORE stock-based compensation over consolidated net income (including " +
+          "noncontrolling interests' share) — the definition " +
           "used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC " +
           "charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is " +
           "scored once, under leadership.",
