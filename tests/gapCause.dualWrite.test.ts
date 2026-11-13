@@ -13,7 +13,19 @@
  *   entry these producers write, and on the DEMO audit fixture rebuilt from current code.
  */
 import path from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { ReportSnapshotHeader } from "@/components/report/ReportSnapshotHeader";
+import { ReportView } from "@/components/report/ReportView";
+import { buildDataOnlyReport } from "@/pipeline/jobRunner";
+import type { ValidationReport } from "@/pipeline/stageA/validate";
+import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
+import { reportToMarkdown } from "@/report/export/markdown";
+import { reportToPrintBody, reportToPrintHtml } from "@/report/export/printHtml";
+import { parseStoredReportWithSafety } from "@/report/legacyEntitySafety";
+import type { Report } from "@/report/schema";
 
 import { supplementTemporaryEquity } from "@/edgar/temporaryEquityEnrichment";
 import { runStageB } from "@/pipeline/compute";
@@ -371,6 +383,30 @@ describe("D-229 boundaries: the code never reaches a model, a snapshot or the re
     const withCodes = captureRunInputSnapshot(bundle, { evIncludeLeases: false });
     expect(collectGaps(withCodes.content.bundle).filter(({ gap }) => gap.cause !== undefined)).toEqual([]);
     expect(withCodes.hash).toBe(captureRunInputSnapshot(withoutGapCauses(bundle), { evIncludeLeases: false }).hash);
+  });
+
+  it("no reader surface shows the code: app (both layouts), header, Markdown, print and audit export render the same without it", () => {
+    const bundle = completeCurrencyBundle({ burning: true, symbol: "TECHV" });
+    const report: Report = buildDataOnlyReport({
+      symbol: bundle.symbol, companyName: "Test Loss Co", generatedAt: "2026-07-06T12:00:00.000Z", model: "none", costUsd: 0,
+      bundle, validation: { checks: [], flags: [], gaps: [] } as unknown as ValidationReport, computed: runStageB(bundle), costBreakdown: [], reason: "no analysis",
+    });
+    expect(report.appendix.missingData.filter((entry) => entry.cause === "dcf-unprofitable-overlay")).toHaveLength(1);
+    const surfaces = (r: Report) => ({
+      classic: renderToStaticMarkup(createElement(ReportView, { report: r, layout: "classic" })),
+      dossier: renderToStaticMarkup(createElement(ReportView, { report: r, layout: "dossier" })),
+      dossierSelected: renderToStaticMarkup(createElement(ReportView, { report: r, layout: "dossier", selectedReportId: 7 })),
+      header: renderToStaticMarkup(createElement(ReportSnapshotHeader, { snapshot: r, reportId: 7, status: "done", actions: null })),
+      markdown: reportToMarkdown(r), print: reportToPrintBody(r), printPage: reportToPrintHtml(r), audit: reportToAuditMarkdown(r),
+    });
+    const without = surfaces(withoutGapCauses(report));
+    expect(surfaces(report)).toEqual(without);
+    for (const text of Object.values(without)) expect(text).not.toContain("dcf-unprofitable-overlay");
+    // Read back from storage, with and without the code (the stored read itself normalizes the report).
+    const read = (r: Report) => parseStoredReportWithSafety(JSON.stringify(r))!.report;
+    const stored = read(report);
+    expect(stored.appendix.missingData.filter((entry) => entry.cause === "dcf-unprofitable-overlay")).toHaveLength(1);
+    expect(surfaces(stored)).toEqual(surfaces(read(withoutGapCauses(report))));
   });
 
   it("withoutGapCauses keeps a field conflict's own code and returns uncoded parts as they are", () => {
