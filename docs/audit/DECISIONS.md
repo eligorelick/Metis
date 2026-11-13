@@ -11,6 +11,177 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-238 - The entity scope of net income: each metric reads consolidated or parent profit, never a mixture (2026-11-12)
+
+Principles P5 (entity scope), P13 (one basis, one definition), P8 (filed
+beats vendor), P2 (newest compatible filing), P10 (withhold, never guess) and
+P12 (a substitution is disclosed). Round 2, Stage 5 (accuracy fixes), the
+"net income scope" family. The accuracy baseline (r2-base-afb9cddf) labelled
+six rows "definition": FIGR, O and RIVN "net income, latest fiscal year" and
+"net income, TTM (current capital)" equal the filed consolidated profit
+(`ProfitLoss`, including the noncontrolling interests' share), not the profit
+attributable to the parent (`NetIncomeLoss`). This entry decides the question
+D-231 left open, and revises D-231's rule 2 for that reason.
+
+Three profit lines exist for an issuer with noncontrolling interests (NCI):
+consolidated profit, the parent's profit (consolidated less the NCI share)
+and income available to common (the parent's less preferred claims). They are
+not interchangeable (P5), and a ratio's two operands share one scope (P13).
+
+### Inventory: which line each figure uses, and which it needs
+
+| Figure | Line used before this change | Scope the metric needs | Outcome |
+| --- | --- | --- | --- |
+| Free-cash-flow series net income and FCF conversion (annual), `capital.fcf.series` (the baseline's "net income, latest fiscal year") | The vendor cash-flow row's net income, whichever line the vendor served: consolidated for FIGR, RIVN and most years of O and DUK; the parent's for O 2023 and DUK 2025 and 2017 | Consolidated: the numerator is consolidated cash flow, and a cash-flow statement starts from consolidated profit | **Fixed**: the parent-line years now carry the filed consolidated profit. FIGR, O 2025 and RIVN were already right and do not move |
+| Current-capital net income and FCF conversion (TTM), `capital.current` (the baseline's "net income, TTM") | The complete consolidated window (`compute.ts`, "Consolidated cash cannot be divided by a mixture of parent and total profit"); withheld without one | Consolidated | Right scope; unchanged. The builder is not touched (D-240 works there) |
+| Operating and aggregate accruals, Piotroski accrual quality and return on assets | Consolidated profit first (`forensics.ts`), over consolidated cash flow and total assets | Consolidated | Right scope; unchanged |
+| ROIC | Operating profit after tax over consolidated capital (`resolveConsolidatedEquity`) | Consolidated operating figure | Right scope; unchanged |
+| Net margin (growth rows) | The income row's `netIncome`, on whatever basis the row was admitted: the parent's in general (D-108), but consolidated for a year whose filed earnings family was adopted on the consolidated basis (O 2025) | The parent's profit (D-108) in every year of one series | **Fixed** for O 2025 |
+| DuPont net margin and ROE | The same `netIncome`, over the parent's equity (`totalStockholdersEquity`) | The parent's profit: the denominator is parent equity | **Fixed** for O 2025 |
+| Return on common equity, ROTE, payout and dividend coverage, excess-return income | Income available to common through `selectCommonIncome` / `incomeAvailableToCommon` (`securityBasis.ts`), which reads the row's ownership basis and deducts the NCI share once | Common | Right scope; unchanged |
+| P/E, earnings yield, EPS growth | Filed diluted EPS; TTM common income only when all four quarters share one ownership basis, otherwise withheld | Common | Right scope; unchanged |
+| Equity-REIT FFO | The filer's `NetIncomeLoss` read by the FFO builder itself (O: 1,058,590,000, the parent's and, with no preferred outstanding, common's) | The parent's / common's | Right scope; unchanged |
+| Unprofitable-overlay test (route) | TTM or annual `netIncome` (FIGR 237,127,000 and RIVN -2,973,000,000: the parent's) | Sign only | Unchanged |
+| DCF | Operating income, revenue and tax; no net income | Consolidated operating figure | Unchanged |
+
+So the six baseline rows are not errors of scope: FCF conversion divides a
+consolidated cash flow and needs the consolidated profit those rows hold.
+What was wrong is that the same series held the parent's profit in other
+years, and that two parent-scope ratios read a consolidated figure.
+
+### Root causes and the owners changed
+
+1. **The cash-flow statement's net income had no scope rule.** D-231's
+   admission (`admitCashFlowNetIncome`, `src/edgar/financialEnrichment.ts`)
+   kept any vendor figure equal to any filed profit line and said the scope
+   "is not decided here". The vendor serves the parent's line for some years
+   and the consolidated line for others, so one FCF-conversion series mixed
+   the two. Rule now: a figure equal (the P8 allowance, no new tolerance) to
+   the parent's line only, in a year for which the newest filing that states
+   any profit line states that line and a different consolidated profit side
+   by side, is replaced by that filing's consolidated profit, with the filing
+   as its provenance and an informational manifest entry naming both values.
+   One filing must state both lines (P2, P7): an older consolidated copy is
+   never set against a newer restatement of the parent's line. If that filing
+   states two consolidated values the figure is withheld (P10). A filer whose
+   only profit line is `NetIncomeLoss` has no NCI, and nothing moves. A
+   consolidated figure is never replaced by a parent line. Applied, like
+   D-231, in the report's own data view (`withCashFlowSbcBasis`), so stored
+   inputs keep their bytes.
+2. **Parent-scope ratios read `netIncome` without its ownership basis.** The
+   income admission (`src/edgar/incomeClassification.ts`) marks each row's
+   `netIncome` "parent" or "consolidated"; common-income readers honour the
+   mark, the net margin and DuPont did not. The P5 owner
+   `src/pipeline/stageB/ownership.ts` now has `resolveParentProfit` and
+   `resolveConsolidatedProfit` beside `resolveConsolidatedEquity`: a
+   consolidated-basis figure less the signed NCI share is the parent's
+   profit; a parent-basis figure plus that share is the consolidated profit;
+   a row that carries no NCI share or no ownership mark is read as reported,
+   named as unverified, never plugged. The net margin
+   (`toGrowthIncome`, `src/pipeline/compute.ts`) and DuPont
+   (`computeDupont`, `src/pipeline/stageB/returns.ts`) read the parent's
+   profit; the FCF series' fallback to the income statement
+   (`src/pipeline/stageB/capital.ts`), used when a cash-flow row carries no
+   net income, reads the consolidated profit. Each derived figure stores how
+   it was reached (the margin's note, the DuPont year's note, the FCF row's
+   note).
+
+D-231 is revised: its rule 2 ("a vendor figure equal to any filed copy of
+any of those lines stays") no longer covers a figure equal only to the
+parent's line, and its statement that Duke Energy's 2025 row stays is
+reversed below.
+
+Options rejected: moving the FCF-series net income to the parent's profit so
+the baseline rows "match" (it would divide consolidated cash flow by parent
+profit, the mixture P5 forbids, and contradict the filers' own cash-flow
+statements); rewriting each income row's `netIncome` to the parent's profit
+in the data view (right in the end, but it turns O's mixed-basis quarters
+into one basis and so releases withheld TTM figures in the same change; left
+as a follow-up); adding a stored "basis" leaf to every FCF-series row (a
+change to every company's report with no number behind it).
+
+### Approved report changes
+
+Same-report check against current main (99234cdf, which includes D-231,
+D-233 and D-234): 16 files in 2 of the 17 cases differ (O and DUK, all eight
+outputs each, plus their two payload fingerprints); the other 15 cases, and
+every other figure of O and DUK, are byte for byte unchanged. FIGR, RIVN and
+every company without NCI do not move. Against the round's first baseline
+(r2-base-afb9cddf) the same files differ, plus the approved changes of
+D-231 (TSM and DUK), D-233 (O) and D-234 (FIGR). The leaf-level list is in
+`tmp/accuracy/s5-net-income-scope-before-after.md` (not committed: it quotes
+vendor data).
+
+Realty Income (`o-data-only`, USD). Filed values are SEC XBRL facts of 10-K
+0000726728-26-000011, filed 2026-02-25.
+
+| Figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| Net income, fiscal 2023 (cash-flow statement row; free-cash-flow series) | 872,309,000 (vendor; equals `us-gaap:NetIncomeLoss`, the parent's) | 876,914,000 | `us-gaap:ProfitLoss`, 2023-01-01..2023-12-31 = 876,914,000 (the same value in 10-K 0000726728-24-000047 and 0000726728-25-000055) |
+| FCF conversion after SBC / before SBC, fiscal 2023 | 3.283068 / 3.313134 | 3.265828 / 3.295736 | computed from it; free cash flow unchanged |
+| Net margin, fiscal 2025 | 18.606863% (consolidated 1,069,783,000 over revenue) | 18.412182% | parent profit 1,058,590,000 = `us-gaap:ProfitLoss` 1,069,783,000 less `us-gaap:NetIncomeLossAttributableToNoncontrollingInterest` 11,193,000, and equal to `us-gaap:NetIncomeLoss` 1,058,590,000, all 2025-01-01..2025-12-31; over `us-gaap:Revenues` 5,749,377,000 |
+| Net margin slope | -1.248342 pp/yr | -1.258962 pp/yr | computed from the series |
+| DuPont net margin / ROE, fiscal 2025 | 0.186069 / 2.733242% | 0.184122 / 2.704644% | the same parent profit; turnover and leverage unchanged |
+| Manifest | 214 entries | 215 (one informational entry for the 2023 correction) | |
+
+Duke Energy (`duk-data-only`, USD):
+
+| Figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| Net income, fiscal 2025 (cash-flow statement row; free-cash-flow series) | 4,967,000,000 (vendor; the parent's 4,968,000,000 within the filer's reporting unit) | 5,071,000,000 | `us-gaap:ProfitLoss`, 2025-01-01..2025-12-31 = 5,071,000,000, 10-K 0001326160-26-000014, filed 2026-02-26; the same filing's `us-gaap:NetIncomeLoss` is 4,968,000,000 |
+| Cash-flow row net income, fiscal 2017 (outside the five-year series; manifest entry only) | 3,059,000,000 (the parent's) | 3,064,000,000 | `us-gaap:ProfitLoss`, 2017-01-01..2017-12-31 = 3,064,000,000, 10-K 0001326160-20-000034, filed 2020-02-20 |
+| Manifest | 295 entries | 297 (two informational entries) | |
+
+Duke Energy's fiscal 2025 FCF conversion is withheld before and after (the
+row's free cash flow is withheld), and its accruals already used
+5,071,000,000. No score, grade or headline of either company moves.
+
+### Tests
+
+`tests/financialEnrichment.cashFlowNetIncome.test.ts`: Realty Income 2023
+and Duke Energy 2025 and 2017 (the named cases); a Form 20-F IFRS filer
+(unrelated shape); Rivian 2025 and 2024, a figure equal to an earlier
+consolidated copy, Amazon, and a filer tagging both lines with one value
+(controls and unrelated issuers that do not move); two-filing, ambiguous and
+after-cutoff refusals. Two D-231 cases that pinned "a figure equal to the
+parent's line stays" are updated to this decision. `tests/ownership.profitScope.test.ts`:
+the two owner functions on Realty Income, Rivian, Figure, Duke Energy and
+Amazon figures, the FCF-series fallback, DuPont, and a whole Stage B run with
+the consolidated-basis, parent-basis and no-NCI shapes. Fifteen of the new
+tests fail without the fix.
+
+### Not changed here, with the reason
+
+- **The six baseline rows stay as they are**, because their scope is right
+  for FCF conversion. They will keep reading "mismatch (definition)" in the
+  accuracy check until its reference for these two figures is the
+  consolidated line; Duke Energy's fiscal 2025 row joins them (it was a
+  "match" against the parent's line only because the vendor had served the
+  parent's figure).
+- **Labels that name a consolidated figure "net income"** are wording on
+  numbers this change does not move, so they are listed for the owner, not
+  edited: the report rows "FCF conversion (FCF after SBC / net income)" and
+  "FCF conversion (FCF before SBC / net income)"; the score operands "net
+  income" and "FCF / net income"; the balance-sheet aspect's sentence "FCF
+  conversion is graded as free cash flow BEFORE stock-based compensation over
+  net income"; "accrual operand net income (NI)"; and the Piotroski details
+  "CFO ... vs NI ..." and "ROA ... (NI / beginning-of-year TA)". Each would
+  read "consolidated net income (including noncontrolling interests)".
+- **The income-statement row "net income" on a consolidated-basis period**
+  (O fiscal 2025 1,069,783,000, its quarters ended 2025-12-31 and 2026-06-30,
+  and three Duke Energy quarters) still shows the consolidated profit beside
+  an identical "consolidated net income" row. Showing the parent's profit
+  there is the follow-up named above.
+- **TSM fiscal 2025** in the FCF series is the parent's profit standing in
+  for a consolidated profit the admitted facts do not hold (D-231 rule 5);
+  the TSM rows are outside this step.
+- The accrual code (`forensics.ts`) keeps its own consolidated-first read; it
+  gives the same figures as `resolveConsolidatedProfit` on all 17 cases and
+  can call it in a follow-up.
+
+Version stamps are not moved here (P27: the Stage 5 integration change moves
+them together). Stored reports and snapshots keep their bytes.
+
 ## D-234 - FIGR: the 10-K's share counts and the 10-Q's own borrowings replace two vendor figures (2026-11-12)
 
 Principles P8 (filed beats vendor), P3 (share basis), P6 (share classes), P7
@@ -523,7 +694,10 @@ and the AI context read one admitted value and stored inputs keep their bytes:
 2. A vendor figure equal to any filed copy of any of those lines, within the
    P8 allowance (`vendorAgreesWithFiled`; no new tolerance), is a filed figure
    and stays. Whether the row should show consolidated or parent profit is not
-   decided here, so no "definition" row of the baseline moves.
+   decided here, so no "definition" row of the baseline moves. (Revised by
+   D-238: a figure equal only to the parent's line, where the newest filing
+   states a different consolidated profit beside it, is replaced by that
+   consolidated profit.)
 3. A vendor figure equal to none of them is replaced by the filed consolidated
    profit from the newest filing that states it, with that filing as its
    provenance and an informational manifest entry naming both values. A parent
@@ -592,7 +766,8 @@ DUK (`duk-data-only`, USD):
 
 No score, grade or headline of DUK moves. Its 2025 row (4,967,000,000) stays:
 it equals the filed parent profit 4,968,000,000 within the filer's reporting
-unit (rule 2).
+unit (rule 2). (Revised by D-238: that row now carries the filed consolidated
+profit 5,071,000,000.)
 
 The accuracy check (`npm run accuracy:check`, PR #139) reports one change
 against its expectation: TSM "net income, latest fiscal year" from mismatch to
