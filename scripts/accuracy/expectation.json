@@ -198,11 +198,10 @@
     {
       "case": "figr-data-only",
       "figure": "dilutedShares.fy",
-      "status": "mismatch",
-      "valueSha256": "1568a746fd84daa9",
-      "cause": "vendor value shown",
+      "status": "match",
+      "valueSha256": null,
       "note": "Metis's count is exactly twice the filed 141,802,002 (its basic count is likewise twice the filed 114,435,259). The 10-K diluted EPS 0.44 sits on the filed count (0.44 × 141.8M ≈ income to common 62.0M). A filed count existed and was not used (P8); the leadership share-trend signal reads the same value.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "D-234 (#156): FIGR FY2025 diluted shares 141,802,002 (10-K 0002064124-26-000009) and total debt including leases 967,771,000 at 2026-06-30 (10-Q 0001628280-26-057061)"
     },
     {
       "case": "figr-data-only",
@@ -265,11 +264,10 @@
     {
       "case": "figr-data-only",
       "figure": "totalDebtIncludingLeases.latest",
-      "status": "mismatch",
-      "valueSha256": "e04b4eb0d6df25f6",
-      "cause": "vendor value shown",
+      "status": "match",
+      "valueSha256": null,
       "note": "The figure is the provider's debt perimeter, which adds payables to third-party loan owners (the report labels it so). Filed borrowings are 962,995k (LongTermDebt = current 222,505k + related-party current 424,640k + noncurrent 315,850k) plus the 4,776k operating lease = 967,771k. The route marks net debt not applicable, but the figure is still shown as the debt used in the report.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "D-234 (#156): FIGR FY2025 diluted shares 141,802,002 (10-K 0002064124-26-000009) and total debt including leases 967,771,000 at 2026-06-30 (10-Q 0001628280-26-057061)"
     },
     {
       "case": "figr-data-only",
