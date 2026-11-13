@@ -106,7 +106,13 @@ clarification section before the affected body in classic, dossier, Markdown,
 print and audit. The sidecar is not recorded evidence or a manifest entry; it
 changes no stored figures, flags/severities, grades, trust counts, source/date
 identities, verification or report state. Missing/malformed versions get
-unrecorded-version wording without broader parser admission. Current/future
+unrecorded-version wording without broader parser admission. Every read-time
+view that depends on when a report was written compares its saved
+`meta.specVersion` with a frozen cutoff through one function
+(`specVersionBefore`, `src/report/versions.ts`; D-249): a stamp that cannot be
+read (missing, not text, or not three dotted numbers after trimming, such as
+"1.56" or "1.56.0-rc1") is before every cutoff and gets the legacy view; a
+stamp at or above a cutoff, including one from a newer build, is not before it. Current/future
 versions get no historical migration notes. If a current/future report contains
 an exact owned older receivables/discontinued flag wrapper, only a fixed
 non-migration interpretation caveat appears; the flag is not rewritten. Normal

@@ -11,6 +11,118 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-249 - One reading of a saved report's spec stamp against a display cutoff (2026-11-13)
+
+Principle P21 (saved reports are immutable; corrections are read-time views
+chosen by the report's own stamp), with P10 (a stamp that cannot be read is
+not treated as current) and P13 (one definition). Round 2, Stage 5, "one
+owner" step, part 3. The rule consolidation critique ("Qualification logic and
+version handling disagree") reproduced two ways of deciding "was this saved
+report written before rule X".
+
+Root cause. A saved report's `meta.specVersion` was parsed in three places:
+
+| Reader | Where | Unreadable stamp |
+| --- | --- | --- |
+| `specVersionBefore`, used for nine frozen cutoffs by six legacy views | `src/report/legacyPayloadRecordSafety.ts` | trimmed first; unreadable counts as before the cutoff |
+| `legacyCheckNote` (`INSIDER_ROLES_READ_FROM`), used by the audit export | `src/report/claimMatching.ts` | not trimmed; unreadable counts as not before (no note) |
+| the scope note's wording | `src/report/legacyScopeQualifications.ts` | its own copy of the "three dotted numbers" pattern |
+
+For three dotted numbers all agree. For a missing, empty, padded (" 1.55.0 "),
+two-part ("1.55") or pre-release ("1.55.0-rc1") stamp the first two disagreed,
+and four cutoffs sit on the same 1.56.0 line, so one report could be "before
+1.56.0" for the valuation notes and "not before 1.56.0" for the insider note.
+
+Choice. One parse (`parseSpecStamp`) and one comparison (`specVersionBefore`)
+in `src/report/versions.ts`; `legacyCheckNote` and the scope note's wording
+call them, and the six legacy views keep importing the same function through
+its old module. One stated behaviour:
+
+- a stamp that cannot be read (missing, not text, or not exactly three dotted
+  whole numbers after trimming) is before every cutoff, so the report gets
+  the legacy read-time view. It cannot be shown to follow the newer rule, and
+  this is what the nine cutoffs on the shared helper already did;
+- a stamp at or above a cutoff is not before it, a newer build's included (the
+  evidence-contract stamp separately discloses a report this build does not
+  recognise);
+- a cutoff that cannot be read never fires (cutoffs are pinned constants).
+
+Where it lives, and why. P21's owner is `src/report/legacyEntitySafety.ts`,
+but that module imports every legacy reader and `claimMatching.ts`, so a
+helper there would be a circular import. `src/report/versions.ts` imports
+nothing and already defines every cutoff the comparison reads, so the
+comparison sits beside them; its header table says so, and its guard test
+(`tests/versions.oneFile.test.ts`) names the two functions as its only
+exports that are not a stamp or a cutoff.
+
+Options rejected: making unreadable stamps "not before" everywhere (it would
+drop the legacy corrections from a report whose stamp is damaged, the
+fail-open reading); leaving `legacyCheckNote` alone because no saved report
+reaches the difference (two readers of one cutoff must not be able to
+disagree).
+
+No stamp value changes, no stamp is added and nothing is rewritten.
+
+### Inventory of every version comparison
+
+Ordered against a cutoff (now one helper): the nine cutoffs
+`PAYLOAD_RECORD_CORRECTION_SPEC`, `EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION`,
+`BRIDGE_METHOD_SINCE_SPEC_VERSION`, `BRIDGE_READINGS_SINCE_SPEC_VERSION`,
+`ANNUALIZATION_CONVENTION_SPEC`, `DCF_INPUTS_CONVENTION_SPEC`,
+`IMPLIED_RETURN_SHARE_BASIS_SPEC`, `LEGACY_SCOPE_SINCE_SPEC`,
+`LEGACY_PLACEHOLDER_DISPLAY_CUTOFF`, and `INSIDER_ROLES_READ_FROM`.
+`N4B_CAGR_DISPLAY_CUTOFF` has no reader.
+
+Read by equality, each with its own stated behaviour, unchanged:
+
+- `CORPORATE_ACTION_BRIDGE_WRITING_STAMPS` (`src/report/legacyRetiredFields.ts`):
+  exact membership in the three builds that wrote one retired field; any other
+  text is refused.
+- `meta.evidenceContract` (`src/report/evidenceContract.ts`): absent, current
+  or unrecognised; never inferred from spec or pipeline text.
+- The history diff (`src/report/diff.ts`) and the forecast and evaluation
+  records (`src/report/forecastAdapter.ts`, `src/report/evaluation.ts`): two
+  stored texts compared as stored.
+- `syntheticNotice` (`src/report/presentation.ts`): the built-in sample is
+  told by `meta.model` and a pipeline text beginning "synthetic-sample-". It
+  identifies a fixture, not a rule cutoff.
+- `meta.codeIdentity` (D-227): written, read by nothing.
+
+### Proof on saved reports, and approved report changes
+
+None. The check database copy (`%USERPROFILE%\metis-check\check.db`, opened
+read-only; the application database was never opened) holds 68 saved reports
+with eighteen distinct spec stamps (1.0.0, 1.1.0, 1.2.0, 1.5.0, 1.6.0, 1.10.0,
+1.23.1, 1.23.2, 1.33.0, 1.35.0, 1.38.0, 1.43.0, 1.44.0, 1.45.0, 1.48.0,
+1.49.0, 1.53.0, 1.73.0), identical in the `specVersion` column and in
+`meta.specVersion`. All are three dotted numbers with no padding, so no saved
+report carries a stamp on which two readers disagreed: there are no "both
+outputs" to show and no surface whose output had to be kept against the
+helper. Each report was read by the saved-report reader and rendered as its
+read-time view, the Markdown export, print HTML, the audit Markdown, the
+classic and dossier web layouts and the key-data rows, with main `be7c11d6`
+and with this change, under one fixed clock: 68 reports, 7 outputs each, 476
+outputs, all byte-identical (56 strict reads, 12 legacy reads, the same on
+both sides). The set exercises the readers: 58 reports show "Built before
+report spec", 14 "Built before spec", and 2 audit exports carry the insider
+note. Same-report check, main `be7c11d6` against this change: no changes (17
+cases, 136 files compared).
+
+Tests (`tests/report.savedStampOrder.oneOwner.test.ts`): the eighteen saved
+stamps and the current one against every cutoff; missing, malformed, padded
+and future stamps; the insider note and the scope wording follow the helper
+for each; and a source guard that no file outside `versions.ts` writes a
+dotted-version pattern or splits a spec stamp by hand (the Claude CLI's own
+version text in `src/ai/claude.ts` is the one named exception).
+
+### Listed for the owner, not changed
+
+- The exact-stamp gate does not trim and the ordering helper does. A padded
+  " 1.23.1 " would be 1.23.1 to the helper and "not a writing stamp" to the
+  gate. No saved report is padded, and the gate's documented rule refuses
+  "any other stamp".
+- `N4B_CAGR_DISPLAY_CUTOFF` and `meta.codeIdentity` still have no reader.
+
 ## D-248 - One test of unresolved noncontrolling ownership, with one allowance (2026-11-13)
 
 Principles P5 (entity scope is never plugged) and P10 (unproven is withheld),
