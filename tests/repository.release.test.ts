@@ -276,6 +276,8 @@ interface WorkflowStep {
 }
 
 interface WorkflowJob {
+  needs?: string[];
+  if?: string;
   "runs-on"?: string;
   "timeout-minutes"?: number;
   permissions?: unknown;
@@ -342,7 +344,7 @@ describe("public release contract", () => {
       "test:coverage:risk":
         "vitest run --config vitest.risk.config.ts --coverage",
       "test:coverage":
-        "npm run test:coverage:core && npm run test:coverage:risk",
+        "vitest run --config vitest.coverage.config.ts --coverage && node --import tsx scripts/check-coverage.ts",
       "audit:security": "node scripts/run-security-audit.mjs",
     });
     expect(pkg.scripts.verify).toBe(VERIFY_GATES.join(" && "));
@@ -443,6 +445,8 @@ describe("public release contract", () => {
     const workflowSource = read(".github/workflows/ci.yml");
     const workflow = await parseWorkflow(workflowSource);
     const full = workflow.jobs?.full;
+    const checks = workflow.jobs?.checks;
+    const product = workflow.jobs?.product;
     const windows = workflow.jobs?.["windows-smoke"];
     // @v5 as of 2026-09-03. The v4 actions target the Node 20 runtime, which
     // GitHub deprecated; every run was printing a warning and being forced onto
@@ -469,20 +473,23 @@ describe("public release contract", () => {
     // 2026-09-01: the test harness spawns TypeScript workers and eval scripts
     // that depend on Node 24's native type stripping, so the lane could never
     // pass and no longer describes a supported runtime.
-    expect(Object.keys(workflow.jobs ?? {}).sort()).toEqual(["full", "windows-smoke"]);
-    expect(full).toMatchObject({ "runs-on": "ubuntu-latest", "timeout-minutes": 60 });
+    expect(Object.keys(workflow.jobs ?? {}).sort()).toEqual(["checks", "full", "product", "windows-smoke"]);
+    expect(full).toMatchObject({ "runs-on": "ubuntu-latest", needs: ["checks", "product"], if: "always()" });
+    expect(full?.steps).toEqual([{ run: "test '${{ needs.checks.result }}' = success && test '${{ needs.product.result }}' = success" }]);
     expect(windows).toMatchObject({
       "runs-on": "windows-latest",
       "timeout-minutes": 45,
     });
-    for (const job of [full, windows]) {
+    for (const job of [checks, product, windows]) {
       expect(job?.permissions).toBeUndefined();
       for (const step of job?.steps ?? []) {
         expect(step.if).toBeUndefined();
         expect(step.shell).toBeUndefined();
       }
     }
-    expect(full?.steps).toEqual(expectedSteps(24, ["npm ci", ...VERIFY_GATES]));
+    const testGates = ["npm run test:integration", "npm run test:coverage"];
+    expect(checks?.steps).toEqual(expectedSteps(24, ["npm ci", ...VERIFY_GATES.filter(command => !testGates.includes(command))]));
+    expect(product?.steps).toEqual(expectedSteps(24, ["npm ci", ...testGates]));
     expect(workflowSource).not.toMatch(/node-version:\s*20\b/);
     expect(windows?.steps).toEqual(
       expectedSteps(24, [
@@ -492,7 +499,7 @@ describe("public release contract", () => {
       ]),
     );
     expect(workflowSource).not.toMatch(
-      /continue-on-error|^\s*if:|:\s*write(?:-all)?\b|\$\{\{\s*secrets\.|^\s*(?:env|defaults|shell):\s*|ANTHROPIC_API_KEY|FMP_API_KEY|FINNHUB_API_KEY|FRED_API_KEY|EDGAR_CONTACT|verify:live|node_modules|\|\|\s*true|;\s*exit\s+0/im,
+      /continue-on-error|:\s*write(?:-all)?\b|\$\{\{\s*secrets\.|^\s*(?:env|defaults|shell):\s*|ANTHROPIC_API_KEY|FMP_API_KEY|FINNHUB_API_KEY|FRED_API_KEY|EDGAR_CONTACT|verify:live|node_modules|\|\|\s*true|;\s*exit\s+0/im,
     );
   });
 
