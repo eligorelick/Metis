@@ -1,5 +1,5 @@
 import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
-import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
+import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldConflict, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 import type { StatementConflictCause } from "@/types/refusalCause";
 import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, partialFinanceLeaseReason, uncomposedDebtRefusal, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
@@ -760,6 +760,131 @@ export function admitCashFlowNetIncome<T extends FmpStatementRow>(row: T, facts:
     `profit line of the same period's income statement, which states ${[...new Set(lines)].join(" and ")} ${currency}; figures that need that year's net income read the income statement.`, ["fmp:cash-flow-statement", "fmp:income-statement"]);
 }
 
+const INVESTING_CASH_FLOW_TAG = "NetCashProvidedByUsedInInvestingActivities";
+const FINANCING_CASH_FLOW_TAG = "NetCashProvidedByUsedInFinancingActivities";
+/** The exchange-rate line between the three section totals and the change in cash; at most one per statement. */
+const CASH_FX_EFFECT_TAGS: readonly string[] = ["EffectOfExchangeRateOnCashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+  "EffectOfExchangeRateOnCashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsIncludingDisposalGroupAndDiscontinuedOperations"];
+const OPERATING_CASH_FLOW_FIELDS = ["operatingCashFlow", "netCashProvidedByOperatingActivities"] as const;
+
+/** The lines of one filing's cash-flow statement that reconcile around its operating cash flow (D-252). */
+interface FiledCashFlowFamily { investing: FactPoint; financing: FactPoint; fx: FactPoint | null; movement: FactPoint }
+
+/**
+ * D-252 (P7, P8): the complete reconciled filed family of a fiscal year's operating cash flow. ONE filing, the
+ * newest that states the year's operating cash flow, must also be the newest that states, for exactly the same
+ * start and end and in the same unit, the investing total, the financing total and the change in cash, cash
+ * equivalents and restricted cash, each with one value; when it tags the exchange-rate effect on cash it must state
+ * one value for it too. The family reconciles when operating + investing + financing + exchange-rate effect equals
+ * the change in cash exactly: the filing's own arithmetic, no allowance and no plug. A statement that does not foot
+ * on these lines (cash of a disposal group, a line under another element, a restated part) gives no family.
+ */
+function filedCashFlowFamily(facts: CompanyFacts, unit: string, cfo: Resolved, observedAt: string): FiledCashFlowFamily | null {
+  const filing = cfo.evidence.filings[0], start = cfo.evidence.periodStart, end = cfo.evidence.periodEnd;
+  if (cfo.operands !== undefined || cfo.evidence.filings.length !== 1 || !filing || start === null) return null;
+  const copies = (tag: string): FactPoint[] => points(facts, tag, unit, observedAt).filter(p => p.start === start && p.end === end);
+  /** One value, from the same filing as the operating figure, which no newer filing restates. */
+  const own = (tag: string): FactPoint | null => {
+    const p = unambiguousNewest(copies(tag));
+    return p && p.accn === filing.accn && p.filed === filing.filed && p.form === filing.form ? p : null;
+  };
+  const investing = own(INVESTING_CASH_FLOW_TAG), financing = own(FINANCING_CASH_FLOW_TAG), movement = own(CASH_MOVEMENT_TAG);
+  if (!investing || !financing || !movement) return null;
+  const fxTagged = CASH_FX_EFFECT_TAGS.filter(tag => copies(tag).length > 0);
+  const fx = fxTagged.length === 1 ? own(fxTagged[0]!) : null;
+  if (fxTagged.length > 1 || (fxTagged.length === 1 && !fx)) return null;
+  return cfo.value + investing.val + financing.val + (fx?.val ?? 0) === movement.val ? { investing, financing, fx, movement } : null;
+}
+
+/**
+ * D-252 (P8, P7, P10; revises D-89 for this one shape): a vendor operating cash flow that conflicts with the filed
+ * one is replaced by the filed figure when the filing's own cash-flow statement reconciles around it
+ * (`filedCashFlowFamily`). D-89 withheld every such conflict; P8 says a complete reconciled filed family replaces a
+ * conflicting vendor value. Annual rows only: a standalone quarter is usually the difference of two year-to-date
+ * figures from two filings, which is not one filing's family, and stays under D-89.
+ *
+ * The vendor observations are kept in `fieldConflicts` (`usable: true`, `resolution: "filed-family"`). The row
+ * then stands as a row whose vendor operating figure had agreed with the filing: its standardized free cash flow
+ * is the identity every reader uses (`deriveFcf`: operating cash flow plus capital spending, an outflow being
+ * negative), on the row's own capital spending, which keeps its own admission rules (D-150, D-239). A row without
+ * usable capital spending gets no free cash flow, and a free cash flow refused for another cause stays refused
+ * (P11).
+ */
+function adoptFiledOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, cfo: Resolved, observedAt: string,
+  vendor: { operating: Record<string, number | null>; freeCashFlow: number | null; freeCashFlowOpen: boolean }): { row: T; gaps: ManifestEntry[] } | null {
+  const family = filedCashFlowFamily(facts, unit, cfo, observedAt);
+  if (!family) return null;
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  const filing = cfo.evidence.filings[0]!, start = cfo.evidence.periodStart!, date = cfo.evidence.periodEnd;
+  const vendorCfo = OPERATING_CASH_FLOW_FIELDS.map(field => vendor.operating[field]).find(finite) ?? null;
+  const [vendorText, filedText] = vendorCfo === null ? ["(none)", millions(cfo.value)] : millionsPair(vendorCfo, cfo.value);
+  const reason = `Operating cash flow for ${date} corrected from vendor ${vendorText} to filed ${filedText} ${unit}: ` +
+    `the ${filing.form.trim()} ${filing.accn} (filed ${filing.filed}) states, for ${start} through ${date}, operating ${millions(cfo.value)} + investing ${millions(family.investing.val)} + financing ${millions(family.financing.val)}` +
+    `${family.fx ? ` + exchange-rate effect ${millions(family.fx.val)}` : ""} = its change in cash, cash equivalents and restricted cash ${millions(family.movement.val)}, so the filed cash-flow statement reconciles and its operating figure replaces the vendor's.`;
+  const amounts: Record<string, number | null> = {};
+  const fieldConflicts = { ...row.fieldConflicts };
+  const fieldProvenance = { ...row.fieldProvenance };
+  for (const field of OPERATING_CASH_FLOW_FIELDS) {
+    if (!(field in vendor.operating)) continue;
+    amounts[field] = cfo.value;
+    fieldProvenance[field] = cfo.evidence;
+    fieldConflicts[field] = { usable: true, vendorValue: vendor.operating[field] ?? null, secValue: cfo.value, resolution: "filed-family", reason, secEvidence: cfo.evidence };
+  }
+  const gaps: ManifestEntry[] = [{ field: `statements.cashflow.${date}.operatingCashFlow`, reason, severity: "info", expected: true,
+    attemptedSources: ["fmp:cash-flow-statement", ...[OPERATING_CASH_FLOW_TAG, INVESTING_CASH_FLOW_TAG, FINANCING_CASH_FLOW_TAG, CASH_MOVEMENT_TAG].map(tag => `edgar:companyfacts/us-gaap/${tag}`)] }];
+  // P11: a free cash flow refused for another cause keeps that refusal.
+  if (!vendor.freeCashFlowOpen) return { row: { ...row, ...amounts, fieldConflicts, fieldProvenance }, gaps };
+  const capex = row.fieldConflicts?.capitalExpenditure?.usable === false ? null : row.capitalExpenditure;
+  if (!finite(capex)) {
+    const fcfReason = `Standardized FCF unavailable at ${date}: operating cash flow is the filed ${millions(cfo.value)} ${unit}, but the row has no usable capital spending to subtract; vendor observations retained.`;
+    amounts.freeCashFlow = null;
+    fieldConflicts.freeCashFlow = { usable: false, vendorValue: vendor.freeCashFlow, secValue: null, reason: fcfReason, secEvidence: cfo.evidence };
+    return { row: { ...row, ...amounts, fieldConflicts, fieldProvenance }, gaps };
+  }
+  const fcf = cfo.value + capex;
+  amounts.freeCashFlow = fcf;
+  fieldConflicts.freeCashFlow = { usable: true, vendorValue: vendor.freeCashFlow, secValue: fcf, resolution: "filed-family", secEvidence: cfo.evidence,
+    reason: `${reason} Standardized FCF is that operating cash flow plus the row's capital spending ${millions(capex)} ${unit} (an outflow is negative): ${millions(fcf)} ${unit}.` };
+  return { row: { ...row, ...amounts, fieldConflicts, fieldProvenance }, gaps };
+}
+
+/**
+ * D-252 at the report's data view (`withCashFlowSbcBasis`): a stored annual row that `admitOperatingCashFlow`
+ * refused before D-252 is judged again from the refusal's evidence, never its wording (P11). It is that refusal
+ * only when the operating field is withheld, carries no typed cause, and its record holds the vendor figure, the
+ * filed figure and one directly filed NetCashProvidedByUsedInOperatingActivities fact for the row's own period;
+ * the admitted SEC facts must still state that same figure from that same filing. The free cash flow is reopened
+ * only when its refusal carries the identical evidence record, so a refusal of another cause is untouched.
+ * A row without such a record, a quarterly row, and a figure the filings no longer state are returned unchanged.
+ */
+export function readmitFiledOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[]; superseded: string | null } {
+  const unchanged = { row, gaps: [], superseded: null };
+  const unit = row.reportedCurrency;
+  const prior = row.fieldConflicts?.operatingCashFlow, evidence = prior?.secEvidence;
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  if (scope !== "annual" || !validDay(row.date) || typeof unit !== "string" || !/^[A-Z]{3}$/.test(unit) || (row.cik != null && Number(row.cik) !== facts.cik) ||
+      row.operatingCashFlow != null || !prior || prior.usable !== false || prior.cause !== undefined || !finite(prior.vendorValue) || !finite(prior.secValue) ||
+      evidence?.source !== "edgar" || evidence.unit !== unit || evidence.periodEnd !== row.date || typeof evidence.periodStart !== "string" ||
+      evidence.derivation !== undefined || evidence.calculation !== undefined || evidence.filings.length !== 1 ||
+      evidence.tags.length !== 1 || evidence.tags[0] !== `us-gaap/${OPERATING_CASH_FLOW_TAG}`) return unchanged;
+  const ctx: DerivationContext = { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() };
+  const cfo = filedOperatingCashFlow(facts, unit, row.date, "annual", observedAt, ctx);
+  const filing = evidence.filings[0]!, current = cfo?.evidence.filings[0];
+  if (!cfo || cfo.operands !== undefined || cfo.value !== prior.secValue || cfo.evidence.periodStart !== evidence.periodStart || cfo.evidence.filings.length !== 1 ||
+      current?.accn !== filing.accn || current.filed !== filing.filed || current.form !== filing.form || vendorAgreesWithFiled(prior.vendorValue, cfo.value)) return unchanged;
+  const sameRecord = (other: StatementFieldConflict | undefined): boolean => other?.usable === false && other.cause === undefined &&
+    JSON.stringify(other.secEvidence) === JSON.stringify(evidence);
+  const alias = row.fieldConflicts?.netCashProvidedByOperatingActivities;
+  // The alias is either absent from the row or withheld by the same record.
+  if ("netCashProvidedByOperatingActivities" in row && (row.netCashProvidedByOperatingActivities != null || !sameRecord(alias) || alias!.secValue !== prior.secValue)) return unchanged;
+  const freeCashFlow = row.fieldConflicts?.freeCashFlow;
+  const freeCashFlowOpen = row.freeCashFlow == null && sameRecord(freeCashFlow) && freeCashFlow!.secValue === null;
+  const adopted = adoptFiledOperatingCashFlow(row, facts, unit, cfo, observedAt, {
+    operating: { operatingCashFlow: prior.vendorValue, ...(alias ? { netCashProvidedByOperatingActivities: alias.vendorValue } : {}) },
+    freeCashFlow: freeCashFlowOpen ? freeCashFlow!.vendorValue : null, freeCashFlowOpen });
+  return adopted ? { ...adopted, superseded: prior.reason } : unchanged;
+}
+
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
 function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string, scope: "annual" | "quarter", observedAt: string, ctx: DerivationContext): { row: T; gaps: ManifestEntry[] } {
   if (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, "")) return { row, gaps: [] };
@@ -771,6 +896,13 @@ function admitOperatingCashFlow<T extends FmpStatementRow>(row: T, facts: Compan
   if (!sec || (typeof row.periodStart === "string" && row.periodStart !== sec.evidence.periodStart)) return { row, gaps: [] };
   const conflict = fields.some(field => finite(row[field]) && !agreesWithSec(row[field], sec.value, [sec]));
   if (!conflict) return { row, gaps: [] };
+  // D-252 (P8): a fiscal year whose filed cash-flow statement reconciles around its operating figure takes that figure.
+  if (scope === "annual" && canonical !== null && !fields.some(field => row.fieldConflicts?.[field]?.usable === false)) {
+    const adopted = adoptFiledOperatingCashFlow(row, facts, currency, canonical, observedAt, {
+      operating: Object.fromEntries(fields.filter(field => field in row).map(field => [field, finite(row[field]) ? row[field] : null])),
+      freeCashFlow: finite(row.freeCashFlow) ? row.freeCashFlow : null, freeCashFlowOpen: row.fieldConflicts?.freeCashFlow?.usable !== false });
+    if (adopted) return adopted;
+  }
   // FIN-511-V2: a quarter derived from two filings is called derived, never filed.
   const secText = sec.operands
     ? `derived ${millions(sec.value)} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`

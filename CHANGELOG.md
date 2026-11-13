@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.73.0** and
-payload **1.92.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.74.0** and
+payload **1.93.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,18 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Stage 5 version stamps (2026-11-13)
+
+- The Stage 5 accuracy fixes (D-231, D-233, D-234, D-236 to D-240, D-247,
+  D-248, D-250 to D-252) merged without moving a version stamp; they move
+  once here (P27, [D-255](docs/audit/DECISIONS.md)): report spec 1.73.0 ->
+  1.74.0, payload 1.92.0 -> 1.93.0, Stage B
+  `STAGE_B_2026_11_PRIMARY_CAPITAL_66` -> `STAGE_B_2026_11_FILED_ACCURACY_67`.
+  The fair-value, scenario-target and net-debt method stamps, the pipeline
+  version and every display cutoff are unchanged. Saved reports keep their
+  bytes and render exactly as before (P21); no calculation, rule or wording
+  changes.
 
 ## Unreleased - The classic layout is removed (2026-11-12)
 
@@ -142,6 +154,26 @@ original versions and bytes; source merge does not deploy or publish a release.
   share, fiscal 2025 ROIC 20.63% to 20.66%. Qualcomm's 1M difference from the
   baseline is its own rounding between quarterly and year-to-date columns and
   does not move. Version stamps are left for the Stage 5 integration.
+
+## Unreleased - A fiscal year's operating cash flow is the filed figure when the filing's cash-flow statement reconciles (2026-11-13)
+
+- A vendor operating cash flow that disagrees with the filed one was always
+  withheld, and the year's free cash flow with it. On an annual row it now
+  takes the filed figure when the newest filing's own statement foots
+  exactly: operating + investing + financing + exchange-rate effect = the
+  change in cash, all from that one filing. Anything else stays withheld (P8,
+  P7, [D-252](docs/audit/DECISIONS.md), revising D-89 for this shape). In the
+  same-report check this fills Duke Energy's fiscal 2025 operating cash flow
+  (12,330M, Form 10-K) and free cash flow (-1,694M); its accrual, Beneish and
+  Piotroski figures are computed again, so its quality score moves from 53.8
+  to 72.9 and its composite from 55.6 to 57.3 (still band C, Provisional).
+  Realty Income's longest free-cash-flow growth window now starts in fiscal
+  2016 (20.31% over 8 years instead of 21.95% over 7), and one Progressive
+  note names 2016 instead of 2017. The other 14 cases are unchanged. Figure
+  Technology's free cash flow stays "not applicable" for a lender (D-149);
+  Viking's free cash flow and Micron's two bridge items stay withheld, with
+  the reasons in the entry. Version stamps are left for the Stage 5
+  integration; saved reports are unchanged.
 
 ## Unreleased - A provider zero for capital spending is not a figure (2026-11-12)
 

@@ -11,6 +11,110 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-255 - The Stage 5 accuracy fixes move the version stamps once (2026-11-13)
+
+Principles P27 (version stamps move together) and P21 (saved reports are
+immutable; a change of meaning gets a stamp). Round 2, Stage 5, integration.
+The accuracy decisions D-231, D-233, D-234, D-236, D-237, D-238, D-239, D-240,
+D-247, D-248, D-250, D-251 and D-252 merged without moving a stamp, on
+purpose, so that the stamps move once. Owner: `src/report/versions.ts`, which
+gains one history comment per moved stamp naming these decisions. No
+calculation, rule, label or wording changes.
+
+What each decision calls for (its own closing paragraph where it names
+stamps; otherwise each stamp's own rule in `versions.ts` and
+`docs/METHODOLOGY.md`):
+
+| Decision | Stage B implementation | Payload | Report spec |
+| --- | --- | --- | --- |
+| D-231 TSM/DUK cash-flow net income | yes | yes (figures reach the analysts) | yes (report figures) |
+| D-233 FFO per-share divisor | yes (entry) | no (entry) | no (entry) |
+| D-234 FIGR share counts and debt | yes | yes | yes |
+| D-236 20-F/40-F instance fallback | yes | yes (fresh runs) | yes (fresh runs) |
+| D-237 effective tax rate | yes (entry) | no (entry) | no (entry) |
+| D-238 net-income entity scope | yes | yes | yes |
+| D-239 provider capex zero | yes (entry) | no (entry) | no (entry) |
+| D-240 trailing net income | yes (entry) | yes (entry) | yes (entry) |
+| D-247 conversion-share period | yes (wider admission on identical inputs) | no | no |
+| D-248 noncontrolling-ownership test | yes (two truth-table rows) | no | no |
+| D-250 debt totals and lease coverage | yes (entry) | yes (entry) | yes (debt and EV figures) |
+| D-251 filed common earnings | yes (entry) | yes (entry) | yes (entry) |
+| D-252 filed operating cash flow | yes (entry) | no (entry) | no (entry) |
+
+D-241 to D-246, D-249 and D-254 are presentation, reader or structure
+changes and call for none.
+
+Moved, each once:
+
+- `STAGE_B_IMPLEMENTATION_VERSION`: `STAGE_B_2026_11_PRIMARY_CAPITAL_66` ->
+  `STAGE_B_2026_11_FILED_ACCURACY_67`. Every decision above changes Stage B
+  results on identical retained inputs, so a stored input snapshot or Stage B
+  result from the old engine is not reused or replayed as current.
+- `PAYLOAD_VERSION`: `1.92.0` -> `1.93.0`. D-240, D-250 and D-251 name it;
+  the filed net income, common earnings, share counts, debt and operating
+  cash flow of D-231, D-234, D-236 and D-238 also reach the analysts. An
+  analyst or judge pass stored under 1.92.0 is not resumed.
+- `REPORT_SPEC_VERSION`: `1.73.0` -> `1.74.0`. D-240 and D-251 name it: a fair
+  value, aspect bands and shown or withheld figures change meaning for new
+  reports. A history comparison of a 1.73.0 report with a 1.74.0 one is marked
+  "spec-version-mismatch", as for every earlier spec move.
+
+Not moved, by each stamp's own rule: `FAIR_VALUE_METHOD_VERSION` ("bump when
+the resolution changes") and `SCENARIO_TARGET_METHOD_VERSION` ("bump when the
+construction changes"), because these decisions change inputs, not how the
+fair value is resolved or the targets built, and none names them;
+`NET_DEBT_RESOLVER_VERSION`, which D-250 says is unchanged;
+`CURRENT_REPORTS_VERSION`, which stamps the 8-K read record that D-236 does
+not change; `PIPELINE_VERSION` (no orchestration change); the score-band,
+scenario-path, projection-weight, evidence-selection, grade-override and
+evidence-contract stamps; every format version; and every frozen display
+cutoff. No display cutoff is added, because no decision asks for a read-time
+rule for older reports.
+
+Moved with them, as earlier stamp moves did: the stamp pins in
+`tests/report.versionStamps.test.ts` (and 1.92.0 joins its list of payload
+versions that never resume), `tests/jobRunner.test.ts` and
+`tests/stageC.payload.passes.test.ts`; the built-in sample
+(`fixtures/report/DEMO-current.json`, its `specVersion` and default
+`pipelineVersion`, which `tests/report.currentSample.test.ts` ties to the
+current spec); the declared versions in `docs/METHODOLOGY.md` and
+`CHANGELOG.md`. Frozen records, refreshed with `npm run freeze:refresh`
+under D-255: `stagec-payload` (`$.payloadVersion`, `$.payload.payloadVersion`,
+`$.fingerprint`, `$.summary.promptFnv1a32`, `$.prompt.sha256` and
+`$.prompt.sections[0].sha256`: the prompt's first line names the payload
+version, so its hashes move with it; prompt length unchanged) and
+`audit-fixture` (`$.projection.report.meta.specVersion` and
+`$.projectionSha256`). `scripts/freeze-stageb-replay.mjs` needs no change: the
+frozen Stage B replay is compiled from `versions.ts` at each build
+(`scripts/build-with-identity.mjs`), and `tests/runtimeReplay.test.ts`
+replaces the stamp in its copy of that file by pattern, which still matches.
+
+Saved reports (P21). Stored bytes are not touched. The 68 saved reports of the
+check database copy (read-only) were rendered before and after this change
+through the saved-report reader (`parseStoredReportWithSafety`) with a fixed
+clock, on seven surfaces each (the read-time view, Markdown, print HTML,
+audit Markdown, both web layouts and the key-data rows): 476 outputs, all
+byte-identical. Read modes 56 strict and 12 legacy, the same before and after;
+nine of the 68 carry 1.73.0. Display cutoffs compare a saved stamp only with
+their own frozen values (D-249), never with the current spec, so no
+"built before spec" note can appear on a new report.
+
+Same-report check (17 cases, 136 files, `origin/claude/r2-batch-5` e0393b01
+against this change): every case differs, in exactly 136 approved items and
+nothing else: the payload fingerprint of each case, and in each case
+`payload.txt` (its header line), `report.json` (`meta.specVersion` only),
+`report.md` and `print.html` (the "Versions" and "Spec version" rows),
+`audit.md` (the "Spec version" row), `web-classic.html` (two spec labels) and
+`web-dossier.html` (two spec labels and the report identity attribute, a
+SHA-256 of the report). `stageB.json` is unchanged in all 17 cases. A
+throwaway check (not committed) replaced the old and new stamp strings, the
+fingerprints and the identity attribute with placeholders in both trees: all
+136 files then match byte for byte. It also confirmed each fingerprint is the
+version plus the FNV-1a of that tree's payload text, and re-rendered the five
+reader surfaces of every case from the new `report.json` with 1.73.0 put back:
+all 85 match the reference byte for byte, which shows the identity attribute
+moves only with the stamp.
+
 ## D-246 - The classic layout is removed (2026-11-12)
 
 Principle P22 (one presentation rule per figure). Round 2, S4.12c, the last
@@ -2040,6 +2144,291 @@ Not changed, with the reason:
   more decimals and leaves three decimals as written (a coupon such as
   "4.250% Notes"); 10.4710 and 22.5770 are stored as "10.471" and "22.577".
   Changing that rule would reword other reports, so it is left for its owner.
+
+## D-252 - A fiscal year's operating cash flow is the filed figure when the filing's own cash-flow statement reconciles (2026-11-13)
+
+Principles P8 (a complete reconciled filed family replaces a conflicting vendor
+value), P7 (compose once, from one filing; no plug), P2 (the newest compatible
+filing), P10 (withhold, never guess), P11 (a refusal clears on its cause and
+evidence, never its wording), P14 (method applicability) and P17 (a signal
+that regains its input is scored as computed). Round 2, Stage 5 (accuracy
+fixes), free-cash-flow gaps family. Owner changed: the operating cash-flow
+admission (`admitOperatingCashFlow`, `src/edgar/financialEnrichment.ts`),
+applied to stored rows in the report's own data view (`withCashFlowSbcBasis`,
+`src/pipeline/cashFlowBasis.ts`). No tolerance, day band, currency rule,
+status word, cause code or line-item synonym is added or changed; the two
+us-gaap exchange-rate-effect elements are read only as an operand of the
+identity below. D-89 is marked "Revised by D-252" for the one shape below.
+
+The accuracy baseline (r2-base-afb9cddf, "Gaps whose value is in the filings")
+listed four things. Each was checked against the code, the cached run inputs
+and the filings' own facts. One is fixed; three are left, with the reason.
+
+### 1. Duke Energy (DUK): the gap becomes the filed number
+
+Root cause. The provider's fiscal 2025 cash-flow row carries operating cash
+flow 12,352,000,000 and investing cash flow -14,360,000,000; Form 10-K
+0001326160-26-000014 (filed 2026-02-26) states 12,330,000,000 and
+-14,338,000,000 for 2025-01-01..2025-12-31: the provider moved 22,000,000
+between the two sections. D-89 withholds every vendor operating cash flow that
+conflicts with the filed one, and with it the row's free cash flow: "preserve
+original vendor data and conflict records, withhold processed CFO aliases and
+dependent standardized FCF". It never asked whether the filing itself settles
+the figure, which is what P8 (D-200, written later for earnings) requires. So
+the fiscal year's operating cash flow, free cash flow, FCF conversion and the
+forensic figures that need operating cash flow were all gaps, although every
+operand is in the 10-K.
+
+Rule (`filedCashFlowFamily`, `adoptFiledOperatingCashFlow`). On an annual
+row, a vendor operating cash flow that conflicts with the directly filed one
+(`vendorAgreesWithFiled`, the P8 owner) takes the filed figure when ONE filing
+proves the statement around it:
+
+1. it is the newest filing that states the fiscal year's
+   `NetCashProvidedByUsedInOperatingActivities`, with one value;
+2. it is also the newest filing that states, for exactly the same start and
+   end and in the same currency, `NetCashProvidedByUsedInInvestingActivities`,
+   `NetCashProvidedByUsedInFinancingActivities` and the change in cash, cash
+   equivalents and restricted cash
+   (`CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect`),
+   each with one value; when it tags the exchange-rate effect on cash it
+   states one value for it under one element;
+3. operating + investing + financing + exchange-rate effect equals the change
+   in cash exactly. This is the filing's own arithmetic: no allowance and no
+   balancing figure.
+
+Anything else leaves the row withheld under D-89: a statement that does not
+foot on these lines (cash of a disposal group, a line under another element),
+a line a newer filing restates without the others, two values for a line, a
+quarterly row (a standalone quarter is usually the difference of two
+year-to-date figures from two filings, which is not one filing's statement),
+a figure filed after the analysis time, another currency or issuer.
+
+The vendor observations stay in the row's conflict record (`usable: true`,
+`resolution: "filed-family"`), with the filing as the field's provenance. The
+row then stands as a row whose vendor figure had agreed with the filing: its
+free cash flow is operating cash flow plus capital spending (an outflow is
+negative), the identity every reader already uses (`deriveFcf`), on the row's
+own capital spending, which keeps its own admission rules (D-150, D-239). A
+row without usable capital spending gets no free cash flow, and a free cash
+flow refused for another cause stays refused.
+
+Stored run inputs keep their bytes. A row refused before this decision is
+judged again when a report is built (`readmitFiledOperatingCashFlow`), from
+the refusal's evidence and never its sentence: the operating field is
+withheld, carries no typed cause, and its record holds the vendor figure, the
+filed figure and one directly filed operating cash-flow fact for the row's own
+period; the admitted SEC facts must still state that figure from that filing.
+The free cash flow is reopened only when its refusal carries the identical
+evidence record. The stale warning for that period leaves the missing-data
+list and one entry states the correction and its operands.
+
+Filed proof, all in Form 10-K 0001326160-26-000014 (filed 2026-02-26), fiscal
+year 2025-01-01..2025-12-31 or the instants named, USD:
+
+| Line | Element | Value |
+| --- | --- | ---: |
+| Operating cash flow | `NetCashProvidedByUsedInOperatingActivities` | 12,330,000,000 |
+| Investing cash flow | `NetCashProvidedByUsedInInvestingActivities` | -14,338,000,000 |
+| Financing cash flow | `NetCashProvidedByUsedInFinancingActivities` | 1,950,000,000 |
+| Change in cash, cash equivalents and restricted cash | `CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalentsPeriodIncreaseDecreaseIncludingExchangeRateEffect` | -58,000,000 |
+| Capital spending | `PaymentsToAcquirePropertyPlantAndEquipment` | 14,024,000,000 |
+| Consolidated profit | `ProfitLoss` | 5,071,000,000 |
+| Profit from continuing operations, including noncontrolling interests | `IncomeLossFromContinuingOperationsIncludingPortionAttributableToNoncontrollingInterest` | 5,070,000,000 |
+| Total assets at 2025-12-31 / 2024-12-31 | `Assets` | 195,736,000,000 / 186,343,000,000 |
+
+12,330 - 14,338 + 1,950 = -58 (millions): the statement foots.
+
+DUK (`duk-data-only`, general route, regulated-utility overlay, USD):
+
+| Figure | Before | After | Operands of the new value |
+| --- | --- | --- | --- |
+| Operating cash flow, fiscal 2025 (cash-flow row) | withheld | 12,330,000,000 | filed line |
+| Free cash flow before and after SBC, fiscal 2025 (no SBC is disclosed for the year, so the two are equal) | withheld | -1,694,000,000 | 12,330,000,000 - 14,024,000,000 |
+| FCF conversion, fiscal 2025, after and before SBC | withheld | -0.3341 | -1,694,000,000 / 5,071,000,000 |
+| Free-cash-flow growth windows | end at fiscal 2024 ("latest 1 period(s) missing") | end at fiscal 2025 | each stays "undefined across a sign flip or non-positive endpoint"; no growth rate is shown before or after |
+| Cash-flow accruals, fiscal 2025 | withheld | -7,259,000,000; ratio -3.80% of average total assets, "unremarkable" | 5,071,000,000 - 12,330,000,000; / ((195,736,000,000 + 186,343,000,000) / 2) |
+| Beneish TATA | withheld | -0.03709 | (5,070,000,000 - 12,330,000,000) / 195,736,000,000 |
+| Beneish M-score | withheld (TATA missing) | -2.717, "unlikely" | the seven other indices are unchanged (DSRI 0.849, GMI 1, AQI 1.029, SGI 1.062, DEPI 1.067, SGAI 1, LVGI 1) |
+| Piotroski F | 3 of 5 signals | 5 of 7 signals | positive operating cash flow (12,330,000,000 / 186,343,000,000 = 6.62% of opening assets) and operating cash flow above profit are now evaluable; both pass |
+| Quality score | 53.83 (D) on 12.2% of signals, limited evidence | 72.93 (B) on 44.1% of signals, limited evidence | the accrual ratio and the M-score are scored again and Piotroski has two more signals (P17) |
+| Business quality | 54.14 (D) | 56.14 (C) | the row above |
+| Composite | 55.56 (C, Provisional), evidence 65.59% | 57.29 (C, Provisional), evidence 71.31% | the rows above |
+| Data gaps | 77 | 75 | |
+
+The trailing twelve months were already built from the filings (D-240 and the
+filed year-to-date identity) and are unchanged: operating cash flow
+11,547,000,000, capital spending 16,709,000,000, standardized free cash flow
+-5,162,000,000. Fair value, valuation multiples and every other figure of the
+case are unchanged. Duke's fiscal 2016 row has the same kind of conflict
+(vendor 6,798,000,000 against 6,863,000,000 in Form 10-K 0001326160-19-000057,
+filed 2019-02-28) and stays withheld: that filing's operating 6,863 +
+investing -11,528 + financing 4,251 = -414 (millions) against a tagged change
+in cash of 60, so the statement does not foot on these lines.
+
+### The same rule on the other stored cases
+
+Two older rows carry the same refusal and their filings reconcile.
+
+O (`o-data-only`, equity-REIT route, USD). Form 10-K/A 0000726728-19-000041
+(filed 2019-03-01), fiscal year 2016-01-01..2016-12-31: operating 799,863,000
++ investing -1,700,707,000 + financing 866,192,000 = change in cash
+-34,652,000. The vendor row held 804,045,000, the figure of the original
+10-K (0001104659-17-011170), which the later filings restate.
+
+| Figure | Before | After | Operands of the new value |
+| --- | --- | --- | --- |
+| Operating cash flow, fiscal 2016 (cash-flow row) | withheld | 799,863,000 | filed line |
+| Free cash flow, fiscal 2016 (not printed; the start of the longest growth window) | withheld | 786,437,000 | 799,863,000 - 13,426,000 (`PaymentsForCapitalImprovements`, the same filing; the capital line the case's other years use, D-239) |
+| Free cash flow CAGR, "10 years" | 21.9491% over 7 years (2017 to 2024) | 20.3092% over 8 years (2016 to 2024) | 786,437,000 to 3,451,865,000 (unchanged end, D-239) |
+| Fundamentals growth signal, "longest retained window" context sentence | 7.00 years, 21.95% | 8.00 years, 20.31% | the row above; the scoring window and the score are unchanged |
+
+No Realty Income score, grade, FFO, AFFO or valuation figure moves.
+
+PGR (`pgr-data-only`, insurer route, USD). Form 10-K 0000080661-19-000008
+(filed 2019-02-27), fiscal year 2016-01-01..2016-12-31: operating
+2,732,700,000 + investing -2,480,700,000 + financing -250,400,000 +
+exchange-rate effect 400,000
+(`EffectOfExchangeRateOnCashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents`)
+= change in cash 2,000,000; capital spending
+`PaymentsToAcquirePropertyPlantAndEquipment` 215,000,000. The vendor row held
+2,701,900,000. The fiscal 2016 row's operating cash flow becomes 2,732,700,000
+and its free cash flow 2,517,700,000. Neither is printed: industrial free cash
+flow is not applicable on the insurer route. The one reader-visible change is
+the growth note "Free cash flow 10y CAGR is computed over 8.0 years
+(2017-12-31 to 2025-12-31)", which now reads "9.0 years (2016-12-31 to
+2025-12-31)"; the growth rate itself stays not applicable.
+
+Each of the three cases also swaps one missing-data entry: the D-89 warning
+for that fiscal year leaves and an entry stating the correction and its
+operands is added. Every other figure of all 17 cases is unchanged: the other
+14 cases are byte for byte identical.
+
+### 2. Figure Technology (FIGR): checked and left as it is
+
+Its free cash flow (fiscal 2025 and trailing) is not a missing input. The
+capital-spending reader does find the filer's line: fiscal 2025
+`PaymentsToDevelopSoftware` 20,649,000 (Form 10-K 0002064124-26-000009) and
+the trailing 23,451,000, both matching the filings, and
+`PaymentsToDevelopSoftware` is already one of the three capital-spending
+elements. The figure is withheld on purpose by D-149 (R-FIGR-1, P14): FIGR is
+a held-for-sale lender (SIC 6163) whose cash-flow statement places loan
+originations and loan-sale proceeds in operating activities, so operating cash
+flow less capital spending measures loan inventory funding, not cash available
+to owners. The report says so beside the figure. Showing 41,919,000 or
+-109,941,000 as "free cash flow" would reverse that applicability decision,
+which no finding here supports; the swing from +62,568,000 to -86,490,000 of
+operating cash flow within one year is what D-149 describes.
+
+### 3. Viking Therapeutics (VKTX): left, and what is missing
+
+D-239 made the provider's capital-spending zero "undisclosed", so free cash
+flow and the cash runway became gaps. Its fiscal 2025 investing section does
+foot without a capital-spending line (`PaymentsToAcquireInvestments`
+418,037,000 and `ProceedsFromSaleMaturityAndCollectionsOfInvestments`
+759,425,000 against net investing cash 341,388,000, Form 10-K
+0001193125-26-046876). That is not yet a proof the rulebook accepts, for two
+reasons. (a) No rule reads the absence of a line as nil: D-239 rejected the
+footing of tagged facts as a residual inference (SEC company facts do not say
+which lines make up the section), and the two rules that do read a filing's
+own statement lines (D-234, D-250) expressly decline to treat an absent line
+as nil. A "none presented" rule for the cash-flow statement would be a new
+kind of evidence and needs its own decision. (b) Even with such a rule, the
+stored Viking inputs cannot prove fiscal 2025: the 10-K's statement text was
+not captured (the input records "no substantive financial-statement rows were
+established before the notes"), which P9 calls a coverage gap, not absence.
+Only the 10-Q's nine-month columns (0001193125-26-436432: purchases, sales
+and maturities of investments only) are in the inputs, and the fiscal year
+and the trailing twelve months both need the 10-K.
+
+### 4. Micron (MU), the equity bridge's noncontrolling interest and preferred equity: left, and what differs
+
+The bridge reads both from the latest balance row. Amazon, NVIDIA, Qualcomm
+and Viking show 0 because their balance rows are provider rows that carry 0
+in both fields (Amazon also files `PreferredStockValue` 0). Micron's stored
+balance sheet is built from SEC facts, and the statement builder leaves an
+untagged line empty (P10): Form 10-K 0000723125-26-000023 tags neither
+element at 2026-09-03. So the difference is the source of the row, not a
+reader that misses evidence. The one rule that turns an untagged
+noncontrolling interest into a zero (audit SNOW-2, `inferredZeroNciPeriods`)
+needs explicit zero noncontrolling earnings for the period and a zero balance
+within about a year; Micron's last tagged balance (0) is at 2020-09-03 and its
+last tagged noncontrolling earnings (0) are for fiscal 2022, so that evidence
+is too old. The filing does tag `Assets` 195,888,000,000 = `Liabilities`
+57,510,000,000 + `StockholdersEquity` 138,378,000,000, which leaves no room
+for equity outside the parent's; reading a zero off that identity is an
+inference from a residual (P10), and it says nothing about preferred stock,
+which sits inside stockholders' equity. No bridge arithmetic depends on the
+difference: an empty deduction and a zero deduction give the same equity
+value, and Micron's fair value is unchanged either way. D-253 was reserved for
+this and is not used.
+
+### Options rejected
+
+Replacing every conflicting vendor operating cash flow with the filed fact
+whatever the rest of the statement says (a fact can be a continuing-operations
+or other partial total; the identity is what shows it is the statement's
+operating total). Adopting the filed investing and financing totals in the
+same step (they have their own field check, `admitCashFields`, which still
+refuses Duke's investing total; the accrual figure falls back to its
+operating definition and says so; left for a follow-up). Requiring a filed
+capital-spending element before free cash flow returns (the growth series and
+the company page derive operating cash flow plus capital spending whenever
+both are present, so a second withholding state on the same row would be read
+differently by different readers, and capital spending has its own owners).
+Applying the rule to quarterly rows (no stored case has a directly filed
+quarterly conflict, and a derived quarter spans two filings). Widening the
+capital-spending definition or the lender route to make FIGR's number appear
+(P14, P16).
+
+### Approved report changes
+
+Same-report check, this change (with main merged) against current main
+355effa7 (#168, batch 4, with D-238 and D-247 to D-250; the same tree as the
+commit this change branched from, 9e25b820, which is the build compared): 24
+files and 3 payload fingerprints differ, all eight outputs of `duk-data-only`, `o-data-only` and
+`pgr-data-only`; the other 14 cases are byte for byte unchanged. The leaf-level
+list and the approvals with their hashes are in
+`tmp/accuracy/s5-fcf-gaps-before-after.md` (not committed: it quotes vendor
+data).
+
+Accuracy check (`accuracy:check`, the unmerged tool at 43c27a8f, whose
+expectation is for main after batch 4): current main gives 167 match, 7
+mismatch, 67 gap, 25 not established, every figure as expected; this change
+gives 168 match, 7 mismatch, 66 gap, 25 not established. One row moves:
+"BETTER: duk-data-only fcf.fy - gap -> match". None is worse.
+
+Tests (`tests/financialEnrichment.operatingCashFlowFamily.test.ts`, 22 cases,
+16 of which fail before the change): Duke Energy fiscal 2025 on its filed
+facts, as a vendor row, as the stored refusal, and in the capital block; the
+compatible control, Duke Energy fiscal 2016, whose statement does not foot
+and stays withheld; two unrelated issuers, Realty Income (no exchange-rate
+line, a capital line outside the three elements) and Progressive (an insurer,
+with an exchange-rate line); a constructed issuer for the rule's edges (off by
+one unit, a missing line, a line from another filing, two values, a newer
+filing restating one line or the whole statement, two exchange-rate elements,
+a fact filed after the analysis time, another currency or issuer, a quarterly
+row); free cash flow with, without and with refused capital spending; what a
+stored refusal must carry to be reopened and what leaves it alone (a typed
+cause, a derived or calculated figure, another tag, filing, period or figure);
+and the data view (stored rows untouched, applying it twice changes nothing,
+the stale warning replaced). No existing test changed.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change advances the Stage B
+implementation stamp only; the report specification and the payload format are
+unchanged. Frozen records are unchanged. Saved reports are immutable (P21) and
+keep the figures they were built with.
+
+Left for follow-up: the filed investing and financing totals of a reconciled
+statement (Duke's fiscal 2025 investing cash flow stays withheld on the
+provider's -14,360,000,000 against the filed -14,338,000,000, so its accrual
+figure uses the operating definition); a "none presented" rule for the
+cash-flow statement and the capture of Viking's 10-K statement text (item 3);
+an instance-level "none presented" reader for the equity bridge (item 4); and
+Progressive's fiscal 2025 free cash flow, which the baseline also lists as in
+the filings and which is "not applicable" on the insurer route (P14), as
+FIGR's is.
 
 ## D-239 - A provider zero for capital spending is undisclosed unless the filings state a zero (2026-11-12)
 
@@ -5903,7 +6292,7 @@ behavior; historical measured costs remain the observations recorded below.
 ## D-89 Filed CFO conflicts and explicit fraction units (2026-10-18)
 
 - **Problem:** A subsequent acceptance audit found vendor quarterly CFO inconsistent with compatible filed cumulative cash flows. The difference entered current standardized FCF and cash-conversion ratios. Separately, numeric prose correctly expressing a declared fraction as a percentage was classified as a unit contradiction because canonicalization had discarded the fraction declaration.
-- **Cash-flow admission:** Compare only compatible currency, issuer, date and duration evidence available by the observation cutoff. A signed quarter can come from a direct filed quarter or compatible same-start cumulative operands; negative CFO is valid. Ambiguous direct facts must not be bypassed by a different derivation. Preserve original vendor data and conflict records, withhold processed CFO aliases and dependent standardized FCF, and retain independent capital/valuation evidence. Do not silently select the more favorable observation or overwrite an earlier explicit refusal.
+- **Cash-flow admission:** Compare only compatible currency, issuer, date and duration evidence available by the observation cutoff. A signed quarter can come from a direct filed quarter or compatible same-start cumulative operands; negative CFO is valid. Ambiguous direct facts must not be bypassed by a different derivation. Preserve original vendor data and conflict records, withhold processed CFO aliases and dependent standardized FCF, and retain independent capital/valuation evidence. Do not silently select the more favorable observation or overwrite an earlier explicit refusal. (Revised by D-252: on an annual row, a conflicting vendor operating cash flow takes the filed figure when the newest filing's own cash-flow statement reconciles around it; every other conflict is still withheld.)
 - **Fraction semantics:** Retain an optional explicit unit-fraction declaration in numeric provenance. It permits percentage prose to be compared after scaling both its value and rounding quantum. Ordinary ratios/multiples, legacy records without that declaration, percentage-point changes, wrong values and hundredfold errors retain their existing refusals. No metric-name heuristic establishes the scale.
 - **Versions:** Report `1.28.0`, payload `1.33.0`, pipeline `stage-c-1.4.2`. Stage B remains `STAGE_B_2026_10_ACCOUNTING_EVIDENCE_8`: its calculation engine is unchanged for identical admitted inputs. Changed input admission/context must not resume old narrative as if equivalent. Saved reports retain their bytes and historical stamps.
 - **Evidence and limitations:** See the [acceptance safeguards and phased plan](2026-10-18-accounting-evidence-remediation.md#subsequent-acceptance-safeguards). Source tracing is not proof of accounting truth. A deterministic replay can demonstrate withheld claims and rendering; it does not regenerate stale analyst prose or establish investment performance. Integration still requires fresh gates and independent review.
