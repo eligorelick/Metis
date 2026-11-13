@@ -1300,10 +1300,10 @@
     {
       "case": "o-data-only",
       "figure": "totalDebtIncludingLeases.latest",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
+      "status": "match",
+      "valueSha256": null,
       "note": "Filed in the 10-Q for 2026-09-30 (0000726728-26-000059): line of credit payable and commercial paper 2,127,928k + term loans 2,772,340k + mortgages payable 36,745k + notes payable 26,451,863k + operating leases 409,910k + finance leases 165,371k = 31,964,157k; total liabilities foot with the four debt lines. The first record left out the term loans and the credit-line draws. Metis withholds the figure.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "Batch 4 (#168). D-250: O total debt including leases gap -> match (31,964,157,000, 10-Q 0000726728-26-000059, every borrowing line and both lease liabilities from the one filing); RIVN total debt not-established -> gap (half-disclosed finance lease, D-202 rule applied to provider rows). D-238: DUK fiscal 2025 cash-flow net income 4,967,000,000 -> 5,071,000,000, the filed consolidated profit (ProfitLoss, 10-K 0001326160-26-000014), mismatch -> match."
     },
     {
       "case": "o-data-only",
@@ -1379,9 +1379,9 @@
     {
       "case": "duk-data-only",
       "figure": "netIncome.fy",
-      "status": "mismatch",
-      "valueSha256": "5d2c66c4217aef66",
-      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Batch 4 (#168). D-250: O total debt including leases gap -> match (31,964,157,000, 10-Q 0000726728-26-000059, every borrowing line and both lease liabilities from the one filing); RIVN total debt not-established -> gap (half-disclosed finance lease, D-202 rule applied to provider rows). D-238: DUK fiscal 2025 cash-flow net income 4,967,000,000 -> 5,071,000,000, the filed consolidated profit (ProfitLoss, 10-K 0001326160-26-000014), mismatch -> match."
     },
     {
       "case": "duk-data-only",
@@ -1748,10 +1748,10 @@
     {
       "case": "rivn-data-only",
       "figure": "totalDebtIncludingLeases.latest",
-      "status": "not-established",
-      "valueSha256": "50bdac51770431f7",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
       "note": "Metis's 5,431M is long-term debt 4,446M + operating leases 886M + the noncurrent finance lease liability 99M (10-Q 0001874178-26-000066). The current finance lease liability is not tagged at 2026-09-30: it sits inside a combined current-liabilities line under RIVN's own element (3M at 2025-12-31 in the 10-K). The total is therefore not established; the first record matched it by counting the untagged part as nil.",
-      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
+      "changeReason": "Batch 4 (#168). D-250: O total debt including leases gap -> match (31,964,157,000, 10-Q 0000726728-26-000059, every borrowing line and both lease liabilities from the one filing); RIVN total debt not-established -> gap (half-disclosed finance lease, D-202 rule applied to provider rows). D-238: DUK fiscal 2025 cash-flow net income 4,967,000,000 -> 5,071,000,000, the filed consolidated profit (ProfitLoss, 10-K 0001326160-26-000014), mismatch -> match."
     },
     {
       "case": "rivn-data-only",
