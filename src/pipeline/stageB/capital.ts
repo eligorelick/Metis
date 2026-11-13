@@ -623,6 +623,10 @@ export function computeCapital(
         : isFiniteNumber(incomeFor(r.date)?.netIncome)
           ? (incomeFor(r.date)?.netIncome as number)
           : null;
+      // D-231 (P12): a withheld cash-flow net income is replaced by the income statement's, and the row says so.
+      if (ni !== null && !isFiniteNumber(r.netIncome) && r.fieldConflicts?.netIncome?.usable === false) {
+        rowNotes.push("net income is the income statement's: the cash-flow statement's figure for this year was withheld");
+      }
       let conversion: number | null = null;
       let conversionBeforeSbc: number | null = null;
       if (fcf !== null && ni !== null) {

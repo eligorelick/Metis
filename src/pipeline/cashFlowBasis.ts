@@ -1,13 +1,14 @@
 import type { DataBundle } from "./types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
-import { admitStockCompensation, admitBalanceCash, admitQuarterlyCapex } from "@/edgar/financialEnrichment";
+import { admitStockCompensation, admitBalanceCash, admitQuarterlyCapex, admitCashFlowNetIncome } from "@/edgar/financialEnrichment";
 
-/** Reapply SBC and same-filing cash admission without modifying the snapshot. */
+/** Reapply SBC, annual cash-flow net income (D-231) and same-filing cash admission without modifying the snapshot. */
 export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   if (!facts) return bundle;
   const gaps = [...bundle.gaps];
   const superseded = new Map<string, string>();
+  const annualIncome = bundle.statements.incomeAnnual.ok ? bundle.statements.incomeAnnual.value.data.rows : [];
   const family = (key: "cashflowAnnual" | "cashflowQuarterly") => {
     const input = bundle.statements[key];
     if (!input.ok) return input;
@@ -17,7 +18,12 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
       const prior = row.fieldConflicts?.stockBasedCompensation, current = admitted.row.fieldConflicts?.stockBasedCompensation;
       if (prior?.usable === false && current?.usable === true && current.resolution === "filed-family")
         superseded.set(`statements.cashflow.${row.date}.stockBasedCompensation`, prior.reason);
-      if (key === "cashflowAnnual") return admitted.row;
+      if (key === "cashflowAnnual") {
+        // D-231 (P8): the row's net income against the filer's own profit for that fiscal year.
+        const profit = admitCashFlowNetIncome(admitted.row, facts, annualIncome.find(income => income.date === row.date), bundle.builtAt);
+        gaps.push(...profit.gaps);
+        return profit.row;
+      }
       const capex = admitQuarterlyCapex(admitted.row, facts, bundle.statements.cashflowAnnual.ok ? bundle.statements.cashflowAnnual.value.data.rows : [], bundle.builtAt);
       gaps.push(...capex.gaps);
       return capex.row;

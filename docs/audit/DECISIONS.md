@@ -98,6 +98,138 @@ Proof, for each package separately:
 Nothing a reader sees changes: no report figure, schema, stamp, payload,
 export, golden or intended delta moves.
 
+## D-231 - The net income on a vendor's annual cash-flow row is checked against the filer's own profit (2026-11-12)
+
+Principles P8 (filed beats vendor), P5 (entity scope), P10 (withhold, never
+guess), P2 (newest compatible filing) and P12 (a substitution is disclosed).
+Round 2, Stage 5 (accuracy fixes), TSM family. The accuracy baseline
+(r2-base-afb9cddf) found TSM's "net income, latest fiscal year"
+(1,717,882,627,000 TWD) equal to neither profit line of its Form 20-F.
+
+Root cause. Free-cash-flow conversion and the cash-flow accrual figures divide
+by the net income carried on the vendor's annual cash-flow row
+(`src/pipeline/stageB/capital.ts`, `src/pipeline/stageB/forensics.ts`), and no
+rule ever compared that field with a filing: the cash-flow admissions in
+`src/edgar/financialEnrichment.ts` check operating cash flow, capital
+spending, stock compensation and cash, and read us-gaap elements only. For
+TSMC the vendor's field was profit before tax for 2016 to 2022 (2022:
+1,144,190,718,000 against a filed profit of 993,294,700,000) and, from 2023, a
+net income on another accounting basis; none of the ten values is a line of
+the company's annual reports.
+
+Choice, in the owner of the cash-flow admissions
+(`admitCashFlowNetIncome`, `src/edgar/financialEnrichment.ts`), applied to
+annual rows in the report's own data view (`withCashFlowSbcBasis`,
+`src/pipeline/cashFlowBasis.ts`), so the calculation, the filing disclosures
+and the AI context read one admitted value and stored inputs keep their bytes:
+
+1. The filed profit lines for the row's exact fiscal year (350 to 380 days,
+   the row's own currency, filed by the analysis time) are read from the
+   admitted SEC facts: for us-gaap the statement builder's own chain
+   (`ProfitLoss`, `NetIncomeLossIncludingPortionAttributableToNonredeemableNoncontrollingInterest`,
+   `NetIncomeLoss`); for ifrs-full `ProfitLoss`, with
+   `ProfitLossAttributableToOwnersOfParent` as the same year's parent-scope line.
+2. A vendor figure equal to any filed copy of any of those lines, within the
+   P8 allowance (`vendorAgreesWithFiled`; no new tolerance), is a filed figure
+   and stays. Whether the row should show consolidated or parent profit is not
+   decided here, so no "definition" row of the baseline moves.
+3. A vendor figure equal to none of them is replaced by the filed consolidated
+   profit from the newest filing that states it, with that filing as its
+   provenance and an informational manifest entry naming both values. A parent
+   line never replaces it (P5). If the filings state no consolidated profit
+   for the year, or the newest states two values, the figure is withheld.
+4. When the admitted SEC facts hold no profit line for the year, the figure is
+   compared with the same period's income-statement row. If it equals none of
+   that row's profit lines it is withheld with a warning entry: two statements
+   of one period disagree and no filing settles which is right. A figure that
+   does equal one stays, unverified as before (vendor agreement proves nothing).
+5. A withheld figure leaves the row. Readers then use the income statement's
+   net income for that year, as they already did for a row that never carried
+   one; the free-cash-flow row now says so.
+
+Options rejected: replacing every vendor figure that differs from the filed
+consolidated profit (it would move Duke Energy's 2025 row from the parent
+figure to the consolidated one, and decide the consolidated-or-parent question
+for every issuer, which is a separate definition decision); withholding every
+unverified vendor figure (it would remove the conversion and accrual figures
+of most issuers); correcting the value where it is shown (the rule belongs to
+the admission, not to its readers).
+
+### Approved report changes
+
+Same-report check, baseline r2-base-afb9cddf against this change: 16 files in
+2 of the 17 cases differ (TSM and DUK, all eight outputs each, plus their two
+payload fingerprints); the other 15 cases, and every other figure of TSM and
+DUK, are byte for byte unchanged. The full leaf-level list is in
+`tmp/accuracy/s5-tsm-before-after.md` (not committed: it quotes vendor data).
+
+TSM (`tsm-data-only`, TWD). Filed values are SEC XBRL facts of TSMC's Form
+20-F filings, in TWD, stated to the hundred thousand (decimals -5).
+
+| Figure | Before (vendor) | After | Proof |
+| --- | --- | --- | --- |
+| Net income, fiscal 2025 (free-cash-flow series, accrual operand) | 1,717,882,627,000 | 1,697,604,000,000 | Withheld (rule 4); the income statement's figure is read instead. It equals `ifrs-full:ProfitLossAttributableToOwnersOfParent`, 2025-01-01..2025-12-31, 20-F 0001628280-26-025362, filed 2026-04-16 (read from the filing's own XBRL instance; SEC companyfacts carries only two cover facts of that filing) |
+| Net income, fiscal 2024 | 1,173,268,000,000 | 1,157,523,900,000 | `ifrs-full:ProfitLoss`, 2024-01-01..2024-12-31, 20-F 0001193125-25-083423, filed 2025-04-17 |
+| Net income, fiscal 2023 | 838,497,664,000 | 851,027,700,000 | `ifrs-full:ProfitLoss`, 2023-01-01..2023-12-31, same 20-F |
+| Net income, fiscal 2022 | 1,144,190,718,000 | 993,294,700,000 | `ifrs-full:ProfitLoss`, 2022-01-01..2022-12-31, same 20-F |
+| Net income, fiscal 2021 | 663,126,314,000 | 592,880,600,000 | `ifrs-full:ProfitLoss`, 2021-01-01..2021-12-31, 20-F 0001193125-24-099840, filed 2024-04-18 |
+| Cash-flow row net income, fiscal 2020 (outside the five-year series; manifest entry only) | 584,777,180,000 | 511,008,000,000 | `ifrs-full:ProfitLoss`, 20-F 0001193125-23-107214, filed 2023-04-20 |
+| Same, fiscal 2019 | 389,845,336,000 | 354,027,000,000 | 20-F 0001193125-22-104891, filed 2022-04-14 |
+| Same, fiscal 2018 | 397,510,263,000 | 363,106,200,000 | 20-F 0001193125-21-118512, filed 2021-04-16 |
+| Same, fiscal 2017 | 396,133,030,000 | 345,039,000,000 | 20-F 0001193125-20-107579, filed 2020-04-15 |
+| Same, fiscal 2016 | 385,959,380,000 | 331,797,300,000 | 20-F 0001193125-19-108390, filed 2019-04-17 |
+
+Figures computed from them, with every other operand unchanged:
+
+| Figure | Before | After |
+| --- | --- | --- |
+| FCF conversion after SBC, fiscal 2021 / 2022 / 2023 / 2024 / 2025 | 0.396179 / 0.455056 / 0.341115 / 0.740260 / 0.576973 | 0.443119 / 0.524185 / 0.336093 / 0.750329 / 0.583865 |
+| FCF conversion before SBC, same years | 0.396190 / 0.455320 / 0.341765 / 0.741663 / 0.577698 | 0.443132 / 0.524490 / 0.336733 / 0.751751 / 0.584599 |
+| Operating accruals, fiscal 2025 (net income less operating cash flow) | -557,092,998,000 | -577,371,625,000 |
+| Aggregate accruals (cash-flow), fiscal 2025 | 550,286,083,000 | 530,007,456,000 |
+| Accrual ratio (cash-flow), fiscal 2025 | 0.188048 | 0.181118 |
+| Quality score / business-quality assessment / composite | 83 / 77.23 / 72.32 | 83.21 / 77.27 / 72.35 |
+| Manifest | 65 entries, 6 data issues | 75 entries (nine corrections, one withheld figure), 7 data issues |
+
+DUK (`duk-data-only`, USD):
+
+| Figure | Before (vendor) | After | Proof |
+| --- | --- | --- | --- |
+| Net income, fiscal 2022 (free-cash-flow series) | 2,588,000,000 | 2,455,000,000 | `us-gaap:ProfitLoss`, 2022-01-01..2022-12-31, 10-K 0001326160-25-000072, filed 2025-02-27 (the same value in 10-K 0001326160-23-000073 and 0001326160-24-000037); the parent line `us-gaap:NetIncomeLoss` is 2,550,000,000, and the vendor figure is neither |
+| FCF conversion, fiscal 2022 (after and before SBC) | -2.102009 | -2.215886 | computed from it |
+| Manifest | | one more informational entry | |
+
+No score, grade or headline of DUK moves. Its 2025 row (4,967,000,000) stays:
+it equals the filed parent profit 4,968,000,000 within the filer's reporting
+unit (rule 2).
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports one change
+against its expectation: TSM "net income, latest fiscal year" from mismatch to
+match, nothing worse.
+
+Not fixed here, with the cause. TSM's "diluted EPS, latest fiscal year" still
+ends at fiscal 2024. The fiscal 2025 EPS (65.47 per ordinary share, 327.35 per
+ADS; `ifrs-full:DilutedEarningsLossPerShare`, 20-F 0001628280-26-025362) is
+not in the stored inputs: SEC companyfacts carries only two cover facts of
+that filing, and the rule that reads a filing's own XBRL instance when
+companyfacts lags (D-112, B-23) fetches only 10-K and 10-Q filings and treats
+any accession companyfacts mentions as fully carried. The vendor's EPS for
+that year is already withheld with a warning, and the EPS growth rows are
+dated 2024-12-31. The fix belongs to the collection step
+(`src/edgar/instanceFacts.ts`, `src/providers/currentReports.ts`), which the
+same-report check does not replay; with it, rule 3 also replaces TSM's 2025
+figure by the filed consolidated profit 1,695,124,900,000.
+
+Version stamps are not moved by this change: the report-spec, payload and
+Stage B stamps are shared by the Stage 5 accuracy changes prepared in parallel
+and move once, at integration (P27). Saved reports and stored run inputs keep
+their bytes (P21); the correction is applied when a report is built.
+
+Tests: `tests/financialEnrichment.cashFlowNetIncome.test.ts` (TSM 2022, 2024
+and 2025 with and without the filing's own facts; an IFRS filer whose vendor
+figure is a filed line; Amazon, Realty Income and Duke Energy as domestic
+10-K filers; the cases the check must leave alone).
+
 ## D-228 - Only METIS_ names configure Metis; a leftover THESIS_ name stops startup (2026-11-12)
 
 Principles P23, P24 and P26. Revises D-21 (the `X-Thesis-Token` header and the
