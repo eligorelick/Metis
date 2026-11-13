@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
@@ -39,18 +39,29 @@ describe("production UI semantic preservation baseline", () => {
     expect(contract.figures.length).toBeGreaterThan(0);
   });
 
-  it.each(["warning", "source", "numeric context"])("detects a deliberately omitted %s", (kind) => {
-    const report = loadTask28Fixture();
-    report.appendix.missingData.push({ field: "ui.parity.sentinel", severity: "critical", reason: "PARITY-WARNING-MUST-SURVIVE" });
-    report.fundamentals.graded.keyNumbers[0] = {
-      ...report.fundamentals.graded.keyNumbers[0]!, sourceId: "PARITY-SOURCE-MUST-SURVIVE", period: "PARITY-PERIOD-MUST-SURVIVE",
-    };
-    const contract = captureUiParityContract(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report)));
-    const rendered = surfaces(report);
-    const marker = kind === "warning" ? "PARITY-WARNING-MUST-SURVIVE" : kind === "source" ? "PARITY-SOURCE-MUST-SURVIVE" : "PARITY-PERIOD-MUST-SURVIVE";
-    rendered.audit = rendered.audit.replaceAll(marker, "REMOVED");
-    expect(() => assertUiParityContract(contract, rendered)).toThrow(/Missing/);
-  });
+  describe("deliberately omitted parity markers", () => {
+    let omissionFixture: { contract: ReturnType<typeof captureUiParityContract>; rendered: ReturnType<typeof surfaces> };
+    beforeAll(() => {
+      const report = loadTask28Fixture();
+      report.appendix.missingData.push({ field: "ui.parity.sentinel", severity: "critical", reason: "PARITY-WARNING-MUST-SURVIVE" });
+      report.fundamentals.graded.keyNumbers[0] = {
+        ...report.fundamentals.graded.keyNumbers[0]!, sourceId: "PARITY-SOURCE-MUST-SURVIVE", period: "PARITY-PERIOD-MUST-SURVIVE",
+      };
+      omissionFixture = {
+        contract: captureUiParityContract(withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report))),
+        rendered: surfaces(freezeReport(report)),
+      };
+    });
+    it.each(["warning", "source", "numeric context"])("detects a deliberately omitted %s", (kind) => {
+      const { contract } = omissionFixture;
+      // Each case gets its own surface object; strings are immutable. Only the
+      // identical render is shared, and each omission still runs the real guard.
+      const rendered = { ...omissionFixture.rendered };
+      const marker = kind === "warning" ? "PARITY-WARNING-MUST-SURVIVE" : kind === "source" ? "PARITY-SOURCE-MUST-SURVIVE" : "PARITY-PERIOD-MUST-SURVIVE";
+      rendered.audit = rendered.audit.replaceAll(marker, "REMOVED");
+      expect(() => assertUiParityContract(contract, rendered)).toThrow(/Missing/);
+    });
+    });
 
   it("does not count hidden duplicate content as accessible report text", () => {
     expect(readableHtml('<p>Visible</p><div hidden>Hidden warning</div><span class="sr-only">Duplicate</span><script>fake source</script>').text).toBe("Visible");

@@ -432,13 +432,13 @@ replaces the July 2026 audited baseline and its intended-delta ledger
 `npm run test` and `test:product` run the same product suite; `test:changed` runs
 only the tests related to files changed against `origin/main`. `test:integration`
 isolates the database CLI test. `test:coverage` runs both core and risk coverage
-contracts, each of which runs the whole product suite, so `npm run verify` and the
-CI `full` job do not also run `test:product`. Shared setup rejects external `fetch` by default, while loopback
+contracts from one product-suite run, so `npm run verify` and the
+CI product lane do not also run `test:product`. Shared setup rejects external `fetch` by default, while loopback
 test servers are allowed. `EDGAR_LIVE_SMOKE=1` allows SEC hosts only, with a
 truthful `EDGAR_CONTACT`; it does not permit other providers. The fetch guard
 is process-local, not a sandbox for arbitrary subprocess traffic.
 
-`npm run verify` matches the Linux release sequence: dependency shape, types,
+`npm run verify` runs the Linux release gates sequentially (CI runs static checks and product tests in parallel): dependency shape, types,
 lint, integration tests, both coverage contracts (which run the product suite), build and
 security audit. The audit invokes npm with production/dev dependencies and
 `--audit-level=low`, so it requires registry access and fails on any listed
