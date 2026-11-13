@@ -132,7 +132,7 @@ carry them).
 
 ### Approved report changes
 
-Same-report check against current main (c45c3188, which includes D-231): 8
+Same-report check against main at e5e9d2ff (which includes D-231 and D-230): 8
 files differ, all in `figr-data-only`, plus its payload fingerprint; the other
 16 cases are byte for byte unchanged. Against the round's baseline
 (r2-base-afb9cddf) the same 8 files differ, plus D-231's approved TSM and DUK
