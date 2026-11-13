@@ -130,7 +130,7 @@ the real merge on them:
 | Every other concept, unit and period of the feed fixture (129) | - | newest value unchanged; the 32 new periods all end 2025-12-31 | - |
 | Same merge, analysis the day before the filing date | - | fiscal 2025 EPS still withheld (P2) | - |
 
-The new tests fail on main (16 of 18).
+The new tests fail on main (16 of 19).
 
 C. A TSM report rebuilt from the stored TSM inputs with only the SEC part of
 collection re-run through the fixed code, in a scratch folder outside the

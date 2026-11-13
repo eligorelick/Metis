@@ -410,6 +410,10 @@ describe("which instances the fallback requests (D-236)", () => {
       { ...FY2025_20F, reason: "instance unreadable (document HTTP 404)" },
     ]);
     expect(calls.some((c) => c.includes("0001046179-26-000300"))).toBe(false);
+    // An instance that is fetched and cannot be parsed is a named gap too, not a silent skip.
+    const readable = recordingClient({ [FY2025_20F.accession]: INSTANCE_XML });
+    expect(await collectPeriodicInstances(readable.client, TSM_CIK, tsmFilings, TODAY, neededBy(storedFeed()), () => { throw new Error("parser failed"); }))
+      .toEqual([{ ...FY2025_20F, reason: "instance unreadable (parser failed)" }]);
 
     const served = { ok: true as const, value: { data: storedFeed(), source: "edgar" as const, endpoint: "companyfacts", asOf: "2025-12-31", fetchedAt: "2026-11-12T18:21:26.908Z" } };
     const result = withNewerFilings(served, [], unread.slice(3));
@@ -434,7 +438,7 @@ describe("which instances the fallback requests (D-236)", () => {
 
 const NOW = new Date("2026-11-12T18:21:28.303Z");
 
-function tsmTransport(log: string[], feed: CompanyFacts): EdgarTransport {
+function tsmTransport(log: string[], feed: CompanyFacts | null): EdgarTransport {
   const respond = (value: unknown): Promise<EdgarTransportResponse> =>
     Promise.resolve({ status: 200, body: typeof value === "string" ? value : JSON.stringify(value), fetchedAt: NOW.toISOString(), fromCache: false, stale: false });
   const submissions = {
@@ -480,7 +484,7 @@ FILED AS OF DATE:		20260416
       log.push(url);
       if (url.includes("company_tickers.json")) return respond({ "0": { cik_str: 1046179, ticker: "TSM", title: "TAIWAN SEMICONDUCTOR MANUFACTURING CO LTD" } });
       if (url.includes("submissions/CIK0001046179.json")) return respond(submissions);
-      if (url.includes("companyfacts/CIK0001046179.json")) return respond(feed);
+      if (url.includes("companyfacts/CIK0001046179.json") && feed !== null) return respond(feed);
       if (url.endsWith(`${FY2025_20F.accession}-index-headers.html`)) return respond(indexHeaders);
       if (url.endsWith("/000162828026025362/tsm-20251231_htm.xml")) return respond(INSTANCE_XML);
       return Promise.resolve({ status: 404, body: "not found", fetchedAt: NOW.toISOString(), fromCache: false, stale: false });
@@ -494,7 +498,7 @@ function quietYahoo(): YahooClient {
   return { ...client, dailyHistory: () => Promise.resolve(empty), meta: () => Promise.resolve(empty), quote: () => Promise.resolve(empty) } as unknown as YahooClient;
 }
 
-async function tsmBundle(feed: CompanyFacts) {
+async function tsmBundle(feed: CompanyFacts | null) {
   const unavailable = (): Promise<Response> => Promise.resolve(new Response("not available", { status: 404 }));
   const configs: { fred: FredConfig; finnhub: FinnhubConfig; finra: FinraConfig } = {
     fred: { fetchImpl: unavailable, retryDelaysMs: [], minRequestIntervalMs: 0 },
@@ -536,5 +540,12 @@ describe("building the data bundle for a 20-F filer (D-236)", () => {
     expect(bundle.edgar.companyFactsInstances).toBeUndefined();
     expect(bundle.edgar.companyFacts.ok && bundle.edgar.companyFacts.value.endpoint).toBe("https://data.sec.gov/api/xbrl/companyfacts/CIK0001046179.json");
     expect(bundle.gaps.filter((g) => g.field.startsWith("edgar.companyFacts."))).toEqual([]);
+  });
+
+  it("requests no instance when the feed itself is unavailable: there is nothing to merge into", async () => {
+    const { bundle, instanceRequests } = await tsmBundle(null);
+    expect(bundle.edgar.companyFacts.ok).toBe(false);
+    expect(instanceRequests).toEqual([]);
+    expect(bundle.edgar.companyFactsInstances).toBeUndefined();
   });
 });
