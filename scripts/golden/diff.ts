@@ -5,7 +5,7 @@
  *
  * Compares every case's route, payload fingerprint, schema and reader status,
  * and the SHA-256 of each output file. For a changed JSON file it lists the
- * leaf paths that differ (tests/helpers/auditDeltaContract.ts); for a changed
+ * leaf paths that differ (tests/helpers/jsonLeafPaths.ts); for a changed
  * text file it prints the start of a unified diff. Exit 0 only when nothing
  * differs, or when every differing file is listed in --approved with both its
  * before and after hash and a reason:
@@ -24,7 +24,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { comparePaths, diffPaths, type AuditJsonValue } from "../../tests/helpers/auditDeltaContract";
+import { comparePaths, diffPaths, type AuditJsonValue } from "../../tests/helpers/jsonLeafPaths";
 import type { GoldenCaseEntry, GoldenManifest } from "./run";
 
 interface Approval { case: string; file: string; before: string; after: string; reason: string; decision?: string }
