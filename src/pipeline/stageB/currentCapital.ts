@@ -45,7 +45,8 @@ export interface DebtBridge {
   netDebtIncludingLeases: number | null; netDebtExcludingOperatingLeases: number | null;
 }
 export interface CurrentCapitalSnapshot {
-  filedCashFlows?: Partial<Record<"operatingCashFlow" | "stockBasedCompensation" | "capitalExpenditure" | "allocatedSbcExpense", FiledCashFlowTtm>>;
+  /** The filed constructions behind the trailing flows. `netIncome` (D-240) is the conversion denominator's filed window. */
+  filedCashFlows?: Partial<Record<"operatingCashFlow" | "stockBasedCompensation" | "capitalExpenditure" | "allocatedSbcExpense" | "netIncome", FiledCashFlowTtm>>;
   /** Allocated GAAP expense, kept separate from the cash-flow add-back. */
   allocatedSbcExpense?: number;
   sbcConcentration?: SbcConcentration;

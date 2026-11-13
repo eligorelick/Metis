@@ -148,9 +148,11 @@ export interface XbrlSummary {
  */
 /** Audit 2026-10-22 B-23: the filings merged into companyfacts from their instances. */
 export interface CompanyFactsInstances {
-  /** companyfacts' own newest 10-K/10-Q filing date before the merge. */
+  /** Filing date of the newest periodic report whose statement facts companyfacts itself carried (D-236), before the merge. */
   companyFactsThrough: string | null;
   merged: { accession: string; form: string; filingDate: string; periodEnd: string | null; count: number }[];
+  /** D-236: filings companyfacts lacked whose instance could not be read; absent when there are none. */
+  unread?: { accession: string; form: string; filingDate: string; reason: string }[];
 }
 
 export interface EdgarRegistrant {

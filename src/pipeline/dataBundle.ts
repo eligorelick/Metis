@@ -55,7 +55,7 @@ import { annualGeographyFallback, parseAnnualGeography } from "@/edgar/annualGeo
 import { balanceAdmissionEntries, debtPresentationSections, enrichFinancialFields } from "@/edgar/financialEnrichment";
 import { resolveAcquisitionGaps } from "@/report/gapResolution";
 import { discoverFiledEarningsAnnouncement, preferCompanyEarnings, pressReleaseEarningsAnnouncements } from "@/providers/companyEvents";
-import { collectCurrentReports, collectQuarterlySegments } from "@/providers/currentReports";
+import { collectCurrentReports, collectPeriodicInstances, collectQuarterlySegments, type UnreadInstance } from "@/providers/currentReports";
 import { discoverCompanyIrEarnings, discoverCompanyIrMaterialEvents, verifiedCompanyIrAliases, type CompanyIrOptions } from "@/providers/companyIr";
 import { enrichIncomeClassification } from "@/edgar/incomeClassification";
 import { withFilerShareUnits } from "@/pipeline/shareUnits";
@@ -90,7 +90,7 @@ import {
   type SectionSpec,
 } from "@/edgar/extract";
 import { latestEligibleFactEnd, latestFactEnd, looksLikeBankTagging, type CompanyFacts } from "@/edgar/xbrl";
-import { mergeInstanceFacts, parseInstanceFacts, type InstanceFacts } from "@/edgar/instanceFacts";
+import { feedCoverage, mergeInstanceFacts, needsInstance, parseInstanceFacts, type InstanceFacts } from "@/edgar/instanceFacts";
 // WS4 (D-14): successor registrants — the predecessor CIK and its facts.
 import {
   SUCCESSOR_FORM,
@@ -1351,10 +1351,23 @@ async function buildEdgarBundle(
   // Audit 2026-10-22 B-23: the same instances carry each filing's own facts,
   // merged below where companyfacts has not yet caught up with the filing.
   const instanceFacts: InstanceFacts[] = [];
+  const readInstance = (filing: EdgarFiling, xml: string): void => {
+    instanceFacts.push(parseInstanceFacts(xml, { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate }, String(cik)));
+  };
   const pQuarterlySegments = sub.ok && filingDisclosures
-    ? settle(`edgar.quarterlySegments(${symbol})`, collectQuarterlySegments(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10),
-      (filing, xml) => instanceFacts.push(parseInstanceFacts(xml, { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate }, String(cik)))))
+    ? settle(`edgar.quarterlySegments(${symbol})`, collectQuarterlySegments(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10), readInstance))
     : null;
+  // D-236: the core periodic filings the segment read does not fetch (Forms
+  // 20-F and 40-F, amendments), each read only where companyfacts does not
+  // carry its statement facts. No request when it carries them all.
+  const pUnreadInstances: Promise<UnreadInstance[]> = sub.ok && filingDisclosures
+    ? pFacts.then((facts) => {
+      if (!facts.ok) return [];
+      const coverage = feedCoverage(facts.value.data);
+      return collectPeriodicInstances(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10),
+        (filing) => needsInstance(coverage, { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate }), readInstance);
+    })
+    : Promise.resolve([]);
 
   const economicShareInventory: FilingEconomicShares[] = [];
   const cashInvestment: FilingCashInvestment[] = [];
@@ -1624,7 +1637,7 @@ async function buildEdgarBundle(
   const currentReports = pCurrentReports === null ? null : await pCurrentReports;
   const quarterlySegments = pQuarterlySegments === null ? null : await pQuarterlySegments;
 
-  const { companyFacts, companyFactsInstances } = withNewerFilings(filedFacts, instanceFacts);
+  const { companyFacts, companyFactsInstances } = withNewerFilings(filedFacts, instanceFacts, await pUnreadInstances);
   let xbrlSummary: XbrlSummary | null = null;
   if (companyFacts.ok) {
     const facts = companyFacts.value.data;
@@ -1685,7 +1698,17 @@ async function buildEdgarBundle(
 
 /** Audit 2026-10-22 B-23: the disclosure of each filing merged into companyfacts. */
 export function companyFactsInstanceEntries(instances: CompanyFactsInstances | undefined): ManifestEntry[] {
-  if (instances === undefined || instances.merged.length === 0) return [];
+  if (instances === undefined) return [];
+  // D-236 (P9, P10): a filing companyfacts lacks whose instance could not be
+  // read is a coverage gap, named, never taken as the filing stating nothing.
+  const unread: ManifestEntry[] = (instances.unread ?? []).map((f) => ({
+    field: "edgar.companyFacts.unreadFilings",
+    reason: `SEC companyfacts does not carry the financial statements of ${f.form} ${f.accession} (filed ${f.filingDate}) and the filing's own XBRL instance could not be read: ${f.reason}; ` +
+      "figures that need its filed facts rest on earlier filings or are withheld",
+    severity: "warn",
+    attemptedSources: [f.accession],
+  }));
+  if (instances.merged.length === 0) return unread;
   const filings = instances.merged.map((f) => `${f.form} ${f.accession} (${f.periodEnd === null ? "period end not stated" : `period ended ${f.periodEnd}`}, filed ${f.filingDate})`).join("; ");
   return [{
     field: "edgar.companyFacts.newerFilings",
@@ -1695,7 +1718,7 @@ export function companyFactsInstanceEntries(instances: CompanyFactsInstances | u
         : `the facts of ${filings} were read from each filing's own XBRL instance and merged, each citing its filing`),
     severity: "info",
     attemptedSources: instances.merged.map((f) => f.accession),
-  }];
+  }, ...unread];
 }
 
 /**
@@ -1708,10 +1731,15 @@ export function companyFactsInstanceEntries(instances: CompanyFactsInstances | u
 export function withNewerFilings(
   facts: FetchResult<CompanyFacts>,
   instances: readonly InstanceFacts[],
+  /** D-236: filings the fallback needed and could not read. */
+  unread: readonly UnreadInstance[] = [],
 ): { companyFacts: FetchResult<CompanyFacts>; companyFactsInstances: CompanyFactsInstances | null } {
-  if (!facts.ok || instances.length === 0) return { companyFacts: facts, companyFactsInstances: null };
+  if (!facts.ok || (instances.length === 0 && unread.length === 0)) return { companyFacts: facts, companyFactsInstances: null };
   const merge = mergeInstanceFacts(facts.value.data, instances);
-  if (merge.merged.length === 0) return { companyFacts: facts, companyFactsInstances: null };
+  const gaps = unread.length === 0 ? {} : { unread: unread.map((f) => ({ ...f })) };
+  if (merge.merged.length === 0) {
+    return { companyFacts: facts, companyFactsInstances: unread.length === 0 ? null : { companyFactsThrough: merge.companyFactsThrough, merged: [], ...gaps } };
+  }
   const fetchedDay = facts.value.fetchedAt.slice(0, 10);
   const named = merge.merged.map((f) => `${f.form} ${f.accession} XBRL instance (filed ${f.filingDate})`).join(" + ");
   return {
@@ -1721,7 +1749,7 @@ export function withNewerFilings(
       endpoint: `${facts.value.endpoint} + ${named}`,
       asOf: latestEligibleFactEnd(merge.facts, fetchedDay) ?? facts.value.asOf,
     } },
-    companyFactsInstances: { companyFactsThrough: merge.companyFactsThrough, merged: merge.merged },
+    companyFactsInstances: { companyFactsThrough: merge.companyFactsThrough, merged: merge.merged, ...gaps },
   };
 }
 
