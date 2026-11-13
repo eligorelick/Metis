@@ -78,6 +78,11 @@ export const companyFactsSchema = z.looseObject({
  * content is not a standardized quarterly statement.
  */
 export const CORE_FACT_FORMS = new Set(["10-K", "10-Q", "10-K/A", "10-Q/A", "20-F", "20-F/A", "40-F", "40-F/A"]);
+/**
+ * The interim reports among CORE_FACT_FORMS; every other core form is an
+ * annual report. Derived so a change there cannot silently desync.
+ */
+export const CORE_INTERIM_FORMS = new Set([...CORE_FACT_FORMS].filter((f) => f.startsWith("10-Q")));
 
 // ---------------------------------------------------------------------------
 // Concept chains

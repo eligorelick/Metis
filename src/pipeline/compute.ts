@@ -29,7 +29,7 @@ import type { DataBundle, FmpFetch } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { operatingIncomeEvidenceForNonMargins, operatingIncomeForNonMargins, operatingMarginBasis, withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { withFilerShareUnits } from "@/pipeline/shareUnits";
-import { filedAnnualNciEarnings } from "@/pipeline/nciEarnings";
+import { filedAnnualNciEarnings, filedSingleProfitWindow } from "@/pipeline/nciEarnings";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
 import { filedAnnualBorrowingCost, type BorrowingCostEvidenceInput } from "@/edgar/borrowingCosts";
@@ -2673,8 +2673,19 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   // Consolidated cash cannot be divided by a mixture of parent and total profit.
   // A generic earnings window is usable only on an explicit consolidated basis.
   // A zero closing NCI balance cannot prove zero NCI earnings during the period.
-  const consolidatedConversionIncome = ttmInc?.netIncomeConsolidated ??
+  const consolidatedWindowIncome = ttmInc?.netIncomeConsolidated ??
     (ttmInc?.netIncomeOwnershipBasis === "consolidated" ? ttmInc.netIncome : null);
+  // D-240 (P5, P1): where the quarterly rows establish no consolidated window, the filings may: an issuer whose
+  // filings state one profit line has that line as its consolidated profit. The figure is the filed one, for the
+  // report's own window, and it must be the same observation as the report's trailing net income (P8's allowance
+  // for a figure derived from filed operands); a refused or missing trailing net income stays refused (P11).
+  const trailingNetIncome = num(ttmInc?.netIncome);
+  const filedWindowProfit = consolidatedWindowIncome == null && ttmInc && currencies.ttmIncomeUsable && companyFacts && ttmInc.periodStart &&
+    ttmInc.reportedCurrency && trailingNetIncome !== null && !ttmInc.netIncomeWithheldReason
+    ? filedSingleProfitWindow(companyFacts, ttmInc.reportedCurrency, ttmInc.periodStart, ttmInc.date, bundle.builtAt) : null;
+  const filedConversionIncome = filedWindowProfit && trailingNetIncome !== null &&
+    vendorAgreesWithDerived(trailingNetIncome, filedWindowProfit.value, filedWindowProfit.operands) ? filedWindowProfit : null;
+  const consolidatedConversionIncome = consolidatedWindowIncome ?? filedConversionIncome?.value ?? null;
   const capital = attachCurrentCapital(annualCapital, {
     trailingCashFlow: cashflowQuarterly.slice(0,4).map(toCapitalCashFlow),
     periodStart: ttmInc && ttmCf && currencies.ttmIncomeUsable && currencies.ttmCashFlowUsable ? ttmInc.periodStart : incomeAnnual[0]?.fieldProvenance?.revenue?.periodStart ?? null,
@@ -2714,6 +2725,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     if (capital.current.industrialMetricsApplicable !== false) {
       capital.current.cashBridge.definition += consolidatedConversionIncome === null
         ? " Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator."
+        : filedConversionIncome ? ` FCF conversion divides by net income for this same window, taken from the filings. ${filedConversionIncome.reason}`
         : " FCF conversion uses the complete consolidated net-income window, including signed noncontrolling earnings; it is not a parent-shareholder cash-conversion measure.";
     }
     const cfo = filedCfo?.end === capital.current.asOf && filedCfo?.value === capital.current.cashBridge.operatingCashFlow ? filedCfo : null;
@@ -2724,9 +2736,13 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     if (sbc) capital.current.cashBridge.definition += ` ${sbc.reason}`;
     if (capex) capital.current.cashBridge.definition += ` ${capex.reason} Cash-flow capex is displayed as a negative outflow on this same tag basis.`;
     if (allocated) { capital.current.allocatedSbcExpense = allocated.value; capital.current.cashBridge.definition += ` ${allocated.reason} Allocated expense and cash-flow add-back are distinct bases; neither is substituted for the other.`; }
-    if (cfo || sbc || capex || allocated) capital.current.filedCashFlows = {
+    // D-240: the filed net-income window keeps its operands beside the cash flows it is compared with (P1, P20).
+    const profit = filedConversionIncome?.end === capital.current.asOf && filedConversionIncome.value === capital.current.netIncome ? filedConversionIncome : null;
+    if (profit) ttmGaps.push({ field: "compute.ttmIncome.filedNetIncome", reason: profit.reason, severity: "info" });
+    if (cfo || sbc || capex || allocated || profit) capital.current.filedCashFlows = {
       ...(cfo ? { operatingCashFlow: cfo } : {}), ...(sbc ? { stockBasedCompensation: sbc } : {}),
       ...(capex ? { capitalExpenditure: capex } : {}), ...(allocated ? { allocatedSbcExpense: allocated } : {}),
+      ...(profit ? { netIncome: profit } : {}),
     };
   }
 

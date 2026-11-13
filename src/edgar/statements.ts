@@ -103,6 +103,7 @@ import {
 import { belowComponentFloor } from "@/edgar/synonymFloor";
 import {
   CORE_FACT_FORMS,
+  CORE_INTERIM_FORMS,
   FISCAL_YEAR_DURATION_DAYS,
   PERIOD_END_TOLERANCE_DAYS,
   QUARTER_DURATION_DAYS,
@@ -369,7 +370,7 @@ const QUARTER_MAX_DAYS = QUARTER_DURATION_DAYS[1];
 const FOREIGN_ANNUAL_FORM_PREFIXES = ["20-F", "40-F"] as const;
 const isForeignAnnualForm = (form: string): boolean => FOREIGN_ANNUAL_FORM_PREFIXES.some((p) => form.startsWith(p));
 const ANNUAL_FORMS = new Set([...CORE_FACT_FORMS].filter((f) => f.startsWith("10-K") || isForeignAnnualForm(f)));
-const QUARTERLY_FORMS = new Set([...CORE_FACT_FORMS].filter((f) => f.startsWith("10-Q")));
+const QUARTERLY_FORMS = CORE_INTERIM_FORMS;
 
 /** Pure memo of day parsing: the result depends on `d` alone. Bounded so a long-lived process cannot grow it without limit. */
 const DATE_MS_MEMO = new Map<string, number>();

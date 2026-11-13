@@ -12,6 +12,9 @@ import {PRIORITY_EVENT_ITEMS,NON_EVENT_ITEMS} from "@/edgar/currentReports";
  *     since the latest annual filing (a year when that baseline is missing).
  *   collectQuarterlySegments — the XBRL instances of the latest 10-K and up to
  *     three 10-Qs, read for segment revenue by quarter.
+ *   collectPeriodicInstances — the XBRL instances of the other core periodic
+ *     filings (20-F, 40-F, amendments), read only where SEC's companyfacts
+ *     does not carry the filing's statement facts (D-236).
  *
  * Every read goes through the rate-limited, cached EdgarClient. A document
  * that cannot be read is a disclosed note, never an inferred value; the
@@ -52,6 +55,7 @@ import {
   parseMemberLabels,
   type QuarterlySegmentRevenue,
 } from "@/edgar/segmentFacts";
+import { CORE_FACT_FORMS, CORE_INTERIM_FORMS } from "@/edgar/xbrl";
 import type { FetchResult, Sourced } from "@/types/core";
 
 export { CURRENT_REPORTS_VERSION } from "@/report/versions";
@@ -591,14 +595,78 @@ export async function collectCurrentReports(
   return { ok: true, value };
 }
 
+/** How far back a periodic filing's instance is read (15 months), and how many interim reports of one form. */
+const PERIODIC_INSTANCE_WINDOW_DAYS = 460;
+const INTERIM_INSTANCES_PER_FORM = 3;
+
+/** Of each form given: the latest annual report, or up to three interim reports, within 15 months. Newest first. */
+function latestPeriodicFilings(filings: readonly EdgarFiling[], today: string, forms: Iterable<string>): EdgarFiling[] {
+  const recent = filings
+    .filter((f) => f.filingDate <= today && daysBetween(f.filingDate, today) <= PERIODIC_INSTANCE_WINDOW_DAYS)
+    .sort((a, b) => b.filingDate.localeCompare(a.filingDate));
+  return [...forms]
+    .flatMap((form) => recent.filter((f) => f.form === form).slice(0, CORE_INTERIM_FORMS.has(form) ? INTERIM_INSTANCES_PER_FORM : 1))
+    .sort((a, b) => b.filingDate.localeCompare(a.filingDate));
+}
+
 /** Periodic filings whose instances cover eight quarters: the latest 10-K and up to three 10-Qs within 15 months. */
 export function segmentFilings(filings: readonly EdgarFiling[], today: string): EdgarFiling[] {
-  const periodic = filings
-    .filter((f) => (f.form === "10-Q" || f.form === "10-K") && f.filingDate <= today && daysBetween(f.filingDate, today) <= 460)
-    .sort((a, b) => b.filingDate.localeCompare(a.filingDate));
-  const tenK = periodic.find((f) => f.form === "10-K");
-  const tenQs = periodic.filter((f) => f.form === "10-Q").slice(0, 3);
-  return [...(tenK ? [tenK] : []), ...tenQs].sort((a, b) => b.filingDate.localeCompare(a.filingDate));
+  return latestPeriodicFilings(filings, today, ["10-K", "10-Q"]);
+}
+
+/**
+ * D-236: the other core periodic filings (`CORE_FACT_FORMS`: Forms 20-F and
+ * 40-F and every amendment) under the same rule, which the segment read does
+ * not fetch. Their instances are read only where companyfacts lacks them
+ * (`collectPeriodicInstances`). At most eight filings: one of each of the five
+ * annual forms left and three amended interim reports.
+ */
+export function fallbackInstanceFilings(filings: readonly EdgarFiling[], today: string): EdgarFiling[] {
+  const segment = new Set(segmentFilings(filings, today).map((f) => f.accessionNumber));
+  return latestPeriodicFilings(filings, today, CORE_FACT_FORMS).filter((f) => !segment.has(f.accessionNumber));
+}
+
+/** A periodic filing whose instance the fallback needed and could not read: a coverage gap, never absence. */
+export interface UnreadInstance {
+  accession: string;
+  form: string;
+  filingDate: string;
+  reason: string;
+}
+
+/**
+ * D-236 (P2, P9, P10): reads the XBRL instance of each `fallbackInstanceFilings`
+ * filing that `needed` says companyfacts does not carry, and hands it to
+ * `onInstance` for the companyfacts merge. A filing companyfacts carries costs
+ * no request. Each filing read is one index request (a second when the first
+ * index form is unusable) and one instance request, through the cached,
+ * rate-limited client: at most 24 for the eight filings, none of them repeated
+ * while the client's cache holds the immutable documents. Returns the filings
+ * it could not read.
+ */
+export async function collectPeriodicInstances(
+  edgar: EdgarClient,
+  cik: string,
+  filings: readonly EdgarFiling[],
+  today: string,
+  needed: (filing: EdgarFiling) => boolean,
+  onInstance: (filing: EdgarFiling, xml: string, url: string) => void,
+): Promise<UnreadInstance[]> {
+  const unread: UnreadInstance[] = [];
+  for (const filing of fallbackInstanceFilings(filings, today).filter(needed)) {
+    const skip = (reason: string): void => { unread.push({ accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate, reason }); };
+    const problem = filingProblem(edgar, cik, filing);
+    if (problem !== null) { skip(`not read (${problem})`); continue; }
+    const index = await indexOf(edgar, cik, filing.accessionNumber);
+    if (typeof index === "string") { skip(`index unreadable (${index})`); continue; }
+    const instance = index.documents.find((d) => /_htm\.xml$/i.test(d.filename)) ?? findDocumentByType(index, "EX-101.INS");
+    if (!instance) { skip("no XBRL instance in the filing index"); continue; }
+    const doc = await fetchText(edgar, cik, filing, instance.filename);
+    if (typeof doc === "string") { skip(`instance unreadable (${doc})`); continue; }
+    try { onInstance(filing, doc.text, doc.url); }
+    catch (err) { skip(`instance unreadable (${err instanceof Error ? err.message : String(err)})`); }
+  }
+  return unread;
 }
 
 export async function collectQuarterlySegments(
