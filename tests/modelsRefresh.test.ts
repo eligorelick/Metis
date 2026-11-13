@@ -16,13 +16,56 @@ const SCRIPT = path.join(process.cwd(), "scripts", "models-refresh.mjs");
 interface RefreshModule {
   htmlToText(html: string): string;
   parsePricingText(text: string, names: readonly string[]): { parsed: Record<string, Record<string, number>>; unparsed: string[] };
-  mergeModelList(registry: unknown, api: Array<{ id: string; display_name?: string }>, today: string): { registry: typeof MODEL_REGISTRY; report: string[] };
+  mergeModelList(registry: unknown, api: ApiModel[], today: string): { registry: typeof MODEL_REGISTRY; report: string[]; candidates: NewModelCandidate[]; sharedNames: Map<string, string[]> };
+  describeNewModel(registry: unknown, api: ApiModel, today: string): NewModelCandidate | { reason: string };
   applyPricing(registry: unknown, parsed: Record<string, Record<string, number>>): { registry: typeof MODEL_REGISTRY; report: string[] };
-  refreshRegistryFile(registryPath: string, api: Array<{ id: string; display_name: string }>, html: string, today: string, write: boolean): { registry: typeof MODEL_REGISTRY; report: string[] };
+  refreshRegistryFile(registryPath: string, api: ApiModel[], html: string, today: string, write: boolean, validate?: (registry: unknown) => unknown): { registry: typeof MODEL_REGISTRY; report: string[] };
 }
 
+type ApiModel = Record<string, unknown> & { id: string };
+interface NewModelCandidate {
+  template: (typeof MODEL_REGISTRY)["models"][number];
+  entry: Omit<(typeof MODEL_REGISTRY)["models"][number], "pricing">;
+}
+
+/** A Models API record shaped like the documented response, for a model newer than every registry entry of its line. */
+function apiModel(id: string, line: string, displayName: string, overrides: Record<string, unknown> = {}): ApiModel {
+  const yes = { supported: true };
+  return {
+    type: "model",
+    id,
+    display_name: displayName,
+    created_at: "2027-02-03T00:00:00Z",
+    lifecycle: "active",
+    line,
+    max_input_tokens: 2_000_000,
+    max_tokens: 256_000,
+    capabilities: {
+      structured_outputs: yes,
+      server_tools: { supported: true, web_search: yes, code_execution: yes },
+      effort: { supported: true, low: yes, medium: yes, high: yes, xhigh: yes, max: yes },
+      thinking: { supported: true, types: { adaptive: yes, between_tools: yes, disabled: { supported: false }, enabled: { supported: false } } },
+    },
+    ...overrides,
+  };
+}
+
+interface PriceRow { inputPerMTok: number; outputPerMTok: number; cacheWrite5mPerMTok: number; cacheWrite1hPerMTok: number; cacheReadPerMTok: number }
+const PRICING_HEADERS = "<tr><th>Name</th><th>Input</th><th>Output</th><th>5m writes</th><th>1h writes</th><th>Hits and refreshes</th></tr>";
+const priceRow = (name: string, p: PriceRow): string =>
+  `<tr><td><a>${name}</a></td><td>$${p.inputPerMTok}</td><td>$${p.outputPerMTok}</td><td>$${p.cacheWrite5mPerMTok}</td><td>$${p.cacheWrite1hPerMTok}</td><td>$${p.cacheReadPerMTok}</td></tr>`;
+/** A pricing page holding every registry model at its registry price, plus any extra rows. */
+const pricingPage = (extraRows: string[] = []): string =>
+  `<table>${PRICING_HEADERS}${MODEL_REGISTRY.models.map((m) => priceRow(m.displayName, m.pricing)).join("")}${extraRows.join("")}</table>`;
+
+/** The script, with the application's registry check supplied to a refresh as the command line supplies it. */
 async function load(): Promise<RefreshModule> {
-  return (await import(pathToFileURL(SCRIPT).href)) as RefreshModule;
+  const script = (await import(pathToFileURL(SCRIPT).href)) as RefreshModule;
+  return {
+    ...script,
+    refreshRegistryFile: (registryPath, api, html, today, write, validate = parseModelRegistry) =>
+      script.refreshRegistryFile(registryPath, api, html, today, write, validate),
+  };
 }
 
 const clone = () => JSON.parse(JSON.stringify(MODEL_REGISTRY)) as typeof MODEL_REGISTRY;
@@ -103,5 +146,382 @@ describe("models-refresh helpers", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("models-refresh adds newly published models", () => {
+  const NEW_PRICE: PriceRow = { inputPerMTok: 6, outputPerMTok: 30, cacheWrite5mPerMTok: 7.5, cacheWrite1hPerMTok: 12, cacheReadPerMTok: 0.3 };
+  const listed = (): ApiModel[] => MODEL_REGISTRY.models.map((m) => ({ id: m.id, display_name: m.displayName }));
+  async function withRegistryFile<T>(run: (registryPath: string) => T | Promise<T>): Promise<T> {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "metis-model-refresh-"));
+    const registryPath = path.join(dir, "models.json");
+    writeFileSync(registryPath, JSON.stringify(clone()));
+    try {
+      return await run(registryPath);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  it("builds a complete entry from the Models API and the pricing page, and leaves the auto order alone", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const api = [...listed(), apiModel("claude-opus-6", "opus", "Claude Opus 6")];
+      const html = pricingPage([priceRow("Claude Opus 6", NEW_PRICE)]);
+      const { registry, report } = refreshRegistryFile(registryPath, api, html, "2027-02-10", true);
+      const parsed = parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8")));
+      expect(parsed).toEqual(parseModelRegistry(registry));
+
+      const newestOpus = MODEL_REGISTRY.models.find((m) => m.id === "claude-opus-5-5")!;
+      const added = parsed.models.find((m) => m.id === "claude-opus-6")!;
+      expect(added).toMatchObject({
+        family: "opus",
+        generation: "6",
+        displayName: "Claude Opus 6",
+        lifecycle: "active",
+        releasedOn: "2027-02-03",
+        datedSnapshotIds: [],
+        // From the Models API, not from the entry it sits above.
+        contextWindowTokens: 2_000_000,
+        maxOutputTokens: 256_000,
+        effort: { supported: true, levels: ["low", "medium", "high", "xhigh", "max"] },
+        sampling: { temperature: false, topP: false, topK: false },
+        thinking: { mode: "always-on", sendParam: false },
+        // From the pricing page.
+        pricing: NEW_PRICE,
+        // The three rules neither source states, from the newest entry of the line.
+        taskBudget: newestOpus.taskBudget,
+        serverSideFallback: newestOpus.serverSideFallback,
+        webSearchToolType: newestOpus.webSearchToolType,
+      });
+      expect(added.notes.join(" ")).toContain("copied from claude-opus-5-5");
+      // Directly above the entry it took those rules from; every other entry is untouched.
+      const ids = parsed.models.map((m) => m.id);
+      expect(ids.indexOf("claude-opus-6")).toBe(ids.indexOf("claude-opus-5-5") - 1);
+      expect(parsed.models.filter((m) => m.id !== "claude-opus-6")).toEqual(MODEL_REGISTRY.models);
+      // Selectable, but never placed in the auto order without a successful run.
+      expect(parsed.autoPreference).toEqual(MODEL_REGISTRY.autoPreference);
+      expect(report).toContainEqual(expect.stringMatching(/^claude-opus-6: added .*not in the "auto" order$/));
+    });
+  });
+
+  it("reads the effort levels and the thinking rule from the capabilities", async () => {
+    const { describeNewModel } = await load();
+    const yes = { supported: true };
+    const no = { supported: false };
+    const describe6 = (capabilities: Record<string, unknown>) => {
+      const base = apiModel("claude-sonnet-6", "sonnet", "Claude Sonnet 6");
+      return describeNewModel(clone(), { ...base, capabilities: { ...(base.capabilities as object), ...capabilities } }, "2027-02-10");
+    };
+    // Thinking can be turned off: the parameter is sent so the model does think.
+    expect(describe6({ thinking: { supported: true, types: { adaptive: yes, disabled: yes } } })).toMatchObject({
+      entry: { thinking: { mode: "adaptive", sendParam: true } },
+    });
+    expect(describe6({ thinking: { supported: false, types: { adaptive: no, disabled: yes } } })).toMatchObject({
+      entry: { thinking: { mode: "none", sendParam: false } },
+    });
+    // Metis sends any of the five levels to a model that takes effort, so a model taking only some is left out.
+    expect(describe6({ effort: { supported: true, low: yes, medium: yes, high: yes, xhigh: null, max: no } })).toMatchObject({
+      reason: expect.stringMatching(/only some effort levels \(low, medium, high\)/),
+    });
+    expect(describe6({ effort: { supported: true, low: yes, medium: yes, high: yes, xhigh: yes, max: yes } })).toMatchObject({
+      entry: { effort: { supported: true, levels: ["low", "medium", "high", "xhigh", "max"] } },
+    });
+    expect(describe6({ effort: { supported: false, low: no, medium: no, high: no, max: no } })).toMatchObject({
+      entry: { effort: { supported: false, levels: [] } },
+    });
+    // An unknown release date is reported as an epoch value and stays unknown.
+    expect(describeNewModel(clone(), apiModel("claude-sonnet-6", "sonnet", "Claude Sonnet 6", { created_at: "1970-01-01T00:00:00Z" }), "2027-02-10"))
+      .toMatchObject({ entry: { releasedOn: null } });
+  });
+
+  it("leaves a model out, with the reason, whenever the official sources do not describe it completely", async () => {
+    const { describeNewModel } = await load();
+    const yes = { supported: true };
+    const reason = (api: ApiModel): string => {
+      const described = describeNewModel(clone(), api, "2027-02-10");
+      if (!("reason" in described)) throw new Error(`${api.id} was unexpectedly described`);
+      return described.reason;
+    };
+    const base = apiModel("claude-opus-6", "opus", "Claude Opus 6");
+    const caps = base.capabilities as Record<string, unknown>;
+    expect(reason({ ...base, line: undefined })).toMatch(/names no model line/);
+    expect(reason({ ...base, line: null })).toMatch(/names no model line/);
+    expect(reason(apiModel("claude-mythos-6", "mythos", "Claude Mythos 6"))).toMatch(/line "mythos" is not one the registry carries/);
+    // The line is never read off the id: an id of another line is refused.
+    expect(reason(apiModel("claude-sonnet-6", "opus", "Claude Sonnet 6"))).toMatch(/not the dateless form claude-opus-/);
+    expect(reason(apiModel("claude-opus-4-20250514", "opus", "Claude Opus 4"))).toMatch(/not the dateless form/);
+    expect(reason(apiModel("claude-opus-6-1-20270301", "opus", "Claude Opus 6.1"))).toMatch(/not the dateless form/);
+    // Older than, or the same generation as, the newest entry of its line.
+    expect(reason(apiModel("claude-opus-4-7", "opus", "Claude Opus 4.7"))).toMatch(/not newer than claude-opus-5-5/);
+    expect(reason(apiModel("claude-sonnet-4-6", "sonnet", "Claude Sonnet 4.6"))).toMatch(/not newer than claude-sonnet-5-5/);
+    expect(reason({ ...base, lifecycle: "deprecated" })).toMatch(/lifecycle is "deprecated"/);
+    expect(reason({ ...base, display_name: " " })).toMatch(/no display name/);
+    expect(reason({ ...base, max_input_tokens: null })).toMatch(/no usable context and output limits/);
+    expect(reason({ ...base, max_tokens: 0 })).toMatch(/no usable context and output limits/);
+    expect(reason({ ...base, max_tokens: 3_000_000 })).toMatch(/no usable context and output limits/);
+    expect(reason({ ...base, capabilities: null })).toMatch(/no capabilities/);
+    expect(reason({ ...base, capabilities: { ...caps, structured_outputs: { supported: false } } })).toMatch(/structured output/);
+    expect(reason({ ...base, capabilities: { ...caps, server_tools: { supported: true, code_execution: yes, web_search: { supported: false } } } })).toMatch(/web search/);
+    expect(reason({ ...base, capabilities: { ...caps, effort: undefined } })).toMatch(/whether it takes an effort level/);
+    expect(reason({ ...base, capabilities: { ...caps, effort: { supported: true } } })).toMatch(/lists none/);
+    expect(reason({ ...base, capabilities: { ...caps, thinking: undefined } })).toMatch(/whether it thinks/);
+    expect(reason({ ...base, capabilities: { ...caps, thinking: { supported: true, types: { adaptive: { supported: false }, enabled: yes } } } })).toMatch(/adaptive thinking/);
+    // A line the registry holds no active entry for has nothing to take the unstated rules from.
+    const withoutHaiku = clone();
+    withoutHaiku.models = withoutHaiku.models.filter((m) => m.family !== "haiku");
+    expect(describeNewModel(withoutHaiku, apiModel("claude-haiku-6", "haiku", "Claude Haiku 6"), "2027-02-10"))
+      .toMatchObject({ reason: expect.stringMatching(/no active haiku entry/) });
+  });
+
+  it("leaves out a new model without one complete price row, and still refreshes the rest", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const api = [
+        ...listed(),
+        // Priced in two tiers by prompt size: two rows, neither under the plain name.
+        apiModel("claude-haiku-5-5", "haiku", "Claude Haiku 5.5"),
+        // Listed twice on the page.
+        apiModel("claude-sonnet-6", "sonnet", "Claude Sonnet 6"),
+        // Complete: this one is added.
+        apiModel("claude-fable-6", "fable", "Claude Fable 6"),
+      ];
+      const html = pricingPage([
+        priceRow("Claude Haiku 5.5 (for prompts up to 100,000 tokens)", { inputPerMTok: 0.1, outputPerMTok: 0.5, cacheWrite5mPerMTok: 0.125, cacheWrite1hPerMTok: 0.2, cacheReadPerMTok: 0.01 }),
+        priceRow("Claude Haiku 5.5 (for prompts over 100,000 tokens)", { inputPerMTok: 0.5, outputPerMTok: 2.5, cacheWrite5mPerMTok: 0.625, cacheWrite1hPerMTok: 1, cacheReadPerMTok: 0.05 }),
+        priceRow("Claude Sonnet 6", NEW_PRICE),
+        priceRow("Claude Sonnet 6", { ...NEW_PRICE, outputPerMTok: 31 }),
+        priceRow("Claude Fable 6", NEW_PRICE),
+      ]);
+      const { report } = refreshRegistryFile(registryPath, api, html, "2027-02-10", true);
+      const written = parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8")));
+      const ids = written.models.map((m) => m.id);
+      expect(ids).not.toContain("claude-haiku-5-5");
+      expect(ids).not.toContain("claude-sonnet-6");
+      expect(ids.indexOf("claude-fable-6")).toBe(ids.indexOf("claude-fable-5-2") - 1);
+      expect(written.models.find((m) => m.id === "claude-fable-6")).toMatchObject({
+        pricing: NEW_PRICE,
+        serverSideFallback: MODEL_REGISTRY.models.find((m) => m.id === "claude-fable-5-2")!.serverSideFallback,
+      });
+      expect(report).toContainEqual(expect.stringMatching(/^claude-haiku-5-5: .*not added: no single complete price row .*not found/));
+      expect(report).toContainEqual(expect.stringMatching(/^claude-sonnet-6: .*not added: no single complete price row .*ambiguous/));
+      // A new model's missing price is not an existing entry's missing price: it does not block the write.
+      expect(report.some((line) => line.startsWith("pricing:"))).toBe(false);
+    });
+  });
+
+  it("leaves out new models that share a display name, whether or not each could be added", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const withoutLine = apiModel("claude-haiku-6", "haiku", "Claude Other", { line: undefined });
+      const api = [
+        ...listed(),
+        // Two new models under one name: the single row cannot belong to both.
+        apiModel("claude-sonnet-6", "sonnet", "Claude Next"),
+        apiModel("claude-fable-6", "fable", "Claude Next"),
+        // The second carrier cannot be added itself, and its row is still not the first one's.
+        apiModel("claude-opus-6", "opus", "Claude Other"),
+        withoutLine,
+      ];
+      const html = pricingPage([priceRow("Claude Next", NEW_PRICE), priceRow("Claude Other", NEW_PRICE)]);
+      const { report } = refreshRegistryFile(registryPath, api, html, "2027-02-10", true);
+      const written = parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8")));
+      expect(written.models).toEqual(MODEL_REGISTRY.models);
+      expect(report).toContainEqual(expect.stringMatching(/^claude-sonnet-6: .*not added: its display name "Claude Next" is also carried by claude-fable-6/));
+      expect(report).toContainEqual(expect.stringMatching(/^claude-fable-6: .*not added: its display name "Claude Next" is also carried by claude-sonnet-6/));
+      expect(report).toContainEqual(expect.stringMatching(/^claude-opus-6: .*not added: its display name "Claude Other" is also carried by claude-haiku-6/));
+      expect(report).toContainEqual(expect.stringMatching(/^claude-haiku-6: .*not added: the Models API names no model line/));
+    });
+  });
+
+  it("prices no model from a row whose name a registry entry shares with another model, and writes nothing", async () => {
+    const { refreshRegistryFile } = await load();
+    const cheap: PriceRow = { inputPerMTok: 0.1, outputPerMTok: 0.5, cacheWrite5mPerMTok: 0.125, cacheWrite1hPerMTok: 0.2, cacheReadPerMTok: 0.01 };
+    const opus55 = MODEL_REGISTRY.models.find((m) => m.id === "claude-opus-5-5")!;
+    const cases: Array<{ api: ApiModel[]; html: string; name: string }> = [
+      // A new model under the name of an entry the registry already holds.
+      { api: [...listed(), apiModel("claude-opus-6", "opus", "Claude Opus 5.5")], html: pricingPage(), name: "Claude Opus 5.5" },
+      // The API renames an existing entry to the name a new model also carries; the one row is the new model's.
+      {
+        api: [...listed().map((m) => (m.id === "claude-opus-5-5" ? { ...m, display_name: "Claude Next" } : m)), apiModel("claude-opus-6", "opus", "Claude Next")],
+        html: pricingPage([priceRow("Claude Next", cheap)]),
+        name: "Claude Next",
+      },
+    ];
+    for (const { api, html, name } of cases) {
+      await withRegistryFile((registryPath) => {
+        const original = readFileSync(registryPath, "utf8");
+        expect(() => refreshRegistryFile(registryPath, api, html, "2027-02-10", true)).toThrow(/incomplete pricing: .*carried by more than one model \(claude-opus-5-5, claude-opus-6\)/);
+        expect(readFileSync(registryPath, "utf8")).toBe(original);
+        const dryRun = refreshRegistryFile(registryPath, api, html, "2027-02-10", false);
+        const models = dryRun.registry.models;
+        expect(models.map((m) => m.id)).not.toContain("claude-opus-6");
+        expect(models.find((m) => m.id === "claude-opus-5-5")!.pricing).toEqual(opus55.pricing);
+        expect(dryRun.report).toContainEqual(expect.stringMatching(/^claude-opus-6: .*not added: its display name ".*" is also carried by claude-opus-5-5/));
+        expect(dryRun.report).toContainEqual(expect.stringContaining(`pricing: ${name}: this display name is carried by more than one model`));
+      });
+    }
+  });
+
+  it("treats only a snapshot id the registry records as the same model as its entry", async () => {
+    const { refreshRegistryFile } = await load();
+    const cheap: PriceRow = { inputPerMTok: 0.1, outputPerMTok: 0.5, cacheWrite5mPerMTok: 0.125, cacheWrite1hPerMTok: 0.2, cacheReadPerMTok: 0.01 };
+    // Recorded in the registry as Haiku 4.5's snapshot: one model, one name, nothing withheld.
+    await withRegistryFile((registryPath) => {
+      const api = [...listed(), { id: "claude-haiku-4-5-20251001", display_name: "Claude Haiku 4.5" }];
+      const { report } = refreshRegistryFile(registryPath, api, pricingPage(), "2027-02-10", true);
+      expect(parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8"))).models).toEqual(MODEL_REGISTRY.models);
+      expect(report.some((line) => line.startsWith("pricing:"))).toBe(false);
+    });
+    // An id that only looks like a snapshot is another model: the entry is renamed to its name, and the one row is not the entry's.
+    await withRegistryFile((registryPath) => {
+      const original = readFileSync(registryPath, "utf8");
+      const api = [
+        ...listed().map((m) => (m.id === "claude-haiku-4-5" ? { ...m, display_name: "Claude Budget" } : m)),
+        { id: "claude-haiku-4-5-20250901", display_name: "Claude Budget" },
+      ];
+      const html = pricingPage([priceRow("Claude Budget", cheap)]);
+      expect(() => refreshRegistryFile(registryPath, api, html, "2027-02-10", true))
+        .toThrow(/Claude Budget: this display name is carried by more than one model \(claude-haiku-4-5, claude-haiku-4-5-20250901\).*datedSnapshotIds/);
+      expect(readFileSync(registryPath, "utf8")).toBe(original);
+      const dryRun = refreshRegistryFile(registryPath, api, html, "2027-02-10", false);
+      expect(dryRun.registry.models.find((m) => m.id === "claude-haiku-4-5")!.pricing)
+        .toEqual(MODEL_REGISTRY.models.find((m) => m.id === "claude-haiku-4-5")!.pricing);
+    });
+  });
+
+  it("leaves out a new model the API lists under two ids with one name, and still adds the rest", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const api = [
+        ...listed(),
+        // Nothing in either record says the dated id is the same model.
+        apiModel("claude-sonnet-6", "sonnet", "Claude Sonnet 6"),
+        { id: "claude-sonnet-6-20270203", display_name: "Claude Sonnet 6" },
+        apiModel("claude-opus-6", "opus", "Claude Opus 6"),
+      ];
+      const html = pricingPage([priceRow("Claude Sonnet 6", NEW_PRICE), priceRow("Claude Opus 6", NEW_PRICE)]);
+      const { report } = refreshRegistryFile(registryPath, api, html, "2027-02-10", true);
+      const ids = parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8"))).models.map((m) => m.id);
+      expect(ids).toContain("claude-opus-6");
+      expect(ids).not.toContain("claude-sonnet-6");
+      expect(report).toContainEqual(expect.stringMatching(/^claude-sonnet-6: .*not added: its display name "Claude Sonnet 6" is also carried by claude-sonnet-6-20270203/));
+    });
+  });
+
+  it("counts a record listed twice once, and leaves out an id listed with two different records", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const api = [
+        ...listed(),
+        // The same record on two overlapping pages, the second with its keys in another order.
+        apiModel("claude-opus-6", "opus", "Claude Opus 6"),
+        Object.fromEntries(Object.entries(apiModel("claude-opus-6", "opus", "Claude Opus 6")).reverse()) as ApiModel,
+        // One id, two different descriptions.
+        apiModel("claude-fable-6", "fable", "Claude Fable 6"),
+        apiModel("claude-fable-6", "fable", "Claude Fable 6", { max_tokens: 64_000 }),
+      ];
+      const html = pricingPage([priceRow("Claude Opus 6", NEW_PRICE), priceRow("Claude Fable 6", NEW_PRICE)]);
+      const { report } = refreshRegistryFile(registryPath, api, html, "2027-02-10", true);
+      // The written file is one the application can load: every id once.
+      const ids = parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8"))).models.map((m) => m.id);
+      expect(ids.filter((id) => id === "claude-opus-6")).toEqual(["claude-opus-6"]);
+      expect(ids).not.toContain("claude-fable-6");
+      expect(report.filter((line) => line.startsWith("claude-opus-6: added"))).toHaveLength(1);
+      expect(report).toContainEqual(expect.stringMatching(/^claude-fable-6: .*not added: the Models API lists it more than once with different details/));
+    });
+  });
+
+  it("reads a price row by the name that opens its cell, never by a model it merely links to", async () => {
+    const { parsePricingText } = await load();
+    const cheap: PriceRow = { inputPerMTok: 0.1, outputPerMTok: 0.5, cacheWrite5mPerMTok: 0.125, cacheWrite1hPerMTok: 0.2, cacheReadPerMTok: 0.01 };
+    const cells = `<td>$${cheap.inputPerMTok}</td><td>$${cheap.outputPerMTok}</td><td>$${cheap.cacheWrite5mPerMTok}</td><td>$${cheap.cacheWrite1hPerMTok}</td><td>$${cheap.cacheReadPerMTok}</td>`;
+    // Another model's row that mentions Haiku 4.5 in a link is not Haiku 4.5's row.
+    const other = parsePricingText(`<table>${PRICING_HEADERS}<tr><td>Claude Budget 6 (compare <a>Claude Haiku 4.5</a>)</td>${cells}</tr></table>`, ["Claude Haiku 4.5"]);
+    expect(other.parsed["Claude Haiku 4.5"]).toBeUndefined();
+    expect(other.unparsed).toEqual(["Claude Haiku 4.5: not found in a recognized pricing table"]);
+    // The page's own form, the name linked first and a description after it, is still read.
+    const own = parsePricingText(`<table>${PRICING_HEADERS}<tr><td><div><a>Claude Haiku 4.5</a></div><div>For high-volume tasks</div></td>${cells}</tr></table>`, ["Claude Haiku 4.5"]);
+    expect(own.parsed["Claude Haiku 4.5"]).toEqual(cheap);
+    // A name that is also a built-in property finds no row that is not on the page.
+    const builtIn = parsePricingText(`<table>${PRICING_HEADERS}</table>`, ["constructor", "toString", "__proto__"]);
+    expect(Object.keys(builtIn.parsed)).toEqual([]);
+    expect(builtIn.unparsed).toHaveLength(3);
+  });
+
+  it("writes only a file the application can load, whatever the Models API returns", async () => {
+    const { refreshRegistryFile } = await load();
+    const raw = (await import(pathToFileURL(SCRIPT).href)) as RefreshModule;
+    const cases: Array<{ api: ApiModel[]; html: string; left: RegExp }> = [
+      // A new model named like a built-in property, with no price row.
+      { api: [...listed(), apiModel("claude-opus-6", "opus", "constructor")], html: pricingPage(), left: /^claude-opus-6: .*not added: no single complete price row/ },
+      // A context limit no number can hold exactly.
+      { api: [...listed(), apiModel("claude-opus-6", "opus", "Claude Opus 6", { max_input_tokens: 1e20 })], html: pricingPage([priceRow("Claude Opus 6", NEW_PRICE)]), left: /^claude-opus-6: .*not added: the Models API gives no usable context and output limits/ },
+      // An existing entry's name blanked by the API keeps its name and its price.
+      { api: listed().map((m) => (m.id === "claude-haiku-4-5" ? { ...m, display_name: "" } : m)), html: pricingPage([priceRow("", NEW_PRICE)]), left: /^claude-haiku-4-5: the Models API gives an empty display name; "Claude Haiku 4\.5" kept/ },
+    ];
+    for (const { api, html, left } of cases) {
+      await withRegistryFile((registryPath) => {
+        const { report } = refreshRegistryFile(registryPath, api, html, "2027-02-10", true);
+        expect(parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8"))).models).toEqual(MODEL_REGISTRY.models);
+        expect(report).toContainEqual(expect.stringMatching(left));
+      });
+    }
+    // The last line of defence: a proposed file the application's check rejects is not written.
+    await withRegistryFile((registryPath) => {
+      const broken = clone();
+      (broken.models[0] as { contextWindowTokens: number }).contextWindowTokens = -1;
+      const original = JSON.stringify(broken);
+      writeFileSync(registryPath, original);
+      expect(() => refreshRegistryFile(registryPath, listed(), pricingPage(), "2027-02-10", true)).toThrow(/Refusing to write a registry the application cannot load: .*contextWindowTokens/);
+      expect(readFileSync(registryPath, "utf8")).toBe(original);
+      const dryRun = refreshRegistryFile(registryPath, listed(), pricingPage(), "2027-02-10", false);
+      expect(dryRun.report).toContainEqual(expect.stringMatching(/^registry: the proposed file is not one the application can load/));
+    });
+    // And nothing is written when no check is supplied at all.
+    await withRegistryFile((registryPath) => {
+      const original = readFileSync(registryPath, "utf8");
+      expect(() => raw.refreshRegistryFile(registryPath, listed(), pricingPage(), "2027-02-10", true)).toThrow(/no registry check was supplied/);
+      expect(readFileSync(registryPath, "utf8")).toBe(original);
+    });
+  });
+
+  it("refuses to write a registry that repeats a model id", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const repeated = clone();
+      repeated.models = [...repeated.models, repeated.models[0]!];
+      const original = JSON.stringify(repeated);
+      writeFileSync(registryPath, original);
+      expect(() => refreshRegistryFile(registryPath, listed(), pricingPage(), "2027-02-10", true)).toThrow(/the application cannot load: .*duplicate model id claude-fable-5-2/);
+      expect(readFileSync(registryPath, "utf8")).toBe(original);
+    });
+  });
+
+  it("still refuses to write when an existing entry has lost its price row, whatever new model is present", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const original = readFileSync(registryPath, "utf8");
+      const api = [...listed(), apiModel("claude-opus-6", "opus", "Claude Opus 6")];
+      const missing = MODEL_REGISTRY.models.find((m) => m.id === "claude-sonnet-5")!;
+      const html = `<table>${PRICING_HEADERS}${MODEL_REGISTRY.models
+        .filter((m) => m.id !== missing.id)
+        .map((m) => priceRow(m.displayName, m.pricing))
+        .join("")}${priceRow("Claude Opus 6", NEW_PRICE)}</table>`;
+      expect(() => refreshRegistryFile(registryPath, api, html, "2027-02-10", true)).toThrow(/incomplete pricing/);
+      expect(readFileSync(registryPath, "utf8")).toBe(original);
+    });
+  });
+
+  it("orders several new models of one line newest first, and writes nothing on a dry run", async () => {
+    const { refreshRegistryFile } = await load();
+    await withRegistryFile((registryPath) => {
+      const api = [...listed(), apiModel("claude-opus-6", "opus", "Claude Opus 6"), apiModel("claude-opus-6-1", "opus", "Claude Opus 6.1")];
+      const html = pricingPage([priceRow("Claude Opus 6", NEW_PRICE), priceRow("Claude Opus 6.1", NEW_PRICE)]);
+      const { registry } = refreshRegistryFile(registryPath, api, html, "2027-02-10", false);
+      const ids = parseModelRegistry(registry).models.map((m) => m.id);
+      expect(ids.slice(ids.indexOf("claude-opus-6-1"), ids.indexOf("claude-opus-5-5") + 1)).toEqual(["claude-opus-6-1", "claude-opus-6", "claude-opus-5-5"]);
+      expect(JSON.parse(readFileSync(registryPath, "utf8"))).toEqual(clone());
+    });
   });
 });

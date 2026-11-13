@@ -1,7 +1,7 @@
 # Claude models and AI usage
 
 This page describes the checked-in implementation. The Claude registry in
-[`config/models.json`](../config/models.json) is stamped **2026-10-03**; its
+[`config/models.json`](../config/models.json) is stamped **2026-11-13**; its
 entries are the app's configured capabilities and cost assumptions, not a
 guarantee of current provider availability, account access, or invoice prices.
 See [Anthropic's pricing](https://platform.claude.com/docs/en/about-claude/pricing)
@@ -71,6 +71,7 @@ These are representative **registry values**, in USD per million tokens:
 | --- | ---: | ---: | ---: | ---: |
 | `claude-opus-5-5` | 4 | 20 | 5 | 0.20 |
 | `claude-sonnet-5-5` | 2 | 10 | 2.50 | 0.10 |
+| `claude-fable-5-2` | 8 | 40 | 10 | 0.20 |
 | `claude-fable-5-1` | 10 | 50 | 12.50 | 0.25 |
 | `claude-haiku-4-5` | 1 | 5 | 1.25 | 0.10 |
 
@@ -216,7 +217,7 @@ a stall or a cancel) is recorded as its reported usage plus the most it could
 still have generated, marked presumed until `npm run costs:reconcile` lowers
 it; with web search or a server fallback the whole request maximum is kept.
 
-The two Fable registry entries configure an explicit server-side refusal
+The three Fable registry entries configure an explicit server-side refusal
 fallback to `claude-opus-4-8`. Other entries have no such fallback. Requests
 with fallback exposure reserve for both models, and the ledger uses separate
 per-attempt provider billing evidence when available. Missing search/fallback
@@ -294,10 +295,11 @@ leaves a wide margin: about $15 for Haiku 4.5, $40 for Sonnet 5.5 and $65 for
 Opus 5.5. The rolling cap needs the same room on top of the window's spend.
 The cap bounds the worst case; it is not what a run costs.
 
-Default request reservation mode, registry snapshot 2026-10-03:
+Default request reservation mode, registry snapshot 2026-11-13:
 
 | Analysis model | Analyst research request | Analyst writing request | Synthesize section request | Largest single reservation |
 | --- | ---: | ---: | ---: | ---: |
+| Claude Fable 5.2 | $170.90 | $24.57 | $34.32 | $170.90 |
 | Claude Fable 5.1 | $197.18 | $28.35 | $39.60 | $197.18 |
 | Claude Fable 5 | $197.18 | $28.35 | $39.60 | $197.18 |
 | Claude Opus 5.5 | $52.64 | $7.56 | $10.56 | $52.64 |
@@ -320,8 +322,9 @@ run under a $3 cap is refused before it starts.
 reservation is the synthesize pass: six transport attempts, each able to
 pause and resume five times, for each of six section requests. That is
 $1,140.48 for Sonnet 5.5, Sonnet 5 and Haiku 4.5 (whose judge runs on Sonnet
-5.5), $2,280.96 for Opus 5.5, $2,851.20 for Opus 5 and Opus 4.8 and $8,553.60
-for Fable 5.1 and Fable 5, doubled under `METIS_JUDGE_ORDER=both`. Analyst
+5.5), $2,280.96 for Opus 5.5, $2,851.20 for Opus 5 and Opus 4.8, $7,413.12 for
+Fable 5.2 and $8,553.60 for Fable 5.1 and Fable 5, doubled under
+`METIS_JUDGE_ORDER=both`. Analyst
 passes reserve less ($107.82 on Haiku 4.5, $971.64 on Sonnet 5.5).
 
 Settlements and validated pass output are stored as durable artifacts with
@@ -371,8 +374,25 @@ npm run docs:pricing -- --write
 
 `models:refresh` reads Anthropic's Models API using `ANTHROPIC_API_KEY` and the
 public pricing page without sending inference. Its default is a registry
-dry run; `--write` updates known entries and the snapshot. New models, missing
-prices, capability policy and lifecycle changes still require manual review.
+dry run; `--write` updates known entries and the snapshot. A model the API
+lists that is newer than the registry's newest entry of its line is added
+automatically when the official sources describe it completely: line, limits,
+effort levels and thinking rule from the Models API, and one complete row on
+the pricing page. The three request rules neither source states (task budget,
+web search tool version, refusal fallback) are copied from the newest entry of
+the same line and named in the new entry's notes. A model with a missing or
+ambiguous price row, such as one priced in tiers by prompt size, is left out
+with the reason in the report, and so is an older model, a model of a line the
+registry does not carry, a model the API does not fully describe, a model that
+takes only some of the five effort levels, and a model whose display name
+another model the API lists also carries. When a registry entry shares its
+display name with another model, nothing is written, because the price row
+under that name cannot be matched to one of them. Nothing is written either
+unless the whole proposed file passes the application's own registry check.
+A new
+entry is selectable at once but is not placed in the `auto` order; add it to
+`autoPreference` after a run on it has succeeded. Review an added entry,
+lifecycle changes and existing capability policy before merging.
 `docs:pricing` prints the pricing section from local registry/request policy;
 `--write` regenerates that README section. The documentation tests check its
 consistency with the generator. Check

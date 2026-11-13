@@ -435,7 +435,7 @@ describe("the documented minimum caps (docs/CLAUDE-USAGE.md)", () => {
     setEnv("METIS_RESERVATION_MODE", "pass");
     for (const [model, figure] of [
       ["claude-sonnet-5-5", "$1,140.48"], ["claude-haiku-4-5", "$1,140.48"], ["claude-opus-5-5", "$2,280.96"],
-      ["claude-opus-4-8", "$2,851.20"], ["claude-fable-5-1", "$8,553.60"],
+      ["claude-opus-4-8", "$2,851.20"], ["claude-fable-5-2", "$7,413.12"], ["claude-fable-5-1", "$8,553.60"],
     ] as const) {
       const largest = largestPlannedReservation(plannedPaidReservations(model, ALL_REMAINING, DETERMINISTIC_VERIFY))!;
       expect(largest.pass, model).toBe("synthesize");

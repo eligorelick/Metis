@@ -306,6 +306,8 @@ const COVERAGE_EXEMPT_SOURCES: Record<string, string> = {
   "src/app/company/[symbol]/report/[reportId]/page.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts, tests/company.routes.symbol.test.ts",
   "src/app/company/[symbol]/report/[reportId]/print/page.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts, tests/company.routes.symbol.test.ts",
   "src/app/company/[symbol]/ReportTabs.tsx": "UI behavior exercised by tests/company.report.presentation.test.ts",
+  "src/app/company/[symbol]/loading.tsx": "render only: the route loading placeholder (shell and skeleton), exercised by tests/company.loading.test.ts; no research calculation or persisted report mutation",
+  "src/app/company/[symbol]/report/[reportId]/print/loading.tsx": "render only: an empty placeholder for the print page, exercised by tests/company.loading.test.ts",
   "src/app/company/[symbol]/skeletons.tsx": "render only: React presentation; no research calculation or persisted report mutation",
   "src/app/layout.tsx": "UI behavior exercised by tests/ai.storeUnreadable.test.ts, tests/appearance.surfaces.test.ts, tests/ui.redesign.test.ts",
   "src/app/page.tsx": "UI behavior exercised by tests/home.aiRoute.test.ts, tests/report.surface.watchlist.test.ts",

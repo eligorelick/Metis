@@ -11,7 +11,12 @@ findings and design proposals; they are not substitutes for current guides.
 
 The Node engine is `>=24`; the CI workflow uses Node 24 on Linux and
 Windows. Install the lockfile with `npm ci`, copy `.env.example` to `.env`,
-then run `npm run dev`. Production needs `npm run build` before `npm start`.
+then run `npm run dev`. Production needs `npm run build` before `npm start`;
+`npm run app` does both, and rebuilds only when the build is missing or its
+inputs changed (it records the build id and input fingerprint of the last
+successful build in `.local/app-build.json`). The development server adds
+debugging work to every page, so a long saved report opens several times faster
+from the production build.
 Both npm server commands bind to `127.0.0.1`; the usual URL is
 `http://127.0.0.1:3000`. No separate database migration command is required for
 normal startup: `src/db/index.ts` creates tables and applies guarded compatibility
@@ -395,8 +400,10 @@ npm run docs:pricing -- --write
 ```
 
 `models:refresh` queries Anthropic model availability and published pricing,
-prints a diff, and only writes the registry with `--write`; existing capability
-and request policies still require review. `costs:reconcile` previews presumed
+prints a diff, and only writes the registry with `--write`. It adds a newly
+published model by itself when the Models API and the pricing page describe it
+completely, and leaves it out with the reason otherwise; an added entry and
+existing capability and request policies still require review. `costs:reconcile` previews presumed
 spend and can read the admin cost report; `--write` applies conservative downward
 reconciliation, not a new report.
 

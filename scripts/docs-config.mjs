@@ -40,6 +40,7 @@ export const COMMAND_DESCRIPTIONS = {
   dev: "Run the app on 127.0.0.1 in development.",
   build: "Production build.",
   start: "Serve the production build on 127.0.0.1.",
+  app: "Everyday use: serve the production build, rebuilding it first when the source changed. Pages open several times faster than under `dev`.",
   "sample:build": "Rebuild the fictional sample report and matching charts offline; no provider or model calls.",
   typecheck: "Type-check without emitting.",
   lint: "ESLint over the repository.",
