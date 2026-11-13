@@ -1374,9 +1374,9 @@ async function buildEdgarBundle(
   let tenQOther: FetchResult<ExtractedSection> | undefined;
   let annualGeography: EdgarBundle["annualGeography"];
   let officerBiographies: EdgarBundle["officerBiographies"];
-  const withBusiness = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[]): void => {
-    if (filingDisclosures) business = gapResult(`edgar.business(${symbol})`, reason, severity, attempted);
-    if (filingDisclosures) tenKNotes = gapResult(`edgar.tenKNotes(${symbol})`, reason, severity, attempted);
+  const withBusiness = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[], cause?: GapCause): void => {
+    if (filingDisclosures) business = gapResult(`edgar.business(${symbol})`, reason, severity, attempted, false, cause);
+    if (filingDisclosures) tenKNotes = gapResult(`edgar.tenKNotes(${symbol})`, reason, severity, attempted, false, cause);
   };
   const withTenQNotes = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[], expected?: boolean): void => {
     if (filingDisclosures) tenQNotes = gapResult(`edgar.tenQNotes(${symbol})`, reason, severity, attempted, expected);
@@ -1501,9 +1501,12 @@ async function buildEdgarBundle(
       }
     } else {
       const reason = `no annual primary filing (10-K or 20-F) to extract from: ${latestTenK.gap.reason}`;
-      item1a = gapResult(`edgar.item1a(${symbol})`, reason, "critical");
-      mdna = gapResult(`edgar.mdna(${symbol})`, reason, "critical");
-      withBusiness(reason);
+      // D-229: these sentences quote the annual-filing gap whole, so a successor's unlinked-predecessor
+      // clause (and its code) travels with them; `withResolvedPredecessor` rewrites all five.
+      const cause = latestTenK.gap.cause === "sec-unlinked-predecessor" ? latestTenK.gap.cause : undefined;
+      item1a = gapResult(`edgar.item1a(${symbol})`, reason, "critical", undefined, false, cause);
+      mdna = gapResult(`edgar.mdna(${symbol})`, reason, "critical", undefined, false, cause);
+      withBusiness(reason, "warn", undefined, cause);
     }
 
     // 10-Q MD&A (Part I Item 2).

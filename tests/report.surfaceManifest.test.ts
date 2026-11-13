@@ -439,6 +439,9 @@ describe("shared report surface manifest", () => {
       [DATA_COMPLETENESS_FIELD_ORDER, DATA_COMPLETENESS_FIELDS, DATA_COMPLETENESS_FIELD_BY_KEY, DataCompletenessSchema],
     ] as const;
 
+    // D-229: exactly one missing-data entry field is stored only (shown on no surface), and the schema has it.
+    expect([...MANIFEST_ENTRY_STORED_ONLY_KEYS]).toEqual(["cause"]);
+    expect(keysOfShape(ManifestEntrySchema)).toContain("cause");
     for (const [order, fields, byKey, schema] of fieldCases) {
       expect(fields.map((entry) => entry.key)).toEqual(order);
       // D-229: a missing-data entry's typed cause is stored only; it is declared, never silently absent.
