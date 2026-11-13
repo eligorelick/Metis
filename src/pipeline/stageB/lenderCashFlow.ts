@@ -46,13 +46,16 @@ export function lenderCashFlowApplicability(bundle: DataBundle, route: CompanyRo
     .flatMap(s => s.ok ? s.value.data.rows : []).find(r => r.date === source.reportDate);
   const components = lenderDebtLines(source.statementsText);
   const sum = components.reduce((n, c) => n + c.value, 0);
-  const debt = typeof balance?.totalDebt === "number" ? balance.totalDebt : null;
+  // D-234 (P7, P8): the admitted row at this date carries the filed borrowings plus the operating lease. A
+  // bundle collected after D-234 stores that row already admitted, so the provider's own figure, which the
+  // named lines must tie to, is the vendor total the admission kept beside it.
+  const admitted = [...admittedBalances, ...(balance ? [balance] : [])].find(r => r.date === source.reportDate && filedBorrowingsAdmitted(r));
+  const filedDebt = admitted && typeof admitted.totalDebt === "number" ? admitted.totalDebt : undefined;
+  const providerDebt = admitted ? admitted.fieldConflicts?.totalDebt?.vendorValue : balance?.totalDebt;
+  const debt = typeof providerDebt === "number" ? providerDebt : null;
   const lease = typeof balance?.operatingLeaseLiability === "number" ? balance.operatingLeaseLiability : 0;
   const borrowingComponents = components.filter(c => /^Debt,/i.test(c.name));
   const payables = components.filter(c => /^Payables to third-party loan owners$/i.test(c.name));
-  // D-234 (P7, P8): the admitted row at this date carries the filed borrowings plus the operating lease.
-  const admitted = admittedBalances.find(r => r.date === source.reportDate && filedBorrowingsAdmitted(r));
-  const filedDebt = admitted && typeof admitted.totalDebt === "number" ? admitted.totalDebt : undefined;
   const tied = components.length > 0 && debt !== null && Math.abs(sum - (debt - lease)) <= Math.max(1000, debt * 0.0001);
   const evDebtBasis = !tied ? undefined : filedDebt !== undefined
     ? `EV context only: debt is the filed ${borrowingComponents.map(c => `${c.name} ${c.value}`).join("; ")} (statement currency, ${source.reportDate}), plus the selected lease convention. The provider's debt figure also counted the filed ${payables.map(c => `${c.name} ${c.value}`).join("; ")}, which is not included. This is not industrial borrowing or a lender solvency measure.`

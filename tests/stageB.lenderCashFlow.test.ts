@@ -16,6 +16,7 @@ import { buildMarketData } from "@/pipeline/marketData";
 import { filingDisclosureTables } from "@/report/filingDisclosurePresentation";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
+import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
 
 function lender(options: { bank?: boolean; sic?: string; statement?: string } = {}) {
   const b = completeCurrencyBundle({ bank: options.bank, sic: options.sic ?? "6163" });
@@ -183,6 +184,17 @@ describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
     expect(markdown).toContain("| Filed borrowings | $963.00M |");
     expect(markdown).toContain("| Loan owner payables | $506.69M |");
     expect(JSON.stringify(b)).toBe(original);
+
+    // A bundle collected after D-234 stores the row already admitted; the report reads the same debt and evidence.
+    const stored = build(962_995_000);
+    if (!stored.statements.balanceQuarterly.ok || !stored.edgar.companyFacts.ok) throw new Error("fixture");
+    const storedRows = stored.statements.balanceQuarterly.value.data.rows;
+    storedRows[0] = admitDebtFields(storedRows[0]!, stored.edgar.companyFacts.value.data, "USD", stored.builtAt, debtPresentationSections(stored.edgar)).row;
+    expect(storedRows[0]).toMatchObject({ totalDebt: 967_771_000, shortTermDebt: 647_145_000 });
+    const fresh = runStageB(stored);
+    expect(fresh.capital.current?.debtBridge).toEqual(c.capital.current?.debtBridge);
+    expect(fresh.route.cashFlowApplicability).toEqual(c.route.cashFlowApplicability);
+    expect(fresh.valuation.multiples!.enterpriseValue).toEqual(c.valuation.multiples!.enterpriseValue);
 
     // Compatible control: the tagged total does not prove the lines, so the labelled provider perimeter stays (D-149 F1).
     const control = runStageB(build(900_000_000));
