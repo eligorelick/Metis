@@ -11,6 +11,207 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-234 - FIGR: the 10-K's share counts and the 10-Q's own borrowings replace two vendor figures (2026-11-12)
+
+Principles P8 (filed beats vendor), P3 (share basis), P6 (share classes), P7
+(compose once, from one filing), P9 (text only inside proved bounds), P2
+(newest compatible filing), P10 (withhold, never guess) and P12 (a
+substitution is disclosed). Round 2, Stage 5 (accuracy fixes), FIGR family.
+The accuracy baseline (r2-base-afb9cddf) found two FIGR figures that were the
+data vendor's and not the filing's: the fiscal 2025 weighted-average share
+counts, exactly twice the 10-K's, and the "debt used in this report" at
+2026-06-30, the vendor's debt perimeter. Two causes, two owners.
+
+### Weighted-average share counts (P3, P8, P6)
+
+Root cause. The vendor's raw fiscal 2025 income row carries a basic count of
+228,870,518 and a diluted count of 283,604,000: twice the 10-K's 114,435,259
+and 141,802,002 (the diluted figure after rounding to thousands). FIGR's
+registrant lists two symbols (FIGR, FGRS), so a vendor count is compared with
+the filed one only once some comparable period shows that the vendor counts
+shares in the filer's unit (review M-1, 2026-11-01). The producer applies that
+across both income series: FIGR's 2026 quarters match the 10-Qs, so they
+govern the annual row. D-200's filed admission in the report's calculation
+view (`withFiledShareValues`, `src/pipeline/shareUnits.ts`) asked each series
+alone. FIGR has one comparable annual row, and it is the doubled one, so the
+annual series never showed the unit, the row was never compared, and the
+doubled counts stood, while the same view corrected the doubled Q3 2025 count
+and the year-to-date counts on the Q2 2026 row.
+
+The doubling is the vendor's (the stored raw vendor response carries it). The
+10-K tags each count once, for all classes together, and its diluted EPS of
+0.44 sits on that count. It is not a split effect: the 1-for-5 reverse split
+of August 2025 would be a factor of five, and the 10-K was filed after it. A
+factor of exactly two in both fields fits a two-class EPS presentation read as
+two counts, but the vendor's method cannot be observed and nothing here rests
+on it.
+
+Choice. The rule "a series that shows the vendor's share unit governs the
+other" has one owner, `vendorShareUnitShownAcross` (`src/pipeline/keyless.ts`),
+used by the producer and by the calculation view. With the unit shown, the
+existing D-200 rule replaces a vendor count that differs from the filed count
+for the exact period by more than rounding (0.01%, at least one share) with
+the filed count, keeps the vendor value in `fieldConflicts`, and writes one
+manifest entry per field. No tolerance, class rule or split rule changes.
+Metis combines no class counts here: the value is the filer's single
+undimensioned fact (D-149 and D-206 are untouched).
+
+Options rejected: withholding the counts (the filed counts are in the stored
+SEC facts, for the exact fiscal year, in one filing); treating every
+multi-ticker registrant as comparable without the unit evidence (Berkshire's
+1,500-to-1 class unit would then be "corrected" to a count in another unit).
+
+### Debt at the latest balance (P7, P8, P9)
+
+Root cause. The vendor's "total debt" for FIGR at 2026-06-30, 1,474,457,000,
+is the 10-Q's three debt lines (962,995,000) plus its "Payables to third-party
+loan owners" (506,686,000), which the vendor files under short-term debt, plus
+the operating lease liability (4,776,000). The debt admission
+(`admitDebtFields`, `src/edgar/financialEnrichment.ts`) checks that a vendor
+row has not left a filed component out (a tagged total above the composed
+parts, a zero short-term debt beside a tagged current debt, a lease line that
+is only the noncurrent part). It never asked whether a vendor row added
+something the filing does not present as debt, and the 10-Q tags its current
+debt only by related-party member, so no undimensioned current-debt fact
+existed to contradict the vendor's short-term debt. D-149 (lender review
+conventions, F1) kept the vendor figure, labelled "Provider debt perimeter
+(includes payables to third-party loan owners)", with the filed borrowings
+beside it.
+
+Choice, in `admitDebtFields` (`filedBorrowingsOverVendorPerimeter`), which
+runs when data is collected and again when a report is built, so stored inputs
+keep their bytes. A vendor row's debt becomes the filing's own borrowings plus
+its operating lease liability only when one filing, at the row's date and in
+its currency, proves every part:
+
+1. The filing whose balance sheet is retained for that report date (10-K or
+   10-Q, its document under the issuer's own EDGAR folder) tags `LongTermDebt`
+   (current and noncurrent), `LongTermDebtNoncurrent` and
+   `OperatingLeaseLiability` at the instant, each with one value, and no newer
+   filing states another value for it (P2).
+2. The filing tags no other borrowing at that instant: no `DebtCurrent`,
+   `ShortTermBorrowings`, `CommercialPaper`, combined current debt, debt-and-
+   lease total, gross combined debt or finance lease; a `LongTermDebtCurrent`
+   only when it equals `LongTermDebt` less `LongTermDebtNoncurrent`.
+3. The filing's balance sheet (`lenderDebtLines`,
+   `src/edgar/debtPresentation.ts`; the captions D-149 already reads, stated in
+   thousands) names one "Debt, non-current" line equal to
+   `LongTermDebtNoncurrent`, debt lines that add up to `LongTermDebt` exactly,
+   and one "Payables to third-party loan owners" line. The text only names the
+   composition; every amount used is a tagged fact (P9).
+4. The vendor's long-term debt and lease line agree with the filed ones, and
+   its short-term debt and total are the filed amounts plus that payable
+   (`vendorAgreesWithFiled`, the P8 allowance; no new tolerance).
+
+Then short-term debt is `LongTermDebt` less `LongTermDebtNoncurrent`, long-term
+debt is `LongTermDebtNoncurrent`, total debt is `LongTermDebt` plus
+`OperatingLeaseLiability`, and net debt follows it as in the existing
+same-filing completion. The vendor total and short-term debt stay in
+`fieldConflicts` (`usable: true`, `resolution: "filed-family"`), the fields
+carry the filing as provenance, and the manifest gets one informational entry
+naming both totals, the lines and the filing. Anything unproven leaves the row
+to the unchanged checks. A finance lease is not shown to be nil by its
+absence: none is tagged, none is added, and the lease evidence still says
+finance-lease coverage is unverified.
+
+The lender evidence (`lenderCashFlowApplicability`) and its readers follow the
+admitted row: the debt line is "Debt used in this report", the provider label
+names nothing the report shows, the EV context sentence says the debt is the
+filed lines and that the provider's figure also counted the payables, and the
+filed borrowings, their three lines and the loan-owner payables stay as
+separate rows. Net debt, net debt to EBITDA, interest coverage and EV multiples
+stay not applicable to a held-for-sale lender (D-149 F1/F2 otherwise
+unchanged).
+
+Options rejected: a disclosed gap (every part is proven from the one filing);
+deriving current debt from the two tags alone for every issuer (the SEC facts
+Metis stores are undimensioned, so they cannot show that a vendor's excess is
+not a borrowing tagged by member or by a filer element; the balance sheet's own
+line names can); summing the related-party members (the stored facts do not
+carry them).
+
+### Approved report changes
+
+Same-report check against main at bda87e4c (which includes D-231, D-230 and D-232): 8
+files differ, all in `figr-data-only`, plus its payload fingerprint; the other
+16 cases are byte for byte unchanged. Against the round's baseline
+(r2-base-afb9cddf) the same 8 files differ, plus D-231's approved TSM and DUK
+changes. The leaf-level list is in `tmp/accuracy/s5-figr-before-after.md` (not
+committed: it quotes vendor data).
+
+FIGR (`figr-data-only`, CIK 2064124, USD). Filed values are SEC XBRL facts,
+stated to the unit (share counts) or the thousand (money, decimals -3).
+
+| Figure | Before (vendor) | After | Proof |
+| --- | --- | --- | --- |
+| Basic weighted-average shares, fiscal 2025 | 228,870,518 | 114,435,259 | `us-gaap:WeightedAverageNumberOfSharesOutstandingBasic`, 2025-01-01..2025-12-31, shares, 10-K 0002064124-26-000009, filed 2026-03-16 |
+| Diluted weighted-average shares, fiscal 2025 | 283,604,000 | 141,802,002 | `us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding`, same period and filing |
+| Debt used in this report, 2026-06-30 | 1,474,457,000 | 967,771,000 | `us-gaap:LongTermDebt` 962,995,000 + `us-gaap:OperatingLeaseLiability` 4,776,000, both at 2026-06-30, 10-Q 0001628280-26-057061, filed 2026-08-14 |
+
+The 10-Q's own balance-sheet facts behind the 962,995,000 (the filing's XBRL
+instance, context date 2026-06-30): `us-gaap:LongTermDebtCurrent` 222,505,000
+(NonrelatedPartyMember) and 424,640,000 (RelatedPartyMember),
+`us-gaap:LongTermDebtNoncurrent` 315,850,000. The payables line is
+`figr:ServicingLiabilityCurrent` 506,686,000, a filer element outside the debt
+elements. The instance has no finance-lease element. The five current
+liability lines add up to `us-gaap:LiabilitiesCurrent` 1,285,124,000, and with
+the two noncurrent lines to `us-gaap:Liabilities` 1,604,578,000, so no other
+liability line exists.
+
+What the two figures feed, with every other operand unchanged:
+
+| Downstream figure | Before | After |
+| --- | --- | --- |
+| Diluted/basic share gap (dilution overhang), fiscal 2025 | withheld (IPO conversion in the year) | withheld, same reason |
+| Diluted share-count trend and its leadership signal | unavailable (one year of counts) | unavailable, same reason |
+| Diluted and basic EPS, fiscal 2025 | 0.44 / 0.54 | unchanged (already the 10-K's) |
+| Net debt, net debt to EBITDA, interest coverage | not applicable (lender) | not applicable |
+| Net-debt working note (debt less cash and short-term investments) | 36,946,000 | -469,740,000 (967,771,000 - 1,437,511,000; not a published metric) |
+| Enterprise value and EV multiples | withheld (share-class scope) | withheld; the context sentence names the filed lines |
+| WACC and its debt weight, DCF, fair value | withheld | withheld |
+| Scores, grades, composite | | unchanged |
+| Key-data row "Provider debt perimeter ... $1.47B" | shown | removed; the debt profile shows "Debt used in this report $967.77M" |
+| Filed borrowings 963.00M, loan-owner payables 506.69M, the three debt lines, operating lease 4.78M | | unchanged |
+| Statement tables | "Provider debt perimeter" line, 2026-06-30 = 1,474,457,000 | "Debt used in this report", 2026-06-30 = 967,771,000; a note says earlier periods on the line are the provider's figure |
+| Manifest | 92 entries | 95 (three informational entries: two share counts, one debt total) |
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports two changes
+against its expectation, nothing worse: FIGR "diluted weighted-average shares,
+latest fiscal year" and "total debt including lease liabilities, latest
+balance", each from mismatch to match.
+
+### Limits, and what is not fixed here
+
+- A report built from newly collected data: the producer already refuses a
+  vendor count that differs from the filed one by more than 3% once the unit
+  is shown (review M-1), and the calculation view corrects only a count still
+  on the row. So newly collected FIGR data shows the fiscal 2025 counts as a
+  disclosed gap, while a report rebuilt from inputs collected before M-1 (the
+  same-report case) shows the filed counts. Both are honest. Having the
+  producer adopt the filed count instead of refusing would change its rule for
+  every issuer and is a separate decision.
+- The debt rule is narrow on purpose: the balance at the report date of a
+  retained 10-K or 10-Q, the captions D-149 reads, amounts in thousands.
+  Earlier balance dates keep the vendor's figure. FIGR's 2025-12-31 balance
+  (948,198,000 in the annual capital record and the statement tables; no
+  published metric uses it for a lender) is the vendor's perimeter with
+  383,772,000 of loan-owner payables. The filed figure is 562,918,000
+  (`LongTermDebt` 557,237,000 + `OperatingLeaseLiability` 5,681,000, 10-K
+  0002064124-26-000009), but the stored 10-K has no balance-sheet text (the
+  statement prefix was not extracted) and the 10-Q's comparative column tags
+  no lease total, so no single filing in the inputs proves every part. The
+  statement-table note now says those periods are the provider's figure.
+- The baseline's FIGR "definition" rows (consolidated profit shown as net
+  income) and its free-cash-flow gaps belong to other Stage 5 steps.
+
+Revises D-149 (lender review conventions, F1): the provider debt perimeter is
+no longer the report's debt where the filing proves the debt lines as above;
+where it does not, D-149's labelled perimeter stands.
+
+Version stamps are not moved by this change: the report-spec, payload and
+Stage B stamps are shared by the Stage 5 accuracy changes and move once, at
+integration (P27). Saved reports and stored run inputs keep their bytes (P21).
+
 ## D-233 - FFO and AFFO per share divide by the share count of FFO's own fiscal year (2026-11-12)
 
 Principles P13 (one basis: a ratio's numerator and denominator share one
@@ -4843,7 +5044,7 @@ A balance-sheet alternative does not override newer-dated unresolved inline cove
 
 ### D-149: Lender review conventions (F1, F2, F12)
 
-Owner delegated to the coordinator on 2026-11-01. For evidenced held-for-sale lenders, industrial EV/EBITDA, EV/Sales, net debt, net debt/EBITDA, interest coverage, gross margin, ROIC and ROIC-vs-WACC are not applicable. Warehouse and loan-owner funding is operating inventory finance; industrial leverage/coverage cannot measure solvency. Capital adequacy is not modelled, and the Balance Sheet aspect is not modelled. ROTE is scored instead of ROIC; filed operating margin remains. EV is context only with named filed debt components tied to the retained debt perimeter. No common-income gate is relaxed. The retained FIGR common-earnings observation postdates its bundle cutoff by 3.097 seconds, so its ROTE remains withheld with that reason; the filed two-class allocation itself is supported. Stored reports and shared stamps are unchanged.
+Owner delegated to the coordinator on 2026-11-01. For evidenced held-for-sale lenders, industrial EV/EBITDA, EV/Sales, net debt, net debt/EBITDA, interest coverage, gross margin, ROIC and ROIC-vs-WACC are not applicable. Warehouse and loan-owner funding is operating inventory finance; industrial leverage/coverage cannot measure solvency. Capital adequacy is not modelled, and the Balance Sheet aspect is not modelled. ROTE is scored instead of ROIC; filed operating margin remains. EV is context only with named filed debt components tied to the retained debt perimeter. (Revised by D-234: where one filing's tagged long-term debt proves those debt lines, the report's debt is the filed borrowings plus the operating lease, and the provider perimeter is no longer shown as the debt.) No common-income gate is relaxed. The retained FIGR common-earnings observation postdates its bundle cutoff by 3.097 seconds, so its ROTE remains withheld with that reason; the filed two-class allocation itself is supported. Stored reports and shared stamps are unchanged.
 
 ### D-149: Class-scope review disclosures (F3, F5, F6, F7, F8)
 

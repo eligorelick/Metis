@@ -18,6 +18,26 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - FIGR share counts and debt taken from the filings (2026-11-12)
+
+- For a registrant with several listed symbols, the filed share-count check in
+  the report's calculation view now lets an income series that shows the
+  vendor's share unit govern the other, as the collection step already did
+  (P3, P8, D-234). FIGR's fiscal 2025 weighted-average counts, which the vendor
+  states at exactly twice the 10-K's, become the filed 114,435,259 basic and
+  141,802,002 diluted.
+- A vendor debt total that is a filing's debt lines plus its payables to
+  third-party loan owners is replaced by the filing's own borrowings plus its
+  operating lease liability, when that one filing's tagged long-term debt
+  equals the balance sheet's debt lines exactly (P7, P8, D-234; revises D-149's
+  retained provider perimeter for that case). FIGR's debt at 2026-06-30 moves
+  from the vendor's 1,474,457,000 to the filed 967,771,000; the "Provider debt
+  perimeter" key-data row is gone and the debt profile shows "Debt used in this
+  report". Net debt, EV multiples and coverage stay not applicable to the
+  lender, and no score moves.
+- In the same-report check only FIGR changes. Version stamps are left for the
+  Stage 5 integration; saved reports are unchanged.
+
 ## Unreleased - FFO per share divides by its own fiscal year's share count (2026-11-12)
 
 - On the equity-REIT route, FFO and AFFO per share divided the latest fiscal
