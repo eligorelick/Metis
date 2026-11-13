@@ -34,6 +34,22 @@ original versions and bytes; source merge does not deploy or publish a release.
   share, fiscal 2025 ROIC 20.63% to 20.66%. Qualcomm's 1M difference from the
   baseline is its own rounding between quarterly and year-to-date columns and
   does not move. Version stamps are left for the Stage 5 integration.
+
+## Unreleased - A provider zero for capital spending is not a figure (2026-11-12)
+
+- A cash capital-spending figure of exactly 0 on a vendor cash-flow row now
+  stands only when the filings tag a capital-spending line at 0 for that exact
+  period. Otherwise capital spending and the free cash flow that subtracts it
+  are withheld for that period, with one data-gap entry naming the periods and
+  the cause (P7, P10, [D-239](docs/audit/DECISIONS.md)). In the same-report
+  check this moves three companies whose filings tag no capital-spending line:
+  JPMorgan (capital intensity 0% becomes a gap), Realty Income (fiscal 2025 and
+  trailing free cash flow become gaps; free-cash-flow growth is measured to
+  fiscal 2024; composite 53.6 to 51.1, still not graded) and Viking
+  Therapeutics (free cash flow and the cash runway become gaps; composite 42.5
+  to 44.0, still not graded). Nothing else moves. Version stamps are left for
+  the Stage 5 integration; saved reports are unchanged.
+
 ## Unreleased - Missing-data entries carry a typed cause code (2026-11-12)
 
 - New reports store a short code beside the sentence of the missing-data

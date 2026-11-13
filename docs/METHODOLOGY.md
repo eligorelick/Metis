@@ -1781,7 +1781,8 @@ change the common FCF convention and require remeasurement of every issuer's
 FCF, P/FCF and DCF seed. In the retained FIG example, PP&E-only capex differs
 by 1.302 million from the retained vendor basis on 231.012 million FCF (0.6%
 rounded). This decision preserves arithmetic and does not claim period-by-period
-software comparability or issuer-defined FCF reconciliation.
+software comparability or issuer-defined FCF reconciliation. A provider figure of
+exactly 0 is the one exception: see "Cash capital spending of zero (D-239)".
 
 
 **Free cash flow subtracts stock-based compensation by default.** The
@@ -8478,3 +8479,30 @@ separate line, and no finance lease is added or assumed nil. Where a part is
 unproven the earlier rule stands: the vendor figure is shown under the label
 "Provider debt perimeter (includes payables to third-party loan owners)".
 Stored run inputs are not rewritten: both checks run when a report is built.
+
+## Cash capital spending of zero (D-239)
+
+The provider writes 0 on a cash-flow row for a line it did not find, so a cash
+capital-spending figure of exactly 0 on a vendor row is a figure only when the
+filings state it. For the row's own period (the fiscal year, or the standalone
+quarter, directly filed or the difference of two year-to-date figures on one
+presentation) the capital-spending elements are read from the admitted SEC
+facts in the row's currency, filed by the analysis time:
+`PaymentsToAcquirePropertyPlantAndEquipment`,
+`PaymentsToAcquireProductiveAssets` and `PaymentsToDevelopSoftware`, the tag
+basis the quarterly and trailing constructions already use. No synonym or
+component sum is added. When every such line tagged for that period is 0, the
+zero is filed and stays. When none is tagged for it, capital spending is
+undisclosed; when one states an amount, the zero is contradicted. In both
+cases the field and the standardized free cash flow that subtracts it are
+withheld for that period, the provider observations are retained, and one
+manifest entry names the periods and the cause. A non-zero provider figure is
+not this rule's subject (the cash-capex convention is otherwise unchanged), and
+a row whose field already carries filed evidence or an earlier decision is
+left to it. Figures that need a withheld period follow their own rules: a
+trailing twelve months with a withheld quarter is withheld, a growth window
+ends at the newest year that has the figure and says so, the cash runway is
+withheld, and a score aspect left without evidence counts at the neutral
+midpoint. An issuer without confirmed SEC facts is not judged. Stored run
+inputs are not rewritten: the rule runs when a report is built, and the
+company page's free-cash-flow bars read the same admitted rows.
