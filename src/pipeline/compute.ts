@@ -160,6 +160,7 @@ import { applyLenderCapitalApplicability, lenderCashFlowApplicability } from "@/
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { preferredCapitalRefusal, commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { conversionRightsNote, issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
+import { resolveParentProfit, type ProfitScopeInputs } from "@/pipeline/stageB/ownership";
 import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
@@ -442,6 +443,7 @@ function fiscalIdentity(r: FmpStatementRow) {
 
 function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
   const operating = operatingMarginBasis(r);
+  const parentProfit = resolveParentProfit(profitScopeInputs(r));
   return {
     ...fiscalIdentity(r),
     date: String(r.date ?? ""),
@@ -453,7 +455,9 @@ function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
     grossProfit: num(r.grossProfit),
     operatingIncome: operating.operatingIncome,
     operatingBasis: operating.basis,
-    netIncome: num(r.netIncome),
+    // D-238 (P5; D-108): the net margin is the parent's profit over revenue in every year of the series.
+    netIncome: parentProfit.value,
+    ...(parentProfit.value !== num(r.netIncome) ? { netIncomeBasis: `${parentProfit.reason} (${parentProfit.basis})` } : {}),
     epsDiluted: num(r.epsDiluted),
   };
 }
@@ -493,14 +497,25 @@ function commonFlowScope(row: FmpStatementRow, field: string, basis: "annual" | 
       ? "basic-eps-common-stockholders" : "unknown" };
 }
 
-function commonIncomeEvidence(row: FmpIncomeStatementRow, basis: "annual" | "quarter", admissionAsOf?: string): CommonIncomeInputs {
+/** The entity scope of a row's `netIncome`: the admission's own statement, else the filed tags behind the figure. */
+function netIncomeOwnership(row: FmpIncomeStatementRow): "parent" | "consolidated" | undefined {
   const tags = row.fieldProvenance?.netIncome?.tags ?? [];
   const consolidatedTag = tagsFor("netIncomeConsolidated").some(tag => tags.includes(`us-gaap/${tag}`));
   // Consolidated profit less the NCI share is the parent's figure (audit B-18).
   const nciDeducted = consolidatedTag && tagsFor("netIncomeAttributableToNoncontrollingInterest").some(tag => tags.includes(`us-gaap/${tag}`));
-  const ownership = row.netIncomeOwnershipBasis === "parent" || row.netIncomeOwnershipBasis === "consolidated" ? row.netIncomeOwnershipBasis :
+  return row.netIncomeOwnershipBasis === "parent" || row.netIncomeOwnershipBasis === "consolidated" ? row.netIncomeOwnershipBasis :
     nciDeducted ? "parent" : consolidatedTag ? "consolidated" :
       tags.includes("us-gaap/NetIncomeLoss") ? "parent" : undefined;
+}
+
+/** D-238 (P5): the row's profit lines by entity scope, for `resolveParentProfit` and `resolveConsolidatedProfit`. */
+function profitScopeInputs(row: FmpIncomeStatementRow): ProfitScopeInputs {
+  return { netIncome: num(row.netIncome), netIncomeOwnershipBasis: netIncomeOwnership(row),
+    netIncomeConsolidated: num(row.netIncomeConsolidated), noncontrollingIncome: num(row.netIncomeAttributableToNoncontrollingInterest) };
+}
+
+function commonIncomeEvidence(row: FmpIncomeStatementRow, basis: "annual" | "quarter", admissionAsOf?: string): CommonIncomeInputs {
+  const ownership = netIncomeOwnership(row);
   return { netIncome: num(row.netIncome), netIncomeAvailableToCommon: num(row.netIncomeAvailableToCommon),
     admissionAsOf, targetScope: { issuerId: economicIssuerId(row), currency: str(row.reportedCurrency), periodStart: str(row.periodStart), periodEnd: str(row.date), basis },
     incomeScope: commonFlowScope(row, "netIncome", basis), commonIncomeScope: commonFlowScope(row, "netIncomeAvailableToCommon", basis),
@@ -630,7 +645,8 @@ function toCapitalIncome(r: FmpIncomeStatementRow): CapitalIncomeRow {
     ebit: operatingIncomeForNonMargins(r),
     ebitda: num(r.ebitda),
     interestExpense: num(r.interestExpense),
-    netIncome: num(r.netIncome),
+    // D-238 (P5): the scope of this net income travels with it; the FCF series reads consolidated profit.
+    ...profitScopeInputs(r),
     weightedAverageShsOutDil: num(r.weightedAverageShsOutDil),
     weightedAverageShsOut: num(r.weightedAverageShsOut),
   };

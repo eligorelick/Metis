@@ -11,7 +11,7 @@ import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRow
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
-import { COMBINED_CURRENT_DEBT_TAG, tagsFor } from "@/edgar/tagSynonyms";
+import { COMBINED_CURRENT_DEBT_TAG, CONSOLIDATED_NET_INCOME_TAGS, tagsFor } from "@/edgar/tagSynonyms";
 import { millions, millionsPair } from "@/pipeline/stageB/netDebt";
 import { oneBasisPair, representationLabelled, type LabelCopy } from "@/edgar/presentationLineage";
 import { DISCONTINUED_LABEL_TAGS, RESTATEMENT_THRESHOLD_PCT, longTermInvestmentsChainAt } from "@/edgar/statements";
@@ -593,12 +593,15 @@ export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: Compa
 /**
  * The profit lines a filer reports for a fiscal year, by taxonomy (D-231). `chain` is the order the cash-flow
  * statement's net income is read in (consolidated profit first; for us-gaap the statement builder's own chain).
- * A `parent` line is the same year's profit on another entity scope: a vendor figure equal to it is a filed
- * figure and is left alone, but a parent line never replaces a consolidated one (P5).
+ * A `parent` line is the same year's profit on another entity scope, and a parent line never replaces a
+ * consolidated one (P5). `consolidated` names the lines that include the noncontrolling interests' share (D-238):
+ * a cash-flow statement starts from that profit, so a vendor figure equal only to the parent's line is not the
+ * statement's figure when the filings state a different consolidated profit for the year. us-gaap `NetIncomeLoss`
+ * is in the chain because it is the consolidated profit of a filer with no noncontrolling interests.
  */
-const FILED_PROFIT_LINES: readonly { namespace: FiledNamespace; chain: readonly string[]; parent: readonly string[] }[] = [
-  { namespace: "us-gaap", chain: tagsFor("cashflowNetIncome"), parent: [] },
-  { namespace: "ifrs-full", chain: ["ProfitLoss"], parent: ["ProfitLossAttributableToOwnersOfParent"] },
+const FILED_PROFIT_LINES: readonly { namespace: FiledNamespace; chain: readonly string[]; parent: readonly string[]; consolidated: readonly string[] }[] = [
+  { namespace: "us-gaap", chain: tagsFor("cashflowNetIncome"), parent: [], consolidated: CONSOLIDATED_NET_INCOME_TAGS },
+  { namespace: "ifrs-full", chain: ["ProfitLoss"], parent: ["ProfitLossAttributableToOwnersOfParent"], consolidated: ["ProfitLoss"] },
 ];
 /** The profit lines of the same period's income-statement row that a vendor cash-flow net income can be a copy of. */
 function incomeProfitLines(income: FmpStatementRow | undefined): number[] {
@@ -614,8 +617,11 @@ function incomeProfitLines(income: FmpStatementRow | undefined): number[] {
  * rows of one Form 20-F filer carried profit before tax for 2016 to 2022 and a figure on another accounting basis
  * after that, neither of them a line of its annual report.
  *
- * - A figure equal (the P8 allowance) to any filed copy of a profit line for the year is a filed figure and stays;
- *   which entity scope the row should show is not decided here.
+ * - A figure equal (the P8 allowance) to any filed copy of a consolidated profit line for the year is a filed
+ *   figure and stays. So does one equal to the only profit line the filings state for the year.
+ * - D-238 (P5): a figure equal to the parent's line only, in a year for which the newest filing states that line
+ *   and a different consolidated profit side by side, is the profit of another entity scope. The filed
+ *   consolidated profit replaces it, as below.
  * - A figure equal to none of them is replaced by the filed consolidated profit, from the newest filing that states
  *   it (P2), with that filing as its provenance. When the filings state no consolidated line for the year, or the
  *   newest one states two values, the figure is withheld instead.
@@ -642,16 +648,32 @@ export function admitCashFlowNetIncome<T extends FmpStatementRow>(row: T, facts:
       .filter((p) => p.start !== undefined && p.end === date && span(p)! >= ANNUAL_FLOW_DAYS[0] && span(p)! <= ANNUAL_FLOW_DAYS[1]) }))
       .filter((copy) => copy.points.length > 0);
     if (copies.length === 0) continue;
-    if (copies.some((copy) => copy.points.some((p) => vendorAgreesWithFiled(vendor, p.val)))) return { row, gaps: [] };
+    const agrees = (copy: (typeof copies)[number]): boolean => copy.points.some((p) => vendorAgreesWithFiled(vendor, p.val));
+    const agreeing = copies.filter(agrees);
+    // D-238 (P5): the lines that include the noncontrolling share. With none filed for the year, the year's only
+    // profit line is the consolidated profit (a filer without noncontrolling interests), as before.
+    const consolidated = copies.filter((copy) => line.consolidated.includes(copy.tag));
+    // One filing must settle the scope: the newest filing that states any profit line for the year states the
+    // consolidated profit and, beside it, the line the vendor figure equals (P2, P7). An older consolidated copy
+    // is never set against a newer restatement of the parent's line.
+    const latest = newest(copies.flatMap((copy) => copy.points));
+    const sameFiling = (p: FactPoint): boolean => p.filed === latest?.filed && p.accn === latest.accn;
+    const parentOnly = agreeing.length > 0 && consolidated.length > 0 && !consolidated.some(agrees) &&
+      consolidated[0]!.points.some(sameFiling) && agreeing.some((copy) => copy.points.some((p) => sameFiling(p) && vendorAgreesWithFiled(vendor, p.val)));
+    if (agreeing.length > 0 && !parentOnly) return { row, gaps: [] };
     const sources = ["fmp:cash-flow-statement", ...copies.map((copy) => `edgar:companyfacts/${line.namespace}/${copy.tag}`)];
     const stated = copies.map((copy) => { const p = newest(copy.points)!; return `${line.namespace}/${copy.tag} ${p.val} (${p.form.trim()} ${p.accn}, filed ${p.filed})`; }).join("; ");
-    const head = copies.find((copy) => line.chain.includes(copy.tag));
+    const head = parentOnly ? consolidated[0] : copies.find((copy) => line.chain.includes(copy.tag));
     const filed = head ? unambiguousNewest(head.points) : null;
-    if (!head || !filed) return refuse(`Vendor cash-flow net income for ${date} (${vendor} ${currency}) is withheld: it agrees with no profit line the filer reports for that fiscal year (${stated}), ` +
+    if (!head || !filed) return refuse(`Vendor cash-flow net income for ${date} (${vendor} ${currency}) is withheld: ` +
+      (parentOnly ? `it equals the profit attributable to the parent, not the consolidated profit a cash-flow statement starts from (${stated}), ` : `it agrees with no profit line the filer reports for that fiscal year (${stated}), `) +
       `and ${head ? "the newest filing states more than one consolidated profit for it" : "the filings state no consolidated profit for it"}; figures that need that year's net income read the income statement.`, sources);
     const sec = resolved(filed.val, [head.tag], [filed], currency, observedAt, filed.start!, date, line.namespace);
-    const reason = `Cash-flow net income for ${date} corrected from vendor ${vendor} to filed ${filed.val} ${currency}: the vendor figure agrees with no profit line the filer reports for ` +
-      `${filed.start} through ${date} (${stated}), so the filed consolidated profit replaces it.`;
+    const reason = parentOnly
+      ? `Cash-flow net income for ${date} corrected from vendor ${vendor} to filed ${filed.val} ${currency}: the vendor figure equals the filer's profit attributable to the parent for ` +
+        `${filed.start} through ${date}, not its consolidated profit (${stated}); a cash-flow statement starts from consolidated profit, including the noncontrolling interests' share, so the filed consolidated profit replaces it.`
+      : `Cash-flow net income for ${date} corrected from vendor ${vendor} to filed ${filed.val} ${currency}: the vendor figure agrees with no profit line the filer reports for ` +
+        `${filed.start} through ${date} (${stated}), so the filed consolidated profit replaces it.`;
     return { row: { ...row, netIncome: filed.val,
         fieldConflicts: { ...row.fieldConflicts, netIncome: { vendorValue: vendor, secValue: filed.val, usable: true, resolution: "filed-line", reason, secEvidence: sec.evidence } },
         fieldProvenance: { ...row.fieldProvenance, netIncome: sec.evidence } },
