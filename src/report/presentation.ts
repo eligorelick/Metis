@@ -61,7 +61,7 @@ export { displayedValidationStatus } from "@/report/claimMatching";
 import { isComputedFigure } from "@/report/verificationMarks";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
-import { fairValueDegradedText, fairValueReferenceText } from "@/report/fairValueText";
+import { fairValueDegradedText, fairValueReferenceText, fairValueWithheldText } from "@/report/fairValueText";
 import { riskFreeSourceLabel } from "@/pipeline/riskFreeSeries";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
@@ -75,6 +75,7 @@ import {
   formatCostUsd,
   roundedDisplayedCostTotal,
   formatFinancialAmount,
+  formatFinancialValue,
   formatLargeNumber,
   formatMoneyAmount,
   formatMultiple,
@@ -88,15 +89,19 @@ import {
 } from "@/report/format";
 import type { ManifestEntry } from "@/types/core";
 import type {
+  Dcf,
+  FairValue,
   MetricRow,
   MoatAssessment,
   ProvenanceCoverage,
   Report,
   RouteMetrics,
   Scenario,
+  ScenarioTargets,
   ScoreSignal,
   SourcedClaim,
   TracedNumber,
+  Valuation,
   VerificationLogEntry,
 } from "@/report/schema";
 
@@ -955,7 +960,7 @@ export const FRESH_FILING_LABEL = "Newest filing";
  */
 export function coverLedgerRows(rows: readonly KeyDataRow[]): KeyDataRow[] {
   const lead = rows[0]?.label === FRESH_FILING_LABEL ? 2 : 1;
-  return rows.filter((row, index) => index < lead || row.label === "Composite grade" || row.label.startsWith("Model fair value") || row.label.startsWith("Scenario range"));
+  return rows.filter((row, index) => index < lead || row.label === "Composite grade" || isFairValueKeyDataLabel(row.label) || row.label.startsWith("Scenario range"));
 }
 
 export interface KeyDataRow {
@@ -1205,11 +1210,12 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   }
 
   if (dcf) {
+    const comparison = valuationComparison(dcf, report.valuation.dcf.upsidePct, "key-data");
     rows.push({
-      label: report.fairValue?.method === "excess-return" ? "Model fair value (excess return)" : "Model fair value (DCF)",
+      label: fairValueKeyDataLabel(report.fairValue, "shown"),
       value: formatFinancialAmount(dcf.value, dcf.unit, dcf.currency),
       note: [
-        report.valuation.dcf.upsidePct === null ? null : `${formatPct(report.valuation.dcf.upsidePct, 1, true)} vs price`,
+        comparison === null ? null : `${comparison.text} ${comparison.label}`,
         // Audit 2026-10-22 B-30: the general-route DCF's base rate across the census.
         report.fairValue?.method === "fcff-dcf" ? dcfBaseRateText() : null,
         // Audit 2026-10-22 C-10: the excess-return value from the fiscal-year start, when it differs by more than 5pp.
@@ -1221,13 +1227,12 @@ export function keyDataRows(report: Report): KeyDataRow[] {
   } else if (report.fairValue?.status === "outside-domain") {
     // Audit 2026-10-22 B-29: the headline says why no DCF value is shown.
     rows.push({
-      label: report.fairValue?.method === "excess-return" ? "Model fair value (excess return)" : "Model fair value (DCF)",
+      label: fairValueKeyDataLabel(report.fairValue, "shown"),
       value: "Model outside its domain",
       note: report.fairValue.basis[0]?.replace(/^Model outside its domain: /, "").replace(/\.$/, ""),
     });
   } else if (report.fairValue) {
-    rows.push({ label: report.fairValue.method === "excess-return" ? "Model fair value (excess return)"
-      : report.fairValue.method === "fcff-dcf" ? "Model fair value (DCF)" : "Model fair value",
+    rows.push({ label: fairValueKeyDataLabel(report.fairValue, "unavailable"),
       value: "Unavailable for current use", note: report.fairValue.reasons.find(reason => reason.field === "valuation.currentUse")?.reason });
   }
   const bear = report.valuation.scenarios.find((s) => s.name === "bear")?.priceTarget ?? null;
@@ -2375,4 +2380,256 @@ export function macroDisplayRows(macro: Report["macro"]): MacroDisplayRow[] {
     rows.push({ ...row, name: transform && transform.unit.test(row.latest.unit) ? transform.name : row.name, observation: macroObservationLabel(row.seriesId, row.latest.asOf) });
   }
   return rows;
+}
+
+/* ======================================================================== *
+ * Valuation display decisions (P22)
+ *
+ * Which fair value the valuation section shows and under what label, the
+ * comparison with the price (sign and rounding), the withheld and no-model
+ * text, the caveats beside the value, and the scenario rows. The classic and
+ * dossier app sections, the dossier bridge, the key-data box, Markdown and
+ * print read these; each renderer only escapes and lays out the text.
+ *
+ * Every function takes the surface. Where surfaces decide differently today,
+ * the difference is a named EXCEPTION here and is kept, so no reader-visible
+ * text changes; scripts/report-drift.ts measures each one. Raw traces stay
+ * separate from the rounded visible text (`perShare` / `target` beside
+ * `valueText` / `targetText`).
+ * ======================================================================== */
+
+/** The reader surfaces that show the valuation section. */
+export type ValuationSurface = "markdown" | "print" | "classic" | "dossier";
+
+/** Where the valuation-to-price comparison is shown: a valuation surface or the key-data box. */
+export type ValuationComparisonSurface = ValuationSurface | "key-data";
+
+function exportSurface(surface: ValuationComparisonSurface): boolean {
+  return surface === "markdown" || surface === "print";
+}
+
+/** Every surface's words for a scenario whose per-share target was suppressed. */
+export const SCENARIO_TARGET_UNAVAILABLE_TEXT = "per-share target unavailable";
+
+/** The word every surface shows when the headline per-share value is withheld. */
+export const VALUATION_WITHHELD_TEXT = "unavailable";
+
+/** The reason the exports print after {@link VALUATION_WITHHELD_TEXT}. */
+const VALUATION_WITHHELD_REASON = "the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).";
+
+export interface ValuationComparisonView {
+  /** The raw stored percentage. */
+  pct: number;
+  /** The rounded, signed visible text (formatPct, one decimal; a value that rounds to zero prints unsigned). */
+  text: string;
+  /** "upside" in the exports (before the value); "vs price" in the app (before) and key data (after). */
+  label: string;
+  /**
+   * The app's tone. A negative value that rounds to zero is "neg"
+   * (EXCEPTION app-zero-tone: kept as today).
+   */
+  tone: "pos" | "neg";
+}
+
+/**
+ * The comparison of the shown per-share value with the price, or null when
+ * the value is withheld or no comparison was recorded.
+ */
+export function valuationComparison(
+  perShare: TracedNumber | null,
+  upsidePct: number | null,
+  surface: ValuationComparisonSurface,
+): ValuationComparisonView | null {
+  if (perShare === null || upsidePct === null) return null;
+  // The exports' signed-percent helper prints an em dash for a non-finite value; the app prints "n/a".
+  const text = Number.isFinite(upsidePct) || !exportSurface(surface) ? formatPct(upsidePct, 1, true) : "—";
+  return { pct: upsidePct, text, label: exportSurface(surface) ? "upside" : "vs price", tone: upsidePct >= 0 ? "pos" : "neg" };
+}
+
+/** The headline label per surface. */
+function valuationHeadlineLabel(fairValue: FairValue | undefined, surface: ValuationSurface): string {
+  const excessReturn = fairValue?.method === "excess-return";
+  // The exports print a sentence label; the app prints a compact caption.
+  if (exportSurface(surface)) return excessReturn ? "Model value per share" : "Intrinsic value per share";
+  if (surface === "classic") return excessReturn ? "Excess-return · model value / share" : "DCF · intrinsic value / share";
+  // EXCEPTION dossier-label: the dossier names the FCFF method and calls any other method a recorded model value.
+  return excessReturn ? "Excess-return · model value / share"
+    : fairValue?.method === "fcff-dcf" ? "FCFF DCF · model value / share" : "Recorded model value / share";
+}
+
+export interface ValuationHeadlineView {
+  /** The exports' subsection heading. */
+  heading: string;
+  label: string;
+  /** The shown per-share trace (raw), or null when the value is withheld. */
+  perShare: TracedNumber | null;
+  /** The rounded visible value, or null when withheld. */
+  valueText: string | null;
+  /** The text after {@link VALUATION_WITHHELD_TEXT} when withheld; null where the surface prints no reason. */
+  withheldReason: string | null;
+  comparison: ValuationComparisonView | null;
+  /** Substituted inputs (audit 2026-10-22 F-13), at reader precision, beside a shown value. */
+  degradedCaveat: string | null;
+  /** The fair value's basis, or why it is withheld or only a dated reference. */
+  basisCaveat: string | null;
+  /** The app's provenance disclosure label. */
+  provenanceLabel: string;
+}
+
+/** The valuation headline as one surface shows it (when a cash-flow model applies). */
+export function valuationHeadlineView(
+  valuation: Pick<Valuation, "dcf">,
+  fairValue: FairValue | undefined,
+  surface: ValuationSurface,
+): ValuationHeadlineView {
+  const perShare = valuation.dcf.perShare;
+  const degraded = perShare ? fairValueDegradedText(fairValue) : null;
+  return {
+    heading: fairValue?.method === "excess-return" ? "Excess-return value" : "DCF",
+    label: valuationHeadlineLabel(fairValue, surface),
+    perShare,
+    // The exports print the trace in its own unit; the app prints it through the figure primitive.
+    valueText: perShare === null ? null : exportSurface(surface) ? formatFinancialValue(perShare.value, perShare.unit, perShare.currency) : figureValueText(perShare),
+    // EXCEPTION app-withheld-no-reason: both app layouts print the word alone, with no reason.
+    withheldReason: exportSurface(surface) ? VALUATION_WITHHELD_REASON : null,
+    comparison: valuationComparison(perShare, valuation.dcf.upsidePct, surface),
+    degradedCaveat: degraded ? displayProse(degraded) : null,
+    basisCaveat: fairValue === undefined ? null
+      : fairValue.status === "available" ? displayProse(fairValue.basis.join(" "))
+        // EXCEPTION markdown-withheld-reader-form: only Markdown prints the withheld or
+        // dated-reference sentence in reader form (displayProse: registry ids as reader
+        // labels, figures at reader precision); print and the app print it as stored.
+        : surface === "markdown" ? displayProse(fairValueWithheldText(fairValue)) : fairValueWithheldText(fairValue),
+    provenanceLabel: surface === "dossier" || fairValue?.method === "excess-return" ? "Model value provenance" : "DCF provenance",
+  };
+}
+
+/**
+ * Why no value is shown when no cash-flow model applies, or null without a
+ * fair value record. EXCEPTION markdown-no-model-reader-form: Markdown prints
+ * this sentence as stored; print and the app print it in reader form
+ * (displayProse: registry ids as reader labels, grouped and rounded figures).
+ */
+export function valuationNoModelWithheldText(fairValue: FairValue | undefined, surface: ValuationSurface): string | null {
+  if (fairValue === undefined) return null;
+  const text = fairValueWithheldText(fairValue);
+  return surface === "markdown" ? text : displayProse(text);
+}
+
+/** The dossier bridge's per-share endpoint label. */
+export function recordedPerShareLabel(dcf: Pick<Dcf, "perShare">): string {
+  return `Recorded model value per share${dcf.perShare === null ? " (audit only)" : ""}`;
+}
+
+/** Every key-data fair-value label starts with this. */
+const KEY_DATA_FAIR_VALUE_PREFIX = "Model fair value";
+
+/** True for the key-data row that carries the model fair value. */
+export function isFairValueKeyDataLabel(label: string): boolean {
+  return label.startsWith(KEY_DATA_FAIR_VALUE_PREFIX);
+}
+
+/**
+ * The key-data label for the model fair value. A shown or out-of-domain value
+ * names excess return or else DCF; an unavailable one names only a recorded
+ * FCFF or excess-return method (EXCEPTION key-data-unavailable-label).
+ */
+export function fairValueKeyDataLabel(fairValue: FairValue | undefined, state: "shown" | "unavailable"): string {
+  if (fairValue?.method === "excess-return") return `${KEY_DATA_FAIR_VALUE_PREFIX} (excess return)`;
+  if (state === "shown" || fairValue?.method === "fcff-dcf") return `${KEY_DATA_FAIR_VALUE_PREFIX} (DCF)`;
+  return KEY_DATA_FAIR_VALUE_PREFIX;
+}
+
+export interface ScenarioWeightView {
+  label: string;
+  text: string;
+  /** The app's line when the weight is not recorded. */
+  unavailableNote: string;
+}
+
+export interface ScenarioRowView {
+  scenario: Scenario;
+  /** The scenario's index in the stored list. */
+  index: number;
+  /** The raw target trace, or null when suppressed. */
+  target: TracedNumber | null;
+  /** The rounded visible target, or null when suppressed ({@link SCENARIO_TARGET_UNAVAILABLE_TEXT}). */
+  targetText: string | null;
+  /** Null when no weight is shown (D-60: a computed target carries no weight). */
+  weight: ScenarioWeightView | null;
+  /** The assumption lines this scenario does not share with the others. */
+  assumptions: string[];
+}
+
+export interface ScenarioBlockView {
+  heading: string;
+  /** The line on what the weights mean, or null when the surface prints none. */
+  weightBasis: string | null;
+  /** D-62: the assumption lines every scenario shares, stated once. */
+  common: string[];
+  rows: ScenarioRowView[];
+}
+
+/**
+ * A scenario's weight as one surface shows it, or null when no weight is
+ * shown (D-60: a computed target carries no weight unless one was stored).
+ * EXCEPTION app-weight-wording: the app capitalizes "Display weight" and
+ * prints a missing weight as "n/a"; the exports print "unavailable".
+ */
+export function scenarioWeightView(probability: number | null, computedWeights: boolean, surface: ValuationSurface): ScenarioWeightView | null {
+  if (computedWeights && probability === null) return null;
+  const app = !exportSurface(surface);
+  return {
+    label: computedWeights ? app ? "Display weight" : "display weight" : "p",
+    text: probability === null ? app ? "n/a" : "unavailable" : `${(probability * 100).toFixed(0)}%`,
+    unavailableNote: computedWeights ? "display weight unavailable" : "scenario probability unavailable",
+  };
+}
+
+/** The app's line when a report recorded no weight basis. */
+const APP_WEIGHT_BASIS_FALLBACK = "Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable.";
+
+/** The scenario rows as one surface shows them (when a cash-flow model applies). */
+export function valuationScenarioView(
+  valuation: Pick<Valuation, "scenarios">,
+  scenarioPresentation: Report["scenarioPresentation"],
+  surface: ValuationSurface,
+): ScenarioBlockView {
+  const app = !exportSurface(surface);
+  const computedWeights = app ? Boolean(scenarioPresentation) : scenarioPresentation !== undefined;
+  const { common, specific } = splitCommonLines(valuation.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
+  // EXCEPTION app-scenario-order: the app shows bull, base, bear in that order; the exports keep the stored order.
+  const ordered = app
+    ? (["bull", "base", "bear"] as const).flatMap((name) => { const found = valuation.scenarios.find((sc) => sc.name === name); return found ? [found] : []; })
+    : valuation.scenarios;
+  const rows = ordered.map((scenario): ScenarioRowView => {
+    const index = valuation.scenarios.indexOf(scenario);
+    const target = scenario.priceTarget;
+    return {
+      scenario,
+      index,
+      target,
+      targetText: target === null ? null : app ? figureValueText(target) : formatFinancialValue(target.value, target.unit, target.currency),
+      weight: scenarioWeightView(scenario.probability, computedWeights, surface),
+      assumptions: specific[index] ?? [],
+    };
+  });
+  return {
+    heading: !app ? "Scenarios" : scenarioPresentation ? "scenarios · sensitivity cases (bull / base / bear)" : "scenarios · probability-weighted (bull / base / bear)",
+    // EXCEPTION app-weight-basis-fallback: the app prints a fallback line when none was recorded; the exports print nothing.
+    weightBasis: app ? scenarioPresentation?.weightBasis ?? APP_WEIGHT_BASIS_FALLBACK : scenarioPresentation?.weightBasis || null,
+    common,
+    rows,
+  };
+}
+
+/**
+ * The scenario price-target caveat, or null without a targets record. The
+ * surface's escape is applied to each recorded part, never to the fixed words.
+ */
+export function scenarioTargetsCaveat(scenarioTargets: ScenarioTargets | undefined, escape: (text: string) => string): string | null {
+  if (!scenarioTargets) return null;
+  return scenarioTargets.status === "available"
+    ? `Price targets are computed-derived (${escape(scenarioTargets.method)}), not analyst targets. ${escape(displayProse(scenarioTargets.basis.join(" ")))}`
+    : `Scenario price targets suppressed — ${escape(scenarioTargets.missingReasons.map((m) => m.reason).join("; ") || scenarioTargets.basis.join(" "))}`;
 }

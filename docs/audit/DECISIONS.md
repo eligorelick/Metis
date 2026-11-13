@@ -98,6 +98,84 @@ Proof, for each package separately:
 Nothing a reader sees changes: no report figure, schema, stamp, payload,
 export, golden or intended delta moves.
 
+## D-228 - Only METIS_ names configure Metis; a leftover THESIS_ name stops startup (2026-11-12)
+
+Principles P23, P24 and P26. Revises D-21 (the `X-Thesis-Token` header and the
+`THESIS_RESUME_ON_START` name) and D-143 / B11-OD-5 (the startup warning about
+conflicting aliases and canonical-over-alias precedence), and the rebrand's
+compatibility promise in docs/BRAND.md that `THESIS_*` names stay accepted.
+
+**Problem.** Since the rebrand every `METIS_*` setting also answered to a
+`THESIS_*` alias (`metisEnv`, `withMetisAliases` in `src/config/namespace.ts`).
+The owner's `.env` and launcher have now been renamed, with a proof that every
+setting reads the same value before and after. Removing the aliases quietly
+would be unsafe for anyone still on an old file: a leftover
+`THESIS_RESUME_ON_START=0` would be ignored and queued paid work would resume
+at startup, a `THESIS_MAX_JOB_COST_USD` cap would vanish, and a
+`THESIS_DB_PATH` would move the app to a different database.
+
+**Options.** (a) Keep the aliases. (b) Remove them and ignore old names.
+(c) Remove them and refuse old names explicitly.
+
+**Choice: (c).** Only `METIS_*` names configure Metis. Each of the 19 names
+that used to be an alias (`RETIRED_ALIAS_SUFFIXES`: the 15 `METIS_*` schema
+keys plus `ALLOWED_HOST`, `DB_PATH`, `DATA_DIR` and `IMPORT_LEGACY_DB`) is
+refused when its `THESIS_` form is present, set to anything including blank.
+The refusal is one `StaleSettingsError` that lists every stale name with its
+`METIS_` replacement and never a value. Names are looked up directly, so a
+native Windows environment matches case-insensitively exactly where the old
+alias read did, and ordinary records keep exact case.
+
+**Where the refusal runs.** It lives in one owner, `src/config/namespace.ts`.
+`metisEnv` and `projectMetisSettings` are the only readers of a formerly
+aliased setting, and both refuse before they read; a source-scan test
+(`tests/config.retiredSettings.test.ts`) fails if src reads a `METIS_*` or
+`THESIS_*` environment name any other way (only `METIS_RUNTIME_BUILD_ID`,
+which never had an alias, is read directly). So `getConfig`/`parseEnv`, the
+database and data paths, the legacy-import switch, the allowed host and the
+judge-order fallback all refuse on first use, in the server, the request
+proxy, the job runner and scheduler bootstrap, and every script that reads a
+setting. The server also refuses eagerly in `src/instrumentation.ts` before it
+mints the request token or starts the scheduler, prints the message and
+exits with code 1. (Next.js only logs a `register()` failure and keeps
+listening; checked on the production build, every page and API route then
+answered a bare 500, no token file or database was created and the scheduler
+never ran. Exiting makes the refusal plain.) The settings:reset,
+costs:reconcile, research:replay and export:corrected entry points refuse
+eagerly as well, because replay of a `--snapshot` file and the corrected
+export read no setting. The golden harness reads its database path through
+`metisEnv`; its workers get a stripped environment and run unchanged.
+
+**Request header.** `X-Metis-Token` behaves exactly as before. A request that
+carries only `X-Thesis-Token` is refused with the same 403 as any other token
+failure and the reason "the X-Thesis-Token header is no longer accepted; send
+the same token in the X-Metis-Token header instead". The old header is never
+read as a credential, including by the company-page proxy check. Every client
+in the repository sends `X-Metis-Token`.
+
+**Kept.** Every setting's meaning, validation and default (spend caps, resume
+hold, statement source, rolling window, concurrency, token path, lease timings,
+stream idle, reservation mode, judge order, EV leases, allowed host, UI flag);
+legacy data-folder and file discovery (`Thesis`, `thesis.db`, `Thesis/ai`);
+`METIS_IMPORT_LEGACY_DB` and its warning; old-database upgrades; the Claude API
+integration. A table of 157 METIS_-only inputs (blank, padded, valid, boundary
+and invalid values for every setting, plus lease combinations) parses to
+exactly the same result as main at e55519ce, frozen in
+`tests/fixtures/config-parity-before-d228.json`.
+
+**Frozen wording.** Ten strings that reach saved reports, exports or the
+judge prompt still spell `THESIS_STATEMENT_SOURCE`, `THESIS_EV_INCLUDE_LEASES`
+and `THESIS_JUDGE_ORDER` (`src/pipeline/keyless.ts`, `stageB/valuation.ts`,
+`stageB/returns.ts`, `stageC/judgeProtocol.ts`'s `JUDGE_ORDER_ENV_KEY`). They
+are unchanged byte for byte here, because rewording them changes report text
+and prompt bytes and needs an owner decision; the source-scan test pins each
+line. Comments, Settings text, logs and docs use the `METIS_*` names.
+
+**Risks and reversibility.** Anyone with an old `.env`, launcher or shell
+variable must rename keys before the next start; the error says which and how.
+Reverting this change restores the aliases. No stored report, ledger row or
+data file changes.
+
 ## D-227 - New reports record which exact build assembled them; nothing reads it yet (2026-11-12)
 
 Principles P27 and P20. A saved report names its rules only through
@@ -2713,6 +2791,7 @@ behavior; historical measured costs remain the observations recorded below.
 
 - **Choice**: keep the existing guard; add route-level tests for a cross-site form POST (navigate mode) and a cross-site fetch. When both Fetch Metadata and Origin are missing, require a token: minted at startup into `<data dir>/csrf-token` and accepted via `X-Thesis-Token`; browsers never need it. `THESIS_RESUME_ON_START` (default `1`); when `0`, bootstrap does not kick the scheduler and queued paid work waits for `POST /api/jobs/resume` or the Settings page. `npm run settings:reset -- --yes` deletes stored settings rows.
 - **Why**: brief; token path only touches header-less clients.
+- **Revised by D-228 (2026-11-12)**: the token header is `X-Metis-Token` and the setting is `METIS_RESUME_ON_START`; the old `X-Thesis-Token` header is refused, never accepted, and a leftover `THESIS_RESUME_ON_START` stops startup until renamed.
 
 ## D-22 (WS9) Node requirement and generated docs
 
@@ -3875,6 +3954,8 @@ No-split share comparisons require a confirmed single-ticker ordinary-share scop
 
 B11-OD-5 (DOC-203): comment canonical defaults in the example; report conflicting
 alias names at startup without values. Keep explicit canonical precedence.
+(Revised by D-228: the aliases are retired; any leftover `THESIS_*` name now
+stops startup with its replacement named, so there is no conflict warning.)
 
 B8-OD-9 (AI-510, JOB-201): share analyst recovery across fresh and resumed
 sides. Rejected-output repair and zero-cost plan resends have independent
@@ -10346,7 +10427,7 @@ This table records implementation/regression closure at production source `871b6
 | RPT-217 | still-reproducible | fixed-and-verified | [report.presentation.labels.test.ts](../../tests/report.presentation.labels.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 14) |
 | RPT-503 | partially-fixed | fixed-and-verified | [report.modelEvidence.test.ts](../../tests/report.modelEvidence.test.ts)<br>[report.runDisclosure.test.ts](../../tests/report.runDisclosure.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 23) |
 | RPT-504 | still-reproducible | fixed-and-verified | [company.generateReport.stream.test.ts](../../tests/company.generateReport.stream.test.ts)<br>[report.computedMark.test.ts](../../tests/report.computedMark.test.ts)<br>[report.surface.client.test.ts](../../tests/report.surface.client.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 16) |
-| DOC-203 | still-reproducible | fixed-and-verified | [env.exampleAliases.test.ts](../../tests/env.exampleAliases.test.ts) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 46) |
+| DOC-203 | still-reproducible | fixed-and-verified | [env.exampleCopy.test.ts](../../tests/env.exampleCopy.test.ts) (renamed from env.exampleAliases.test.ts by D-228) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 46) |
 | SEC-201 | still-reproducible | fixed-and-verified | [api.routes.sameOrigin.test.ts](../../tests/api.routes.sameOrigin.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 7) |
 | SEC-202 | still-reproducible | fixed-and-verified | [api.localOnly.test.ts](../../tests/api.localOnly.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 8) |
 | SEC-204 | still-reproducible | fixed-and-verified | [ai.storeUnreadable.test.ts](../../tests/ai.storeUnreadable.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 9) |

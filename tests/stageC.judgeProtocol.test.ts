@@ -326,7 +326,7 @@ function caseOffsets(messages: unknown): { bull: number; bear: number } {
  * (a) Position bias — the judge does not always read the bull case first
  * ------------------------------------------------------------------------ */
 
-describe("judge case order (THESIS_JUDGE_ORDER)", () => {
+describe("judge case order (METIS_JUDGE_ORDER)", () => {
   it("draws a reproducible order per seed and produces BOTH orders across seeds", () => {
     // Reproducible: the same seed always draws the same order, so a resume, a
     // judge retry and the pre-launch request validation agree.
@@ -353,11 +353,11 @@ describe("judge case order (THESIS_JUDGE_ORDER)", () => {
     expect(DEFAULT_JUDGE_ORDER_SETTING).toBe("random");
   });
 
-  it("parses THESIS_JUDGE_ORDER in config exactly as Stage C resolves it", () => {
+  it("parses METIS_JUDGE_ORDER in config exactly as Stage C resolves it", () => {
     // Two parsers exist (config/env.ts cannot import the Stage C module without
     // dragging the payload layer into config), so pin that they agree.
     for (const raw of [undefined, "", "random", "bull-first", "bear-first", "both", "nonsense"]) {
-      const config = parseEnv(raw === undefined ? {} : { THESIS_JUDGE_ORDER: raw });
+      const config = parseEnv(raw === undefined ? {} : { METIS_JUDGE_ORDER: raw });
       expect(config.judgeOrder).toBe(resolveJudgeOrderSetting(raw));
     }
   });
@@ -546,7 +546,7 @@ describe("judge case order (THESIS_JUDGE_ORDER)", () => {
  * (a continued) `both` — two judge passes, reconciled
  * ------------------------------------------------------------------------ */
 
-describe("THESIS_JUDGE_ORDER=both", () => {
+describe("METIS_JUDGE_ORDER=both", () => {
   it.each([true, false])("settles combined ChatGPT usage with truthful actual controls (matching: %s)", async (matching) => {
     const { payload } = buildInputs();
     const mock = new MockRunPass();

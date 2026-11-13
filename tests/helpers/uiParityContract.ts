@@ -2,7 +2,19 @@ import { createHash } from "node:crypto";
 import { Window } from "happy-dom";
 import type { Report, TracedNumber } from "@/report/schema";
 import { REPORT_SECTION_MANIFEST } from "@/report/sectionManifest";
-import { displayClaimText, displayProse } from "@/report/presentation";
+import {
+  displayClaimText,
+  displayProse,
+  SCENARIO_TARGET_UNAVAILABLE_TEXT,
+  scenarioTargetsCaveat,
+  VALUATION_WITHHELD_TEXT,
+  valuationHeadlineView,
+  valuationNoModelWithheldText,
+  valuationScenarioView,
+  type ValuationSurface,
+} from "@/report/presentation";
+import { unavailableCashFlowModel } from "@/report/readerConventions";
+import { prepareReportForSurface } from "@/report/readerPreparation";
 
 export interface UiParityContract {
   digest: string;
@@ -95,4 +107,63 @@ export function freezeReport<T>(value: T): T {
     for (const child of Object.values(value)) freezeReport(child);
   }
   return value;
+}
+
+/**
+ * P22: the valuation texts each surface must show, as the shared decisions in
+ * presentation.ts state them for that surface: the headline label, shown value
+ * or withheld text, comparison, caveats, and every scenario row. Captured from
+ * the report each surface prepares (readerPreparation.ts), so a renderer that
+ * re-decides any of them, or drops one, fails {@link assertValuationParity}.
+ */
+export type ValuationParityContract = Record<ValuationSurface, { label: string; text: string }[]>;
+
+export function captureValuationParity(report: Report): ValuationParityContract {
+  const surfaces: ValuationSurface[] = ["markdown", "print", "classic", "dossier"];
+  return Object.fromEntries(surfaces.map((surface) => {
+    const prepared = prepareReportForSurface(report, surface === "markdown" || surface === "print" ? surface : "web").report;
+    const texts: { label: string; text: string }[] = [];
+    const add = (label: string, text: string | null | undefined) => { if (text) texts.push({ label, text }); };
+    if (unavailableCashFlowModel(prepared)) {
+      add("no-model withheld text", valuationNoModelWithheldText(prepared.fairValue, surface));
+    } else {
+      const headline = valuationHeadlineView(prepared.valuation, prepared.fairValue, surface);
+      add("headline label", headline.label);
+      add("headline value", headline.valueText ?? VALUATION_WITHHELD_TEXT);
+      add("withheld reason", headline.perShare === null ? headline.withheldReason : null);
+      add("comparison label", headline.comparison?.label);
+      add("comparison", headline.comparison?.text);
+      add("degraded caveat", headline.degradedCaveat);
+      add("basis caveat", headline.basisCaveat);
+      const scenarios = valuationScenarioView(prepared.valuation, prepared.scenarioPresentation, surface);
+      add("scenario heading", scenarios.heading);
+      add("weight basis", scenarios.weightBasis);
+      add("scenario targets caveat", scenarioTargetsCaveat(prepared.scenarioTargets, (text) => text));
+      for (const row of scenarios.rows) {
+        add(`${row.scenario.name} target`, row.targetText ?? SCENARIO_TARGET_UNAVAILABLE_TEXT);
+        add(`${row.scenario.name} weight label`, row.weight?.label);
+        add(`${row.scenario.name} weight`, row.weight?.text);
+      }
+    }
+    return [surface, texts];
+  })) as ValuationParityContract;
+}
+
+/** Markdown with every inline escape the exports apply removed, for text comparison. */
+function unescapedMarkdown(value: string): string {
+  return normalize(value.replace(/\\([\\`*_~[\]<>&#@{}()+\-.!|])/g, "$1").replace(/[`*]/g, ""));
+}
+
+/** Every surface shows its own decided valuation texts; the app checks the layout it rendered. */
+export function assertValuationParity(contract: ValuationParityContract, surfaces: { live: string; markdown: string; print: string }, layout: "classic" | "dossier"): void {
+  const bodies: [ValuationSurface, string][] = [
+    ["markdown", unescapedMarkdown(surfaces.markdown)],
+    ["print", readableHtml(surfaces.print).text],
+    [layout, readableHtml(surfaces.live).text],
+  ];
+  for (const [surface, body] of bodies) {
+    for (const { label, text } of contract[surface]) {
+      if (!body.includes(normalize(text))) throw new Error(`Missing ${surface} valuation ${label}: ${text}`);
+    }
+  }
 }

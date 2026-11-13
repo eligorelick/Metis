@@ -11,7 +11,7 @@ import path from "node:path";
 import os from "node:os";
 import { defaultDataDir, defaultDbPath, hasExplicitDbPath } from "@/db/paths";
 
-const ENV_KEYS = ["METIS_DATA_DIR", "METIS_DB_PATH", "THESIS_DATA_DIR", "THESIS_DB_PATH", "LOCALAPPDATA", "APPDATA", "XDG_DATA_HOME"] as const;
+const ENV_KEYS = ["METIS_DATA_DIR", "METIS_DB_PATH", "LOCALAPPDATA", "APPDATA", "XDG_DATA_HOME"] as const;
 
 let savedEnv: Record<string, string | undefined>;
 let savedPlatform: PropertyDescriptor | undefined;
@@ -41,54 +41,54 @@ afterEach(() => {
 });
 
 describe("hasExplicitDbPath", () => {
-  it("is false when THESIS_DB_PATH is unset", () => {
+  it("is false when METIS_DB_PATH is unset", () => {
     expect(hasExplicitDbPath()).toBe(false);
   });
 
-  it("is false when THESIS_DB_PATH is empty or whitespace-only", () => {
-    process.env.THESIS_DB_PATH = "";
+  it("is false when METIS_DB_PATH is empty or whitespace-only", () => {
+    process.env.METIS_DB_PATH = "";
     expect(hasExplicitDbPath()).toBe(false);
-    process.env.THESIS_DB_PATH = "   ";
+    process.env.METIS_DB_PATH = "   ";
     // hasExplicitDbPath trims before comparing, so whitespace-only counts
     // as "not explicitly set" just like the empty string.
     expect(hasExplicitDbPath()).toBe(false);
   });
 
-  it("is true when THESIS_DB_PATH is set to a real path", () => {
-    process.env.THESIS_DB_PATH = "C:\\custom\\thesis.db";
+  it("is true when METIS_DB_PATH is set to a real path", () => {
+    process.env.METIS_DB_PATH = "C:\\custom\\thesis.db";
     expect(hasExplicitDbPath()).toBe(true);
   });
 });
 
 describe("defaultDbPath", () => {
-  it("respects THESIS_DB_PATH override verbatim, bypassing defaultDataDir", () => {
-    process.env.THESIS_DB_PATH = "D:\\override\\path\\custom.db";
+  it("respects METIS_DB_PATH override verbatim, bypassing defaultDataDir", () => {
+    process.env.METIS_DB_PATH = "D:\\override\\path\\custom.db";
     expect(defaultDbPath()).toBe("D:\\override\\path\\custom.db");
   });
 
-  it("falls back to <defaultDataDir>/thesis.db when THESIS_DB_PATH is unset", () => {
+  it("falls back to <defaultDataDir>/thesis.db when METIS_DB_PATH is unset", () => {
     setPlatform("win32");
     process.env.LOCALAPPDATA = "C:\\Users\\test\\AppData\\Local";
     expect(defaultDbPath()).toBe(path.join("C:\\Users\\test\\AppData\\Local", "Metis", "metis.db"));
   });
 
-  it("treats a whitespace-only THESIS_DB_PATH as unset — consistent with hasExplicitDbPath (fix-review)", () => {
+  it("treats a whitespace-only METIS_DB_PATH as unset — consistent with hasExplicitDbPath (fix-review)", () => {
     setPlatform("win32");
     process.env.LOCALAPPDATA = "C:\\Users\\test\\AppData\\Local";
-    process.env.THESIS_DB_PATH = "   ";
+    process.env.METIS_DB_PATH = "   ";
     expect(defaultDbPath()).toBe(path.join("C:\\Users\\test\\AppData\\Local", "Metis", "metis.db"));
   });
 });
 
 describe("defaultDataDir", () => {
-  it("respects THESIS_DATA_DIR override on any platform", () => {
+  it("respects METIS_DATA_DIR override on any platform", () => {
     setPlatform("linux");
-    process.env.THESIS_DATA_DIR = "/custom/data/dir";
+    process.env.METIS_DATA_DIR = "/custom/data/dir";
     expect(defaultDataDir()).toBe("/custom/data/dir");
   });
 
-  it("trims whitespace-padded THESIS_DATA_DIR", () => {
-    process.env.THESIS_DATA_DIR = "  /padded/dir  ";
+  it("trims whitespace-padded METIS_DATA_DIR", () => {
+    process.env.METIS_DATA_DIR = "  /padded/dir  ";
     expect(defaultDataDir()).toBe("/padded/dir");
   });
 

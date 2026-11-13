@@ -2520,7 +2520,7 @@ describe("reitValuation — the house enterprise value (audit 2026-09-06)", () =
 // WS6 (D-19) — enterprise-value bridge and the operating-lease option
 // ---------------------------------------------------------------------------
 
-describe("multiplesFramework — EV bridge and THESIS_EV_INCLUDE_LEASES", () => {
+describe("multiplesFramework — EV bridge and METIS_EV_INCLUDE_LEASES", () => {
   const evInputs: MultiplesFrameworkInputs = {
     quote: { price: 100, marketCap: 10_000, currency: "USD" },
     reportedCurrency: "USD",

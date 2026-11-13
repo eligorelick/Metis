@@ -1,5 +1,6 @@
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { reverseDcfValueText } from "@/report/presentation";
+import { VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView } from "@/report/presentation";
 import { macroDisplayRows, type MacroDisplayRow } from "@/report/presentation";
 import { shownDataState } from "@/report/completeness";
 import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, unavailableModelInputTables } from "@/report/readerConventions";
@@ -24,7 +25,6 @@ import { ReportTrustDetails, ReportTrustSummary } from "./ReportTrustSummary";
 import { ReportSnapshotDetails } from "./ReportSnapshotHeader";
 import { evidencePercentText, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, hasLimitedEvidence, isNeutralScore, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { valuationAuditTables, projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import {
@@ -160,7 +160,6 @@ import {
   ClaimReasoning,
   formatMultiple,
   formatNumber,
-  formatPct,
   GradeReasoning,
   HeadlineGrade,
   ScenarioCard,
@@ -1092,9 +1091,11 @@ export function ValuationSection({
   const { dcf, reverseDcf } = valuation;
   const noModel = report ? unavailableCashFlowModel(report) : false;
   const recordedPerShare = recordedValuationTrace(dcf, fairValue);
-  const modelLabel = presentation === "classic" ? (fairValue?.method === "excess-return" ? "Excess-return \u00b7 model value / share" : "DCF \u00b7 intrinsic value / share")
-    : fairValue?.method === "excess-return" ? "Excess-return · model value / share"
-      : fairValue?.method === "fcff-dcf" ? "FCFF DCF · model value / share" : "Recorded model value / share";
+  // P22: the headline, its caveats and the scenario rows are decided in presentation.ts.
+  const headline = valuationHeadlineView(valuation, fairValue, presentation);
+  const noModelText = valuationNoModelWithheldText(fairValue, presentation);
+  const scenarioView = valuationScenarioView(valuation, scenarioPresentation, presentation);
+  const targetsCaveat = scenarioTargetsCaveat(scenarioTargets, (text) => text);
   return (
     <SectionFrame id="valuation" index={index} title="Valuation">
       {/* D-62: evidence timing is in the audit export. */}
@@ -1107,36 +1108,34 @@ export function ValuationSection({
       />
 
       {/* DCF headline + reverse-DCF callout */}
-      {noModel ? <><p className="text-[11px] leading-snug text-muted">{cashFlowModelExplanation(report!)}</p>{fairValue && <p className="text-[11px] leading-snug text-faint">{displayProse(fairValueWithheldText(fairValue))}</p>}<ExtraAuditTables tables={unavailableModelInputTables(report!)} /></> : <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      {noModel ? <><p className="text-[11px] leading-snug text-muted">{cashFlowModelExplanation(report!)}</p>{noModelText !== null && <p className="text-[11px] leading-snug text-faint">{noModelText}</p>}<ExtraAuditTables tables={unavailableModelInputTables(report!)} /></> : <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
         <div className="flex flex-col gap-2 border border-edge bg-raised px-3 py-2.5">
           <div className="text-[9px] uppercase tracking-[0.1em] text-faint">
-            {modelLabel}
+            {headline.label}
           </div>
-          {dcf.perShare ? (
-            <TracedFigure n={dcf.perShare} tone="accent" className="text-[24px]" />
+          {headline.perShare ? (
+            <TracedFigure n={headline.perShare} tone="accent" className="text-[24px]" />
           ) : (
             // Deterministic fair value suppressed (no per-share model / insufficient
             // inputs) — show "unavailable", never a fabricated number.
-            <span className="mono text-[15px] text-faint">unavailable</span>
+            <span className="mono text-[15px] text-faint">{VALUATION_WITHHELD_TEXT}</span>
           )}
-          {dcf.perShare && dcf.upsidePct !== null && (
+          {headline.comparison && (
             <div className="mono text-[12px]">
-              <span className="text-faint">vs price </span>
-              <span className={dcf.upsidePct >= 0 ? "text-pos" : "text-neg"}>
-                {formatPct(dcf.upsidePct, 1, true)}
+              <span className="text-faint">{`${headline.comparison.label} `}</span>
+              <span className={headline.comparison.tone === "pos" ? "text-pos" : "text-neg"}>
+                {headline.comparison.text}
               </span>
             </div>
           )}
           {/* Audit 2026-10-22 F-13: substituted inputs are named beside the value they moved. */}
-          {dcf.perShare && fairValueDegradedText(fairValue) && (
-            <p className="text-[11px] leading-snug text-warn">{displayProse(fairValueDegradedText(fairValue)!)}</p>
+          {headline.degradedCaveat !== null && (
+            <p className="text-[11px] leading-snug text-warn">{headline.degradedCaveat}</p>
           )}
-          {dcf.perShare && <TracedNumberSourceDetails n={dcf.perShare} label={presentation === "dossier" || fairValue?.method === "excess-return" ? "Model value provenance" : "DCF provenance"} />}
-          {fairValue ? (
+          {headline.perShare && <TracedNumberSourceDetails n={headline.perShare} label={headline.provenanceLabel} />}
+          {headline.basisCaveat !== null ? (
             <p className="text-[10px] leading-snug text-faint">
-              {fairValue.status === "available"
-                ? displayProse(fairValue.basis.join(" "))
-                : fairValueWithheldText(fairValue)}
+              {headline.basisCaveat}
             </p>
           ) : null}
           <div className="mt-1 border-t border-edge pt-2">
@@ -1205,22 +1204,17 @@ export function ValuationSection({
 
       <ValuationReview valuation={valuation} scenarioPresentation={noModel ? undefined : scenarioPresentation} thesisTriggers={thesisTriggers} peerCoverage={valuation.peerCoverage} symbol={report?.meta.symbol} />
 
-      {!noModel && <SubBlock label={scenarioPresentation ? "scenarios · sensitivity cases (bull / base / bear)" : "scenarios · probability-weighted (bull / base / bear)"}>
+      {!noModel && <SubBlock label={scenarioView.heading}>
         <p className="mb-2 text-[11px] leading-snug text-faint">
-          {scenarioPresentation?.weightBasis ?? "Narrative probabilities are model JUDGMENTs, not empirically calibrated odds. Data-only reports show them as unavailable."}
+          {scenarioView.weightBasis}
         </p>
-        {scenarioTargets ? (
+        {targetsCaveat !== null ? (
           <p className="mb-2 text-[11px] leading-snug text-faint">
-            {scenarioTargets.status === "available"
-              ? `Price targets are computed-derived (${scenarioTargets.method}), not analyst targets. ${displayProse(scenarioTargets.basis.join(" "))}`
-              : `Scenario price targets suppressed — ${
-                  scenarioTargets.missingReasons.map((m) => m.reason).join("; ") ||
-                  scenarioTargets.basis.join(" ")
-                }`}
+            {targetsCaveat}
           </p>
         ) : null}
         {(() => {
-          const { common } = splitCommonLines(valuation.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
+          const { common } = scenarioView;
           return common.length > 0 ? (
             <div className="mb-2">
               <div className="mb-1 text-[9px] uppercase tracking-[0.1em] text-faint">assumptions common to every scenario</div>
@@ -1229,25 +1223,19 @@ export function ValuationSection({
           ) : null;
         })()}
         <div className="grid gap-3 lg:grid-cols-3">
-          {["bull", "base", "bear"].map((name) => {
-            const s = valuation.scenarios.find((sc) => sc.name === name);
-            if (!s) return null;
-            const scenarioIndex = valuation.scenarios.indexOf(s);
-            const specific = splitCommonLines(valuation.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line))))).specific[scenarioIndex] ?? [];
-            return (
-              <ScenarioCard
-                key={name}
-                name={s.name}
-                probability={s.probability}
-                priceTarget={s.priceTarget}
-                horizon={s.horizon}
-                assumptions={specific}
-                whatWouldHaveToBeTrue={s.whatWouldHaveToBeTrue.map(scenarioListItem)}
-                weightLabel={scenarioPresentation ? "Display weight" : "p"}
-                qualitativeCommentary={s.qualitativeCommentary?.map(scenarioListItem)}
-              />
-            );
-          })}
+          {scenarioView.rows.map(({ scenario: s, target, weight, assumptions }) => (
+            <ScenarioCard
+              key={s.name}
+              name={s.name}
+              probability={s.probability}
+              priceTarget={target}
+              horizon={s.horizon}
+              assumptions={assumptions}
+              whatWouldHaveToBeTrue={s.whatWouldHaveToBeTrue.map(scenarioListItem)}
+              weight={weight}
+              qualitativeCommentary={s.qualitativeCommentary?.map(scenarioListItem)}
+            />
+          ))}
         </div>
       </SubBlock>}
       {noModel && <QualitativeScenarios scenarios={valuation.scenarios} />}

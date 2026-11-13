@@ -3874,7 +3874,7 @@ rate is … (observation …), not FRED DGS10." It is built from the recorded
 both layouts, under the classic report header, at the head of the Markdown,
 audit and print exports, and in the AI context, which is told never to
 attribute a substituted figure to FMP or FRED `DGS10`. A keyless plan, or
-`THESIS_STATEMENT_SOURCE=edgar`, substitutes by design and shows no line, and
+`METIS_STATEMENT_SOURCE=edgar`, substitutes by design and shows no line, and
 neither does a member the key's subscription never serves. The
 fair value's degraded-inputs entry uses the same wording.
 
