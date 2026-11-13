@@ -46,8 +46,9 @@ describe("graded FCF conversion (AI-511)", () => {
     const report = buildDataOnlyReport({ symbol: bundle.symbol, companyName: "Test General Co", generatedAt: "2026-07-06T12:00:00.000Z", model: "none", costUsd: 0,
       bundle, validation: EMPTY_VALIDATION, computed: runStageB(bundle), costBreakdown: [], reason: "no analysis" });
     const row = report.fundamentals.fcf.find((r) => r.values[0]?.value.source === "computed.capital.fcf.conversionBeforeSbc")!;
-    expect(row.label).toBe("FCF conversion (FCF before SBC / net income)");
-    expect(report.fundamentals.fcf.some((r) => r.label === "FCF conversion (FCF after SBC / net income)")).toBe(true); // control
+    // D-256: the denominator is named as the consolidated profit it is (D-238).
+    expect(row.label).toBe("FCF conversion (FCF before SBC / consolidated net income)");
+    expect(report.fundamentals.fcf.some((r) => r.label === "FCF conversion (FCF after SBC / consolidated net income, including noncontrolling interests' share)")).toBe(true); // control
   });
 
   it("names the annual window when the snapshot falls back, and adds nothing where FCF conversion is not graded (review focus 9)", () => {

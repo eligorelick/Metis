@@ -10,7 +10,9 @@ import { SHARED_RULES_BLOCK } from "@/pipeline/stageC/prompts";
 import { CatalystsRisksSchema, JUDGE_OUTPUT_KEYS, ReportSchema, fillNullableGaps, judgeOutputToJsonSchema, type SourcedClaim } from "@/report/schema";
 import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { reportToMarkdown } from "@/report/export/markdown";
-import { reportToPrintBody } from "@/report/export/printHtml";
+import { esc, reportToPrintBody } from "@/report/export/printHtml";
+import { markdownProse } from "@/report/export/markdownEscape";
+import { SCORE_BANDS_READER_NOTE } from "@/report/presentation";
 import { claimStatusMarkText, indexVerificationMarks } from "@/report/verificationMarks";
 import { loadTask28Fixture } from "./helpers/task28Report";
 // Verbatim public-data section from the rejected extra-high FIGR judge output:
@@ -56,6 +58,13 @@ describe("catalyst and risk reasoning compatibility", () => {
     expect(outputs.audit).toContain("Recorded pre-policy valuation diagnostics");
     expect(outputs.audit).toContain('"value": 48');
     expect(JSON.stringify(report.catalystsRisks)).toBe(beforeExports);
+    // D-256: the scorecard states its band table in words instead of the band constant. Check the
+    // new line, then restore the preceding one so the digests keep pinning every other byte.
+    const bands = report.scores!.bandsVersion;
+    expect(outputs.markdown).toContain(`_(${markdownProse(SCORE_BANDS_READER_NOTE)})_`);
+    expect(outputs.print).toContain(`<em>(${esc(SCORE_BANDS_READER_NOTE)})</em>`);
+    outputs.markdown = outputs.markdown.replace(`_(${markdownProse(SCORE_BANDS_READER_NOTE)})_`, `_(bands ${markdownProse(bands)})_`);
+    outputs.print = outputs.print.replace(`<em>(${esc(SCORE_BANDS_READER_NOTE)})</em>`, `<em>(bands ${esc(bands)})</em>`);
     expect(Object.fromEntries(Object.entries(outputs).map(([key, value]) => [key, createHash("sha256").update(value).digest("hex")]))).toMatchSnapshot();
   });
 

@@ -169,8 +169,9 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
         else { operand("EBIT", i.capital.interestCoverage.ebit, `${source}.interestCoverage.ebit`); operand("interest expense", i.capital.interestCoverage.interestExpense, `${source}.interestCoverage.interestExpense`); }
       } else if (id === "fcfConversionBeforeSbc") {
         if (!current || "fcfBeforeSbc" in current) operand("FCF before SBC", current ? current.fcfBeforeSbc : i.capital.fcf.latestFcfBeforeSbc, `${source}.${current ? "fcfBeforeSbc" : "fcf.latestFcfBeforeSbc"}`);
-        if (current && "netIncome" in current) operand("net income", current.netIncome, `${source}.netIncome`);
-        operand("FCF / net income", current ? current.fcfConversionBeforeSbc : i.capital.fcf.latestConversionBeforeSbc, `${source}.${current ? "fcfConversionBeforeSbc" : "fcf.latestConversionBeforeSbc"}`);
+        // D-256 (P5): consolidated profit (D-212, D-240), named as such.
+        if (current && "netIncome" in current) operand("consolidated net income (including noncontrolling interests' share)", current.netIncome, `${source}.netIncome`);
+        operand("FCF / consolidated net income", current ? current.fcfConversionBeforeSbc : i.capital.fcf.latestConversionBeforeSbc, `${source}.${current ? "fcfConversionBeforeSbc" : "fcf.latestConversionBeforeSbc"}`);
       } else if (id === "sbcPctOfFcf") {
         operand("SBC", current ? current.cashBridge.stockBasedCompensation : i.capital.sbc.latest, `${source}.${current ? "cashBridge.stockBasedCompensation" : "sbc.latest"}`);
         if (!current || "fcfBeforeSbc" in current) operand("FCF before SBC", current ? current.fcfBeforeSbc : i.capital.fcf.latestFcfBeforeSbc, `${source}.${current ? "fcfBeforeSbc" : "fcf.latestFcfBeforeSbc"}`);

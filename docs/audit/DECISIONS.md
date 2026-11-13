@@ -11,6 +11,140 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-256 - Three owner-approved reader wordings: gap labels, the band line, consolidated net income (2026-11-13)
+
+Principles P22 (one presentation rule per figure; diagnostics go to the audit
+export) and, for item 3, P5 (entity scope: consolidated, parent and common
+profit are not interchangeable). P21 (saved reports keep their bytes) and P18
+(code owns labels) bound the change. The owner wrote: "Make the three wording
+fixes you listed: plain-English labels where raw machine ids show in 'Recorded
+gaps', remove or reword the 'Band policy: SCORE_BANDS_…' line in the
+scorecard, and label whole-company profit accurately where it is now called
+'Net income'. I approve these visible wording changes and nothing else." No
+number, gap, status, score, grade, rule or calculation changes.
+
+### 1. "Recorded gaps" entries read under reader labels
+
+The web report's collapsed "Recorded gaps (N)" list (`ReportEvidenceRail`)
+printed each manifest entry's raw `field` (`fmp.pressReleases(AMZN)`,
+`statements.balance.2025-12-31.totalDebt`, `macro.DGS10`). The presentation
+owner already had the one gap-label mapping, `gapLabel`
+(`src/report/presentation.ts`, D-67), which the body's data-gap tables use.
+The new `manifestEntryLabel` applies it to one entry on that entry's own group
+key (`gapGroupKey` with the report's `manifestIssuer`), so each entry reads
+exactly as its group does in the tables: `fmp.pressReleases(AMZN)` -> "Press
+releases (FMP)", a peer's `fmp.incomeStatement(WMT,annual)` -> "Annual income
+statement (WMT)", `analysis.llm` -> "Analysis not completed", and an id with no
+specific label -> the general wording `gapLabel` builds from its parts
+(`statements.balance.2025-12-31.totalDebt` -> "Statements balance 2025-12-31
+total debt"). No second mapping was added and `gapLabel` is unchanged, so the
+body tables are byte-identical. Each entry's severity line and recorded reason
+are unchanged; "dcf-suppressed" occurs only inside reason text, which stays as
+recorded. The raw fields stay in the audit export's manifest. The Markdown and
+print exports have no per-entry list (only the grouped tables), so this item
+does not touch them. Rendered at read time: saved reports show the new labels
+with their bytes unchanged.
+
+### 2. The scorecard's band line
+
+The web scorecard's "Score methodology & recorded inputs" printed `Band
+policy: SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; Markdown and print
+printed `(bands SCORE_BANDS_…)` after the methodology. The audit export already
+prints the constant (`_Band table: …_`, `auditMarkdown.ts`, unchanged), so the
+body now carries one sentence from the presentation owner,
+`SCORE_BANDS_READER_NOTE`: "House scoring bands in force when this report was
+built; the band version is recorded in the audit export" (web: its own line;
+Markdown and print: inside the parentheses). Rendered at read time.
+
+### 3. Consolidated net income, named as such
+
+D-238 ("Not changed here") listed the labels that call a consolidated figure
+"net income". Changed, each with the code path proving the figure is the
+consolidated profit:
+
+| Old | New | Where it lives | The figure behind it |
+| --- | --- | --- | --- |
+| "FCF conversion (FCF after SBC / net income)" | "FCF conversion (FCF after SBC / consolidated net income, including noncontrolling interests' share)" | data-only report row (`dataOnlyReport.ts`), stored in report JSON | `capital.fcf.series[].fcfConversion`: FCF over the series' net income, which is the cash-flow statement's own starting line, admitted on the consolidated scope by `admitCashFlowNetIncome` (D-238 rule 1), else `resolveConsolidatedProfit` (`capital.ts`) |
+| "FCF conversion (FCF before SBC / net income)" | "FCF conversion (FCF before SBC / consolidated net income)" | the same, the next row | `fcfConversionBeforeSbc`, the same denominator |
+| score operand "net income" | "consolidated net income (including noncontrolling interests' share)" | `scoringEvidence.ts`, stored in Stage B output and report JSON | `capital.current.netIncome` = `consolidatedConversionIncome` (`compute.ts`): `netIncomeConsolidated`, or `netIncome` on an explicit consolidated basis, or the filed single profit line of an issuer without NCI (D-212, D-240) |
+| score operand "FCF / net income" | "FCF / consolidated net income" | the same | `current.fcfConversionBeforeSbc` over that figure, else the series' `latestConversionBeforeSbc` |
+| "FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income" | "... over consolidated net income (including noncontrolling interests' share)" | balance-sheet aspect note (`grading.ts`), stored in Stage B output and report JSON | the graded raw value is one of the two ratios above |
+
+The noncontrolling-interest clause is stated once in each place: on the first
+FCF conversion row, on the net-income operand, and in the grading sentence.
+
+Not changed, with the reason:
+
+- **"accrual operand net income (NI)"** (payload, `payload.ts`). The payload
+  record id is built from this label
+  (`computed.forensics.accrual-operand-net-income-ni`), and the claim check
+  requires a label's qualifiers in the prose (D-66). META's stored analyst
+  output says "The accrual operand net income for the year ended 2025-12-31
+  was USD 60.46 billion.", cites that id and is validated; a relabel would
+  rename the id or leave that claim unchecked, a status change outside the
+  approval. The figure is consolidated (`computeAccruals`, `forensics.ts`:
+  `netIncomeConsolidated`, else parent plus NCI, else the cash-flow
+  statement's line).
+- **Piotroski "CFO ... vs NI ..." and "ROA ... (NI / beginning-of-year TA)"**
+  (`forensics.ts`, Stage B only). The figure is `continuingNetIncome`: the
+  row's income from continuing operations, else its `netIncome`. It is not
+  proven consolidated: for Duke Energy fiscal 2025 it is 5,070,000,000 (the
+  vendor's continuing-operations line), while the filed consolidated profit is
+  5,071,000,000 (`us-gaap:ProfitLoss`) and the parent's 4,968,000,000
+  (`us-gaap:NetIncomeLoss`), both 2025-01-01..2025-12-31, 10-K
+  0001326160-26-000014. Calling it "consolidated net income" would be wrong.
+- **TSM fiscal 2025** in the FCF series is the parent's profit standing in for
+  a consolidated profit the admitted facts do not hold (D-231 rule 5, D-238);
+  the new row label states the series' scope, and that one year remains the
+  disclosed exception.
+- Labels where "net income" is the parent's or common profit: the
+  income-statement row, net margin, EPS, ROE/DuPont, FFO, payout.
+- The legacy read-time correction's "FCF conversion (FCF before SBC / net
+  income)" (`legacyPayloadRecordSafety.ts`) for reports before spec 1.45.0:
+  those reports predate D-238, so their figure is not established as
+  consolidated.
+- Other wording seen and left for the owner: the FCF basis paragraph
+  ("FCF-after-SBC / net income is the house-default headline ..."), the
+  payload's "net income ... operand" and statement "net income" rows, the
+  general fallback wordings `gapLabel` gives some ids ("Macro DGS10", "Keyless
+  balance annual", "EDGAR ten knotes"; changing them would also change the
+  body's data-gap tables), and the rail's "Observation dates" list, which
+  prints raw source names.
+
+### Stored or rendered
+
+Rendered at read time (saved reports show it, bytes unchanged): items 1 and
+2. Stored in new reports only (saved reports keep their bytes, P21): item 3's
+row labels (report JSON) and its operand names and grading sentence (Stage B
+output and report JSON). The payload text is unchanged in all 17 cases (same
+payload fingerprints); no analyst prompt changes.
+
+Version stamps are not moved (D-258 moves them once for the follow-up steps).
+Under the convention: payload, none (its bytes are unchanged); report spec,
+none (no field, schema or figure meaning changes, and the history diff keys
+rows on source ids, not labels; the RPT-210 and D-62 precedent); Stage B
+implementation is the only candidate, because three stored Stage B strings
+change on identical inputs while every number stays.
+
+### Proof
+
+Same-report check: the 17 cases built from main 97657ad1 and from this branch
+differ in 91 of 119 files (no `payload.txt` differs). Putting the old strings
+back into the branch tree (a throwaway script) leaves all 119 files
+byte-identical to main, after remapping the `data-evidence-key` hashes of the
+changed balance-sheet claim (8) and masking `data-report-identity` (a hash of
+the whole read-time report) in the 14 cases whose report JSON changed. Every
+`stageB.json` with its string leaves removed is identical to main. The
+accuracy tool reports the same counts as on main (265 figures in 13 cases:
+169 match, 7 mismatch, 63 gap, 26 not-established; every figure as expected).
+Tests: `tests/report.wordingD256.test.ts` (the named issuer entry, a
+peer-company control, unrelated id shapes, the rendered rail, the band line on
+web, Markdown, print and audit; it fails on main), and the tests that pinned
+the old wording are updated beside this decision. Frozen records refreshed
+under D-256: `audit-fixture` (the two operand names and the note, in Stage B
+and the report, and the record hash) and `stagec-payload`
+(`$.finance.scores.aspects.balanceSheet.note` and the finance hash).
+
 ## D-255 - The Stage 5 accuracy fixes move the version stamps once (2026-11-13)
 
 Principles P27 (version stamps move together) and P21 (saved reports are
@@ -1224,7 +1358,10 @@ tests fail without the fix.
   conversion is graded as free cash flow BEFORE stock-based compensation over
   net income"; "accrual operand net income (NI)"; and the Piotroski details
   "CFO ... vs NI ..." and "ROA ... (NI / beginning-of-year TA)". Each would
-  read "consolidated net income (including noncontrolling interests)".
+  read "consolidated net income (including noncontrolling interests)". Revised by D-256: the two report rows, the two score
+  operands and the grading sentence now say so; the accrual operand (its
+  label is a cited record id) and the Piotroski details (continuing-operations
+  income, not proven consolidated) stay, with the reasons there.
 - **The income-statement row "net income" on a consolidated-basis period**
   (O fiscal 2025 1,069,783,000, its quarters ended 2025-12-31 and 2026-06-30,
   and three Duke Energy quarters) still shows the consolidated profit beside

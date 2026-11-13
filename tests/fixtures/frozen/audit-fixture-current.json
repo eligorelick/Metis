@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "59b425917379db50abe45da6e90ba2dae97612b55d7b8fd8ea514fa235b42782",
+  "projectionSha256": "805dea3f73ad727b46d0995e5a9610163cd80db735dadc41a59f161217113dbd",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -1494,8 +1494,8 @@
                 "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
                 "operands": [
                   {"name": "FCF before SBC", "value": 1800000000, "source": "computed.capital.current.fcfBeforeSbc", "asOf": "2025-12-31"},
-                  {"name": "net income", "value": 1750000000, "source": "computed.capital.current.netIncome", "asOf": "2025-12-31"},
-                  {"name": "FCF / net income", "value": 1.0285714285714285, "source": "computed.capital.current.fcfConversionBeforeSbc", "asOf": "2025-12-31"}
+                  {"name": "consolidated net income (including noncontrolling interests' share)", "value": 1750000000, "source": "computed.capital.current.netIncome", "asOf": "2025-12-31"},
+                  {"name": "FCF / consolidated net income", "value": 1.0285714285714285, "source": "computed.capital.current.fcfConversionBeforeSbc", "asOf": "2025-12-31"}
                 ]
               },
               {
@@ -1522,7 +1522,7 @@
               }
             ],
             "notApplicableReason": null,
-            "note": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
+            "note": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over consolidated net income (including noncontrolling interests' share) — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
           },
           "moat": {
             "score": 90.13,
@@ -4044,8 +4044,8 @@
                 "fallbackReason": "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
                 "operands": [
                   {"name": "FCF before SBC", "value": 1800000000, "source": "computed.capital.current.fcfBeforeSbc", "asOf": "2025-12-31"},
-                  {"name": "net income", "value": 1750000000, "source": "computed.capital.current.netIncome", "asOf": "2025-12-31"},
-                  {"name": "FCF / net income", "value": 1.0285714285714285, "source": "computed.capital.current.fcfConversionBeforeSbc", "asOf": "2025-12-31"}
+                  {"name": "consolidated net income (including noncontrolling interests' share)", "value": 1750000000, "source": "computed.capital.current.netIncome", "asOf": "2025-12-31"},
+                  {"name": "FCF / consolidated net income", "value": 1.0285714285714285, "source": "computed.capital.current.fcfConversionBeforeSbc", "asOf": "2025-12-31"}
                 ]
               },
               {
@@ -4072,7 +4072,7 @@
               }
             ],
             "notApplicableReason": null,
-            "note": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over net income — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
+            "note": "Financial strength on annual flows and the corresponding balance date 2025-12-31. Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled. Leverage, coverage, FCF conversion and the cost of stock-based compensation. FCF conversion is graded as free cash flow BEFORE stock-based compensation over consolidated net income (including noncontrolling interests' share) — the definition used by this unbacktested house-rule band; the house-default after-SBC free cash flow is reported beside it, and the SBC charge itself is scored exactly once, by SBC as a percentage of free cash flow. The annualized weighted-average diluted common-share trend is scored once, under leadership."
           },
           "moat": {
             "score": 90.13,

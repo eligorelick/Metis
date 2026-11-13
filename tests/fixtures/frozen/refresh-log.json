@@ -129,5 +129,49 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-13",
+    "target": "audit-fixture",
+    "decision": "D-256",
+    "reason": "Owner-approved wording (D-256, P5/P22): the FCF-conversion score operands and the balance-sheet grading sentence now call the consolidated profit 'consolidated net income' and say it includes noncontrolling interests' share; no number changes; the hash leaf follows the changed text.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.stageB.scores.aspects.balanceSheet.signals[2].operands[1].name",
+      "$.projection.stageB.scores.aspects.balanceSheet.signals[2].operands[2].name",
+      "$.projection.stageB.scores.aspects.balanceSheet.note",
+      "$.projection.report.scores.aspects.balanceSheet.signals[2].operands[1].name",
+      "$.projection.report.scores.aspects.balanceSheet.signals[2].operands[2].name",
+      "$.projection.report.scores.aspects.balanceSheet.note"
+    ],
+    "beforeSha256": "296874498bf2f681f47ff1805002360e83e2135a0625ac318e8a9b6d80c82a0a",
+    "afterSha256": "abba44e0403e89c92d0f62afd0170abb3c4f6a0e3bfc699fffbc4c88f6e9ce1a",
+    "changedLeaves": 7,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.stageB.scores.aspects.balanceSheet.signals[2].operands[1].name",
+      "$.projection.stageB.scores.aspects.balanceSheet.signals[2].operands[2].name",
+      "$.projection.stageB.scores.aspects.balanceSheet.note",
+      "$.projection.report.scores.aspects.balanceSheet.signals[2].operands[1].name",
+      "$.projection.report.scores.aspects.balanceSheet.signals[2].operands[2].name",
+      "$.projection.report.scores.aspects.balanceSheet.note"
+    ]
+  },
+  {
+    "date": "2026-11-13",
+    "target": "stagec-payload",
+    "decision": "D-256",
+    "reason": "Owner-approved wording (D-256, P5/P22): the FCF-conversion score operands and the balance-sheet grading sentence now call the consolidated profit 'consolidated net income' and say it includes noncontrolling interests' share; no number changes; the hash leaf follows the changed text.",
+    "scope": [
+      "$.summary.financeHash",
+      "$.finance.scores.aspects.balanceSheet.note"
+    ],
+    "beforeSha256": "1446ccd9d3b5ad6dae3a1b58ed916e65b216ffefe74a31f4a5a793f952114eea",
+    "afterSha256": "aaf6555a160179ac26b01b5b2143affb8c9e949c799801c472a7a0c77d95d8c9",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.summary.financeHash",
+      "$.finance.scores.aspects.balanceSheet.note"
+    ]
   }
 ]

@@ -174,6 +174,20 @@ describe("retained forensic observation context on real data-only exports", () =
     const prior = "held flat at current 20% (TTM) under stable dated-margin regime (5y median 20%, slope 0pp/year)";
     expect(margin.basis).toBe(prior + "; Unverified provider quarters: 2026-03-31, 2025-12-31, 2025-09-30, 2025-06-30");
     margin.basis = prior;
+    // D-256 (owner-approved wording) renames only the consolidated profit in the balance-sheet
+    // grading sentence and the FCF-conversion operands. Check the new words, then restore the
+    // preceding ones so the pin keeps checking every value byte.
+    const balanceSheet = restored.scores.aspects.balanceSheet;
+    const graded = "over consolidated net income (including noncontrolling interests' share) — the definition";
+    expect(balanceSheet.note).toContain(graded);
+    balanceSheet.note = balanceSheet.note.replace(graded, "over net income — the definition");
+    const renamed: Record<string, string> = {
+      "consolidated net income (including noncontrolling interests' share)": "net income",
+      "FCF / consolidated net income": "FCF / net income",
+    };
+    const operands = (balanceSheet.signals ?? []).flatMap((signal) => signal.operands ?? []).filter((operand) => renamed[operand.name] !== undefined);
+    expect(operands.map((operand) => operand.name).sort()).toEqual(Object.keys(renamed).sort());
+    for (const operand of operands) operand.name = renamed[operand.name]!;
     // FIN-402-V1/FIN-102/FIN-113: separately asserted metadata restoration; old numeric pin remains.
     expect(invariantHash(restored)).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
   });

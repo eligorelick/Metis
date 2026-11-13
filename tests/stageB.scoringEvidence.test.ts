@@ -187,8 +187,9 @@ describe("score evidence follows the actual metric basis", () => {
     expect(operand(coverage, "interest expense").value).toBe(18);
     const conversion = describeScoreEvidence(i, "balanceSheet", "fcfConversionBeforeSbc");
     expect(operand(conversion, "FCF before SBC").value).toBe(180);
-    expect(operand(conversion, "net income").value).toBe(120);
-    expect(operand(conversion, "FCF / net income").value).toBe(1.5);
+    // D-256: the operands name the consolidated profit they hold (D-212, D-240).
+    expect(operand(conversion, "consolidated net income (including noncontrolling interests' share)").value).toBe(120);
+    expect(operand(conversion, "FCF / consolidated net income").value).toBe(1.5);
     expect(conversion.fallbackReason).toBe(i.capital.current!.fallbackReason);
     expect(describeScoreEvidence(i, "balanceSheet", "sbcPctOfFcf").operands.some(o => o.name === "FCF before SBC" && o.value === 180)).toBe(true);
   });

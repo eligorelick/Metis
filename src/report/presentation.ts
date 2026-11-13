@@ -2,7 +2,7 @@ import { qualifiedGradeLabel } from "@/report/assessment";
 import { supplementalNumericInventoryText } from "@/report/supplementalNumericAudit";
 import { passBaseName, passAttemptName, FAILED_PASS_NOTE, type ExecutionMetadataEntry } from "@/report/execution";
 import { SPY_BENCHMARK } from "@/pipeline/stageB/sectorRouting";
-import { shownDataState } from "@/report/completeness";
+import { gapGroupKey, shownDataState } from "@/report/completeness";
 import { shownFilingDisclosures } from "@/report/filingDisclosurePresentation";
 import { estimateTimingText, reportEstimateTiming } from "@/report/estimateTiming";
 import { LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
@@ -2052,6 +2052,16 @@ export function gapLabel(gap: Pick<ClassifiedGap, "key" | "fields">): string {
   return sentence(segmentWords(field.replace(/\([^)]*\)/g, "").replace(/[.:]/g, " ")));
 }
 
+/**
+ * D-256 (P22): the reader label of ONE recorded manifest entry, for the
+ * per-entry "Recorded gaps" list. It is {@link gapLabel} on the entry's own
+ * group key, so an entry reads exactly as its group does in the data-gap
+ * tables; the raw field stays in the audit export.
+ */
+export function manifestEntryLabel(gap: ManifestEntry, issuer: string | null): string {
+  return gapLabel({ key: gapGroupKey(gap, issuer), fields: [gap.field] });
+}
+
 /** A long manifest reason cut at a sentence or clause near 320 characters; the audit export keeps it whole. */
 function shortReason(reason: string): string {
   const limit = 320;
@@ -2190,6 +2200,13 @@ const SCORE_ASPECT_LABEL: Record<(typeof SCORE_ASPECT_ORDER)[number], string> = 
  * One row per aspect: score, band, weight and evidence, with what it
  * measures (D-62: replaces the separate weights and aspect-score tables).
  */
+/**
+ * D-256 (P22): what the scorecard says about its band table. The band
+ * constant itself (`scores.bandsVersion`) is a machine id; it is printed in
+ * the audit export's scorecard ("Band table: ..."), not in the body.
+ */
+export const SCORE_BANDS_READER_NOTE = "House scoring bands in force when this report was built; the band version is recorded in the audit export";
+
 export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable {
   const limited = SCORE_ASPECT_ORDER.filter((key) => hasLimitedEvidence(scores.aspects[key]));
   return {
