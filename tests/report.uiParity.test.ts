@@ -120,6 +120,14 @@ describe("the dossier shows every fact the classic layout shows (D-241, P22)", (
     expect(classicFactsMissingFromDossier(grid, "<table><tr><th>8.5%</th><td>$161.37</td><td>$1,161.50</td></tr></table>")).toEqual([]);
     expect(classicFactsMissingFromDossier("<table><tr><td>$112</td></tr></table>", "<table><tr><td>$112.50</td></tr></table>")).toEqual([]);
     expect(classicFactsMissingFromDossier(grid, "<table><tr><th>8.5%</th><td>$161.37</td><td>$1,170.00</td></tr></table>")).not.toEqual([]);
+    // Review of D-241: a longer dossier number that contains the classic digits does not show the classic figure.
+    const cell = "<table><tr><th>8.5%</th><td>$161</td></tr></table>";
+    expect(classicFactsMissingFromDossier(cell, "<table><tr><th>8.5%</th><td>$1610.00</td></tr></table>")).not.toEqual([]);
+    expect(classicFactsMissingFromDossier(cell, "<table><tr><th>8.5%</th><td>$2161</td></tr></table>")).not.toEqual([]);
+    expect(classicFactsMissingFromDossier("<p>Fair value $161</p>", "<p>Fair value $161.37</p>")).toEqual(["Fair value $161"]);
+    // Adjacent cells and sentence punctuation do not run numbers together.
+    expect(classicFactsMissingFromDossier(cell, "<table><tr><th>8.5%</th><td>$161</td><td>5.2%</td></tr></table>")).toEqual([]);
+    expect(classicFactsMissingFromDossier("<p>Value $161</p>", "<p>Value $161. 2025 was strong.</p>")).toEqual([]);
   });
 
   it("outlines the same base-case cell in both sensitivity grids", () => {

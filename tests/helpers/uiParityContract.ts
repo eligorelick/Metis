@@ -113,6 +113,55 @@ function readableDocument(html: string): Window {
   return window;
 }
 
+/**
+ * A document's readable text without whitespace, with the positions where the
+ * original had a break: whitespace, or the start of another element's text.
+ */
+interface ReadableText { text: string; breaks: Set<number> }
+function readableText(window: Window): ReadableText {
+  const breaks = new Set<number>();
+  let text = "";
+  let parent: unknown = null;
+  const walker = window.document.createTreeWalker(window.document.body, 4);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    let pending = node.parentElement !== parent;
+    let wrote = false;
+    for (const char of node.textContent ?? "") {
+      if (/\s/.test(char)) { pending = true; continue; }
+      if (pending) breaks.add(text.length);
+      pending = false;
+      wrote = true;
+      text += char;
+    }
+    if (wrote) parent = node.parentElement;
+    // Trailing whitespace separates this node's text from whatever follows.
+    if (pending && wrote) breaks.add(text.length);
+  }
+  return { text, breaks };
+}
+
+const isDigit = (char: string | undefined): boolean => char !== undefined && char >= "0" && char <= "9";
+const isNumberMark = (char: string | undefined): boolean => char === "." || char === ",";
+
+/**
+ * True when `needle` (whitespace removed) occurs in the text and the occurrence
+ * is not a piece of a longer number: "$161" is not shown by "$1610.00" or
+ * "$161.37", and "61" is not shown by "$161". A break in the original (space
+ * or another element) ends a number, so adjacent cells do not run together.
+ */
+function shownWhole(needle: string, hay: ReadableText): boolean {
+  const numericStart = isDigit(needle[0]), numericEnd = isDigit(needle.at(-1));
+  for (let at = hay.text.indexOf(needle); at !== -1; at = hay.text.indexOf(needle, at + 1)) {
+    const end = at + needle.length;
+    const cutBefore = numericStart && !hay.breaks.has(at) &&
+      (isDigit(hay.text[at - 1]) || (isNumberMark(hay.text[at - 1]) && !hay.breaks.has(at - 1) && isDigit(hay.text[at - 2])));
+    const cutAfter = numericEnd && !hay.breaks.has(end) &&
+      (isDigit(hay.text[end]) || (isNumberMark(hay.text[end]) && !hay.breaks.has(end + 1) && isDigit(hay.text[end + 1])));
+    if (!cutBefore && !cutAfter) return true;
+  }
+  return false;
+}
+
 type ReadableElement = ReturnType<Window["document"]["querySelectorAll"]>[number];
 const rowCells = (row: ReadableElement) => Array.from(row.querySelectorAll("th,td")).map((cell) => normalize(cell.textContent ?? ""));
 
@@ -121,7 +170,9 @@ const rowCells = (row: ReadableElement) => Array.from(row.querySelectorAll("th,t
  * count as shown; hidden and screen-reader-only duplicates do not), that the
  * dossier layout does not render anywhere. Text is compared without
  * whitespace, so the same words in different markup match, and a table row,
- * list item or term pair must appear whole. Two allowances, both stated: the
+ * list item or term pair must appear whole. A number must appear whole too:
+ * a classic figure is not shown by a longer dossier number that merely
+ * contains its digits. Two allowances, both stated: the
  * classic wording in {@link CLASSIC_ONLY_WORDING}, and a classic table row of
  * whole numbers that a dossier row shows cell for cell at more decimals (the
  * sensitivity grid). Returns the missing classic segments; empty means the
@@ -130,10 +181,10 @@ const rowCells = (row: ReadableElement) => Array.from(row.querySelectorAll("th,t
 export function classicFactsMissingFromDossier(classicHtml: string, dossierHtml: string): string[] {
   const squash = (value: string) => value.replace(/\s+/g, "");
   const dossierWindow = readableDocument(dossierHtml);
-  const dossier = squash(dossierWindow.document.body.textContent ?? "");
+  const dossier = readableText(dossierWindow);
   const dossierRows = Array.from(dossierWindow.document.querySelectorAll("tr")).map(rowCells);
   const classicWindow = readableDocument(classicHtml);
-  const absent = (text: string) => text.length >= 2 && !dossier.includes(squash(text));
+  const absent = (text: string) => text.length >= 2 && !shownWhole(squash(text), dossier);
   const worded = (text: string) => CLASSIC_ONLY_WORDING.some(({ pattern }) => pattern.test(text));
   const roundedRow = (row: ReadableElement | null | undefined) => {
     if (!row) return false;
