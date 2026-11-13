@@ -28,7 +28,7 @@ import {
   type DcfAssumptions, type DcfBridge, type DcfYearRow, type ValuationResult,
 } from "@/pipeline/stageB/valuation";
 import type { ManifestEntry } from "@/types/core";
-import { LEASE_EMPTIED_CAPITAL_LEAD, TEMPORARY_EQUITY_REFUSAL_LEAD } from "@/pipeline/stageB/seniorClaims";
+import { gapCauseMatches } from "@/edgar/refusalCauseRead";
 import type { DcfAssumption, FairValue, SensitivityCell, TracedNumber } from "@/report/schema";
 import { FAIR_VALUE_DEGRADED_FIELD } from "@/report/fairValueText";
 import { keylessSubstitutionText, riskFreeSubstitutionText } from "@/report/providerFallback";
@@ -67,14 +67,23 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
  */
 export function dcfWithheldWarnGap(gaps: readonly ManifestEntry[]): ManifestEntry | undefined {
   return gaps.find((g) => g.severity === "warn" && g.field === "valuation.dcf.salesToCapital" &&
-    (g.reason.startsWith(TEMPORARY_EQUITY_REFUSAL_LEAD) || g.reason.startsWith(LEASE_EMPTIED_CAPITAL_LEAD)));
+    // P11 (D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+    gapCauseMatches(g, "investedCapitalClaimWithheld"));
+}
+
+/**
+ * G4: the critical invested-capital gap for missing balance fields, which quotes the net-debt refusal
+ * behind it. P11 (D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+ */
+export function quotesUpstreamNetDebt(critical: ManifestEntry): boolean {
+  return critical.field === "valuation.dcf.salesToCapital" && gapCauseMatches(critical, "investedCapitalBalanceFieldsMissing");
 }
 
 function dcfWithheldReason(gaps: readonly ManifestEntry[]): string | null {
   const critical = gaps.find((g) => g.severity === "critical" && (g.field === "valuation.dcf" || g.field.startsWith("valuation.dcf.")));
   if (critical !== undefined) {
     const upstreamField = critical.field === "valuation.dcf.currency" ? "valuation.currencyConversion"
-      : critical.field === "valuation.dcf.salesToCapital" && critical.reason.startsWith("balance-sheet fields missing") ? "valuation.netDebt" : null;
+      : quotesUpstreamNetDebt(critical) ? "valuation.netDebt" : null;
     const upstream = upstreamField === null ? undefined : gaps.find(g => g.field === upstreamField)?.reason;
     return upstream === undefined ? critical.reason : `${critical.reason}. ${upstream}`;
   }

@@ -37,7 +37,6 @@ import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
 import {
   createFmpClient,
   isPlanLimited,
-  FMP_EMPTY_ARRAY_REASON,
   type FmpPlanLimit,
   type CachedFetchFn,
   type CachedFetchPolicy,
@@ -49,7 +48,7 @@ import {
   type FmpPayload,
   type FmpRawRow,
   FMP_RATE_LIMIT_WAIT_BUDGET_MS,
-  isFmpQuotaReason,
+  isFmpQuotaGap,
 } from "@/providers/fmp";
 import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
 import { annualGeographyFallback, parseAnnualGeography } from "@/edgar/annualGeography";
@@ -150,6 +149,7 @@ import {
   type XbrlSummary,
 } from "@/pipeline/types";
 import { mergeManifest, withoutGapCause } from "@/pipeline/stageA/manifest";
+import { gapCauseMatches } from "@/edgar/refusalCauseRead";
 import type { GapCause } from "@/types/refusalCause";
 import { bankStatementRouting, applyKeylessFallbacks, type KeylessOutcome } from "@/pipeline/keyless";
 
@@ -693,8 +693,9 @@ function rowKey(row: FmpRawRow, field: string): string {
  * the manifest can count it separately instead of inflating the headline gap
  * count on every report. Transport/plan errors keep their original gap.
  */
-function markSegmentationGapExpected<T>(result: FetchResult<T>): FetchResult<T> {
-  if (result.ok || !result.gap.reason.includes(FMP_EMPTY_ARRAY_REASON)) return result;
+export function markSegmentationGapExpected<T>(result: FetchResult<T>): FetchResult<T> {
+  // P3 (P11, D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+  if (result.ok || !gapCauseMatches(result.gap, "fmpEmptyArrayStated")) return result;
   return {
     ok: false,
     gap: {
@@ -1220,7 +1221,8 @@ const UNLINKED_PREDECESSOR = " — its predecessor's annual reports live under a
  * gap says why its 10-K is not read in the registrant's place.
  */
 export function withResolvedPredecessor<T>(result: FetchResult<T>, predecessor: { cik10: string; name: string | null } | null): FetchResult<T> {
-  if (result.ok || predecessor === null || !result.gap.reason.includes(UNLINKED_PREDECESSOR)) return result;
+  // P4 (P11, D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+  if (result.ok || predecessor === null || !gapCauseMatches(result.gap, "secUnlinkedPredecessor")) return result;
   const named = `; its predecessor, ${predecessor.name ?? "the co-registrant"} (CIK ${predecessor.cik10}), was resolved for the XBRL history, but annual-report sections are read only from this registrant's own filings, so they return with its first annual report`;
   // D-229: the predecessor is now linked, so the unlinked-predecessor code is not kept on the new sentence.
   return { ok: false, gap: { ...withoutGapCause(result.gap), reason: result.gap.reason.replace(UNLINKED_PREDECESSOR, named) } };
@@ -1957,7 +1959,7 @@ export function planLimitManifestEntry(
 export function rateLimitedValuationEntry(
   members: ReadonlyArray<readonly [string, FetchResult<unknown>]>,
 ): ManifestEntry | null {
-  const refused = members.filter(([, result]) => !result.ok && isFmpQuotaReason(result.gap.reason));
+  const refused = members.filter(([, result]) => !result.ok && isFmpQuotaGap(result.gap));
   if (refused.length === 0) return null;
   const consensus = refused.some(([label]) => label === "analyst estimates");
   const statements = refused.some(([label]) => label !== "analyst estimates");

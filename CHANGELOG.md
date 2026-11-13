@@ -35,6 +35,23 @@ original versions and bytes; source merge does not deploy or publish a release.
   now; any value other than 0 or 1 is still refused. Exports, saved reports
   and the same-report check output are unchanged.
 
+## Unreleased - The gap and provider checks read the missing-data entry's typed cause (2026-11-12)
+
+- D-242 (P11): twelve checks that decided by the wording of a missing-data
+  entry (which DCF gap names a withheld value, a temporary-equity refusal, the
+  FMP rate limit, an empty response, a missing key, an unlisted ticker, an
+  unlinked predecessor, a refused peer symbol) now decide by the entry's typed
+  cause, and by the old wording test only for an entry that has none (every
+  saved report and run-input snapshot). The wording tests live only in
+  `src/edgar/refusalCauseRead.ts`. FMP's empty profile with the public
+  fallback's failure appended now carries its own code, so the "unknown
+  ticker" check keeps today's answer for it. Nothing a reader sees or a model
+  receives changes: the 17 same-report cases are byte-identical, the frozen
+  records and request-schema hashes are unchanged, and no version stamp moves.
+- The planned stored link between a copied refusal and its source (D-243) was
+  not built: it cannot keep every decision unchanged when a source sentence is
+  reworded (D-242 explains); the saved-report readers (D-244) were not started.
+
 ## Unreleased - Trailing net income behind FCF conversion read from the filings (2026-11-12)
 
 - The "Current capital" block divides trailing free cash flow by consolidated

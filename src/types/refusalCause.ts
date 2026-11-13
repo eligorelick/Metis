@@ -87,8 +87,9 @@ export const DUAL_WRITTEN_CONFLICT_CAUSES: ReadonlySet<StatementConflictCause> =
  *
  * Each member names a cause that a run-time reader already tells apart by the
  * entry's wording (the inventory's G and P sites); no member is a new
- * distinction. Step S4.5a dual-writes them beside the unchanged sentences and no
- * reader decides by them yet. An entry without a code (any saved report, run
+ * distinction. Step S4.5a dual-writes them beside the unchanged sentences; since
+ * D-242 the G1-G5, P1-P5 and P7a readers decide by them
+ * (`gapCauseMatches`, `@/edgar/refusalCauseRead`). An entry without a code (any saved report, run
  * input snapshot or frozen record made before D-229, or a writer that has none)
  * is unresolved: it is read by its sentence as before and is never taken to be
  * any member of this list. A writer that rewrites an entry's sentence keeps a
@@ -112,6 +113,14 @@ export const GAP_CAUSES = [
   "fmp-quota",
   /** P2, P3, P5: `FMP_EMPTY_ARRAY_REASON`, a 200 response with an empty array. */
   "fmp-empty-array",
+  /**
+   * P3, P5 (D-242): FMP's empty array with the public fallback's own failure appended
+   * (`failKeyless`, `pipeline/keyless.ts`). The sentence still states the empty array (P3's
+   * containment test passes), but the confirmed-miss check (P5's `=== FMP_EMPTY_ARRAY_REASON`)
+   * never passed on it: the issuer was looked for elsewhere and that search failed, which is not
+   * an affirmative "no such ticker".
+   */
+  "fmp-empty-array-fallback-failed",
   /** P5: "no API key + no fixture" from the FMP client. */
   "fmp-no-api-key",
   /** P7a: an `FmpAccessError` of symbol scope ("this symbol is unavailable on this endpoint with this key"). */
