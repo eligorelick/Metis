@@ -34,14 +34,20 @@
  * parents' ranges (^1.1.7, ^5.0.5); only those two lock entries changed, and
  * the projection was re-run against the new tree under Node 24 before the pin
  * moved. Roll the pin forward again only with the same evidence.
- * The Metis rebrand and license transition keep this historical pin: three
- * guarded package-name fields and two first-party license fields are restored
+ * The Metis rebrand and license transition keep this historical pin: two
+ * guarded package-name fields and the first-party license field are restored
  * to historical values before hashing. Dependency/version/integrity/license
  * bytes and historical evidence remain pinned.
- * D-138 Task 12 first proves the exact current security-tooling lock and
- * reverses its eleven counted nodes to exact pre-task bytes in memory. The
- * published comparison pin, generator identity and five-field normalization
- * below remain unchanged; no installed dependency is rolled back.
+ * Rolled forward a fifth time on 2026-11-12 (D-230) when the two lint
+ * workaround packages, scripts/next-eslint-glob and scripts/legacy-minimatch,
+ * were removed: their two first-party lock entries went, ESLint went back to
+ * upstream fast-glob 3.3.1 and minimatch 3.1.5, and nothing outside lint
+ * tooling changed. The previous pin, 76cc4d445212431bd8f10eab94eb8bc464a6945d,
+ * was reached through the D-138 Task 12 exact-byte inverse of the lint
+ * minimatch change; that inverse described only the removed package's lock
+ * entries, so it went with them. The projection below is recomputed from
+ * current source and fixtures on every run and still matched the audited
+ * baseline byte for byte under Node 24 before the pin moved.
  */
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
@@ -49,7 +55,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { restoreQcom53Task12Lock } from "./helpers/qcom53Task12Lock";
 import { restoreCapexBasisGolden } from "./helpers/capexBasisGolden";
 import { assertFrozenLog, expectFrozenRecord, readFrozenLog, readFrozenRecord, type FrozenJson } from "./helpers/frozenRecord";
 
@@ -161,30 +166,21 @@ function comparisonLockBlob(source: string): string {
     name: string;
     packages: Record<string, { name?: string; license?: string }>;
   };
-  if (
-    lock.name !== "metis" ||
-    lock.packages[""]?.name !== "metis" ||
-    lock.packages["scripts/next-eslint-glob"]?.name !== "@metis/next-eslint-glob"
-  ) {
+  if (lock.name !== "metis" || lock.packages[""]?.name !== "metis") {
     throw new Error("unexpected canonical package-lock branding metadata");
   }
-  if (
-    lock.packages[""]?.license !== "SEE LICENSE IN LICENSE" ||
-    lock.packages["scripts/next-eslint-glob"]?.license !== "SEE LICENSE IN ../../LICENSE"
-  ) {
+  if (lock.packages[""]?.license !== "SEE LICENSE IN LICENSE") {
     throw new Error("unexpected canonical package-lock first-party license metadata");
   }
   const newline = source.includes("\r\n") ? "\r\n" : "\n";
   const serialize = () => JSON.stringify(lock, null, 2).replaceAll("\n", newline) + newline;
   // Prove parsing/stringifying loses or normalizes no bytes before editing
-  // the five explicit field paths; arbitrary formatting drift stays rejected.
+  // the three explicit field paths; arbitrary formatting drift stays rejected.
   if (serialize() !== source) throw new Error("package-lock formatting drift");
   lock.name = "thesis";
   lock.packages[""].name = "thesis";
-  lock.packages["scripts/next-eslint-glob"].name = "@thesis/next-eslint-glob";
   // Historical comparison metadata only; current license terms stay in LICENSE.
   lock.packages[""].license = "MIT";
-  lock.packages["scripts/next-eslint-glob"].license = "MIT";
   return execFileSync("git", ["hash-object", "--stdin", "--path=package-lock.json"], {
     cwd: ROOT,
     encoding: "utf8",
@@ -217,17 +213,15 @@ describe("Task 32 provider-free historical fixture comparison", () => {
       expect(comparisonLockBlob(JSON.stringify(changed, null, 2) + "\n")).not.toBe(expected);
     }
     const unexpectedBrand = JSON.parse(source);
-    unexpectedBrand.packages["scripts/next-eslint-glob"].name = "@other/next-eslint-glob";
+    unexpectedBrand.packages[""].name = "other";
     expect(() => comparisonLockBlob(JSON.stringify(unexpectedBrand, null, 2) + "\n")).toThrow(
       /unexpected canonical package-lock branding/,
     );
-    for (const entry of ["", "scripts/next-eslint-glob"]) {
-      const unexpectedLicense = JSON.parse(source);
-      unexpectedLicense.packages[entry].license = "unexpected";
-      expect(() => comparisonLockBlob(JSON.stringify(unexpectedLicense, null, 2) + "\n")).toThrow(
-        /unexpected canonical package-lock first-party license/,
-      );
-    }
+    const unexpectedLicense = JSON.parse(source);
+    unexpectedLicense.packages[""].license = "unexpected";
+    expect(() => comparisonLockBlob(JSON.stringify(unexpectedLicense, null, 2) + "\n")).toThrow(
+      /unexpected canonical package-lock first-party license/,
+    );
     expect(() => comparisonLockBlob(source + " ")).toThrow(/formatting drift/);
   });
 
@@ -270,7 +264,9 @@ describe("Task 32 provider-free historical fixture comparison", () => {
         // historical source/fixture hashes and projection remain pinned.
         // 2026-10-25: happy-dom 21.0.4 and zod 4.6.6 security patches.
         // Exact financial delta contract replayed unchanged before this pin moved.
-        comparisonPackageLockBlob: "76cc4d445212431bd8f10eab94eb8bc464a6945d",
+        // 2026-11-12 (D-230): lint workaround packages removed; was
+        // 76cc4d445212431bd8f10eab94eb8bc464a6945d via the Task 12 inverse.
+        comparisonPackageLockBlob: "6d6c85343416e7692da93c5e2c2769e87e04c8fd",
         generationNode: "v24.11.1",
         generationNpm: "11.6.2",
         command:
@@ -284,7 +280,7 @@ describe("Task 32 provider-free historical fixture comparison", () => {
       "src/report/schema.ts": "891d66275b154aa2b4f1f1b32961382eaa0e72ad",
     });
     expect(
-      comparisonLockBlob(restoreQcom53Task12Lock(readFileSync(path.join(ROOT, "package-lock.json"), "utf8"))),
+      comparisonLockBlob(readFileSync(path.join(ROOT, "package-lock.json"), "utf8")),
     ).toBe(baseline.provenance.generator.comparisonPackageLockBlob);
     expect(sha256File(GENERATOR_PATH)).toBe(
       baseline.provenance.generator.helperSha256,
