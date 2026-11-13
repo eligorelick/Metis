@@ -65,7 +65,7 @@ import { defaultDataDir } from "@/db/paths";
 /** The only script header that carries the startup token. */
 export const REQUEST_TOKEN_HEADER = "x-metis-token";
 /**
- * Retired header (D-227, P26). It is never read as a credential; a request
+ * Retired header (D-228, P26). It is never read as a credential; a request
  * that carries only this header is refused with a reason naming the canonical
  * header, so an old client learns what to change instead of failing silently.
  */

@@ -1,7 +1,7 @@
 /**
- * D-227 parity table: every setting, with blank, padded, valid, boundary and
+ * D-228 parity table: every setting, with blank, padded, valid, boundary and
  * invalid values, evaluated by a given parser. The frozen expectation
- * (tests/fixtures/config-parity-before-d227.json) was produced by running this
+ * (tests/fixtures/config-parity-before-d228.json) was produced by running this
  * exact table against main at e55519ce, before the THESIS_ aliases were
  * retired, so a clean METIS_-only environment is proved to parse exactly as it
  * did. The parser is passed in, so this file imports no application code.

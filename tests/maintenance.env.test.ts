@@ -80,7 +80,7 @@ describe("maintenance CLI environment", () => {
     } finally { rmSync(directory, { recursive: true, force: true }); }
   }, 2 * CHILD_TIMEOUT_MS + CLI_TEST_OVERHEAD_MS);
 
-  it("stops settings:reset on a retired THESIS_ name in .env and resets neither database (D-227)", () => {
+  it("stops settings:reset on a retired THESIS_ name in .env and resets neither database (D-228)", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "metis-cli-env-"));
     const canonical = path.join(directory, "canonical.db");
     const legacy = path.join(directory, "legacy.db");
@@ -120,7 +120,7 @@ describe("maintenance CLI environment", () => {
     } finally { rmSync(directory, { recursive: true, force: true }); }
   }, CHILD_TIMEOUT_MS + CLI_TEST_OVERHEAD_MS);
 
-  it("stops costs:reconcile on a retired THESIS_ spend setting before opening any database (D-227)", () => {
+  it("stops costs:reconcile on a retired THESIS_ spend setting before opening any database (D-228)", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "metis-cost-stale-"));
     const configured = path.join(directory, "configured.db");
     try {

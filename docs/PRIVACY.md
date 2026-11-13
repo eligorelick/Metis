@@ -202,7 +202,7 @@ or overwritten by the rebrand.
 `METIS_DB_PATH` overrides the file; `METIS_DATA_DIR` overrides the directory.
 SQLite writes `-wal` and `-shm` siblings beside whichever database is active.
 Old `THESIS_*` setting names are no longer read; one that is still set stops
-startup with an error naming its `METIS_*` replacement (D-227). See
+startup with an error naming its `METIS_*` replacement (D-228). See
 [compatibility](BRAND.md#compatibility).
 
 On Windows, `APPDATA` is the fallback if `LOCALAPPDATA` is unavailable. Blank

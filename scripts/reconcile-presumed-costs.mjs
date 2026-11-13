@@ -98,7 +98,7 @@ export async function fetchCostReport(adminKey, startTime, endTime, fetchImpl = 
 
 async function main(argv) {
   loadMaintenanceEnv();
-  // D-227: refuse retired Thesis-era setting names before any database or paid-account read.
+  // D-228: refuse retired Thesis-era setting names before any database or paid-account read.
   const { assertNoStaleSettings } = await import("../src/config/namespace.ts");
   assertNoStaleSettings();
   const write = argv.includes("--write");

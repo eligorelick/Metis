@@ -139,7 +139,7 @@ assignment counts as set, and a blank value means the built-in default.
 
 ### Settings names
 
-Only `METIS_*` names configure Metis (D-227). The `THESIS_*` names that were
+Only `METIS_*` names configure Metis (D-228). The `THESIS_*` names that were
 accepted as aliases after the rebrand are no longer read. If any of them is
 still set, in `.env`, a launcher or the shell, even to a blank value, the
 server refuses to start and every script that reads a setting stops, with one
@@ -398,6 +398,29 @@ spend and can read the admin cost report; `--write` applies conservative downwar
 reconciliation, not a new report. `audit:deltas` compares offline fixtures;
 `--write --group <name>` records newly classified changes, whose reason must be
 reviewed. Regenerating deltas is not evidence that a financial change is correct.
+
+Two frozen records under `tests/fixtures/frozen/` pin today's output of the
+offline fixtures leaf by leaf: `stagec-payload-current.json` (the Stage C
+payload, finance, projection periods, both registries, prompt bytes and
+fingerprint) and `audit-fixture-current.json` (the DEMO Stage B and report
+projection). A test that rebuilds either and finds a difference lists each
+changed leaf. Re-record only after reviewing that list, one target at a time:
+
+```powershell
+npm run freeze:refresh -- --target stagec-payload --decision D-123 --scope '$.finance.valuation,$.payload.computed' --reason '<why exactly these leaves changed>'
+```
+
+`--target` is `stagec-payload` or `audit-fixture`. The decision must be a
+`D-nnn` entry in `docs/audit/DECISIONS.md`, the reason at least 60 characters,
+and `--scope` the leaf-path prefixes expected to change. Key order is part of
+the record: a reordered object reports each moved key as a changed path, and a
+reordered array reports each moved index, alongside any value change. The
+refresh is refused when any changed path lies outside the scope, when the
+scope is the whole record, when nothing changed, or under CI; a normal test run
+never sets its variables. Each refresh appends date, decision, reason, scope, before/after
+hash and changed paths to `tests/fixtures/frozen/refresh-log.json`, and a test
+requires the log's last entry to match each committed record, so a hand edit or
+an unlogged re-record fails. Commit the record and its log entry together.
 
 ## Verification and troubleshooting
 

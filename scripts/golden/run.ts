@@ -108,7 +108,7 @@ function materializeCommit(commit: string): string {
 }
 
 function defaultDbPath(): string {
-  // metisEnv refuses retired Thesis-era setting names (D-227); workers get a stripped env (workerEnv).
+  // metisEnv refuses retired Thesis-era setting names (D-228); workers get a stripped env (workerEnv).
   const explicit = metisEnv("DB_PATH")?.trim();
   if (explicit) return explicit;
   const dataDir = metisEnv("DATA_DIR")?.trim() || (() => {

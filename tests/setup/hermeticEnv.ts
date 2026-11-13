@@ -3,7 +3,7 @@
  * An ambient METIS_TOKEN_FILE, METIS_DB_PATH or METIS_ALLOWED_HOST once
  * overrode the test's own setting, failed the request-guard and cache suites,
  * and wrote into the owner's paths (2026-10-22 audit, GATE-1); an ambient
- * retired THESIS_ name would now refuse every config read (D-227). Every test
+ * retired THESIS_ name would now refuse every config read (D-228). Every test
  * file starts with no METIS_ or THESIS_ variable; the launching values return
  * after the file.
  */

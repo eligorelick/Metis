@@ -2,7 +2,7 @@
  * The one owner of how Metis settings are read from the environment.
  *
  * Only `METIS_*` names configure the app. The `THESIS_*` names that used to be
- * accepted as aliases are RETIRED (DECISIONS D-227, revising the alias
+ * accepted as aliases are RETIRED (DECISIONS D-228, revising the alias
  * promise of the rename). A retired name that is still present, set to
  * anything including blank, is refused rather than ignored: ignoring it would,
  * for example, drop an operator's `THESIS_RESUME_ON_START=0` and let queued
@@ -31,7 +31,7 @@
  *    has no retired names to refuse and runs unchanged.
  */
 
-/** Each setting suffix that, before D-227, also answered to a `THESIS_<suffix>` alias. */
+/** Each setting suffix that, before D-228, also answered to a `THESIS_<suffix>` alias. */
 export const RETIRED_ALIAS_SUFFIXES = [
   "STATEMENT_SOURCE", "JUDGE_ORDER", "MAX_ACTIVE_JOBS", "MAX_ACTIVE_LLM_CALLS",
   "MAX_JOB_COST_USD", "MAX_ROLLING_COST_USD", "RESERVATION_MODE", "STREAM_IDLE_SECONDS",

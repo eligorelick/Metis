@@ -17,7 +17,7 @@ describe("reversible dossier layout", () => {
     expect(parseEnv({ METIS_UI_REDESIGN: "0" })).toHaveProperty("uiRedesign", false);
   });
 
-  it("uses the existing strict binary flag; the retired THESIS_ name is refused, not read (D-227)", () => {
+  it("uses the existing strict binary flag; the retired THESIS_ name is refused, not read (D-228)", () => {
     expect(() => parseEnv({ METIS_UI_REDESIGN: "true" })).toThrow();
     expect(parseEnv({ METIS_UI_REDESIGN: " 1 " })).toHaveProperty("uiRedesign", true);
     expect(() => parseEnv({ THESIS_UI_REDESIGN: "1" })).toThrow(/THESIS_UI_REDESIGN -> METIS_UI_REDESIGN/);

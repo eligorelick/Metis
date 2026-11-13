@@ -17,6 +17,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { Worker } from "node:worker_threads";
 import { eq } from "drizzle-orm";
@@ -11187,6 +11188,77 @@ describe("immutable normalized run input persistence", () => {
       vi.restoreAllMocks(); vi.unstubAllEnvs();
       rmSync(directory, { recursive: true, force: true });
     }
+  });
+
+  // P27, D-227: a newly built report records the verified identity of the
+  // build that assembled it; without one the field is omitted, and a linked
+  // verify artifact keeps its own record.
+  const withVerifiedBuild = async <T,>(run: (manifest: ReturnType<typeof createRuntimeArtifactManifest>) => Promise<T>, tamper = false): Promise<T> => {
+    const directory = mkdtempSync(join(tmpdir(), "metis-report-code-identity-"));
+    try {
+      const distDir = join(directory, ".next");
+      mkdirSync(join(distDir, "server"), { recursive: true });
+      writeFileSync(join(distDir, "BUILD_ID"), "report-build");
+      writeFileSync(join(distDir, "server", "compute.js"), "compiled calculation");
+      const manifest = createRuntimeArtifactManifest({ distDir, buildId: "report-build", methodArtifactBytes: "method", dependencyLockBytes: "lock", codeCommit: "c".repeat(40), dirtyDiffBytes: "diff" });
+      writeFileSync(join(distDir, "runtime-artifact-identity.json"), JSON.stringify(manifest));
+      if (tamper) writeFileSync(join(distDir, "server", "compute.js"), "changed after build");
+      vi.spyOn(process, "cwd").mockReturnValue(directory);
+      vi.stubEnv("METIS_RUNTIME_BUILD_ID", "report-build");
+      return await run(manifest);
+    } finally {
+      vi.restoreAllMocks(); vi.unstubAllEnvs();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  };
+  const storedMeta = (reportId: number) =>
+    ReportSchema.parse(JSON.parse(handle.db.select().from(reports).where(eq(reports.id, reportId)).get()!.reportJson!)).meta;
+  const sha = (text: string) => createHash("sha256").update(text).digest("hex");
+
+  it.each([true, false])("D-227 records the verified build's code identity on a newly built report (analysis=%s)", async (hasAnthropicKey) => {
+    await withVerifiedBuild(async (manifest) => {
+      const { jobId } = createJob("AAPL");
+      const result = await runJob(jobId, mockPasses().passes, { bundle: fakeBundle(), hasAnthropicKey, now: NOW });
+      expect(result.status).toBe("done");
+      expect(result.dataOnly).toBe(!hasAnthropicKey);
+      expect(storedMeta(result.reportId!).codeIdentity).toEqual({
+        codeCommit: "c".repeat(40),
+        dirtyDiffHash: sha("diff"),
+        methodDocumentHash: sha("method"),
+        compiledArtifactHash: sha(JSON.stringify(manifest.artifacts)),
+        methodArtifactHash: manifest.identity.methodArtifactHash,
+        dependencyLockHash: sha("lock"),
+      });
+    });
+  });
+
+  it.each([true, false])("D-227 omits the code identity without a verified build (analysis=%s)", async (hasAnthropicKey) => {
+    const { jobId } = createJob("AAPL");
+    const result = await runJob(jobId, mockPasses().passes, { bundle: fakeBundle(), hasAnthropicKey, now: NOW });
+    expect(result.status).toBe("done");
+    expect("codeIdentity" in storedMeta(result.reportId!)).toBe(false);
+    // Build evidence that no longer matches its compiled bytes is no identity either.
+    await withVerifiedBuild(async () => {
+      const { jobId: tampered } = createJob("MSFT");
+      const run = await runJob(tampered, mockPasses().passes, { bundle: fakeBundle(), hasAnthropicKey, now: NOW });
+      expect(run.status).toBe("done");
+      expect("codeIdentity" in storedMeta(run.reportId!)).toBe(false);
+    }, true);
+  });
+
+  it("D-227 linking a recovered verify artifact keeps that artifact's own code identity record", async () => {
+    await withVerifiedBuild(async () => {
+      const { jobId } = createJob("AAPL");
+      const snapshot = captureRunInputSnapshot(fakeBundle(), { evIncludeLeases: false });
+      persistRunInputSnapshot(jobId, 0, snapshot, NOW().toISOString());
+      persistPassSettlement({ jobId, runGeneration: 0, attemptId: "code-identity-verify", pass: "verify",
+        settlement: testSuccessSettlement({ data: fakeReport(fakeJudgeOutput()), model: "deterministic", costUsd: 0, fallbackUsed: false }, false),
+        payloadFingerprint: null, settledAt: NOW().toISOString() });
+      handle.db.update(jobs).set({ status: "error", error: "report link interrupted", runGeneration: 0, resumeSourceGeneration: null }).where(eq(jobs.id, jobId)).run();
+      const result = await runJob(jobId, mockPasses().passes, { now: NOW, resume: true });
+      expect(result.status).toBe("done");
+      expect("codeIdentity" in storedMeta(result.reportId!)).toBe(false);
+    });
   });
 
   it.each([0, 1])("JOB-207 retains the effective verify generation inputs (source=%s)", async (generation) => {

@@ -9,7 +9,7 @@ import { assertNoStaleSettings } from "../src/config/namespace";
 type ReplayFunction = typeof import("../src/pipeline/replayRunInput").replayRunInputSnapshot;
 
 async function main(args: string[]): Promise<void> {
-  // D-227: refuse retired Thesis-era setting names even on the --snapshot path, which reads no setting.
+  // D-228: refuse retired Thesis-era setting names even on the --snapshot path, which reads no setting.
   assertNoStaleSettings();
   const allowed = new Set(["--snapshot", "--hash", "--job", "--generation", "--output", "--export-snapshot", "--method-artifact", "--dependency-lock", "--dirty-diff", "--code-commit", "--runtime-build", "--trust-local-build"]);
   const options = new Map<string, string>();

@@ -30,7 +30,7 @@ it("DOC-203 a copied example keeps a shell startup hold and exact USD caps", () 
   expect(config.maxRollingCostUsd).toBe(20);
 });
 
-it("D-227 an .env that still carries retired THESIS_ lines is refused, naming each replacement and no value", () => {
+it("D-228 an .env that still carries retired THESIS_ lines is refused, naming each replacement and no value", () => {
   for (const key of Object.keys(process.env)) if (/^(METIS|THESIS)_/.test(key)) vi.stubEnv(key, undefined);
   let thrown: unknown;
   try {

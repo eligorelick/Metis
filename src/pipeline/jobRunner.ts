@@ -99,7 +99,7 @@ import { FMP_EMPTY_ARRAY_REASON } from "@/providers/fmp";
 import { isValidSymbol } from "@/symbol";
 import { runStageB, type ComputedMetrics } from "@/pipeline/compute";
 import { captureRunInputSnapshot, CURRENT_SNAPSHOT_VERSIONS } from "@/pipeline/runInputSnapshot";
-import { getRuntimeSnapshotArtifactIdentity } from "@/pipeline/runtimeArtifactIdentity";
+import { getRuntimeReportCodeIdentity, getRuntimeSnapshotArtifactIdentity } from "@/pipeline/runtimeArtifactIdentity";
 import { persistRunInputSnapshot, readJobRunSnapshotRef, readRunInputSnapshot } from "@/pipeline/runInputSnapshotStore";
 import { validateBundle, type ValidationReport } from "@/pipeline/stageA/validate";
 import { sourceManifestEntries, type DataBundle } from "@/pipeline/types";
@@ -177,6 +177,7 @@ import {
   type RemainingPaidWork,
 } from "@/pipeline/paidRunBudget";
 import { EVIDENCE_CONTRACT_VERSION } from "@/report/evidenceContract";
+import { withCodeIdentity, type ReportCodeIdentity } from "@/report/codeIdentity";
 
 /* ------------------------------------------------------------------------ *
  * PipelinePasses — injected Stage C contract (loose/structural types)
@@ -3760,6 +3761,9 @@ export async function runJob<TPayload = unknown>(
 
         // Success for this attempt — synthesis already completed before verify.
         void verifyError;
+        // P27, D-227: the build that assembled this report, after every pass
+        // (never part of a request); omitted without a verified build identity.
+        report = withCodeIdentity(report, getRuntimeReportCodeIdentity());
         assembled = { report, verificationRate, verifyLog, meta, costBreakdown };
         break;
       }
@@ -4583,6 +4587,7 @@ function persistDataOnly(
     execution: disclosure.execution ?? readSuccessfulExecutions(state.jobId, model, true),
     gaps: [...(disclosure.gaps ?? []), ...discardedAttemptGaps(state, { dataOnly: true })],
     reason: disclosure.reason ?? (hasKey ? LLM_FAILURE_DATA_ONLY_REASON : NO_KEY_SKIP_REASON),
+    codeIdentity: getRuntimeReportCodeIdentity(),
   };
   const report = buildDataOnlyReport(dataOnlyInput);
   const validated = ReportSchema.safeParse(report);
@@ -5406,6 +5411,11 @@ interface DataOnlyInput {
    * refused (DECISIONS D-02).
    */
   execution?: ExecutionMetadataEntry[];
+  /**
+   * P27, D-227: the verified identity of the build assembling the report;
+   * absent without one, and then `meta.codeIdentity` is omitted.
+   */
+  codeIdentity?: ReportCodeIdentity;
 }
 
 /**
@@ -5612,8 +5622,8 @@ export function buildDataOnlyReport(input: DataOnlyInput): Report {
     },
     disagreements: [],
   };
-  if (computed === null) return report;
-  return enrichDataOnlyReport(report, { bundle, computed, reason: input.reason });
+  if (computed === null) return withCodeIdentity(report, input.codeIdentity);
+  return withCodeIdentity(enrichDataOnlyReport(report, { bundle, computed, reason: input.reason }), input.codeIdentity);
 }
 
 function naScore(): Report["quality"]["forensicScores"]["altman"] {

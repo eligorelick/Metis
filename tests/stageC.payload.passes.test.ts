@@ -6,6 +6,7 @@ import { restorePublicPolishGolden } from "./helpers/publicPolishGolden";
 import { restoreP2DcfInputsGolden } from "./helpers/p2DcfInputsGolden";
 import { restoreR2FigurePayloadGolden } from "./helpers/r2FigurePayloadGolden";
 import { restoreR9SbcBasisGolden } from "./helpers/r9SbcBasisPayloadGolden";
+import { expectFrozenRecord, promptDigest, toFrozenJson, type FrozenJson } from "./helpers/frozenRecord";
 /**
  * Stage C tests — payload assembly determinism + provenance, prompt rule blocks,
  * verify-pass tracing, report assembly + schema validation + retry-on-zod, and a
@@ -1852,6 +1853,88 @@ describe("payload determinism + provenance", () => {
       // D-107: the grouped EV digits and the grid guard wording, restored above.
       // Audit batch 4 (D-112): the P/E basis and the Stage B multiples' period
       // leaves, restored above for the preceding pin; no value moves.
+      financeHash: "05d61d6c",
+    });
+  });
+
+  // P27 freeze (round 2, S4.7a): today's UN-restored payload, finance and
+  // registries as a committed leaf-level record. Every dimension the
+  // historical pin above hashes is here, read from buildInputs() with no
+  // restore step: finance (scores, projections, valuation, fair value,
+  // scenario targets), the projection path/period matrix and its order, the
+  // computed figure-label matrix, both registries record by record, the
+  // whole payload (strings over 4,000 characters as a digest), the prompt's
+  // bytes and hash per section, and the fingerprint. The same-named
+  // fnv1a32 summary values are computed exactly as the historical block
+  // computes them, on today's values. Refresh only through
+  // `npm run freeze:refresh` (docs/OPERATIONS.md).
+  const stageCFrozenRecord = ({ computed, payload }: ReturnType<typeof buildInputs>): FrozenJson => {
+    const paths = ["historical", "bull", "base", "bear", "weighted"] as const;
+    const prompt = serializePayloadForPrompt(payload);
+    const computedFigureLabelMatrix = payload.computed.map((section) => section.figures.map((figure) => figure.label));
+    const projectionPathPeriodMatrix = computed.projections.series.flatMap((series) =>
+      paths.map((path) => ({ metric: series.metric, path, periods: series[path].map((point) => point.period) })));
+    const finance = {
+      scores: computed.scores,
+      projections: computed.projections,
+      valuation: computed.valuation,
+      fairValue: computed.fairValue,
+      scenarioTargets: computed.scenarioTargets,
+    };
+    const { provenanceRegistry, citationRegistry, ...payloadRest } = payload;
+    return toFrozenJson({
+      fixture: "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
+      payloadVersion: payload.payloadVersion,
+      fingerprint: payloadFingerprint(payload),
+      summary: {
+        promptBytes: Buffer.byteLength(prompt, "utf8"),
+        promptFnv1a32: fnv1a32(prompt),
+        provenanceCount: (provenanceRegistry ?? []).length,
+        provenanceHash: fnv1a32(JSON.stringify(provenanceRegistry ?? [])),
+        provenanceIdsHash: fnv1a32(JSON.stringify((provenanceRegistry ?? []).map((entry) => entry.id))),
+        citationCount: (citationRegistry ?? []).length,
+        citationHash: fnv1a32(JSON.stringify(citationRegistry ?? [])),
+        computedFigureLabelHash: fnv1a32(JSON.stringify(computedFigureLabelMatrix)),
+        projectionPathPeriodHash: fnv1a32(JSON.stringify(projectionPathPeriodMatrix)),
+        financeHash: fnv1a32(JSON.stringify(finance)),
+      },
+      prompt: promptDigest(prompt),
+      projectionPathPeriodMatrix,
+      computedFigureLabelMatrix,
+      finance,
+      provenanceRegistry: provenanceRegistry ?? null,
+      citationRegistry: citationRegistry ?? null,
+      payload: payloadRest,
+    });
+  };
+
+  it("pins today's un-restored Stage C payload, registries, finance and periods to the frozen record (P27)", () => {
+    expectFrozenRecord("stagec-payload", stageCFrozenRecord(buildInputs()));
+    expectFrozenRecord("stagec-payload", stageCFrozenRecord(buildFreshInputs()));
+  });
+
+  // P27 equivalence proof. Remove together with the historical pin above in
+  // the slimming step. On one built object: today's output equals the frozen
+  // record, AND the historical restore chain on that same object still
+  // reproduces the historical pin's closing values (its intermediate
+  // preceding-version hashes are proved by the unchanged test above on the
+  // same commit). Hence old validated payload + reviewed changes == frozen.
+  it("proves the historical restore chain and the frozen record describe the same output (P27 equivalence)", () => {
+    const today = buildInputs();
+    expectFrozenRecord("stagec-payload", stageCFrozenRecord(structuredClone(today)));
+    const { computed, payload } = restoreB6Golden(restoreQcom53Task4Golden(restoreQcom53Task11Golden(restoreResearchReliabilityGolden(restoreB4bEquityMethodGolden(restoreP2DcfInputsGolden(restoreN4aGolden(restoreR6InsiderCoverageGolden(restoreR8EvidenceBasisGolden(restoreR9SbcBasisGolden(restoreQ1PersonTradesGolden(restorePublicPolishGolden(restoreCurrentValuationPolicyGolden(restoreExpeReport1ScopeGolden(restoreEvidenceRemediationGolden(today)))))))))))))));
+    const restored = stageCFrozenRecord({ ...today, computed, payload }) as { fingerprint: string; summary: Record<string, unknown> };
+    expect({ fingerprint: restored.fingerprint, ...restored.summary }).toEqual({
+      fingerprint: "1.53.0:e5c9eae4",
+      promptBytes: 144_691,
+      promptFnv1a32: "e5c9eae4",
+      provenanceCount: 531,
+      provenanceHash: "d39061ff",
+      provenanceIdsHash: "fe7c2621",
+      citationCount: 76,
+      citationHash: "d1514dcc",
+      computedFigureLabelHash: "ec8c7355",
+      projectionPathPeriodHash: "fb9c4bf0",
       financeHash: "05d61d6c",
     });
   });

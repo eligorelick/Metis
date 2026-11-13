@@ -397,7 +397,7 @@ export function getConfig(): ThesisConfig {
   const signature = JSON.stringify({ credentials, unreadable });
   if (cached === undefined || signature !== credentialSignature) {
     // Resolve native env lookups before copying: Windows keys are case-insensitive.
-    // The projection refuses retired Thesis-era setting names on process.env itself (D-227).
+    // The projection refuses retired Thesis-era setting names on process.env itself (D-228).
     cached = parseEnv({ ...projectMetisSettings(process.env, Object.keys(envSchema.shape)), ...credentials, ...(unreadable ? { ANTHROPIC_API_KEY: undefined, ANTHROPIC_ADMIN_KEY: undefined } : {}) });
     credentialSignature = signature;
   }

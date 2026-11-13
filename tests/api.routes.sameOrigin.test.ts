@@ -5,7 +5,7 @@
  * proves at the route level that a provably cross-site browser request is
  * rejected with 403 BEFORE any work happens — no job row, no runJob dispatch,
  * no settings/watchlist writes. A request carrying neither Fetch Metadata nor
- * Origin now needs the startup `X-Metis-Token` (D-21; the old `X-Thesis-Token` is refused since D-227); browsers never do,
+ * Origin now needs the startup `X-Metis-Token` (D-21; the old `X-Thesis-Token` is refused since D-228); browsers never do,
  * because they always send one of the two.
  *
  * Route harness mirrors tests/api.routes.report.test.ts: handlers imported
@@ -954,7 +954,7 @@ describe("request-wide proxy", () => {
       expect(existsSync(requestTokenPath())).toBe(false);
       const minted = ensureRequestToken().token;
       expect(requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: minted }))).toBe(true);
-      // D-227 (P26): the retired header is never a credential, even carrying the minted token.
+      // D-228 (P26): the retired header is never a credential, even carrying the minted token.
       expect(requestCarriesToken(lanRequest("/company/AAPL", { "x-thesis-token": minted }))).toBe(false);
       expect(
         requestCarriesToken(lanRequest("/company/AAPL", { [REQUEST_TOKEN_HEADER]: "bad", "x-thesis-token": minted })),

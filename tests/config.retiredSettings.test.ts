@@ -1,5 +1,5 @@
 /**
- * D-227 (P23, P24, P26): only METIS_ names configure Metis. Every former
+ * D-228 (P23, P24, P26): only METIS_ names configure Metis. Every former
  * THESIS_ alias is refused, naming its replacement and never its value; a
  * clean METIS_-only environment parses exactly as it did before the aliases
  * were retired; and no src file reads a THESIS_ environment name.
@@ -26,7 +26,7 @@ function thrown(fn: () => unknown): unknown {
   return undefined;
 }
 
-describe("retired THESIS_ names are refused (D-227)", () => {
+describe("retired THESIS_ names are refused (D-228)", () => {
   it("covers exactly the names main accepted as aliases: every METIS_ schema key plus the four out-of-schema settings", async () => {
     const { envSchemaKeys } = (await import(pathToFileURL(path.join(ROOT, "scripts", "docs-config.mjs")).href)) as {
       envSchemaKeys: (source: string) => string[];
@@ -79,9 +79,9 @@ describe("retired THESIS_ names are refused (D-227)", () => {
   });
 });
 
-describe("a clean METIS_-only environment parses exactly as before (D-227)", () => {
+describe("a clean METIS_-only environment parses exactly as before (D-228)", () => {
   const frozen = JSON.parse(
-    fs.readFileSync(path.join(ROOT, "tests", "fixtures", "config-parity-before-d227.json"), "utf8"),
+    fs.readFileSync(path.join(ROOT, "tests", "fixtures", "config-parity-before-d228.json"), "utf8"),
   ) as ParityTable;
   const current = buildParityTable(parseEnv, metisEnv);
 
@@ -101,7 +101,7 @@ describe("a clean METIS_-only environment parses exactly as before (D-227)", () 
   });
 });
 
-describe("source scan: no src file reads a THESIS_ environment name (D-227)", () => {
+describe("source scan: no src file reads a THESIS_ environment name (D-228)", () => {
   /**
    * The only THESIS_ text allowed in src: the rejection list in the namespace
    * owner, and the frozen reader- and prompt-visible strings that still spell

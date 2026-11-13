@@ -188,7 +188,7 @@ export function runSettingsResetCli(
 if (isEntryPoint(import.meta.url)) {
   try {
     loadMaintenanceEnv();
-    // D-227: refuse retired Thesis-era setting names before touching any database.
+    // D-228: refuse retired Thesis-era setting names before touching any database.
     assertNoStaleSettings();
     runSettingsResetCli(process.argv.slice(2));
   } catch (error) {

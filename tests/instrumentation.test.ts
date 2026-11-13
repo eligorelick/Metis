@@ -59,7 +59,7 @@ describe("scheduler startup instrumentation", () => {
     expect(line).not.toContain("f".repeat(64));
   });
 
-  it("exits on a retired THESIS_ setting before minting the token or starting the scheduler (D-227)", async () => {
+  it("exits on a retired THESIS_ setting before minting the token or starting the scheduler (D-228)", async () => {
     process.env.NEXT_RUNTIME = "nodejs";
     delete process.env.NEXT_PHASE;
     process.env.THESIS_RESUME_ON_START = "0";

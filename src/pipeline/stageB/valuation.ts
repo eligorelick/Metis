@@ -4055,7 +4055,7 @@ export interface MultiplesFrameworkInputs {
  * The operator setting the EV bridge basis names (WS6, D-19), exactly as the
  * basis spells it. AMZN audit 2026-10-20 finding 20: the report states the
  * lease convention without the environment variable that changes it.
- * FROZEN by D-227: the text still spells the retired Thesis-era name (the setting
+ * FROZEN by D-228: the text still spells the retired Thesis-era name (the setting
  * is now `METIS_EV_INCLUDE_LEASES`); rewording it changes report text, which
  * needs an owner decision first.
  */

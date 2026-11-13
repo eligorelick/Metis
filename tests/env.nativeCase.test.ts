@@ -69,7 +69,7 @@ describe.skipIf(process.platform !== "win32")("native Windows environment case c
     expect(results[0].config?.maxJobCostUsd).toBe(0); expect(results[1].config?.maxRollingCostUsd).toBe(0);
     expect(results[0].canonicalCap).toBe("0");
   });
-  it("refuses a retired THESIS_ name in any case, exactly where the old alias read reached (D-227)", () => {
+  it("refuses a retired THESIS_ name in any case, exactly where the old alias read reached (D-228)", () => {
     const results = nativeConfigs([
       { thesis_max_job_cost_usd: "0" },
       { tHeSiS_rEsUmE_oN_sTaRt: "0", metis_resume_on_start: "0" },

@@ -307,7 +307,7 @@ const invokedPath = process.argv[1]
   : undefined;
 if (invokedPath === import.meta.url) {
   try {
-    // D-227: refuse retired Thesis-era setting names before any export work.
+    // D-228: refuse retired Thesis-era setting names before any export work.
     assertNoStaleSettings();
     runCorrectedCli(process.argv.slice(2));
   } catch (error) {

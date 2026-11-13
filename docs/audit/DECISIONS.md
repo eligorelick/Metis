@@ -11,7 +11,7 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
-## D-227 - Only METIS_ names configure Metis; a leftover THESIS_ name stops startup (2026-11-12)
+## D-228 - Only METIS_ names configure Metis; a leftover THESIS_ name stops startup (2026-11-12)
 
 Principles P23, P24 and P26. Revises D-21 (the `X-Thesis-Token` header and the
 `THESIS_RESUME_ON_START` name) and D-143 / B11-OD-5 (the startup warning about
@@ -74,7 +74,7 @@ legacy data-folder and file discovery (`Thesis`, `thesis.db`, `Thesis/ai`);
 integration. A table of 157 METIS_-only inputs (blank, padded, valid, boundary
 and invalid values for every setting, plus lease combinations) parses to
 exactly the same result as main at e55519ce, frozen in
-`tests/fixtures/config-parity-before-d227.json`.
+`tests/fixtures/config-parity-before-d228.json`.
 
 **Frozen wording.** Ten strings that reach saved reports, exports or the
 judge prompt still spell `THESIS_STATEMENT_SOURCE`, `THESIS_EV_INCLUDE_LEASES`
@@ -88,6 +88,69 @@ line. Comments, Settings text, logs and docs use the `METIS_*` names.
 variable must rename keys before the next start; the error says which and how.
 Reverting this change restores the aliases. No stored report, ledger row or
 data file changes.
+
+## D-227 - New reports record which exact build assembled them; nothing reads it yet (2026-11-12)
+
+Principles P27 and P20. A saved report names its rules only through
+hand-kept stamps (`meta.specVersion`, `meta.pipelineVersion`,
+`meta.evidenceContract`), and many commits share the same stamps, so a report
+could not say which code made it. The built app already proves its own
+identity: `scripts/build-with-identity.mjs` writes
+`.next/runtime-artifact-identity.json`, and run-input snapshot custody records
+it. The architecture review proposed replacing the stamps with that identity
+(Proposal 1); its critique revised that: add the identity without deleting any
+format, method or display contract until each consumer is inventoried; an
+identity locates code, it does not retain or execute it; a report made by
+different code is not a report whose figures are stale; and a documentation
+or renderer change must not demand a paid rerun. The owner chose the
+critique's form, never forcing a rerun.
+
+Options: replace the stamps now (rejected by the critique); derive an
+identity from the checkout at run time (a dev server's working tree is not the
+code that ran, so that would be a guess, P10); or record the verified build
+identity as an optional added field. Choice: optional `meta.codeIdentity`,
+owned by `src/report/codeIdentity.ts`:
+
+- `codeCommit` (40-64 hex, or null when the build had no project git
+  metadata), `dirtyDiffHash` (SHA-256 of the build-time diff of the built
+  sources, or null), `methodDocumentHash` (SHA-256 of docs/METHODOLOGY.md as
+  the build captured it), `compiledArtifactHash` (SHA-256 of the verified,
+  sorted list of compiled module paths relative to the build directory and
+  their SHA-256 hashes), `methodArtifactHash` (the combined hash snapshot
+  custody already records, so a report can be matched to its snapshot), and
+  `dependencyLockHash` (SHA-256 of package-lock.json as the build captured
+  it). No machine path, timestamp or build id is stored.
+- It comes from `readRuntimeCodeIdentity`
+  (`scripts/runtime-artifact-manifest.mjs`), which runs the same checks as the
+  snapshot custody reader (build token, manifest format, hash shapes and a
+  fresh enumeration of the compiled bytes); that reader's own output is
+  unchanged. The job runner is the only writer: after the passes, it records
+  the identity on the assembled report and on a data-only report. When no
+  verified identity exists (dev server, tests, the same-report harness, the
+  CLI, or build evidence that no longer matches) the field is omitted, never
+  guessed or filled with placeholders. Linking a recovered verify artifact
+  keeps that artifact's own record, as D-217 does for its stamp.
+- Saved reports are not migrated (P21). The report schema, and so both read
+  modes of the stored-report reader, accept a report with or without it; the
+  identity object itself is strict, and unknown fields elsewhere are still
+  refused.
+
+Nothing reads it yet: no staleness state, notice, banner, rerun prompt, cache
+or resume key, or replay decision. A different identity never forces a rerun.
+No surface shows it: the app (both layouts), Markdown, print and audit export
+render byte for byte the same with and without it; the dossier's
+`data-report-identity` hash leaves it out. It never reaches a model: it is
+written after the last pass, no request schema holds report metadata, and it
+is on the pipeline-owned removal list, so the judge, analyst and full-report
+request schemas are byte-identical to before (SHA-256 compared against main).
+`tests/report.codeIdentity.test.ts` fails if any other src file reads it.
+
+The report spec stays 1.73.0 and no stamp moves: as with D-217's
+`meta.evidenceContract` and `presumedCostUsd`, this adds one optional meta
+field and changes no figure. Out of scope: removing or changing any stamp,
+pin, cutoff or contract; any reader of the field. Evidence: `golden:diff`
+reports no changes (17 cases, 136 files); the harness has no built identity,
+so the field is omitted there.
 
 ## D-226 - Refusal codes: the "Revenue scope unresolved" copy keeps only its own code (2026-11-12)
 
@@ -2638,7 +2701,7 @@ behavior; historical measured costs remain the observations recorded below.
 
 - **Choice**: keep the existing guard; add route-level tests for a cross-site form POST (navigate mode) and a cross-site fetch. When both Fetch Metadata and Origin are missing, require a token: minted at startup into `<data dir>/csrf-token` and accepted via `X-Thesis-Token`; browsers never need it. `THESIS_RESUME_ON_START` (default `1`); when `0`, bootstrap does not kick the scheduler and queued paid work waits for `POST /api/jobs/resume` or the Settings page. `npm run settings:reset -- --yes` deletes stored settings rows.
 - **Why**: brief; token path only touches header-less clients.
-- **Revised by D-227 (2026-11-12)**: the token header is `X-Metis-Token` and the setting is `METIS_RESUME_ON_START`; the old `X-Thesis-Token` header is refused, never accepted, and a leftover `THESIS_RESUME_ON_START` stops startup until renamed.
+- **Revised by D-228 (2026-11-12)**: the token header is `X-Metis-Token` and the setting is `METIS_RESUME_ON_START`; the old `X-Thesis-Token` header is refused, never accepted, and a leftover `THESIS_RESUME_ON_START` stops startup until renamed.
 
 ## D-22 (WS9) Node requirement and generated docs
 
@@ -3800,7 +3863,7 @@ No-split share comparisons require a confirmed single-ticker ordinary-share scop
 
 B11-OD-5 (DOC-203): comment canonical defaults in the example; report conflicting
 alias names at startup without values. Keep explicit canonical precedence.
-(Revised by D-227: the aliases are retired; any leftover `THESIS_*` name now
+(Revised by D-228: the aliases are retired; any leftover `THESIS_*` name now
 stops startup with its replacement named, so there is no conflict warning.)
 
 B8-OD-9 (AI-510, JOB-201): share analyst recovery across fresh and resumed
@@ -10273,7 +10336,7 @@ This table records implementation/regression closure at production source `871b6
 | RPT-217 | still-reproducible | fixed-and-verified | [report.presentation.labels.test.ts](../../tests/report.presentation.labels.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 14) |
 | RPT-503 | partially-fixed | fixed-and-verified | [report.modelEvidence.test.ts](../../tests/report.modelEvidence.test.ts)<br>[report.runDisclosure.test.ts](../../tests/report.runDisclosure.test.ts) | [2026-11-02-p7-display.md](2026-11-02-p7-display.md) (line 23) |
 | RPT-504 | still-reproducible | fixed-and-verified | [company.generateReport.stream.test.ts](../../tests/company.generateReport.stream.test.ts)<br>[report.computedMark.test.ts](../../tests/report.computedMark.test.ts)<br>[report.surface.client.test.ts](../../tests/report.surface.client.test.ts) | [2026-11-02-verifier-and-trust-labels.md](2026-11-02-verifier-and-trust-labels.md) (line 16) |
-| DOC-203 | still-reproducible | fixed-and-verified | [env.exampleCopy.test.ts](../../tests/env.exampleCopy.test.ts) (renamed from env.exampleAliases.test.ts by D-227) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 46) |
+| DOC-203 | still-reproducible | fixed-and-verified | [env.exampleCopy.test.ts](../../tests/env.exampleCopy.test.ts) (renamed from env.exampleAliases.test.ts by D-228) | [2026-11-02-paid-work-lifecycle.md](2026-11-02-paid-work-lifecycle.md) (line 46) |
 | SEC-201 | still-reproducible | fixed-and-verified | [api.routes.sameOrigin.test.ts](../../tests/api.routes.sameOrigin.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 7) |
 | SEC-202 | still-reproducible | fixed-and-verified | [api.localOnly.test.ts](../../tests/api.localOnly.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 8) |
 | SEC-204 | still-reproducible | fixed-and-verified | [ai.storeUnreadable.test.ts](../../tests/ai.storeUnreadable.test.ts) | [2026-11-02-p6-local-security.md](2026-11-02-p6-local-security.md) (line 9) |
