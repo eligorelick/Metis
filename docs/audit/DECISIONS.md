@@ -143,6 +143,118 @@ and 2025 with and without the filing's own facts; an IFRS filer whose vendor
 figure is a filed line; Amazon, Realty Income and Duke Energy as domestic
 10-K filers; the cases the check must leave alone).
 
+## D-229 - Missing-data entries carry an optional typed cause beside their sentence; nothing reads it yet (2026-11-12)
+
+Principles P10 (an unknown cause stays unknown), P11 (decide by codes, not
+wording), P20 and P21. Round 2, step S4.5a. D-218 put typed codes beside
+field-conflict sentences and D-219 to D-226 moved those readers to them; the
+gap and provider-status readers (inventory groups G and P) were left because a
+code on a `ManifestEntry` is stored with Stage B output and reports. The
+owner's ruling for this step: "New reports may store codes, missing-data
+entries may carry codes ... Additions to stored data only." This step only
+writes; no reader decides by a code yet.
+
+Choice: optional `ManifestEntry.cause`, listed once in `GAP_CAUSES`
+(`src/types/refusalCause.ts`, beside the conflict list; no name is shared).
+The writer that composes the sentence writes the code beside it, unchanged;
+a code is never derived from a sentence, never filled in on an older entry,
+and an entry without one is unresolved. `ManifestEntrySchema` accepts the
+listed codes only, so an unknown value is refused, never mapped to a member.
+
+Producer sites and their codes:
+
+- `valueCompanyCore` (`stageB/valuation.ts`), the unprofitable-overlay DCF
+  suppression on `valuation.dcf`: `dcf-unprofitable-overlay` (G1, G2).
+- `buildDcfAssumptions`, on `valuation.dcf.salesToCapital`: missing balance
+  fields `invested-capital-balance-fields-missing` (G4); a refused
+  temporary-equity claim `invested-capital-temporary-equity-refused` and
+  lease-emptied capital `invested-capital-lease-emptied` (G3).
+- `supplementTemporaryEquity` (`edgar/temporaryEquityEnrichment.ts`): a
+  withheld balance date `temporary-equity-enrichment-withheld`, an unmatched
+  category `temporary-equity-operands-unmatched` (G5).
+- The FMP client: `FmpQuotaError` `fmp-quota` (P1; the retry note appended
+  later keeps it, the sentence still states the rate limit); a 200 with an
+  empty array, live and fixture paths, `fmp-empty-array` (P2, P3, P5);
+  "no API key + no fixture" `fmp-no-api-key` (P5); a symbol-scope
+  `FmpAccessError` `fmp-symbol-restricted` (P7a). An endpoint-scope
+  refusal, an object body, HTTP and schema errors carry none.
+- The EDGAR ticker lookup: `ticker "<symbol>" not in SEC company_tickers.json`
+  `sec-ticker-not-listed` (P5).
+- `selectAnnualFiling` (`dataBundle.ts`), a successor registrant's
+  no-annual-report gap: `sec-unlinked-predecessor` (P4), and the item 1A,
+  MD&A, business and 10-K notes gaps that quote that gap whole, since
+  `withResolvedPredecessor` reads all five.
+
+Three rewrites turn a gap into a sentence that no longer states its cause, so
+they drop the code (`withoutGapCause`, `stageA/manifest.ts`): the FIN-OTHER
+"Prior DCF suppression retained" sentence (`compute.ts`), the expected
+segmentation gap (`markSegmentationGapExpected`) and a resolved predecessor
+(`withResolvedPredecessor`). Not coded: P6 and P7b (their readers match
+sentences no single writer composes), S1 (non-bank lenders, owner decision),
+the C sites (conflicts, D-218), G6 and the identity comparisons (they need a
+link between refusals), G7 and O1 (already typed, D-223) and the R group
+(saved reports, P21).
+
+Where the code is removed, and why. It is stored data for the pipeline's own
+readers, so it never reaches a model or a reader: the Stage C payload
+(`assembleContextPayload` returns the payload without any entry's code: the
+model receives nothing new; the frozen Stage C payload record and every
+same-report `payload.txt` are byte-identical); run-input snapshots
+(`captureRunInputSnapshot`, as D-218 did for conflict codes until read, so a
+snapshot of the same inputs has the same bytes); the full-report request
+schema (`removePipelineOwnedRequestFields`); the dossier's
+`data-report-identity` hash; and the report-summary API
+(`/api/report/view/[reportId]`, whose client check refuses unknown entry
+keys). The judge, analyst and full-report request schemas have the SHA-256
+they have on main (f66130f4..., 27e0dcd9..., 1e1e8574...). The surface
+manifest declares `cause` the one stored-only `ManifestEntry` field
+(`MANIFEST_ENTRY_STORED_ONLY_KEYS`); its test still checks the full field set.
+
+Agreement. For each consumer, its wording test was compared with the code
+test that keeps the consumer's other conditions (`tests/helpers/
+gapCauseAgreement.ts`). Over every entry the producers write in
+`tests/gapCause.dualWrite.test.ts` (each site with a positive case and
+controls) and over the DEMO audit fixture rebuilt from current code, they
+agree on every site. Over the 17 same-report cases (5,490 entries in Stage B
+output and reports) no entry carries a code its wording contradicts: G1 and
+G2 agree on RIVN; every other wording match (76 P7a, 76 G5, 2 P2 entries) is
+an entry restored from a run-input snapshot taken before D-229, which has no
+code and is unresolved, as intended. One disagreement is pinned in the test,
+not hidden: when the keyless fallback fails after FMP returned an empty
+profile, it appends its failure to FMP's sentence, which still states the
+empty array and keeps `fmp-empty-array`; the job runner's and company page's
+`reason === FMP_EMPTY_ARRAY_REASON` no longer matches it (and so, today, does
+not call the ticker unknown although EDGAR confirmed the issuer). The step
+that moves P2/P5 to the code must keep that outcome.
+
+Frozen record. The DEMO audit-fixture record (`tests/fixtures/frozen/
+audit-fixture-current.json`) gains exactly 22 leaves, all `fmp-no-api-key`:
+`stageB.gaps[0..10].cause` and `report.appendix.missingData[0..10].cause`. It
+was re-recorded with `npm run freeze:refresh -- --target audit-fixture
+--decision D-229` scoped to those 22 paths; the log entry is in
+`tests/fixtures/frozen/refresh-log.json`. The Stage C payload record is
+unchanged.
+
+Same-report check (17 cases, 136 files, against main at e5f0a3d6): two files
+differ, both RIVN and both only by added `cause` leaves:
+`rivn-data-only/stageB.json` (`gaps.113.cause`, `valuation.gaps.14.cause`) and
+`rivn-data-only/report.json` (`appendix.missingData.114.cause`), each
+`dcf-unprofitable-overlay`. Every `payload.txt`, `report.md`, `print.html`,
+`audit.md`, `web-classic.html` and `web-dossier.html` is byte-identical.
+
+P21: saved reports are untouched and not migrated; a saved report without
+codes parses as before. No version stamp moves (report spec 1.73.0, payload
+1.92.0, Stage B implementation version): nothing a reader sees or a model
+receives changes.
+
+Later steps: move each G and P consumer to its code, with the entry's legacy
+wording read in one place for entries without a code (as
+`src/edgar/refusalCauseRead.ts` does for conflicts), and lower its count in
+`tests/refusalWording.ratchet.test.ts`; stop removing a code from snapshots
+once a reader reads it; G2 reads the result's `suppressionReason`, so moving it
+needs the code on the valuation result as well. Out of scope here: switching
+any consumer, links between copied refusals, saved-report readers, S1.
+
 ## D-228 - Only METIS_ names configure Metis; a leftover THESIS_ name stops startup (2026-11-12)
 
 Principles P23, P24 and P26. Revises D-21 (the `X-Thesis-Token` header and the

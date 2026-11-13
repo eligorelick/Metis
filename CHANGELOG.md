@@ -18,6 +18,19 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Missing-data entries carry a typed cause code (2026-11-12)
+
+- New reports store a short code beside the sentence of the missing-data
+  entries whose wording the pipeline itself checks (for example
+  `fmp-quota`, `fmp-empty-array`, `sec-unlinked-predecessor`,
+  `dcf-unprofitable-overlay`). The sentences are unchanged and nothing reads
+  the codes yet; a later step moves those checks from wording to codes. The
+  code is never sent to a model, never kept in run-input snapshots and shown
+  on no surface (app, Markdown, print, audit export, report summary), so in the
+  same-report check only RIVN's stored Stage B output and report gain three
+  `cause` fields. Saved reports are unchanged and no version stamp moves
+  (P10, P11, P20, P21, D-229).
+
 ## Unreleased - Cash-flow net income checked against the filing (2026-11-12)
 
 - The net income on a vendor annual cash-flow row, which free-cash-flow
