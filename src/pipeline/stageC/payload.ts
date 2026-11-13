@@ -52,8 +52,7 @@ import { withPrimaryCapitalBasis, primaryCapitalAudit, primaryCapitalManifest } 
 import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
 import { CORE_SERIES, fredFigureUnit, type FredUnits } from "@/providers/fred";
 import { establishedCurrencyOn, statementCurrencyEvidence, statementCurrencies, type ComputedMetrics } from "@/pipeline/compute";
-import { admitDebtFields, debtPresentationSections } from "@/edgar/financialEnrichment";
-import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { debtFamilyAdmission, type DebtFamilyStatement } from "@/pipeline/admission/debtFamily";
 import { SHARE_TREND_WINDOW_YEARS } from "@/pipeline/stageB/capital";
 import { operatingHistorySupport } from "@/pipeline/stageB/growth";
 import { incompleteLeaseCoverage, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, LEASE_DEBT_LABELS } from "@/pipeline/stageB/leaseScope";
@@ -1654,12 +1653,13 @@ function statementExtracts(bundle: DataBundle, cashFlowApplicability?: CompanyRo
   const blocks: StatementExtractBlock[] = [];
   const A = PAYLOAD_BUDGETS.annualPeriods;
   const Q = PAYLOAD_BUDGETS.quarterlyPeriods;
-  const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   const currencyEvidence = statementCurrencyEvidence(bundle);
-  // Stage B may admit an old/raw snapshot locally. Repeat the same immutable
+  // Stage B may admit an old/raw snapshot locally. Read the same immutable
   // admission before raw statement cells can enter the analyst or verifier registry.
-  const balances = (rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => facts === null ? rows : rows.map((row) =>
-    admitDebtFields(row, facts, establishedCurrencyOn([row], isoDay(row.date), currencyEvidence), bundle.builtAt, debtPresentationSections(bundle.edgar)).row);
+  // D-254 (P13): the run's shared preparation decides; a row Stage B already presented is not decided again.
+  const debtAdmission = debtFamilyAdmission(bundle);
+  const balances = (statement: DebtFamilyStatement, rows: FmpBalanceSheetRow[]): FmpBalanceSheetRow[] => debtAdmission.issuer === null ? rows : rows.map((row) =>
+    debtAdmission.admit(row, { statement, convention: "bundle-statement-row", currency: establishedCurrencyOn([row], isoDay(row.date), currencyEvidence) }).row);
   const push = (b: StatementExtractBlock | null, notes: readonly string[] = []): void => {
     if (b) blocks.push(notes.length > 0 ? { ...b, notes: [...notes, ...b.notes] } : b);
   };
@@ -1680,8 +1680,8 @@ function statementExtracts(bundle: DataBundle, cashFlowApplicability?: CompanyRo
   }
   push(extractStatement("Income statement — annual", income.rows, A, statementAsOf(bundle.statements.incomeAnnual), INCOME_LINE_ITEMS, source(bundle.statements.incomeAnnual, "income-statement(annual)")), income.notes);
   push(extractStatement("Income statement — quarterly", incomeQ.rows, Q, statementAsOf(bundle.statements.incomeQuarterly), INCOME_LINE_ITEMS, source(bundle.statements.incomeQuarterly, "income-statement(quarter)")), incomeQ.notes);
-  push(extractStatement("Balance sheet — annual", balances(bal.rows), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), bal.notes);
-  push(extractStatement("Balance sheet — quarterly", balances(balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), balQ.notes);
+  push(extractStatement("Balance sheet — annual", balances("balanceAnnual", bal.rows), A, statementAsOf(bundle.statements.balanceAnnual), BALANCE_LINE_ITEMS, source(bundle.statements.balanceAnnual, "balance-sheet(annual)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), bal.notes);
+  push(extractStatement("Balance sheet — quarterly", balances("balanceQuarterly", balQ.rows), Q, statementAsOf(bundle.statements.balanceQuarterly), BALANCE_LINE_ITEMS, source(bundle.statements.balanceQuarterly, "balance-sheet(quarter)"), "instant", leaseEvidenceContextFor(bundle.symbol, bundle.edgar, bundle.builtAt)), balQ.notes);
   push(extractStatement("Cash flow \u2014 annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), cashItems, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
   push(extractStatement("Cash flow \u2014 quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), cashItems, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
   if (cashFlowApplicability?.debtPerimeter) {
