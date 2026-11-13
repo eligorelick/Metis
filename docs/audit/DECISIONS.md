@@ -572,6 +572,182 @@ duplicate that two in-memory Altman computations write with the same field
 and sentence. Step d (planned as D-244, saved-report readers R1-R16) was not
 started, as the plan stops at the first step that cannot be done safely.
 
+## D-254 - Pilot: the debt family is admitted once per run, by one shared preparation (2026-11-13)
+
+Principle P13 (a definition used in several places is computed once and read
+everywhere), with P7 (its owner, `admitDebtFields`, decides the debt family
+and is unchanged) and P27 (replayed offline before shipping). Round 2, Stage
+5, "evidence checked once per run". This is the pilot the architecture
+review's critique asked for before any wider move: one figure family, a
+separate admitted-row interface, one shared preparation, current outputs and
+every named exception kept. It changes no report output.
+
+What the family is. The eight cells of a balance row that `admitDebtFields`
+may write, each with its refusal or resolution and its filing evidence: total
+debt, net debt, the provider's own net debt, short-term and long-term debt,
+the lease line, and the operating and finance lease liabilities.
+
+### Inventory: where a run decided the debt family before this change
+
+| Site | Row it is given | Facts | Currency | What it does with the result |
+| --- | --- | --- | --- | --- |
+| The data bundle's enrichment (`enrichFinancialFields`, `src/edgar/financialEnrichment.ts`), once when the bundle is built | each balance row after the lease and temporary-equity enrichment | the confirmed issuer's facts | the row's own currency label; an unlabelled row is skipped | writes the row into the bundle; entries and completions go to the bundle's gaps |
+| Stage B (`admitBalance`, `src/pipeline/compute.ts`) | its working row: after the view chain, the lease-refusal reversal, marketable equity, the fiscal-year-end balance, the model-currency subset and the tangible-book classification | `admittedIssuerFacts` | `establishedCurrencyOn` over Stage B's reported and normalised rows | keeps the row, the manifest entries and the completions |
+| The payload's statement extract (`statementExtracts`, `src/pipeline/stageC/payload.ts`) | every balance row of the bundle after the payload's view chain | `confirmedIssuerFacts` | `establishedCurrencyOn` over the bundle's six statement families | keeps the row only; entries and completions are dropped |
+| The same extract again, when the data-only report (`dataOnlyReport.ts`) or the report assembly (`passes.ts`) assembles the payload a second time | as above | as above | as above | as above |
+
+All four pass the bundle's build time as the cutoff and the bundle's 10-Q and
+10-K notes as the filing sections. So after the bundle was built, a data-only
+run with 34 balance rows called the admission 102 times.
+
+Where the sites differ:
+
+- **Facts.** Two function names, one answer: both return the same facts
+  object or nothing (the same object on 416 of 416 rows compared).
+- **Currency.** The enrichment trusts the row's label. Stage B and the
+  payload ask the P4 rule with two different evidence lists. The two lists
+  established the same currency on 416 of 416 rows.
+- **The row.** Stage B's row and the payload's row for the same balance date
+  were the same object on 376 of 416 rows. On 17 they differed, always
+  outside the family (marketable equity on META and NVDA, preferred capital on
+  PGR, O and RIVN, tangible book on FIGR), and the family was decided the
+  same.
+- **The lease-refusal reversal** (`restoreLeaseFinancingProvenance`, D-186).
+  Only Stage B runs it, before admission. It changed no row of the 17 cases.
+  On the filing shape it was written for (a refused noncurrent-only operating
+  lease with every borrowing stated in one filing; the public EXPE 10-Q
+  0001324424-26-000053) the two readers end differently on the same row. Both
+  hold total debt 5,685M. The payload's row is completed by the admission from
+  the one filing (evidence marked "same-filing-debt-completed"), with net debt
+  -997M, the provider's net debt -997M and a finance lease of 0. Stage B's row
+  had the total restored first, so the admission completes nothing: the total
+  carries the reversal's plain filing tags, and net debt, the provider's net
+  debt and the finance lease stay empty on the row.
+- **The interest check** (`withholdImplausibleDebt`, audit O-2). Only Stage B
+  runs it, after admission. It withheld RIVN 2019-12-31, VKTX 2016-12-31 and
+  2017-12-31 (total, net and long-term debt) and DUK 2025-12-31 (long-term
+  debt). The payload's extract does not repeat it. None of those totals is
+  shown by the extract in the 17 cases (the first three are outside its five
+  annual periods; DUK's total was already refused by the admission), but a
+  total inside the window would be shown there and withheld in Stage B.
+- **What the payload admits and shows.** It admits every balance row (34) and
+  shows five annual and four quarterly periods, and of the family only total
+  debt.
+
+Other readers decide from the admitted row without calling the admission and
+are not touched: `leaseDebtScopeRefusal` (17 call sites), `resolveNetDebt` (8),
+the historical enterprise value's reader (`marketData.ts`, which learns what
+Stage B withheld from the manifest's field names), and the SEC statement
+builder's own debt composition (`statements.ts`).
+
+### Choice
+
+`src/pipeline/admission/debtFamily.ts`:
+
+- `debtFamilyAdmission(bundle)` is the run's preparation. It derives the
+  issuer's facts, the cutoff and the filing sections from the bundle in one
+  place, and is the only caller of `admitDebtFields` outside the enrichment.
+- A reader presents its own balance row with the statement family, the name
+  of its row convention and the currency the P4 rule established. It gets
+  back its row with the family written in, and an `AdmittedDebtRow`: the
+  decision without the statement row. Its identity carries the issuer (symbol
+  and CIK), the statement family and its source, the balance date and fiscal
+  labels, the currency, the cutoff, the convention and the debt basis.
+- A decision is kept for the run's facts object and found again only by the
+  exact inputs that produced it: the same facts object, cutoff, filing
+  sections and currency, and a row with the same cells in the same order (the
+  lossless `canonicalKey` of `@/edgar/computationContext`). Nothing is keyed on
+  a period and a lease convention alone. The reader whose row causes a
+  decision receives what the owner returned, as before; what is kept is a
+  private copy, and a later reader receives its own deep copy of it. A row the
+  admission leaves untouched is returned as the caller's own object, as
+  before. A row written in place afterwards is a different row and is decided
+  again.
+- The two conventions are named: `stage-b-balance-row` and
+  `bundle-statement-row`. The lease-refusal reversal's rule stays in
+  `leaseScope.ts`; only its result reaches the preparation, as the row Stage B
+  presents. Where the two readers' rows have the same content one decision
+  serves both; where they differ each reader keeps its own, as today.
+
+Switched: Stage B and the payload's statement extract (including its second
+assembly). Both showed no difference in the shadow. The store outlives one run
+step on purpose: the per-step computation context cannot share a decision
+between Stage B and the payload, which are separate steps.
+
+Left, and why:
+
+- The enrichment keeps its own call. It is the admission's owner, runs when
+  the bundle is built, not in the run's later steps, and uses the row's own
+  currency label.
+- The currency rule (`establishedCurrencyOn`) stays in `compute.ts`, and each
+  reader still passes the currency it established from its own evidence list.
+  The preparation cannot import `compute.ts` without a circular import.
+- The lease-refusal reversal, the interest check, the lease-scope refusal and
+  the net-debt resolver keep their rules and their call sites.
+
+Options rejected: a brand on the bundle (the raw rows stay reachable, the
+critique's first objection); preparing every row from the bundle alone and
+handing Stage B the result (it would silently drop the reversal's effect on
+Stage B's row); keeping the decision only within one run step (nothing would
+be shared between Stage B and the payload).
+
+### Proof
+
+Shadow (`tests/admission.debtFamily.shadow.test.ts`), on the 13 frozen inputs
+behind the 17 same-report cases and on the DEMO fixture, through the
+same-report worker's chain:
+
+- Before the switch, the preparation ran beside both call sites: 832 calls
+  (416 in Stage B, 416 in the payload), each compared on the whole row, the
+  manifest entries, the completions and 24 cells of the family (19,968
+  cells). No difference. No call wrote outside the family.
+- After the switch, with the data-only report's second assembly: 1,248 rows
+  presented, each compared with what that reader's own call decides from its
+  own arguments (29,952 cells), and 832 pairs of readers compared on the same
+  balance date. No difference.
+- The admission decided 433 times for those 1,248 rows (1,248 before). The 17
+  beyond one per balance row are the rows that differ outside the family.
+- DEMO: 4 balance rows, no confirmed SEC facts, so no reader admitted a row
+  before and none presents one now.
+
+Same-report check against the branch point `9e25b820` (batch 4; main
+`355effa7` is its merge and has the same tree), after merging that main: no
+changes (17 cases, 136 files compared). The accuracy tool reports the same on
+both: 266 figures
+in 13 cases, 167 match, 7 mismatch, 67 gap, 25 not established. Frozen records
+unchanged. No stamp moves.
+
+Speed. The review's H9 named repeated admission as slow. The debt admission
+is not where the time goes: across the 13 inputs it took 193 ms of Stage B's
+23,062 ms and 176 ms of the payload's 12,999 ms. Stage B and payload wall time
+for DUK and QCOM before and after differ by less than the run-to-run spread on
+the shared machine (for example DUK Stage B 2,145 and 3,850 ms before, 2,901
+and 3,658 ms after, the same code in two rounds). No speed gain is claimed.
+
+Tests: `tests/admission.debtFamily.test.ts` (one decision for two readers,
+exact-input keying including the order of a row's cells, private copies, the
+identity, the pass-through without
+facts, and both conventions pinned on the EXPE filing shape with a control and
+an unrelated shape), the shadow above, and
+`tests/admission.debtFamily.oneOwner.test.ts` (only the enrichment and the
+preparation call the admission; no reader is left on its own call).
+
+### What "extend" would mean, for the owner to approve after this is proven
+
+1. Move the currency rule out of `compute.ts` into its own module, so the
+   preparation establishes the currency itself, and decide whether Stage B's
+   and the payload's evidence lists become one.
+2. Decide the lease-refusal reversal: run it inside the preparation for every
+   reader, or retire it if the admission's own completion now covers every
+   stored input. Either way the convention label then goes.
+3. Bring the interest check into the prepared row, so the payload's extract
+   cannot show a total Stage B withheld. Where that changes a report it is an
+   accuracy decision with before and after values.
+4. Then the next family, in this order: the cash side of net debt (cash
+   admission and marketable equity), the lease-scope refusal and the net-debt
+   resolver as named conventions over the prepared row, and last the view
+   chain that Stage B and the payload still copy.
+
 ## D-249 - One reading of a saved report's spec stamp against a display cutoff (2026-11-13)
 
 Principle P21 (saved reports are immutable; corrections are read-time views
