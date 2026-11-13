@@ -1,6 +1,7 @@
 import { prepareReportForSurface } from "@/report/readerPreparation";
 import { RunNotices } from "./RunNotices";
 import { withoutCodeIdentity } from "@/report/codeIdentity";
+import { withoutGapCauses } from "@/pipeline/stageA/manifest";
 /**
  * ReportView — the centerpiece renderer for a persisted {@link Report}
  * (src/report/schema.ts). Renders the full report (report sections 1–14)
@@ -186,8 +187,9 @@ export function ReportView({
   // The shared preparation also indexes the verification marks the claim chips read (F-21).
   const { report, lenderTables, scopeQualifications, completeness } = prepareReportForSurface(sourceReport, "web");
   const reportId = presentationReportId(report,{selectedReportId});
-  // D-227: the recorded build identity is stored data, not display identity.
-  const inspectionIdentity = layout === "dossier" ? evidenceIdentity("report", withoutCodeIdentity(report)) : "";
+  // D-227: the recorded build identity is stored data, not display identity; so are the
+  // missing-data entries' typed causes (D-229).
+  const inspectionIdentity = layout === "dossier" ? evidenceIdentity("report", withoutCodeIdentity(withoutGapCauses(report))) : "";
   // D-67: each grade line gets its aspect score (limited-evidence label) and the data state (confidence cap).
   const grading = (key: keyof NonNullable<Report["scores"]>["aspects"]) => ({ aspect: report.scores?.aspects[key] ?? null, completeness });
   const figureCaveat = plainFigureReaderNote(report);

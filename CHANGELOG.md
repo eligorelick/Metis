@@ -34,6 +34,19 @@ original versions and bytes; source merge does not deploy or publish a release.
   noncontrolling interests are unchanged. Version stamps are left for the
   Stage 5 integration; saved reports are unchanged.
 
+## Unreleased - Missing-data entries carry a typed cause code (2026-11-12)
+
+- New reports store a short code beside the sentence of the missing-data
+  entries whose wording the pipeline itself checks (for example
+  `fmp-quota`, `fmp-empty-array`, `sec-unlinked-predecessor`,
+  `dcf-unprofitable-overlay`). The sentences are unchanged and nothing reads
+  the codes yet; a later step moves those checks from wording to codes. The
+  code is never sent to a model, never kept in run-input snapshots and shown
+  on no surface (app, Markdown, print, audit export, report summary), so in the
+  same-report check only RIVN's stored Stage B output and report gain three
+  `cause` fields. Saved reports are unchanged and no version stamp moves
+  (P10, P11, P20, P21, D-229).
+
 ## Unreleased - FIGR share counts and debt taken from the filings (2026-11-12)
 
 - For a registrant with several listed symbols, the filed share-count check in
@@ -174,7 +187,7 @@ original versions and bytes; source merge does not deploy or publish a release.
   `STAGE_B_2026_11_OPERATING_EVIDENCE_65`, pipeline `stage-c-1.6.43`, and
   current-reports 1.4.0 and general evidence selection `section-evidence-8`.
   Score thresholds and historical report bytes stay fixed.
-  See [the audit record](docs/audit/2026-11-08-dhi-report-4.md).
+  See [the audit record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-08-dhi-report-4.md).
 
 ## Unreleased - PDF first-page pagination (2026-11-07)
 
@@ -610,7 +623,7 @@ debt admission and version constants are unchanged. See D-205.
   navigation pages and refuse unresolved, ambiguous or wrong-page references.
 - Disclose unresolved financial-statement index references and exhibit-based
   40-F structure instead of unexplained item failures. Frozen-panel evidence,
-  limits and verification are recorded in [D-191's audit](docs/audit/2026-11-04-foreign-sections.md).
+  limits and verification are recorded in [D-191's audit](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-04-foreign-sections.md).
 - Version constants remain unchanged. Release needs a payload-version advance;
   stored reports remain immutable.
 
@@ -797,7 +810,7 @@ debt admission and version constants are unchanged. See D-205.
 - Deterministic (R9): Admit explicitly combined, equal-economic-class EPS denominators using same-period filed evidence instead of requiring a weighted average to equal a later cover count; retain unresolved-class protections.
 - Deterministic (R9): Derive TTM capex on the retained annual tag basis using filed FY + current YTD - prior-year YTD, with both YTD operands from one 10-Q. FIGR software capex is $23.451M; lender owner-FCF restrictions remain.
 - Deterministic (R9): Name the cash-flow add-back and allocated-expense SBC bases separately, register TTM allocated expense ($113.732M for FIGR), name the revenue-ratio basis, and remove allocated expense as a cash-flow fallback.
-- Deterministic bases (R9): Tests, read-only snapshot replay and new registry IDs are recorded in `docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`.
+- Deterministic bases (R9): Tests, read-only snapshot replay and new registry IDs are recorded in [`docs/audit/2026-11-02-r9-figr-deterministic-fixes.md`](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-r9-figr-deterministic-fixes.md).
 - Evidence (R8): Keep complete filing sentences, referenced KPI definitions and footnotes,
   financing lifecycle qualifications, material component and sensitivity tables,
   expense drivers, dated repurchase capacity and third-party cash context.
@@ -808,7 +821,7 @@ debt admission and version constants are unchanged. See D-205.
   FRED monthly observation dates and CPI year-over-year transforms.
 - Evidence (R8): Frozen FIGR replay: all 11 requested evidence items retained, 342,155 to
   341,152 characters (−1,003). Stored data are unchanged.
-  See [R8 audit](docs/audit/2026-11-02-r8-figr-evidence-selection.md).
+  See [R8 audit](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-r8-figr-evidence-selection.md).
 - Verifier (R7): Match conservative producer-bound metric paraphrases, simple inflections, explicit fraction annotations, percentage-point slopes and signed distances below the 52-week high.
 - Verifier (R7): Establish annual and calendar-quarter fiscal names only from the retained annual filing basis; match the cash bridge's complete TTM interval and declared basis without changing payload labels.
 - Verifier (R7): Bind complete SEC and operating-update table headers, scoped exclusion footnotes, dated level comparisons and accounting-negative percentages. Retain numeric-only prose support and all ambiguity, unit, period and operand-order refusals.
@@ -834,7 +847,7 @@ debt admission and version constants are unchanged. See D-205.
 - Render lender conventions once, with short metric-specific references elsewhere; keep the full EV bridge and guidance diagnostics in the audit companion.
 - Match captions and visible valuation sections to the retained model and available quarters, naming gaps without inventing rows. Use readable metric labels, percentages, scaled case-strength labels and grouped amounts.
 - Keep print numbers, units and dates together, split wide tables with repeated row labels, name the downloaded audit companion, and identify excluded provider peers as scale context.
-- Presentation only, including saved reports: no stored rows, computations, payload strings, prompts or version stamps change. Regression and gate receipts are recorded in `docs/audit/2026-11-02-r3-figr-readability.md`.
+- Presentation only, including saved reports: no stored rows, computations, payload strings, prompts or version stamps change. Regression and gate receipts are recorded in [`docs/audit/2026-11-02-r3-figr-readability.md`](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-r3-figr-readability.md).
 - Integration review: when no cash-flow model exists, keep each case's "What would have to be true" and qualitative commentary under "Scenario conditions (qualitative)" on every reader surface (R3 had dropped the scenario cards with the scaffolding; on the paid FIGR report they are the analysis's own bull/base/bear conditions); lines every case shares are stated once.
 - Integration review: print the quarterly trend's own notes (rejected or currency-cut rows, derived cash flow, withheld operating amounts and R2's operating-expense basis) beside the trend, with a status row when no quarter is shown, instead of under management guidance.
 - Integration review (final data-only FIGR run): a quarter whose every shown value is withheld (FIGR's Q4 FY2024: refused revenue, then R2's withheld operating expenses) is named as a missing quarter instead of printed as a row of dashes.
@@ -886,7 +899,7 @@ debt admission and version constants are unchanged. See D-205.
   statement is one citable figure; it was also printed as an identical note.
 
 Fictional regression tests and a read-only replay of the paid snapshot are
-recorded in [the R6 disposition](docs/audit/2026-11-02-r6-figr-governance-bridge.md).
+recorded in [the R6 disposition](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-r6-figr-governance-bridge.md).
 Stored reports are unchanged. Shared version stamps are reserved for the integrator.
 
 ## Unreleased - R1/R4 FIGR paid-run audit: evidence, run accounting and analysis rules (2026-11-02)
@@ -1267,7 +1280,7 @@ JOB-202: Retry reuses compatible frozen inputs and Stage B configuration when
 reusing accepted analyst or synthesis work. The snapshot hash and capture time
 stay unchanged; current-clock validation and the payload fingerprint still
 guard reuse. No automatic paid replay, ledger rewrite or stored-report rewrite.
-See the [disposition](docs/audit/2026-11-02-paid-work-lifecycle.md).
+See the [disposition](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-paid-work-lifecycle.md).
 
 ## Unreleased - P0 review fixes (2026-11-02)
 
@@ -1279,7 +1292,7 @@ Preserves rejected provider responses for diagnosis separately from accepted sec
 
 ## Unreleased - bounded report recovery and integrity (2026-11-01)
 
-Retains validated synthesis sections within shared request and monetary limits, prevents automatic replay of billed or uncertain requests, and records mandatory workflow completion separately from verification scope. Fiscal aliases require comparable source scope; refused recent cash flows withhold runway. Exact-attempt provenance and the quote-unit correction are shared with exports. Built on updated main; historical reports and DCF arithmetic are preserved. See [D-140](docs/audit/DECISIONS.md#d-140---current-main-report-integrity-and-bounded-recovery-2026-11-01) and [the verification checkpoint](docs/audit/2026-11-01-current-main-integration.md). No new live provider success is claimed.
+Retains validated synthesis sections within shared request and monetary limits, prevents automatic replay of billed or uncertain requests, and records mandatory workflow completion separately from verification scope. Fiscal aliases require comparable source scope; refused recent cash flows withhold runway. Exact-attempt provenance and the quote-unit correction are shared with exports. Built on updated main; historical reports and DCF arithmetic are preserved. See [D-140](docs/audit/DECISIONS.md#d-140---current-main-report-integrity-and-bounded-recovery-2026-11-01) and [the verification checkpoint](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-01-current-main-integration.md). No new live provider success is claimed.
 
 ## Unreleased - prospective measurement and report reliability (2026-10-31)
 
@@ -1805,7 +1818,7 @@ PR37 review follow-up expands ingestion to retain source/value-distinct parsed r
 
 - Guard canonical EDGAR gross-profit construction and admission, preserving directly filed subtotals and serializing partial-cost refusals. Propagation requires compatible vendor/source scope and preserves existing refusals.
 - Use immutable refusal-aware disclosure reads for guidance and quarterly trends, including CFO aliases; restore Unicode dateline separators.
-- Advance report1.29.1/payload1.34.1/pipeline stage-c-1.5.1/Stage B ACCOUNTING_EVIDENCE_10. Full gates and fresh independent review remain required. See [correction record](docs/audit/2026-10-19-phase-one-review-corrections.md).
+- Advance report1.29.1/payload1.34.1/pipeline stage-c-1.5.1/Stage B ACCOUNTING_EVIDENCE_10. Full gates and fresh independent review remain required. See [correction record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-10-19-phase-one-review-corrections.md).
 
 ## Proposed phase-one evidence completion (2026-10-19)
 
@@ -1932,7 +1945,7 @@ See the [disposition](docs/audit/2026-10-17-book-to-code-disposition.md) and
   periods explicitly, and distinguish an untraced figure from a missing citation.
   Keep the remaining generated bridge/citation defects documented in the audit.
 - Advance report/payload and replay implementation identities. Stored report
-  bytes remain unchanged; see the [audit record](docs/audit/2026-10-15-amzn-integrity.md)
+  bytes remain unchanged; see the [audit record](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-10-15-amzn-integrity.md)
   for reproductions, verification and reliance limits.
 
 ## Unreleased - Metis identity (2026-10-14)
