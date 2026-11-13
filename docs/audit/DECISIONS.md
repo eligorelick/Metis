@@ -11,6 +11,74 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-258 - The bank revenue and reader-label steps move the version stamps once (2026-11-13)
+
+Principles P27 (version stamps move together) and P21 (saved reports are
+immutable; a change of meaning gets a stamp). Follow-up integration after
+round 2. D-257 and D-256 are in this batch without moving a stamp, so that
+the stamps move once. Owner: `src/report/versions.ts`, which gains one
+history comment per moved stamp. No calculation, rule, label or wording
+changes here.
+
+What each decision calls for (each stamp's own rule in `versions.ts` and
+`docs/METHODOLOGY.md`):
+
+| Decision | Stage B implementation | Payload | Report spec |
+| --- | --- | --- | --- |
+| D-257 a bank's filed total net revenue | yes (identical inputs compute differently) | yes (revenue history, growth, margins, trailing window and P/E reach the analysts) | yes (shown figures and an aspect band change) |
+| D-256 three reader wordings | yes (three stored label strings; no number) | no (the payload text is unchanged in all 17 cases) | no (labels only) |
+
+Moved once:
+
+| Stamp | Before | After |
+| --- | --- | --- |
+| `STAGE_B_IMPLEMENTATION_VERSION` | `STAGE_B_2026_11_FILED_ACCURACY_67` | `STAGE_B_2026_11_BANK_REVENUE_68` |
+| `PAYLOAD_VERSION` | `1.93.0` | `1.94.0` |
+| `REPORT_SPEC_VERSION` | `1.74.0` | `1.75.0` |
+
+Not moved, each by its own rule: the fair-value and scenario-target method
+stamps (no resolution or construction changed; JPMorgan's fair value and
+targets are unchanged), the net-debt resolver, the pipeline version, the
+score bands (no threshold moved), the evidence contract and every display
+cutoff. No display cutoff is added.
+
+Moved with them, as in D-255: the stamp pins in
+`tests/report.versionStamps.test.ts` (1.93.0 joins its list of payload
+versions that never resume), `tests/jobRunner.test.ts` and
+`tests/stageC.payload.passes.test.ts`; the built-in sample
+(`fixtures/report/DEMO-current.json`); the declared versions in
+`docs/METHODOLOGY.md` and `CHANGELOG.md`. Frozen records, refreshed with
+`npm run freeze:refresh` under D-258 and limited by its scope check to the
+stamp leaves: `stagec-payload` (six leaves: the two version fields, the
+fingerprint and the three prompt hashes that cover the header line) and
+`audit-fixture` (two leaves: `meta.specVersion` and the projection hash).
+
+Saved reports (P21). Stored bytes are not touched. Display cutoffs compare a
+saved stamp only with their own frozen values, never with the current spec
+(D-249), so a stamp move cannot change how a saved report reads. The 68
+saved reports of the check database copy were not re-rendered for this move:
+D-256 changes two read-time wordings on purpose (the "Recorded gaps" labels
+and the band line), so a byte comparison of saved-report renders would show
+those and not isolate the stamps.
+
+Same-report check (17 cases, 119 files; main 45883c0c, whose outputs equal
+97657ad1's, against this batch at 9cb26339). Lead's throwaway check: with the
+D-256 wordings put back, the two stamp strings set back and the hashes
+derived from changed text masked, 16 cases are byte-identical to main in all
+seven files. `jpm-data-only` then equals the D-257 run reviewed on its own,
+except the data-completeness line of D-257's review fix ("XBRL conflict
+found; vendor revenue replaced"; `meta.dataCompleteness.xbrl`).
+
+Accuracy check. On the batch: "265 figures in 13 cases — 170 match, 7
+mismatch, 62 gap, 26 not-established" (main: 169 / 7 / 63 / 26); the one
+change is `jpm-data-only revenue.fy`, gap to match (182,447,000,000). The
+expectation is updated in this change with that reason. JPMorgan's current
+period moved to the trailing window ending 2026-09-30, so the tool's stored
+filed reference for nine JPMorgan current-period rows was rebuilt from SEC
+EDGAR for that window (the tool refuses a reference built for another
+period); every other reference entry is unchanged, and one unused
+placeholder entry (PGR's former "fair value withheld" row) is dropped.
+
 ## D-257 - A bank's revenue is the filed total net revenue where its filing proves it (2026-11-13)
 
 Principles P8 (a complete reconciled filed family replaces a conflicting

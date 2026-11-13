@@ -916,9 +916,9 @@
     {
       "case": "jpm-data-only",
       "figure": "revenue.fy",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-257: JPMorgan fiscal 2025 revenue is the filed total net revenue 182,447,000,000 (us-gaap:Revenues, 10-K 0001628280-26-008131), proven by net interest income 95,443M plus noninterest income 87,004M in the same filing; it was withheld before"
     },
     {
       "case": "jpm-data-only",

@@ -18,6 +18,19 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Version stamps for the bank revenue and reader-label steps (2026-11-13)
+
+- The bank revenue fix (D-257) and the three reader wordings (D-256) are in
+  this batch without moving a version stamp; the stamps move once here (P27,
+  [D-258](docs/audit/DECISIONS.md)): report spec 1.74.0 -> 1.75.0, payload
+  1.93.0 -> 1.94.0, Stage B `STAGE_B_2026_11_FILED_ACCURACY_67` ->
+  `STAGE_B_2026_11_BANK_REVENUE_68`. The fair-value, scenario-target and
+  net-debt method stamps, the pipeline version and every display cutoff are
+  unchanged. Saved reports keep their bytes.
+- The accuracy check's expectation records JPMorgan's fiscal 2025 revenue as
+  a match (it was a disclosed gap), and its filed reference for JPMorgan's
+  current period is rebuilt for the trailing window ending 2026-09-30.
+
 ## Unreleased - A bank's revenue is the filed total net revenue (2026-11-13)
 
 - A data provider states a bank's revenue gross of interest expense; the
