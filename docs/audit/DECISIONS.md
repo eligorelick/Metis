@@ -99,7 +99,7 @@ own FFO per share).
 
 ### Approved report changes
 
-Same-report check, this change against current main (c45c3188, which holds
+Same-report check, this change against current main (e5e9d2ff, which holds
 D-231): 1 file in 1 of the 17 cases differs, `o-data-only/stageB.json`, in
 three leaves. The other 16 cases, and every other figure, note and gap of
 Realty Income (its other seven outputs and its payload fingerprint included),
