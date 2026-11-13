@@ -66,13 +66,17 @@ const CASH_MOVEMENT_TAG = "CashCashEquivalentsRestrictedCashAndRestrictedCashEqu
 const OPERATING_CASH_FLOW_TAG = "NetCashProvidedByUsedInOperatingActivities";
 const PRINCIPAL_TAG = "FinanceLeasePrincipalPayments";
 
+/** The taxonomies a filed line is read from: us-gaap, or ifrs-full for a filer reporting under IFRS (D-231). */
+type FiledNamespace = "us-gaap" | "ifrs-full";
+/** A fiscal year's length in days, for a filed flow matched to an annual row. */
+const ANNUAL_FLOW_DAYS = [350, 380] as const;
 /** Dated facts, exact monetary unit only; no implicit USD or million scaling. */
-function points(facts: CompanyFacts, tag: string, unit: string, observedAt: string): FactPoint[] {
-  const c = facts.facts["us-gaap"]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
+function points(facts: CompanyFacts, tag: string, unit: string, observedAt: string, namespace: FiledNamespace = "us-gaap"): FactPoint[] {
+  const c = facts.facts[namespace]?.[tag] as { units?: Record<string, unknown[]> } | undefined;
   return parseFactPoints(c?.units?.[unit] ?? []).filter((p) => CORE_FACT_FORMS.has(p.form) && validDay(p.end) && p.end <= observedAt.slice(0, 10) && validDay(p.filed) && p.filed <= observedAt.slice(0, 10) && (p.start === undefined || validDay(p.start)));
 }
-function resolved(value: number, tags: string[], ps: FactPoint[], unit: string, observedAt: string, periodStart: string | null, periodEnd: string): Resolved {
-  return { value, evidence: { source: "edgar", unit, periodStart, periodEnd, observedAt, tags: tags.map((t) => `us-gaap/${t}`), filings: ps.map((p) => ({ accn: p.accn, filed: p.filed, form: p.form })) } };
+function resolved(value: number, tags: string[], ps: FactPoint[], unit: string, observedAt: string, periodStart: string | null, periodEnd: string, namespace: FiledNamespace = "us-gaap"): Resolved {
+  return { value, evidence: { source: "edgar", unit, periodStart, periodEnd, observedAt, tags: tags.map((t) => `${namespace}/${t}`), filings: ps.map((p) => ({ accn: p.accn, filed: p.filed, form: p.form })) } };
 }
 function instant(facts: CompanyFacts, tag: string, unit: string, end: string, observedAt: string, filingDate?: string, filings?: StatementFieldProvenance["filings"]): Resolved | null {
   const candidates = points(facts, tag, unit, observedAt).filter(p => p.end === end && p.start === undefined &&
@@ -132,7 +136,7 @@ function labelCopies(facts: CompanyFacts, observedAt: string): LabelCopy[] {
  */
 function filedFlow(facts: CompanyFacts, tag: string, unit: string, end: string, scope: "annual" | "quarter", observedAt: string, signed: boolean, ctx: DerivationContext): Resolved | null {
   const ps = points(facts, tag, unit, observedAt).filter(p => p.start !== undefined);
-  const [min, max] = scope === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
+  const [min, max] = scope === "annual" ? ANNUAL_FLOW_DAYS : QUARTER_DURATION_DAYS;
   const directCandidates = ps.filter(p => p.end === end && span(p)! >= min! && span(p)! <= max!);
   const direct = unambiguousNewest(directCandidates);
   if (directCandidates.length > 0) return direct && (signed || direct.val >= 0)
@@ -376,7 +380,7 @@ function filedCashAmounts(facts: CompanyFacts, unit: string, row: FmpStatementRo
 function matchingCashChange(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string): Resolved | null {
   if (!validDay(row.periodStart) || !validDay(row.date)) return null;
   const days = (Date.parse(row.date) - Date.parse(row.periodStart)) / DAY;
-  const [min, max] = scope === "annual" ? [350, 380] : QUARTER_DURATION_DAYS;
+  const [min, max] = scope === "annual" ? ANNUAL_FLOW_DAYS : QUARTER_DURATION_DAYS;
   if (days < min! || days > max!) return null;
   const tag = "CashAndCashEquivalentsAtCarryingValue";
   const beginningDay = new Date(Date.parse(row.periodStart) - DAY).toISOString().slice(0, 10);
@@ -584,6 +588,79 @@ export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: Compa
       (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
   return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "balance",
     { labels: [], withheld: new Set(), unverified: new Map() });
+}
+
+/**
+ * The profit lines a filer reports for a fiscal year, by taxonomy (D-231). `chain` is the order the cash-flow
+ * statement's net income is read in (consolidated profit first; for us-gaap the statement builder's own chain).
+ * A `parent` line is the same year's profit on another entity scope: a vendor figure equal to it is a filed
+ * figure and is left alone, but a parent line never replaces a consolidated one (P5).
+ */
+const FILED_PROFIT_LINES: readonly { namespace: FiledNamespace; chain: readonly string[]; parent: readonly string[] }[] = [
+  { namespace: "us-gaap", chain: tagsFor("cashflowNetIncome"), parent: [] },
+  { namespace: "ifrs-full", chain: ["ProfitLoss"], parent: ["ProfitLossAttributableToOwnersOfParent"] },
+];
+/** The profit lines of the same period's income-statement row that a vendor cash-flow net income can be a copy of. */
+function incomeProfitLines(income: FmpStatementRow | undefined): number[] {
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  const continuing = income?.netIncomeFromContinuingOperations, discontinued = income?.netIncomeFromDiscontinuedOperations;
+  return [income?.netIncome, income?.netIncomeConsolidated, continuing, income?.bottomLineNetIncome,
+    finite(continuing) && finite(discontinued) ? continuing + discontinued : null].filter(finite);
+}
+
+/**
+ * D-231 (P8, P5, P10): the net income on a vendor's annual cash-flow row, against the filer's own profit for that
+ * exact fiscal year. The row's free-cash-flow conversion and accrual figures use it, and no rule checked it: the
+ * rows of one Form 20-F filer carried profit before tax for 2016 to 2022 and a figure on another accounting basis
+ * after that, neither of them a line of its annual report.
+ *
+ * - A figure equal (the P8 allowance) to any filed copy of a profit line for the year is a filed figure and stays;
+ *   which entity scope the row should show is not decided here.
+ * - A figure equal to none of them is replaced by the filed consolidated profit, from the newest filing that states
+ *   it (P2), with that filing as its provenance. When the filings state no consolidated line for the year, or the
+ *   newest one states two values, the figure is withheld instead.
+ * - When the admitted SEC facts hold no profit line for the year, the figure is tested against the same period's
+ *   income-statement row. Equal to none of that row's profit lines, it is withheld: two statements of one period
+ *   disagree and no filing settles which is right. An agreeing figure proves nothing and stays unverified.
+ *
+ * A withheld figure leaves the row; readers then use the income statement's net income for that year, as they
+ * already do for a row that never carried one. Annual rows only.
+ */
+export function admitCashFlowNetIncome<T extends FmpStatementRow>(row: T, facts: CompanyFacts, income: FmpStatementRow | undefined, observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  const vendor = row.netIncome, currency = row.reportedCurrency;
+  if (!validDay(row.date) || typeof currency !== "string" || !/^[A-Z]{3}$/.test(currency) || row.source === "edgar" ||
+      typeof vendor !== "number" || !Number.isFinite(vendor) || row.fieldConflicts?.netIncome !== undefined || row.fieldProvenance?.netIncome !== undefined ||
+      (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
+  const date = row.date;
+  const field = `statements.cashflow.${date}.netIncome`;
+  const refuse = (reason: string, attemptedSources: string[]): { row: T; gaps: ManifestEntry[] } => ({
+    row: { ...row, netIncome: null, fieldConflicts: { ...row.fieldConflicts, netIncome: { vendorValue: vendor, secValue: null, usable: false, reason } } },
+    gaps: [{ field, reason, severity: "warn", attemptedSources }],
+  });
+  for (const line of FILED_PROFIT_LINES) {
+    const copies = [...line.chain, ...line.parent].map((tag) => ({ tag, points: points(facts, tag, currency, observedAt, line.namespace)
+      .filter((p) => p.start !== undefined && p.end === date && span(p)! >= ANNUAL_FLOW_DAYS[0] && span(p)! <= ANNUAL_FLOW_DAYS[1]) }))
+      .filter((copy) => copy.points.length > 0);
+    if (copies.length === 0) continue;
+    if (copies.some((copy) => copy.points.some((p) => vendorAgreesWithFiled(vendor, p.val)))) return { row, gaps: [] };
+    const sources = ["fmp:cash-flow-statement", ...copies.map((copy) => `edgar:companyfacts/${line.namespace}/${copy.tag}`)];
+    const stated = copies.map((copy) => { const p = newest(copy.points)!; return `${line.namespace}/${copy.tag} ${p.val} (${p.form.trim()} ${p.accn}, filed ${p.filed})`; }).join("; ");
+    const head = copies.find((copy) => line.chain.includes(copy.tag));
+    const filed = head ? unambiguousNewest(head.points) : null;
+    if (!head || !filed) return refuse(`Vendor cash-flow net income for ${date} (${vendor} ${currency}) is withheld: it agrees with no profit line the filer reports for that fiscal year (${stated}), ` +
+      `and ${head ? "the newest filing states more than one consolidated profit for it" : "the filings state no consolidated profit for it"}; figures that need that year's net income read the income statement.`, sources);
+    const sec = resolved(filed.val, [head.tag], [filed], currency, observedAt, filed.start!, date, line.namespace);
+    const reason = `Cash-flow net income for ${date} corrected from vendor ${vendor} to filed ${filed.val} ${currency}: the vendor figure agrees with no profit line the filer reports for ` +
+      `${filed.start} through ${date} (${stated}), so the filed consolidated profit replaces it.`;
+    return { row: { ...row, netIncome: filed.val,
+        fieldConflicts: { ...row.fieldConflicts, netIncome: { vendorValue: vendor, secValue: filed.val, usable: true, resolution: "filed-line", reason, secEvidence: sec.evidence } },
+        fieldProvenance: { ...row.fieldProvenance, netIncome: sec.evidence } },
+      gaps: [{ field, reason, severity: "info", expected: true, attemptedSources: sources }] };
+  }
+  const lines = income?.date === date && income.reportedCurrency === currency ? incomeProfitLines(income) : [];
+  if (lines.length === 0 || lines.some((value) => vendorAgreesWithFiled(vendor, value))) return { row, gaps: [] };
+  return refuse(`Vendor cash-flow net income for ${date} (${vendor} ${currency}) is withheld: the SEC facts admitted for this report hold no profit line for that fiscal year, and the figure agrees with no ` +
+    `profit line of the same period's income statement, which states ${[...new Set(lines)].join(" and ")} ${currency}; figures that need that year's net income read the income statement.`, ["fmp:cash-flow-statement", "fmp:income-statement"]);
 }
 
 /** Retain conflicting observations for audit; aliases and dependent FCF cannot launder them. */
