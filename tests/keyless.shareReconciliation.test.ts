@@ -374,7 +374,7 @@ describe("D-234: in the calculation view a series that shows a multi-ticker shar
   const filedYear = fiscalRow("2025-12-31", "FY", { eps: 0.54, epsDiluted: 0.44, weightedAverageShsOut: 114_435_259, weightedAverageShsOutDil: 141_802_002 });
   const vendorYear = { ...filedYear, weightedAverageShsOut: 228_870_518, weightedAverageShsOutDil: 283_604_000 };
   const matchingQuarter = fiscalRow("2026-03-31", "Q1", { eps: 0.21, epsDiluted: 0.18, weightedAverageShsOut: 217_277_605, weightedAverageShsOutDil: 248_829_672 });
-  function view(tickers: string[], annual: FmpIncomeStatementRow[], quarterly: FmpIncomeStatementRow[], filed: FmpIncomeStatementRow[]) {
+  function view(tickers: string[], annual: FmpIncomeStatementRow[], quarterly: FmpIncomeStatementRow[], filed: FmpIncomeStatementRow[], quarterlySource?: "edgar") {
     const facts = factsFor(filed);
     const b = withIssuerFacts(completeCurrencyBundle({}), facts);
     b.builtAt = FETCHED;
@@ -385,6 +385,7 @@ describe("D-234: in the calculation view a series that shows a multi-ticker shar
     b.edgar.shareBasis = { splits: built(facts).splits, basisDay: AS_OF };
     b.statements.incomeAnnual.value.data.rows = annual;
     b.statements.incomeQuarterly.value.data.rows = quarterly;
+    if (quarterlySource) b.statements.incomeQuarterly.value.source = quarterlySource;
     const original = JSON.stringify(b);
     const out = withFilerShareUnits(b);
     expect(JSON.stringify(b)).toBe(original);
@@ -419,6 +420,20 @@ describe("D-234: in the calculation view a series that shows a multi-ticker shar
     const { year, quarter } = view(["BRK.A", "BRK.B"], [classYear], [classQuarter], [filedYear, matchingQuarter]);
     expect(year).toEqual(classYear);
     expect(quarter).toEqual(classQuarter);
+  });
+
+  it("a quarterly series rebuilt from SEC facts is not evidence of the vendor's unit (review of D-234)", () => {
+    // The vendor's annual row counts a class unit (1,500 to 1). The quarterly family is the EDGAR fallback, so it
+    // agrees with the filed counts by construction and shows nothing about how the vendor counts shares.
+    const classYear = { ...filedYear, symbol: "BRK.B", weightedAverageShsOut: 114_435_259 * 1500, weightedAverageShsOutDil: 141_802_002 * 1500 };
+    const { year, gaps } = view(["BRK.A", "BRK.B"], [classYear], [matchingQuarter], [filedYear, matchingQuarter], "edgar");
+    expect(year).toEqual(classYear);
+    expect(gaps.some(gap => gap.field.startsWith("statements.income.2025-12-31."))).toBe(false);
+    // The same rows as a vendor series do show the unit (the FIGR case above), so the source is what decides.
+    const vendor = view(["FIGR", "FGRS"], [vendorYear], [matchingQuarter], [filedYear, matchingQuarter]);
+    const rebuilt = view(["FIGR", "FGRS"], [vendorYear], [matchingQuarter], [filedYear, matchingQuarter], "edgar");
+    expect(vendor.year.weightedAverageShsOutDil).toBe(141_802_002);
+    expect(rebuilt.year).toEqual(vendorYear);
   });
 
   it("unrelated shape: a registrant with one listed symbol is compared as before, with or without a matching quarter", () => {

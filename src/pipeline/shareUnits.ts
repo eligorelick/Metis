@@ -22,9 +22,11 @@ function withFiledShareValues(bundle: DataBundle): DataBundle {
       ordinarySharesPerQuotedUnit: foreign?.ratio, quotedUnitSourceIds: foreign?.securityEvidence.flatMap(e => e.sourceIds) });
   // D-234 (P3, P8): with several listed symbols, a series that shows the vendor's share unit governs the
   // other, as in the producer. Asked of the annual rows alone, a lone doubled year was never compared.
+  // Only a vendor series is evidence of the vendor's unit: a series rebuilt from SEC facts agrees with them
+  // by construction, so it is left out here exactly as the producer leaves it out.
   const shareUnitShown = vendorShareUnitShownAcross(names.flatMap(name => {
     const input = bundle.statements[name];
-    return input.ok ? [{ rows: input.value.data.rows, reconciliation: reconciliationFor(name) }] : [];
+    return input.ok && input.value.source !== "edgar" ? [{ rows: input.value.data.rows, reconciliation: reconciliationFor(name) }] : [];
   }), splitBasis.splits, splitBasis.basisDay);
   const family = (name: (typeof names)[number]) => {
     const input = bundle.statements[name];
