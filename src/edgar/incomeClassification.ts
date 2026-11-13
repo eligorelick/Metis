@@ -23,6 +23,19 @@ export function contractRevenueScopeRefusal(proof: StatementFieldProvenance | nu
     "The contract-revenue amount is not established as consolidated operating revenue; derivative or lease transactions may be outside it, and a note may be rounded. A reconciled full income statement for the same registrant is required; a subsidiary registrant cannot substitute. Revenue and dependent margins remain withheld; source observations retained.";
 }
 
+/**
+ * D-237 (P13): the pre-tax income an effective tax rate divides by, read by every
+ * such rate (the DCF's year-one and historical rates, ROIC's NOPAT rate and the
+ * WACC's statement rate). It is the filed pre-tax line before equity-method
+ * results where the earnings admission below recorded one, because the provision
+ * relates to that line; otherwise the row's own pre-tax income. A row whose
+ * pre-tax income is withheld has no base either.
+ */
+export function effectiveTaxPretaxIncome(row: Pick<FmpIncomeStatementRow, "incomeBeforeTax" | "pretaxIncomeBeforeEquityMethod"> | null | undefined): number | null {
+  if (!row || !finite(row.incomeBeforeTax)) return null;
+  return finite(row.pretaxIncomeBeforeEquityMethod) ? row.pretaxIncomeBeforeEquityMethod : row.incomeBeforeTax;
+}
+
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
 export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpIncomeStatementRow>>, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string,
   opts: { bankRevenue?: boolean; securitiesRevenue?: boolean; earningsOnly?: boolean; filedRows?: FmpIncomeStatementRow[]; revenuePolicy?: OperatingRevenuePolicy } = {}): { income: typeof income; gaps: ManifestEntry[] } {
@@ -244,6 +257,28 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
           out = { ...out, netIncomeRatio: null, netProfitMargin: null, incomeBeforeTaxRatio: null, effectiveTaxRate: null };
         }
         gaps.push({ field: `statements.income.${row.date}.earningsFamily`, reason, severity: minor ? "info" : "warn", ...(minor ? { expected: true } : {}) });
+      }
+    }
+    // D-237 (P13, P8): a filer whose pre-tax line excludes equity-method results
+    // presents them after its provision, so the provision relates to that line.
+    // The row's pre-tax income (the provider's, or the adopted family's) is the
+    // earnings-identity figure and may include the after-tax equity-method result.
+    // Record the filed line itself beside it, from the same reconciled family, so
+    // an effective tax rate divides by the provision's own base
+    // (`effectiveTaxPretaxIncome`). No tolerance is added: the row's pair must
+    // already be the same observation as the filed family under the P8 allowance.
+    // A base recorded by an earlier pass is re-established here or dropped.
+    if (out.pretaxIncomeBeforeEquityMethod !== undefined) {
+      const fieldProvenance = { ...out.fieldProvenance };
+      delete fieldProvenance.pretaxIncomeBeforeEquityMethod;
+      out = { ...out, pretaxIncomeBeforeEquityMethod: undefined, fieldProvenance };
+    }
+    if (family && family.pretax.proof.calculation === "pretax-plus-equity-method") {
+      const line = operand("incomeBeforeTax");
+      if (line && finite(out.incomeBeforeTax) && finite(out.incomeTaxExpense) &&
+          out.fieldConflicts?.incomeBeforeTax?.usable !== false && out.fieldConflicts?.incomeTaxExpense?.usable !== false &&
+          (same(out.incomeBeforeTax, family.pretax.value) || same(out.incomeBeforeTax, line.value)) && same(out.incomeTaxExpense, family.tax.value)) {
+        out = { ...out, pretaxIncomeBeforeEquityMethod: line.value, fieldProvenance: { ...out.fieldProvenance, pretaxIncomeBeforeEquityMethod: line.proof } };
       }
     }
     // Ownership scope is useful even when the provider's parent earnings agree.
