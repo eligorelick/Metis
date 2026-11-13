@@ -105,7 +105,7 @@ core set. That entry is marked.
 The same-report check replays stored inputs and does not replay collection.
 
 A. No regression. The 17 cases built from this change are byte for byte the
-17 built from main (ab6db405): `golden:diff` reports no changes, 136 files.
+17 built from main (be7c11d6): `golden:diff` reports no changes, 136 files.
 No report output, stored input or frozen record moves; there is no approval
 list.
 
