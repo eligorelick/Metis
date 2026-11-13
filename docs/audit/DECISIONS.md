@@ -185,6 +185,59 @@ tests fail without the fix.
 Version stamps are not moved here (P27: the Stage 5 integration change moves
 them together). Stored reports and snapshots keep their bytes.
 
+## D-241 - The dossier layout shows everything the classic layout shows (2026-11-12)
+
+Principle P22 (one presentation rule per figure). Round 2, S4.12a. Owner
+decision: "Layout, last and as its own pull requests: make dossier the default
+once it shows everything classic shows, then remove classic." This entry is
+the first of those pull requests; it does not change the default and does not
+remove classic.
+
+Inventory. Both web layouts of the 17 same-report cases (data-only and
+analyst output; general, bank, insurer, REIT, utility, 20-F/ADR, recent IPO,
+loss-making, pre-revenue) were compared as readable text: every classic text
+node, table row, list item, term/value pair, paragraph, heading, tooltip and
+link, against everything the dossier renders (native details count as shown;
+hidden and screen-reader-only duplicates do not). Each candidate was then
+confirmed in the components. No fact rendered as text by classic is missing
+from the dossier: the dossier already carried classic's trust and
+verification block, the key data, the verdict, the scorecard tables, the
+bridge and every audit table. What remained was one visual signal and
+wording.
+
+Gained. The WACC × terminal-growth grid's base-case cell. Classic outlines
+the middle WACC and middle terminal growth of the stored grid (the valuation
+builds the grid symmetrically around its base inputs); the dossier's grid did
+not mark it. The rule now has one owner, `sensitivityBaseCase`
+(`src/components/charts/SensitivityHeatmap.tsx`), called by the classic grid
+and by the dossier's `RecordedSensitivity`. Classic output is unchanged byte
+for byte; the dossier outlines the same cell.
+
+Not changed. Thirteen places where the two layouts state the same fact in
+different words (headings such as "composite scorecard" against
+"Deterministic scorecard", the data-only banner against the dossier's
+data-only details with the same counts, valuation labels, and grid cells in
+whole currency against two decimals). Those the parity test meets are listed,
+with what the dossier shows instead, in `CLASSIC_ONLY_WORDING`
+(`tests/helpers/uiParityContract.ts`); the grid rounding is its own stated
+allowance. Changing wording was out of scope and is the owner's call.
+
+Guard. `classicFactsMissingFromDossier` (`tests/helpers/uiParityContract.ts`)
+fails when a fact classic renders is absent from the dossier, for every
+fixture report the UI parity tests use, with two stated allowances: the
+listed classic wording, and a whole-number grid row that a dossier row shows
+cell for cell as another rounding of the same stored value. A separate test
+pins the base-case cell in both grids.
+
+Options rejected: copying classic's middle-cell expression into the dossier
+(two copies of one rule, P22); a text label for the base case (a new label the
+classic layout does not have; left to the owner, as the marker has no text
+alternative in either layout).
+
+Risks. Correctness and data: none (presentation only; no stored report,
+export or classic page changes; the same-report check differs only in eight
+`web-dossier.html` files). Reversible by one revert.
+
 ## D-237 - An effective tax rate divides by the pre-tax income its provision relates to (2026-11-12)
 
 Principles P13 (one basis: a ratio's numerator and denominator share one
