@@ -123,11 +123,10 @@
     {
       "case": "amzn-data-only",
       "figure": "fv.taxRate",
-      "status": "mismatch",
-      "valueSha256": "a1f6d3592897ee90",
-      "cause": "vendor value shown",
+      "status": "match",
+      "valueSha256": null,
       "note": "The rate's TTM pre-tax denominator is the one the report's P/E caveat states, about 540M below the filed 'Income (loss) before income taxes' TTM of 175,466M (97,311M + 120,691M − 42,536M; IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments). The vendor pre-tax rows net the equity-method result (FY2025 −554M). Filed rate 22.577%.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "D-237 (#160): AMZN DCF tax rate uses the filed pre-tax income before equity-method results, 39,615M / 175,466M = 22.577023%"
     },
     {
       "case": "amzn-data-only",
