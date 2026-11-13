@@ -139,14 +139,16 @@ point 3.
 
 ### Approved report changes
 
-Same-report check, this change against current main (7e59aff3, which holds D-231
-and D-233): 16 files in 2 of the 17 cases differ, `amzn-data-only` and
-`amzn-fixed-analyst` (all eight outputs each), plus their two payload
-fingerprints. The other 15 cases are byte for byte unchanged, as is every
-figure of Amazon not listed below. Against the round baseline r2-base-afb9cddf
-the difference is these files plus the already approved changes of D-231 (TSM,
-DUK) and D-233 (O). Leaf-level list: `tmp/accuracy/s5-taxrate-before-after.md`
-(not committed: it quotes vendor data).
+Same-report check, this change against current main (ab6db405, which holds
+D-229, D-231, D-233 and D-234): 16 files in 2 of the 17 cases differ,
+`amzn-data-only` and `amzn-fixed-analyst` (all eight outputs each), plus their
+two payload fingerprints; `golden:diff --approved` with the list below reports
+"18 approved change(s), nothing else". The other 15 cases are byte for byte
+unchanged, as is every figure of Amazon not listed below. Against the round
+baseline r2-base-afb9cddf the difference is these files plus the already
+approved changes of D-231 (TSM, DUK), D-233 (O), D-234 (FIGR) and D-229 (RIVN).
+Leaf-level list: `tmp/accuracy/s5-taxrate-before-after.md` (not committed: it
+quotes vendor data).
 
 Amazon (`amzn-data-only`, USD). Filed values are SEC XBRL facts, stated to the
 million (decimals -6). Trailing window 2025-07-01..2026-06-30:
@@ -216,7 +218,8 @@ figures. Its deterministic figures change exactly as above. In addition six
 figures the stored text cites (fiscal 2025 ROIC 20.6%, the WACC, their spread
 and three more) no longer equal the payload, so the verification pass marks
 them untraced or contradicted (6 to 12 contradicted claims, 278 to 272 of 288
-figures traced; its manifest goes from 181 to 183 entries). That is the verification rule working on stale prose (P19);
+figures traced; its manifest goes from 181 to 183 entries). That is the
+verification rule working on stale prose (P19);
 no rule of it changed.
 
 Approvals list for the same-report check (SHA-256, before -> after):
@@ -243,9 +246,9 @@ Approvals list for the same-report check (SHA-256, before -> after):
 | amzn-fixed-analyst | web-dossier.html | 00da1696ddefca4cea500b1cddb024858bb52a002f237d7e75b8cfa111210cc2 | ad57382b0442394c5890cc4f4bc3245780f979690dfcc936b9fab65da05faaeb | the same figures; the stored analyst text is checked against them |
 
 Accuracy check (`accuracy:check`, the unmerged tool, run against this change's
-17 cases): 154 match, 14 mismatch, 63 gap, 35 not established, one
+17 cases): 156 match, 12 mismatch, 63 gap, 35 not established, one
 difference from its expectation, "BETTER: amzn-data-only fv.taxRate, mismatch
-to match", none worse. Current main gives 153 and 15, every figure as
+to match", none worse. Current main gives 155 and 13, every figure as
 expected.
 
 Tests (`tests/effectiveTaxBase.d237.test.ts`, 17 cases; 13 fail on the
