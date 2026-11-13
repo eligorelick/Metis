@@ -102,15 +102,16 @@ change to every company's report with no number behind it).
 
 ### Approved report changes
 
-Same-report check against current main (ab6db405, which includes D-229,
-D-231, D-233 and D-234), with that main merged into this branch: 16 files in
-2 of the 17 cases differ (O and DUK, all eight outputs each, plus their two
-payload fingerprints); the other 15 cases, and every other figure of O and
-DUK, are byte for byte unchanged. FIGR, RIVN and every company without NCI do
-not move. The same result was measured before that merge, against main at
-99234cdf. Against the round's first baseline (r2-base-afb9cddf) the same
-files differ, plus the approved changes of D-229 (RIVN), D-231 (TSM and DUK),
-D-233 (O) and D-234 (FIGR). The leaf-level list is in
+Same-report check against current main (be7c11d6, which includes D-229,
+D-231, D-233, D-234, D-237 and D-239), with that main merged into this
+branch: 16 files in 2 of the 17 cases differ (O and DUK, all eight outputs
+each, plus their two payload fingerprints); the other 15 cases, and every
+other figure of O and DUK, are byte for byte unchanged. FIGR, RIVN and every
+company without NCI do not move. The same leaves, and no others, moved when
+this was measured against main at 99234cdf and at ab6db405. Against the
+round's first baseline (r2-base-afb9cddf) the same files differ, plus the
+approved changes of the decisions merged since it (D-229, D-231, D-233,
+D-234, D-237 and D-239). The leaf-level list is in
 `tmp/accuracy/s5-net-income-scope-before-after.md` (not committed: it quotes
 vendor data).
 
@@ -124,7 +125,7 @@ Realty Income (`o-data-only`, USD). Filed values are SEC XBRL facts of 10-K
 | Net margin, fiscal 2025 | 18.606863% (consolidated 1,069,783,000 over revenue) | 18.412182% | parent profit 1,058,590,000 = `us-gaap:ProfitLoss` 1,069,783,000 less `us-gaap:NetIncomeLossAttributableToNoncontrollingInterest` 11,193,000, and equal to `us-gaap:NetIncomeLoss` 1,058,590,000, all 2025-01-01..2025-12-31; over `us-gaap:Revenues` 5,749,377,000 |
 | Net margin slope | -1.248342 pp/yr | -1.258962 pp/yr | computed from the series |
 | DuPont net margin / ROE, fiscal 2025 | 0.186069 / 2.733242% | 0.184122 / 2.704644% | the same parent profit; turnover and leverage unchanged |
-| Manifest | 214 entries | 215 (one informational entry for the 2023 correction) | |
+| Manifest | 216 entries | 217 (one informational entry for the 2023 correction) | |
 
 Duke Energy (`duk-data-only`, USD):
 
