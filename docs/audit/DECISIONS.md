@@ -158,6 +158,93 @@ which does not name the fiscal year; and the route-level note "diluted share
 count from the latest ANNUAL statement ... per-share values may lag", which is
 still raised on its old condition.
 
+## D-230 - The two lint workaround packages are removed (2026-11-12)
+
+Principles P26 and P27. Revises D-32 and the D-138 Task 12 addition. Each
+added a local package that stood in for an upstream lint dependency only to
+keep a flagged version out of the security audit:
+`scripts/next-eslint-glob` (D-32) replaced fast-glob for Next's ESLint
+plugin because of the braces advisory
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm), and
+`scripts/legacy-minimatch` (Task 12) replaced minimatch for ESLint 9 and five
+of its plugins because of
+[GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). Both
+reasons have gone. GitHub withdrew the braces advisory on 2026-10-23, and on
+2026-11-04 narrowed the minimatch one to `>=7.0.0 <11.0.1`, which no longer
+covers minimatch 3. The owner's rule: remove the workarounds only after a clean
+install is proven in CI.
+
+Options: keep both (two hand-written adapters and seven overrides that tie the
+lint tooling to Next 16.4.2 and need their own review on every consumer
+upgrade); remove one; or remove both once each is proven separately. Choice:
+both are removed, along with their two `file:` devDependencies, the six
+`$minimatch` overrides and the `@next/eslint-plugin-next@16.4.2` fast-glob
+override. The TypeScript parser's `minimatch-modern` (11.0.1) override stays,
+because without it the parser gets minimatch 10.2.6, which the advisory still
+covers. Cost: a future advisory against fast-glob, micromatch or minimatch 3
+would again need a decision; the exact-version gate below catches that.
+
+Proof, for each package separately:
+
+- Security. `npm audit --include=dev --audit-level=low` (the `audit:security`
+  command) reports 0 vulnerabilities. Every reintroduced version sits outside
+  every advisory range GitHub lists for it: braces 3.0.3 (only the withdrawn
+  advisory covers it), micromatch 4.0.8, picomatch 2.3.2, glob-parent 5.1.2,
+  minimatch 3.1.5 and brace-expansion 1.1.21.
+- Lock. Regenerated with `npx npm@10 install --package-lock-only
+  --ignore-scripts` after the shims' own lock entries were dropped, so npm
+  placed the upstream packages normally. A second run changes nothing. 23
+  entries changed. Removed: `scripts/next-eslint-glob` and
+  `scripts/legacy-minimatch`. Changed from links to registry packages:
+  `node_modules/fast-glob` (3.3.1) and `node_modules/minimatch` (3.1.5).
+  Added: `@nodelib/fs.scandir` 2.1.5, `@nodelib/fs.stat` 2.0.5,
+  `@nodelib/fs.walk` 1.2.8, braces 3.0.3, `fast-glob/node_modules/glob-parent`
+  5.1.2, fastq 1.20.3, fill-range 7.1.1, is-number 7.0.0, merge2 1.4.1,
+  micromatch 4.0.8, `micromatch/node_modules/picomatch` 2.3.2,
+  queue-microtask 1.2.3, reusify 1.1.0, run-parallel 1.2.0, to-regex-range
+  5.0.1, concat-map 0.0.1, `minimatch/node_modules/balanced-match` 1.0.2 and
+  `minimatch/node_modules/brace-expansion` 1.1.21. The root entry's
+  devDependencies changed too. No other entry changed; all 19 `@emnapi` and
+  wasm optional entries remain. npm would have picked brace-expansion 1.1.22,
+  published the day before; the lock keeps 1.1.21, the version reviewed for
+  this lock on 2026-09-30.
+- Clean install. `npm ci` from the new lock succeeds on Windows with Node 24.
+  The pull request's `full` (Linux) and `windows-smoke` checks each run a
+  clean install too.
+- Lint. `eslint . --format json` gives identical results before and after, with
+  the same 1,244 files and the same messages. The `--debug` lists of linted
+  files are identical. Both were compared on the same source tree. On this
+  branch the only difference is the two deleted adapter files.
+- Glob and match behaviour. The probes from the two deleted adapter tests were
+  replayed against both installs. Next's directory globbing, its
+  `no-html-link-for-pages` rule for every tested `rootDir`, minimatch's legacy
+  options (trimming, `..` segments, Windows separators, `dot`, `flipNegate`,
+  `matchBase`), `makeRe(...).test`, ESLint's file enumerator, the eslintrc
+  overrides and TypeScript project-service admission all give the same results.
+  The only differences: the resolved package names, and six complex patterns
+  that the adapter refused and upstream fast-glob accepts. This repository
+  sets no `rootDir`, so lint never calls fast-glob.
+- Dependency shape. `check-dependency-shape.mjs` now approves minimatch
+  exactly 3.1.5 and 11.0.1, and brace-expansion exactly 1.1.21 and 5.0.12; the
+  facade's own entry is gone. It still pins next, eslint-config-next, postcss,
+  sharp and js-yaml, and still checks lock edges and the installed tree.
+- Audit fixture provenance (P27). The Task 12 addition asked for a reviewed
+  restoration or provenance decision for any later lock change; this entry is
+  that decision. `comparisonPackageLockBlob` moves forward a fifth time, from
+  `76cc4d445212431bd8f10eab94eb8bc464a6945d` to
+  `6d6c85343416e7692da93c5e2c2769e87e04c8fd`. The audit fixture comparison
+  recomputed the Stage B projection under Node 24 and it matched the audited
+  baseline byte for byte. The lock normalization now restores the root's name
+  and license only. The exact-byte inverse in `tests/helpers/qcom53Task12Lock.ts`
+  and its test described only the removed package's lock entries, so they go.
+  So do `tests/nextEslintGlob.test.ts` and `tests/minimatch.tooling.test.ts`,
+  whose only subjects were the two adapters.
+- Reports. `golden:diff` against the round-2 baseline reports no changes
+  (17 cases, 136 files); it notes only that the two commits' lock files differ.
+
+Nothing a reader sees changes: no report figure, schema, stamp, payload,
+export, golden or intended delta moves.
+
 ## D-231 - The net income on a vendor's annual cash-flow row is checked against the filer's own profit (2026-11-12)
 
 Principles P8 (filed beats vendor), P5 (entity scope), P10 (withhold, never
@@ -2628,7 +2715,7 @@ not a fresh verification of historical runs or external account permissions.
 | D-11–D-17 and D-34: sources and financial routes | [Bundle](../../src/pipeline/dataBundle.ts), [keyless](../../src/pipeline/keyless.ts), [successor](../../src/edgar/successor.ts) and [routing](../../src/pipeline/stageB/sectorRouting.ts) implement reserved fixtures, issuer-gated fallback, predecessor history, beta and corroborated financial classification. Recorded `fixtures/edgar/xom_successor_*` headers supersede the original deferred synthetic-only fixture choice. Keyless Form 4 trade reconstruction remains deferred. |
 | D-18/D-19/D-24–D-26/D-28–D-31/D-35/D-37–D-39: financial conventions | [Compute](../../src/pipeline/compute.ts), [Stage B](../../src/pipeline/stageB) and [split resolution](../../src/edgar/splits.ts) implement the evolving growth, capital, currency, common-ownership, share-basis and calendar rules. Report spec 1.10.0 and payload 1.11.0 identify the latest conventions; older version stamps below describe their individual batches. See [METHODOLOGY](../METHODOLOGY.md) for a coherent current formula description. |
 | D-20/D-40: judge protocol | [Judge protocol](../../src/pipeline/stageC/judgeProtocol.ts) and [Stage C](../../src/pipeline/stageC/index.ts) implement selected order, protected-content-aware shortening, exact excess and reconstructed-resume disclosure. Persisting the original complete protocol on the synthesize artifact remains unimplemented; a resumed protocol can re-derive order using the current setting, with unknown lengths disclosed. [Protocol tests](../../tests/stageC.judgeProtocol.test.ts) cover the recorded metadata. Scenario horizon labels are set by `applyScenarioTargets` in [passes](../../src/pipeline/stageC/passes.ts), not the judge (D-40); [pass tests](../../tests/stageC.payload.passes.test.ts) cover null and suppressed targets. |
-| D-21/D-22/D-27/D-32: local boundaries and tooling | [Request security](../../src/app/requestSecurity.ts), [environment](../../src/config/env.ts), [scripts](../../package.json) and the [Next lint adapter](../../scripts/next-eslint-glob/index.cjs) are authoritative. Node is now `>=24` (2026-10-22 audit, F-10); historical package targets and README line counts are not current dependency state. |
+| D-21/D-22/D-27/D-32: local boundaries and tooling | [Request security](../../src/app/requestSecurity.ts), [environment](../../src/config/env.ts), [scripts](../../package.json) and the [Next lint adapter](https://github.com/eligorelick/Metis/blob/8f529d7a954a495db4c093cb73fe07414fab6ad4/scripts/next-eslint-glob/index.cjs) are authoritative (Revised by D-230: that adapter was removed; the link points to the last commit that had it). Node is now `>=24` (2026-10-22 audit, F-10); historical package targets and README line counts are not current dependency state. |
 | D-33/D-36/D-37/D-38: connections and display | [AI connections](../../src/ai/connections.ts), [credential store](../../src/ai/store.ts), [native mutex](../../src/ai/mutex.ts) and [appearance](../../src/appearance/preference.ts) implement explicit connections and browser appearance persistence. Current is the default; Research workspace is optional and Decision brief remains a prototype. The permanent SQLite mutex replaces the F08 stale-PID protocol; stopped-server upgrades and local-filesystem requirements remain. Recorded grade/DCF evidence and paginated chart tables are implemented; see the [recommendations ledger](2026-10-04-recommendations.md). |
 
 Live OAuth approval, current account access, macOS credential behavior, empirical
@@ -2807,6 +2894,9 @@ behavior; historical measured costs remain the observations recorded below.
   or options require explicit review. Clean install, dependency shape, lint,
   security audit, and Linux/Windows tests remain release requirements. The
   lockfile provenance changes; financial fixture and baseline bytes do not.
+- **Revised by D-230 (2026-11-12)**: the braces advisory was withdrawn on
+  2026-10-23, so the adapter was removed and Next's ESLint plugin uses
+  upstream fast-glob 3.3.1 again.
 
 ---
 
@@ -4133,6 +4223,7 @@ The Task 3 receivables decision above is unchanged. This addition records only T
 - **Compatibility boundary and cost.** Legacy patterns retain trimming, literal parent segments (optimization level zero) and native Windows separator handling; callers' explicit options remain effective. The project already requires Node >=24. The facade uses Node's documented [synchronous ESM/CommonJS interoperability export](https://nodejs.org/api/modules.html#loading-ecmascript-modules-using-require) plus an ESM default export, retaining existing lint rules without a suppression. Cost: this is a scoped adapter for the installed consumer APIs, not full minimatch 3 compatibility; future consumer upgrades require the same real rule/selection regressions. Upstream 11's matching semantics apply outside the explicitly adapted legacy options.
 - **Enforcement and invariants.** The dependency-shape gate checks real package identities through npm `--long` metadata and lock link targets, including nested and aliased upstream copies. The genuine upstream version set is exactly 11.0.1, while the own facade is separately identified as 1.0.0; brace-expansion is exactly 5.0.12 after removal of the old engine. Unrelated lock entries, optional cross-platform dependencies, ESLint 9.39.5, Next 16.4.2, lint configuration and the include-dev/low/failure audit script remain intact. No report source, financial arithmetic, schema, stamp, payload, golden or intended delta changes; methodology therefore requires no financial revision. Focused execution receipts and remaining final-head acceptance are recorded separately in the private Task 12 report.
 - **Historical fixture provenance (corrective round 1).** The first Product run at `6ce14d60` correctly rejected the changed comparison-lock fingerprint. Keep the published `76cc4d445212431bd8f10eab94eb8bc464a6945d` pin and all original generator/projection/fixture evidence. A separate test-only inverse requires the complete current lock's 327,884 bytes/SHA256 `9626141684a0c02a95ee949bd7a2ecb06c44d6706956ae7b069b3d8ee903668f`, checks each of the eleven closed reviewed node changes, and reconstructs exactly the pre-task 327,945 bytes/SHA256 `39ef0024e898fa8db387dfeef99bb97a9463fd7a8a584082e961feaec8770d95`. Only that verified in-memory string feeds the existing unchanged five-field branding/license normalization. Neither the installed lock nor historical provenance is rewritten; no arbitrary development dependency is exempted. Added controls reject owned/unowned field changes, additions/removals, formatting and duplicate-key drift, while checking 148 non-root runtime entries, the existing development link and root runtime declarations separately. Future lock changes require a fresh explicitly reviewed restoration or provenance decision; they cannot silently pass this exact-byte check.
+- **Revised by D-230 (2026-11-12).** The advisory was narrowed to `>=7.0.0 <11.0.1` on 2026-11-04, so the `@metis/legacy-minimatch` facade and its six overrides were removed and the ESLint consumers use upstream minimatch 3.1.5 again. The TypeScript parser keeps 11.0.1 through `minimatch-modern`. D-230 is the provenance decision this entry asks for: the comparison pin moved forward and the exact-byte inverse went with the facade.
 
 ## D-142 - P0 review corrections: source comparison, date qualification and recovery (2026-11-02)
 

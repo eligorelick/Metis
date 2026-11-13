@@ -30,6 +30,16 @@ original versions and bytes; source merge does not deploy or publish a release.
   and P/AFFO price on the market cap and do not move. Version stamps are left
   for the Stage 5 integration; saved reports are unchanged.
 
+## Unreleased - Lint workaround packages removed (2026-11-12)
+
+- ESLint and Next's ESLint plugin use upstream minimatch 3.1.5 and fast-glob
+  3.3.1 again. The local `scripts/legacy-minimatch` and
+  `scripts/next-eslint-glob` stand-ins and their seven overrides are gone,
+  because the braces advisory was withdrawn and the minimatch advisory no
+  longer covers minimatch 3 (P26, P27, D-230). The security audit still
+  reports 0 vulnerabilities, lint results are identical, and no report, export
+  or golden output changes.
+
 ## Unreleased - Cash-flow net income checked against the filing (2026-11-12)
 
 - The net income on a vendor annual cash-flow row, which free-cash-flow
