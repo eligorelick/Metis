@@ -176,6 +176,7 @@ import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebt
 import { collapsedDebtReason, implausibleDebtReason, uncashedDebtCollapseReason } from "@/edgar/debtCompleteness";
 import { filedReceivablesCandidates } from "@/edgar/receivables";
 import { admittedIssuerFacts, confirmedIssuerFacts } from "@/edgar/issuerFacts";
+import { supplementCommonEarnings } from "@/pipeline/commonEarnings";
 import { businessCombinationYears, computeTtmCommonReturn, type TtmCommonReturn } from "@/pipeline/stageB/excessReturnStart";
 import { quarterlyOpeningBook, resolvePreferredCapital } from "@/pipeline/stageB/excessReturnBook";
 import { materialOperatingDispositions, type OperatingDispositionRead, unusualOperatingItemsByFiscalYear, withoutRecurringFamilies, recurringOperatingItemsBasis, unusualOperatingItemsTtm } from "@/pipeline/stageB/unusualItems";
@@ -2195,6 +2196,28 @@ function preferredCapitalView(bundle: DataBundle): DataBundle {
   return { ...bundle, statements: { ...bundle.statements, balanceAnnual, balanceQuarterly }, gaps };
 }
 
+/**
+ * D-251 (P5): calculation view. A fiscal year in which preferred claims existed
+ * has its filed common earnings read even when the preferred was redeemed
+ * before the year's end. The existence test is the one `toReturnsIncome` hands
+ * the earnings selector (`preferredClaimsInFlow` over the same balances and
+ * cash rows), so the year the selector refuses is the year the filed figure is
+ * read for. Stored bundles are unchanged; the rule lives in
+ * `supplementCommonEarnings`.
+ */
+function filedCommonEarningsView(bundle: DataBundle): DataBundle {
+  const admitted = admittedIssuerFacts(bundle.symbol, bundle.edgar);
+  if (!admitted?.ok || !Number.isFinite(Date.parse(admitted.value.fetchedAt)) || Date.parse(admitted.value.fetchedAt) > Date.parse(bundle.builtAt)) return bundle;
+  const facts = admitted.value.data;
+  const balances = [...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)];
+  const cash = [...rowsOf(bundle.statements.cashflowAnnual), ...rowsOf(bundle.statements.cashflowQuarterly)];
+  const supplemented = supplementCommonEarnings(bundle.statements.incomeAnnual, bundle.statements.balanceAnnual, facts,
+    bundle.builtAt.slice(0, 10), admitted.value.fetchedAt,
+    row => (row.cik == null || Number(row.cik) === facts.cik) && preferredClaimsInFlow(commonFlowScope(row, "netIncome", "annual"), balances, cash));
+  return supplemented.gaps.length === 0 ? bundle
+    : { ...bundle, statements: { ...bundle.statements, incomeAnnual: supplemented.income }, gaps: [...bundle.gaps, ...supplemented.gaps] };
+}
+
 /** D-198: one calculation view; the acquired statements and immutable reports retain their filed values. */
 export function operatingDispositionView(bundle: DataBundle): { bundle: DataBundle; read: OperatingDispositionRead } {
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
@@ -2273,6 +2296,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   bundle = withPrimaryCapitalBasis(withCashFlowSbcBasis(withBorrowingCostBasis(withIncomeOperatingBasis(withReleaseQuarterEarnings(withFilerShareUnits(bundle))))));
   bundle = balanceIntegrityView(bundle);
   bundle = preferredCapitalView(bundle);
+  bundle = filedCommonEarningsView(bundle);
   const operatingDispositions = operatingDispositionView(bundle);
   bundle = operatingDispositions.bundle;
   if (operatingDispositions.read.basis) notes.push(operatingDispositions.read.basis);

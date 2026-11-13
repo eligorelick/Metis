@@ -3202,6 +3202,10 @@ with, all printed as assumptions in their own right:
   is common dividends plus net common buybacks over income available to common,
   averaging up to three years with at least two usable years. Missing history suppresses the model
   rather than assuming a universal payout.
+  A fiscal year in which preferred claims existed but none stand at its end
+  (the preferred was redeemed) reads its filed income available to common from
+  the full-year 10-K as well; a closing balance without preferred does not make
+  total net income the common holders' for that year (D-251).
   If preferred stock is outstanding and SEC facts give only aggregate cash
   dividends, the total is not labeled common dividends. A preferred earnings
   allocation is not a cash payment. Common payout and the valuation remain
