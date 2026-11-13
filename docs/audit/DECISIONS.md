@@ -11,6 +11,153 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-233 - FFO and AFFO per share divide by the share count of FFO's own fiscal year (2026-11-12)
+
+Principles P13 (one basis: a ratio's numerator and denominator share one
+basis), P1 (exact period), P3 (share basis) and P10 (withhold, never guess).
+Round 2, Stage 5 (accuracy fixes), REIT FFO divisor family. The accuracy
+baseline (r2-base-afb9cddf, rank 2) found Realty Income's "FFO per-share
+divisor" to be 946,115,000 shares, the filed weighted diluted count of the
+quarter 2026-07-01..2026-09-30, under an FFO of fiscal year 2025.
+
+Root cause. On the equity-REIT route `computeValuation`
+(`src/pipeline/compute.ts`) handed the REIT block the divisor every
+value-per-share model reads: the weighted diluted count of the newest income
+row, a quarter whenever one is as new as the fiscal year ("Share basis
+(D-65)"). That count is right for a value per share (the DCF and the
+excess-return model divide a value of today's capital by today's count). FFO
+and AFFO are not values: `computeNareitFfo` measures them on the latest fiscal
+year only. So a twelve-month flow was divided by a count from a later
+three-month period. For an issuer that issues shares continuously, as REITs
+do, the later count is larger and the per-share figure is understated
+(Realty Income: by 4.0%).
+
+What each per-share figure on the equity-REIT route covered, before this
+change:
+
+| Figure | Numerator period | Divisor period before | Divisor period now |
+| --- | --- | --- | --- |
+| FFO per share | latest fiscal year | newest income row: the latest quarter when it is as new as the fiscal year, else the fiscal year | the same fiscal year |
+| AFFO per share | latest fiscal year | same as FFO per share | the same fiscal year |
+
+The route has no other per-share figure. P/FFO and P/AFFO are the quote's
+market cap over fiscal-year FFO and AFFO (OD-8): no share count enters them,
+and the existing note already says the market cap is current while FFO is up
+to three quarters old. The implied cap rate is NOI over enterprise value.
+The route publishes no fair value per share, no scenario targets and no
+projections, and its valuation grade reads the P/FFO and P/AFFO own-history
+ranks. None of these moves.
+
+Choice, in the owner that selects the REIT block's divisor (`computeValuation`,
+`src/pipeline/compute.ts`), for every issuer on the route:
+
+1. The divisor is the weighted diluted count of FFO's own period: the annual
+   income row whose period end is FFO's, read through the one divisor owner
+   (`incomeDivisors` and `awardDilutedDivisor`, FIN-404) and the one
+   common-class rule (`issuerEconomicDilutedShares`, B-37). No new tolerance,
+   day band or status word is added.
+2. The latest quarter's count is never used for these two figures. It is a
+   different figure's divisor (a value per share on today's capital, P3), and
+   the route publishes no such figure, so nothing is redefined: FFO and AFFO
+   per share are flows per share of the fiscal year, and the REIT block's new
+   note says so with the period and the count.
+3. When no count is established for that fiscal year (no annual row at FFO's
+   period end, no count on it, a multi-class count the class rule cannot show
+   spans every class, or, for a translated ADR, a count the quoted-unit rule
+   in `src/pipeline/foreignCurrency.ts` cannot place on the quoted security)
+   both figures are withheld with the warn gap
+   `valuation.reit.perShareDivisor`, which names the cause. Another period's
+   count is not substituted. P/FFO and P/AFFO need no count and stand.
+4. The loss-period disclosure (`valuation.perShare.lossPeriodDivisor`,
+   FIN-404) now describes the row the REIT block divides by. A loss fiscal
+   year takes its basic count plus the newest profitable period's award
+   dilution, as OD-7 decided; a loss quarter beside a profitable fiscal year
+   no longer touches FFO per share. OD-7 and OD-8 in the 2026-10-27 batch B4
+   entry are marked "Revised by D-233" for this.
+
+Other routes, checked as far as needed to say whether the same mismatch
+exists: it does not. General and utility: the DCF, reverse DCF and scenario
+values are values per share on the latest count; P/E reads filed EPS; forecast
+EPS divides a forecast year by today's count by stated convention (no filed
+count exists for a future year); the buyback price proxy divides a fiscal
+year's average market cap by that same year's count. Bank, insurer and
+mortgage REIT: the excess-return value and tangible book per share divide a
+balance at one date by the count of the newest income period ending on or
+before that date; a mortgage REIT's book value per share uses period-end
+shares, or that fiscal year's weighted count as a disclosed stand-in. No
+figure on those routes divides a past flow by another period's count, so
+nothing there changes.
+
+Options rejected: moving the whole route's divisor selection to the fiscal
+year (it would also change the convertible reading, the divisor note and the
+class-basis note that other code reads for the newest row); restating FFO to a
+trailing twelve months so the latest count could stay (the NAREIT components
+resolve as annual facts only, and a trailing weighted count is not a filed
+figure); keeping the latest count and relabelling the figure "FFO per current
+share" (a silent redefinition of a figure readers compare with the issuer's
+own FFO per share).
+
+### Approved report changes
+
+Same-report check, this change against current main (bda87e4c, which holds
+D-231): 1 file in 1 of the 17 cases differs, `o-data-only/stageB.json`, in
+three leaves. The other 16 cases, and every other figure, note and gap of
+Realty Income (its other seven outputs and its payload fingerprint included),
+are byte for byte unchanged. Against the round baseline r2-base-afb9cddf the
+difference is that one file plus D-231's own approved changes to TSM and Duke
+Energy, which this change does not touch. Leaf-level list:
+`tmp/accuracy/s5-ffo-before-after.md` (not committed).
+
+Realty Income (`o-data-only`, USD). Filed values are SEC XBRL facts of Form
+10-K 0000726728-26-000011, filed 2026-02-25, for the fiscal year
+2025-01-01..2025-12-31, stated to the thousand (decimals -3).
+
+| Figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| FFO per-share divisor | 946,115,000 shares (`WeightedAverageNumberOfDilutedSharesOutstanding`, quarter 2026-07-01..2026-09-30, 10-Q 0000726728-26-000059, filed 2026-11-03) | 908,334,000 shares | `us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding`, 2025-01-01..2025-12-31 = 908,334,000 shares, 10-K 0000726728-26-000011 |
+| FFO per share (`valuation.reit.ffoPerShare`) | 4.097266188571157 | 4.267686776009706 | 3,876,485,000 / 908,334,000. FFO as the report already cites it, all from the same 10-K and fiscal year: `NetIncomeLoss` 1,058,590,000 + `DepreciationDepletionAndAmortization` 2,524,200,000 - `GainLossOnSaleOfProperties` 177,640,000 + `ImpairmentOfRealEstate` 471,335,000 |
+| AFFO per share (`valuation.reit.affoPerShare`) | 3.95795965606718 | 4.122585965074521 | 3,744,685,000 / 908,334,000. AFFO = FFO 3,876,485,000 - `PaymentsForCapitalImprovements` 131,800,000 (same 10-K and fiscal year) |
+| REIT block note (`valuation.reit.notes.3`) | absent | "FFO and AFFO per share divide by the weighted-average diluted share count of FFO's own period, the fiscal year ending 2025-12-31 (908334000 shares), so each flow and its divisor cover one period; the latest quarter's count is not used." | discloses the divisor above |
+
+FFO (3,876,485,000), AFFO (3,744,685,000), P/FFO (14.5858) and P/AFFO
+(15.0991) are unchanged. FFO per share is shown on the company page; it is not
+in the Stage C payload or the report, so no report text, score or grade moves.
+
+Approvals list for the same-report check:
+
+| Case | File | Before (SHA-256) | After (SHA-256) | Reason |
+| --- | --- | --- | --- | --- |
+| o-data-only | stageB.json | 640b7efdbbf674b8bb9c15b1ee5bf0bde84a5c2b9252b87eb868dd975afdf346 | 675c5a40750d81b6741913f801322d8dbc9b250991339e30c3e71ba3c6d97b6e | the three leaves above |
+
+Accuracy check (`accuracy:check`, the unmerged tool, run against this
+change's 17 cases): 153 match, 15 mismatch, 63 gap, 35 not established, one
+difference from its expectation, "BETTER: o-data-only fv.ffo.shares, mismatch
+to match", none worse. Current main (with D-231) gives 152 and 16.
+
+Tests (`tests/stageB.reitFfoDivisor.test.ts`): the root cause on a synthetic
+REIT whose fiscal-year and latest-quarter counts differ; Realty Income on its
+filed operands and counts; controls (equal counts change nothing, P/FFO does
+not move, no fiscal-year count withholds with the gap); a loss fiscal year;
+and two unrelated shapes, a general company's DCF and a bank's excess-return
+value, which still divide by the latest quarter's count. One existing test
+(`tests/stageB.lossPeriodDivisor.audit20261027.test.ts`) pinned the old wiring
+(a loss quarter changing the REIT divisor); it now puts the loss on the fiscal
+year, and a second case states that a loss quarter leaves FFO per share on the
+year's filed count.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change advances the Stage B
+implementation stamp only; the report specification and the payload are
+unchanged. Frozen records are unchanged. Saved reports are immutable (P21) and
+keep the figure they were built with.
+
+Not changed, because they belong to other steps or are wording only: Realty
+Income's consolidated-or-parent net income rows and its vendor-zero rows
+(capital spending 0, operating income); the company page label "FFO / share",
+which does not name the fiscal year; and the route-level note "diluted share
+count from the latest ANNUAL statement ... per-share values may lag", which is
+still raised on its old condition.
+
 ## D-232 - The DEMO fixture's frozen record replaces the audited baseline and its delta ledger (2026-11-12)
 
 Principle P27. Revises D-23.
@@ -3996,12 +4143,12 @@ Audit 2026-10-27, batch B4, part A (B4a): FIN-103, FIN-119, FIN-119-V1, FIN-119-
   - Revises: the D-58 fallback in METHODOLOGY and the code note "When removing them would leave no operating capital the D-58 basis stands" (both rewritten); D-65 item 4 stays true and now also covers what sales-to-capital could not remove.
   - Sources: D-65's own principle ("an asset left out of operating capital is never left out of value too"); Damodaran, "Holdings in Other Firms".
 - **OD-7: the divisor in a loss period.**
-  - Decision: a loss row's filed diluted count equals basic, so the divisor is the loss row's basic count plus the newest award-dilution increment from a profitable period among the latest four quarters and the latest fiscal year (that period's diluted count less its basic count, less any filed conversion increment). The substitution is dated and disclosed (info gap `valuation.perShare.lossPeriodDivisor`) and reaches the DCF, excess-return and REIT per share and forecast EPS. With no profitable donor, the basic count stands and the D-60 note and METHODOLOGY say it carries no option or RSU dilution. Detection (`dilutedDivisor.ts`): both counts are positive, the diluted count is at most basic plus 1 (`diluted <= basic + 1`), and the row's income from continuing operations (net income when that is not filed) is below zero. The conversion subtraction: the donor's filed if-converted share increment (debt and preferred) is taken out of its increment, because the bridge deducts those claims. The not-restored case: when the issuer has a convertible instrument filed with a nonzero balance (in any reporting currency) within 366 days and the donor period files no conversion increment, the award increment could hold conversion shares, so it is not restored, the filed count divides, and an info note says so (`loss-period-withheld`).
+  - Decision: a loss row's filed diluted count equals basic, so the divisor is the loss row's basic count plus the newest award-dilution increment from a profitable period among the latest four quarters and the latest fiscal year (that period's diluted count less its basic count, less any filed conversion increment). The substitution is dated and disclosed (info gap `valuation.perShare.lossPeriodDivisor`) and reaches the DCF, excess-return and REIT per share and forecast EPS. (Revised by D-233: the REIT per share divides by the latest fiscal year's count, so the substitution reaches it when that fiscal year is the loss period, not when the latest quarter is.) With no profitable donor, the basic count stands and the D-60 note and METHODOLOGY say it carries no option or RSU dilution. Detection (`dilutedDivisor.ts`): both counts are positive, the diluted count is at most basic plus 1 (`diluted <= basic + 1`), and the row's income from continuing operations (net income when that is not filed) is below zero. The conversion subtraction: the donor's filed if-converted share increment (debt and preferred) is taken out of its increment, because the bridge deducts those claims. The not-restored case: when the issuer has a convertible instrument filed with a nonzero balance (in any reporting currency) within 366 days and the donor period files no conversion increment, the award increment could hold conversion shares, so it is not restored, the filed count divides, and an info note says so (`loss-period-withheld`).
   - Rejected: the newest profitable period's diluted count (it carries that period's older basic count); disclose only.
   - Revises: D-65 item 5 and the D-60 divisor disclosure; METHODOLOGY "Share basis".
   - Sources: Deloitte Roadmap, *Earnings per Share* 8.7 (with a loss from continuing operations, diluted EPS is computed as basic EPS); ASC 260-10-45-17 to 45-20.
 - **OD-8: one REIT market cap and EV.**
-  - Decision: the REIT block takes its market cap and its EV from the multiples framework: the quote's admitted market cap and the house EV, which after OD-1 holds preferred, redeemable preferred, book NCI and redeemable NCI. P/FFO and P/AFFO are market cap over FFO at both sites; FFO and AFFO per share stay on the diluted count. A quote with a price but no market cap withholds P/FFO and EV with a warn gap. OP units, permanent or redeemable, are not common shares, so adding them as NCI never double counts.
+  - Decision: the REIT block takes its market cap and its EV from the multiples framework: the quote's admitted market cap and the house EV, which after OD-1 holds preferred, redeemable preferred, book NCI and redeemable NCI. P/FFO and P/AFFO are market cap over FFO at both sites; FFO and AFFO per share stay on the diluted count. (Revised by D-233: the diluted count of FFO's own fiscal year, not the latest quarter's.) A quote with a price but no market cap withholds P/FFO and EV with a warn gap. OP units, permanent or redeemable, are not common shares, so adding them as NCI never double counts.
   - Rejected: price times weighted diluted shares (two P/FFOs and two EVs per report, and OP units counted twice once redeemable NCI joins the EV); moving the multiples to price over FFO per diluted share (it touches peer and own-history P/FFO, not in this batch).
   - Revises: D-26's sentence "the REIT implied cap rate uses the house enterprise value", made true by construction instead of by a parallel formula.
   - Sources: Deloitte Roadmap 9.4 (that OP units redeemable for cash are such an NCI is filer practice, not the roadmap's); METHODOLOGY ("a report carries one EV").

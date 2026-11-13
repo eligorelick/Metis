@@ -4655,8 +4655,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   // is the per-share denominator only when the basic count from the same row
   // spans every class (`issuerEconomicDilutedShares`); it is then restated in
   // quoted-share units.
+  const economicScope = resolveEconomicEquityScope(multiplesQuote, bundle.economicShareEvidence ?? [], bundle.builtAt.slice(0, 10));
   const economicDiluted = issuerEconomicDilutedShares(
-    resolveEconomicEquityScope(multiplesQuote, bundle.economicShareEvidence ?? [], bundle.builtAt.slice(0, 10)),
+    economicScope,
     bundle.economicShareEvidence ?? [],
     { basic: posShares(num(dilutedSharesRow?.weightedAverageShsOut)), diluted: dilutedShares, periodEnd: isoDay(dilutedSharesRow?.date) },
     // FIN-404: a substituted count, or a loss period's basic count, is not the filed diluted count; the not-restored case divides by the filed count.
@@ -4794,13 +4795,40 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     route.reitSubmap === "undetermined"
       ? (route.gaps.find((g) => g.field === "route.reitSubmap")?.reason ?? null)
       : null;
+  // D-233 (P13, P1, P3, P10): FFO and AFFO are flows of the latest fiscal year (`computeNareitFfo`), so their
+  // per-share divisor is that same fiscal year's weighted diluted count: the annual income row at FFO's period end,
+  // through the one divisor owner (`incomeDivisors`, FIN-404) and the one class-basis rule (B-37). The latest
+  // quarter's count divides a value per share (the DCF and the excess-return model), never a flow of another
+  // period. With no count established for FFO's own year the per-share figures are withheld with the reason.
+  const ffoPeriodEnd = nareitFfo.asOf ?? isoDay(inc0?.date);
+  const reitDivisor = ((): { shares: number | null; withheld: string | null; divisor: DivisorResult | null } => {
+    const annualEnd = isoDay(inc0?.date);
+    if (ffoPeriodEnd === null || annualEnd !== ffoPeriodEnd) {
+      return { shares: null, divisor: null, withheld: `no fiscal-year income row ends at FFO's period end ${ffoPeriodEnd ?? "(unavailable)"}` };
+    }
+    const annual = divisors.annual;
+    if (annual.shares === null) {
+      return { shares: null, divisor: null, withheld: `the fiscal year ending ${annualEnd} carries no weighted-average diluted share count` };
+    }
+    const counts = { basic: posShares(num(inc0?.weightedAverageShsOut)), diluted: annual.shares, periodEnd: annualEnd };
+    const economic = issuerEconomicDilutedShares(economicScope, bundle.economicShareEvidence ?? [], counts, {
+      countNotFiled: annual.basis === "loss-period-substituted" || annual.basis === "loss-period-basic",
+      combinedClassEps: retainedCombinedClassEpsBasis(bundle, counts),
+    });
+    if (economic !== null && economic.shares === null) return { shares: null, divisor: null, withheld: economic.reason.replace(/\.$/, "") };
+    return { shares: economic?.shares ?? annual.shares, divisor: annual, withheld: null };
+  })();
+  // FIN-404: the divisor a published per-share figure divides by. On the equity-REIT route that is the fiscal-year row above.
+  const disclosedDivisor = route.base === "reit" ? reitDivisor.divisor : dilutedShareDivisor;
   const reit: ReitInputs | null =
     route.base === "reit"
       ? {
           ffoApprox,
           affoApprox,
           sharePrice: currentPrice,
-          shares: valuationDilutedShares,
+          shares: reitDivisor.shares,
+          sharesPeriodEnd: ffoPeriodEnd,
+          sharesWithheldReason: reitDivisor.withheld,
           noiApprox,
           // The FFO computation's own period end, never the trailing income
           // date: labelling a fiscal-year FFO with a TTM as-of asserted a
@@ -4845,7 +4873,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     ...(economicDiluted?.shares != null ? { dilutedShareSecurityBasis: "issuer-economic" as const } : {}),
     ...(economicDiluted ? { dilutedShareEconomicBasis: economicDiluted.shares === null ? economicDiluted.reason : economicDiluted.basis } : {}),
     // FIN-404: how the divisor row's count was formed, so a loss period's substitution is disclosed.
-    ...(dilutedShareDivisor !== null && dilutedShareDivisor.basis !== "filed" ? { dilutedShareDivisor: divisorDisclosure(dilutedShareDivisor) } : {}),
+    ...(disclosedDivisor !== null && disclosedDivisor.basis !== "filed" ? { dilutedShareDivisor: divisorDisclosure(disclosedDivisor) } : {}),
     noncontrollingOwnershipUnresolved: noncontrollingOwnershipUnresolvedAt(bridgePoint),
     minorityInterest: bridgePoint ? num(bridgePoint.minorityInterest) : null,
     preferred: bridgePoint ? num(bridgePoint.preferredStock) : null,
