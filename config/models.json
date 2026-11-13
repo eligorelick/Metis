@@ -1,5 +1,5 @@
 {
-  "snapshotDate": "2026-10-03",
+  "snapshotDate": "2026-11-13",
   "sources": {
     "modelIds": "https://platform.claude.com/docs/en/models/overview",
     "pricing": "https://platform.claude.com/docs/en/about-claude/pricing",
@@ -9,7 +9,8 @@
     "opus55": "https://platform.claude.com/docs/en/models/opus-5-5/overview",
     "sonnet55": "https://platform.claude.com/docs/en/models/sonnet-5-5/overview",
     "opus55Compatibility": "https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5",
-    "fable51Compatibility": "https://platform.claude.com/docs/en/models/fable-5-1/whats-new-fable-5-1"
+    "fable51Compatibility": "https://platform.claude.com/docs/en/models/fable-5-1/whats-new-fable-5-1",
+    "fable52Compatibility": "https://platform.claude.com/docs/en/models/fable-5-2/whats-new-fable-5-2"
   },
   "webSearchUsdPerThousand": 10,
   "judgeFloorModelId": "claude-sonnet-5-5",
@@ -19,10 +20,41 @@
     "claude-opus-4-8",
     "claude-sonnet-5-5",
     "claude-sonnet-5",
+    "claude-fable-5-2",
     "claude-fable-5-1",
     "claude-fable-5"
   ],
   "models": [
+    {
+      "id": "claude-fable-5-2",
+      "taskBudget": { "beta": "task-budgets-2026-03-13", "minimumTokens": 20000 },
+      "family": "fable",
+      "generation": "5.2",
+      "displayName": "Claude Fable 5.2",
+      "lifecycle": "active",
+      "releasedOn": null,
+      "datedSnapshotIds": [],
+      "contextWindowTokens": 1000000,
+      "maxOutputTokens": 128000,
+      "effort": { "supported": true, "levels": ["low", "medium", "high", "xhigh", "max"] },
+      "sampling": { "temperature": false, "topP": false, "topK": false },
+      "thinking": { "mode": "always-on", "sendParam": false },
+      "serverSideFallback": { "beta": "server-side-fallback-2026-06-01", "model": "claude-opus-4-8" },
+      "webSearchToolType": "web_search_20260318",
+      "pricing": {
+        "inputPerMTok": 8,
+        "outputPerMTok": 40,
+        "cacheWrite5mPerMTok": 10,
+        "cacheWrite1hPerMTok": 16,
+        "cacheReadPerMTok": 0.2
+      },
+      "notes": [
+        "Added 2026-11-13 from the official models overview and pricing pages: $8/$40 per MTok, cache read $0.20/MTok (0.025x input), 1M context, 128K output.",
+        "Same request rules as Fable 5.1: thinking is always on and Metis omits the parameter; sampling and forced tool choice are rejected and Metis sends neither.",
+        "Checks replayed thinking blocks against the history that preceded them on every account. Metis resumes a paused turn by appending the paused content unchanged, and never edits earlier messages, the system prompt or the tools.",
+        "Retains the bounded server-side refusal fallback to Opus 4.8, which cannot read Fable 5.2 thinking blocks; the provider drops them without charge."
+      ]
+    },
     {
       "id": "claude-fable-5-1",
       "taskBudget": { "beta": "task-budgets-2026-03-13", "minimumTokens": 20000 },

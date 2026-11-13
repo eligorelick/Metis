@@ -11,6 +11,116 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-259 - Claude Fable 5.2 joins the registry, and the refresh adds newly published models itself (2026-11-13)
+
+Principles P25 (one model registry: models are named and configured in one
+place), P23 (paid work is bounded: an unknown price cannot bound a
+reservation) and P10 (an unproven input is withheld, never guessed). Extends
+D-01 (the registry is a checked-in file; nothing at runtime fetches it), which
+stands. Owner: `config/models.json` and `scripts/models-refresh.mjs`. No
+calculation, report content or version stamp changes.
+
+Why. The registry snapshot of 2026-10-03 predates Claude Fable 5.2, so the
+model could not be selected. `npm run models:refresh` reported a model the
+registry did not know and told the maintainer to "add an entry by hand", so
+every new model waited for someone to notice and type one.
+
+What changed.
+
+1. `claude-fable-5-2` is in the registry, checked against the official
+   models overview and pricing pages on 2026-11-13: 1M context, 128K output,
+   $8 input, $40 output, $10 and $16 cache writes, $0.20 cache read per
+   million tokens. Its request rules are those of Fable 5.1 (thinking always
+   on and the parameter omitted, no sampling, no forced tool choice, the
+   bounded refusal fallback to Opus 4.8). It sits first among the Fable
+   entries in the `auto` order, which still prefers the Opus and Sonnet
+   lines. The other entries' prices were rechecked against the same page and
+   are unchanged, so the snapshot date moves to 2026-11-13.
+   Fable 5.2 checks replayed thinking blocks against the history that
+   preceded them on every account. Metis resumes a paused turn by appending
+   the paused content unchanged and never edits earlier messages, the system
+   prompt or the tools, so its requests stay inside that rule.
+2. The refresh builds the entry for a newly published model itself. A model
+   the Models API lists is added when all of these hold, and is otherwise left
+   out with the reason in the report:
+   - the API names its line, the line is one the registry carries (Fable,
+     Opus, Sonnet, Haiku), and the id is the dateless form for that line. The
+     line is never read off the id;
+   - it is newer than the registry's newest active entry of that line. An
+     older model is still added by hand;
+   - the API gives its display name, context and output limits, whether it
+     takes an effort level and which levels, and whether thinking can be
+     turned off; it supports structured output and web search, which the
+     passes need;
+   - it takes all five effort levels or none. The request builder sends the
+     configured level to any model that takes effort, so a model taking only
+     some levels is added by hand, not sent a level it rejects;
+   - the API lists it once. The same record on two pages counts once, in
+     whatever order its fields come; two different records for one id are
+     both left out;
+   - its display name is its own. A price row is matched by display name, so
+     a shared name could give a model another model's prices (P23). Every
+     model counts as a carrier of its name: registry entries under their
+     names before and after the refresh, and every id the API lists, whether
+     or not it can be added. Only a snapshot id the registry records in
+     `datedSnapshotIds` is the same model as its entry; the shape of an id
+     proves nothing. A name with two carriers prices neither: a new model is
+     left out (so is one the API lists under a dateless and a dated id with
+     one name; it is added by hand), and when a registry entry is one of the
+     carriers nothing is written until the snapshot id is recorded or the
+     names differ;
+   - the pricing page has exactly one complete row under its display name. A
+     model priced in tiers by prompt size (Claude Haiku 5.5 today) has no such
+     row and is left out, because one price per model is all the registry and
+     the reservation code can state.
+   A price row is read by the name that opens its cell, never by a model the
+   cell merely links to. Before anything is written the whole proposed file
+   must pass the application's own registry check (`parseModelRegistry`), so
+   the refresh cannot write a file the app would refuse to load; the command
+   now runs through tsx to load that check.
+   The three request rules neither source states (task budget, web search
+   tool version, refusal fallback) are copied from the newest entry of the
+   same line, and the new entry's notes say so. A new entry is selectable but
+   is not placed in the `auto` order: `auto` would send every report to a
+   model no run has succeeded on.
+
+Options considered. (a) Discover and price models at runtime, in the running
+app. Rejected: the registry would no longer be one checked-in place (P25,
+D-01), and a price read at run time is not reviewed before it bounds spend
+(P23). (b) Keep adding entries by hand. Rejected: it is the delay this entry
+removes. (c) Build the entry from the official sources in the refresh and keep
+the registry a reviewed, checked-in file. Chosen.
+
+Risks. A copied rule can be wrong for a new model; the failure is a rejected
+request, which is not billed, and the notes name the copied fields. A price
+row can carry a condition the table does not show; the pricing page is the
+same source every existing entry uses, and the refresh still writes nothing
+when an existing entry's row is missing or ambiguous. Reversible: an entry is
+data and can be removed or corrected.
+
+Not done here: running the refresh on a schedule. That needs an Anthropic key
+stored as a repository secret and permission for the workflow to open pull
+requests, which are the owner's to grant.
+
+Tests: `tests/modelsRefresh.test.ts` (a complete model is added above the
+entry it copied from, with limits, effort and thinking from the API and the
+price from the page; every incomplete case is left out with its reason; a new
+model without a price row does not block the rest; a shared display name, a
+partial set of effort levels and an id listed with two different records are
+left out; a record listed twice is added once; a missing price row for an
+existing entry still stops the write when a new model is present; the `auto`
+order is untouched), `tests/modelRegistry.test.ts`.
+
+Second-model review (Codex, 2026-11-13, four rounds) found the display-name,
+repeated record and partial effort cases, then that the name rule had to
+cover registry entries and models that cannot be added, then that an id
+shaped like a snapshot must not be assumed to be one, then four malformed
+inputs (a row linking to another model, a name that is a built-in property,
+an empty name, a limit too large to hold). The rules above answer each, and
+the application's registry check before writing answers the class. Known
+limit, by choice: a new model listed under two ids with one name is left out,
+not added. No further review round was run after the fourth round's fixes.
+
 ## D-258 - The bank revenue and reader-label steps move the version stamps once (2026-11-13)
 
 Principles P27 (version stamps move together) and P21 (saved reports are

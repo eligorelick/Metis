@@ -18,6 +18,19 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Claude Fable 5.2, and new models added by the refresh (2026-11-13)
+
+- `claude-fable-5-2` is selectable: $8 input and $40 output per million tokens,
+  cache read $0.20, 1M context, 128K output, checked against the official
+  models and pricing pages. It leads the Fable entries in the `auto` order,
+  which still prefers the Opus and Sonnet lines. The registry snapshot is
+  2026-11-13; the other entries' prices were rechecked and are unchanged.
+- `npm run models:refresh -- --write` now adds a newly published model itself
+  when the Models API and the pricing page describe it completely, and leaves
+  it out with the reason otherwise (D-259). A new entry is selectable at once
+  and is not placed in the `auto` order until a run on it has succeeded.
+- No calculation, report content or version stamp changes.
+
 ## Unreleased - Faster page changes (2026-11-13)
 
 - Opening a company with a saved report, its revisions list, or a saved run

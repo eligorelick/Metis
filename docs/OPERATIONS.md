@@ -400,8 +400,10 @@ npm run docs:pricing -- --write
 ```
 
 `models:refresh` queries Anthropic model availability and published pricing,
-prints a diff, and only writes the registry with `--write`; existing capability
-and request policies still require review. `costs:reconcile` previews presumed
+prints a diff, and only writes the registry with `--write`. It adds a newly
+published model by itself when the Models API and the pricing page describe it
+completely, and leaves it out with the reason otherwise; an added entry and
+existing capability and request policies still require review. `costs:reconcile` previews presumed
 spend and can read the admin cost report; `--write` applies conservative downward
 reconciliation, not a new report.
 

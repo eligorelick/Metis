@@ -169,7 +169,7 @@ const baseOpts = {
 };
 
 describe("synthesis output pacing across the supported model registry", () => {
-  const supported = new Set(["claude-fable-5-1", "claude-fable-5", "claude-opus-5-5", "claude-opus-5", "claude-opus-4-8", "claude-sonnet-5-5"]);
+  const supported = new Set(["claude-fable-5-2", "claude-fable-5-1", "claude-fable-5", "claude-opus-5-5", "claude-opus-5", "claude-opus-4-8", "claude-sonnet-5-5"]);
   it.each(acceptedModelIds().flatMap(model => REGISTRY_EFFORT_LEVELS.map(effort => ({ model, effort }))))(
     "$model/$effort preserves hard limits and uses advisory pacing only where supported", ({ model, effort }) => {
       const opts = { ...baseOpts, model, effort, field: "llm.judge", maxTokens: 32000 };
@@ -229,6 +229,9 @@ describe("pickPreferredModel", () => {
   it("prefers Opus 5 over Fable 5.1 and picks Fable 5.1 ahead of Fable 5", () => {
     expect(pickPreferredModel(["claude-fable-5-1", "claude-opus-5"])).toBe("claude-opus-5");
     expect(pickPreferredModel(["claude-fable-5", "claude-fable-5-1"])).toBe("claude-fable-5-1");
+    // Fable 5.2 leads its own line, and every Opus and Sonnet entry still comes first.
+    expect(pickPreferredModel(["claude-fable-5", "claude-fable-5-1", "claude-fable-5-2"])).toBe("claude-fable-5-2");
+    expect(pickPreferredModel(["claude-fable-5-2", "claude-sonnet-5"])).toBe("claude-sonnet-5");
   });
 
   it("fails closed when the Models API lists no supported priced model", () => {

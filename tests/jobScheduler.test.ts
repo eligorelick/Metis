@@ -2616,6 +2616,8 @@ describe("conservative provider reservation bounds", () => {
     // Fable's bound includes its configured Opus 4.8 fallback attempt.
     ["claude-fable-5", 7268.58, 1425.6],
     ["claude-fable-5-1", 7268.58, 1425.6],
+    // Fable 5.2 is $8/$40 with the same Opus 4.8 fallback exposure.
+    ["claude-fable-5-2", 6299.82, 1235.52],
   ])("bounds every retry layer for %s", async (model, analyst, synthesize) => {
     const provider = await import("@/providers/anthropic");
     expect(provider.maximumPassCostUsd(model, "bull")).toBe(analyst);
