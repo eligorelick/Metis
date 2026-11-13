@@ -5,6 +5,7 @@ import { parseOperatingRevenueBridge } from "@/edgar/currentReports";
 import { applyPrimaryIncome, bindPrimaryIncome, contradictedOperatingTag, primaryPerimeterChange } from "@/edgar/primaryIncome";
 import type { DataBundle } from "./types";
 import type { FmpIncomeStatementRow } from "@/providers/fmp";
+import type { ManifestEntry } from "@/types/core";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
@@ -12,8 +13,9 @@ import { sectorIndustryForSic } from "@/edgar/sic";
 import { successorContinuity } from "@/edgar/successor";
 import { conceptFactsSchema, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { predecessorFactsFor } from "@/pipeline/stageB/debtLikeObligations";
-import { enrichIncomeClassification } from "@/edgar/incomeClassification";
+import { enrichIncomeClassification, onFiledBankRevenue, refusedAgainstBankRevenue } from "@/edgar/incomeClassification";
 import { withFilerShareUnits } from "./shareUnits";
+import { withComputationContext } from "@/edgar/computationContext";
 
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 /** Continuity must be evidenced at the snapshot cutoff, like the amounts it admits. */
@@ -146,6 +148,12 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       const admission = enrichIncomeClassification(input, facts, name === "incomeAnnual" ? "annual" : "quarter", bundle.builtAt,
         { earningsOnly: true, bankRevenue, revenuePolicy, securitiesRevenue: bundle.edgar.sic === "6211", filedRows: candidates });
       input = admission.income;
+      // D-257 (P11): a refusal the admission cleared no longer stands, so the stored
+      // entry that disclosed it (same field, the refusal's own sentence) is retired
+      // rather than left to outrank the entry that replaces it.
+      for (const done of admission.cleared ?? []) {
+        for (let i = gaps.length - 1; i >= 0; i--) if (gaps[i]!.field === done.field && gaps[i]!.reason === done.reason) gaps.splice(i, 1);
+      }
       gaps.push(...admission.gaps);
     }
     if (!input.ok) return input;
@@ -286,4 +294,29 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
     return result.income;
   };
   return { ...shares, statements: { ...shares.statements, incomeAnnual: finishPerShare("incomeAnnual"), incomeQuarterly: finishPerShare("incomeQuarterly") }, gaps: finalGaps };
+}
+
+/**
+ * D-257 (P11): the report manifest merges the stored bundle's entries again, so
+ * a revenue refusal the bank rule cleared in the calculation view would still be
+ * listed there. Remove only that exact refusal (same field, the refusal's own
+ * sentence), as `primaryCapitalManifest` does for its field; other entries on
+ * the same field stay. A bundle with no revenue refused against a filed bank
+ * total is returned untouched without building the view.
+ */
+export function bankRevenueManifest(bundle: DataBundle, entries: readonly ManifestEntry[]): ManifestEntry[] {
+  const families = ["incomeAnnual", "incomeQuarterly"] as const;
+  const rowsOf = (source: DataBundle, name: (typeof families)[number]) => { const f = source.statements?.[name]; return f?.ok ? f.value.data.rows : []; };
+  if (!families.some(name => rowsOf(bundle, name).some(refusedAgainstBankRevenue))) return [...entries];
+  // Inside a run step the filed statements are already built; alone, one scope builds them once.
+  const view = withComputationContext(() => withIncomeOperatingBasis(bundle));
+  const resolved = new Set<string>();
+  for (const name of families) {
+    const admitted = rowsOf(view, name);
+    rowsOf(bundle, name).forEach((row, index) => {
+      const next = admitted[index];
+      if (refusedAgainstBankRevenue(row) && next && next.date === row.date && onFiledBankRevenue(next)) resolved.add(`statements.income.${row.date}.revenue|${row.fieldConflicts!.revenue!.reason}`);
+    });
+  }
+  return entries.filter(entry => !resolved.has(`${entry.field}|${entry.reason}`));
 }

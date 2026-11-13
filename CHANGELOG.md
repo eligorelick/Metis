@@ -18,6 +18,27 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - A bank's revenue is the filed total net revenue (2026-11-13)
+
+- A data provider states a bank's revenue gross of interest expense; the
+  filing states total net revenue (net interest income plus noninterest
+  income). The income classification refused the conflicting row and had a
+  rule for securities firms only, so a bank's newest year and quarters had no
+  revenue and its older periods kept the provider's figure unchecked. The
+  filed total now replaces the provider's figure on every annual and
+  quarterly row whose filing proves it (the total's two components, same
+  period, same filing, add up to it exactly); the provider's cost of revenue,
+  gross profit, operating income and operating expenses are withheld for
+  those rows, and a row that cannot be proven beside them is withheld (P7,
+  P8, P11, P13, [D-257](docs/audit/DECISIONS.md), revising D-148 for this
+  shape). In the same-report check this changes one of the 17 cases:
+  JPMorgan's fiscal 2016 to 2025 revenue (fiscal 2025: 182,447M, was
+  withheld) and 24 quarters are the filed totals; revenue growth, the net
+  margin history, the trailing twelve-month window (P/E 14.4x on trailing
+  EPS, was 17.2x on fiscal 2025) and the fundamentals aspect are built on
+  them, and the composite moves from 55.93 to 56.54. Version stamps are not
+  moved in this change.
+
 ## Unreleased - Stage 5 version stamps (2026-11-13)
 
 - The Stage 5 accuracy fixes (D-231, D-233, D-234, D-236 to D-240, D-247,

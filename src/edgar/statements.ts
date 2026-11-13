@@ -3749,7 +3749,10 @@ function buildStatementRows<TRow>(
       for (const tag of [...REVENUE_TAGS, ...REVENUE_COMPONENT_TAGS, ...tagsFor("grossProfit"), ...GROSS_PROFIT_COST_TAGS,
         ...TOTAL_INCOME_EXPENSE_TAGS, NONSERVICE_BENEFIT_EXPENSE_TAG, ...tagsFor("operatingIncome"), ...tagsFor("operatingExpenses"), ...tagsFor("interestExpense"),
       ...tagsFor("sellingGeneralAndAdministrativeExpenses"), ...tagsFor("researchAndDevelopmentExpenses"), NET_INTEREST_NONOPERATING_TAG,
-        ...EBIT_NON_OPERATING_ADJUSTMENTS.flatMap(a => a.tags)]) {
+        ...EBIT_NON_OPERATING_ADJUSTMENTS.flatMap(a => a.tags),
+        // D-257 (P7): the two components of a bank's total net revenue, each with its own
+        // period and filings, so the income classification can tie the filed total to them.
+        ...tagsFor("bankRevenueComponents")]) {
         const r = notes.quietly(() => sameRowEvidence(tag, "money"));
         if (r) lines[tag] = filedIncomeLine(r, opts.factsObservedAt ?? "");
       }

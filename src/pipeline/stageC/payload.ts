@@ -46,7 +46,7 @@ import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
 import type { DataBundle } from "@/pipeline/types";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
-import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
+import { bankRevenueManifest, withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { withPrimaryCapitalBasis, primaryCapitalAudit, primaryCapitalManifest } from "@/pipeline/primaryCapitalBasis";
 import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
@@ -3798,7 +3798,7 @@ function assembleContextPayloadInContext(
     filings,
     news: newsSection(bundle),
     validationFlags,
-    missingData: primaryCapitalManifest(originalBundle, missingData),
+    missingData: bankRevenueManifest(originalBundle, primaryCapitalManifest(originalBundle, missingData)),
     // asOf map: bundle's own dot-path -> as-of, with stable key ordering.
     asOfMap: sortRecord(bundle.asOf),
   };

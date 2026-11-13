@@ -1,6 +1,7 @@
 import { withComputationContext } from "@/edgar/computationContext";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import { withPrimaryCapitalBasis, primaryCapitalManifest, primaryCapitalAudit } from "@/pipeline/primaryCapitalBasis";
+import { bankRevenueManifest } from "@/pipeline/incomeBasis";
 /**
  * Data-only report enrichment — the deterministic Stage B content a report
  * carries when the LLM passes do not run.
@@ -927,7 +928,7 @@ function enrichDataOnlyReportInContext(stub: Report, args: EnrichDataOnlyReportA
   const operatingSupport=operatingHistorySupport(computed.growth.margins.operating,annualFiscalLabels(bundle));
 
   const primaryCapital = primaryCapitalAudit(bundle, computed.capital?.primaryRepurchaseExecutions);
-  const currentManifest = primaryCapitalManifest(args.bundle, stub.appendix.missingData);
+  const currentManifest = bankRevenueManifest(args.bundle, primaryCapitalManifest(args.bundle, stub.appendix.missingData));
   const candidate: Report = {
     ...stub,
     ...(primaryCapital ? { primaryCapitalEvidence: primaryCapital } : {}),

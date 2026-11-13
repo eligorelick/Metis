@@ -39,6 +39,7 @@ import { supplementalNumericAudit } from "@/report/supplementalNumericAudit";
 
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { withPrimaryCapitalBasis, primaryCapitalManifest, primaryCapitalAudit } from "@/pipeline/primaryCapitalBasis";
+import { bankRevenueManifest } from "@/pipeline/incomeBasis";
 import { metisEnv } from "@/config/namespace";
 import type { ManifestEntry } from "@/types/core";
 import { returnPathLanguageManifestEntries } from "@/pipeline/stageC/returnPathLanguage";
@@ -4514,7 +4515,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
       ? undefined
       : completeJudgeProtocol(args.judgeProtocol, sharedModelFamilyOf(execution));
 
-  const missingData = attributeJudgeProtocolDisclosures(primaryCapitalManifest(originalBundle, dedupManifest([
+  const missingData = attributeJudgeProtocolDisclosures(bankRevenueManifest(originalBundle, primaryCapitalManifest(originalBundle, dedupManifest([
     ...args.bundle.gaps,
     ...args.computed.gaps,
     ...(args.validationGaps ?? []),
@@ -4525,7 +4526,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     ...(args.verify.checks === undefined ? [] : consistencyManifestEntries(args.verify.checks)),
     // Audit 2026-10-22 C-11: "recovering toward the cost of equity" when the trailing return is already above the terminal target.
     ...returnPathLanguageManifestEntries(args.judgeOutput, args.computed),
-  ])), { execution, model: args.model });
+  ]))), { execution, model: args.model });
 
   const meta: ReportMeta = {
     symbol: args.symbol,
