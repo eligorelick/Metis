@@ -106,7 +106,13 @@ clarification section before the affected body in classic, dossier, Markdown,
 print and audit. The sidecar is not recorded evidence or a manifest entry; it
 changes no stored figures, flags/severities, grades, trust counts, source/date
 identities, verification or report state. Missing/malformed versions get
-unrecorded-version wording without broader parser admission. Current/future
+unrecorded-version wording without broader parser admission. Every read-time
+view that depends on when a report was written compares its saved
+`meta.specVersion` with a frozen cutoff through one function
+(`specVersionBefore`, `src/report/versions.ts`; D-249): a stamp that cannot be
+read (missing, not text, or not three dotted numbers after trimming, such as
+"1.56" or "1.56.0-rc1") is before every cutoff and gets the legacy view; a
+stamp at or above a cutoff, including one from a newer build, is not before it. Current/future
 versions get no historical migration notes. If a current/future report contains
 an exact owned older receivables/discontinued flag wrapper, only a fixed
 non-migration interpretation caveat appears; the flag is not rewritten. Normal
@@ -1976,6 +1982,12 @@ belong in EV. Undisclosed preferred stock is treated as zero. Minority interest
 is not zero-filled. When consolidated equity has no resolved parent/NCI split,
 or differs from parent equity with no NCI figure, the NCI allocation is unknown.
 EV, the EV multiples and the DCF's per-share equity bridge are then withheld.
+One test decides this for the DCF's bridge-row choice and gate, EV, the
+own-history bands and the cash multiples (`noncontrollingOwnershipUnresolved`,
+`src/pipeline/stageB/ownership.ts`; D-248). Consolidated and parent equity are
+one amount only within one currency unit or one part in ten billion of
+consolidated equity: an allowance for arithmetic noise, never for materiality,
+so one reporting unit of difference is a difference.
 NCI is taken as zero only from the filing itself. That happens when the filer
 tags only equity including NCI at that date, its net income attributable to NCI
 for the period ending there is explicitly zero, and its latest earlier NCI
@@ -2459,9 +2471,12 @@ Preferred option-value claims join the permanent preferred deduction. When
 both tags may overlap, deduct the larger and warn; add them only with an
 independently filed inclusive carrying total equal to their sum. Names in free
 text are not series evidence. Inclusive notes payable is never added to its
-current component. Claims match the bridge date; increments match the exact
-divisor end and a quarter of 80-100 days or year of 350-380 days, on core forms
-filed by acquisition. An unestablished claim or full-share settlement retains
+current component. Claims match the bridge date; increments match the divisor's
+own period by the one period rule (`factCoversPeriod`, `src/edgar/xbrl.ts`;
+D-247): a duration fact whose own length is a quarter (70-125 days) or a fiscal
+year (300-400 days) and which ends within 3 days of the divisor end, on core
+forms filed by acquisition. The loss-period divisor below reads the same
+increment by the same rule. An unestablished claim or full-share settlement retains
 both claim and shares with a warning bounding understatement at N/(D - N).
 A cash-principal note keeps its principal and conversion-spread shares.
 Forecast operating EPS follows the selected divisor. A converted note removes
@@ -2500,7 +2515,8 @@ quarters and the latest fiscal year that shows one; the note names the donor as
 a quarter or a fiscal year with its date. Award dilution is the donor's diluted
 minus basic count, less the if-converted shares the filer reports for that exact
 period (`IncrementalCommonSharesAttributableToConversionOfDebtSecurities` and
-`...OfPreferredStock`, a duration fact of the period's own length, core forms),
+`...OfPreferredStock`, a duration fact of the period's own length by the same
+period rule as the bridge's reader, D-247, core forms),
 floored at 0, because the equity bridge already deducts those convertible
 instruments as claims; the note names the amount taken out. When the issuer
 files a convertible carrying value (the families `ConvertibleNotesPayable`,
@@ -3186,6 +3202,10 @@ with, all printed as assumptions in their own right:
   is common dividends plus net common buybacks over income available to common,
   averaging up to three years with at least two usable years. Missing history suppresses the model
   rather than assuming a universal payout.
+  A fiscal year in which preferred claims existed but none stand at its end
+  (the preferred was redeemed) reads its filed income available to common from
+  the full-year 10-K as well; a closing balance without preferred does not make
+  total net income the common holders' for that year (D-251).
   If preferred stock is outstanding and SEC facts give only aggregate cash
   dividends, the total is not labeled common dividends. A preferred earnings
   allocation is not a cash payment. Common payout and the valuation remain
@@ -8471,8 +8491,8 @@ row's currency: under us-gaap the statement builder's chain (`ProfitLoss`,
 then the including-noncontrolling-interest element, then `NetIncomeLoss`);
 under IFRS `ProfitLoss`, with `ProfitLossAttributableToOwnersOfParent` as the
 parent-scope line. A figure equal to any filed copy of one of them, within the
-vendor-agreement allowance, stays; the rule does not decide whether the row
-shows consolidated or parent profit. A figure equal to none is replaced by the
+vendor-agreement allowance, stays, except a figure equal only to the parent's
+line (D-238, below). A figure equal to none is replaced by the
 filed consolidated profit from the newest filing that states it, and the
 manifest names both values and the filing. Where the filings state no
 consolidated profit for the year, or the admitted SEC facts hold no profit
@@ -8506,6 +8526,34 @@ separate line, and no finance lease is added or assumed nil. Where a part is
 unproven the earlier rule stands: the vendor figure is shown under the label
 "Provider debt perimeter (includes payables to third-party loan owners)".
 Stored run inputs are not rewritten: both checks run when a report is built.
+
+## The entity scope of net income (D-238)
+
+An issuer with noncontrolling interests reports three profit lines:
+consolidated profit, the profit attributable to the parent (consolidated less
+the noncontrolling share) and income available to common. Each metric reads
+the line its other operand is on, through one owner
+(`src/pipeline/stageB/ownership.ts`):
+
+- Consolidated profit: free-cash-flow conversion (annual and trailing), the
+  accrual figures and return on assets, because cash flow and total assets are
+  consolidated. A cash-flow statement starts from consolidated profit, so a
+  vendor cash-flow figure equal only to the parent's line is replaced by the
+  consolidated profit the newest filing states beside that line; the manifest
+  names both values and the filing. One filing must state both lines, and a
+  filing that states two consolidated values leaves the figure withheld. When
+  a cash-flow row carries no net income, the income statement's profit is read
+  on the consolidated scope, and the row says how.
+- The parent's profit: the net margin and DuPont (whose equity is the
+  parent's). A year whose reported net income is the consolidated profit is
+  reduced by the signed noncontrolling share, and the figure's note says so.
+- Income available to common: earnings per share, P/E, return on common
+  equity, payout and the excess-return model, as before.
+
+A row that carries no noncontrolling share, or no statement of its scope, is
+read as reported; nothing is inferred. A filer whose only profit line is
+`NetIncomeLoss` has no noncontrolling interest and does not move. Stored run
+inputs are not rewritten: the rule runs when a report is built.
 
 ## Cash capital spending of zero (D-239)
 

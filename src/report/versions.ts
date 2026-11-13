@@ -50,9 +50,23 @@
  * | ANNUALIZATION_CONVENTION_SPEC, DCF_INPUTS_CONVENTION_SPEC | display cutoff | `report/legacyValuationNotes.ts` (same read path). |
  * | IMPLIED_RETURN_SHARE_BASIS_SPEC | display cutoff | `report/legacyImpliedReturnShareBasis.ts` (same read path). |
  * | LEGACY_SCOPE_SINCE_SPEC, LEGACY_PLACEHOLDER_DISPLAY_CUTOFF | display cutoff | `report/legacyScopeQualifications.ts` (same read path). |
- * | INSIDER_ROLES_READ_FROM | display cutoff | `legacyCheckNote` (`report/claimMatching.ts`), used by the audit export (`report/export/auditMarkdown.ts`). |
+ * | INSIDER_ROLES_READ_FROM | display cutoff | `legacyCheckNote` (`report/claimMatching.ts`), used by the audit export (`report/export/auditMarkdown.ts`); read through `specVersionBefore` like every other display cutoff (D-249). |
  * | N4B_CAGR_DISPLAY_CUTOFF | display cutoff | no src reader (`report/cagrPresentation.ts` only re-exports it); pinned by tests/report.versionStamps.test.ts. |
  * | CORPORATE_ACTION_BRIDGE_WRITING_STAMPS | format gate (exact saved stamps) | `report/legacyRetiredFields.ts`, on the stored-report read (`report/storedReportRead.ts`, `report/legacyEntitySafety.ts`). |
+ *
+ * Reading a saved stamp against a display cutoff (P21, D-249). Every "display
+ * cutoff" row above is compared with a saved report's `meta.specVersion` by
+ * the one function at the end of this file, `specVersionBefore`, which reads
+ * the stamp with `parseSpecStamp`. No reader parses or orders a spec stamp
+ * itself (tests/report.savedStampOrder.oneOwner.test.ts). The comparison lives
+ * here, not in the P21 owner `report/legacyEntitySafety.ts`, because that
+ * module imports every legacy reader (a helper there would be a circular
+ * import) and this one imports nothing and already defines every cutoff the
+ * comparison reads. Stamps that are not ordered are read by equality and keep
+ * their own readers: `meta.evidenceContract` (`report/evidenceContract.ts`:
+ * absent, current or unrecognised), the exact writing stamps of
+ * CORPORATE_ACTION_BRIDGE_WRITING_STAMPS, and the two stored stamps the
+ * history diff compares (`report/diff.ts`).
  *
  * Deliberately not here: request/AI identity (`ai/fingerprint.ts` "ai-v1",
  * the `ai/mutex.ts` lock-file format), Anthropic tool types
@@ -546,3 +560,46 @@ export const INSIDER_ROLES_READ_FROM = "1.56.0";
  * or 1.23.3. Any other stamp, including empty, malformed or pre-release, is refused.
  */
 export const CORPORATE_ACTION_BRIDGE_WRITING_STAMPS: ReadonlySet<string> = new Set(["1.23.1", "1.23.2", "1.23.3"]);
+
+/* ------------------------------------------------------------------------ *
+ * Reading a saved report's spec stamp against a frozen cutoff (P21, D-249)
+ * ------------------------------------------------------------------------ */
+
+/**
+ * A spec stamp's three numbers, or null when it cannot be read. A stamp is
+ * text of exactly three dotted whole numbers once surrounding whitespace is
+ * trimmed. Anything else is unreadable: a missing or non-text stamp, an empty
+ * one, two parts ("1.56"), a pre-release or build suffix ("1.56.0-rc1"), a
+ * prefix ("v1.56.0"). Numbers compare as numbers, so "1.9.0" precedes "1.10.0".
+ */
+export function parseSpecStamp(stamp: unknown): readonly [number, number, number] | null {
+  if (typeof stamp !== "string") return null;
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(stamp.trim());
+  return m === null ? null : [Number(m[1]), Number(m[2]), Number(m[3])];
+}
+
+/**
+ * Whether a saved report was written before the rule a frozen cutoff names:
+ * the ONE comparison of a saved `meta.specVersion` with a display cutoff.
+ *
+ * - A stamp that cannot be read (`parseSpecStamp`) is before every cutoff: the
+ *   report cannot be shown to follow the newer rule, so it gets the legacy
+ *   read-time view (P10: unproven is not treated as current).
+ * - A stamp at or above the cutoff is not before it. That includes a stamp
+ *   newer than this build's REPORT_SPEC_VERSION: a report from a newer build
+ *   is never given an older rule's correction. (Whether this build recognises
+ *   that report's evidence rules is a separate question, answered by the
+ *   evidence-contract stamp's own reader, `report/evidenceContract.ts`.)
+ * - A cutoff that cannot be read never fires. Cutoffs are the constants above,
+ *   pinned by tests/report.versionStamps.test.ts.
+ *
+ * Stored bytes are never changed by this; it only chooses a read-time view.
+ */
+export function specVersionBefore(saved: unknown, cutoff: string): boolean {
+  const a = parseSpecStamp(saved);
+  const b = parseSpecStamp(cutoff);
+  if (a === null) return true;
+  if (b === null) return false;
+  for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i]! < b[i]!;
+  return false;
+}

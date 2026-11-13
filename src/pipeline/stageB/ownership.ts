@@ -18,3 +18,96 @@ export function resolveConsolidatedEquity(input: EquityScopeInputs): { value: nu
   if (nci !== null) return { value: parent + nci, basis: "totalStockholdersEquity + minorityInterest", reason: "parent equity plus signed noncontrolling interest matches consolidated operating profit" };
   return { value: parent, basis: "totalStockholdersEquity (NCI undisclosed)", reason: "parent equity fallback; NCI is undisclosed, so consolidated ownership scope is unverified" };
 }
+
+/**
+ * When consolidated equity and parent equity are one amount (D-248). They are
+ * two different filed lines, equal only when there are no outside holders, so
+ * this is a floating-point allowance and never a materiality one: within one
+ * currency unit, or one part in ten billion of consolidated equity, whichever
+ * is wider. A balance sheet states whole currency units or larger, so a
+ * smaller gap is arithmetic noise; anything larger is a filed difference,
+ * however small against the total (one reporting unit of a filer stating
+ * thousands is a difference). The P8 "same observation" rule
+ * (src/edgar/vendorAgreement.ts) is not used here on purpose: it compares two
+ * copies of one figure and allows a reporting unit or 0.01%, which would read a
+ * small filed noncontrolling interest as none.
+ */
+export const EQUITY_SAME_AMOUNT_ALLOWANCE = { absolute: 1, relative: 1e-10 } as const;
+
+export function sameEquityAmount(consolidated: number, parent: number): boolean {
+  return Math.abs(consolidated - parent) <=
+    Math.max(EQUITY_SAME_AMOUNT_ALLOWANCE.absolute, Math.abs(consolidated) * EQUITY_SAME_AMOUNT_ALLOWANCE.relative);
+}
+
+export interface OwnershipSplitInputs extends EquityScopeInputs {
+  /** What the row's equity evidence establishes: a parent line, or only a consolidated total with no parent split. */
+  equityOwnershipBasis?: "parent" | "consolidated";
+}
+
+/**
+ * Whether the split between the parent's holders and outside (noncontrolling)
+ * holders is unresolved on a balance (P5, P10; D-78, D-79, D-248). The one
+ * test: the DCF bridge-row choice and the DCF gate's input (compute.ts) and
+ * the multiples, own-history, cash-ownership and DCF gates (valuation.ts) all
+ * read it, so one balance gets one answer.
+ *
+ * - A filed noncontrolling interest (any number, zero included) resolves it.
+ * - Otherwise a consolidated-only basis is unresolved: the evidence is a
+ *   consolidated total with no parent split, whatever numbers survive.
+ * - Otherwise, with no consolidated total nothing shows outside holders.
+ * - With a consolidated total, a missing parent line or a parent line that
+ *   differs from it (`sameEquityAmount`) proves outside ownership whose amount
+ *   is not filed. A consolidated/parent difference proves outside ownership,
+ *   never its market value, and it is never treated as zero.
+ */
+export function noncontrollingOwnershipUnresolved(balance: OwnershipSplitInputs | null | undefined): boolean {
+  if (!balance || finite(balance.minorityInterest) !== null) return false;
+  if (balance.equityOwnershipBasis === "consolidated") return true;
+  const total = finite(balance.totalEquity), parent = finite(balance.totalStockholdersEquity);
+  if (total === null) return false;
+  return parent === null || !sameEquityAmount(total, parent);
+}
+
+/**
+ * D-238 (P5, P13): one period's profit, by entity scope. An income row's `netIncome` is the parent's profit or the
+ * consolidated profit (the parent's plus the noncontrolling interests' share), and `netIncomeOwnershipBasis` says
+ * which. A metric asks here for the scope its other operand is on, so one ratio never mixes the two:
+ * consolidated cash flow and consolidated assets meet consolidated profit; parent equity, earnings per share and
+ * the net margin meet the parent's profit. The noncontrolling share keeps its filed sign.
+ */
+export interface ProfitScopeInputs {
+  netIncome?: number | null;
+  netIncomeOwnershipBasis?: "parent" | "consolidated";
+  /** The filed consolidated profit for the same period, when the row carries it beside `netIncome`. */
+  netIncomeConsolidated?: number | null;
+  /** The noncontrolling interests' signed share of that consolidated profit. */
+  noncontrollingIncome?: number | null;
+}
+export interface ProfitScope { value: number | null; basis: string; reason: string }
+
+/** Profit attributable to the parent: a consolidated-basis figure less the signed noncontrolling share. */
+export function resolveParentProfit(input: ProfitScopeInputs): ProfitScope {
+  const net = finite(input.netIncome), nci = finite(input.noncontrollingIncome);
+  if (net === null) return { value: null, basis: "unavailable", reason: "net income unavailable" };
+  if (input.netIncomeOwnershipBasis !== "consolidated") {
+    return input.netIncomeOwnershipBasis === "parent"
+      ? { value: net, basis: "netIncome (parent)", reason: "net income is the profit attributable to the parent" }
+      : { value: net, basis: "netIncome (ownership scope not stated)", reason: "the row states no ownership scope for net income; it is read as reported" };
+  }
+  if (nci !== null) return { value: net - nci, basis: "netIncome (consolidated) - noncontrollingIncome", reason: `consolidated profit ${net} less the signed noncontrolling share ${nci} = ${net - nci}, the profit attributable to the parent` };
+  return { value: net, basis: "netIncome (consolidated; NCI share undisclosed)", reason: "consolidated profit fallback; the noncontrolling share is undisclosed, so parent ownership scope is unverified" };
+}
+
+/** Consolidated profit, including the noncontrolling share: the line a cash-flow statement starts from. */
+export function resolveConsolidatedProfit(input: ProfitScopeInputs): ProfitScope {
+  const consolidated = finite(input.netIncomeConsolidated), net = finite(input.netIncome), nci = finite(input.noncontrollingIncome);
+  if (consolidated !== null) return { value: consolidated, basis: "netIncomeConsolidated", reason: "consolidated profit including the noncontrolling share; that share is not added again" };
+  if (net === null) return { value: null, basis: "unavailable", reason: "consolidated and parent profit unavailable" };
+  if (input.netIncomeOwnershipBasis === "consolidated") return { value: net, basis: "netIncome (consolidated)", reason: "net income is the consolidated profit including the noncontrolling share" };
+  if (input.netIncomeOwnershipBasis === "parent" && nci !== null) {
+    return { value: net + nci, basis: "netIncome (parent) + noncontrollingIncome", reason: `parent profit ${net} plus the signed noncontrolling share ${nci} = ${net + nci}, the consolidated profit` };
+  }
+  return input.netIncomeOwnershipBasis === "parent"
+    ? { value: net, basis: "netIncome (parent; NCI share undisclosed)", reason: "parent profit fallback; the noncontrolling share is undisclosed, so consolidated ownership scope is unverified" }
+    : { value: net, basis: "netIncome (ownership scope not stated)", reason: "the row states no ownership scope for net income; it is read as reported" };
+}

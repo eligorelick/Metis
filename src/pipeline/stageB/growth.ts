@@ -33,7 +33,10 @@ export interface GrowthIncomeRow extends FiscalDatedRow {
   grossProfit?: number | null;
   operatingIncome?: number | null;
   operatingBasis?: string;
+  /** The profit attributable to the parent (D-238, P5): the net margin's numerator in every year. */
   netIncome?: number | null;
+  /** Present when that figure is not the row's own net income as reported: how it was reached. */
+  netIncomeBasis?: string;
   epsDiluted?: number | null;
 }
 
@@ -704,6 +707,10 @@ export function computeGrowth(
     const trendNotes: string[] = [];
     if (label === "operating" && marginRows.some(r => r.operatingBasis)) {
       trendNotes.push("Operating-margin evidence is assessed period by period; a filed check on one row does not corroborate unverified provider rows elsewhere in this series");
+    }
+    // D-238 (P5, P12): a year whose reported net income was the consolidated profit says how the parent's was reached.
+    if (label === "net") for (const r of marginRows) {
+      if (r.netIncomeBasis) trendNotes.push(`${r.date}: net margin uses ${r.netIncomeBasis}`);
     }
     if (series.some((p) => p.pct === null)) {
       trendNotes.push(`${label} margin null where revenue ≤ 0 or numerator missing`);
