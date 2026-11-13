@@ -1,0 +1,939 @@
+{
+  "about": "Companies in the accuracy check: one data-only golden case each, its SEC CIK and statement currency, filings read from their own XBRL instance (ones SEC companyfacts lacks, and ones whose line is a filer extension element, read as ext:Name), ADS scaling, and per-figure recipe overrides (each with the reason) where the issuer's statements use another concept than the default in scripts/accuracy/recipes.ts. An override names the shared building blocks ({\"op\": \"use\"}, {\"op\": \"currentDebt\"}) instead of restating them. An override states what was checked in one filing; check it again when the reference is rebuilt for a later period.",
+  "companies": [
+    {
+      "ticker": "AMZN",
+      "case": "amzn-data-only",
+      "cik": 1018724,
+      "currency": "USD"
+    },
+    {
+      "ticker": "FIGR",
+      "case": "figr-data-only",
+      "cik": 2064124,
+      "currency": "USD",
+      "overrides": {
+        "capex.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "PaymentsToDevelopSoftware"
+            ]
+          },
+          "why": "FIGR's cash-flow statement has no property-and-equipment purchase line; capitalized software development (PaymentsToDevelopSoftware) is its only capital-spending line, the one the report itself names"
+        },
+        "capex.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "PaymentsToDevelopSoftware"
+            ]
+          },
+          "why": "FIGR's cash-flow statement has no property-and-equipment purchase line; capitalized software development (PaymentsToDevelopSoftware) is its only capital-spending line, the one the report itself names"
+        },
+        "fcf.fy": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "NetCashProvidedByUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending (capitalized software)",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "PaymentsToDevelopSoftware"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "FIGR's cash-flow statement has no property-and-equipment purchase line; capitalized software development (PaymentsToDevelopSoftware) is its only capital-spending line, the one the report itself names"
+        },
+        "fcf.ttm": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "NetCashProvidedByUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending (capitalized software)",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "PaymentsToDevelopSoftware"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "FIGR's cash-flow statement has no property-and-equipment purchase line; capitalized software development (PaymentsToDevelopSoftware) is its only capital-spending line, the one the report itself names"
+        },
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "borrowings (current, related-party current and noncurrent debt)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebt"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "operatingLeases"
+                },
+                "absent": "operating-leases"
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "financeLeases"
+                },
+                "absent": "finance-leases"
+              }
+            ]
+          },
+          "why": "FIGR tags its total borrowings as LongTermDebt: in the 10-Q for 2026-06-30 (0001628280-26-057061) LongTermDebt 962,995k is the noncurrent line (LongTermDebtNoncurrent 315,850k) plus the two current debt lines, which carry a related-party member and so are not in companyfacts (current liabilities 1,285,124k less payables 58,215k, servicing liability 506,686k and other 73,078k = 647,145k)"
+        },
+        "cashAndShortTermInvestments.latest": {
+          "recipe": {
+            "op": "instant",
+            "concepts": [
+              "CashAndCashEquivalentsAtCarryingValue"
+            ]
+          },
+          "why": "FIGR's current assets hold no short-term investments: in the 10-Q for 2026-06-30 (0001628280-26-057061) AssetsCurrent 2,391,976k is cash 1,437,511k + restricted cash 95,887k + loans held for sale 597,400k + crypto assets 62,185k + receivables 88,527k + other 110,466k; its marketable securities (MarketableSecurities 356,225k) are a noncurrent line"
+        },
+        "runway.liquidAssets": {
+          "recipe": {
+            "op": "instant",
+            "concepts": [
+              "CashAndCashEquivalentsAtCarryingValue"
+            ]
+          },
+          "why": "FIGR's current assets hold no short-term investments: in the 10-Q for 2026-06-30 (0001628280-26-057061) AssetsCurrent 2,391,976k is cash 1,437,511k + restricted cash 95,887k + loans held for sale 597,400k + crypto assets 62,185k + receivables 88,527k + other 110,466k; its marketable securities (MarketableSecurities 356,225k) are a noncurrent line"
+        }
+      }
+    },
+    {
+      "ticker": "META",
+      "case": "meta-data-only",
+      "cik": 1326801,
+      "currency": "USD"
+    },
+    {
+      "ticker": "MU",
+      "case": "mu-data-only",
+      "cik": 723125,
+      "currency": "USD",
+      "overrides": {
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "debt including finance leases (current and noncurrent)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "DebtAndCapitalLeaseObligations"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "operatingLeases"
+                },
+                "absent": "operating-leases"
+              }
+            ]
+          },
+          "why": "MU tags total debt including finance-lease obligations as DebtAndCapitalLeaseObligations: in the 10-K for 2026-09-03 (0000723125-26-000023) 5,179M is current debt 491M (DebtCurrent, all of it the current finance lease liability) plus LongTermDebtAndCapitalLeaseObligations 4,688M, which is long-term debt 2,792M plus noncurrent finance leases 1,896M"
+        },
+        "fv.netDebt": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "debt including finance leases",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "DebtAndCapitalLeaseObligations"
+                  ]
+                }
+              },
+              {
+                "role": "cash and short-term investments",
+                "sign": -1,
+                "recipe": {
+                  "op": "use",
+                  "name": "cashAndShortTermInvestments"
+                }
+              }
+            ]
+          },
+          "why": "MU tags total debt including finance-lease obligations as DebtAndCapitalLeaseObligations (see totalDebtIncludingLeases.latest)"
+        }
+      }
+    },
+    {
+      "ticker": "NVDA",
+      "case": "nvda-data-only",
+      "cik": 1045810,
+      "currency": "USD",
+      "overrides": {
+        "cashAndShortTermInvestments.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "cash and cash equivalents",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "CashAndCashEquivalentsAtCarryingValue"
+                  ]
+                }
+              },
+              {
+                "role": "marketable debt securities",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "DebtSecuritiesCurrent"
+                  ]
+                }
+              },
+              {
+                "role": "marketable equity securities",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "EquitySecuritiesFvNi"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "NVDA presents two current marketable-securities lines, debt and equity: in the 10-Q for 2026-07-26 (0001045810-26-000075) AssetsCurrent 197,412M is cash 22,443M + marketable debt securities 34,143M (DebtSecuritiesCurrent) + marketable equity securities 42,783M (EquitySecuritiesFvNi) + receivables 63,059M + inventories 31,575M + prepaid and other 3,409M"
+        },
+        "fv.netDebt": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "debt, current",
+                "sign": 1,
+                "recipe": {
+                  "op": "currentDebt"
+                }
+              },
+              {
+                "role": "debt, noncurrent",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebtNoncurrent"
+                  ]
+                }
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "financeLeases"
+                },
+                "absent": "finance-leases"
+              },
+              {
+                "role": "cash and marketable debt securities",
+                "sign": -1,
+                "recipe": {
+                  "op": "sum",
+                  "terms": [
+                    {
+                      "role": "cash and cash equivalents",
+                      "sign": 1,
+                      "recipe": {
+                        "op": "instant",
+                        "concepts": [
+                          "CashAndCashEquivalentsAtCarryingValue"
+                        ]
+                      }
+                    },
+                    {
+                      "role": "marketable debt securities",
+                      "sign": 1,
+                      "recipe": {
+                        "op": "instant",
+                        "concepts": [
+                          "DebtSecuritiesCurrent"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "the report's bridge adds NVDA's marketable equity securities (EquitySecuritiesFvNi, a current-asset line) as a non-operating asset of their own, so its net debt deducts cash and marketable debt securities only; both are filed current-asset lines (in the 10-Q for 2026-07-26 (0001045810-26-000075) AssetsCurrent 197,412M is cash 22,443M + marketable debt securities 34,143M (DebtSecuritiesCurrent) + marketable equity securities 42,783M (EquitySecuritiesFvNi) + receivables 63,059M + inventories 31,575M + prepaid and other 3,409M)"
+        },
+        "fv.nonOperatingInvestments": {
+          "recipe": {
+            "op": "instant",
+            "concepts": [
+              "ext:NonMarketableSecurities"
+            ]
+          },
+          "why": "NVDA's only long-term investment line is the balance-sheet line Non-marketable securities, tagged with its own element: in the 10-Q for 2026-07-26 (0001045810-26-000075) Assets 320,272M is current assets 197,412M + property 14,285M + operating lease assets 5,390M + goodwill 21,125M + intangibles 2,998M + deferred tax 12,159M + non-marketable securities 51,157M + other 15,746M; the note amount EquitySecuritiesWithoutReadilyDeterminableFairValueAmount 47,898M is part of that line"
+        }
+      },
+      "instanceFilings": [
+        {
+          "accn": "0001045810-26-000075",
+          "why": "NVDA's balance-sheet line Non-marketable securities is the extension element nvda:NonMarketableSecurities, which SEC companyfacts does not carry"
+        }
+      ]
+    },
+    {
+      "ticker": "QCOM",
+      "case": "qcom-data-only",
+      "cik": 804328,
+      "currency": "USD",
+      "overrides": {
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "debt, current",
+                "sign": 1,
+                "recipe": {
+                  "op": "currentDebt"
+                }
+              },
+              {
+                "role": "long-term debt (noncurrent balance-sheet line)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebt"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "operatingLeases"
+                },
+                "absent": "operating-leases"
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "financeLeases"
+                },
+                "absent": "finance-leases"
+              }
+            ]
+          },
+          "why": "in QCOM's 10-Q for 2026-06-28 (0000804328-26-000086) the noncurrent balance-sheet line is tagged LongTermDebt: Liabilities 29,709M is current liabilities 11,413M (which hold DebtCurrent 2,489M = current maturities 1,991M + commercial paper 498M) + deferred revenue 81M + LongTermDebt 12,781M + other 5,434M, so LongTermDebt here excludes the current maturities"
+        },
+        "fv.netDebt": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "debt, current",
+                "sign": 1,
+                "recipe": {
+                  "op": "currentDebt"
+                }
+              },
+              {
+                "role": "long-term debt (noncurrent balance-sheet line)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebt"
+                  ]
+                }
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "financeLeases"
+                },
+                "absent": "finance-leases"
+              },
+              {
+                "role": "cash and short-term investments",
+                "sign": -1,
+                "recipe": {
+                  "op": "use",
+                  "name": "cashAndShortTermInvestments"
+                }
+              }
+            ]
+          },
+          "why": "in QCOM's 10-Q for 2026-06-28 (0000804328-26-000086) the noncurrent balance-sheet line is tagged LongTermDebt: Liabilities 29,709M is current liabilities 11,413M (which hold DebtCurrent 2,489M = current maturities 1,991M + commercial paper 498M) + deferred revenue 81M + LongTermDebt 12,781M + other 5,434M, so LongTermDebt here excludes the current maturities"
+        }
+      }
+    },
+    {
+      "ticker": "JPM",
+      "case": "jpm-data-only",
+      "cik": 19617,
+      "currency": "USD",
+      "overrides": {
+        "fv.openingBookValue": {
+          "recipe": {
+            "op": "none",
+            "note": "tangible common equity is a JPM non-GAAP measure (MD&A), not an XBRL line. From the 10-Q filed 2026-11-03 (0001628280-26-069523): StockholdersEquity 372,368M - PreferredStockIncludingAdditionalPaidInCapitalNetOfDiscount 21,040M - Goodwill 52,717M = 298,611M; the identifiable intangibles and deferred-tax offsets JPM also removes are not tagged at 2026-09-30, so the filed TCE is not established"
+          },
+          "why": "bank tangible common equity"
+        },
+        "capex.fy": {
+          "recipe": {
+            "op": "none",
+            "note": "JPM's cash-flow statement tags no capital-spending line (no PaymentsToAcquirePropertyPlantAndEquipment / PaymentsToAcquireProductiveAssets fact for FY2025)"
+          },
+          "why": "no filed capital-spending line"
+        }
+      }
+    },
+    {
+      "ticker": "PGR",
+      "case": "pgr-data-only",
+      "cik": 80661,
+      "currency": "USD",
+      "overrides": {
+        "fv.incomeAvailableToCommon": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "NetIncomeLossAvailableToCommonStockholdersBasic",
+              "NetIncomeLoss"
+            ]
+          },
+          "why": "PGR tags no income-available-to-common line for its 2026 quarters and has no preferred stock outstanding (no preferred value or preferred dividends tagged in 2026), so net income is the income available to common for those periods"
+        }
+      }
+    },
+    {
+      "ticker": "O",
+      "case": "o-data-only",
+      "cik": 726728,
+      "currency": "USD",
+      "overrides": {
+        "capex.fy": {
+          "recipe": {
+            "op": "none",
+            "note": "no single capital-spending line: investing activities show real-estate acquisitions (PaymentsToAcquireCommercialRealEstate; FY2025 4,647.9M) and capital improvements (PaymentsForCapitalImprovements; FY2025 131.8M) separately (10-K 0000726728-26-000011)"
+          },
+          "why": "REIT investing lines"
+        },
+        "capex.ttm": {
+          "recipe": {
+            "op": "none",
+            "note": "no single capital-spending line: investing activities show real-estate acquisitions (PaymentsToAcquireCommercialRealEstate; FY2025 4,647.9M) and capital improvements (PaymentsForCapitalImprovements; FY2025 131.8M) separately (10-K 0000726728-26-000011)"
+          },
+          "why": "REIT investing lines"
+        },
+        "fcf.fy": {
+          "recipe": {
+            "op": "none",
+            "note": "no single filed capital-spending line to subtract (see capex)"
+          },
+          "why": "REIT investing lines"
+        },
+        "fcf.ttm": {
+          "recipe": {
+            "op": "none",
+            "note": "no single filed capital-spending line to subtract (see capex)"
+          },
+          "why": "REIT investing lines"
+        },
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "line of credit payable and commercial paper",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "ext:RevolvingCreditFacilityAndCommercialPaper"
+                  ]
+                }
+              },
+              {
+                "role": "term loans",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LoansPayable"
+                  ]
+                }
+              },
+              {
+                "role": "mortgages payable",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "SecuredDebt"
+                  ]
+                }
+              },
+              {
+                "role": "notes payable",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "NotesPayable"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "operatingLeases"
+                },
+                "absent": "operating-leases"
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "financeLeases"
+                },
+                "absent": "finance-leases"
+              }
+            ]
+          },
+          "why": "O's balance sheet presents four debt lines: in the 10-Q for 2026-09-30 (0000726728-26-000059) Liabilities 35,276,018k is distributions payable 265,518k + accounts payable and accrued 1,094,942k + lease intangible liabilities 1,463,929k + other liabilities 1,062,753k + line of credit payable and commercial paper 2,127,928k + term loans 2,772,340k + mortgages payable 36,745k + notes payable 26,451,863k; the lease liabilities sit inside other liabilities"
+        }
+      },
+      "instanceFilings": [
+        {
+          "accn": "0000726728-26-000059",
+          "why": "O's balance-sheet line Line of credit payable and commercial paper is the extension element o:RevolvingCreditFacilityAndCommercialPaper, which SEC companyfacts does not carry"
+        }
+      ]
+    },
+    {
+      "ticker": "DUK",
+      "case": "duk-data-only",
+      "cik": 1326160,
+      "currency": "USD",
+      "instanceFilings": [
+        {
+          "accn": "0001326160-26-000040",
+          "why": "SEC companyfacts carries no facts from DUK's 10-Q for 2026-06-30"
+        },
+        {
+          "accn": "0001326160-26-000051",
+          "why": "SEC companyfacts carries no facts from DUK's 10-Q for 2026-09-30"
+        }
+      ],
+      "overrides": {
+        "revenue.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "RegulatedAndUnregulatedOperatingRevenue",
+              "Revenues"
+            ]
+          },
+          "why": "DUK's total operating revenues line is RegulatedAndUnregulatedOperatingRevenue; RevenueFromContractWithCustomerIncludingAssessedTax (31,741M) excludes revenue not from contracts with customers (496M)"
+        }
+      }
+    },
+    {
+      "ticker": "TSM",
+      "case": "tsm-data-only",
+      "cik": 1046179,
+      "currency": "TWD",
+      "instanceFilings": [
+        {
+          "accn": "0001628280-26-025362",
+          "why": "SEC companyfacts carries no financial facts from TSM's Form 20-F for 2025 (filed 2026-04-16); its quarterly reports are Form 6-K without XBRL"
+        }
+      ],
+      "scale": {
+        "epsDiluted.fy": {
+          "factor": 5,
+          "why": "the report states EPS per ADS; 1 ADS = 5 ordinary shares (the report's own ratio, which it corroborates against TSM's filings); the filed figure is per ordinary share"
+        },
+        "dilutedShares.fy": {
+          "factor": 0.2,
+          "why": "the report counts ADS-equivalents (1 ADS = 5 ordinary shares); the filed count is ordinary shares"
+        },
+        "fv.dilutedShares": {
+          "factor": 0.2,
+          "why": "the report counts ADS-equivalents (1 ADS = 5 ordinary shares)"
+        }
+      },
+      "overrides": {
+        "revenue.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:Revenue",
+              "ifrs-full:RevenueFromContractsWithCustomers"
+            ]
+          },
+          "why": "IFRS filer: TSM's 2025 20-F tags total net revenue as RevenueFromContractsWithCustomers (its Revenue facts there are segment breakdowns only)"
+        },
+        "operatingIncome.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:ProfitLossFromOperatingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "netIncome.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:ProfitLoss",
+              "ifrs-full:ProfitLossAttributableToOwnersOfParent"
+            ]
+          },
+          "why": "IFRS filer: consolidated profit (D-238), the line the cash-flow statement starts from; the parent's line only where the filing states no other"
+        },
+        "epsDiluted.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:DilutedEarningsLossPerShare"
+            ],
+            "unit": "TWD/shares"
+          },
+          "why": "IFRS filer"
+        },
+        "dilutedShares.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:AdjustedWeightedAverageShares"
+            ],
+            "unit": "shares"
+          },
+          "why": "IFRS filer: weighted average shares adjusted for dilution"
+        },
+        "capex.fy": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "fcf.fy": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "ifrs-full:CashFlowsFromUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "operatingIncome.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:ProfitLossFromOperatingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "netIncome.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:ProfitLoss",
+              "ifrs-full:ProfitLossAttributableToOwnersOfParent"
+            ]
+          },
+          "why": "IFRS filer: consolidated profit (D-238), the line the cash-flow statement starts from; the parent's line only where the filing states no other"
+        },
+        "operatingCashFlow.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:CashFlowsFromUsedInOperatingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "capex.ttm": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "fcf.ttm": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "operating cash flow",
+                "sign": 1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "ifrs-full:CashFlowsFromUsedInOperatingActivities"
+                  ]
+                }
+              },
+              {
+                "role": "capital spending",
+                "sign": -1,
+                "recipe": {
+                  "op": "flow",
+                  "concepts": [
+                    "ifrs-full:PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "cashAndShortTermInvestments.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "operatingLeases.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read; IFRS 16 also has no operating/finance lease split"
+          },
+          "why": "6-K without XBRL"
+        },
+        "financeLeases.latest": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read; IFRS 16 also has no operating/finance lease split"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.startRevenue": {
+          "recipe": {
+            "op": "flow",
+            "concepts": [
+              "ifrs-full:Revenue",
+              "ifrs-full:RevenueFromContractsWithCustomers"
+            ]
+          },
+          "why": "IFRS filer"
+        },
+        "fv.taxRate": {
+          "recipe": {
+            "op": "ratio",
+            "numerator": {
+              "op": "flow",
+              "concepts": [
+                "ifrs-full:IncomeTaxExpenseContinuingOperations"
+              ]
+            },
+            "denominator": {
+              "op": "flow",
+              "concepts": [
+                "ifrs-full:ProfitLossBeforeTax"
+              ]
+            },
+            "scale": 100
+          },
+          "why": "IFRS filer"
+        },
+        "fv.dilutedShares": {
+          "recipe": {
+            "op": "latestShares",
+            "concepts": [
+              "ifrs-full:AdjustedWeightedAverageShares"
+            ],
+            "unit": "shares"
+          },
+          "why": "IFRS filer"
+        },
+        "fv.netDebt": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.minorityInterest": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.preferred": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        },
+        "fv.nonOperatingInvestments": {
+          "recipe": {
+            "op": "none",
+            "note": "the balance at 2026-09-30 is in TSM's Form 6-K quarterly report, which carries no XBRL; not read"
+          },
+          "why": "6-K without XBRL"
+        }
+      }
+    },
+    {
+      "ticker": "RIVN",
+      "case": "rivn-data-only",
+      "cik": 1874178,
+      "currency": "USD"
+    },
+    {
+      "ticker": "VKTX",
+      "case": "vktx-data-only",
+      "cik": 1607678,
+      "currency": "USD",
+      "overrides": {
+        "totalDebtIncludingLeases.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "debt, current",
+                "sign": 1,
+                "recipe": {
+                  "op": "currentDebt"
+                }
+              },
+              {
+                "role": "convertible notes (the only noncurrent debt line)",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebtNoncurrent",
+                    "ConvertibleLongTermNotesPayable"
+                  ]
+                }
+              },
+              {
+                "role": "operating lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "operatingLeases"
+                },
+                "absent": "operating-leases"
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "financeLeases"
+                },
+                "absent": "finance-leases"
+              }
+            ]
+          },
+          "why": "VKTX's only borrowing line is its convertible notes: in the 10-Q for 2026-09-30 (0001193125-26-436432) LiabilitiesNoncurrent 254,670k is ConvertibleLongTermNotesPayable 250,656k + the noncurrent operating lease liability 4,014k"
+        }
+      }
+    }
+  ]
+}
