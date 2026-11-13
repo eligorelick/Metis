@@ -482,7 +482,12 @@ export const PROJECTION_POINT_FIELD_BY_KEY = {
   periodBasis: PROJECTION_POINT_FIELDS[4],
 } as const satisfies Record<ProjectionPointFieldKey, FieldDescriptor<ProjectionPointFieldKey>>;
 
-export type ProjectionDisclosureFieldKey = keyof ManifestEntry;
+/**
+ * D-229: missing-data entry fields that are stored for the pipeline's own readers and shown on no
+ * surface (app, Markdown, print, audit export). Every other `ManifestEntry` field is listed below.
+ */
+export const MANIFEST_ENTRY_STORED_ONLY_KEYS = ["cause"] as const satisfies readonly (keyof ManifestEntry)[];
+export type ProjectionDisclosureFieldKey = Exclude<keyof ManifestEntry, (typeof MANIFEST_ENTRY_STORED_ONLY_KEYS)[number]>;
 export const PROJECTION_DISCLOSURE_FIELD_ORDER = [
   "field",
   "reason",

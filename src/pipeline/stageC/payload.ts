@@ -40,6 +40,7 @@ import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimate
  */
 
 import type { ManifestEntry, CompanyRoute } from "@/types/core";
+import { withoutGapCauses } from "@/pipeline/stageA/manifest";
 import { quotePriceObservationDay, type FmpInsiderTradeStatisticsRow } from "@/providers/fmp";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
@@ -3693,7 +3694,9 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
-  return withComputationContext(() => assembleContextPayloadInContext(bundle, computed, validation));
+  // D-229: the payload boundary. Missing-data entries carry a typed cause for the pipeline's own
+  // readers; the model receives nothing new, so no entry anywhere in the payload keeps one.
+  return withoutGapCauses(withComputationContext(() => assembleContextPayloadInContext(bundle, computed, validation)));
 }
 
 function assembleContextPayloadInContext(

@@ -5,7 +5,7 @@
  * × 4 ($96.22B × 4 = $384.9B), faded growth linearly from the clamped 25%, and
  * taxed terminal NOPAT at the 8.93% historical median. A Node replication of
  * the old rules on these inputs reproduces its $143.98 base value
- * (docs/audit/2026-10-15-nvda-report-34-audit.md).
+ * (https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-10-15-nvda-report-34-audit.md).
  */
 import { describe, expect, it } from "vitest";
 
