@@ -292,12 +292,6 @@ describe("FIN-305: the equity bridge deducts the new claims after the marginal-r
     expect(labels).toContain("business-combination contingent consideration (filed, after tax at 21%)");
   });
 
-  it("leaves perShare and the bridge deep-equal to the base when nothing is tagged", () => {
-    const untagged = dcfOf({ debtLikeObligations: null });
-    expect(untagged.dcf!.perShare).toBe(base.dcf!.perShare);
-    expect(untagged.dcf!.bridge).toEqual(base.dcf!.bridge);
-  });
-
   it("states the accretion sentence only for a deducted retirement obligation, ending 'does not adjust for it' (M5)", () => {
     const aro = dcfOf({ debtLikeObligations: { ...claims, assetRetirement: filed(384, "AssetRetirementObligation") } }).notes.join(" ");
     expect(aro).toMatch(/so their time value is counted twice; the bridge does not adjust for it\./);

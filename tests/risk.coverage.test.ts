@@ -4,7 +4,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
-  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -394,7 +393,7 @@ interface SharedConfigModule {
   RISK_SOURCE_MANIFEST: readonly string[];
 }
 
-interface RiskConfigModule {
+interface CoverageConfigModule {
   default: {
     test?: { coverage?: { include?: readonly string[] } };
   };
@@ -405,9 +404,9 @@ async function loadSharedConfig(): Promise<SharedConfigModule> {
   return (await import(moduleUrl)) as SharedConfigModule;
 }
 
-async function loadRiskConfig(): Promise<RiskConfigModule> {
-  const moduleUrl = pathToFileURL(path.join(ROOT, "vitest.risk.config.ts")).href;
-  return (await import(moduleUrl)) as RiskConfigModule;
+async function loadCoverageConfig(): Promise<CoverageConfigModule> {
+  const moduleUrl = pathToFileURL(path.join(ROOT, "vitest.coverage.config.ts")).href;
+  return (await import(moduleUrl)) as CoverageConfigModule;
 }
 
 function runCoverageMutation(options: {
@@ -493,13 +492,13 @@ describe("risk coverage contract", () => {
 
   it("uses the exact literal audited source manifest in both directions", async () => {
     const shared = await loadSharedConfig();
-    const risk = await loadRiskConfig();
+    const coverage = await loadCoverageConfig();
 
     expect(shared.RISK_SOURCE_MANIFEST).toEqual(EXPECTED_RISK_SOURCES);
-    expect(risk.default.test?.coverage?.include).toBe(
-      shared.RISK_SOURCE_MANIFEST,
-    );
-    expect(risk.default.test?.coverage?.include).toEqual(EXPECTED_RISK_SOURCES);
+    expect(coverage.default.test?.coverage?.include).toEqual([
+      "src/pipeline/stageB/**/*.ts", "src/report/schema.ts", ...shared.RISK_SOURCE_MANIFEST,
+    ]);
+    expect(coverage.default.test?.coverage?.include?.slice(2)).toEqual(EXPECTED_RISK_SOURCES);
     expect(new Set(shared.RISK_SOURCE_MANIFEST).size).toBe(
       EXPECTED_RISK_SOURCES.length,
     );
@@ -524,19 +523,15 @@ describe("risk coverage contract", () => {
     }
   });
 
-  it("keeps the exact core and per-file risk thresholds without auto-update", () => {
-    const core = readFileSync(path.join(ROOT, "vitest.config.ts"), "utf8");
-    const risk = readFileSync(path.join(ROOT, "vitest.risk.config.ts"), "utf8");
-
-    expect(core).toMatch(
-      /statements:\s*90[\s\S]*branches:\s*84[\s\S]*functions:\s*95[\s\S]*lines:\s*93/,
-    );
-    expect(risk).toMatch(
-      /statements:\s*85[\s\S]*branches:\s*75[\s\S]*functions:\s*85[\s\S]*lines:\s*85[\s\S]*perFile:\s*true[\s\S]*autoUpdate:\s*false/,
-    );
-    expect(core).toContain('reportsDirectory: "coverage/core"');
-    expect(risk).toContain('reportsDirectory: "coverage/risk"');
-    expect(risk).toContain("include: RISK_SOURCE_MANIFEST");
+  it("keeps the exact core and per-file thresholds in the active gate", async () => {
+    const { CORE_THRESHOLDS } = await import("../scripts/check-coverage");
+    const { PER_FILE_FLOOR } = await import("../vitest.shared");
+    expect(CORE_THRESHOLDS).toEqual({ statements: 90, branches: 84, functions: 95, lines: 93 });
+    expect(PER_FILE_FLOOR).toEqual({ statements: 85, branches: 75, functions: 85, lines: 85 });
+    const coverage = await loadCoverageConfig();
+    expect(coverage.default.test?.coverage?.include).toEqual([
+      "src/pipeline/stageB/**/*.ts", "src/report/schema.ts", ...EXPECTED_RISK_SOURCES,
+    ]);
   });
 
   it("causally fails when an included source is never imported", () => {
