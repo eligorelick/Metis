@@ -481,6 +481,7 @@ describe("public release contract", () => {
       "timeout-minutes": 45,
     });
     for (const job of [checks, product, windows]) {
+      expect(job?.if).toBeUndefined();
       expect(job?.permissions).toBeUndefined();
       for (const step of job?.steps ?? []) {
         expect(step.if).toBeUndefined();
