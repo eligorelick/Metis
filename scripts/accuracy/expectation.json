@@ -954,11 +954,10 @@
     {
       "case": "jpm-data-only",
       "figure": "capex.fy",
-      "status": "not-established",
-      "valueSha256": "5feceb66ffc86f38",
-      "cause": "vendor value shown",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
       "note": "Metis shows zero, but JPM tags no capital-spending line: a vendor zero is undisclosed, not a filed zero (P7).",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
     },
     {
       "case": "jpm-data-only",
@@ -1247,18 +1246,17 @@
     {
       "case": "o-data-only",
       "figure": "capex.fy",
-      "status": "not-established",
-      "valueSha256": "5feceb66ffc86f38",
-      "cause": "vendor value shown",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
       "note": "Metis shows zero for FY2025 while showing a positive TTM amount; the filing has no single capital-spending line (acquisitions 4,647.9M and capital improvements 131.8M are separate). The zero is a vendor zero (P7).",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
     },
     {
       "case": "o-data-only",
       "figure": "fcf.fy",
-      "status": "not-established",
-      "valueSha256": "ee0f1562da74b5cf",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
     },
     {
       "case": "o-data-only",
@@ -1286,16 +1284,16 @@
     {
       "case": "o-data-only",
       "figure": "capex.ttm",
-      "status": "not-established",
-      "valueSha256": "d8bd9b8322be6629",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
     },
     {
       "case": "o-data-only",
       "figure": "fcf.ttm",
-      "status": "not-established",
-      "valueSha256": "a2dc064a8cf04a1f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
     },
     {
       "case": "o-data-only",
@@ -1829,17 +1827,17 @@
     {
       "case": "vktx-data-only",
       "figure": "capex.fy",
-      "status": "not-established",
-      "valueSha256": "5feceb66ffc86f38",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
       "note": "VKTX tags no capital-spending line; Metis shows zero.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
     },
     {
       "case": "vktx-data-only",
       "figure": "fcf.fy",
-      "status": "not-established",
-      "valueSha256": "7e7435f68c9705da",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
     },
     {
       "case": "vktx-data-only",
@@ -1865,17 +1863,17 @@
     {
       "case": "vktx-data-only",
       "figure": "capex.ttm",
-      "status": "not-established",
-      "valueSha256": "5feceb66ffc86f38",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
       "note": "VKTX tags no capital-spending line; Metis shows zero.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
     },
     {
       "case": "vktx-data-only",
       "figure": "fcf.ttm",
-      "status": "not-established",
-      "valueSha256": "2fcfb877fd884cc5",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
     },
     {
       "case": "vktx-data-only",
