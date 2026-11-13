@@ -64,6 +64,18 @@ export function deriveAxis(
   return [...set].sort((a, b) => a - b);
 }
 
+/**
+ * The base-case pair every layout outlines: the middle WACC and the middle
+ * terminal growth of the stored grid, which the valuation builds symmetrically
+ * around its base inputs (SENSITIVITY_WACC_STEPS_PP, src/pipeline/stageB/valuation.ts).
+ * P22: one rule for the classic and dossier grids.
+ */
+export function sensitivityBaseCase(cells: readonly SensitivityCell[]): { baseWacc: number | null; baseG: number | null } {
+  const waccs = [...new Set(cells.map((c) => c.waccPct))].sort((a, b) => a - b);
+  const gs = [...new Set(cells.map((c) => c.gTermPct))].sort((a, b) => a - b);
+  return { baseWacc: waccs[Math.floor(waccs.length / 2)] ?? null, baseG: gs[Math.floor(gs.length / 2)] ?? null };
+}
+
 /** ~equality for axis matching (floats from the DCF grid). */
 const AXIS_EPS = 1e-6;
 function near(a: number, b: number): boolean {
