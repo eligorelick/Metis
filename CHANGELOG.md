@@ -29,6 +29,7 @@ original versions and bytes; source merge does not deploy or publish a release.
   3.9580 to 4.1226, on the filed fiscal 2025 count of 908,334,000 shares. P/FFO
   and P/AFFO price on the market cap and do not move. Version stamps are left
   for the Stage 5 integration; saved reports are unchanged.
+
 ## Unreleased - Cash-flow net income checked against the filing (2026-11-12)
 
 - The net income on a vendor annual cash-flow row, which free-cash-flow

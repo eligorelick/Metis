@@ -99,13 +99,13 @@ own FFO per share).
 
 ### Approved report changes
 
-Same-report check, this change against current main (e8e80f9b) and against
-the round baseline r2-base-afb9cddf (the two are byte for byte identical: the
-only report-changing pull request since the baseline, #152, is not merged):
-1 file in 1 of the 17 cases differs, `o-data-only/stageB.json`, in three
-leaves. The other 16 cases, and every other figure, note and gap of Realty
-Income (its other seven outputs and its payload fingerprint included), are
-byte for byte unchanged. Leaf-level list:
+Same-report check, this change against current main (c45c3188, which holds
+D-231): 1 file in 1 of the 17 cases differs, `o-data-only/stageB.json`, in
+three leaves. The other 16 cases, and every other figure, note and gap of
+Realty Income (its other seven outputs and its payload fingerprint included),
+are byte for byte unchanged. Against the round baseline r2-base-afb9cddf the
+difference is that one file plus D-231's own approved changes to TSM and Duke
+Energy, which this change does not touch. Leaf-level list:
 `tmp/accuracy/s5-ffo-before-after.md` (not committed).
 
 Realty Income (`o-data-only`, USD). Filed values are SEC XBRL facts of Form
@@ -130,9 +130,9 @@ Approvals list for the same-report check:
 | o-data-only | stageB.json | 640b7efdbbf674b8bb9c15b1ee5bf0bde84a5c2b9252b87eb868dd975afdf346 | 675c5a40750d81b6741913f801322d8dbc9b250991339e30c3e71ba3c6d97b6e | the three leaves above |
 
 Accuracy check (`accuracy:check`, the unmerged tool, run against this
-change's 17 cases): 152 match, 16 mismatch, 63 gap, 35 not established, one
+change's 17 cases): 153 match, 15 mismatch, 63 gap, 35 not established, one
 difference from its expectation, "BETTER: o-data-only fv.ffo.shares, mismatch
-to match", none worse. Current main gives 151 and 17.
+to match", none worse. Current main (with D-231) gives 152 and 16.
 
 Tests (`tests/stageB.reitFfoDivisor.test.ts`): the root cause on a synthetic
 REIT whose fiscal-year and latest-quarter counts differ; Realty Income on its
@@ -157,6 +157,7 @@ Income's consolidated-or-parent net income rows and its vendor-zero rows
 which does not name the fiscal year; and the route-level note "diluted share
 count from the latest ANNUAL statement ... per-share values may lag", which is
 still raised on its old condition.
+
 ## D-231 - The net income on a vendor's annual cash-flow row is checked against the filer's own profit (2026-11-12)
 
 Principles P8 (filed beats vendor), P5 (entity scope), P10 (withhold, never
