@@ -11,6 +11,69 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-227 - New reports record which exact build assembled them; nothing reads it yet (2026-11-12)
+
+Principles P27 and P20. A saved report names its rules only through
+hand-kept stamps (`meta.specVersion`, `meta.pipelineVersion`,
+`meta.evidenceContract`), and many commits share the same stamps, so a report
+could not say which code made it. The built app already proves its own
+identity: `scripts/build-with-identity.mjs` writes
+`.next/runtime-artifact-identity.json`, and run-input snapshot custody records
+it. The architecture review proposed replacing the stamps with that identity
+(Proposal 1); its critique revised that: add the identity without deleting any
+format, method or display contract until each consumer is inventoried; an
+identity locates code, it does not retain or execute it; a report made by
+different code is not a report whose figures are stale; and a documentation
+or renderer change must not demand a paid rerun. The owner chose the
+critique's form, never forcing a rerun.
+
+Options: replace the stamps now (rejected by the critique); derive an
+identity from the checkout at run time (a dev server's working tree is not the
+code that ran, so that would be a guess, P10); or record the verified build
+identity as an optional added field. Choice: optional `meta.codeIdentity`,
+owned by `src/report/codeIdentity.ts`:
+
+- `codeCommit` (40-64 hex, or null when the build had no project git
+  metadata), `dirtyDiffHash` (SHA-256 of the build-time diff of the built
+  sources, or null), `methodDocumentHash` (SHA-256 of docs/METHODOLOGY.md as
+  the build captured it), `compiledArtifactHash` (SHA-256 of the verified,
+  sorted list of compiled module paths relative to the build directory and
+  their SHA-256 hashes), `methodArtifactHash` (the combined hash snapshot
+  custody already records, so a report can be matched to its snapshot), and
+  `dependencyLockHash` (SHA-256 of package-lock.json as the build captured
+  it). No machine path, timestamp or build id is stored.
+- It comes from `readRuntimeCodeIdentity`
+  (`scripts/runtime-artifact-manifest.mjs`), which runs the same checks as the
+  snapshot custody reader (build token, manifest format, hash shapes and a
+  fresh enumeration of the compiled bytes); that reader's own output is
+  unchanged. The job runner is the only writer: after the passes, it records
+  the identity on the assembled report and on a data-only report. When no
+  verified identity exists (dev server, tests, the same-report harness, the
+  CLI, or build evidence that no longer matches) the field is omitted, never
+  guessed or filled with placeholders. Linking a recovered verify artifact
+  keeps that artifact's own record, as D-217 does for its stamp.
+- Saved reports are not migrated (P21). The report schema, and so both read
+  modes of the stored-report reader, accept a report with or without it; the
+  identity object itself is strict, and unknown fields elsewhere are still
+  refused.
+
+Nothing reads it yet: no staleness state, notice, banner, rerun prompt, cache
+or resume key, or replay decision. A different identity never forces a rerun.
+No surface shows it: the app (both layouts), Markdown, print and audit export
+render byte for byte the same with and without it; the dossier's
+`data-report-identity` hash leaves it out. It never reaches a model: it is
+written after the last pass, no request schema holds report metadata, and it
+is on the pipeline-owned removal list, so the judge, analyst and full-report
+request schemas are byte-identical to before (SHA-256 compared against main).
+`tests/report.codeIdentity.test.ts` fails if any other src file reads it.
+
+The report spec stays 1.73.0 and no stamp moves: as with D-217's
+`meta.evidenceContract` and `presumedCostUsd`, this adds one optional meta
+field and changes no figure. Out of scope: removing or changing any stamp,
+pin, cutoff or contract; any reader of the field. Evidence: `golden:diff`
+reports no changes (17 cases, 136 files); the harness has no built identity,
+so the field is omitted there.
+
 ## D-226 - Refusal codes: the "Revenue scope unresolved" copy keeps only its own code (2026-11-12)
 
 Principle P11. Revises D-222, which left this copy as it was. When
