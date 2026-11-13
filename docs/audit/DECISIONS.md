@@ -102,13 +102,15 @@ change to every company's report with no number behind it).
 
 ### Approved report changes
 
-Same-report check against current main (99234cdf, which includes D-231,
-D-233 and D-234): 16 files in 2 of the 17 cases differ (O and DUK, all eight
-outputs each, plus their two payload fingerprints); the other 15 cases, and
-every other figure of O and DUK, are byte for byte unchanged. FIGR, RIVN and
-every company without NCI do not move. Against the round's first baseline
-(r2-base-afb9cddf) the same files differ, plus the approved changes of
-D-231 (TSM and DUK), D-233 (O) and D-234 (FIGR). The leaf-level list is in
+Same-report check against current main (ab6db405, which includes D-229,
+D-231, D-233 and D-234), with that main merged into this branch: 16 files in
+2 of the 17 cases differ (O and DUK, all eight outputs each, plus their two
+payload fingerprints); the other 15 cases, and every other figure of O and
+DUK, are byte for byte unchanged. FIGR, RIVN and every company without NCI do
+not move. The same result was measured before that merge, against main at
+99234cdf. Against the round's first baseline (r2-base-afb9cddf) the same
+files differ, plus the approved changes of D-229 (RIVN), D-231 (TSM and DUK),
+D-233 (O) and D-234 (FIGR). The leaf-level list is in
 `tmp/accuracy/s5-net-income-scope-before-after.md` (not committed: it quotes
 vendor data).
 
