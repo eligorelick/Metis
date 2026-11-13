@@ -99,9 +99,52 @@ export interface ReportSummary {
   gradeStrip: GradeStripCell[] | null;
 }
 
+/**
+ * Read-time views already built in this process, keyed by the stored bytes.
+ *
+ * P21: stored bytes never change, and the view is a pure function of those
+ * bytes and this build (no clock, setting or database read takes part), so the
+ * same bytes always give the same view. Building one validates the whole
+ * report twice and walks every string in it, which the company page, the
+ * revisions list and the watchlist repeated on every page change.
+ *
+ * A cached view is shared by every reader, so it is frozen: a reader that
+ * tried to change it would fail at once instead of altering what the next
+ * page shows. The cache is bounded by entries and by stored size; the least
+ * recently read view leaves first.
+ */
+const PARSED_REPORT_CACHE_MAX_ENTRIES = 48;
+const PARSED_REPORT_CACHE_MAX_CHARS = 24_000_000;
+const parsedReportCache = new Map<string, Report | null>();
+let parsedReportCacheChars = 0;
+
+function deepFreeze(value: unknown): void {
+  if (value === null || typeof value !== "object" || Object.isFrozen(value)) return;
+  Object.freeze(value);
+  for (const child of Object.values(value)) deepFreeze(child);
+}
+
 /** Defensively parse + validate a stored reportJson; null on any failure. */
 export function parseStoredReport(reportJson: string | null): Report | null {
-  return parseStoredReportWithSafety(reportJson)?.report ?? null;
+  if (reportJson === null) return null;
+  if (parsedReportCache.has(reportJson)) {
+    const cached = parsedReportCache.get(reportJson) ?? null;
+    // Re-insert so this view is the most recently read.
+    parsedReportCache.delete(reportJson);
+    parsedReportCache.set(reportJson, cached);
+    return cached;
+  }
+  const report = parseStoredReportWithSafety(reportJson)?.report ?? null;
+  if (reportJson.length > PARSED_REPORT_CACHE_MAX_CHARS) return report;
+  deepFreeze(report);
+  parsedReportCache.set(reportJson, report);
+  parsedReportCacheChars += reportJson.length;
+  for (const oldest of parsedReportCache.keys()) {
+    if (parsedReportCache.size <= PARSED_REPORT_CACHE_MAX_ENTRIES && parsedReportCacheChars <= PARSED_REPORT_CACHE_MAX_CHARS) break;
+    parsedReportCache.delete(oldest);
+    parsedReportCacheChars -= oldest.length;
+  }
+  return report;
 }
 
 /** Row and embedded identities must both be valid and name the same entity. */
