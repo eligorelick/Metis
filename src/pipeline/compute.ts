@@ -3,6 +3,7 @@ import { forwardAnnualEstimates } from "./forwardEstimates";
 import { withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
 import { resolveForeignValuation, translateValuationInputs, translateProjectionInputs, type ForeignValuationBasis } from "@/pipeline/foreignCurrency";
 import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
+import { noncontrollingOwnershipUnresolved } from "@/pipeline/stageB/ownership";
 import { admittedStatementRow, isFmpQuotaGap, quotePriceObservationDay } from "@/providers/fmp";
 import { gapCauseMatches } from "@/edgar/refusalCauseRead";
 /**
@@ -5294,16 +5295,19 @@ function balanceRowWhole(row: object): boolean {
 }
 
 /**
- * The ownership test the DCF's NCI gate applies (`noncontrollingOwnershipUnresolved`):
- * no book NCI, and consolidated equity that has no parent split or differs from
- * parent equity. One test for the gate and for the bridge row choice.
+ * The ownership test the DCF's NCI gate applies, on a statement row: the P5
+ * owner's one predicate (`noncontrollingOwnershipUnresolved`,
+ * src/pipeline/stageB/ownership.ts; D-248), given the row's own figures and
+ * what its provenance establishes. One test for the gate, for the bridge row
+ * choice and for every valuation gate.
  */
 function noncontrollingOwnershipUnresolvedAt(row: FmpBalanceSheetRow | null): boolean {
-  return row !== null && num(row.minorityInterest) === null &&
-    (statementEquityOwnershipBasis(row) === "consolidated" ||
-      (num(row.totalEquity) !== null && num(row.totalStockholdersEquity) !== null &&
-        Math.abs((num(row.totalEquity) as number) - (num(row.totalStockholdersEquity) as number)) >
-          1e-9 * Math.max(1, Math.abs(num(row.totalEquity) as number), Math.abs(num(row.totalStockholdersEquity) as number))));
+  return row !== null && noncontrollingOwnershipUnresolved({
+    totalEquity: num(row.totalEquity),
+    totalStockholdersEquity: num(row.totalStockholdersEquity),
+    minorityInterest: num(row.minorityInterest),
+    equityOwnershipBasis: statementEquityOwnershipBasis(row),
+  });
 }
 /**
  * Why the DCF bridge cannot be built on this row (the refusal test, the gate's ownership test, or a lease or

@@ -136,6 +136,323 @@ duplicate that two in-memory Altman computations write with the same field
 and sentence. Step d (planned as D-244, saved-report readers R1-R16) was not
 started, as the plan stops at the first step that cannot be done safely.
 
+## D-249 - One reading of a saved report's spec stamp against a display cutoff (2026-11-13)
+
+Principle P21 (saved reports are immutable; corrections are read-time views
+chosen by the report's own stamp), with P10 (a stamp that cannot be read is
+not treated as current) and P13 (one definition). Round 2, Stage 5, "one
+owner" step, part 3. The rule consolidation critique ("Qualification logic and
+version handling disagree") reproduced two ways of deciding "was this saved
+report written before rule X".
+
+Root cause. A saved report's `meta.specVersion` was parsed in three places:
+
+| Reader | Where | Unreadable stamp |
+| --- | --- | --- |
+| `specVersionBefore`, used for nine frozen cutoffs by six legacy views | `src/report/legacyPayloadRecordSafety.ts` | trimmed first; unreadable counts as before the cutoff |
+| `legacyCheckNote` (`INSIDER_ROLES_READ_FROM`), used by the audit export | `src/report/claimMatching.ts` | not trimmed; unreadable counts as not before (no note) |
+| the scope note's wording | `src/report/legacyScopeQualifications.ts` | its own copy of the "three dotted numbers" pattern |
+
+For three dotted numbers all agree. For a missing, empty, padded (" 1.55.0 "),
+two-part ("1.55") or pre-release ("1.55.0-rc1") stamp the first two disagreed,
+and four cutoffs sit on the same 1.56.0 line, so one report could be "before
+1.56.0" for the valuation notes and "not before 1.56.0" for the insider note.
+
+Choice. One parse (`parseSpecStamp`) and one comparison (`specVersionBefore`)
+in `src/report/versions.ts`; `legacyCheckNote` and the scope note's wording
+call them, and the six legacy views keep importing the same function through
+its old module. One stated behaviour:
+
+- a stamp that cannot be read (missing, not text, or not exactly three dotted
+  whole numbers after trimming) is before every cutoff, so the report gets
+  the legacy read-time view. It cannot be shown to follow the newer rule, and
+  this is what the nine cutoffs on the shared helper already did;
+- a stamp at or above a cutoff is not before it, a newer build's included
+  (whether this build recognises that report's evidence rules is a separate
+  question, answered by the evidence-contract stamp's own reader);
+- a cutoff that cannot be read never fires (cutoffs are pinned constants).
+
+Where it lives, and why. P21's owner is `src/report/legacyEntitySafety.ts`,
+but that module imports every legacy reader and `claimMatching.ts`, so a
+helper there would be a circular import. `src/report/versions.ts` imports
+nothing and already defines every cutoff the comparison reads, so the
+comparison sits beside them; its header table says so, and its guard test
+(`tests/versions.oneFile.test.ts`) names the two functions as its only
+exports that are not a stamp or a cutoff.
+
+Options rejected: making unreadable stamps "not before" everywhere (it would
+drop the legacy corrections from a report whose stamp is damaged, the
+fail-open reading); leaving `legacyCheckNote` alone because no saved report
+reaches the difference (two readers of one cutoff must not be able to
+disagree).
+
+No stamp value changes, no stamp is added and nothing is rewritten.
+
+### Inventory of every version comparison
+
+Ordered against a cutoff (now one helper): the nine cutoffs
+`PAYLOAD_RECORD_CORRECTION_SPEC`, `EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION`,
+`BRIDGE_METHOD_SINCE_SPEC_VERSION`, `BRIDGE_READINGS_SINCE_SPEC_VERSION`,
+`ANNUALIZATION_CONVENTION_SPEC`, `DCF_INPUTS_CONVENTION_SPEC`,
+`IMPLIED_RETURN_SHARE_BASIS_SPEC`, `LEGACY_SCOPE_SINCE_SPEC`,
+`LEGACY_PLACEHOLDER_DISPLAY_CUTOFF`, and `INSIDER_ROLES_READ_FROM`.
+`N4B_CAGR_DISPLAY_CUTOFF` has no reader.
+
+Read by equality, each with its own stated behaviour, unchanged:
+
+- `CORPORATE_ACTION_BRIDGE_WRITING_STAMPS` (`src/report/legacyRetiredFields.ts`):
+  exact membership in the three builds that wrote one retired field; any other
+  text is refused.
+- `meta.evidenceContract` (`src/report/evidenceContract.ts`): absent, current
+  or unrecognised; never inferred from spec or pipeline text.
+- The history diff (`src/report/diff.ts`) and the forecast and evaluation
+  records (`src/report/forecastAdapter.ts`, `src/report/evaluation.ts`): two
+  stored texts compared as stored.
+- `syntheticNotice` (`src/report/presentation.ts`): the built-in sample is
+  told by `meta.model` and a pipeline text beginning "synthetic-sample-". It
+  identifies a fixture, not a rule cutoff.
+- `meta.codeIdentity` (D-227): written, read by nothing.
+
+### Proof on saved reports, and approved report changes
+
+None. The check database copy (`%USERPROFILE%\metis-check\check.db`, opened
+read-only; the application database was never opened) holds 68 saved reports
+with eighteen distinct spec stamps (1.0.0, 1.1.0, 1.2.0, 1.5.0, 1.6.0, 1.10.0,
+1.23.1, 1.23.2, 1.33.0, 1.35.0, 1.38.0, 1.43.0, 1.44.0, 1.45.0, 1.48.0,
+1.49.0, 1.53.0, 1.73.0), identical in the `specVersion` column and in
+`meta.specVersion`. All are three dotted numbers with no padding, so no saved
+report carries a stamp on which two readers disagreed: there are no "both
+outputs" to show and no surface whose output had to be kept against the
+helper. Each report was read by the saved-report reader and rendered as its
+read-time view, the Markdown export, print HTML, the audit Markdown, the
+classic and dossier web layouts and the key-data rows, with main `629cf3c9`
+and with this change merged with it (and with `be7c11d6` before the merge),
+under one fixed clock: 68 reports, 7 outputs each, 476 outputs, all
+byte-identical (56 strict reads, 12 legacy reads, the same on
+both sides). The set exercises the readers: 58 reports show "Built before
+report spec", 14 "Built before spec", and 2 audit exports carry the insider
+note. Same-report check, main `629cf3c9` against this change after merging
+it: no changes (17 cases, 136 files compared).
+
+Tests (`tests/report.savedStampOrder.oneOwner.test.ts`): the eighteen saved
+stamps and the current one against every cutoff; missing, malformed, padded
+and future stamps; the insider note and the scope wording follow the helper
+for each; and a source guard that no file outside `versions.ts` writes a
+dotted-version pattern or splits a spec stamp by hand (the Claude CLI's own
+version text in `src/ai/claude.ts` is the one named exception).
+
+### Listed for the owner, not changed
+
+- The exact-stamp gate does not trim and the ordering helper does. A padded
+  " 1.23.1 " would be 1.23.1 to the helper and "not a writing stamp" to the
+  gate. No saved report is padded, and the gate's documented rule refuses
+  "any other stamp".
+- `N4B_CAGR_DISPLAY_CUTOFF` and `meta.codeIdentity` still have no reader.
+
+## D-248 - One test of unresolved noncontrolling ownership, with one allowance (2026-11-13)
+
+Principles P5 (entity scope is never plugged) and P10 (unproven is withheld),
+with P13 (one definition) and P11 (a refusal is not cured by a missing
+number). Round 2, Stage 5, "one owner" step, part 2. The architecture review's
+critique (row 6) reproduced that the two copies of the ownership test disagree.
+
+Root cause. "Is the split between the parent's holders and outside
+(noncontrolling) holders unresolved on this balance?" was answered twice:
+`noncontrollingOwnershipUnresolvedAt` in `src/pipeline/compute.ts` (the DCF's
+bridge-row choice and the DCF gate's input) and `unknownNoncontrollingAllocation`
+in `src/pipeline/stageB/valuation.ts` (enterprise value and its multiples, the
+own-history bands, the cash multiples and the DCF gate). Both mean
+"consolidated equity differs from parent equity and no NCI is filed", with two
+different allowances for "differs": compute.ts used one part in a billion of
+the larger figure, valuation.ts one currency unit or one part in ten billion
+of consolidated equity. On a consolidated-only basis compute.ts answered
+"unresolved" whatever numbers survived; valuation.ts only if one did.
+
+Which answer is right. Consolidated and parent equity are two different filed
+lines, equal only when there are no outside holders. The only allowance that
+belongs between them is for arithmetic noise; a filed difference, however
+small, proves outside ownership whose amount is not filed, and D-78 and D-79
+forbid treating it as zero. So:
+
+- The P8 "same observation" rule (`src/edgar/vendorAgreement.ts`) is not the
+  right comparison. It compares two copies of one figure and allows a reporting
+  unit up to a million or 0.01%; here it would read 10,001 million against
+  10,000 million as "the same" and a filed one-million NCI as none. P8 itself
+  keeps checks of different quantities on their own named allowances.
+- The ownership owner had no named allowance, so the choice was between the
+  two existing ones. No number is new.
+- Total 10,000,000,000 against parent 9,999,999,995, no NCI (a gap above one
+  unit and within one part in a billion): compute.ts said resolved,
+  valuation.ts unknown. Two whole numbers five apart are not arithmetic noise,
+  so the lines differ. Unknown is right.
+- Total 500,000,000 against parent 499,999,999.4, no NCI (a gap of at most
+  one currency unit on equity under a billion): compute.ts said unresolved,
+  valuation.ts resolved. A balance sheet states whole currency units or
+  larger, so a sub-unit gap is not a filed difference. Resolved is right.
+- A consolidated-only basis with no surviving number: compute.ts said
+  unresolved, valuation.ts resolved. The evidence still shows a consolidated
+  total with no parent split. Unresolved is right.
+
+valuation.ts's allowance gives the right answer in both zones, so it is the
+one kept.
+
+Choice, in the owner (`src/pipeline/stageB/ownership.ts`):
+`EQUITY_SAME_AMOUNT_ALLOWANCE` (one currency unit, or one part in ten billion
+of consolidated equity; `sameEquityAmount`) and the one predicate
+`noncontrollingOwnershipUnresolved`. compute.ts passes it the row's own
+figures and what the row's provenance establishes
+(`statementEquityOwnershipBasis`, unchanged); valuation.ts calls it directly
+at its six sites. The DCF gate still reads both the caller's input and the
+bridge balance; they are now one test.
+
+Truth table, NCI not filed unless stated ("compute" and "valuation" are the
+two old copies on the same inputs):
+
+| Balance | compute before | valuation before | After (both) |
+| --- | --- | --- | --- |
+| NCI filed (any number, zero included) | resolved | resolved | resolved |
+| Consolidated-only basis, total or parent present | unresolved | unresolved | unresolved |
+| Consolidated-only basis, no number present | unresolved | resolved | unresolved |
+| No consolidated total (parent alone, or no equity) | resolved | resolved | resolved |
+| Total present, parent absent | unresolved | unresolved | unresolved |
+| Total equals parent, or a gap within both allowances | resolved | resolved | resolved |
+| Gap above one unit, within one part in a billion | resolved | unresolved | unresolved |
+| Gap of at most one unit, above one part in a billion | unresolved | resolved | resolved |
+| Gap beyond both allowances | unresolved | unresolved | unresolved |
+
+Two rows tighten an earlier answer (valuation.ts's on a consolidated-only
+basis with no number; compute.ts's for a whole-unit gap) and one loosens one
+(compute.ts's for a sub-unit gap, which is not a filed difference). None is
+reached by any of the 17 cases. The FIN-103 bullet of D-135, which introduced
+compute.ts's copy for the bridge-row choice, is marked "Revised by D-248".
+`docs/METHODOLOGY.md` ("EV bridge") states the one test.
+
+### Replay and approved report changes
+
+None. Every call of the predicate during a full rebuild of the 17 cases was
+logged with what each old copy would have answered for the same input
+(temporary instrumentation, removed before the commit): 1,553 calls in 17
+case processes; 1,235 with NCI filed, 308 with parent equity only, 8 with
+consolidated equal to parent exactly, 2 with no equity. No call has a nonzero
+gap between consolidated and parent equity with NCI unfiled, and in no call
+does an old copy answer differently from the new predicate (logged twice,
+before and after merging main, with the same counts). Same-report check, main
+`629cf3c9` against this change after merging it (and `be7c11d6` before): no
+changes (17 cases, 136 files compared). Every figure of all 17 cases is unchanged, so there was no company
+input for which today's behaviour had to be kept.
+
+Tests (`tests/stageB.ownership.oneOwner.test.ts`): the owner's truth table;
+then the reviewed disagreement, its mirror, equal figures and a real
+difference (compatible controls), a filed NCI and a consolidated total with no
+parent line (unrelated shapes), each through compute.ts's bridge-row choice
+(`dcfBridgeRow`) and valuation.ts's EV and DCF gates (`runStageB`), which must
+give one answer. Before the change the first two rows gave two.
+
+### Not changed
+
+`statementEquityOwnershipBasis` stays in compute.ts: it reads a statement
+row's provenance tags to say what the row's equity evidence establishes, and
+hands the answer to the owner's predicate. `resolveConsolidatedEquity`,
+`commonHolderCapital` (`src/pipeline/stageB/securityBasis.ts`) and the peers'
+basis are other rules and were not touched.
+
+## D-247 - One definition of a quarter, a fiscal year and the period-end allowance for the conversion-share readers (2026-11-13)
+
+Principle P1 (exact period), with P13 (a definition used in several places is
+computed once). Round 2, Stage 5, "one owner" step, part 1. The rule
+consolidation review and its critique (row "Quarter admission differs for the
+same conversion tags") reproduced that the same two SEC tags are admitted
+differently in two places.
+
+Root cause. The filed if-converted share increment of an income period
+(`IncrementalCommonSharesAttributableToConversionOfDebtSecurities` and
+`...OfPreferredStock`) has two readers, each with a private window written after
+the owner's:
+
+| | Equity bridge (`convertibleInstrumentsAt`, `src/pipeline/stageB/convertibles.ts`) | Loss-period divisor (`conversionSharesFiled`, `src/pipeline/stageB/dilutedDivisor.ts`) | P1 owner (`src/edgar/xbrl.ts`) |
+| --- | --- | --- | --- |
+| A quarter's own length | 80 to 100 days | 70 to 110 days | 70 to 125 days (`QUARTER_DURATION_DAYS`) |
+| A fiscal year's own length | 350 to 380 days | 300 to 400 days | 300 to 400 days (a bare literal) |
+| The fact's end against the row's | the same day | within 3 days | within 3 days (a bare default) |
+
+Same check or a different one. The same. Each reader asks which filed fact is
+the increment of exactly one income row's period, because that increment is a
+slice of that row's diluted count: the bridge takes it out of the divisor (or
+restores the claim), the loss-period rule takes it out of a donor row's award
+dilution. The row's own count was matched to its period by the owner's rule.
+Neither narrower window protects anything the owner's does not: 80 to 100 and
+70 to 110 days exclude the 16-week quarter of a 12-12-12-16 calendar, which
+the owner's band exists to hold, while the year-to-date facts that end on the
+same day are 181 and 272 days and fall outside every band; 350 to 380 days
+excludes a transition year the statement builder itself accepts as the row's
+fiscal year; "the same day" refuses an increment whose fact ends one to three
+days from the row although every other field of that row was matched within
+three days.
+
+Choice, in the owner. `src/edgar/xbrl.ts` now names the fiscal-year band
+(`FISCAL_YEAR_DURATION_DAYS`, 300 to 400) and the end allowance
+(`PERIOD_END_TOLERANCE_DAYS`, 3) beside `QUARTER_DURATION_DAYS`, and exports
+one predicate, `factCoversPeriod`: the fact states its own start, its own
+length is in the quarter or fiscal-year band, and it ends within the allowance
+of the row. Both readers call it and keep no number. `src/edgar/statements.ts`
+and `src/edgar/successor.ts` read the two newly named constants in place of
+their own copies of 300, 400 and 3 (same values). A boundary is still never
+inferred from an end date (D-56): an instant never covers a period. D-59 is
+not involved; these facts carry their own start. No number is new: every value
+is the owner's existing one.
+
+What moves, by the rule:
+
+| Reader | Before | After |
+| --- | --- | --- |
+| Bridge, quarter | 80-100 days, same day | 70-125 days, within 3 days |
+| Bridge, fiscal year | 350-380 days, same day | 300-400 days, within 3 days |
+| Loss period, quarter | 70-110 days, within 3 days | 70-125 days, within 3 days |
+| Loss period, fiscal year | 300-400 days, within 3 days | unchanged |
+
+Nothing narrows, so no figure can become a gap by this change. The FIN-302
+paragraph of D-147 ("exact period/end") is marked "Revised by D-247", and
+`docs/METHODOLOGY.md` ("Convertibles", "Loss periods") states the one rule.
+
+### Replay (rule 4) and approved report changes
+
+None. Same-report check, main `629cf3c9` against this change after merging
+it (and `be7c11d6` before): no changes (17 cases, 136 files compared). The
+accuracy check reports every figure as expected. Every duration fact of the
+two tags in the 13
+companies' cached SEC company facts was tested against every income-statement
+row date of its company under the old bridge rule, the old loss-period rule
+and the new rule: 65 facts (NVDA 61, VKTX 2, DUK 2; the other ten companies
+file none), of 89, 90, 181, 272, 363 and 370 days. None is in a zone where the
+windows differ (70-79, 101-125, 300-349 or 381-400 days) and none ends one to
+three days from a row's end, so all three rules admit the same facts: 0
+differing admissions. No value is newly admitted in the 17 cases, so there is
+no value to prove against a filing and no intentional-delta record. Every
+figure of all 17 cases is unchanged. The widened inputs are pinned on synthetic
+facts (`tests/stageB.conversionPeriod.oneOwner.test.ts`: every length from 69
+to 401 days at end offsets of -4 to +4 days, on both readers; the 16-week
+quarter; the 13-week control; year-to-date and neighbouring-quarter facts).
+
+### Not changed, with the reason
+
+- Every other private quarter or fiscal-year day band in `src` is listed with
+  what it admits in `tmp/accuracy/s5-one-owner-before-after.md` (not
+  committed). Besides the owner's there are quarter-length bands of 60-100,
+  60-120, 70-105, 70-110, 80-100, 84-98, 84-105 and 70-135 days across twelve
+  sites, fiscal-year bands of 350-380 (about twenty sites), 330-400, 364-371
+  and 357-380 days, and a family that measures the gap between two period
+  ends, which is a different measurement. They are not all one check: 84-98
+  and 364-371 are deliberately exact-calendar tests and 350-380 means "a full
+  year, never a transition year". Each needs this entry's per-site ruling and
+  its own replay before it moves. Suggested order: `src/edgar/cashInvestment.ts`
+  (70-110 and the same day: the pair fixed here),
+  `src/edgar/borrowingCosts.ts:96` and
+  `src/pipeline/stageB/repurchaseExecutions.ts:78` (the owner's numbers as
+  literals), then one named annual band in the owner for the 350-380 family
+  (with `ANNUAL_FLOW_DAYS`, D-231).
+- The bridge reader drops facts filed after the analysis time and facts with a
+  dimension; the loss-period reader does neither. That is P2 and scope, not
+  the length of a quarter.
 ## D-240 - The trailing net income behind FCF conversion is read from the filings when they state one profit line (2026-11-12)
 
 Principles P5 (entity scope), P1 (exact period; an additive flow derived from
@@ -5529,7 +5846,7 @@ Audit 2026-10-27, batch B4, part A (B4a): FIN-103, FIN-119, FIN-119-V1, FIN-119-
   - Revises: D-26's sentence "the REIT implied cap rate uses the house enterprise value", made true by construction instead of by a parallel formula.
   - Sources: Deloitte Roadmap 9.4 (that OP units redeemable for cash are such an NCI is filer practice, not the roadmap's); METHODOLOGY ("a report carries one EV").
 - **FIN-403: a successor reads its predecessor's retirement obligations.** A holding-company successor whose own companyfacts carry no retirement obligation reads the predecessor's, as one reporting entity under B-36, until the successor's own annual report; a family the successor files, including a zero, ends the predecessor read for that family, and a family both file is read once, from the successor. Extends E-7 and B-36.
-- **FIN-103: the DCF bridge reads the statement-date balance.** When an annual base is rolled forward, D-65's promise that the bridge stays at the statement-date balance is now checked: the bridge row follows the DCF's basis with one refusal rule (a newer quarter with no debt line falls back to the older complete balance), and the bridge note and an info gap `valuation.dcf.bridgeBalanceDate` name the date used. The refusal rule is the one the DCF reads on the row: a parser refusal, unresolved ownership, a lease conflict, a lease-scope refusal (on the run's own lease switch) or a refused temporary-equity operand. The first clean candidate at the statement date is the row; when every candidate is refused, or the anchor is, the anchor (main's row) stands, never cured by another date, so no report main publishes is blocked by the choice (final review I-2).
+- **FIN-103: the DCF bridge reads the statement-date balance.** When an annual base is rolled forward, D-65's promise that the bridge stays at the statement-date balance is now checked: the bridge row follows the DCF's basis with one refusal rule (a newer quarter with no debt line falls back to the older complete balance), and the bridge note and an info gap `valuation.dcf.bridgeBalanceDate` name the date used. The refusal rule is the one the DCF reads on the row: a parser refusal, unresolved ownership, a lease conflict, a lease-scope refusal (on the run's own lease switch) or a refused temporary-equity operand. (Revised by D-248: "unresolved ownership" is now the P5 owner's one predicate and allowance, `noncontrollingOwnershipUnresolved` in `src/pipeline/stageB/ownership.ts`; the row choice no longer keeps a copy with its own one-part-in-a-billion allowance, so a gap of under one currency unit between consolidated and parent equity no longer refuses a row and a whole-unit gap now does.) The first clean candidate at the statement date is the row; when every candidate is refused, or the anchor is, the anchor (main's row) stands, never cured by another date, so no report main publishes is blocked by the choice (final review I-2).
 - **Final whole-branch review (fix round 1), the merge rule: no report main publishes becomes Blocked, and no figure is worse than main.** (I-1) Lease-emptied invested capital withholds the DCF at warn (OD-3). (M-1) A row with a refused temporary-equity operand and a lease conflict or lease-scope refusal keeps main's critical lease gap beside the warn. (M-7) A null book NCI beside a redeemable NCI takes the P/FCF 1% floor on the redeemable NCI alone; with no redeemable NCI the guard is main's. (M-9) A positive `preferredStock` equal to the admitted redeemable preferred within max(1, 1e-6 x amount) at the same date (the filer tagged one mezzanine series `PreferredStockValue` and `TemporaryEquityCarryingAmountAttributableToParent`) is counted once: `temporaryEquityClaims`, the one reader, leaves the parent part out and the preferred line main already deducts stands, so no balance row is altered; an info gap `valuation.preferredOverlap` names both tags once per date; unequal amounts are both deducted (B4b's overlap territory, OD-2). (M-8) The rate-regulated note states the reading, not rate recovery.
 - **House constants.**
   - The pension family order (a), (b), (c) and its date-first look-back.
@@ -5895,7 +6212,11 @@ keep their values or refusals. Evidence and the explicitly unstarted items are r
 [the B4b disposition](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md).
 
 FIN-302 / FIN-302-V1 implement OD-2. Claim and converted variants use exact
-period/end and acquisition cutoffs on both routes. Unknown settlement retains
+period/end and acquisition cutoffs on both routes. (Revised by D-247: the
+conversion increment is matched to the divisor's period by the P1 owner's one
+rule, a quarter of 70 to 125 days or a fiscal year of 300 to 400 days ending
+within 3 days of the divisor end, not by a private 80-100 / 350-380 day window
+on the same day.) Unknown settlement retains
 the conservative claim-plus-shares value and a quantified bound; cash-principal
 notes retain spread shares. Each preferred claim is deducted once, using the
 larger ambiguous overlap or the sum only when an independent filed inclusive

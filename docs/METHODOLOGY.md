@@ -106,7 +106,13 @@ clarification section before the affected body in classic, dossier, Markdown,
 print and audit. The sidecar is not recorded evidence or a manifest entry; it
 changes no stored figures, flags/severities, grades, trust counts, source/date
 identities, verification or report state. Missing/malformed versions get
-unrecorded-version wording without broader parser admission. Current/future
+unrecorded-version wording without broader parser admission. Every read-time
+view that depends on when a report was written compares its saved
+`meta.specVersion` with a frozen cutoff through one function
+(`specVersionBefore`, `src/report/versions.ts`; D-249): a stamp that cannot be
+read (missing, not text, or not three dotted numbers after trimming, such as
+"1.56" or "1.56.0-rc1") is before every cutoff and gets the legacy view; a
+stamp at or above a cutoff, including one from a newer build, is not before it. Current/future
 versions get no historical migration notes. If a current/future report contains
 an exact owned older receivables/discontinued flag wrapper, only a fixed
 non-migration interpretation caveat appears; the flag is not rewritten. Normal
@@ -1976,6 +1982,12 @@ belong in EV. Undisclosed preferred stock is treated as zero. Minority interest
 is not zero-filled. When consolidated equity has no resolved parent/NCI split,
 or differs from parent equity with no NCI figure, the NCI allocation is unknown.
 EV, the EV multiples and the DCF's per-share equity bridge are then withheld.
+One test decides this for the DCF's bridge-row choice and gate, EV, the
+own-history bands and the cash multiples (`noncontrollingOwnershipUnresolved`,
+`src/pipeline/stageB/ownership.ts`; D-248). Consolidated and parent equity are
+one amount only within one currency unit or one part in ten billion of
+consolidated equity: an allowance for arithmetic noise, never for materiality,
+so one reporting unit of difference is a difference.
 NCI is taken as zero only from the filing itself. That happens when the filer
 tags only equity including NCI at that date, its net income attributable to NCI
 for the period ending there is explicitly zero, and its latest earlier NCI
@@ -2459,9 +2471,12 @@ Preferred option-value claims join the permanent preferred deduction. When
 both tags may overlap, deduct the larger and warn; add them only with an
 independently filed inclusive carrying total equal to their sum. Names in free
 text are not series evidence. Inclusive notes payable is never added to its
-current component. Claims match the bridge date; increments match the exact
-divisor end and a quarter of 80-100 days or year of 350-380 days, on core forms
-filed by acquisition. An unestablished claim or full-share settlement retains
+current component. Claims match the bridge date; increments match the divisor's
+own period by the one period rule (`factCoversPeriod`, `src/edgar/xbrl.ts`;
+D-247): a duration fact whose own length is a quarter (70-125 days) or a fiscal
+year (300-400 days) and which ends within 3 days of the divisor end, on core
+forms filed by acquisition. The loss-period divisor below reads the same
+increment by the same rule. An unestablished claim or full-share settlement retains
 both claim and shares with a warning bounding understatement at N/(D - N).
 A cash-principal note keeps its principal and conversion-spread shares.
 Forecast operating EPS follows the selected divisor. A converted note removes
@@ -2500,7 +2515,8 @@ quarters and the latest fiscal year that shows one; the note names the donor as
 a quarter or a fiscal year with its date. Award dilution is the donor's diluted
 minus basic count, less the if-converted shares the filer reports for that exact
 period (`IncrementalCommonSharesAttributableToConversionOfDebtSecurities` and
-`...OfPreferredStock`, a duration fact of the period's own length, core forms),
+`...OfPreferredStock`, a duration fact of the period's own length by the same
+period rule as the bridge's reader, D-247, core forms),
 floored at 0, because the equity bridge already deducts those convertible
 instruments as claims; the note names the amount taken out. When the issuer
 files a convertible carrying value (the families `ConvertibleNotesPayable`,

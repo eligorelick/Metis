@@ -104,6 +104,8 @@ import { belowComponentFloor } from "@/edgar/synonymFloor";
 import {
   CORE_FACT_FORMS,
   CORE_INTERIM_FORMS,
+  FISCAL_YEAR_DURATION_DAYS,
+  PERIOD_END_TOLERANCE_DAYS,
   QUARTER_DURATION_DAYS,
   conceptFactsSchema,
   dedupByPeriod,
@@ -352,9 +354,9 @@ export interface StatementFactExclusion {
 
 const DAY_MS = 86_400_000;
 /** 52/53-week fiscal calendars move period ends by a few days between filings. */
-const TOLERANCE_DAYS = 3;
-const ANNUAL_MIN_DAYS = 300;
-const ANNUAL_MAX_DAYS = 400;
+const TOLERANCE_DAYS = PERIOD_END_TOLERANCE_DAYS;
+const ANNUAL_MIN_DAYS = FISCAL_YEAR_DURATION_DAYS[0];
+const ANNUAL_MAX_DAYS = FISCAL_YEAR_DURATION_DAYS[1];
 /**
  * A quarter is 13 weeks give or take a 53rd week — except on a 12-12-12-16
  * calendar, where the fourth quarter runs 16 or 17 weeks (Costco). The upper
