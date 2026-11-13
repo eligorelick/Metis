@@ -2197,16 +2197,16 @@ const SCORE_ASPECT_LABEL: Record<(typeof SCORE_ASPECT_ORDER)[number], string> = 
 };
 
 /**
- * One row per aspect: score, band, weight and evidence, with what it
- * measures (D-62: replaces the separate weights and aspect-score tables).
- */
-/**
  * D-256 (P22): what the scorecard says about its band table. The band
  * constant itself (`scores.bandsVersion`) is a machine id; it is printed in
  * the audit export's scorecard ("Band table: ..."), not in the body.
  */
 export const SCORE_BANDS_READER_NOTE = "House scoring bands in force when this report was built; the band version is recorded in the audit export";
 
+/**
+ * One row per aspect: score, band, weight and evidence, with what it
+ * measures (D-62: replaces the separate weights and aspect-score tables).
+ */
 export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable {
   const limited = SCORE_ASPECT_ORDER.filter((key) => hasLimitedEvidence(scores.aspects[key]));
   return {
