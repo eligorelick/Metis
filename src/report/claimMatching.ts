@@ -1,4 +1,4 @@
-import { INSIDER_ROLES_READ_FROM } from "@/report/versions";
+import { INSIDER_ROLES_READ_FROM, specVersionBefore } from "@/report/versions";
 import type { ProvenanceCoverage, VerificationLogEntry } from "./schema";
 
 type FactualValidation = NonNullable<ProvenanceCoverage["factualValidation"]>;
@@ -133,11 +133,8 @@ export function displayedClaimCoverage(coverage: ProvenanceCoverage, log: readon
 
 export { INSIDER_ROLES_READ_FROM } from "@/report/versions";
 export function legacyCheckNote(entry: VerificationLogEntry, log: readonly VerificationLogEntry[], reportSpecVersion: string): string | null {
-  if (!/^\d+\.\d+\.\d+$/.test(reportSpecVersion)) return null;
-  const parts = reportSpecVersion.split(".").map(Number);
-  const cutoff = INSIDER_ROLES_READ_FROM.split(".").map(Number);
-  const first = parts.findIndex((n, i) => n !== cutoff[i]);
-  if (first < 0 || parts[first] >= cutoff[first]) return null;
+  // D-249 (P21): the one comparison of a saved stamp with a display cutoff; this reader keeps no parse of its own.
+  if (!specVersionBefore(reportSpecVersion, INSIDER_ROLES_READ_FROM)) return null;
   if (entry.reason !== "named-individual-title-mismatch" || entry.source !== "fmp:insider-trades" || entry.path === undefined) return null;
   const dropped = log.some(row => row.path === entry.path && row.check === "named-individual" && /\((?:director|officer|other|10 percent owner|ten percent owner)\b[^)]*,\s*(?:director|officer|other|10 percent owner|ten percent owner)\b[^)]*\)/i.test(`${row.claim} ${row.note ?? ""}`));
   return dropped ? "recorded before an insider owner type listing several roles was read role by role; this title was not rechecked" : null;

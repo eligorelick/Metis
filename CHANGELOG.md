@@ -35,6 +35,22 @@ original versions and bytes; source merge does not deploy or publish a release.
   not built: it cannot keep every decision unchanged when a source sentence is
   reworded (D-242 explains); the saved-report readers (D-244) were not started.
 
+## Unreleased - Net income is read on the scope each metric needs (2026-11-12)
+
+- For a company with noncontrolling interests, free-cash-flow conversion now
+  divides by consolidated profit in every year: a vendor cash-flow net income
+  equal only to the parent's profit is replaced by the consolidated profit the
+  same filing states. The net margin and DuPont now use the profit attributable
+  to the parent in every year, including a year whose reported net income is
+  the consolidated figure (P5, P13, P8, [D-238](docs/audit/DECISIONS.md), which
+  revises D-231). In the same-report check this moves Realty Income (fiscal
+  2023 cash-flow net income 872,309,000 to 876,914,000 and its FCF conversion;
+  fiscal 2025 net margin 18.61% to 18.41% and DuPont ROE 2.73% to 2.70%) and
+  Duke Energy (fiscal 2025 cash-flow net income 4,967,000,000 to
+  5,071,000,000). No score or grade moves, and companies without
+  noncontrolling interests are unchanged. Version stamps are left for the
+  Stage 5 integration; saved reports are unchanged.
+
 ## Unreleased - Trailing net income behind FCF conversion read from the filings (2026-11-12)
 
 - The "Current capital" block divides trailing free cash flow by consolidated

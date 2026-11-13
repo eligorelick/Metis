@@ -30,7 +30,7 @@ import { comparePriceCurrency, minorUnitQuote } from "@/pipeline/stageB/priceCur
 import { leaseDebtConflict, millions, NET_DEBT_RESOLVER_VERSION, operatingLeaseOutOfDebt, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { normalizeQuarterRows } from "@/pipeline/stageB/quarterWindows";
 import { CONSECUTIVE_FISCAL_PERIOD_DAYS } from "@/pipeline/stageB/forensics";
-import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
+import { resolveConsolidatedEquity, resolveParentProfit } from "@/pipeline/stageB/ownership";
 import { preferredCapitalRefusal, selectCommonIncome, type CommonIncomeInputs, type PreferredCapitalInputs } from "@/pipeline/stageB/securityBasis";
 import { leaseDebtScopeRefusal } from "./leaseScope";
 import { temporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
@@ -2091,7 +2091,12 @@ export function computeDupont(
     );
 
     const revenue = isFiniteNumber(row.revenue) ? row.revenue : null;
-    const ni = isFiniteNumber(row.netIncome) ? row.netIncome : null;
+    // D-238 (P5, P13; D-108): the equity below is the parent's, so the profit over it is the parent's too.
+    const parentProfit = resolveParentProfit(row);
+    const ni = parentProfit.value;
+    if (ni !== null && ni !== row.netIncome) {
+      yearNotes.push(`net income: ${parentProfit.reason} (${parentProfit.basis})`);
+    }
 
     if (revenue === null || revenue <= 0) {
       yearNotes.push("revenue missing or ≤ 0 — margin/turnover not meaningful");
