@@ -11,6 +11,233 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-239 - A provider zero for capital spending is undisclosed unless the filings state a zero (2026-11-12)
+
+Principles P7 (a vendor zero is undisclosed, not filed), P10 (withhold, never
+guess), P11 (a figure built on a refused input is refused), P12 (a fallback
+carries its qualification) and P17 (an unscored signal counts at the neutral
+midpoint). Round 2, Stage 5 (accuracy fixes), vendor-zero family. Revises the
+D-150 cash-capex convention for a provider figure of exactly 0; that
+convention is otherwise unchanged. The accuracy baseline (r2-base-afb9cddf,
+ranks 8 to 10) found JPMorgan's and Realty Income's "capital spending, latest
+fiscal year" shown as 0 USD with no filed line behind it, and called Realty
+Income's "operating income, latest fiscal year" (2,247,261,000) a vendor
+subtotal.
+
+Root cause, capital spending. The provider writes 0 on a cash-flow row for a
+line it did not find. The cash-flow admissions
+(`src/edgar/financialEnrichment.ts`) checked a non-zero quarterly figure
+against the annual tag basis (`admitQuarterlyCapex`) and the trailing
+construction (`filedCapexTtm`); nothing checked an annual figure, and nothing
+asked whether a figure of exactly 0 was filed. So the 0 was read as a figure:
+capital intensity 0%, and a free cash flow equal to operating cash flow.
+JPMorgan's filings tag no capital-spending line in any period. Realty Income's
+tag capital improvements (`PaymentsForCapitalImprovements`) and real-estate
+acquisitions (`PaymentsToAcquireCommercialRealEstate`) as separate lines, under
+neither capital-spending element; the provider's 2016 to 2024 rows carry the
+capital-improvements amount and its 2025 rows carry 0, so the trailing twelve
+months summed 0 + 26,314,000 + 1,957,862,000 + 38,782,000 across three
+different provider definitions. Viking Therapeutics' filings tag none either;
+the baseline lists its four figures as not established without ranking them.
+
+Choice, in the owner of the cash-flow admissions (`admitZeroCapex`), applied
+to annual and quarterly rows in the report's own data view
+(`withCashFlowSbcBasis`, `src/pipeline/cashFlowBasis.ts`), so the calculation,
+the filing disclosures and the AI context read one admitted value and stored
+inputs keep their bytes:
+
+1. A provider capital-spending figure of exactly 0 with no filed evidence on
+   the field is tested against the capital-spending lines of the admitted SEC
+   facts for the row's own period, in the row's currency, filed by the
+   analysis time: `PaymentsToAcquirePropertyPlantAndEquipment`,
+   `PaymentsToAcquireProductiveAssets` and `PaymentsToDevelopSoftware`, the tag
+   basis the quarterly and trailing rules already use. The period is the
+   fiscal year (350 to 380 days), or the standalone quarter, directly filed or
+   the difference of two year-to-date figures on one presentation.
+2. When every such line tagged for that period is 0, the zero is filed and
+   stays.
+3. When none is tagged for it, capital spending is undisclosed. When one
+   states an amount, the zero is contradicted. In both cases the field and the
+   standardized free cash flow that subtracts it are withheld for that period
+   and the provider observations are retained. The existing refusal record
+   (`StatementFieldConflict`, `usable: false`) carries it; no status word,
+   cause code, tolerance or synonym is added.
+4. One manifest entry (`statements.cashflow.capitalExpenditure`, warn) names
+   every withheld period and the cause.
+5. A non-zero provider figure, a row whose field already carries filed
+   evidence or an earlier decision, and an issuer without confirmed SEC facts
+   are not this rule's subject.
+6. The company page's free-cash-flow bars read the same admitted rows
+   (`fundamentalsChartDataFromBundle`).
+
+Figures that need a withheld period follow their own existing rules: a
+trailing twelve months with a withheld quarter is withheld; a growth window
+ends at the newest year that has the figure and says so; the cash runway is
+withheld; a score signal without its input leaves the average (P17). No
+scoring rule, penalty, cap or guard was changed.
+
+Operating income, Realty Income: checked and left as it is. The figure is not
+a vendor value (the provider's 1,627,080,400 is kept only as an observation).
+It is computed by the statement builder from four lines of Form 10-K
+0000726728-26-000011 (filed 2026-02-25, fiscal year 2025-01-01..2025-12-31):
+`IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest`
+1,155,129,000 + `InterestExpenseOperating` 1,134,879,000 -
+`OtherNonoperatingIncomeExpense` 29,417,000 -
+`IncomeLossFromEquityMethodInvestments` 13,330,000 = 2,247,261,000. The report
+shows it as "EBIT", source "computed", in the interest-coverage block and
+already states that it "is derived from filed pretax/nonoperating operands
+with unverified consolidated operating scope; it is not a directly filed
+operating result" (D-203's status for such a derivation); operating margins on
+it are already withheld. The filing has no `OperatingIncomeLoss` fact, as the
+baseline says, so the accuracy tool keeps the row "not established" until it
+carries a recipe for the derivation.
+
+Options rejected: reading every provider 0 as undisclosed whatever the filings
+say (a filed zero would become a gap); adding capital improvements or
+acquisitions as capital-spending synonyms for REITs (it changes the free cash
+flow convention, D-150, and is a definition decision of its own); taking a
+complete-looking investing section as proof of nil (Viking's two investing
+lines foot exactly to its net investing cash, but a figure inferred from a
+residual is what P10 forbids, and SEC company facts do not say which lines
+make up the section); marking capital intensity "not applicable" on the bank
+route (that is where the symptom showed, and Realty Income and Viking are not
+on that route); withholding every operating figure that is not a tagged
+`OperatingIncomeLoss` (it would reverse D-203 for every filer without the tag).
+
+### Approved report changes
+
+Same-report check, current main 7e59aff3 (with D-231 and D-233) against this
+change: 24 files and 3 payload fingerprints differ, all eight outputs of
+`jpm-data-only`, `o-data-only` and `vktx-data-only`; the other 14 cases, and
+every other figure of those three, are byte for byte unchanged. Against the
+round baseline r2-base-afb9cddf the same files differ, beside the TSM and Duke
+Energy files of D-231 and the three Realty Income leaves of D-233. The full
+leaf-level list and the approvals with their hashes are in
+`tmp/accuracy/s5-vendor-zeros-before-after.md` (not committed: it quotes
+vendor data).
+
+Proof of every new gap: the SEC company facts in each run input (cutoff
+2026-11-12) hold no fact under the three capital-spending elements for any
+period of JPMorgan (CIK 19617; fiscal 2025 is Form 10-K 0001628280-26-008131,
+filed 2026-02-13), Realty Income (CIK 726728; Form 10-K 0000726728-26-000011,
+filed 2026-02-25) or Viking Therapeutics (CIK 1607678; Form 10-K
+0001193125-26-046876, filed 2026-02-11). None of the 13 companies files a zero
+under those elements, so no filed zero is involved.
+
+JPM (`jpm-data-only`, bank route, USD):
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Capital spending, fiscal 2021 to 2025 | 0 each | withheld |
+| Capital spending / revenue, fiscal 2021 to 2024; capital spending / D&A, fiscal 2021 to 2025 | 0 each | withheld |
+| Capital-intensity slope | 0 pp/yr | withheld |
+| Quarterly table column "FCF (CFO - capex)" and the AI payload's statement lines for capital spending and free cash flow (each equal to operating cash flow) | shown | withheld |
+| Data gaps | 21 | 22 |
+
+No JPMorgan score, grade or valuation figure moves; free cash flow, debt/EBITDA
+and interest coverage were already "not applicable" on the bank route.
+
+O (`o-data-only`, equity-REIT route, USD), figures that become gaps:
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Capital spending, fiscal 2025; its ratio to revenue and to D&A; implied maintenance and growth capital spending | 0 each | withheld |
+| Free cash flow, fiscal 2025, before / after SBC | 3,994,754,000 / 3,963,984,000 | withheld |
+| FCF conversion, fiscal 2025, after / before SBC | 3.7054 / 3.7342 | withheld |
+| SBC as % of free cash flow, fiscal 2025 | 0.7703% | withheld |
+| Capital spending, trailing twelve months to 2026-09-30 | 2,022,958,000 | withheld |
+| Standardized free cash flow, trailing twelve months, before / after SBC | 2,126,036,000 / 2,089,882,000 | withheld |
+| FCF conversion before SBC and SBC as % of free cash flow, trailing twelve months | 1.4917 and 1.7005% | withheld |
+| Quarterly free cash flow, the four 2025 quarters | equal to operating cash flow | withheld |
+
+O, figures that move to another number through their own documented
+fallback. Each fiscal year's free cash flow below is the filed
+`NetCashProvidedByUsedInOperatingActivities` less the filed
+`PaymentsForCapitalImprovements`, both from the newest 10-K stating the year:
+
+| Figure | Before | After | Operands of the new value |
+| --- | --- | --- | --- |
+| Free cash flow CAGR, 1 year | 15.7274% (2024 to 2025) | 19.4385% (2023 to 2024) | 2,890,077,000 (2,958,769,000 - 68,692,000) to 3,451,865,000 (3,573,276,000 - 121,411,000), both 10-K 0000726728-26-000011 |
+| Free cash flow CAGR, 3 years | 17.4072% (2022 to 2025) | 38.3644% (2021 to 2024) | 1,303,109,000 (1,322,189,000 - 19,080,000; 10-K 0000726728-24-000047, filed 2024-02-21) to 3,451,865,000 |
+| Free cash flow CAGR, 5 years | 29.2651% (2020 to 2025) | 26.9855% (2019 to 2024) | 1,045,401,000 (1,068,937,000 - 23,536,000; 10-K 0000726728-22-000046, filed 2022-02-23) to 3,451,865,000 |
+| Free cash flow CAGR, "10 years" | 21.1535% over 8 years | 21.9491% over 7 years (2017 to 2024) | 860,603,000 (875,850,000 - 15,247,000; 10-K 0000726728-20-000033, filed 2020-02-24) to 3,451,865,000 |
+| Capital-intensity slope | -0.2387 pp/yr (five years, the last a false 0) | +0.2985 pp/yr (2021 to 2024) | the four unchanged ratios 0.9171%, 2.8566%, 1.6840%, 2.3033%: capital improvements 19,080,000 / 95,514,000 / 68,692,000 / 121,411,000 over `Revenues` 2,080,463,000 / 3,343,681,000 / 4,078,993,000 / 5,271,142,000 |
+| Capital spending / D&A, average | 0.03307 (5 years) | 0.04134 (4 years) | mean of the four unchanged ratios, on `DepreciationDepletionAndAmortization` 897,835,000 / 1,670,389,000 / 1,895,177,000 / 2,395,644,000 |
+
+Each window says "latest 1 period(s) missing - endpoint moved to 2024-12-31".
+Whether capital improvements alone are a REIT's capital spending is not
+decided here (D-150).
+
+O, scores (P17):
+
+| Figure | Before | After | Why |
+| --- | --- | --- | --- |
+| Fundamentals | 86.09 (A) | 85.45 (A) | the free-cash-flow growth signal reads 26.99% instead of 29.27% |
+| Balance sheet | 88.69 on 41.2% of signals, no letter shown | not scored | its two signals were FCF conversion and SBC as % of free cash flow |
+| Business quality | 56.14 (C) | 52.50 (D) | the two rows above |
+| Composite | 53.60, not graded, evidence 33.6% | 51.09, not graded, evidence 27.2% | the composite note now names Balance sheet (15%) as unscored |
+| Data gaps | 32 | 33 | |
+
+FFO, AFFO, their per-share values, P/FFO, P/AFFO, EBIT and interest coverage
+are unchanged for Realty Income.
+
+VKTX (`vktx-data-only`, general route, unprofitable and pre-revenue, USD):
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Capital spending, fiscal 2021 to 2025; capital spending / D&A; implied maintenance and growth capital spending | 0 each | withheld |
+| Free cash flow before SBC, fiscal 2021 to 2025 | -47,586,000 / -48,397,000 / -73,376,000 / -87,790,000 / -278,685,000 (each equal to operating cash flow) | withheld |
+| Free cash flow after SBC, same years | -53,686,000 / -57,070,000 / -90,126,000 / -117,502,000 / -319,503,000 | withheld |
+| Capital spending, trailing twelve months to 2026-09-30 | 0 | withheld |
+| Standardized free cash flow, trailing twelve months, before / after SBC | -462,632,000 / -510,581,000 | withheld |
+| Cash runway (AI payload and stored computation; the data-only report does not print it): average quarterly burn 115,658,000; 8.30 quarters; exhaustion 2028-10-26 | shown | withheld |
+| Balance sheet | 14.57 on 41.2% of signals, no letter shown | 18.00 on 23.5% of signals, no letter shown |
+| Business quality | 44.04 | 45.64 |
+| Composite | 42.46, not graded, evidence 36.3% | 43.95, not graded, evidence 32.6% |
+| Data gaps | 51 | 54 |
+
+Viking's balance-sheet and composite scores rise because the signal that left
+was at the floor ("SBC as % of free cash flow", 10 of 100, free cash flow
+being negative). That is P17's documented neutral-midpoint behaviour; the grade
+was and stays "Not graded". Viking's operating cash flow, liquid assets
+(959,813,000) and income-statement figures are unchanged.
+
+Accuracy check (`accuracy:check`, the unmerged tool at ab12411d, run against
+this change's 17 cases): 153 match, 15 mismatch, 72 gap, 26 not established;
+nine differences from its expectation, all "BETTER, not established to gap"
+(JPM capex.fy; O capex.fy, fcf.fy, capex.ttm, fcf.ttm; VKTX capex.fy, fcf.fy,
+capex.ttm, fcf.ttm), none worse. Current main gives 63 gap and 35 not
+established.
+
+Tests (`tests/financialEnrichment.zeroCapex.test.ts`, 21 cases, 19 of which
+fail before the change): JPMorgan, Realty Income (fiscal 2025, the December
+2025 quarter, and fiscal 2024 unchanged) and Viking on their filed facts; the
+capital block before and after; the compatible control, a constructed issuer
+whose filings tag a zero (fiscal year, direct quarter, year-to-date derived
+quarter, and two elements together); an unrelated issuer, Progressive, whose
+filed 348,000,000 is untouched and against which a 0 is contradicted (fiscal
+year and a year-to-date derived quarter); what the rule never does (filed
+evidence or an earlier decision on the field, another issuer, unknown
+currency, a missing figure; a zero filed after the analysis time, in another
+currency or for another period); the manifest entry; and the data view
+(stored rows untouched, applying it twice changes nothing, the company page's
+bars). No existing test changed.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change advances the Stage B
+implementation stamp only; the report specification and the payload format are
+unchanged. Frozen records are unchanged. Saved reports are immutable (P21) and
+keep the figures they were built with.
+
+Left for follow-up, described in `tmp/accuracy/s5-vendor-zeros-before-after.md`:
+establishing "none presented" from the filing's own cash-flow statement where
+the investing section is complete without a capital-spending or "other
+investing" line (it would restore Viking's free cash flow and runway as proven
+figures); a REIT definition of capital spending; and the interest-coverage
+ratio for Realty Income, which divides the derived EBIT (built with the filed
+`InterestExpenseOperating` 1,134,879,000) by the provider's interest expense
+1,142,201,000.
+
 ## D-234 - FIGR: the 10-K's share counts and the 10-Q's own borrowings replace two vendor figures (2026-11-12)
 
 Principles P8 (filed beats vendor), P3 (share basis), P6 (share classes), P7
@@ -5303,6 +5530,8 @@ separate complete remeasurement. The measured FIG difference is 1.302M on
 231.012M FCF (0.6% rounded). Preserving the disclosed retained basis avoids
 silently substituting an accounting convention without comparable period
 inputs. METHODOLOGY states this plainly; no stored report is rewritten.
+(Revised by D-239: a provider figure of exactly 0 is no longer retained as
+capital spending unless the filings state a zero for that period.)
 
 ## D-151 - N3: SEC-built rows on a filed-total conflict (2026-11-02)
 
