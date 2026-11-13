@@ -31,6 +31,7 @@ import {
   temporaryEquityStatuses, valuationStatuses,
 } from "./helpers/gapCauseProducers";
 import { withoutGapCauses } from "@/pipeline/stageA/manifest";
+import { isConfirmedUnknownProfile } from "@/pipeline/unknownTicker";
 
 const ROOT = path.join(__dirname, "..");
 
@@ -137,6 +138,12 @@ describe("D-242: each switched reader decides as its wording test did on main", 
       }
     }
     expect(positives).toBeGreaterThan(0);
+    // A served profile decides by its rows, whatever the CIK lookup said (unchanged by D-242).
+    const served = (rows: unknown[]) => ({ ok: true as const, value: { data: { rows } } });
+    expect(isConfirmedUnknownProfile({ profile: served([]), edgar: { cik: { ok: false, gap: NOT_LISTED_GAP } } } as never)).toBe(true);
+    expect(isConfirmedUnknownProfile({ profile: served([{ symbol: "X" }]), edgar: { cik: { ok: false, gap: NOT_LISTED_GAP } } } as never)).toBe(false);
+    // A served CIK is never a miss on a no-key profile.
+    expect(isConfirmedUnknownProfile({ profile: { ok: false, gap: NO_KEY_GAP }, edgar: { cik: { ok: true, value: {} } } } as never)).toBe(false);
     // D-229's known case: not a confirmed miss with its code, and not without it.
     expect(extended.cause).toBe("fmp-empty-array-fallback-failed");
     for (const cik of [NEUTRAL_CIK_GAP, NOT_LISTED_GAP]) {
