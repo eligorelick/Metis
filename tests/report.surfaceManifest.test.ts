@@ -47,6 +47,7 @@ import {
   MANIFEST_ENTRY_FIELD_BY_KEY,
   MANIFEST_ENTRY_FIELD_ORDER,
   MANIFEST_ENTRY_FIELDS,
+  MANIFEST_ENTRY_STORED_ONLY_KEYS,
   PROJECTION_DISCLOSURE_FIELD_BY_KEY,
   PROJECTION_DISCLOSURE_FIELD_ORDER,
   PROJECTION_DISCLOSURE_FIELDS,
@@ -438,9 +439,15 @@ describe("shared report surface manifest", () => {
       [DATA_COMPLETENESS_FIELD_ORDER, DATA_COMPLETENESS_FIELDS, DATA_COMPLETENESS_FIELD_BY_KEY, DataCompletenessSchema],
     ] as const;
 
+    // D-229: exactly one missing-data entry field is stored only (shown on no surface), and the schema has it.
+    expect([...MANIFEST_ENTRY_STORED_ONLY_KEYS]).toEqual(["cause"]);
+    expect(keysOfShape(ManifestEntrySchema)).toContain("cause");
     for (const [order, fields, byKey, schema] of fieldCases) {
       expect(fields.map((entry) => entry.key)).toEqual(order);
-      expect(new Set(order)).toEqual(new Set(keysOfShape(schema)));
+      // D-229: a missing-data entry's typed cause is stored only; it is declared, never silently absent.
+      const storedOnly: readonly string[] = schema === ManifestEntrySchema ? MANIFEST_ENTRY_STORED_ONLY_KEYS : [];
+      expect(new Set([...order, ...storedOnly])).toEqual(new Set(keysOfShape(schema)));
+      expect(storedOnly.filter((key) => (order as readonly string[]).includes(key))).toEqual([]);
       expect(new Set(Object.values(byKey).map((entry) => entry.id)).size).toBe(order.length);
       expect(Object.values(byKey).every((entry) => entry.id.includes("-field:"))).toBe(true);
       expect(byKey).toEqual(Object.fromEntries(fields.map((entry) => [entry.key, entry])));

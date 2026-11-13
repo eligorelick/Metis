@@ -1,20 +1,24 @@
 import type { DataBundle } from "./types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
-import { admitStockCompensation, admitBalanceCash, admitQuarterlyCapex, admitCashFlowNetIncome } from "@/edgar/financialEnrichment";
+import { admitStockCompensation, admitBalanceCash, admitQuarterlyCapex, admitCashFlowNetIncome, admitZeroCapex, zeroCapexEntries, type ZeroCapexRefusal } from "@/edgar/financialEnrichment";
 
-/** Reapply SBC, annual cash-flow net income (D-231) and same-filing cash admission without modifying the snapshot. */
+/** Reapply SBC, annual cash-flow net income (D-231), the cash-capex zero rule (D-239) and same-filing cash admission without modifying the snapshot. */
 export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
   const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
   if (!facts) return bundle;
   const gaps = [...bundle.gaps];
   const superseded = new Map<string, string>();
+  const zeroCapex: ZeroCapexRefusal[] = [];
   const annualIncome = bundle.statements.incomeAnnual.ok ? bundle.statements.incomeAnnual.value.data.rows : [];
   const family = (key: "cashflowAnnual" | "cashflowQuarterly") => {
     const input = bundle.statements[key];
     if (!input.ok) return input;
     const rows = input.value.data.rows.map(row => {
-      const admitted = admitStockCompensation(row, facts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
-      gaps.push(...admitted.gaps);
+      const sbc = admitStockCompensation(row, facts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
+      gaps.push(...sbc.gaps);
+      // D-239 (P7, P10): a provider zero for capital spending stands only as a filed zero for the row's own period.
+      const admitted = admitZeroCapex(sbc.row, facts, key === "cashflowAnnual" ? "annual" : "quarter", bundle.builtAt);
+      if (admitted.refusal) zeroCapex.push(admitted.refusal);
       const prior = row.fieldConflicts?.stockBasedCompensation, current = admitted.row.fieldConflicts?.stockBasedCompensation;
       if (prior?.usable === false && current?.usable === true && current.resolution === "filed-family")
         superseded.set(`statements.cashflow.${row.date}.stockBasedCompensation`, prior.reason);
@@ -45,5 +49,5 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
   };
   const statements = { ...bundle.statements, cashflowAnnual: family("cashflowAnnual"), cashflowQuarterly: family("cashflowQuarterly"),
     balanceAnnual: balance("balanceAnnual"), balanceQuarterly: balance("balanceQuarterly") };
-  return { ...bundle, statements, gaps: gaps.filter(gap => superseded.get(gap.field) !== gap.reason) };
+  return { ...bundle, statements, gaps: [...gaps.filter(gap => superseded.get(gap.field) !== gap.reason), ...zeroCapexEntries(zeroCapex)] };
 }

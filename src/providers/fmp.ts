@@ -28,7 +28,7 @@
 import "server-only";
 import { quotePriceObservationDay } from "@/pipeline/stageB/priceCurrency";
 import { coerceVendorNumber } from "@/providers/vendorNumber";
-import type { StatementConflictCause } from "@/types/refusalCause";
+import type { GapCause, StatementConflictCause } from "@/types/refusalCause";
 import { buildEstimateTiming, type EstimateTiming } from "@/report/estimateTiming";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { getProviderCredential } from "@/ai/store";
@@ -247,6 +247,13 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   incomeTaxExpense?: number;
   /** Signed SEC equity-method result as filed; tax presentation varies by issuer. */
   equityMethodIncomeLoss?: number;
+  /**
+   * D-237 (P13): the filed pre-tax line that excludes equity-method results, with its filing, recorded by
+   * the earnings admission when the filer presents those results after its provision. An effective tax rate
+   * divides by it (`effectiveTaxPretaxIncome`); `incomeBeforeTax` stays the pre-tax income of the earnings
+   * identity. It is kept out of `fieldProvenance` so that it is evidence for a tax rate and nothing else.
+   */
+  pretaxIncomeBeforeEquityMethod?: FiledIncomeLine;
   equityMethodIncomePlacement?: EquityMethodIncomePlacement;
   netIncome?: number;
   /** Filed consolidated profit including noncontrolling interests (SEC ProfitLoss). */
@@ -1707,10 +1714,10 @@ export class FmpClient {
       }
       if (err instanceof FmpParameterRefusalError) return gap(spec.gapField, err.message, "warn", [endpointPath], true);
       if (err instanceof FmpAccessError) {
-        return gap(spec.gapField, err.message, "warn", [endpointPath], true);
+        return gap(spec.gapField, err.message, "warn", [endpointPath], true, err.scope === "symbol" ? "fmp-symbol-restricted" : undefined);
       }
       if (err instanceof FmpQuotaError) {
-        return gap(spec.gapField, err.message, "warn", [endpointPath]);
+        return gap(spec.gapField, err.message, "warn", [endpointPath], false, "fmp-quota");
       }
       if (err instanceof FmpApiError) {
         return gap(spec.gapField, `FMP error (HTTP ${err.status}): ${err.message}`, "warn", [endpointPath]);
@@ -1755,10 +1762,11 @@ export class FmpClient {
     }
     const normalizedRows = normalizeRows<TRow>(body, spec.allowObjectBody === true);
     if (normalizedRows.length === 0) {
-      const reason = isRecord(body)
+      const objectBody = isRecord(body);
+      const reason = objectBody
         ? "FMP returned an unrecognized object body where an array was expected"
         : FMP_EMPTY_ARRAY_REASON;
-      return gap(spec.gapField, reason, "info", [endpointPath]);
+      return gap(spec.gapField, reason, "info", [endpointPath], false, objectBody ? undefined : "fmp-empty-array");
     }
     const validation = validateCriticalRows<TRow>(spec.method, normalizedRows);
     if (!validation.ok) return gap(spec.gapField, validation.reason, "warn", [endpointPath]);
@@ -1829,7 +1837,7 @@ export class FmpClient {
       }
       const normalizedRows = normalizeRows<TRow>(body, spec.allowObjectBody === true);
       if (normalizedRows.length === 0) {
-        return gap(spec.gapField, FMP_EMPTY_ARRAY_REASON, "info", attempted);
+        return gap(spec.gapField, FMP_EMPTY_ARRAY_REASON, "info", attempted, false, "fmp-empty-array");
       }
       const validation = validateCriticalRows<TRow>(spec.method, normalizedRows);
       if (!validation.ok) return gap(spec.gapField, validation.reason, "warn", attempted);
@@ -1846,7 +1854,7 @@ export class FmpClient {
       return { ok: true, value: sourced };
     }
 
-    return gap(spec.gapField, "no API key + no fixture", "warn", attempted);
+    return gap(spec.gapField, "no API key + no fixture", "warn", attempted, false, "fmp-no-api-key");
   }
 
   // -- company & reference --------------------------------------------------
@@ -2551,8 +2559,10 @@ function gap(
   severity: ManifestEntry["severity"],
   attemptedSources: string[],
   expected = false,
+  /** P10, P11 (D-229): the typed cause beside the sentence, for the statuses a reader tells apart by wording. */
+  cause?: GapCause,
 ): { ok: false; gap: ManifestEntry } {
-  return { ok: false, gap: { field, reason, severity, attemptedSources, ...(expected ? { expected: true } : {}) } };
+  return { ok: false, gap: { field, reason, severity, attemptedSources, ...(expected ? { expected: true } : {}), ...(cause === undefined ? {} : { cause }) } };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
