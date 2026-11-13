@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { validateReferenceCutoff } from "../scripts/accuracy/check";
 import { buildEntry } from "../scripts/accuracy/fetch";
 import { extractFigures } from "../scripts/accuracy/figures";
-import type { ReferenceFile } from "../scripts/accuracy/files";
+import { readCompanies, type ReferenceFile } from "../scripts/accuracy/files";
 import {
   buildTtm,
   classifyFigure,
@@ -31,7 +31,7 @@ import {
   type InstanceFact,
   type SecFact,
 } from "../scripts/accuracy/lib";
-import { DEFAULT_RECIPES, resolveReference, type CompanyConfig, type Recipe } from "../scripts/accuracy/recipes";
+import { DEFAULT_RECIPES, NAMED_RECIPES, resolveReference, type CompanyConfig, type Recipe } from "../scripts/accuracy/recipes";
 
 const K = "0000000001-26-000001"; // 10-K
 const Q = "0000000001-26-000002"; // 10-Q
@@ -577,6 +577,10 @@ describe("review round 2: the newest filing wins across balance representations 
     expect(resolveAt(reversed, rows)).toMatchObject({ value: 150 });
     // Inside a composed balance the filing is pinned, so every alternative ties and the order decides.
     const debt = facts({
+      // Filed zeros: since review round 3 a line the filing does not tag is a zero only with proof.
+      LongTermDebtCurrent: { USD: [at(0, A, "2026-02-01")] },
+      ShortTermBorrowings: { USD: [at(0, A, "2026-02-01")] },
+      FinanceLeaseLiability: { USD: [at(0, A, "2026-02-01")] },
       LongTermDebtNoncurrent: { USD: [at(1_000, A, "2026-02-01")] },
       OperatingLeaseLiability: { USD: [at(50, A, "2026-02-01")] },
       OperatingLeaseLiabilityCurrent: { USD: [at(12, A, "2026-02-01"), at(13, B, "2026-03-01", "10-K/A")] },
@@ -594,9 +598,11 @@ describe("review round 2: the newest filing wins across balance representations 
       ShortTermInvestments: { USD: [at(30, C, "2026-03-15", "10-K/A")] },
     });
     const result = resolveAt(cashAndSti, rows);
-    // Filing B presents cash with no short-term line; filing C carries no cash, so it cannot compose the balance.
-    expect("reason" in result ? result.reason : result.value).toBe(120);
-    expect(accnsOf(result)).toEqual([B]);
+    // Filing B presents cash with no short-term line and filing C carries no cash, so neither composes the balance.
+    // Until review round 3 B's cash alone (120) stood as the balance, with the short-term investments filing C tags
+    // at the same instant counted as zero; an untagged part is now a zero only with proof, so the filed total stands.
+    expect("reason" in result ? result.reason : result.value).toBe(100);
+    expect(accnsOf(result)).toEqual([A]);
     // With every component required, the split parts compose nothing and the filed total stands.
     const required: Recipe = { op: "first", alternatives: [
       { op: "instant", concepts: ["CashCashEquivalentsAndShortTermInvestments"] },
@@ -608,5 +614,368 @@ describe("review round 2: the newest filing wins across balance representations 
     const strict = resolveAt(required, rows);
     expect("reason" in strict ? strict.reason : strict.value).toBe(100);
     expect(accnsOf(strict)).toEqual([A]);
+  });
+});
+
+describe("review round 3: a total is never added to its own parts (current debt, P7)", () => {
+  const A = "0000000001-26-000021";
+  const at = (val: number, accn = A, filed = "2026-02-01", form = "10-K") => fact(undefined, "2025-12-31", val, accn, form, filed);
+  const totalDebt = DEFAULT_RECIPES["totalDebtIncludingLeases.latest"]!;
+  // An instance that carries the balance sheet and nothing about leases, debt or investments.
+  const clean: InstanceFact[] = [{ name: "Assets", unit: "USD", end: "2025-12-31", val: 1_000, members: [] }];
+  const resolveAt = (recipe: Recipe, rows: CompanyFacts, instance?: InstanceFact[]) => resolveReference(recipe, "@2025-12-31", rows, "USD", "2026-10-29", instance ? { [A]: instance } : {});
+  const valueOf = (result: ReturnType<typeof resolveAt>) => ("reason" in result ? result.reason : result.value);
+  const conceptsOf = (result: ReturnType<typeof resolveAt>) => ("reason" in result ? [] : result.points.map((point) => point.concept));
+  // The lease liabilities are presented as filed zeros, so only the debt composition is in question.
+  const noLeases = { OperatingLeaseLiability: { USD: [at(0)] }, FinanceLeaseLiability: { USD: [at(0)] } };
+
+  it("the reviewer's case: DebtCurrent beside ShortTermBorrowings, with no LongTermDebtCurrent, is 130 and not 140", () => {
+    const rows = facts({
+      DebtCurrent: { USD: [at(30)] },
+      ShortTermBorrowings: { USD: [at(10)] },
+      LongTermDebtNoncurrent: { USD: [at(100)] },
+      CashAndCashEquivalentsAtCarryingValue: { USD: [at(40)] },
+      ShortTermInvestments: { USD: [at(5)] },
+      ...noLeases,
+    });
+    const total = resolveAt(totalDebt, rows, clean);
+    expect(valueOf(total)).toBe(130);
+    // The total stands in place of the part it exceeds: the borrowing is inside it, never beside it.
+    expect(conceptsOf(total)).toEqual(["DebtCurrent", "LongTermDebtNoncurrent", "OperatingLeaseLiability", "FinanceLeaseLiability"]);
+    expect(valueOf(resolveAt(DEFAULT_RECIPES["fv.netDebt"]!, rows, clean))).toBe(130 - 45);
+    // DebtCurrent is debt and finance lease obligations: it stands alone only once the filing is shown to have no leases.
+    expect(resolveAt(totalDebt, rows)).toMatchObject({ needsInstance: [A] });
+  });
+
+  it("uses the parts when the total reconciles with them, which proves there is no other current debt", () => {
+    const rows = facts({ DebtCurrent: { USD: [at(30)] }, LongTermDebtCurrent: { USD: [at(20)] }, ShortTermBorrowings: { USD: [at(10)] }, LongTermDebtNoncurrent: { USD: [at(100)] }, ...noLeases });
+    const total = resolveAt(totalDebt, rows);
+    expect(valueOf(total)).toBe(130);
+    expect(conceptsOf(total)).not.toContain("DebtCurrent");
+    expect("reason" in total ? "" : total.notes.join(" ")).toMatch(/DebtCurrent 30 is these parts, not added to them/);
+  });
+
+  it("does not count current finance leases twice when DebtCurrent holds them", () => {
+    // DebtCurrent 15 = short-term borrowings 10 + current finance leases 5; the finance lease liability 25 carries the 5.
+    const withBorrowings = facts({ DebtCurrent: { USD: [at(15)] }, ShortTermBorrowings: { USD: [at(10)] }, FinanceLeaseLiabilityCurrent: { USD: [at(5)] }, FinanceLeaseLiability: { USD: [at(25)] }, OperatingLeaseLiability: { USD: [at(0)] }, LongTermDebtNoncurrent: { USD: [at(100)] } });
+    expect(valueOf(resolveAt(totalDebt, withBorrowings))).toBe(10 + 100 + 25);
+    // All of DebtCurrent is the current finance lease liability: there is no other current debt.
+    const leasesOnly = facts({ DebtCurrent: { USD: [at(5)] }, FinanceLeaseLiabilityCurrent: { USD: [at(5)] }, FinanceLeaseLiability: { USD: [at(25)] }, OperatingLeaseLiability: { USD: [at(0)] }, LongTermDebtNoncurrent: { USD: [at(100)] } });
+    const result = resolveAt(totalDebt, leasesOnly);
+    expect(valueOf(result)).toBe(100 + 25);
+    expect(conceptsOf(result)).not.toContain("DebtCurrent");
+  });
+
+  it("establishes nothing when the total cannot be split, contradicts its parts or may hold leases", () => {
+    const base = { LongTermDebtNoncurrent: { USD: [at(100)] }, OperatingLeaseLiability: { USD: [at(0)] } };
+    const unsplit = facts({ ...base, DebtCurrent: { USD: [at(40)] }, ShortTermBorrowings: { USD: [at(10)] }, FinanceLeaseLiabilityCurrent: { USD: [at(5)] }, FinanceLeaseLiability: { USD: [at(25)] } });
+    expect(valueOf(resolveAt(totalDebt, unsplit))).toMatch(/how much of the total is debt and how much is finance leases is not established/);
+    const below = facts({ ...base, DebtCurrent: { USD: [at(5)] }, LongTermDebtCurrent: { USD: [at(20)] }, FinanceLeaseLiability: { USD: [at(0)] } });
+    expect(valueOf(resolveAt(totalDebt, below))).toMatch(/DebtCurrent 5 is less than its tagged parts/);
+    // A finance lease liability with no current split: DebtCurrent may hold its current part.
+    const mayHold = facts({ ...base, DebtCurrent: { USD: [at(30)] }, FinanceLeaseLiability: { USD: [at(25)] } });
+    expect(valueOf(resolveAt(totalDebt, mayHold, clean))).toMatch(/beside a finance lease liability FinanceLeaseLiability 25 whose current part is not tagged/);
+  });
+
+  it("keeps commercial paper inside short-term borrowings unless the filing's own total shows it outside", () => {
+    const parts = { LongTermDebtCurrent: { USD: [at(20)] }, ShortTermBorrowings: { USD: [at(10)] }, CommercialPaper: { USD: [at(4)] }, LongTermDebtNoncurrent: { USD: [at(100)] }, ...noLeases };
+    expect(valueOf(resolveAt(totalDebt, facts(parts)))).toBe(130);
+    expect(valueOf(resolveAt(totalDebt, facts({ ...parts, DebtCurrent: { USD: [at(34)] } })))).toBe(134);
+    // Commercial paper alone is the short-term borrowing when no ShortTermBorrowings is tagged (and the total agrees).
+    const paperOnly = facts({ DebtCurrent: { USD: [at(24)] }, LongTermDebtCurrent: { USD: [at(20)] }, CommercialPaper: { USD: [at(4)] }, LongTermDebtNoncurrent: { USD: [at(100)] }, ...noLeases });
+    expect(valueOf(resolveAt(totalDebt, paperOnly))).toBe(124);
+  });
+
+  it("never reads LongTermDebt, the total including current maturities, into the default sum", () => {
+    // A face-value LongTermDebt beside the two balance-sheet lines: the lines are the debt.
+    const lines = facts({ LongTermDebt: { USD: [at(133)] }, LongTermDebtCurrent: { USD: [at(3)] }, ShortTermBorrowings: { USD: [at(1)] }, LongTermDebtNoncurrent: { USD: [at(129)] }, ...noLeases });
+    const result = resolveAt(totalDebt, lines);
+    expect(valueOf(result)).toBe(133);
+    expect(conceptsOf(result)).not.toContain("LongTermDebt");
+    // With no noncurrent line the total is not guessed to be one: an override must say which line it is.
+    const totalOnly = facts({ LongTermDebt: { USD: [at(120)] }, LongTermDebtCurrent: { USD: [at(20)] }, ShortTermBorrowings: { USD: [at(0)] }, ...noLeases });
+    expect(valueOf(resolveAt(totalDebt, totalOnly))).toMatch(/debt, noncurrent: no LongTermDebtNoncurrent/);
+  });
+
+  it("no recipe, default or override, adds a total to one of its parts or lists them as aliases", () => {
+    const PARTS_OF: Record<string, string[]> = {
+      // The overlap of DebtCurrent with current finance leases is reconciled inside `currentDebt` (tested above).
+      DebtCurrent: ["LongTermDebtCurrent", "ShortTermBorrowings", "CommercialPaper"],
+      ShortTermBorrowings: ["CommercialPaper"],
+      LongTermDebt: ["LongTermDebtCurrent", "LongTermDebtNoncurrent"],
+      DebtLongtermAndShorttermCombinedAmount: ["DebtCurrent", "LongTermDebt", "LongTermDebtCurrent", "LongTermDebtNoncurrent", "ShortTermBorrowings", "CommercialPaper"],
+      DebtAndCapitalLeaseObligations: ["DebtCurrent", "LongTermDebt", "LongTermDebtCurrent", "LongTermDebtNoncurrent", "ShortTermBorrowings", "CommercialPaper", "FinanceLeaseLiability", "FinanceLeaseLiabilityCurrent", "FinanceLeaseLiabilityNoncurrent"],
+      OperatingLeaseLiability: ["OperatingLeaseLiabilityCurrent", "OperatingLeaseLiabilityNoncurrent"],
+      FinanceLeaseLiability: ["FinanceLeaseLiabilityCurrent", "FinanceLeaseLiabilityNoncurrent"],
+      CashCashEquivalentsAndShortTermInvestments: ["CashAndCashEquivalentsAtCarryingValue", "ShortTermInvestments", "MarketableSecuritiesCurrent", "DebtSecuritiesCurrent", "AvailableForSaleSecuritiesDebtSecuritiesCurrent"],
+      LongTermInvestments: ["MarketableSecuritiesNoncurrent", "AvailableForSaleSecuritiesDebtSecuritiesNoncurrent", "EquitySecuritiesWithoutReadilyDeterminableFairValueAmount", "EquityMethodInvestments"],
+    };
+    // Inside one term, alternatives (`first`) may name a total and its parts; across the terms of one sum they may not.
+    const reach = (recipe: Recipe): string[] => {
+      switch (recipe.op) {
+        case "instant": return recipe.concepts;
+        case "sum": return recipe.terms.flatMap((term) => reach(term.recipe));
+        case "first": return recipe.alternatives.flatMap(reach);
+        case "currentDebt": return ["DebtCurrent", "LongTermDebtCurrent", "ShortTermBorrowings", "CommercialPaper"];
+        case "use": return reach(NAMED_RECIPES[recipe.name]);
+        default: return [];
+      }
+    };
+    const offences: string[] = [];
+    const walk = (recipe: Recipe, where: string): void => {
+      if (recipe.op === "instant" || recipe.op === "flow" || recipe.op === "latestShares") {
+        for (const concept of recipe.concepts) for (const part of PARTS_OF[concept] ?? []) if (recipe.concepts.includes(part)) offences.push(`${where}: alias list holds ${concept} and its part ${part}`);
+      }
+      if (recipe.op === "sum") {
+        const perTerm = recipe.terms.map((term) => reach(term.recipe));
+        perTerm.forEach((concepts, i) => concepts.forEach((concept) => (PARTS_OF[concept] ?? []).forEach((part) => perTerm.forEach((other, j) => {
+          if (i !== j && other.includes(part)) offences.push(`${where}: ${concept} (${recipe.terms[i]!.role}) is added to its part ${part} (${recipe.terms[j]!.role})`);
+        }))));
+        recipe.terms.forEach((term) => walk(term.recipe, where));
+      }
+      if (recipe.op === "first") recipe.alternatives.forEach((alternative) => walk(alternative, where));
+      if (recipe.op === "ratio") { walk(recipe.numerator, where); walk(recipe.denominator, where); }
+    };
+    for (const [figure, recipe] of Object.entries(DEFAULT_RECIPES)) walk(recipe, `default ${figure}`);
+    for (const company of readCompanies()) for (const [figure, override] of Object.entries(company.overrides ?? {})) walk(override.recipe, `${company.ticker} ${figure}`);
+    // The one exception, proven from the filing in its `why`: QCOM tags its noncurrent balance-sheet line LongTermDebt.
+    const allowed = offences.filter((offence) => /^QCOM (totalDebtIncludingLeases\.latest|fv\.netDebt): LongTermDebt \(long-term debt \(noncurrent balance-sheet line\)\) is added to its part LongTermDebtCurrent/.test(offence));
+    expect(allowed).toHaveLength(2);
+    expect(offences.filter((offence) => !allowed.includes(offence))).toEqual([]);
+    const qcom = readCompanies().find((company) => company.ticker === "QCOM")!;
+    expect(qcom.overrides!["totalDebtIncludingLeases.latest"]!.why).toMatch(/LongTermDebt here excludes the current maturities/);
+    // The lint itself catches the defect: the alias the reviewer found, and a total beside its part.
+    offences.length = 0;
+    walk({ op: "sum", terms: [
+      { role: "debt, current", sign: 1, recipe: { op: "instant", concepts: ["LongTermDebtCurrent", "DebtCurrent"] } },
+      { role: "short-term borrowings", sign: 1, recipe: { op: "instant", concepts: ["ShortTermBorrowings", "CommercialPaper"] } },
+    ] }, "old");
+    expect(offences).toEqual(expect.arrayContaining([expect.stringMatching(/alias list holds DebtCurrent and its part LongTermDebtCurrent/), expect.stringMatching(/DebtCurrent \(debt, current\) is added to its part ShortTermBorrowings/)]));
+  });
+
+  it("resolves a named building block as its one definition", () => {
+    const rows = facts({ OperatingLeaseLiabilityCurrent: { USD: [at(12)] }, OperatingLeaseLiabilityNoncurrent: { USD: [at(44)] } });
+    expect(valueOf(resolveAt({ op: "use", name: "operatingLeases" }, rows))).toBe(56);
+    expect(resolveAt({ op: "use", name: "operatingLeases" }, rows)).toEqual(resolveAt(DEFAULT_RECIPES["operatingLeases.latest"]!, rows));
+  });
+});
+
+describe("review round 3: a part the filing does not tag is a zero only with proof (P7, P10)", () => {
+  const K = "0000000001-26-000031"; // 10-K for 2025-12-31
+  const Q2 = "0000000001-26-000032"; // 10-Q for 2026-06-30
+  const at = (val: number, end = "2026-06-30", accn = Q2, filed = "2026-07-31", form = "10-Q") => fact(undefined, end, val, accn, form, filed);
+  const totalDebt = DEFAULT_RECIPES["totalDebtIncludingLeases.latest"]!;
+  const cashAndSti = DEFAULT_RECIPES["cashAndShortTermInvestments.latest"]!;
+  const clean: InstanceFact[] = [{ name: "Assets", unit: "USD", end: "2026-06-30", val: 1_000, members: [] }];
+  const resolveAt = (recipe: Recipe, rows: CompanyFacts, instance?: InstanceFact[]) => resolveReference(recipe, "@2026-06-30", rows, "USD", "2026-10-29", instance ? { [Q2]: instance } : {});
+  const valueOf = (result: ReturnType<typeof resolveAt>) => ("reason" in result ? result.reason : result.value);
+  // Debt lines and the finance lease liability are filed; only the operating lease liability is untagged.
+  const debt = { LongTermDebtCurrent: { USD: [at(0)] }, ShortTermBorrowings: { USD: [at(0)] }, LongTermDebtNoncurrent: { USD: [at(100)] }, FinanceLeaseLiability: { USD: [at(0)] } };
+  const fromInstance = (name: string, val: number, members: string[] = []): InstanceFact => ({ name, unit: "USD", end: "2026-06-30", val, members });
+
+  it("asks for the filing's instance, refuses on evidence of operating leases and records a proven absence", () => {
+    const rows = facts(debt);
+    expect(resolveAt(totalDebt, rows)).toMatchObject({ needsInstance: [Q2], reason: expect.stringMatching(/operating lease liabilities: .*instance .* was not read/) });
+    // The deferred tax on operating lease liabilities shows they exist although the liability itself is not tagged.
+    expect(valueOf(resolveAt(totalDebt, rows, [...clean, fromInstance("DeferredTaxAssetsOperatingLeaseLiabilities", 14)]))).toMatch(/tags DeferredTaxAssetsOperatingLeaseLiabilities = 14 USD: absence of operating lease liabilities is not established/);
+    // So does a liability tagged only on a balance-sheet-location member, which companyfacts drops.
+    expect(valueOf(resolveAt(totalDebt, rows, [...clean, fromInstance("OperatingLeaseLiability", 7, ["BalanceSheetLocationAxis=OtherLiabilitiesMember"])]))).toMatch(/discloses OperatingLeaseLiability = 7 USD on BalanceSheetLocationAxis=OtherLiabilitiesMember/);
+    // Control: a subsidiary registrant's lease (another entity, P5) and a finance lease asset say nothing about it.
+    const unrelated = [...clean, fromInstance("OperatingLeaseLiability", 7, ["LegalEntityAxis=SubsidiaryMember"]), fromInstance("LessorOperatingLeasePaymentsToBeReceived", 9)];
+    const proven = resolveAt(totalDebt, rows, unrelated);
+    expect(valueOf(proven)).toBe(100);
+    expect("reason" in proven ? "" : proven.notes.join(" ")).toMatch(/operating lease liabilities: .* recorded as none presented/);
+  });
+
+  it("does not take a quarterly report's silence for a zero when a filing within the year shows the balance", () => {
+    const rows = facts({ ...debt, OperatingLeaseLiability: { USD: [at(8, "2025-12-31", K, "2026-02-06", "10-K")] } });
+    expect(valueOf(resolveAt(totalDebt, rows, clean))).toMatch(/10-K 0000000001-26-000031 \(filed 2026-02-06\) tags OperatingLeaseLiability = 8 at 2025-12-31: the issuer has operating lease liabilities/);
+    // Control: a balance last tagged more than a year earlier does not block the proven absence.
+    const old = facts({ ...debt, OperatingLeaseLiability: { USD: [at(8, "2024-12-31", K, "2025-02-06", "10-K")] } });
+    expect(valueOf(resolveAt(totalDebt, old, clean))).toBe(100);
+  });
+
+  it("needs both parts of a lease liability: one part alone is not the liability", () => {
+    const noncurrentOnly = facts({ ...debt, OperatingLeaseLiabilityNoncurrent: { USD: [at(44)] } });
+    expect(valueOf(resolveAt(DEFAULT_RECIPES["operatingLeases.latest"]!, noncurrentOnly))).toMatch(/operating lease liability, current: no OperatingLeaseLiabilityCurrent/);
+    expect(valueOf(resolveAt(totalDebt, noncurrentOnly, clean))).toMatch(/operating lease liabilities: .*no OperatingLeaseLiabilityCurrent/);
+    const both = facts({ ...debt, OperatingLeaseLiabilityNoncurrent: { USD: [at(44)] }, OperatingLeaseLiabilityCurrent: { USD: [at(12)] } });
+    expect(valueOf(resolveAt(totalDebt, both))).toBe(156);
+  });
+
+  it("takes a debt-securities line for all current investments only when the filing shows no other", () => {
+    const rows = facts({ CashAndCashEquivalentsAtCarryingValue: { USD: [at(22)] }, DebtSecuritiesCurrent: { USD: [at(34)] } });
+    expect(resolveAt(cashAndSti, rows)).toMatchObject({ needsInstance: [Q2] });
+    // A current marketable equity securities line beside it: the debt securities are not the whole.
+    expect(valueOf(resolveAt(cashAndSti, rows, [...clean, fromInstance("EquitySecuritiesFvNi", 43)]))).toMatch(/DebtSecuritiesCurrent is one kind of short-term investments, and 10-Q 0000000001-26-000032 also tags EquitySecuritiesFvNi = 43 USD/);
+    // Control: equity securities of a trust fund (a dimension member) and noncurrent securities are not a current line.
+    const control = [...clean, fromInstance("EquitySecuritiesFvNi", 71, ["InvestmentTypeAxis=NuclearDecommissioningTrustFundMember"]), fromInstance("AvailableForSaleSecuritiesDebtSecuritiesNoncurrent", 30)];
+    expect(valueOf(resolveAt(cashAndSti, rows, control))).toBe(56);
+    // A classified total needs no such proof.
+    expect(valueOf(resolveAt(cashAndSti, facts({ CashAndCashEquivalentsAtCarryingValue: { USD: [at(22)] }, ShortTermInvestments: { USD: [at(30)] } })))).toBe(52);
+  });
+
+  it("takes cash alone for cash and short-term investments only when the filing shows no investment line", () => {
+    const rows = facts({ CashAndCashEquivalentsAtCarryingValue: { USD: [at(22)] } });
+    expect(resolveAt(cashAndSti, rows)).toMatchObject({ needsInstance: [Q2] });
+    expect(valueOf(resolveAt(cashAndSti, rows, [...clean, fromInstance("MarketableSecurities", 9)]))).toMatch(/tags MarketableSecurities = 9 USD: absence of short-term investments is not established/);
+    const proven = resolveAt(cashAndSti, rows, clean);
+    expect(valueOf(proven)).toBe(22);
+    expect("reason" in proven ? "" : proven.notes.join(" ")).toMatch(/recorded as none presented/);
+  });
+
+  it("composes long-term investments from the filed noncurrent lines only when they are the whole", () => {
+    const lti = DEFAULT_RECIPES["fv.nonOperatingInvestments"]!;
+    const pieces = facts({ EquitySecuritiesWithoutReadilyDeterminableFairValueAmount: { USD: [at(122)] }, EquityMethodInvestments: { USD: [at(3)] } });
+    expect(resolveAt(lti, pieces)).toMatchObject({ needsInstance: [Q2] });
+    const instance = [...clean, fromInstance("EquitySecuritiesWithoutReadilyDeterminableFairValueAmount", 122), fromInstance("EquityMethodInvestments", 3)];
+    expect(valueOf(resolveAt(lti, pieces, instance))).toBe(125);
+    // The balance-sheet line is a filer extension element that holds more than the tagged piece: the piece is not the whole.
+    expect(valueOf(resolveAt(lti, pieces, [...instance, fromInstance("NonMarketableSecurities", 151)]))).toMatch(/tags NonMarketableSecurities = 151 USD/);
+    // A filed total needs no composition.
+    expect(valueOf(resolveAt(lti, facts({ LongTermInvestments: { USD: [at(200)] }, EquityMethodInvestments: { USD: [at(3)] } })))).toBe(200);
+  });
+});
+
+describe("review round 3: a composed value stands on one filing, the newest that composes all of it (P2, P7)", () => {
+  const K = "0000000001-26-000041"; // 10-K, filed 2026-02-01
+  const LATER = "0000000001-26-000042"; // a later filing, filed 2026-05-01
+  const at = (val: number, accn = K, filed = "2026-02-01", form = "10-K") => fact(undefined, "2025-12-31", val, accn, form, filed);
+  const later = (val: number, form = "10-Q") => at(val, LATER, "2026-05-01", form);
+  const totalDebt = DEFAULT_RECIPES["totalDebtIncludingLeases.latest"]!;
+  const resolveAt = (recipe: Recipe, rows: CompanyFacts) => resolveReference(recipe, "@2025-12-31", rows, "USD", "2026-10-29");
+  const valueOf = (result: ReturnType<typeof resolveAt>) => ("reason" in result ? result.reason : result.value);
+  const accnsOf = (result: ReturnType<typeof resolveAt>) => ("reason" in result ? [] : [...new Set(result.points.map((point) => point.accn))]);
+
+  it("falls back to the filing that carries every part when a later one repeats only some of them", () => {
+    // The 10-K carries the debt lines and the lease notes; the next 10-Q repeats the debt lines as comparatives.
+    const rows = facts({
+      LongTermDebtCurrent: { USD: [at(5), later(5)] },
+      ShortTermBorrowings: { USD: [at(0), later(0)] },
+      LongTermDebtNoncurrent: { USD: [at(100), later(100)] },
+      OperatingLeaseLiability: { USD: [at(20)] },
+      FinanceLeaseLiability: { USD: [at(0)] },
+    });
+    const result = resolveAt(totalDebt, rows);
+    expect(valueOf(result)).toBe(125);
+    expect(accnsOf(result)).toEqual([K]);
+  });
+
+  it("establishes nothing when the later filing restates a part without the others", () => {
+    const rows = facts({
+      LongTermDebtCurrent: { USD: [at(5), later(5)] },
+      ShortTermBorrowings: { USD: [at(0), later(0)] },
+      LongTermDebtNoncurrent: { USD: [at(100), later(101)] },
+      OperatingLeaseLiability: { USD: [at(20)] },
+      FinanceLeaseLiability: { USD: [at(0)] },
+    });
+    expect(valueOf(resolveAt(totalDebt, rows))).toMatch(/LongTermDebtNoncurrent at 2025-12-31 is 100 in 10-K 0000000001-26-000041 .* restates it as 101 without the other parts/);
+    // Control: a later filing that carries the whole composition is simply the newest (P2).
+    const whole = facts({
+      LongTermDebtCurrent: { USD: [at(5), later(6, "10-K/A")] },
+      ShortTermBorrowings: { USD: [at(0), later(0, "10-K/A")] },
+      LongTermDebtNoncurrent: { USD: [at(100), later(101, "10-K/A")] },
+      OperatingLeaseLiability: { USD: [at(20), later(21, "10-K/A")] },
+      FinanceLeaseLiability: { USD: [at(0), later(0, "10-K/A")] },
+    });
+    const result = resolveAt(totalDebt, whole);
+    expect(valueOf(result)).toBe(128);
+    expect(accnsOf(result)).toEqual([LATER]);
+  });
+
+  it("refuses a flow sum or a ratio whose operands come from different filings", () => {
+    const year = (val: number, accn: string, filed: string, form: string) => fact("2025-01-01", "2025-12-31", val, accn, form, filed);
+    // Operating cash flow is restated by a 10-K/A that does not repeat capital spending.
+    const split = facts({
+      NetCashProvidedByUsedInOperatingActivities: { USD: [year(50, K, "2026-02-01", "10-K"), year(52, LATER, "2026-05-01", "10-K/A")] },
+      PaymentsToAcquirePropertyPlantAndEquipment: { USD: [year(10, K, "2026-02-01", "10-K")] },
+      IncomeTaxExpenseBenefit: { USD: [year(21, K, "2026-02-01", "10-K"), year(22, LATER, "2026-05-01", "10-K/A")] },
+      IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: { USD: [year(100, K, "2026-02-01", "10-K")] },
+    });
+    const fcf = resolveReference(DEFAULT_RECIPES["fcf.fy"]!, "FY:2025-12-31", split, "USD", "2026-10-29");
+    expect("reason" in fcf ? fcf.reason : fcf.value).toMatch(/terms come from different filings .*\(P7\)/);
+    const rate = resolveReference(DEFAULT_RECIPES["fv.taxRate"]!, "FY:2025-12-31", split, "USD", "2026-10-29");
+    expect("reason" in rate ? rate.reason : rate.value).toMatch(/numerator and denominator come from different filings/);
+    // Control: before the amendment exists both operands stand on the 10-K.
+    expect(resolveReference(DEFAULT_RECIPES["fcf.fy"]!, "FY:2025-12-31", split, "USD", "2026-04-30")).toMatchObject({ value: 40 });
+    expect(resolveReference(DEFAULT_RECIPES["fv.taxRate"]!, "FY:2025-12-31", split, "USD", "2026-04-30")).toMatchObject({ value: 21 });
+  });
+});
+
+describe("review round 3: TTM operands stand on one basis (P1)", () => {
+  const PRIOR_Q = "0000000001-25-000009"; // the prior year's 10-Q, filed 2025-08-01
+  const rows = (priorYtdInNewFiling: number, extra: SecFact[] = []) => facts({ OperatingIncomeLoss: { USD: [
+    fact("2025-01-01", "2025-12-31", 80, K, "10-K", "2026-02-06"),
+    fact("2026-01-01", "2026-06-30", 51, Q, "10-Q", "2026-07-31"),
+    fact("2025-01-01", "2025-06-30", priorYtdInNewFiling, Q, "10-Q", "2026-07-31"),
+    fact("2025-01-01", "2025-06-30", 37, PRIOR_Q, "10-Q", "2025-08-01"),
+    ...extra,
+  ] } });
+
+  it("refuses a fiscal year filed before the 10-Q recast the prior-year year to date", () => {
+    // Control: the comparative equals what the issuer first filed for that period.
+    expect(buildTtm(rows(37), ["OperatingIncomeLoss"], "USD", "2025-12-31", "2026-06-30", "2026-10-29")?.value).toBe(94);
+    // The 10-Q states 39 for a period first filed as 37: the 10-K's fiscal year is on the old basis.
+    expect(buildTtm(rows(39), ["OperatingIncomeLoss"], "USD", "2025-12-31", "2026-06-30", "2026-10-29")).toBeNull();
+    const result = resolveReference({ op: "flow", concepts: ["OperatingIncomeLoss"] }, "TTM:2025-07-01..2026-06-30", rows(39), "USD", "2026-10-29");
+    expect("reason" in result ? result.reason : result.value).toMatch(/all three on one basis/);
+  });
+
+  it("refuses a fiscal year restated after the year-to-date filing", () => {
+    const restated = rows(37, [fact("2025-01-01", "2025-12-31", 82, "0000000001-26-000050", "10-K/A", "2026-08-15")]);
+    expect(buildTtm(restated, ["OperatingIncomeLoss"], "USD", "2025-12-31", "2026-06-30", "2026-10-29")).toBeNull();
+    // Before the amendment exists the three operands agree (P2).
+    expect(buildTtm(restated, ["OperatingIncomeLoss"], "USD", "2025-12-31", "2026-06-30", "2026-08-14")?.value).toBe(94);
+  });
+});
+
+describe("review round 3: the report's own window, never one inferred from its end (P1)", () => {
+  const excessReturn = {
+    capital: { asOf: "2025-09-28", current: {} }, growth: {}, gaps: [], fairValue: { status: "available" },
+    returns: { commonReturnTtm: { asOf: "2026-06-28", incomeAvailableToCommon: 110 } },
+    valuation: { kind: "excess-return", excessReturn: { asOf: "2026-06-28", openingBookValue: { value: 900 } } },
+  };
+  // A 52/53-week filer: the fiscal year ends on the last Sunday of September.
+  const weeks = facts({ NetIncomeLossAvailableToCommonStockholdersBasic: { USD: [
+    fact("2024-09-30", "2025-09-28", 100, K, "10-K", "2025-11-05"),
+    fact("2025-09-29", "2026-06-28", 70, Q, "10-Q", "2026-07-29"),
+    fact("2024-09-30", "2025-06-29", 60, Q, "10-Q", "2026-07-29"),
+  ] } });
+
+  it("states only the end the report states, and reads the filed twelve months for it", () => {
+    const figure = extractFigures(excessReturn, { filingDisclosures: { currency: "USD" } }).find((row) => row.id === "fv.incomeAvailableToCommon")!;
+    expect(figure.period).toBe("TTM-TO:2026-06-28");
+    const reference = resolveReference(DEFAULT_RECIPES["fv.incomeAvailableToCommon"]!, figure.period, weeks, "USD", "2026-10-29");
+    expect(reference).toMatchObject({ value: 110, period: "TTM-TO:2026-06-28" });
+    expect("reason" in reference ? "" : reference.notes[0]).toMatch(/the filed twelve months are 2025-06-30 to 2026-06-28/);
+    expect(classifyFigure({ metis: 110, metisPeriod: figure.period!, metisMeasure: { unit: "currency", currency: "USD" }, reference: { kind: "derived", value: 110, operands: [100, 70, 60], unit: "currency", currency: "USD" }, referencePeriod: "reason" in reference ? null : reference.period }).status).toBe("match");
+    // A stated window is still held to the filed one: a calendar-year start is not this filer's window.
+    expect(resolveReference(DEFAULT_RECIPES["fv.incomeAvailableToCommon"]!, "TTM:2025-06-29..2026-06-28", weeks, "USD", "2026-10-29")).toMatchObject({ period: "TTM:2025-06-30..2026-06-28" });
+  });
+});
+
+describe("review round 3: a filing's own instance (P3)", () => {
+  const head = `<xbrli:xbrl xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:us-gaap="http://fasb.org/us-gaap/2026" xmlns:srt="http://fasb.org/srt/2026" xmlns:abc="http://www.abc.com/20260630">
+    <xbrli:context id="i"><xbrli:entity><xbrli:identifier scheme="x">1</xbrli:identifier></xbrli:entity><xbrli:period><xbrli:instant>2026-06-30</xbrli:instant></xbrli:period></xbrli:context>
+    <xbrli:unit id="usd"><xbrli:measure>iso4217:USD</xbrli:measure></xbrli:unit>`;
+  const parse = (body: string) => parseXbrlInstance(`${head}${body}</xbrli:xbrl>`, { accn: Q, form: "10-Q", filed: "2026-07-31" });
+
+  it("keeps the most precise statement of a fact the filing states twice", () => {
+    // A note sentence rounds the liability to the hundred thousand before the table states it to the thousand.
+    const parsed = parse(`<us-gaap:OperatingLeaseLiability contextRef="i" unitRef="usd" decimals="-5">4800000</us-gaap:OperatingLeaseLiability>
+      <us-gaap:OperatingLeaseLiability contextRef="i" unitRef="usd" decimals="-3">4776000</us-gaap:OperatingLeaseLiability>
+      <us-gaap:Cash contextRef="i" unitRef="usd" decimals="-3">70000</us-gaap:Cash>
+      <us-gaap:Cash contextRef="i" unitRef="usd" decimals="-3">71000</us-gaap:Cash>`);
+    expect(parsed.facts["us-gaap"]?.OperatingLeaseLiability?.units.USD).toEqual([{ end: "2026-06-30", val: 4_776_000, accn: Q, form: "10-Q", filed: "2026-07-31" }]);
+    // Two equally precise statements that disagree are no value.
+    expect(parsed.facts["us-gaap"]?.Cash).toBeUndefined();
+  });
+
+  it("reads a filer extension element as ext:Name, and leaves other published taxonomies out", () => {
+    const parsed = parse(`<abc:NonMarketableSecurities contextRef="i" unitRef="usd" decimals="-6">51157000000</abc:NonMarketableSecurities>
+      <srt:SomethingElse contextRef="i" unitRef="usd" decimals="-6">5</srt:SomethingElse>`);
+    expect(parsed.facts.ext?.NonMarketableSecurities?.units.USD?.[0]?.val).toBe(51_157_000_000);
+    expect(Object.keys(parsed.facts)).toEqual(["ext"]);
+    expect(resolveReference({ op: "instant", concepts: ["ext:NonMarketableSecurities"] }, "@2026-06-30", parsed, "USD", "2026-10-29")).toMatchObject({ value: 51_157_000_000, points: [{ concept: "ext:NonMarketableSecurities", accn: Q }] });
   });
 });

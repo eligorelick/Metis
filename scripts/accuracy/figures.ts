@@ -9,9 +9,10 @@
  * withholding note names it.
  *
  * Period strings: "FY:<end>" a fiscal year ending <end>; "TTM:<start>..<end>"
- * trailing twelve months; "Q:<start>..<end>" one fiscal quarter; "@<end>" an
- * instant. Capital spending is compared as a positive outflow (the report shows
- * it negative).
+ * trailing twelve months; "TTM-TO:<end>" trailing twelve months of which the
+ * report states only the end (the start is never inferred from it, P1);
+ * "Q:<start>..<end>" one fiscal quarter; "@<end>" an instant. Capital spending
+ * is compared as a positive outflow (the report shows it negative).
  */
 
 import type { FigureUnit } from "./lib";
@@ -181,9 +182,8 @@ export function extractFigures(stageB: Json, report: Json): MetisFigure[] {
   } else if (kind === "excess-return") {
     const asOf = str(stageB, "valuation.excessReturn.asOf") ?? str(stageB, "returns.commonReturnTtm.asOf");
     const commonAsOf = str(stageB, "returns.commonReturnTtm.asOf");
-    const startDay = commonAsOf ? previousYearStart(commonAsOf) : null;
     add({ id: "fv.openingBookValue", label: "Excess-return opening book value", group: "valuation", value: num(stageB, "valuation.excessReturn.openingBookValue.value"), period: asOf ? `@${asOf}` : null, unit: "currency", currency: currentCurrency, source: "valuation.excessReturn.openingBookValue.value", reportNote: shorten(str(stageB, "valuation.excessReturn.openingBookValue.basis") ?? "") || undefined });
-    add({ id: "fv.incomeAvailableToCommon", label: "Excess-return TTM income available to common", group: "valuation", value: num(stageB, "returns.commonReturnTtm.incomeAvailableToCommon"), period: commonAsOf && startDay ? `TTM:${startDay}..${commonAsOf}` : null, unit: "currency", currency: currentCurrency, source: "returns.commonReturnTtm.incomeAvailableToCommon", reportNote: shorten(str(stageB, "returns.commonReturnTtm.basisText") ?? str(stageB, "returns.commonReturnTtm.withheldReason") ?? "") || undefined });
+    add({ id: "fv.incomeAvailableToCommon", label: "Excess-return TTM income available to common", group: "valuation", value: num(stageB, "returns.commonReturnTtm.incomeAvailableToCommon"), period: commonAsOf ? `TTM-TO:${commonAsOf}` : null, unit: "currency", currency: currentCurrency, source: "returns.commonReturnTtm.incomeAvailableToCommon", reportNote: shorten(str(stageB, "returns.commonReturnTtm.basisText") ?? str(stageB, "returns.commonReturnTtm.withheldReason") ?? "") || undefined });
     add({ id: "fv.dilutedShares", label: "Excess-return per-share divisor (latest weighted-average diluted shares)", group: "valuation", value: num(stageB, "valuation.excessReturn.scenarioEvidence.dilutedShares"), period: asOf ? `LATEST-PERIOD:${asOf}` : null, unit: "shares", currency: null, source: "valuation.excessReturn.scenarioEvidence.dilutedShares", reportNote: num(stageB, "valuation.excessReturn.scenarioEvidence.dilutedShares") === null ? shorten(str(stageB, "fairValue.reasons.0.reason") ?? "") || undefined : undefined });
     add({ id: "fv.payoutRatio", label: "Excess-return year-one payout ratio (common dividends + net buybacks over income to common, up to 3-year average)", group: "valuation", value: num(stageB, "valuation.excessReturn.payoutRatioPct.value"), period: fyPeriod(fyEnd), unit: "%", currency: null, source: "valuation.excessReturn.payoutRatioPct.value", reportNote: shorten(str(stageB, "valuation.excessReturn.payoutRatioPct.basis") ?? str(stageB, "fairValue.reasons.0.reason") ?? "") || undefined });
   } else if (kind === "reit") {
@@ -232,14 +232,6 @@ function consolidatedWindowNote(stageB: Json): string | undefined {
   const definition = str(stageB, "capital.current.cashBridge.definition") ?? "";
   const match = /Consolidated FCF conversion is withheld because[^.]*\./.exec(definition);
   return match ? shorten(match[0]) : fallback(stageB);
-}
-
-/** The day after the same date one year earlier (a TTM window's first day). */
-function previousYearStart(end: string): string {
-  const day = Date.parse(`${end}T00:00:00Z`);
-  const prior = new Date(day);
-  prior.setUTCFullYear(prior.getUTCFullYear() - 1);
-  return new Date(prior.getTime() + 86_400_000).toISOString().slice(0, 10);
 }
 
 /** The DCF runs in the translated currency when the notes say it was translated at one spot rate. */

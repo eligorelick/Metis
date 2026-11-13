@@ -1,22 +1,11 @@
 {
-  "about": "Companies in the accuracy check: one data-only golden case each, its SEC CIK and statement currency, filings read from their own XBRL instance where SEC companyfacts lacks them, ADS scaling, and per-figure recipe overrides (each with the reason) where the issuer's statements use another concept than the default in scripts/accuracy/recipes.ts.",
+  "about": "Companies in the accuracy check: one data-only golden case each, its SEC CIK and statement currency, filings read from their own XBRL instance (ones SEC companyfacts lacks, and ones whose line is a filer extension element, read as ext:Name), ADS scaling, and per-figure recipe overrides (each with the reason) where the issuer's statements use another concept than the default in scripts/accuracy/recipes.ts. An override names the shared building blocks ({\"op\": \"use\"}, {\"op\": \"currentDebt\"}) instead of restating them. An override states what was checked in one filing; check it again when the reference is rebuilt for a later period.",
   "companies": [
     {
       "ticker": "AMZN",
       "case": "amzn-data-only",
       "cik": 1018724,
-      "currency": "USD",
-      "overrides": {
-        "fv.nonOperatingInvestments": {
-          "recipe": {
-            "op": "instant",
-            "concepts": [
-              "EquitySecuritiesWithoutReadilyDeterminableFairValueAmount"
-            ]
-          },
-          "why": "the balance sheet presents no long-term-investments line; the filing's own note amount of non-marketable equity securities (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount) is the filed figure nearest the report's description"
-        }
-      }
+      "currency": "USD"
     },
     {
       "ticker": "FIGR",
@@ -116,91 +105,41 @@
                 "role": "operating lease liabilities",
                 "sign": 1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "OperatingLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "operating lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "operating lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "operatingLeases"
                 },
-                "optional": true
+                "absent": "operating-leases"
               },
               {
                 "role": "finance lease liabilities",
                 "sign": 1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "FinanceLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "finance lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "finance lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "financeLeases"
                 },
-                "optional": true
+                "absent": "finance-leases"
               }
             ]
           },
-          "why": "FIGR tags its total borrowings (current, current to related parties and noncurrent) as LongTermDebt; the report's own composition note lists the same three lines summing to it"
+          "why": "FIGR tags its total borrowings as LongTermDebt: in the 10-Q for 2026-06-30 (0001628280-26-057061) LongTermDebt 962,995k is the noncurrent line (LongTermDebtNoncurrent 315,850k) plus the two current debt lines, which carry a related-party member and so are not in companyfacts (current liabilities 1,285,124k less payables 58,215k, servicing liability 506,686k and other 73,078k = 647,145k)"
+        },
+        "cashAndShortTermInvestments.latest": {
+          "recipe": {
+            "op": "instant",
+            "concepts": [
+              "CashAndCashEquivalentsAtCarryingValue"
+            ]
+          },
+          "why": "FIGR's current assets hold no short-term investments: in the 10-Q for 2026-06-30 (0001628280-26-057061) AssetsCurrent 2,391,976k is cash 1,437,511k + restricted cash 95,887k + loans held for sale 597,400k + crypto assets 62,185k + receivables 88,527k + other 110,466k; its marketable securities (MarketableSecurities 356,225k) are a noncurrent line"
+        },
+        "runway.liquidAssets": {
+          "recipe": {
+            "op": "instant",
+            "concepts": [
+              "CashAndCashEquivalentsAtCarryingValue"
+            ]
+          },
+          "why": "FIGR's current assets hold no short-term investments: in the 10-Q for 2026-06-30 (0001628280-26-057061) AssetsCurrent 2,391,976k is cash 1,437,511k + restricted cash 95,887k + loans held for sale 597,400k + crypto assets 62,185k + receivables 88,527k + other 110,466k; its marketable securities (MarketableSecurities 356,225k) are a noncurrent line"
         }
       }
     },
@@ -208,114 +147,7 @@
       "ticker": "META",
       "case": "meta-data-only",
       "cik": 1326801,
-      "currency": "USD",
-      "overrides": {
-        "totalDebtIncludingLeases.latest": {
-          "recipe": {
-            "op": "sum",
-            "terms": [
-              {
-                "role": "long-term debt",
-                "sign": 1,
-                "recipe": {
-                  "op": "instant",
-                  "concepts": [
-                    "LongTermDebtNoncurrent",
-                    "LongTermDebt"
-                  ]
-                }
-              },
-              {
-                "role": "operating lease liabilities",
-                "sign": 1,
-                "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "OperatingLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "operating lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "operating lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "optional": true
-              },
-              {
-                "role": "finance lease liabilities",
-                "sign": 1,
-                "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "FinanceLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "finance lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "finance lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "optional": true
-              }
-            ]
-          },
-          "why": "META presents one long-term debt line"
-        }
-      }
+      "currency": "USD"
     },
     {
       "ticker": "MU",
@@ -341,48 +173,14 @@
                 "role": "operating lease liabilities",
                 "sign": 1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "OperatingLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "operating lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "operating lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "operatingLeases"
                 },
-                "optional": true
+                "absent": "operating-leases"
               }
             ]
           },
-          "why": "MU tags total debt including finance-lease obligations as DebtAndCapitalLeaseObligations (current DebtCurrent plus noncurrent LongTermDebtAndCapitalLeaseObligations)"
+          "why": "MU tags total debt including finance-lease obligations as DebtAndCapitalLeaseObligations: in the 10-K for 2026-09-03 (0000723125-26-000023) 5,179M is current debt 491M (DebtCurrent, all of it the current finance lease liability) plus LongTermDebtAndCapitalLeaseObligations 4,688M, which is long-term debt 2,792M plus noncurrent finance leases 1,896M"
         },
         "fv.netDebt": {
           "recipe": {
@@ -402,58 +200,13 @@
                 "role": "cash and short-term investments",
                 "sign": -1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "CashCashEquivalentsAndShortTermInvestments"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "cash and cash equivalents",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "CashAndCashEquivalentsAtCarryingValue"
-                            ]
-                          }
-                        },
-                        {
-                          "role": "short-term investments / marketable securities, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "ShortTermInvestments",
-                              "MarketableSecuritiesCurrent",
-                              "AvailableForSaleSecuritiesDebtSecuritiesCurrent",
-                              "DebtSecuritiesCurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "cashAndShortTermInvestments"
                 }
               }
             ]
           },
-          "why": "MU tags total debt including finance-lease obligations as DebtAndCapitalLeaseObligations"
-        },
-        "fv.nonOperatingInvestments": {
-          "recipe": {
-            "op": "instant",
-            "concepts": [
-              "AvailableForSaleSecuritiesDebtSecuritiesNoncurrent"
-            ]
-          },
-          "why": "MU's balance-sheet line for long-term marketable investments is AvailableForSaleSecuritiesDebtSecuritiesNoncurrent; it presents no long-term-investments total"
+          "why": "MU tags total debt including finance-lease obligations as DebtAndCapitalLeaseObligations (see totalDebtIncludingLeases.latest)"
         }
       }
     },
@@ -463,16 +216,123 @@
       "cik": 1045810,
       "currency": "USD",
       "overrides": {
+        "cashAndShortTermInvestments.latest": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "cash and cash equivalents",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "CashAndCashEquivalentsAtCarryingValue"
+                  ]
+                }
+              },
+              {
+                "role": "marketable debt securities",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "DebtSecuritiesCurrent"
+                  ]
+                }
+              },
+              {
+                "role": "marketable equity securities",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "EquitySecuritiesFvNi"
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "NVDA presents two current marketable-securities lines, debt and equity: in the 10-Q for 2026-07-26 (0001045810-26-000075) AssetsCurrent 197,412M is cash 22,443M + marketable debt securities 34,143M (DebtSecuritiesCurrent) + marketable equity securities 42,783M (EquitySecuritiesFvNi) + receivables 63,059M + inventories 31,575M + prepaid and other 3,409M"
+        },
+        "fv.netDebt": {
+          "recipe": {
+            "op": "sum",
+            "terms": [
+              {
+                "role": "debt, current",
+                "sign": 1,
+                "recipe": {
+                  "op": "currentDebt"
+                }
+              },
+              {
+                "role": "debt, noncurrent",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LongTermDebtNoncurrent"
+                  ]
+                }
+              },
+              {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "financeLeases"
+                },
+                "absent": "finance-leases"
+              },
+              {
+                "role": "cash and marketable debt securities",
+                "sign": -1,
+                "recipe": {
+                  "op": "sum",
+                  "terms": [
+                    {
+                      "role": "cash and cash equivalents",
+                      "sign": 1,
+                      "recipe": {
+                        "op": "instant",
+                        "concepts": [
+                          "CashAndCashEquivalentsAtCarryingValue"
+                        ]
+                      }
+                    },
+                    {
+                      "role": "marketable debt securities",
+                      "sign": 1,
+                      "recipe": {
+                        "op": "instant",
+                        "concepts": [
+                          "DebtSecuritiesCurrent"
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "why": "the report's bridge adds NVDA's marketable equity securities (EquitySecuritiesFvNi, a current-asset line) as a non-operating asset of their own, so its net debt deducts cash and marketable debt securities only; both are filed current-asset lines (in the 10-Q for 2026-07-26 (0001045810-26-000075) AssetsCurrent 197,412M is cash 22,443M + marketable debt securities 34,143M (DebtSecuritiesCurrent) + marketable equity securities 42,783M (EquitySecuritiesFvNi) + receivables 63,059M + inventories 31,575M + prepaid and other 3,409M)"
+        },
         "fv.nonOperatingInvestments": {
           "recipe": {
             "op": "instant",
             "concepts": [
-              "EquitySecuritiesWithoutReadilyDeterminableFairValueAmount"
+              "ext:NonMarketableSecurities"
             ]
           },
-          "why": "the balance sheet presents no long-term-investments line; the filing's own note amount of non-marketable equity securities (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount) is the filed figure nearest the report's description"
+          "why": "NVDA's only long-term investment line is the balance-sheet line Non-marketable securities, tagged with its own element: in the 10-Q for 2026-07-26 (0001045810-26-000075) Assets 320,272M is current assets 197,412M + property 14,285M + operating lease assets 5,390M + goodwill 21,125M + intangibles 2,998M + deferred tax 12,159M + non-marketable securities 51,157M + other 15,746M; the note amount EquitySecuritiesWithoutReadilyDeterminableFairValueAmount 47,898M is part of that line"
         }
-      }
+      },
+      "instanceFilings": [
+        {
+          "accn": "0001045810-26-000075",
+          "why": "NVDA's balance-sheet line Non-marketable securities is the extension element nvda:NonMarketableSecurities, which SEC companyfacts does not carry"
+        }
+      ]
     },
     {
       "ticker": "QCOM",
@@ -485,13 +345,10 @@
             "op": "sum",
             "terms": [
               {
-                "role": "short-term debt (current portion of long-term debt and commercial paper)",
+                "role": "debt, current",
                 "sign": 1,
                 "recipe": {
-                  "op": "instant",
-                  "concepts": [
-                    "DebtCurrent"
-                  ]
+                  "op": "currentDebt"
                 }
               },
               {
@@ -508,104 +365,33 @@
                 "role": "operating lease liabilities",
                 "sign": 1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "OperatingLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "operating lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "operating lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "operatingLeases"
                 },
-                "optional": true
+                "absent": "operating-leases"
               },
               {
                 "role": "finance lease liabilities",
                 "sign": 1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "FinanceLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "finance lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "finance lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "financeLeases"
                 },
-                "optional": true
+                "absent": "finance-leases"
               }
             ]
           },
-          "why": "in QCOM's 10-Q for 2026-06-28 the noncurrent balance-sheet line is tagged LongTermDebt (12,781M) beside DebtCurrent (2,489M = current portion 1,991M + commercial paper 498M); total long-term debt was 14,772M at 2026-03-29 with no current portion, so LongTermDebt here is the noncurrent amount"
+          "why": "in QCOM's 10-Q for 2026-06-28 (0000804328-26-000086) the noncurrent balance-sheet line is tagged LongTermDebt: Liabilities 29,709M is current liabilities 11,413M (which hold DebtCurrent 2,489M = current maturities 1,991M + commercial paper 498M) + deferred revenue 81M + LongTermDebt 12,781M + other 5,434M, so LongTermDebt here excludes the current maturities"
         },
         "fv.netDebt": {
           "recipe": {
             "op": "sum",
             "terms": [
               {
-                "role": "short-term debt",
+                "role": "debt, current",
                 "sign": 1,
                 "recipe": {
-                  "op": "instant",
-                  "concepts": [
-                    "DebtCurrent"
-                  ]
+                  "op": "currentDebt"
                 }
               },
               {
@@ -619,52 +405,25 @@
                 }
               },
               {
+                "role": "finance lease liabilities",
+                "sign": 1,
+                "recipe": {
+                  "op": "use",
+                  "name": "financeLeases"
+                },
+                "absent": "finance-leases"
+              },
+              {
                 "role": "cash and short-term investments",
                 "sign": -1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "CashCashEquivalentsAndShortTermInvestments"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "cash and cash equivalents",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "CashAndCashEquivalentsAtCarryingValue"
-                            ]
-                          }
-                        },
-                        {
-                          "role": "short-term investments / marketable securities, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "ShortTermInvestments",
-                              "MarketableSecuritiesCurrent",
-                              "AvailableForSaleSecuritiesDebtSecuritiesCurrent",
-                              "DebtSecuritiesCurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "cashAndShortTermInvestments"
                 }
               }
             ]
           },
-          "why": "see totalDebtIncludingLeases.latest"
+          "why": "in QCOM's 10-Q for 2026-06-28 (0000804328-26-000086) the noncurrent balance-sheet line is tagged LongTermDebt: Liabilities 29,709M is current liabilities 11,413M (which hold DebtCurrent 2,489M = current maturities 1,991M + commercial paper 498M) + deferred revenue 81M + LongTermDebt 12,781M + other 5,434M, so LongTermDebt here excludes the current maturities"
         }
       }
     },
@@ -757,6 +516,36 @@
             "op": "sum",
             "terms": [
               {
+                "role": "line of credit payable and commercial paper",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "ext:RevolvingCreditFacilityAndCommercialPaper"
+                  ]
+                }
+              },
+              {
+                "role": "term loans",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "LoansPayable"
+                  ]
+                }
+              },
+              {
+                "role": "mortgages payable",
+                "sign": 1,
+                "recipe": {
+                  "op": "instant",
+                  "concepts": [
+                    "SecuredDebt"
+                  ]
+                }
+              },
+              {
                 "role": "notes payable",
                 "sign": 1,
                 "recipe": {
@@ -767,130 +556,34 @@
                 }
               },
               {
-                "role": "commercial paper",
-                "sign": 1,
-                "recipe": {
-                  "op": "instant",
-                  "concepts": [
-                    "CommercialPaper"
-                  ]
-                },
-                "optional": true
-              },
-              {
-                "role": "mortgages payable (secured debt)",
-                "sign": 1,
-                "recipe": {
-                  "op": "instant",
-                  "concepts": [
-                    "SecuredDebt"
-                  ]
-                },
-                "optional": true
-              },
-              {
-                "role": "credit facility",
-                "sign": 1,
-                "recipe": {
-                  "op": "instant",
-                  "concepts": [
-                    "LineOfCredit",
-                    "LongTermLineOfCredit"
-                  ]
-                },
-                "optional": true
-              },
-              {
                 "role": "operating lease liabilities",
                 "sign": 1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "OperatingLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "operating lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "operating lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "operatingLeases"
                 },
-                "optional": true
+                "absent": "operating-leases"
               },
               {
                 "role": "finance lease liabilities",
                 "sign": 1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "FinanceLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "finance lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "finance lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "financeLeases"
                 },
-                "optional": true
+                "absent": "finance-leases"
               }
             ]
           },
-          "why": "O presents notes payable, commercial paper, mortgages and its credit facility as separate lines"
+          "why": "O's balance sheet presents four debt lines: in the 10-Q for 2026-09-30 (0000726728-26-000059) Liabilities 35,276,018k is distributions payable 265,518k + accounts payable and accrued 1,094,942k + lease intangible liabilities 1,463,929k + other liabilities 1,062,753k + line of credit payable and commercial paper 2,127,928k + term loans 2,772,340k + mortgages payable 36,745k + notes payable 26,451,863k; the lease liabilities sit inside other liabilities"
         }
-      }
+      },
+      "instanceFilings": [
+        {
+          "accn": "0000726728-26-000059",
+          "why": "O's balance-sheet line Line of credit payable and commercial paper is the extension element o:RevolvingCreditFacilityAndCommercialPaper, which SEC companyfacts does not carry"
+        }
+      ]
     },
     {
       "ticker": "DUK",
@@ -917,133 +610,6 @@
             ]
           },
           "why": "DUK's total operating revenues line is RegulatedAndUnregulatedOperatingRevenue; RevenueFromContractWithCustomerIncludingAssessedTax (31,741M) excludes revenue not from contracts with customers (496M)"
-        },
-        "totalDebtIncludingLeases.latest": {
-          "recipe": {
-            "op": "sum",
-            "terms": [
-              {
-                "role": "current maturities of long-term debt",
-                "sign": 1,
-                "recipe": {
-                  "op": "instant",
-                  "concepts": [
-                    "LongTermDebtCurrent"
-                  ]
-                },
-                "optional": true
-              },
-              {
-                "role": "notes payable and commercial paper",
-                "sign": 1,
-                "recipe": {
-                  "op": "instant",
-                  "concepts": [
-                    "ShortTermBorrowings",
-                    "CommercialPaper"
-                  ]
-                },
-                "optional": true
-              },
-              {
-                "role": "long-term debt",
-                "sign": 1,
-                "recipe": {
-                  "op": "instant",
-                  "concepts": [
-                    "LongTermDebtNoncurrent"
-                  ]
-                }
-              },
-              {
-                "role": "operating lease liabilities",
-                "sign": 1,
-                "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "OperatingLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "operating lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "operating lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "optional": true
-              },
-              {
-                "role": "finance lease liabilities",
-                "sign": 1,
-                "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "FinanceLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "finance lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "finance lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
-                },
-                "optional": true
-              }
-            ]
-          },
-          "why": "DUK presents current maturities, notes payable and commercial paper, and long-term debt as separate lines"
         }
       }
     },
@@ -1336,13 +902,20 @@
             "op": "sum",
             "terms": [
               {
-                "role": "convertible notes",
+                "role": "debt, current",
+                "sign": 1,
+                "recipe": {
+                  "op": "currentDebt"
+                }
+              },
+              {
+                "role": "convertible notes (the only noncurrent debt line)",
                 "sign": 1,
                 "recipe": {
                   "op": "instant",
                   "concepts": [
-                    "ConvertibleLongTermNotesPayable",
-                    "LongTermDebtNoncurrent"
+                    "LongTermDebtNoncurrent",
+                    "ConvertibleLongTermNotesPayable"
                   ]
                 }
               },
@@ -1350,91 +923,23 @@
                 "role": "operating lease liabilities",
                 "sign": 1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "OperatingLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "operating lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "operating lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "OperatingLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "operatingLeases"
                 },
-                "optional": true
+                "absent": "operating-leases"
               },
               {
                 "role": "finance lease liabilities",
                 "sign": 1,
                 "recipe": {
-                  "op": "first",
-                  "alternatives": [
-                    {
-                      "op": "instant",
-                      "concepts": [
-                        "FinanceLeaseLiability"
-                      ]
-                    },
-                    {
-                      "op": "sum",
-                      "terms": [
-                        {
-                          "role": "finance lease liability, current",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityCurrent"
-                            ]
-                          },
-                          "optional": true
-                        },
-                        {
-                          "role": "finance lease liability, noncurrent",
-                          "sign": 1,
-                          "recipe": {
-                            "op": "instant",
-                            "concepts": [
-                              "FinanceLeaseLiabilityNoncurrent"
-                            ]
-                          },
-                          "optional": true
-                        }
-                      ]
-                    }
-                  ]
+                  "op": "use",
+                  "name": "financeLeases"
                 },
-                "optional": true
+                "absent": "finance-leases"
               }
             ]
           },
-          "why": "VKTX's only borrowing line is its convertible notes (ConvertibleLongTermNotesPayable)"
+          "why": "VKTX's only borrowing line is its convertible notes: in the 10-Q for 2026-09-30 (0001193125-26-436432) LiabilitiesNoncurrent 254,670k is ConvertibleLongTermNotesPayable 250,656k + the noncurrent operating lease liability 4,014k"
         }
       }
     }

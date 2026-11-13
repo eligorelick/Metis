@@ -9,7 +9,10 @@
  * again), reads from the golden run only each figure's PERIOD and the report's
  * evidence cutoff (never Metis's values), and resolves the filed value for that
  * period with scripts/accuracy/recipes.ts: newest filing on or before the
- * cutoff (P2), the exact period (P1), one filing per composed balance (P7).
+ * cutoff (P2), the exact period (P1), one filing per composed balance (P7), no
+ * unproven zero (P10). Where a recipe needs a filing's own XBRL instance (an
+ * absence or completeness proof, or a line tagged with a filer extension
+ * element), that filing's instance document is downloaded from sec.gov too.
  * Output: scripts/accuracy/reference.json.
  *
  * SEC requires a contact in the User-Agent: set EDGAR_CONTACT in the
@@ -76,7 +79,7 @@ async function instanceXml(cik: number, accn: string, refresh: boolean): Promise
   return cached(path.join(CACHE, `instance-${accn}.xml`), refresh, `${folder}/${instance}`);
 }
 
-/** One filing's own XBRL instance, for a filing companyfacts has not ingested. */
+/** One filing's own XBRL instance, for a filing companyfacts has not ingested or whose line is a filer extension element. */
 async function instanceFacts(cik: number, accn: string, refresh: boolean): Promise<CompanyFacts> {
   const padded = String(cik).padStart(10, "0");
   const submissions = JSON.parse(await cached(path.join(CACHE, `submissions-CIK${padded}.json`), refresh, `https://data.sec.gov/submissions/CIK${padded}.json`)) as {
@@ -111,7 +114,7 @@ async function main(argv: string[]): Promise<void> {
     cases[company.case] = { ticker: company.ticker, cik: company.cik, entityName: facts.entityName ?? null, cutoffAt, currency: company.currency };
     const translation = dcfTranslationRate(stageB);
     const cutoff = cutoffDate(cutoffAt);
-    // Filings whose own instance an absence proof needs (dimensional facts companyfacts drops), read on demand.
+    // Filings whose own instance an absence or completeness proof needs (dimensional facts and extension elements companyfacts drops), read on demand.
     const instances: Record<string, InstanceFact[]> = {};
     for (const figure of extractFigures(stageB, report)) {
       const period = figure.referencePeriod ?? figure.period;

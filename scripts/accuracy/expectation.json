@@ -160,11 +160,10 @@
     {
       "case": "amzn-data-only",
       "figure": "fv.nonOperatingInvestments",
-      "status": "mismatch",
-      "valueSha256": "d1ad6a476c33999a",
-      "cause": "vendor value shown",
-      "note": "AMZN's balance sheet has no long-term-investments line; the amount is the vendor's long-term-investments field, which the bridge describes as on the quarter balance sheet. The filing's own note gives non-marketable equity securities 122,300M (inside other assets); the remaining 0.3% is not identified in the filing.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "note": "Filed in the 10-Q for 2026-06-30 (0001018724-26-000026): non-marketable equity securities 122,300M (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount) + equity-method investments 395M (EquityMethodInvestments) = 122,695M. Both are note amounts inside other assets, not a balance-sheet line; the report calls the total a balance-sheet figure. The first record read only the 122,300M and took the rest for a vendor amount.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
     },
     {
       "case": "figr-data-only",
@@ -519,9 +518,10 @@
     {
       "case": "mu-data-only",
       "figure": "totalDebtIncludingLeases.latest",
-      "status": "match",
-      "valueSha256": null,
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "not-established",
+      "valueSha256": "dfeb9d79d780fbcb",
+      "note": "Metis's 5,179M is the filed debt including finance leases (DebtAndCapitalLeaseObligations: long-term debt 2,792M + finance leases 2,387M, 10-K 0000723125-26-000023). It holds no operating lease liability: the 10-K tags none at 2026-09-03, yet the 10-Q for 2025-11-27 tagged 737M and the 10-K carries a deferred tax asset for operating lease liabilities, so the amount exists and is not in the tagged data. The total including leases is therefore not established; the first record matched it by counting the untagged operating leases as nil. Metis's own evidence note marks operating lease coverage unverified.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
     },
     {
       "case": "mu-data-only",
@@ -584,11 +584,10 @@
     {
       "case": "mu-data-only",
       "figure": "fv.nonOperatingInvestments",
-      "status": "mismatch",
-      "valueSha256": "d13d03c911f48c2c",
-      "cause": "definition",
-      "note": "Equals long-term marketable investments 30,019M (AvailableForSaleSecuritiesDebtSecuritiesNoncurrent, a balance-sheet line) plus non-marketable equity securities 1,300M (a note amount inside other noncurrent assets). The report names both, though it calls the total a balance-sheet figure.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "note": "Filed in the 10-K for 2026-09-03 (0000723125-26-000023): long-term marketable investments 30,019M (AvailableForSaleSecuritiesDebtSecuritiesNoncurrent, a balance-sheet line) + non-marketable equity securities 1,300M (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, a note amount inside other noncurrent assets) = 31,319M. The report names both, though it calls the total a balance-sheet figure.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
     },
     {
       "case": "nvda-data-only",
@@ -677,11 +676,10 @@
     {
       "case": "nvda-data-only",
       "figure": "cashAndShortTermInvestments.latest",
-      "status": "mismatch",
-      "valueSha256": "c6c3515e2812aca6",
-      "cause": "definition",
-      "note": "Metis adds marketable equity securities 42,783M (EquitySecuritiesFvNi) to cash 22,443M and marketable debt securities 34,143M (DebtSecuritiesCurrent), and says so in the bridge basis. The filed cash and short-term investment lines total 56,586M.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "note": "NVDA presents two current marketable-securities lines. Filed in the 10-Q for 2026-07-26 (0001045810-26-000075): cash 22,443M + marketable debt securities 34,143M (DebtSecuritiesCurrent) + marketable equity securities 42,783M (EquitySecuritiesFvNi) = 99,369M; current assets 197,412M foot with these three lines. The first record left the equity line out. The report's net debt deducts only the first two (56,586M) and adds the equity securities as an asset of their own.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
     },
     {
       "case": "nvda-data-only",
@@ -751,11 +749,10 @@
     {
       "case": "nvda-data-only",
       "figure": "fv.nonOperatingInvestments",
-      "status": "mismatch",
-      "valueSha256": "e74d498e543676a2",
-      "cause": "vendor value shown",
-      "note": "NVDA's balance sheet has no long-term-investments line; the amount is the vendor's field. The filing's note gives non-marketable equity securities 47,898M; the remaining 6% is not identified in the filing.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "note": "The balance-sheet line Non-marketable securities, 51,157M, in the 10-Q for 2026-07-26 (0001045810-26-000075). NVDA tags it with its own element (nvda:NonMarketableSecurities), which SEC companyfacts does not carry, so it is read from the filing's XBRL instance; total assets 320,272M foot with it. The note amount 47,898M the first record read is part of that line.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
     },
     {
       "case": "qcom-data-only",
@@ -851,9 +848,10 @@
     {
       "case": "qcom-data-only",
       "figure": "totalDebtIncludingLeases.latest",
-      "status": "match",
-      "valueSha256": null,
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "not-established",
+      "valueSha256": "cee47dc6000f2b27",
+      "note": "Metis's 15,270M is the filed borrowings alone: current debt 2,489M (current maturities 1,991M + commercial paper 498M) + the noncurrent debt line 12,781M (10-Q 0000804328-26-000086). The 10-Q tags no lease liability at 2026-06-28, yet the 10-K tagged operating lease liabilities of 832M at 2025-09-28, so the total including leases is not established; the first record matched it by counting the untagged leases as nil. Metis's own evidence note records the provider's lease line as zero and marks lease coverage unverified.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
     },
     {
       "case": "qcom-data-only",
@@ -1313,6 +1311,7 @@
       "figure": "totalDebtIncludingLeases.latest",
       "status": "gap",
       "valueSha256": "74234e98afe7498f",
+      "note": "Filed in the 10-Q for 2026-09-30 (0000726728-26-000059): line of credit payable and commercial paper 2,127,928k + term loans 2,772,340k + mortgages payable 36,745k + notes payable 26,451,863k + operating leases 409,910k + finance leases 165,371k = 31,964,157k; total liabilities foot with the four debt lines. The first record left out the term loans and the credit-line draws. Metis withholds the figure.",
       "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
     },
     {
@@ -1467,11 +1466,11 @@
     {
       "case": "duk-data-only",
       "figure": "totalDebtIncludingLeases.latest",
-      "status": "mismatch",
+      "status": "not-established",
       "valueSha256": "5d1893d69cd5cc1f",
       "cause": "vendor value shown",
-      "note": "Filed borrowings: notes payable and commercial paper 2,341M + current maturities 6,116M + long-term debt 84,332M = 92,789M (10-Q 0001326160-26-000051). Metis's total is about 1% higher; the report marks lease coverage unverified and the 10-Q tags no non-dimensional lease liability at 2026-09-30, so the excess looks like a vendor lease line. Filed value for that component not established.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "note": "Filed borrowings: current maturities 6,116M + notes payable and commercial paper 2,341M + long-term debt 84,332M = 92,789M (10-Q 0001326160-26-000051). Metis shows 991M more; its evidence note records a positive lease line whose coverage is unverified. The 10-Q tags no consolidated lease liability at 2026-09-30 (the 10-K tagged operating 1,271M and finance 576M at 2025-12-31), so the filed total including leases is not established and the 991M is not found in the filing.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
     },
     {
       "case": "duk-data-only",
@@ -1762,9 +1761,10 @@
     {
       "case": "rivn-data-only",
       "figure": "totalDebtIncludingLeases.latest",
-      "status": "match",
-      "valueSha256": null,
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "not-established",
+      "valueSha256": "50bdac51770431f7",
+      "note": "Metis's 5,431M is long-term debt 4,446M + operating leases 886M + the noncurrent finance lease liability 99M (10-Q 0001874178-26-000066). The current finance lease liability is not tagged at 2026-09-30: it sits inside a combined current-liabilities line under RIVN's own element (3M at 2025-12-31 in the 10-K). The total is therefore not established; the first record matched it by counting the untagged part as nil.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
     },
     {
       "case": "rivn-data-only",
@@ -1778,6 +1778,7 @@
       "figure": "financeLeases.latest",
       "status": "gap",
       "valueSha256": "74234e98afe7498f",
+      "note": "Only the noncurrent finance lease liability, 99M, is tagged at 2026-09-30 (10-Q 0001874178-26-000066); the current part sits inside a combined current-liabilities line under RIVN's own element, so the total is not established. Metis withholds the figure.",
       "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
     },
     {

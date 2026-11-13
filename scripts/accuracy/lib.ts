@@ -209,6 +209,7 @@ export function buildTtm(facts: CompanyFacts, concepts: readonly string[], unit:
       && Math.abs(dayNumber(fact.end) - (dayNumber(end) - 365)) <= 7);
     const prior = pickNewest(priorCandidates, concept, unit, cutoff);
     if (!prior) continue;
+    if (!operandsOnOneBasis(facts, concept, unit, fy, ytd, prior, cutoff)) continue;
     const candidate: FiledDerivation = {
       value: fy.val + ytd.val - prior.val,
       formula: "fiscal year + current year to date − prior-year year to date",
@@ -223,6 +224,24 @@ export function buildTtm(facts: CompanyFacts, concepts: readonly string[], unit:
   return best;
 }
 
+/**
+ * Whether a TTM identity's operands stand on one basis (P1: only compatible operands). The fiscal year comes from one
+ * filing and both year-to-date figures from a later one. When that later filing states a prior-year year to date that
+ * differs from the figure the issuer first filed for the same period, it recast the prior year, and a fiscal year
+ * filed before it is still on the old basis: subtracting the recast part from the unrecast whole is not the filed TTM.
+ * The same holds the other way round: a fiscal year restated by a filing newer than the year-to-date filing stands
+ * beside year-to-date figures filed before that restatement.
+ */
+function operandsOnOneBasis(facts: CompanyFacts, concept: string, unit: string, fy: FiledPoint, ytd: FiledPoint, prior: FiledPoint, cutoff: string): boolean {
+  const firstFiled = factsFor(facts, concept, unit)
+    .filter((fact) => fact.start === prior.start && fact.end === prior.end && STATEMENT_FORMS.has(fact.form) && fact.filed <= cutoff && fact.filed < prior.filed)
+    .sort((a, b) => a.filed.localeCompare(b.filed) || a.accn.localeCompare(b.accn))[0];
+  const priorRecast = firstFiled !== undefined && firstFiled.val !== prior.val;
+  if (priorRecast && fy.filed < ytd.filed) return false;
+  if (fy.restated && fy.filed > ytd.filed) return false;
+  return true;
+}
+
 // ------------------------------------------------- filing XBRL instance
 
 const TAXONOMY_URIS: [RegExp, string][] = [
@@ -230,6 +249,16 @@ const TAXONOMY_URIS: [RegExp, string][] = [
   [/xbrl\.ifrs\.org\/taxonomy\/.*ifrs-full/, "ifrs-full"],
   [/xbrl\.sec\.gov\/dei\//, "dei"],
 ];
+
+/** Namespaces of published taxonomies and of XBRL itself; any other namespace is the filer's own extension. */
+const STANDARD_NAMESPACE = /^https?:\/\/(www\.)?(xbrl\.org|w3\.org|xbrl\.sec\.gov|fasb\.org|xbrl\.ifrs\.org|xbrl\.us|ifrs\.org)\//;
+
+/** A fact's stated precision: its `decimals` attribute, INF being exact; a fact without one states none. */
+function precisionOf(attributes: string): number {
+  const decimals = /\bdecimals="(-?\d+|INF)"/.exec(attributes)?.[1];
+  if (decimals === undefined) return Number.NEGATIVE_INFINITY;
+  return decimals === "INF" ? Number.POSITIVE_INFINITY : Number(decimals);
+}
 
 function unitName(measure: string): string {
   const local = measure.trim().replace(/^[^:]*:/, "");
@@ -239,14 +268,19 @@ function unitName(measure: string): string {
 /**
  * Non-dimensional facts from one filing's XBRL instance document (the
  * `*_htm.xml` an inline-XBRL filing carries), in companyfacts shape. Used when
- * SEC's companyfacts API has not ingested a filing. Contexts with a segment or
- * scenario (subsidiary, class or member breakdowns) are left out, as
- * companyfacts leaves them out; nil facts are skipped.
+ * SEC's companyfacts API has not ingested a filing, or does not carry a line
+ * the filer tags with its own extension element (those are filed here under
+ * the taxonomy "ext", e.g. "ext:NonMarketableSecurities"). Contexts with a
+ * segment or scenario (subsidiary, class or member breakdowns) are left out,
+ * as companyfacts leaves them out; nil facts are skipped. A filing can state
+ * one fact twice at different precision (a statement line to the thousand and
+ * a note sentence to the hundred thousand): the most precise statement is the
+ * value (P3), and equally precise statements that disagree are no value.
  */
 export function parseXbrlInstance(xml: string, meta: { accn: string; form: string; filed: string }): CompanyFacts {
   const prefixes = new Map<string, string>();
   for (const match of xml.matchAll(/xmlns:([A-Za-z0-9_-]+)="([^"]+)"/g)) {
-    const taxonomy = TAXONOMY_URIS.find(([pattern]) => pattern.test(match[2]!))?.[1];
+    const taxonomy = TAXONOMY_URIS.find(([pattern]) => pattern.test(match[2]!))?.[1] ?? (STANDARD_NAMESPACE.test(match[2]!) ? undefined : "ext");
     if (taxonomy) prefixes.set(match[1]!, taxonomy);
   }
   const contexts = new Map<string, { start?: string; end: string }>();
@@ -270,8 +304,8 @@ export function parseXbrlInstance(xml: string, meta: { accn: string; form: strin
       if (measure) units.set(match[1]!, unitName(measure));
     }
   }
-  const out: CompanyFacts = { facts: {} };
-  const seen = new Set<string>();
+  // One statement per concept, unit and period: the most precise; equally precise statements that disagree cancel.
+  const stated = new Map<string, { taxonomy: string; name: string; unit: string; start?: string; end: string; val: number; precision: number; conflict: boolean }>();
   for (const match of xml.matchAll(/<([A-Za-z0-9_-]+):([A-Za-z0-9_]+)\b([^>]*?)(?<!\/)>([^<]*)<\/\1:\2>/g)) {
     const taxonomy = prefixes.get(match[1]!);
     if (!taxonomy) continue;
@@ -285,10 +319,19 @@ export function parseXbrlInstance(xml: string, meta: { accn: string; form: strin
     const value = Number(match[4]!.trim());
     if (!context || !unit || match[4]!.trim() === "" || !Number.isFinite(value)) continue;
     const key = `${taxonomy}|${match[2]}|${unit}|${context.start ?? ""}|${context.end}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const concept = ((out.facts[taxonomy] ??= {})[match[2]!] ??= { units: {} });
-    (concept.units[unit] ??= []).push({ ...(context.start ? { start: context.start } : {}), end: context.end, val: value, accn: meta.accn, form: meta.form, filed: meta.filed });
+    const precision = precisionOf(attributes);
+    const previous = stated.get(key);
+    if (previous === undefined || precision > previous.precision) {
+      stated.set(key, { taxonomy, name: match[2]!, unit, ...(context.start ? { start: context.start } : {}), end: context.end, val: value, precision, conflict: false });
+    } else if (precision === previous.precision && value !== previous.val) {
+      previous.conflict = true;
+    }
+  }
+  const out: CompanyFacts = { facts: {} };
+  for (const fact of stated.values()) {
+    if (fact.conflict) continue;
+    const concept = ((out.facts[fact.taxonomy] ??= {})[fact.name] ??= { units: {} });
+    (concept.units[fact.unit] ??= []).push({ ...(fact.start ? { start: fact.start } : {}), end: fact.end, val: fact.val, accn: meta.accn, form: meta.form, filed: meta.filed });
   }
   return out;
 }
@@ -446,6 +489,14 @@ export function classifyFigure(input: {
 export function sameObservation(metis: number, reference: ReferenceValue): boolean {
   if (reference.kind === "derived") return vendorAgreesWithDerived(metis, reference.value, reference.operands ?? []);
   return vendorAgreesWithFiled(metis, reference.value);
+}
+
+/**
+ * Whether a filed total and the sum of its filed parts, from one filing, are the same observation: the P8 owner's test
+ * for a value built from operands (`vendorAgreesWithDerived`, the parts' rounding). No tolerance is defined here.
+ */
+export function partsAgreeWithTotal(total: number, parts: readonly number[]): boolean {
+  return vendorAgreesWithDerived(total, parts.reduce((sum, part) => sum + part, 0), parts);
 }
 
 function relativeGap(a: number, b: number): string {
