@@ -1,0 +1,1907 @@
+{
+  "about": "Expected accuracy status per headline figure for npm run accuracy:check: status, and for anything that is not a match a SHA-256 prefix of Metis's value (never the value). Update only with --update-expectation --reason, in the same change as the code that moves a figure.",
+  "entries": [
+    {
+      "case": "amzn-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-240 (#163): trailing net income behind FCF conversion read from the filings for single-profit-line filers; AMZN, NVDA, QCOM, MU, VKTX netIncome.ttm gap -> match, each proven against the filing (10-K + 10-Q year-to-date identity, or the fiscal-year fact for MU). D-236 in the same batch changes no stored case."
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "financeLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.taxRate",
+      "status": "match",
+      "valueSha256": null,
+      "note": "The rate's TTM pre-tax denominator is the one the report's P/E caveat states, about 540M below the filed 'Income (loss) before income taxes' TTM of 175,466M (97,311M + 120,691M − 42,536M; IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments). The vendor pre-tax rows net the equity-method result (FY2025 −554M). Filed rate 22.577%.",
+      "changeReason": "D-237 (#160): AMZN DCF tax rate uses the filed pre-tax income before equity-method results, 39,615M / 175,466M = 22.577023%"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.netDebt",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "amzn-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "match",
+      "valueSha256": null,
+      "note": "Filed in the 10-Q for 2026-06-30 (0001018724-26-000026): non-marketable equity securities 122,300M (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount) + equity-method investments 395M (EquityMethodInvestments) = 122,695M. Both are note amounts inside other assets, not a balance-sheet line; the report calls the total a balance-sheet figure. The first record read only the 122,300M and took the rest for a vendor amount.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "note": "Equals the filed consolidated ProfitLoss 134,281k (including 423k NCI); the filed parent line NetIncomeLoss is 133,858k. The FCF series is documented as consolidated, but the row is labelled net income.",
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "note": "Metis's count is exactly twice the filed 141,802,002 (its basic count is likewise twice the filed 114,435,259). The 10-K diluted EPS 0.44 sits on the filed count (0.44 × 141.8M ≈ income to common 62.0M). A filed count existed and was not used (P8); the leadership share-trend signal reads the same value.",
+      "changeReason": "D-234 (#156): FIGR FY2025 diluted shares 141,802,002 (10-K 0002064124-26-000009) and total debt including leases 967,771,000 at 2026-06-30 (10-Q 0001628280-26-057061)"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "note": "Consolidated profit including NCI, as for the fiscal year; the filed parent NetIncomeLoss TTM is 237,127k.",
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "note": "The figure is the provider's debt perimeter, which adds payables to third-party loan owners (the report labels it so). Filed borrowings are 962,995k (LongTermDebt = current 222,505k + related-party current 424,640k + noncurrent 315,850k) plus the 4,776k operating lease = 967,771k. The route marks net debt not applicable, but the figure is still shown as the debt used in the report.",
+      "changeReason": "D-234 (#156): FIGR FY2025 diluted shares 141,802,002 (10-K 0002064124-26-000009) and total debt including leases 967,771,000 at 2026-06-30 (10-Q 0001628280-26-057061)"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "figr-data-only",
+      "figure": "runway.liquidAssets",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "not-established",
+      "valueSha256": "fce47634888cdf78",
+      "note": "The quarter to 2026-09-30 was in META's 8-K earnings release (filed 2026-10-21, before the cutoff, no XBRL); the 10-Q with XBRL was accepted 2026-10-22 00:00:08 UTC, 39 minutes after the cutoff, so it is not admitted. The release's statements were not read.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "not-established",
+      "valueSha256": "4b9bd2a021d0fa3f",
+      "note": "See operating income TTM: the only filing before the cutoff with the quarter is the 8-K release, not read.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "capex.ttm",
+      "status": "not-established",
+      "valueSha256": "694464f2fa354717",
+      "note": "See operating income TTM.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "fcf.ttm",
+      "status": "not-established",
+      "valueSha256": "83547a7307402e0b",
+      "note": "See operating income TTM.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "not-established",
+      "valueSha256": "c3c5fe440032684e",
+      "note": "See operating income TTM: the 2026-09-30 balance sheet before the cutoff is only in the 8-K release.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "ddf5320404cfc752",
+      "note": "See operating income TTM.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "meta-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-240 (#163): trailing net income behind FCF conversion read from the filings for single-profit-line filers; AMZN, NVDA, QCOM, MU, VKTX netIncome.ttm gap -> match, each proven against the filing (10-K + 10-Q year-to-date identity, or the fiscal-year fact for MU). D-236 in the same batch changes no stored case."
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "dfeb9d79d780fbcb",
+      "note": "Metis's 5,179M is the filed debt including finance leases (DebtAndCapitalLeaseObligations: long-term debt 2,792M + finance leases 2,387M, 10-K 0000723125-26-000023). It holds no operating lease liability: the 10-K tags none at 2026-09-03, yet the 10-Q for 2025-11-27 tagged 737M and the 10-K carries a deferred tax asset for operating lease liabilities, so the amount exists and is not in the tagged data. The total including leases is therefore not established; the first record matched it by counting the untagged operating leases as nil. Metis's own evidence note marks operating lease coverage unverified.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "financeLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.startRevenue",
+      "status": "mismatch",
+      "valueSha256": "4edfc87c58e2fc91",
+      "cause": "definition",
+      "note": "MU's fiscal 2026 has 53 weeks; the report states it rescales the TTM to 52 weeks (filed 133,188M × 52/53). No filed value exists for a 52-week window.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.taxRate",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.netDebt",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.preferred",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "mu-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "match",
+      "valueSha256": null,
+      "note": "Filed in the 10-K for 2026-09-03 (0000723125-26-000023): long-term marketable investments 30,019M (AvailableForSaleSecuritiesDebtSecuritiesNoncurrent, a balance-sheet line) + non-marketable equity securities 1,300M (EquitySecuritiesWithoutReadilyDeterminableFairValueAmount, a note amount inside other noncurrent assets) = 31,319M. The report names both, though it calls the total a balance-sheet figure.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-240 (#163): trailing net income behind FCF conversion read from the filings for single-profit-line filers; AMZN, NVDA, QCOM, MU, VKTX netIncome.ttm gap -> match, each proven against the filing (10-K + 10-Q year-to-date identity, or the fiscal-year fact for MU). D-236 in the same batch changes no stored case."
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "note": "NVDA presents two current marketable-securities lines. Filed in the 10-Q for 2026-07-26 (0001045810-26-000075): cash 22,443M + marketable debt securities 34,143M (DebtSecuritiesCurrent) + marketable equity securities 42,783M (EquitySecuritiesFvNi) = 99,369M; current assets 197,412M foot with these three lines. The first record left the equity line out. The report's net debt deducts only the first two (56,586M) and adds the equity securities as an asset of their own.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.taxRate",
+      "status": "mismatch",
+      "valueSha256": "4523540f1504cd17",
+      "cause": "definition",
+      "note": "Metis uses the 17% GAAP effective rate NVIDIA guided in its 8-K EX-99.1 (0001045810-26-000073) and says so; the filed TTM effective rate is 16.05%.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.netDebt",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "nvda-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "match",
+      "valueSha256": null,
+      "note": "The balance-sheet line Non-marketable securities, 51,157M, in the 10-Q for 2026-07-26 (0001045810-26-000075). NVDA tags it with its own element (nvda:NonMarketableSecurities), which SEC companyfacts does not carry, so it is read from the filing's XBRL instance; total assets 320,272M foot with it. The note amount 47,898M the first record read is part of that line.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-240 (#163): trailing net income behind FCF conversion read from the filings for single-profit-line filers; AMZN, NVDA, QCOM, MU, VKTX netIncome.ttm gap -> match, each proven against the filing (10-K + 10-Q year-to-date identity, or the fiscal-year fact for MU). D-236 in the same batch changes no stored case."
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "cee47dc6000f2b27",
+      "note": "Metis's 15,270M is the filed borrowings alone: current debt 2,489M (current maturities 1,991M + commercial paper 498M) + the noncurrent debt line 12,781M (10-Q 0000804328-26-000086). The 10-Q tags no lease liability at 2026-06-28, yet the 10-K tagged operating lease liabilities of 832M at 2025-09-28, so the total including leases is not established; the first record matched it by counting the untagged leases as nil. Metis's own evidence note records the provider's lease line as zero and marks lease coverage unverified.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.startRevenue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.taxRate",
+      "status": "mismatch",
+      "valueSha256": "9af87f67ca63331b",
+      "cause": "vendor value shown",
+      "note": "Filed TTM: tax 7,122M − 4,136M − 1,034M = 1,952M over pre-tax 12,663M + 8,241M − 9,692M = 11,212M = 17.410%. The report does not state its operands; a gap of 0.05% of the rate points to vendor quarterly rows. Suspected, not proven.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.netDebt",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.preferred",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "qcom-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "revenue.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "netIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "capex.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "note": "Metis shows zero, but JPM tags no capital-spending line: a vendor zero is undisclosed, not a filed zero (P7).",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "capex.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fv.openingBookValue",
+      "status": "not-established",
+      "valueSha256": "909b8246d7df12ea",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fv.incomeAvailableToCommon",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "jpm-data-only",
+      "figure": "fv.payoutRatio",
+      "status": "not-established",
+      "valueSha256": "15dbccd9051e2d76",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "netIncome.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "capex.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fv.openingBookValue",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fv.incomeAvailableToCommon",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-251 (#169): Progressive's fiscal 2024 and 2025 income available to common is read from the 10-K (preferred redeemed during 2024), so the excess-return fair value is no longer withheld. fv.dilutedShares gap -> match (582,200,000, 10-Q 0000080661-26-000379). fv.payoutRatio gap -> not-established only because this tool does not compose the three-year payout average; D-251 proves each operand against 10-K 0000080661-26-000086 (dividends and the filer's own buyback elements from the 10-K's XBRL instance). fv.suppressed is no longer produced because the fair value is shown."
+    },
+    {
+      "case": "pgr-data-only",
+      "figure": "fv.payoutRatio",
+      "status": "not-established",
+      "valueSha256": "9919ccc79820edb9",
+      "changeReason": "D-251 (#169): Progressive's fiscal 2024 and 2025 income available to common is read from the 10-K (preferred redeemed during 2024), so the excess-return fair value is no longer withheld. fv.dilutedShares gap -> match (582,200,000, 10-Q 0000080661-26-000379). fv.payoutRatio gap -> not-established only because this tool does not compose the three-year payout average; D-251 proves each operand against 10-K 0000080661-26-000086 (dividends and the filer's own buyback elements from the 10-K's XBRL instance). fv.suppressed is no longer produced because the fair value is shown."
+    },
+    {
+      "case": "o-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "not-established",
+      "valueSha256": "aa469d2aebdd6e97",
+      "cause": "vendor value shown",
+      "note": "O's income statement presents no operating-income line (no OperatingIncomeLoss fact); the figure is a vendor subtotal.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "note": "Equals the filed consolidated ProfitLoss 1,069,783k (including 11,193k NCI); the parent line is 1,058,590k. The FFO reconstruction itself uses the parent figure.",
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
+    },
+    {
+      "case": "o-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "capex.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "note": "Metis shows zero for FY2025 while showing a positive TTM amount; the filing has no single capital-spending line (acquisitions 4,647.9M and capital improvements 131.8M are separate). The zero is a vendor zero (P7).",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "note": "Equals consolidated ProfitLoss TTM (1,069,783k + 1,123,588k − 768,147k = 1,425,224k); income available to common TTM is 1,355,748k.",
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
+    },
+    {
+      "case": "o-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "capex.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "note": "Filed in the 10-Q for 2026-09-30 (0000726728-26-000059): line of credit payable and commercial paper 2,127,928k + term loans 2,772,340k + mortgages payable 36,745k + notes payable 26,451,863k + operating leases 409,910k + finance leases 165,371k = 31,964,157k; total liabilities foot with the four debt lines. The first record left out the term loans and the credit-line draws. Metis withholds the figure.",
+      "changeReason": "Batch 4 (#168). D-250: O total debt including leases gap -> match (31,964,157,000, 10-Q 0000726728-26-000059, every borrowing line and both lease liabilities from the one filing); RIVN total debt not-established -> gap (half-disclosed finance lease, D-202 rule applied to provider rows). D-238: DUK fiscal 2025 cash-flow net income 4,967,000,000 -> 5,071,000,000, the filed consolidated profit (ProfitLoss, 10-K 0001326160-26-000014), mismatch -> match."
+    },
+    {
+      "case": "o-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "financeLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.ffo.netIncome",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.ffo.depreciationAmortization",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.ffo.gainsOnSale",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.ffo.impairments",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "o-data-only",
+      "figure": "fv.ffo.shares",
+      "status": "match",
+      "valueSha256": null,
+      "note": "FFO per share divides FY2025 FFO by the filed weighted diluted count for the quarter 2026-07-01 to 2026-09-30 (946,115,000; 10-Q 0000726728-26-000059), not FY2025's 908,334,000: numerator and divisor cover different periods (P1, P13). On the FY2025 count FFO per share would be about 4% higher.",
+      "changeReason": "D-233 (#154): O FFO per-share divisor is the FY2025 weighted diluted count 908,334,000 (10-K 0000726728-26-000011)"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "Batch 4 (#168). D-250: O total debt including leases gap -> match (31,964,157,000, 10-Q 0000726728-26-000059, every borrowing line and both lease liabilities from the one filing); RIVN total debt not-established -> gap (half-disclosed finance lease, D-202 rule applied to provider rows). D-238: DUK fiscal 2025 cash-flow net income 4,967,000,000 -> 5,071,000,000, the filed consolidated profit (ProfitLoss, 10-K 0001326160-26-000014), mismatch -> match."
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-252 (#174): Duke Energy fiscal 2025 operating cash flow is the filed 12,330,000,000 (10-K 0001326160-26-000014; the filing's cash-flow statement foots exactly), so free cash flow before SBC is -1,694,000,000: fcf.fy gap -> match. D-255 in the same pull request moves version stamps only."
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "5d1893d69cd5cc1f",
+      "cause": "vendor value shown",
+      "note": "Filed borrowings: current maturities 6,116M + notes payable and commercial paper 2,341M + long-term debt 84,332M = 92,789M (10-Q 0001326160-26-000051). Metis shows 991M more; its evidence note records a positive lease line whose coverage is unverified. The 10-Q tags no consolidated lease liability at 2026-09-30 (the 10-K tagged operating 1,271M and finance 576M at 2025-12-31), so the filed total including leases is not established and the 991M is not found in the filing.",
+      "changeReason": "review round 3: total current debt is an alternative to its parts, no zero without proof, one filing per composed balance, long-term investments composed from the filed pieces (P2, P7, P10)"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "duk-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "netIncome.fy",
+      "status": "mismatch",
+      "valueSha256": "fe0f7f55a57aedf0",
+      "note": "Neither the filed profit attributable to owners of the parent (1,697,604,000k TWD) nor consolidated profit (1,695,124,900k) in the 2025 20-F (0001628280-26-025362); the figure is stated to the thousand while the filing states 100k.",
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "mismatch",
+      "valueSha256": "37384224760ac7e6",
+      "cause": "Metis error",
+      "note": "The latest-year EPS row shows FY2024 (it equals the filed FY2024 44.67 per share × 5 per ADS). TSM's 2025 20-F (filed 2026-04-16, before the cutoff) states FY2025 diluted EPS 65.47 per share (327.35 per ADS). A newer compatible filing existed and was not used for this row.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "capex.fy",
+      "status": "mismatch",
+      "valueSha256": "0a03251799c99405",
+      "cause": "definition",
+      "note": "Equals purchases of PP&E 1,272,410.5M + purchases of intangible assets 10,146.9M (2025 20-F); the report's cash-capex definition says the field may include software or other capital spending.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fcf.fy",
+      "status": "mismatch",
+      "valueSha256": "b62f548aa70ff960",
+      "cause": "definition",
+      "note": "Follows capital spending: filed operating cash flow 2,274,975.6M less PP&E and intangible purchases.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "not-established",
+      "valueSha256": "4867f586a8ad7f18",
+      "note": "TSM's quarters are in Form 6-K reports without XBRL; their statements were not read.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "netIncome.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "not-established",
+      "valueSha256": "83f2a4420ffbcae8",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "capex.ttm",
+      "status": "not-established",
+      "valueSha256": "08ded51b2a907735",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fcf.ttm",
+      "status": "not-established",
+      "valueSha256": "0c5d02695ce8799a",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "not-established",
+      "valueSha256": "27b6daa2d4cb5aec",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "not-established",
+      "valueSha256": "3e6a40e519762813",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.startRevenue",
+      "status": "not-established",
+      "valueSha256": "62391dba9d1199e2",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.taxRate",
+      "status": "not-established",
+      "valueSha256": "439b46d40b1b980f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.dilutedShares",
+      "status": "not-established",
+      "valueSha256": "4e3ce38435dd67e9",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.netDebt",
+      "status": "not-established",
+      "valueSha256": "adb0ae8cc79316a7",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.minorityInterest",
+      "status": "not-established",
+      "valueSha256": "04340fbd59e0cb3b",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.preferred",
+      "status": "not-established",
+      "valueSha256": "5feceb66ffc86f38",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "tsm-data-only",
+      "figure": "fv.nonOperatingInvestments",
+      "status": "not-established",
+      "valueSha256": "d0ebf4027e10ecbe",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "note": "Equals the filed consolidated ProfitLoss −3,626M (including 20M NCI); the parent NetIncomeLoss is −3,646M.",
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "capex.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "fcf.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "note": "Consolidated profit including NCI, as for the fiscal year; the parent NetIncomeLoss TTM is −2,973M.",
+      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "capex.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "fcf.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "note": "Metis's 5,431M is long-term debt 4,446M + operating leases 886M + the noncurrent finance lease liability 99M (10-Q 0001874178-26-000066). The current finance lease liability is not tagged at 2026-09-30: it sits inside a combined current-liabilities line under RIVN's own element (3M at 2025-12-31 in the 10-K). The total is therefore not established; the first record matched it by counting the untagged part as nil.",
+      "changeReason": "Batch 4 (#168). D-250: O total debt including leases gap -> match (31,964,157,000, 10-Q 0000726728-26-000059, every borrowing line and both lease liabilities from the one filing); RIVN total debt not-established -> gap (half-disclosed finance lease, D-202 rule applied to provider rows). D-238: DUK fiscal 2025 cash-flow net income 4,967,000,000 -> 5,071,000,000, the filed consolidated profit (ProfitLoss, 10-K 0001326160-26-000014), mismatch -> match."
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "note": "Only the noncurrent finance lease liability, 99M, is tagged at 2026-09-30 (10-Q 0001874178-26-000066); the current part sits inside a combined current-liabilities line under RIVN's own element, so the total is not established. Metis withholds the figure.",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "rivn-data-only",
+      "figure": "runway.liquidAssets",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "revenue.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "operatingIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "netIncome.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "epsDiluted.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "dilutedShares.fy",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "capex.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "note": "VKTX tags no capital-spending line; Metis shows zero.",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "fcf.fy",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "operatingIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "netIncome.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-240 (#163): trailing net income behind FCF conversion read from the filings for single-profit-line filers; AMZN, NVDA, QCOM, MU, VKTX netIncome.ttm gap -> match, each proven against the filing (10-K + 10-Q year-to-date identity, or the fiscal-year fact for MU). D-236 in the same batch changes no stored case."
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "operatingCashFlow.ttm",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "capex.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "note": "VKTX tags no capital-spending line; Metis shows zero.",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "fcf.ttm",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "D-239 (#158): a provider capital-spending zero with no filed capital-spending line is a disclosed gap (JPM, O, VKTX), with the free cash flow built on it"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "cashAndShortTermInvestments.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "totalDebtIncludingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "operatingLeases.latest",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "financeLeases.latest",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "fv.suppressed",
+      "status": "gap",
+      "valueSha256": "74234e98afe7498f",
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    },
+    {
+      "case": "vktx-data-only",
+      "figure": "runway.liquidAssets",
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+    }
+  ]
+}
