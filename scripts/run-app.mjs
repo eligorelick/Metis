@@ -11,14 +11,32 @@
  *
  * The build is reused only while its inputs are unchanged: the same input
  * fingerprint the build itself checks (src, config, scripts, the methodology
- * document, the lockfile and the build settings) is recorded next to the build
- * id after a successful build, and both must still match.
+ * document, the lockfile and the build settings), together with the few files
+ * the app bundles from outside those folders, is recorded next to the build id
+ * after a successful build, and both must still match.
  */
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { buildInputFingerprint } from "./freeze-stageb-replay.mjs";
+
+/**
+ * Files compiled into the build from outside the folders the build fingerprint
+ * reads. tests/app.launcher.test.ts fails when the app imports another one.
+ */
+export const EXTRA_BUNDLED_INPUTS = ["fixtures/report/DEMO-current-charts.json", "postcss.config.mjs"];
+
+/** Everything the served build was compiled from; any change means the build is stale. */
+export function appInputFingerprint(root) {
+  const hash = createHash("sha256").update(buildInputFingerprint(root));
+  for (const relative of EXTRA_BUNDLED_INPUTS) {
+    const absolute = join(root, relative);
+    hash.update(`\n${relative}:`).update(existsSync(absolute) ? readFileSync(absolute) : "missing");
+  }
+  return hash.digest("hex");
+}
 
 /** Where the last successful build's inputs are recorded (outside the build output, untracked). */
 export function buildStampPath(root) {
@@ -34,7 +52,7 @@ function readBuildId(root) {
 }
 
 /** Why the build must run again, or null when the existing build matches the source. */
-export function staleBuildReason(root, fingerprint = buildInputFingerprint(root)) {
+export function staleBuildReason(root, fingerprint = appInputFingerprint(root)) {
   const buildId = readBuildId(root);
   if (buildId === null || !existsSync(join(root, ".next", "runtime-artifact-identity.json"))) return "no finished build was found";
   let stamp;
@@ -59,15 +77,16 @@ export function recordBuild(root, fingerprint) {
 
 function main() {
   const root = process.cwd();
-  const fingerprint = buildInputFingerprint(root);
+  const fingerprint = appInputFingerprint(root);
   const reason = staleBuildReason(root, fingerprint);
   if (reason !== null) {
     console.log(`[app] Building first: ${reason}. This takes a minute or two.`);
     const built = spawnSync(process.execPath, [join(root, "scripts", "build-with-identity.mjs")], { cwd: root, stdio: "inherit" });
     if (built.error) throw built.error;
     if (built.status !== 0) process.exit(built.status ?? 1);
-    // The build refuses inputs that changed while it ran, so this fingerprint is what it built.
-    recordBuild(root, fingerprint);
+    // Recorded only when nothing changed while it compiled: otherwise the next start builds again.
+    if (appInputFingerprint(root) === fingerprint) recordBuild(root, fingerprint);
+    else console.log("[app] The source changed during the build; the next start will build again.");
   } else {
     console.log("[app] The build is up to date.");
   }
