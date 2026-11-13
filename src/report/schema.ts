@@ -44,6 +44,7 @@ import { SourceFactSummarySchema } from "@/report/sourceFactSchema";
 import { displayedValidationStatus } from "@/report/claimMatching";
 
 import type { Grade, ClaimLabel, ManifestEntry } from "@/types/core";
+import { GAP_CAUSES } from "@/types/refusalCause";
 
 export { REPORT_SPEC_VERSION } from "@/report/versions";
 
@@ -1578,6 +1579,12 @@ export const ManifestEntrySchema = z
         filings: z.array(z.object({ accn: z.string().min(1), filed: z.iso.date(), form: z.string().min(1) }).strict()).min(1),
       }).strict()).min(1),
     }).strict().optional(),
+    /**
+     * P10, P11 (D-229): the entry's typed cause (`GAP_CAUSES`, `@/types/refusalCause`), written by
+     * the pipeline beside the unchanged sentence. Optional: a report saved before D-229 has none, and
+     * an entry without one is unresolved. Kept off model request schemas (pipeline-owned).
+     */
+    cause: z.enum(GAP_CAUSES).optional(),
   })
   .strict();
 type _ManifestMatches = z.infer<typeof ManifestEntrySchema> extends ManifestEntry
@@ -3301,6 +3308,11 @@ export function removePipelineOwnedRequestFields<T>(schema: T): T {
         for (const key of ["tenureYears", "peerCoverage", "peerCount", "qualitativeCommentary", "scenarioPresentation", "thesisTriggers", "periodContext", "sourceFactSummary", "evidenceTiming", "multiplesBasis", "marketValueScope", "codeIdentity"]) {
         delete props[key];
         if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== key);
+      }
+      // D-229: a missing-data entry's typed cause is written by the pipeline only.
+      if ("field" in props && "reason" in props && "severity" in props && "cause" in props) {
+        delete props.cause;
+        if (Array.isArray(obj.required)) obj.required = (obj.required as string[]).filter((item) => item !== "cause");
       }
       const scenarioName = props.name as { enum?: unknown } | undefined;
       if (Array.isArray(scenarioName?.enum) && scenarioName.enum.join(",") === "bull,base,bear" && "probability" in props) {

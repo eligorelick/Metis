@@ -29,6 +29,7 @@ import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, type
 import type { DebtLikeObligations } from "@/pipeline/stageB/debtLikeObligations";
 import { describeFinancialValuation, type FinancialValuationAssumptions } from "@/pipeline/stageB/valuationAssumptions";
 import type { CompanyRoute, ManifestEntry, SectorRoute } from "@/types/core";
+import type { GapCause } from "@/types/refusalCause";
 import { deriveFcf } from "@/pipeline/stageB/financialValues";
 import { RATE_REGULATED_UTILITY_SIC } from "@/edgar/sic";
 import { leaseDebtConflict, millions, operatingLeaseOutOfDebt, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
@@ -214,7 +215,9 @@ const gapEntry = (
   field: string,
   reason: string,
   severity: ManifestEntry["severity"],
-): ManifestEntry => ({ field, reason, severity });
+  /** P10, P11 (D-229): the typed cause beside the sentence, for the writers whose wording a reader tells apart. */
+  cause?: GapCause,
+): ManifestEntry => (cause === undefined ? { field, reason, severity } : { field, reason, severity, cause });
 
 /**
  * Audit 2026-10-22 A-2: the issuer's own sales-to-capital, the median of the
@@ -2368,10 +2371,11 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     bal && icDebt !== null && equity.value !== null && admittedLiquidity
       ? icDebt + equity.value + (temporary === null ? 0 : temporary.capitalTotal) - bal.cashAndShortTermInvestments!
       : null;
-  const mainCapitalGap = (lead: string): ManifestEntry => gapEntry(
+  const mainCapitalGap = (lead: string, cause?: GapCause): ManifestEntry => gapEntry(
     "valuation.dcf.salesToCapital",
     `${lead} - this sales-to-capital DCF is suppressed instead of inventing a capital-efficiency input. An explicit operating-cash-flow model requires separately supported reinvestment assumptions; negative book capital alone does not prohibit valuation`,
     "critical",
+    cause,
   );
   if (bal === null || ic === null) {
     const operand = (field: string) => `${field}${bal?.fieldConflicts?.[field]?.usable === false ? ` withheld (${bal.fieldConflicts[field]!.reason ?? "source conflict"})` : ""}`;
@@ -2380,7 +2384,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       ...(equity.value === null ? ["consolidated equity (totalEquity / totalStockholdersEquity)"] : []),
       ...(!admittedLiquidity ? [operand("cashAndShortTermInvestments"), ...(bal.fieldConflicts?.cashAndCashEquivalents?.usable === false ? [operand("cashAndCashEquivalents")] : [])] : []),
     ];
-    gaps.push(mainCapitalGap(`balance-sheet fields missing for invested capital: ${missing.join(", ")}${bal ? ` at ${bal.date}` : ""}`));
+    gaps.push(mainCapitalGap(`balance-sheet fields missing for invested capital: ${missing.join(", ")}${bal ? ` at ${bal.date}` : ""}`, "invested-capital-balance-fields-missing"));
     return { assumptions: null, notes, gaps };
   }
   // FIN-303 (pre-flight I6): invested capital that the lease subtraction itself emptied (positive lease-inclusive, not
@@ -2399,7 +2403,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
       // lease-inclusive capital, and a critical gap would block the report.
       gaps.push(gapEntry("valuation.dcf.salesToCapital",
         `${LEASE_EMPTIED_CAPITAL_LEAD}invested capital ${millions(ic)} is not positive once the operating lease ${millions(leaseOut.amount)} leaves debt (lease-excluded basis, D-25), and the issuer's own filed history does not establish a sales-to-capital ratio on that basis (${history.basis}) - ` +
-        `this sales-to-capital DCF is withheld instead of falling back to the lease-inclusive basis`, "warn"));
+        `this sales-to-capital DCF is withheld instead of falling back to the lease-inclusive basis`, "warn", "invested-capital-lease-emptied"));
       return { assumptions: null, notes, gaps };
     }
     emptiedHistory = history;
@@ -2414,7 +2418,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     if (leaseConflict !== null) gaps.push(gapEntry("valuation.dcf.leaseIntegrity", leaseConflict, "critical"));
     const scopeRefusal = leaseDebtScopeRefusal(bal, inputs.includeLeasesInEv === true);
     if (scopeRefusal) gaps.push(gapEntry("valuation.dcf.netDebt.leaseScope", scopeRefusal, "critical"));
-    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${TEMPORARY_EQUITY_REFUSAL_LEAD}${temporary.refusal} (balance ${bal.date.slice(0, 10)}) - invested capital for sales-to-capital cannot be established, so the DCF cannot be built without the claim's amount and is withheld instead of zero-filling it`, "warn"));
+    gaps.push(gapEntry("valuation.dcf.salesToCapital", `${TEMPORARY_EQUITY_REFUSAL_LEAD}${temporary.refusal} (balance ${bal.date.slice(0, 10)}) - invested capital for sales-to-capital cannot be established, so the DCF cannot be built without the claim's amount and is withheld instead of zero-filling it`, "warn", "invested-capital-temporary-equity-refused"));
     return { assumptions: null, notes, gaps };
   }
   // D-60: long-term investments (strategic and non-marketable stakes, long
@@ -6985,6 +6989,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
         "valuation.dcf",
         reason,
         "info",
+        "dcf-unprofitable-overlay",
       ),
     );
     return { kind: "dcf-suppressed", suppressionKind: "route-policy", route: route.base, multiples, suppressionReason: reason, notes, gaps };

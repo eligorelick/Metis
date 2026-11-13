@@ -1,6 +1,7 @@
 import { withValuationUseSafety } from "@/report/valuationUseSafety";
 import { RunNotices } from "./RunNotices";
 import { withoutCodeIdentity } from "@/report/codeIdentity";
+import { withoutGapCauses } from "@/pipeline/stageA/manifest";
 /**
  * ReportView — the centerpiece renderer for a persisted {@link Report}
  * (src/report/schema.ts). Renders the full report (report sections 1–14)
@@ -192,8 +193,10 @@ export function ReportView({
   // F-21: the claim chips below read each claim's verification status.
   indexVerificationMarks(report);
   const reportId = presentationReportId(report,{selectedReportId});
-  // D-227: the recorded build identity is stored data, not display identity.
-  const inspectionIdentity = layout === "dossier" ? evidenceIdentity("report", withoutCodeIdentity(report)) : "";
+  // D-227: the recorded build identity is stored data, not display identity; so are the
+  // missing-data entries' typed causes (D-229).
+  const inspectionIdentity = layout === "dossier"
+    ? ((report: typeof sourceReport) => evidenceIdentity("report", withoutCodeIdentity(report)))(withoutGapCauses(report)) : "";
   const completeness = deriveReportCompletenessPresentation(
     report.meta.dataCompleteness,
     report.appendix.missingData,

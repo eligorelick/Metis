@@ -25,6 +25,7 @@ import "server-only";
 import { getProviderCredential } from "@/ai/store";
 
 import type { FetchResult, ManifestEntry, Sourced } from "@/types/core";
+import type { GapCause } from "@/types/refusalCause";
 import { companyFactsSchema, latestEligibleFactEnd, type CompanyFacts } from "@/edgar/xbrl";
 import {
   HttpRequestAbortedError,
@@ -1330,8 +1331,9 @@ export class EdgarClient {
     return { ok: false, status: res.status };
   }
 
-  private gap(field: string, reason: string, urls: string[], severity: ManifestEntry["severity"] = "warn"): { ok: false; gap: ManifestEntry } {
-    return { ok: false, gap: { field, reason, severity, attemptedSources: urls } };
+  /** `cause` (P10, P11, D-229): the typed cause beside the sentence, for the statuses a reader tells apart by wording. */
+  private gap(field: string, reason: string, urls: string[], severity: ManifestEntry["severity"] = "warn", cause?: GapCause): { ok: false; gap: ManifestEntry } {
+    return { ok: false, gap: { field, reason, severity, attemptedSources: urls, ...(cause === undefined ? {} : { cause }) } };
   }
 
   private sourced<T>(data: T, endpoint: string, asOf: string, fetchedAt: string, stale: boolean): Sourced<T> {
@@ -1394,7 +1396,7 @@ export class EdgarClient {
       map.get(normalizedSymbol.replace(/\./g, "-")) ??
       map.get(normalizedSymbol.replace(/-/g, "."));
     if (found === undefined) {
-      return this.gap(`edgar.tickerToCik(${symbol})`, `ticker "${symbol}" not in SEC company_tickers.json`, [url]);
+      return this.gap(`edgar.tickerToCik(${symbol})`, `ticker "${symbol}" not in SEC company_tickers.json`, [url], "warn", "sec-ticker-not-listed");
     }
     return { ok: true, value: this.sourced(found, url, fetchedAt.slice(0, 10), fetchedAt, stale) };
   }

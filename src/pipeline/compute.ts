@@ -187,7 +187,7 @@ import {
 // WS6 (D-19): THESIS_EV_INCLUDE_LEASES.
 import { getConfig } from "@/config/env";
 import { periodDays, fiscalYearRule } from "@/pipeline/stageB/fiscalCalendar";
-import { mergeManifest } from "@/pipeline/stageA/manifest";
+import { mergeManifest, withoutGapCause } from "@/pipeline/stageA/manifest";
 import type {
   Scoring,
   Projections,
@@ -4962,8 +4962,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         notes: [...prior.notes.filter(n => !n.startsWith("fcfDcf suppressed by metric policy (unprofitable overlay)")), reason],
         // Keep the prior suppression's classification; no input check or gap
         // severity is changed. Replace its obsolete profitability explanation.
+        // D-229: the new sentence no longer states the unprofitable-overlay cause, so its code is not kept.
         gaps: prior.gaps.map(g => g.field === "valuation.dcf" && g.reason.startsWith("DCF suppressed for unprofitable overlay")
-          ? { ...g, reason } : g),
+          ? { ...withoutGapCause(g), reason } : g),
       };
     }
   }
