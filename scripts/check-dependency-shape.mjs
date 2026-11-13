@@ -10,9 +10,12 @@ export const APPROVED_VERSIONS = {
   postcss: ["8.5.26"],
   sharp: ["0.35.5"],
   "js-yaml": ["4.3.2"],
-  "brace-expansion": ["5.0.12"],
-  minimatch: ["11.0.1"],
-  "@metis/legacy-minimatch": ["1.0.0"],
+  // D-230: ESLint 9 and its plugins use upstream minimatch 3.1.5 (with
+  // brace-expansion 1.1.21); the TypeScript parser keeps 11.0.1 through the
+  // minimatch-modern override. Both sets are exact so a new release cannot
+  // drift in without review.
+  "brace-expansion": ["1.1.21", "5.0.12"],
+  minimatch: ["11.0.1", "3.1.5"],
 };
 
 const TARGET_NAMES = Object.keys(APPROVED_VERSIONS);
@@ -52,8 +55,8 @@ export function collectLockVersions(lock) {
   for (const [packagePath, rawEntry] of Object.entries(packages)) {
     let entry = objectRecord(rawEntry, `lock entry ${packagePath}`);
     if (entry.link === true) {
-      // Local compatibility packages retain their own identity. Audit their
-      // target and real upstream dependencies, never call the link "minimatch".
+      // A linked local package keeps its own identity: audit its target entry,
+      // never the name it is installed under.
       entry = objectRecord(packages[entry.resolved], `lock link ${packagePath}`);
     }
     const name = TARGET_NAMES.includes(entry.name) ? entry.name : TARGET_NAMES.find(

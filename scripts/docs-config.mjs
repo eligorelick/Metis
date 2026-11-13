@@ -55,7 +55,6 @@ export const COMMAND_DESCRIPTIONS = {
   "costs:reconcile": "Lower presumed spend rows against the Usage and Cost API. Needs ANTHROPIC_ADMIN_KEY.",
   "docs:pricing": "Print registry-derived pricing; add -- --write to update README.",
   "docs:config": "Print config/commands tables; add -- --write to update README.",
-  "audit:deltas": "Print fixture comparison's intended deltas; add -- --write to update the intended-delta list.",
   "audit:security": "Audit production and dev dependencies; fail on low or higher severity.",
   "check:dependencies": "Assert the dependency tree's shape.",
   "export:corrected": "Write corrected HTML/JSON from a stored run; requires new output filenames.",

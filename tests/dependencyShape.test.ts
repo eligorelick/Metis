@@ -18,9 +18,8 @@ const EXPECTED = {
   postcss: ["8.5.26"],
   sharp: ["0.35.5"],
   "js-yaml": ["4.3.2"],
-  "brace-expansion": ["5.0.12"],
-  minimatch: ["11.0.1"],
-  "@metis/legacy-minimatch": ["1.0.0"],
+  "brace-expansion": ["1.1.21", "5.0.12"],
+  minimatch: ["11.0.1", "3.1.5"],
 } as const;
 
 interface DependencyShapeModule {
@@ -72,7 +71,10 @@ function syntheticInstalledTree(): unknown {
           "brace-expansion": { version: "5.0.12" },
         },
       },
-      minimatch: { name: "@metis/legacy-minimatch", version: "1.0.0" },
+      minimatch: {
+        version: "3.1.5",
+        dependencies: { "brace-expansion": { version: "1.1.21" } },
+      },
       "minimatch-modern": { name: "minimatch", version: "11.0.1" },
     },
   };
