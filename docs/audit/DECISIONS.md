@@ -100,10 +100,10 @@ P8), which already runs in the report's calculation view
    equity-method amount, the admission records that filed line on the row as
    `pretaxIncomeBeforeEquityMethod`, a value with its filing. It is kept out of
    the row's field provenance, so no other rule reads it as period or source
-   evidence. The row's `incomeBeforeTax` is not changed. The row's pair must already be the
-   same observation as the filed family under the existing P8 allowance
-   (`vendorAgreesWithFiled`); no tolerance, band, cap, floor or status word is
-   added or changed. Without that family nothing is recorded.
+   evidence. The row's `incomeBeforeTax` is not changed. The row's pair must
+   already be the same observation as the filed family under the existing P8
+   allowance (`vendorAgreesWithFiled`); no tolerance, band, cap, floor or
+   status word is added or changed. Without that family nothing is recorded.
 2. One function, `effectiveTaxPretaxIncome`, returns the recorded line, else
    the row's pre-tax income, and nothing when the row's pre-tax income is
    withheld. Every effective tax rate reads it: the trailing pair
