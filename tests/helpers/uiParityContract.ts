@@ -69,6 +69,96 @@ export function readableHtml(html: string): { text: string; ids: Set<string> } {
 }
 
 function normalize(value: string): string { return value.replace(/\s+/g, " ").trim(); }
+
+/**
+ * Classic text that states a fact the dossier also shows, in the dossier's own
+ * words (D-241); each entry names what the dossier shows instead. Changing the
+ * wording is the owner's call, not this test's. Each pattern matches one whole
+ * classic text segment.
+ * Anything else classic renders must appear in the dossier's readable text.
+ */
+export const CLASSIC_ONLY_WORDING: readonly { pattern: RegExp; dossier: string }[] = [
+  { pattern: /^Equity research report$/, dossier: "brand line beside the classic logo; the dossier header reads Equity Research Report" },
+  { pattern: /^sections$/, dossier: "classic section index caption; the dossier contents menu links the same sections" },
+  { pattern: /^composite scorecard$/, dossier: "heading: Deterministic scorecard" },
+  { pattern: /^House scoring bands$/, dossier: "Band policy: <version> under Score methodology & recorded inputs" },
+  { pattern: /^No completed multi-pass analysis\. /, dossier: "Data-only · analysis unavailable, with the recorded reason and the same data issue counts (dataStateText)" },
+  { pattern: /^DCF · intrinsic value \/ share$/, dossier: "the dossier's headline label (valuationHeadlineView, per surface)" },
+  { pattern: /^DCF provenance$/, dossier: "Model value provenance" },
+  { pattern: /^reverse DCF — market is pricing$/, dossier: "Reverse valuation — market-implied assumptions" },
+  { pattern: /^(DCF|Valuation) assumptions$/, dossier: "Recorded valuation assumptions" },
+  { pattern: /^sensitivity · per share( \(rows = WACC, cols = terminal g\) — green high → red low)?$/, dossier: "Recorded sensitivity cases" },
+  { pattern: /^no sensitivity grid$/, dossier: "No WACC × terminal growth grid was recorded for this valuation method." },
+];
+
+/**
+ * A whole-number cell and a cell at more decimals that can both be roundings of
+ * one stored value: "$161" and "$161.37", "$112" and "$112.50" (stored 112.4999).
+ */
+function roundsTo(classicCell: string, dossierCell: string): boolean {
+  if (classicCell === dossierCell) return true;
+  const shape = /^(-?[^\d\s-]*)([\d,]+)(\.\d+)?$/;
+  const whole = shape.exec(classicCell);
+  const precise = shape.exec(dossierCell);
+  if (!whole || !precise || whole[3] !== undefined || precise[3] === undefined || whole[1] !== precise[1]) return false;
+  const decimals = precise[3].length - 1;
+  const gap = Math.abs(Number(whole[2]!.replaceAll(",", "")) - Number(`${precise[2]!.replaceAll(",", "")}${precise[3]}`));
+  return gap <= 0.5 + 0.5 * 10 ** -decimals + 1e-9;
+}
+
+function readableDocument(html: string): Window {
+  const window = new Window();
+  window.document.body.innerHTML = html;
+  window.document.querySelectorAll("script,style,[hidden],[aria-hidden=true],.sr-only").forEach((element) => element.remove());
+  return window;
+}
+
+type ReadableElement = ReturnType<Window["document"]["querySelectorAll"]>[number];
+const rowCells = (row: ReadableElement) => Array.from(row.querySelectorAll("th,td")).map((cell) => normalize(cell.textContent ?? ""));
+
+/**
+ * Every fact the classic layout renders, as readable text (native details
+ * count as shown; hidden and screen-reader-only duplicates do not), that the
+ * dossier layout does not render anywhere. Text is compared without
+ * whitespace, so the same words in different markup match, and a table row,
+ * list item or term pair must appear whole. Two allowances, both stated: the
+ * classic wording in {@link CLASSIC_ONLY_WORDING}, and a classic table row of
+ * whole numbers that a dossier row shows cell for cell at more decimals (the
+ * sensitivity grid). Returns the missing classic segments; empty means the
+ * dossier shows everything classic shows.
+ */
+export function classicFactsMissingFromDossier(classicHtml: string, dossierHtml: string): string[] {
+  const squash = (value: string) => value.replace(/\s+/g, "");
+  const dossierWindow = readableDocument(dossierHtml);
+  const dossier = squash(dossierWindow.document.body.textContent ?? "");
+  const dossierRows = Array.from(dossierWindow.document.querySelectorAll("tr")).map(rowCells);
+  const classicWindow = readableDocument(classicHtml);
+  const absent = (text: string) => text.length >= 2 && !dossier.includes(squash(text));
+  const worded = (text: string) => CLASSIC_ONLY_WORDING.some(({ pattern }) => pattern.test(text));
+  const roundedRow = (row: ReadableElement | null | undefined) => {
+    if (!row) return false;
+    const cells = rowCells(row);
+    return dossierRows.some((other) => other.length === cells.length && cells.every((cell, index) => roundsTo(cell, other[index]!)));
+  };
+  const missing: string[] = [];
+  const nodesMissingOrExplained: string[] = [];
+  const walker = classicWindow.document.createTreeWalker(classicWindow.document.body, 4);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const text = normalize(node.textContent ?? "");
+    if (!absent(text)) continue;
+    nodesMissingOrExplained.push(text);
+    if (!worded(text) && !roundedRow(node.parentElement?.closest("tr"))) missing.push(text);
+  }
+  for (const element of Array.from(classicWindow.document.querySelectorAll("tr,li,dt,dd,dl > div,td,th,p,summary,caption,h1,h2,h3,h4"))) {
+    const text = normalize(element.textContent ?? "");
+    if (!absent(text) || worded(text) || nodesMissingOrExplained.some((part) => text.includes(part))) continue;
+    if (roundedRow(element.tagName === "TR" ? element : element.closest("tr"))) continue;
+    missing.push(text);
+  }
+  void dossierWindow.happyDOM.close();
+  void classicWindow.happyDOM.close();
+  return [...new Set(missing)];
+}
 function plainMarkdown(value: string): string {
   return normalize(value.replace(/\\([\\`*_{}[\]()#+\-.!|>])/g, "$1").replace(/[`*]/g, ""));
 }
