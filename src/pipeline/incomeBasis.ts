@@ -150,10 +150,10 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       input = admission.income;
       // D-257 (P11): a refusal the admission cleared no longer stands, so the stored
       // entry that disclosed it (same field, the refusal's own sentence) is retired
-      // rather than left to outrank the entry that replaces it.
-      for (const done of admission.cleared ?? []) {
-        for (let i = gaps.length - 1; i >= 0; i--) if (gaps[i]!.field === done.field && gaps[i]!.reason === done.reason) gaps.splice(i, 1);
-      }
+      // rather than left to outrank the entry that replaces it. The decision to
+      // clear is made on the refusal's evidence; only the entry is found by its sentence.
+      const superseded = new Map((admission.cleared ?? []).map(done => [done.field, done.reason]));
+      if (superseded.size > 0) gaps.splice(0, gaps.length, ...gaps.filter(gap => superseded.get(gap.field) !== gap.reason));
       gaps.push(...admission.gaps);
     }
     if (!input.ok) return input;
