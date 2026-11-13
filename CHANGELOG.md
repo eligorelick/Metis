@@ -43,6 +43,23 @@ original versions and bytes; source merge does not deploy or publish a release.
   that classic shows and the dossier does not; a new parity test keeps it so.
   The default layout is unchanged.
 
+## Unreleased - A filing SEC's data feed lists but does not carry is read from its own XBRL data (2026-11-12)
+
+- SEC's bulk data feed can list a periodic filing by its cover page without
+  publishing its financial statements: on 2026-11-12 it held two facts of
+  TSMC's fiscal 2025 Form 20-F and none of its statements. Metis reads a
+  filing's own XBRL data when the feed lags, but did so only for Forms 10-K
+  and 10-Q and took any filing the feed mentions as carried. The rule now
+  covers every core periodic form (20-F, 40-F and amendments too) and counts a
+  filing as carried only when the feed holds a statement fact of it (P2, P9,
+  P10, P20, [D-236](docs/audit/DECISIONS.md)). New reports of such filers reach
+  the newest fiscal year's filed facts: for TSMC, diluted EPS of fiscal 2025
+  (65.47 TWD per ordinary share, 327.35 per ADS) instead of ending at fiscal
+  2024. A filer whose feed is complete makes no new SEC request; a 20-F filer
+  whose feed lags makes two. The same-report check is unchanged (it does not
+  replay collection), saved reports keep their bytes, and version stamps are
+  left for integration.
+
 ## Unreleased - Effective tax rates divide by the pre-tax income the provision relates to (2026-11-12)
 
 - A filer whose pre-tax line excludes equity-method results presents those
