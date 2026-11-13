@@ -47,7 +47,7 @@ export const COMMAND_DESCRIPTIONS = {
   test: "The product test suite. Fully offline whatever .env holds.",
   "test:changed": "Only the tests related to files changed against `origin/main`.",
   "test:integration": "The database CLI suite, which runs in its own process.",
-  "test:coverage": "Both coverage contracts, core and risk.",
+  "test:coverage": "One product-suite run enforcing both core and risk coverage contracts.",
   "test:watch": "The product suite in watch mode.",
   verify: "Everything the release gate runs, in order.",
   "db:push": "Apply the Drizzle schema to the configured database.",
