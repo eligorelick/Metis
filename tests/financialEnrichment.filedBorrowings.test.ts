@@ -99,7 +99,7 @@ describe("D-234: the filing's own debt replaces a vendor total that adds payable
     ["the vendor total is not the filed debt plus that payable", { row: { totalDebt: 1_500_000_000, shortTermDebt: 1_179_374_000 } }],
     ["the vendor long-term debt is not the filed non-current debt", { row: { longTermDebt: 300_000_000, shortTermDebt: 1_169_681_000 } }],
     ["the vendor lease line is not the filed operating lease liability", { row: { capitalLeaseObligations: 3_604_000, totalDebt: 1_473_285_000 } }],
-    ["the vendor total was already refused", { row: { totalDebt: null, fieldConflicts: { totalDebt: { usable: false, vendorValue: 1_474_457_000, secValue: null, reason: "refused earlier" } } } }],
+    ["the vendor total was already refused", { row: { totalDebt: null as unknown as number, fieldConflicts: { totalDebt: { usable: false, vendorValue: 1_474_457_000, secValue: null, reason: "refused earlier" } } } }],
     ["the row belongs to another issuer", { row: { cik: "0000000042" } }],
   ];
   it.each(controls)("compatible control: not admitted when %s", (_name, change) => {
