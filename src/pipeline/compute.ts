@@ -40,6 +40,7 @@ import type {
   FmpMarketRiskPremiumRow,
   FmpRawRow,
   FmpStatementRow,
+  StatementFieldProvenance,
 } from "@/providers/fmp";
 import { parseSicCode } from "@/edgar/sic";
 import { successorContinuity } from "@/edgar/successor";
@@ -166,6 +167,7 @@ import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } fro
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { filedCfoTtm, filedCashFlowTtm, filedCapexTtm } from "@/edgar/financialEnrichment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import { effectiveTaxPretaxIncome } from "@/edgar/incomeClassification";
 import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
 import { withComputationContext } from "@/edgar/computationContext";
 import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
@@ -550,7 +552,9 @@ function toReturnsIncome(
     operatingIncome: operatingIncomeForNonMargins(r),
     // ROIC's EBIT is operating income; raw vendor EBIT may include other income.
     ebit: operatingIncomeForNonMargins(r),
-    incomeBeforeTax: num(r.incomeBeforeTax),
+    // D-237 (P13): ROIC reads this field only for the year's effective tax rate
+    // and its sign, so it carries the provision's own base.
+    incomeBeforeTax: effectiveTaxPretaxIncome(r),
     incomeTaxExpense: num(r.incomeTaxExpense),
     netIncome: num(r.netIncome),
   };
@@ -868,6 +872,15 @@ export interface TtmIncome {
   interestExpense: number | null;
   incomeBeforeTax: number | null;
   incomeTaxExpense: number | null;
+  /**
+   * D-237 (P13): pre-tax income on the provision's own basis, the denominator of
+   * the TTM effective tax rate: each quarter's filed pre-tax line before
+   * equity-method results where the earnings admission recorded one
+   * (`effectiveTaxPretaxIncome`), else its `incomeBeforeTax`. Gated with the pair.
+   */
+  taxRatePretaxIncome: number | null;
+  /** D-237 (P20): set when a quarter's base differs from its `incomeBeforeTax`; the disclosure, with each filed operand. */
+  taxRatePretaxBasis: string | null;
   /** D-60: four-quarter gross profit, or null unless all four quarters report it. */
   grossProfit?: number | null;
 }
@@ -1334,6 +1347,8 @@ function ttmIncomeFromNormalized(
     incomeBeforeTax = null;
     incomeTaxExpense = null;
   }
+  const taxBase = incomeBeforeTax === null ? null : ttmTaxRatePretax(q, incomeBeforeTax, incomeTaxExpense);
+  if (taxBase?.basis) gaps?.push({ field: "compute.ttmIncome.taxRatePretaxIncome", reason: taxBase.basis, severity: "info", expected: true, attemptedSources: ["edgar:companyfacts"] });
 
   // Bottom-line fields feed routing (unprofitable overlay) and multiples
   // (P/E, EPS): a 3-of-4-quarter partial sum silently understates them —
@@ -1423,10 +1438,47 @@ function ttmIncomeFromNormalized(
     interestExpense: gateComplete("interestExpense"),
     incomeBeforeTax,
     incomeTaxExpense,
+    taxRatePretaxIncome: taxBase?.value ?? null,
+    taxRatePretaxBasis: taxBase?.basis ?? null,
     // D-60: only the scenario margin ceiling reads it, and it falls back to the
     // latest fiscal year, so a partial window is simply not a TTM figure.
     grossProfit: countField(q, "grossProfit") === 4 ? sumField(q, "grossProfit") : null,
   };
+}
+
+/** Filing references of a recorded field, for a disclosure. */
+function filingsText(proof: StatementFieldProvenance | undefined): string {
+  return proof === undefined ? "filing not recorded" : proof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ") +
+    (proof.derivation === undefined ? "" : `; ${proof.derivation}`);
+}
+
+/**
+ * D-237 (P13, P20): the clause that names a re-based effective-tax denominator,
+ * with the filed line, its filing and the row's own pre-tax figure. Null when
+ * the row's own pre-tax income is the base.
+ */
+export function taxRatePretaxOperand(row: FmpIncomeStatementRow): string | null {
+  const base = effectiveTaxPretaxIncome(row), own = num(row.incomeBeforeTax);
+  if (base === null || own === null || base === own) return null;
+  const proof = row.pretaxIncomeBeforeEquityMethod?.proof;
+  return `${proof?.periodStart ?? "period start not recorded"} through ${String(row.date ?? "")}: ${base}${proof ? ` ${proof.unit}` : ""} (${filingsText(proof)}) against ${own} including the equity-method result`;
+}
+
+/**
+ * D-237 (P13): the TTM effective tax rate's denominator, summed over the four
+ * quarters of a complete tax pair from each quarter's own base, with the
+ * disclosure when any quarter's base is the filed line rather than the row's
+ * pre-tax income. The sum is the pair's own when no quarter is re-based, so a
+ * window the filings leave alone keeps its figure to the last digit.
+ */
+function ttmTaxRatePretax(q: FmpIncomeStatementRow[], pretax: number, tax: number | null): { value: number; basis: string | null } {
+  const operands = q.flatMap(row => { const text = taxRatePretaxOperand(row); return text === null ? [] : [text]; });
+  if (operands.length === 0) return { value: pretax, basis: null };
+  const value = q.reduce((sum, row) => sum + (effectiveTaxPretaxIncome(row) ?? 0), 0);
+  const tag = q.map(row => row.pretaxIncomeBeforeEquityMethod?.proof.tags[0]).find(Boolean) ?? "the filed pre-tax line";
+  return { value, basis: `TTM effective tax rate: the provision${tax === null ? "" : ` ${tax}`} is divided by ${value}, the four quarters' filed pre-tax income before ` +
+    `equity-method results (${tag}), not by the ${pretax} that includes the after-tax equity-method results, because the filer presents those results after its ` +
+    `provision. Filed operands: ${operands.join("; ")}. Pre-tax income elsewhere keeps the figure that reconciles to net income (P13, D-237).` };
 }
 
 /**
@@ -1436,11 +1488,12 @@ function ttmIncomeFromNormalized(
  * are gated as a complete pair in ttmIncome, so the ratio never mixes quarter
  * subsets. Pre-tax losses return null — a negative-base "rate" is meaningless
  * for WACC (computeWacc suppresses a levered WACC when no observed rate exists).
+ * D-237: the denominator is the pair's `taxRatePretaxIncome`.
  */
 export function effectiveTaxRateFromTtm(ttm: TtmIncome | null): number | null {
-  if (ttm === null || ttm.incomeTaxExpense === null || ttm.incomeBeforeTax === null) return null;
-  if (!(ttm.incomeBeforeTax > 0)) return null;
-  return ttm.incomeTaxExpense / ttm.incomeBeforeTax;
+  if (ttm === null || ttm.incomeTaxExpense === null || ttm.taxRatePretaxIncome === null) return null;
+  if (!(ttm.taxRatePretaxIncome > 0)) return null;
+  return ttm.incomeTaxExpense / ttm.taxRatePretaxIncome;
 }
 
 export interface WaccStatementTaxRate {
@@ -1462,17 +1515,19 @@ export interface WaccStatementTaxRate {
 export function waccTaxRateFromStatements(ttm: TtmIncome | null, latestAnnual: FmpIncomeStatementRow | undefined): WaccStatementTaxRate {
   const ttmRate = effectiveTaxRateFromTtm(ttm);
   if (ttmRate !== null) {
-    return { rate: ttmRate, basis: "TTM incomeTaxExpense / incomeBeforeTax from the statements (observed effective rate)", fallback: null };
+    return { rate: ttmRate, basis: ttm?.taxRatePretaxBasis
+      ? "TTM incomeTaxExpense / filed pre-tax income before equity-method results, from the statements (observed effective rate; the provider's ratio divides by pre-tax income after those results, D-237)"
+      : "TTM incomeTaxExpense / incomeBeforeTax from the statements (observed effective rate)", fallback: null };
   }
   const zeroShield = (why: string) => {
     const basis = `0% tax shield: ${why}, so no effective rate exists and the debt is given no tax shield (house rule, audit 2026-10-22 B-32)`;
     return { rate: 0, basis, fallback: basis };
   };
-  if (ttm !== null && ttm.incomeBeforeTax !== null && ttm.incomeBeforeTax <= 0) {
-    return zeroShield(`TTM pre-tax income is not positive (${ttm.incomeBeforeTax} through ${ttm.date})`);
+  if (ttm !== null && ttm.taxRatePretaxIncome !== null && ttm.taxRatePretaxIncome <= 0) {
+    return zeroShield(`TTM pre-tax income is not positive (${ttm.taxRatePretaxIncome} through ${ttm.date})`);
   }
   const date = isoDay(latestAnnual?.date);
-  const pretax = num(latestAnnual?.incomeBeforeTax);
+  const pretax = effectiveTaxPretaxIncome(latestAnnual);
   const tax = num(latestAnnual?.incomeTaxExpense);
   if (date === null || pretax === null || tax === null) return { rate: null, basis: null, fallback: null };
   if (!(pretax > 0)) return zeroShield(`no complete TTM tax pair, and the latest annual pre-tax income is not positive (${pretax}, FY ending ${date})`);
@@ -2410,6 +2465,15 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   let balanceQuarterly = compatible.balanceQuarterly.rows.map(admitBalance(vendorFamily(bundle.statements.balanceQuarterly)));
   ttmGaps.push(...balanceAdmissionEntries(balanceAdmissions));
   for (const family of Object.values(compatible)) if (family.gap !== null) ttmGaps.push(family.gap);
+  // D-237 (P20): the annual effective tax rates read each year's own base; name
+  // every year whose base is the filed line, with its filing.
+  const annualTaxBases = incomeAnnual.flatMap(row => { const text = taxRatePretaxOperand(row); return text === null ? [] : [text]; });
+  if (annualTaxBases.length > 0) {
+    ttmGaps.push({ field: "statements.income.annual.taxRatePretaxIncome", severity: "info", expected: true, attemptedSources: ["edgar:companyfacts"],
+      reason: "Annual effective tax rates (the ROIC series' tax rate and the DCF's historical tax rates) divide each year's provision by the filed pre-tax income before " +
+        "equity-method results, not by the pre-tax figure that includes the after-tax equity-method result, because the filer presents that result after its provision. " +
+        `Filed operands: ${annualTaxBases.join("; ")}. Pre-tax income elsewhere keeps the figure that reconciles to net income (P13, D-237).` });
+  }
 
   const routingCashflowTtm: RoutingCashflowRow | null = ttmCf
     ? { date: ttmCf.date, operatingCashFlow: ttmCf.operatingCashFlow }
@@ -3554,8 +3618,12 @@ function computeReturns(
   };
   const equityScope = resolveEconomicEquityScope(equityQuote, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
 
-  const taxWindowPretax = ttmInc === null ? num(incomeAnnual[0]?.incomeBeforeTax) : ttmInc.incomeBeforeTax;
-  const vendorTaxRate = taxWindowPretax !== null && taxWindowPretax <= 0 ? null : num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate);
+  const taxWindowPretax = ttmInc === null ? effectiveTaxPretaxIncome(incomeAnnual[0]) : ttmInc.taxRatePretaxIncome;
+  // D-237 (P8): the provider's ratio divides by its own pre-tax income. Where the
+  // filings re-based the TTM pair's denominator, that ratio rests on another
+  // basis than the provision and the filed pair replaces it.
+  const filedTaxPair = ttmInc !== null && ttmInc.taxRatePretaxBasis !== null;
+  const vendorTaxRate = filedTaxPair || (taxWindowPretax !== null && taxWindowPretax <= 0) ? null : num(ratiosTtm?.effectiveTaxRateTTM ?? ratiosTtm?.effectiveTaxRate);
   const statementTax = waccTaxRateFromStatements(ttmInc, incomeAnnual[0]);
   if (vendorTaxRate === null && statementTax.fallback !== null) {
     gaps.push({ field: "returns.wacc.effectiveTaxRate.basis", reason: `WACC tax rate: ${statementTax.fallback}`, severity: "info" });
@@ -4143,7 +4211,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         grossProfitBasis: [...new Set(equityWindowRows.map(r=>r.fieldConflicts?.grossProfit?.usable===false ? r.fieldConflicts.grossProfit.reason : null).filter(Boolean))].join(" ") || undefined,
         operatingPerimeterRefusal: equityWindowRows.find(r=>r.operatingPerimeterRefusal)?.operatingPerimeterRefusal,
         grossProfit: ttmInc.grossProfit ?? null,
-        incomeBeforeTax: ttmInc.incomeBeforeTax,
+        // D-237 (P13): the DCF reads this field only as the tax rate's denominator.
+        incomeBeforeTax: ttmInc.taxRatePretaxIncome,
         incomeTaxExpense: ttmInc.incomeTaxExpense,
       }
     : inc0
@@ -4157,7 +4226,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
           grossProfitBasis: inc0.fieldConflicts?.grossProfit?.usable===false ? inc0.fieldConflicts.grossProfit.reason : undefined,
           operatingPerimeterRefusal: inc0.operatingPerimeterRefusal,
           grossProfit: num(inc0.grossProfit),
-          incomeBeforeTax: num(inc0.incomeBeforeTax),
+          incomeBeforeTax: effectiveTaxPretaxIncome(inc0),
           incomeTaxExpense: num(inc0.incomeTaxExpense),
         }
       : null;
@@ -4181,7 +4250,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     grossProfitBasis: r.fieldConflicts?.grossProfit?.usable===false ? r.fieldConflicts.grossProfit.reason : undefined,
     unusualOperatingItems: guardedAnnualUnusual.byYear.get(rowDate(r))?.value ?? null,
     grossProfit: num(r.grossProfit),
-    incomeBeforeTax: num(r.incomeBeforeTax),
+    incomeBeforeTax: effectiveTaxPretaxIncome(r),
     incomeTaxExpense: num(r.incomeTaxExpense),
   }));
 
