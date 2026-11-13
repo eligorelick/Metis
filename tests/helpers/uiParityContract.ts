@@ -210,6 +210,81 @@ export function classicFactsMissingFromDossier(classicHtml: string, dossierHtml:
   void classicWindow.happyDOM.close();
   return [...new Set(missing)];
 }
+/**
+ * D-246: what the D-241 comparison proves, kept without the classic layout.
+ * For one report, the facts are every readable classic segment (text node, or
+ * whole table row, list item, term pair, paragraph, heading, caption or
+ * summary; native details count, hidden and screen-reader-only text does not)
+ * that the dossier also renders (whitespace ignored, numbers whole, as in
+ * {@link classicFactsMissingFromDossier}), reduced to the longest ones (a
+ * shorter segment inside a kept one is dropped only when it neither starts
+ * nor ends with a digit, so its presence follows from the longer one's),
+ * plus each whole-number classic grid row that the dossier shows
+ * cell for cell at more decimals (the D-241 rounding allowance). Classic's own
+ * wording ({@link CLASSIC_ONLY_WORDING}) is not a fact the dossier must repeat.
+ */
+export interface FrozenLayoutFacts {
+  segments: string[];
+  roundedRows: string[][];
+}
+
+const squashText = (value: string) => value.replace(/\s+/g, "");
+const FACT_ELEMENTS = "tr,li,dt,dd,dl > div,td,th,p,summary,caption,h1,h2,h3,h4";
+
+/**
+ * Freeze the facts of one report from both layouts. Refuses unless the
+ * dossier shows everything classic shows ({@link classicFactsMissingFromDossier}
+ * is empty), so the frozen list is exactly what D-241 proved.
+ */
+export function freezeClassicFacts(classicHtml: string, dossierHtml: string): FrozenLayoutFacts {
+  const missing = classicFactsMissingFromDossier(classicHtml, dossierHtml);
+  if (missing.length > 0) throw new Error(`the dossier does not show every classic fact: ${missing.slice(0, 3).join(" | ")}`);
+  const dossierWindow = readableDocument(dossierHtml);
+  const dossier = readableText(dossierWindow);
+  const dossierRows = Array.from(dossierWindow.document.querySelectorAll("tr")).map(rowCells);
+  const classicWindow = readableDocument(classicHtml);
+  const shown = new Set<string>();
+  const add = (text: string) => { if (text.length >= 2 && shownWhole(squashText(text), dossier)) shown.add(text); };
+  const walker = classicWindow.document.createTreeWalker(classicWindow.document.body, 4);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) add(normalize(node.textContent ?? ""));
+  const roundedRows: string[][] = [];
+  for (const element of Array.from(classicWindow.document.querySelectorAll(FACT_ELEMENTS))) {
+    const text = normalize(element.textContent ?? "");
+    add(text);
+    if (element.tagName !== "TR" || text.length < 2 || shownWhole(squashText(text), dossier)) continue;
+    const cells = rowCells(element);
+    if (dossierRows.some((other) => other.length === cells.length && cells.every((cell, index) => roundsTo(cell, other[index]!)))) roundedRows.push(cells);
+  }
+  void dossierWindow.happyDOM.close();
+  void classicWindow.happyDOM.close();
+  const segments: string[] = [];
+  const kept: string[] = [];
+  for (const text of [...shown].sort((a, b) => squashText(b).length - squashText(a).length || (a < b ? -1 : a > b ? 1 : 0))) {
+    const squashed = squashText(text);
+    if (!isDigit(squashed[0]) && !isDigit(squashed.at(-1)) && kept.some((longer) => longer.includes(squashed))) continue;
+    kept.push(squashed);
+    segments.push(text);
+  }
+  const rowKeys = new Set<string>();
+  return {
+    segments: segments.sort(),
+    roundedRows: roundedRows.filter((row) => { const key = JSON.stringify(row); if (rowKeys.has(key)) return false; rowKeys.add(key); return true; }),
+  };
+}
+
+/** The frozen facts the dossier no longer renders; empty means it still shows every one. */
+export function frozenFactsMissingFromDossier(facts: FrozenLayoutFacts, dossierHtml: string): string[] {
+  const dossierWindow = readableDocument(dossierHtml);
+  const dossier = readableText(dossierWindow);
+  const dossierRows = Array.from(dossierWindow.document.querySelectorAll("tr")).map(rowCells);
+  void dossierWindow.happyDOM.close();
+  const missing = facts.segments.filter((text) => !shownWhole(squashText(text), dossier));
+  for (const cells of facts.roundedRows) {
+    if (!dossierRows.some((other) => other.length === cells.length && cells.every((cell, index) => roundsTo(cell, other[index]!)))) missing.push(cells.join(" | "));
+  }
+  return missing;
+}
+
 function plainMarkdown(value: string): string {
   return normalize(value.replace(/\\([\\`*_{}[\]()#+\-.!|>])/g, "$1").replace(/[`*]/g, ""));
 }

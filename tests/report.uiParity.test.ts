@@ -7,10 +7,11 @@ import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
 import { esc, reportToPrintBody } from "@/report/export/printHtml";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
-import { applyReportAssessmentStatus } from "@/report/assessment";
 import type { Report } from "@/report/schema";
 import { loadTask28Fixture, task28SentinelReport, task28LegacyMissingBlocksReport, task28LegacyOptionalReport } from "./helpers/task28Report";
-import { assertUiParityContract, assertValuationParity, captureUiParityContract, captureValuationParity, classicFactsMissingFromDossier, freezeReport, readableHtml, reportDigest } from "./helpers/uiParityContract";
+import { dataOnlyReport, LAYOUT_FIXTURES, longEvidenceReport, missingCurrencyReport } from "./helpers/uiParityFixtures";
+import { assertUiParityContract, assertValuationParity, captureUiParityContract, captureValuationParity, classicFactsMissingFromDossier, freezeClassicFacts, freezeReport, frozenFactsMissingFromDossier, readableHtml, reportDigest, type FrozenLayoutFacts } from "./helpers/uiParityContract";
+import frozenFacts from "./fixtures/dossier-facts-d246.json";
 import { summarizeSensitivity } from "@/report/scenarioPresentation";
 
 function surfaces(report: Report, layout: "classic" | "dossier" = "classic") {
@@ -18,33 +19,6 @@ function surfaces(report: Report, layout: "classic" | "dossier" = "classic") {
     live: renderToStaticMarkup(createElement(ReportView, { report, layout })),
     markdown: reportToMarkdown(report), print: reportToPrintBody(report), audit: reportToAuditMarkdown(report),
   };
-}
-
-function dataOnlyReport(): Report {
-  const report = loadTask28Fixture();
-  report.appendix.missingData.push({ field: "analysis.llm", severity: "critical", reason: "Analysis attempted and failed; retained deterministic snapshot." });
-  report.scores!.aspects.quality.dataCompleteness = 0.1;
-  report.scores!.aspects.balanceSheet.score = null;
-  report.scores!.aspects.balanceSheet.band = null;
-  return applyReportAssessmentStatus(report);
-}
-
-function missingCurrencyReport(): Report {
-  const report = loadTask28Fixture();
-  report.fundamentals.graded.keyNumbers[0] = { ...report.fundamentals.graded.keyNumbers[0]!,
-    value: -25.625, unit: "currency", currency: null, asOf: null, period: "FY2019", verified: false,
-    sourceId: "PARITY:unknown-currency:negative", source: "PARITY:observed-negative-input" };
-  report.meta.asOfMap["old.statement"] = "2019-12-31";
-  return report;
-}
-
-function longEvidenceReport(): Report {
-  const report = loadTask28Fixture();
-  report.verdict.executiveSummary = Array.from({ length: 105 }, (_, index) => ({
-    label: "FACT", text: `PARITY claim ${index}: ${"An observed fixture condition remains explicit. ".repeat(8)}`,
-    source: `PARITY:source:${index}`, sourceId: `PARITY:registry:${index}`, asOf: "2025-12-31",
-  }));
-  return report;
 }
 
 describe("production UI semantic preservation baseline", () => {
@@ -83,12 +57,6 @@ describe("production UI semantic preservation baseline", () => {
   });
 });
 
-const LAYOUT_FIXTURES: ReadonlyArray<readonly [string, () => Report]> = [
-  ["canonical", loadTask28Fixture], ["sentinel context", task28SentinelReport],
-  ["legacy missing blocks", task28LegacyMissingBlocksReport], ["legacy optional", task28LegacyOptionalReport],
-  ["data-only and limited evidence", dataOnlyReport], ["unknown currency, negative and stale input", missingCurrencyReport],
-  ["more than one hundred long claims", longEvidenceReport],
-];
 
 function layouts(report: Report) {
   return {
@@ -138,6 +106,49 @@ describe("the dossier shows every fact the classic layout shows (D-241, P22)", (
       .concat(Array.from(html.matchAll(/style="[^"]*outline:1px solid var\(--accent\)[^"]*"[^>]*aria-label="WACC ([\d.]+)% growth ([\d.]+)%/g), m => `${m[1]}/${m[2]}`));
     expect(outlined(classic)).toEqual(["8/3"]);
     expect(outlined(dossier)).toEqual(["8/3"]);
+  });
+});
+
+/**
+ * D-246: the frozen form of the D-241 guarantee. The classic layout is
+ * removed, so the facts it showed for each parity fixture were frozen from
+ * both layouts (tests/fixtures/dossier-facts-d246.json, freezeClassicFacts)
+ * while both still existed; the dossier must keep rendering every one.
+ */
+const FROZEN_FACTS = (frozenFacts as unknown as { fixtures: Record<string, FrozenLayoutFacts> }).fixtures;
+
+describe("the dossier keeps every fact classic showed, frozen when classic was removed (D-246, P22)", () => {
+  it("freezes one entry per parity fixture, each with facts", () => {
+    expect(Object.keys(FROZEN_FACTS)).toEqual(LAYOUT_FIXTURES.map(([name]) => name));
+    for (const [name] of LAYOUT_FIXTURES) expect(FROZEN_FACTS[name]!.segments.length, name).toBeGreaterThan(300);
+  });
+
+  it.each(LAYOUT_FIXTURES)("the dossier renders every frozen fact: %s", (name, makeReport) => {
+    const dossier = renderToStaticMarkup(createElement(ReportView, { report: freezeReport(makeReport()), layout: "dossier" }));
+    expect(frozenFactsMissingFromDossier(FROZEN_FACTS[name]!, dossier)).toEqual([]);
+  });
+
+  it.each(LAYOUT_FIXTURES)("the frozen facts are exactly what both layouts show at the freeze: %s", (name, makeReport) => {
+    const { classic, dossier } = layouts(freezeReport(makeReport()));
+    expect(freezeClassicFacts(classic, dossier)).toEqual(FROZEN_FACTS[name]);
+  });
+
+  it("detects a dropped fact, a row whose parts survive apart, a re-rounded grid row and hidden duplicates", () => {
+    const facts = FROZEN_FACTS.canonical!;
+    const dossier = renderToStaticMarkup(createElement(ReportView, { report: loadTask28Fixture(), layout: "dossier" }));
+    expect(frozenFactsMissingFromDossier(facts, dossier)).toEqual([]);
+    const dropped = facts.segments.find((text) => text.length > 30 && dossier.split(text).length === 2)!;
+    expect(dropped).toBeDefined();
+    expect(frozenFactsMissingFromDossier(facts, dossier.replace(dropped, "REMOVED"))).toEqual([dropped]);
+    const row = { segments: ["Net debt$65.5"], roundedRows: [] };
+    expect(frozenFactsMissingFromDossier(row, "<table><tr><th>Net debt</th><td>$65.5</td></tr></table>")).toEqual([]);
+    expect(frozenFactsMissingFromDossier(row, "<p>$65.5</p><p>Net debt</p>")).toEqual(["Net debt$65.5"]);
+    const grid = { segments: [], roundedRows: [["8.5%", "$161", "$1,162"]] };
+    expect(frozenFactsMissingFromDossier(grid, "<table><tr><th>8.5%</th><td>$161.37</td><td>$1,161.50</td></tr></table>")).toEqual([]);
+    expect(frozenFactsMissingFromDossier(grid, "<table><tr><th>8.5%</th><td>$161.37</td><td>$1,170.00</td></tr></table>")).toEqual(["8.5% | $161 | $1,162"]);
+    expect(frozenFactsMissingFromDossier({ segments: ["Recorded gap"], roundedRows: [] }, '<p hidden>Recorded gap</p><span class="sr-only">Recorded gap</span>')).toEqual(["Recorded gap"]);
+    expect(frozenFactsMissingFromDossier({ segments: ["$161"], roundedRows: [] }, "<p>$1610.00</p>")).toEqual(["$161"]);
+    expect(frozenFactsMissingFromDossier({ segments: ["$161"], roundedRows: [] }, "<p>$161</p><p>0.00</p>")).toEqual([]);
   });
 });
 
