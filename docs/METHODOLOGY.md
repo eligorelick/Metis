@@ -2419,7 +2419,10 @@ saved figures and dates are never rewritten.
 **Share basis (D-65).** Per-share values divide by the latest weighted-average
 diluted count, which carries option and RSU dilution (except a loss period's, below); the bridge table also
 prints the shares outstanding the quote implies (market cap ÷ price) and says
-which one divides.
+which one divides. That is the rule for a value per share (the DCF and the
+excess-return model). A flow per share is different: FFO and AFFO per share
+divide by the weighted count of the flow's own fiscal year (D-233, "FFO and
+AFFO (NAREIT)").
 
 *Convertibles (FIN-302 / FIN-302-V1; OD-2).* Both DCF and excess-return
 compare claim and converted readings at the model's own value, publishing the
@@ -2491,8 +2494,11 @@ info gap `valuation.perShare.lossPeriodDivisor` (and the D-60 divisor note's
 wording on the DCF route) is raised only where a DCF, excess-return or REIT
 FFO/AFFO per share that divides by the count is published, in the substituted, basic and
 not-restored cases; an unprofitable report with no DCF gains neither. The DCF,
-the excess-return route, the REIT block, the scenario paths and forecast EPS
+the excess-return route, the scenario paths and forecast EPS
 (`dilutedSharesProj`, on its pre-B-37 count) read the same substituted divisor.
+The REIT block's divisor row is the latest fiscal year (D-233), so the same rule
+applies to it when that year is the loss period; a loss quarter beside a
+profitable year does not touch FFO or AFFO per share.
 A profitable divisor row is unchanged.
 
 `src/pipeline/stageB/netDebt.ts` owns the versioned net-debt resolver: debt minus
@@ -3517,8 +3523,18 @@ USD 12.105 million below common FFO, disproving an unconditional upper bound.
 The REIT block takes its market cap and its enterprise value from the multiples
 framework (FIN-311, FIN-108, FIN-119-V2; it builds neither itself). P/FFO and
 P/AFFO are the quote's admitted market cap divided by FFO and AFFO, the same
-figures the multiples publish, so a report carries one P/FFO; FFO and AFFO per
-share divide by the weighted diluted count ("Share basis (D-65)"). The implied
+figures the multiples publish, so a report carries one P/FFO. FFO and AFFO per
+share divide by the weighted-average diluted share count of FFO's own period,
+the latest fiscal year (D-233): the annual income row whose period end is FFO's,
+through the loss-period rule and the common-class rule of "Share basis (D-65)".
+The latest quarter's count, which divides a value per share, is never used for
+them, because a ratio's numerator and denominator cover one period. When no
+count is established for that fiscal year (no annual row at FFO's period end, no
+count on it, a count that cannot be shown to span every common class, or, for a
+translated ADR, one that cannot be placed on the quoted unit) both figures are
+withheld with the warn gap `valuation.reit.perShareDivisor`; P/FFO and P/AFFO
+need no share count and stand. The block's notes name the period and the count
+it divides by. The implied
 cap rate divides NOI by the **house enterprise value** — market capitalisation
 + total debt + preferred + redeemable preferred + minority interest +
 redeemable noncontrolling interest − cash and short-term investments, less the
