@@ -64,7 +64,7 @@
     "settings:reset": "node --conditions=react-server --import tsx scripts/settings-reset.ts",
     "db:push": "node --conditions=react-server node_modules/drizzle-kit/bin.cjs push",
     "check:dependencies": "node scripts/check-dependency-shape.mjs",
-    "models:refresh": "node scripts/models-refresh.mjs",
+    "models:refresh": "node --import tsx scripts/models-refresh.mjs",
     "costs:reconcile": "node --conditions=react-server --import tsx scripts/reconcile-presumed-costs.mjs",
     "docs:config": "node scripts/docs-config.mjs",
     "docs:pricing": "node --conditions=react-server --import tsx scripts/docs-pricing.mjs",

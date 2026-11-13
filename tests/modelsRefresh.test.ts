@@ -19,7 +19,7 @@ interface RefreshModule {
   mergeModelList(registry: unknown, api: ApiModel[], today: string): { registry: typeof MODEL_REGISTRY; report: string[]; candidates: NewModelCandidate[]; sharedNames: Map<string, string[]> };
   describeNewModel(registry: unknown, api: ApiModel, today: string): NewModelCandidate | { reason: string };
   applyPricing(registry: unknown, parsed: Record<string, Record<string, number>>): { registry: typeof MODEL_REGISTRY; report: string[] };
-  refreshRegistryFile(registryPath: string, api: ApiModel[], html: string, today: string, write: boolean): { registry: typeof MODEL_REGISTRY; report: string[] };
+  refreshRegistryFile(registryPath: string, api: ApiModel[], html: string, today: string, write: boolean, validate?: (registry: unknown) => unknown): { registry: typeof MODEL_REGISTRY; report: string[] };
 }
 
 type ApiModel = Record<string, unknown> & { id: string };
@@ -58,8 +58,14 @@ const priceRow = (name: string, p: PriceRow): string =>
 const pricingPage = (extraRows: string[] = []): string =>
   `<table>${PRICING_HEADERS}${MODEL_REGISTRY.models.map((m) => priceRow(m.displayName, m.pricing)).join("")}${extraRows.join("")}</table>`;
 
+/** The script, with the application's registry check supplied to a refresh as the command line supplies it. */
 async function load(): Promise<RefreshModule> {
-  return (await import(pathToFileURL(SCRIPT).href)) as RefreshModule;
+  const script = (await import(pathToFileURL(SCRIPT).href)) as RefreshModule;
+  return {
+    ...script,
+    refreshRegistryFile: (registryPath, api, html, today, write, validate = parseModelRegistry) =>
+      script.refreshRegistryFile(registryPath, api, html, today, write, validate),
+  };
 }
 
 const clone = () => JSON.parse(JSON.stringify(MODEL_REGISTRY)) as typeof MODEL_REGISTRY;
@@ -426,6 +432,60 @@ describe("models-refresh adds newly published models", () => {
     });
   });
 
+  it("reads a price row by the name that opens its cell, never by a model it merely links to", async () => {
+    const { parsePricingText } = await load();
+    const cheap: PriceRow = { inputPerMTok: 0.1, outputPerMTok: 0.5, cacheWrite5mPerMTok: 0.125, cacheWrite1hPerMTok: 0.2, cacheReadPerMTok: 0.01 };
+    const cells = `<td>$${cheap.inputPerMTok}</td><td>$${cheap.outputPerMTok}</td><td>$${cheap.cacheWrite5mPerMTok}</td><td>$${cheap.cacheWrite1hPerMTok}</td><td>$${cheap.cacheReadPerMTok}</td>`;
+    // Another model's row that mentions Haiku 4.5 in a link is not Haiku 4.5's row.
+    const other = parsePricingText(`<table>${PRICING_HEADERS}<tr><td>Claude Budget 6 (compare <a>Claude Haiku 4.5</a>)</td>${cells}</tr></table>`, ["Claude Haiku 4.5"]);
+    expect(other.parsed["Claude Haiku 4.5"]).toBeUndefined();
+    expect(other.unparsed).toEqual(["Claude Haiku 4.5: not found in a recognized pricing table"]);
+    // The page's own form, the name linked first and a description after it, is still read.
+    const own = parsePricingText(`<table>${PRICING_HEADERS}<tr><td><div><a>Claude Haiku 4.5</a></div><div>For high-volume tasks</div></td>${cells}</tr></table>`, ["Claude Haiku 4.5"]);
+    expect(own.parsed["Claude Haiku 4.5"]).toEqual(cheap);
+    // A name that is also a built-in property finds no row that is not on the page.
+    const builtIn = parsePricingText(`<table>${PRICING_HEADERS}</table>`, ["constructor", "toString", "__proto__"]);
+    expect(Object.keys(builtIn.parsed)).toEqual([]);
+    expect(builtIn.unparsed).toHaveLength(3);
+  });
+
+  it("writes only a file the application can load, whatever the Models API returns", async () => {
+    const { refreshRegistryFile } = await load();
+    const raw = (await import(pathToFileURL(SCRIPT).href)) as RefreshModule;
+    const cases: Array<{ api: ApiModel[]; html: string; left: RegExp }> = [
+      // A new model named like a built-in property, with no price row.
+      { api: [...listed(), apiModel("claude-opus-6", "opus", "constructor")], html: pricingPage(), left: /^claude-opus-6: .*not added: no single complete price row/ },
+      // A context limit no number can hold exactly.
+      { api: [...listed(), apiModel("claude-opus-6", "opus", "Claude Opus 6", { max_input_tokens: 1e20 })], html: pricingPage([priceRow("Claude Opus 6", NEW_PRICE)]), left: /^claude-opus-6: .*not added: the Models API gives no usable context and output limits/ },
+      // An existing entry's name blanked by the API keeps its name and its price.
+      { api: listed().map((m) => (m.id === "claude-haiku-4-5" ? { ...m, display_name: "" } : m)), html: pricingPage([priceRow("", NEW_PRICE)]), left: /^claude-haiku-4-5: the Models API gives an empty display name; "Claude Haiku 4\.5" kept/ },
+    ];
+    for (const { api, html, left } of cases) {
+      await withRegistryFile((registryPath) => {
+        const { report } = refreshRegistryFile(registryPath, api, html, "2027-02-10", true);
+        expect(parseModelRegistry(JSON.parse(readFileSync(registryPath, "utf8"))).models).toEqual(MODEL_REGISTRY.models);
+        expect(report).toContainEqual(expect.stringMatching(left));
+      });
+    }
+    // The last line of defence: a proposed file the application's check rejects is not written.
+    await withRegistryFile((registryPath) => {
+      const broken = clone();
+      (broken.models[0] as { contextWindowTokens: number }).contextWindowTokens = -1;
+      const original = JSON.stringify(broken);
+      writeFileSync(registryPath, original);
+      expect(() => refreshRegistryFile(registryPath, listed(), pricingPage(), "2027-02-10", true)).toThrow(/Refusing to write a registry the application cannot load: .*contextWindowTokens/);
+      expect(readFileSync(registryPath, "utf8")).toBe(original);
+      const dryRun = refreshRegistryFile(registryPath, listed(), pricingPage(), "2027-02-10", false);
+      expect(dryRun.report).toContainEqual(expect.stringMatching(/^registry: the proposed file is not one the application can load/));
+    });
+    // And nothing is written when no check is supplied at all.
+    await withRegistryFile((registryPath) => {
+      const original = readFileSync(registryPath, "utf8");
+      expect(() => raw.refreshRegistryFile(registryPath, listed(), pricingPage(), "2027-02-10", true)).toThrow(/no registry check was supplied/);
+      expect(readFileSync(registryPath, "utf8")).toBe(original);
+    });
+  });
+
   it("refuses to write a registry that repeats a model id", async () => {
     const { refreshRegistryFile } = await load();
     await withRegistryFile((registryPath) => {
@@ -433,7 +493,7 @@ describe("models-refresh adds newly published models", () => {
       repeated.models = [...repeated.models, repeated.models[0]!];
       const original = JSON.stringify(repeated);
       writeFileSync(registryPath, original);
-      expect(() => refreshRegistryFile(registryPath, listed(), pricingPage(), "2027-02-10", true)).toThrow(/repeats a model id: claude-fable-5-2/);
+      expect(() => refreshRegistryFile(registryPath, listed(), pricingPage(), "2027-02-10", true)).toThrow(/the application cannot load: .*duplicate model id claude-fable-5-2/);
       expect(readFileSync(registryPath, "utf8")).toBe(original);
     });
   });

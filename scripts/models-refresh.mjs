@@ -63,7 +63,8 @@ export function htmlToText(html) {
  * prices. Duplicate rows, missing columns and ambiguous cells fail closed.
  */
 export function parsePricingText(html, displayNames) {
-  const parsed = {};
+  // No inherited keys: a model named "constructor" must not find a row that is not there.
+  const parsed = Object.create(null);
   const unparsed = [];
   const candidates = new Map(displayNames.map((name) => [name, []]));
   for (const table of html.match(/<table\b[\s\S]*?<\/table>/gi) ?? []) {
@@ -82,6 +83,8 @@ export function parsePricingText(html, displayNames) {
       const nameCell = cells[columns.indexOf("name")];
       if (nameCell === undefined) continue;
       const link = /<a\b[^>]*>([\s\S]*?)<\/a>/i.exec(nameCell);
+      // A link is the row's name only when it opens the cell: "X (compare <a>Y</a>)" is X's row, not Y's.
+      if (link !== null && htmlToText(nameCell.slice(0, link.index)) !== "") continue;
       const name = htmlToText(link ? link[1] : nameCell);
       const rows = candidates.get(name);
       if (rows === undefined) continue;
@@ -105,8 +108,12 @@ export function parsePricingText(html, displayNames) {
   return { parsed, unparsed };
 }
 
-/** Prepare a refresh, and write only when every registry entry has valid prices. */
-export function refreshRegistryFile(registryPath, apiModels, pricingHtml, today, write) {
+/**
+ * Prepare a refresh, and write only when every registry entry has valid prices
+ * and the whole proposed file passes `validate`, the application's own registry
+ * check (`parseModelRegistry`), which throws on a file the app could not load.
+ */
+export function refreshRegistryFile(registryPath, apiModels, pricingHtml, today, write, validate) {
   const registry = JSON.parse(readFileSync(registryPath, "utf8"));
   const merged = mergeModelList(registry, apiModels, today);
   const existingNames = merged.registry.models.map((model) => model.displayName);
@@ -122,12 +129,19 @@ export function refreshRegistryFile(registryPath, apiModels, pricingHtml, today,
   const added = addNewModels(merged.registry, merged.candidates, pricing.parsed, pricing.unparsed);
   const priced = applyPricing(added.registry, pricing.parsed);
   const report = [...merged.report, ...added.report, ...priced.report, ...unparsed.map((line) => `pricing: ${line}`)];
+  let invalid = null;
+  if (typeof validate === "function") {
+    try {
+      validate(priced.registry);
+    } catch (error) {
+      invalid = error instanceof Error ? error.message : String(error);
+      report.push(`registry: the proposed file is not one the application can load, so it cannot be written: ${invalid}`);
+    }
+  }
   if (write) {
+    if (typeof validate !== "function") throw new Error("Refusing to write: no registry check was supplied to validate the proposed file.");
     if (unparsed.length > 0) throw new Error(`Refusing to write incomplete pricing: ${unparsed.join("; ")}`);
-    // The app validates the registry when it loads; a repeated id would stop it starting.
-    const ids = priced.registry.models.map((model) => model.id);
-    const repeated = ids.filter((id, index) => ids.indexOf(id) !== index);
-    if (repeated.length > 0) throw new Error(`Refusing to write a registry that repeats a model id: ${[...new Set(repeated)].join(", ")}`);
+    if (invalid !== null) throw new Error(`Refusing to write a registry the application cannot load: ${invalid}`);
     writeFileSync(registryPath, `${JSON.stringify(priced.registry, null, 2)}\n`, "utf8");
   }
   return { registry: priced.registry, report };
@@ -148,6 +162,10 @@ export function mergeModelList(registry, apiModels, today) {
       const listed = apiById.get(model.id);
       if (listed === undefined) {
         report.push(`${model.id}: not listed by ${MODELS_URL}; lifecycle "${model.lifecycle}" kept — check the deprecations page`);
+        return model;
+      }
+      if (typeof listed.display_name === "string" && listed.display_name.trim() === "") {
+        report.push(`${model.id}: the Models API gives an empty display name; "${model.displayName}" kept`);
         return model;
       }
       if (typeof listed.display_name === "string" && listed.display_name !== model.displayName) {
@@ -223,7 +241,7 @@ function compareGenerations(a, b) {
   return 0;
 }
 
-const isPositiveInteger = (value) => Number.isInteger(value) && value > 0;
+const isPositiveInteger = (value) => Number.isSafeInteger(value) && value > 0;
 const isSupported = (capability) => capability !== null && typeof capability === "object" && capability.supported === true;
 
 /**
@@ -321,7 +339,7 @@ export function addNewModels(registry, candidates, parsedByDisplayName, unparsed
   // Newest first: each is placed directly above the shared template, so later (older) ones land below earlier ones.
   const ordered = [...candidates].sort((a, b) => compareGenerations(b.entry.generation, a.entry.generation));
   for (const { entry, template } of ordered) {
-    const row = parsedByDisplayName[entry.displayName];
+    const row = Object.hasOwn(parsedByDisplayName, entry.displayName) ? parsedByDisplayName[entry.displayName] : undefined;
     if (row === undefined) {
       const why = unparsed.find((line) => line.startsWith(`${entry.displayName}:`)) ?? `${entry.displayName}: no price row`;
       report.push(`${entry.id}: listed by the API but not in the registry — not added: no single complete price row (${why})`);
@@ -346,7 +364,7 @@ export function addNewModels(registry, candidates, parsedByDisplayName, unparsed
 export function applyPricing(registry, parsedByDisplayName) {
   const report = [];
   const models = registry.models.map((model) => {
-    const row = parsedByDisplayName[model.displayName];
+    const row = Object.hasOwn(parsedByDisplayName, model.displayName) ? parsedByDisplayName[model.displayName] : undefined;
     if (row === undefined) return model;
     const changed = PRICING_COLUMNS.filter((column) => model.pricing[column] !== row[column]);
     if (changed.length === 0) return model;
@@ -395,7 +413,9 @@ async function main(argv) {
   if (!pricingResponse.ok) {
     throw new Error(`${PRICING_URL} responded ${pricingResponse.status}`);
   }
-  const { report } = refreshRegistryFile(REGISTRY_PATH, apiModels, await pricingResponse.text(), today, write);
+  // The application's own check of the registry file; loaded through tsx (see the npm script).
+  const { parseModelRegistry } = await import("../src/models/registry.ts");
+  const { report } = refreshRegistryFile(REGISTRY_PATH, apiModels, await pricingResponse.text(), today, write, parseModelRegistry);
   console.log(`models:refresh — snapshot ${today}`);
   for (const line of report) console.log(`  ${line}`);
   if (report.length === 0) console.log("  no changes");

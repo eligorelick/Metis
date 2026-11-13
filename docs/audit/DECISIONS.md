@@ -73,6 +73,11 @@ What changed.
      model priced in tiers by prompt size (Claude Haiku 5.5 today) has no such
      row and is left out, because one price per model is all the registry and
      the reservation code can state.
+   A price row is read by the name that opens its cell, never by a model the
+   cell merely links to. Before anything is written the whole proposed file
+   must pass the application's own registry check (`parseModelRegistry`), so
+   the refresh cannot write a file the app would refuse to load; the command
+   now runs through tsx to load that check.
    The three request rules neither source states (task budget, web search
    tool version, refusal fallback) are copied from the newest entry of the
    same line, and the new entry's notes say so. A new entry is selectable but
@@ -106,12 +111,15 @@ left out; a record listed twice is added once; a missing price row for an
 existing entry still stops the write when a new model is present; the `auto`
 order is untouched), `tests/modelRegistry.test.ts`.
 
-Second-model review (Codex, 2026-11-13, three rounds) found the display-name,
+Second-model review (Codex, 2026-11-13, four rounds) found the display-name,
 repeated record and partial effort cases, then that the name rule had to
 cover registry entries and models that cannot be added, then that an id
-shaped like a snapshot must not be assumed to be one; the rules above and the
-last check before writing (no repeated id) answer it. Known limit, by choice:
-a new model listed under two ids with one name is left out, not added.
+shaped like a snapshot must not be assumed to be one, then four malformed
+inputs (a row linking to another model, a name that is a built-in property,
+an empty name, a limit too large to hold). The rules above answer each, and
+the application's registry check before writing answers the class. Known
+limit, by choice: a new model listed under two ids with one name is left out,
+not added. No further review round was run after the fourth round's fixes.
 
 ## D-258 - The bank revenue and reader-label steps move the version stamps once (2026-11-13)
 

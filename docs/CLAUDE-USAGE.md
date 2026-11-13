@@ -387,7 +387,9 @@ registry does not carry, a model the API does not fully describe, a model that
 takes only some of the five effort levels, and a model whose display name
 another model the API lists also carries. When a registry entry shares its
 display name with another model, nothing is written, because the price row
-under that name cannot be matched to one of them. A new
+under that name cannot be matched to one of them. Nothing is written either
+unless the whole proposed file passes the application's own registry check.
+A new
 entry is selectable at once but is not placed in the `auto` order; add it to
 `autoPreference` after a run on it has succeeded. Review an added entry,
 lifecycle changes and existing capability policy before merging.
