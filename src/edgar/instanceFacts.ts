@@ -13,6 +13,14 @@
  * focus exactly as companyfacts would. A filing companyfacts already carries
  * is never merged, so nothing is counted twice.
  *
+ * D-236 (P2, P9, P10): "carries" is decided by evidence, not by mention, and
+ * the fallback covers every core periodic form (`CORE_FACT_FORMS`), not only
+ * Forms 10-K and 10-Q. On 2026-11-12 companyfacts held two facts of TSMC's
+ * fiscal 2025 Form 20-F (0001628280-26-025362, filed 2026-04-16), the cover
+ * page's share count (dei) and one srt element, and none of the statement
+ * facts its instance states, so every figure that needs a filed fact of
+ * fiscal 2025 went without one. `feedCoverage` is the one coverage test.
+ *
  * Only what companyfacts itself publishes is read: numeric, non-nil facts in
  * the us-gaap, srt, dei and ifrs-full taxonomies, on contexts with no segment
  * or scenario (the consolidated registrant; a combined filing's subsidiaries
@@ -23,7 +31,7 @@
  * Pure: no network, no clock.
  */
 
-import type { CompanyFacts, FactPoint } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 
 /** companyfacts namespace keys, matched by the taxonomy URI an instance declares. */
 const NAMESPACES: readonly { key: string; uri: RegExp }[] = [
@@ -141,60 +149,121 @@ export function parseInstanceFacts(xml: string, filing: InstanceFiling, cik: str
   return { filing, periodEnd: periodEnd !== null && /^\d{4}-\d{2}-\d{2}$/.test(periodEnd) ? periodEnd : null, facts, count };
 }
 
-/** Every accession a companyfacts payload carries, and its newest periodic-report filing date. */
-function carried(facts: CompanyFacts): { accessions: Set<string>; newestPeriodicFiled: string | null } {
-  const accessions = new Set<string>();
-  let newest: string | null = null;
-  for (const namespace of Object.values(facts.facts)) {
-    for (const concept of Object.values(namespace ?? {})) {
+/**
+ * The taxonomies a filer tags its financial statements in. dei is the cover
+ * page and srt holds supplementary schedule elements: companyfacts publishes
+ * facts of either for a filing whose statements it has not published.
+ */
+const STATEMENT_NAMESPACES: readonly string[] = ["us-gaap", "ifrs-full"];
+
+/** A filing as the coverage test reads it. */
+export interface PeriodicFilingRef {
+  accession: string;
+  form: string;
+  filingDate: string;
+}
+
+export interface FeedCoverage {
+  /** Accessions whose financial-statement facts companyfacts carries. */
+  covered: ReadonlySet<string>;
+  /** Filing date of the newest core periodic report among them; null when it covers none. */
+  through: string | null;
+}
+
+const pointKey = (ns: string, concept: string, unit: string, p: Partial<FactPoint>): string =>
+  `${p.accn}|${ns}|${concept}|${unit}|${p.start ?? ""}|${p.end}`;
+
+function eachPoint(facts: CompanyFacts, visit: (ns: string, concept: string, unit: string, point: Partial<FactPoint>) => void): void {
+  for (const [ns, namespace] of Object.entries(facts.facts)) {
+    for (const [name, concept] of Object.entries(namespace ?? {})) {
       const units = (concept as { units?: Record<string, unknown> } | null)?.units;
       if (units === null || typeof units !== "object") continue;
-      for (const list of Object.values(units)) {
+      for (const [unit, list] of Object.entries(units)) {
         if (!Array.isArray(list)) continue;
-        for (const p of list as Partial<FactPoint>[]) {
-          if (typeof p?.accn === "string") accessions.add(p.accn);
-          if (typeof p?.form === "string" && /^10-[KQ]/.test(p.form.trim()) && typeof p.filed === "string" && (newest === null || p.filed > newest)) newest = p.filed;
-        }
+        for (const p of list as (Partial<FactPoint> | null)[]) if (p !== null && typeof p === "object") visit(ns, name, unit, p);
       }
     }
   }
-  return { accessions, newestPeriodicFiled: newest };
+}
+
+/**
+ * Which filings a companyfacts payload carries (D-236). A filing is covered
+ * only when the payload attributes to its accession at least one fact of a
+ * statement taxonomy; a filing it merely mentions, through a cover-page or
+ * srt fact, is not. The one coverage test: the bundle asks it which instances
+ * to fetch and the merge asks it which to admit.
+ */
+export function feedCoverage(facts: CompanyFacts): FeedCoverage {
+  const covered = new Set<string>();
+  let through: string | null = null;
+  eachPoint(facts, (ns, _concept, _unit, p) => {
+    if (!STATEMENT_NAMESPACES.includes(ns) || typeof p.accn !== "string") return;
+    covered.add(p.accn);
+    if (typeof p.form === "string" && CORE_FACT_FORMS.has(p.form.trim()) && typeof p.filed === "string" && (through === null || p.filed > through)) through = p.filed;
+  });
+  return { covered, through };
+}
+
+/**
+ * True when the fallback applies to `filing`: a core periodic report that
+ * companyfacts does not cover, filed after the newest one it does.
+ */
+export function needsInstance(coverage: FeedCoverage, filing: PeriodicFilingRef): boolean {
+  return CORE_FACT_FORMS.has(filing.form.trim()) && !coverage.covered.has(filing.accession) &&
+    (coverage.through === null || filing.filingDate > coverage.through);
 }
 
 export interface InstanceMerge {
   facts: CompanyFacts;
-  /** The filings merged, oldest first; empty when companyfacts already carried every one. */
+  /** The filings merged, oldest first, each with the number of points added; empty when nothing was added. */
   merged: (InstanceFiling & { periodEnd: string | null; count: number })[];
-  /** companyfacts' own newest periodic filing date before the merge. */
+  /** Filing date of the newest periodic report whose statement facts companyfacts itself carried before the merge. */
   companyFactsThrough: string | null;
 }
 
 /**
- * Adds to `facts` the instances of periodic filings filed after the newest
- * one companyfacts carries and absent from it. The input is not modified.
+ * Adds to `facts` the instances of the core periodic filings the fallback
+ * applies to (`needsInstance`). A point companyfacts already holds for such a
+ * filing (the cover-page fact of a filing it only mentions) is not added
+ * again. The input is not modified.
  */
 export function mergeInstanceFacts(facts: CompanyFacts, instances: readonly InstanceFacts[]): InstanceMerge {
-  const { accessions, newestPeriodicFiled } = carried(facts);
+  const coverage = feedCoverage(facts);
+  const unchanged: InstanceMerge = { facts, merged: [], companyFactsThrough: coverage.through };
   const newer = instances
-    .filter((i) => i.count > 0 && !accessions.has(i.filing.accession) && (newestPeriodicFiled === null || i.filing.filingDate > newestPeriodicFiled))
-    .sort((a, b) => a.filing.filingDate.localeCompare(b.filing.filingDate));
-  if (newer.length === 0) return { facts, merged: [], companyFactsThrough: newestPeriodicFiled };
+    .filter((i) => i.count > 0 && needsInstance(coverage, i.filing))
+    .sort((a, b) => a.filing.filingDate.localeCompare(b.filing.filingDate) || a.filing.accession.localeCompare(b.filing.accession));
+  if (newer.length === 0) return unchanged;
+  const reading = new Set(newer.map((i) => i.filing.accession));
+  const held = new Set<string>();
+  eachPoint(facts, (ns, concept, unit, p) => {
+    if (typeof p.accn === "string" && reading.has(p.accn)) held.add(pointKey(ns, concept, unit, p));
+  });
   const out: CompanyFacts = { ...facts, facts: { ...facts.facts } };
+  const merged: InstanceMerge["merged"] = [];
   for (const instance of newer) {
+    let added = 0;
     for (const [ns, concepts] of Object.entries(instance.facts)) {
       const namespace = { ...(out.facts[ns] ?? {}) };
+      let namespaceAdded = 0;
       for (const [concept, units] of Object.entries(concepts)) {
         const existing = namespace[concept] as { units?: Record<string, unknown[]> } | undefined;
         const nextUnits: Record<string, unknown[]> = { ...(existing?.units ?? {}) };
-        for (const [unit, points] of Object.entries(units)) nextUnits[unit] = [...(nextUnits[unit] ?? []), ...points];
+        let conceptAdded = 0;
+        for (const [unit, points] of Object.entries(units)) {
+          const fresh = points.filter((p) => !held.has(pointKey(ns, concept, unit, p)));
+          if (fresh.length === 0) continue;
+          nextUnits[unit] = [...(nextUnits[unit] ?? []), ...fresh];
+          conceptAdded += fresh.length;
+        }
+        if (conceptAdded === 0) continue;
         namespace[concept] = { ...(existing ?? { label: null, description: null }), units: nextUnits };
+        namespaceAdded += conceptAdded;
       }
-      out.facts[ns] = namespace;
+      if (namespaceAdded > 0) out.facts[ns] = namespace;
+      added += namespaceAdded;
     }
+    if (added > 0) merged.push({ ...instance.filing, periodEnd: instance.periodEnd, count: added });
   }
-  return {
-    facts: out,
-    merged: newer.map((i) => ({ ...i.filing, periodEnd: i.periodEnd, count: i.count })),
-    companyFactsThrough: newestPeriodicFiled,
-  };
+  return merged.length === 0 ? unchanged : { facts: out, merged, companyFactsThrough: coverage.through };
 }
