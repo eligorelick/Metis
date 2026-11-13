@@ -143,7 +143,7 @@ import {
   projectionUnavailabilityNote,
 } from "@/report/surfaceManifest";
 
-import { SensitivityHeatmap } from "@/components/charts/SensitivityHeatmap";
+import { SensitivityHeatmap, sensitivityBaseCase } from "@/components/charts/SensitivityHeatmap";
 import { CapitalBridge } from "./CapitalBridge";
 import { RecordedSensitivity } from "./RecordedSensitivity";
 import { ValuationSensitivityTables } from "./ValuationSensitivityTables";
@@ -927,10 +927,7 @@ function SensitivityGrid({ dcf, recordedPerShare = dcf.perShare }: { dcf: Valuat
   }
   // Highlight the middle (WACC, g) pair as the base case — the single shared
   // SensitivityHeatmap (src/components/charts) owns axis derivation + coloring.
-  const waccs = [...new Set(cells.map((c) => c.waccPct))].sort((a, b) => a - b);
-  const gs = [...new Set(cells.map((c) => c.gTermPct))].sort((a, b) => a - b);
-  const baseWacc = waccs[Math.floor(waccs.length / 2)] ?? null;
-  const baseG = gs[Math.floor(gs.length / 2)] ?? null;
+  const { baseWacc, baseG } = sensitivityBaseCase(cells);
 
   return (
     <SensitivityHeatmap

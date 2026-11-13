@@ -35,6 +35,14 @@ original versions and bytes; source merge does not deploy or publish a release.
   Energy, which has noncontrolling interests, stays withheld. Version stamps
   are left for the Stage 5 integration; saved reports are unchanged.
 
+## Unreleased - The dossier layout shows everything classic shows (2026-11-12)
+
+- The dossier's WACC × terminal-growth grid now outlines the base-case cell,
+  as the classic grid does, through one shared rule (P22, D-241). An
+  inventory of both layouts over the 17 same-report cases found no other fact
+  that classic shows and the dossier does not; a new parity test keeps it so.
+  The default layout is unchanged.
+
 ## Unreleased - Effective tax rates divide by the pre-tax income the provision relates to (2026-11-12)
 
 - A filer whose pre-tax line excludes equity-method results presents those
