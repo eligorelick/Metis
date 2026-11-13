@@ -269,11 +269,14 @@ export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, obse
   return filedCashFlowTtm(facts, OPERATING_CASH_FLOW_TAG, unit, end, observedAt);
 }
 
+/** The capital-spending lines a cash-capex figure may stand on (R9: no new synonyms, no component sums). */
+const CASH_CAPEX_TAGS: readonly string[] = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"];
+
 /** R9: retain exactly the annual capex tag basis; no new quarterly capex synonyms or component sums. */
 export function filedCapexTtm(facts: CompanyFacts, annualRow: FmpCashFlowRow | undefined, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
   if (!annualRow || annualRow.fieldConflicts?.capitalExpenditure?.usable === false || annualRow.reportedCurrency !== unit || typeof annualRow.capitalExpenditure !== "number" || !Number.isFinite(annualRow.capitalExpenditure)) return null;
   const provenance = annualRow.fieldProvenance?.capitalExpenditure;
-  const candidates = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"].filter(tag =>
+  const candidates = CASH_CAPEX_TAGS.filter(tag =>
     !provenance || provenance.source === "edgar" && provenance.unit === unit && provenance.tags.length === 1 && provenance.tags[0] === `us-gaap/${tag}`)
     .flatMap(tag => {
       const ttm = filedCashFlowTtm(facts, tag, unit, end, observedAt);
@@ -310,7 +313,7 @@ export function admitQuarterlyCapex(row: FmpCashFlowRow, facts: CompanyFacts, an
   const admittedTags = (r: FmpCashFlowRow, tag: string) => !r.fieldProvenance?.capitalExpenditure ||
     r.fieldProvenance.capitalExpenditure.source === "edgar" && r.fieldProvenance.capitalExpenditure.unit === unit &&
     r.fieldProvenance.capitalExpenditure.tags.length === 1 && r.fieldProvenance.capitalExpenditure.tags[0] === `us-gaap/${tag}`;
-  const candidates = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"].filter(tag => admittedTags(annual, tag) && admittedTags(row, tag)).flatMap(tag => {
+  const candidates = CASH_CAPEX_TAGS.filter(tag => admittedTags(annual, tag) && admittedTags(row, tag)).flatMap(tag => {
     const p = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p => p.end === annual.date && span(p) !== null && span(p)! >= 350 && span(p)! <= 380 &&
       (!validDay(annual.filingDate) || p.filed === annual.filingDate)));
     return p && p.val >= 0 && vendorAgreesWithFiled(Math.abs(annual.capitalExpenditure!), p.val) ? [{ tag, annual: p }] : [];
@@ -363,6 +366,52 @@ export function admitQuarterlyCapex(row: FmpCashFlowRow, facts: CompanyFacts, an
       ...(row.fieldConflicts?.freeCashFlow?.usable === false ? {} : { freeCashFlow: { usable: fcf !== null,
         vendorValue: row.fieldConflicts?.freeCashFlow?.vendorValue ?? (finite(row.freeCashFlow) ? row.freeCashFlow : null), secValue: fcf, reason, secEvidence: sec.evidence } }) } },
     gaps: [{ field: `statements.cashflow.${row.date}.capitalExpenditure`, reason, severity: usable ? "info" : "warn", ...(usable ? { expected: true } : {}) }] };
+}
+
+/** One cash-capex zero refused by `admitZeroCapex`, kept for the single manifest entry that discloses them. */
+export interface ZeroCapexRefusal { date: string; scope: "annual" | "quarter"; filed: boolean }
+
+/**
+ * D-239 (P7, P10): the provider writes 0 for a line it did not find, so a cash-capex of exactly 0 is a figure
+ * only when the filings state it. It stands when the capital-spending lines the filings tag for the row's own
+ * period (the fiscal year, or the standalone quarter, directly filed or year-to-date derived) are 0. With no
+ * such line for that period it is undisclosed; against a filed amount it is contradicted. Either way the field
+ * and the standardized FCF that subtracts it are refused, and the provider observations are retained. A row
+ * whose field already carries filed evidence or an earlier decision is left to it.
+ */
+export function admitZeroCapex<T extends FmpCashFlowRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; refusal: ZeroCapexRefusal | null } {
+  const unit = row.reportedCurrency;
+  if (!validDay(row.date) || !unit || !/^[A-Z]{3}$/.test(unit) || row.cik != null && Number(row.cik) !== facts.cik ||
+      row.capitalExpenditure !== 0 || row.fieldProvenance?.capitalExpenditure || row.fieldConflicts?.capitalExpenditure) return { row, refusal: null };
+  const ctx: DerivationContext = { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() };
+  const filed = CASH_CAPEX_TAGS.flatMap(tag => {
+    const sec = filedFlow(facts, tag, unit, row.date!, scope, observedAt, false, ctx);
+    return sec ? [{ tag, sec }] : [];
+  });
+  if (filed.length > 0 && filed.every(f => f.sec.value === 0)) return { row, refusal: null };
+  const stated = filed.find(f => f.sec.value !== 0);
+  const cause = stated
+    ? `the provider records 0 but the filings state ${stated.tag} ${millions(stated.sec.value)} ${unit} for ${stated.sec.evidence.periodStart} through ${row.date}${stated.sec.operands ? ` ${derivedFrom(stated.sec)}` : ""}`
+    : `the provider records 0 and the SEC facts establish no capital-spending line (${CASH_CAPEX_TAGS.join(", ")}) for the ${scope === "annual" ? "fiscal year" : "quarter"} ending that day; a provider zero marks a line it did not find, not a filed zero`;
+  const reason = `Cash capital spending ${stated ? "withheld" : "undisclosed"} at ${row.date}: ${cause}. Capital spending and dependent standardized FCF withheld; vendor observations retained.`;
+  const unavailable: Record<string, null> = { capitalExpenditure: null, freeCashFlow: null };
+  return { refusal: { date: row.date, scope, filed: stated !== undefined },
+    row: { ...row, ...unavailable, fieldConflicts: { ...row.fieldConflicts,
+      capitalExpenditure: { usable: false, vendorValue: 0, secValue: stated ? -stated.sec.value : null, reason, ...(stated ? { secEvidence: stated.sec.evidence } : {}) },
+      freeCashFlow: row.fieldConflicts?.freeCashFlow?.usable === false ? row.fieldConflicts.freeCashFlow : {
+        usable: false, vendorValue: typeof row.freeCashFlow === "number" && Number.isFinite(row.freeCashFlow) ? row.freeCashFlow : null, secValue: null,
+        reason: `Standardized FCF withheld because cash capex was refused: ${reason}` } } } };
+}
+
+/** One manifest entry for every cash-capex zero `admitZeroCapex` refused, naming the periods and the cause (P10). */
+export function zeroCapexEntries(refusals: readonly ZeroCapexRefusal[]): ManifestEntry[] {
+  if (refusals.length === 0) return [];
+  const dates = (scope: ZeroCapexRefusal["scope"]) => [...new Set(refusals.filter(r => r.scope === scope).map(r => r.date))].sort().reverse();
+  const years = dates("annual"), quarters = dates("quarter");
+  const periods = [years.length ? `fiscal years ending ${years.join(", ")}` : "", quarters.length ? `quarters ending ${quarters.join(", ")}` : ""].filter(Boolean).join("; and ");
+  const contradicted = [...new Set(refusals.filter(r => r.filed).map(r => r.date))].sort().reverse();
+  return [{ field: "statements.cashflow.capitalExpenditure", severity: "warn",
+    reason: `Cash capital spending is undisclosed, not zero, for ${periods}: the provider records 0 and the SEC facts establish no zero capital-spending line (${CASH_CAPEX_TAGS.join(", ")}) for those periods${contradicted.length ? ` (the filings state an amount for ${contradicted.join(", ")})` : ""}. A provider zero marks a line it did not find, not a filed zero. Capital spending and the standardized free cash flow that subtracts it are withheld for those periods; the provider observations are retained.` }];
 }
 
 /** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
