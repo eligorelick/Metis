@@ -30,7 +30,7 @@ async function select(wacc: string, growth: string) {
 describe("inspection of recorded sensitivity cells", () => {
   it("selects the exact stored observation without changing the headline, grade or report bytes", async () => {
     const report = reportFixture(); const before = JSON.stringify(report);
-    await act(async () => root.render(createElement(ReportView, { report, layout: "dossier" })));
+    await act(async () => root.render(createElement(ReportView, { report })));
     expect(region()).not.toBeNull();
     await select("8.125", "2");
     const selected = region()!.querySelector('[role="status"]')!.textContent;
@@ -43,7 +43,7 @@ describe("inspection of recorded sensitivity cells", () => {
   });
 
   it("distinguishes stored withheld, zero, and unrecorded grid intersections", async () => {
-    await act(async () => root.render(createElement(ReportView, { report: reportFixture(), layout: "dossier" })));
+    await act(async () => root.render(createElement(ReportView, { report: reportFixture() })));
     expect(region()).not.toBeNull();
     await select("8.125", "3");
     expect(region()!.querySelector('[role="status"]')!.textContent).toContain("withheld");
@@ -55,12 +55,12 @@ describe("inspection of recorded sensitivity cells", () => {
 
   it("clears a selected case when the stored grid changes despite an identical generation date", async () => {
     const report = reportFixture();
-    await act(async () => root.render(createElement(ReportView, { report, layout: "dossier" })));
+    await act(async () => root.render(createElement(ReportView, { report })));
     expect(region()).not.toBeNull();
     await select("8.125", "2");
     const changed = structuredClone(report);
     changed.valuation.dcf.sensitivityGrid[0].perShare = 99.123;
-    await act(async () => root.render(createElement(ReportView, { report: changed, layout: "dossier" })));
+    await act(async () => root.render(createElement(ReportView, { report: changed })));
     expect(region()!.querySelector('[aria-pressed="true"]')).toBeNull();
     expect(region()!.querySelector('[role="status"]')!.textContent).toContain("Select a recorded cell");
     expect(region()!.textContent).not.toContain("-10.1256789");
@@ -71,7 +71,7 @@ describe("inspection of recorded sensitivity cells", () => {
     report.valuation.dcf.sensitivityGrid = [];
     report.valuation.dcf.perShare = { ...report.valuation.dcf.perShare!, unit: "EUR/share", currency: "EUR" };
     report.valuation.dcf.excessReturnGrid = { rows: [{ label: "Trailing reported return", startReturnPct: 16.75, bookValue: 10_000_000 }], costOfEquityPcts: [11.125, 12.125], perShare: [[-10.123456, null]], notes: ["Stored excess-return conventions"] };
-    await act(async () => root.render(createElement(ReportView, { report, layout: "dossier" })));
+    await act(async () => root.render(createElement(ReportView, { report })));
     const matrix = container.querySelector<HTMLElement>('[aria-label="Recorded excess-return sensitivity"]');
     expect(matrix).not.toBeNull();
     await act(async () => matrix!.querySelector<HTMLButtonElement>('button[data-matrix-row="0"][data-matrix-column="0"]')!.click());
@@ -86,7 +86,7 @@ describe("inspection of recorded sensitivity cells", () => {
   it("preserves a zero growth/margin shift and its raw value while withholding selection for missing axis context", async () => {
     const report = reportFixture();
     report.valuation.dcf.growthMarginGrid = { growthShiftsPp: [0], marginShiftsPp: [0, 2.5], perShare: [[0, -15.12345], [100]], notes: ["Recorded sustained-margin convention"] };
-    await act(async () => root.render(createElement(ReportView, { report, layout: "dossier" })));
+    await act(async () => root.render(createElement(ReportView, { report })));
     const matrix = container.querySelector<HTMLElement>('[aria-label="Recorded growth and margin sensitivity"]');
     expect(matrix).not.toBeNull();
     await act(async () => matrix!.querySelector<HTMLButtonElement>('button[data-matrix-row="0"][data-matrix-column="0"]')!.click());

@@ -160,7 +160,10 @@ refused names are the `THESIS_` forms of `STATEMENT_SOURCE`, `JUDGE_ORDER`,
 `DATA_DIR`, `IMPORT_LEGACY_DB` and `UI_REDESIGN`. Refusing, rather than
 ignoring, keeps a startup hold, spend cap or database path from being dropped
 without notice. Every setting keeps its meaning and default under its
-`METIS_*` name. Legacy data folders (`Thesis`, `thesis.db`, `Thesis/ai`) are
+`METIS_*` name, except the layout setting: `METIS_UI_REDESIGN` was removed
+with the classic layout (D-246). The dossier is the only layout; a leftover
+`METIS_UI_REDESIGN` value is ignored and the app starts normally, while the
+retired `THESIS_UI_REDESIGN` name is still refused like the others. Legacy data folders (`Thesis`, `thesis.db`, `Thesis/ai`) are
 unaffected and are still found in place. Some report and judge-prompt wording
 still spells the old names (for example "set THESIS_EV_INCLUDE_LEASES=1"); the
 setting to use is the `METIS_*` one.
@@ -261,7 +264,7 @@ Temporary provider rate limits, 5xx, overload and unavailable responses share
 the bounded backoff classification and are described as busy or unavailable.
 Cut-off streams keep their own wording. Retry-After parsing remains deferred.
 
-Generate starts a new run that runs every pass again, at full cost on a paid connection. The classic saved view points to Live analysis when reusable analyst work is available.
+Generate starts a new run that runs every pass again, at full cost on a paid connection. The saved report view says when a previous run left reusable analyst work, which the run controls can resume.
 
 ## Local HTTP API
 
@@ -566,7 +569,7 @@ Core coverage holds every Stage B and report-schema file to 85/75/85/85 (stateme
 
 ## Same-report check before a refactor
 
-`npm run golden:run` and `npm run golden:diff` show whether a code change leaves reports identical. They rebuild seventeen stored cases offline and compare two commits' output byte for byte: thirteen companies with saved run inputs. Each company gets a data-only report, and AMZN, META, MU and NVDA also get a report from their stored analyst output. For every case the harness pins the Stage B output, the Stage C payload and its fingerprint, the report JSON, the Markdown, print and audit Markdown exports, and both web layouts (classic and dossier) rendered from the saved-report reader. `scripts/golden/cases.json` lists the inputs by SHA-256 only.
+`npm run golden:run` and `npm run golden:diff` show whether a code change leaves reports identical. They rebuild seventeen stored cases offline and compare two commits' output byte for byte: thirteen companies with saved run inputs. Each company gets a data-only report, and AMZN, META, MU and NVDA also get a report from their stored analyst output. For every case the harness pins the Stage B output, the Stage C payload and its fingerprint, the report JSON, the Markdown, print and audit Markdown exports, and the web page (the dossier layout) rendered from the saved-report reader. `scripts/golden/cases.json` lists the inputs by SHA-256 only.
 
 ```powershell
 npm run golden:run -- --ref main --out tmp/golden/before
@@ -577,7 +580,7 @@ npm run golden:diff -- tmp/golden/before tmp/golden/after
 - `--ref REF` extracts that commit with `git archive` into `tmp/golden/trees/` and runs its code. Without `--ref`, the run uses the working tree and records a hash of any uncommitted changes. Both use the installed `node_modules`; the diff notes when the two commits' `package-lock.json` differ.
 - The first run reads the inputs from a database in read-only mode (`--db FILE` or `METIS_DB_PATH` chooses it) and caches them under `tmp/golden/inputs`. They contain vendor data, so they stay local and are never committed. Pass the check database (below) with `--db "%USERPROFILE%\metis-check\check.db"`.
 - Each case runs in its own Node process. Fetch, sockets, TLS and DNS are blocked. Provider keys and `METIS_*`/`THESIS_*` settings are removed from its environment. The clock is fixed to the inputs' build time, and the time zone is UTC. A scratch database and data directory sit inside the output folder. No model is called and nothing is spent.
-- `golden:diff` exits 0 only when every case, field and file matches. Otherwise it lists each changed file, with JSON leaf paths or the start of a text diff. An intended change passes only when listed in `--approved FILE`, with its before and after hash and a reason; a file that only one run produced uses `missing` as the hash on the other side.
+- `golden:diff` exits 0 only when every case, field and file matches. Otherwise it lists each changed file, with JSON leaf paths or the start of a text diff. An intended change passes only when listed in `--approved FILE`, with its before and after hash and a reason; a file that only one run produced uses `missing` as the hash on the other side. Comparing a run from before D-246 with a later one lists each `web-classic.html` as present only on the old side (the classic layout was removed); approve those entries with `after: "missing"`.
 - A run takes about 1–2 minutes on four processes (`--jobs N` changes the count; `--only id,id` picks cases). Run it twice on one commit to confirm the output repeats exactly.
 - Limits: the analyst-output cases cover only the general route. The verify step uses no fetched URLs, and the cost table is empty.
 
@@ -606,7 +609,7 @@ To add a case:
 
 ## Report-surface drift (valuation)
 
-`npm run report:drift` measures where the reader surfaces still word the valuation figures differently (P22). It reads `golden:run` output folders (`--golden DIR`) and/or a copy of a database (`--db FILE`, opened read-only; the application database itself is refused), prepares each report as every surface does (`src/report/readerPreparation.ts`), and compares the valuation texts decided in `src/report/presentation.ts` (headline label, shown value, comparison, caveats, scenario rows) across Markdown, print, the classic and dossier app and the key-data box. It also renders each surface and checks that every decided text appears in it. It runs offline with a fixed clock (`--clock ISO`).
+`npm run report:drift` measures where the reader surfaces still word the valuation figures differently (P22). It reads `golden:run` output folders (`--golden DIR`) and/or a copy of a database (`--db FILE`, opened read-only; the application database itself is refused), prepares each report as every surface does (`src/report/readerPreparation.ts`), and compares the valuation texts decided in `src/report/presentation.ts` (headline label, shown value, comparison, caveats, scenario rows) across Markdown, print, the app (dossier) and the key-data box. It also renders each surface and checks that every decided text appears in it. It runs offline with a fixed clock (`--clock ISO`).
 
 ```powershell
 npm run report:drift -- --golden tmp/golden/after --db tmp/check-copy.db --out tmp/drift/REPORT.md

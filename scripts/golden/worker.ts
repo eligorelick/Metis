@@ -12,8 +12,9 @@
  * validate (fixed clock) -> Stage B with the validation report -> balance
  * integrity view -> Stage C payload -> either the data-only report (no analyst
  * output) or the stored synthesize output through the deterministic verify pass
- * -> the saved-report reader -> Markdown, print, audit Markdown and both web
- * layouts. The clock is pinned to the case's evidence time so a rerun is exact.
+ * -> the saved-report reader -> Markdown, print, audit Markdown and the web
+ * page (the dossier layout; D-246 removed classic and its web-classic.html).
+ * The clock is pinned to the case's evidence time so a rerun is exact.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -53,7 +54,6 @@ export const GOLDEN_FILES = [
   "report.md",
   "print.html",
   "audit.md",
-  "web-classic.html",
   "web-dossier.html",
 ] as const;
 
@@ -175,15 +175,12 @@ async function main(jobFile: string): Promise<void> {
     outputs["report.md"] = reportToMarkdown(stored.report, context);
     outputs["print.html"] = reportToPrintHtml(stored.report, context);
     outputs["audit.md"] = reportToAuditMarkdown(stored.report, context);
-    for (const layout of ["classic", "dossier"] as const) {
-      outputs[`web-${layout}.html`] = renderToStaticMarkup(React.createElement(ReportView, {
-        report: stored.report,
-        layout,
-        headerNotices: true,
-        selectedReportId: PRESENTED_REPORT_ID,
-        selectedReportStatus: "done",
-      }));
-    }
+    outputs["web-dossier.html"] = renderToStaticMarkup(React.createElement(ReportView, {
+      report: stored.report,
+      headerNotices: true,
+      selectedReportId: PRESENTED_REPORT_ID,
+      selectedReportStatus: "done",
+    }));
   }
 
   fs.mkdirSync(job.outDir, { recursive: true });

@@ -71,34 +71,13 @@ export function readableHtml(html: string): { text: string; ids: Set<string> } {
 function normalize(value: string): string { return value.replace(/\s+/g, " ").trim(); }
 
 /**
- * Classic text that states a fact the dossier also shows, in the dossier's own
- * words (D-241); each entry names what the dossier shows instead. Changing the
- * wording is the owner's call, not this test's. Each pattern matches one whole
- * classic text segment.
- * Anything else classic renders must appear in the dossier's readable text.
- */
-export const CLASSIC_ONLY_WORDING: readonly { pattern: RegExp; dossier: string }[] = [
-  { pattern: /^Equity research report$/, dossier: "brand line beside the classic logo; the dossier header reads Equity Research Report" },
-  { pattern: /^sections$/, dossier: "classic section index caption; the dossier contents menu links the same sections" },
-  { pattern: /^composite scorecard$/, dossier: "heading: Deterministic scorecard" },
-  { pattern: /^House scoring bands$/, dossier: "Band policy: <version> under Score methodology & recorded inputs" },
-  { pattern: /^No completed multi-pass analysis\. /, dossier: "Data-only · analysis unavailable, with the recorded reason and the same data issue counts (dataStateText)" },
-  { pattern: /^DCF · intrinsic value \/ share$/, dossier: "the dossier's headline label (valuationHeadlineView, per surface)" },
-  { pattern: /^DCF provenance$/, dossier: "Model value provenance" },
-  { pattern: /^reverse DCF — market is pricing$/, dossier: "Reverse valuation — market-implied assumptions" },
-  { pattern: /^(DCF|Valuation) assumptions$/, dossier: "Recorded valuation assumptions" },
-  { pattern: /^sensitivity · per share( \(rows = WACC, cols = terminal g\) — green high → red low)?$/, dossier: "Recorded sensitivity cases" },
-  { pattern: /^no sensitivity grid$/, dossier: "No WACC × terminal growth grid was recorded for this valuation method." },
-];
-
-/**
  * A whole-number cell and a cell at more decimals that can both be roundings of
  * one stored value: "$161" and "$161.37", "$112" and "$112.50" (stored 112.4999).
  */
-function roundsTo(classicCell: string, dossierCell: string): boolean {
-  if (classicCell === dossierCell) return true;
+function roundsTo(frozenCell: string, dossierCell: string): boolean {
+  if (frozenCell === dossierCell) return true;
   const shape = /^(-?[^\d\s-]*)([\d,]+)(\.\d+)?$/;
-  const whole = shape.exec(classicCell);
+  const whole = shape.exec(frozenCell);
   const precise = shape.exec(dossierCell);
   if (!whole || !precise || whole[3] !== undefined || precise[3] === undefined || whole[1] !== precise[1]) return false;
   const decimals = precise[3].length - 1;
@@ -166,62 +145,17 @@ type ReadableElement = ReturnType<Window["document"]["querySelectorAll"]>[number
 const rowCells = (row: ReadableElement) => Array.from(row.querySelectorAll("th,td")).map((cell) => normalize(cell.textContent ?? ""));
 
 /**
- * Every fact the classic layout renders, as readable text (native details
- * count as shown; hidden and screen-reader-only duplicates do not), that the
- * dossier layout does not render anywhere. Text is compared without
- * whitespace, so the same words in different markup match, and a table row,
- * list item or term pair must appear whole. A number must appear whole too:
- * a classic figure is not shown by a longer dossier number that merely
- * contains its digits. Two allowances, both stated: the
- * classic wording in {@link CLASSIC_ONLY_WORDING}, and a classic table row of
- * whole numbers that a dossier row shows cell for cell at more decimals (the
- * sensitivity grid). Returns the missing classic segments; empty means the
- * dossier shows everything classic shows.
- */
-export function classicFactsMissingFromDossier(classicHtml: string, dossierHtml: string): string[] {
-  const squash = (value: string) => value.replace(/\s+/g, "");
-  const dossierWindow = readableDocument(dossierHtml);
-  const dossier = readableText(dossierWindow);
-  const dossierRows = Array.from(dossierWindow.document.querySelectorAll("tr")).map(rowCells);
-  const classicWindow = readableDocument(classicHtml);
-  const absent = (text: string) => text.length >= 2 && !shownWhole(squash(text), dossier);
-  const worded = (text: string) => CLASSIC_ONLY_WORDING.some(({ pattern }) => pattern.test(text));
-  const roundedRow = (row: ReadableElement | null | undefined) => {
-    if (!row) return false;
-    const cells = rowCells(row);
-    return dossierRows.some((other) => other.length === cells.length && cells.every((cell, index) => roundsTo(cell, other[index]!)));
-  };
-  const missing: string[] = [];
-  const nodesMissingOrExplained: string[] = [];
-  const walker = classicWindow.document.createTreeWalker(classicWindow.document.body, 4);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    const text = normalize(node.textContent ?? "");
-    if (!absent(text)) continue;
-    nodesMissingOrExplained.push(text);
-    if (!worded(text) && !roundedRow(node.parentElement?.closest("tr"))) missing.push(text);
-  }
-  for (const element of Array.from(classicWindow.document.querySelectorAll("tr,li,dt,dd,dl > div,td,th,p,summary,caption,h1,h2,h3,h4"))) {
-    const text = normalize(element.textContent ?? "");
-    if (!absent(text) || worded(text) || nodesMissingOrExplained.some((part) => text.includes(part))) continue;
-    if (roundedRow(element.tagName === "TR" ? element : element.closest("tr"))) continue;
-    missing.push(text);
-  }
-  void dossierWindow.happyDOM.close();
-  void classicWindow.happyDOM.close();
-  return [...new Set(missing)];
-}
-/**
- * D-246: what the D-241 comparison proves, kept without the classic layout.
+ * D-246: what the D-241 classic-versus-dossier comparison proved, kept after
+ * the classic layout was removed (tests/fixtures/dossier-facts-d246.json).
  * For one report, the facts are every readable classic segment (text node, or
  * whole table row, list item, term pair, paragraph, heading, caption or
  * summary; native details count, hidden and screen-reader-only text does not)
- * that the dossier also renders (whitespace ignored, numbers whole, as in
- * {@link classicFactsMissingFromDossier}), reduced to the longest ones (a
- * shorter segment inside a kept one is dropped only when it neither starts
- * nor ends with a digit, so its presence follows from the longer one's),
- * plus each whole-number classic grid row that the dossier shows
- * cell for cell at more decimals (the D-241 rounding allowance). Classic's own
- * wording ({@link CLASSIC_ONLY_WORDING}) is not a fact the dossier must repeat.
+ * that the dossier also rendered when both layouts existed, reduced to the
+ * longest ones (a shorter segment inside a kept one was dropped only when it
+ * neither starts nor ends with a digit, so its presence follows from the
+ * longer one's), plus each whole-number classic grid row that the dossier
+ * shows cell for cell at more decimals (the D-241 rounding allowance).
+ * Classic's own wording (D-241's 13 listed differences) is not a fact.
  */
 export interface FrozenLayoutFacts {
   segments: string[];
@@ -229,50 +163,12 @@ export interface FrozenLayoutFacts {
 }
 
 const squashText = (value: string) => value.replace(/\s+/g, "");
-const FACT_ELEMENTS = "tr,li,dt,dd,dl > div,td,th,p,summary,caption,h1,h2,h3,h4";
 
 /**
- * Freeze the facts of one report from both layouts. Refuses unless the
- * dossier shows everything classic shows ({@link classicFactsMissingFromDossier}
- * is empty), so the frozen list is exactly what D-241 proved.
+ * The frozen facts the dossier no longer renders; empty means it still shows
+ * every one. Text is compared without whitespace and a number must appear
+ * whole (D-241 review): "$161" is not shown by "$1610.00".
  */
-export function freezeClassicFacts(classicHtml: string, dossierHtml: string): FrozenLayoutFacts {
-  const missing = classicFactsMissingFromDossier(classicHtml, dossierHtml);
-  if (missing.length > 0) throw new Error(`the dossier does not show every classic fact: ${missing.slice(0, 3).join(" | ")}`);
-  const dossierWindow = readableDocument(dossierHtml);
-  const dossier = readableText(dossierWindow);
-  const dossierRows = Array.from(dossierWindow.document.querySelectorAll("tr")).map(rowCells);
-  const classicWindow = readableDocument(classicHtml);
-  const shown = new Set<string>();
-  const add = (text: string) => { if (text.length >= 2 && shownWhole(squashText(text), dossier)) shown.add(text); };
-  const walker = classicWindow.document.createTreeWalker(classicWindow.document.body, 4);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) add(normalize(node.textContent ?? ""));
-  const roundedRows: string[][] = [];
-  for (const element of Array.from(classicWindow.document.querySelectorAll(FACT_ELEMENTS))) {
-    const text = normalize(element.textContent ?? "");
-    add(text);
-    if (element.tagName !== "TR" || text.length < 2 || shownWhole(squashText(text), dossier)) continue;
-    const cells = rowCells(element);
-    if (dossierRows.some((other) => other.length === cells.length && cells.every((cell, index) => roundsTo(cell, other[index]!)))) roundedRows.push(cells);
-  }
-  void dossierWindow.happyDOM.close();
-  void classicWindow.happyDOM.close();
-  const segments: string[] = [];
-  const kept: string[] = [];
-  for (const text of [...shown].sort((a, b) => squashText(b).length - squashText(a).length || (a < b ? -1 : a > b ? 1 : 0))) {
-    const squashed = squashText(text);
-    if (!isDigit(squashed[0]) && !isDigit(squashed.at(-1)) && kept.some((longer) => longer.includes(squashed))) continue;
-    kept.push(squashed);
-    segments.push(text);
-  }
-  const rowKeys = new Set<string>();
-  return {
-    segments: segments.sort(),
-    roundedRows: roundedRows.filter((row) => { const key = JSON.stringify(row); if (rowKeys.has(key)) return false; rowKeys.add(key); return true; }),
-  };
-}
-
-/** The frozen facts the dossier no longer renders; empty means it still shows every one. */
 export function frozenFactsMissingFromDossier(facts: FrozenLayoutFacts, dossierHtml: string): string[] {
   const dossierWindow = readableDocument(dossierHtml);
   const dossier = readableText(dossierWindow);
@@ -335,7 +231,7 @@ export function freezeReport<T>(value: T): T {
 export type ValuationParityContract = Record<ValuationSurface, { label: string; text: string }[]>;
 
 export function captureValuationParity(report: Report): ValuationParityContract {
-  const surfaces: ValuationSurface[] = ["markdown", "print", "classic", "dossier"];
+  const surfaces: ValuationSurface[] = ["markdown", "print", "dossier"];
   return Object.fromEntries(surfaces.map((surface) => {
     const prepared = prepareReportForSurface(report, surface === "markdown" || surface === "print" ? surface : "web").report;
     const texts: { label: string; text: string }[] = [];
@@ -370,12 +266,12 @@ function unescapedMarkdown(value: string): string {
   return normalize(value.replace(/\\([\\`*_~[\]<>&#@{}()+\-.!|])/g, "$1").replace(/[`*]/g, ""));
 }
 
-/** Every surface shows its own decided valuation texts; the app checks the layout it rendered. */
-export function assertValuationParity(contract: ValuationParityContract, surfaces: { live: string; markdown: string; print: string }, layout: "classic" | "dossier"): void {
+/** Every surface shows its own decided valuation texts; the app is the dossier layout. */
+export function assertValuationParity(contract: ValuationParityContract, surfaces: { live: string; markdown: string; print: string }): void {
   const bodies: [ValuationSurface, string][] = [
     ["markdown", unescapedMarkdown(surfaces.markdown)],
     ["print", readableHtml(surfaces.print).text],
-    [layout, readableHtml(surfaces.live).text],
+    ["dossier", readableHtml(surfaces.live).text],
   ];
   for (const [surface, body] of bodies) {
     for (const { label, text } of contract[surface]) {

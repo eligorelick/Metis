@@ -18,7 +18,7 @@ import {
 } from "@/report/presentation";
 import type { FairValue, Scenario, ScenarioTargets, TracedNumber, Valuation } from "@/report/schema";
 
-const SURFACES: readonly ValuationSurface[] = ["markdown", "print", "classic", "dossier"];
+const SURFACES: readonly ValuationSurface[] = ["markdown", "print", "dossier"];
 const perShare: TracedNumber = { value: 123.456, unit: "USD/share", currency: "USD", source: "computed.valuation.dcf.perShare", asOf: "2025-12-31", verified: true };
 
 function fairValue(overrides: Partial<FairValue> = {}): FairValue {
@@ -42,17 +42,17 @@ describe("valuation headline decisions", () => {
       expect(valuationComparison(perShare, null, surface)).toBeNull();
     }
     expect(valuationComparison(perShare, 1, "markdown")?.label).toBe("upside");
-    expect(valuationComparison(perShare, 1, "classic")?.label).toBe("vs price");
+    expect(valuationComparison(perShare, 1, "dossier")?.label).toBe("vs price");
     expect(valuationComparison(perShare, 1, "key-data")?.label).toBe("vs price");
     // EXCEPTION app-zero-tone: a negative value that rounds to zero is toned negative.
-    expect(valuationComparison(perShare, -0.04, "classic")?.tone).toBe("neg");
+    expect(valuationComparison(perShare, -0.04, "dossier")?.tone).toBe("neg");
   });
 
   it("labels the headline per surface (EXCEPTION dossier-label)", () => {
     const labels = (fv: FairValue) => SURFACES.map(surface => valuationHeadlineView(valuation(), fv, surface).label);
-    expect(labels(fairValue())).toEqual(["Intrinsic value per share", "Intrinsic value per share", "DCF · intrinsic value / share", "FCFF DCF · model value / share"]);
-    expect(labels(fairValue({ method: "excess-return" }))).toEqual(["Model value per share", "Model value per share", "Excess-return · model value / share", "Excess-return · model value / share"]);
-    expect(labels(fairValue({ method: null }))[3]).toBe("Recorded model value / share");
+    expect(labels(fairValue())).toEqual(["Intrinsic value per share", "Intrinsic value per share", "FCFF DCF · model value / share"]);
+    expect(labels(fairValue({ method: "excess-return" }))).toEqual(["Model value per share", "Model value per share", "Excess-return · model value / share"]);
+    expect(labels(fairValue({ method: null }))[2]).toBe("Recorded model value / share");
     expect(valuationHeadlineView(valuation(), fairValue({ method: "excess-return" }), "print").heading).toBe("Excess-return value");
     expect(valuationHeadlineView(valuation(), fairValue(), "print").heading).toBe("DCF");
   });
@@ -68,14 +68,14 @@ describe("valuation headline decisions", () => {
       const view = valuationHeadlineView(valuation(12.35, null), fairValue(), surface);
       expect(view.valueText).toBeNull();
       expect(view.comparison).toBeNull();
-      expect(view.withheldReason === null).toBe(surface === "classic" || surface === "dossier");
+      expect(view.withheldReason === null).toBe(surface === "dossier");
     }
   });
 
   it("prints the withheld sentence in reader form in Markdown only (EXCEPTION markdown-withheld-reader-form)", () => {
     const reference = fairValue({ status: "dated-reference", perShare: null, reference: { perShare: { ...perShare, value: 31.4876543 }, valuationDate: "2025-12-31", quoteDate: "2026-07-20", basis: [] } });
     expect(valuationHeadlineView(valuation(), reference, "markdown").basisCaveat).toContain("31.49");
-    for (const surface of ["print", "classic", "dossier"] as const) expect(valuationHeadlineView(valuation(), reference, surface).basisCaveat).toContain("31.4876543");
+    for (const surface of ["print", "dossier"] as const) expect(valuationHeadlineView(valuation(), reference, surface).basisCaveat).toContain("31.4876543");
   });
 
   it("prints the no-model sentence as stored in Markdown only (EXCEPTION markdown-no-model-reader-form)", () => {
@@ -100,7 +100,7 @@ describe("scenario row decisions", () => {
 
   it("orders bull, base, bear in the app and keeps stored order in the exports (EXCEPTION app-scenario-order)", () => {
     expect(valuationScenarioView(scenarios, undefined, "markdown").rows.map(r => r.scenario.name)).toEqual(["bear", "bull", "base"]);
-    expect(valuationScenarioView(scenarios, undefined, "classic").rows.map(r => r.scenario.name)).toEqual(["bull", "base", "bear"]);
+    expect(valuationScenarioView(scenarios, undefined, "dossier").rows.map(r => r.scenario.name)).toEqual(["bull", "base", "bear"]);
     const view = valuationScenarioView(scenarios, undefined, "print");
     expect(view.common).toEqual(["Shared line"]);
     expect(view.rows[0]!.assumptions).toEqual(["bear line"]);
@@ -110,7 +110,7 @@ describe("scenario row decisions", () => {
   it("words the weight per surface (EXCEPTION app-weight-wording)", () => {
     expect(scenarioWeightView(0.25, false, "markdown")).toMatchObject({ label: "p", text: "25%" });
     expect(scenarioWeightView(null, false, "markdown")).toMatchObject({ label: "p", text: "unavailable" });
-    expect(scenarioWeightView(null, false, "classic")).toMatchObject({ label: "p", text: "n/a", unavailableNote: "scenario probability unavailable" });
+    expect(scenarioWeightView(null, false, "dossier")).toMatchObject({ label: "p", text: "n/a", unavailableNote: "scenario probability unavailable" });
     expect(scenarioWeightView(0.5, true, "print")).toMatchObject({ label: "display weight", text: "50%" });
     expect(scenarioWeightView(0.5, true, "dossier")).toMatchObject({ label: "Display weight", text: "50%", unavailableNote: "display weight unavailable" });
     // D-60: a computed target with no stored weight shows none.
@@ -119,8 +119,8 @@ describe("scenario row decisions", () => {
 
   it("prints a weight-basis fallback in the app only (EXCEPTION app-weight-basis-fallback)", () => {
     expect(valuationScenarioView(scenarios, undefined, "markdown").weightBasis).toBeNull();
-    expect(valuationScenarioView(scenarios, undefined, "classic").weightBasis).toMatch(/^Narrative probabilities/);
-    expect(valuationScenarioView(scenarios, undefined, "classic").heading).toBe("scenarios · probability-weighted (bull / base / bear)");
+    expect(valuationScenarioView(scenarios, undefined, "dossier").weightBasis).toMatch(/^Narrative probabilities/);
+    expect(valuationScenarioView(scenarios, undefined, "dossier").heading).toBe("scenarios · probability-weighted (bull / base / bear)");
     expect(valuationScenarioView(scenarios, undefined, "markdown").heading).toBe("Scenarios");
   });
 

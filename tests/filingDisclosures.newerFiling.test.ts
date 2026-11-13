@@ -43,7 +43,7 @@ function render(bundle: DataBundle) {
   return {
     computed, report,
     surfaces: [reportToMarkdown(report), reportToPrintBody(report),
-      renderToStaticMarkup(createElement(ReportView, { report })), renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }))],
+      renderToStaticMarkup(createElement(ReportView, { report })), renderToStaticMarkup(createElement(ReportView, { report }))],
   };
 }
 

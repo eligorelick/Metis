@@ -43,7 +43,6 @@ const providerBoundaryMocks = vi.hoisted(() => ({
 }));
 const configMocks = vi.hoisted(() => ({
   getConfig: vi.fn<() => ThesisConfig>(() => ({
-    uiRedesign: false,
     fmpApiKey: undefined,
     finnhubApiKey: undefined,
     fredApiKey: undefined,

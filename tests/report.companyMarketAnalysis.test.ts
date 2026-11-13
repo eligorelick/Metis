@@ -24,7 +24,7 @@ function withAnalysis(): Report {
   return report;
 }
 const surfaces = (report: Report) => [reportToMarkdown(report), readableHtml(reportToPrintBody(report)).text,
-  ...(["classic", "dossier"] as const).map(layout => readableHtml(renderToStaticMarkup(createElement(ReportView, { report, layout }))).text)];
+  readableHtml(renderToStaticMarkup(createElement(ReportView, { report }))).text];
 
 describe("company market and competitor claims", () => {
   it("leaves historical reports without the optional arrays unchanged when parsed", () => {
@@ -121,7 +121,7 @@ describe("analyst report reading order", () => {
     report.meta.reportId = 59;
     const before = JSON.stringify(report);
     const outputs = [reportToMarkdown(report), readableHtml(reportToPrintBody(report)).text,
-      ...(["classic", "dossier"] as const).map(layout => readableHtml(renderToStaticMarkup(createElement(ReportSnapshotHeader, { snapshot: report, reportId: 59, status: "done", actions: null })) + renderToStaticMarkup(createElement(ReportView, { report, layout, selectedReportStatus: "done", headerNotices: true }))).text)];
+      readableHtml(renderToStaticMarkup(createElement(ReportSnapshotHeader, { snapshot: report, reportId: 59, status: "done", actions: null })) + renderToStaticMarkup(createElement(ReportView, { report, selectedReportStatus: "done", headerNotices: true }))).text];
     for (const text of outputs) {
       const about = text.toLowerCase().indexOf("about this report");
       const appendix = text.lastIndexOf("Appendix", about);

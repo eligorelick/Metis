@@ -385,7 +385,7 @@ describe("D-229 boundaries: the code never reaches a model, a snapshot or the re
     expect(withCodes.hash).toBe(captureRunInputSnapshot(withoutGapCauses(bundle), { evIncludeLeases: false }).hash);
   });
 
-  it("no reader surface shows the code: app (both layouts), header, Markdown, print and audit export render the same without it", () => {
+  it("no reader surface shows the code: app, header, Markdown, print and audit export render the same without it", () => {
     const bundle = completeCurrencyBundle({ burning: true, symbol: "TECHV" });
     const report: Report = buildDataOnlyReport({
       symbol: bundle.symbol, companyName: "Test Loss Co", generatedAt: "2026-07-06T12:00:00.000Z", model: "none", costUsd: 0,
@@ -393,9 +393,8 @@ describe("D-229 boundaries: the code never reaches a model, a snapshot or the re
     });
     expect(report.appendix.missingData.filter((entry) => entry.cause === "dcf-unprofitable-overlay")).toHaveLength(1);
     const surfaces = (r: Report) => ({
-      classic: renderToStaticMarkup(createElement(ReportView, { report: r, layout: "classic" })),
-      dossier: renderToStaticMarkup(createElement(ReportView, { report: r, layout: "dossier" })),
-      dossierSelected: renderToStaticMarkup(createElement(ReportView, { report: r, layout: "dossier", selectedReportId: 7 })),
+      dossier: renderToStaticMarkup(createElement(ReportView, { report: r })),
+      dossierSelected: renderToStaticMarkup(createElement(ReportView, { report: r, selectedReportId: 7 })),
       header: renderToStaticMarkup(createElement(ReportSnapshotHeader, { snapshot: r, reportId: 7, status: "done", actions: null })),
       markdown: reportToMarkdown(r), print: reportToPrintBody(r), printPage: reportToPrintHtml(r), audit: reportToAuditMarkdown(r),
     });

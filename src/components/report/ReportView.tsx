@@ -16,11 +16,13 @@ import { withoutGapCauses } from "@/pipeline/stageA/manifest";
  *     accent-bordered — rendered in manifest order as section 10, between
  *     Competitive and Outlook (it is not hoisted above the numbered sections);
  *   - all sections in manifest order as anchored blocks;
- *   - a right-rail sticky anchor nav (the denser option vs. tabs) for jumping.
+ *   - a sticky contents menu and the evidence rail for jumping (D-246: the
+ *     dossier is the only layout; the classic layout was removed).
  *
  * Data-only reports (the multi-pass analysis is absent, including attempted
  * passes that failed) are detected exactly as the view API detects them
- * (appendix.missingData has an `analysis.llm` entry) and render a clear banner;
+ * (appendix.missingData has an `analysis.llm` entry) and say so in a data-only
+ * details element;
  * deterministic sections still render, with unavailable or thin-evidence
  * assessments withheld. The appendix/manifest is always shown.
  *
@@ -33,12 +35,10 @@ import { withoutGapCauses } from "@/pipeline/stageA/manifest";
  */
 
 import { LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
-import { MetisLogo } from "@/brand/MetisLogo";
 import type { ReactNode } from "react";
-import { WorkspaceOnly } from "@/appearance/UiDesignProvider";
 import { ReportEvidenceRail } from "./ReportEvidenceRail";
 import { DossierCover } from "./DossierCover";
-import { ClassicReportScrollOffset, ReportContents } from "./ReportContents";
+import { ReportContents } from "./ReportContents";
 import { EvidenceInspector } from "./EvidenceInspector";
 import { evidenceIdentity } from "./evidenceIdentity";
 import { dataStateText, plainFigureReaderNote, presentationReportId, projectionsNotRecordedNotice, routeMetricsForDisplay } from "@/report/presentation";
@@ -60,21 +60,15 @@ import {
   BusinessSegments,
   CatalystsRisksPanel,
   CompetitiveSection,
-  CompositeScorecard,
-  DisagreementsBlock,
-  ExecutiveSummary,
   FundamentalsSection,
   GradeStripBar,
-  KeyDataBox,
   LeadershipSection,
   MacroSection,
   OutlookSection,
   ProjectionsSection,
-  RecentDevelopmentsBlock,
   QualityFlags,
   TechnicalsSection,
   ValuationSection,
-  VerdictHeader,
   SectionFrame,
 } from "./sections";
 
@@ -85,36 +79,6 @@ import {
 
 export function isDataOnlyReport(report: Report): boolean {
   return report.appendix.missingData.some((m) => m.field === "analysis.llm");
-}
-
-/* ------------------------------------------------------------------------ *
- * Right-rail anchor nav
- * ------------------------------------------------------------------------ */
-
-function AnchorNav() {
-  return (
-    <nav className="report-anchor-nav sticky top-4 hidden max-h-[calc(100vh-6rem)] w-48 shrink-0 flex-col gap-0.5 overflow-y-auto xl:flex">
-      <div className="mono px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-faint">
-        sections
-      </div>
-      {REPORT_SECTION_MANIFEST.map((e) => (
-        <a
-          key={e.key}
-          href={`#${sectionAnchorId(e.key)}`}
-          className={`mono flex items-baseline gap-2 px-2 py-1 text-[11px] hover:bg-raised ${
-            e.accent
-              ? "text-accent hover:text-accent"
-              : "text-muted hover:text-accent"
-          }`}
-        >
-          <span className={e.accent ? "text-accent/70" : "text-faint"}>
-            {String(e.index).padStart(2, "0")}
-          </span>
-          <span>{e.label}</span>
-        </a>
-      ))}
-    </nav>
-  );
 }
 
 /**
@@ -137,31 +101,6 @@ function NewerResultsBanner({ text, label = "newer results not reflected" }: { t
 }
 
 /* ------------------------------------------------------------------------ *
- * Data-only banner
- * ------------------------------------------------------------------------ */
-
-/**
- * `reason` is the report's own `analysis.llm` manifest entry — the pipeline's
- * honest account (no key vs. model resolution vs. passes that RAN and failed,
- * billing real cost). Hardcoding "no API key" here misdescribed the 2026-07-10
- * incident, where two ~8-minute analyst passes billed and then died overloaded.
- */
-function DataOnlyBanner({ text }: { text: string }) {
-  return (
-    <div className="border border-warn/50 bg-warn/10 px-3 py-2.5">
-      <div className="flex items-center gap-2">
-        <span className="mono border border-warn/50 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.1em] text-warn">
-          data-only
-        </span>
-      </div>
-      <p className="mt-1 text-[11px] leading-snug text-muted">
-        {text}
-      </p>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------------ *
  * ReportView
  * ------------------------------------------------------------------------ */
 
@@ -171,7 +110,6 @@ export function ReportView({
   technicalsChart,
   /** Optional chart node mounted inside the Fundamentals section. */
   fundamentalsChart,
-  layout = "classic",
   headerNotices = false,
   selectedReportId,
   selectedReportStatus,
@@ -179,7 +117,6 @@ export function ReportView({
   report: Report;
   technicalsChart?: ReactNode;
   fundamentalsChart?: ReactNode;
-  layout?: "classic" | "dossier";
   headerNotices?: boolean;
   selectedReportId?: number;
   selectedReportStatus?: string;
@@ -189,7 +126,7 @@ export function ReportView({
   const reportId = presentationReportId(report,{selectedReportId});
   // D-227: the recorded build identity is stored data, not display identity; so are the
   // missing-data entries' typed causes (D-229).
-  const inspectionIdentity = layout === "dossier" ? evidenceIdentity("report", withoutCodeIdentity(withoutGapCauses(report))) : "";
+  const inspectionIdentity = evidenceIdentity("report", withoutCodeIdentity(withoutGapCauses(report)));
   // D-67: each grade line gets its aspect score (limited-evidence label) and the data state (confidence cap).
   const grading = (key: keyof NonNullable<Report["scores"]>["aspects"]) => ({ aspect: report.scores?.aspects[key] ?? null, completeness });
   const figureCaveat = plainFigureReaderNote(report);
@@ -198,24 +135,13 @@ export function ReportView({
   const sections: Record<ReportSectionKey, ReactNode> = {
     verdict: (
       <div id={sectionAnchorId("verdict")} tabIndex={-1} className="scroll-mt-28">
-        {layout === "dossier" ? <><DossierCover report={report} completeness={completeness} />{figureNote}</> : <>
-        <VerdictHeader verdict={report.verdict} />
-        {figureNote}
-        {report.verdict.executiveSummary && report.verdict.executiveSummary.length > 0 && (
-          <div className="mt-3"><ExecutiveSummary claims={report.verdict.executiveSummary} /></div>
-        )}
-        {report.verdict.recentDevelopments && <div className="mt-3"><RecentDevelopmentsBlock developments={report.verdict.recentDevelopments} /></div>}
-        {report.scores && <div className="mt-3"><CompositeScorecard scores={report.scores} /></div>}
-        <div className="mt-3"><GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} /></div>
-        {/* D-62: the bull/bear debate sits with the verdict it informs. */}
-        {report.disagreements.length > 0 && <div className="mt-3 border border-edge bg-panel px-3 py-3"><DisagreementsBlock disagreements={report.disagreements} /></div>}
-        </>}
+        <DossierCover report={report} completeness={completeness} />{figureNote}
       </div>
     ),
     business: <BusinessSegments business={report.business} index={reportSection("business").index} extraTables={filingDisclosureTables(report.filingDisclosures, "business")} />,
     fundamentals: <FundamentalsSection report={report} fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} grading={grading("fundamentals")} chart={fundamentalsChart} extraTables={[...filingDisclosureTables(report.filingDisclosures, "fundamentals"), ...lenderTables]} />,
     balanceSheet: <BalanceSheetSection report={report} grading={grading("balanceSheet")} balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
-    valuation: <ValuationSection presentation={layout} report={report} grading={grading("valuation")} valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={routeMetricsForDisplay(report)} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} index={reportSection("valuation").index} />,
+    valuation: <ValuationSection report={report} grading={grading("valuation")} valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={routeMetricsForDisplay(report)} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} index={reportSection("valuation").index} />,
     quality: <QualityFlags quality={report.quality} grading={grading("quality")} index={reportSection("quality").index} />,
     technicals: <TechnicalsSection report={report} grading={grading("technicals")} technicals={report.technicals} index={reportSection("technicals").index} chart={technicalsChart} />,
     leadership: <LeadershipSection report={report} grading={grading("leadership")} leadership={report.leadership} index={reportSection("leadership").index} />,
@@ -224,21 +150,20 @@ export function ReportView({
     outlook: <OutlookSection outlook={report.outlook} index={reportSection("outlook").index} extraTables={filingDisclosureTables(report.filingDisclosures, "outlook")} />,
     projections: report.projections && !unavailableCashFlowModel(report) ? <ProjectionsSection projections={report.projections} index={reportSection("projections").index} /> : projectionsNotice ? <SectionFrame id="projections" index={reportSection("projections").index} title="Weighted Projections"><p className="text-muted">{projectionsNotice}</p></SectionFrame> : null,
     macro: <MacroSection macro={report.macro} index={reportSection("macro").index} />,
-    appendix: <AppendixSection report={report} selectedReportId={reportId} selectedReportStatus={selectedReportStatus} completeness={completeness} showTrustDetails={layout === "classic"} index={reportSection("appendix").index} />,
+    appendix: <AppendixSection report={report} selectedReportId={reportId} selectedReportStatus={selectedReportStatus} completeness={completeness} index={reportSection("appendix").index} />,
   };
 
   return (
-    <div className="thesis-report mx-auto flex max-w-[1400px] flex-col gap-3 p-4" data-report-layout={layout}>
-      {layout === "classic" && <ClassicReportScrollOffset />}
-      {layout === "dossier" && <SourceEvidenceCatalog report={report} />}
-      {layout === "classic" && <div className="flex items-center gap-4 border-b border-edge pb-3">
-        <MetisLogo className="h-7 w-[111px] shrink-0" />
-        <span className="text-[10px] uppercase tracking-[0.16em] text-faint">Equity research report</span>
-      </div>}
+    <div className="thesis-report mx-auto flex max-w-[1400px] flex-col gap-3 p-4" data-report-layout="dossier">
+      {/* D-246: each {null} holds the child position of a removed classic element,
+          so React's generated ids (the evidence dialog's) and the HTML stay as they were. */}
+      {null}
+      <SourceEvidenceCatalog report={report} />
+      {null}
       {/* Sticky grade strip — clickable, deep-links to each graded section. */}
       <div className="report-grade-strip sticky top-0 z-20 -mx-4 border-b border-edge bg-bg/95 px-4 py-2 backdrop-blur">
-        {layout === "dossier" && <div className="report-sticky-context"><span>{report.meta.symbol}</span><ReportContents key={`${report.meta.symbol}:${report.meta.generatedAt}`} reportIdentity={`${report.meta.symbol}:${reportId ?? report.meta.generatedAt}`} hasProjections={report.projections !== undefined} /></div>}
-        <GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} compact presentation={layout === "dossier" ? "dossier" : "default"} />
+        <div className="report-sticky-context"><span>{report.meta.symbol}</span><ReportContents key={`${report.meta.symbol}:${report.meta.generatedAt}`} reportIdentity={`${report.meta.symbol}:${reportId ?? report.meta.generatedAt}`} hasProjections={report.projections !== undefined} /></div>
+        <GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} compact />
       </div>
 
       {!headerNotices && <header>
@@ -248,12 +173,12 @@ export function ReportView({
       </header>}
       {!headerNotices && <RunNotices report={report} notices="body" />}
 
-      {completeness.bannerText && (layout === "classic" ? <DataOnlyBanner text={completeness.bannerText} /> : <details className="data-only-availability"><summary>Data-only · analysis unavailable · full reason</summary><p>{completeness.analysisReason}</p><p>{dataStateText(completeness)}</p></details>)}
+      {completeness.bannerText && <details className="data-only-availability"><summary>Data-only · analysis unavailable · full reason</summary><p>{completeness.analysisReason}</p><p>{dataStateText(completeness)}</p></details>}
 
       {newerResultsBanner(report.filingDisclosures) && <NewerResultsBanner text={newerResultsBanner(report.filingDisclosures)!} />}
       {newerFilingBanner(report.filingDisclosures) && <NewerResultsBanner text={newerFilingBanner(report.filingDisclosures)!} label="newer filing not reflected" />}
 
-      {layout === "classic" && <KeyDataBox report={report} />}
+      {null}
 
       {scopeQualifications.length > 0 && (
         <section className="border border-edge bg-panel p-3" aria-label={LEGACY_SCOPE_HEADING}>
@@ -272,8 +197,8 @@ export function ReportView({
           ))}
         </div>
 
-        {/* Right-rail anchor nav (denser than tabs). */}
-        {layout === "dossier" ? <ReportEvidenceRail report={report} selectedReportId={reportId} inspector={<EvidenceInspector key={inspectionIdentity} reportIdentity={inspectionIdentity} />} /> : <><AnchorNav /><WorkspaceOnly><ReportEvidenceRail report={report} selectedReportId={reportId} /></WorkspaceOnly></>}
+        {/* Right-rail evidence and inspector. */}
+        <ReportEvidenceRail report={report} selectedReportId={reportId} inspector={<EvidenceInspector key={inspectionIdentity} reportIdentity={inspectionIdentity} />} />
       </div>
     </div>
   );

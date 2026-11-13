@@ -34,9 +34,9 @@ beforeEach(() => {
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
 });
 afterEach(async () => { vi.useRealTimers(); await act(async () => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
-async function render(symbol = "DEMO", initialJobId: string | null = "job-A", liveView = false, layout: "classic" | "dossier" = "dossier") {
+async function render(symbol = "DEMO", initialJobId: string | null = "job-A", liveView = false) {
   await act(async () => root.render(createElement(StrictMode, null,
-    createElement(UiDesignProvider, { initialDesign: "current", layout },
+    createElement(UiDesignProvider, { initialDesign: "current" },
       createElement(GenerateReport, { key: symbol, symbol, initialJobId, liveView })))));
 }
 describe("saved-page attachment to an authoritative active run", () => {
@@ -50,8 +50,8 @@ describe("saved-page attachment to an authoritative active run", () => {
     if (live) expect(router.replace).toHaveBeenCalledWith("/company/DEMO", { scroll: false });
     expect(fetcher).not.toHaveBeenCalled();
   });
-  it.each(["classic", "dossier"] as const)("P4-1 already-done resumable attachment stays on live view (%s)", async (layout) => {
-    await render("DEMO", "job-A", true, layout);
+  it("P4-1 already-done resumable attachment stays on live view (dossier)", async () => {
+    await render("DEMO", "job-A", true);
     await act(async () => Stream.opened.at(-1)!.emit("snapshot", snapshot({ status: "done", dataOnly: true, resumable: true })));
     expect(router.replace).not.toHaveBeenCalled();
     expect(router.refresh).not.toHaveBeenCalled();
@@ -72,8 +72,8 @@ describe("saved-page attachment to an authoritative active run", () => {
     await act(async () => stream.emit("open"));
     expect(container.textContent).not.toMatch(/reconnecting/i);
   });
-  it.each(["classic", "dossier"] as const)("JOB-214 reopens CLOSED streams without posting work (%s)", async (layout) => {
-    vi.useFakeTimers(); await render("DEMO", "job-A", false, layout); const stream = Stream.opened.at(-1)!;
+  it("JOB-214 reopens CLOSED streams without posting work (dossier)", async () => {
+    vi.useFakeTimers(); await render("DEMO", "job-A", false); const stream = Stream.opened.at(-1)!;
     const count = Stream.opened.length;
     stream.readyState = 2;
     await act(async () => stream.emit("error"));
@@ -81,10 +81,10 @@ describe("saved-page attachment to an authoritative active run", () => {
     expect(Stream.opened).toHaveLength(count + 1);
     expect(fetcher).not.toHaveBeenCalled();
   });
-  it.each(["classic", "dossier"] as const)("P4-7 stops CLOSED reconnects and GETs once (%s)", async (layout) => {
+  it("P4-7 stops CLOSED reconnects and GETs once (dossier)", async () => {
     vi.useFakeTimers();
     fetcher.mockResolvedValue(new Response(JSON.stringify(snapshot({ revision: 8, status: "error", error: "stopped", resumable: true }))));
-    await render("DEMO", "job-A", false, layout);
+    await render("DEMO", "job-A", false);
     const initialCount = Stream.opened.length;
     for (const delay of [1000, 2000, 5000, 10000, 30000]) {
       const stream = Stream.opened.at(-1)!; stream.readyState = 2;
@@ -109,7 +109,7 @@ describe("saved-page attachment to an authoritative active run", () => {
     expect(fetcher).not.toHaveBeenCalled();
   });
   it("does not present report generation as usable before hydration", () => {
-    const html = renderToStaticMarkup(createElement(UiDesignProvider,{initialDesign:"current",layout:"dossier"},createElement(GenerateReport,{symbol:"DEMO"})));
+    const html = renderToStaticMarkup(createElement(UiDesignProvider,{initialDesign:"current"},createElement(GenerateReport,{symbol:"DEMO"})));
     expect(html).toMatch(/<button[^>]+disabled=""[^>]*>Generate report<\/button>/);
   });
   it("attaches after reload and StrictMode without creating or paying for a job", async () => {
@@ -177,7 +177,7 @@ describe("saved-page attachment to an authoritative active run", () => {
 describe("saved-page attachment to a run that finished before its first snapshot", () => {
   async function renderSaved(renderedReportId: number) {
     await act(async () => root.render(createElement(StrictMode, null,
-      createElement(UiDesignProvider, { initialDesign: "current", layout: "dossier" },
+      createElement(UiDesignProvider, { initialDesign: "current" },
         createElement(GenerateReport, { key: "DEMO", symbol: "DEMO", initialJobId: "job-A", renderedReportId })))));
   }
   it("refreshes once when the finished run saved a different report than the one rendered", async () => {
