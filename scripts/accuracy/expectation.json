@@ -1510,11 +1510,10 @@
     {
       "case": "tsm-data-only",
       "figure": "netIncome.fy",
-      "status": "mismatch",
-      "valueSha256": "2440d9c31cc56e1e",
-      "cause": "vendor value shown",
+      "status": "match",
+      "valueSha256": null,
       "note": "Neither the filed profit attributable to owners of the parent (1,697,604,000k TWD) nor consolidated profit (1,695,124,900k) in the 2025 20-F (0001628280-26-025362); the figure is stated to the thousand while the filing states 100k.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "changeReason": "D-231 (#152): TSM annual cash-flow net income now equals the filed profit attributable to owners of the parent, 1,697,604,000,000 TWD (20-F 0001628280-26-025362)"
     },
     {
       "case": "tsm-data-only",
