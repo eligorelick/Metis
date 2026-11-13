@@ -33,7 +33,7 @@ not interchangeable (P5), and a ratio's two operands share one scope (P13).
 | Figure | Line used before this change | Scope the metric needs | Outcome |
 | --- | --- | --- | --- |
 | Free-cash-flow series net income and FCF conversion (annual), `capital.fcf.series` (the baseline's "net income, latest fiscal year") | The vendor cash-flow row's net income, whichever line the vendor served: consolidated for FIGR, RIVN and most years of O and DUK; the parent's for O 2023 and DUK 2025 and 2017 | Consolidated: the numerator is consolidated cash flow, and a cash-flow statement starts from consolidated profit | **Fixed**: the parent-line years now carry the filed consolidated profit. FIGR, O 2025 and RIVN were already right and do not move |
-| Current-capital net income and FCF conversion (TTM), `capital.current` (the baseline's "net income, TTM") | The complete consolidated window (`compute.ts`, "Consolidated cash cannot be divided by a mixture of parent and total profit"); withheld without one | Consolidated | Right scope; unchanged. The builder is not touched (D-240 works there) |
+| Current-capital net income and FCF conversion (TTM), `capital.current` (the baseline's "net income, TTM") | The complete consolidated window (`compute.ts`, "Consolidated cash cannot be divided by a mixture of parent and total profit"); since D-240, the one filed profit line of an issuer without NCI; withheld otherwise | Consolidated | Right scope; unchanged. The builder is not touched here |
 | Operating and aggregate accruals, Piotroski accrual quality and return on assets | Consolidated profit first (`forensics.ts`), over consolidated cash flow and total assets | Consolidated | Right scope; unchanged |
 | ROIC | Operating profit after tax over consolidated capital (`resolveConsolidatedEquity`) | Consolidated operating figure | Right scope; unchanged |
 | Net margin (growth rows) | The income row's `netIncome`, on whatever basis the row was admitted: the parent's in general (D-108), but consolidated for a year whose filed earnings family was adopted on the consolidated basis (O 2025) | The parent's profit (D-108) in every year of one series | **Fixed** for O 2025 |
@@ -102,16 +102,16 @@ change to every company's report with no number behind it).
 
 ### Approved report changes
 
-Same-report check against current main (be7c11d6, which includes D-229,
-D-231, D-233, D-234, D-237 and D-239), with that main merged into this
-branch: 16 files in 2 of the 17 cases differ (O and DUK, all eight outputs
-each, plus their two payload fingerprints); the other 15 cases, and every
-other figure of O and DUK, are byte for byte unchanged. FIGR, RIVN and every
-company without NCI do not move. The same leaves, and no others, moved when
-this was measured against main at 99234cdf and at ab6db405. Against the
-round's first baseline (r2-base-afb9cddf) the same files differ, plus the
-approved changes of the decisions merged since it (D-229, D-231, D-233,
-D-234, D-237 and D-239). The leaf-level list is in
+Same-report check against current main (629cf3c9, which includes D-229,
+D-231, D-233, D-234, D-236, D-237, D-239, D-240 and D-241), with that main
+merged into this branch: 16 files in 2 of the 17 cases differ (O and DUK,
+all eight outputs each, plus their two payload fingerprints); the other 15
+cases, and every other figure of O and DUK, are byte for byte unchanged.
+FIGR, RIVN and every company without NCI do not move. The same leaves, and
+no others, moved each time this was measured as main moved (99234cdf,
+ab6db405, be7c11d6, 83582c62). Against the round's first baseline
+(r2-base-afb9cddf) the same files differ, plus the approved changes of the
+decisions merged since it. The leaf-level list is in
 `tmp/accuracy/s5-net-income-scope-before-after.md` (not committed: it quotes
 vendor data).
 
