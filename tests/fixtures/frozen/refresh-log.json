@@ -173,5 +173,47 @@
       "$.summary.financeHash",
       "$.finance.scores.aspects.balanceSheet.note"
     ]
+  },
+  {
+    "date": "2026-11-13",
+    "target": "stagec-payload",
+    "decision": "D-258",
+    "reason": "Follow-up integration (P27): payload stamp 1.93.0 -> 1.94.0 only; the prompt header line names the stamp, so the fingerprint, prompt hash and first-section hash move with it. No figure, period or identity moves.",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ],
+    "beforeSha256": "aaf6555a160179ac26b01b5b2143affb8c9e949c799801c472a7a0c77d95d8c9",
+    "afterSha256": "f90848c2e57a07702d5d2491d00b9cbffb1fd800546aee150cd8f830420fa2da",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ]
+  },
+  {
+    "date": "2026-11-13",
+    "target": "audit-fixture",
+    "decision": "D-258",
+    "reason": "Follow-up integration (P27): report spec stamp 1.74.0 -> 1.75.0 only, and the projection hash that covers it. No figure, period, gap or identity moves.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "abba44e0403e89c92d0f62afd0170abb3c4f6a0e3bfc699fffbc4c88f6e9ce1a",
+    "afterSha256": "738cfcfcc5658feaa1e6360c74d36260bc60c7153c36216699d50f7be76ac975",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

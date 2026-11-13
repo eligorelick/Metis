@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "805dea3f73ad727b46d0995e5a9610163cd80db735dadc41a59f161217113dbd",
+  "projectionSha256": "3bee0f2f7d67336acc486086fbc95bd011fda61b1d6fbb9773d9db9cabcc67cf",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -2094,7 +2094,7 @@
         "symbol": "DEMO",
         "companyName": "Thesis Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.74.0",
+        "specVersion": "1.75.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",
