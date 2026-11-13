@@ -102,9 +102,10 @@ shows decide as the codes do. The judge, analyst and full-report request
 schemas keep their SHA-256 (f66130f4..., 27e0dcd9..., 1e1e8574..., the same
 as on main at be7c11d6).
 
-Same-report check (17 cases, 136 files, this tree against main at be7c11d6):
-no differences. Frozen records: the Stage C payload record and the DEMO
-audit-fixture record are unchanged (no refresh). No version stamp moves.
+Same-report check (17 cases, 136 files, this tree against main at be7c11d6,
+and again after merging main at 83582c62): no differences. Frozen records:
+the Stage C payload record and the DEMO audit-fixture record are unchanged
+(no refresh). No version stamp moves.
 
 Ratchet (tests/refusalWording.ratchet.test.ts): `compute.ts`,
 `stageB/fairValue.ts`, `stageB/seniorClaims.ts`, `providers/fmp.ts`,
