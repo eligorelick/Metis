@@ -342,11 +342,6 @@ export function admitQuarterlyCapex(row: FmpCashFlowRow, facts: CompanyFacts, an
     gaps: [{ field: `statements.cashflow.${row.date}.capitalExpenditure`, reason, severity: usable ? "info" : "warn", ...(usable ? { expected: true } : {}) }] };
 }
 
-/** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
- * Compare only where BOTH filed scopes agree, with an FX-inclusive flow and
- * compatible instants. The interval comes from the filing, not an invented
- * vendor periodStart. Prior-quarter cash need not have the ending filing's ID.
- */
 /** One cash-capex zero refused by `admitZeroCapex`, kept for the single manifest entry that discloses them. */
 export interface ZeroCapexRefusal { date: string; scope: "annual" | "quarter"; filed: boolean }
 
@@ -393,6 +388,11 @@ export function zeroCapexEntries(refusals: readonly ZeroCapexRefusal[]): Manifes
     reason: `Cash capital spending is undisclosed, not zero, for ${periods}: the provider records 0 and the SEC facts establish no zero capital-spending line (${CASH_CAPEX_TAGS.join(", ")}) for those periods${contradicted.length ? ` (the filings state an amount for ${contradicted.join(", ")})` : ""}. A provider zero marks a line it did not find, not a filed zero. Capital spending and the standardized free cash flow that subtracts it are withheld for those periods; the provider observations are retained.` }];
 }
 
+/** Cash-flow balances have an unknown restricted-cash scope in vendor rows.
+ * Compare only where BOTH filed scopes agree, with an FX-inclusive flow and
+ * compatible instants. The interval comes from the filing, not an invented
+ * vendor periodStart. Prior-quarter cash need not have the ending filing's ID.
+ */
 function filedCashAmounts(facts: CompanyFacts, unit: string, row: FmpStatementRow, scope: "annual" | "quarter", observedAt: string, ctx: DerivationContext): Partial<Record<"cashAtBeginningOfPeriod" | "cashAtEndOfPeriod" | "netChangeInCash", Resolved>> {
   if (!validDay(row.date)) return {};
   const cashTag = "CashAndCashEquivalentsAtCarryingValue";
