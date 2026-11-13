@@ -126,6 +126,24 @@ describe("monetary valuation translation", () => {
     // an upstream aggregate could already contain the quote capitalization.
     expect(t.reit?.enterpriseValue).toBeUndefined();
   });
+  it("D-233: the REIT block keeps the count of FFO's own fiscal year on the quoted unit, not the latest count", () => {
+    const raw = inputs();
+    // Fiscal-year count 496 M ordinary shares against a latest count of 500 M (5 ordinary shares per ADS).
+    const t = translateValuationInputs({ ...raw, reit: { ...raw.reit!, shares: 496 * M, sharesPeriodEnd: "2025-12-31" } }, basis());
+    expect(t.dilutedShares).toBe(100 * M);
+    expect(t.reit?.shares).toBe(99.2 * M);
+    expect(t.reit?.sharesWithheldReason ?? null).toBeNull();
+  });
+  it("D-233: a fiscal-year count that cannot be placed on the quoted unit is withheld with the reason, never replaced by the latest count", () => {
+    const raw = inputs();
+    const t = translateValuationInputs({ ...raw, reit: { ...raw.reit!, shares: 470 * M, sharesPeriodEnd: "2025-12-31" } }, basis());
+    expect(t.dilutedShares).toBe(100 * M);
+    expect(t.reit?.shares).toBeNull();
+    expect(t.reit?.sharesWithheldReason).toMatch(/fiscal year ending 2025-12-31 is not established in units of the quoted security/);
+    // Control: a count already withheld upstream keeps its own reason.
+    const upstream = translateValuationInputs({ ...raw, reit: { ...raw.reit!, shares: null, sharesWithheldReason: "the fiscal year ending 2025-12-31 carries no weighted-average diluted share count" } }, basis());
+    expect(upstream.reit?.sharesWithheldReason).toBe("the fiscal year ending 2025-12-31 carries no weighted-average diluted share count");
+  });
   it("keeps projection histories, interest, debt and capital-return authorization in one currency", () => {
     const t = translateProjectionInputs({ route: runStageB(foreignBundle()).route, valuation: { kind: "pre-revenue", route: "general", multiples: null, notes: [], gaps: [] }, waccPct: 8,
       dilutedShares: 500 * M, incomeHistory: [{ date: "2025-12-31", revenue: 3200 * M, ebit: 640 * M, netIncome: 320 * M, epsDiluted: 0.64, interestExpense: 32 * M }], fcfHistory: [{ date: "2025-12-31", fcf: 256 * M }], shareCountAnnualizedPct: -2, currency: "TWD", asOf: "2026-07-02",
