@@ -69,10 +69,8 @@ function newReport(codeIdentity?: ReportCodeIdentity): Report {
 
 function surfaces(report: Report) {
   return {
-    classic: renderToStaticMarkup(createElement(ReportView, { report, layout: "classic" })),
-    dossier: renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" })),
-    classicSelected: renderToStaticMarkup(createElement(ReportView, { report, layout: "classic", selectedReportId: 7 })),
-    dossierSelected: renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier", selectedReportId: 7 })),
+    dossier: renderToStaticMarkup(createElement(ReportView, { report })),
+    dossierSelected: renderToStaticMarkup(createElement(ReportView, { report, selectedReportId: 7 })),
     header: renderToStaticMarkup(createElement(ReportSnapshotHeader, { snapshot: report, reportId: 7, status: "done", actions: null })),
     markdown: reportToMarkdown(report),
     print: reportToPrintBody(report),

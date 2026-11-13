@@ -14,7 +14,7 @@
  * database and data directory inside the output folder. No model is called.
  *
  * Output: DIR/<case>/{stageB.json, payload.txt, report.json, report.md,
- * print.html, audit.md, web-classic.html, web-dossier.html} and DIR/manifest.json
+ * print.html, audit.md, web-dossier.html} and DIR/manifest.json
  * with the SHA-256 of each. Compare two runs with golden:diff.
  */
 import fs from "node:fs";

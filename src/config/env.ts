@@ -226,8 +226,6 @@ const envSchema = z.object({
   // WS8
   /** "1" (default) kicks the scheduler at startup; "0" holds queued paid work for an explicit resume. */
   METIS_RESUME_ON_START: binaryFlagEnv(true),
-  /** Opt-in presentation only; existing appearance preferences remain independent. */
-  METIS_UI_REDESIGN: binaryFlagEnv(false),
   /** Full path of the X-Metis-Token file; blank means `<data dir>/csrf-token`. */
   METIS_TOKEN_FILE: optionalPath,
   // end WS8
@@ -304,7 +302,6 @@ const envSchema = z.object({
 export type StatementSource = "auto" | "fmp" | "edgar";
 
 export interface ThesisConfig {
-  uiRedesign: boolean;
   fmpApiKey: string | undefined;
   finnhubApiKey: string | undefined;
   fredApiKey: string | undefined;
@@ -354,7 +351,6 @@ export function parseEnv(
 ): ThesisConfig {
   const parsed = envSchema.parse(projectMetisSettings(env, Object.keys(envSchema.shape)));
   const config: ThesisConfig = {
-    uiRedesign: parsed.METIS_UI_REDESIGN,
     fmpApiKey: parsed.FMP_API_KEY,
     finnhubApiKey: parsed.FINNHUB_API_KEY,
     fredApiKey: parsed.FRED_API_KEY,

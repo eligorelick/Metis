@@ -18,6 +18,39 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - The classic layout is removed (2026-11-12)
+
+- The dossier is the only layout (P22, D-246). The classic report, home and
+  revisions layouts, their components and styles, and the
+  `METIS_UI_REDESIGN` setting are removed; a leftover value is ignored and
+  the app starts normally. What classic showed stays guaranteed in the
+  dossier by facts frozen from both layouts before the removal. Exports,
+  saved reports and the dossier page are unchanged; the same-report check
+  writes seven files per case, without `web-classic.html`.
+
+## Unreleased - The dossier is the default layout (2026-11-12)
+
+- With no `METIS_UI_REDESIGN` setting every page opens in the dossier layout
+  (P22, D-245). `METIS_UI_REDESIGN=0` still selects the classic layout for
+  now; any value other than 0 or 1 is still refused. Exports, saved reports
+  and the same-report check output are unchanged.
+
+## Unreleased - Filed common earnings for a year whose preferred stock was redeemed (2026-11-13)
+
+- Common earnings for a fiscal year are refused when preferred claims existed
+  in it, and the filed figure was read only when preferred stock or
+  noncontrolling interests stood on the year's closing balance. A year in
+  which the preferred was redeemed therefore had no common earnings, and the
+  payout history and the excess-return valuation built on it were withheld.
+  The filed income available to common (full-year 10-K) is now also read for
+  such a year: that one field, never over a vendor value or a refusal (P5,
+  P11, P13, [D-251](docs/audit/DECISIONS.md)). In the same-report check this
+  changes one of the 17 cases: Progressive's fiscal 2025 and 2024 common
+  earnings (11,308M and 8,463M) are read, its payout ratio (15.37%) and
+  excess-return fair value (USD 160.42 per share on the filed 582.2M diluted
+  shares) are built, and its valuation aspect, quality aspect and composite
+  move with them. Version stamps are not moved in this change.
+
 ## Unreleased - The gap and provider checks read the missing-data entry's typed cause (2026-11-12)
 
 - D-242 (P11): twelve checks that decided by the wording of a missing-data

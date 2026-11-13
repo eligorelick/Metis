@@ -11,6 +11,338 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-246 - The classic layout is removed (2026-11-12)
+
+Principle P22 (one presentation rule per figure). Round 2, S4.12c, the last
+of the three layout steps. Owner decision: "make dossier the default once it
+shows everything classic shows, then remove classic", and "What may change in
+a report: nothing a reader sees, except the layout switch and classic's
+removal." D-241 showed the dossier shows everything classic shows; D-245 made
+it the default. Revises D-245 (the setting it kept is now gone).
+
+Removed. The classic layout and everything that only distinguished it: the
+`layout` prop of `ReportView` and of the appearance provider, the
+`presentation` prop of `ValuationSection` and `GradeStripBar`, the `mode` prop
+of `CompositeScorecard`, `showTrustDetails` on `AppendixSection`, the
+"classic" valuation surface in `src/report/presentation.ts` (with its one
+classic-only headline label), classic-only components (the report's anchor
+nav, data-only banner, classic logo header and scroll-offset helper, the
+classic sensitivity grid, the classic export buttons, the home page's classic
+introduction and watchlist rows, the revisions and comparison pages' classic
+sidebars) and the `body[data-ui-layout="classic"]` styles. `METIS_UI_REDESIGN`
+leaves the settings schema, `.env.example` and the generated README table.
+
+Kept. Every shared component behaves as before; the dossier's wording does
+not change. `data-ui-layout="dossier"` and `data-report-layout="dossier"`
+stay on the page because the shared styles and the reading check key on
+them. Trust and audit details stay where the dossier shows them (the
+evidence summary's reconciliation details, the score methodology and
+recorded inputs). `ReportView` keeps three empty child positions where
+classic elements were, so React's generated ids, and with them the dossier
+HTML, are byte-identical.
+
+The removed setting. A leftover `METIS_UI_REDESIGN` in `.env` or the
+environment is ignored: the app starts and renders the dossier, whatever the
+value (it is not a safety setting, so it is not a startup error). The
+retired `THESIS_UI_REDESIGN` name is still refused, as D-228 decided. The
+D-228 settings parity test keeps its frozen table (main at e55519ce) and
+applies one named delta, which replaces D-245's: `uiRedesign` leaves the
+config, every `METIS_UI_REDESIGN` value parses as if unset, and the previously
+refused "true" now starts the app; a test pins the three rows that change.
+
+The parity guarantee without classic. Before classic was removed (the first
+commit of this pull request, on the D-245 code), the facts the D-241 check
+proves were frozen for the seven parity fixture reports:
+`tests/fixtures/dossier-facts-d246.json`, built by `freezeClassicFacts`, is
+every readable segment classic rendered that the dossier also rendered
+(native details count; hidden and screen-reader-only text does not; numbers
+whole, as the D-241 review required), reduced to the longest ones, plus the
+whole-number grid rows the dossier shows at more decimals. That commit's
+test proved that freezing again from both layouts gives exactly the
+committed file. The test that stays checks that the dossier still renders
+every frozen fact (`frozenFactsMissingFromDossier`); a mutation check
+(dropping the executive summary from the dossier cover) fails all seven
+fixtures, and unit cases cover a dropped fact, a row whose parts survive
+apart, a re-rounded grid row, a hidden duplicate and a number inside a longer
+number.
+
+Tests. Cases whose only subject was the classic layout or the setting are
+removed (listed in the pull request). Tests that checked a shared fact
+through classic now check it through the dossier with the same assertions,
+or with the dossier's own words where classic's wording was one of D-241's
+listed differences (for example "Model value provenance" for "DCF
+provenance", the data-only disclosure for the classic banner, the coverage
+desk's full grade names on the home page).
+
+Findings for the owner (not changed here, because they would change dossier
+text): the dossier's evidence rail lists every recorded manifest entry
+verbatim in a collapsed "Recorded gaps" disclosure, so machine identifiers
+such as `fmp.pressReleases(AMZN)` or a `dcf-suppressed` route id reach
+readers (classic showed the same list only in its Ivory appearance); and
+the dossier scorecard's methodology disclosure prints the band policy id
+("Band policy: SCORE_BANDS_..."). The FIGR readability test pins the first
+as the only exception; the scorecard header itself stays plain.
+
+Same-report check. Against the D-245 head, the only difference in 17 cases
+is `web-classic.html`, present only on the old side (the harness now writes
+seven files per case); `web-dossier.html`, `report.md`, `print.html`,
+`audit.md`, `payload.txt`, `report.json` and `stageB.json` are
+byte-identical. Saved reports and the database are untouched (P21): no
+stored field records a layout.
+
+Risks. Correctness and data: none (presentation only). Backward
+compatibility: anyone who set `METIS_UI_REDESIGN=0` now sees the dossier,
+which is the owner's decision. Reversible by one revert.
+
+## D-245 - The dossier is the default layout (2026-11-12)
+
+Revised by D-246 (the setting this entry keeps is removed with classic).
+
+Principle P22 (one presentation rule per figure). Round 2, S4.12b. Owner
+decision: "Layout, last and as its own pull requests: make dossier the default
+once it shows everything classic shows, then remove classic", and "What may
+change in a report: nothing a reader sees, except the layout switch and
+classic's removal." D-241 established that the dossier shows every fact
+classic shows; this entry is the second of the three steps. It changes the
+default and nothing else; classic is still selectable.
+
+Change. `METIS_UI_REDESIGN` (`src/config/env.ts`) now defaults to 1. With no
+setting, or a blank one, every page (home, company, saved report, revisions,
+comparison, sample report, settings) renders the dossier layout. The strict
+parsing is unchanged: 1 selects the dossier as before, 0 still selects
+classic, and any other value (for example "true") is still refused at startup.
+So someone who set the flag to get the dossier keeps it, and someone who
+explicitly set 0 keeps classic in this step. `.env.example` and the generated
+README table say so.
+
+App pages checked before flipping (the PARITY.md items outside the report,
+and every other `uiRedesign` branch in `src/app`). Nothing a reader can do
+from a classic page is missing from the dossier page:
+
+- Export: classic's three buttons and the dossier's Export menu reach the same
+  three destinations (full report Markdown, audit-trail Markdown, print/PDF;
+  `ExportButtons.tsx`).
+- Saved report: classic's "History" and "Ticker data" links are the dossier's
+  Revisions and Ticker data entries (`ResearchNavigation`); delete, rerun and
+  resume are the same components in both, and the dossier adds report notes.
+- Run panel (`GenerateReport`): classic shows the running cost from the first
+  render; the dossier shows "Server state pending" until the server accepts
+  the run. Before that point the panel's cost is only the local starting value,
+  because it is set from validated server snapshots only; from acceptance on,
+  both show the same figure, step list and final cost.
+- Revisions and comparison pages: classic's sidebar offers "back to SYMBOL"
+  and "home" (and on the comparison page "back to history"); the dossier
+  reaches the same pages through the research navigation, the header logo and
+  its Coverage link, with the watchlist sidebar and the revision digest added.
+- Home page: the classic watchlist rows link to the company; the dossier's
+  coverage table links to the company, each grade's section and the history.
+  The connection, keyless-source and model panels are the same panels, inside
+  a details element the reader opens.
+- Display controls, search and the command launcher exist only in the dossier;
+  appearance is also in Settings in both.
+
+Unchanged. Markdown, print, audit export, the Stage C payload and every stored
+report and job row: byte-identical. The same-report harness renders both
+layouts explicitly, so its output is identical to main (no file differs in
+17 cases). Components keep their own defaults; only the setting's default
+moves.
+
+Settings parity (D-228). The frozen table
+(`tests/fixtures/config-parity-before-d228.json`) stays the record of main at
+e55519ce. The test now applies one named delta, D-245: the default
+`uiRedesign` becomes true, "0" becomes the one value that differs from it,
+"1" (alone and in the combined row) no longer differs, and the refusal of
+"true" is unchanged. Every other default and row must still equal the frozen
+file; a test pins exactly which three rows the delta touches.
+
+Options rejected: changing the default inside the components (`ReportView`,
+the appearance context) as well; every page already passes the layout it
+renders, and classic goes in the next step with D-246.
+
+Risks. Correctness and data: none (presentation only). Backward
+compatibility: anyone without the setting now sees the dossier, which is the
+owner's decision. Reversible by setting `METIS_UI_REDESIGN=0` or by one revert.
+
+## D-251 - A year whose preferred stock was redeemed reads its filed common earnings (2026-11-13)
+
+Principles P5 (entity scope: common earnings are not total net income), P8
+(a filed line, read whole), P10 and P11 (a refusal stays unless the filed
+figure for that field and year exists), P13 (one existence test, used by the
+refusal and by the read), P14 (what stays not applicable), P17 (no scoring
+rule changed) and P20 (provenance and disclosure). Round 2, Stage 5 (accuracy
+fixes), the bank and the insurer (`jpm-data-only`, `pgr-data-only`). The
+accuracy baseline (r2-base-afb9cddf, "Gaps whose value is in the filings")
+lists eleven rows for the two.
+
+Root causes, found before anything was changed:
+
+| Row (accuracy tool id) | Cause | Outcome |
+| --- | --- | --- |
+| PGR `fv.dilutedShares` (and the withheld fair value) | The excess-return valuation was withheld for want of a payout history: fiscal 2025 and 2024 had no common earnings. Cause below | Fixed here |
+| JPM `netIncome.fy`, PGR `netIncome.fy` | The tool reads fiscal-year net income from the free-cash-flow series, which is not applicable on the bank and insurer routes (P14) | Not a defect |
+| JPM `netIncome.ttm`, `operatingCashFlow.ttm`, `operatingLeases.latest`; PGR `netIncome.ttm`, `operatingCashFlow.ttm`, `capex.ttm`, `fcf.fy`, `fcf.ttm` | The "current capital" block (cash bridge and debt bridge, lease lines included) is switched off as a whole on the bank, insurer and mortgage-REIT routes (`attachCurrentCapital`, `industrialMetricsApplicable`; D-240 recorded it) | Not a defect |
+| JPM `revenue.fy` | A real gap with a different cause; not fixed here (below) | Left, described |
+
+Progressive's cause. Its Series B preferred shares were redeemed in the first
+quarter of 2024, and the vendor's annual income rows for 2024 and 2025 carry
+no income available to common. Two rules disagreed about when preferred
+"exists". The earnings selector (`selectCommonIncome`) refuses total net
+income as common earnings when preferred stock stands on any balance, or
+preferred dividends in any cash-flow row, inside the earnings window; with no
+period start on the vendor row it uses the widest annual window, which for
+fiscal 2025 still reaches the 2024 dividend. The rule that reads the filed
+figure (`supplementCommonEarnings`, commit 80f30f98, widened to noncontrolling
+interests by D-212) looked only at the year's closing balance. At 2024-12-31
+and 2025-12-31 Progressive has no preferred, so the filed figure was never
+read, both years stayed refused, one usable payout year remained where two
+are needed, and the valuation was withheld.
+
+Choice. `supplementCommonEarnings` (`src/pipeline/commonEarnings.ts`, a P5
+owner) takes the selector's own existence test from its caller and also reads
+`us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic` (full-year 10-K,
+same period end, filed by the cutoff) for a year that test flags when no
+claim stands at the year end. For such a year it fills that one field only,
+never over a vendor value and never over a refusal (P11); the consolidated
+and noncontrolling lines keep their closing-balance condition. Stage B applies
+it as a calculation view (`filedCommonEarningsView`, `src/pipeline/compute.ts`)
+that passes `preferredClaimsInFlow` over the same balances and cash rows the
+selector is given, so the year the selector refuses is the year the filed
+figure is read for, and stored inputs stay as they are. One informational
+manifest entry names the years and the filing
+(`statements.incomeAnnual.netIncomeAvailableToCommon.redeemedPreferred`).
+No tolerance, day band or status word is added. D-212 is marked "Revised by
+D-251"; the closing-balance condition has no entry of its own.
+
+Review fix (Codex, P11). Because Stage B now applies the rule after the income
+classification, which can withhold an issuer's whole earnings family, the
+refusal guard covers every field the rule fills in every year, not only the
+redeemed-preferred year: a field marked refused is never refilled from the
+filed fact, whether or not a claim stands at the year end
+(`tests/commonEarnings.test.ts`, failing before the fix). No case of the 17
+changes with it.
+
+Options rejected. Narrowing the selector so fiscal 2025 no longer counts as a
+year with preferred claims: that loosens a refusal where the period start is
+unknown, and the filed figure settles the year without it. Treating total net
+income as common earnings when the closing balance shows no preferred: a
+closing zero cannot erase a claim that existed in the year (fiscal 2024's
+figure is 17M lower than net income). Reading the figure for every year
+whether or not a claim existed: wider than the gap, and it would touch issuers
+whose rows are complete.
+
+### Approved report changes
+
+Same-report check, current main (238a2a71, which holds D-229, D-231, D-233,
+D-234, D-236, D-237, D-239, D-240, D-241 and D-242) against this change,
+measured before that on 629cf3c9 with the same hashes: one of the
+17 cases differs, `pgr-data-only`, all eight outputs plus the payload
+fingerprint. The other 16 cases, `jpm-data-only` among them, are byte for
+byte unchanged, and every other figure of `pgr-data-only` is unchanged. The
+leaf-level list and the approvals are in
+`tmp/accuracy/s5-bank-insurer-before-after.md` (not committed: it quotes
+vendor data).
+
+Figures from the filings (USD as tagged):
+
+| PGR figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| Income available to common, fiscal 2025 | withheld | 11,308,000,000 | `us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic` 2025-01-01..2025-12-31, 10-K 0000080661-26-000086, filed 2026-03-02 |
+| Income available to common, fiscal 2024 | withheld | 8,463,000,000 | same concept 2024-01-01..2024-12-31, same 10-K (and 10-K 0000080661-25-000007, filed 2025-03-03); `NetIncomeLoss` 8,480,000,000 less `PreferredStockDividendsIncomeStatementImpact` 17,000,000 |
+| Excess-return per-share divisor | withheld | 582,200,000 shares | `us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding` 2026-07-01..2026-09-30, 10-Q 0000080661-26-000379, filed 2026-11-02 |
+| Year-one payout ratio | withheld | 15.366577% | below |
+
+The payout ratio is the average of three fiscal years of common dividends
+plus net common buybacks over income available to common, each operand in
+10-K 0000080661-26-000086: 2025, (2,871M `PaymentsOfDividendsCommonStock` +
+92M + 74M) / 11,308M = 26.857%; 2024, (674M + 121M + 13M) / 8,463M = 9.547%;
+2023, (234M + 140.7M) / 3,864.8M = 9.695% (the fiscal 2023 10-K
+0000080661-24-000007 in tenths of a million; the later 10-K rounds to 141M
+and 3,865M). The buyback lines are Progressive's own elements
+(`pgr:PaymentsforRepurchaseofCommonStockforRestrictedStockTaxLiabilities`,
+`pgr:PaymentsforRepurchaseofCommonStockintheOpenMarket`), absent from SEC's
+companyfacts feed and read from the 10-K's XBRL instance. For fiscal 2024 the
+stored operands are the vendor's 634M "repurchased" and 500M "issued": the
+vendor booked the 500M preferred redemption
+(`PaymentsForRepurchaseOfPreferredStockAndPreferenceStock`) as a common
+repurchase and offset it with an issuance. Their net, 134M, is the filed
+figure and the ratio uses only the net. The two vendor lines are not filed
+lines; they were shown before this change and are left for a follow-up.
+
+What moves with it:
+
+| PGR figure | Before | After |
+| --- | --- | --- |
+| Fair value per share (excess-return) | withheld | USD 160.42 (equity value 93,394.7M on 582.2M shares; opening book 34,485M at 2026-09-30 and trailing income to common 11,622M are unchanged and match the filings) |
+| Difference to the price | withheld | -32.20% |
+| Implied price to book; market-implied current ROE | withheld | 2.685x; 45.16% |
+| Scenario targets | withheld (no payout path) | withheld; the reason now names the unresolved preferred capital at 2024-12-31 |
+| Quality signal, equity return less cost of equity | unscored | 25.68 pp, score 92 |
+| Valuation signal, ROE implied by the price against achievable | unscored | 11.92 pp, score 32.44 |
+| Quality aspect | 96 A on 7.3% of its weight | 92.69 A on 42.3% |
+| Valuation aspect and assessment | 70.19 B on 50% | 51.31 D on 100% |
+| Business-quality assessment | 55 C | 65.19 C |
+| Composite | 56.79 C | 59.72 C |
+| Evidence available, share of signal weight | 52.46% | 83.62% |
+
+No scoring rule, band or weight changed (P17): two signals that had no
+evidence now have it. The fiscal 2024 and 2025 returns on equity in the
+history stay withheld (the preferred capital at 2024-12-31 is unresolved, so
+there is no average book for either year).
+
+The accuracy check (`npm run accuracy:check`, PR #139) reports three changes
+against its expectation: `fv.dilutedShares` gap to match; `fv.payoutRatio`
+gap to not-established (the tool does not compose the house average, as for
+JPM; the operands are above); and `fv.suppressed` no longer produced.
+
+Not changed here, with the cause.
+
+- JPM revenue, fiscal 2025 (`Revenues` 182,447,000,000, 10-K
+  0001628280-26-008131). The vendor's revenue for a bank is gross of interest
+  expense (279,745M: interest income 193,341M plus noninterest revenue
+  86,404M); the filing's total net revenue is net interest income 95,443M
+  plus noninterest revenue 87,004M. `enrichIncomeClassification` compares the
+  two and refuses the row ("Income classification conflict"); it has a rule
+  that adopts the filed net revenue for securities firms
+  (`RevenuesNetOfInterestExpense`, SIC 6211) and none for banks. The vendor
+  figure is not the filed lines regrouped (its noninterest revenue is 600M
+  lower), so no reconciliation proves it. The same refusal stands on the four
+  latest quarters, which is why JPM has no trailing income window and its
+  "current capital" block is labelled with fiscal 2025: the 10-Q for
+  2026-09-30 (0001628280-26-069523, filed 2026-11-03) is before the cutoff
+  and in the cached facts, and D-236 plays no part. Older fiscal years keep
+  the vendor's gross figure unchecked, because their filed line's newest
+  filing is a later 10-K. The fix is a bank rule beside the securities one:
+  adopt the filed total (`Revenues`, tied to `InterestIncomeExpenseNet` plus
+  `NoninterestIncome` in the same filing) for every annual and quarterly row,
+  withhold the gross-revenue cost and profit subtotals, and replay it in the
+  Stage B view. It moves JPM's whole revenue history, growth rates, margins,
+  projections, scenario spread, the trailing window and the scores built on
+  them, each to be proven per fiscal year; that is its own step.
+- The "not applicable" rows above. The accuracy tool should classify them as
+  not applicable; nothing in Metis changes.
+- The lease note on these routes reads "Balance date unavailable: No valid
+  combined lease-line observation is available" where the reason is that the
+  block is not applicable. A wording change without a figure change is not
+  allowed in this stage; listed for a later one.
+
+Version stamps are not moved here (P27: the Stage 5 integration moves them
+together). Under the methodology's convention this change calls for the Stage
+B implementation stamp (identical inputs compute different values), the
+payload version (the fair value, the payout ratio and two signals reach the
+analysts) and the report specification (a fair value and an aspect band
+change). Saved reports are immutable (P21) and keep the figures they were
+built with.
+
+Tests. `tests/commonEarnings.test.ts`: the root cause (the closing balance
+alone reads nothing); Progressive's fiscal 2025 and 2024 on the filed facts;
+a year with no preferred claim left alone (compatible control); only the
+common-earnings field filled; a refusal and a fact filed after the cutoff;
+a bank with preferred outstanding at the year end read exactly as before
+(unrelated shape). `tests/commonEarnings.redeemedPreferred.test.ts`: the same
+through Stage B on a synthetic insurer (failing before the change), the
+withheld case without a filed figure, an insurer that never had preferred,
+and one with preferred throughout.
+
 ## D-242 - The gap readers and provider checks read the missing-data entry's typed cause (2026-11-12)
 
 Principles P11 (a refusal is judged from its cause, never its wording), P10
@@ -13344,7 +13676,9 @@ Admit independently compatible quarterly consolidated/parent/signed-NCI earnings
 even when the vendor parent number agrees. Consolidated cash conversion requires
 a complete consolidated earnings window; zero closing NCI balances prove no
 earnings allocation. (Revised by D-240: the filings of an issuer that reports a
-single profit line establish that window.) Standalone capex/SBC recovery requires compatible direct or
+single profit line establish that window. Revised by D-251: filed common
+earnings are also read for a fiscal year in which preferred claims existed
+although none stand at its end.) Standalone capex/SBC recovery requires compatible direct or
 cumulative operands and retains original vendor observations and independent
 refusals. Retained EXPE replay reconciles the 9M earnings residual, corrects cash
 conversion to 177.199622%, corrects Q3 2025 FCF to −686M and recovers two SBC

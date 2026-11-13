@@ -41,7 +41,7 @@ describe("B5a then B6: independently versioned stored disclosures", () => {
     expect(view.valuation.dcf.perShare).toBeNull(); expect(view.valuation.dcf.upsidePct).toBeNull();
     expect(parseStoredReportWithSafety(JSON.stringify(view))!.report).toEqual(view);
     const texts = [renderToStaticMarkup(createElement(ReportView, { report })),
-      renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" })),
+      renderToStaticMarkup(createElement(ReportView, { report })),
       reportToMarkdown(report), reportToAuditMarkdown(report), reportToPrintBody(report)];
     for (const [index, text] of texts.entries()) {
       expect(text.includes("201.42B"), `surface ${index}: 14-week filed-revenue illustration follows the B5 cutoff`).toBe(quarter);

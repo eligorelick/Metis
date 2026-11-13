@@ -281,7 +281,7 @@ describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
     const before = JSON.stringify(report);
     expect(report.filingDisclosures?.quarterlyTrend.every(row => row.freeCashFlow === null)).toBe(true);
     for (const output of [renderToStaticMarkup(createElement(ReportView, { report })),
-      renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" })),
+      renderToStaticMarkup(createElement(ReportView, { report })),
       reportToMarkdown(report), reportToPrintHtml(report, { autoPrint: false }), reportToAuditMarkdown(report)]) {
       expect(output).toMatch(/not applicable[^<\n]*held-for-sale/i);
     }

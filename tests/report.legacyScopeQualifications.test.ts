@@ -28,8 +28,7 @@ function saved(version = "1.52.0") {
   return report;
 }
 const readers: Record<string, (r: Report) => string> = {
-  classic: r => renderToStaticMarkup(createElement(ReportView, { report: r, layout: "classic" })),
-  dossier: r => renderToStaticMarkup(createElement(ReportView, { report: r, layout: "dossier" })),
+  dossier: r => renderToStaticMarkup(createElement(ReportView, { report: r })),
   markdown: reportToMarkdown, audit: reportToAuditMarkdown, print: reportToPrintBody, html: reportToPrintHtml,
 };
 const caveats = ["Read-time saved-report clarifications", "receivables scope comparability is unverified", "complete period-specific lease coverage", "observation count does not establish", "market-cap observation date", "Stored figures, grades and recorded evidence are unchanged"];
@@ -66,7 +65,7 @@ describe("immutable saved-report scope qualifications", () => {
   it("keeps arbitrary analyst prose and escapes it without treating its source ID as a template", () => {
     const r = saved();
     r.quality.flags[0]!.text = "Analyst <script>alert(1)</script> says possible channel stuffing.";
-    for (const name of ["classic", "dossier", "print", "html"]) {
+    for (const name of ["dossier", "print", "html"]) {
       const text = readers[name]!(r);
       expect(text).toContain("&lt;script&gt;");
       expect(text).not.toContain("<script>alert(1)</script>");

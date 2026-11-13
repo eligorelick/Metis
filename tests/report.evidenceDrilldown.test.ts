@@ -46,13 +46,11 @@ describe("snapshot-bound evidence enhancement", () => {
 
   it("renders one inspector for the selected dossier while preserving its gaps and native disclosures", () => {
     const report = loadTask28Fixture();
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     expect(html.match(/aria-label="Selected evidence"/g)).toHaveLength(1);
     expect(html).toContain("Recorded gaps (");
     expect(html).toContain('data-evidence-kind="claim"');
     expect(html).toContain("Select a claim or a figure");
-    const classic = renderToStaticMarkup(createElement(ReportView, { report }));
-    expect(classic).not.toContain('aria-label="Selected evidence"');
   });
 
   it("retains explicitly recorded filing context for inspection without inferring XBRL metadata", () => {
@@ -63,7 +61,7 @@ describe("snapshot-bound evidence enhancement", () => {
         periodContext: { kind: "duration", start: "2025-01-01", end: "2025-12-31" }, source: "filing:revenue:2025", asOf: "2026-02-01", provenanceId: "filing:revenue:2025", origin: "Recorded filing reference 0000123456-26-000001", qualifier: "as reported", canonicalText: "Reported revenue was 1,200 EUR." }],
       earningsReconciliation: { status: "unavailable", reason: "Earnings operands not recorded", method: null, pretaxMinusTax: null, reconciledNetIncome: null, reportedNetIncome: null, residual: null, operandIds: [], explanation: "No reconciliation was recorded." },
     };
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     expect(html).toContain('data-evidence-context="recorded"');
     expect(html).toContain("Recorded filing reference 0000123456-26-000001");
     expect(html).toContain("Reported revenue was 1,200 EUR.");
@@ -112,13 +110,14 @@ describe.each(["current", "workspace"] as const)("recorded grade/DCF evidence in
     valuation.dcf.perShare = { ...input, value: 123.456, unit: "USD/share", currency: "USD", sourceId: "dcf:canonical", period: "FY2037" };
     const html = render(design, createElement(ValuationSection, { valuation, index: 6 }));
     const visible = text(html);
-    expect(html).toMatch(/<summary[^>]*>.*?DCF provenance/s);
+    // D-246: the dossier's name for the per-share provenance disclosure (classic said "DCF provenance").
+    expect(html).toMatch(/<summary[^>]*>.*?Model value provenance/s);
     for (const field of ["dcf:canonical", "FY2037", "2026-09-30", "USD/share"]) expect(visible).toContain(field);
     expect(visible).toContain("$123.46");
     valuation.dcf.perShare = null;
     const absent = text(render(design, createElement(ValuationSection, { valuation, index: 6 })));
     expect(absent).toContain("unavailable");
-    expect(absent).not.toContain("DCF provenance");
+    expect(absent).not.toContain("Model value provenance");
   });
   it("renders source metadata as escaped text rather than executable markup or an invented link", () => {
     const n = { ...input, sourceId: '<img src=x onerror="alert(1)">', source: '<script>alert("source")</script>' };

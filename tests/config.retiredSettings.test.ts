@@ -27,15 +27,16 @@ function thrown(fn: () => unknown): unknown {
 }
 
 describe("retired THESIS_ names are refused (D-228)", () => {
-  it("covers exactly the names main accepted as aliases: every METIS_ schema key plus the four out-of-schema settings", async () => {
+  it("covers exactly the names main accepted as aliases: every METIS_ schema key, the four out-of-schema settings and the removed layout setting", async () => {
     const { envSchemaKeys } = (await import(pathToFileURL(path.join(ROOT, "scripts", "docs-config.mjs")).href)) as {
       envSchemaKeys: (source: string) => string[];
     };
     const schema = envSchemaKeys(fs.readFileSync(path.join(ROOT, "src", "config", "env.ts"), "utf8"))
       .filter((key) => key.startsWith("METIS_"))
       .map((key) => key.slice("METIS_".length));
-    expect(schema).toHaveLength(15);
-    expect([...RETIRED_ALIAS_SUFFIXES].sort()).toEqual([...schema, ...OUT_OF_SCHEMA_SUFFIXES].sort());
+    expect(schema).toHaveLength(14);
+    // D-246: UI_REDESIGN left the schema with the classic layout; its THESIS_ name stays refused.
+    expect([...RETIRED_ALIAS_SUFFIXES].sort()).toEqual([...schema, ...OUT_OF_SCHEMA_SUFFIXES, "UI_REDESIGN"].sort());
   });
 
   it.each(RETIRED_ALIAS_SUFFIXES.flatMap((suffix) => ["0", "", "  ", "SECRET_VALUE"].map((value) => [suffix, value] as const)))(
@@ -79,11 +80,54 @@ describe("retired THESIS_ names are refused (D-228)", () => {
   });
 });
 
+/**
+ * Deliberate changes since the table was frozen, each named by its decision.
+ * The frozen file stays the record of main at e55519ce; every default and row
+ * not changed here must still equal it exactly.
+ *
+ * D-246 (superseding D-245's default change): the layout setting is removed.
+ * `uiRedesign` is no longer part of the config, and METIS_UI_REDESIGN is no
+ * longer read, so every value parses exactly as if it were unset: "1" no
+ * longer differs from the default, and "true", which was refused, now starts
+ * the app. The retired THESIS_UI_REDESIGN name is still refused (D-228).
+ */
+function withDeliberateChanges(frozen: ParityTable): { table: ParityTable; changedRows: number[] } {
+  const table = JSON.parse(JSON.stringify(frozen)) as ParityTable;
+  const changedRows: number[] = [];
+  delete table.defaults.uiRedesign;
+  table.rows.forEach((row, index) => {
+    if (row.input.METIS_UI_REDESIGN === undefined) return;
+    const before = JSON.stringify(row.result);
+    if ("issues" in row.result) {
+      expect(row.result.issues.every((issue) => JSON.stringify(issue.path) === JSON.stringify(["METIS_UI_REDESIGN"]))).toBe(true);
+      row.result = { changed: {} };
+    } else delete row.result.changed.uiRedesign;
+    if (JSON.stringify(row.result) !== before) changedRows.push(index);
+  });
+  return { table, changedRows };
+}
+
 describe("a clean METIS_-only environment parses exactly as before (D-228)", () => {
-  const frozen = JSON.parse(
+  const recorded = JSON.parse(
     fs.readFileSync(path.join(ROOT, "tests", "fixtures", "config-parity-before-d228.json"), "utf8"),
   ) as ParityTable;
+  const { table: frozen, changedRows } = withDeliberateChanges(recorded);
   const current = buildParityTable(parseEnv, metisEnv);
+
+  it("changes only the rows its decisions name (D-246: the layout setting is removed)", () => {
+    expect(recorded.defaults.uiRedesign).toBe(false);
+    expect(frozen.defaults).not.toHaveProperty("uiRedesign");
+    expect(changedRows.map((index) => recorded.rows[index]!.input.METIS_UI_REDESIGN)).toEqual(["1", "true", "1"]);
+    expect(changedRows.map((index) => frozen.rows[index]!.result)).toEqual([
+      { changed: {} },
+      { changed: {} },
+      { changed: expect.not.objectContaining({ uiRedesign: expect.anything() }) },
+    ]);
+    // Every lone METIS_UI_REDESIGN value, including blanks, "0" and "true", parses as if unset.
+    const lone = frozen.rows.filter((row) => Object.keys(row.input).length === 1 && row.input.METIS_UI_REDESIGN !== undefined);
+    expect(lone.map((row) => row.input.METIS_UI_REDESIGN)).toEqual(["", "   ", "\t", "0", "1", "true"]);
+    for (const row of lone) expect(row.result).toEqual({ changed: {} });
+  });
 
   it("keeps every default", () => {
     expect(current.defaults).toEqual(frozen.defaults);

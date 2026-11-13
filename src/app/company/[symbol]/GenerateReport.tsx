@@ -26,7 +26,6 @@ import { sameEntitySymbol } from "@/symbol";
 import { startTransition, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useUiDesign } from "@/appearance/UiDesignProvider";
 
 import { Panel } from "@/components/ui";
 import { isUnsupportedInstrumentKind, type UnsupportedInstrumentKind } from "@/pipeline/stageB/instrumentSupport";
@@ -685,7 +684,6 @@ export function GenerateReport({ symbol, initialJobId = null, route = null, live
 
 function GenerateReportController({ symbol, initialJobId, route, liveView, renderedReportId }: { symbol: string; initialJobId: string | null; route: RunRoute | null; liveView: boolean; renderedReportId: number | null }) {
   const router = useRouter();
-  const dossier = useUiDesign().layout === "dossier";
   const hydrated = useSyncExternalStore(subscribeHydration, clientSnapshot, serverSnapshot);
   const [phase, setPhase] = useState<Phase>(initialJobId === null ? "idle" : "running");
   const [steps, setSteps] = useState<StepProgress[]>(() =>
@@ -923,7 +921,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView, rende
   }, [jobId, phase, symbol]);
 
   const busy = phase === "starting" || phase === "running";
-  const generationDisabled = busy || phase === "unsupported" || (dossier && !hydrated);
+  const generationDisabled = busy || phase === "unsupported" || !hydrated;
 
   const canResume = shouldShowServerRetry({ busy, jobId, phase, resumable });
   const resumeHint =
@@ -964,23 +962,23 @@ function GenerateReportController({ symbol, initialJobId, route, liveView, rende
   }, [jobId, symbol, openStream, closeCurrentStream]);
 
   return (
-    <div className={`flex flex-col gap-3 ${dossier ? "research-run" : ""}`} data-run-phase={phase}>
+    <div className="flex flex-col gap-3 research-run" data-run-phase={phase}>
       <div className="research-run-actions flex flex-wrap items-center justify-end gap-3">
         <RunsOn route={route} />
         {busy ? (
           <span role="status" className="text-[12px] text-muted">
-            {dossier ? (acceptedStatus === "queued" ? "Queued" : acceptedStatus === "running" ? "Running" : jobId ? "Connecting to existing run" : "Requesting report") : "running"}
-            {(!dossier || acceptedStatus !== null) && <> · <span className="mono text-accent">{fmtUsd(totalCost)}</span></>}
+            {acceptedStatus === "queued" ? "Queued" : acceptedStatus === "running" ? "Running" : jobId ? "Connecting to existing run" : "Requesting report"}
+            {acceptedStatus !== null && <> · <span className="mono text-accent">{fmtUsd(totalCost)}</span></>}
           </span>
         ) : null}
         {phase === "running" && jobId !== null ? (
           <button
             type="button"
             onClick={() => void cancel()}
-            disabled={dossier && !hydrated}
+            disabled={!hydrated}
             className="mono border border-neg/50 px-3 py-1 text-[11px] uppercase tracking-[0.1em] text-neg hover:bg-neg/10"
           >
-            {dossier ? "Cancel run" : "cancel"}
+            Cancel run
           </button>
         ) : null}
         <button
@@ -993,30 +991,24 @@ function GenerateReportController({ symbol, initialJobId, route, liveView, rende
               : "border-accent/50 text-accent hover:bg-accent/10"
           }`}
         >
-          {renderedReportId !== null && !busy && phase !== "unsupported" ? "Rerun ticker" : dossier ? (phase === "unsupported" ? "Unsupported instrument" : busy ? "Working…" : phase === "done" ? "Generate another report" : "Generate report") : phase === "unsupported"
-            ? "unsupported"
-            : phase === "idle" || phase === "error"
-              ? "generate report ·"
-              : phase === "done"
-                ? "regenerate ·"
-                : "generating…"}
+          {renderedReportId !== null && !busy && phase !== "unsupported" ? "Rerun ticker" : phase === "unsupported" ? "Unsupported instrument" : busy ? "Working…" : phase === "done" ? "Generate another report" : "Generate report"}
         </button>
       </div>
 
       {connectionLost && <p role="status" className="text-[12px] text-warn">Live connection lost. Reload the page to reconnect; the run may still be active.</p>}
-      <RunDisclosure dossier={dossier} phase={phase} totalCost={totalCost} reportId={summary?.reportId ?? null}>
+      <RunDisclosure phase={phase} totalCost={totalCost} reportId={summary?.reportId ?? null}>
       {phase !== "idle" ? (
         <Panel
           title="report pipeline"
           right={
             <span className="mono text-[11px]">
-              {dossier && acceptedStatus === null ? "Server state pending" : <>total <span className="text-accent">{fmtUsd(totalCost)}</span></>}
+              {acceptedStatus === null ? "Server state pending" : <>total <span className="text-accent">{fmtUsd(totalCost)}</span></>}
             </span>
           }
         >
-          {dossier && <p className="mb-3 text-[12px] leading-relaxed text-muted">{observedAt ? <>Last server update <time className="mono" dateTime={observedAt}>{observedAt}</time>. </> : "Waiting for a validated server snapshot. "}{busy ? "Research stays available below while the run progresses." : "The recorded run details and research remain available."}</p>}
-          {dossier && reconnecting && <p role="status" className="mb-3 text-[12px] text-warn">Connection interrupted; reconnecting and waiting for a validated server snapshot. The run may still be active.</p>}
-          {(!dossier || acceptedStatus !== null) && <ol className="flex flex-col divide-y divide-edge">
+          <p className="mb-3 text-[12px] leading-relaxed text-muted">{observedAt ? <>Last server update <time className="mono" dateTime={observedAt}>{observedAt}</time>. </> : "Waiting for a validated server snapshot. "}{busy ? "Research stays available below while the run progresses." : "The recorded run details and research remain available."}</p>
+          {reconnecting && <p role="status" className="mb-3 text-[12px] text-warn">Connection interrupted; reconnecting and waiting for a validated server snapshot. The run may still be active.</p>}
+          {acceptedStatus !== null && <ol className="flex flex-col divide-y divide-edge">
             {steps.map((s) => {
               const ms = durationMs(s);
               return (
@@ -1033,7 +1025,7 @@ function GenerateReportController({ symbol, initialJobId, route, liveView, rende
                   <span className={`mono w-16 shrink-0 text-[10px] uppercase tracking-[0.08em] ${STATUS_TONE[s.status].split(" ")[0]}`}>
                     {s.status}
                   </span>
-                  <span className={`research-run-detail min-w-0 flex-1 ${dossier ? "text-[13px]" : "truncate text-[11px]"} text-faint`}>
+                  <span className="research-run-detail min-w-0 flex-1 text-[13px] text-faint">
                     {s.detail ?? ""}
                   </span>
                   {typeof s.costUsd === "number" ? (
@@ -1065,10 +1057,10 @@ function GenerateReportController({ symbol, initialJobId, route, liveView, rende
               <button
                 type="button"
                 onClick={retrySynthesis}
-                disabled={dossier && !hydrated}
+                disabled={!hydrated}
                 className="mono shrink-0 border border-accent/50 px-2 py-1 text-[10px] uppercase tracking-[0.1em] text-accent hover:bg-accent/10"
               >
-                {dossier ? "Resume run" : "resume run ·"}
+                Resume run
               </button>
             </div>
           ) : null}
@@ -1083,10 +1075,10 @@ function GenerateReportController({ symbol, initialJobId, route, liveView, rende
   );
 }
 
-function RunDisclosure({ dossier, phase, totalCost, reportId, children }: {
-  dossier: boolean; phase: Phase; totalCost: number; reportId: number | null; children: ReactNode;
+function RunDisclosure({ phase, totalCost, reportId, children }: {
+  phase: Phase; totalCost: number; reportId: number | null; children: ReactNode;
 }) {
-  if (!dossier || phase === "idle") return children;
+  if (phase === "idle") return children;
   return <details className="research-run-disclosure" open={phase !== "done"}>
     <summary>{phase === "done" ? <>Completed run{reportId !== null && <> · #{reportId}</>} · <span className="mono">{fmtUsd(totalCost)}</span> · View pipeline, result and gaps</> : "Run progress & details"}</summary>
     {children}

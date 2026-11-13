@@ -130,6 +130,24 @@ function readable(value: string): string {
     .trim();
 }
 
+/**
+ * D-246: the exports print the data-only banner sentence; the dossier (the
+ * only app layout) states the same facts in its own words (D-241 wording
+ * item 6): its data-only disclosure, and the data state with the same counts.
+ */
+function dataOnlyBanner(surface: keyof RenderedSurfaces): string {
+  return surface === "live" ? "Data-only · analysis unavailable · full reason" : "No completed multi-pass analysis";
+}
+function noDataGapsOneProcessNote(surface: keyof RenderedSurfaces): string {
+  return surface === "live"
+    ? "0 critical data issues, 0 data issues; 1 analysis-process disclosure (not data gaps)"
+    : "No data gaps recorded; 1 note or analysis-process disclosure is listed in the appendix";
+}
+
+function deterministicComplete(surface: keyof RenderedSurfaces): string {
+  return surface === "live" ? "Data-only · Complete: 0 critical data issues, 0 data issues" : "Deterministic data is complete";
+}
+
 function eachSurface(
   rendered: RenderedSurfaces,
   assertion: (text: string, surface: keyof RenderedSurfaces) => void,
@@ -291,8 +309,8 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
 
     eachSurface(rendered, (text, surface) => {
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
-      expect(text, surface).toContain("No completed multi-pass analysis");
-      expect(text, surface).toContain("Deterministic data is complete");
+      expect(text, surface).toContain(dataOnlyBanner(surface));
+      expect(text, surface).toContain(deterministicComplete(surface));
       // Persisted "blocked" came from the analysis gap alone, which is a process
       // disclosure: the data state reads complete and the analysis is what is blocked.
       expect(text, surface).toMatch(/1 analysis-process disclosure \(not data gaps\), which blocks the analysis/);
@@ -331,7 +349,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
 
     eachSurface(rendered, (text, surface) => {
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
-      expect(text, surface).toContain("No data gaps recorded; 1 note or analysis-process disclosure is listed in the appendix") // RPT-206: process is not missing data;
+      expect(text, surface).toContain(noDataGapsOneProcessNote(surface)); // RPT-206: process is not missing data
       expect(text, surface).toMatch(/1 analysis-process disclosure \(not data gaps\), which blocks the analysis/);
       expect(text, surface).not.toMatch(/blocked: 0 critical/i);
       expect(text, surface).not.toContain("1 additional data gaps");
@@ -351,7 +369,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
 
     eachSurface(rendered, (text, surface) => {
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
-      expect(text, surface).toContain("No completed multi-pass analysis");
+      expect(text, surface).toContain(dataOnlyBanner(surface));
       expectUnknownCompleteness(text);
       expect(text, surface).not.toMatch(/critical 1|warnings 0|EDGAR available|XBRL checked|forensics complete/i);
     });
@@ -369,7 +387,7 @@ describe("Task 28 completeness across live, Markdown, and print report surfaces"
 
     eachSurface(rendered, (text, surface) => {
       expect(text, surface).toContain(ANALYSIS_GAP.reason);
-      expect(text, surface).toContain("No completed multi-pass analysis");
+      expect(text, surface).toContain(dataOnlyBanner(surface));
       expectUnknownCompleteness(text);
       expect(text, surface).not.toMatch(/warnings 99/i);
     });

@@ -57,8 +57,8 @@ describe("data-only figure marks (audit 2026-10-22 F-23)", () => {
     expect(legend).toBe(html.indexOf("</table>", firstCited) + "</table>".length);
   });
 
-  it.each(["classic", "dossier"] as const)("shows computed in place of the citation-traced ✓ in the %s layout", (layout) => {
-    const html = renderToStaticMarkup(createElement(ReportView, { report: dataOnly(), layout }));
+  it("shows computed in place of the citation-traced ✓ in the dossier layout", () => {
+    const html = renderToStaticMarkup(createElement(ReportView, { report: dataOnly() }));
     expect(html).toContain('aria-label="computed"');
     expect(html).not.toContain('aria-label="citation-traced"');
     expect(html).not.toContain("<dd>citation-traced</dd>");
@@ -91,7 +91,7 @@ describe("data-only figure marks (audit 2026-10-22 F-23)", () => {
 it("RPT-504 hides legacy data-only citation shares across reader surfaces and preserves raw audit counts", () => {
  const report = dataOnly();
  const before = JSON.stringify(report);
- for (const text of [reportToMarkdown(report), reportToPrintBody(report), ...(["classic", "dossier"] as const).map(layout => renderToStaticMarkup(createElement(ReportView, { report, layout })))]) {
+ for (const text of [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, { report }))]) {
    expect(text).not.toContain("48/52 (92.3%)");
    expect(text).not.toContain("22/24 factual claims");
  }

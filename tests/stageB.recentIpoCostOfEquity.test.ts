@@ -74,7 +74,7 @@ describe("R-FIGR-2 recent-IPO cost-of-equity refusal", () => {
       bundle: b, validation: { checks: [], flags: [], gaps: [] }, computed, costBreakdown: [], reason: "offline" });
     const before = JSON.stringify(report);
     for (const output of [renderToStaticMarkup(createElement(ReportView, { report })),
-      renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" })),
+      renderToStaticMarkup(createElement(ReportView, { report })),
       reportToMarkdown(report), reportToPrintHtml(report, { autoPrint: false }), reportToAuditMarkdown(report)]) {
       expect(output).toContain("peer price histories");
     }
