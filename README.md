@@ -230,7 +230,7 @@ repository's [private advisory form](https://github.com/eligorelick/Metis/securi
 | `npm run test` | The product test suite. Fully offline whatever .env holds. |
 | `npm run test:changed` | Only the tests related to files changed against `origin/main`. |
 | `npm run test:integration` | The database CLI suite, which runs in its own process. |
-| `npm run test:coverage` | Both coverage contracts, core and risk. |
+| `npm run test:coverage` | One product-suite run enforcing both core and risk coverage contracts. |
 | `npm run test:watch` | The product suite in watch mode. |
 | `npm run export:corrected` | Write corrected HTML/JSON from a stored run; requires new output filenames. |
 | `npm run research:evaluate` | Evaluate frozen point-in-time forecasts offline; never changes production grades. |
