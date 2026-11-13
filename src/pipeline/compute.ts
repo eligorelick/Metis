@@ -2643,7 +2643,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     });
     capital.current.debtBridge.compositionNote += p.filedDebt === undefined
       ? ` ${p.label}. Filed borrowings = ${p.components.map(c => `${c.name} ${c.value}`).join(" + ")} = ${p.borrowings} ${p.currency}; loan-owner payables ${p.loanOwnerPayables} are separate, as is the retained operating-lease observation. ${p.source}.`
-      : ` Debt is the filed borrowings plus the recorded operating lease: ${p.components.map(c => `${c.name} ${c.value}`).join(" + ")} = ${p.borrowings} ${p.currency}, and ${p.filedDebt} ${p.currency} with the lease. The provider's debt figure also counted loan-owner payables ${p.loanOwnerPayables}, which are separate and not debt in the filing. ${p.source}.`;
+      : ` Debt is the filed borrowings plus the recorded operating lease: ${p.components.map(c => `${c.name} ${c.value}`).join(" + ")} = ${p.borrowings} ${p.currency}, and ${p.filedDebt} ${p.currency} with the lease. The provider's debt figure also counted loan-owner payables of ${p.loanOwnerPayables} ${p.currency}, which the filing does not present as debt. ${p.source}.`;
   }
   if (capital.current?.basis === "ttm") {
     if (capital.current.industrialMetricsApplicable !== false) {
