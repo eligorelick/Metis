@@ -3,7 +3,7 @@ import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, S
 import type { FetchResult, ManifestEntry } from "@/types/core";
 import type { StatementConflictCause } from "@/types/refusalCause";
 import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtRefusal, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
-import { reconcileDebtPresentation } from "@/edgar/debtPresentation";
+import { BALANCE_SHEET_DEBT_LINES_TAG, filingDocumentBinds, lenderDebtLines, reconcileDebtPresentation, type FiledDebtLine } from "@/edgar/debtPresentation";
 import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
@@ -780,6 +780,110 @@ function admitInvestmentFlows<T extends FmpStatementRow>(row: T, facts: CompanyF
     gaps: [{ field: `statements.cashflow.${row.date}.financialInvestments`, reason, severity: "warn", attemptedSources: tags.map(tag => `edgar:companyfacts/us-gaap/${tag}`) }] };
 }
 
+/** What `filedBorrowingsOverVendorPerimeter` established from one filing (D-234). */
+export interface FiledBorrowings {
+  /** The filing's tagged LongTermDebt: current and noncurrent borrowings. */
+  borrowings: number;
+  currentDebt: number;
+  noncurrentDebt: number;
+  /** The balance sheet's payables to third-party loan owners, inside the vendor's debt and outside the filer's. */
+  loanOwnerPayables: number;
+  operatingLease: number;
+  /** Borrowings plus the operating lease liability. */
+  totalDebt: number;
+  vendorTotal: number;
+  vendorCurrent: number;
+  lines: FiledDebtLine[];
+  filing: { accn: string; filed: string; form: string };
+  /** The filing document whose balance sheet names the lines. */
+  source: string;
+  reason: string;
+}
+
+/**
+ * D-234 (P7, P8): a vendor debt total that is the filing's debt plus a payable the filer does not present
+ * as debt. A held-for-sale lender's vendor row can carry "payables to third-party loan owners" inside
+ * short-term debt (FIGR, 2026-06-30: 1,474.457M against filed borrowings of 962.995M). The debt checks
+ * above only ask whether a vendor row left a filed component out, never whether it added one, so that
+ * total stood. Established only when ONE filing, at the row's date and in its currency, proves every part:
+ *
+ * - it tags LongTermDebt (current and noncurrent), LongTermDebtNoncurrent and OperatingLeaseLiability at
+ *   the instant, each with one value that no newer filing changes, and tags no other borrowing: no
+ *   short-term borrowings, commercial paper or inclusive current debt, no debt-and-lease total, no
+ *   finance lease, and a LongTermDebtCurrent only when it is the difference of the first two;
+ * - its balance sheet (`lenderDebtLines`) names one non-current debt line equal to LongTermDebtNoncurrent,
+ *   debt lines that add up to LongTermDebt exactly, and one payables-to-third-party-loan-owners line;
+ * - the vendor's long-term debt and lease line agree with the filed ones, and the vendor's short-term
+ *   debt and total are the filed amounts plus that payable (`vendorAgreesWithFiled`; no new allowance);
+ * - no same-date debt total the filing tags exceeds the composed borrowings (`uncomposedDebtRefusal`), and a
+ *   tagged non-current convertible carrying amount is covered by them (`omittedConvertibleCarryingReason`):
+ *   the completeness checks of the unchanged path, applied to the filed composition.
+ *
+ * Anything else returns null and the row goes through the unchanged checks. A finance lease is not
+ * shown to be nil by its absence: none is tagged, so none is added, and the lease evidence stays unverified.
+ */
+export function filedBorrowingsOverVendorPerimeter(row: FmpStatementRow, facts: CompanyFacts, currency: string | null, observedAt: string, presentations: readonly ExtractedSection[]): FiledBorrowings | null {
+  const amount = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+  if (!validDay(row.date) || currency === null || !/^[A-Z]{3}$/.test(currency) || (row.cik != null && Number(row.cik) !== facts.cik)) return null;
+  const vendorTotal = row.totalDebt, vendorCurrent = row.shortTermDebt, vendorNoncurrent = row.longTermDebt, lease = row.capitalLeaseObligations;
+  if (!amount(vendorTotal) || !amount(vendorCurrent) || !amount(vendorNoncurrent) || !amount(lease)) return null;
+  // Vendor fields only: nothing here was built from SEC facts, refused or already resolved.
+  if (["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"].some(field => row.fieldConflicts?.[field] !== undefined) ||
+      ["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "financeLeaseLiability"].some(field => row.fieldProvenance?.[field] !== undefined) ||
+      (row.financeLeaseLiability != null && row.financeLeaseLiability !== 0)) return null;
+  const cutoff = observedAt.slice(0, 10);
+  const sections = presentations.filter(section => section.reportDate === row.date && /^10-[KQ](?:\/A)?$/.test(section.form) &&
+    validDay(section.filingDate) && section.filingDate <= cutoff);
+  const section = sections[0];
+  if (sections.length !== 1 || !section || !filingDocumentBinds(section, facts.cik)) return null;
+  const at = (tag: string): FactPoint[] => points(facts, tag, currency, observedAt).filter(p => p.start === undefined && p.end === row.date);
+  /** The section's own filing states one value that the newest filing for the instant does not change. */
+  const own = (tag: string): number | null => {
+    const values = [...new Set(at(tag).filter(p => p.accn === section.accession && p.filed === section.filingDate && p.form === section.form).map(p => p.val))];
+    return values.length === 1 && values[0]! >= 0 && instant(facts, tag, currency, row.date!, observedAt)?.value === values[0] ? values[0]! : null;
+  };
+  const borrowings = own("LongTermDebt"), noncurrentDebt = own("LongTermDebtNoncurrent"), operatingLease = own("OperatingLeaseLiability");
+  if (borrowings === null || noncurrentDebt === null || operatingLease === null || noncurrentDebt > borrowings) return null;
+  const currentDebt = borrowings - noncurrentDebt;
+  const financeLease = [...new Set([...tagsFor("financeLeaseLiability").flatMap(tag => [tag, `${tag}Current`, `${tag}Noncurrent`]), ...tagsFor("financeLeaseLiabilityParts")])];
+  if (["DebtCurrent", "ShortTermBorrowings", "CommercialPaper", COMBINED_CURRENT_DEBT_TAG, "LongTermDebtAndCapitalLeaseObligations",
+    "LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities", "DebtLongtermAndShorttermCombinedAmount", ...financeLease].some(tag => at(tag).length > 0) ||
+      at("LongTermDebtCurrent").some(p => p.val !== currentDebt)) return null;
+  // The unchanged path's completeness checks hold for the filed composition too (review of D-234): a tagged debt
+  // total above it, or a convertible carrying amount the non-current debt does not cover, shows a component is
+  // missing. The row then goes through the unchanged checks, which withhold it.
+  const filedAt = (tag: string): number | null => instant(facts, tag, currency, row.date!, observedAt)?.value ?? null;
+  if (uncomposedDebtRefusal({ shortTermDebt: currentDebt, longTermDebt: noncurrentDebt, financeLeaseLiability: null },
+        DEBT_AGGREGATE_TAGS.map(tag => ({ tag, value: filedAt(tag) }))) !== null ||
+      omittedConvertibleCarryingReason({ longTermDebt: noncurrentDebt }, filedAt("ConvertibleLongTermNotesPayable")) !== null) return null;
+  const lines = lenderDebtLines(section.statementsText);
+  const debtLines = lines.filter(line => /^Debt,/i.test(line.name));
+  const payables = lines.filter(line => /^Payables to third-party loan owners$/i.test(line.name));
+  const noncurrentLines = debtLines.filter(line => /^Debt, non-current$/i.test(line.name));
+  if (debtLines.length < 2 || debtLines.length + payables.length !== lines.length || new Set(debtLines.map(line => line.name.toLowerCase())).size !== debtLines.length ||
+      noncurrentLines.length !== 1 || payables.length !== 1 || !(payables[0]!.value > 0) ||
+      noncurrentLines[0]!.value !== noncurrentDebt || debtLines.reduce((sum, line) => sum + line.value, 0) !== borrowings) return null;
+  const loanOwnerPayables = payables[0]!.value;
+  if (!vendorAgreesWithFiled(vendorNoncurrent, noncurrentDebt) || !vendorAgreesWithFiled(lease, operatingLease) ||
+      (row.operatingLeaseLiability != null && row.operatingLeaseLiability !== operatingLease) ||
+      !vendorAgreesWithFiled(vendorCurrent, currentDebt + loanOwnerPayables) ||
+      !vendorAgreesWithFiled(vendorTotal, borrowings + loanOwnerPayables + operatingLease)) return null;
+  const totalDebt = borrowings + operatingLease;
+  const filing = { accn: section.accession, filed: section.filingDate, form: section.form };
+  return { borrowings, currentDebt, noncurrentDebt, loanOwnerPayables, operatingLease, totalDebt, vendorTotal, vendorCurrent, lines: debtLines, filing, source: section.documentUrl,
+    reason: `debt is the filed borrowings, not the vendor total: the ${filing.form} ${filing.accn} for ${row.date} tags LongTermDebt ${millions(borrowings)} ` +
+      `(LongTermDebtNoncurrent ${millions(noncurrentDebt)}, so ${millions(currentDebt)} current), and its balance sheet names it as ` +
+      `${debtLines.map(line => `${line.name} ${millions(line.value)}`).join(" + ")}; with OperatingLeaseLiability ${millions(operatingLease)}, total debt is ${millions(totalDebt)} ${currency}. ` +
+      `The vendor total ${millions(vendorTotal)} also counted the balance sheet's Payables to third-party loan owners ${millions(loanOwnerPayables)}, which the filing does not present as debt. ` +
+      "The filing tags no finance lease, so none is included" };
+}
+
+/** True for a row whose debt `admitDebtFields` took from `filedBorrowingsOverVendorPerimeter` (D-234), read from its provenance. */
+export function filedBorrowingsAdmitted(row: FmpStatementRow | null | undefined): boolean {
+  const total = row?.fieldProvenance?.totalDebt;
+  return total?.source === "edgar" && total.calculation === "same-filing-debt-completed" && total.tags.includes(BALANCE_SHEET_DEBT_LINES_TAG);
+}
+
 /** Admit debt only after currency is established, including same-filing currency evidence supplied by Stage B. */
 export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, currency: string | null, observedAt: string, presentations: readonly ExtractedSection[] = []): { row: T; gaps: ManifestEntry[]; admissions: BalanceAdmission[] } {
   const gaps: ManifestEntry[] = [];
@@ -788,6 +892,30 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   const recovered = recoverNoteCarryingDebt(row, facts, currency, observedAt, presentations);
   if (recovered !== null) return { row: recovered, gaps: [{ field: `statements.balance.${row.date}.totalDebt`,
     reason: "same-filing debt note reconciles principal less discounts to current and noncurrent carrying debt; recognized operating and finance leases added exactly once", severity: "info", expected: true }], admissions };
+  // D-234 (P7, P8): the filing's own debt replaces a vendor total that adds its payables to third-party loan owners.
+  const filed = filedBorrowingsOverVendorPerimeter(row, facts, currency, observedAt, presentations);
+  if (filed !== null) {
+    const evidence = (tags: string[], calculation?: StatementFieldProvenance["calculation"]): StatementFieldProvenance => ({ source: "edgar", unit: currency, observedAt,
+      periodStart: null, periodEnd: row.date!, tags, filings: [filed.filing], ...(calculation ? { calculation } : {}) });
+    const totalEvidence = evidence(["us-gaap/LongTermDebt", "us-gaap/OperatingLeaseLiability", BALANCE_SHEET_DEBT_LINES_TAG], "same-filing-debt-completed");
+    const cash = row.cashAndCashEquivalents;
+    const cashUsable = typeof cash === "number" && Number.isFinite(cash) && row.fieldConflicts?.cashAndCashEquivalents?.usable !== false;
+    const resolved = (vendorValue: number, secValue: number, secEvidence: StatementFieldProvenance) =>
+      ({ usable: true, vendorValue, secValue, resolution: "filed-family" as const, reason: filed.reason, secEvidence });
+    const admitted = { ...row, shortTermDebt: filed.currentDebt, longTermDebt: filed.noncurrentDebt, totalDebt: filed.totalDebt,
+      // A net debt already refused for its cash stays refused; otherwise it follows the admitted total, as the same-filing completion does.
+      ...(row.fieldConflicts?.netDebt?.usable === false ? {} : { netDebt: cashUsable ? filed.totalDebt - cash : null }),
+      vendorNetDebt: row.vendorNetDebt ?? row.netDebt ?? row.fieldConflicts?.netDebt?.vendorValue ?? null,
+      fieldConflicts: { ...row.fieldConflicts,
+        shortTermDebt: resolved(filed.vendorCurrent, filed.currentDebt, evidence(["us-gaap/LongTermDebt", "us-gaap/LongTermDebtNoncurrent"])),
+        totalDebt: resolved(filed.vendorTotal, filed.totalDebt, totalEvidence) },
+      fieldProvenance: { ...row.fieldProvenance,
+        shortTermDebt: evidence(["us-gaap/LongTermDebt", "us-gaap/LongTermDebtNoncurrent", BALANCE_SHEET_DEBT_LINES_TAG], "same-filing-debt-completed"),
+        longTermDebt: evidence(["us-gaap/LongTermDebtNoncurrent"], "same-filing-debt-completed"),
+        totalDebt: totalEvidence } } as T;
+    return { row: admitted, gaps: [{ field: `statements.balance.${row.date}.totalDebt`, reason: filed.reason, severity: "info", expected: true,
+      attemptedSources: ["edgar:companyfacts/us-gaap/LongTermDebt", "edgar:companyfacts/us-gaap/LongTermDebtNoncurrent", "edgar:companyfacts/us-gaap/OperatingLeaseLiability", filed.source] }], admissions };
+  }
   let out = row;
   const maturityTag = "LongTermDebtMaturitiesRepaymentsOfPrincipalInNextTwelveMonths";
   const maturitySourced = out.fieldProvenance?.shortTermDebt?.tags.some((tag) => tag === `us-gaap/${maturityTag}`) === true;

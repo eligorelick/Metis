@@ -2,7 +2,7 @@ import type { DataBundle } from "./types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { filerShareUnitRepair } from "@/edgar/shareUnitRepair";
 import { quotePriceObservationDay } from "./stageB/priceCurrency";
-import { guardVendorShareFields } from "./keyless";
+import { guardVendorShareFields, vendorShareUnitShownAcross, type PrimaryShareReconciliation } from "./keyless";
 import { resolveForeignShareRatio } from "./foreignCurrency";
 
 /** Same-period filed admission for fresh inputs and immutable frozen replay. */
@@ -14,14 +14,25 @@ function withFiledShareValues(bundle: DataBundle): DataBundle {
   const profile = bundle.profile?.ok ? bundle.profile.value.data.rows[0] : null;
   const foreign = profile?.isAdr === true ? resolveForeignShareRatio(bundle).basis : null;
   const gaps = [...bundle.gaps];
-  const family = (name: "incomeAnnual" | "incomeQuarterly") => {
+  const names = ["incomeAnnual", "incomeQuarterly"] as const;
+  const reconciliationFor = (name: (typeof names)[number]): PrimaryShareReconciliation => (
+    { companyFacts: facts, observedAt: acquired, isAdr: typeof profile?.isAdr === "boolean" ? profile.isAdr : null,
+      registrantTickers: bundle.edgar.registrant?.tickers, fiscalYearEnd: bundle.edgar.registrant?.fiscalYearEnd ?? null,
+      period: name === "incomeAnnual" ? "annual" : "quarter", reconcileFiled: true,
+      ordinarySharesPerQuotedUnit: foreign?.ratio, quotedUnitSourceIds: foreign?.securityEvidence.flatMap(e => e.sourceIds) });
+  // D-234 (P3, P8): with several listed symbols, a series that shows the vendor's share unit governs the
+  // other, as in the producer. Asked of the annual rows alone, a lone doubled year was never compared.
+  // Only a vendor series is evidence of the vendor's unit: a series rebuilt from SEC facts agrees with them
+  // by construction, so it is left out here exactly as the producer leaves it out.
+  const shareUnitShown = vendorShareUnitShownAcross(names.flatMap(name => {
+    const input = bundle.statements[name];
+    return input.ok && input.value.source !== "edgar" ? [{ rows: input.value.data.rows, reconciliation: reconciliationFor(name) }] : [];
+  }), splitBasis.splits, splitBasis.basisDay);
+  const family = (name: (typeof names)[number]) => {
     const input = bundle.statements[name];
     if (!input.ok) return input;
     const result = guardVendorShareFields(input.value.data.rows, [], splitBasis.splits, splitBasis.basisDay,
-      { companyFacts: facts, observedAt: acquired, isAdr: typeof profile?.isAdr === "boolean" ? profile.isAdr : null,
-        registrantTickers: bundle.edgar.registrant?.tickers, fiscalYearEnd: bundle.edgar.registrant?.fiscalYearEnd ?? null,
-        period: name === "incomeAnnual" ? "annual" : "quarter", reconcileFiled: true,
-        ordinarySharesPerQuotedUnit: foreign?.ratio, quotedUnitSourceIds: foreign?.securityEvidence.flatMap(e => e.sourceIds) });
+      shareUnitShown ? { ...reconciliationFor(name), shareUnitShown } : reconciliationFor(name));
     for (const { date, field, reason } of result.reconciled) gaps.push({ field: `statements.income.${date}.${field}.filedReconciliation`, reason, severity: "info", expected: true });
     for (const { date, field, reason } of result.withheld) gaps.push({ field: `statements.income.${date}.${field}`, reason, severity: "warn" });
     return { ...input, value: { ...input.value, data: { ...input.value.data, rows: result.rows } } };
