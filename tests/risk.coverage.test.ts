@@ -90,6 +90,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/pipeline/balanceIntegrity.ts",
   "src/pipeline/keyless.ts",
   "src/pipeline/unknownTicker.ts",
+  "src/pipeline/admission/debtFamily.ts",
   "src/pipeline/riskFreeFallback.ts",
   "src/pipeline/riskFreeSeries.ts",
   "src/pipeline/fx.ts",
