@@ -93,7 +93,8 @@ describe("D-237: the earnings admission records the filed pre-tax line the provi
   });
 
   it("compatible control, Caterpillar fiscal 2025: an adopted family carries the same base (2,768M over 11,541M, not over 11,650M)", () => {
-    const period: Period = { ...FY2025, accn: "0000018230-26-000008", filed: "2026-02-13" };
+    // The amounts are D-200's Caterpillar figures; the accession is a fixture label, not a citation.
+    const period: Period = { ...FY2025, accn: "fixture-caterpillar-10-k", filed: "2026-02-13" };
     const { row } = admit(period, { incomeBeforeTax: 11_563, incomeTaxExpense: 2_768, netIncome: 8_873 },
       facts(period, { [PRETAX_BEFORE_EQUITY]: 11_541, IncomeLossFromEquityMethodInvestments: 109, IncomeTaxExpenseBenefit: 2_768, ProfitLoss: 8_882,
         NetIncomeLossAttributableToNoncontrollingInterest: -2 }, 18230));
@@ -109,7 +110,7 @@ describe("D-237: the earnings admission records the filed pre-tax line the provi
     expect(effectiveTaxPretaxIncome(row)).toBe(2_462 * M);
   });
 
-  it.each([
+  it.each<{ name: string; source: Record<string, number> }>([
     { name: "no filed net income (the family is incomplete)", source: { [PRETAX_BEFORE_EQUITY]: 97_311, IncomeLossFromEquityMethodInvestments: -554, IncomeTaxExpenseBenefit: 19_087 } },
     { name: "no filed equity-method amount (nothing bridges the line to net income)", source: { [PRETAX_BEFORE_EQUITY]: 97_311, IncomeTaxExpenseBenefit: 19_087, NetIncomeLoss: 77_670 } },
     { name: "a filed family that does not reconcile", source: { [PRETAX_BEFORE_EQUITY]: 97_311, IncomeLossFromEquityMethodInvestments: -554, IncomeTaxExpenseBenefit: 19_087, NetIncomeLoss: 70_000 } },
