@@ -38,6 +38,18 @@ original versions and bytes; source merge does not deploy or publish a release.
 - In the same-report check only FIGR changes. Version stamps are left for the
   Stage 5 integration; saved reports are unchanged.
 
+## Unreleased - FFO per share divides by its own fiscal year's share count (2026-11-12)
+
+- On the equity-REIT route, FFO and AFFO per share divided the latest fiscal
+  year's FFO and AFFO by the latest quarter's weighted diluted share count.
+  They now divide by the weighted diluted count of that same fiscal year, and
+  are withheld with a stated reason when that count is not established (P13,
+  P1, P3, P10, [D-233](docs/audit/DECISIONS.md)). In the same-report check this
+  moves Realty Income only: FFO per share 4.0973 to 4.2677 and AFFO per share
+  3.9580 to 4.1226, on the filed fiscal 2025 count of 908,334,000 shares. P/FFO
+  and P/AFFO price on the market cap and do not move. Version stamps are left
+  for the Stage 5 integration; saved reports are unchanged.
+
 ## Unreleased - DEMO fixture history ledger retired (2026-11-12)
 
 - `npm run audit:deltas`, the July 2026 audited baseline and its
