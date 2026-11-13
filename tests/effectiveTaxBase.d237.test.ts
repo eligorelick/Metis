@@ -66,9 +66,11 @@ describe("D-237: the earnings admission records the filed pre-tax line the provi
     // The earnings identity keeps the provider figure (D-200): 96,757 - 19,087 = 77,670.
     expect(row.incomeBeforeTax).toBe(96_757 * M);
     expect(row.fieldConflicts?.incomeBeforeTax).toBeUndefined();
-    expect(row.pretaxIncomeBeforeEquityMethod).toBe(97_311 * M);
-    expect(row.fieldProvenance?.pretaxIncomeBeforeEquityMethod).toMatchObject({ source: "edgar", unit: "USD", periodStart: "2025-01-01", periodEnd: "2025-12-31",
+    expect(row.pretaxIncomeBeforeEquityMethod?.value).toBe(97_311 * M);
+    expect(row.pretaxIncomeBeforeEquityMethod?.proof).toMatchObject({ source: "edgar", unit: "USD", periodStart: "2025-01-01", periodEnd: "2025-12-31",
       tags: [`us-gaap/${PRETAX_BEFORE_EQUITY}`], filings: [{ accn: "0001018724-26-000004", filed: "2026-02-06", form: "10-K" }] });
+    // Evidence for a tax rate only: it is not field provenance, so nothing else reads it as period evidence.
+    expect(row.fieldProvenance?.pretaxIncomeBeforeEquityMethod).toBeUndefined();
     expect(effectiveTaxPretaxIncome(row)).toBe(97_311 * M);
     expect(row.incomeTaxExpense! / effectiveTaxPretaxIncome(row)!).toBeCloseTo(0.19614432, 8);
     expect(taxRatePretaxOperand(row)).toBe("2025-01-01 through 2025-12-31: 97311000000 USD (10-K 0001018724-26-000004, filed 2026-02-06) against 96757000000 including the equity-method result");
@@ -87,7 +89,7 @@ describe("D-237: the earnings admission records the filed pre-tax line the provi
     const { row } = admit(Q1_2026, { incomeBeforeTax: 39_834, incomeTaxExpense: 9_560, netIncome: 30_255 },
       facts(Q1_2026, { [PRETAX_BEFORE_EQUITY]: 39_834, IncomeLossFromEquityMethodInvestments: -19, IncomeTaxExpenseBenefit: 9_560, NetIncomeLoss: 30_255 }));
     expect(row.incomeBeforeTax).toBe(39_834 * M);
-    expect(row.pretaxIncomeBeforeEquityMethod).toBe(39_834 * M);
+    expect(row.pretaxIncomeBeforeEquityMethod?.value).toBe(39_834 * M);
     expect(effectiveTaxPretaxIncome(row)).toBe(row.incomeBeforeTax);
     expect(taxRatePretaxOperand(row)).toBeNull();
   });
@@ -117,21 +119,20 @@ describe("D-237: the earnings admission records the filed pre-tax line the provi
   ])("records no base without the complete reconciled filed family: $name", ({ source }) => {
     const { row } = admit(FY2025, { incomeBeforeTax: 96_757, incomeTaxExpense: 19_087, netIncome: 77_670 }, facts(FY2025, source));
     expect(row.pretaxIncomeBeforeEquityMethod).toBeUndefined();
-    expect(row.fieldProvenance?.pretaxIncomeBeforeEquityMethod).toBeUndefined();
   });
 
   it("drops a base an earlier pass recorded when the family is no longer established", () => {
-    const stale = { pretaxIncomeBeforeEquityMethod: 97_311 * M, fieldProvenance: { pretaxIncomeBeforeEquityMethod: { source: "edgar" as const, unit: "USD",
+    const stale = { pretaxIncomeBeforeEquityMethod: { value: 97_311 * M, proof: { source: "edgar" as const, unit: "USD",
       periodStart: "2025-01-01", periodEnd: "2025-12-31", observedAt: at, tags: [`us-gaap/${PRETAX_BEFORE_EQUITY}`], filings: [{ accn: FY2025.accn, filed: FY2025.filed, form: "10-K" }] } } };
     const { row } = admit(FY2025, { incomeBeforeTax: 96_757, incomeTaxExpense: 19_087, netIncome: 77_670 },
       facts(FY2025, { [PRETAX_BEFORE_EQUITY]: 97_311, IncomeTaxExpenseBenefit: 19_087, NetIncomeLoss: 77_670 }), stale);
     expect(row.pretaxIncomeBeforeEquityMethod).toBeUndefined();
-    expect(row.fieldProvenance?.pretaxIncomeBeforeEquityMethod).toBeUndefined();
     expect(effectiveTaxPretaxIncome(row)).toBe(row.incomeBeforeTax);
   });
 
   it("a withheld pre-tax income has no tax base, whatever was recorded beside it", () => {
-    expect(effectiveTaxPretaxIncome({ incomeBeforeTax: undefined, pretaxIncomeBeforeEquityMethod: 97_311 * M })).toBeNull();
+    const filedLine = { value: 97_311 * M, proof: { source: "edgar" as const, unit: "USD", periodStart: "2025-01-01", periodEnd: "2025-12-31", observedAt: at, tags: [], filings: [] } };
+    expect(effectiveTaxPretaxIncome({ incomeBeforeTax: undefined, pretaxIncomeBeforeEquityMethod: filedLine })).toBeNull();
     expect(effectiveTaxPretaxIncome(null)).toBeNull();
     expect(effectiveTaxPretaxIncome({ incomeBeforeTax: 5 })).toBe(5);
   });
@@ -157,7 +158,7 @@ function amazonWindow(): FmpIncomeStatementRow[] {
     source: "edgar" as const, unit: "USD", periodStart: start, periodEnd: end, observedAt: at, tags: [`us-gaap/${PRETAX_BEFORE_EQUITY}`], filings, ...(derivation ? { derivation } : {}) });
   const quarter = (date: string, pretax: number, tax: number, revenue: number, base?: { value: number; proof: ReturnType<typeof proof> }): FmpIncomeStatementRow => ({
     date, reportedCurrency: "USD", revenue: revenue * M, operatingIncome: 20_000 * M, netIncome: (pretax - tax) * M, incomeBeforeTax: pretax * M, incomeTaxExpense: tax * M,
-    ...(base ? { pretaxIncomeBeforeEquityMethod: base.value * M, fieldProvenance: { pretaxIncomeBeforeEquityMethod: base.proof } } : {}) });
+    ...(base ? { pretaxIncomeBeforeEquityMethod: { value: base.value * M, proof: base.proof } } : {}) });
   return [
     quarter("2026-06-30", 80_857, 18_199, 200_606, { value: 80_857, proof: proof("2026-04-01", "2026-06-30", [{ accn: "0001018724-26-000026", filed: "2026-07-31", form: "10-Q" }]) }),
     quarter("2026-03-31", 39_834, 9_560, 181_519, { value: 39_834, proof: proof("2026-01-01", "2026-03-31", [{ accn: "0001018724-26-000014", filed: "2026-04-30", form: "10-Q" }]) }),

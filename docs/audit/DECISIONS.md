@@ -98,8 +98,9 @@ P8), which already runs in the report's calculation view
    tax and net income on one filing scope) and its pre-tax element is the one
    that excludes equity-method results, bridged by the separately filed
    equity-method amount, the admission records that filed line on the row as
-   `pretaxIncomeBeforeEquityMethod`, with its filing as field provenance. The
-   row's `incomeBeforeTax` is not changed. The row's pair must already be the
+   `pretaxIncomeBeforeEquityMethod`, a value with its filing. It is kept out of
+   the row's field provenance, so no other rule reads it as period or source
+   evidence. The row's `incomeBeforeTax` is not changed. The row's pair must already be the
    same observation as the filed family under the existing P8 allowance
    (`vendorAgreesWithFiled`); no tolerance, band, cap, floor or status word is
    added or changed. Without that family nothing is recorded.

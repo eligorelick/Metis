@@ -1459,7 +1459,7 @@ function filingsText(proof: StatementFieldProvenance | undefined): string {
 export function taxRatePretaxOperand(row: FmpIncomeStatementRow): string | null {
   const base = effectiveTaxPretaxIncome(row), own = num(row.incomeBeforeTax);
   if (base === null || own === null || base === own) return null;
-  const proof = row.fieldProvenance?.pretaxIncomeBeforeEquityMethod;
+  const proof = row.pretaxIncomeBeforeEquityMethod?.proof;
   return `${proof?.periodStart ?? "period start not recorded"} through ${String(row.date ?? "")}: ${base}${proof ? ` ${proof.unit}` : ""} (${filingsText(proof)}) against ${own} including the equity-method result`;
 }
 
@@ -1474,7 +1474,7 @@ function ttmTaxRatePretax(q: FmpIncomeStatementRow[], pretax: number, tax: numbe
   const operands = q.flatMap(row => { const text = taxRatePretaxOperand(row); return text === null ? [] : [text]; });
   if (operands.length === 0) return { value: pretax, basis: null };
   const value = q.reduce((sum, row) => sum + (effectiveTaxPretaxIncome(row) ?? 0), 0);
-  const tag = q.map(row => row.fieldProvenance?.pretaxIncomeBeforeEquityMethod?.tags[0]).find(Boolean) ?? "the filed pre-tax line";
+  const tag = q.map(row => row.pretaxIncomeBeforeEquityMethod?.proof.tags[0]).find(Boolean) ?? "the filed pre-tax line";
   return { value, basis: `TTM effective tax rate: the provision${tax === null ? "" : ` ${tax}`} is divided by ${value}, the four quarters' filed pre-tax income before ` +
     `equity-method results (${tag}), not by the ${pretax} that includes the after-tax equity-method results, because the filer presents those results after its ` +
     `provision. Filed operands: ${operands.join("; ")}. Pre-tax income elsewhere keeps the figure that reconciles to net income (P13, D-237).` };

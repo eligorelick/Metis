@@ -248,11 +248,12 @@ export interface FmpIncomeStatementRow extends FmpStatementRow {
   /** Signed SEC equity-method result as filed; tax presentation varies by issuer. */
   equityMethodIncomeLoss?: number;
   /**
-   * D-237 (P13): the filed pre-tax line that excludes equity-method results, recorded by the earnings
-   * admission when the filer presents those results after its provision. An effective tax rate divides by
-   * it (`effectiveTaxPretaxIncome`); `incomeBeforeTax` stays the pre-tax income of the earnings identity.
+   * D-237 (P13): the filed pre-tax line that excludes equity-method results, with its filing, recorded by
+   * the earnings admission when the filer presents those results after its provision. An effective tax rate
+   * divides by it (`effectiveTaxPretaxIncome`); `incomeBeforeTax` stays the pre-tax income of the earnings
+   * identity. It is kept out of `fieldProvenance` so that it is evidence for a tax rate and nothing else.
    */
-  pretaxIncomeBeforeEquityMethod?: number;
+  pretaxIncomeBeforeEquityMethod?: FiledIncomeLine;
   equityMethodIncomePlacement?: EquityMethodIncomePlacement;
   netIncome?: number;
   /** Filed consolidated profit including noncontrolling interests (SEC ProfitLoss). */

@@ -33,7 +33,7 @@ export function contractRevenueScopeRefusal(proof: StatementFieldProvenance | nu
  */
 export function effectiveTaxPretaxIncome(row: Pick<FmpIncomeStatementRow, "incomeBeforeTax" | "pretaxIncomeBeforeEquityMethod"> | null | undefined): number | null {
   if (!row || !finite(row.incomeBeforeTax)) return null;
-  return finite(row.pretaxIncomeBeforeEquityMethod) ? row.pretaxIncomeBeforeEquityMethod : row.incomeBeforeTax;
+  return finite(row.pretaxIncomeBeforeEquityMethod?.value) ? row.pretaxIncomeBeforeEquityMethod.value : row.incomeBeforeTax;
 }
 
 /** Reuse canonical filed statement resolution; never infer expense placement from EBIT. */
@@ -268,17 +268,13 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     // (`effectiveTaxPretaxIncome`). No tolerance is added: the row's pair must
     // already be the same observation as the filed family under the P8 allowance.
     // A base recorded by an earlier pass is re-established here or dropped.
-    if (out.pretaxIncomeBeforeEquityMethod !== undefined) {
-      const fieldProvenance = { ...out.fieldProvenance };
-      delete fieldProvenance.pretaxIncomeBeforeEquityMethod;
-      out = { ...out, pretaxIncomeBeforeEquityMethod: undefined, fieldProvenance };
-    }
+    if (out.pretaxIncomeBeforeEquityMethod !== undefined) out = { ...out, pretaxIncomeBeforeEquityMethod: undefined };
     if (family && family.pretax.proof.calculation === "pretax-plus-equity-method") {
       const line = operand("incomeBeforeTax");
       if (line && finite(out.incomeBeforeTax) && finite(out.incomeTaxExpense) &&
           out.fieldConflicts?.incomeBeforeTax?.usable !== false && out.fieldConflicts?.incomeTaxExpense?.usable !== false &&
           (same(out.incomeBeforeTax, family.pretax.value) || same(out.incomeBeforeTax, line.value)) && same(out.incomeTaxExpense, family.tax.value)) {
-        out = { ...out, pretaxIncomeBeforeEquityMethod: line.value, fieldProvenance: { ...out.fieldProvenance, pretaxIncomeBeforeEquityMethod: line.proof } };
+        out = { ...out, pretaxIncomeBeforeEquityMethod: { value: line.value, proof: line.proof } };
       }
     }
     // Ownership scope is useful even when the provider's parent earnings agree.
