@@ -54,6 +54,13 @@ const KNOWN: Record<string, string | null> = {
   CORPORATE_ACTION_BRIDGE_WRITING_STAMPS: null,
 };
 
+/**
+ * The two functions that read a saved spec stamp against a display cutoff
+ * (D-249: one parse and one comparison, beside the cutoffs they read). They
+ * are the only exports that are not a stamp or a cutoff.
+ */
+const STAMP_READERS = ["parseSpecStamp", "specVersionBefore"] as const;
+
 /** Shapes of a stamp or cutoff definition (re-exports never match: they have no `const`). */
 const DEFINITION_SHAPES: readonly RegExp[] = [
   // FOO_VERSION, FOO_SINCE_SPEC, FOO_SINCE_SPEC_VERSION
@@ -94,10 +101,11 @@ describe(`version stamps are defined only in ${ONE_FILE} (P27)`, () => {
     ).toEqual([]);
   });
 
-  it("defines every known stamp and cutoff, and nothing else", () => {
+  it("defines every known stamp and cutoff, the two stamp readers, and nothing else", () => {
     expect(Object.keys(versions).sort(), `${ONE_FILE} exports exactly the list in this test; add a new stamp to both`).toEqual(
-      Object.keys(KNOWN).sort(),
+      [...Object.keys(KNOWN), ...STAMP_READERS].sort(),
     );
+    for (const reader of STAMP_READERS) expect(typeof versions[reader]).toBe("function");
   });
 
   it("imports nothing, so readers and the CLI export tool can load it without server-only modules", () => {

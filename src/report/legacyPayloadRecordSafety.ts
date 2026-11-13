@@ -1,4 +1,4 @@
-import { PAYLOAD_RECORD_CORRECTION_SPEC } from "@/report/versions";
+import { PAYLOAD_RECORD_CORRECTION_SPEC, specVersionBefore } from "@/report/versions";
 import { providerGeographyContradiction, type GeographyContradiction } from "@/edgar/segmentFacts";
 import { listingSuffix } from "@/pipeline/peers";
 import { normalizeFinancialUnit, unitCurrency } from "@/report/format";
@@ -45,19 +45,8 @@ const MACRO_SENTENCES: Readonly<Record<string, readonly [string, string]>> = {
   PCEDG: ["Displayed in USD (FRED serves billions; shown ×1,000,000,000).", "Displayed in USD at a seasonally adjusted annual rate (FRED serves billions; shown ×1,000,000,000)."],
 };
 
-/** Numeric semver compare; an unparsable version counts as before. */
-export function specVersionBefore(version: string, cutoff: string): boolean {
-  const parse = (v: string): number[] | null => {
-    const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(v.trim());
-    return m === null ? null : [Number(m[1]), Number(m[2]), Number(m[3])];
-  };
-  const a = parse(version);
-  const b = parse(cutoff);
-  if (a === null) return true;
-  if (b === null) return false;
-  for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i]! < b[i]!;
-  return false;
-}
+/** The one comparison of a saved spec stamp with a display cutoff is defined in src/report/versions.ts (D-249). */
+export { specVersionBefore } from "@/report/versions";
 
 const idOf = (n: Pick<TracedNumber, "sourceId" | "source">): string => n.sourceId ?? n.source;
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);

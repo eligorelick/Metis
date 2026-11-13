@@ -11,7 +11,7 @@
  * the equity bridge already deducts) of the newest profitable period that
  * shows one, or its basic count alone when no period does, and says so.
  */
-import { CORE_FACT_FORMS, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
+import { CORE_FACT_FORMS, factCoversPeriod, parseFactPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { millions } from "@/pipeline/stageB/netDebt";
 
 export interface DivisorRow {
@@ -114,16 +114,17 @@ function points(facts: CompanyFacts, tag: string, unit: string) {
 
 /**
  * The filed if-converted share increment for exactly one income period: a duration fact of the period's own length
- * (a quarter 70-110 days, a fiscal year 300-400) ending within 3 days of its end, on a core form, the latest filed.
- * The debt and preferred increments add. Null when neither is filed for the period.
+ * ending at its end, by the P1 owner's one definition (`factCoversPeriod`, src/edgar/xbrl.ts: a quarter 70-125 days,
+ * a fiscal year 300-400, the end within 3 days; D-247), on a core form, the latest filed. The equity bridge's reader
+ * (`convertibleInstrumentsAt`) asks the same. The debt and preferred increments add. Null when neither is filed for
+ * the period.
  */
 export function conversionSharesFiled(facts: CompanyFacts | null, date: string, period: "quarter" | "fiscal year"): number | null {
   if (facts === null) return null;
-  const [min, max] = period === "quarter" ? [70, 110] : [300, 400];
   let total: number | null = null;
   for (const tag of CONVERSION_TAGS) {
     const match = points(facts, tag, "shares")
-      .filter((p) => p.start !== undefined && Math.abs(days(date, p.end)) <= 3 && days(p.start, p.end) >= min && days(p.start, p.end) <= max)
+      .filter((p) => factCoversPeriod(p, date, period === "quarter" ? "Q" : "FY"))
       .sort((a, b) => (a.filed < b.filed ? 1 : a.filed > b.filed ? -1 : 0))[0];
     if (match !== undefined) total = (total ?? 0) + match.val;
   }

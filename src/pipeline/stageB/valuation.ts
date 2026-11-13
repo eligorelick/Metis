@@ -22,7 +22,7 @@ import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { displayClassName } from "@/edgar/classEvidence";
 import { parseIssuerGrowthEffect } from "@/edgar/currentReports";
 import { fiftyTwoWeekFactor, thirteenWeekFactor, weeksOf, periodDays, fiscalYearEndFor, snapToFiscalYearEnd, type FiscalYearRule } from "./fiscalCalendar";
-import { resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
+import { noncontrollingOwnershipUnresolved, resolveConsolidatedEquity } from "@/pipeline/stageB/ownership";
 import { comparablePeers } from "@/pipeline/stageB/peerComparability";
 import { preferredCapitalRefusal, commonHolderCapital, constructCommonIncomeQuarterWindow, resolveSecurityBasis, resolveEconomicEquityScope, type PreferredCapitalInputs, type CommonIncomeInputs, type SecurityBasisEvidence, type EconomicShareEvidence, type EconomicEquityScope } from "@/pipeline/stageB/securityBasis";
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, type LeaseFieldEvidence, type LeaseEvidenceContext } from "@/pipeline/stageB/leaseScope";
@@ -4246,14 +4246,8 @@ const DERIVED_HISTORY_KEYS: readonly MultipleKey[] = [
 ];
 const OWN_HISTORY_EV_MAX_AGE_DAYS = 45;
 
-/** A consolidated/parent difference proves outside ownership, never its market value. */
-function unknownNoncontrollingAllocation(balance: { totalEquity?: number | null; totalStockholdersEquity?: number | null; minorityInterest?: number | null; equityOwnershipBasis?: "parent" | "consolidated" } | null): boolean {
-  if (!balance || isNum(balance.minorityInterest)) return false;
-  if (balance.equityOwnershipBasis === "consolidated" && (isNum(balance.totalEquity) || isNum(balance.totalStockholdersEquity))) return true;
-  if (!isNum(balance.totalEquity)) return false;
-  return !isNum(balance.totalStockholdersEquity) ||
-    Math.abs(balance.totalEquity - balance.totalStockholdersEquity) > Math.max(1, Math.abs(balance.totalEquity) * 1e-10);
-}
+// A consolidated/parent difference proves outside ownership, never its market value. The test is the P5 owner's
+// (`noncontrollingOwnershipUnresolved`, src/pipeline/stageB/ownership.ts; D-248); compute.ts reads the same one.
 
 /**
  * Known NCI at or below this share of consolidated equity cannot move a
@@ -4317,9 +4311,9 @@ function bookNciImmaterial(row: (Parameters<typeof temporaryEquityClaims>[0] & {
   return immaterialNoncontrollingInterest(redeemableOnly ? { ...row, minorityInterest: 0 } : row, noncontrollingIncome);
 }
 
-function unresolvedCashOwnership(row: Parameters<typeof unknownNoncontrollingAllocation>[0] & Parameters<typeof temporaryEquityClaims>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
+function unresolvedCashOwnership(row: Parameters<typeof noncontrollingOwnershipUnresolved>[0] & Parameters<typeof temporaryEquityClaims>[0] & { noncontrollingIncome?: number | null; preferredStock?: number | null; preferredDividendsPaid?: number | null }): boolean {
   const nciImmaterial = bookNciImmaterial(row, row?.noncontrollingIncome);
-  return preferredCapitalRefusal(row) !== null || unknownNoncontrollingAllocation(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
+  return preferredCapitalRefusal(row) !== null || noncontrollingOwnershipUnresolved(row) || (!nciImmaterial && isNum(row?.minorityInterest) && row.minorityInterest !== 0) ||
     (!nciImmaterial && isNum(row?.noncontrollingIncome) && row.noncontrollingIncome !== 0) ||
     (isNum(row?.preferredStock) && row.preferredStock !== 0) ||
     temporaryEquityBlocksCashOwnership(row) ||
@@ -4443,7 +4437,7 @@ function deriveOwnHistory(
     const windowTemporary = temporaryEquityClaims(b);
     if (windowTemporary?.refusal != null) temporaryEquityRejectedWindows.push({ anchor: b.date, reason: windowTemporary.refusal });
     const evVal =
-      leaseBasisMatches && leaseScopeRefusal === null && preferredCapitalRefusal(b) === null && !unknownNoncontrollingAllocation(b) && windowTemporary?.refusal == null && isNum(mcap) && historicalNetDebt.value !== null
+      leaseBasisMatches && leaseScopeRefusal === null && preferredCapitalRefusal(b) === null && !noncontrollingOwnershipUnresolved(b) && windowTemporary?.refusal == null && isNum(mcap) && historicalNetDebt.value !== null
         ? mcap +
           historicalNetDebt.value +
           (isNum(b.preferredStock) ? b.preferredStock : 0) +
@@ -4676,7 +4670,7 @@ export function multiplesFramework(
   // short-term investments. FMP's totalDebt already contains the lease
   // liability, so the default (leases NOT in EV) subtracts it back out.
   const netDebt = resolveNetDebt(bal ?? {});
-  const unknownNciAllocation = unknownNoncontrollingAllocation(bal);
+  const unknownNciAllocation = noncontrollingOwnershipUnresolved(bal);
   // FIN-119 (OD-1): redeemable preferred and redeemable NCI sit in temporary
   // equity, outside every equity field above, and are claims on the enterprise
   // like permanent preferred and book NCI. A refused operand withholds the EV.
@@ -5013,7 +5007,7 @@ export function multiplesFramework(
     notes.push(reason);
     gaps.push(gapEntry("valuation.multiples.ownHistory.evTemporaryEquity", reason, "warn"));
   }
-  if (unknownNciAllocation || inputs.quarterlyFundamentals?.some(unknownNoncontrollingAllocation)) {
+  if (unknownNciAllocation || inputs.quarterlyFundamentals?.some(noncontrollingOwnershipUnresolved)) {
     for (const key of vendorEvKeys) delete vendor[key];
     const reason = "Known outside ownership has an unavailable NCI allocation in current or historical balance evidence; affected historical EV windows and vendor EV-ratio fallback without ownership allocation evidence are withheld. Equity-only history is evaluated separately.";
     notes.push(reason);
@@ -6672,7 +6666,7 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   let dcfWithheldCause: string | null = null;
   // FIN-103: the DCF-only gates read the balance the bridge reads.
   const bridgeBalance = inputs.bridgeBalance ?? inputs.multiples.balance;
-  if ((inputs.noncontrollingOwnershipUnresolved === true || unknownNoncontrollingAllocation(bridgeBalance)) && inputs.dcfInputs !== null) {
+  if ((inputs.noncontrollingOwnershipUnresolved === true || noncontrollingOwnershipUnresolved(bridgeBalance)) && inputs.dcfInputs !== null) {
     const reason = "Consolidated equity has no resolved parent/NCI split, or differs from parent equity, and the NCI allocation is unavailable. The consolidated operating DCF cannot be presented as parent/common equity by treating unknown outside claims as zero; book NCI would itself be only a proxy for market value.";
     gaps.push(gapEntry("valuation.dcf.noncontrollingOwnership", reason, "warn"));
     notes.push(reason);

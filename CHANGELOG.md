@@ -25,6 +25,22 @@ original versions and bytes; source merge does not deploy or publish a release.
   now; any value other than 0 or 1 is still refused. Exports, saved reports
   and the same-report check output are unchanged.
 
+## Unreleased - Filed common earnings for a year whose preferred stock was redeemed (2026-11-13)
+
+- Common earnings for a fiscal year are refused when preferred claims existed
+  in it, and the filed figure was read only when preferred stock or
+  noncontrolling interests stood on the year's closing balance. A year in
+  which the preferred was redeemed therefore had no common earnings, and the
+  payout history and the excess-return valuation built on it were withheld.
+  The filed income available to common (full-year 10-K) is now also read for
+  such a year: that one field, never over a vendor value or a refusal (P5,
+  P11, P13, [D-251](docs/audit/DECISIONS.md)). In the same-report check this
+  changes one of the 17 cases: Progressive's fiscal 2025 and 2024 common
+  earnings (11,308M and 8,463M) are read, its payout ratio (15.37%) and
+  excess-return fair value (USD 160.42 per share on the filed 582.2M diluted
+  shares) are built, and its valuation aspect, quality aspect and composite
+  move with them. Version stamps are not moved in this change.
+
 ## Unreleased - The gap and provider checks read the missing-data entry's typed cause (2026-11-12)
 
 - D-242 (P11): twelve checks that decided by the wording of a missing-data
@@ -41,6 +57,22 @@ original versions and bytes; source merge does not deploy or publish a release.
 - The planned stored link between a copied refusal and its source (D-243) was
   not built: it cannot keep every decision unchanged when a source sentence is
   reworded (D-242 explains); the saved-report readers (D-244) were not started.
+
+## Unreleased - Net income is read on the scope each metric needs (2026-11-12)
+
+- For a company with noncontrolling interests, free-cash-flow conversion now
+  divides by consolidated profit in every year: a vendor cash-flow net income
+  equal only to the parent's profit is replaced by the consolidated profit the
+  same filing states. The net margin and DuPont now use the profit attributable
+  to the parent in every year, including a year whose reported net income is
+  the consolidated figure (P5, P13, P8, [D-238](docs/audit/DECISIONS.md), which
+  revises D-231). In the same-report check this moves Realty Income (fiscal
+  2023 cash-flow net income 872,309,000 to 876,914,000 and its FCF conversion;
+  fiscal 2025 net margin 18.61% to 18.41% and DuPont ROE 2.73% to 2.70%) and
+  Duke Energy (fiscal 2025 cash-flow net income 4,967,000,000 to
+  5,071,000,000). No score or grade moves, and companies without
+  noncontrolling interests are unchanged. Version stamps are left for the
+  Stage 5 integration; saved reports are unchanged.
 
 ## Unreleased - Trailing net income behind FCF conversion read from the filings (2026-11-12)
 
