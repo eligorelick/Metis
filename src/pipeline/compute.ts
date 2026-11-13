@@ -3,6 +3,7 @@ import { forwardAnnualEstimates } from "./forwardEstimates";
 import { withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
 import { resolveForeignValuation, translateValuationInputs, translateProjectionInputs, type ForeignValuationBasis } from "@/pipeline/foreignCurrency";
 import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
+import { noncontrollingOwnershipUnresolved } from "@/pipeline/stageB/ownership";
 import { admittedStatementRow, isFmpQuotaGap, quotePriceObservationDay } from "@/providers/fmp";
 import { gapCauseMatches } from "@/edgar/refusalCauseRead";
 /**
@@ -162,6 +163,7 @@ import { applyLenderCapitalApplicability, lenderCashFlowApplicability } from "@/
 import { incompleteLeaseCoverage, leaseDebtScopeRefusal, leaseEvidenceNote, leaseEvidenceContextFor, type LeaseEvidenceContext, restoreLeaseFinancingProvenance } from "@/pipeline/stageB/leaseScope";
 import { preferredCapitalRefusal, commonIncomeFlowRefusal, constructCommonIncomeQuarterWindow, type CommonIncomeInputs, type CommonIncomeFlowScope } from "@/pipeline/stageB/securityBasis";
 import { conversionRightsNote, issuerEconomicDilutedShares, resolveEconomicEquityScope } from "@/pipeline/stageB/securityBasis";
+import { resolveParentProfit, type ProfitScopeInputs } from "@/pipeline/stageB/ownership";
 import { BETA_MIN_MONTHS, estimateBeta, type ClosePoint } from "@/pipeline/stageB/betaEstimate";
 import { CORE_FACT_FORMS, findPointForPeriod, tagPoints, type CompanyFacts } from "@/edgar/xbrl";
 import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
@@ -446,6 +448,7 @@ function fiscalIdentity(r: FmpStatementRow) {
 
 function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
   const operating = operatingMarginBasis(r);
+  const parentProfit = resolveParentProfit(profitScopeInputs(r));
   return {
     ...fiscalIdentity(r),
     date: String(r.date ?? ""),
@@ -457,7 +460,9 @@ function toGrowthIncome(r: FmpIncomeStatementRow): GrowthIncomeRow {
     grossProfit: num(r.grossProfit),
     operatingIncome: operating.operatingIncome,
     operatingBasis: operating.basis,
-    netIncome: num(r.netIncome),
+    // D-238 (P5; D-108): the net margin is the parent's profit over revenue in every year of the series.
+    netIncome: parentProfit.value,
+    ...(parentProfit.value !== num(r.netIncome) ? { netIncomeBasis: `${parentProfit.reason} (${parentProfit.basis})` } : {}),
     epsDiluted: num(r.epsDiluted),
   };
 }
@@ -497,14 +502,25 @@ function commonFlowScope(row: FmpStatementRow, field: string, basis: "annual" | 
       ? "basic-eps-common-stockholders" : "unknown" };
 }
 
-function commonIncomeEvidence(row: FmpIncomeStatementRow, basis: "annual" | "quarter", admissionAsOf?: string): CommonIncomeInputs {
+/** The entity scope of a row's `netIncome`: the admission's own statement, else the filed tags behind the figure. */
+function netIncomeOwnership(row: FmpIncomeStatementRow): "parent" | "consolidated" | undefined {
   const tags = row.fieldProvenance?.netIncome?.tags ?? [];
   const consolidatedTag = tagsFor("netIncomeConsolidated").some(tag => tags.includes(`us-gaap/${tag}`));
   // Consolidated profit less the NCI share is the parent's figure (audit B-18).
   const nciDeducted = consolidatedTag && tagsFor("netIncomeAttributableToNoncontrollingInterest").some(tag => tags.includes(`us-gaap/${tag}`));
-  const ownership = row.netIncomeOwnershipBasis === "parent" || row.netIncomeOwnershipBasis === "consolidated" ? row.netIncomeOwnershipBasis :
+  return row.netIncomeOwnershipBasis === "parent" || row.netIncomeOwnershipBasis === "consolidated" ? row.netIncomeOwnershipBasis :
     nciDeducted ? "parent" : consolidatedTag ? "consolidated" :
       tags.includes("us-gaap/NetIncomeLoss") ? "parent" : undefined;
+}
+
+/** D-238 (P5): the row's profit lines by entity scope, for `resolveParentProfit` and `resolveConsolidatedProfit`. */
+function profitScopeInputs(row: FmpIncomeStatementRow): ProfitScopeInputs {
+  return { netIncome: num(row.netIncome), netIncomeOwnershipBasis: netIncomeOwnership(row),
+    netIncomeConsolidated: num(row.netIncomeConsolidated), noncontrollingIncome: num(row.netIncomeAttributableToNoncontrollingInterest) };
+}
+
+function commonIncomeEvidence(row: FmpIncomeStatementRow, basis: "annual" | "quarter", admissionAsOf?: string): CommonIncomeInputs {
+  const ownership = netIncomeOwnership(row);
   return { netIncome: num(row.netIncome), netIncomeAvailableToCommon: num(row.netIncomeAvailableToCommon),
     admissionAsOf, targetScope: { issuerId: economicIssuerId(row), currency: str(row.reportedCurrency), periodStart: str(row.periodStart), periodEnd: str(row.date), basis },
     incomeScope: commonFlowScope(row, "netIncome", basis), commonIncomeScope: commonFlowScope(row, "netIncomeAvailableToCommon", basis),
@@ -636,7 +652,8 @@ function toCapitalIncome(r: FmpIncomeStatementRow): CapitalIncomeRow {
     ebit: operatingIncomeForNonMargins(r),
     ebitda: num(r.ebitda),
     interestExpense: num(r.interestExpense),
-    netIncome: num(r.netIncome),
+    // D-238 (P5): the scope of this net income travels with it; the FCF series reads consolidated profit.
+    ...profitScopeInputs(r),
     weightedAverageShsOutDil: num(r.weightedAverageShsOutDil),
     weightedAverageShsOut: num(r.weightedAverageShsOut),
   };
@@ -5318,16 +5335,19 @@ function balanceRowWhole(row: object): boolean {
 }
 
 /**
- * The ownership test the DCF's NCI gate applies (`noncontrollingOwnershipUnresolved`):
- * no book NCI, and consolidated equity that has no parent split or differs from
- * parent equity. One test for the gate and for the bridge row choice.
+ * The ownership test the DCF's NCI gate applies, on a statement row: the P5
+ * owner's one predicate (`noncontrollingOwnershipUnresolved`,
+ * src/pipeline/stageB/ownership.ts; D-248), given the row's own figures and
+ * what its provenance establishes. One test for the gate, for the bridge row
+ * choice and for every valuation gate.
  */
 function noncontrollingOwnershipUnresolvedAt(row: FmpBalanceSheetRow | null): boolean {
-  return row !== null && num(row.minorityInterest) === null &&
-    (statementEquityOwnershipBasis(row) === "consolidated" ||
-      (num(row.totalEquity) !== null && num(row.totalStockholdersEquity) !== null &&
-        Math.abs((num(row.totalEquity) as number) - (num(row.totalStockholdersEquity) as number)) >
-          1e-9 * Math.max(1, Math.abs(num(row.totalEquity) as number), Math.abs(num(row.totalStockholdersEquity) as number))));
+  return row !== null && noncontrollingOwnershipUnresolved({
+    totalEquity: num(row.totalEquity),
+    totalStockholdersEquity: num(row.totalStockholdersEquity),
+    minorityInterest: num(row.minorityInterest),
+    equityOwnershipBasis: statementEquityOwnershipBasis(row),
+  });
 }
 /**
  * Why the DCF bridge cannot be built on this row (the refusal test, the gate's ownership test, or a lease or

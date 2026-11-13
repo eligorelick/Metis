@@ -308,6 +308,498 @@ duplicate that two in-memory Altman computations write with the same field
 and sentence. Step d (planned as D-244, saved-report readers R1-R16) was not
 started, as the plan stops at the first step that cannot be done safely.
 
+## D-249 - One reading of a saved report's spec stamp against a display cutoff (2026-11-13)
+
+Principle P21 (saved reports are immutable; corrections are read-time views
+chosen by the report's own stamp), with P10 (a stamp that cannot be read is
+not treated as current) and P13 (one definition). Round 2, Stage 5, "one
+owner" step, part 3. The rule consolidation critique ("Qualification logic and
+version handling disagree") reproduced two ways of deciding "was this saved
+report written before rule X".
+
+Root cause. A saved report's `meta.specVersion` was parsed in three places:
+
+| Reader | Where | Unreadable stamp |
+| --- | --- | --- |
+| `specVersionBefore`, used for nine frozen cutoffs by six legacy views | `src/report/legacyPayloadRecordSafety.ts` | trimmed first; unreadable counts as before the cutoff |
+| `legacyCheckNote` (`INSIDER_ROLES_READ_FROM`), used by the audit export | `src/report/claimMatching.ts` | not trimmed; unreadable counts as not before (no note) |
+| the scope note's wording | `src/report/legacyScopeQualifications.ts` | its own copy of the "three dotted numbers" pattern |
+
+For three dotted numbers all agree. For a missing, empty, padded (" 1.55.0 "),
+two-part ("1.55") or pre-release ("1.55.0-rc1") stamp the first two disagreed,
+and four cutoffs sit on the same 1.56.0 line, so one report could be "before
+1.56.0" for the valuation notes and "not before 1.56.0" for the insider note.
+
+Choice. One parse (`parseSpecStamp`) and one comparison (`specVersionBefore`)
+in `src/report/versions.ts`; `legacyCheckNote` and the scope note's wording
+call them, and the six legacy views keep importing the same function through
+its old module. One stated behaviour:
+
+- a stamp that cannot be read (missing, not text, or not exactly three dotted
+  whole numbers after trimming) is before every cutoff, so the report gets
+  the legacy read-time view. It cannot be shown to follow the newer rule, and
+  this is what the nine cutoffs on the shared helper already did;
+- a stamp at or above a cutoff is not before it, a newer build's included
+  (whether this build recognises that report's evidence rules is a separate
+  question, answered by the evidence-contract stamp's own reader);
+- a cutoff that cannot be read never fires (cutoffs are pinned constants).
+
+Where it lives, and why. P21's owner is `src/report/legacyEntitySafety.ts`,
+but that module imports every legacy reader and `claimMatching.ts`, so a
+helper there would be a circular import. `src/report/versions.ts` imports
+nothing and already defines every cutoff the comparison reads, so the
+comparison sits beside them; its header table says so, and its guard test
+(`tests/versions.oneFile.test.ts`) names the two functions as its only
+exports that are not a stamp or a cutoff.
+
+Options rejected: making unreadable stamps "not before" everywhere (it would
+drop the legacy corrections from a report whose stamp is damaged, the
+fail-open reading); leaving `legacyCheckNote` alone because no saved report
+reaches the difference (two readers of one cutoff must not be able to
+disagree).
+
+No stamp value changes, no stamp is added and nothing is rewritten.
+
+### Inventory of every version comparison
+
+Ordered against a cutoff (now one helper): the nine cutoffs
+`PAYLOAD_RECORD_CORRECTION_SPEC`, `EDGAR_DERIVED_LINES_SINCE_SPEC_VERSION`,
+`BRIDGE_METHOD_SINCE_SPEC_VERSION`, `BRIDGE_READINGS_SINCE_SPEC_VERSION`,
+`ANNUALIZATION_CONVENTION_SPEC`, `DCF_INPUTS_CONVENTION_SPEC`,
+`IMPLIED_RETURN_SHARE_BASIS_SPEC`, `LEGACY_SCOPE_SINCE_SPEC`,
+`LEGACY_PLACEHOLDER_DISPLAY_CUTOFF`, and `INSIDER_ROLES_READ_FROM`.
+`N4B_CAGR_DISPLAY_CUTOFF` has no reader.
+
+Read by equality, each with its own stated behaviour, unchanged:
+
+- `CORPORATE_ACTION_BRIDGE_WRITING_STAMPS` (`src/report/legacyRetiredFields.ts`):
+  exact membership in the three builds that wrote one retired field; any other
+  text is refused.
+- `meta.evidenceContract` (`src/report/evidenceContract.ts`): absent, current
+  or unrecognised; never inferred from spec or pipeline text.
+- The history diff (`src/report/diff.ts`) and the forecast and evaluation
+  records (`src/report/forecastAdapter.ts`, `src/report/evaluation.ts`): two
+  stored texts compared as stored.
+- `syntheticNotice` (`src/report/presentation.ts`): the built-in sample is
+  told by `meta.model` and a pipeline text beginning "synthetic-sample-". It
+  identifies a fixture, not a rule cutoff.
+- `meta.codeIdentity` (D-227): written, read by nothing.
+
+### Proof on saved reports, and approved report changes
+
+None. The check database copy (`%USERPROFILE%\metis-check\check.db`, opened
+read-only; the application database was never opened) holds 68 saved reports
+with eighteen distinct spec stamps (1.0.0, 1.1.0, 1.2.0, 1.5.0, 1.6.0, 1.10.0,
+1.23.1, 1.23.2, 1.33.0, 1.35.0, 1.38.0, 1.43.0, 1.44.0, 1.45.0, 1.48.0,
+1.49.0, 1.53.0, 1.73.0), identical in the `specVersion` column and in
+`meta.specVersion`. All are three dotted numbers with no padding, so no saved
+report carries a stamp on which two readers disagreed: there are no "both
+outputs" to show and no surface whose output had to be kept against the
+helper. Each report was read by the saved-report reader and rendered as its
+read-time view, the Markdown export, print HTML, the audit Markdown, the
+classic and dossier web layouts and the key-data rows, with main `629cf3c9`
+and with this change merged with it (and with `be7c11d6` before the merge),
+under one fixed clock: 68 reports, 7 outputs each, 476 outputs, all
+byte-identical (56 strict reads, 12 legacy reads, the same on
+both sides). The set exercises the readers: 58 reports show "Built before
+report spec", 14 "Built before spec", and 2 audit exports carry the insider
+note. Same-report check, main `629cf3c9` against this change after merging
+it: no changes (17 cases, 136 files compared).
+
+Tests (`tests/report.savedStampOrder.oneOwner.test.ts`): the eighteen saved
+stamps and the current one against every cutoff; missing, malformed, padded
+and future stamps; the insider note and the scope wording follow the helper
+for each; and a source guard that no file outside `versions.ts` writes a
+dotted-version pattern or splits a spec stamp by hand (the Claude CLI's own
+version text in `src/ai/claude.ts` is the one named exception).
+
+### Listed for the owner, not changed
+
+- The exact-stamp gate does not trim and the ordering helper does. A padded
+  " 1.23.1 " would be 1.23.1 to the helper and "not a writing stamp" to the
+  gate. No saved report is padded, and the gate's documented rule refuses
+  "any other stamp".
+- `N4B_CAGR_DISPLAY_CUTOFF` and `meta.codeIdentity` still have no reader.
+
+## D-248 - One test of unresolved noncontrolling ownership, with one allowance (2026-11-13)
+
+Principles P5 (entity scope is never plugged) and P10 (unproven is withheld),
+with P13 (one definition) and P11 (a refusal is not cured by a missing
+number). Round 2, Stage 5, "one owner" step, part 2. The architecture review's
+critique (row 6) reproduced that the two copies of the ownership test disagree.
+
+Root cause. "Is the split between the parent's holders and outside
+(noncontrolling) holders unresolved on this balance?" was answered twice:
+`noncontrollingOwnershipUnresolvedAt` in `src/pipeline/compute.ts` (the DCF's
+bridge-row choice and the DCF gate's input) and `unknownNoncontrollingAllocation`
+in `src/pipeline/stageB/valuation.ts` (enterprise value and its multiples, the
+own-history bands, the cash multiples and the DCF gate). Both mean
+"consolidated equity differs from parent equity and no NCI is filed", with two
+different allowances for "differs": compute.ts used one part in a billion of
+the larger figure, valuation.ts one currency unit or one part in ten billion
+of consolidated equity. On a consolidated-only basis compute.ts answered
+"unresolved" whatever numbers survived; valuation.ts only if one did.
+
+Which answer is right. Consolidated and parent equity are two different filed
+lines, equal only when there are no outside holders. The only allowance that
+belongs between them is for arithmetic noise; a filed difference, however
+small, proves outside ownership whose amount is not filed, and D-78 and D-79
+forbid treating it as zero. So:
+
+- The P8 "same observation" rule (`src/edgar/vendorAgreement.ts`) is not the
+  right comparison. It compares two copies of one figure and allows a reporting
+  unit up to a million or 0.01%; here it would read 10,001 million against
+  10,000 million as "the same" and a filed one-million NCI as none. P8 itself
+  keeps checks of different quantities on their own named allowances.
+- The ownership owner had no named allowance, so the choice was between the
+  two existing ones. No number is new.
+- Total 10,000,000,000 against parent 9,999,999,995, no NCI (a gap above one
+  unit and within one part in a billion): compute.ts said resolved,
+  valuation.ts unknown. Two whole numbers five apart are not arithmetic noise,
+  so the lines differ. Unknown is right.
+- Total 500,000,000 against parent 499,999,999.4, no NCI (a gap of at most
+  one currency unit on equity under a billion): compute.ts said unresolved,
+  valuation.ts resolved. A balance sheet states whole currency units or
+  larger, so a sub-unit gap is not a filed difference. Resolved is right.
+- A consolidated-only basis with no surviving number: compute.ts said
+  unresolved, valuation.ts resolved. The evidence still shows a consolidated
+  total with no parent split. Unresolved is right.
+
+valuation.ts's allowance gives the right answer in both zones, so it is the
+one kept.
+
+Choice, in the owner (`src/pipeline/stageB/ownership.ts`):
+`EQUITY_SAME_AMOUNT_ALLOWANCE` (one currency unit, or one part in ten billion
+of consolidated equity; `sameEquityAmount`) and the one predicate
+`noncontrollingOwnershipUnresolved`. compute.ts passes it the row's own
+figures and what the row's provenance establishes
+(`statementEquityOwnershipBasis`, unchanged); valuation.ts calls it directly
+at its six sites. The DCF gate still reads both the caller's input and the
+bridge balance; they are now one test.
+
+Truth table, NCI not filed unless stated ("compute" and "valuation" are the
+two old copies on the same inputs):
+
+| Balance | compute before | valuation before | After (both) |
+| --- | --- | --- | --- |
+| NCI filed (any number, zero included) | resolved | resolved | resolved |
+| Consolidated-only basis, total or parent present | unresolved | unresolved | unresolved |
+| Consolidated-only basis, no number present | unresolved | resolved | unresolved |
+| No consolidated total (parent alone, or no equity) | resolved | resolved | resolved |
+| Total present, parent absent | unresolved | unresolved | unresolved |
+| Total equals parent, or a gap within both allowances | resolved | resolved | resolved |
+| Gap above one unit, within one part in a billion | resolved | unresolved | unresolved |
+| Gap of at most one unit, above one part in a billion | unresolved | resolved | resolved |
+| Gap beyond both allowances | unresolved | unresolved | unresolved |
+
+Two rows tighten an earlier answer (valuation.ts's on a consolidated-only
+basis with no number; compute.ts's for a whole-unit gap) and one loosens one
+(compute.ts's for a sub-unit gap, which is not a filed difference). None is
+reached by any of the 17 cases. The FIN-103 bullet of D-135, which introduced
+compute.ts's copy for the bridge-row choice, is marked "Revised by D-248".
+`docs/METHODOLOGY.md` ("EV bridge") states the one test.
+
+### Replay and approved report changes
+
+None. Every call of the predicate during a full rebuild of the 17 cases was
+logged with what each old copy would have answered for the same input
+(temporary instrumentation, removed before the commit): 1,553 calls in 17
+case processes; 1,235 with NCI filed, 308 with parent equity only, 8 with
+consolidated equal to parent exactly, 2 with no equity. No call has a nonzero
+gap between consolidated and parent equity with NCI unfiled, and in no call
+does an old copy answer differently from the new predicate (logged twice,
+before and after merging main, with the same counts). Same-report check, main
+`629cf3c9` against this change after merging it (and `be7c11d6` before): no
+changes (17 cases, 136 files compared). Every figure of all 17 cases is unchanged, so there was no company
+input for which today's behaviour had to be kept.
+
+Tests (`tests/stageB.ownership.oneOwner.test.ts`): the owner's truth table;
+then the reviewed disagreement, its mirror, equal figures and a real
+difference (compatible controls), a filed NCI and a consolidated total with no
+parent line (unrelated shapes), each through compute.ts's bridge-row choice
+(`dcfBridgeRow`) and valuation.ts's EV and DCF gates (`runStageB`), which must
+give one answer. Before the change the first two rows gave two.
+
+### Not changed
+
+`statementEquityOwnershipBasis` stays in compute.ts: it reads a statement
+row's provenance tags to say what the row's equity evidence establishes, and
+hands the answer to the owner's predicate. `resolveConsolidatedEquity`,
+`commonHolderCapital` (`src/pipeline/stageB/securityBasis.ts`) and the peers'
+basis are other rules and were not touched.
+
+## D-247 - One definition of a quarter, a fiscal year and the period-end allowance for the conversion-share readers (2026-11-13)
+
+Principle P1 (exact period), with P13 (a definition used in several places is
+computed once). Round 2, Stage 5, "one owner" step, part 1. The rule
+consolidation review and its critique (row "Quarter admission differs for the
+same conversion tags") reproduced that the same two SEC tags are admitted
+differently in two places.
+
+Root cause. The filed if-converted share increment of an income period
+(`IncrementalCommonSharesAttributableToConversionOfDebtSecurities` and
+`...OfPreferredStock`) has two readers, each with a private window written after
+the owner's:
+
+| | Equity bridge (`convertibleInstrumentsAt`, `src/pipeline/stageB/convertibles.ts`) | Loss-period divisor (`conversionSharesFiled`, `src/pipeline/stageB/dilutedDivisor.ts`) | P1 owner (`src/edgar/xbrl.ts`) |
+| --- | --- | --- | --- |
+| A quarter's own length | 80 to 100 days | 70 to 110 days | 70 to 125 days (`QUARTER_DURATION_DAYS`) |
+| A fiscal year's own length | 350 to 380 days | 300 to 400 days | 300 to 400 days (a bare literal) |
+| The fact's end against the row's | the same day | within 3 days | within 3 days (a bare default) |
+
+Same check or a different one. The same. Each reader asks which filed fact is
+the increment of exactly one income row's period, because that increment is a
+slice of that row's diluted count: the bridge takes it out of the divisor (or
+restores the claim), the loss-period rule takes it out of a donor row's award
+dilution. The row's own count was matched to its period by the owner's rule.
+Neither narrower window protects anything the owner's does not: 80 to 100 and
+70 to 110 days exclude the 16-week quarter of a 12-12-12-16 calendar, which
+the owner's band exists to hold, while the year-to-date facts that end on the
+same day are 181 and 272 days and fall outside every band; 350 to 380 days
+excludes a transition year the statement builder itself accepts as the row's
+fiscal year; "the same day" refuses an increment whose fact ends one to three
+days from the row although every other field of that row was matched within
+three days.
+
+Choice, in the owner. `src/edgar/xbrl.ts` now names the fiscal-year band
+(`FISCAL_YEAR_DURATION_DAYS`, 300 to 400) and the end allowance
+(`PERIOD_END_TOLERANCE_DAYS`, 3) beside `QUARTER_DURATION_DAYS`, and exports
+one predicate, `factCoversPeriod`: the fact states its own start, its own
+length is in the quarter or fiscal-year band, and it ends within the allowance
+of the row. Both readers call it and keep no number. `src/edgar/statements.ts`
+and `src/edgar/successor.ts` read the two newly named constants in place of
+their own copies of 300, 400 and 3 (same values). A boundary is still never
+inferred from an end date (D-56): an instant never covers a period. D-59 is
+not involved; these facts carry their own start. No number is new: every value
+is the owner's existing one.
+
+What moves, by the rule:
+
+| Reader | Before | After |
+| --- | --- | --- |
+| Bridge, quarter | 80-100 days, same day | 70-125 days, within 3 days |
+| Bridge, fiscal year | 350-380 days, same day | 300-400 days, within 3 days |
+| Loss period, quarter | 70-110 days, within 3 days | 70-125 days, within 3 days |
+| Loss period, fiscal year | 300-400 days, within 3 days | unchanged |
+
+Nothing narrows, so no figure can become a gap by this change. The FIN-302
+paragraph of D-147 ("exact period/end") is marked "Revised by D-247", and
+`docs/METHODOLOGY.md` ("Convertibles", "Loss periods") states the one rule.
+
+### Replay (rule 4) and approved report changes
+
+None. Same-report check, main `629cf3c9` against this change after merging
+it (and `be7c11d6` before): no changes (17 cases, 136 files compared). The
+accuracy check reports every figure as expected. Every duration fact of the
+two tags in the 13
+companies' cached SEC company facts was tested against every income-statement
+row date of its company under the old bridge rule, the old loss-period rule
+and the new rule: 65 facts (NVDA 61, VKTX 2, DUK 2; the other ten companies
+file none), of 89, 90, 181, 272, 363 and 370 days. None is in a zone where the
+windows differ (70-79, 101-125, 300-349 or 381-400 days) and none ends one to
+three days from a row's end, so all three rules admit the same facts: 0
+differing admissions. No value is newly admitted in the 17 cases, so there is
+no value to prove against a filing and no intentional-delta record. Every
+figure of all 17 cases is unchanged. The widened inputs are pinned on synthetic
+facts (`tests/stageB.conversionPeriod.oneOwner.test.ts`: every length from 69
+to 401 days at end offsets of -4 to +4 days, on both readers; the 16-week
+quarter; the 13-week control; year-to-date and neighbouring-quarter facts).
+
+### Not changed, with the reason
+
+- Every other private quarter or fiscal-year day band in `src` is listed with
+  what it admits in `tmp/accuracy/s5-one-owner-before-after.md` (not
+  committed). Besides the owner's there are quarter-length bands of 60-100,
+  60-120, 70-105, 70-110, 80-100, 84-98, 84-105 and 70-135 days across twelve
+  sites, fiscal-year bands of 350-380 (about twenty sites), 330-400, 364-371
+  and 357-380 days, and a family that measures the gap between two period
+  ends, which is a different measurement. They are not all one check: 84-98
+  and 364-371 are deliberately exact-calendar tests and 350-380 means "a full
+  year, never a transition year". Each needs this entry's per-site ruling and
+  its own replay before it moves. Suggested order: `src/edgar/cashInvestment.ts`
+  (70-110 and the same day: the pair fixed here),
+  `src/edgar/borrowingCosts.ts:96` and
+  `src/pipeline/stageB/repurchaseExecutions.ts:78` (the owner's numbers as
+  literals), then one named annual band in the owner for the 350-380 family
+  (with `ANNUAL_FLOW_DAYS`, D-231).
+- The bridge reader drops facts filed after the analysis time and facts with a
+  dimension; the loss-period reader does neither. That is P2 and scope, not
+  the length of a quarter.
+
+## D-238 - The entity scope of net income: each metric reads consolidated or parent profit, never a mixture (2026-11-12)
+
+Principles P5 (entity scope), P13 (one basis, one definition), P8 (filed
+beats vendor), P2 (newest compatible filing), P10 (withhold, never guess) and
+P12 (a substitution is disclosed). Round 2, Stage 5 (accuracy fixes), the
+"net income scope" family. The accuracy baseline (r2-base-afb9cddf) labelled
+six rows "definition": FIGR, O and RIVN "net income, latest fiscal year" and
+"net income, TTM (current capital)" equal the filed consolidated profit
+(`ProfitLoss`, including the noncontrolling interests' share), not the profit
+attributable to the parent (`NetIncomeLoss`). This entry decides the question
+D-231 left open, and revises D-231's rule 2 for that reason.
+
+Three profit lines exist for an issuer with noncontrolling interests (NCI):
+consolidated profit, the parent's profit (consolidated less the NCI share)
+and income available to common (the parent's less preferred claims). They are
+not interchangeable (P5), and a ratio's two operands share one scope (P13).
+
+### Inventory: which line each figure uses, and which it needs
+
+| Figure | Line used before this change | Scope the metric needs | Outcome |
+| --- | --- | --- | --- |
+| Free-cash-flow series net income and FCF conversion (annual), `capital.fcf.series` (the baseline's "net income, latest fiscal year") | The vendor cash-flow row's net income, whichever line the vendor served: consolidated for FIGR, RIVN and most years of O and DUK; the parent's for O 2023 and DUK 2025 and 2017 | Consolidated: the numerator is consolidated cash flow, and a cash-flow statement starts from consolidated profit | **Fixed**: the parent-line years now carry the filed consolidated profit. FIGR, O 2025 and RIVN were already right and do not move |
+| Current-capital net income and FCF conversion (TTM), `capital.current` (the baseline's "net income, TTM") | The complete consolidated window (`compute.ts`, "Consolidated cash cannot be divided by a mixture of parent and total profit"); since D-240, the one filed profit line of an issuer without NCI; withheld otherwise | Consolidated | Right scope; unchanged. The builder is not touched here |
+| Operating and aggregate accruals, Piotroski accrual quality and return on assets | Consolidated profit first (`forensics.ts`), over consolidated cash flow and total assets | Consolidated | Right scope; unchanged |
+| ROIC | Operating profit after tax over consolidated capital (`resolveConsolidatedEquity`) | Consolidated operating figure | Right scope; unchanged |
+| Net margin (growth rows) | The income row's `netIncome`, on whatever basis the row was admitted: the parent's in general (D-108), but consolidated for a year whose filed earnings family was adopted on the consolidated basis (O 2025) | The parent's profit (D-108) in every year of one series | **Fixed** for O 2025 |
+| DuPont net margin and ROE | The same `netIncome`, over the parent's equity (`totalStockholdersEquity`) | The parent's profit: the denominator is parent equity | **Fixed** for O 2025 |
+| Return on common equity, ROTE, payout and dividend coverage, excess-return income | Income available to common through `selectCommonIncome` / `incomeAvailableToCommon` (`securityBasis.ts`), which reads the row's ownership basis and deducts the NCI share once | Common | Right scope; unchanged |
+| P/E, earnings yield, EPS growth | Filed diluted EPS; TTM common income only when all four quarters share one ownership basis, otherwise withheld | Common | Right scope; unchanged |
+| Equity-REIT FFO | The filer's `NetIncomeLoss` read by the FFO builder itself (O: 1,058,590,000, the parent's and, with no preferred outstanding, common's) | The parent's / common's | Right scope; unchanged |
+| Unprofitable-overlay test (route) | TTM or annual `netIncome` (FIGR 237,127,000 and RIVN -2,973,000,000: the parent's) | Sign only | Unchanged |
+| DCF | Operating income, revenue and tax; no net income | Consolidated operating figure | Unchanged |
+
+So the six baseline rows are not errors of scope: FCF conversion divides a
+consolidated cash flow and needs the consolidated profit those rows hold.
+What was wrong is that the same series held the parent's profit in other
+years, and that two parent-scope ratios read a consolidated figure.
+
+### Root causes and the owners changed
+
+1. **The cash-flow statement's net income had no scope rule.** D-231's
+   admission (`admitCashFlowNetIncome`, `src/edgar/financialEnrichment.ts`)
+   kept any vendor figure equal to any filed profit line and said the scope
+   "is not decided here". The vendor serves the parent's line for some years
+   and the consolidated line for others, so one FCF-conversion series mixed
+   the two. Rule now: a figure equal (the P8 allowance, no new tolerance) to
+   the parent's line only, in a year for which the newest filing that states
+   any profit line states that line and a different consolidated profit side
+   by side, is replaced by that filing's consolidated profit, with the filing
+   as its provenance and an informational manifest entry naming both values.
+   One filing must state both lines (P2, P7): an older consolidated copy is
+   never set against a newer restatement of the parent's line. If that filing
+   states two consolidated values the figure is withheld (P10). A filer whose
+   only profit line is `NetIncomeLoss` has no NCI, and nothing moves. A
+   consolidated figure is never replaced by a parent line. Applied, like
+   D-231, in the report's own data view (`withCashFlowSbcBasis`), so stored
+   inputs keep their bytes.
+2. **Parent-scope ratios read `netIncome` without its ownership basis.** The
+   income admission (`src/edgar/incomeClassification.ts`) marks each row's
+   `netIncome` "parent" or "consolidated"; common-income readers honour the
+   mark, the net margin and DuPont did not. The P5 owner
+   `src/pipeline/stageB/ownership.ts` now has `resolveParentProfit` and
+   `resolveConsolidatedProfit` beside `resolveConsolidatedEquity`: a
+   consolidated-basis figure less the signed NCI share is the parent's
+   profit; a parent-basis figure plus that share is the consolidated profit;
+   a row that carries no NCI share or no ownership mark is read as reported,
+   named as unverified, never plugged. The net margin
+   (`toGrowthIncome`, `src/pipeline/compute.ts`) and DuPont
+   (`computeDupont`, `src/pipeline/stageB/returns.ts`) read the parent's
+   profit; the FCF series' fallback to the income statement
+   (`src/pipeline/stageB/capital.ts`), used when a cash-flow row carries no
+   net income, reads the consolidated profit. Each derived figure stores how
+   it was reached (the margin's note, the DuPont year's note, the FCF row's
+   note).
+
+D-231 is revised: its rule 2 ("a vendor figure equal to any filed copy of
+any of those lines stays") no longer covers a figure equal only to the
+parent's line, and its statement that Duke Energy's 2025 row stays is
+reversed below.
+
+Options rejected: moving the FCF-series net income to the parent's profit so
+the baseline rows "match" (it would divide consolidated cash flow by parent
+profit, the mixture P5 forbids, and contradict the filers' own cash-flow
+statements); rewriting each income row's `netIncome` to the parent's profit
+in the data view (right in the end, but it turns O's mixed-basis quarters
+into one basis and so releases withheld TTM figures in the same change; left
+as a follow-up); adding a stored "basis" leaf to every FCF-series row (a
+change to every company's report with no number behind it).
+
+### Approved report changes
+
+Same-report check against current main (629cf3c9, which includes D-229,
+D-231, D-233, D-234, D-236, D-237, D-239, D-240 and D-241), with that main
+merged into this branch: 16 files in 2 of the 17 cases differ (O and DUK,
+all eight outputs each, plus their two payload fingerprints); the other 15
+cases, and every other figure of O and DUK, are byte for byte unchanged.
+FIGR, RIVN and every company without NCI do not move. The same leaves, and
+no others, moved each time this was measured as main moved (99234cdf,
+ab6db405, be7c11d6, 83582c62). Against the round's first baseline
+(r2-base-afb9cddf) the same files differ, plus the approved changes of the
+decisions merged since it. The leaf-level list is in
+`tmp/accuracy/s5-net-income-scope-before-after.md` (not committed: it quotes
+vendor data).
+
+Realty Income (`o-data-only`, USD). Filed values are SEC XBRL facts of 10-K
+0000726728-26-000011, filed 2026-02-25.
+
+| Figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| Net income, fiscal 2023 (cash-flow statement row; free-cash-flow series) | 872,309,000 (vendor; equals `us-gaap:NetIncomeLoss`, the parent's) | 876,914,000 | `us-gaap:ProfitLoss`, 2023-01-01..2023-12-31 = 876,914,000 (the same value in 10-K 0000726728-24-000047 and 0000726728-25-000055) |
+| FCF conversion after SBC / before SBC, fiscal 2023 | 3.283068 / 3.313134 | 3.265828 / 3.295736 | computed from it; free cash flow unchanged |
+| Net margin, fiscal 2025 | 18.606863% (consolidated 1,069,783,000 over revenue) | 18.412182% | parent profit 1,058,590,000 = `us-gaap:ProfitLoss` 1,069,783,000 less `us-gaap:NetIncomeLossAttributableToNoncontrollingInterest` 11,193,000, and equal to `us-gaap:NetIncomeLoss` 1,058,590,000, all 2025-01-01..2025-12-31; over `us-gaap:Revenues` 5,749,377,000 |
+| Net margin slope | -1.248342 pp/yr | -1.258962 pp/yr | computed from the series |
+| DuPont net margin / ROE, fiscal 2025 | 0.186069 / 2.733242% | 0.184122 / 2.704644% | the same parent profit; turnover and leverage unchanged |
+| Manifest | 216 entries | 217 (one informational entry for the 2023 correction) | |
+
+Duke Energy (`duk-data-only`, USD):
+
+| Figure | Before | After | Proof |
+| --- | --- | --- | --- |
+| Net income, fiscal 2025 (cash-flow statement row; free-cash-flow series) | 4,967,000,000 (vendor; the parent's 4,968,000,000 within the filer's reporting unit) | 5,071,000,000 | `us-gaap:ProfitLoss`, 2025-01-01..2025-12-31 = 5,071,000,000, 10-K 0001326160-26-000014, filed 2026-02-26; the same filing's `us-gaap:NetIncomeLoss` is 4,968,000,000 |
+| Cash-flow row net income, fiscal 2017 (outside the five-year series; manifest entry only) | 3,059,000,000 (the parent's) | 3,064,000,000 | `us-gaap:ProfitLoss`, 2017-01-01..2017-12-31 = 3,064,000,000, 10-K 0001326160-20-000034, filed 2020-02-20 |
+| Manifest | 295 entries | 297 (two informational entries) | |
+
+Duke Energy's fiscal 2025 FCF conversion is withheld before and after (the
+row's free cash flow is withheld), and its accruals already used
+5,071,000,000. No score, grade or headline of either company moves.
+
+### Tests
+
+`tests/financialEnrichment.cashFlowNetIncome.test.ts`: Realty Income 2023
+and Duke Energy 2025 and 2017 (the named cases); a Form 20-F IFRS filer
+(unrelated shape); Rivian 2025 and 2024, a figure equal to an earlier
+consolidated copy, Amazon, and a filer tagging both lines with one value
+(controls and unrelated issuers that do not move); two-filing, ambiguous and
+after-cutoff refusals. Two D-231 cases that pinned "a figure equal to the
+parent's line stays" are updated to this decision. `tests/ownership.profitScope.test.ts`:
+the two owner functions on Realty Income, Rivian, Figure, Duke Energy and
+Amazon figures, the FCF-series fallback, DuPont, and a whole Stage B run with
+the consolidated-basis, parent-basis and no-NCI shapes. Fifteen of the new
+tests fail without the fix.
+
+### Not changed here, with the reason
+
+- **The six baseline rows stay as they are**, because their scope is right
+  for FCF conversion. They will keep reading "mismatch (definition)" in the
+  accuracy check until its reference for these two figures is the
+  consolidated line; Duke Energy's fiscal 2025 row joins them (it was a
+  "match" against the parent's line only because the vendor had served the
+  parent's figure).
+- **Labels that name a consolidated figure "net income"** are wording on
+  numbers this change does not move, so they are listed for the owner, not
+  edited: the report rows "FCF conversion (FCF after SBC / net income)" and
+  "FCF conversion (FCF before SBC / net income)"; the score operands "net
+  income" and "FCF / net income"; the balance-sheet aspect's sentence "FCF
+  conversion is graded as free cash flow BEFORE stock-based compensation over
+  net income"; "accrual operand net income (NI)"; and the Piotroski details
+  "CFO ... vs NI ..." and "ROA ... (NI / beginning-of-year TA)". Each would
+  read "consolidated net income (including noncontrolling interests)".
+- **The income-statement row "net income" on a consolidated-basis period**
+  (O fiscal 2025 1,069,783,000, its quarters ended 2025-12-31 and 2026-06-30,
+  and three Duke Energy quarters) still shows the consolidated profit beside
+  an identical "consolidated net income" row. Showing the parent's profit
+  there is the follow-up named above.
+- **TSM fiscal 2025** in the FCF series is the parent's profit standing in
+  for a consolidated profit the admitted facts do not hold (D-231 rule 5);
+  the TSM rows are outside this step.
+- The accrual code (`forensics.ts`) keeps its own consolidated-first read; it
+  gives the same figures as `resolveConsolidatedProfit` on all 17 cases and
+  can call it in a follow-up.
+
+Version stamps are not moved here (P27: the Stage 5 integration change moves
+them together). Stored reports and snapshots keep their bytes.
+
 ## D-240 - The trailing net income behind FCF conversion is read from the filings when they state one profit line (2026-11-12)
 
 Principles P5 (entity scope), P1 (exact period; an additive flow derived from
@@ -723,6 +1215,204 @@ whose feed is complete, with no request; a Canadian 40-F filer on us-gaap; a
 eight-filing bound and the unread disclosure; the bundle builder over a
 recorded-shape transport, with and without the filing in the feed).
 `tests/edgar.instanceFacts.test.ts` (B-23) passes unchanged.
+
+## D-250 - Debt totals and lease coverage: one filing completes an unclassified balance sheet, and half a finance lease withholds a provider total (2026-11-13)
+
+Principles P7 (compose once, from one filing: one filing, instant, issuer and
+currency; each part once; no balancing plug; a vendor zero is undisclosed, not
+filed), P10 (withhold, never guess), P12 (qualifications inherit) and P13 (one
+definition, read everywhere). Round 2, Stage 5 (accuracy fixes), debt and lease
+family. Owner changed: `admitDebtFields` (`src/edgar/financialEnrichment.ts`),
+with one reader beside the existing one in `src/edgar/debtPresentation.ts` and
+one shared sentence in `src/edgar/debtCompleteness.ts`. No tolerance, day band,
+currency rule, status word or label is added or changed. D-202 is marked
+"Revised by D-250" for the two provider-row shapes below.
+
+The accuracy baseline (r2-base-afb9cddf) listed five things. Each was checked
+against the code, the cached inputs and the filings' own XBRL instances.
+
+### 1. Realty Income (O): the gap becomes the filed number
+
+Root cause. O's 10-Q for 2026-09-30 (0000726728-26-000059, filed 2026-11-03)
+presents an unclassified balance sheet and tags its borrowings by instrument,
+with no long-term-debt aggregate. The provider row holds the borrowings
+(short-term 2,127,928,000 + long-term 29,260,948,000 = 31,388,876,000) and a
+lease line of 0, while the filing tags `OperatingLeaseLiability` 409,910,000
+and `FinanceLeaseLiability` 165,371,000. Both completions that replace an
+undisclosed provider lease zero with filed liabilities (D-133, D-202) start
+from a current/noncurrent anchor (`LongTermDebtNoncurrent`,
+`LongTermNotesAndLoans`, `LongTermDebtAndCapitalLeaseObligations` or
+`OperatingLeaseLiabilityNoncurrent`), which an unclassified sheet does not
+have. So the row stayed as served and the lease guard (`leaseDebtConflict`)
+refused it: "operating-lease liability 409.91M exceeds the vendor lease line
+0M". The refusal rested on a provider zero, which P7 calls undisclosed.
+
+Rule (`completeUnclassifiedSheetDebt`). A provider row whose lease line is 0
+is completed when ONE filing at the row's date and currency proves every part:
+its balance sheet lists liability lines that add up to its total exactly in
+both columns (`unclassifiedLiabilityLines`, the header grammar
+`reconcileDebtPresentation` already reads) and that total is the filing's
+tagged `Liabilities`; every instrument-debt fact the filing tags at the
+instant is one of those lines, each line once; at most one further line is the
+sheet's own credit-facility and commercial-paper line, which a tagged
+`CommercialPaper` does not exceed; no other line has a borrowing-like caption;
+the filing tags none of the aggregates or current-debt lines the other
+completions read; the provider's long-term debt, short-term debt and total
+agree with those lines (`vendorAgreesWithFiled`, the P8 owner); and the filing
+states both lease liabilities in full, not both zero. Anything else leaves the
+row to the unchanged checks, which still run on the completed row.
+
+Filed proof, all in 10-Q 0000726728-26-000059, instant 2026-09-30, USD:
+
+| Part | Filing line | Element | Value |
+| --- | --- | --- | ---: |
+| Credit lines and commercial paper | Revolving credit facilities and commercial paper | `o:RevolvingCreditFacilityAndCommercialPaper` (the filer's element; read off the balance sheet) | 2,127,928,000 |
+| Term loans | Term loans, net | `us-gaap:LoansPayable` | 2,772,340,000 |
+| Mortgages | Mortgages payable, net | `us-gaap:SecuredDebt` | 36,745,000 |
+| Notes | Notes payable, net | `us-gaap:NotesPayable` | 26,451,863,000 |
+| Operating leases | (in other liabilities) | `us-gaap:OperatingLeaseLiability` | 409,910,000 |
+| Finance leases | (in other liabilities) | `us-gaap:FinanceLeaseLiability` | 165,371,000 |
+| **Total debt including leases** | | | **31,964,157,000** |
+
+Completeness: the eight liability lines (those four, distributions payable
+265,518,000, accounts payable and accrued expenses 1,094,942,000, lease
+intangible liabilities 1,463,929,000, other liabilities 1,062,753,000) add up
+to `us-gaap:Liabilities` 35,276,018,000. Cash is
+`us-gaap:CashAndCashEquivalentsAtCarryingValue` 368,534,000.
+
+### 2. Rivian (RIVN): a finance lease disclosed with one maturity only
+
+Root cause. RIVN's 10-Q for 2026-09-30 (0001874178-26-000066, filed
+2026-10-29) tags `FinanceLeaseLiabilityNoncurrent` 99,000,000 and neither the
+current portion nor a total; the current portion sits inside a combined
+current line under the filer's own element
+(`rivn:DeferredRevenuesLeaseLiabilitiesAndOtherLiabilitiesCurrent`
+1,598,000,000; the 10-K 0001874178-26-000008 tagged
+`FinanceLeaseLiabilityCurrent` 3,000,000 at 2025-12-31). The provider's lease
+line 985,000,000 is the filed operating leases 886,000,000 plus that
+99,000,000, so its total debt 5,431,000,000 holds half a finance lease. The
+SEC statements builder withholds its own row for this shape ("Finance lease
+liability incomplete", audit FCX-1) and D-202 rule 1 says a disclosed but
+incomplete family refuses an unsupported total, but a provider row was never
+asked: both completions decline it without a refusal and the total stood.
+
+Rule (`partialFinanceFamilyReason`). On a provider row, when the filings tag
+one maturity of the finance lease liability at the row's date and neither the
+other maturity nor a total, total debt and net debt are withheld with the
+statements builder's sentence, now one function (`partialFinanceLeaseReason`),
+followed by the tag, amount and filing that show it. A row the statements
+builder made keeps that builder's rule. The rule fires for RIVN's three 2026
+quarter ends (99M, 99M and 97M noncurrent) and for nothing else in the 17
+cases (a scan of every balance date of the 13 companies; META 2018-12-31 has
+the shape and was already refused).
+
+### 3. What does not change, and why
+
+- Micron (MU) 5,179,000,000 and Qualcomm (QCOM) 15,270,000,000. Each is filed
+  financing debt and is right on the house basis, which excludes operating
+  leases (D-202): MU's is `DebtAndCapitalLeaseObligations` 5,179,000,000 (10-K
+  0000723125-26-000023: `DebtCurrent` 491,000,000 +
+  `LongTermDebtAndCapitalLeaseObligations` 4,688,000,000, finance leases
+  2,387,000,000 inside); QCOM's is `DebtCurrent` 2,489,000,000 + `LongTermDebt`
+  12,781,000,000 (10-Q 0000804328-26-000086). Neither filing tags an operating
+  lease liability at the balance date (MU's 10-Q 0000723125-25-000046 tagged
+  737,000,000 at 2025-11-27, QCOM's 10-K 0000804328-25-000085 tagged
+  832,000,000 at 2025-09-28), so a total including operating leases is not
+  established and Metis does not claim one: the report's caption is "Debt used
+  in this report", its operating-lease line is a gap, and its note says
+  operating lease coverage is unverified and undisclosed lease components are
+  not assumed zero. Net debt (-38,255,000,000 and 6,966,000,000) matches the
+  filed operands in the baseline. Only the stored key's name
+  (`totalDebtIncludingLeases`, a stable id) says "including leases". Renaming
+  it is a wording change not tied to a number: listed for the owner, not made.
+- Duke Energy (DUK) 93,780,000,000. The 991,000,000 above the filed borrowings
+  (`LongTermDebtCurrent` 6,116,000,000 + `ShortTermBorrowings` 2,341,000,000 +
+  `LongTermDebtNoncurrent` 84,332,000,000 = 92,789,000,000, 10-Q
+  0001326160-26-000051) is established: it is the consolidated balance sheet's
+  "Operating lease liabilities" line under other noncurrent liabilities,
+  tagged with the filer's own element `duk:OtherOperatingLeaseLiabilityNoncurrent`
+  (991,000,000 at 2026-09-30; its comparative 1,033,000,000 is
+  `us-gaap:OperatingLeaseLiabilityNoncurrent` in the 10-K
+  0001326160-26-000014). So one filing proves the provider's lease line is the
+  noncurrent operating lease liability. It does not prove a total including
+  leases: the current operating portion is not presented, and Duke's finance
+  leases sit inside its debt lines. The existing treatment for exactly this
+  (D-186, D-202 rule 3: debt including the disclosed lease portion, net debt
+  excluding it, here 92,789,000,000 - 451,000,000 = 92,338,000,000) is reached
+  only through the us-gaap noncurrent tag, which this 10-Q does not use, and
+  the cached inputs hold neither filer elements nor a single-issuer statement
+  text for this combined filing (nine registrants' balance sheets). Proving it
+  needs a new reader; not done here. DUK keeps its figures and its
+  "coverage is unverified" note. Described for a follow-up in the pull request.
+- NVIDIA (NVDA). 99,369,000,000 and 56,586,000,000 are two named quantities,
+  not one computed twice (D-60): "Cash and short-term investments" (cash
+  22,443,000,000 + `DebtSecuritiesCurrent` 34,143,000,000 +
+  `EquitySecuritiesFvNi` 42,783,000,000, 10-Q 0001045810-26-000075),
+  "Marketable equity securities" 42,783,000,000 and "Cash for net debt"
+  56,586,000,000, each on its own line of the debt bridge; net debt and EV net
+  the last, and the equity bridge adds the equity securities once as a
+  non-operating asset. Nothing changes.
+- The long-term-debt tag list (`src/edgar/tagSynonyms.ts`, `longTermDebt`). It
+  is read as ordered alternatives, first match wins, and `resolveDebtOverlaps`
+  nets the two known overlaps (current maturities out of `LongTermDebt`,
+  finance leases counted once beside `LongTermDebtAndCapitalLeaseObligations`).
+  Traced over every balance row of the 13 companies: only MU's rows are built
+  from SEC facts, and all of them read `LongTermDebtAndCapitalLeaseObligations`
+  beside `DebtCurrent`, which composes the filed total above; the other twelve
+  use the provider's long-term debt, which equals `LongTermDebtNoncurrent`
+  wherever a filing tags several of the four. No row reads `LongTermDebt` or
+  the inclusive total, so no case counts current maturities twice or loses a
+  current portion today. One weakness remains in principle: a filer that tags
+  `LongTermDebt` on its noncurrent line (QCOM's practice) would, on an
+  SEC-built row, have `LongTermDebtCurrent` subtracted from it unless the
+  statement text proves the line's scope (`reconcileDebtPresentation`). No case
+  exercises it, so it is recorded, not changed.
+
+### Before and after (same-report check, 17 cases, against main 629cf3c9)
+
+Only `o-data-only` and `rivn-data-only` change; every file of the other 15
+cases is byte-identical. The leaf list is in
+`tmp/accuracy/s5-debt-leases-before-after.md`.
+
+| Company | Figure (2026-09-30) | Before | After | Proof |
+| --- | --- | ---: | ---: | --- |
+| O | Debt used in this report (`totalDebtIncludingLeases`) | withheld | 31,964,157,000 | the table in section 1 |
+| O | Net debt on the retained basis | withheld | 31,595,623,000 | total less cash 368,534,000 |
+| O | Net debt on the selected operating-lease basis; `capital.current.netDebt` | withheld | 31,185,713,000 | less `OperatingLeaseLiability` 409,910,000 |
+| O | Enterprise value (operating-lease basis; also the REIT sketch's) | withheld | 90,909,686,635 | market cap 56,541,526,635 (a market input) + debt 31,554,247,000 + noncontrolling interests 3,182,447,000 - cash 368,534,000 |
+| O | EV/Sales, current | withheld | 14.648712 | that EV over TTM revenue |
+| O | EV/Sales own-history percentile and observations | none; 12 | 29.58; 13 | the current point joins; each quarter's EV is now on the operating-lease basis the current one uses |
+| O | WACC; debt weight | 6.901924%; 34.4765% | 6.847546%; 35.8181% | the debt weight reads the 2026-09-30 balance where it read 2026-03-31; the WACC history follows |
+| RIVN | Debt used in this report | 5,431,000,000 | withheld | section 2 |
+| RIVN | Net debt on the retained basis | -71,000,000 | withheld | built on that total |
+| RIVN | Net debt on the selected operating-lease basis; `capital.current.netDebt` | -957,000,000 | withheld | built on that total |
+| RIVN | Provider enterprise value at 2026-09-30 | 23,525,240,000 | withheld | its debt operand is the refused 5,431M |
+| RIVN | Pre-tax cost of debt | 4.929513% | 4.201550% | TTM interest over the fiscal-year-end balances, since the 2026-09-30 balance is refused (the existing fallback) |
+
+O's fair value stays withheld (equity REIT route) and RIVN's stays withheld
+(loss-making overlay; its EV was already withheld for share scope, and now
+names the debt first). No score, grade or fair value moves in any case.
+
+### Limits
+
+- The same-report check replays frozen inputs, so the completion runs in
+  Stage B. `buildMarketData`'s provider-EV check reads the stored row, not the
+  admitted one, so O's replayed "provider enterprise value" note still quotes
+  the old lease refusal. That value is withheld before and after. A fresh run
+  completes the row at acquisition and the note names the composed total. The
+  same gap between replay and fresh run exists for FIGR since D-234.
+- The wider 104-company census of D-202 is not replayed here. Other providers'
+  rows with half a finance lease will be withheld by rule 2; other
+  unclassified sheets complete only when every condition of rule 1 holds.
+- Version stamps are not moved (the lead moves them once, P27). This change
+  calls for `STAGE_B_IMPLEMENTATION_VERSION` and `PAYLOAD_VERSION`;
+  `NET_DEBT_RESOLVER_VERSION` is unchanged (the resolver's convention is).
+
+Tests (`tests/financialEnrichment.debtLeases.d250.test.ts`, 39 tests; five
+fail on the previous admission): O on its filed lines, 25 compatible controls
+with one part unproven, an unrelated net-lease REIT with no credit facility,
+the reader; RIVN, seven compatible controls, an unrelated filer with the
+current maturity only, a filer with no finance lease, and the shared sentence.
 
 ## D-237 - An effective tax rate divides by the pre-tax income its provision relates to (2026-11-12)
 
@@ -1754,7 +2444,10 @@ and the AI context read one admitted value and stored inputs keep their bytes:
 2. A vendor figure equal to any filed copy of any of those lines, within the
    P8 allowance (`vendorAgreesWithFiled`; no new tolerance), is a filed figure
    and stays. Whether the row should show consolidated or parent profit is not
-   decided here, so no "definition" row of the baseline moves.
+   decided here, so no "definition" row of the baseline moves. (Revised by
+   D-238: a figure equal only to the parent's line, where the newest filing
+   states a different consolidated profit beside it, is replaced by that
+   consolidated profit.)
 3. A vendor figure equal to none of them is replaced by the filed consolidated
    profit from the newest filing that states it, with that filing as its
    provenance and an informational manifest entry naming both values. A parent
@@ -1823,7 +2516,8 @@ DUK (`duk-data-only`, USD):
 
 No score, grade or headline of DUK moves. Its 2025 row (4,967,000,000) stays:
 it equals the filed parent profit 4,968,000,000 within the filer's reporting
-unit (rule 2).
+unit (rule 2). (Revised by D-238: that row now carries the filed consolidated
+profit 5,071,000,000.)
 
 The accuracy check (`npm run accuracy:check`, PR #139) reports one change
 against its expectation: TSM "net income, latest fiscal year" from mismatch to
@@ -5701,7 +6395,7 @@ Audit 2026-10-27, batch B4, part A (B4a): FIN-103, FIN-119, FIN-119-V1, FIN-119-
   - Revises: D-26's sentence "the REIT implied cap rate uses the house enterprise value", made true by construction instead of by a parallel formula.
   - Sources: Deloitte Roadmap 9.4 (that OP units redeemable for cash are such an NCI is filer practice, not the roadmap's); METHODOLOGY ("a report carries one EV").
 - **FIN-403: a successor reads its predecessor's retirement obligations.** A holding-company successor whose own companyfacts carry no retirement obligation reads the predecessor's, as one reporting entity under B-36, until the successor's own annual report; a family the successor files, including a zero, ends the predecessor read for that family, and a family both file is read once, from the successor. Extends E-7 and B-36.
-- **FIN-103: the DCF bridge reads the statement-date balance.** When an annual base is rolled forward, D-65's promise that the bridge stays at the statement-date balance is now checked: the bridge row follows the DCF's basis with one refusal rule (a newer quarter with no debt line falls back to the older complete balance), and the bridge note and an info gap `valuation.dcf.bridgeBalanceDate` name the date used. The refusal rule is the one the DCF reads on the row: a parser refusal, unresolved ownership, a lease conflict, a lease-scope refusal (on the run's own lease switch) or a refused temporary-equity operand. The first clean candidate at the statement date is the row; when every candidate is refused, or the anchor is, the anchor (main's row) stands, never cured by another date, so no report main publishes is blocked by the choice (final review I-2).
+- **FIN-103: the DCF bridge reads the statement-date balance.** When an annual base is rolled forward, D-65's promise that the bridge stays at the statement-date balance is now checked: the bridge row follows the DCF's basis with one refusal rule (a newer quarter with no debt line falls back to the older complete balance), and the bridge note and an info gap `valuation.dcf.bridgeBalanceDate` name the date used. The refusal rule is the one the DCF reads on the row: a parser refusal, unresolved ownership, a lease conflict, a lease-scope refusal (on the run's own lease switch) or a refused temporary-equity operand. (Revised by D-248: "unresolved ownership" is now the P5 owner's one predicate and allowance, `noncontrollingOwnershipUnresolved` in `src/pipeline/stageB/ownership.ts`; the row choice no longer keeps a copy with its own one-part-in-a-billion allowance, so a gap of under one currency unit between consolidated and parent equity no longer refuses a row and a whole-unit gap now does.) The first clean candidate at the statement date is the row; when every candidate is refused, or the anchor is, the anchor (main's row) stands, never cured by another date, so no report main publishes is blocked by the choice (final review I-2).
 - **Final whole-branch review (fix round 1), the merge rule: no report main publishes becomes Blocked, and no figure is worse than main.** (I-1) Lease-emptied invested capital withholds the DCF at warn (OD-3). (M-1) A row with a refused temporary-equity operand and a lease conflict or lease-scope refusal keeps main's critical lease gap beside the warn. (M-7) A null book NCI beside a redeemable NCI takes the P/FCF 1% floor on the redeemable NCI alone; with no redeemable NCI the guard is main's. (M-9) A positive `preferredStock` equal to the admitted redeemable preferred within max(1, 1e-6 x amount) at the same date (the filer tagged one mezzanine series `PreferredStockValue` and `TemporaryEquityCarryingAmountAttributableToParent`) is counted once: `temporaryEquityClaims`, the one reader, leaves the parent part out and the preferred line main already deducts stands, so no balance row is altered; an info gap `valuation.preferredOverlap` names both tags once per date; unequal amounts are both deducted (B4b's overlap territory, OD-2). (M-8) The rate-regulated note states the reading, not rate recovery.
 - **House constants.**
   - The pension family order (a), (b), (c) and its date-first look-back.
@@ -6067,7 +6761,11 @@ keep their values or refusals. Evidence and the explicitly unstarted items are r
 [the B4b disposition](https://github.com/eligorelick/Metis/blob/bda87e4c0b575fdf4af2a4e31a66854c9c42337b/docs/audit/2026-11-02-b4b-equity-bridge.md).
 
 FIN-302 / FIN-302-V1 implement OD-2. Claim and converted variants use exact
-period/end and acquisition cutoffs on both routes. Unknown settlement retains
+period/end and acquisition cutoffs on both routes. (Revised by D-247: the
+conversion increment is matched to the divisor's period by the P1 owner's one
+rule, a quarter of 70 to 125 days or a fiscal year of 300 to 400 days ending
+within 3 days of the divisor end, not by a private 80-100 / 350-380 day window
+on the same day.) Unknown settlement retains
 the conservative claim-plus-shares value and a quantified bound; cash-principal
 notes retain spread shares. Each preferred claim is deducted once, using the
 larger ambiguous overlap or the sum only when an independent filed inclusive
@@ -10462,6 +11160,13 @@ No full `npm run verify`, build, server/port action, paid call, push, PR or merg
 is performed. Release stamps remain the integrator's required follow-up above.
 
 ## D-202 - Lease and debt admission beyond the test panel (2026-11-04)
+
+(Revised by D-250: rule 1's "a disclosed but incomplete family still refuses an
+unsupported total" now also holds for a provider row whose filing tags one
+finance-lease maturity only, so RIVN's 2026 quarter-end totals are withheld
+where this entry lists RIVN as unchanged; and an undisclosed provider lease
+zero on an unclassified balance sheet is completed from the one filing, so O's
+2026-09-30 debt is a number.)
 
 Implementation commits: `6e825122` and `979e3e73` on
 `t3/balance-round2-fix`, based on `e6110f17`.
