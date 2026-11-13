@@ -11,6 +11,110 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-255 - The Stage 5 accuracy fixes move the version stamps once (2026-11-13)
+
+Principles P27 (version stamps move together) and P21 (saved reports are
+immutable; a change of meaning gets a stamp). Round 2, Stage 5, integration.
+The accuracy decisions D-231, D-233, D-234, D-236, D-237, D-238, D-239, D-240,
+D-247, D-248, D-250, D-251 and D-252 merged without moving a stamp, on
+purpose, so that the stamps move once. Owner: `src/report/versions.ts`, which
+gains one history comment per moved stamp naming these decisions. No
+calculation, rule, label or wording changes.
+
+What each decision calls for (its own closing paragraph where it names
+stamps; otherwise each stamp's own rule in `versions.ts` and
+`docs/METHODOLOGY.md`):
+
+| Decision | Stage B implementation | Payload | Report spec |
+| --- | --- | --- | --- |
+| D-231 TSM/DUK cash-flow net income | yes | yes (figures reach the analysts) | yes (report figures) |
+| D-233 FFO per-share divisor | yes (entry) | no (entry) | no (entry) |
+| D-234 FIGR share counts and debt | yes | yes | yes |
+| D-236 20-F/40-F instance fallback | yes | yes (fresh runs) | yes (fresh runs) |
+| D-237 effective tax rate | yes (entry) | no (entry) | no (entry) |
+| D-238 net-income entity scope | yes | yes | yes |
+| D-239 provider capex zero | yes (entry) | no (entry) | no (entry) |
+| D-240 trailing net income | yes (entry) | yes (entry) | yes (entry) |
+| D-247 conversion-share period | yes (wider admission on identical inputs) | no | no |
+| D-248 noncontrolling-ownership test | yes (two truth-table rows) | no | no |
+| D-250 debt totals and lease coverage | yes (entry) | yes (entry) | yes (debt and EV figures) |
+| D-251 filed common earnings | yes (entry) | yes (entry) | yes (entry) |
+| D-252 filed operating cash flow | yes (entry) | no (entry) | no (entry) |
+
+D-241 to D-246, D-249 and D-254 are presentation, reader or structure
+changes and call for none.
+
+Moved, each once:
+
+- `STAGE_B_IMPLEMENTATION_VERSION`: `STAGE_B_2026_11_PRIMARY_CAPITAL_66` ->
+  `STAGE_B_2026_11_FILED_ACCURACY_67`. Every decision above changes Stage B
+  results on identical retained inputs, so a stored input snapshot or Stage B
+  result from the old engine is not reused or replayed as current.
+- `PAYLOAD_VERSION`: `1.92.0` -> `1.93.0`. D-240, D-250 and D-251 name it;
+  the filed net income, common earnings, share counts, debt and operating
+  cash flow of D-231, D-234, D-236 and D-238 also reach the analysts. An
+  analyst or judge pass stored under 1.92.0 is not resumed.
+- `REPORT_SPEC_VERSION`: `1.73.0` -> `1.74.0`. D-240 and D-251 name it: a fair
+  value, aspect bands and shown or withheld figures change meaning for new
+  reports. A history comparison of a 1.73.0 report with a 1.74.0 one is marked
+  "spec-version-mismatch", as for every earlier spec move.
+
+Not moved, by each stamp's own rule: `FAIR_VALUE_METHOD_VERSION` ("bump when
+the resolution changes") and `SCENARIO_TARGET_METHOD_VERSION` ("bump when the
+construction changes"), because these decisions change inputs, not how the
+fair value is resolved or the targets built, and none names them;
+`NET_DEBT_RESOLVER_VERSION`, which D-250 says is unchanged;
+`CURRENT_REPORTS_VERSION`, which stamps the 8-K read record that D-236 does
+not change; `PIPELINE_VERSION` (no orchestration change); the score-band,
+scenario-path, projection-weight, evidence-selection, grade-override and
+evidence-contract stamps; every format version; and every frozen display
+cutoff. No display cutoff is added, because no decision asks for a read-time
+rule for older reports.
+
+Moved with them, as earlier stamp moves did: the stamp pins in
+`tests/report.versionStamps.test.ts` (and 1.92.0 joins its list of payload
+versions that never resume), `tests/jobRunner.test.ts` and
+`tests/stageC.payload.passes.test.ts`; the built-in sample
+(`fixtures/report/DEMO-current.json`, its `specVersion` and default
+`pipelineVersion`, which `tests/report.currentSample.test.ts` ties to the
+current spec); the declared versions in `docs/METHODOLOGY.md` and
+`CHANGELOG.md`. Frozen records, refreshed with `npm run freeze:refresh`
+under D-255: `stagec-payload` (`$.payloadVersion`, `$.payload.payloadVersion`,
+`$.fingerprint`, `$.summary.promptFnv1a32`, `$.prompt.sha256` and
+`$.prompt.sections[0].sha256`: the prompt's first line names the payload
+version, so its hashes move with it; prompt length unchanged) and
+`audit-fixture` (`$.projection.report.meta.specVersion` and
+`$.projectionSha256`). `scripts/freeze-stageb-replay.mjs` needs no change: the
+frozen Stage B replay is compiled from `versions.ts` at each build
+(`scripts/build-with-identity.mjs`), and `tests/runtimeReplay.test.ts`
+replaces the stamp in its copy of that file by pattern, which still matches.
+
+Saved reports (P21). Stored bytes are not touched. The 68 saved reports of the
+check database copy (read-only) were rendered before and after this change
+through the saved-report reader (`parseStoredReportWithSafety`) with a fixed
+clock, on seven surfaces each (the read-time view, Markdown, print HTML,
+audit Markdown, both web layouts and the key-data rows): 476 outputs, all
+byte-identical. Read modes 56 strict and 12 legacy, the same before and after;
+nine of the 68 carry 1.73.0. Display cutoffs compare a saved stamp only with
+their own frozen values (D-249), never with the current spec, so no
+"built before spec" note can appear on a new report.
+
+Same-report check (17 cases, 136 files, `origin/claude/r2-batch-5` e0393b01
+against this change): every case differs, in exactly 136 approved items and
+nothing else: the payload fingerprint of each case, and in each case
+`payload.txt` (its header line), `report.json` (`meta.specVersion` only),
+`report.md` and `print.html` (the "Versions" and "Spec version" rows),
+`audit.md` (the "Spec version" row), `web-classic.html` (two spec labels) and
+`web-dossier.html` (two spec labels and the report identity attribute, a
+SHA-256 of the report). `stageB.json` is unchanged in all 17 cases. A
+throwaway check (not committed) replaced the old and new stamp strings, the
+fingerprints and the identity attribute with placeholders in both trees: all
+136 files then match byte for byte. It also confirmed each fingerprint is the
+version plus the FNV-1a of that tree's payload text, and re-rendered the five
+reader surfaces of every case from the new `report.json` with 1.73.0 put back:
+all 85 match the reference byte for byte, which shows the identity attribute
+moves only with the stamp.
+
 ## D-251 - A year whose preferred stock was redeemed reads its filed common earnings (2026-11-13)
 
 Principles P5 (entity scope: common earnings are not total net income), P8
