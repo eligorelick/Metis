@@ -2,8 +2,8 @@ import { CORE_FACT_FORMS, QUARTER_DURATION_DAYS, parseFactPoints, type CompanyFa
 import type { FmpBalanceSheetRow, FmpCashFlowRow, FmpPayload, FmpStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
 import type { StatementConflictCause } from "@/types/refusalCause";
-import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtRefusal, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
-import { BALANCE_SHEET_DEBT_LINES_TAG, filingDocumentBinds, lenderDebtLines, reconcileDebtPresentation, type FiledDebtLine } from "@/edgar/debtPresentation";
+import { CURRENT_DEBT_TAGS, DEBT_AGGREGATE_TAGS, commercialPaperInsideBorrowings, currentMaturitiesFoldedIn, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, partialFinanceLeaseReason, uncomposedDebtRefusal, zeroCurrentDebtReason } from "@/edgar/debtCompleteness";
+import { BALANCE_SHEET_DEBT_LINES_TAG, BALANCE_SHEET_LIABILITY_LINES_TAG, filingDocumentBinds, lenderDebtLines, reconcileDebtPresentation, unclassifiedLiabilityLines, type FiledDebtLine } from "@/edgar/debtPresentation";
 import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
@@ -995,6 +995,20 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
       else if (leaseLineReason === null) { leaseLineReason = completion.reason; leaseLineCause = completion.cause; }
     }
   }
+  // D-250 (P7): an unclassified balance sheet has no current/noncurrent anchor for the completions above. One
+  // filing whose own liability lines and tags prove every borrowing and both lease liabilities completes the row.
+  if (componentReason === null && admissions.length === 0) {
+    const completion = completeUnclassifiedSheetDebt(out, facts, currency, observedAt, presentations);
+    if (completion.status === "completed") {
+      out = completion.row;
+      admissions.push(completion.admission);
+      leaseLineReason = null;
+      leaseLineCause = undefined;
+      compositionFallback = null;
+    }
+  }
+  // D-250 (P7; D-202 rule 1): a provider total beside a finance lease family the filing discloses only in part.
+  const financeFamilyReason = componentReason === null && admissions.length === 0 ? partialFinanceFamilyReason(out, facts, currency, observedAt) : null;
   let presentationReason: string | null = null;
   const longTerm = out.fieldProvenance?.longTermDebt;
   const tagged = longTerm?.tags.includes("us-gaap/LongTermDebt") && longTerm.unit === currency && longTerm.periodEnd === row.date
@@ -1096,6 +1110,7 @@ export function admitDebtFields<T extends FmpStatementRow>(row: T, facts: Compan
   let cause: StatementConflictCause | undefined;
   if (componentReason != null) { reason = componentReason; cause = componentCause; }
   else if (leaseLineReason != null) { reason = leaseLineReason; cause = leaseLineCause; }
+  else if (financeFamilyReason != null) reason = financeFamilyReason;
   else if (presentationReason != null) reason = presentationReason;
   else if (convertibleReason != null) reason = convertibleReason;
   else if (zeroCurrentReason != null) { reason = zeroCurrentReason; cause = "debt-vendor-short-term-zero"; }
@@ -1371,6 +1386,142 @@ function completeFiledDebtScope<T extends FmpStatementRow>(row: T, facts: Compan
     } catch { /* Ambiguous or incomplete facts never authorize a completion. */ }
   }
   return refusal;
+}
+
+/** A borrowing-like caption the unclassified-sheet completion cannot place: its presence leaves the row unchanged. */
+const BORROWING_CAPTION = /\b(?:debt|borrowings?|notes?|loans?|bonds?|debentures?|credit|commercial paper|mortgages?|financ\w*|lease liabilit\w*)\b/i;
+/** The balance sheet's own line for drawn credit lines and commercial paper. */
+const CREDIT_FACILITY_CAPTION = /^(?:Revolving credit facilit(?:y|ies)|Lines? of credit(?: payable)?)(?: and commercial paper)?$/i;
+/** One instrument class each; a class total and its noncurrent variant never both name a line (`tagSynonyms`). */
+const UNCLASSIFIED_SHEET_DEBT_FAMILIES = ["longTermDebtNotes", "longTermDebtLoans", "longTermDebtSecured", "longTermDebtConvertible", "longTermDebtRevolver"] as const;
+
+/**
+ * D-250 (P7). An equity REIT presents an unclassified balance sheet and tags its borrowings by instrument
+ * (NotesPayable, LoansPayable, SecuredDebt) with no LongTermDebt aggregate, so neither completion above has an
+ * anchor: the provider's borrowings-only total stood beside a provider lease line of zero, and the lease guard
+ * refused the row because the filed lease liabilities exceed that zero (O, 2026-09-30). A provider zero is
+ * undisclosed, not filed. The row is completed only when ONE filing, at the row's date and in its currency,
+ * proves every part:
+ *
+ * - its balance sheet (`unclassifiedLiabilityLines`) lists liability lines that add up to its total exactly, and
+ *   that total is the filing's tagged Liabilities;
+ * - every instrument-debt fact the filing tags at the instant is one of those lines, each line once; at most one
+ *   further line is the sheet's own credit-facility and commercial-paper line, which a tagged CommercialPaper
+ *   does not exceed; no other line carries a borrowing-like caption;
+ * - the filing tags none of the debt aggregates or current-debt lines the other completions read;
+ * - the provider's long-term debt is the instrument lines, its short-term debt the credit-facility line (zero
+ *   without one) and its total their sum (`vendorAgreesWithFiled`; no new allowance);
+ * - the filing states the operating and the finance lease liability in full (a total, or both maturities), and
+ *   they are not both zero.
+ *
+ * Total debt is then those borrowings plus the two lease liabilities, each counted once. Anything else leaves the
+ * row to the unchanged checks. The completeness checks after this call run on the completed row as on any other.
+ */
+function completeUnclassifiedSheetDebt<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, observedAt: string, presentations: readonly ExtractedSection[]): LeaseLineCompletion<T> {
+  const none = { status: "none" } as const;
+  const amount = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+  const vendorTotal = row.totalDebt, vendorShort = row.shortTermDebt, vendorLong = row.longTermDebt;
+  if (!validDay(row.date) || !amount(vendorTotal) || !amount(vendorShort) || !amount(vendorLong) || row.capitalLeaseObligations !== 0 ||
+      [row.capitalLeaseObligationsCurrent, row.capitalLeaseObligationsNonCurrent].some(v => v != null && v !== 0) ||
+      (row.cik != null && Number(row.cik) !== facts.cik)) return none;
+  // Provider debt fields only, none refused or already resolved; a lease field may carry the enrichment's filed
+  // evidence. A row whose cash or net debt was refused stays with the unchanged checks.
+  if (["totalDebt", "shortTermDebt", "longTermDebt", "capitalLeaseObligations"].some(field => row.fieldProvenance?.[field] !== undefined) ||
+      ["totalDebt", "netDebt", "cashAndCashEquivalents", "shortTermDebt", "longTermDebt", "capitalLeaseObligations", "operatingLeaseLiability", "financeLeaseLiability"]
+        .some(field => row.fieldConflicts?.[field] !== undefined)) return none;
+  const cutoff = observedAt.slice(0, 10);
+  const sections = presentations.filter(section => section.reportDate === row.date && /^10-[KQ](?:\/A)?$/.test(section.form) &&
+    validDay(section.filingDate) && section.filingDate <= cutoff);
+  const section = sections[0];
+  if (sections.length !== 1 || !section || !filingDocumentBinds(section, facts.cik)) return none;
+  const sheet = unclassifiedLiabilityLines(section.statementsText, section.reportDate, row.date);
+  if (sheet === null) return none;
+  const at = (tag: string): FactPoint[] => points(facts, tag, unit, observedAt).filter(p => p.start === undefined && p.end === row.date);
+  /** The section's own filing states one value that the newest filing for the instant does not change; "elsewhere" when only another filing does. */
+  const own = (tag: string): number | null | "elsewhere" => {
+    const all = at(tag);
+    if (all.length === 0) return null;
+    const values = [...new Set(all.filter(p => p.accn === section.accession && p.filed === section.filingDate && p.form === section.form).map(p => p.val))];
+    return values.length === 1 && values[0]! >= 0 && instant(facts, tag, unit, row.date!, observedAt)?.value === values[0] ? values[0]! : "elsewhere";
+  };
+  if (own("Liabilities") !== sheet.total) return none;
+  // The other completions own a filer with an aggregate or a current-debt line.
+  const paper = own("CommercialPaper");
+  if ([...tagsFor("longTermDebt"), ...tagsFor("longTermNotesAndLoans"), ...DEBT_AGGREGATE_TAGS, ...CURRENT_DEBT_TAGS.filter(tag => tag !== "CommercialPaper"),
+    COMBINED_CURRENT_DEBT_TAG, ...INSTRUMENT_CURRENT_DEBT_TAGS].some(tag => at(tag).length > 0) || paper === "elsewhere") return none;
+  const debtLines = new Map<number, string[]>();
+  for (const tag of UNCLASSIFIED_SHEET_DEBT_FAMILIES.flatMap(tagsFor)) {
+    const value = own(tag);
+    if (value === null) continue;
+    const index = value === "elsewhere" ? [] : sheet.lines.flatMap((line, position) => line.value === value ? [position] : []);
+    if (index.length !== 1) return none;
+    debtLines.set(index[0]!, [...(debtLines.get(index[0]!) ?? []), tag]);
+  }
+  if (debtLines.size === 0) return none;
+  const others = sheet.lines.filter((_line, position) => !debtLines.has(position));
+  const facilities = others.filter(line => CREDIT_FACILITY_CAPTION.test(line.name));
+  const facility = facilities[0] ?? null;
+  if (facilities.length > 1 || (facility !== null && !(facility.value > 0)) || others.some(line => line !== facility && BORROWING_CAPTION.test(line.name)) ||
+      (paper !== null && (facility === null || paper > facility.value))) return none;
+  const instruments = [...debtLines.keys()].sort((a, b) => a - b).map(position => ({ line: sheet.lines[position]!, tags: debtLines.get(position)! }));
+  const noncurrent = instruments.reduce((sum, { line }) => sum + line.value, 0), current = facility?.value ?? 0;
+  if (!vendorAgreesWithFiled(vendorLong, noncurrent) || (current === 0 ? vendorShort !== 0 : !vendorAgreesWithFiled(vendorShort, current)) ||
+      !vendorAgreesWithFiled(vendorTotal, current + noncurrent)) return none;
+  const lease = (prefix: "Operating" | "Finance"): { value: number; tags: string[] } | null => {
+    const tag = `${prefix}LeaseLiability`;
+    const total = own(tag), currentPart = own(`${tag}Current`), noncurrentPart = own(`${tag}Noncurrent`);
+    if (total === "elsewhere" || currentPart === "elsewhere" || noncurrentPart === "elsewhere" || incompatibleLeaseMaturities(total, currentPart, noncurrentPart)) return null;
+    if (total !== null) return { value: total, tags: [tag] };
+    return currentPart !== null && noncurrentPart !== null ? { value: currentPart + noncurrentPart, tags: [`${tag}Current`, `${tag}Noncurrent`] } : null;
+  };
+  const operating = lease("Operating"), finance = lease("Finance");
+  if (operating === null || finance === null || operating.value + finance.value <= 0 || own("CapitalLeaseObligations") !== null ||
+      (row.operatingLeaseLiability != null && row.operatingLeaseLiability !== operating.value) ||
+      (row.financeLeaseLiability != null && row.financeLeaseLiability !== finance.value)) return none;
+  const leases = operating.value + finance.value, totalDebt = current + noncurrent + leases;
+  const filing = { accn: section.accession, filed: section.filingDate, form: section.form };
+  const evidence = (tags: string[], calculation?: StatementFieldProvenance["calculation"]): StatementFieldProvenance => ({ source: "edgar", unit, observedAt,
+    periodStart: null, periodEnd: row.date!, tags, filings: [filing], ...(calculation ? { calculation } : {}) });
+  const gaap = (tags: readonly string[]): string[] => tags.map(tag => `us-gaap/${tag}`);
+  const instrumentTags = gaap(instruments.flatMap(({ tags }) => tags)), leaseTags = gaap([...operating.tags, ...finance.tags]);
+  const borrowingText = [...(facility === null ? [] : [`${facility.name} ${millions(facility.value)} (balance-sheet line)`]),
+    ...instruments.map(({ line, tags }) => `${line.name} ${millions(line.value)} (${tags.join(", ")})`)].join(" + ");
+  return { status: "completed", row: { ...row, shortTermDebt: current, longTermDebt: noncurrent, capitalLeaseObligations: leases,
+    operatingLeaseLiability: operating.value, financeLeaseLiability: finance.value, totalDebt,
+    netDebt: amount(row.cashAndCashEquivalents) ? totalDebt - row.cashAndCashEquivalents : null,
+    vendorNetDebt: row.vendorNetDebt ?? row.netDebt ?? null,
+    fieldProvenance: { ...row.fieldProvenance,
+      shortTermDebt: evidence([BALANCE_SHEET_LIABILITY_LINES_TAG], "same-filing-debt-completed"),
+      longTermDebt: evidence(instrumentTags, "same-filing-debt-completed"),
+      // The lease line is the two filed liabilities and nothing else, as the D-133 completion records it.
+      capitalLeaseObligations: evidence(leaseTags),
+      ...(row.fieldProvenance?.operatingLeaseLiability ? {} : { operatingLeaseLiability: evidence(gaap(operating.tags)) }),
+      ...(row.fieldProvenance?.financeLeaseLiability ? {} : { financeLeaseLiability: evidence(gaap(finance.tags)) }),
+      totalDebt: evidence([...instrumentTags, ...leaseTags, BALANCE_SHEET_LIABILITY_LINES_TAG], "same-filing-debt-completed") } } as T,
+    admission: { kind: "filing-completion", date: row.date!, summary: `${millions(totalDebt)} (vendor ${millions(vendorTotal)}; ${filing.accn})`,
+      detail: `same-filing ${filing.form} ${filing.accn} at ${row.date}: the balance sheet is unclassified and its ${sheet.lines.length} liability lines add up to the tagged Liabilities ${millions(sheet.total)}; ` +
+        `borrowings ${borrowingText} = ${millions(current + noncurrent)} + operating leases ${millions(operating.value)} + finance leases ${millions(finance.value)} = total debt ${millions(totalDebt)} ${unit}; ` +
+        "undisclosed vendor lease zero replaced by filed liabilities; vendor borrowings reconciled to the filing's lines" } };
+}
+
+/**
+ * D-250 (P7; D-202 rule 1). A provider total is not established while the filing discloses its finance leases
+ * only in part: one maturity of the finance lease liability tagged at the row's date, with neither the other
+ * maturity nor a total in any filing. The SEC statements builder withholds its own row for the same shape
+ * (`partialFinanceLeaseReason`); a provider row, whose lease line can hold that one maturity, passed unchecked
+ * (RIVN, 2026-09-30: FinanceLeaseLiabilityNoncurrent 99M, the current portion inside a combined current line).
+ * A row the statements builder made carries its lease tags and is left to that builder's rule.
+ */
+function partialFinanceFamilyReason(row: FmpStatementRow, facts: CompanyFacts, unit: string, observedAt: string): string | null {
+  if (row.fieldProvenance?.capitalLeaseObligations !== undefined || row.fieldProvenance?.financeLeaseLiability !== undefined ||
+      (row.cik != null && Number(row.cik) !== facts.cik)) return null;
+  const at = (tag: string): FactPoint[] => points(facts, tag, unit, observedAt).filter(p => p.start === undefined && p.end === row.date && p.val >= 0);
+  if (tagsFor("financeLeaseLiability").some(tag => at(tag).length > 0)) return null;
+  const [currentTag, noncurrentTag] = tagsFor("financeLeaseLiabilityParts") as [string, string];
+  const current = newest(at(currentTag)), noncurrent = newest(at(noncurrentTag));
+  if ((current === undefined) === (noncurrent === undefined)) return null;
+  const [tag, missing, part] = current !== undefined ? [currentTag, noncurrentTag, current] : [noncurrentTag, currentTag, noncurrent!];
+  return partialFinanceLeaseReason(`${tag} ${millions(part.val)} is tagged at ${row.date} in ${part.form} ${part.accn}; no ${missing} or finance-lease total is`);
 }
 
 /**

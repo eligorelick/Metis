@@ -62,7 +62,7 @@ import { memoize } from "@/edgar/computationContext";
 import type { FiledIncomeLine, EquityMethodIncomePlacement, FmpBalanceSheetRow, FmpCashFlowRow, FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 import type { StatementConflictCause } from "@/types/refusalCause";
-import { commercialPaperInsideBorrowings, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, uncomposedDebtRefusal, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
+import { commercialPaperInsideBorrowings, fiscalMaturityScopeReason, incompleteDebtReason, omittedConvertibleCarryingReason, partialFinanceLeaseReason, uncomposedDebtRefusal, DEBT_AGGREGATE_TAGS } from "@/edgar/debtCompleteness";
 import { discoverStockSplits, shareBasisFactor, type StockSplits } from "@/edgar/splits";
 import {
   describeChangePct,
@@ -3069,7 +3069,7 @@ function computeBalance(v: FieldValues, notes: NoteSink, ctx: string, cc: Comput
   let incomplete: string | null;
   let incompleteCause: StatementConflictCause | undefined;
   if (partialLease !== undefined) {
-    incomplete = `${partialLease} lease liability incomplete: current and noncurrent portions are both required when no tagged total is available; complete debt is withheld`;
+    incomplete = partialFinanceLeaseReason();
   } else if (refusedCurrent) {
     incomplete = `incomplete debt carrying value: ${refusedCurrent.text}`;
     if (notes.causeOf(refusedCurrent) === "debt-maturity-scope") incompleteCause = "debt-maturity-scope";

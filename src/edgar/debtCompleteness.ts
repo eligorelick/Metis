@@ -80,6 +80,17 @@ export function uncomposedDebtRefusal(row: {
 }
 
 /**
+ * Finance leases are debt in every frame, so a filer that tags one maturity of the finance lease liability and
+ * neither the other nor a total leaves debt incomplete (audit 2026-10-19 FCX-1; D-202 rule 1: a disclosed but
+ * incomplete family refuses an unsupported total). One sentence for the SEC statements builder and the
+ * provider-row admission (D-250); `evidence`, when given, names what the filing does tag.
+ */
+export function partialFinanceLeaseReason(evidence?: string): string {
+  return "Finance lease liability incomplete: current and noncurrent portions are both required when no tagged total is available; complete debt is withheld" +
+    (evidence === undefined ? "" : ` (${evidence})`);
+}
+
+/**
  * Commercial paper is conventionally a component of ShortTermBorrowings, so a
  * current-debt sum that has both tags counts the borrowings and leaves the
  * commercial paper out. One rule for the SEC statements builder
