@@ -170,7 +170,8 @@ import { attachCurrentCapital } from "@/pipeline/stageB/currentCapital";
 import { filedCfoTtm, filedCashFlowTtm, filedCapexTtm } from "@/edgar/financialEnrichment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { effectiveTaxPretaxIncome } from "@/edgar/incomeClassification";
-import { admitDebtFields, admitVendorLongTermInvestments, balanceAdmissionEntries, debtPresentationSections, type BalanceAdmission } from "@/edgar/financialEnrichment";
+import { admitVendorLongTermInvestments, balanceAdmissionEntries, type BalanceAdmission } from "@/edgar/financialEnrichment";
+import { debtFamilyAdmission, type DebtFamilyStatement } from "@/pipeline/admission/debtFamily";
 import { withComputationContext } from "@/edgar/computationContext";
 import { buildStatementsFromCompanyFacts, longTermDebtHoldsCurrent, longTermDebtHoldsFinanceLeases, lowerBoundDAndACaveat } from "@/edgar/statements";
 import { collapsedDebtReason, implausibleDebtReason, uncashedDebtCollapseReason } from "@/edgar/debtCompleteness";
@@ -2463,13 +2464,15 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     ? incomeAnnual.map(row => ({ ...row, revenue: undefined, operatingIncome: undefined, nonMarginOperatingIncome: undefined })) : incomeAnnual;
   // Review m6: the rows' completions and stake fills, one manifest entry per kind once both families are admitted.
   const balanceAdmissions: BalanceAdmission[] = [];
-  const admitBalance = (vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
+  // D-254 (P13): the debt family is admitted once per run by its shared preparation; Stage B presents its own row.
+  const debtAdmission = debtFamilyAdmission(bundle);
+  const admitBalance = (statement: DebtFamilyStatement, vendorFamily: boolean) => (row: FmpBalanceSheetRow): FmpBalanceSheetRow => {
     row = withTangibleBookClassification(row, bundle, companyFacts);
     if (companyFacts === null) return row;
     const currency = establishedCurrencyOn([row], isoDay(row.date), currencyEvidence);
-    const admitted = admitDebtFields(row, companyFacts, currency, bundle.builtAt, debtPresentationSections(bundle.edgar));
-    ttmGaps.push(...admitted.gaps);
-    balanceAdmissions.push(...admitted.admissions);
+    const admitted = debtAdmission.admit(row, { statement, convention: "stage-b-balance-row", currency });
+    ttmGaps.push(...admitted.admitted.gaps);
+    balanceAdmissions.push(...admitted.admitted.admissions);
     if (!vendorFamily) return admitted.row;
     // D-133: a provider row's undisclosed stakes, so a bundle frozen before the enrichment filled them reads them too.
     const stakes = admitVendorLongTermInvestments(admitted.row, companyFacts, currency, bundle.builtAt);
@@ -2477,9 +2480,9 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     return stakes.row;
   };
   const vendorFamily = (family: DataBundle["statements"]["balanceAnnual"]): boolean => family.ok && family.value.source !== "edgar";
-  let balanceAnnual = compatible.balanceAnnual.rows.map(admitBalance(vendorFamily(bundle.statements.balanceAnnual)));
+  let balanceAnnual = compatible.balanceAnnual.rows.map(admitBalance("balanceAnnual", vendorFamily(bundle.statements.balanceAnnual)));
   const cashflowAnnual = compatible.cashflowAnnual.rows;
-  let balanceQuarterly = compatible.balanceQuarterly.rows.map(admitBalance(vendorFamily(bundle.statements.balanceQuarterly)));
+  let balanceQuarterly = compatible.balanceQuarterly.rows.map(admitBalance("balanceQuarterly", vendorFamily(bundle.statements.balanceQuarterly)));
   ttmGaps.push(...balanceAdmissionEntries(balanceAdmissions));
   for (const family of Object.values(compatible)) if (family.gap !== null) ttmGaps.push(family.gap);
   // D-237 (P20): the annual effective tax rates read each year's own base; name
