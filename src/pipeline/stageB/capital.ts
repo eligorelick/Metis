@@ -145,7 +145,7 @@ export interface CapitalOptions {
   repurchaseExecutions?: ReadonlyArray<Pick<RepurchaseExecution, "periodEnd" | "shares" | "value" | "sharesTag" | "valueTag" | "primaryEvidence">>;
   /**
    * AMZN audit 2026-10-20, finding 20 (b): the enterprise value's lease basis
-   * (THESIS_EV_INCLUDE_LEASES). False takes the operating-lease liability out
+   * (METIS_EV_INCLUDE_LEASES). False takes the operating-lease liability out
    * of the net debt/EBITDA numerator wherever enterprise value takes it out,
    * since EBITDA is already after operating-lease cost. Omitted or true: net
    * debt as resolved.

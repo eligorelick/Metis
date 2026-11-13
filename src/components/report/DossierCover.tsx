@@ -2,7 +2,7 @@ import { withNeutral } from "@/report/assessment";
 import type { Report } from "@/report/schema";
 import type { ReportCompletenessPresentation } from "@/report/completeness";
 import { scoreAuditTables } from "@/report/auditTables";
-import { businessQualityGraded, confidenceText, coverLedgerRows, displayProse, keyDataRows } from "@/report/presentation";
+import { businessQualityGraded, confidenceText, coverLedgerRows, displayProse, isFairValueKeyDataLabel, keyDataRows } from "@/report/presentation";
 import { evidencePercentText, hasLimitedEvidence, limitedEvidenceText } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { CompositeScorecard, DisagreementsBlock, ExecutiveSummary, GradeStripBar, KeyDataBox, RecentDevelopmentsBlock, VerdictHeader } from "./sections";
@@ -35,7 +35,7 @@ export function DossierCover({ report, completeness }: { report: Report; complet
     </div>
     <div className="snapshot-financial-ledger" aria-label="Recorded key financials">
       {!completeness.dataOnly && <p className="ledger-valuation-context">{displayProse(report.valuation.graded.oneLineWhy)}</p>}
-      <dl>{selected.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd>{row.label.startsWith("Model fair value") && !completeness.dataOnly && <dd className="ledger-basis">Recorded valuation assessment confidence: {confidenceText(report.valuation.graded.confidence,completeness)}</dd>}{row.note && <dd className="ledger-basis">{row.note}</dd>}</div>)}</dl>
+      <dl>{selected.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd>{isFairValueKeyDataLabel(row.label) && !completeness.dataOnly && <dd className="ledger-basis">Recorded valuation assessment confidence: {confidenceText(report.valuation.graded.confidence,completeness)}</dd>}{row.note && <dd className="ledger-basis">{row.note}</dd>}</div>)}</dl>
       <p className="ledger-model-limit">Model values are conditional estimates under the saved assumptions, not current quotes or forecasts. Calculated {report.meta.evidenceTiming?.calculationAsOf ?? report.valuation.dcf.perShare?.asOf ?? "date not recorded"}.</p>
       <a href="#report-valuation">Valuation assumptions, confidence and scenario limitations</a>
     </div>

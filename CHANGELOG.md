@@ -18,6 +18,21 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - METIS_ settings names only (2026-11-12)
+
+- Only `METIS_*` names configure Metis. The `THESIS_*` aliases kept since the
+  rebrand are retired. If an old name is still set (in `.env`, a launcher or
+  the shell, even blank), the server will not start and scripts that read a
+  setting stop, with one error that lists each old name and its `METIS_*`
+  replacement and shows no values. Rename the key and keep its value. This
+  keeps a leftover startup hold, spend cap or database path from being
+  dropped without notice ([D-228](docs/audit/DECISIONS.md), P23, P24, P26).
+- Scripts must send `X-Metis-Token`; a request with only the old
+  `X-Thesis-Token` header is refused with a 403 that names the new header.
+- Every setting's meaning and default is unchanged; legacy `Thesis` data
+  folders and `thesis.db` are still found in place. Report and judge-prompt
+  wording that spells the old names is unchanged in this release.
+
 ## Unreleased - Code identity recorded on new reports (2026-11-12)
 
 - A report built by the built app now records which exact build assembled it

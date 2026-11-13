@@ -26,8 +26,9 @@ Some existing Windows installations have local-only `./Start-Thesis.ps1` and
 references, not shipped scripts. Where installed, the start launcher runs an already-built production installation
 in a hidden process on port 3000 and opens Chrome at its standard installation
 path, or the default browser. `-SkipBrowser` suppresses browser launch. The
-legacy launcher sets `THESIS_RESUME_ON_START=0` (accepted as an alias of
-`METIS_RESUME_ON_START`), `NEXT_TELEMETRY_DISABLED=1` and
+launcher sets `METIS_RESUME_ON_START=0` (older copies set the retired
+`THESIS_RESUME_ON_START=0`, which now stops startup until it is renamed; see
+[Settings names](#settings-names)), `NEXT_TELEMETRY_DISABLED=1` and
 `NODE_ENV=production` in the child process, records its PID and start time in
 `.local/server.json`, and writes `.local/server.log` and
 `.local/server-error.log`. It reuses the matching recorded process and rejects
@@ -132,10 +133,37 @@ Appearance is a per-browser `thesis-ui-design` cookie (`current` or `workspace`)
 with a 180-day maximum age and `SameSite=Lax`; HTTPS adds `Secure`. It changes
 presentation independently of stored research/model settings.
 
-The shipped `.env.example` comments out canonical `METIS_*` settings to preserve
-legacy shell and launcher values. Uncomment only intentional overrides: even a
-blank canonical assignment wins. Startup warns about conflicting aliases using
-key names only, never their values.
+The shipped `.env.example` comments out its `METIS_*` settings so that shell and
+launcher values are kept. Uncomment only intentional overrides: even a blank
+assignment counts as set, and a blank value means the built-in default.
+
+### Settings names
+
+Only `METIS_*` names configure Metis (D-228). The `THESIS_*` names that were
+accepted as aliases after the rebrand are no longer read. If any of them is
+still set, in `.env`, a launcher or the shell, even to a blank value, the
+server refuses to start and every script that reads a setting stops, with one
+error naming each old key and its replacement, never a value:
+
+```text
+Metis will not start: these settings use the retired THESIS_ prefix, which is no longer read. Rename each one in your .env file, launcher or shell (keep the value), then start again:
+  THESIS_RESUME_ON_START -> METIS_RESUME_ON_START
+See docs/OPERATIONS.md (Settings names).
+```
+
+To migrate, rename each listed key and keep its value, then start again. The
+refused names are the `THESIS_` forms of `STATEMENT_SOURCE`, `JUDGE_ORDER`,
+`MAX_ACTIVE_JOBS`, `MAX_ACTIVE_LLM_CALLS`, `MAX_JOB_COST_USD`,
+`MAX_ROLLING_COST_USD`, `RESERVATION_MODE`, `STREAM_IDLE_SECONDS`,
+`ROLLING_COST_WINDOW_MINUTES`, `PAID_PASS_LEASE_SECONDS`, `JOB_LEASE_SECONDS`,
+`RESUME_ON_START`, `EV_INCLUDE_LEASES`, `ALLOWED_HOST`, `TOKEN_FILE`, `DB_PATH`,
+`DATA_DIR`, `IMPORT_LEGACY_DB` and `UI_REDESIGN`. Refusing, rather than
+ignoring, keeps a startup hold, spend cap or database path from being dropped
+without notice. Every setting keeps its meaning and default under its
+`METIS_*` name. Legacy data folders (`Thesis`, `thesis.db`, `Thesis/ai`) are
+unaffected and are still found in place. Some report and judge-prompt wording
+still spells the old names (for example "set THESIS_EV_INCLUDE_LEASES=1"); the
+setting to use is the `METIS_*` one.
 
 ## Report lifecycle and recovery
 
@@ -239,7 +267,7 @@ Generate starts a new run that runs every pass again, at full cost on a paid con
 
 All paths below pass the request-wide direct-Host allowlist. Mutations also
 require accepted browser metadata/matching Origin or the startup
-`X-Metis-Token` (`X-Thesis-Token` is accepted only when the primary header is absent); cross-site or mismatched Origin requests remain rejected even
+`X-Metis-Token` (the old `X-Thesis-Token` header is refused with a 403 naming `X-Metis-Token`); cross-site or mismatched Origin requests remain rejected even
 with a token. This is a browser-CSRF boundary, not authentication of local
 processes. Heavy company GET/HEAD requests additionally filter cross-origin
 embeds and speculation. AI connection GET/POST requires the mutation guard
@@ -305,7 +333,7 @@ directory discovery. A test on a copy must redirect that store too: on Windows
 it follows `LOCALAPPDATA` (`%LOCALAPPDATA%/Metis/ai`, or a legacy
 `%LOCALAPPDATA%/Thesis/ai` when present), so start the test server with
 `LOCALAPPDATA` set to a scratch folder or it uses the real AI connections. Canonical `METIS_*` keys take precedence whenever present,
-including blank/invalid values; `THESIS_*` aliases remain supported. See
+including blank/invalid values; retired `THESIS_*` names stop startup (see [Settings names](#settings-names)). See
 [compatibility](BRAND.md#compatibility) for the complete naming contract. SQLite data,
 API cache, saved reports and `.env` have no application-level encryption.
 
@@ -573,3 +601,13 @@ To add a case:
 2. The run freezes its inputs in the `run_input_snapshots` table. Read the run's snapshot hash from `job_run_inputs.snapshotHash` for that job.
 3. Add `{ "id": "<ticker>-data-only", "snapshot": "<hash>" }` to `scripts/golden/cases.json`.
 4. Run `golden:run` with `--db` twice into two output folders and confirm `golden:diff` reports no changes, every case has status `ok` and `reportSchema` `ok`, and the route in `manifest.json` is the one you meant to cover.
+
+## Report-surface drift (valuation)
+
+`npm run report:drift` measures where the reader surfaces still word the valuation figures differently (P22). It reads `golden:run` output folders (`--golden DIR`) and/or a copy of a database (`--db FILE`, opened read-only; the application database itself is refused), prepares each report as every surface does (`src/report/readerPreparation.ts`), and compares the valuation texts decided in `src/report/presentation.ts` (headline label, shown value, comparison, caveats, scenario rows) across Markdown, print, the classic and dossier app and the key-data box. It also renders each surface and checks that every decided text appears in it. It runs offline with a fixed clock (`--clock ISO`).
+
+```powershell
+npm run report:drift -- --golden tmp/golden/after --db tmp/check-copy.db --out tmp/drift/REPORT.md
+```
+
+The output lists each disagreement with the surfaces that agree, example texts and the number of reports that show it, plus the named per-surface exceptions in the shared code. It contains report text, so keep it under `tmp/`.

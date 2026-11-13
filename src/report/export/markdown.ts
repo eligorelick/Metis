@@ -1,9 +1,9 @@
+import { prepareReportForSurface } from "@/report/readerPreparation";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
-import { withSafeStoredReportView } from "@/report/storedReportView";
-import { macroDisplayRows, plainFigureReaderNote, withPlainFigureNotes } from "@/report/presentation";
+import { macroDisplayRows, plainFigureReaderNote } from "@/report/presentation";
+import { SCENARIO_TARGET_UNAVAILABLE_TEXT, VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView, type ScenarioRowView } from "@/report/presentation";
 import { displayedProvenanceCoverage } from "@/report/presentation";
-import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
 /**
  * reportToMarkdown — a clean, DETERMINISTIC Markdown rendering of a full
  * {@link Report} (report sections 1–13 + appendix) for an institutional
@@ -25,12 +25,12 @@ import { withClassifiedDataOnlyGapCount } from "@/report/completeness";
  * Pure and dependency-free — safe to call from a route handler or a test.
  */
 
-import { legacyScopeQualifications, LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
+import { LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { sourceFactAuditTables } from "@/report/sourceFactPresentation";
 import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
-import { claimReasoning as sharedClaimReasoning, num, PLAIN_CLAIM_REASONING, signedPct, statusMarkSuffix, tracedValue } from "@/report/export/readerFormat";
-import { COMPUTED_MARK_LEGEND, hasComputedFigures, indexVerificationMarks } from "@/report/verificationMarks";
+import { claimReasoning as sharedClaimReasoning, num, PLAIN_CLAIM_REASONING, statusMarkSuffix, tracedValue } from "@/report/export/readerFormat";
+import { COMPUTED_MARK_LEGEND, hasComputedFigures } from "@/report/verificationMarks";
 import { filingDisclosureTables, newerFilingBanner, newerResultsBanner } from "@/report/filingDisclosurePresentation";
 import type { ReportAuditTable } from "@/report/auditTables";
 import type { SourceFactSummary } from "@/report/sourceFacts";
@@ -64,7 +64,6 @@ import type {
   Verdict,
 } from "@/report/schema";
 import {
-  deriveReportCompletenessPresentation,
   type ReportCompletenessPresentation,
 } from "@/report/completeness";
 import {
@@ -132,7 +131,7 @@ import {
   usageSummary,
   type FigureRow,
 } from "@/report/presentation";
-import { withReaderConventions, unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, lenderConventionTables, unavailableModelInputTables } from "@/report/readerConventions";
+import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, unavailableModelInputTables } from "@/report/readerConventions";
 import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, projectionsNotRecordedNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
@@ -162,12 +161,10 @@ import {
   projectionPeriodRows,
 } from "@/report/surfaceManifest";
 import { DISCLAIMER_TEXT, FRED_ATTRIBUTION_TEXT } from "@/report/schema";
-import { applyReportAssessmentStatus, compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeHeading, type AspectEvidence } from "@/report/assessment";
+import { compositeDisplayForReader as compositeDisplay, compositeNote, gradeDisplayLabel, readerGradeContractText, gradeHeading, type AspectEvidence } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
 import { executiveAssessmentNote } from "@/report/executiveAssessment";
 import { executiveTenureText, executiveCardClaims, executiveOfficeContext } from "@/report/executiveDecisions";
-import { fairValueDegradedText, fairValueWithheldText } from "@/report/fairValueText";
-import { applyGradeOverrideContract } from "@/pipeline/stageC/gradeContract";
 
 /** AMZN audit 2026-10-20 finding 17: the evidence-scope line, when a pass ran on a plan allowance. */
 function evidenceRow(report: Report): string[][] {
@@ -560,27 +557,23 @@ function renderValuation(
 
   // perShare is null when the deterministic fair value was suppressed — show
   // "unavailable", never a fabricated number.
-  const dcfPs = v.dcf.perShare;
   const recordedPerShare = recordedValuationTrace(v.dcf, fairValue);
   const noModel = review.report ? unavailableCashFlowModel(review.report) : false;
   if (noModel) lines.push(markdownProse(cashFlowModelExplanation(review.report!)), "", ...auditTableBlocks(unavailableModelInputTables(review.report!)));
-  if (noModel && fairValue) lines.push(markdownProse(fairValueWithheldText(fairValue)), "");
+  // P22: the headline, its caveats and the scenario rows are decided in presentation.ts.
+  const noModelText = noModel ? valuationNoModelWithheldText(fairValue, "markdown") : null;
+  if (noModelText !== null) lines.push(markdownProse(noModelText), "");
   if (!noModel) {
+    const headline = valuationHeadlineView(v, fairValue, "markdown");
     lines.push(
-      fairValue?.method === "excess-return" ? "### Excess-return value" : "### DCF",
+      `### ${headline.heading}`,
       "",
-      dcfPs
-        ? `${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: **${markdownProse(tracedValue(dcfPs))}**${asOfSuffix(dcfPs.asOf)}${v.dcf.upsidePct === null ? "" : ` — upside ${signedPct(v.dcf.upsidePct)}`}`
-        : `${fairValue?.method === "excess-return" ? "Model value per share" : "Intrinsic value per share"}: **unavailable** — the deterministic fair value could not be computed for this route/inputs (see the data-gap summary in the appendix).`,
+      headline.perShare !== null && headline.valueText !== null
+        ? `${headline.label}: **${markdownProse(headline.valueText)}**${asOfSuffix(headline.perShare.asOf)}${headline.comparison === null ? "" : ` — ${headline.comparison.label} ${headline.comparison.text}`}`
+        : `${headline.label}: **${VALUATION_WITHHELD_TEXT}** — ${headline.withheldReason ?? ""}`,
       // Audit 2026-10-22 F-13: substituted inputs, beside the value they moved.
-      ...(dcfPs && fairValueDegradedText(fairValue) ? ["", `**${prose(fairValueDegradedText(fairValue)!)}**`] : []),
-      ...(fairValue
-        ? [
-            fairValue.status === "available"
-              ? `_${prose(fairValue.basis.join(" "))}_`
-              : `_${prose(fairValueWithheldText(fairValue))}_`,
-          ]
-        : []),
+      ...(headline.degradedCaveat !== null ? ["", `**${markdownProse(headline.degradedCaveat)}**`] : []),
+      ...(headline.basisCaveat !== null ? [`_${markdownProse(headline.basisCaveat)}_`] : []),
       "",
     );
     lines.push(...subsection("Assumptions:", bodyTable(["Assumption", "Value", "Basis"], v.dcf.assumptions.map((a) => [a.name, a.value, displayProse(compactLongIntegers(a.basis))]))));
@@ -633,17 +626,12 @@ function renderValuation(
   // D-62: consensus and market data, shown once, beside the multiples.
   if (review.report) lines.push(...auditTableBlocks(consensusTables(review.report)));
 
-  if (!noModel) {
-    lines.push("### Scenarios", "");
-    if (review.scenarioPresentation?.weightBasis) lines.push(`_${markdownProse(review.scenarioPresentation.weightBasis)}_`, "");
-    if (scenarioTargets) {
-      if (scenarioTargets.status === "available") {
-        lines.push(`_Price targets are computed-derived (${markdownProse(scenarioTargets.method)}), not analyst targets. ${prose(scenarioTargets.basis.join(" "))}_`, "");
-      } else {
-        const reasons = scenarioTargets.missingReasons.map((m) => m.reason).join("; ");
-        lines.push(`_Scenario price targets suppressed — ${markdownProse(reasons || scenarioTargets.basis.join(" "))}_`, "");
-      }
-    }
+  const scenarios = noModel ? null : valuationScenarioView(v, review.scenarioPresentation, "markdown");
+  if (scenarios !== null) {
+    lines.push(`### ${scenarios.heading}`, "");
+    if (scenarios.weightBasis !== null) lines.push(`_${markdownProse(scenarios.weightBasis)}_`, "");
+    const targetsCaveat = scenarioTargetsCaveat(scenarioTargets, markdownProse);
+    if (targetsCaveat !== null) lines.push(`_${targetsCaveat}_`, "");
   }
   for (const block of valuationReviewBlocks({ ...review, valuation: v, peerCoverage: v.peerCoverage, symbol: review.report?.meta.symbol })) {
     if (noModel && block.title === "Valuation sensitivity assessment") continue;
@@ -654,14 +642,11 @@ function renderValuation(
     if (block.table) lines.push(table(block.table.headers, block.table.rows), "");
   }
   // D-62: the assumption lines every scenario shares are stated once.
-  if (!noModel) {
-    const { common, specific } = splitCommonLines(v.scenarios.map((sc) => sc.assumptions.map((line) => displayProse(compactLongIntegers(line)))));
-    if (common.length > 0) {
-      lines.push("**Assumptions common to every scenario:**", "", ...common.map((line) => `- ${markdownListItem(line)}`), "");
+  if (scenarios !== null) {
+    if (scenarios.common.length > 0) {
+      lines.push("**Assumptions common to every scenario:**", "", ...scenarios.common.map((line) => `- ${markdownListItem(line)}`), "");
     }
-    v.scenarios.forEach((sc, index) => {
-      lines.push(renderScenario(sc, specific[index] ?? [], review.scenarioPresentation !== undefined), "");
-    });
+    for (const row of scenarios.rows) lines.push(renderScenario(row), "");
   } else {
     lines.push(...renderQualitativeScenarios(v.scenarios));
   }
@@ -684,16 +669,14 @@ function renderQualitativeScenarios(scenarios: readonly Scenario[]): string[] {
   ];
 }
 
-function renderScenario(sc: Scenario, assumptions: readonly string[], computedWeights = false): string {
+function renderScenario(row: ScenarioRowView): string {
   const lines: string[] = [];
-  // priceTarget is null when the deterministic computation suppressed it —
-  // show "unavailable", never a fabricated value.
-  const pt = sc.priceTarget;
-  const target = pt ? markdownHeading(tracedValue(pt)) : "per-share target unavailable";
-  const targetAsOf = pt ? asOfSuffix(pt.asOf) : "";
-  const probability = sc.probability === null ? "unavailable" : `${(sc.probability * 100).toFixed(0)}%`;
+  const { scenario: sc, assumptions } = row;
+  // A suppressed target shows "unavailable", never a fabricated value.
+  const target = row.targetText === null ? SCENARIO_TARGET_UNAVAILABLE_TEXT : markdownHeading(row.targetText);
+  const targetAsOf = row.target ? asOfSuffix(row.target.asOf) : "";
   // D-60: computed targets carry no weight; a stored report that recorded one still shows it.
-  const weight = computedWeights && sc.probability === null ? "" : `${computedWeights ? "display weight" : "p"} ${probability}, `;
+  const weight = row.weight === null ? "" : `${row.weight.label} ${row.weight.text}, `;
   lines.push(
     `#### ${capitalize(sc.name)} — ${target} (${weight}${markdownHeading(sc.horizon)})${targetAsOf}`,
   );
@@ -1039,18 +1022,9 @@ function capitalize(s: string): string {
  * present; the audit material is in {@link reportToAuditMarkdown}.
  */
 export function reportToMarkdown(report: Report, context: ReportPresentationContext = {}): string {
-  report = withPlainFigureNotes(withClassifiedDataOnlyGapCount(report));
-  report = applyReportAssessmentStatus(applyGradeOverrideContract(report, report.appendix.verificationLog ?? []));
-  report = withSafeStoredReportView(report);
-  const lenderTables = lenderConventionTables(report);
-  report = withReaderConventions(report);
-  const scopeQualifications = legacyScopeQualifications(report);
-  indexVerificationMarks(report);
-  const completeness = deriveReportCompletenessPresentation(
-    report.meta.dataCompleteness,
-    report.appendix.missingData,
-    report.appendix.sources,
-  );
+  const prepared = prepareReportForSurface(report, "markdown");
+  report = prepared.report;
+  const { lenderTables, scopeQualifications, completeness } = prepared;
   const blocks: string[] = [
     renderHeader(report),
     scopeQualifications.length ? `## ${LEGACY_SCOPE_HEADING}\n\n${scopeQualifications.map(note => `- ${markdownListItem(note)}`).join("\n")}` : "",

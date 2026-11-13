@@ -1489,7 +1489,7 @@ describe("audit 2026-09-06 — invested capital and the WACC debt leg share the 
     expect(latest.notes.join(" ")).toMatch(/operating-lease liability 11000 excluded from invested capital/);
   });
 
-  it("keeps the lease inside invested capital when the EV bridge keeps it (THESIS_EV_INCLUDE_LEASES=1)", () => {
+  it("keeps the lease inside invested capital when the EV bridge keeps it (METIS_EV_INCLUDE_LEASES=1)", () => {
     const r = computeRoic(leaseIncome, leaseBalance, { includeOperatingLeases: true });
     const latest = r.series[r.series.length - 1]!;
     expect(latest.investedCapitalAvg).toBeCloseTo(24_500, 9);

@@ -5,7 +5,7 @@
  * gaps, so the two cannot disagree about what was substituted.
  *
  * A substitution the run was configured for (`expected`: a keyless plan,
- * THESIS_STATEMENT_SOURCE=edgar) is the run's design, not a fallback, and is
+ * METIS_STATEMENT_SOURCE=edgar) is the run's design, not a fallback, and is
  * never named.
  */
 

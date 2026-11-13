@@ -4,13 +4,14 @@ import { describe, expect, it } from "vitest";
 import { ReportView } from "@/components/report/ReportView";
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToAuditMarkdown } from "@/report/export/auditMarkdown";
-import { reportToPrintBody } from "@/report/export/printHtml";
+import { esc, reportToPrintBody } from "@/report/export/printHtml";
 import { withPrincipalSummarySafety } from "@/report/principalAggregationSafety";
 import { withHistoricalEnterpriseValueSafety } from "@/report/enterpriseValueSafety";
 import { applyReportAssessmentStatus } from "@/report/assessment";
 import type { Report } from "@/report/schema";
 import { loadTask28Fixture, task28SentinelReport, task28LegacyMissingBlocksReport, task28LegacyOptionalReport } from "./helpers/task28Report";
-import { assertUiParityContract, captureUiParityContract, freezeReport, readableHtml, reportDigest } from "./helpers/uiParityContract";
+import { assertUiParityContract, assertValuationParity, captureUiParityContract, captureValuationParity, freezeReport, readableHtml, reportDigest } from "./helpers/uiParityContract";
+import { summarizeSensitivity } from "@/report/scenarioPresentation";
 
 function surfaces(report: Report, layout: "classic" | "dossier" = "classic") {
   return {
@@ -57,7 +58,9 @@ describe("production UI semantic preservation baseline", () => {
     const before = reportDigest(report);
     const admitted = withHistoricalEnterpriseValueSafety(withPrincipalSummarySafety(report));
     const contract = captureUiParityContract(admitted);
-    expect(() => assertUiParityContract(contract, surfaces(report, layout))).not.toThrow();
+    const rendered = surfaces(report, layout);
+    expect(() => assertUiParityContract(contract, rendered)).not.toThrow();
+    expect(() => assertValuationParity(captureValuationParity(report), rendered, layout)).not.toThrow();
     expect(reportDigest(report)).toBe(before);
     expect(contract.figures.length).toBeGreaterThan(0);
   });
@@ -77,5 +80,70 @@ describe("production UI semantic preservation baseline", () => {
 
   it("does not count hidden duplicate content as accessible report text", () => {
     expect(readableHtml('<p>Visible</p><div hidden>Hidden warning</div><span class="sr-only">Duplicate</span><script>fake source</script>').text).toBe("Visible");
+  });
+});
+
+/**
+ * A report whose fair value survives the current-use check ("current"), or
+ * becomes a dated reference ("reference"): the quote is dated after the
+ * valuation. Modelled on tests/report.valuationUseSafety.test.ts.
+ */
+function valuedReport(mode: "current" | "reference", perShare = 123.45, upsidePct: number | null = 23.45): Report {
+  const report = task28SentinelReport();
+  report.fairValue = { status: "available", method: "fcff-dcf", methodVersion: "PARITY", perShare: {
+    value: perShare, unit: "USD/share", source: "computed.valuation.dcf.perShare", asOf: "2025-12-31", verified: true,
+  }, upsidePct, basis: ["PARITY recorded supported calculation"], reasons: [] };
+  report.valuation.dcf.perShare = structuredClone(report.fairValue.perShare);
+  report.valuation.dcf.upsidePct = upsidePct;
+  report.valuation.dcf.bridge = { enterpriseValue: 1300, netDebt: 65.5, minorityInterest: 0, preferredEquity: 0,
+    equityValue: 1234.5, dilutedShares: 10, presentValueExplicit: 600, presentValueTerminal: 700, currency: "USD", asOf: "2025-12-31" };
+  report.valuation.marketValueScope = { status: "unverified-vendor-scope", marketCap: 1000, economicShares: null,
+    currency: "USD", shareCountAsOf: null, priceAsOf: mode === "current" ? "2025-12-31" : "2026-07-20", approximate: false,
+    basis: "Synthetic same-currency quote", enterpriseValue: 1065.5, enterpriseValueBasis: "Synthetic bridge" };
+  return report;
+}
+
+describe("valuation display parity (P22)", () => {
+  const cases: ReadonlyArray<readonly [string, () => Report]> = [
+    ["upside that rounds half up (12.35)", () => valuedReport("current", 123.45, 12.35)],
+    ["negative upside that rounds to zero (-0.04)", () => valuedReport("current", 123.45, -0.04)],
+    ["no recorded comparison", () => valuedReport("current", 123.45, null)],
+    ["unrounded dated reference value", () => valuedReport("reference", 31.4876543)],
+    ["withheld headline value", () => { const report = valuedReport("current"); report.valuation.dcf.perShare = null; return report; }],
+    ["excess-return method", () => { const report = valuedReport("current"); report.fairValue!.method = "excess-return"; return report; }],
+    ["computed scenario weights", () => {
+      const report = valuedReport("current");
+      report.valuation.dcf.sensitivityGrid = [{ waccPct: 8, gTermPct: 2, perShare: 50 }, { waccPct: 9, gTermPct: 3, perShare: 60 }];
+      report.scenarioPresentation = { methodVersion: "parity", weightBasis: "PARITY display weight basis", interpretation: "PARITY interpretation",
+        sensitivity: summarizeSensitivity(report.valuation.dcf.sensitivityGrid, 100) };
+      report.valuation.scenarios = report.valuation.scenarios.map(s => ({ ...s, probability: s.name === "base" ? 0.5 : null }));
+      return report;
+    }],
+  ];
+
+  it.each(cases.flatMap(([name, make]) => (["classic", "dossier"] as const).map(layout => [`${name} in ${layout}`, make, layout] as const)))(
+    "every surface shows its decided valuation text: %s", (_, make, layout) => {
+      const report = freezeReport(make());
+      const contract = captureValuationParity(report);
+      expect(contract.markdown.length).toBeGreaterThan(0);
+      expect(() => assertValuationParity(contract, surfaces(report, layout), layout)).not.toThrow();
+    });
+
+  it("states the rounding every surface shares for 12.35 and -0.04", () => {
+    const up = captureValuationParity(valuedReport("current", 123.45, 12.35));
+    const flat = captureValuationParity(valuedReport("current", 123.45, -0.04));
+    for (const surface of ["markdown", "print", "classic", "dossier"] as const) {
+      expect(up[surface].find(t => t.label === "comparison")?.text).toBe("+12.4%");
+      expect(flat[surface].find(t => t.label === "comparison")?.text).toBe("0.0%");
+    }
+  });
+
+  it.each(["headline label", "comparison", "basis caveat", "base target"])("detects a renderer that drops or re-decides the %s", (label) => {
+    const report = valuedReport("current", 123.45, 12.35);
+    const contract = captureValuationParity(report);
+    const rendered = surfaces(report);
+    const text = contract.print.find(t => t.label === label)!.text;
+    rendered.print = rendered.print.replaceAll(esc(text), "REMOVED");
+    expect(() => assertValuationParity(contract, rendered, "classic")).toThrow(/Missing print valuation/);
   });
 });

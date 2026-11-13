@@ -1,5 +1,5 @@
+import { prepareReportForSurface } from "@/report/readerPreparation";
 import { fairValueReferenceText } from "@/report/fairValueText";
-import { withSafeStoredReportView } from "@/report/storedReportView";
 import { displayedProvenanceCoverage } from "@/report/presentation";
 import { legacyCheckNote } from "@/report/claimMatching";
 /**
@@ -14,7 +14,7 @@ import { legacyCheckNote } from "@/report/claimMatching";
  * same input → byte-identical output (sorted as-of keys, no clock, no locale).
  */
 
-import { legacyScopeQualifications, LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
+import { LEGACY_SCOPE_HEADING } from "@/report/legacyScopeQualifications";
 import { analysisOutcomeText } from "@/report/analysisCompletion";
 import { formatExecutionMetadata } from "@/report/execution";
 import { scoreAuditTables, factualValidationText, primaryCapitalEvidenceTables } from "@/report/auditTables";
@@ -29,7 +29,7 @@ import {
   roundedDisplayedCostTotal,
 } from "@/report/format";
 import { runSummary, displayedValidationStatus, geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
-import { figureCitationStatus, indexVerificationMarks } from "@/report/verificationMarks";
+import { figureCitationStatus } from "@/report/verificationMarks";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import {
   markdownBlockquote,
@@ -515,11 +515,10 @@ function renderGradeContracts(report: Report): string {
 }
 
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
-
-  report = withSafeStoredReportView(report);
+  const prepared = prepareReportForSurface(report, "audit");
+  report = prepared.report;
   const { auditValuation: recordedTargets, ...fairValueRecord } = report.fairValue ?? {};
-  const scopeQualifications = legacyScopeQualifications(report);
-  indexVerificationMarks(report);
+  const { scopeQualifications } = prepared;
   const m = report.meta;
   const blocks = [
     [
