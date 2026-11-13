@@ -149,7 +149,8 @@ import {
   type TranscriptBundle,
   type XbrlSummary,
 } from "@/pipeline/types";
-import { mergeManifest } from "@/pipeline/stageA/manifest";
+import { mergeManifest, withoutGapCause } from "@/pipeline/stageA/manifest";
+import type { GapCause } from "@/types/refusalCause";
 import { bankStatementRouting, applyKeylessFallbacks, type KeylessOutcome } from "@/pipeline/keyless";
 
 // ---------------------------------------------------------------------------
@@ -611,10 +612,13 @@ function gapResult<T>(
   severity: ManifestEntry["severity"],
   attemptedSources?: string[],
   expected = false,
+  /** P10, P11 (D-229): the typed cause beside the sentence, for the statuses a reader tells apart by wording. */
+  cause?: GapCause,
 ): FetchResult<T> {
   const gap: ManifestEntry = { field, reason, severity };
   if (attemptedSources !== undefined) gap.attemptedSources = attemptedSources;
   if (expected) gap.expected = true;
+  if (cause !== undefined) gap.cause = cause;
   return { ok: false, gap };
 }
 
@@ -694,7 +698,8 @@ function markSegmentationGapExpected<T>(result: FetchResult<T>): FetchResult<T> 
   return {
     ok: false,
     gap: {
-      ...result.gap,
+      // D-229: the new sentence no longer is the empty-array status, so its code is not kept.
+      ...withoutGapCause(result.gap),
       severity: "info",
       expected: true,
       reason:
@@ -1202,6 +1207,8 @@ export function selectAnnualFiling(
         : `; the registrant is a successor issuer (Form 8-K12B filed ${successor.filingDate})${UNLINKED_PREDECESSOR}`),
     "critical",
     [sub.endpoint],
+    false,
+    successor === undefined ? undefined : "sec-unlinked-predecessor",
   );
 }
 
@@ -1215,7 +1222,8 @@ const UNLINKED_PREDECESSOR = " — its predecessor's annual reports live under a
 export function withResolvedPredecessor<T>(result: FetchResult<T>, predecessor: { cik10: string; name: string | null } | null): FetchResult<T> {
   if (result.ok || predecessor === null || !result.gap.reason.includes(UNLINKED_PREDECESSOR)) return result;
   const named = `; its predecessor, ${predecessor.name ?? "the co-registrant"} (CIK ${predecessor.cik10}), was resolved for the XBRL history, but annual-report sections are read only from this registrant's own filings, so they return with its first annual report`;
-  return { ok: false, gap: { ...result.gap, reason: result.gap.reason.replace(UNLINKED_PREDECESSOR, named) } };
+  // D-229: the predecessor is now linked, so the unlinked-predecessor code is not kept on the new sentence.
+  return { ok: false, gap: { ...withoutGapCause(result.gap), reason: result.gap.reason.replace(UNLINKED_PREDECESSOR, named) } };
 }
 
 /**
@@ -1366,9 +1374,9 @@ async function buildEdgarBundle(
   let tenQOther: FetchResult<ExtractedSection> | undefined;
   let annualGeography: EdgarBundle["annualGeography"];
   let officerBiographies: EdgarBundle["officerBiographies"];
-  const withBusiness = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[]): void => {
-    if (filingDisclosures) business = gapResult(`edgar.business(${symbol})`, reason, severity, attempted);
-    if (filingDisclosures) tenKNotes = gapResult(`edgar.tenKNotes(${symbol})`, reason, severity, attempted);
+  const withBusiness = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[], cause?: GapCause): void => {
+    if (filingDisclosures) business = gapResult(`edgar.business(${symbol})`, reason, severity, attempted, false, cause);
+    if (filingDisclosures) tenKNotes = gapResult(`edgar.tenKNotes(${symbol})`, reason, severity, attempted, false, cause);
   };
   const withTenQNotes = (reason: string, severity: ManifestEntry["severity"] = "warn", attempted?: string[], expected?: boolean): void => {
     if (filingDisclosures) tenQNotes = gapResult(`edgar.tenQNotes(${symbol})`, reason, severity, attempted, expected);
@@ -1493,9 +1501,12 @@ async function buildEdgarBundle(
       }
     } else {
       const reason = `no annual primary filing (10-K or 20-F) to extract from: ${latestTenK.gap.reason}`;
-      item1a = gapResult(`edgar.item1a(${symbol})`, reason, "critical");
-      mdna = gapResult(`edgar.mdna(${symbol})`, reason, "critical");
-      withBusiness(reason);
+      // D-229: these sentences quote the annual-filing gap whole, so a successor's unlinked-predecessor
+      // clause (and its code) travels with them; `withResolvedPredecessor` rewrites all five.
+      const cause = latestTenK.gap.cause === "sec-unlinked-predecessor" ? latestTenK.gap.cause : undefined;
+      item1a = gapResult(`edgar.item1a(${symbol})`, reason, "critical", undefined, false, cause);
+      mdna = gapResult(`edgar.mdna(${symbol})`, reason, "critical", undefined, false, cause);
+      withBusiness(reason, "warn", undefined, cause);
     }
 
     // 10-Q MD&A (Part I Item 2).

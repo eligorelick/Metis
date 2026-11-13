@@ -202,7 +202,7 @@ describe("code identity on new reports (P27, D-227)", () => {
       "src/report/schema.ts": [/codeIdentity: ReportCodeIdentitySchema\.optional\(\)/, /"codeIdentity"\]\) \{/, /import \{ ReportCodeIdentitySchema \} from "@\/report\/codeIdentity";/, /^\s*\* src\/report\/codeIdentity\.ts\. /],
       "src/pipeline/jobRunner.ts": [/import \{ withCodeIdentity, type ReportCodeIdentity \} from "@\/report\/codeIdentity";/, /getRuntimeReportCodeIdentity/, /withCodeIdentity\(/, /codeIdentity\?: ReportCodeIdentity;/, /`meta\.codeIdentity` is omitted/],
       "src/pipeline/runtimeArtifactIdentity.ts": [/.*/],
-      "src/components/report/ReportView.tsx": [/import \{ withoutCodeIdentity \} from "@\/report\/codeIdentity";/, /evidenceIdentity\("report", withoutCodeIdentity\(report\)\)/],
+      "src/components/report/ReportView.tsx": [/import \{ withoutCodeIdentity \} from "@\/report\/codeIdentity";/, /evidenceIdentity\("report", withoutCodeIdentity\(withoutGapCauses\(report\)\)\)/],
     };
     const pattern = /codeIdentity|CodeIdentity|runtime-artifact-manifest|compiledArtifactHash|methodDocumentHash/;
     const files: string[] = [];

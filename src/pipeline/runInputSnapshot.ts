@@ -6,6 +6,7 @@ import { REPORT_SPEC_VERSION } from "@/report/schema";
 import { SCORE_BANDS_VERSION } from "@/pipeline/stageB/grading";
 import { DUAL_WRITTEN_CONFLICT_CAUSES, type StatementConflictCause } from "@/types/refusalCause";
 import { CONFLICT_CAUSES_READ_BY_CODE } from "@/edgar/refusalCauseRead";
+import { isManifestEntryShaped } from "@/pipeline/stageA/manifest";
 
 export { RUN_INPUT_SNAPSHOT_FORMAT } from "@/report/versions";
 export { STAGE_B_IMPLEMENTATION_VERSION } from "@/report/versions";
@@ -83,11 +84,18 @@ function redact(value: unknown, path: string, fields: string[]): unknown {
  * no code is read by its sentences, as before; no version stamp changes because
  * no decision changes. Mutates a detached JSON copy only; every other `cause`
  * value is kept.
+ *
+ * D-229 (S4.5a): missing-data entries now carry a dual-written typed cause
+ * (`ManifestEntry.cause`, `GAP_CAUSES`) that no reader decides by yet, so it is
+ * removed here the same way: a snapshot's gap entries keep the bytes they had
+ * before the codes existed. A step that moves a reader to these codes stops
+ * removing the ones it reads, with its own snapshot note.
  */
 function withoutDualWrittenCauses(value: unknown): void {
   if (Array.isArray(value)) { for (const item of value) withoutDualWrittenCauses(item); return; }
   if (value === null || typeof value !== "object") return;
   const record = value as Record<string, unknown>;
+  if ("cause" in record && isManifestEntryShaped(record)) delete record.cause;
   const conflicts = record.fieldConflicts;
   if (conflicts !== null && typeof conflicts === "object" && !Array.isArray(conflicts)) {
     for (const conflict of Object.values(conflicts as Record<string, unknown>)) {

@@ -38,7 +38,7 @@ export function supplementTemporaryEquity<T extends FmpBalanceSheetRow>(row: T, 
   const gaps: ManifestEntry[] = [];
   if (!row.date || !filedEnds.has(row.date)) return { row, gaps };
   const refuse = (reason: string) => {
-    gaps.push({ field: `statements.balance.${row.date}.temporaryEquity`, reason: `temporary-equity SEC enrichment withheld: ${reason}`, severity: "warn" });
+    gaps.push({ field: `statements.balance.${row.date}.temporaryEquity`, reason: `temporary-equity SEC enrichment withheld: ${reason}`, severity: "warn", cause: "temporary-equity-enrichment-withheld" });
     return { row, gaps };
   };
   if (typeof row.cik !== "string" || !/^\d{1,10}$/.test(row.cik) || row.cik.replace(/^0+/, "") !== String(factsCik).replace(/^0+/, "")) return refuse("vendor issuer CIK is unknown or differs from companyfacts");
@@ -74,7 +74,7 @@ export function supplementTemporaryEquity<T extends FmpBalanceSheetRow>(row: T, 
         utcDay(item.filed) <= utcDay(evidence.observedAt) && CORE_FACT_FORMS.has(item.form));
     if (!compatible(evidence) || operands.some(operand => !finite(row[operand]) || !finite(sec[operand]) || !same(row[operand] as number, sec[operand] as number) ||
       row.fieldConflicts?.[operand]?.usable === false || !compatible(sec.fieldProvenance?.[operand]) || !compatibleVendor(row.fieldProvenance?.[operand]))) {
-      gaps.push({ field: `statements.balance.${row.date}.${field}`, reason: "temporary-equity SEC enrichment withheld: vendor A/L/permanent-equity operands are missing, conflicting, or do not match the temporary category's exact SEC filing scope", severity: "warn" });
+      gaps.push({ field: `statements.balance.${row.date}.${field}`, reason: "temporary-equity SEC enrichment withheld: vendor A/L/permanent-equity operands are missing, conflicting, or do not match the temporary category's exact SEC filing scope", severity: "warn", cause: "temporary-equity-operands-unmatched" });
       continue;
     }
     const vendor = row[field];
