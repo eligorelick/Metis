@@ -25,6 +25,23 @@ original versions and bytes; source merge does not deploy or publish a release.
   now; any value other than 0 or 1 is still refused. Exports, saved reports
   and the same-report check output are unchanged.
 
+## Unreleased - Trailing net income behind FCF conversion read from the filings (2026-11-12)
+
+- The "Current capital" block divides trailing free cash flow by consolidated
+  net income and showed none for an issuer without noncontrolling interests,
+  because no quarter of such an issuer is ever tagged "consolidated". The
+  figure is now read from the filings when they state one profit line: fiscal
+  year plus current year to date less prior-year year to date, or a figure
+  tagged for exactly the window, accepted only when those filings report no
+  other consolidated profit and no noncontrolling earnings or balance (P5, P1,
+  P8, P11, [D-240](docs/audit/DECISIONS.md)). In the same-report check this
+  fills the figure for Amazon (135,281M), NVIDIA (192,880M), Qualcomm (9,260M),
+  Micron (84,969M) and Viking (-627,195k). FCF conversion and its balance-sheet
+  signal are scored again for the first four, so their balance-sheet and
+  composite scores move (the entry lists them); no scoring rule changed. Duke
+  Energy, which has noncontrolling interests, stays withheld. Version stamps
+  are left for the Stage 5 integration; saved reports are unchanged.
+
 ## Unreleased - The dossier layout shows everything classic shows (2026-11-12)
 
 - The dossier's WACC × terminal-growth grid now outlines the base-case cell,
@@ -32,6 +49,23 @@ original versions and bytes; source merge does not deploy or publish a release.
   inventory of both layouts over the 17 same-report cases found no other fact
   that classic shows and the dossier does not; a new parity test keeps it so.
   The default layout is unchanged.
+
+## Unreleased - A filing SEC's data feed lists but does not carry is read from its own XBRL data (2026-11-12)
+
+- SEC's bulk data feed can list a periodic filing by its cover page without
+  publishing its financial statements: on 2026-11-12 it held two facts of
+  TSMC's fiscal 2025 Form 20-F and none of its statements. Metis reads a
+  filing's own XBRL data when the feed lags, but did so only for Forms 10-K
+  and 10-Q and took any filing the feed mentions as carried. The rule now
+  covers every core periodic form (20-F, 40-F and amendments too) and counts a
+  filing as carried only when the feed holds a statement fact of it (P2, P9,
+  P10, P20, [D-236](docs/audit/DECISIONS.md)). New reports of such filers reach
+  the newest fiscal year's filed facts: for TSMC, diluted EPS of fiscal 2025
+  (65.47 TWD per ordinary share, 327.35 per ADS) instead of ending at fiscal
+  2024. A filer whose feed is complete makes no new SEC request; a 20-F filer
+  whose feed lags makes two. The same-report check is unchanged (it does not
+  replay collection), saved reports keep their bytes, and version stamps are
+  left for integration.
 
 ## Unreleased - Effective tax rates divide by the pre-tax income the provision relates to (2026-11-12)
 
