@@ -395,9 +395,7 @@ npm run docs:pricing -- --write
 prints a diff, and only writes the registry with `--write`; existing capability
 and request policies still require review. `costs:reconcile` previews presumed
 spend and can read the admin cost report; `--write` applies conservative downward
-reconciliation, not a new report. `audit:deltas` compares offline fixtures;
-`--write --group <name>` records newly classified changes, whose reason must be
-reviewed. Regenerating deltas is not evidence that a financial change is correct.
+reconciliation, not a new report.
 
 Two frozen records under `tests/fixtures/frozen/` pin today's output of the
 offline fixtures leaf by leaf: `stagec-payload-current.json` (the Stage C
@@ -421,6 +419,10 @@ never sets its variables. Each refresh appends date, decision, reason, scope, be
 hash and changed paths to `tests/fixtures/frozen/refresh-log.json`, and a test
 requires the log's last entry to match each committed record, so a hand edit or
 an unlogged re-record fails. Commit the record and its log entry together.
+Re-recording is not evidence that a financial change is correct. The refresh
+log is the intentional-delta record for both fixtures. For the DEMO fixture it
+replaces the July 2026 audited baseline and its intended-delta ledger
+(`npm run audit:deltas`), retired by D-232 and kept in git history.
 
 ## Verification and troubleshooting
 

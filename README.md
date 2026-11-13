@@ -244,7 +244,6 @@ repository's [private advisory form](https://github.com/eligorelick/Metis/securi
 | `npm run costs:reconcile` | Lower presumed spend rows against the Usage and Cost API. Needs ANTHROPIC_ADMIN_KEY. |
 | `npm run docs:config` | Print config/commands tables; add -- --write to update README. |
 | `npm run docs:pricing` | Print registry-derived pricing; add -- --write to update README. |
-| `npm run audit:deltas` | Print fixture comparison's intended deltas; add -- --write to update the intended-delta list. |
 | `npm run audit:security` | Audit production and dev dependencies; fail on low or higher severity. |
 | `npm run verify` | Everything the release gate runs, in order. |
 

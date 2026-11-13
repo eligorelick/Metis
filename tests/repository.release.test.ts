@@ -69,8 +69,8 @@ const REQUIRED_RELEASE_FILES = [
   "scripts/reconcile-presumed-costs.mjs",
   "scripts/docs-pricing.mjs",
   "scripts/docs-config.mjs",
-  "scripts/audit-deltas.mjs",
-  "tests/fixtures/audit-intended-deltas.json",
+  "scripts/freeze-refresh.mjs",
+  "tests/fixtures/frozen/refresh-log.json",
   "scripts/run-security-audit.mjs",
   "tests/dependencyShape.test.ts",
   "tests/report.correctedCli.test.ts",
@@ -780,10 +780,10 @@ describe("public release contract", () => {
     expect(implementationText).not.toMatch(/research[\\/]/);
   });
 
-  it("records every methodology and audited-delta decision in the decisions ledger", () => {
+  it("records every methodology and frozen-record refresh decision in the decisions ledger", () => {
     const decisions = readFileSync(path.join(ROOT, "docs/audit/DECISIONS.md"), "utf8");
     const recorded = new Set([...decisions.matchAll(/^## D-(\d+)\b/gm)].map(match => Number(match[1])));
-    for (const file of ["docs/METHODOLOGY.md", "tests/fixtures/audit-intended-deltas.json"]) {
+    for (const file of ["docs/METHODOLOGY.md", "tests/fixtures/frozen/refresh-log.json"]) {
       const text = readFileSync(path.join(ROOT, file), "utf8");
       for (const match of text.matchAll(/\bD-(\d+)\b/g)) {
         expect(recorded.has(Number(match[1])), `${file} cites unrecorded ${match[0]}`).toBe(true);
