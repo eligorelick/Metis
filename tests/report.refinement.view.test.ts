@@ -15,7 +15,7 @@ vi.mock("next/navigation",()=>({useRouter:()=>({refresh:vi.fn()})}));
 describe("refined research reading sequence",()=>{
   it("spells out the section names beside sticky assessment grades",()=>{
     const report=loadTask28Fixture();
-    const html=renderToStaticMarkup(createElement(GradeStripBar,{gradeStrip:report.verdict.gradeStrip,scores:report.scores,compact:true,presentation:"dossier"}));
+    const html=renderToStaticMarkup(createElement(GradeStripBar,{gradeStrip:report.verdict.gradeStrip,scores:report.scores,compact:true}));
     const window=new Window();window.document.body.innerHTML=html;
     const links=[...window.document.querySelectorAll('.dossier-grade-navigation a')];
     expect(links.map(link=>link.querySelector('.text-muted')?.textContent)).toEqual(["Fundamentals","Valuation","Technicals","Balance Sheet","Quality / Red-Flags","Leadership proxy","Moat"]);
@@ -33,7 +33,7 @@ describe("refined research reading sequence",()=>{
     expect(text).toContain("no per-pass requested configuration was recorded");
   });
   it("makes all fourteen report destinations focusable for keyboard contents jumps",()=>{
-    const html=renderToStaticMarkup(createElement(ReportView,{report:loadTask28Fixture(),layout:"dossier"}));
+    const html=renderToStaticMarkup(createElement(ReportView,{report:loadTask28Fixture()}));
     const window=new Window();window.document.body.innerHTML=html;
     const sections=["verdict","business","fundamentals","balanceSheet","valuation","quality","technicals","leadership","competitive","catalystsRisks","outlook","projections","macro","appendix"];
     for(const id of sections) expect(window.document.getElementById(`report-${id}`)?.getAttribute("tabindex"),id).toBe("-1");
@@ -42,7 +42,7 @@ describe("refined research reading sequence",()=>{
   it.each([undefined,999])("uses the selected row in sticky context when embedded identity is %s",embedded=>{
     const report=loadTask28Fixture();
     if(embedded === undefined) delete report.meta.reportId; else report.meta.reportId=embedded;
-    const text=readableHtml(renderToStaticMarkup(createElement(ReportView,{report,layout:"dossier",selectedReportId:3}))).text;
+    const text=readableHtml(renderToStaticMarkup(createElement(ReportView,{report,selectedReportId:3}))).text;
     expect(text).toContain("Saved report #3");
     if(embedded === 999) expect(text).toContain("Selected saved row #3; embedded report ID #999");
     expect(report.meta.reportId).toBe(embedded);
@@ -59,7 +59,7 @@ describe("refined research reading sequence",()=>{
   it("puts recorded key financials before the full executive and attribution detail, with one assessment shortcut strip",()=>{
     const report=freezeReport(loadTask28Fixture());
     const digest=reportDigest(report);
-    const html=renderToStaticMarkup(createElement(ReportView,{report,layout:"dossier"}));
+    const html=renderToStaticMarkup(createElement(ReportView,{report}));
     expect(html.indexOf('id="report-key-data"')).toBeGreaterThan(0);
     expect(html.indexOf('id="report-key-data"')).toBeLessThan(html.indexOf('id="report-research-detail"'));
     expect(html.match(/aria-label="Section assessment shortcuts"/g)).toHaveLength(1);
@@ -69,7 +69,7 @@ describe("refined research reading sequence",()=>{
   it("keeps a data-only conclusion available without calling deterministic fallbacks analyst assessments",()=>{
     const report=loadTask28Fixture();
     report.appendix.missingData.push({field:"analysis.llm",severity:"critical",reason:"AI is unavailable; no completed analysis."});
-    const html=renderToStaticMarkup(createElement(ReportView,{report,layout:"dossier"}));
+    const html=renderToStaticMarkup(createElement(ReportView,{report}));
     const text=readableHtml(html).text;
     expect(text).not.toContain("Analyst section assessments");
     expect(text).toContain("Recorded deterministic summary and limitations");

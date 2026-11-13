@@ -158,13 +158,11 @@ it("shows recorded field notes on live, Markdown, print and audit surfaces witho
   expect(JSON.stringify(checked.verifiedReport)).toBe(verifiedBefore);
 });
 
-it("shows a flagged grade-strip explanation as visible text in both compact layouts", async () => {
+it("shows a flagged grade-strip explanation as visible text in the compact grade strip", async () => {
   const report = loadTask28Fixture();
   report.verdict.gradeStrip.fundamentals = { ...report.verdict.gradeStrip.fundamentals, oneLineWhy: "Operating margin was 120.7%." };
   const checked = await runVerifyPass({} as PassDeps, payload(), report);
   const shown = withPlainFigureNotes(checked.verifiedReport);
-  for (const presentation of ["default", "dossier"] as const) {
-    const html = renderToStaticMarkup(createElement(GradeStripBar, { gradeStrip: shown.verdict.gradeStrip, compact: true, presentation }));
-    expect(html.replace(/<[^>]*>/g, "")).toContain("Not matched to a source: 120.7%.");
-  }
+  const html = renderToStaticMarkup(createElement(GradeStripBar, { gradeStrip: shown.verdict.gradeStrip, compact: true }));
+  expect(html.replace(/<[^>]*>/g, "")).toContain("Not matched to a source: 120.7%.");
 });

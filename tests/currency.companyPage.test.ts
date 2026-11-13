@@ -176,11 +176,10 @@ describe("company page money cells", () => {
 });
 
 describe("company page returns panel on an equity-only route (audit 2026-10-22, B-31)", () => {
-  afterEach(() => { delete process.env.METIS_UI_REDESIGN; resetConfigCache(); });
+  afterEach(() => { resetConfigCache(); });
 
-  /** The rendered returns panel for a bundle, under the classic or dossier layout. */
-  async function returnsPanel(opts: CurrencyBundleOptions, dossier: boolean): Promise<string> {
-    if (dossier) process.env.METIS_UI_REDESIGN = "1";
+  /** The rendered returns panel for a bundle (the dossier layout, D-246). */
+  async function returnsPanel(opts: CurrencyBundleOptions): Promise<string> {
     resetConfigCache();
     harness.buildDataBundle.mockResolvedValue(withFixtureQuoteDay(currencyBundle(opts), "2026-03-31"));
     const tree = await CompanyBody({ symbol: opts.bank ? "BNK" : "GEN" });
@@ -189,8 +188,8 @@ describe("company page returns panel on an equity-only route (audit 2026-10-22, 
     return renderToStaticMarkup(panel);
   }
 
-  it.each([false, true])("says the WACC, cost of debt and capital weights are not used for a bank (dossier %s)", async dossier => {
-    const html = await returnsPanel({ bank: true }, dossier);
+  it("says the WACC, cost of debt and capital weights are not used for a bank (dossier true)", async () => {
+    const html = await returnsPanel({ bank: true });
     expect(cell(html, "wacc")).toBe("not used");
     expect(cell(html, "cost of debt")).toBe("not used");
     expect(html.replace(/<[^>]+>/g, "|")).toMatch(/\|weight E \/ D\|+not used\|/);
@@ -200,7 +199,7 @@ describe("company page returns panel on an equity-only route (audit 2026-10-22, 
   });
 
   it("control: a general company shows its WACC and capital weights", async () => {
-    const html = await returnsPanel({}, false);
+    const html = await returnsPanel({});
     expect(cell(html, "wacc")).toMatch(/^\d+\.\d+%$/);
     expect(html.replace(/<[^>]+>/g, "|")).toMatch(/\|weight E \/ D\|+[\d.]+% \/ [\d.]+%\|/);
   });

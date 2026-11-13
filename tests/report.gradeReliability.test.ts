@@ -52,7 +52,7 @@ describe("attribute grade reliability across reader scorecards", () => {
     const before = structuredClone(report);
     const surfaces = [
       renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores! })),
-      renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores!, mode: "cover" })),
+      renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores! })),
       reportToMarkdown(report),
       reportToPrintBody(report),
     ];
@@ -83,7 +83,7 @@ describe("attribute grade reliability across reader scorecards", () => {
     expect(gradeReliabilityTable(report.scores!).rows[0]).toEqual(["Fundamentals", "50.0%", "4.99–55", "F–D"]);
     for (const surface of [
       renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores! })),
-      renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores!, mode: "cover" })),
+      renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores! })),
       reportToMarkdown(report), reportToPrintBody(report),
     ]) {
       expect(surface).toContain("4.99–55");

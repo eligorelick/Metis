@@ -26,6 +26,7 @@ export const SCHEMA_SETTING_VALUES: Readonly<Record<string, readonly string[]>> 
   STREAM_IDLE_SECONDS: ["0", "1", "300", "3600", "3601", "-1"],
   RESERVATION_MODE: ["request", "pass", "PASS", "x"],
   RESUME_ON_START: ["0", "1", " 0 ", "true", "yes"],
+  // D-246: no longer a setting; kept so the table proves a leftover value parses as if unset.
   UI_REDESIGN: ["0", "1", "true"],
   TOKEN_FILE: [" /x/token ", "relative-token"],
   JUDGE_ORDER: ["random", "bull-first", "BEAR-FIRST", "both", "nonsense"],

@@ -451,7 +451,7 @@ export function ScenarioCard({
   horizon,
   assumptions,
   whatWouldHaveToBeTrue,
-  weight = scenarioWeightView(probability, false, "classic"),
+  weight = scenarioWeightView(probability, false, "dossier"),
   qualitativeCommentary,
 }: {
   name: "bull" | "base" | "bear";

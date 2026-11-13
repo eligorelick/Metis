@@ -35,10 +35,10 @@ it("keeps known currency in retained sensitivity diagnostics without reopening t
   expect(valuationAuditTables(view.valuation.dcf, trace).find(t => t.heading.includes("starting return"))?.rows[0]?.join(" ")).toContain("EUR");
 });
 
-it("keeps recorded excess-return currency in the classic report table", () => {
+it("keeps recorded excess-return currency in the valuation section's sensitivity table", () => {
   const { view } = recorded();
   const html = renderToStaticMarkup(createElement(ValuationSection, {
-    valuation: view.valuation, fairValue: view.fairValue, presentation: "classic", index: 7,
+    valuation: view.valuation, fairValue: view.fairValue, index: 7,
   }));
   const grid = html.slice(html.indexOf("Sensitivity (per share"));
   expect(grid).toContain("EUR");

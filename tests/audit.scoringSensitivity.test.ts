@@ -103,7 +103,7 @@ describe("factor contribution sensitivity", () => {
     const report = loadTask28Fixture();
     report.scores = scores();
     const before = JSON.stringify(report);
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     expect(html).toContain('aria-label="Composite factor attribution"');
     expect(html).toContain('data-contribution-points="12.00"');
     expect(html).toContain('data-contribution-points="-4.00"');
@@ -115,7 +115,7 @@ describe("factor contribution sensitivity", () => {
 
   it("withholds factor bars when the canonical reconciliation is unavailable", () => {
     const report = loadTask28Fixture();
-    const html = renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" }));
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
     expect(html).toContain('aria-label="Composite factor attribution"');
     expect(html).not.toContain("data-contribution-points=");
     expect(html).toContain("Complete signal-family weights and contributions must reconcile");

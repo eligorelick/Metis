@@ -156,7 +156,7 @@ describe("FIN-401 / FIN-401-V1: stored equity-method readings", () => {
     noBasis.valuation.dcf.assumptions = [];
     expect(withLegacyBridgeMethod(noBasis).fairValue!.basis.join(" ")).not.toMatch(readingNote);
   });
-  it("composes the two parts in order and reaches classic, dossier, Markdown and print", () => {
+  it("composes the two parts in order and reaches the dossier, Markdown and print", () => {
     const report = old("1.44.0");
     const view = withLegacyBridgeMethod(report);
     const notes = view.fairValue!.basis;
@@ -170,7 +170,7 @@ const surfaces = (report: Report): string[] => [
   reportToMarkdown(report),
   reportToPrintBody(report),
   renderToStaticMarkup(createElement(ReportView, { report })),
-  renderToStaticMarkup(createElement(ReportView, { report, layout: "dossier" })),
+  renderToStaticMarkup(createElement(ReportView, { report })),
 ];
 
 describe("legacy equity-bridge method note", () => {

@@ -102,12 +102,11 @@ no longer read: if one is still set, Metis refuses to start and names its `METIS
 | `METIS_DB_PATH` | unset (opt in) | Override the SQLite file (fresh default `<data dir>/metis.db`, with existing `thesis.db` or recovery files reused). |
 | `METIS_DATA_DIR` | unset (opt in) | Override the app-data directory used by the default DB and startup token. |
 | `METIS_IMPORT_LEGACY_DB` | `1` (opt in) | One-time migration only. |
-| `METIS_UI_REDESIGN` | `1` | Page layout: 1 or blank is the dossier (default, D-245), 0 the classic layout. |
 | `NEXT_TELEMETRY_DISABLED` | `1` | The Next.js CLI behind `npm run dev` / `npm run build` posts anonymous usage events to telemetry.nextjs.org unless this is set. |
 
 <!-- END GENERATED: config -->
 
-Claude model/effort settings beat environment/defaults; reset with `npm run settings:reset -- --yes`. [Operations](docs/OPERATIONS.md) covers AI selection, jobs, exports and API contracts.
+Claude model/effort settings beat environment/defaults; reset with `npm run settings:reset -- --yes`. `METIS_UI_REDESIGN` is gone with the classic layout (D-246): the dossier is the only layout, and a leftover value is ignored. [Operations](docs/OPERATIONS.md) covers AI selection, jobs, exports and API contracts.
 
 ## Where the numbers come from
 

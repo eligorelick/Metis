@@ -169,10 +169,8 @@ describe("degraded inputs end to end: Stage B, both layouts, the exports and the
     expect(fairValueDegradedText(report.fairValue)).toBe(text);
     const key = keyDataRows(report).find((row) => row.label.startsWith("Model fair value"));
     expect(key?.note).toContain("Degraded inputs: the risk-free rate is FMP treasury rates 10-year");
-    for (const layout of ["classic", "dossier"] as const) {
-      const html = renderToStaticMarkup(createElement(ReportView, { report, layout }));
-      expect(html).toContain("Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2026-07-04)");
-    }
+    const html = renderToStaticMarkup(createElement(ReportView, { report }));
+    expect(html).toContain("Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2026-07-04)");
     expect(reportToMarkdown(report)).toContain("**Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2026-07-04), not FRED DGS10;");
     expect(reportToPrintBody(report)).toContain('<p class="disclaimer">Degraded inputs: the risk-free rate is FMP treasury rates 10-year (observation 2026-07-04), not FRED DGS10;');
     expect(report.verdict.synthesis).toContain("Degraded inputs:");

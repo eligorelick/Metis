@@ -147,7 +147,7 @@ it("RPT-503: failed judge attempts retain completion disclosure and reader names
  const r=planReport(); const judge=r.meta.execution![2]!;
  r.meta.execution![2]={...judge,step:"synthesize attempt 2",note:failedPassNote("synthesize attempt 2")};
  expect(runSummary(r)).not.toContain("synthesize");
- for (const layout of ["classic","dossier"] as const) expect(renderToStaticMarkup(createElement(ReportView,{report:r,layout}))).not.toContain("synthesize attempt 2:");
+ expect(renderToStaticMarkup(createElement(ReportView,{report:r}))).not.toContain("synthesize attempt 2:");
  expect(passLine(r.meta.execution![2]!)).toContain("judge attempt 2");
  expect(passLine(r.meta.execution![2]!)).toContain("failed: no usable analysis was completed");
 });

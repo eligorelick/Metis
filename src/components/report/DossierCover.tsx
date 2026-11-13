@@ -47,7 +47,7 @@ export function DossierCover({ report, completeness }: { report: Report; complet
       <div className="dossier-analyst-assessments"><h3>{completeness.dataOnly ? "Deterministic section summaries" : "Analyst section assessments"}</h3><p>{completeness.dataOnly ? "No analyst assessment was completed. Any available bands below describe deterministic results." : "Recorded section judgments are distinct from deterministic scores and may differ."}</p><GradeStripBar gradeStrip={report.verdict.gradeStrip} scores={report.scores} /></div>
     </details>
     <details id="report-score-detail" className="dossier-detail"><summary>Deterministic scorecard, methodology &amp; factor attribution</summary>
-      {report.scores ? <><CompositeScorecard scores={report.scores} mode="cover" /><FactorAttribution scores={report.scores} /></> : <p>No deterministic scorecard was recorded in this snapshot.</p>}
+      {report.scores ? <><CompositeScorecard scores={report.scores} /><FactorAttribution scores={report.scores} /></> : <p>No deterministic scorecard was recorded in this snapshot.</p>}
     </details>
     <details id="report-debate-detail" className="dossier-detail dossier-debate"><summary>Thesis review checkpoints &amp; bull/bear debate</summary><ThesisCheckpoints triggers={report.thesisTriggers} />{report.disagreements.length > 0 && <DisagreementsBlock disagreements={report.disagreements} />}</details>
   </section>;

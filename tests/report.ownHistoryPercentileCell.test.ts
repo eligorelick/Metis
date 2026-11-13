@@ -15,12 +15,12 @@ import { loadTask28Fixture } from "./helpers/task28Report";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 describe("own-history percentile cell", () => {
-  it.each(["dossier", "classic"] as const)("prints the whole label outside the bar's caption slot (%s)", (layout) => {
+  it("prints the whole label outside the bar's caption slot (dossier)", () => {
     const report = loadTask28Fixture();
     const rows = report.valuation.multiples.filter((m) => m.own5yPercentile !== null);
     expect(rows.length).toBeGreaterThan(0);
     const window = new Window();
-    window.document.body.innerHTML = renderToStaticMarkup(createElement(ReportView, { report, layout }));
+    window.document.body.innerHTML = renderToStaticMarkup(createElement(ReportView, { report }));
     const labels = [...window.document.querySelectorAll("span")].filter((span) => /^empirical percentile /.test(span.textContent ?? ""));
     expect(labels.map((span) => span.textContent)).toEqual(expect.arrayContaining(
       rows.map((m) => ownHistoryRankLabel(m.own5yPercentile, m.ownHistoryObservations))));

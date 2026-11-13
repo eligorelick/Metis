@@ -5,6 +5,7 @@
  * the peer methodology, the executive cards, the limited-evidence grade, the
  * EPS bridge that did not foot, the warning count, and the "shaded band".
  */
+import { Window } from "happy-dom";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -48,6 +49,32 @@ const visibleText = (html: string): string => {
     out = out.replace(/<\/summary>((?:(?!<details)[\s\S])*?)<\/details>/g, "</summary></details>");
   } while (out !== prev);
   return out.replace(/<[^>]+>/g, " ").replace(/&[a-z#0-9]+;/g, " ");
+};
+
+/**
+ * The app's visible text. D-246: the dossier groups reader sections (the
+ * executive evidence, scorecard and bull/bear debate, which classic showed
+ * inline) in native details.dossier-detail elements; those are reader content,
+ * not drill-downs, so they are opened first. Every other details element is
+ * still a collapsed drill-down and is dropped as before.
+ */
+const appVisibleText = (html: string): string => {
+  const window = new Window();
+  window.document.body.innerHTML = html;
+  for (const details of Array.from(window.document.querySelectorAll("details.dossier-detail")).reverse()) {
+    const section = window.document.createElement("section");
+    for (const child of Array.from(details.childNodes)) {
+      if (child.nodeType === 1 && (child as unknown as Element).tagName === "SUMMARY") {
+        const heading = window.document.createElement("div");
+        heading.innerHTML = (child as unknown as Element).innerHTML;
+        section.appendChild(heading);
+      } else section.appendChild(child);
+    }
+    details.replaceWith(section);
+  }
+  const opened = window.document.body.innerHTML;
+  void window.happyDOM.close();
+  return visibleText(opened);
 };
 
 describe("figures in stored prose at reader precision", () => {
@@ -120,7 +147,7 @@ describe("no registry id reaches the body", () => {
     for (const [surface, text] of [
       ["markdown", reportToMarkdown(parsed)],
       ["print", visibleText(reportToPrintBody(parsed))],
-      ["live", visibleText(renderToStaticMarkup(createElement(ReportView, { report: parsed })))],
+      ["live", appVisibleText(renderToStaticMarkup(createElement(ReportView, { report: parsed })))],
     ] as const) {
       expect(text.match(RAW_ID)?.[0], surface).toBeUndefined();
       expect(text, surface).toContain("Reverse-DCF implied revenue growth · 2026-10-16");

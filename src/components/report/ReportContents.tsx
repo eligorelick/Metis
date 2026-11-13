@@ -3,23 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { REPORT_SECTION_MANIFEST } from "@/report/sectionManifest";
 
-/** Classic's wrapping assessment grid needs its measured height for jumps. */
-export function ClassicReportScrollOffset() {
-  const marker = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    const report = marker.current?.closest<HTMLElement>(".thesis-report");
-    const strip = report?.querySelector<HTMLElement>(".report-grade-strip");
-    if (!report || !strip) return;
-    const update = () => report.style.setProperty("--classic-report-scroll-offset",`${Math.ceil(strip.getBoundingClientRect().height) + 16}px`);
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
-    observer?.observe(strip);
-    window.addEventListener("resize",update);
-    update();
-    return () => { observer?.disconnect(); window.removeEventListener("resize",update); report.style.removeProperty("--classic-report-scroll-offset"); };
-  },[]);
-  return <span ref={marker} hidden />;
-}
-
 /** Native links/disclosure work before hydration; one observer adds reading position. */
 export function ReportContents({ reportIdentity, hasProjections }: { reportIdentity: string; hasProjections: boolean }) {
   const root = useRef<HTMLElement>(null);

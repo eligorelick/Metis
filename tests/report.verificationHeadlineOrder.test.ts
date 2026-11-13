@@ -62,8 +62,8 @@ describe("verification headline order (audit 2026-10-22 B-10)", () => {
     expect(text).not.toMatch(/figures traced to a cited source; 150\/150 factual claims cited; 40/);
   });
 
-  it.each(["classic", "dossier"] as const)("shows both lines, validation first, in the %s layout", (layout) => {
-    const html = renderToStaticMarkup(createElement(ReportView, { report: metaReport(), layout }));
+  it("shows both lines, validation first, in the dossier layout", () => {
+    const html = renderToStaticMarkup(createElement(ReportView, { report: metaReport() }));
     const verification = html.indexOf(`Verification · ${VALIDATION}`);
     expect(verification).toBeGreaterThan(-1);
     expect(html.indexOf(`Provenance · ${PROVENANCE}`)).toBeGreaterThan(verification);

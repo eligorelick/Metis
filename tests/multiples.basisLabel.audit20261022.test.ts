@@ -40,7 +40,7 @@ function report(bundle: DataBundle) {
 
 function surfaces(r: ReturnType<typeof report>["report"]): string[] {
   return [reportToMarkdown(r), reportToPrintBody(r),
-    renderToStaticMarkup(createElement(ReportView, { report: r })), renderToStaticMarkup(createElement(ReportView, { report: r, layout: "dossier" }))];
+    renderToStaticMarkup(createElement(ReportView, { report: r })), renderToStaticMarkup(createElement(ReportView, { report: r }))];
 }
 
 function multiple(computed: ReturnType<typeof runStageB>, key: string) {

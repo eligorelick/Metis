@@ -26,7 +26,7 @@ describe("appearance surfaces", () => {
   });
 
   it("wires search to cached coverage labels only and exposes failed reads truthfully", async () => {
-    vi.stubEnv("METIS_UI_REDESIGN","1"); resetConfigCache();
+    resetConfigCache();
     function Targets() { const { coverage, coverageAvailable } = useUiDesign(); return createElement("output", null, JSON.stringify({ coverage,coverageAvailable })); }
     try {
       vi.mocked(getWatchlistView).mockResolvedValueOnce([{symbol:"DEMO",companyName:"Stored company label",price:987654321,runs:[],gaps:[]}]);
@@ -61,31 +61,32 @@ describe("appearance surfaces", () => {
   });
 
   it.each(["comfortable", "compact"] as const)("aligns %s SSR spacing and client initialization without changing research", async density => {
-    vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache();
+    resetConfigCache();
     vi.mocked(cookies).mockResolvedValue({ get: (name: string) => name === UI_DENSITY_COOKIE ? { value: density } : undefined } as unknown as Awaited<ReturnType<typeof cookies>>);
     try {
       const report = task28SentinelReport(); const before = JSON.stringify(report);
-      const html = renderToStaticMarkup(await RootLayout({ children: createElement(ReportView, { report, layout: "dossier" }) }));
+      const html = renderToStaticMarkup(await RootLayout({ children: createElement(ReportView, { report }) }));
       expect(html).toContain(`data-ui-density="${density}"`); expect(JSON.stringify(report)).toBe(before);
-      const comparison = renderToStaticMarkup(createElement(UiDesignProvider, { initialDesign: "current", layout: "dossier", initialDensity: density === "compact" ? "comfortable" : "compact" }, createElement(ReportView, { report, layout: "dossier" })));
+      const comparison = renderToStaticMarkup(createElement(UiDesignProvider, { initialDesign: "current", initialDensity: density === "compact" ? "comfortable" : "compact" }, createElement(ReportView, { report })));
       expect(readableHtml(html).text).toContain(readableHtml(comparison).text);
     } finally { vi.unstubAllEnvs(); resetConfigCache(); }
   });
 
-  it("preserves Current report markup without a rail, and adds recorded evidence only in workspace", () => {
+  it("shows recorded evidence and gaps in the evidence rail under either appearance (D-246: the rail no longer depends on it)", () => {
     const report = task28SentinelReport();
     report.meta.asOfMap = { "quote-observed": "2025-12-31" };
     report.appendix.missingData = [{ field: "fixture.reserved(DEMO)", severity: "info", reason: "Synthetic omission", expected: true }];
     const current = renderToStaticMarkup(createElement(ReportView, { report }));
     const workspace = renderToStaticMarkup(createElement(UiDesignProvider, { initialDesign: "workspace" }, createElement(ReportView, { report })));
-    expect(current).not.toContain('aria-label="Report evidence and gaps"');
-    expect(workspace).toContain('aria-label="Report evidence and gaps"');
-    expect(workspace).toContain("Recorded gaps (1)");
-    expect(workspace).toContain("expected omission");
-    expect(workspace).toContain("quote-observed");
-    expect(workspace).toContain("2025-12-31");
-    expect(workspace).toMatch(/traceability, not correctness/);
-    expect(workspace).toContain('href="#report-appendix"');
+    for (const html of [current, workspace]) {
+      expect(html).toContain('aria-label="Report evidence and gaps"');
+      expect(html).toContain("Recorded gaps (1)");
+      expect(html).toContain("expected omission");
+      expect(html).toContain("quote-observed");
+      expect(html).toContain("2025-12-31");
+      expect(html).toMatch(/traceability, not correctness/);
+      expect(html).toContain('href="#report-appendix"');
+    }
   });
 
   it("changes canvas colors without changing financial points or the Current default", () => {

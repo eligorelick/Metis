@@ -2387,9 +2387,10 @@ export function macroDisplayRows(macro: Report["macro"]): MacroDisplayRow[] {
  *
  * Which fair value the valuation section shows and under what label, the
  * comparison with the price (sign and rounding), the withheld and no-model
- * text, the caveats beside the value, and the scenario rows. The classic and
- * dossier app sections, the dossier bridge, the key-data box, Markdown and
- * print read these; each renderer only escapes and lays out the text.
+ * text, the caveats beside the value, and the scenario rows. The app's
+ * valuation section (the dossier layout, the only app layout since D-246), its
+ * bridge, the key-data box, Markdown and print read these; each renderer only
+ * escapes and lays out the text.
  *
  * Every function takes the surface. Where surfaces decide differently today,
  * the difference is a named EXCEPTION here and is kept, so no reader-visible
@@ -2399,7 +2400,7 @@ export function macroDisplayRows(macro: Report["macro"]): MacroDisplayRow[] {
  * ======================================================================== */
 
 /** The reader surfaces that show the valuation section. */
-export type ValuationSurface = "markdown" | "print" | "classic" | "dossier";
+export type ValuationSurface = "markdown" | "print" | "dossier";
 
 /** Where the valuation-to-price comparison is shown: a valuation surface or the key-data box. */
 export type ValuationComparisonSurface = ValuationSurface | "key-data";
@@ -2451,7 +2452,6 @@ function valuationHeadlineLabel(fairValue: FairValue | undefined, surface: Valua
   const excessReturn = fairValue?.method === "excess-return";
   // The exports print a sentence label; the app prints a compact caption.
   if (exportSurface(surface)) return excessReturn ? "Model value per share" : "Intrinsic value per share";
-  if (surface === "classic") return excessReturn ? "Excess-return · model value / share" : "DCF · intrinsic value / share";
   // EXCEPTION dossier-label: the dossier names the FCFF method and calls any other method a recorded model value.
   return excessReturn ? "Excess-return · model value / share"
     : fairValue?.method === "fcff-dcf" ? "FCFF DCF · model value / share" : "Recorded model value / share";
@@ -2490,7 +2490,7 @@ export function valuationHeadlineView(
     perShare,
     // The exports print the trace in its own unit; the app prints it through the figure primitive.
     valueText: perShare === null ? null : exportSurface(surface) ? formatFinancialValue(perShare.value, perShare.unit, perShare.currency) : figureValueText(perShare),
-    // EXCEPTION app-withheld-no-reason: both app layouts print the word alone, with no reason.
+    // EXCEPTION app-withheld-no-reason: the app prints the word alone, with no reason.
     withheldReason: exportSurface(surface) ? VALUATION_WITHHELD_REASON : null,
     comparison: valuationComparison(perShare, valuation.dcf.upsidePct, surface),
     degradedCaveat: degraded ? displayProse(degraded) : null,

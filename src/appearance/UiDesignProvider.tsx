@@ -7,7 +7,6 @@ import { parseUiDensity, persistUiDensity, type UiDensity } from "./density";
 export interface CoverageTarget { symbol: string; companyName?: string }
 
 interface UiDesignState {
-  layout: "classic" | "dossier";
   design: UiDesign;
   saved: boolean | null;
   chooseDesign(design: UiDesign): void;
@@ -21,12 +20,12 @@ interface UiDesignState {
 // Presentational components are also rendered independently in server tests.
 // Their absence of a provider must preserve the original Current surface.
 const UiDesignContext = createContext<UiDesignState>({
-  layout: "classic", design: "current", saved: null, chooseDesign: () => {},
+  design: "current", saved: null, chooseDesign: () => {},
   density: "comfortable", densitySaved: null, chooseDensity: () => {},
   coverage: [], coverageAvailable: true,
 });
 
-export function UiDesignProvider({ initialDesign, initialDensity = "comfortable", layout = "classic", coverage = [], coverageAvailable = true, children }: { initialDesign: UiDesign; initialDensity?: UiDensity; layout?: "classic" | "dossier"; coverage?: readonly CoverageTarget[]; coverageAvailable?: boolean; children?: ReactNode }) {
+export function UiDesignProvider({ initialDesign, initialDensity = "comfortable", coverage = [], coverageAvailable = true, children }: { initialDesign: UiDesign; initialDensity?: UiDensity; coverage?: readonly CoverageTarget[]; coverageAvailable?: boolean; children?: ReactNode }) {
   const [design, setDesign] = useState<UiDesign>(parseUiDesign(initialDesign));
   const [saved, setSaved] = useState<boolean | null>(null);
   const [density, setDensity] = useState<UiDensity>(parseUiDensity(initialDensity));
@@ -47,7 +46,7 @@ export function UiDesignProvider({ initialDesign, initialDensity = "comfortable"
     setDensity(next);
     setDensitySaved(persistUiDensity(next, document, window.location.protocol === "https:"));
   }, []);
-  return <UiDesignContext.Provider value={{ layout, design, saved, chooseDesign, density, densitySaved, chooseDensity, coverage, coverageAvailable }}>{children}</UiDesignContext.Provider>;
+  return <UiDesignContext.Provider value={{ design, saved, chooseDesign, density, densitySaved, chooseDensity, coverage, coverageAvailable }}>{children}</UiDesignContext.Provider>;
 }
 
 export function useUiDesign(): UiDesignState { return useContext(UiDesignContext); }

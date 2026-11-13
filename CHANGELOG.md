@@ -18,6 +18,16 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - The classic layout is removed (2026-11-12)
+
+- The dossier is the only layout (P22, D-246). The classic report, home and
+  revisions layouts, their components and styles, and the
+  `METIS_UI_REDESIGN` setting are removed; a leftover value is ignored and
+  the app starts normally. What classic showed stays guaranteed in the
+  dossier by facts frozen from both layouts before the removal. Exports,
+  saved reports and the dossier page are unchanged; the same-report check
+  writes seven files per case, without `web-classic.html`.
+
 ## Unreleased - The dossier is the default layout (2026-11-12)
 
 - With no `METIS_UI_REDESIGN` setting every page opens in the dossier layout

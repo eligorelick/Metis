@@ -107,9 +107,8 @@ function invoke(element: ReactElement<Props>): ReactElement<Props> {
 }
 
 /**
- * The saved page's link to the live ticker data. Classic passes it as a plain
- * link; the dossier (the default, D-245) renders it inside ResearchNavigation,
- * which is expanded here so both layouts are searched the same way.
+ * The saved page's link to the live ticker data. The page renders it inside
+ * ResearchNavigation, which is expanded here so the link itself is searched.
  */
 function liveLinkWithin(tree: ReactNode, href: string): ReactElement<Props> | undefined {
   const elements = elementsWithin(tree);
@@ -258,7 +257,7 @@ describe("persisted report presentation", () => {
     });
   });
 
-  it("P4-2 classic saved research discloses reusable analyst work", async () => {
+  it("P4-2 saved research discloses reusable analyst work", async () => {
     harness.resumableJob.mockReturnValue("finished-job");
     const html = renderToStaticMarkup(await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) }));
     expect(html).toContain("A previous run stopped with reusable analyst work. Resume it using the run controls above.");
@@ -279,7 +278,7 @@ describe("persisted report presentation", () => {
   });
 
   it("attaches the dossier saved page to its server-owned active run without invoking research", async () => {
-    vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache();
+    resetConfigCache();
     harness.activeJob.mockReturnValue({ jobId: "existing-job", status: "queued", updatedAt: "2026-10-24T00:00:00.000Z" });
     try {
       const tree = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
@@ -292,7 +291,7 @@ describe("persisted report presentation", () => {
   });
 
   it("binds local notes to the actual saved row across latest, historic and live report views", async () => {
-    vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache(); harness.activeJob.mockReturnValue(null);
+    resetConfigCache(); harness.activeJob.mockReturnValue(null);
     try {
       const latest = await CompanyPage({ params: Promise.resolve({ symbol: "DEMO" }) });
       const historic = await SavedReportPage({ params: Promise.resolve({ symbol: "DEMO", reportId: "42" }) });
@@ -332,7 +331,7 @@ describe("persisted report presentation", () => {
     ["LIVEPROFILE", "unresolved-profile"],
     ["LIVEETF", "unsupported"],
   ] as const)("keeps direct saved research and revisions recovery after %s Live failure", async (symbol, failure) => {
-    vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache();
+    resetConfigCache();
     const saved = { ...report, meta: { ...report.meta, symbol, companyName: "Saved research issuer" } };
     const before = JSON.stringify(saved);
     harness.getLatestDoneReport.mockReturnValue({ reportId: 42, createdAt: "2026-07-01T12:00:00.000Z", report: saved });
@@ -402,7 +401,7 @@ describe("persisted report presentation", () => {
 
     const reportNode = invoke(companyPersisted);
     expect(reportNode.type).toBe(ReportView);
-    expect(reportNode.props).toEqual({report,layout:"dossier",selectedReportId:42}); // The default layout (D-245).
+    expect(reportNode.props).toEqual({report,selectedReportId:42});
     expect(elementsWithin(reportNode).some((element) => element.type === TechnicalsChartPanel)).toBe(false);
     expect(elementsWithin(reportNode).some((element) => element.type === FundamentalsChartGrid)).toBe(false);
   });

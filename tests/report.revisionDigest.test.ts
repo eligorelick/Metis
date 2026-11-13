@@ -23,7 +23,7 @@ function digest(mutate: (report: ReturnType<typeof loadTask28Fixture>) => void =
   expect(JSON.stringify([older, newer])).toBe(before); return html;
 }
 let handle: DatabaseHandle;
-beforeEach(() => { handle = createDatabase(":memory:"); setDbForTests(handle.db); vi.stubEnv("METIS_UI_REDESIGN", "1"); resetConfigCache(); });
+beforeEach(() => { handle = createDatabase(":memory:"); setDbForTests(handle.db); resetConfigCache(); });
 afterEach(() => { setDbForTests(null); handle.sqlite.close(); vi.unstubAllEnvs(); resetConfigCache(); });
 function seed(symbol: string, id: number) {
   const report = loadTask28Fixture(); report.meta.symbol = symbol;
