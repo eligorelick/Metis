@@ -18,6 +18,14 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - DEMO fixture history ledger retired (2026-11-12)
+
+- `npm run audit:deltas`, the July 2026 audited baseline and its
+  intended-delta ledger are removed. The DEMO fixture projection is pinned by
+  its frozen record; record an intended change with `npm run freeze:refresh --
+  --target audit-fixture` (docs/OPERATIONS.md). No report output changes
+  ([D-232](docs/audit/DECISIONS.md), P27).
+
 ## Unreleased - Lint workaround packages removed (2026-11-12)
 
 - ESLint and Next's ESLint plugin use upstream minimatch 3.1.5 and fast-glob

@@ -11,6 +11,49 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-232 - The DEMO fixture's frozen record replaces the audited baseline and its delta ledger (2026-11-12)
+
+Principle P27. Revises D-23.
+
+**Problem.** The provider-free DEMO fixture comparison replayed the July 2026
+audited projection (commit 524d09e) plus a ledger of 1,285 intended leaf
+changes in 55 groups to reach today's projection, maintained by
+`npm run audit:deltas`. Since #144 the same projection is also pinned leaf by
+leaf in `tests/fixtures/frozen/audit-fixture-current.json`, and a test proved
+that baseline plus ledger equals that record. Keeping both meant every
+intended change was recorded twice.
+
+**Options.** (a) Keep both. (b) Keep the ledger and drop the frozen record.
+(c) Keep the frozen record and retire the baseline, the ledger and its tools,
+after one last proof on the starting commit that the two agree.
+
+**Choice: (c).** Removed: `tests/fixtures/audit-baseline-stageb-report.json`,
+`tests/fixtures/audit-intended-deltas.json`, `scripts/audit-deltas.mjs` and its
+`audit:deltas` script, the ledger half of the delta contract helper and its
+tests, and the temporary equivalence test. The generic leaf-path half
+(`diffPaths`, `comparePaths`, `canonicalJson`), which `npm run golden:diff`
+and the frozen record still use, moved to `tests/helpers/jsonLeafPaths.ts`.
+Checks the frozen record cannot hold stay as direct checks on today's tree:
+the package-lock pin (with its metadata and Task 12 restore), the generator
+file's sha256, and the generator's JSON-safety guard. An intended change to
+the projection is now recorded only with `npm run freeze:refresh -- --target
+audit-fixture`, which needs a decision id, a reason and the changed leaf
+paths, and appends to `tests/fixtures/frozen/refresh-log.json`. That log is
+the intentional-delta record named by rule 4 of the rulebook's "How to change
+a rule". P27's code owner for this procedure is now `scripts/freeze-refresh.mjs`
+(with `scripts/freeze-stageb-replay.mjs` unchanged).
+
+**Why.** A current-value record with a scoped, decision-linked refresh keeps
+the review guarantees the ledger gave (named decision, real reason, every
+moved leaf listed, nothing outside scope) without replaying months of history
+on every run. The history is not lost: it is reachable in git, and the last
+proof that baseline plus ledger equals the frozen record ran on c3deae0b.
+
+**Risk.** A refresh records today's values, not the path from July; a reviewer
+sees each change once, in its own refresh. Mitigated by the scope check, the
+append-only log bound to each committed record, and the decision entry each
+refresh must cite.
+
 ## D-230 - The two lint workaround packages are removed (2026-11-12)
 
 Principles P26 and P27. Revises D-32 and the D-138 Task 12 addition. Each
@@ -2938,6 +2981,7 @@ behavior; historical measured costs remain the observations recorded below.
 - **Why**: (a) throws away the evidence the comparison exists to provide, which is that this tree still computes what the audited commit computed apart from changes somebody wrote down. (c) is the failure mode the test was built to prevent. The remediation legitimately moves 709 leaves; without grouping and an identity view nobody would read them, and a contract nobody reads is a rubber stamp.
 - **Risk**: the list is long enough that a real regression could hide inside a group. Mitigated by the identity view, by the per-group reason, and by the fresh-context review of each workstream's diff.
 - **Also fixed**: dotted paths could not address an object key containing a dot (`asOfMap["edgar.cik"]`), reading as absent on both sides and slipping past the value checks. Keys now escape their dots and backslashes.
+- **Revised by D-232 (2026-11-12)**: the audited baseline, the intended-delta ledger and `npm run audit:deltas` are retired. Today's projection is pinned by `tests/fixtures/frozen/audit-fixture-current.json`, and an intended change is recorded with `npm run freeze:refresh` in `tests/fixtures/frozen/refresh-log.json`. The dotted-key escaping stays, in `tests/helpers/jsonLeafPaths.ts`.
 
 ## D-24 (audit 2026-09-06) Evidence-weighted graded signals and forensic disclosures
 
