@@ -11,6 +11,131 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-242 - The gap readers and provider checks read the missing-data entry's typed cause (2026-11-12)
+
+Principles P11 (a refusal is judged from its cause, never its wording), P10
+(an unknown cause stays unknown), P21 and P27. Round 2, step S4.5b. D-229
+wrote an optional typed `cause` beside the sentence of the missing-data
+entries that 12 run-time consumers (inventory groups G and P) tell apart by
+wording; nothing read it. This step moves those consumers to the code. The
+owner's ruling for the stage applies: nothing a reader sees changes; saved
+reports are never rewritten, migrated or rerun.
+
+Choice: dual reading, as D-219 to D-226 did for conflicts. Each consumer
+calls `gapCauseMatches(entry, reader)` (`src/edgar/refusalCauseRead.ts`): an
+entry that carries a code is decided by the code alone (an unknown or
+unrelated code fails); an entry without one (any entry stored before D-229, an
+entry restored from a run-input snapshot, or a writer that has no code) is
+read by the consumer's original wording test, moved verbatim into that file.
+No wording test remains at a consumer. Each consumer keeps its other
+conditions (field, severity, path) at its own site.
+
+Sites now reading the code (reader name in `refusalCauseRead.ts`):
+
+- G1, `compute.ts` FIN-OTHER retained-suppression rewrite
+  (`isUnprofitableOverlayGap`), and G2, the observed-trigger suffix
+  (`isUnprofitableOverlaySuppression`): `dcfUnprofitableOverlay`. G2 reads a
+  result, not an entry: the writer records the code on the result's own
+  `valuation.dcf` gap beside the sentence it gives `suppressionReason`, so G2
+  reads that gap's code, and `suppressionReason`'s wording only when the
+  result's `valuation.dcf` gap carries none. No field is added to the
+  valuation result.
+- G3, `dcfWithheldWarnGap`: `investedCapitalClaimWithheld`; G4, the upstream
+  net-debt quote (`quotesUpstreamNetDebt`, `stageB/fairValue.ts`):
+  `investedCapitalBalanceFieldsMissing`; G5, `temporaryEquityUnknownAt`
+  (`stageB/seniorClaims.ts`): `temporaryEquityEnrichmentRefused`.
+- P1, `isFmpQuotaGap` (replaces `isFmpQuotaReason`; the retry loop,
+  `rateLimitedValuationEntry` and the analyst-estimate refusal): `fmpQuota`.
+- P2, the no-new-bar check in `fmp.ts`: `fmpEmptyArrayAlone`.
+- P3, `markSegmentationGapExpected`: `fmpEmptyArrayStated`; P4,
+  `withResolvedPredecessor`: `secUnlinkedPredecessor`.
+- P5: the job runner's and the company page's confirmed-miss checks were two
+  copies of one test; they are now one function, `isConfirmedUnknownProfile`
+  (`src/pipeline/unknownTicker.ts`), reading `fmpEmptyArrayAlone`,
+  `fmpNoApiKey` and `secTickerNotListed`.
+- P7a, `symbolRefused` (`peers.ts`): `fmpSymbolRestricted`.
+
+Not moved, and why: P6 (`jobRunner.ts`, the AI-skip disclosure compared
+with `NO_KEY_SKIP_REASON`) is an in-memory disclosure, not a missing-data
+entry, and has no code. P7b (`peers.ts`, `PEER_PROVIDER_TERMINAL` over a
+peer fetch's failure) matches text the vendor and transport write; no single
+writer composes it, so there is nothing to code.
+
+D-229's known disagreement. When the keyless fallback fails after FMP
+returned an empty profile, `failKeyless` (`pipeline/keyless.ts`) appends the
+fallback's failure to FMP's sentence. The entry kept `fmp-empty-array`, but
+P5's exact comparison never matched the longer sentence (so such a ticker is
+not called unknown although EDGAR confirmed the issuer). Two choices were
+weighed: drop the code on the combined sentence (true, but loses what is
+known), or a distinct code. Chosen: a distinct code,
+`fmp-empty-array-fallback-failed`, written by `failKeyless` when it appends
+to an `fmp-empty-array` entry. It keeps stored data honest: the entry still
+says FMP returned an empty array (P3's containment reader reads both codes,
+as `includes` matched both sentences), and it names the one fact the exact
+readers (P2, P5) tell apart: the issuer was looked for elsewhere and that
+search failed, which is not an affirmative "no such ticker". Every other code
+keeps naming its cause on an extended sentence (the extended sentence still
+states it, and each of their readers' wording tests still matched it).
+
+Equality proof (tests/gapCause.readers.test.ts, table in
+tests/helpers/gapCauseAgreement.ts). Each site lists the wording test it had
+on main, copied verbatim (`wording`), and the consumer's decision now
+(`current`, the consumer's own function where it is exported); the test
+compares them on every entry with its code and on the same entry without it:
+every entry the producers write (each site with a passing coded and uncoded
+case, plus controls), 24 hand-written legacy rows (each wording's edges), the
+DEMO audit fixture rebuilt from current code, G2 over three Stage B runs with
+and without codes, and P5 over every pair of 18 profile and 8 CIK entries.
+No mismatch. Over the 17 same-report cases built from this tree (5,518
+entries in Stage B outputs and reports; 3 carry a code, the rest are restored
+from snapshots taken before D-229), the same comparison finds no mismatch and
+no coded entry its wording contradicts.
+
+Stored data and boundaries. The only new stored value is the new member of
+`GAP_CAUSES`; it is removed wherever every gap code is removed (Stage C
+payload, run-input snapshots, request schemas, dossier identity, report
+summary API). Run-input snapshots keep removing all gap codes although they
+are now read: keeping them would change a snapshot's bytes, and with them the
+`runSnapshot.hash` a new report records, for the same inputs. A run replayed
+from a snapshot reads its entries by their sentences, which the test above
+shows decide as the codes do. The judge, analyst and full-report request
+schemas keep their SHA-256 (f66130f4..., 27e0dcd9..., 1e1e8574..., the same
+as on main at be7c11d6).
+
+Same-report check (17 cases, 136 files, this tree against main at be7c11d6,
+and again after merging main at 83582c62): no differences. Frozen records:
+the Stage C payload record and the DEMO audit-fixture record are unchanged
+(no refresh). No version stamp moves.
+
+Ratchet (tests/refusalWording.ratchet.test.ts): `compute.ts`,
+`stageB/fairValue.ts`, `stageB/seniorClaims.ts`, `providers/fmp.ts`,
+`pipeline/dataBundle.ts` and the company page leave the list; `jobRunner.ts`
+goes from 4 to 1 (P6) and `peers.ts` from 2 to 1 (P7b);
+`refusalCauseRead.ts` goes from 12 to 25 (the 13 moved wording lines).
+
+Step c (planned as D-243, a stored link from a copied refusal to its source
+for C6, C8, C10, C15, C16, C17 and G6) was not done. The requirement was
+that every clear/keep decision stay as the sentence comparison decides it,
+including when the source is reworded after the copy. A typed link (field,
+period, and the source's code) cannot guarantee that. The vendor/SEC
+comparison (`admitCashFields`, `financialEnrichment.ts`), which writes the
+stock-compensation, cash and repurchase refusals C16 and C17 read, leaves an
+already refused field's conflict as it was but still pushes a missing-data
+entry with its new sentence for the same field and period. Today that newer
+entry survives when the older refusal is superseded, because its sentence
+differs; a link naming the
+field, period and code would remove it, clearing a disclosed refusal without
+new evidence for it (P11). Any stored token goes stale the same way when a
+writer rebuilds a refusal from a spread of the old one with a new sentence,
+and there is no single place every such rewrite passes through. Making it
+safe needs either a refusal identity minted by the writer and an audited
+rule for every rewrite of these fields' conflicts and entries, or an owner
+decision that a copy clears with its source whatever its wording (which
+changes decisions). G6 (`forensics.ts`) is not a copy at all: it removes a
+duplicate that two in-memory Altman computations write with the same field
+and sentence. Step d (planned as D-244, saved-report readers R1-R16) was not
+started, as the plan stops at the first step that cannot be done safely.
+
 ## D-240 - The trailing net income behind FCF conversion is read from the filings when they state one profit line (2026-11-12)
 
 Principles P5 (entity scope), P1 (exact period; an additive flow derived from

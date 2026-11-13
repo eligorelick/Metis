@@ -10,6 +10,7 @@
  */
 import { IDENTITY_TOLERANCE_PCT } from "@/pipeline/stageA/validate";
 import { millions } from "@/pipeline/stageB/netDebt";
+import { gapCauseMatches } from "@/edgar/refusalCauseRead";
 
 const FIELDS = ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"] as const;
 type TemporaryEquityField = (typeof FIELDS)[number];
@@ -145,16 +146,16 @@ export function temporaryEquityOperands(row: object): TemporaryEquityRow {
 
 /** The filed-or-refused SEC-enrichment gap a bridge date's temporary equity hit, or null (see `ValuationBundleInputs.temporaryEquityUnknown`). */
 const ENRICHMENT_WITHHELD = "temporary-equity SEC enrichment withheld: ";
-const SEC_SILENT = "temporary carrying amounts are absent or explicitly refused for this SEC period";
 export function temporaryEquityUnknownAt(
   row: object | null,
   date: string | null,
-  gaps: readonly { field: string; reason: string; severity: string }[],
+  gaps: readonly { field: string; reason: string; severity: string; cause?: unknown }[],
 ): { date: string; reason: string } | null {
   if (row === null || date === null) return null;
   if (Object.keys(temporaryEquityOperands(row)).length > 0) return null;
   const paths = new Set([`statements.balance.${date}.temporaryEquity`, ...FIELDS.map((field) => `statements.balance.${date}.${field}`)]);
   // The SEC-silent refusal says the SEC period itself holds no temporary equity: it is not a claim that may be missing.
-  const hit = gaps.find((gap) => gap.severity === "warn" && paths.has(gap.field) && gap.reason.startsWith(ENRICHMENT_WITHHELD) && !gap.reason.endsWith(SEC_SILENT));
+  // P11 (D-242): by the typed cause; an entry without one by its sentence (`@/edgar/refusalCauseRead`).
+  const hit = gaps.find((gap) => gap.severity === "warn" && paths.has(gap.field) && gapCauseMatches(gap, "temporaryEquityEnrichmentRefused"));
   return hit === undefined ? null : { date, reason: hit.reason.slice(ENRICHMENT_WITHHELD.length) };
 }
