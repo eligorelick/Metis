@@ -35,6 +35,23 @@ original versions and bytes; source merge does not deploy or publish a release.
   Energy, which has noncontrolling interests, stays withheld. Version stamps
   are left for the Stage 5 integration; saved reports are unchanged.
 
+## Unreleased - Effective tax rates divide by the pre-tax income the provision relates to (2026-11-12)
+
+- A filer whose pre-tax line excludes equity-method results presents those
+  results after its provision, net of tax. The provider's pre-tax income for
+  such a filer can include that after-tax result, so a tax rate over it mixed
+  two bases. When the complete filed family reconciles, the earnings admission
+  now records the filed line beside the row's pre-tax income, and every
+  effective tax rate (the DCF's year-one and historical rates, ROIC's tax
+  rate, the WACC's statement rate) divides by it; where the filings move the
+  trailing pair's denominator, the provider's ratio no longer supplies the
+  WACC tax rate (P13, P8, P20, [D-237](docs/audit/DECISIONS.md)). In the
+  same-report check this moves Amazon only: DCF year-one tax rate 22.6467% to
+  22.5770% (39,615M over the filed 175,466M), fair value 124.14 to 124.18 a
+  share, fiscal 2025 ROIC 20.63% to 20.66%. Qualcomm's 1M difference from the
+  baseline is its own rounding between quarterly and year-to-date columns and
+  does not move. Version stamps are left for the Stage 5 integration.
+
 ## Unreleased - A provider zero for capital spending is not a figure (2026-11-12)
 
 - A cash capital-spending figure of exactly 0 on a vendor cash-flow row now
