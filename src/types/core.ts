@@ -2,6 +2,7 @@
  * Core shared contracts for Metis. Every module builds against these types —
  * change them only with a corresponding the design rationale entry.
  */
+import type { GapCause } from "@/types/refusalCause";
 
 /** Every externally sourced datum carries its provenance and as-of date. */
 export interface Sourced<T> {
@@ -38,6 +39,12 @@ export interface ManifestEntry {
   /** Dot-path of the report field or dataset, e.g. "leadership.cet1Ratio" */
   field: string;
   reason: string;
+  /**
+   * P10, P11 (D-229): the typed cause, listed once in `@/types/refusalCause` (`GAP_CAUSES`),
+   * written beside the unchanged `reason` by the writer that composes it. Absent means
+   * unresolved (an older row, or a writer without one), never a default.
+   */
+  cause?: GapCause;
   severity: "info" | "warn" | "critical";
   /** Where we looked */
   attemptedSources?: string[];

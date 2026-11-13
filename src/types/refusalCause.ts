@@ -76,3 +76,50 @@ export type StatementConflictCause = (typeof STATEMENT_CONFLICT_CAUSES)[number];
 export const DUAL_WRITTEN_CONFLICT_CAUSES: ReadonlySet<StatementConflictCause> = new Set<StatementConflictCause>(
   STATEMENT_CONFLICT_CAUSES.slice(STATEMENT_CONFLICT_CAUSES.indexOf("vendor-sec-value-conflict")),
 );
+
+/**
+ * P10, P11 (D-229): the typed causes a missing-data entry (`ManifestEntry.cause`)
+ * may carry. Same owner and same rules as the conflict list above: a code names
+ * what its writer established, is written by the writer that composes the
+ * sentence, and is never derived by parsing a sentence or written onto an entry
+ * that has none. A code in this list and one in the conflict list never share a
+ * name, so a code read off either kind of row means one thing.
+ *
+ * Each member names a cause that a run-time reader already tells apart by the
+ * entry's wording (the inventory's G and P sites); no member is a new
+ * distinction. Step S4.5a dual-writes them beside the unchanged sentences and no
+ * reader decides by them yet. An entry without a code (any saved report, run
+ * input snapshot or frozen record made before D-229, or a writer that has none)
+ * is unresolved: it is read by its sentence as before and is never taken to be
+ * any member of this list. A writer that rewrites an entry's sentence keeps a
+ * code only when the new sentence still states that same cause
+ * (`withoutGapCause` in `@/pipeline/stageA/manifest` drops it otherwise).
+ */
+export const GAP_CAUSES = [
+  /** G1, G2: "DCF suppressed for unprofitable overlay ..." on `valuation.dcf` (`valueCompany`). */
+  "dcf-unprofitable-overlay",
+  /** G4: "balance-sheet fields missing for invested capital: ..." on `valuation.dcf.salesToCapital`. */
+  "invested-capital-balance-fields-missing",
+  /** G3: `TEMPORARY_EQUITY_REFUSAL_LEAD` on `valuation.dcf.salesToCapital`: a refused temporary-equity operand withholds the DCF. */
+  "invested-capital-temporary-equity-refused",
+  /** G3: `LEASE_EMPTIED_CAPITAL_LEAD` on `valuation.dcf.salesToCapital`: the operating-lease removal empties invested capital. */
+  "invested-capital-lease-emptied",
+  /** G5: "temporary-equity SEC enrichment withheld: <reason>" for the whole balance date (`supplementTemporaryEquity` `refuse`). */
+  "temporary-equity-enrichment-withheld",
+  /** G5 (and the R4 sentence): "temporary-equity SEC enrichment withheld: vendor A/L/permanent-equity operands are missing, ..." for one category. */
+  "temporary-equity-operands-unmatched",
+  /** P1: the gap an `FmpQuotaError` leaves ("FMP quota/rate limit (HTTP n): ..."), with any retry note appended. */
+  "fmp-quota",
+  /** P2, P3, P5: `FMP_EMPTY_ARRAY_REASON`, a 200 response with an empty array. */
+  "fmp-empty-array",
+  /** P5: "no API key + no fixture" from the FMP client. */
+  "fmp-no-api-key",
+  /** P7a: an `FmpAccessError` of symbol scope ("this symbol is unavailable on this endpoint with this key"). */
+  "fmp-symbol-restricted",
+  /** P5: `ticker "<symbol>" not in SEC company_tickers.json` from the EDGAR ticker lookup. */
+  "sec-ticker-not-listed",
+  /** P4: the no-annual-report gap of a successor registrant whose predecessor EDGAR does not link (`UNLINKED_PREDECESSOR`). */
+  "sec-unlinked-predecessor",
+] as const;
+
+export type GapCause = (typeof GAP_CAUSES)[number];

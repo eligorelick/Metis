@@ -406,6 +406,24 @@ describe("GET /api/report/view/[reportId]", () => {
     expect(handle.db.select({ reportJson: reports.reportJson }).from(reports).where(eq(reports.id, id)).get()?.reportJson).toBe(storedBytes);
   });
 
+  it("leaves the missing-data entries' typed causes out of the summary and keeps them in the stored report (D-229)", async () => {
+    const report = task28SentinelReport();
+    report.appendix.missingData = [
+      { field: "fmp.profile(QCOM)", reason: "no API key + no fixture", severity: "warn", cause: "fmp-no-api-key" },
+      { field: "validation.xbrlCrossCheck", reason: "XBRL skipped", severity: "info" },
+    ];
+    report.meta.dataCompleteness = buildDataCompleteness(report.appendix.missingData);
+    const storedBytes = JSON.stringify(report);
+    const id = seedReport(report);
+    const body = await (await viewGET(...viewReq(String(id)))).json() as ReportSummary;
+    expect(body.missingData).toEqual([
+      { field: "fmp.profile(QCOM)", reason: "no API key + no fixture", severity: "warn" },
+      { field: "validation.xbrlCrossCheck", reason: "XBRL skipped", severity: "info" },
+    ]);
+    expect(JSON.stringify(body)).not.toContain("fmp-no-api-key");
+    expect(handle.db.select({ reportJson: reports.reportJson }).from(reports).where(eq(reports.id, id)).get()?.reportJson).toBe(storedBytes);
+  });
+
   it("withholds current and legacy placeholder grades in compact summaries without rewriting the report", async () => {
     const report = task28SentinelReport();
     // Keep a valid same-band valuation control beside the withheld cases.
