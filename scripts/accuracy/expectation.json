@@ -1168,13 +1168,6 @@
     },
     {
       "case": "pgr-data-only",
-      "figure": "fv.suppressed",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
-    },
-    {
-      "case": "pgr-data-only",
       "figure": "fv.openingBookValue",
       "status": "match",
       "valueSha256": null,
@@ -1190,16 +1183,16 @@
     {
       "case": "pgr-data-only",
       "figure": "fv.dilutedShares",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "changeReason": "D-251 (#169): Progressive's fiscal 2024 and 2025 income available to common is read from the 10-K (preferred redeemed during 2024), so the excess-return fair value is no longer withheld. fv.dilutedShares gap -> match (582,200,000, 10-Q 0000080661-26-000379). fv.payoutRatio gap -> not-established only because this tool does not compose the three-year payout average; D-251 proves each operand against 10-K 0000080661-26-000086 (dividends and the filer's own buyback elements from the 10-K's XBRL instance). fv.suppressed is no longer produced because the fair value is shown."
     },
     {
       "case": "pgr-data-only",
       "figure": "fv.payoutRatio",
-      "status": "gap",
-      "valueSha256": "74234e98afe7498f",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "not-established",
+      "valueSha256": "9919ccc79820edb9",
+      "changeReason": "D-251 (#169): Progressive's fiscal 2024 and 2025 income available to common is read from the 10-K (preferred redeemed during 2024), so the excess-return fair value is no longer withheld. fv.dilutedShares gap -> match (582,200,000, 10-Q 0000080661-26-000379). fv.payoutRatio gap -> not-established only because this tool does not compose the three-year payout average; D-251 proves each operand against 10-K 0000080661-26-000086 (dividends and the filer's own buyback elements from the 10-K's XBRL instance). fv.suppressed is no longer produced because the fair value is shown."
     },
     {
       "case": "o-data-only",
