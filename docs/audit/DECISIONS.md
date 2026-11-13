@@ -1771,18 +1771,20 @@ capital-spending definition or the lender route to make FIGR's number appear
 
 ### Approved report changes
 
-Same-report check, this change against the commit it branched from (batch 4,
-9e25b820, with D-238 and D-247 to D-250): 24 files and 3 payload fingerprints
-differ, all eight outputs of `duk-data-only`, `o-data-only` and
+Same-report check, this change (with main merged) against current main
+355effa7 (#168, batch 4, with D-238 and D-247 to D-250; the same tree as the
+commit this change branched from, 9e25b820, which is the build compared): 24
+files and 3 payload fingerprints differ, all eight outputs of `duk-data-only`, `o-data-only` and
 `pgr-data-only`; the other 14 cases are byte for byte unchanged. The leaf-level
 list and the approvals with their hashes are in
 `tmp/accuracy/s5-fcf-gaps-before-after.md` (not committed: it quotes vendor
 data).
 
-Accuracy check (`accuracy:check`, the unmerged tool at 706cfd6a): the base
-gives 167 match, 7 mismatch, 67 gap, 25 not established; this change gives 168
-match, 7 mismatch, 66 gap, 25 not established. One row moves: "BETTER:
-duk-data-only fcf.fy - gap -> match". None is worse.
+Accuracy check (`accuracy:check`, the unmerged tool at 43c27a8f, whose
+expectation is for main after batch 4): current main gives 167 match, 7
+mismatch, 67 gap, 25 not established, every figure as expected; this change
+gives 168 match, 7 mismatch, 66 gap, 25 not established. One row moves:
+"BETTER: duk-data-only fcf.fy - gap -> match". None is worse.
 
 Tests (`tests/financialEnrichment.operatingCashFlowFamily.test.ts`, 22 cases,
 16 of which fail before the change): Duke Energy fiscal 2025 on its filed
