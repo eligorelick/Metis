@@ -187,7 +187,7 @@ import {
 // WS6 (D-19): METIS_EV_INCLUDE_LEASES.
 import { getConfig } from "@/config/env";
 import { periodDays, fiscalYearRule } from "@/pipeline/stageB/fiscalCalendar";
-import { mergeManifest } from "@/pipeline/stageA/manifest";
+import { mergeManifest, withoutGapCause } from "@/pipeline/stageA/manifest";
 import type {
   Scoring,
   Projections,
@@ -2467,7 +2467,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     }, ttmGaps, [], issuance);
   }
 
-  const lendingCashFlow = lenderCashFlowApplicability(bundle, route);
+  const lendingCashFlow = lenderCashFlowApplicability(bundle, route, [...balanceQuarterly, ...balanceAnnual]);
   if (lendingCashFlow) {
     route.cashFlowApplicability = lendingCashFlow;
     route.notes.push(lendingCashFlow.reason);
@@ -2634,13 +2634,16 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   if (lendingCashFlow) applyLenderCapitalApplicability(capital, lendingCashFlow.reason);
   if (lendingCashFlow?.debtPerimeter && capital.current?.asOf === lendingCashFlow.asOf) {
     const p = lendingCashFlow.debtPerimeter;
-    Object.assign(capital.current.debtBridge, { providerDebtPerimeterLabel: p.label, filedBorrowings: p.borrowings, loanOwnerPayables: p.loanOwnerPayables });
+    // D-234: the provider label names the debt figure only while that figure is the provider's perimeter.
+    Object.assign(capital.current.debtBridge, { ...(p.filedDebt === undefined ? { providerDebtPerimeterLabel: p.label } : {}), filedBorrowings: p.borrowings, loanOwnerPayables: p.loanOwnerPayables });
     Object.assign(capital.current.debtBridge, {
       filedCurrentDebt: p.components.find(c => /^Debt, current$/i.test(c.name))?.value,
       filedCurrentRelatedPartyDebt: p.components.find(c => /^Debt, current to related parties$/i.test(c.name))?.value,
       filedNoncurrentDebt: p.components.find(c => /^Debt, non-current$/i.test(c.name))?.value,
     });
-    capital.current.debtBridge.compositionNote += ` ${p.label}. Filed borrowings = ${p.components.map(c => `${c.name} ${c.value}`).join(" + ")} = ${p.borrowings} ${p.currency}; loan-owner payables ${p.loanOwnerPayables} are separate, as is the retained operating-lease observation. ${p.source}.`;
+    capital.current.debtBridge.compositionNote += p.filedDebt === undefined
+      ? ` ${p.label}. Filed borrowings = ${p.components.map(c => `${c.name} ${c.value}`).join(" + ")} = ${p.borrowings} ${p.currency}; loan-owner payables ${p.loanOwnerPayables} are separate, as is the retained operating-lease observation. ${p.source}.`
+      : ` Debt is the filed borrowings plus the recorded operating lease: ${p.components.map(c => `${c.name} ${c.value}`).join(" + ")} = ${p.borrowings} ${p.currency}, and ${p.filedDebt} ${p.currency} with the lease. The provider's debt figure also counted loan-owner payables of ${p.loanOwnerPayables} ${p.currency}, which the filing does not present as debt. ${p.source}.`;
   }
   if (capital.current?.basis === "ttm") {
     if (capital.current.industrialMetricsApplicable !== false) {
@@ -4990,8 +4993,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         notes: [...prior.notes.filter(n => !n.startsWith("fcfDcf suppressed by metric policy (unprofitable overlay)")), reason],
         // Keep the prior suppression's classification; no input check or gap
         // severity is changed. Replace its obsolete profitability explanation.
+        // D-229: the new sentence no longer states the unprofitable-overlay cause, so its code is not kept.
         gaps: prior.gaps.map(g => g.field === "valuation.dcf" && g.reason.startsWith("DCF suppressed for unprofitable overlay")
-          ? { ...g, reason } : g),
+          ? { ...withoutGapCause(g), reason } : g),
       };
     }
   }

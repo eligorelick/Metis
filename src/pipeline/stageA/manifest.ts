@@ -101,3 +101,71 @@ export function renderManifestSummary(entries: readonly ManifestEntry[]): Manife
     `${bySeverity.warn} warning(s), ${bySeverity.info} informational`;
   return { total: entries.length, bySeverity, line };
 }
+
+// ---------------------------------------------------------------------------
+// Typed gap causes (P10, P11, D-229)
+// ---------------------------------------------------------------------------
+
+/**
+ * The entry without its typed cause. A writer that rewrites an entry's sentence
+ * into one that no longer states the recorded cause uses this, so a code never
+ * sits beside a sentence it does not describe (as D-226 rules for conflicts).
+ * The result has no code: it is unresolved, never given another one.
+ */
+export function withoutGapCause<T extends ManifestEntry>(entry: T): T {
+  if (!("cause" in entry)) return entry;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { cause, ...rest } = entry;
+  return rest as T;
+}
+
+/** Whether a plain JSON object has the shape of a `ManifestEntry` (string `field` and `reason`, a known `severity`). */
+export const isManifestEntryShaped = (value: Record<string, unknown>): boolean =>
+  typeof value.field === "string" && typeof value.reason === "string" &&
+  (value.severity === "info" || value.severity === "warn" || value.severity === "critical");
+
+/**
+ * A copy of `value` in which no missing-data entry carries a typed cause; every
+ * other byte, key order included, is kept, and parts without one are returned
+ * as they are (the input is never mutated). Used where a code must not travel
+ * (D-229): the Stage C payload boundary, run input snapshots, the request
+ * schema and the dossier's report identity. Only objects shaped like a
+ * `ManifestEntry` (string `field` and `reason`, a known `severity`) lose `cause`,
+ * so a field conflict's `cause` is never touched.
+ */
+export function withoutGapCauses<T>(value: T): T {
+  const seen = new Map<object, unknown>();
+  const strip = (node: unknown): unknown => {
+    if (node === null || typeof node !== "object") return node;
+    if (seen.has(node)) return seen.get(node);
+    // A shared (or, never expected, cyclic) part is visited once.
+    seen.set(node, node);
+    if (Array.isArray(node)) {
+      let changed = false;
+      const out = node.map((item) => {
+        const next = strip(item);
+        if (next !== item) changed = true;
+        return next;
+      });
+      const result = changed ? out : node;
+      seen.set(node, result);
+      return result;
+    }
+    const record = node as Record<string, unknown>;
+    // Only plain data objects are copied; class instances (Map, Date, ...) are kept as they are.
+    if (Object.getPrototypeOf(record) !== Object.prototype && Object.getPrototypeOf(record) !== null) return node;
+    const drop = "cause" in record && isManifestEntryShaped(record);
+    let changed = drop;
+    const entries: [string, unknown][] = [];
+    for (const [key, child] of Object.entries(record)) {
+      if (drop && key === "cause") continue;
+      const next = strip(child);
+      if (next !== child) changed = true;
+      entries.push([key, next]);
+    }
+    const result = changed ? Object.fromEntries(entries) : node;
+    seen.set(node, result);
+    return result;
+  };
+  return strip(value) as T;
+}

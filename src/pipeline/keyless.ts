@@ -401,7 +401,7 @@ const VENDOR_SHARE_FIELD_LABELS: Record<(typeof VENDOR_SHARE_FIELDS)[number], st
   eps: "eps",
 };
 
-interface PrimaryShareReconciliation {
+export interface PrimaryShareReconciliation {
   companyFacts: CompanyFacts;
   observedAt?: string;
   /** An ADR's quoted unit is not established by the filer's ordinary-share facts. */
@@ -555,6 +555,24 @@ function vendorShareUnitShown(rows: readonly FmpRawRow[], splits: StockSplits, b
       return primary !== null && Math.abs(vendorValue - primary.value) <= primary.value * VENDOR_SHARES_TOLERANCE;
     });
   });
+}
+
+/**
+ * With several listed symbols, the vendor's share unit is its convention for
+ * the listing, not for one period type: a series that shows it governs the
+ * other too (review M-1; FIGR's FY2025 vendor counts are twice the 10-K's,
+ * while its 2026 quarters match the 10-Qs). One rule for the producer and for
+ * the calculation view's filed admission (`withFiledShareValues`, D-234): a
+ * view that asked each series alone left the annual row uncompared. False for
+ * a registrant with one listed symbol, an ADR or an unknown listing, whose
+ * comparison does not depend on it.
+ */
+export function vendorShareUnitShownAcross(
+  families: readonly { rows: readonly FmpRawRow[]; reconciliation: PrimaryShareReconciliation | undefined }[],
+  splits: StockSplits, basisDay: string,
+): boolean {
+  return families.some(({ reconciliation }) => registrantShareUnit(reconciliation) === "to-establish") &&
+    families.some(({ rows, reconciliation }) => vendorShareUnitShown(rows, splits, basisDay, reconciliation));
 }
 
 /**
@@ -1588,15 +1606,11 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         registrantTickers: registrant?.tickers,
         isAdr: typeof vendorProfile?.isAdr === "boolean" ? vendorProfile.isAdr : null,
         fiscalYearEnd: registrant?.fiscalYearEnd ?? null, period: member === "incomeAnnual" ? "annual" : "quarter" } : undefined;
-    // With several listed symbols, the vendor's share unit is its convention for
-    // the listing, not for one period type: a series that shows it governs the
-    // other too. (FIGR's FY2025 vendor counts are twice the 10-K's, while its
-    // 2026 quarters match the 10-Qs.)
-    const shareUnitShown = registrantShareUnit(reconciliationFor("incomeQuarterly")) === "to-establish" && incomeMembers.some(([member]) => {
+    // A series that shows the vendor's share unit governs the other too (`vendorShareUnitShownAcross`).
+    const shareUnitShown = vendorShareUnitShownAcross(incomeMembers.flatMap(([member]) => {
       const current = members[member];
-      return current.ok && current.value.source !== "edgar" &&
-        vendorShareUnitShown(current.value.data.rows, built.splits, basisDay, reconciliationFor(member));
-    });
+      return current.ok && current.value.source !== "edgar" ? [{ rows: current.value.data.rows, reconciliation: reconciliationFor(member) }] : [];
+    }), built.splits, basisDay);
     for (const [member, edgarRows] of incomeMembers) {
       const current = members[member];
       if (!current.ok || current.value.source === "edgar") continue;

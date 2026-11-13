@@ -40,6 +40,7 @@ import { estimateDay, estimateModelTiming, estimateModelTimingText, readEstimate
  */
 
 import type { ManifestEntry, CompanyRoute } from "@/types/core";
+import { withoutGapCauses } from "@/pipeline/stageA/manifest";
 import { quotePriceObservationDay, type FmpInsiderTradeStatisticsRow } from "@/providers/fmp";
 import { selectedGeographyNotes } from "@/edgar/annualGeography";
 import { PeriodContextSchema, type PeriodContext } from "@/types/periodContext";
@@ -1683,9 +1684,16 @@ function statementExtracts(bundle: DataBundle, cashFlowApplicability?: CompanyRo
   push(extractStatement("Cash flow \u2014 annual", cash.rows, A, statementAsOf(bundle.statements.cashflowAnnual), cashItems, source(bundle.statements.cashflowAnnual, "cash-flow(annual)")), cash.notes);
   push(extractStatement("Cash flow \u2014 quarterly", cashQ.rows, Q, statementAsOf(bundle.statements.cashflowQuarterly), cashItems, source(bundle.statements.cashflowQuarterly, "cash-flow(quarter)")), cashQ.notes);
   if (cashFlowApplicability?.debtPerimeter) {
+    const perimeter = cashFlowApplicability.debtPerimeter;
     for (const block of blocks.filter(b => b.title.startsWith("Balance sheet"))) {
-      for (const line of block.lineItems) if (line.lineItem === LEASE_DEBT_LABELS.totalDebtIncludingLeases) line.lineItem = cashFlowApplicability.debtPerimeter.label;
-      block.notes.push(`${cashFlowApplicability.debtPerimeter.label} at ${cashFlowApplicability.asOf}; ${cashFlowApplicability.evDebtBasis}`);
+      // D-234: once the debt at the filing's date is the filed borrowings, the row keeps its neutral caption
+      // and the note says which periods are still the provider's figure.
+      if (perimeter.filedDebt !== undefined) {
+        block.notes.push(`Debt at ${cashFlowApplicability.asOf} is the filed borrowings plus the recorded operating lease. ${cashFlowApplicability.evDebtBasis} Other periods on this line are the provider's debt figure, which is not checked against a filed composition and can count payables to third-party loan owners.`);
+        continue;
+      }
+      for (const line of block.lineItems) if (line.lineItem === LEASE_DEBT_LABELS.totalDebtIncludingLeases) line.lineItem = perimeter.label;
+      block.notes.push(`${perimeter.label} at ${cashFlowApplicability.asOf}; ${cashFlowApplicability.evDebtBasis}`);
     }
   }
   return blocks;
@@ -3685,7 +3693,9 @@ export function assembleContextPayload(
   computed: ComputedMetrics,
   validation: ValidationReport,
 ): ContextPayload {
-  return withComputationContext(() => assembleContextPayloadInContext(bundle, computed, validation));
+  // D-229: the payload boundary. Missing-data entries carry a typed cause for the pipeline's own
+  // readers; the model receives nothing new, so no entry anywhere in the payload keeps one.
+  return withoutGapCauses(withComputationContext(() => assembleContextPayloadInContext(bundle, computed, validation)));
 }
 
 function assembleContextPayloadInContext(
