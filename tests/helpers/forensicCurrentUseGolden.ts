@@ -11,6 +11,20 @@ import deltas from "../fixtures/forensic-current-use-deltas.json";
  */
 export function restoreForensicCurrentUseGolden(computed: ComputedMetrics): ComputedMetrics {
   const result = structuredClone(computed);
+  // D-261 adds only missing-score disclosures on this historical control.
+  // Pin their purpose before removing them from the older whole-result hash;
+  // the current frozen records and scoring regressions check the full entries.
+  const scoreGaps = result.gaps.filter(gap => gap.field.startsWith("scores."));
+  expect(scoreGaps.length).toBeGreaterThan(0);
+  for (const gap of scoreGaps) expect(gap.reason).toMatch(/withheld:.*(missing|refused|establish|unavailable)/i);
+  result.gaps = result.gaps.filter(gap => !gap.field.startsWith("scores."));
+  const datedRoic = (field: string) => /^returns\.roic\.\d{4}-\d{2}-\d{2}$/.test(field);
+  const roicGaps = result.returns.roic.gaps.filter(gap => datedRoic(gap.field));
+  // D-261 final parity rule: this control has no repaired liquidity row.
+  expect(roicGaps).toEqual([]);
+  result.returns.roic.gaps = result.returns.roic.gaps.filter(gap => !datedRoic(gap.field));
+  result.returns.gaps = result.returns.gaps.filter(gap => !datedRoic(gap.field));
+  result.gaps = result.gaps.filter(gap => !datedRoic(gap.field));
   for (const delta of deltas) {
     const keys = delta.path.replace(/\[(\d+)\]/g, ".$1").split(".");
     let parent = result as unknown as Record<string, unknown>;

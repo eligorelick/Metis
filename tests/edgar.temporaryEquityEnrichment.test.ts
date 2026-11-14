@@ -26,6 +26,18 @@ function enrich(vendor = row(), input = facts()) {
 }
 
 describe("temporary equity enrichment of compatible successful vendor balances", () => {
+  it("re-admits its typed comparison from filing evidence even when the sentence changes", () => {
+    const first = enrich({ ...row(), temporaryEquityAttributableToParent: 123 }).row;
+    const old = structuredClone(first);
+    delete old.fieldProvenance!.temporaryEquityAttributableToParent;
+    old.temporaryEquityAttributableToParent = 123;
+    old.fieldConflicts!.temporaryEquityAttributableToParent = { ...old.fieldConflicts!.temporaryEquityAttributableToParent!,
+      usable: false, cause: "vendor-sec-value-conflict", reason: "changed sentence, same exact category and filed operands" };
+    expect(enrich(old).row.temporaryEquityAttributableToParent).toBe(1_722_111_000);
+    const unrelated = structuredClone(old);
+    unrelated.fieldConflicts!.temporaryEquityAttributableToParent!.cause = "debt-components-incomplete";
+    expect(enrich(unrelated).row.fieldConflicts?.temporaryEquityAttributableToParent?.usable).toBe(false);
+  });
   function zeroFixture(secParent = 10) {
     const input = facts();
     Object.assign(input.facts["us-gaap"], { Assets: concept(100), Liabilities: concept(60), StockholdersEquity: concept(secParent),
@@ -136,10 +148,10 @@ describe("temporary equity enrichment of compatible successful vendor balances",
     expect(out.row.temporaryEquityAttributableToParent).toBeUndefined();
     expect(out.gaps.some(g => /temporary|currency/i.test(g.reason))).toBe(true);
   });
-  it("preserves a conflicting vendor amount and explicitly refuses its reconciled use", () => {
+  it("uses a complete filed temporary category over a conflicting vendor amount", () => {
     const out = enrich({ ...row(), temporaryEquityAttributableToParent: 123 });
-    expect(out.row.temporaryEquityAttributableToParent).toBe(123);
-    expect(out.row.fieldConflicts?.temporaryEquityAttributableToParent).toMatchObject({ vendorValue: 123, secValue: 1_722_111_000, usable: false });
+    expect(out.row.temporaryEquityAttributableToParent).toBe(1_722_111_000);
+    expect(out.row.fieldConflicts?.temporaryEquityAttributableToParent).toMatchObject({ vendorValue: 123, secValue: 1_722_111_000, usable: true, resolution: "filed-family" });
   });
   it.each([
     concept(1_722_111_000, { accn: "0001769628-25-000015" }),

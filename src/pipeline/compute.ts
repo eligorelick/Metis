@@ -637,6 +637,8 @@ function toReturnsBalance(r: FmpBalanceSheetRow): ReturnsBalanceRow {
     preferredCapitalBasis: r.preferredCapitalBasis,
     // FIN-119-V1: temporary equity is financing capital (and its refusals ride in `fieldConflicts` above).
     ...temporaryEquityFields(r),
+    cashBasis: r.cashBasis,
+    cashConflictReconciled: r.cashConflictReconciled,
     cashAndShortTermInvestments: num(r.cashAndShortTermInvestments),
     totalAssets: num(r.totalAssets),
   };
@@ -700,6 +702,8 @@ function toCapitalBalance(r: FmpBalanceSheetRow, leaseEvidenceContext: LeaseEvid
     netDebt: num(r.vendorNetDebt !== undefined ? r.vendorNetDebt : r.netDebt),
     cashAndCashEquivalents: num(r.cashAndCashEquivalents),
     shortTermInvestments: num(r.shortTermInvestments),
+    cashBasis: r.cashBasis,
+    cashConflictReconciled: r.cashConflictReconciled,
     cashAndShortTermInvestments: num(r.cashAndShortTermInvestments),
     ...(num(r.marketableEquitySecurities) !== null ? { marketableEquitySecurities: num(r.marketableEquitySecurities) } : {}),
   };
@@ -3169,6 +3173,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     }),
   );
 
+  const scoreGaps: ManifestEntry[] = [];
   const rawScores = computeScores({
     route,
     policy,
@@ -3188,7 +3193,20 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     currentPrice,
     asOf: asOfDay,
     quoteAsOf: quotePriceObservationDay(quote),
-  });
+  }, scoreGaps);
+
+  // D-261 (P10, P11): missing capital-return evidence names its root wherever
+  // it withholds an applicable signal. Route-suppressed signals are not gaps.
+  const latestRoicGap = returns.roic.gaps.find(gap => gap.field === `returns.roic.${returns.roic.asOf}`)
+    ?? returns.roic.gaps.find(gap => gap.field === "returns.roic");
+  if (balanceAnnual.some(row => row.cashConflictReconciled) && returns.roicVsWacc.spreadPctPts === null && !policy.suppress.includes("roicVsWacc")) {
+    const causes = [returns.roic.latestRoicPct === null ? latestRoicGap?.reason ?? "latest fiscal-year ROIC is unavailable" : null,
+      returns.wacc.waccPct === null ? returns.wacc.gaps.find(gap => gap.severity === "critical")?.reason
+        ?? returns.wacc.gaps[0]?.reason ?? "WACC is unavailable" : null].filter(Boolean).join("; ");
+    const reason = `ROIC minus WACC withheld because ${causes}`;
+    returns.roicVsWacc.note = reason;
+    returns.gaps.push({ field: "returns.roicVsWacc", reason, severity: "info" });
+  }
 
   // Same point-in-time anchors as computeValuation (audit H2/M3/M4): the NEWER
   // of the latest quarterly vs annual whole rows (balance + diluted shares,
@@ -3392,15 +3410,18 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   }) });
 
   // --- Merge all gaps + notes ------------------------------------------------
+  const repairedCashBasisFields = new Set([...balanceAnnual, ...balanceQuarterly, ...rowsOf(bundle.statements.balanceAnnual), ...rowsOf(bundle.statements.balanceQuarterly)].filter(row => row.cashConflictReconciled)
+    .map(row => `statements.balance.${row.date}.cashBasis`));
   const gaps = mergeManifest(
     newerResultsGaps,
-    bundle.gaps,
+    bundle.gaps.filter(g => !repairedCashBasisFields.has(g.field)),
     admittedFacts?.ok === false && bundle.edgar?.companyFacts?.ok ? [admittedFacts.gap] : [],
     ttmGaps,
     route.gaps,
     degradation.gaps,
     growth.gaps,
     returns.gaps,
+    scoreGaps.filter(g => !/scores\.(?:quality\.roic|moat\.roic|balanceSheet\.netDebt)/.test(g.field) || balanceAnnual.some(row => row.cashConflictReconciled)),
     capital.gaps,
     forensics.gaps,
     eventGaps,
@@ -4379,6 +4400,9 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     // The preferred line as filed: `temporaryEquityClaims` reads it to see one mezzanine series filed twice (M-9).
     preferredStock: num(row.preferredStock),
     ...(row.fieldConflicts !== undefined ? { fieldConflicts: row.fieldConflicts } : {}),
+    cashBasis: row.cashBasis,
+    cashConflictReconciled: row.cashConflictReconciled,
+    cashAndCashEquivalents: num(row.cashAndCashEquivalents), shortTermInvestments: num(row.shortTermInvestments),
     cashAndShortTermInvestments: num(row.cashAndShortTermInvestments),
     longTermInvestments: num(row.longTermInvestments),
   });
@@ -5245,7 +5269,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
   } else if (!financialRoute && netDebtInfo.value !== null) {
     const c = netDebtInfo.components;
     result.notes.push(
-      `${netDebtInfo.version}: net debt ${netDebtInfo.value} as of ${netDebtInfo.asOf ?? "?"}; totalDebt ${c.totalDebt}, cashAndShortTermInvestments ${c.cashAndShortTermInvestments ?? "derived from cash + shortTermInvestments"}` +
+      `${netDebtInfo.version}: ${balPoint?.cashConflictReconciled ? netDebtInfo.reason + "; " : ""}net debt ${netDebtInfo.value} as of ${netDebtInfo.asOf ?? "?"}; totalDebt ${c.totalDebt}, cashAndShortTermInvestments ${c.cashAndShortTermInvestments ?? "derived from cash + shortTermInvestments"}` +
         (netDebtInfo.nonOperatingEquitySecurities !== undefined
           ? `, less marketable equity securities ${netDebtInfo.nonOperatingEquitySecurities} that are not cash (${str(balPoint?.marketableEquityBasis) ?? "filed fair value"})`
           : ""),
@@ -5330,6 +5354,8 @@ function netDebtFromBalance(
   bal: FmpBalanceSheetRow | null | undefined,
 ): NetDebtResolution {
   return resolveNetDebt({
+    cashBasis: bal?.cashBasis,
+    cashConflictReconciled: bal?.cashConflictReconciled,
     date: bal ? str(bal.date) : null,
     totalDebt: bal ? num(bal.totalDebt) : null,
     capitalLeaseObligations: bal ? num(bal.capitalLeaseObligations) : null,

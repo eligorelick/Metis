@@ -364,7 +364,7 @@ export type ScoreAspect = z.infer<typeof ScoreAspectSchema>;
 export const GradeQualificationSchema = z.object({
   status: z.enum(["supported", "provisional", "unknown", "not-applicable"]),
   reasons: z.array(z.object({
-    code: z.enum(["missing-applicable-aspect", "limited-applicable-evidence", "current-valuation-unavailable", "financial-evidence-blocked", "selected-operating-scope-unverified", "legacy-qualification-unknown"]),
+    code: z.enum(["missing-applicable-aspect", "limited-applicable-evidence", "current-valuation-unavailable", "financial-evidence-blocked", "selected-operating-scope-unverified", "cash-only-liquidity", "legacy-qualification-unknown"]),
     aspect: ScoreAspectSchema.nullable(), field: z.string().nullable(), detail: z.string(),
   }).strict()),
 }).strict();

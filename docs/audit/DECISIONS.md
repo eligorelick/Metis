@@ -11,6 +11,74 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-261 - Preserve admitted liquidity; repair refused cash (2026-11-14, narrowed owner policy)
+
+Final parity audit: unrepaired rows use pinned main's complete invested-capital path, including its prior-year fallback and exact disclosures. New liquidity refusal, cash-only, average-basis and ROIC-root gap rules are restricted to repaired rows; 216 synthetic cases captured from e2b32711 pin numeric results and all disclosure ordering. Reading dimensioned investment facts remains separate work. Mixed-basis averages on the repaired path compare each row's actual liquidity deduction, including main's unmarked cash-only opening fallback, and are withheld in both directions.
+
+Confirmation follow-up: buildDcfAssumptions uses main's combined-field cash rule and resolveNetDebt ignores new refusal-metadata checks on unrepaired rows; only cashConflictReconciled rows take the new checks, with all four main-parity reproductions and repaired-row controls pinned by regression tests.
+
+P8, P10, P11, P12 and P13. This supersedes the broader investment-withdrawal policy. Final integration merges da0300d7; report 1.83.0, payload 1.101.0 and Stage B FILED_BALANCES_GAPS_75 follow main in merge order. The final same-report check uses that merged main as its pinned baseline.
+
+### Rule and implementation
+
+Rows whose liquidity main already admits retain their values, qualifications and notes. Main's restricted-inclusive cash reconciliation runs before the new recovery; its compatible component fallback carries positive typed scope evidence, while its dependent refusal records remain unchanged. An independent investment or contradictory total remains refused. No decision reads a live refusal sentence.
+
+Only a cash comparison main refused can enter the new recovery. Its exact filed cash is admitted, with a typed cashConflictReconciled marker. Full liquidity and dependent capital require a filed total, disjoint admitted components, or the qualified absence-of-investment-facts path. A known unadmitted investment leaves the same calculation unavailable, now naming one investment-family witness, instant, filing and unavailable scope. Reading and admitting dimensioned investment facts beyond this refused-cash explanation is left to separate work.
+
+Full debt is reconciled before leases are removed once. An independently refused investment is honored through the one net-debt-owned cash-only calculation. Unrepaired rows retain main's existing ROIC fallback and notes unchanged; repaired rows use the shared net-debt definition. Mixed-basis/opening-capital guards are limited to newly repaired rows, preserving main's pre-existing single-period fallback for an unusable old opening lease observation. Qualifications are emitted only for consumed figures. Original broad currency/origin assertions and exact dependent-refusal assertions remain restored.
+
+The legacy refusal reader also handles old lease and temporary-equity wording; its scope grew but its ratchet allowance stays unchanged. Typed cause and compatible evidence decide recovery. Annual/quarterly and core foreign-form sibling rules remain, without company-specific conditions or new tolerances. D-133, D-200 and D-210 retain their Revised by D-261 markers.
+
+### LLY before and after (USD millions except per-share figures and scores)
+
+| Figure | Main da0300d7 | Final | Filed proof / meaning |
+| --- | ---: | ---: | --- |
+| Cash 2025-12-31 | gap | 7,268 | CashAndCashEquivalentsAtCarryingValue, 0000059478-26-000013 |
+| Cash 2026-03-31 | gap | 5,282 | same tag, 0000059478-26-000045 |
+| Cash 2026-06-30 | gap | 8,950 | same tag, 0000059478-26-000081 |
+| Cash 2026-09-30 | 4,885 | 4,885 | same tag, 0000059478-26-000108 |
+| FY2025 combined liquidity / net debt | gaps | gaps | unadmitted investment root |
+| FY2025 invested capital / average capital / ROIC | gaps | gaps | no new ROIC signal |
+| September bridge net debt | 44,618 | 44,618 | main-admitted liquidity retained |
+| Quality / moat / composite | 68.43 / 80.79 / 62.9 | unchanged | no score or band change |
+| Model per share | 662.078517539688 USD | unchanged | trailing 2026-09-30 statements, supported roll-forward to 2026-11-13 |
+
+The FY2025 root is the AvailableForSaleSecuritiesDebtSecuritiesCurrent investment family, instant 2025-12-31, 10-K 0000059478-26-000013. The dated primary table establishes investment presence; its dimensional context is not admitted. The investment observation remains in conflict evidence rather than being an effective calculation operand. The existing September liquidity is not withdrawn. LLY 2018 remains refused because its original and comparative filed cash copies disagree.
+
+### All stored cases
+
+No calculated model value, scenario price, net debt, invested capital, ROIC, average capital, multiple, score or composite changes in the 17 golden cases or the two LLY cases. FIGR/QCOM diagnostics and RIVN 2022 capital values withdrawn by the previous broader policy are restored to main's behavior. LLY's effective net-debt input diagnostic exposes restored filed cash and excludes its unadmitted investment operand; both house net-debt results remain unavailable. Original observations remain in the admission evidence, not newly asserted as admitted values.
+
+| Case | Main warnings | Final warnings |
+| --- | ---: | ---: |
+| amzn-data-only | 8 | 8 |
+| figr-data-only | 33 | 33 |
+| meta-data-only | 50 | 50 |
+| mu-data-only | 36 | 36 |
+| nvda-data-only | 8 | 8 |
+| qcom-data-only | 12 | 12 |
+| jpm-data-only | 15 | 15 |
+| pgr-data-only | 42 | 42 |
+| o-data-only | 33 | 33 |
+| duk-data-only | 83 | 83 |
+| tsm-data-only | 35 | 35 |
+| rivn-data-only | 37 | 37 |
+| vktx-data-only | 76 | 76 |
+| amzn-fixed-analyst | 9 | 9 |
+| meta-fixed-analyst | 52 | 52 |
+| mu-fixed-analyst | 37 | 37 |
+| nvda-fixed-analyst | 11 | 11 |
+| lly-data-only | 16 | 16 |
+| lly-fixed-analyst | 17 | 17 |
+
+All warning counts equal main. Added score-root disclosures are informational. Render/payload/report identity changes and source/gap/qualification paths reflect the same named-root and typed-admission changes, not a different financial quantity. Main-admitted liquidity notes and the existing ROIC convention remain. Duration cash-flow/CFO/capex, carrying-debt completeness, noncurrent investments and share/split rules keep their own different evidence owners.
+
+### Verification and records
+
+Failing-first regressions cover both undimensioned and primary-table investment observations on already admitted cash, main's restricted-inclusive component path, unchanged averages and unchanged single-period capital when an old opening lease is unusable. The earlier lease-heavy, independent-refusal, newly repaired mixed-basis, strict-assertion and unused-date controls remain. Focused tests, refusal ratchet, report stamps, both currency tests, typecheck and lint pass; lint retains one existing unused-variable warning. Frozen records were refreshed under D-261 after normally merging da0300d7 (D-265 and D-267), with prior branch histories retained beside the active main hash chain. The fictional sample was rebuilt with the final stamps.
+
+The same-report harness rebuilds committed code with retained immutable inputs, offline and in scratch storage. All financial deltas and disclosure groups above are intentional; no expectation is changed to conceal a figure difference. No full local suite, paid/model call, live-network test, real application database write, PR merge or review-thread reply.
+
 ## D-267 - One date for Altman's market value of equity and its balance sheet (2026-11-14)
 
 Principles: P1 (exact period), P13 (one basis per ratio), P2 (point in time), P10
@@ -1463,6 +1531,7 @@ These deltas change no filed figure or selected SEC tag. The LLY segment labels
 remain those retained from its 2026 10-Q instances and 2025 10-K; arithmetic
 component display is expressly qualified as such. Raw source/tag/date provenance
 stays in the identical audit exports, not copied vendor rows in this decision.
+
 
 ## D-262 - Filed additive flows replace conflicting vendor observations (2026-11-13)
 
@@ -9363,6 +9432,11 @@ Audit 2026-10-27, batch B8, finding DB-001 (High), owner decision OD-5. The owne
 
 ## D-133 - A noncurrent-only vendor lease line is completed from its filing; stakes are filled on the vendor path (2026-10-29)
 
+**Revised by D-261 only for exact balance comparison conflicts:** a compatible
+filed lease balance or a complete matched temporary-equity category may now
+resolve that comparison. Debt completeness, overlapping claims and independent
+scope refusals below are unchanged.
+
 Audit of AMZN report #51 (2026-10-29): VAL-1 to VAL-4, VAL-10, FIG-1, FIG-2, FIG-4, GRD-01, KNW-03 and KNW-04. Extends D-98 (the stakes chain) to the provider path. The [disposition record](2026-10-29-amzn51-lease-scope.md) lists each finding, its commit and the replay.
 
 - **Evidence.**
@@ -13454,7 +13528,9 @@ an available fair value or target set on the replay.
   vendor comparison. SEC-sourced cash uses its own compatible field-level
   filing lineage, preserving a genuine restatement despite the first reporter's
   row filing date. Conflicting cash and dependent combined liquidity/net debt are
-  qualified, preserving both observations. The audited annual comparisons
+  qualified, preserving both observations. **Revised by D-261:** an unambiguous
+  exact-instant filed cash balance replaces the vendor conflict, with independent
+  liquidity composition still required. The audited annual comparisons
   remain CRWV 3,946M versus 3,127M, EXPE 6,976M versus 5,413M, FIGR 1,266.778M
   versus 1,198.141M, and LLY 7,163M versus 7,268M.
 
@@ -16317,6 +16393,11 @@ reviewer did not rerun those full executions. The reviewed change does not
 recertify every original audit finding, subsequent publication or live provider.
 
 ## D-210 — Source-supported recovery of class, statement, debt, cash and SBC scope (2026-11-06)
+
+**Revised by D-261:** recovery of an unambiguous filed cash balance no longer
+requires the vendor to equal restricted-inclusive cash. Exact lease balances
+and complete matched temporary-equity categories also replace vendor conflicts;
+independent composition and scope refusals remain authoritative.
 
 The EXPE live manifest exposed five general source-reading defects. The current
 10-Q's explicit equal-distribution sentence crosses a printed page break; its

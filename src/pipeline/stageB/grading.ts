@@ -38,7 +38,7 @@ import type { UtilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
 import { ALTMAN_ZONES, isFinancialForensicsSuppressed, type AltmanVariant, type ForensicsReport } from "@/pipeline/stageB/forensics";
 import type { TechnicalsResult } from "@/pipeline/stageB/technicals";
 import { isStartingGrowthFamily, type ValuationResult } from "@/pipeline/stageB/valuation";
-import type { Grade } from "@/types/core";
+import type { Grade, ManifestEntry } from "@/types/core";
 import type {
   AspectScore,
   Scoring,
@@ -47,7 +47,7 @@ import type {
   TracedNumber,
   ScoreSignal,
 } from "@/report/schema";
-import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
+import { describeScoreEvidence, scoreSignalRefusal } from "@/pipeline/stageB/scoringEvidence";
 
 export { SCORE_BANDS_VERSION } from "@/report/versions";
 
@@ -136,6 +136,7 @@ const round2 = (v: number): number => Math.round(v * 100) / 100;
  * persisted; the weight fields are internal to composite assembly.
  */
 interface ScoredAspect {
+  withheld: Signal[];
   aspect: AspectScore;
   rawScore: number | null;
   /**
@@ -181,6 +182,7 @@ function scoreAspect(
 ): ScoredAspect {
   const drivers: TracedNumber[] = [];
   const signalsUsed: ScoreSignal[] = [];
+  const withheld: Signal[] = [];
   let acc = 0;
   let usedWeight = 0;
   let applicableWeight = 0;
@@ -190,10 +192,10 @@ function scoreAspect(
     if (s.suppressedBy && policy.suppress.includes(s.suppressedBy)) continue;
     // Applicable to this route (not policy-suppressed), whether or not data exists.
     applicableWeight += s.weight * Math.min(1, Math.max(0, s.applicableFraction ?? 1));
-    if (!isNum(s.raw)) continue;
+    if (!isNum(s.raw)) { if (s.applicableFraction !== 0) withheld.push(s); continue; }
     const sub = bandScore(s.raw, s.band);
     const evidence = Math.min(1, Math.max(0, s.evidenceFraction ?? 1));
-    if (evidence === 0) continue;
+    if (evidence === 0) { if (s.applicableFraction !== 0) withheld.push(s); continue; }
     acc += sub * s.weight * evidence;
     usedWeight += s.weight * evidence;
     signalsUsed.push({ id: s.name, raw: s.raw, unit: s.unit, transformedScore: sub,
@@ -212,6 +214,7 @@ function scoreAspect(
 
   if (notApplicableReason !== null || usedWeight === 0) {
     return {
+      withheld,
       aspect: {
         score: null,
         band: null,
@@ -244,6 +247,7 @@ function scoreAspect(
 
   const score = round2(acc / usedWeight);
   return {
+    withheld,
     aspect: {
       score,
       band: scoreToBand(score),
@@ -793,7 +797,7 @@ export interface ScoringInputs {
   asOf: string;
 }
 
-export function computeScores(inputs: ScoringInputs): Scoring {
+export function computeScores(inputs: ScoringInputs, gaps: ManifestEntry[] = []): Scoring {
   const { route, policy: routePolicy, growth, roic, rote, roicVsWacc, capital, forensics, technicals, valuation } = inputs;
   const undeterminedReit = route.base === "reit" && route.reitSubmap === "undetermined";
   const reitGradeReason = "REIT type undetermined: mortgage and property maps disagree on these grading signals; withheld until filed evidence establishes the type.";
@@ -1195,6 +1199,17 @@ export function computeScores(inputs: ScoringInputs): Scoring {
     leadership: leadership.aspect,
     technicals: technicalsScore.aspect,
   } satisfies Record<ScoreAspect, AspectScore>;
+
+  // D-261 (P10): one shared admission point covers every scored signal,
+  // including a finite observation with no supporting evidence. Route-inapplicable
+  // aspects have an explicit reason and are not missing-data warnings.
+  for (const aspect of Object.keys(scored) as ScoreAspect[]) {
+    if (scored[aspect].routeInapplicable) continue;
+    for (const signal of scored[aspect].withheld) gaps.push({
+      field: `scores.${aspect}.${signal.name}`, severity: "info",
+      reason: scoreSignalRefusal(inputs, aspect, signal.name),
+    });
+  }
 
   // --- Composite: completeness-weighted mean over aspects with a score -----
   // Each aspect enters at route weight × its OWN data completeness, so an aspect

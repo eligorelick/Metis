@@ -137,9 +137,10 @@ describe("same-definition cash flow field admission", () => {
     const result = admit("PaymentsForRepurchaseOfCommonStock", [point(50, { start: "2025-11-29" }), point(30, { start: "2025-11-29", end: "2026-02-27", filed: "2026-03-15", accn: "prior" })], { commonStockRepurchased: -99 });
     expect(result.cash.fieldConflicts?.commonStockRepurchased).toMatchObject({ secValue: -20, secEvidence: { derivation: "ytd-difference", periodStart: "2026-02-28" } });
   });
-  it("refuses cash and dependent liquidity/net-debt fallbacks without changing investments", () => {
+  it("adopts filed cash while withholding unproved liquidity and retaining vendor investments as observations", () => {
     const result = admit("CashAndCashEquivalentsAtCarryingValue", [point(4919, { start: undefined })], {}, { cashAndCashEquivalents: 999, cashAndShortTermInvestments: 1000, shortTermInvestments: 1, netDebt: 10 });
-    expect(result.balance).toMatchObject({ cashAndCashEquivalents: null, cashAndShortTermInvestments: null, netDebt: null, shortTermInvestments: 1 });
+    expect(result.balance).toMatchObject({ cashAndCashEquivalents: 4919, cashAndShortTermInvestments: null, netDebt: null, shortTermInvestments: null,
+      fieldConflicts: { shortTermInvestments: { usable: false, vendorValue: 1 } } });
     expect(result.balance.fieldConflicts?.cashAndCashEquivalents?.secValue).toBe(4919);
     expect(result.balanceInput.ok && result.balanceInput.value.data.rows[0]?.cashAndCashEquivalents).toBe(999);
   });

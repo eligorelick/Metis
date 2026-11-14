@@ -9,7 +9,7 @@ import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
 import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
-import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import { sameFiledInstant, vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 import { ACQUISITION_OTHER_PAYMENT_TAG, COMBINED_CURRENT_DEBT_TAG, CONSOLIDATED_NET_INCOME_TAGS, capitalSpendingTags, floorsFor, tagFloorsFor, tagsFor, type LineItem } from "@/edgar/tagSynonyms";
 import { belowComponentFloor } from "@/edgar/synonymFloor";
@@ -109,6 +109,39 @@ function liability(facts: CompanyFacts, prefix: "Operating" | "Finance", unit: s
   // A total assembled across unrelated filing versions is not a filed total.
   if (current.evidence.filings[0]?.accn !== noncurrent.evidence.filings[0]?.accn) return null;
   return { value: current.value + noncurrent.value, evidence: { ...current.evidence, tags: [...current.evidence.tags, ...noncurrent.evidence.tags] } };
+}
+
+/** D-261: each exact filed operand agrees across its available core copies. */
+function unchangedInstant(facts: CompanyFacts, sec: Resolved, observedAt: string): boolean {
+  return sec.evidence.tags.every(qname => {
+    const tag = qname.slice("us-gaap/".length);
+    const copies = points(facts, tag, sec.evidence.unit, observedAt).filter(p => p.end === sec.evidence.periodEnd && p.start === undefined);
+    const own = copies.filter(p => sec.evidence.filings.some(f => f.accn === p.accn && f.filed === p.filed && f.form === p.form));
+    return own.length > 0 && copies.every(p => p.val >= 0 && vendorAgreesWithFiled(p.val, own[0]!.val));
+  });
+}
+
+/** Exact lease balances share the filed-over-vendor rule; family completeness stays with `liability`. */
+function admitBalanceLeaseFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts, unit: string, observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  let out = row;
+  const gaps: ManifestEntry[] = [];
+  for (const [field, prefix] of [["operatingLeaseLiability", "Operating"], ["financeLeaseLiability", "Finance"]] as const) {
+    const prior = row.fieldConflicts?.[field];
+    // Only this owner's old comparison is eligible for re-admission. Debt
+    // composition, omitted maturities and unrelated scope refusals stay sticky.
+    const ownRefusal = prior?.usable === false && conflictCauseMatches(prior, "vendorSecLease");
+    if (row.fieldProvenance?.[field] || prior?.usable === false && !ownRefusal) continue;
+    const vendor = ownRefusal ? prior.vendorValue : row[field];
+    if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
+    const sec = liability(facts, prefix, unit, row.date!, observedAt);
+    if (!sec || !unchangedInstant(facts, sec, observedAt) || vendorAgreesWithFiled(vendor, sec.value)) continue;
+    if (ownRefusal && (prior.secValue !== sec.value || !sameFiledInstant(prior.secEvidence, sec.evidence))) continue;
+    const reason = `${field} at ${row.date} uses the unambiguous exact-instant filed ${sec.evidence.tags.join(" + ")} ${millions(sec.value)} ${unit}; vendor ${millions(vendor)} retained as an observation (D-261)`;
+    out = { ...out, [field]: sec.value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence },
+      fieldConflicts: { ...out.fieldConflicts, [field]: { usable: true, resolution: "filed-family", cause: "vendor-sec-value-conflict", vendorValue: vendor, secValue: sec.value, reason, secEvidence: sec.evidence } } };
+    gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true });
+  }
+  return { row: out, gaps };
 }
 /** Select by filing recency before applying a sign rule; refusals cannot expose older facts. */
 function unambiguousNewest(candidates: FactPoint[]): FactPoint | null {
@@ -839,12 +872,104 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
             secValue: dependent === "netDebt" ? netDebt : null, secEvidence: evidence,
             reason: `${reason}; ${dependent === "netDebt" && canRecomputeDebt ? "net debt recomputed from same-filing admitted debt less unrestricted cash" : `${dependent} unavailable until its own composition is reconciled`}` };
         }
+        const priorCombined = row.fieldConflicts?.cashAndShortTermInvestments;
+        const mainComponentScope = priorCombined?.usable !== false || replayCash &&
+          conflictCauseMatches(priorCombined, "vendorSecCash") && sameFiledInstant(priorCombined.secEvidence, sec.evidence) &&
+          priorCombined.secEvidence?.tags.length === 1 && priorCombined.secEvidence.tags[0] === `us-gaap/${tag}`;
         out = { ...out, cashAndCashEquivalents: value, cashAndShortTermInvestments: null, netDebt, fieldConflicts,
           vendorNetDebt: out.vendorNetDebt !== undefined ? out.vendorNetDebt : typeof out.netDebt === "number" && Number.isFinite(out.netDebt) ? out.netDebt : null,
-          fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence,
+          fieldProvenance: { ...out.fieldProvenance, [field]: { ...sec.evidence, ...(mainComponentScope ? { cashScopeReconciled: true as const } : {}) },
             ...(canRecomputeDebt ? { netDebt: { ...sec.evidence, tags: [...new Set([...debtProof!.tags, ...sec.evidence.tags])], calculation: "total-debt-minus-unrestricted-cash" } } : {}) } };
         gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true,
           attemptedSources: evidence.tags.map(t => `edgar:companyfacts/${t}`) });
+        continue;
+      }
+      // D-261 (P8): cash is itself a directly filed balance, not an incomplete
+      // earnings family. An unchanged exact-instant observation needs no vendor
+      // classification bridge. Different filed copies still need reconciliation.
+      const copies = points(facts, tag, unit, observedAt).filter(p => p.end === row.date && p.start === undefined);
+      const latest = unambiguousNewest(copies);
+      if (latest && latest.val >= 0 && copies.every(p => vendorAgreesWithFiled(p.val, latest.val))) {
+        const cash = resolved(latest.val, [tag], [latest], unit, observedAt, null, row.date!);
+        // D-261: the newest filing carrying the complete family anchors composition.
+        const carriesLiquidity = (p: FactPoint) => [...tagsFor("shortTermInvestments"), "CashCashEquivalentsAndShortTermInvestments"].some(t =>
+          points(facts, t, unit, observedAt).some(v => v.end === row.date && !v.start && v.accn === p.accn && v.filed === p.filed));
+        const anchor = newest(copies.filter(carriesLiquidity)) ?? latest;
+        const familyCash = resolved(anchor.val, [tag], [anchor], unit, observedAt, null, row.date!);
+        const inFiling = (t: string) => instant(facts, t, unit, row.date!, observedAt, undefined, familyCash.evidence.filings);
+        const investmentTag = tagsFor("shortTermInvestments").find(t => points(facts, t, unit, observedAt).some(p =>
+          p.end === row.date && !p.start && p.accn === anchor.accn && p.filed === anchor.filed));
+        const investment = investmentTag ? inFiling(investmentTag) : null;
+        const combinedFiled = inFiling("CashCashEquivalentsAndShortTermInvestments");
+        const investmentRefused = out.fieldConflicts?.shortTermInvestments?.usable === false &&
+          !(replayCash && sameFiledInstant(out.fieldConflicts.shortTermInvestments.secEvidence, sec.evidence) &&
+            conflictCauseMatches(out.fieldConflicts.shortTermInvestments, "vendorSecCash"));
+        const original = (f: string): number | null => {
+          const v = row.fieldConflicts?.[f]?.vendorValue ?? row[f];
+          return typeof v === "number" && Number.isFinite(v) ? v : null;
+        };
+        const sum = investment ? familyCash.value + investment.value : null;
+        const otherParts = (["netReceivables", "inventory"] as const).flatMap(f => {
+          const part = tagsFor(f).map(inFiling).find(p => p !== null); return part ? [part.value] : [];
+        });
+        const assets = inFiling("AssetsCurrent");
+        const disjoint = sum !== null && (combinedFiled !== null && vendorAgreesWithFiled(combinedFiled.value, sum) ||
+          investmentTag !== "InterestBearingDepositsInBanks" && assets !== null &&
+          vendorAgreesWithFiled(assets.value, sum + otherParts.reduce((a,b) => a+b,0)));
+        const contradiction = investmentRefused || combinedFiled !== null && (combinedFiled.value < familyCash.value ||
+          sum !== null && !vendorAgreesWithFiled(combinedFiled.value, sum)) || investmentTag !== undefined && investment === null;
+        const liquidity = contradiction ? null : combinedFiled?.value ?? (disjoint ? sum : null);
+        const cashOnly = !contradiction && liquidity === null;
+        const liquidityEvidence = { ...familyCash.evidence, tags: [...new Set([...familyCash.evidence.tags,
+          ...(investment?.evidence.tags ?? []), ...(combinedFiled?.evidence.tags ?? [])])] };
+        const basis = contradiction ? "combined liquidity refused: incompatible or ambiguous filed cash/investment operands"
+          : cashOnly ? "cash-only (narrower basis): short-term investments not established from the undimensioned facts available; no vendor total proves a combined figure"
+            : "the reconciled same-filing cash and disjoint investments";
+        const reason = `Vendor cash reconciled at ${row.date}: directly filed ${tag} ${millions(cash.value)} ${unit} used; every available exact-instant filed copy agrees within the same-observation rule; original vendor ${millions(vendor)} retained. Liquidity uses ${basis}.`;
+        const fieldConflicts = { ...out.fieldConflicts };
+        const fieldProvenance: Record<string, StatementFieldProvenance> = { ...out.fieldProvenance, [field]: cash.evidence };
+        fieldConflicts[field] = { usable: true, vendorValue: vendor, secValue: cash.value, resolution: "filed-family", reason, secEvidence: cash.evidence };
+        const dependentOfCash = (f: string) => fieldConflicts[f]?.usable !== false ||
+          replayCash && sameFiledInstant(fieldConflicts[f]?.secEvidence, sec.evidence) && conflictCauseMatches(fieldConflicts[f]!, "vendorSecCash");
+        const amounts: Record<string, number | null> = { cashAndCashEquivalents: cash.value };
+        for (const [f, amount, evidence] of [
+          ["shortTermInvestments", disjoint ? investment?.value ?? null : null, investment?.evidence ?? cash.evidence],
+          ["cashAndShortTermInvestments", liquidity, liquidityEvidence],
+        ] as const) {
+          if (!dependentOfCash(f)) { amounts[f] = null; delete fieldProvenance[f]; continue; }
+          amounts[f] = amount;
+          if (f === "cashAndShortTermInvestments" && cashOnly) {
+            fieldConflicts[f] = { usable: false, cause: "liquidity-not-established", vendorValue: original(f), secValue: null, reason };
+            delete fieldProvenance[f]; continue;
+          }
+          fieldConflicts[f] = { usable: amount !== null, ...(cashOnly && f === "shortTermInvestments" ? { cause: "liquidity-not-established" as const } : {}), vendorValue: original(f), secValue: amount,
+            ...(amount !== null ? { resolution: "filed-family" as const } : {}), reason, secEvidence: evidence };
+          if (amount !== null) fieldProvenance[f] = evidence;
+          else delete fieldProvenance[f];
+        }
+        if (dependentOfCash("netDebt")) {
+          const debt = out.fieldProvenance?.totalDebt;
+          const debtCash = debt?.source === "edgar" && debt.unit === unit && debt.periodStart === null &&
+            debt.periodEnd === row.date && debt.filings.length > 0 && debt.filings.every(f => copies.some(p =>
+              p.accn === f.accn && p.filed === f.filed && p.form === f.form && vendorAgreesWithFiled(p.val, cash.value)));
+          const netDebt = debtCash && typeof out.totalDebt === "number" && Number.isFinite(out.totalDebt) &&
+            out.fieldConflicts?.totalDebt?.usable !== false ? out.totalDebt - cash.value : null;
+          amounts.netDebt = netDebt;
+          fieldConflicts.netDebt = { usable: netDebt !== null, vendorValue: original("netDebt"), secValue: netDebt,
+            ...(netDebt !== null ? { resolution: "filed-family" as const } : {}), reason: `${reason}; ${netDebt !== null
+              ? "statement net debt recomputed as same-filing debt less cash" : "statement net debt awaits its own same-filing debt evidence"}`, secEvidence: cash.evidence };
+          if (netDebt !== null) fieldProvenance.netDebt = { ...cash.evidence, filings: debt!.filings,
+            tags: [...new Set([...debt!.tags, ...cash.evidence.tags])], calculation: "total-debt-minus-unrestricted-cash" };
+          else delete fieldProvenance.netDebt;
+        } else {
+          amounts.netDebt = null;
+          delete fieldProvenance.netDebt;
+        }
+        out = { ...out, ...amounts, cashBasis: cashOnly ? "cash-only" : undefined, cashConflictReconciled: true, fieldConflicts, fieldProvenance,
+          vendorNetDebt: out.vendorNetDebt !== undefined ? out.vendorNetDebt : original("netDebt") };
+        gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true,
+          attemptedSources: liquidityEvidence.tags.map(t => `edgar:companyfacts/${t}`) });
+        if (cashOnly) gaps.push({ field: `statements.balance.${row.date}.cashBasis`, reason: basis, severity: "info" });
         continue;
       }
     }
@@ -879,12 +1004,59 @@ export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts:
     { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() }, true);
 }
 
+/** Blocking observations only: a dated primary table can refute absence without admitting its dimensional amount. */
+function investmentObservations(facts: CompanyFacts, unit: string, end: string, observedAt: string, sections: readonly ExtractedSection[]): string[] {
+  const roots = tagsFor("shortTermInvestments").flatMap(tag => points(facts, tag, unit, observedAt)
+    .filter(p => p.end === end && !p.start).map(p => `us-gaap/${tag}, instant ${end}, filing ${p.accn}`));
+  for (const section of sections) {
+    if (!CORE_FACT_FORMS.has(section.form ?? "") || !section.filingDate || section.filingDate > observedAt.slice(0, 10)) continue;
+    try { const url = new URL(section.documentUrl); if (url.origin !== "https://www.sec.gov" ||
+      !url.pathname.startsWith(`/Archives/edgar/data/${Number(facts.cik)}/${section.accession.replaceAll("-", "")}/`)) continue; } catch { continue; }
+    const text = section.text;
+    const dates = [...text.matchAll(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\b/g)];
+    for (let i = 0; i < dates.length; i++) {
+      const match = dates[i]!; const time = Date.parse(match[0]);
+      if (!Number.isFinite(time) || new Date(time).toISOString().slice(0, 10) !== end) continue;
+      const block = text.slice(match.index, (dates[i+1]?.index ?? text.length));
+      if (!/short.term investments\s*(?::|\$|[0-9])/i.test(block)) continue;
+      const tag = /Available.for.sale debt securities/i.test(block) ? "AvailableForSaleSecuritiesDebtSecuritiesCurrent" : "ShortTermInvestments";
+      roots.push(`us-gaap/${tag} investment family, instant ${end}, filing ${section.accession} (dated primary filing table; dimensional context is not admitted)`);
+    }
+  }
+  // One observed witness proves that this root input is not absent.
+  return [...new Set(roots)].slice(0, 1);
+}
+
 /** Cash honors field-level SEC lineage; unproved vendor values use their original filing. */
-export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, sections: readonly ExtractedSection[] = []): { row: T; gaps: ManifestEntry[] } {
   if (!validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") ||
       (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
-  return admitCashFields(row, facts, row.reportedCurrency!, scope, observedAt, "balance",
+  const leases = admitBalanceLeaseFields(row, facts, row.reportedCurrency!, observedAt);
+  const cash = admitCashFields(leases.row, facts, row.reportedCurrency!, scope, observedAt, "balance",
     { labels: [], withheld: new Set(), unverified: new Map() });
+  // Main-admitted liquidity retains its values, evidence and notes.
+  if (cash.row.cashConflictReconciled !== true) return { row: cash.row, gaps: [...leases.gaps, ...cash.gaps] };
+  const investments = investmentObservations(facts, row.reportedCurrency!, row.date!, observedAt, sections);
+  const combinedProof = cash.row.fieldProvenance?.cashAndShortTermInvestments;
+  const filedCombined = combinedProof?.source === "edgar" && typeof cash.row.cashAndShortTermInvestments === "number" &&
+    cash.row.fieldConflicts?.cashAndShortTermInvestments?.usable !== false;
+  const unresolved = !filedCombined && (cash.row.cashBasis === "cash-only" || cash.row.cashAndShortTermInvestments == null ||
+    cash.row.fieldConflicts?.shortTermInvestments?.usable === false || cash.row.shortTermInvestments === 0);
+  if (investments.length && unresolved) {
+    const reason = `shortTermInvestments at ${row.date} withheld: ${investments.join("; ")}; investment scope or separation from cash cannot be admitted; combined liquidity and dependent capital figures are unavailable`;
+    const fieldConflicts = { ...cash.row.fieldConflicts };
+    const fieldProvenance = { ...cash.row.fieldProvenance };
+    for (const field of ["shortTermInvestments", "cashAndShortTermInvestments", "netDebt"]) {
+      const prior = fieldConflicts[field];
+      if (prior?.usable === false && prior.cause !== "liquidity-not-established" && prior.cause !== "vendor-sec-value-conflict") continue;
+      fieldConflicts[field] = { usable: false, cause: "liquidity-not-established", reason,
+        vendorValue: prior?.vendorValue ?? (typeof row[field] === "number" ? row[field] as number : null), secValue: null };
+      delete fieldProvenance[field];
+    }
+    return { row: { ...cash.row, cashBasis: undefined, shortTermInvestments: null, cashAndShortTermInvestments: null, netDebt: null, fieldConflicts, fieldProvenance },
+      gaps: [...leases.gaps, ...cash.gaps.filter(g => !g.field.endsWith(".cashBasis")), { field: `statements.balance.${row.date}.shortTermInvestments`, reason, severity: "info" }] };
+  }
+  return { row: cash.row, gaps: [...leases.gaps, ...cash.gaps] };
 }
 
 /**
@@ -2299,9 +2471,9 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         ["operatingLeaseLiability", liability(facts, "Operating", currency, row.date, observedAt)],
         ["financeLeaseLiability", liability(facts, "Finance", currency, row.date, observedAt)],
       ] : [["financeLeasePrincipalPayments", principal(facts, currency, row.date, scope, observedAt, ctx)]];
-      const flows = kind === "cashflow" ? admitFiledStatementFlows(row, facts, "cashflow", scope, observedAt) : { row, gaps: [] };
-      let out = flows.row;
-      gaps.push(...flows.gaps);
+      const admission = kind === "balance" ? admitBalanceLeaseFields(row, facts, currency, observedAt) : admitFiledStatementFlows(row, facts, "cashflow", scope, observedAt);
+      let out = admission.row;
+      gaps.push(...admission.gaps);
       for (const [field, sec] of candidates) {
         if (out.fieldConflicts?.[field]?.usable === false || out.fieldConflicts?.[field]?.resolution === "filed-family" && out.fieldProvenance?.[field]) continue;
         if (!sec) {
@@ -2324,7 +2496,8 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
             ? `vendor ${vendorText} versus derived ${secText} ${currency} for ${sec.evidence.periodStart} through ${sec.evidence.periodEnd} ${derivedFrom(sec)}`
             : `${vendorText} versus ${secText} ${currency}`;
           const reason = `vendor/SEC conflict for ${field} at ${row.date}: ${versus}; vendor observation preserved and field unavailable for reconciliation`;
-          out = { ...out, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendor, secValue: sec.value, usable: false, reason, secEvidence: sec.evidence } } };
+          out = { ...out, fieldConflicts: { ...out.fieldConflicts, [field]: { vendorValue: vendor, secValue: sec.value, usable: false, reason, secEvidence: sec.evidence,
+            ...(kind === "balance" ? { cause: "vendor-sec-value-conflict" as const } : {}) } } };
           gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "warn" });
           continue;
         }
@@ -2368,7 +2541,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         out = nci.row;
         gaps.push(...nci.gaps);
       }
-      const cashAdmission = admitCashFields(out, facts, currency, scope, observedAt, kind, ctx);
+      const cashAdmission = kind === "balance" ? admitBalanceCash(out, facts, scope, observedAt, presentations) : admitCashFields(out, facts, currency, scope, observedAt, kind, ctx);
       out = cashAdmission.row;
       gaps.push(...cashAdmission.gaps);
       return out;

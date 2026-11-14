@@ -100,9 +100,10 @@ describe("SEC field enrichment at display precision (audit 2026-10-22 A-11)", ()
   it.each([
     ["operatingLeaseLiability", 13_204e6, 13_201e6],
     ["cashAndCashEquivalents", 24_814e6, 24_811e6],
-  ])("still refuses a vendor %s beyond the tolerance", (field, vendor, filed) => {
+  ])("uses the unambiguous filed %s beyond the same-observation tolerance (D-261)", (field, vendor, filed) => {
     const out = enrichFinancialFields(sourced([{ date: "2026-06-30", reportedCurrency: "USD", [field]: vendor }]), sourced<FmpCashFlowRow>([]), balanceFacts(), "quarter", observedAt);
     const row = out.balance.ok ? out.balance.value.data.rows[0]! : null;
-    expect(row?.fieldConflicts?.[field]).toMatchObject({ usable: false, vendorValue: vendor, secValue: filed });
+    expect(row?.[field]).toBe(filed);
+    expect(row?.fieldConflicts?.[field]).toMatchObject({ usable: true, resolution: "filed-family", vendorValue: vendor, secValue: filed });
   });
 });

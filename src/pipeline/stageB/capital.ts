@@ -82,6 +82,8 @@ export interface CapitalCashFlowRow {
 }
 
 export interface CapitalBalanceRow {
+  cashConflictReconciled?: true;
+  cashBasis?: "cash-only";
   fieldConflicts?: FmpStatementRow["fieldConflicts"];
   shortTermDebt?: number | null;
   longTermDebt?: number | null;
@@ -740,6 +742,8 @@ export function computeCapital(
     const latestBal: CapitalBalanceRow | undefined = bal.length > 0 ? bal[0] : undefined;
     const resolution = resolveNetDebt({
       date: latestBal?.date,
+      cashBasis: latestBal?.cashBasis,
+      cashConflictReconciled: latestBal?.cashConflictReconciled,
       totalDebt: latestBal?.totalDebt,
       capitalLeaseObligations: latestBal?.capitalLeaseObligations,
       operatingLeaseLiability: latestBal?.operatingLeaseLiability,
@@ -769,6 +773,7 @@ export function computeCapital(
       : inclusiveRefusal !== null && debtScopeRefusal === null && isFiniteNumber(operatingLease);
     const netDebt = debtScopeRefusal ? null
       : leaseExcluded && resolution.value !== null ? resolution.value - (operatingLease as number) : resolution.value;
+    if (netDebt !== null && resolution.cashBasis === "cash-only") gaps.push({ field: "capital.netDebtToEbitda.cashBasis", reason: `${latestBal?.date}: ${resolution.reason}`, severity: "info" });
     if (debtScopeRefusal) ndNotes.push(debtScopeRefusal);
     else if (leaseExcluded && inclusiveRefusal !== null) ndNotes.push(`net debt excludes the disclosed operating-lease portion ${fmt(operatingLease as number)}: ${inclusiveRefusal}`);
     else if (resolution.value === null) { /* no net debt to adjust; the resolution says why */ }

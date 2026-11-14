@@ -27,6 +27,14 @@ interface CodeReader {
   readonly legacy: (reason: string) => boolean;
 }
 
+/** D-261: one shared legacy value-comparison reader; typed records never read wording. */
+function legacyValueComparison(reason: string, kind: "cash" | "lease" | "temporary"): boolean {
+  const prefixes = { cash: ["vendor/SEC cashAndCashEquivalents conflict:"],
+    lease: ["vendor/SEC conflict for operatingLeaseLiability at ", "vendor/SEC conflict for financeLeaseLiability at "],
+    temporary: ["temporary-equity vendor/SEC conflict for "] };
+  return prefixes[kind].some(prefix => reason.startsWith(prefix));
+}
+
 const READERS = {
   /**
    * C14, `restoreRefusedOperatingPortion` (`src/pipeline/stageB/leaseScope.ts`, D-186): a lease-line
@@ -121,7 +129,17 @@ const READERS = {
    */
   vendorSecCash: {
     codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
-    legacy: (reason) => reason.startsWith("vendor/SEC cashAndCashEquivalents conflict:"),
+    legacy: (reason) => legacyValueComparison(reason, "cash"),
+  },
+  /** D-261 review: the lease comparison, on the operating/finance lease field only. */
+  vendorSecLease: {
+    codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
+    legacy: (reason) => legacyValueComparison(reason, "lease"),
+  },
+  /** D-261 review: complete matched temporary-equity categories may replace this old comparison. */
+  vendorSecTemporaryEquity: {
+    codes: new Set<StatementConflictCause>(["vendor-sec-value-conflict"]),
+    legacy: (reason) => legacyValueComparison(reason, "temporary"),
   },
   /**
    * D-222, on eps/epsDiluted only: C13 `canRecheck` in `guardVendorShareFields`

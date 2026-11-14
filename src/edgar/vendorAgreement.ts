@@ -12,7 +12,16 @@
  * capped by the same 1%, so 2 million against 1 million, a zero against a
  * nonzero figure and a sign change stay conflicts for it too.
  */
+import type { StatementFieldProvenance } from "@/providers/fmp";
+
 export const VENDOR_SEC_TOLERANCE = { unitCap: 1_000_000, share: 0.0001, minUnits: 100 } as const;
+
+/** D-261: acquisition time is not a different filed observation. No scope or arithmetic identity is inferred. */
+export function sameFiledInstant(a: StatementFieldProvenance | undefined, b: StatementFieldProvenance): boolean {
+  const identity = (p: StatementFieldProvenance) => JSON.stringify([p.source, p.unit, p.periodStart, p.periodEnd,
+    [...p.tags].sort(), p.filings.map(f => `${f.accn}|${f.filed}|${f.form}`).sort(), p.derivation ?? null, p.calculation ?? null]);
+  return a !== undefined && a.periodStart === null && b.periodStart === null && identity(a) === identity(b);
+}
 
 /**
  * The reporting unit both figures are stated in: the largest power of ten, up

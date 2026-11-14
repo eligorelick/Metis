@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { computeRoic, computeWacc } from "@/pipeline/stageB/returns";
+import { runStageB } from "@/pipeline/compute";
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
 /**
  * Two capital-cost defects.
@@ -92,6 +94,13 @@ describe("ROIC invested capital uses the house cash convention", () => {
     totalAssets: 3000,
     ...over,
   });
+  it("names the missing cash operand rather than prose in an unrelated route note", () => {
+    const r = computeRoic(income, [balanceRow({ cashConflictReconciled: true, cashAndCashEquivalents: null,
+      leaseCoverageNote: "An unrelated presentation signal was suppressed" })]);
+    const cause = r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason;
+    expect(cause).toContain("cashAndCashEquivalents");
+    expect(cause).not.toContain("unrelated presentation signal");
+  });
 
   it("subtracts cash + short-term investments, not cash alone", () => {
     // Same company; the second row simply discloses that 400 of its liquidity
@@ -126,11 +135,39 @@ describe("ROIC invested capital uses the house cash convention", () => {
 
   it("still suppresses when no cash basis can be resolved at all", () => {
     const r = computeRoic(income, [
-      balanceRow({ cashAndCashEquivalents: null }),
-      balanceRow({ date: "2024-12-31", cashAndCashEquivalents: null }),
+      balanceRow({ cashConflictReconciled: true, cashAndCashEquivalents: null }),
+      balanceRow({ cashConflictReconciled: true, date: "2024-12-31", cashAndCashEquivalents: null }),
     ]);
 
     expect(r.latestRoicPct).toBeNull();
+    expect(r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason).toMatch(/cashAndCashEquivalents/);
+  });
+
+  it.each([
+    { balance: { totalDebt: null }, input: "totalDebt" },
+    { balance: { totalStockholdersEquity: null }, input: "equity" },
+    { balance: { totalStockholdersEquity: -600 }, input: "invested capital" },
+  ])("names the root input when ROIC is withheld: $input", ({ balance, input }) => {
+    const r = computeRoic(income, [balanceRow({ ...balance, cashConflictReconciled: true })]);
+    expect(r.latestRoicPct).toBeNull();
+    expect(r.gaps.find(g => g.field === "returns.roic.2025-12-31")?.reason.toLowerCase()).toContain(input.toLowerCase());
+  });
+
+  it("names refused cash in ROIC and both dependent score signals in the manifest", () => {
+    const bundle = completeCurrencyBundle({});
+    if (!bundle.statements.balanceAnnual.ok) throw Error("annual fixture");
+    for (const row of bundle.statements.balanceAnnual.value.data.rows) {
+      delete row.cashAndCashEquivalents;
+      delete row.cashAndShortTermInvestments;
+      delete row.shortTermInvestments;
+      row.cashConflictReconciled = true;
+      row.fieldConflicts = { cashAndCashEquivalents: { usable: false, vendorValue: 100, secValue: null,
+        reason: "cash currency scope is not established" } };
+    }
+    const result = runStageB(bundle);
+    expect(result.returns.roic.latestRoicPct).toBeNull();
+    for (const field of ["returns.roicVsWacc", "scores.quality.roicVsWaccSpread", "scores.moat.roicLevel"])
+      expect(result.gaps.find(g => g.field === field)?.reason).toMatch(/cash currency scope is not established/);
   });
 
   it("keeps a disclosed zero lease distinct from an unknown split in the ROIC basis", () => {

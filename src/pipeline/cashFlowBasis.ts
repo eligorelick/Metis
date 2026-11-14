@@ -1,6 +1,8 @@
 import type { DataBundle } from "./types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { admitFiledStatementFlows, admitStockCompensation, admitBalanceCash, admitQuarterlyCapex, admitFiledCapitalExpenditure, admitCashFlowNetIncome, admitZeroCapex, readmitFiledOperatingCashFlow, zeroCapexEntries, type ZeroCapexRefusal } from "@/edgar/financialEnrichment";
+import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
+import { conflictCauseMatches } from "@/edgar/refusalCauseRead";
 
 /** Reapply SBC, annual cash-flow net income (D-231), the cash-capex zero rule (D-239), the filed operating cash flow of a reconciled statement (D-252) and same-filing cash admission without modifying the snapshot. */
 export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
@@ -49,12 +51,21 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
   const balance = (key: "balanceAnnual" | "balanceQuarterly") => {
     const input = bundle.statements[key];
     if (!input.ok) return input;
+    const temporary = input.value.data.rows.some(row => ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"].some(field => {
+      const conflict = row.fieldConflicts?.[field];
+      return conflict?.usable === false && conflictCauseMatches(conflict, "vendorSecTemporaryEquity");
+    }))
+      ? temporaryEquityRows(facts, key === "balanceAnnual" ? "annual" : "quarter", bundle.builtAt) : null;
     const rows = input.value.data.rows.map(row => {
-      const admitted = admitBalanceCash(row, facts, key === "balanceAnnual" ? "annual" : "quarter", bundle.builtAt);
+      const temporaryAdmission = temporary ? supplementTemporaryEquity(row, temporary, facts.cik, temporaryEquityFiledEnds(facts)) : { row, gaps: [] };
+      gaps.push(...temporaryAdmission.gaps);
+      const admitted = admitBalanceCash(temporaryAdmission.row, facts, key === "balanceAnnual" ? "annual" : "quarter", bundle.builtAt, [bundle.edgar?.tenKNotes, bundle.edgar?.tenQNotes].flatMap(s => s?.ok ? [s.value.data] : []));
       gaps.push(...admitted.gaps);
-      const prior = row.fieldConflicts?.cashAndCashEquivalents, current = admitted.row.fieldConflicts?.cashAndCashEquivalents;
-      if (prior?.usable === false && current?.usable === true && current.resolution === "filed-family")
-        superseded.set(`statements.balance.${row.date}.cashAndCashEquivalents`, prior.reason);
+      for (const field of Object.keys(row.fieldConflicts ?? {})) {
+        const prior = row.fieldConflicts?.[field], current = admitted.row.fieldConflicts?.[field];
+        if (prior?.usable === false && current?.usable === true && current.resolution === "filed-family")
+          superseded.set(`statements.balance.${row.date}.${field}`, prior.reason);
+      }
       return admitted.row;
     });
     return { ...input, value: { ...input.value, data: { ...input.value.data, rows } } };

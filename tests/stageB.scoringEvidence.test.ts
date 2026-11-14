@@ -5,6 +5,7 @@ import { runStageB } from "@/pipeline/compute";
 import { metricPolicy } from "@/pipeline/stageB/sectorRouting";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 import { excessReturnModel } from "@/pipeline/stageB/valuation";
+import type { ManifestEntry } from "@/types/core";
 
 function inputs(bank = false): ScoringInputs {
   const c = runStageB(completeCurrencyBundle({ bank }), { evIncludeLeases: false });
@@ -13,6 +14,47 @@ function inputs(bank = false): ScoringInputs {
     currentPrice: 100, asOf: "2026-10-14" };
 }
 const operand = (result: ReturnType<typeof describeScoreEvidence>, name: string) => result.operands.find(o => o.name === name)!;
+
+describe("D-261 every withheld scoring signal discloses its inputs", () => {
+  it("names the latest investment root once instead of repeating an aggregate ROIC refusal", () => {
+    const i = inputs(); i.roic.latestRoicPct = null; i.roicVsWacc.spreadPctPts = null;
+    i.roic.gaps = [{ field: "returns.roic", severity: "warn", reason: "ShortTermInvestments aggregate refusal" },
+      { field: `returns.roic.${i.roic.asOf}`, severity: "info", reason: "ShortTermInvestments exact latest root" }];
+    const gaps: ManifestEntry[] = []; computeScores(i, gaps);
+    expect(gaps.find(g => g.field === "scores.quality.roicVsWaccSpread")?.reason.match(/ShortTermInvestments/g)).toHaveLength(1);
+  });
+  it("names valuation-use first and never copies unrelated valuation gaps into a score cause", () => {
+    const i = inputs();
+    i.valuationUse = { ...i.valuationUse, status: "dated-reference", reason: "not-rolled-to-quote" };
+    i.valuation.gaps.push({ field: "valuation.peers", reason: "irrelevant peer caveat", severity: "info" });
+    const gaps: ManifestEntry[] = [];
+    computeScores(i, gaps);
+    const gap = gaps.find(g => g.field === "scores.valuation.dcfUpside");
+    expect(gap?.reason).toMatch(/^dcfUpside withheld: valuation use is dated-reference/);
+    expect(gap?.reason).not.toContain("irrelevant peer caveat");
+    expect(gap?.reason.length).toBeLessThan(500);
+    expect(gaps.every(g => g.severity === "info")).toBe(true);
+  });
+  it.each([false, true])("names missing signal operands on the industrial/financial route (%s)", bank => {
+    const i = inputs(bank);
+    i.technicals.smaCross.sma50 = null;
+    i.technicals.smaCross.sma200 = null;
+    i.technicals.relativeStrength.benchmark.momentum12m1m.differentialPctPoints = null;
+    i.capital.buybackPriceAnalysis.timingPct = null;
+    const gaps: ManifestEntry[] = [];
+    computeScores(i, gaps);
+    expect(gaps.find(g => g.field === "scores.technicals.smaGap")?.reason).toMatch(/SMA50.*SMA200/);
+    expect(gaps.find(g => g.field === "scores.leadership.buybackTiming")?.reason).toMatch(/repurchase|price/i);
+    expect(gaps.some(g => g.field === "scores.quality.roicVsWaccSpread")).toBe(!bank && i.roicVsWacc.spreadPctPts === null);
+  });
+  it("does not report available or route-inapplicable signals as withheld", () => {
+    const i = inputs(true), gaps: ManifestEntry[] = [];
+    const scores = computeScores(i, gaps);
+    for (const [aspect, value] of Object.entries(scores.aspects)) for (const signal of value.signals ?? [])
+      expect(gaps.some(g => g.field === `scores.${aspect}.${signal.id}`)).toBe(false);
+    expect(gaps.some(g => /roic|altman|beneish/i.test(g.field))).toBe(false);
+  });
+});
 
 describe("score evidence follows the actual metric basis", () => {
   it("retains the input return period separately from the opening-book date", () => {
