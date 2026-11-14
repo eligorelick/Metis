@@ -400,7 +400,7 @@ export interface AltmanInputs {
    * `marketCapAsOf`. Absent (a direct caller that already supplies the balance-date value), `marketCap` is used as
    * given. The pipeline always supplies it.
    */
-  marketCapHistory?: ReadonlyArray<{ date: string; marketCap: number | null }> | null;
+  marketCapHistory?: ReadonlyArray<{ date: string; marketCap: number | null; sharesAsOf?: string | null }> | null;
   /** Source of `marketCapHistory` (the endpoint or derivation), recorded beside the observation date. */
   marketCapHistorySource?: string | null;
   /**
@@ -408,6 +408,12 @@ export interface AltmanInputs {
    * converted only at the quote-date rate). Read as the owner's currency refusal of X4, as an ADR mismatch is.
    */
   marketCapHistoryCurrencyReason?: string | null;
+  /**
+   * D-267 review: the current cap was converted to the statement currency at one dated rate. The converted cap counts
+   * as an observation at `marketCapAsOf` only when that date AND this rate's observation date both pair with the
+   * balance date under the same rule; otherwise `marketCapHistoryCurrencyReason` applies.
+   */
+  marketCapConversion?: { rateDate: string; source: string } | null;
   /** Analysis cutoff (P2): an observation dated after it is never used. */
   analysisCutoff?: string | null;
 }
@@ -438,7 +444,10 @@ function marketValueAtBalanceDate(inputs: AltmanInputs, balanceDate: string): { 
   const cutoff = inputs.analysisCutoff ? inputs.analysisCutoff.slice(0, 10) : null;
   const rows: Array<{ date: string; marketCap: number; source: string | null }> = [];
   for (const row of inputs.marketCapHistory ?? []) {
-    if (typeof row.marketCap === "number" && Number.isFinite(row.marketCap) && row.marketCap > 0) {
+    // D-267 review (P1, P2): a reading derived from a close and a filed share count stands for its day only when the
+    // count was observed on or before that day; otherwise the reading does not qualify and the rule moves on.
+    const sharesUnproven = row.sharesAsOf !== undefined && (row.sharesAsOf === null || row.sharesAsOf.slice(0, 10) > String(row.date).slice(0, 10));
+    if (!sharesUnproven && typeof row.marketCap === "number" && Number.isFinite(row.marketCap) && row.marketCap > 0) {
       rows.push({ date: String(row.date).slice(0, 10), marketCap: row.marketCap, source: inputs.marketCapHistorySource ?? null });
     }
   }
@@ -584,7 +593,16 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
     // either side leaves the ratio unproven, so it is withheld too.
     const x4Currency = comparePriceCurrency(inputs.reportedCurrency, inputs.quoteCurrency);
     const pairing = inputs.marketCapHistory !== undefined;
-    if (pairing && inputs.marketCapHistoryCurrencyReason) {
+    // D-267 review: a converted cap and its rate, both paired with the balance date, are one single-date observation.
+    const converted = pairing && inputs.marketCapConversion && b.date ? marketValueAtBalanceDate(inputs, b.date) : null;
+    const convertedAdmitted = converted !== null && converted.source === "current market capitalization" &&
+      latestOnOrBeforeWithin([{ date: inputs.marketCapConversion!.rateDate.slice(0, 10) }], b.date!.slice(0, 10), STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS) !== null &&
+      (!inputs.analysisCutoff || inputs.marketCapConversion!.rateDate.slice(0, 10) <= inputs.analysisCutoff.slice(0, 10));
+    if (convertedAdmitted) {
+      equityNumerator = converted.value;
+      asOf.marketCap = converted.date;
+      asOf.marketCapSource = `current market capitalization converted at the ${inputs.marketCapConversion!.rateDate.slice(0, 10)} ${inputs.marketCapConversion!.source} rate`;
+    } else if (pairing && inputs.marketCapHistoryCurrencyReason) {
       asOf.marketCap = null;
       notes.push(`Currency not established at the balance date (${inputs.marketCapHistoryCurrencyReason}) — original-variant X4 (market value of equity over liabilities) cannot be formed; suppressed.`);
       gaps.push(gapEntry("forensics.altman.currency",
@@ -2572,6 +2590,7 @@ export interface ForensicsInputs {
   marketCapHistory?: AltmanInputs["marketCapHistory"];
   marketCapHistorySource?: string | null;
   marketCapHistoryCurrencyReason?: string | null;
+  marketCapConversion?: AltmanInputs["marketCapConversion"];
   analysisCutoff?: string | null;
   /** Statements' reported currency; with quoteCurrency, flags the ADR mismatch for X4. */
   reportedCurrency?: string | null;
@@ -2878,6 +2897,7 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
           marketCapHistory: inputs.marketCapHistory,
           marketCapHistorySource: inputs.marketCapHistorySource ?? null,
           marketCapHistoryCurrencyReason: inputs.marketCapHistoryCurrencyReason ?? null,
+          marketCapConversion: inputs.marketCapConversion ?? null,
           analysisCutoff: inputs.analysisCutoff ?? null,
         } : {}),
       };

@@ -379,6 +379,23 @@ export function sharePointOnOrBefore<P extends { asOf: string }>(points: readonl
   return latestOnOrBefore ?? earliest;
 }
 
+/**
+ * D-267 review: the date of the share observation a derived market-cap row multiplied its close by. A row written since
+ * D-267 carries it (`sharesAsOf`); an earlier stored row is resolved from the same filed share series by the same
+ * selection, so the answer is the count that row actually used. Null when no share observation exists.
+ */
+export function derivedMarketCapShareDate(row: { date?: string; sharesAsOf?: string }, facts: CompanyFacts | null): string | null {
+  if (typeof row.sharesAsOf === "string") return row.sharesAsOf.slice(0, 10);
+  const date = typeof row.date === "string" ? row.date.slice(0, 10) : null;
+  if (date === null || facts === null) return null;
+  return sharePointOnOrBefore(sharesOutstandingSeries(facts).points, date)?.asOf ?? null;
+}
+
+/** D-267 review: whether a market-cap history row (or its whole series) was derived from closes and filed share counts. */
+export function isDerivedMarketCapRow(row: object, endpoint: string | null): boolean {
+  return (row as { source?: unknown }).source === "computed" || (endpoint !== null && endpoint.startsWith("derived:market-cap("));
+}
+
 /** The share count in force on `date` (see `sharePointOnOrBefore`), as it stands in `points`; null when none. */
 export function sharesOnOrBefore(
   points: readonly { value: number | null; asOf: string }[],
@@ -2144,7 +2161,9 @@ export async function applyKeylessFallbacks(inputs: KeylessInputs): Promise<Keyl
         withheldReasons.add(onBasis.withheld);
         continue;
       }
-      derived.push({ symbol: inputs.symbol, date, marketCap: bar.close * onBasis.value, ...extra });
+      // D-267 review: the share observation's own date travels with the row (value unchanged), so a consumer that pairs
+      // the row with a date can tell a count observed after the price day (`sharePointOnOrBefore`'s earliest fallback).
+      derived.push({ symbol: inputs.symbol, date, marketCap: bar.close * onBasis.value, sharesAsOf: point.asOf, ...extra });
     }
     marketCapDaysWithheld += withheldDays.length;
     withheldForBasis("keyless.marketCapHistory.shareBasis", "market-cap day(s)", withheldDays, withheldReasons);

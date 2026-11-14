@@ -265,8 +265,8 @@ describe("keyless market values across stock splits: controls", () => {
     expect(profileCap(out)).toBe(EQUITY_VALUE);
     expect(quoteCap(out)).toBe(EQUITY_VALUE);
     const rows = history(out);
-    expect(rows.find((r) => r.date === "2026-05-01")).toEqual({ symbol: "SPLT", date: "2026-05-01", marketCap: EQUITY_VALUE });
-    expect(rows.find((r) => r.date === "2026-08-01")).toEqual({ symbol: "SPLT", date: "2026-08-01", marketCap: EQUITY_VALUE });
+    expect(rows.find((r) => r.date === "2026-05-01")).toEqual({ symbol: "SPLT", date: "2026-05-01", marketCap: EQUITY_VALUE, sharesAsOf: "2026-04-24" }); // D-267 review: the count it used
+    expect(rows.find((r) => r.date === "2026-08-01")).toEqual({ symbol: "SPLT", date: "2026-08-01", marketCap: EQUITY_VALUE, sharesAsOf: "2026-07-24" }); // D-267 review: the count it used
     expect(rows.every((r) => r.marketCap === EQUITY_VALUE)).toBe(true);
     // The statements' pre-split year is on the same basis: 38M basic (9.5M × 4), not 9.5M or 152M.
     expect(out.members.incomeAnnual.ok && out.members.incomeAnnual.value.data.rows.find((r) => r.date === "2025-12-31")?.weightedAverageShsOut).toBe(38_000_000);

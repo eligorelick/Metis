@@ -2,6 +2,7 @@ import { withReleaseQuarterEarnings } from "./releaseQuarterEarnings";
 import { forwardAnnualEstimates } from "./forwardEstimates";
 import { withAssessmentQualification, financialEvidenceQualifications } from "@/report/assessment";
 import { resolveForeignValuation, translateValuationInputs, translateProjectionInputs, type ForeignValuationBasis } from "@/pipeline/foreignCurrency";
+import { derivedMarketCapShareDate, isDerivedMarketCapRow } from "@/pipeline/keyless";
 import { convertibleInstrumentsAt, foldConvertiblePreferred } from "@/pipeline/stageB/convertibles";
 import { noncontrollingOwnershipUnresolved } from "@/pipeline/stageB/ownership";
 import { admittedStatementRow, isFmpQuotaGap, quotePriceObservationDay } from "@/providers/fmp";
@@ -2868,9 +2869,15 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   // cap converted at the quote-date rate cannot be converted at the balance date with that rate.
   const forensicClassScopeRebuilt = forensicEquityScope.status === "resolved" &&
     (forensicEquityScope.multiClass === true || forensicEquityScope.weightedClasses === true);
+  // D-267 review: a derived reading carries the date of the share count it multiplied (see `derivedMarketCapShareDate`).
+  const marketCapHistoryEndpoint = bundle.marketCapHistory?.ok ? bundle.marketCapHistory.value.endpoint : null;
+  const shareFacts = bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.data : null;
   const forensicMarketCapHistory = foreignBasis || forensicClassScopeRebuilt ? [] : rowsOf(bundle.marketCapHistory).flatMap((r) => {
     const date = isoDay(r.date);
-    return date === null ? [] : [{ date, marketCap: num(r.marketCap) }];
+    if (date === null) return [];
+    return [isDerivedMarketCapRow(r, marketCapHistoryEndpoint)
+      ? { date, marketCap: num(r.marketCap), sharesAsOf: derivedMarketCapShareDate(r, shareFacts) }
+      : { date, marketCap: num(r.marketCap) }];
   });
   const forensics = runForensics(route, {
     filedReceivables: filedReceivablesCandidates(companyFacts, {
@@ -2901,6 +2908,9 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     marketCapHistoryCurrencyReason: foreignBasis
       ? `the market cap is converted to ${currencies.model} only at the ${foreignBasis.fx.quoteDate} quote-date rate, and no exchange rate dated at the balance-sheet date is admitted`
       : null,
+    // D-267 review: the converted cap is the quote's observation at the rate's own date; forensics admits it only when
+    // both dates pair with the balance date.
+    marketCapConversion: foreignBasis ? { rateDate: foreignBasis.fx.observation.date, source: `FRED ${foreignBasis.fx.series}` } : null,
     analysisCutoff: isoDay(bundle.builtAt),
     reportedCurrency: str(inc0?.reportedCurrency),
     quoteCurrency: foreignBasis ? currencies.model : str(profile?.currency),

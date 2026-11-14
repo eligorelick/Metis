@@ -11,6 +11,10 @@ import { describe, expect, it } from "vitest";
 import { STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS } from "@/pipeline/stageB/asOfSelection";
 import { computeAltman, runForensics, type AltmanInputs } from "@/pipeline/stageB/forensics";
 import type { CompanyRoute } from "@/types/core";
+import { runStageB } from "@/pipeline/compute";
+import { foreignBundle } from "./helpers/foreignBundle";
+import { derivedMarketCapShareDate, isDerivedMarketCapRow } from "@/pipeline/keyless";
+import type { CompanyFacts } from "@/edgar/xbrl";
 
 // ---------------------------------------------------------------------------
 // Part 2: Altman X4 at the balance-sheet date
@@ -109,5 +113,78 @@ describe("D-267 part 2: Altman X4 uses the market value observed at the balance 
     // the owner's existing structural substitution (Z', book equity), disclosed as before
     expect(altman.variant).toBe("private");
     expect(altman.notes.join(" ")).toMatch(/Altman Z' \(1983, BOOK equity\) substituted/);
+  });
+});
+
+describe("D-267 review fix 1: a foreign cap converted on the balance date is admitted", () => {
+  /** The quote, the quoted-share count and the exchange rate all observed on the 2025-12-31 balance date. */
+  function sameDateForeign() {
+    const b = foreignBundle();
+    if (!b.quote.ok || !b.sharesFloat.ok || !b.valuationFx?.ok) throw new Error("fixture");
+    b.quote.value.data.rows[0]!.timestamp = Date.parse("2025-12-31T21:00:00Z") / 1000;
+    b.sharesFloat.value.data.rows[0]!.date = "2025-12-31";
+    b.valuationFx.value.data = [{ date: "2025-12-31", value: 32 }];
+    return b;
+  }
+
+  it("scores the original variant on the converted cap when the cap and its rate are dated at the balance", () => {
+    const altman = runStageB(sameDateForeign()).forensics.altman!;
+    expect(altman.variant).toBe("original");
+    expect(altman.gaps.some((g) => g.field === "forensics.altman.currency")).toBe(false);
+    expect(altman.components.x4).toBe(20); // converted cap over liabilities exceeds the house cap
+    expect(altman.score).toBeCloseTo(13.16, 2);
+    expect(altman.asOf).toMatchObject({ balanceSheet: "2025-12-31", marketCap: "2025-12-31" });
+    expect(altman.asOf.marketCapSource).toMatch(/converted at the 2025-12-31 FRED DEXTAUS rate/);
+  });
+
+  it("control: the same filer with only later-dated rates keeps the currency refusal", () => {
+    const altman = runStageB(foreignBundle()).forensics.altman!;
+    expect(altman.variant).toBe("private");
+    expect(altman.gaps.find((g) => g.field === "forensics.altman.currency")?.reason).toMatch(/no exchange rate dated at the balance-sheet date is admitted/);
+    expect(altman.score).toBeCloseTo(1.14845, 10);
+  });
+});
+
+describe("D-267 review fix 2: a derived reading counts only with a share count observed by its day", () => {
+  const facts = (points: { end: string; filed: string }[]): CompanyFacts => ({ cik: 42, entityName: "Synthetic", facts: {
+    dei: { EntityCommonStockSharesOutstanding: { units: { shares: points.map((p, i) => ({ ...p, val: 1_000e6, accn: `0000000042-26-00000${i}`, form: "10-Q", fy: 2026, fp: "Q1" })) } } },
+  } } as unknown as CompanyFacts);
+
+  it("skips a derived reading whose share count was observed after its day and takes the next qualifying one", () => {
+    const r = computeAltman(altmanInputs("2025-12-31", {
+      marketCapHistory: [
+        { date: "2025-12-31", marketCap: 800, sharesAsOf: "2026-02-20" },
+        { date: "2025-12-19", marketCap: 780, sharesAsOf: "2025-11-01" },
+      ],
+      marketCapHistorySource: "derived:market-cap(close×dei:shares)",
+    }), "original");
+    expect(r.asOf.marketCap).toBe("2025-12-19");
+    expect(r.components.x4).toBeCloseTo(780 / 200, 12);
+  });
+
+  it("withholds when every derived reading in the window rests on a later share count", () => {
+    const r = computeAltman(altmanInputs("2025-12-31", {
+      marketCapHistory: [{ date: "2025-12-31", marketCap: 800, sharesAsOf: "2026-02-20" }, { date: "2025-12-30", marketCap: 790, sharesAsOf: null }],
+      marketCapHistorySource: "derived:market-cap(close×dei:shares)",
+    }), "original");
+    expect(r.score).toBeNull();
+    expect(r.gaps.some((g) => g.field === "forensics.altman.marketCapDate")).toBe(true);
+  });
+
+  it("a provider reading carries no share observation and is unaffected (control)", () => {
+    const r = computeAltman(altmanInputs("2025-12-31", { marketCapHistory: [{ date: "2025-12-31", marketCap: 800 }], marketCapHistorySource: "provider" }), "original");
+    expect(r.components.x4).toBeCloseTo(800 / 200, 12);
+  });
+
+  it("resolves a stored derived row's share date by the same selection keyless used, without changing its value", () => {
+    // Only a cover count observed after the price day: keyless priced the bar on that earliest count.
+    expect(derivedMarketCapShareDate({ date: "2025-12-31" }, facts([{ end: "2026-02-20", filed: "2026-03-01" }]))).toBe("2026-02-20");
+    // The semiconductor shape: the count was observed and filed before the price day, so the row still qualifies.
+    expect(derivedMarketCapShareDate({ date: "2026-09-03" }, facts([{ end: "2026-06-20", filed: "2026-06-26" }, { end: "2026-10-01", filed: "2026-10-20" }]))).toBe("2026-06-20");
+    // A row written since D-267 carries its own date.
+    expect(derivedMarketCapShareDate({ date: "2026-09-03", sharesAsOf: "2026-06-20" }, null)).toBe("2026-06-20");
+    expect(isDerivedMarketCapRow({ source: "computed" }, "/stable/historical-market-capitalization + derived")).toBe(true);
+    expect(isDerivedMarketCapRow({}, "derived:market-cap(close×dei:shares)")).toBe(true);
+    expect(isDerivedMarketCapRow({}, "/stable/historical-market-capitalization?symbol=X")).toBe(false);
   });
 });
