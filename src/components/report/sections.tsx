@@ -1,3 +1,4 @@
+import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDecisions";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { reverseDcfValueText, SCORE_BANDS_READER_NOTE } from "@/report/presentation";
 import { VALUATION_WITHHELD_TEXT, scenarioTargetsCaveat, valuationHeadlineView, valuationNoModelWithheldText, valuationScenarioView } from "@/report/presentation";
@@ -708,7 +709,7 @@ export function BusinessSegments({
         </SubBlock>}
         {annualGeographyShown && <SubBlock label={annualSegmentHeading("Geographic", business.segments.geographic, quarterlyShown).toLowerCase()}>
           <SegmentTable
-            rows={business.segments.geographic.map((row) => ({ ...row, name: geographyLabel(row.name) }))}
+            rows={business.segments.geographic.map((row) => ({ ...row, name: geographyLabel(row.name, business.segments.geographic) }))}
             emptyLabel="no geographic segmentation reported"
           />
           {geographicBasisNote(business.segments.geographic) && <p className="mt-2 text-[11px] leading-snug text-muted">{geographicBasisNote(business.segments.geographic)}</p>}
@@ -1526,12 +1527,8 @@ function ExecutiveCard({ exec, context }: { exec: Executive; context?: Executive
           </SubBlock>
         ))}
         {context && <SubBlock label="Office decision context">
-          {context.actions.map((action, i) => <div key={i} className="flex flex-col gap-1">
-            <p className="text-[11px] text-muted">{action.occurredOn} · {MANAGEMENT_ACTOR_LABELS[action.actor]} · {action.verificationNote}</p>
-            <ClaimList claims={action.action} />
-            <ClaimList claims={action.assessment} />
-          </div>)}
-          {context.guidance.length > 0 && <SubBlock label="Company guidance context"><ClaimList claims={context.guidance} /></SubBlock>}
+          <p><a href="#report-management-actions">{OFFICE_CONTEXT_LINK}</a></p>
+          <p><a href="#report-outlook">{GUIDANCE_CONTEXT_LINK}</a></p>
         </SubBlock>}
       </div>
     </div>

@@ -18,6 +18,7 @@ import { formatFinancialAmount, formatFinancialValue, formatLargeNumber, peerMet
 import {
   claimCitation,
   figureRows,
+  geographyLabel,
   keyDataRows,
   metricLabel,
   priceTiming,
@@ -248,4 +249,80 @@ describe("provider market data (pipeline)", () => {
     const facts = parseCapitalReturn("During the second quarter of fiscal 2027, NVIDIA returned approximately $26.0 billion to shareholders in the form of shares repurchased and cash dividends.");
     expect(facts.returned).toMatchObject({ value: 26_000_000_000, approximate: true });
   });
+});
+
+
+describe("D-264 reader repairs", () => {
+  const surfaces = (r: Report) => [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, { report: r }))];
+  it("shows one plain dated-model sentence and a fact-tag legend on every surface without changing input", () => {
+    const r = loadTask28Fixture();
+    r.fairValue = { ...r.fairValue!, status: "dated-reference", method: "fcff-dcf", methodVersion: "synthetic", basis: [], reasons: [],
+      currentUse: { status: "dated-reference", reason: "not-rolled-to-quote", statementDate: "2025-12-31", valueDate: "2025-12-31", quoteDate: "2026-11-13" },
+      perShare: null, reference: {
+      valuationDate: "2025-12-31", quoteDate: "2026-11-13", perShare: traced("computed.valuation.dcf.perShare", 123, "USD/share"),
+      basis: ["Internal computed.valuation.* pipeline wording."]
+    } };
+    r.valuation.dcf.perShare = null;
+    r.valuation.dcf.upsidePct = null;
+    (r.appendix.verificationLog ??= []).push({ evidenceKind: "factual-claim", path: "verdict.executiveSummary[0]", claim: r.verdict.executiveSummary![0]!.text, source: r.verdict.executiveSummary![0]!.source, outcome: "unverified", validationStatus: "unchecked" });
+    const before = JSON.stringify(r);
+    for (const output of surfaces(r)) {
+      expect(output).toContain("not a current fair value");
+      expect(output).not.toContain("Internal computed.valuation");
+      expect(output).toContain("the number was matched to its record by code");
+      expect(output).toContain("Citation coverage");
+    }
+    expect(JSON.stringify(r)).toBe(before);
+  });
+  it("prefers the supplied period for known duplicate metric aliases, retaining distinct windows", () => {
+    const a = traced("computed.current-capital.cash-and-short-term-investments", 10, "currency");
+    const b = { ...traced("computed.capital.current.debtBridge.cashAndShortTermInvestments", 10, "currency"), period: "2026-07-26" };
+    expect(figureRows([a, b])).toHaveLength(1);
+    expect(figureRows([a, b])[0]!.period).toBe("2026-07-26");
+    expect(figureRows([{ ...a, period: "FY2025" }, b])).toHaveLength(2);
+  });
+});
+
+
+it("D-264 keeps segment shares explicitly non-additive and qualifies broad vendor names on every reader", () => {
+  const r = loadTask28Fixture();
+  r.business.segments.geographic = ["United States", "Europe", "Non-US"].map((name, i) => ({name, revenue: traced("fmp:revenue-geographic-segmentation", 100-i*30, "currency"), sharePct: 50-i*15}));
+  for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, { report: r }))]) {
+    expect(text).toContain("vendor label");
+  }
+});
+
+
+it("D-264 groups four-part subtotals only across matching quarters and discloses overlap on every surface", () => {
+  const r = loadTask28Fixture();
+  r.filingDisclosures = { version: "1.0.0", currency: "USD", currencyBasis: "synthetic", guidance: null, guidanceChecks: [], freeCashFlow: [], freeCashFlowDefinition: null, capitalReturn: null, events: [], quarterlyTrend: [], notes: [],
+    segments: [{ axis: "example", axisLabel: "Geography", currency: "USD", quarters: ["2026-06-30", "2026-03-31"], total: [200, 200], sources: ["synthetic filing"], priorPresentation: [], derivedCells: 0,
+      rows: [{ label: "Aggregate", childOf: null, values: [100,100] }, ...[40,30,20,10].map((v,i) => ({ label: `Region ${i}`, childOf: null, values: [v,v] }))] }] };
+  const before = JSON.stringify(r);
+  for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) {
+    expect(text).toContain("Region 3 is part of Aggregate");
+    expect(text).toContain("shares must not be added");
+  }
+  expect(JSON.stringify(r)).toBe(before);
+  r.filingDisclosures.segments[0]!.rows[4]!.values[1] = 15;
+  for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) expect(text).not.toContain("Region 3 is part of Aggregate");
+});
+
+it("D-264 removes periodless accrual aliases on all surfaces, without confusing a separate metric", () => {
+  const r = loadTask28Fixture();
+  r.quality.graded.keyNumbers = [traced("computed.forensics.accrual-ratio-cash-flow", 0.1581, "x"),
+    {...traced("computed.forensics.accruals.cashFlowAccrualRatio", 0.1581456, "x"), currency: null, period: "2026-07-26"}];
+  for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) expect(text.match(/(?:\| |>)Accrual ratio \(cash-flow\)(?: \||<)/g)).toHaveLength(1);
+});
+
+
+it("D-264 deduplicates identical generic table rows but preserves different periods and evidence", () => {
+  const rows = [["Revenue", "10", "FY2025"], ["Revenue", "10", "FY2025"], ["Revenue", "10", "Q1 2026"], ["Debt", "10", "FY2025"]];
+  expect(pruneTable(["Metric", "Value", "Period"], rows)?.rows).toHaveLength(3);
+});
+
+it.each(["Non-US", "Outside U.S.", "International"])("D-264 qualifies the broad vendor scope %s only beside named foreign siblings", name => {
+  expect(geographyLabel(name, [{name:"Europe"}, {name:"United States"}])).toContain("scope not established");
+  expect(geographyLabel(name, [{name:"United States"}])).toBe(name);
+  expect(geographyLabel("Europe", [{name:"United States"}])).toBe("Europe");
 });

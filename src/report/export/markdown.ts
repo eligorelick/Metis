@@ -1,3 +1,5 @@
+import { FACT_STATUS_LEGEND, hasFactStatusMarks } from "@/report/verificationMarks";
+import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDecisions";
 import { prepareReportForSurface } from "@/report/readerPreparation";
 import { recordedValuationTrace } from "@/report/fairValueText";
 import { qualificationText } from "@/report/assessment";
@@ -308,7 +310,7 @@ function segmentTable(rows: readonly SegmentRow[], geographic = false): string {
   return bodyTable(
     ["Segment", "Revenue", "Share", "Period", "As of"],
     rows.map((s) => [
-      geographic ? geographyLabel(s.name) : s.name,
+      geographic ? geographyLabel(s.name, rows) : s.name,
       formatFinancialAmount(s.revenue.value, s.revenue.unit, s.revenue.currency),
       s.sharePct === null ? DASH : `${s.sharePct.toFixed(1)}%`,
       tracedPeriodLabel(s.revenue.period, s.revenue.periodContext),
@@ -773,8 +775,8 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
     }
     if (context) {
       lines.push("##### Office decision context", "");
-      for (const a of context.actions) lines.push(`[${a.occurredOn} · ${MANAGEMENT_ACTOR_LABELS[a.actor]}: shared management chronology](#report-management-actions) · ${prose(a.verificationNote)}`, "");
-      if (context.guidance.length) lines.push("##### Company guidance context", "", claimList(context.guidance), "");
+      lines.push(`[${OFFICE_CONTEXT_LINK}](#report-management-actions)`, "");
+      lines.push(`[${GUIDANCE_CONTEXT_LINK}](#report-outlook)`, "");
     }
   }
   if (groups.notAssessed.length > 0) {
@@ -1031,6 +1033,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
     completeness.bannerText ? blockquote(completeness.bannerText) : "",
     newerResultsBanner(report.filingDisclosures) ? blockquote(newerResultsBanner(report.filingDisclosures)!, "Newer results not reflected.") : "",
     newerFilingBanner(report.filingDisclosures) ? blockquote(newerFilingBanner(report.filingDisclosures)!, "Newer filing not reflected.") : "",
+    hasFactStatusMarks(report) ? markdownProse(FACT_STATUS_LEGEND) : "",
     renderKeyData(report),
     renderVerdict(report),
     report.scores ? renderScores(report.scores) : "",

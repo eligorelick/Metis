@@ -1,3 +1,5 @@
+import { FACT_STATUS_LEGEND, hasFactStatusMarks } from "@/report/verificationMarks";
+import { OFFICE_CONTEXT_LINK, GUIDANCE_CONTEXT_LINK } from "@/report/executiveDecisions";
 import { prepareReportForSurface } from "@/report/readerPreparation";
 import { citationSourceId } from "@/pipeline/stageC/citations";
 import { recordedValuationTrace } from "@/report/fairValueText";
@@ -382,7 +384,7 @@ function metricRowsTable(rows: readonly MetricRow[]): string {
 function segmentTable(rows: readonly SegmentRow[], geographic = false): string {
   return bodyTable(
     ["Segment", "Revenue", "Share", "Period", "As of"],
-    rows.map((s) => [geographic ? geographyLabel(s.name) : s.name, formatFinancialAmount(s.revenue.value, s.revenue.unit, s.revenue.currency), s.sharePct === null ? DASH : `${s.sharePct.toFixed(1)}%`, tracedPeriodLabel(s.revenue.period, s.revenue.periodContext), s.revenue.asOf ?? DASH]),
+    rows.map((s) => [geographic ? geographyLabel(s.name, rows) : s.name, formatFinancialAmount(s.revenue.value, s.revenue.unit, s.revenue.currency), s.sharePct === null ? DASH : `${s.sharePct.toFixed(1)}%`, tracedPeriodLabel(s.revenue.period, s.revenue.periodContext), s.revenue.asOf ?? DASH]),
   );
 }
 
@@ -735,7 +737,7 @@ function sectionLeadership(l: Leadership, report: Report): string {
         return `<h4>${esc(descriptor.label)}</h4>${claimList(claims)}`;
       }).join("");
       const context = contexts.get(e), reason = context?.note ?? executiveAssessmentNote(e);
-      const decisions = context ? `<h4>Office decision context</h4>${context.actions.map(a => `<p><a href="#report-management-actions">${esc(a.occurredOn!)} &middot; ${esc(MANAGEMENT_ACTOR_LABELS[a.actor])}: shared management chronology</a> &middot; ${esc(a.verificationNote)}</p>`).join("")}${context.guidance.length ? `<h4>Company guidance context</h4>${claimList(context.guidance)}` : ""}` : "";
+      const decisions = context ? `<h4>Office decision context</h4><p><a href="#report-management-actions">${esc(OFFICE_CONTEXT_LINK)}</a></p><p><a href="#report-outlook">${esc(GUIDANCE_CONTEXT_LINK)}</a></p>` : "";
       return `<div class="exec"><h4>${esc(e.name)} &mdash; ${esc(e.title)}</h4>
         <p>Grade <span class="chip ${gradeClass(e.grade)}">${esc(executiveGradeText(e.grade))}</span> &middot; credibility <span class="chip ${gradeClass(e.credibilityGrade)}">${esc(executiveGradeText(e.credibilityGrade))}</span></p>${executiveTenureText(e) ? `<p>${esc(executiveTenureText(e)!)} (${esc(e.officeTenure!.source)}; filed ${esc(e.officeTenure!.filingDate)})</p>` : ""}${reason ? `<p>${prose(reason)}</p>` : ""}${claimList(executiveCardClaims(e, e.reasoning, companyClaims))}${evidence}${decisions}</div>`;
     })
@@ -912,6 +914,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
     completeness.bannerText ? `<aside class="data-only-banner">${esc(completeness.bannerText)}</aside>` : "",
     newerResultsBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer results not reflected.</strong> ${esc(newerResultsBanner(report.filingDisclosures)!)}</aside>` : "",
     newerFilingBanner(report.filingDisclosures) ? `<aside class="newer-results-banner"><strong>Newer filing not reflected.</strong> ${esc(newerFilingBanner(report.filingDisclosures)!)}</aside>` : "",
+    hasFactStatusMarks(report) ? `<p>${esc(FACT_STATUS_LEGEND)}</p>` : "",
     keyDataBlock(report),
     ...REPORT_SECTION_MANIFEST.map((section) => sections[section.key]),
   ]

@@ -1,4 +1,4 @@
-import { fairValueReferenceText, fairValueWithheldText } from "@/report/fairValueText";
+import { readerFairValueReferenceText as fairValueReferenceText, readerFairValueWithheldText as fairValueWithheldText } from "@/report/fairValueText";
 import { balanceIntegrityView } from "@/pipeline/balanceIntegrity";
 import { isStartingGrowthFamily } from "@/pipeline/stageB/valuation";
 /**

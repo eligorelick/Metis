@@ -8648,3 +8648,18 @@ withheld, and a score aspect left without evidence counts at the neutral
 midpoint. An issuer without confirmed SEC facts is not judged. Stored run
 inputs are not rewritten: the rule runs when a report is built, and the
 company page's free-cash-flow bars read the same admitted rows.
+
+
+### Reader presentation and immutable records (D-264)
+
+App, Markdown and print use the same read-time presentation rules. Known metric
+aliases at the same displayed value and as-of date appear once when their only
+period difference is an omitted date label; the dated row is kept. Different
+measurement windows remain separate. Identical generic table rows appear once.
+Segment component display uses the existing multi-quarter subtotal proof, also
+for subtotals with more than three components; shares across parents, components
+and alternative partitions overlap and must not be added. Broad vendor geography
+names beside named regions retain their original name with a scope qualification.
+Executive cards link to the shared company chronology and outlook guidance.
+Fact tags describe code's numerical matching; citation coverage describes tracing,
+not correctness. These rules never rewrite stored reports or recompute figures.

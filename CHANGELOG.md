@@ -18,6 +18,15 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
+
+- App, Markdown and print show plain dated-model wording, one dated row for known
+  duplicate metric aliases, consistent segment components with overlapping shares
+  disclosed, and qualified broad vendor geography labels.
+- Executive cards link to shared company actions and outlook guidance. A short
+  fact-tag legend distinguishes numerical matching from citation coverage.
+- Saved inputs, payloads, figures, reports and verification statuses stay unchanged.
+
 ## Unreleased - `best` removed from the Claude CLI model list (2026-11-13)
 
 - Claude Code documents its `best` alias as the same model as `opus`, so the

@@ -1,4 +1,4 @@
-import { sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
+import { markSubtotals, sameSegmentBasis, crossFilingClause, priorQuarterIndex, QOQ_WINDOW_DAYS, YOY_WINDOW_DAYS } from "@/edgar/segmentFacts";
 import { decodeEntities } from "@/edgar/extract";
 import type { ReportAuditTable } from "@/report/auditTables";
 import { withoutLegacyPrincipalAnnotation } from "@/report/principalAggregationSafety";
@@ -362,7 +362,19 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
       return `${delta > 0 ? "+" : ""}${money(delta, s.currency)}`;
     };
     const total = s.total[0] ?? null;
-    const rows = s.rows.map((r) => [
+    // D-264: use the builder's existing multi-quarter subtotal proof at read time.
+    // The builder historically tried only two/three components; stored bytes stay intact.
+    const members = s.rows.map(r => ({ ...r, member: r.label }));
+    markSubtotals(members, members.length);
+    const ordered: typeof members = [];
+    const append = (row: typeof members[number], ancestors: Set<string>) => {
+      if (ancestors.has(row.label) || ordered.includes(row)) return;
+      ordered.push(row);
+      for (const child of members.filter(r => r.childOf === row.label)) append(child, new Set([...ancestors, row.label]));
+    };
+    for (const row of members.filter(r => r.childOf === null)) append(row, new Set());
+    for (const row of members) append(row, new Set());
+    const rows = ordered.map((r) => [
       r.childOf === null ? decodeEntities(r.label) : `  ↳ ${decodeEntities(r.label)}`,
       ...s.quarters.map((_, i) => money(r.values[i] ?? null, s.currency)),
       sameSegmentBasis(r.earlierPresentationAt,0,quarterAgo) ? growth(r.values, quarterAgo) : DASH,
@@ -374,7 +386,8 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
     const notes = [
       crossFilingClause(s.quarters.filter((_,i)=>s.totalCrossFilingAt?.includes(i)||s.rows.some(r=>r.crossFilingAt?.includes(i)))).trim(),
       `XBRL revenue facts from ${s.sources.join(", ")}; the newest filing's figure wins where filings overlap (recast comparatives).`,
-      s.rows.some((r) => r.childOf !== null) ? "Indented rows are components of the row above them." : "",
+      members.some((r) => r.childOf !== null) ? `Component relationships (established across at least two quarters): ${members.filter(r => r.childOf !== null).map(r => `${decodeEntities(r.label)} is part of ${decodeEntities(r.childOf!)}`).join("; ").replace(/\.+$/, "")}.` : "",
+      "Shares use consolidated revenue as the denominator. Parent rows and their components overlap; shares must not be added across those levels. Other revenue partitions in the same table can also overlap.",
       `YoY revenue change subtracts the comparable quarter ended ${yearAgo < 0 ? "(unavailable)" : s.quarters[yearAgo]} from ${latest}, on the same presentation. Indented component rows are not added again to their parent; changes are not profit contributions or proof that displayed members exhaust consolidated revenue.`,
       s.priorPresentation.length > 0 ? `Members tagged only in earlier quarters (a prior presentation) are omitted: ${s.priorPresentation.join(", ")}.` : "",
       s.derivedCells > 0 ? `${s.derivedCells} cell(s) are derived as the difference of two reported windows (for example a fiscal year less nine months).` : "",
