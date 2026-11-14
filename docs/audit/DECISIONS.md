@@ -102,14 +102,14 @@ main 73b9a44a against this change; LLY against f071ed04, whose code main
 
 | Case | Before | After | Change |
 | --- | --- | --- | --- |
-| LLY #63, stored analyst output (`lly-fixed-analyst`) | 34,666 | 31,793 | -8.3% |
-| LLY data-only | 16,350 | 14,309 | -12.5% |
-| AMZN fixed analyst | 19,415 | 17,515 | -9.8% |
-| META fixed analyst | 19,347 | 17,727 | -8.4% |
-| MU fixed analyst | 20,239 | 18,530 | -8.4% |
-| NVDA fixed analyst | 26,090 | 24,123 | -7.5% |
+| LLY #63, stored analyst output (`lly-fixed-analyst`) | 34,666 | 31,916 | -7.9% |
+| LLY data-only | 16,350 | 14,432 | -11.7% |
+| AMZN fixed analyst | 19,415 | 17,638 | -9.2% |
+| META fixed analyst | 19,347 | 17,853 | -7.7% |
+| MU fixed analyst | 20,239 | 18,653 | -7.8% |
+| NVDA fixed analyst | 26,090 | 24,246 | -7.1% |
 
-The 13 data-only golden cases are 9.6% to 15.0% shorter. The composite method
+The 13 data-only golden cases are 9.1% to 13.9% shorter. The composite method
 text stays in the body, as D-62 decided, and the stale-source table keeps its
 Stale column.
 
@@ -123,7 +123,7 @@ This is a read-time view of the same claims and tables.
 **Same-report check** (golden cases pinned at main 73b9a44a). All 17 golden cases and both LLY cases: stageB.json,
 payload.txt and report.json are byte-identical, so no numeric leaf changes. The
 reader files (report.md, print.html, web-dossier.html) change as described
-above, and audit.md only gains the bull/bear statements (no audit line removed). Accuracy check: every figure as expected.
+above, and audit.md changes only in the five reports with disagreements, where it gains the bull/bear statements (no audit line removed). Accuracy check: every figure as expected.
 
 **Approved report changes.** Reader layout only, for every case: section order
 and numbers; the brief at the top of the verdict; repeated statements replaced
