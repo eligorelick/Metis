@@ -3646,5 +3646,23 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-278",
+    "reason": "D-278 moves the report spec to 1.90.0 because a Differs-from-the-record note now needs the figure to name only the record's metric; only the stamp and its digests change, no figure.",
+    "scope": [
+      "$.projection.report.meta.specVersion",
+      "$.projectionSha256",
+      "$.fixtureIdentity.reportSha256"
+    ],
+    "beforeSha256": "584f8d54cb3c5350a39f63d66d965f9ac6b3f8d9ad7d731aa4b127e62c3f5403",
+    "afterSha256": "dfd2b3ebf0dde0ea9fe51137761f59ee8ec5765646495cee30be58eeaf71a81e",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

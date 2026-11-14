@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.89.0** and
+Current source declares application **0.1.0**, report spec **1.90.0** and
 payload **1.105.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -17,6 +17,10 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Conflict notes name the same metric (P19, D-278) (2026-11-14)
+
+- "Differs from the record" is reported only when the figure's own description names only that record's metric; a qualifier the record lacks (a product name, a different window) leaves the figure unverified instead. Confirmations are unchanged; no figure changes. Report spec **1.90.0**.
 
 ## Unreleased - Filed segment names for business headings (P18, D-277) (2026-11-14)
 

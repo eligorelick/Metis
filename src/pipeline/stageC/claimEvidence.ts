@@ -301,6 +301,7 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
     const nearby = metricTokens(own.label, options.ignoreWords, { loose: true });
     const kept = metricTokens(own.own, options.ignoreWords, { loose: true, keepDirectionWords: true });
     const bindings: { record: NumericProvenanceRecord; display: number; supported: boolean }[] = [];
+    let qualifiedConflict = false;
     for (const record of options.registry) {
       if (lookup !== q) break;
       const value = plainValue(q, frame ? { ...own, own: frame.label } : own, options.reportingCurrency);
@@ -345,18 +346,36 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
         const boundSupported = q.bound === "lower" ? (q.strict ? display > q.value : display >= q.value)
           : q.bound === "upper" ? (q.strict ? display < q.value : display <= q.value) : false;
         if (/\b(?:must|would need|would have to|well beyond|threshold)\b/i.test(own.own)) continue;
+        // D-278 (P19, Part C audit): "Differs from the record" needs the figure's own description to name
+        // only the record's metric. A qualifier the record lacks ("Foundayo revenue", "$900 million of
+        // benefits" against total revenue) means a different quantity, so the figure stays unbound
+        // (unverified), never a value conflict. Confirmation is unchanged.
+        // A bounded figure ("more than 20%") is settled by its bound below, and a stated cash direction
+        // ("a source of cash of") is a direction conflict the D-263 review keeps, so neither is a qualifier;
+        // a technical frame ("50-day average" -> SMA50) already proves the metric.
+        if (result.status === "contradicted" && q.bound === null && !frame) {
+          const recordWords = new Set(readings.flatMap(reading => [...reading.tokens, ...metricTokens(reading.label, options.ignoreWords, { loose: true })]));
+          // An incidental parenthetical ("gross margin (more or less)") is not a qualifier (D-263 review).
+          const described = metricTokens(own.own.replace(/\([^()]*\)/g, " ").replace(/\b(?:an?\s+)?(?:sources?|uses?)\s+of\s+cash\b|\b(?:cash\s+)?(?:inflows?|outflows?)\b/gi, " "),
+            options.ignoreWords, { loose: true }).filter(w => !w.startsWith("window"));
+          if (described.some(word => ![...recordWords].some(other => namesMetric([word], [other])))) { qualifiedConflict = true; continue; }
+        }
         bindings.push({ record, display, supported: result.status === "validated" || boundSupported });
       }
     }
     // Different eligible periods/bases with different values leave context
     // unresolved; never pick the convenient record from an ambiguous set.
     const first = bindings[0];
-    if (first && bindings.every(b => equalValue({ ...q, value: first.display }, b.display))) {
+    // A candidate dropped above still made the set ambiguous, so it never lets the rest confirm.
+    if (first && !qualifiedConflict && bindings.every(b => equalValue({ ...q, value: first.display }, b.display))) {
       if (bindings.every(b => b.supported) || equalValue(q, first.display)) return { figure, outcome: "confirmed", source: first.record.id };
       return { figure, outcome: "contradiction", source: first.record.id, recorded: displayedPlainValue(q, first.display, first.record.currency) };
     }
     const value = plainValue(lookup, frame ? { ...own, own: frame.label } : lookup !== q ? { ...own, own: own.label } : own, options.reportingCurrency);
-    const matched = value && valueFound(value, options.index.values);
+    // D-278 review rounds 1-2: a figure that lost a candidate above keeps a visible warning. Any value found
+    // elsewhere, even the same metric for another period, would print as the unmarked "value matched" and hide
+    // a real conflict, so the figure is reported as not matched (P19: doubt means unverified).
+    const matched = value && !qualifiedConflict ? valueFound(value, options.index.values) : undefined;
     return { figure, outcome: matched ? "value-match" : "not-found", ...(matched?.source ? { source: matched.source } : {}) };
   });
 }

@@ -238,7 +238,8 @@
 // 1.87.0 (D-272): annual guidance tables, provider results and insider evidence, dividend disclosures.
 // 1.88.0 (D-274, P18/P19): independently verify excerpt figures and explicit metric units.
 // 1.89.0 (D-277, P18): assembly admits filed quarterly segment member labels as heading names.
-export const REPORT_SPEC_VERSION = "1.89.0" as const;
+// 1.90.0 (D-278, P19): a "Differs from the record" note needs the figure to name only the record's metric.
+export const REPORT_SPEC_VERSION = "1.90.0" as const;
 
 /**
  * Current payload format version.
