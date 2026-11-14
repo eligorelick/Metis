@@ -8929,7 +8929,7 @@ suppliers only from that field; what is next only
 from what is coming; risks from the risks and concentration risks), and only
 with a FACT whose own verification entry is validated or cited; an unverified,
 unchecked or contradicted claim, a judgment, or a statement of a limitation or
-absence never enters, and a part with none says "Not established from verified sources." A
+absence never enters, and a part with none says "Not established from verified sources." A brief line never cites a market or computed record (such as the share price), and the three descriptive parts skip statements of change (D-276). A
 statement shown in full in one list is referenced, not repeated, in a later
 list when its label, text, citation, resolved citation date and verification
 mark all match. Each score keeps its qualifying text beside it. Score drivers,

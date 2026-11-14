@@ -91,6 +91,7 @@ import type { ManifestEntry } from "@/types/core";
 import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
 import { claimStatusMark } from "@/report/verificationMarks";
 import { citationAsOf, citationSourceId } from "@/pipeline/stageC/citations";
+import { findDirectionWords } from "@/pipeline/stageC/consistency";
 import { developmentClaims, managementActionClaims, RECENT_DEVELOPMENTS_HEADING } from "@/report/qualitativeAnalysis";
 import type {
   Business,
@@ -1034,16 +1035,43 @@ const MOAT_RANK: Readonly<Record<MoatAssessment["strength"], number>> = { wide: 
  * no model text raises a claim's standing. Read time, so a saved report obeys too.
  */
 export function isBriefEligible(claim: SourcedClaim): boolean {
-  return claim.label === "FACT" && SUPPORTING_MARKS.has(claimStatusMark(claim) ?? "") && !LIMITATION_WORDS.test(claim.text);
+  return claim.label === "FACT" && SUPPORTING_MARKS.has(claimStatusMark(claim) ?? "") && !LIMITATION_WORDS.test(claim.text) &&
+    !briefCitationIds(claim).some(id => MARKET_OR_COMPUTED_SOURCE.test(id));
 }
 
-function briefClaims(...sources: readonly (readonly SourcedClaim[])[]): SourcedClaim[] {
+/**
+ * Review round 1 (P18): every identity a citation can carry, so an old
+ * bracketed citation the parser cannot resolve ("[payload.quote.price ·
+ * 2026-11-13 · 2026-11-13]") is still read by its leading id, and the source id
+ * field is checked too. Any market or computed identity excludes the claim.
+ */
+function briefCitationIds(claim: SourcedClaim): string[] {
+  const raw = typeof claim.source === "string" ? claim.source.trim() : "";
+  const lead = raw.replace(/^\[\s*/, "").split(/\s*[·|\]]\s*/)[0] ?? "";
+  return [citationSourceId(claim) ?? "", raw, lead, typeof claim.sourceId === "string" ? claim.sourceId : ""].filter(Boolean);
+}
+
+/**
+ * D-273 Part C audit (P18): the brief describes the business, so a claim that
+ * cites a market or computed record ("The share price was USD 346.19.",
+ * payload.quote.price) is a figure about the stock, never a business line.
+ */
+const MARKET_OR_COMPUTED_SOURCE = /^(?:payload|computed)\.|^fmp:/i;
+
+/**
+ * D-273 Part C audit (P18): the descriptive parts (what it sells, customers and
+ * suppliers, protection) skip a statement of change ("Mortgage fees decreased
+ * ..."), which reports a result rather than describing the business. The
+ * verifier's own direction vocabulary decides (findDirectionWords).
+ */
+function briefClaims(options: { descriptive: boolean }, ...sources: readonly (readonly SourcedClaim[])[]): SourcedClaim[] {
   const picked: SourcedClaim[] = [];
   const seen = new Set<string>();
   for (const claim of sources.flat()) {
     if (picked.length >= BRIEF_CLAIMS_PER_PART) break;
     const key = claim.text.trim();
     if (!isBriefEligible(claim) || seen.has(key)) continue;
+    if (options.descriptive && findDirectionWords(claim.text).length > 0) continue;
     seen.add(key);
     picked.push(claim);
   }
@@ -1068,11 +1096,11 @@ export function businessBrief(report: Pick<Report, "business" | "competitive" | 
   const moats = [...c.moatAssessment].filter(m => m.strength !== "none").sort((x, y) => MOAT_RANK[x.strength] - MOAT_RANK[y.strength]);
   const risks = [...report.catalystsRisks.risks].sort((x, y) => (SEVERITY_RANK[x.severity] ?? 3) - (SEVERITY_RANK[y.severity] ?? 3));
   return [
-    { key: "sells", heading: "What it sells", claims: briefClaims((b.products ?? []).flatMap(item => item.claims), b.whatTheySell) },
-    { key: "buyers", heading: "Customers and suppliers", claims: briefClaims(b.customersAndSuppliers ?? []) },
-    { key: "wins", heading: "Protection and competition", claims: briefClaims(b.protection ?? [], moats.flatMap(m => m.reasoning)) },
-    { key: "next", heading: "What is next", claims: briefClaims(b.whatIsComing ?? []) },
-    { key: "risks", heading: "What could break it", claims: briefClaims(risks.flatMap(item => reasoningClaims(item.reasoning)), b.concentrationRisks) },
+    { key: "sells", heading: "What it sells", claims: briefClaims({ descriptive: true }, (b.products ?? []).flatMap(item => item.claims), b.whatTheySell) },
+    { key: "buyers", heading: "Customers and suppliers", claims: briefClaims({ descriptive: true }, b.customersAndSuppliers ?? []) },
+    { key: "wins", heading: "Protection and competition", claims: briefClaims({ descriptive: true }, b.protection ?? [], moats.flatMap(m => m.reasoning)) },
+    { key: "next", heading: "What is next", claims: briefClaims({ descriptive: false }, b.whatIsComing ?? []) },
+    { key: "risks", heading: "What could break it", claims: briefClaims({ descriptive: false }, risks.flatMap(item => reasoningClaims(item.reasoning)), b.concentrationRisks) },
   ];
 }
 
