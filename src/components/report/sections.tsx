@@ -691,7 +691,7 @@ function BusinessStory({ business, competitive }: { business: Business; competit
           {block.claims.length > 0 && <ClaimList claims={block.claims} />}
           {block.lines.map((line, i) => (
             <div key={i} className="flex flex-col gap-1">
-              <div className="text-[11px] text-fg">{line.heading}</div>
+              <div data-product-line="true" className="text-[11px] text-fg">{line.heading}</div>
               <ClaimList claims={line.claims} />
             </div>
           ))}

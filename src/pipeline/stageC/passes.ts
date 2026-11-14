@@ -2750,6 +2750,24 @@ const BUSINESS_STORY_CLAIM_FIELDS = [["business", "marketStructure"], ["business
  * heading replaces it; the claims are kept and verified as usual. Runs after
  * embedded judgments are split, so only sourced statements can name the line.
  */
+/** D-271 review round 1 (lead decision a): a heading longer than this is a sentence, not a name. */
+export const PRODUCT_LINE_HEADING_MAX_WORDS = 8;
+export const PRODUCT_LINE_HEADING_MAX_CHARS = 60;
+
+/**
+ * D-271 review round 1 (lead decision a): a heading is a name, never a claim.
+ * It may carry no digit, percent sign, currency symbol (Unicode Sc) or number
+ * word (the verifier's own `statesNumberWord` list), and at most
+ * {@link PRODUCT_LINE_HEADING_MAX_WORDS} words and
+ * {@link PRODUCT_LINE_HEADING_MAX_CHARS} characters.
+ */
+export function productLineHeadingIsName(heading: string): boolean {
+  const text = heading.trim();
+  return text.length > 0 && text.length <= PRODUCT_LINE_HEADING_MAX_CHARS &&
+    text.split(/\s+/).length <= PRODUCT_LINE_HEADING_MAX_WORDS &&
+    !/[\p{N}%\p{Sc}]/u.test(text) && !statesNumberWord(text);
+}
+
 function withNamedProductLines(value: unknown): unknown {
   if (!isPlainObject(value)) return value;
   const root = { ...value };
@@ -2760,7 +2778,8 @@ function withNamedProductLines(value: unknown): unknown {
       if (!isPlainObject(item) || typeof item.productLine !== "string" || !Array.isArray(item.claims)) return item;
       const claims = item.claims.filter((claim): claim is { text: string; label: SourcedClaim["label"] } =>
         isPlainObject(claim) && typeof claim.text === "string" && typeof claim.label === "string");
-      return productLineNamedInClaims({ productLine: item.productLine, claims }) ? item : { ...item, productLine: UNNAMED_PRODUCT_LINE_HEADING };
+      return productLineHeadingIsName(item.productLine) && productLineNamedInClaims({ productLine: item.productLine, claims })
+        ? item : { ...item, productLine: UNNAMED_PRODUCT_LINE_HEADING };
     }) };
   }
   return root;

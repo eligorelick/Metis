@@ -954,9 +954,18 @@ export type ProductLineItem = z.infer<typeof ProductLineItemSchema>;
 
 /** D-271: the code-owned heading for an item whose stated name is not in its FACT claims. */
 export const UNNAMED_PRODUCT_LINE_HEADING = "Product line (its name is not in the cited claims)";
+/** D-271: the group heading over the business-story subsections (read by the presentation and the peer note). */
+export const BUSINESS_STORY_HEADING = "The business";
 
-const headingText = (text: string): string => text.normalize("NFKC")
-  .replace(/[®™©℠]/g, "")
+/**
+ * Trademark, service-mark, registered and copyright signs, and the emoji
+ * variation selector that can follow them. Removed BEFORE compatibility
+ * normalization, which would otherwise turn "™" into the letters "TM" and
+ * glue them to the name ("Verandol™" read as "verandoltm"; review round 1).
+ */
+const MARK_SIGNS = /[™℠®©]\uFE0F?/g;
+
+const headingText = (text: string): string => text.replace(MARK_SIGNS, "").normalize("NFKC")
   .replace(/[‘’ʼ]/g, "'")
   .replace(/[‐-―−]/g, "-")
   .replace(/\s+/g, " ")
@@ -971,10 +980,19 @@ const headingText = (text: string): string => text.normalize("NFKC")
  * does not match.
  */
 export function productLineNamedInClaims(item: { productLine: string; claims: readonly Pick<SourcedClaim, "text" | "label">[] }): boolean {
+  return productLineNamingClaims(item).length > 0;
+}
+
+/**
+ * D-271: the item's FACT claims that write its heading as a whole word or
+ * phrase (the claims that support the name). Empty when none does; the read-time
+ * presentation then also needs one of them to be validated or qualitative.
+ */
+export function productLineNamingClaims<C extends Pick<SourcedClaim, "text" | "label">>(item: { productLine: string; claims: readonly C[] }): C[] {
   const heading = headingText(item.productLine);
-  if (!heading || heading === headingText(UNNAMED_PRODUCT_LINE_HEADING)) return false;
+  if (!heading || heading === headingText(UNNAMED_PRODUCT_LINE_HEADING)) return [];
   const wordChar = /[\p{L}\p{N}]/u;
-  return item.claims.some(claim => {
+  return item.claims.filter(claim => {
     if (claim.label !== "FACT") return false;
     const text = headingText(claim.text);
     for (let at = text.indexOf(heading); at >= 0; at = text.indexOf(heading, at + 1)) {

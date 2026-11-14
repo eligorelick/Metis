@@ -88,7 +88,8 @@ import {
   establishedCurrency,
 } from "@/report/format";
 import type { ManifestEntry } from "@/types/core";
-import { productLineNamedInClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
+import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
+import { claimStatusMark } from "@/report/verificationMarks";
 import type {
   Business,
   Competitive,
@@ -787,11 +788,10 @@ export function moatSourceLabel(source: MoatAssessment["source"]): string {
  * D-271: the business story
  * ======================================================================== */
 
-/** The group heading over the business-story subsections (D-271). */
-export const BUSINESS_STORY_HEADING = "The business";
+export { BUSINESS_STORY_HEADING };
 
 export interface BusinessStoryLine {
-  /** The stated name when one of the line's FACT claims writes it; otherwise the code-owned heading (P18). */
+  /** The stated name when a validated or qualitative FACT claim of the line writes it; otherwise the code-owned heading (P18). */
   heading: string;
   claims: readonly SourcedClaim[];
 }
@@ -805,9 +805,19 @@ export interface BusinessStoryBlock {
   lines: readonly BusinessStoryLine[];
 }
 
+/**
+ * D-271, review round 1 (lead decision b): a heading is a name, never a claim.
+ * It is printed only when a FACT claim that writes the name verified (a matched
+ * figure) or is a cited qualitative statement. A contradicted, unverified or
+ * unchecked claim never lends its words to an unmarked heading; that line prints
+ * the code-owned heading and its bullets keep their own marks. Read time, so a
+ * stored report obeys too; with no verification log nothing supports a name.
+ */
+const SUPPORTING_MARKS = new Set(["validated", "qualitative"]);
 const productLines = (items: Business["products"] | Competitive["competitorsByProductLine"]): BusinessStoryLine[] =>
   (items ?? []).filter(item => item.claims.length > 0).map(item => ({
-    heading: productLineNamedInClaims(item) ? item.productLine.trim() : UNNAMED_PRODUCT_LINE_HEADING,
+    heading: productLineNamingClaims(item).some(claim => SUPPORTING_MARKS.has(claimStatusMark(claim) ?? ""))
+      ? item.productLine.trim() : UNNAMED_PRODUCT_LINE_HEADING,
     claims: item.claims,
   }));
 
