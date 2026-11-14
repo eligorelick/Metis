@@ -8,6 +8,13 @@ export function sameIncomeScope(a: StatementFieldProvenance | undefined, b: Stat
     a.filings.length > 0 && filings(a) === filings(b);
 }
 
+/** D-260: explicit disjoint operating costs, never cash acquisition payments. */
+export const ADDITIONAL_OPERATING_COST_TAGS = [
+  "ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost",
+  "ResearchAndDevelopmentAssetAcquiredOtherThanThroughBusinessCombinationWrittenOff",
+  "RestructuringSettlementAndImpairmentProvisions",
+] as const;
+
 /** Disjoint operating components plus an independent, complete pretax bridge.
  * Alternative names are aliases, never additive costs; an aggregate excludes
  * its children. No provider value participates in this proof. */
@@ -31,13 +38,21 @@ export function operatingBridgeProof(revenue: FiledIncomeLine, pretax: FiledInco
   };
   const totalPick = pick(["OperatingExpenses"]), costPick = pick(["CostOfRevenue", "CostOfGoodsAndServicesSold", "CostOfGoodsSold"]);
   const grossPick = pick(["GrossProfit"]), sgaPick = pick(["SellingGeneralAndAdministrativeExpense"]), researchPick = pick(["ResearchAndDevelopmentExpense"]);
+  const researchExcludingPick = pick([ADDITIONAL_OPERATING_COST_TAGS[0]]), acquiredPick = pick([ADDITIONAL_OPERATING_COST_TAGS[1]]), specialPick = pick([ADDITIONAL_OPERATING_COST_TAGS[2]]);
   const total = value(totalPick), cost = value(costPick), gross = value(grossPick), sga = value(sgaPick), research = value(researchPick);
+  const researchExcluding = value(researchExcludingPick), acquired = value(acquiredPick), special = value(specialPick);
   // A full operating aggregate owns its children. Without that independent
   // aggregate, a conflicting component cannot disappear into an alternate GP path.
-  const operatingConflict = conflicts(total ? [totalPick] : [totalPick, costPick, grossPick, sgaPick, researchPick]);
+  const operatingConflict = conflicts(total ? [totalPick] : [totalPick, costPick, grossPick, sgaPick, researchPick, researchExcludingPick, acquiredPick, specialPick]);
   if (operatingConflict) return operatingConflict;
-  const operands = total ? [total] : cost && sga ? [cost, sga, ...(research ? [research] : [])] :
-    gross && sga ? [sga, ...(research ? [research] : [])] : null;
+  if (!total && research && researchExcluding && acquired && !same(research.value, researchExcluding.value + acquired.value))
+    return { status: "conflict", reason: "Complete operating reconciliation refused: total research expense conflicts with its disjoint acquired and non-acquired components." };
+  const researchCosts = research ? [research] : researchExcluding && acquired ? [researchExcluding, acquired] : [];
+  // An excluding-acquired line alone does not establish total research expense.
+  if (!total && !research && (researchExcluding || acquired) && researchCosts.length === 0) return { status: "unavailable" };
+  const otherCosts = [...researchCosts, ...(special ? [special] : [])];
+  const operands = total ? [total] : cost && sga ? [cost, sga, ...otherCosts] :
+    gross && sga ? [sga, ...otherCosts] : null;
   if (!operands) return { status: "unavailable" };
   const operating = (total || cost ? revenue.value : gross!.value) - operands.reduce((sum, p) => sum + p.value, 0);
   if (gross && cost && !same(revenue.value - cost.value, gross.value)) return { status: "conflict", reason: "Complete operating reconciliation refused: same-scope gross profit and full cost have a conflict." };
@@ -62,6 +77,7 @@ export function operatingBridgeProof(revenue: FiledIncomeLine, pretax: FiledInco
   const used = [revenue, pretax, ...operands, ...(gross && !total && !cost ? [gross] : []),
     ...(aggregate ? [aggregate] : [...(netInterest ? [netInterest] : [interest,interestIncome]), benefit, other].filter((l): l is FiledIncomeLine => l !== null))];
   return { status: "complete", line: { value: operating, proof: { ...revenue.proof, tags: [...new Set(used.flatMap(l => l.proof.tags))],
+    ...(used.some(l => l.proof.flowOperands) ? { flowOperands: used.flatMap(l => l.proof.flowOperands ?? []) } : {}),
     calculation: "complete-operating-reconciliation" } } };
 }
 

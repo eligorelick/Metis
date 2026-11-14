@@ -11,6 +11,311 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-260 - Complete filed operating costs and exact additive income windows (2026-11-13)
+
+Principles: P1 (exact additive periods), P2 (compatible current filings), P7
+(compose within a filing), P8 (filed beats vendor), P10/P11 (explicit gaps and
+independent refusals), P20/P21/P27 (retained operands, immutable reports, stamps).
+The owner's Breadth instruction makes LLY the example, rather than a ticker or
+industry exception. This revises the bounded admission of D-203 and extends the
+exact-window evidence of D-240; both entries are marked above.
+
+The SEC quarter resolver already computes FY minus YTD and YTD differences for
+monetary income fields. LLY's historical operating bridges failed later: the
+complete reconciliation did not retain acquired in-process research expense or
+restructuring/special charges, and it did not recognize research excluding
+acquired costs as a disjoint component. The retained primary-table path could
+prove the latest 10-Q's three-month columns and annual statements, hiding this
+omission for those periods only. The fix retains these concepts in the same
+statement index and uses them once in the complete pretax reconciliation.
+A research aggregate owns its children; conflicting totals refuse proof. Cash
+acquisition payments are not research expense. No residual or vendor agreement
+establishes an operating total.
+
+The Q4-2024 leak was not an annual admission indexed solely by year-end. Its
+provider filing date no longer appeared in the canonical derived SEC revenue
+pair. With no original quarterly candidate, revenue admission returned early,
+leaving both provider numbers without a mixed-source review; the provider's own
+gross-profit/expense bridge then passed. A positively reconstructed, matching
+quarter now enters review despite that date mismatch. Its exact interval still
+comes from the filed operands. Q4-2025 had a matching filing and did enter the
+review. The same general rule covers every reconstructed quarter.
+
+All missing additive monetary income fields now use the statement owner's
+annual/quarterly chains, with provenance and the reconstruction retained. The
+trailing assembly can use those same chains over an independently proved exact
+window: FY + current YTD - prior-year YTD, or a directly stated exact window.
+The two YTD operands must be in one current core filing. A newer comparative
+cannot silently recast the annual's presentation. Every concept, amount,
+interval, unit and filing remains in flowOperands and in the manifest reason.
+For operating income, each full interval is first independently reconciled;
+compatibility is tested on these complete operating totals, before subtraction.
+This matters for LLY: the prior-year nonoperating child changed by 0.7 million
+between printed precisions, while the fully reconciled operating total changed
+by 0.5 million. The existing presentation re-rounding rule admits the total;
+no tolerance was added for that child. The exact trailing identity supersedes
+an already corroborated quarter sum only within the existing filed-operand
+rounding allowance, and names both totals.
+
+The three aggregate operands enter that rounding comparison once; their retained
+component receipts do not widen it. Missing trailing revenue still goes through
+admitRevenue and the company's sales policy, rather than accepting a taxonomy
+label alone. Its completeness entry is now compute.ttmIncome.revenue, allowing
+the exact same field's suppression to clear on new window evidence. A missing
+EBIT cannot evade an independent operating-income refusal. Separate red/green
+controls cover both of these breadth boundaries.
+
+The existing quarter resolver now retains each original operand's amount,
+interval and filing in the same flowOperands receipt, including FY-minus-YTD,
+FY-minus-quarters and YTD differences. The currency-label and completed-sale
+readers use the same exact trailing-window owner as the final computation.
+Once a completed operating sale has been removed from recurring income, raw
+filed-window operating totals cannot restore it. Additional failing controls
+pin the quarter receipts, currency window and normalized-sale boundary.
+
+Scope and sibling search:
+
+- The quarter owner already handles every additive chain. Its missing-field
+  transport now covers annual and quarterly income, including interest, tax,
+  depreciation, consolidated/common profit and equity-method income. Direct
+  OperatingIncomeLoss observations are retained. Per-share EPS and weighted
+  average shares are excluded by the owner's unit classification.
+- The TTM completeness gates in compute.ts were checked field by field. Revenue,
+  operating income/EBIT, depreciation, interest, pretax, tax, gross profit and
+  directly tagged consolidated profit can use exact-window evidence. Parent,
+  common and NCI allocation still pass their own ownership constructors; a
+  monetary identity cannot establish an ownership scope or a common allocation.
+- financialEnrichment.ts:filedWindowFlow is the existing exact-window owner.
+  Its annual/comparative compatibility check now also protects the existing
+  filedSingleProfitWindow consumer. The cash-flow-specific CFO, capex and SBC
+  methods keep their definitions; balance instants do not use flow arithmetic.
+- US-GAAP 20-F/40-F annual and exact-window observations use the same chains;
+  tests cover both foreign annual forms, a direct-tag issuer, a disjoint-cost
+  issuer and refusal shapes. Unsupported IFRS taxonomy mapping and 6-K interim
+  evidence remain gaps, rather than newly guessed foreign quarters. Banks and
+  securities firms keep their separate revenue chain and require their filed
+  operating tag. Insurer, REIT and utility additive evidence is admitted on the
+  same exact-period rule where its tag and entity scope are established.
+
+Rejected: restoring a vendor subtotal because it agrees with itself; treating
+acquisition cash paid as an expense; summing a partial TTM; annual-as-TTM;
+adding interest already inside the aggregate; inferring EPS or share counts;
+changing tolerances, growth guards, valuation methods, scoring bands or weights.
+
+### Approved report changes
+
+All 17 regression cases were rebuilt on pinned main
+9f0d54765a5760e460c53342431c21468dd7c0fc and on this tree, offline.
+All 17 change the report/payload stamp and resulting fingerprints or rendered
+identity hashes. Ten cases (nine issuers) also change evidence, disclosure or
+financial leaves; seven are stamp-only controls. No directly tagged operating
+amount or score changes in the regression set. O has a previously unreviewed,
+unproved quarterly margin withdrawn; DUK gains consolidated FCF conversion.
+
+The following table accounts for every changed JSON path from golden:diff.
+Counts include array-position shifts when an admission replaces an old gap or
+construction note. Paths under gaps/notes and report appendix carry exactly the
+source admissions below; sourceFactSummary adds the same filed fields and their
+registry counts. meta.specVersion is the version bump in every case. The text,
+Markdown and two HTML outputs render these same changes; payload fingerprints
+and HTML report-identity hashes follow their changed content.
+
+| Case | Stage B changed paths | Report changed paths | Approved cause |
+| --- | ---: | ---: | --- |
+| amzn-data-only | 27 | 35 | Equity-method amounts and their source records; admission notes only. |
+| figr-data-only | 175 | 101 | Exact common-income and equity-method inputs move admission earlier; the existing common total is unchanged. |
+| meta-data-only | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| mu-data-only | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| nvda-data-only | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| qcom-data-only | 27 | 29 | Same-period equity-method inputs and source records; admission notes only. |
+| jpm-data-only | 185 | 71 | Filed common earnings move admission earlier; the bank revenue chain, common total and all scores remain unchanged. |
+| pgr-data-only | 78 | 44 | FY common earnings are admitted earlier; the existing redeemed-preferred disclosure moves with that proof. No value changes. |
+| o-data-only | 328 | 121 | Filed common/consolidated/equity-method evidence; unsupported Q4-2024 GP, expenses and operating margin are withheld by the same reconstructed-quarter review. |
+| duk-data-only | 195 | 101 | Filed consolidated trailing profit restores the FCF-conversion denominator; common/NCI/equity-method facts gain evidence. |
+| tsm-data-only | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| rivn-data-only | 229 | 106 | Filed common loss and equity-method income move admission earlier; common trailing loss and scores are unchanged. |
+| vktx-data-only | 31 | 22 | Exact filed consolidated loss is read directly; the same numeric conversion denominator keeps consolidated scope; duplicate single-profit bridge is retired. |
+| amzn-fixed-analyst | 27 | 39 | Same AMZN inputs; fixed analyst appendix/source registry follows them. |
+| meta-fixed-analyst | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| mu-fixed-analyst | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+| nvda-fixed-analyst | 0 | 1 | Report stamp only; financial output and evidence unchanged. |
+
+Filed inputs behind those regression deltas (USD millions unless stated):
+
+- AMZN: IncomeLossFromEquityMethodInvestments, FY2025 -554 from 10-K
+  0001018724-26-000004 (2026-02-06), Q3-2025 -73 from 10-Q
+  0001018724-25-000123 (2025-10-31), Q1/Q2-2026 -19/-11 from 10-Q
+  0001018724-26-000014 (2026-04-30) / 0001018724-26-000026 (2026-07-31).
+  The seven sourceFactSummary paths add these observations/registry counts;
+  no financial Stage B value changes in either AMZN case.
+- FIGR: NetIncomeLossAvailableToCommonStockholdersBasic for Q3/Q4-2025 and
+  Q1/Q2-2026 is 43.784/23.027/44.945/87.446. Q4 uses FY minus nine months
+  (10-K 0002064124-26-000009, 2026-03-16; 10-Q 0002064124-25-000032,
+  2025-11-13). Current quarters are in 0002064124-26-000029 (2026-05-15)
+  and 0001628280-26-057061 (2026-08-14). The existing 199.202 common total
+  is unchanged; its later construction note is replaced by earlier admissions.
+  Equity-method FY2025/Q1-2026 -1.246/-0.417 use those same filings.
+- QCOM: equity-method Q1/Q2 calendar-2026 44/66, from 10-Q
+  0000804328-26-000061 (2026-04-29) / 0000804328-26-000086 (2026-07-29).
+  Only the associated source fact and disclosure paths change.
+- JPM: the common tag above supplies Q4-2025 12,690 (FY minus YTD), and
+  Q1/Q2/Q3-2026 16,148/20,752/14,936: 10-K 0001628280-26-008131
+  (2026-02-13), prior 10-Q 0001628280-25-048859 (2025-11-04), and
+  10-Qs 0001628280-26-029344/-054343/-069523 (2026-05-01/08-06/11-03).
+  The existing 64,526 total, routing, bank revenue and scores are unchanged.
+- PGR: the same common tag supplies FY2025 11,308, 10-K
+  0000080661-26-000086 (2026-03-02). The D-251 preferred-redemption
+  completion already produced this amount; earlier general admission now
+  supplies it, changing only its evidence wording and gap positions.
+- O: equity-method FY2025 and Q1/Q2/Q3-2026 13.330/2.669/2.204/2.927,
+  10-K 0000726728-26-000011 (2026-02-25) and 10-Qs
+  0000726728-26-000030/-000048/-000059 (2026-05-07/08-06/11-03).
+  Filed common Q1/Q3-2026 311.766/403.942 use those quarters. Q4-2020
+  ProfitLoss 118.150 is in 10-K 0000726728-21-000043 (2021-02-23).
+  The 15 filingDisclosures paths are note-position changes plus the three
+  unsupported Q4-2024 trend cells: gross margin 92.8144%, expenses 655.785
+  and operating margin 43.8861% become unavailable. Its retained vendor row
+  has no corroborated same-basis numerator/complete expense or GP proof under
+  the reconstructed-quarter review. Current direct operating values stay.
+- DUK: ProfitLoss TTM = 5,071 + 4,372 - 3,865 = 5,578, 10-K
+  0001326160-26-000014 (2026-02-26), and both nine-month columns of 10-Q
+  0001326160-26-000051 (2026-11-05). This restores capital.current.netIncome
+  and fcfConversionBeforeSbc, null to -0.9254212979562567, and changes its
+  cashBridge definition. The two report balanceSheet paths render that
+  conversion and scope. This is directly consolidated profit; the still
+  incomplete NCI quarter series does not block it or become a fabricated zero.
+  Equity-method FY2025/Q1/Q2/Q3-2026 51/7/10/22, common Q1/Q2/Q3
+  1,536/1,077/1,551, and Q1 NCI 27/consolidated 1,577 use that 10-K and
+  10-Qs 0001326160-26-000026/-000040/-000051 (2026-05-05/08-04/11-05).
+  Q4-2023 common 991/consolidated 996 use 0001326160-24-000037
+  (2024-02-23). Their sourceFactSummary paths add those exact fields.
+- RIVN: common Q4-2025 and Q1/Q2/Q3-2026 -811/-416/-833/-913, 10-K
+  0001874178-26-000008 (2026-02-12), prior 10-Q
+  0001874178-25-000052 (2025-11-04), and 10-Qs
+  0001874178-26-000035/-000054/-000066 (2026-04-30/07-30/10-29).
+  Equity-method Q1-2026 506 uses that same quarter. The existing -2,973
+  common total and every score remain unchanged; earlier admissions replace
+  the later construction disclosure.
+- VKTX: directly consolidated ProfitLoss TTM = -359.639 -469.533
+  +201.977 = -627.195, 10-K 0001193125-26-046876 (2026-02-11) and
+  10-Q 0001193125-26-436432 (2026-10-29). Q4-2025 -157.662 uses that
+  annual and prior 10-Q 0001193125-25-247059 (2025-10-23); Q1-2026
+  -158.325 uses 0001193125-26-193315 (2026-04-30). The denominator was
+  already numerically established by the single-profit fallback. Its direct
+  consolidated evidence now replaces the duplicate filedCashFlows.netIncome
+  fallback record and changes cashBridge/report commentary only. No amount
+  or score changes.
+
+For these ten cases, every remaining Stage B path is under gaps or notes.
+Every remaining report path is under appendix, sourceFactSummary or
+meta.specVersion. The only exceptions are the O trend cells/notes and the
+DUK/VKTX capital/report paths enumerated above. The seven stamp-only cases are
+META (both), MU (both), NVDA (both) and TSM. No unidentified financial leaf is
+approved by this entry.
+
+LLY evidence and before/after:
+
+| Figure | Before | After |
+| --- | --- | --- |
+| Q4-2025 operating income | withheld | 8,374.5 (8,375 rounded to millions) |
+| Q1-2026 operating income | withheld | 8,915 |
+| Q2-2026 operating income | withheld | 8,978 |
+| Q3-2026 operating income | 8,608 | 8,608 |
+| TTM operating income | withheld (1/4 quarters) | 34,876; 40.33679535518493% of 86,462 revenue |
+| Q4-2024 operating margin / expenses | 41.9869% / 5,447 | both withheld |
+| DCF statement basis | FY2025, 2025-12-31; dated reference 518.37/share | rolling 2025-10-01 to 2026-09-30; current 662.08/share |
+| Valuation score / evidence | unscored / 0% | 33.98 / 100% |
+| Balance-sheet score / evidence | 68.44 / 41.17647058823529% | 74.37 / 100% |
+| Composite | 63.74 | 63.05 |
+| EBITDA / net debt to EBITDA | unavailable / unavailable | 37,049.7 / 1.204274258630974x |
+| Trailing interest coverage / EV to EBITDA | unavailable / unavailable | 29.606112054329373x / 37.8568087595851x |
+
+The Q4-2025 exact retained FY-minus-YTD operands give 8,374.5, not an invented
+8,375. The latest comparative full operating totals give the exact TTM 34,876
+(26,302 + 26,501 - 17,927), versus a 34,875.5 quarter sum. That 0.5 difference
+is explicitly disclosed. Operands are the complete operating reconciliation to
+IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest
+less NonoperatingIncomeExpense. The annual is 10-K 0000059478-26-000013
+(2026-02-12); both latest nine-month columns are 10-Q
+0000059478-26-000108 (2026-10-29). Q1/Q2-2026 are supported by
+0000059478-26-000045 (2026-04-30) / 0000059478-26-000081 (2026-08-05).
+The quarter reconstruction retains the original annual and nine-month filing
+references; it does not relabel the later comparative as an original quarter.
+Q4-2024 filed 12,899 - 7,750.2 = 5,148.8 exists, but its complete bridge on
+the retained rounded provider revenue is unproved under the unchanged exact
+reconciliation check, so the report withholds the margin/expenses. The acceptance
+allows withholding; it never shows the provider's 41.99% again.
+
+The same disjoint bridge also establishes FY2021 operating income 6,357.1
+(22.448655291259392%), from the 2024-02-21 10-K
+0000059478-24-000065, and strengthens FY2022's unchanged 7,127.3 proof
+(0000059478-25-000067, 2025-02-19). FY2020 and older unsupported margins
+remain gaps. Historical operating quarters with newly complete component proof
+are admitted, while their provider expense subsets remain withheld.
+The growth slope moves from 5.584457438255553 to 3.947779023363034 pp/year;
+forensic evaluated years rise from four to five, with the three flagged years
+unchanged. FY2021 ROIC remains refused by its independent debt/lease mismatch.
+
+The LLY Stage B changed-path inventory is identical in both rebuild cases:
+capital 4; fairValue 10; forensics 2; gaps 164; growth 2; projections 623;
+returns 20; scenarioTargets 11; scores 120; valuation 350 (1,306 total).
+The four capital paths are the restored EBIT/EBITDA/coverage/leverage above.
+Fair value, valuation and scenario paths re-run the unchanged model from the
+admitted trailing seed and current statement date: forecast periods, consensus
+alignment, taxes, margins, discounting, sensitivities, EV/EBITDA, reverse growth
+and target availability inherit the new inputs. Reverse growth is available
+(45.2587890625%); scenarios are available. Neither the growth guard nor any
+method, band or weight changed. Projections inherit those forward periods and
+the larger admitted historical margin sample; their dispersion/correlation and
+unchanged scenario cap rule naturally recompute. Returns reflect restored
+operating proof and its current coverage/date, while the independent FY2021
+capital refusal remains. Scores change only as these signals become available
+and their period/evidence fractions propagate into assessments, drivers,
+factor exposure and qualifications. Only balanceSheet and valuation evidence
+fractions change; all other aspect scores and fractions remain the same.
+
+The data-only LLY report has 1,233 changed paths: appendix 97, balanceSheet 24,
+fairValue 10, filingDisclosures 28, fundamentals 22, meta 1, projections 623,
+quality 1, scenarioPresentation 4, scenarioTargets 11, scores 120, thesisTriggers
+1, valuation 261 and verdict 30. These render the same input/model changes;
+filingDisclosures adds the admitted quarter margins and replaces Q4-2024's two
+unsupported cells with gaps. The fixed-analyst report has 6,463 changed paths:
+appendix 4,987; balanceSheet 18; fairValue 10; filingDisclosures 28;
+fundamentals 2; meta 14; projections 983; scenarioPresentation 4;
+scenarioTargets 11; scores 122; thesisTriggers 1; valuation 267; verdict 16.
+Its unchanged stored analyst prose is revalidated against the new deterministic
+figures, so contradictory/stale claims and their consistency/provenance records
+are updated rather than rewriting or regenerating that prose. The 13 additional
+meta paths are the corresponding period/unit check counts, factual/judgment/
+numeric coverage and verification rate (0.9854651162790697 to
+0.9777158774373259). Those appendix/registry/claim changes, including array
+position shifts, explain the larger count. No model was called.
+
+All changed file hashes and every JSON path are accounted for by the scopes
+above. Local golden diff approvals close all 129 golden and 16 LLY file/manifest
+differences; they are technical intentional-delta receipts, not merge approval.
+The raw outputs and exact path/value receipts remain local and uncommitted.
+
+P27 controls: the explicit freeze:refresh protocol under D-260 records only six
+Stage C stamp/header hash leaves and two DEMO report-stamp/digest leaves. Both
+frozen controls retain every financial figure, registry, score and projection.
+The append-only refresh log identifies the exact scopes and before/after hashes.
+
+The current fictional visitor sample is regenerated by sample:build. Its six
+changed leaves are meta.specVersion and meta.pipelineVersion, the already-current
+meta.evidenceContract, the two consolidated FCF-conversion series labels, and the
+balance-sheet scoring note's consolidated-profit label. This synchronizes existing
+source wording while refreshing the current stamp; no fictional amount, score,
+projection, chart, claim verification or authored narrative changes. The legacy
+DEMO-sample fixture and all stored reports remain byte-identical.
+
+Remaining sibling boundaries: compute.ts:1397 retains the separate diluted-EPS
+quarter-sum convention; common/parent/NCI flows at :1402-1404 retain their scope
+constructors; cash-flow completeness at :1649 uses its own CFO/capital-spending
+owners and definitions; xbrl.ts:80 excludes 6-K and :432 reads US-GAAP rather
+than mapping IFRS income concepts. These are different evidence/definition questions, not a reason to
+substitute annual, parent or cash-payment figures for missing income flows.
+
 ## D-259 - Claude Fable 5.2 joins the registry, and the refresh adds newly published models itself (2026-11-13)
 
 Principles P25 (one model registry: models are named and configured in one
@@ -1863,6 +2168,10 @@ Version stamps are not moved here (P27: the Stage 5 integration change moves
 them together). Stored reports and snapshots keep their bytes.
 
 ## D-240 - The trailing net income behind FCF conversion is read from the filings when they state one profit line (2026-11-12)
+
+Revised by D-260: the shared exact-window identity checks the annual/comparative
+presentation explicitly; directly tagged consolidated trailing profit can stand
+independently of four separately available consolidated quarters.
 
 Principles P5 (entity scope), P1 (exact period; an additive flow derived from
 compatible operands, each kept), P8 (filed beats vendor; no new allowance),
@@ -13798,6 +14107,10 @@ replay, independent review, version reconciliation and unchanged release gates.
 
 
 ## D-203 - Operating revenue and income basis (2026-11-05)
+
+Revised by D-260: separately filed operating-cost components, reconstructed-quarter
+review and exact additive income windows extend admission without changing its
+scope, presentation, refusal or tolerance rules.
 
 The round-1 execution receipts and panel counts in this section are historical
 at `61fd3583` / `04741e49`, not final evidence for round 2. The round-2 disposition

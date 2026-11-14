@@ -4,9 +4,194 @@ import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
 import { bindPrimaryIncome, parsePrimaryIncomeStatements, primaryPerimeterChange } from "@/edgar/primaryIncome";
 import type { CompanyFacts } from "@/edgar/xbrl";
+import { runStageB, statementCurrencies } from "@/pipeline/compute";
+import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 
 const header = "CONSOLIDATED STATEMENTS OF INCOME Years Ended December 31, 2025 2024 (Dollars in millions) ";
 const table = "Net sales 1,000 900 Cost of sales 400 350 Selling, general and administrative expenses 300 280 Interest expense 10 10 Income before income taxes 290 260";
+
+function cumulativeOperatingFixture(direct = false) {
+  const b = completeCurrencyBundle({ debt: 300 });
+  b.builtAt = "2026-11-10T00:00:00Z";
+  const periods = [
+    ["2024-01-01", "2024-09-30", "2024-11-01", 700, 100, -15],
+    ["2024-01-01", "2024-12-31", "2025-02-01", 1000, 180, -20],
+    ["2025-01-01", "2025-03-31", "2025-05-01", 250, 35, -5],
+    ["2025-01-01", "2025-06-30", "2025-08-01", 550, 75, -10],
+    ["2025-01-01", "2025-09-30", "2025-11-01", 900, 120, -15],
+    ["2025-01-01", "2025-12-31", "2026-02-01", 1200, 180, -20],
+    ["2026-01-01", "2026-03-31", "2026-05-01", 400, 80, -5],
+    ["2026-01-01", "2026-06-30", "2026-08-01", 900, 190, -10],
+    ["2026-01-01", "2026-09-30", "2026-11-01", 1500, 310, -15],
+  ] as const;
+  const concepts: Record<string, { units: { USD: object[] } }> = {};
+  for (const [start, end, filed, revenue, pretax, below] of periods) {
+    const operating = pretax - below;
+    const values = { Revenues: revenue, CostOfRevenue: revenue * 0.4, SellingGeneralAndAdministrativeExpense: revenue * 0.2,
+      ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost: revenue * 0.1,
+      ResearchAndDevelopmentAssetAcquiredOtherThanThroughBusinessCombinationWrittenOff: revenue * 0.05,
+      RestructuringSettlementAndImpairmentProvisions: revenue * 0.25 - operating,
+      IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: pretax,
+      NonoperatingIncomeExpense: below, ...(direct ? { OperatingIncomeLoss: operating } : {}) };
+    for (const [tag, val] of Object.entries(values)) (concepts[tag] ??= { units: { USD: [] } }).units.USD.push({
+      start, end, val: val * M, accn: end, filed, form: end.endsWith("12-31") ? "10-K" : "10-Q", fy: Number(start.slice(0, 4)), fp: end.endsWith("12-31") ? "FY" : `Q${Number(end.slice(5, 7)) / 3}`,
+    });
+  }
+  for (const [, end, filed, val] of [
+    ["2024-07-01", "2024-09-30", "2024-11-01", 250],
+    ["2025-04-01", "2025-06-30", "2025-08-01", 300],
+    ["2025-07-01", "2025-09-30", "2025-11-01", 350],
+    ["2026-04-01", "2026-06-30", "2026-08-01", 500],
+    ["2026-07-01", "2026-09-30", "2026-11-01", 600],
+  ] as const) (concepts.Assets ??= { units: { USD: [] } }).units.USD.push({ end, filed, val: val * M, accn: end, form: "10-Q", fy: Number(end.slice(0, 4)), fp: `Q${Number(end.slice(5, 7)) / 3}` });
+  const facts: CompanyFacts = { cik: 42, entityName: "Synthetic research issuer", facts: { "us-gaap": concepts } };
+  withIssuerFacts(b, facts);
+  const built = buildStatementsFromCompanyFacts(facts, { symbol: b.symbol, cik: "42", asOf: "2026-11-10", factsObservedAt: b.builtAt,
+    annualPeriods: 4, quarterlyPeriods: 10, vendorSplits: { status: "unavailable", source: "synthetic", reason: "No shares consumed" } });
+  for (const name of ["incomeAnnual", "incomeQuarterly"] as const) {
+    const input = b.statements[name]; if (!input.ok) throw Error("fixture");
+    input.value.data.rows = built[name].rows.map(r => ({ ...r, source: "fmp", fieldProvenance: undefined, filedIncomeLines: undefined,
+      operatingIncome: direct ? r.operatingIncome : r.grossProfit! - r.researchAndDevelopmentExpenses! - r.sellingGeneralAndAdministrativeExpenses! }));
+    input.value.data.raw = structuredClone(input.value.data.rows);
+  }
+  return b;
+}
+
+it.each([false, true])("reconstructs a complete filed operating bridge for every cumulative quarter (direct tag %s, P1, D-260)", direct => {
+  const b = cumulativeOperatingFixture(direct), before = JSON.stringify(b);
+  const admitted = withIncomeOperatingBasis(b).statements.incomeQuarterly;
+  if (!admitted.ok) throw Error("fixture");
+  expect(admitted.value.data.rows.slice(0, 4).map(r => r.operatingIncome)).toEqual([125, 115, 85, 65].map(v => v * M));
+  const q4 = admitted.value.data.rows.find(r => r.date === "2025-12-31")!;
+  expect(q4.fieldProvenance?.operatingIncome?.derivation).toBe("fy-minus-ytd");
+  expect(q4.fieldProvenance?.operatingIncome?.filings.map(f => f.accn).sort()).toEqual(["2025-09-30", "2025-12-31"]);
+  const costOperands = q4.fieldProvenance?.operatingIncome?.flowOperands?.find(o => o.tag === "us-gaap/CostOfRevenue");
+  expect(costOperands?.points.map(p => ({ start: p.start, end: p.end, val: p.val, accn: p.accn }))).toEqual([
+    { start: "2025-01-01", end: "2025-12-31", val: 480 * M, accn: "2025-12-31" },
+    { start: "2025-01-01", end: "2025-09-30", val: 360 * M, accn: "2025-09-30" },
+  ]);
+  expect(q4.operatingExpenses ?? null).toBeNull();
+  const computed = runStageB(b);
+  expect(computed).toBeDefined();
+  expect(JSON.stringify(computed)).not.toContain("operatingIncome present in only");
+  expect(JSON.stringify(b)).toBe(before);
+});
+
+it("reviews a vendor Q4 whose original filing no longer supplies the canonical revenue pair (D-260)", () => {
+  const b = cumulativeOperatingFixture();
+  if (!b.statements.incomeQuarterly.ok) throw Error("fixture");
+  const row = b.statements.incomeQuarterly.value.data.rows.find(r => r.date === "2024-12-31")!;
+  row.filingDate = "2025-02-02";
+  (b.statements.incomeQuarterly.value.data.raw as typeof row[]).find(r => r.date === row.date)!.filingDate = row.filingDate;
+  const out = withIncomeOperatingBasis(b).statements.incomeQuarterly;
+  expect(out.ok && out.value.data.rows.find(r => r.date === row.date)?.operatingIncome).toBe(85 * M);
+});
+
+function trailingOnlyFixture() {
+  const b = cumulativeOperatingFixture();
+  if (!b.edgar.companyFacts.ok || !b.statements.incomeQuarterly.ok) throw Error("fixture");
+  const facts = b.edgar.companyFacts.value.data.facts["us-gaap"]!;
+  for (const [tag, raw] of Object.entries(facts)) {
+    const c = raw as { units: { USD: { start?: string; end: string; accn: string; filed: string; form: string; val: number }[] } };
+    const prior = c.units.USD.find(p => p.start === "2025-01-01" && p.end === "2025-09-30");
+    if (prior) c.units.USD.push({ ...prior, accn: "2026-09-30", filed: "2026-11-01" });
+    if (tag !== "Revenues" && tag !== "Assets") c.units.USD = c.units.USD.filter(p => p.end !== "2026-06-30");
+  }
+  for (const row of b.statements.incomeQuarterly.value.data.rows) {
+    row.periodStart = `${row.date!.slice(0, 4)}-${String(Number(row.date!.slice(5, 7)) - 2).padStart(2, "0")}-01`;
+    if (row.date === "2026-06-30" || row.date === "2026-09-30") row.operatingIncome = undefined;
+  }
+  return b;
+}
+it("uses a complete filed FY plus YTD identity when standalone operating quarters cannot be proved (D-260)", () => {
+  const c = runStageB(trailingOnlyFixture());
+  expect(c.gaps).toContainEqual(expect.objectContaining({ field: "compute.ttmIncome.operatingIncome", reason: expect.stringContaining("390000000 USD") }));
+  expect(JSON.stringify(c)).toContain("FY + current YTD - prior-year YTD");
+});
+
+it("uses an admitted exact revenue window when two standalone revenue quarters are absent (P1, D-260)", () => {
+  const b = trailingOnlyFixture();
+  if (!b.edgar.companyFacts.ok || !b.statements.incomeQuarterly.ok) throw Error("fixture");
+  const revenue = b.edgar.companyFacts.value.data.facts["us-gaap"]!.Revenues as { units: { USD: { end: string }[] } };
+  revenue.units.USD = revenue.units.USD.filter(p => p.end !== "2026-06-30");
+  for (const row of b.statements.incomeQuarterly.value.data.rows) if (row.date === "2026-06-30" || row.date === "2026-09-30") row.revenue = undefined;
+  const c = runStageB(b);
+  expect(c.gaps).toContainEqual(expect.objectContaining({ field: "compute.ttmIncome.revenue", reason: expect.stringContaining("1800000000 USD") }));
+  expect(c.gaps.some(g => g.reason.includes("revenue present in only"))).toBe(false);
+  expect(statementCurrencies(b).ttmIncomeUsable).toBe(true);
+});
+
+it("does not restore reported operating income after a completed-sale normalization (D-260)", () => {
+  const b = trailingOnlyFixture();
+  b.gaps.push({ field: "compute.operatingDispositions", severity: "info",
+    reason: "Synthetic completed sale already removed from recurring operating income." });
+  expect(runStageB(b).gaps.some(g => /^compute\.ttmIncome\.(operatingIncome|ebit)$/.test(g.field) && g.reason.includes("uses the exact filed window"))).toBe(false);
+});
+
+it.each([0.5, 1.5])("tests independently reconciled operating totals before differencing rounded children (prior total changes %s million, D-260)", delta => {
+  const b = trailingOnlyFixture();
+  if (!b.edgar.companyFacts.ok) throw Error("fixture");
+  const facts = b.edgar.companyFacts.value.data.facts["us-gaap"]!;
+  for (const [tag, val] of Object.entries({
+    IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest: 119.3 + delta,
+    NonoperatingIncomeExpense: -15.7,
+    RestructuringSettlementAndImpairmentProvisions: 90 - delta,
+  })) {
+    const c = facts[tag] as { units: { USD: { accn: string; val: number }[] } };
+    c.units.USD.find(p => p.accn === "2025-09-30")!.val = val * M;
+  }
+  const recovered = runStageB(b).gaps.find(g => g.field === "compute.ttmIncome.operatingIncome" && g.reason.includes("uses the exact filed window"));
+  if (delta === 0.5) expect(recovered?.reason).toContain("390000000 USD");
+  else expect(recovered).toBeUndefined();
+});
+
+it.each(["changed comparative", "mixed currency", "future acquisition", "wrong issuer", "independent refusal"])("keeps an unproved trailing operating window closed: %s (D-260)", defect => {
+  const b = trailingOnlyFixture();
+  if (!b.edgar.companyFacts.ok || !b.statements.incomeQuarterly.ok) throw Error("fixture");
+  const facts = b.edgar.companyFacts.value.data;
+  if (defect === "future acquisition") b.edgar.companyFacts.value.fetchedAt = "2027-01-01";
+  if (defect === "wrong issuer") facts.cik = 99;
+  if (defect === "changed comparative") {
+    const c = facts.facts["us-gaap"]!.IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest as { units: { USD: { start: string; end: string; accn: string; val: number }[] } };
+    c.units.USD.find(p => p.start === "2025-01-01" && p.end === "2025-09-30" && p.accn === "2026-09-30")!.val += 10 * M;
+  }
+  if (defect === "mixed currency") {
+    const c = facts.facts["us-gaap"]!.NonoperatingIncomeExpense as { units: { USD: object[]; EUR?: object[] } };
+    c.units.EUR = c.units.USD; c.units.USD = [];
+  }
+  if (defect === "independent refusal") {
+    b.statements.incomeQuarterly.value.data.rows[0]!.fieldConflicts = {
+      operatingIncome: { usable: false, cause: "operating-scope", vendorValue: null, secValue: null, reason: "Synthetic independent scope refusal" } };
+    for (const row of b.statements.incomeQuarterly.value.data.rows) row.ebit = undefined;
+  }
+  expect(runStageB(b).gaps.some(g => /^compute\.ttmIncome\.(operatingIncome|ebit)$/.test(g.field) && g.reason.includes("uses the exact filed window"))).toBe(false);
+});
+
+it.each(["10-K", "20-F", "40-F"])("completes missing additive income fields from the same exact filed quarters (%s, D-260)", form => {
+  const b = cumulativeOperatingFixture(true);
+  if (!b.edgar.companyFacts.ok || !b.statements.incomeQuarterly.ok || !b.statements.incomeAnnual.ok) throw Error("fixture");
+  const facts = b.edgar.companyFacts.value.data.facts["us-gaap"]!;
+  const revenue = facts.Revenues as { units: { USD: { val: number; form: string }[] } };
+  for (const tag of ["InterestExpense", "IncomeTaxExpenseBenefit", "DepreciationDepletionAndAmortization"])
+    facts[tag] = { units: { USD: revenue.units.USD.map(p => ({ ...p, val: p.val * 0.01 })) } };
+  if (form !== "10-K") for (const raw of Object.values(facts)) {
+    const c = raw as typeof revenue;
+    c.units.USD.forEach(p => { if (p.form === "10-K") p.form = form; });
+  }
+  for (const name of ["incomeAnnual", "incomeQuarterly"] as const) {
+    const input = b.statements[name]; if (!input.ok) throw Error("fixture");
+    for (const row of input.value.data.rows) for (const field of ["interestExpense", "incomeTaxExpense", "depreciationAndAmortization"]) row[field] = undefined;
+  }
+  const out = withIncomeOperatingBasis(b);
+  for (const name of ["incomeAnnual", "incomeQuarterly"] as const) {
+    const input = out.statements[name]; if (!input.ok) throw Error("fixture");
+    const row = input.value.data.rows[0]!;
+    for (const field of ["interestExpense", "incomeTaxExpense", "depreciationAndAmortization"]) {
+      expect(row[field], field).toBe(row.revenue! * 0.01);
+      expect(row.fieldProvenance?.[field]?.source).toBe("edgar");
+    }
+  }
+});
 function fixture(text = header + table) {
   const b = completeCurrencyBundle({ debt: 300 });
   const facts: Record<string, { units: { USD: object[] } }> = {};

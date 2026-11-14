@@ -28,7 +28,10 @@ describe("L2 filed aggregate common-earnings P/E", () => {
     expect(multiple.current).toBeCloseTo(24.307358750213353, 8);
     expect(multiple.basis).toMatch(/aggregate basis/i);
     expect(multiple.basis).toMatch(/TTM/);
-    expect(c.gaps.find(g => g.field === "compute.ttmCommonEarnings.construction")?.reason).toMatch(/23027000.*fy-minus-ytd.*0002064124-26-000009.*0002064124-25-000032/);
+    // D-260: the missing Q1 common numerator is now admitted with the other
+    // additive fields, before the later aggregate-only fallback runs.
+    expect(c.gaps).toContainEqual(expect.objectContaining({ field: "statements.income.2026-03-31.netIncomeAvailableToCommon",
+      reason: expect.stringMatching(/44945000.*0002064124-26-000029/) }));
     expect(c.gaps.some(g => /commonIncome/.test(g.field) && /unavailable/.test(g.reason))).toBe(false);
     expect(serializePayloadForPrompt(assembleContextPayload(b, c, { checks: [], flags: [], gaps: [] }))).toMatch(/aggregate basis/i);
     expect(JSON.stringify(b)).toBe(before);

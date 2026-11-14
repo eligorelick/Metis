@@ -1,13 +1,14 @@
 import type { WaccOperatingEvidence } from "./stageB/returns";
 import { sameIncomeScope as sameBasis } from "@/edgar/revenuePresentation";
-import { corroborateOperatingIncome, operatingDerivationRefusal, operatingMarginRefusal, operatingRevenuePolicy, replayIncomeObservations, retainedIncomeRows } from "@/edgar/revenueAdmission";
+import { admitRevenue, corroborateOperatingIncome, operatingDerivationRefusal, operatingMarginRefusal, operatingRevenuePolicy, replayIncomeObservations, retainedIncomeRows } from "@/edgar/revenueAdmission";
 import { parseOperatingRevenueBridge } from "@/edgar/currentReports";
 import { applyPrimaryIncome, bindPrimaryIncome, contradictedOperatingTag, primaryPerimeterChange } from "@/edgar/primaryIncome";
 import type { DataBundle } from "./types";
 import type { FmpIncomeStatementRow } from "@/providers/fmp";
 import type { ManifestEntry } from "@/types/core";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
-import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import { ADDITIVE_INCOME_FIELDS, buildIncomeWindowFromCompanyFacts, buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import type { TtmIncome } from "./compute";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { sectorIndustryForSic } from "@/edgar/sic";
 import { successorContinuity } from "@/edgar/successor";
@@ -112,6 +113,64 @@ export function operatingMarginBasis(row: OperatingRow | null | undefined): { re
 
 }
 
+/** P1, D-260: a missing quarter is not a missing trailing flow when the
+ * filings independently prove that exact window. Ownership and EPS continue
+ * through their dedicated scope constructors; no per-share values are added. */
+export function withFiledIncomeWindow(bundle: DataBundle, ttm: TtmIncome | null, quarters: readonly FmpIncomeStatementRow[], gaps: ManifestEntry[]): TtmIncome | null {
+  const facts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const acquired = bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : null;
+  if (!ttm?.periodStart || !ttm.reportedCurrency || !facts || !acquired || !Number.isFinite(Date.parse(acquired)) || Date.parse(acquired) > Date.parse(bundle.builtAt)) return ttm;
+  const bankRevenue = bundle.edgar.sic === "6211" || sectorIndustryForSic(bundle.edgar.sic ?? null).industry?.toLowerCase().startsWith("banks") === true;
+  const fields = ["revenue", "operatingIncome", "ebit", "depreciationAndAmortization", "interestExpense", "incomeBeforeTax", "incomeTaxExpense", "grossProfit", "netIncomeConsolidated"] as const;
+  const q = quarters.slice(0, 4);
+  const reconciledSum = q.every(r => r.fieldProvenance?.operatingIncome?.calculation === "complete-operating-reconciliation");
+  if (!fields.some(f => !finite(ttm[f])) && !reconciledSum) return ttm;
+  const built = buildIncomeWindowFromCompanyFacts(facts, { symbol: bundle.symbol, cik: String(facts.cik), asOf: bundle.builtAt.slice(0, 10), factsObservedAt: acquired,
+    annualPeriods: 0, quarterlyPeriods: 0, bankRevenue, vendorSplits: { status: "unavailable", source: "income-window", reason: "Additive monetary flows only" } },
+    ttm.reportedCurrency, ttm.periodStart, ttm.date);
+  const raw = built.rows[0];
+  if (!raw || raw.fieldConflicts?.revenue?.usable === false || !finite(raw.revenue) || finite(ttm.revenue) && !vendorAgreesWithFiled(ttm.revenue, raw.revenue)) return ttm;
+  let admitted = raw;
+  if (!finite(ttm.revenue) && !bankRevenue) {
+    const history = [bundle.statements.incomeAnnual, bundle.statements.incomeQuarterly].flatMap(f => f.ok ? f.value.data.rows : []);
+    const input = { ...raw, revenue: undefined };
+    const admission = admitRevenue(input, raw, [], { rows: [input], raw: {} }, facts, "annual", operatingRevenuePolicy(history));
+    if (!admission.handled || admission.row.fieldConflicts?.revenue?.usable === false || !finite(admission.row.revenue)) return ttm;
+    admitted = admission.row;
+  }
+  const sec = bankRevenue ? admitted : corroborateOperatingIncome(admitted, raw);
+  let out = ttm;
+  for (const field of fields) {
+    const operating = field === "operatingIncome" || field === "ebit";
+    const value = operating ? sec.operatingIncome : sec[field];
+    const proof = sec.fieldProvenance?.[operating ? "operatingIncome" : field];
+    // The aggregate identity has three operands. Its retained component
+    // receipts are evidence of those totals, not additional rounding terms.
+    const roundingOperands = proof?.flowOperands?.find(o => o.tag === "calculation/complete-operating-reconciliation")?.points ??
+      proof?.flowOperands?.flatMap(o => o.points) ?? [];
+    const rerounded = operating && reconciledSum && finite(ttm[field]) && finite(value) && value !== ttm[field] &&
+      vendorAgreesWithDerived(ttm[field]!, value, roundingOperands.map(p => p.val));
+    if (finite(ttm[field]) && !rerounded || !finite(value) || !proof || sec.fieldConflicts?.[operating ? "operatingIncome" : field]?.usable === false ||
+        q.some(r => r.fieldConflicts?.[field]?.usable === false && !(operating && r.fieldConflicts[field]?.cause === "operating-basis")) ||
+        operating && q.some(r => r.fieldConflicts?.operatingIncome?.usable === false && r.fieldConflicts.operatingIncome.cause !== "operating-basis") ||
+        // Raw filed totals cannot undo a completed-sale recurring-income adjustment.
+        operating && bundle.gaps.some(g => g.field === "compute.operatingDispositions") ||
+        operating && q.some(r => !!r.operatingPerimeterRefusal) || !sameBasis(sec.fieldProvenance?.revenue, proof)) continue;
+    const operands = proof.flowOperands ?? [];
+    if (!operands.length) continue;
+    const reason = `TTM ${field} uses the exact filed window ${ttm.periodStart} through ${ttm.date}: ${value} ${proof.unit}; ` +
+      `FY + current YTD - prior-year YTD where three operands are retained, otherwise a directly filed exact window. ` +
+      operands.map(o => `${o.tag}: ${o.points.map((p, i) => `${o.points.length === 3 ? ["FY ", "+ current YTD ", "- prior-year YTD "][i] : "filed component "}${p.val} (${p.start} through ${p.end}; ${p.form} ${p.accn}, filed ${p.filed})`).join(" ")}`).join("; ") +
+      (rerounded ? ` The quarter sum ${ttm[field]} differs at the filed operands' reporting precision; the independently reconciled trailing identity supplies the total.` : " Standalone quarters remain unproven where their operands are absent.");
+    out = { ...out, [field]: value, filedIncomeFlows: { ...out.filedIncomeFlows, [field]: proof },
+      ...(field === "operatingIncome" ? { nonMarginOperatingIncome: undefined, operatingIncomeBasis: reason,
+        operatingIncomeEvidence: { status: "filed-or-reconciled", asOf: ttm.date, field: `compute.ttmIncome.${field}`, usedInDiscountRate: false } } : {}) };
+    gaps.splice(0, gaps.length, ...gaps.filter(g => g.field !== `compute.ttmIncome.${field}`));
+    gaps.push({ field: `compute.ttmIncome.${field}`, severity: "info", expected: true, reason });
+  }
+  return out;
+}
+
 /** Calculation view only, including replay of bundles frozen before admission existed. */
 export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
   if (!bundle.statements?.incomeAnnual || !bundle.statements.incomeQuarterly) return bundle;
@@ -214,6 +273,18 @@ export function withIncomeOperatingBasis(bundle: DataBundle): DataBundle {
       }
       const raw = retainedIncomeRows(input.value.data, row, facts?.cik ?? Number(row.cik));
       if (sec && (out.fieldProvenance?.revenue || sec.operatingTagScopeUnresolved)) out = corroborateOperatingIncome(out, sec);
+      // D-260 (P1): the owner already reconstructs every additive filed flow.
+      // Missing retained provider fields must not hide those exact quarters or
+      // years from the TTM completeness gates. Independent refusals stay closed.
+      if (sec && matches) for (const field of ADDITIVE_INCOME_FIELDS) {
+        if (field === "operatingIncome" || finite(out[field]) || out.fieldConflicts?.[field]?.usable === false ||
+            sec.fieldConflicts?.[field]?.usable === false || !finite(sec[field])) continue;
+        const proof = sec.fieldProvenance?.[field];
+        if (!proof || !sameBasis(revenue, proof)) continue;
+        out = { ...out, [field]: sec[field], fieldProvenance: { ...out.fieldProvenance, [field]: proof } };
+        gaps.push({ field: `statements.income.${row.date}.${field}`, severity: "info", expected: true,
+          reason: `Missing additive income flow completed from filed ${proof.tags.join(" + ")} for ${proof.periodStart} through ${proof.periodEnd}: ${sec[field]} ${proof.unit}; ${proof.derivation ?? "direct filed flow"}; ${proof.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join("; ")}.` });
+      }
       if (out.operatingIncomeBasis && out.operatingIncomeBasis !== row.operatingIncomeBasis) gaps.push({
         field: `statements.income.${row.date}.operatingIncome`, severity: "info",
         reason: finite(out.operatingIncome) ? `Operating income admitted on the corroborated operating-revenue basis. ${out.operatingIncomeBasis}` : out.operatingIncomeBasis });

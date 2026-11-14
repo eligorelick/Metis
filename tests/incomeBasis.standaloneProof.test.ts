@@ -111,6 +111,8 @@ it("does not relabel an unverified annual operating derivation as filed income o
   const b=fixture("unverified");
   if(!b.statements.incomeAnnual.ok) throw Error("fixture");
   b.statements.incomeAnnual.value.data.rows[0]!.interestExpense=undefined;
+  b.statements.incomeAnnual.value.data.rows[0]!.fieldConflicts = {
+    interestExpense: { usable: false, vendorValue: null, secValue: null, reason: "Synthetic independent annual interest refusal" } };
   for(const input of [b.statements.balanceQuarterly,b.statements.cashflowQuarterly]) {
     if(input.ok) for(const row of input.value.data.rows) row.reportedCurrency="USD";
   }
