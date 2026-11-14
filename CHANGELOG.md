@@ -21,7 +21,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 ## Unreleased - Excerpt claim confirmation (P18, P19, D-274) (2026-11-14)
 
 - Verify each independently described excerpt figure and confirm only when all pass; preserve shared period, modality and scope refusals and the ordered two-level table rule.
-- Omitted suffixes require explicit count/percentage metric wording and the same established source unit. No inferred currency, scale or new tolerance.
+- No omitted unit is inferred: a figure verifies only when the source and the claim each print its unit (review round 2 removed the count/percentage inference after reviewers kept finding wordings it misread). No inferred currency, scale or new tolerance.
 - Review round 1: retain all reviewer reproductions; refuse shared opening/tail qualifiers and missing shared description words, compare whole words, require explicit percentage-change units, and prevent count inference from bypassing a table scale.
 - Basis-specific diluted-EPS and aggregate common-income aliases require the cited producer record's exact formula; absent proof stays unverified. Annual aliases and alternate web/news citation prefixes obey the same refusal. Qualitative claims keep their treatment.
 - Report 1.88.0 (renumbered after D-272 took 1.87.0); no computed figure changes.

@@ -163,9 +163,9 @@ const expected = {
   "count-vs-currency": "unchecked",
   "count-vs-money-src": "unchecked",
   "count-src-table": "refuse",
-  "count-thousands": "validated",
+  "count-thousands": "unchecked", // review round 2 (lead fix): no unit is inferred for a bare figure, as on main
   "count-vs-shares": "unchecked",
-  "count-diff-object": "contradicted",
+  "count-diff-object": "unchecked", // review round 2 (lead fix): no unit is inferred for a bare figure, as on main
   "count-other-object": "unchecked",
   "diff-filing": "unchecked",
   "web": "unchecked",

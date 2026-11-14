@@ -94,10 +94,10 @@ const expected = {
   "pct-of-pct": "refuse",
   "pct-times": "unchecked",
   "percent-label-ratio": "unchecked", // review round 2 (lead fix): no percent is inferred for a bare figure
-  "count-step": "validated",
+  "count-step": "unchecked", // review round 2 (lead fix): no unit is inferred for a bare figure, as on main
   "count-thousand-src": "unchecked",
   "count-decimal-src": "unchecked",
-  "count-millions-users": "contradicted",
+  "count-millions-users": "unchecked", // review round 2 (lead fix): no unit is inferred for a bare figure, as on main
   "count-scaled-src": "unchecked",
   "count-dollar-row": "unchecked",
   "count-vs-pct": "unchecked",

@@ -27,7 +27,7 @@ it.each([
 
 it("controls: an explicit unit on both sides still confirms", () => {
   expect(run("Gross margin percentage widened 2.1%.", "Gross margin percentage widened 2.1%.")).toBe("validated");
-  expect(run("Subscriber count was 260 million.", "Subscriber count was 260 million.")).toBe("validated");
+  expect(run("Revenue was $24.4 billion.", "Revenue was $24.4 billion.")).toBe("validated");
 });
 
 // Review round 3 reproductions: change verbs no list covers, a comparison without a verb, and a count scale

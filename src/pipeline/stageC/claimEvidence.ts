@@ -1587,37 +1587,10 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
   return out;
 }
 
-// D-274 review round 2 (lead fix, P3): any scale word or marker before a bare
-// figure in its excerpt, or after it in its own sentence, means the figure is
-// not a plain count.
-const COUNT_SCALE_WORDS = /\b(?:thousands?|millions?|billions?|mm|mn|bn|k)\b|\b000s\b|\(\s*000s?\s*\)/i;
-/** A scale word attached to its own number ("$12.3 billion", "260 million") states that figure, not a scale for others. */
-const OWN_FIGURE_SCALE = /(?:[$€£¥]|\b[A-Z]{3}\s?)?\d[\d,.]*\s*(?:thousands?|millions?|billions?|mm|mn|bn|k)\b/gi;
-/**
- * Everything before the figure at [start, end) and the rest of its own
- * sentence, the figure's own text excluded and every number's own scale
- * removed, so what remains can only be a scale declaration ("(millions)",
- * "in millions", "(000s)") that would apply to a bare figure.
- */
-function scaleContext(text: string, start: number, end: number): string {
-  const after = text.slice(end).search(/[.!?](?:\s|$)|\n/);
-  return `${text.slice(0, start)} ${text.slice(end, after < 0 ? text.length : end + after + 1)}`.replace(OWN_FIGURE_SCALE, " ");
-}
-
-// D-274: an omitted unit is supplied only for an explicit count metric.
-// Never infer money, scale or currency from a convenient matching value.
-// Review round 2 (lead fix, P19): a bare figure under a percentage metric is
-// never read as percent. A change can be relative percent or points, and no
-// word list can prove a statement is a level, so the source and the claim must
-// each print the percent sign.
-function excerptMetricUnit(quantity: Quantity, label: string): Quantity {
-  if (quantity.unit !== null) return quantity;
-  if (/\b(?:points?|pts?|ppts?|pp|bps?)\b/i.test(label)) return quantity;
-  if (!/\bcount\b/i.test(label) || /\b(?:percent|percentage)\b/i.test(label)) return quantity;
-  if (COUNT_SCALE_WORDS.test(label)) return quantity;
-  if (!Number.isInteger(quantity.value) || quantity.step < 1) return quantity;
-  return { ...quantity, unit: "count" };
-}
+// D-274 review round 2 (lead fix, P3, P19): an omitted unit is never inferred.
+// Merge-gate rounds showed that neither a change-word list (for percent) nor a
+// scale-marker list (for counts) can prove a bare figure's unit, so a figure
+// verifies only when the source and the claim each print its unit.
 
 function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
   const bodies = excerpt.spans ?? [{ start: 0, end: excerpt.text.length, text: excerpt.text.split("…[TRUNCATED")[0] }];
@@ -1673,9 +1646,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const aliases = column.period.kind === "period" ? (/^Q[1-4]/.test(column.period.key) ? [column.period.key] : []) : inherited.some((period) => period.kind === "date" && period.key === column.period.key) && (column.window === null || column.window.key === "quarter")
           ? inherited.filter((period) => period.kind === "period").map((period) => period.key)
           : [];
-        const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true }
-          : quantity.unit === null && column.scale !== 1 && /\bcount\b/i.test(bareLabel) ? quantity
-            : excerptMetricUnit(quantity, bareLabel);
+        const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true } : quantity;
         const tableColumn = { scale: column.scale, aliases, date: column.period.key, exceptPerShare: column.exceptPerShare, label: column.label };
         // AI-403: a decimal cell of an "except per share data" table is the per-share line, in dollars, and is never scaled.
         const cell = dollarCell.unit === "currency" && isPerShareCell(dollarCell, tableColumn) ? { ...dollarCell, unit: "currency-per-share" as const } : dollarCell;
@@ -1734,9 +1705,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
       const forwardLooking = FORWARD_LOOKING.test(own.text);
       // AI-503: a comparison base is not a figure of the excerpt's reporting period.
       const noPeriod = forwardLooking || own.base;
-      const scaledCount = quantity.unit === null && /\bcount\b/i.test(own.own) &&
-        ([...body.text.slice(0, quantity.start).matchAll(TABLE_SCALE)].length > 0 || COUNT_SCALE_WORDS.test(scaleContext(body.text, quantity.start, quantity.end)));
-      return { quantity: scaledCount ? quantity : excerptMetricUnit(quantity, own.own), context: own, inherited: noPeriod ? [] : inherited, inheritedWindows: noPeriod ? new Set<string>() : inheritedWindows, forwardLooking, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
+      return { quantity, context: own, inherited: noPeriod ? [] : inherited, inheritedWindows: noPeriod ? new Set<string>() : inheritedWindows, forwardLooking, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
         levelBeforeComparison: /^\s*,?\s*(?:up|down|higher|lower)\s+from\b/i.test(body.text.slice(quantity.end)),
         span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + own.start, end: body.start + own.end, text: own.text } };
     });
@@ -2068,7 +2037,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   }
   for (const printed of stated) {
     const own = claimContext(claim.text, printed, stated);
-    const quantity = excerptMetricUnit(printed, own.own);
+    const quantity = printed;
     if ([...own.periods, ...own.bases].some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous", spans);
     }
