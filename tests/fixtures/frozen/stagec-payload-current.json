@@ -1,19 +1,19 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
-  "payloadVersion": "1.98.0",
-  "fingerprint": "1.98.0:88ef9917",
-  "summary": {"promptBytes": 155033, "promptFnv1a32": "88ef9917", "provenanceCount": 536, "provenanceHash": "ad7ee477", "provenanceIdsHash": "1f4e2f3b", "citationCount": 79, "citationHash": "7c7763ca", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "de666f21"},
+  "payloadVersion": "1.96.0",
+  "fingerprint": "1.96.0:9738442e",
+  "summary": {"promptBytes": 155141, "promptFnv1a32": "9738442e", "provenanceCount": 536, "provenanceHash": "ad7ee477", "provenanceIdsHash": "1f4e2f3b", "citationCount": 79, "citationHash": "7c7763ca", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "de666f21"},
   "prompt": {
-    "bytes": 155033,
-    "sha256": "ddb1f9b8523d381e67e1e1c71445ccf13ab11cdb70983d595ad95cc6e4beb056",
+    "bytes": 155141,
+    "sha256": "6ef3968d73fdc3055bf6a5f1c1f4a061bacb3cbe47f6a3fb34c492b2638ea130",
     "sections": [
-      {"heading": "(before the first ## heading)", "bytes": 498, "sha256": "0f5b436376640108a9158d828d4e703ec295c94619cdc95ea5a30d54234dde8e"},
+      {"heading": "(before the first ## heading)", "bytes": 498, "sha256": "cecbd4372de10a49bff8adeedbb1d86c0624dd9dbb17ceb3001919ee21cbc1a5"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
       {"heading": "## Returns (computed)", "bytes": 4404, "sha256": "e6a3241a0880a89b297438994c04127838cbf59b682e8fe516005210afaba4e7"},
       {"heading": "## Capital & cash (computed)", "bytes": 3609, "sha256": "6599bf014c4c99d1bb71c08b9cf96341e7f48ceba152a9aec566937e0822e76b"},
       {"heading": "## Forensics (computed)", "bytes": 7550, "sha256": "b095b7c9f1c177c8ea279e726ca3f459a5a43bf43be2442d0a7673a408ac67e3"},
-      {"heading": "## Current capital (computed)", "bytes": 3542, "sha256": "94d61a2db9acb46624985d07633d77fa34c9266186bc3907aec3520110de96e0"},
+      {"heading": "## Current capital (computed)", "bytes": 3650, "sha256": "3abbe62565f67b2a22b3c906adb43c44608406627f74b729cbe049715d1a7d60"},
       {"heading": "## Technicals (computed)", "bytes": 724, "sha256": "40dd858706c2c8da597fde1c4e8ab3a3d12ec2a769e7ae410fb67df65a53edbc"},
       {"heading": "## Valuation (computed)", "bytes": 13047, "sha256": "92fa5894e532bc85684fbca2d256c9433b60eb2b4741407849fbe9db67328f29"},
       {"heading": "## Comparable peers (computed)", "bytes": 3081, "sha256": "0ce53c8cbc3555ef50d3ad2f0f04baa6980ad7cefb7a14aba74181780766f348"},
@@ -5670,7 +5670,7 @@
     {"id": "fmp:key-executives", "kind": "payload-text", "asOf": null, "origin": "fmp:key-executives"}
   ],
   "payload": {
-    "payloadVersion": "1.98.0",
+    "payloadVersion": "1.96.0",
     "symbol": "AAPL",
     "companyName": "Apple Inc.",
     "route": {"base": "general", "overlays": [], "sector": "Technology", "industry": "Consumer Electronics"},
@@ -6016,7 +6016,7 @@
         ],
         "notes": [
           "Current capital basis: ttm; approximate window 2025-03-29 through 2026-03-28.",
-          "Standardized FCF = operating cash flow minus the retained statement's cash-capex field. That field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
+          "Standardized FCF = operating cash flow minus the retained statement's cash-capex field. Exact-period filed PP&E replaces a conflicting vendor observation where its tag family is proved. Otherwise that field is not reconciled to cash PP&E alone and may include software or other capital spending; coverage can differ between provider periods. Do not equate it with issuer-defined FCF or a PP&E-only calculation. Lease-adjusted FCF additionally subtracts finance-lease principal when disclosed. SBC deduction uses the cash-flow statement add-back for compensation expensed or amortized during the period; it can omit capitalized awards not yet recognized in expense and is not total grant value. These are consolidated cash flows, not cash attributable solely to parent shareholders; NCI net income cannot establish parent FCF. Historical FCF is levered, forecast FCFF is unlevered. Consolidated FCF conversion is withheld because a complete consolidated earnings window is not established; parent or unknown-scope profit and closing NCI balances cannot supply that denominator.",
           "2026-03-28: No valid combined lease-line observation is available. Operating, finance and combined lease coverage is unverified."
         ]
       },

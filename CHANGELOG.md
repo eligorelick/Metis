@@ -29,11 +29,17 @@ original versions and bytes; source merge does not deploy or publish a release.
 - P1, D-260: complete operating reconciliations include separately filed acquired research and special charges. A research total owns its acquired-research children; cash acquisition payments are never substituted for an expense.
 - Missing additive annual and quarterly income fields use exact filed operands. Trailing monetary flows can use a compatible fiscal year plus current YTD minus prior-year YTD, retaining every operand; EPS and weighted share counts remain outside this identity.
 - A proved reconstructed quarter is reviewed even when its original vendor filing no longer supplies the current SEC pair. Unsupported operating expenses and margins remain withheld.
-- Report 1.77.0, payload 1.95.0 and Stage B `STAGE_B_2026_11_FILED_INCOME_WINDOWS_69` identify the new calculation meaning. Stored reports, DCF methods, growth guards, weights and score bands are unchanged.
+- Report 1.77.0, payload 1.96.0 and Stage B `STAGE_B_2026_11_FILED_INCOME_WINDOWS_69` identify the new calculation meaning. Stored reports, DCF methods, growth guards, weights and score bands are unchanged.
 
 - D-260 review: restructuring membership requires an exact filed reconciliation; recovered trailing tax pairs restore their denominator atomically. Replay ownership documentation and fourth-quarter operand assertions now match the implementation.
 
 ## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
+
+- D-262 review: competing capital tags no longer establish a total; income D&A
+  stays distinct from the cash add-back, and interest excludes combined dividends.
+  Expected zero-expense gaps are informational, mixed operating parts are disclosed,
+  and original lease precision and primary repurchase cash bridges are preserved.
+  Normal merge of D-263 retains its verification fixes; D-262 uses report 1.78.0.
 
 - Review follow-up preserves every stored segment parent link and bounds
   additional hierarchy searches with exact proof in every displayed quarter.
@@ -48,6 +54,14 @@ original versions and bytes; source merge does not deploy or publish a release.
   fact-tag legend distinguishes numerical matching from citation coverage.
 - Saved inputs, payloads, figures, reports and verification statuses stay unchanged.
 
+## Unreleased - Filed statement flows replace conflicting vendor observations (2026-11-13)
+
+- D-262 (P8, P13): filed PP&E and interest expense now settle exact-period
+  vendor conflicts, with compatible cumulative quarter reconstruction, retained
+  vendor observations and filing evidence. The rule also covers independently
+  proved income and cash-flow siblings; incomplete scopes remain disclosed.
+- New reports use report 1.78.0, payload 1.96.0 and Stage B
+  `STAGE_B_2026_11_FILED_FLOWS_70`. Stored reports keep their original bytes.
 ## Unreleased - P19 verification marks (D-263)
 
 - Independent review tightened the rule: only established negative-for-outflow producers qualify; cash-use prose has no label-rebuild fallback; only declared prose definitions are masked; label qualifiers and ambiguous legacy operand refusals remain. EBITDA and net-debt definitions now require the actual current producer evidence.

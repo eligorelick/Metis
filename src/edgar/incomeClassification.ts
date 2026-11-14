@@ -8,6 +8,7 @@ import { sameIncomeScope } from "./revenuePresentation";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FiledIncomeLine, FmpIncomeStatementRow, FmpPayload, StatementFieldConflict, StatementFieldProvenance } from "@/providers/fmp";
 import type { FetchResult, ManifestEntry } from "@/types/core";
+import { admitFiledStatementFlows } from "@/edgar/financialEnrichment";
 
 const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 const same = vendorAgreesWithFiled;
@@ -170,7 +171,10 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     }
     return originalFilings.get(row.filingDate)!.find(r => r.date === row.date);
   };
-  const rows = income.value.data.rows.map(row => {
+  const rows = income.value.data.rows.map(original => {
+    const flows = admitFiledStatementFlows(original, facts, "income", scope, observedAt, opts.bankRevenue === true || opts.securitiesRevenue === true);
+    gaps.push(...flows.gaps);
+    const row = flows.row;
     if (!row.date || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") || (row.cik != null && row.cik.replace(/^0+/, "") !== String(facts.cik).replace(/^0+/, ""))) return row;
     const sec = filed.find(candidate => candidate.date === row.date);
     if (!sec) return row;
@@ -217,7 +221,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     }
     const gross = out.fieldConflicts?.grossProfit;
     // A row on the filed bank total discloses its withheld subtotals once, in the statement's own entry (D-257).
-    if (gross?.usable === false && !bankBasis?.moved.has(row) && !bankBasis?.adopt.has(row)) gaps.push({field:`statements.income.${row.date}.grossProfit`,severity:"info",reason:gross.reason});
+    if (gross?.usable === false && !bankBasis?.moved.has(original) && !bankBasis?.adopt.has(original)) gaps.push({field:`statements.income.${row.date}.grossProfit`,severity:"info",reason:gross.reason});
     if (revenueAdmission?.handled && out.fieldConflicts?.revenue?.usable === false) {
       refuse("revenue", out.fieldConflicts.revenue.secValue, out.fieldConflicts.revenue.secEvidence ?? null, out.fieldConflicts.revenue.reason);
       refuse("grossProfit", null, out.fieldConflicts.revenue.secEvidence ?? null, "Gross profit withheld beside unresolved operating revenue.");
@@ -456,7 +460,7 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     // with it. The refusals are typed on the row; one manifest entry per
     // statement discloses them (after the loop), so a ten-year history does not
     // become forty entries.
-    const bankRevenue = bankBasis?.adopt.get(row);
+    const bankRevenue = bankBasis?.adopt.get(original);
     if (bankRevenue) {
       const [netInterest, noninterest] = bankRevenue.components;
       const reason = `Bank revenue: filed total net revenue ${bankRevenue.value} ${bankRevenue.proof.unit} adopted for ${bankRevenue.proof.periodStart} through ${row.date} ` +
@@ -482,6 +486,16 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
     if (sec.fieldConflicts?.grossProfit?.usable === false && canonicalCostEvidence && evidenceFor("revenue")) {
       refuse("grossProfit", null, canonicalCostEvidence, sec.fieldConflicts.grossProfit.reason);
     }
+    // D-262 (P8): a complete filed operating family on already admitted revenue
+    // settles conflicting cost/expense subtotals. An isolated expense or a
+    // revenue residual still cannot establish placement.
+    const operatingFields = ["revenue", "costOfRevenue", "grossProfit", "operatingExpenses", "operatingIncome"];
+    const operatingProof = evidenceFor("revenue");
+    const completeOperating = !opts.bankRevenue && !opts.securitiesRevenue && operatingProof &&
+      operatingFields.every(field => finite(sec[field]) && evidenceFor(field) && sameScope(operatingProof, evidenceFor(field)!)) &&
+      finite(out.revenue) && same(out.revenue, sec.revenue as number) &&
+      same((sec.revenue as number) - (sec.costOfRevenue as number), sec.grossProfit as number) &&
+      same((sec.grossProfit as number) - (sec.operatingExpenses as number), sec.operatingIncome as number);
     for (const [field, tags] of Object.entries(allowed)) {
       if (field === "grossProfit" && out.fieldConflicts?.grossProfit?.usable === true &&
           revenueProof && out.fieldProvenance?.grossProfit && sameScope(revenueProof, out.fieldProvenance.grossProfit)) continue;
@@ -492,9 +506,16 @@ export function enrichIncomeClassification(income: FetchResult<FmpPayload<FmpInc
       const proof = evidenceFor(field);
       if (!proof || (!proof.tags.some(tag => tags.includes(tag)) && !(field === "grossProfit" && proof.calculation === "revenue-minus-cost")) || !finite(sec[field]) || !finite(row[field])) continue;
       if (same(row[field], sec[field])) out = { ...out, fieldProvenance: { ...out.fieldProvenance, [field]: proof } };
+      else if (field !== "revenue" && completeOperating) {
+        const reason = `Filed operating family for ${row.date} replaces conflicting ${field}: vendor ${row[field]}, filed ${sec[field]} ${proof.unit}, ${proof.periodStart} through ${row.date}; revenue less cost equals gross profit, less operating expenses equals operating income on one filing scope. Vendor observation retained.`;
+        audit(field, sec[field], proof, reason, "filed-family");
+        gaps.push({ field: `statements.income.${row.date}.${field}`, reason, severity: "info", expected: true });
+      }
       else refuse(field, sec[field], proof, (field === "revenue" ? contractRevenueScopeRefusal(proof, row[field], sec[field]) : null) ??
         `Income classification conflict for ${field}: vendor ${row[field]}, filed ${sec[field]} ${proof.unit}, ${proof.periodStart} through ${row.date}; a reconciled EBIT does not establish expense placement`);
     }
+    if (completeOperating && out.fieldConflicts?.grossProfit?.resolution === "filed-family" && finite(out.grossProfit) && finite(out.revenue) && out.revenue !== 0)
+      out = { ...out, grossProfitRatio: out.grossProfit / out.revenue, grossProfitMargin: out.grossProfit / out.revenue };
     const unsupportedOperand = (["revenue", "costOfRevenue"] as const).map(field => ({ field, proof: evidenceFor(field) }))
       .find(({ field, proof }) => proof && !proof.tags.some(tag => (field === "revenue" ? industrialRevenue : allowed[field]!).includes(tag)));
     if (finite(out.grossProfit) && !out.fieldProvenance?.grossProfit && unsupportedOperand) {

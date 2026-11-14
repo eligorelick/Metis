@@ -104,7 +104,8 @@ export function withPrimaryCapitalBasis(bundle: DataBundle): DataBundle {
     const record = candidates[0]!;
     if (!finite(record.amount) || record.amount < 0 || !compatibleRow(row, record.periodStart, record.periodEnd, record.currency, evidence, record.proof)) return row;
     const conflict = row.fieldConflicts?.commonStockRepurchased, amount = record.amount === 0 ? 0 : -record.amount;
-    const vendor = conflict?.usable === false ? conflict.vendorValue : row.commonStockRepurchased;
+    const filedReplacement = conflict?.usable === true && conflict.resolution === "filed-family";
+    const vendor = conflict?.usable === false || filedReplacement ? conflict!.vendorValue : row.commonStockRepurchased;
     if (finite(vendor) && !equal(vendor, amount)) {
       if (conflict?.usable === false) return row;
       const reason = `Vendor common-share cash repurchases disagree with the directly labeled primary cash-flow row for ${record.periodEnd}; neither amount is admitted without a filed scope bridge. Source: ${evidence.source.documentUrl}`;
@@ -113,7 +114,8 @@ export function withPrimaryCapitalBasis(bundle: DataBundle): DataBundle {
         usable: false, vendorValue: vendor, secValue: amount, secEvidence: provenance(evidence, record), reason,
       } } };
     }
-    if (conflict?.usable === false && (!finite(vendor) || !costScopeBridge(row, evidence, record))) return row;
+    if ((conflict?.usable === false || filedReplacement) && (!finite(vendor) || !costScopeBridge(row, evidence, record)))
+      return filedReplacement ? refuseCash("bulk repurchase and primary cash definitions differ without a complete same-filing cost bridge") : row;
     // A later bulk observation cannot be reconciled using an older disclosure.
     const bulk = tagPoints(facts, "PaymentsForRepurchaseOfCommonStock", record.currency);
     if (bulk?.points.some(p => p.end === record.periodEnd && p.start === record.periodStart && p.filed > evidence.source.filingDate && p.filed <= bundle.builtAt.slice(0, 10))) return row;
@@ -121,7 +123,7 @@ export function withPrimaryCapitalBasis(bundle: DataBundle): DataBundle {
     const reason = `Primary cash-flow statement explicitly reports common-share cash repurchases for ${record.periodStart} to ${record.periodEnd}; the separate total-cost disclosure includes commissions and excise taxes. Original vendor and bulk observations remain retained. Source: ${evidence.source.documentUrl}`;
     if (conflict?.usable === false) superseded.set(`statements.cashflow.${record.periodEnd}.commonStockRepurchased`, conflict.reason);
     return { ...row, commonStockRepurchased: amount, fieldProvenance: { ...row.fieldProvenance, commonStockRepurchased: provenance(evidence, record) },
-      ...(conflict?.usable === false ? { fieldConflicts: { ...row.fieldConflicts, commonStockRepurchased: primaryCashLineResolution(conflict, reason) } } : {}) };
+      ...(conflict?.usable === false || filedReplacement ? { fieldConflicts: { ...row.fieldConflicts, commonStockRepurchased: primaryCashLineResolution(conflict, reason) } } : {}) };
   });
   if (rows.every((r, i) => r === input.value.data.rows[i])) return bundle;
   return { ...bundle, statements: { ...bundle.statements, cashflowAnnual: { ...input, value: { ...input.value, data: { ...input.value.data, rows } } } },

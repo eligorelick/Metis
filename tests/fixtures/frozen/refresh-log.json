@@ -411,43 +411,58 @@
   {
     "date": "2026-11-14",
     "target": "audit-fixture",
-    "decision": "D-267",
-    "reason": "P1 P13 D-267 moves report spec to 1.80.0 for balance-date Altman market equity; the DEMO projection changes only its spec label and enclosing digest.",
+    "decision": "D-262",
+    "reason": "D-262 final merge follows the D-260 frozen history, retains report 1.78.0 and its reviewed capex definition, with no synthetic number changes.",
     "scope": [
       "$.projectionSha256",
-      "$.projection.report.meta.specVersion"
+      "$.projection.report.meta.specVersion",
+      "$.projection.stageB.capital.current.cashBridge.definition",
+      "$.projection.report.balanceSheet.coverage.commentary[1].text"
     ],
     "beforeSha256": "f23a5cf86488745fe7315b29696c20da560681311dc7bc4526f92cb947109d69",
-    "afterSha256": "9c42885ee49ad23a3b1b133566c2bf6e16b190a7f1c5ce39cd7c276f3b810443",
-    "changedLeaves": 2,
+    "afterSha256": "d1c8aac937934a1019868929c16721f721813a290f7229969b3fc597e1dc2d75",
+    "changedLeaves": 4,
     "changedPaths": [
       "$.projectionSha256",
-      "$.projection.report.meta.specVersion"
+      "$.projection.stageB.capital.current.cashBridge.definition",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.balanceSheet.coverage.commentary[1].text"
     ]
   },
   {
     "date": "2026-11-14",
     "target": "stagec-payload",
-    "decision": "D-267",
-    "reason": "P1 P13 D-267 moves the payload to 1.98.0 for balance-date Altman market equity; the frozen fixture changes only its version header and dependent hashes.",
+    "decision": "D-262",
+    "reason": "D-262 final merge follows D-260 frozen history and advances payload to 1.96.0; only compatibility identifiers and the reviewed capex definition change.",
     "scope": [
       "$.payloadVersion",
       "$.fingerprint",
+      "$.summary.promptBytes",
       "$.summary.promptFnv1a32",
+      "$.summary.provenanceHash",
+      "$.prompt.bytes",
       "$.prompt.sha256",
       "$.prompt.sections[0].sha256",
-      "$.payload.payloadVersion"
+      "$.prompt.sections[6].bytes",
+      "$.prompt.sections[6].sha256",
+      "$.payload.payloadVersion",
+      "$.payload.computed[4].notes[1]"
     ],
     "beforeSha256": "9f5ea654cb5564700a49b4e69e506c8564fb4af68f6864c627f7ce06b453bb3d",
-    "afterSha256": "cb51182dcf2550b34690cd94691973e4dc76c18edf43ae61b7cdb1e297ae6696",
-    "changedLeaves": 6,
+    "afterSha256": "bb9a010c42dd372aa7999a05c359519b0203051e4fe26a79d9c7698cf6663e51",
+    "changedLeaves": 11,
     "changedPaths": [
       "$.payloadVersion",
       "$.fingerprint",
+      "$.summary.promptBytes",
       "$.summary.promptFnv1a32",
+      "$.prompt.bytes",
       "$.prompt.sha256",
       "$.prompt.sections[0].sha256",
-      "$.payload.payloadVersion"
+      "$.prompt.sections[6].bytes",
+      "$.prompt.sections[6].sha256",
+      "$.payload.payloadVersion",
+      "$.payload.computed[4].notes[1]"
     ]
   }
 ]
