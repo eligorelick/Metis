@@ -18,6 +18,25 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - README reorganized for first-time readers (2026-11-13)
+
+- The README's prose is split into paragraphs, lists and tables. New: a table
+  of what each setup gives you, a table of the three AI routes, a project
+  layout, a documentation index and a link to the code of conduct. Saved-report
+  controls, connection notes and the forecast-accuracy limit moved under
+  headings that name them. The generated configuration, pricing and commands
+  tables are unchanged.
+- Two statements corrected. Without a vendor key, press releases, one earnings
+  transcript, executive compensation and beneficial ownership can be recovered
+  as bounded text from the issuer's website and latest proxy statement (D-211);
+  the README had said transcripts and compensation had no keyless source. The
+  troubleshooting note about Windows launchers is gone: they are not shipped,
+  and `docs/OPERATIONS.md` covers them.
+- The retired `METIS_UI_REDESIGN` note left the README; `docs/OPERATIONS.md`
+  keeps it. The README line cap moved from 280 to 320, recorded in
+  `tests/docs.lint.test.ts`.
+- No calculation, report content or version stamp changes.
+
 ## Unreleased - Node 24 pinned for version managers (2026-11-13)
 
 - `.node-version` pins Node 24, the version CI tests and the README names. A

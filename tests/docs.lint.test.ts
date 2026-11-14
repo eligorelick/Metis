@@ -118,9 +118,17 @@ describe("the README's prose", () => {
    * route (F2), the pricing sentence that names the reservation mode the
    * "reported, not reserved" claim holds in (F3), and the sample-report line
    * that stops promising a manifest entry the sample does not carry (F5).
+   *
+   * Raised from 280 to 320 on 2026-11-13 by the README readability review.
+   * A line cap with no limit on line length had been met by packing several
+   * paragraphs onto one line: four in the AI connections section rendered as
+   * a single block. The review split those into paragraphs, lists and tables,
+   * and added the sections a first-time reader looks for (what each setup
+   * gives you, the project layout, a documentation index). The three
+   * generated blocks alone take 108 lines.
    */
   it("stays short enough to be read", () => {
-    expect(readme().trimEnd().split("\n").length).toBeLessThanOrEqual(280);
+    expect(readme().trimEnd().split("\n").length).toBeLessThanOrEqual(320);
   });
 
   it("links only to files that exist", () => {
