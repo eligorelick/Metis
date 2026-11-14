@@ -1587,35 +1587,36 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
   return out;
 }
 
-// D-274 review round 2 (lead fix, P19): words that make a percentage figure a
-// change rather than a level, beyond the direction vocabulary. A change in a
-// percentage can be relative percent or points, so its unit is never inferred.
-const PERCENT_CHANGE_WORDS = /\b(?:widen\w*|narrow\w*|improv\w*|compress\w*|expan\w*|contract\w*|deteriorat\w*|chang\w*|mov(?:e|ed|es|ing)|swing\w*|swung|delta|variance|difference|increas\w*|decreas\w*|declin\w*|ris(?:e|es|ing|en)|rose|fell|fall\w*|grew|grow\w*|gain\w*|drop\w*|los(?:s|t|e|es|ing)|up|down|higher|lower|by)\b/i;
-// D-274 review round 2 (lead fix, P3): any scale word or marker in the figure's
-// own sentence means a bare number is not a plain count.
+// D-274 review round 2 (lead fix, P3): any scale word or marker before a bare
+// figure in its excerpt, or after it in its own sentence, means the figure is
+// not a plain count.
 const COUNT_SCALE_WORDS = /\b(?:thousands?|millions?|billions?|mm|mn|bn|k)\b|\b000s\b|\(\s*000s?\s*\)/i;
-/** The rest of the sentence of `text` around the figure at [start, end) (the figure's own text, such as "260 million", excluded), for scale checks. */
-function sentenceAround(text: string, start: number, end: number): string {
-  const before = text.slice(0, start);
-  const from = Math.max(before.lastIndexOf(". "), before.lastIndexOf("! "), before.lastIndexOf("? "), before.lastIndexOf("\n"));
+/** A scale word attached to its own number ("$12.3 billion", "260 million") states that figure, not a scale for others. */
+const OWN_FIGURE_SCALE = /(?:[$€£¥]|\b[A-Z]{3}\s?)?\d[\d,.]*\s*(?:thousands?|millions?|billions?|mm|mn|bn|k)\b/gi;
+/**
+ * Everything before the figure at [start, end) and the rest of its own
+ * sentence, the figure's own text excluded and every number's own scale
+ * removed, so what remains can only be a scale declaration ("(millions)",
+ * "in millions", "(000s)") that would apply to a bare figure.
+ */
+function scaleContext(text: string, start: number, end: number): string {
   const after = text.slice(end).search(/[.!?](?:\s|$)|\n/);
-  return `${text.slice(from < 0 ? 0 : from + 1, start)} ${text.slice(end, after < 0 ? text.length : end + after + 1)}`;
+  return `${text.slice(0, start)} ${text.slice(end, after < 0 ? text.length : end + after + 1)}`.replace(OWN_FIGURE_SCALE, " ");
 }
 
-// D-274: omitted units require explicit count or percentage metric wording.
+// D-274: an omitted unit is supplied only for an explicit count metric.
 // Never infer money, scale or currency from a convenient matching value.
+// Review round 2 (lead fix, P19): a bare figure under a percentage metric is
+// never read as percent. A change can be relative percent or points, and no
+// word list can prove a statement is a level, so the source and the claim must
+// each print the percent sign.
 function excerptMetricUnit(quantity: Quantity, label: string): Quantity {
   if (quantity.unit !== null) return quantity;
   if (/\b(?:points?|pts?|ppts?|pp|bps?)\b/i.test(label)) return quantity;
-  const count = /\bcount\b/i.test(label);
-  const percent = /\b(?:percent|percentage)\b/i.test(label);
-  if (count === percent) return quantity;
-  // A change in a percentage can be a relative percent or a point change.
-  // The metric's name alone establishes neither one.
-  if (percent && (findDirectionWords(label).length > 0 || PERCENT_CHANGE_WORDS.test(label))) return quantity;
-  if (count && COUNT_SCALE_WORDS.test(label)) return quantity;
-  if (count && (!Number.isInteger(quantity.value) || quantity.step < 1)) return quantity;
-  return { ...quantity, unit: count ? "count" : "percent" };
+  if (!/\bcount\b/i.test(label) || /\b(?:percent|percentage)\b/i.test(label)) return quantity;
+  if (COUNT_SCALE_WORDS.test(label)) return quantity;
+  if (!Number.isInteger(quantity.value) || quantity.step < 1) return quantity;
+  return { ...quantity, unit: "count" };
 }
 
 function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
@@ -1734,7 +1735,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
       // AI-503: a comparison base is not a figure of the excerpt's reporting period.
       const noPeriod = forwardLooking || own.base;
       const scaledCount = quantity.unit === null && /\bcount\b/i.test(own.own) &&
-        ([...body.text.slice(0, quantity.start).matchAll(TABLE_SCALE)].length > 0 || COUNT_SCALE_WORDS.test(sentenceAround(body.text, quantity.start, quantity.end)));
+        ([...body.text.slice(0, quantity.start).matchAll(TABLE_SCALE)].length > 0 || COUNT_SCALE_WORDS.test(scaleContext(body.text, quantity.start, quantity.end)));
       return { quantity: scaledCount ? quantity : excerptMetricUnit(quantity, own.own), context: own, inherited: noPeriod ? [] : inherited, inheritedWindows: noPeriod ? new Set<string>() : inheritedWindows, forwardLooking, yearEnd, listAmbiguous, ...(unitPair === undefined ? {} : { unitPair }),
         levelBeforeComparison: /^\s*,?\s*(?:up|down|higher|lower)\s+from\b/i.test(body.text.slice(quantity.end)),
         span: { source: excerpt.source, asOf: excerpt.asOf, start: body.start + own.start, end: body.start + own.end, text: own.text } };

@@ -29,3 +29,15 @@ it("controls: an explicit unit on both sides still confirms", () => {
   expect(run("Gross margin percentage widened 2.1%.", "Gross margin percentage widened 2.1%.")).toBe("validated");
   expect(run("Subscriber count was 260 million.", "Subscriber count was 260 million.")).toBe("validated");
 });
+
+// Review round 3 reproductions: change verbs no list covers, a comparison without a verb, and a count scale
+// stated in an earlier heading line or sentence.
+it.each([
+  ...["eroded", "eased", "dipped", "slid", "softened", "rebounded", "recovered", "slowed", "accelerated", "shifted", "added", "edged", "strengthened", "weakened", "worsened", "lifted"]
+    .map(verb => [`Gross margin percentage ${verb} 2.1.`, `Gross margin percentage ${verb} 2.1%.`] as [string, string]),
+  ["Gross margin percentage was 2.1 above the prior year.", "Gross margin percentage was 2.1% above the prior year."],
+  ["Key metrics (millions)\nSubscriber count 260", "Subscriber count was 260."],
+  ["Key metrics, in millions. Subscriber count was 260.", "Subscriber count was 260."],
+])("never infers a unit from wording or a distant scale: %s", (excerpt, claim) => {
+  expect(["validated", "contradicted"]).not.toContain(run(excerpt, claim));
+});

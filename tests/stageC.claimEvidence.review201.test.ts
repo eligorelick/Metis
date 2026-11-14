@@ -156,8 +156,9 @@ const expected = {
   "pct-omit-claim-vs-pp": "refuse",
   "pct-omit-both": "refuse",
   "pp-claim-vs-omitted": "refuse",
-  "percent-of-count": "validated",
-  "percentage-of-dollars": "validated",
+  // Review round 2 (lead fix): no percent is inferred for a bare figure, as on main.
+  "percent-of-count": "unchecked",
+  "percentage-of-dollars": "unchecked",
   "pct-word-other": "unchecked",
   "count-vs-currency": "unchecked",
   "count-vs-money-src": "unchecked",

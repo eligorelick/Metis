@@ -93,7 +93,7 @@ const expected = {
   "claim-pts": "refuse",
   "pct-of-pct": "refuse",
   "pct-times": "unchecked",
-  "percent-label-ratio": "validated",
+  "percent-label-ratio": "unchecked", // review round 2 (lead fix): no percent is inferred for a bare figure
   "count-step": "validated",
   "count-thousand-src": "unchecked",
   "count-decimal-src": "unchecked",

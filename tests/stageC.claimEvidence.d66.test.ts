@@ -34,9 +34,10 @@ describe("D-274 independent excerpt figures", () => {
     expect(checkExcerpt("Consolidated revenue was $24.4 billion, operating income was $12.3 billion.",
       { ...source, text: "Consolidated revenue was $24.4 billion. Operating income was discussed. Capital spending was $12.3 billion." }).status).not.toBe("validated");
   });
-  it("reads only explicit count or percentage metric wording without a suffix", () => {
+  it("reads only explicit count metric wording without a suffix", () => {
     expect(checkExcerpt("Employee count was 12,345.").status).toBe("validated");
-    expect(checkExcerpt("Gross margin percentage was 53.2.").status).toBe("validated");
+    // Review round 2 (lead fix): a bare figure under a percentage metric is never read as percent.
+    expect(checkExcerpt("Gross margin percentage was 53.2.").status).toBe("unchecked");
     expect(checkExcerpt("Gross margin was 53.2.").status).toBe("unchecked");
     expect(checkExcerpt("Gross margin percentage points was 53.2.").status).not.toBe("validated");
     expect(checkExcerpt("Employee count was 12,345.", { ...source, text: "Employee count was $12,345." }).status).not.toBe("validated");
