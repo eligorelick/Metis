@@ -5,7 +5,7 @@ import { scoreAuditTables } from "@/report/auditTables";
 import { businessQualityGraded, confidenceText, coverLedgerRows, displayProse, isFairValueKeyDataLabel, keyDataRows } from "@/report/presentation";
 import { evidencePercentText, hasLimitedEvidence, limitedEvidenceText } from "@/report/assessment";
 import { formatScore } from "@/report/scoreText";
-import { CompositeScorecard, DisagreementsBlock, ExecutiveSummary, GradeStripBar, KeyDataBox, RecentDevelopmentsBlock, VerdictHeader } from "./sections";
+import { BusinessBriefBlock, CompositeScorecard, DisagreementsBlock, ExecutiveSummary, GradeStripBar, KeyDataBox, RecentDevelopmentsBlock, VerdictHeader } from "./sections";
 import { FactorAttribution } from "./FactorAttribution";
 import { ThesisCheckpoints } from "./ThesisCheckpoints";
 
@@ -29,6 +29,7 @@ export function DossierCover({ report, completeness }: { report: Report; complet
   const selected = coverLedgerRows(rows);
   return <section className="dossier-cover" aria-label="Executive research dossier">
     <div id="report-key-data"><KeyDataBox report={report} /></div>
+    <BusinessBriefBlock report={report} />
     <div className="dossier-thesis">
       <p className="desk-eyebrow">{completeness.dataOnly ? "Deterministic snapshot" : "Research conclusion"}</p>
       {completeness.dataOnly ? <><p className="data-only-conclusion">No completed analyst synthesis. Deterministic results and their recorded limitations remain available.</p><details className="recorded-data-only-summary"><summary>Recorded deterministic summary and limitations</summary><VerdictHeader verdict={report.verdict} /></details></> : <VerdictHeader verdict={report.verdict} />}

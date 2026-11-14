@@ -798,8 +798,8 @@ describe("real report consumers use context-safe Markdown boundaries", () => {
     expect(markdown).toContain("#### Network effects — wide");
     expect(markdown).toContain("P30CONTROLLEDMOAT");
     expect(markdown).not.toContain("- **networkEffects** (wide): P30CONTROLLEDMOAT");
-    expect(markdown).toContain("- **P30CONTROLLEDTOPIC** (entity)");
-    expect(markdown).toContain("  - Judge: P30CONTROLLEDJUDGE");
+    // D-273: the reader prints the topic with the judge's resolution; the two sides are in the audit export.
+    expect(markdown).toContain("- **P30CONTROLLEDTOPIC** (entity): P30CONTROLLEDJUDGE");
 
     expect(SourcedClaimSchema.safeParse({
       text: "x",

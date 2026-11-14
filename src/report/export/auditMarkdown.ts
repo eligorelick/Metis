@@ -514,6 +514,15 @@ function renderGradeContracts(report: Report): string {
   return rows.length ? `## Grade contracts\n\n${table(["Section", "Deterministic band", "Proposed grade", "Status", "Reason"], rows)}` : "";
 }
 
+/** D-273: the full bull and bear statements the reader body summarizes by the judge's resolution. */
+function renderDisagreementSides(report: Report): string {
+  if (report.disagreements.length === 0) return "";
+  return ["## Bull/bear statements", "", ...report.disagreements.flatMap(d => [
+    `### ${markdownHeading(d.topic)} (${markdownHeading(d.kind)})`, "",
+    `- Bull: ${markdownListItem(d.bullView)}`, `- Bear: ${markdownListItem(d.bearView)}`, `- Judge: ${markdownListItem(d.judgeResolution)}`, "",
+  ])].join("\n").trimEnd();
+}
+
 export function reportToAuditMarkdown(report: Report, context: ReportPresentationContext = {}): string {
   const prepared = prepareReportForSurface(report, "audit");
   report = prepared.report;
@@ -540,6 +549,7 @@ export function reportToAuditMarkdown(report: Report, context: ReportPresentatio
       "## Recorded pre-policy valuation diagnostics", "These original targets and inverse values are historical audit diagnostics, not admitted current evidence.",
       "```json", JSON.stringify(recordedTargets, null, 2), "```"].join("\n\n") : "",
     renderVerification(report),
+    renderDisagreementSides(report),
     ...primaryCapitalEvidenceTables(report.primaryCapitalEvidence, true).map(t => [`## ${t.heading}`, table(t.headers, t.rows), ...(t.note ? [markdownProse(t.note)] : [])].join("\n\n")),
     report.scores ? renderScores(report.scores) : "",
     renderFigureRegistry(report),

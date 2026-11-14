@@ -9,7 +9,7 @@
  * Deterministic text: no locale and no digit grouping.
  */
 import { formatFinancialValue, formatPct } from "@/report/format";
-import { claimCitation, displayClaimText, displayProse } from "@/report/presentation";
+import { claimCitation, displayClaimText, displayProse, repeatedClaimsNote, withoutRepeatedClaims } from "@/report/presentation";
 import type { SourcedClaim, TracedNumber } from "@/report/schema";
 import { claimStatusMarkText } from "@/report/verificationMarks";
 
@@ -66,9 +66,13 @@ export interface ClaimReasoningMarkup {
  */
 export function claimReasoning(reasoning: SourcedClaim | SourcedClaim[], markup: ClaimReasoningMarkup): string {
   if (!Array.isArray(reasoning)) return markup.text(`${displayProse(reasoning.text, reasoning.source)}${statusMarkSuffix(reasoning)}`);
-  return reasoning
-    .map(claim => `[${markup.label(claim.label)}] ${markup.claimText(displayClaimText(claim))} (${markup.citation(claim)})${markup.mark(statusMarkSuffix(claim))}`)
-    .join(" ");
+  // D-273: a statement shown in full elsewhere is referenced, not repeated.
+  const { shown, homes } = withoutRepeatedClaims(reasoning);
+  const note = repeatedClaimsNote(homes);
+  return [
+    ...shown.map(claim => `[${markup.label(claim.label)}] ${markup.claimText(displayClaimText(claim))} (${markup.citation(claim)})${markup.mark(statusMarkSuffix(claim))}`),
+    ...(note ? [markup.text(note)] : []),
+  ].join(" ");
 }
 
 /** Plain-text reasoning parts for an export whose table escapes each cell. */

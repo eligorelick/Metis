@@ -149,7 +149,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
       missingQuarterNote(trendRows.map(r => r.periodEnd)),
       trendRows.some((r) => r.equitySecuritiesGains != null || r.nonGaapEpsDiluted != null) ? "Equity-securities gains and non-GAAP diluted EPS are read from the issuer's GAAP-to-non-GAAP reconciliation in each earnings release." : "",
       d.nonGaapBasisNote ? `Non-GAAP basis: ${d.nonGaapBasisNote}` : "",
-      ...readerTrendNotes([...new Set(trendRows.flatMap((r) => r.revenueGrowthNotes ?? [])), ...builderNotes]),
+      ...groupedWithheldNotes(readerTrendNotes([...new Set(trendRows.flatMap((r) => r.revenueGrowthNotes ?? [])), ...builderNotes])),
     ].filter((n) => n !== "");
     tables.push({
       // FIGR extra-high audit B2-20: the caption counts the quarters shown
@@ -257,6 +257,36 @@ function readerTrendNotes(notes: readonly string[]): string[] {
 }
 
 /** Every growth-cell derivation recorded on the trend rows, for the audit export. */
+const WITHHELD_NOTE = /^(.+?) for (\d{4}-\d{2}-\d{2}) withheld: (.+)$/s;
+
+/**
+ * D-273 review round 1 (P22): notes that withhold the same item for several
+ * quarters with the same cause are stated once, naming every quarter
+ * ("Operating expenses for 2026-06-30, 2026-03-31 and 2025-12-31 withheld:
+ * <cause>"). A quarter with a different cause keeps its own note; notes that do
+ * not withhold a dated item are unchanged and keep their order.
+ */
+export function groupedWithheldNotes(notes: readonly string[]): string[] {
+  const groups = new Map<string, { subject: string; cause: string; dates: string[] }>();
+  const out: Array<string | { key: string }> = [];
+  for (const note of notes) {
+    const match = WITHHELD_NOTE.exec(note);
+    if (!match) { out.push(note); continue; }
+    const [, subject, date, cause] = match as unknown as [string, string, string, string];
+    const key = `${subject}\u0000${cause}`;
+    const group = groups.get(key);
+    if (group) { if (!group.dates.includes(date)) group.dates.push(date); continue; }
+    groups.set(key, { subject, cause, dates: [date] });
+    out.push({ key });
+  }
+  const list = (dates: readonly string[]) => dates.length <= 1 ? dates.join("") : `${dates.slice(0, -1).join(", ")} and ${dates[dates.length - 1]}`;
+  return out.map(entry => {
+    if (typeof entry === "string") return entry;
+    const group = groups.get(entry.key)!;
+    return `${group.subject} for ${list(group.dates)} withheld: ${group.cause}`;
+  });
+}
+
 export function quarterlyTrendGrowthNotes(d: Pick<FilingDisclosures, "quarterlyTrend"> | undefined): string[] {
   return [...new Set((d?.quarterlyTrend ?? []).flatMap((r) => r.revenueGrowthNotes ?? []))];
 }

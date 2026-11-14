@@ -18,6 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - A readable report: brief first, business before figures, less repetition (P18, P21, P22, D-273)
+
+- The verdict opens with a five-part brief (what it sells, customers and suppliers, protection and competition, what is next, what could break it) that code assembles only from FACT claims that passed verification, each from the field that answers it and never a statement of a limitation or absence, each with its citation; a part with no such claim says "Not established from verified sources."
+- Sections read business first in the app, Markdown and print: verdict, business, competitive landscape, outlook, catalysts and risks, then the figure sections. Saved reports render in this order too; their bytes do not change.
+- A statement already shown in full in an earlier list is referenced, not printed again. Score drivers, factor exposure and sensitivity, the bull and bear statements, the full source list and the manifest reconciliation move from the Markdown and print documents to the audit export with a pointer (the app keeps them in its collapsed panels, D-246); stale sources, gaps, qualifications and disclaimers stay. Filing-note tables name one shared filing once; scenario cards and quarterly-trend notes state a repeated label once. Each score keeps its qualifying text. LLY #63 is 7.4% shorter; the golden cases 5.5–12.3%.
+- No version stamp moves; no figure changes.
+
 ## Unreleased - D-272 (report 1.87.0 / payload 1.105.0; Stage B DIVIDEND_DISCLOSURES_78)
 
 - Read dated annual Prior/Updated guidance tables with their footnotes; retain whole release product and clinical tables separately. Disclose unreadable latest outlooks.

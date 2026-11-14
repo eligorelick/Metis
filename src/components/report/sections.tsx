@@ -32,6 +32,10 @@ import {
   annualSegmentHeading,
   BUSINESS_STORY_HEADING,
   businessStoryBlocks,
+  BUSINESS_BRIEF_HEADING,
+  BRIEF_NOT_ESTABLISHED,
+  BRIEF_PART_NOT_ESTABLISHED,
+  businessBrief,
   assessmentLine,
   auditExportPath,
   compactLongIntegers,
@@ -44,8 +48,6 @@ import {
   ratioPercentText,
   showAnnualSegments,
   sourceLabel,
-  factorExposureTable,
-  factorContributionSensitivityTable,
   figureRows,
   gapCountText,
   gapSummary,
@@ -65,8 +67,10 @@ import {
   qualityAccrualClarifications,
   reportIdentityNote,
   runSummary,
-  scoreDriverTable,
   scorecardTable,
+  scoreDriverTable,
+  factorExposureTable,
+  factorContributionSensitivityTable,
   gradeReliabilityTable,
   seeAlsoText,
   splitCommonLines,
@@ -487,6 +491,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
       <div className="flex flex-col gap-3 border-t border-edge px-3 py-3">
         <p className="text-[11px] text-muted">Composite: {compositeNote(scores)}</p>
         {assessmentLine(scores) && <p className="text-[11px] text-muted">{assessmentLine(scores)}</p>}
+        {/* D-246: the app keeps every frozen fact; its score diagnostics stay in this panel (D-273 shortens the documents). */}
         <ExtraAuditTables tables={[gradeReliabilityTable(scores)]} />
         <details className="dossier-score-audit"><summary>Score methodology &amp; recorded inputs</summary><p>{SCORE_BANDS_READER_NOTE}.</p><p>{c.methodology}</p><div><ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} /></div></details>
       </div>
@@ -507,6 +512,27 @@ export function ExecutiveSummary({ claims }: { claims: readonly SourcedClaim[] }
       </div>
       <div className="px-3 py-3">
         <ClaimList claims={claims} />
+      </div>
+    </div>
+  );
+}
+
+/** D-273: the opening five-part brief, verified claims only; a part with no support says so. */
+export function BusinessBriefBlock({ report }: { report: Report }) {
+  const parts = businessBrief(report);
+  const none = parts.every(part => part.claims.length === 0);
+  return (
+    <div className="business-brief border border-edge bg-panel" aria-label={BUSINESS_BRIEF_HEADING}>
+      <div className="border-b border-edge px-3 py-1.5">
+        <SectionHeading>{BUSINESS_BRIEF_HEADING}</SectionHeading>
+      </div>
+      <div className="flex flex-col gap-2 px-3 py-3">
+        {none ? <p className="text-[11px] text-faint">{BRIEF_NOT_ESTABLISHED}</p> : parts.map(part => (
+          <div key={part.key}>
+            <div className="text-[11px] font-semibold text-fg">{part.heading}</div>
+            <ClaimList claims={part.claims} empty={BRIEF_PART_NOT_ESTABLISHED} repeats="show" />
+          </div>
+        ))}
       </div>
     </div>
   );

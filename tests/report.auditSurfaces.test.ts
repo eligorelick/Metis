@@ -8,6 +8,7 @@ import { scoreAuditTables, valuationAuditTables, projectionAuditTables, factualV
 import { ReportSchema, type Report } from "@/report/schema";
 import { loadTask28Fixture } from "./helpers/task28Report";
 import { withFixtureQuoteDay } from "./helpers/valuationUse";
+import { SCORE_DIAGNOSTICS_NOTE } from "@/report/presentation";
 
 function auditReport(): Report {
   const report = loadTask28Fixture();
@@ -48,10 +49,13 @@ describe("audit disclosures across live, Markdown and print reports",()=>{
     // the scenario-construction record and the full validation partition in the
     // audit export.
     for (const surface of surfaces) {
-      for (const text of ["Enterprise value to equity bridge","DCF annual cash-flow path","Common equity value","Score drivers","Factor-family exposure","Business quality","price attractiveness","2027-06-30","1 recorded numerical match; numeric-claim denominator unknown","1 contradicted","3/4 factual claims carry a citation","No attributable execution evidence in this run","EPS share-count sensitivity","unfunded hypothetical","a".repeat(64)]) expect(surface).toContain(text);
+      for (const text of ["Enterprise value to equity bridge","DCF annual cash-flow path","Common equity value","Business quality","price attractiveness","2027-06-30","1 recorded numerical match; numeric-claim denominator unknown","1 contradicted","3/4 factual claims carry a citation","No attributable execution evidence in this run","EPS share-count sensitivity","unfunded hypothetical","a".repeat(64)]) expect(surface).toContain(text);
     }
     const audit = reportToAuditMarkdown(report);
-    for (const text of ["Signal evidence and contributions","2026-07-01","rolling-12-month","scenario-sentinel-1","1 recorded numerical match; numeric-claim denominator unknown","2 unchecked, 1 contradicted","Factual claims cited: 3/4"]) expect(audit).toContain(text);
+    // D-273 (revises D-62): score drivers and factor-family exposure are audit diagnostics; the body points to them.
+    for (const surface of surfaces.slice(1)) expect(surface).toContain(SCORE_DIAGNOSTICS_NOTE);
+    for (const text of ["Score drivers","Factor-family exposure"]) expect(surfaces[0]).toContain(text);
+    for (const text of ["Factor-family exposure","Signal evidence and contributions","2026-07-01","rolling-12-month","scenario-sentinel-1","1 recorded numerical match; numeric-claim denominator unknown","2 unchecked, 1 contradicted","Factual claims cited: 3/4"]) expect(audit).toContain(text);
     expect(JSON.stringify(report)).toBe(before);
   });
   it("does not manufacture legacy evidence, bridges or sensitivity paths",()=>{

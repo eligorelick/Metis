@@ -250,7 +250,8 @@ describe("rendering", () => {
       const actions = lower.indexOf("management actions");
       const leadership = lower.lastIndexOf("leadership & governance", actions);
       expect(leadership, surface).toBeGreaterThan(-1);
-      expect(lower.indexOf("competitive", leadership), surface).toBeGreaterThan(actions);
+      // D-273: leadership is followed by the projections and macro sections, not the competitive landscape.
+      expect(lower.indexOf("macro", leadership), surface).toBeGreaterThan(actions);
       expect(text, surface).toMatch(/JUDGMENT/);
       expect(text, surface).toMatch(/8-K/);
     }
