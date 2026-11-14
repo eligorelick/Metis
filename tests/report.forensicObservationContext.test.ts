@@ -192,6 +192,18 @@ describe("retained forensic observation context on real data-only exports", () =
     const operands = (balanceSheet.signals ?? []).flatMap((signal) => signal.operands ?? []).filter((operand) => renamed[operand.name] !== undefined);
     expect(operands.map((operand) => operand.name).sort()).toEqual(Object.keys(renamed).sort());
     for (const operand of operands) operand.name = renamed[operand.name]!;
+    // D-265 adds only the share-basis disclosure: the bridge's `shareBasis` object and one "Share basis:" sentence on
+    // each shown multiple's basis. Check them, then restore the preceding text so the pin keeps checking every value byte.
+    // The sentence follows a "." it adds itself when the basis ended otherwise (these keys' templates end without one).
+    expect(restored.valuation.dcf?.bridge.shareBasis).toMatchObject({ direction: "above", cause: "dilution-or-share-changes" });
+    delete restored.valuation.dcf!.bridge.shareBasis;
+    const endsWithoutStop = new Set(["priceToFcf", "priceToBook", "priceToTbv", "priceToFfo", "priceToAffo"]);
+    for (const m of restored.valuation.multiples.multiples) {
+      if (m.current === null) continue;
+      expect(m.basis).toMatch(/ Share basis: (market cap is the quote price|price \/ diluted EPS sits on)/);
+      const prior = m.basis.replace(/ Share basis: [\s\S]*$/, "");
+      m.basis = endsWithoutStop.has(m.key) ? prior.replace(/\.$/, "") : prior;
+    }
     // FIN-402-V1/FIN-102/FIN-113: separately asserted metadata restoration; old numeric pin remains.
     expect(invariantHash(restored)).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
   });
