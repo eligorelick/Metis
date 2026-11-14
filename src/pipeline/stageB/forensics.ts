@@ -24,7 +24,7 @@ import { selectReceivablesPair, type ReceivablesPair } from "@/pipeline/stageB/r
 import type { FiledReceivablesCandidates } from "@/edgar/receivables";
 import type { FmpStatementRow } from "@/providers/fmp";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
-import { latestOnOrBeforeWithin, STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS } from "@/pipeline/stageB/asOfSelection";
+import { latestOnOrBeforeWithin, STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS, strictUtcDayMs } from "@/pipeline/stageB/asOfSelection";
 import type { CompanyRoute, ManifestEntry } from "@/types/core";
 
 // ---------------------------------------------------------------------------
@@ -446,7 +446,10 @@ function marketValueAtBalanceDate(inputs: AltmanInputs, balanceDate: string): { 
   for (const row of inputs.marketCapHistory ?? []) {
     // D-267 review (P1, P2): a reading derived from a close and a filed share count stands for its day only when the
     // count was observed on or before that day; otherwise the reading does not qualify and the rule moves on.
-    const sharesUnproven = row.sharesAsOf !== undefined && (row.sharesAsOf === null || row.sharesAsOf.slice(0, 10) > String(row.date).slice(0, 10));
+    // Only a well-formed real day on or before the reading's own day proves it; blank, malformed or null does not.
+    const shareMs = row.sharesAsOf === undefined ? null : strictUtcDayMs(row.sharesAsOf);
+    const readingMs = strictUtcDayMs(String(row.date).slice(0, 10));
+    const sharesUnproven = row.sharesAsOf !== undefined && (shareMs === null || readingMs === null || shareMs > readingMs);
     if (!sharesUnproven && typeof row.marketCap === "number" && Number.isFinite(row.marketCap) && row.marketCap > 0) {
       rows.push({ date: String(row.date).slice(0, 10), marketCap: row.marketCap, source: inputs.marketCapHistorySource ?? null });
     }

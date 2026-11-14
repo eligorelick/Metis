@@ -11,7 +11,7 @@ const DAY_MS = 86_400_000;
 export const STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS = 45;
 
 /** Parse one exact, real Gregorian YYYY-MM-DD as a UTC-midnight epoch. */
-function strictUtcDayMs(value: unknown): number | null {
+export function strictUtcDayMs(value: unknown): number | null {
   if (typeof value !== "string") return null;
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;

@@ -180,6 +180,26 @@ describe("D-267 review fix 2: a derived reading counts only with a share count o
     expect(r.gaps.some((g) => g.field === "forensics.altman.marketCapDate")).toBe(true);
   });
 
+  it.each([["blank", ""], ["malformed", "2025-13-45"], ["not a day", "Dec 2025"], ["missing", null]] as const)(
+    "a derived reading with a %s share date does not qualify (second review)", (_label, sharesAsOf) => {
+      const r = computeAltman(altmanInputs("2025-12-31", {
+        marketCapHistory: [{ date: "2025-12-31", marketCap: 800, sharesAsOf }],
+        marketCapHistorySource: "derived:market-cap(close×dei:shares)",
+      } as Partial<AltmanInputs>), "original");
+      expect(r.score).toBeNull();
+      expect(r.components.x4).toBeNull();
+      expect(r.gaps.some((g) => g.field === "forensics.altman.marketCapDate")).toBe(true);
+    });
+
+  it("a malformed share date is skipped and the next well-formed reading is used; a valid same-day date qualifies (control)", () => {
+    const r = computeAltman(altmanInputs("2025-12-31", {
+      marketCapHistory: [{ date: "2025-12-31", marketCap: 800, sharesAsOf: "" }, { date: "2025-12-30", marketCap: 790, sharesAsOf: "2025-12-30" }],
+      marketCapHistorySource: "derived:market-cap(close×dei:shares)",
+    }), "original");
+    expect(r.asOf.marketCap).toBe("2025-12-30");
+    expect(r.components.x4).toBeCloseTo(790 / 200, 12);
+  });
+
   it("a provider reading carries no share observation and is unaffected (control)", () => {
     const r = computeAltman(altmanInputs("2025-12-31", { marketCapHistory: [{ date: "2025-12-31", marketCap: 800 }], marketCapHistorySource: "provider" }), "original");
     expect(r.components.x4).toBeCloseTo(800 / 200, 12);
