@@ -455,7 +455,8 @@ export const EVIDENCE_CONTRACT_VERSION = "EVIDENCE_CONTRACT_1" as const;
 // for the conversion-share period and the noncontrolling-ownership test).
 // D-258: D-257 (a bank's filed total net revenue replaces the provider's figure where the filing proves it) changes
 // Stage B results on identical retained inputs; D-256 changes three stored Stage B label strings, no number.
-// D-262: exact-period filed capex, interest and sibling flows change deterministic results on frozen inputs.
+// D-260 (_69): complete filed operating costs and exact additive income windows.
+// D-262 (_70): exact-period filed capex, interest and sibling flows change deterministic results on frozen inputs.
 export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_FILED_FLOWS_70" as const;
 
 /** Versioned method prior — bump when the resolution changes. */
