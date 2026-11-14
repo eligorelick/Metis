@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "75b7aea4de08c0bf459cb096509c624ce88883a6da9dcf77c5511b8b2128bc35",
+  "projectionSha256": "b787ee0f217521e08984ff818bc7c6150ca2966c24c9022a736cc1a19a0ea785",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -324,6 +324,7 @@
           "value": -0.4642857142857143,
           "netDebt": -1300000000,
           "ebitda": 2800000000,
+          "ebitdaComputed": true,
           "asOf": "2025-12-31",
           "resolution": {
             "version": "NET_DEBT_V3",
@@ -384,6 +385,7 @@
           "netDebtToEbitda": -0.4642857142857143,
           "netDebt": -1300000000,
           "ebitda": 2800000000,
+          "ebitdaComputed": true,
           "ebit": 2500000000,
           "interestExpense": 150000000,
           "fcfBeforeSbc": 1800000000,
@@ -2094,7 +2096,7 @@
         "symbol": "DEMO",
         "companyName": "Thesis Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.77.0",
+        "specVersion": "1.76.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",
