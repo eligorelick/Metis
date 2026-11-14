@@ -8900,7 +8900,9 @@ have at most 8 words and 60 characters, and be written as a whole word or phrase
 in one of the item's own FACT claims (case, spacing, dashes and trademark signs
 aside). At read time it prints only when a FACT claim that writes the name is
 marked validated or qualitative; a contradicted, unverified or unchecked claim
-never supports a heading. Otherwise the fixed heading "Product line (its name is
+never supports a heading. It must also be, as a whole name, a product or geographic segment
+name in the report's own segment table (code-owned data), so a model-written
+assertion never becomes a caption (D-271 review round 2). Otherwise the fixed heading "Product line (its name is
 not in the cited claims)" prints and the claims keep their own marks. When the
 provider's peer list has no comparable company, the peer note points to the
 competitors by product line in "The business" when the report carries them. App, Markdown and print read the same

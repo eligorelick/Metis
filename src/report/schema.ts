@@ -972,6 +972,9 @@ const headingText = (text: string): string => text.replace(MARK_SIGNS, "").norma
   .trim()
   .toLowerCase();
 
+/** D-271: the comparison key for a product-line heading or a segment name (case, spacing, dashes and trademark signs aside). */
+export const productLineHeadingKey = (text: string): string => headingText(text);
+
 /**
  * D-271 (P18): a product-line heading stands only when one of the item's FACT
  * claims writes the same name as a whole word or phrase (case, spacing, dashes

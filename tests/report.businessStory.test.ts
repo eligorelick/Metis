@@ -34,6 +34,13 @@ const asOf = "2026-02-20";
 const fact = (text: string, at = source): SourcedClaim => ({ text, label: "FACT", source: at, asOf });
 const judgment = (text: string): SourcedClaim => ({ text, label: "JUDGMENT", source, asOf });
 const line = (productLine: string, ...claims: SourcedClaim[]): ProductLineItem => ({ productLine, claims });
+/** D-271 review round 2: product-line headings must be names code already holds, so fixtures carry them as segment rows. */
+const withSegmentNames = (report: Report, ...names: string[]): Report => {
+  const template = report.business.segments.product[0] ?? report.business.segments.geographic[0];
+  if (!template) throw new Error("fixture has no segment row to copy");
+  report.business.segments.product = names.map(name => ({ ...template, name }));
+  return report;
+};
 
 const STORY_FIELDS = ["products", "whatIsComing", "customersAndSuppliers", "protection", "managementPlan", "industry"] as const;
 const HEADINGS = ["Products and services", "What is coming", "Customers and suppliers", "Competitors by product line",
@@ -52,7 +59,7 @@ function pharmaLike(): Report {
     industry: [fact("No reviewed source states the size or growth of the obesity drug market.")],
   });
   report.competitive.competitorsByProductLine = [line("Verandol", fact("Verandol competes with Nordhavn Pharma's weekly injectable; Nordhavn is listed in Copenhagen."))];
-  return report;
+  return withSegmentNames(report, "Verandol", "Corvista", "Orvane", "Lunessa");
 }
 
 /** A bank: no product-line lists at all, only plain claims; empty fields must leave no heading. */
@@ -82,7 +89,7 @@ function reitLike(): Report {
     industry: [],
   });
   report.competitive.competitorsByProductLine = [line("Logistics warehouses", fact("In logistics warehouses, Harbor Span Industrial competes for the same tenants."))];
-  return report;
+  return withSegmentNames(report, "Logistics warehouses");
 }
 
 const surfaces = (report: Report) => [reportToMarkdown(report), readableHtml(reportToPrintBody(report)).text,
@@ -258,6 +265,30 @@ describe("product-line headings are code-checked labels (D-271, P18)", () => {
     }
     // Without any verification log nothing supports a name: every heading falls back (fail closed).
     for (const headings of renderedLineHeadings(ReportSchema.parse(report))) expect(new Set(headings)).toEqual(new Set([UNNAMED_PRODUCT_LINE_HEADING]));
+  });
+
+  // Review round 2 (lead fix, P18): a heading must be a name code already holds (a segment name), so an
+  // assertion supported only by a statement of an evidence gap never becomes an unmarked caption.
+  it("prints a heading only when it is a segment name code holds, even when a qualitative FACT names it", async () => {
+    const report = pharmaLike();
+    report.business.products = [
+      line("Verandol dominates the market", fact("No reviewed source establishes that Verandol dominates the market.")),
+      line("Verandol", fact("Verandol is a once-weekly injectable for adults with diabetes.")),
+      line("Zelvan", fact("Zelvan treats migraine.")),
+    ];
+    report.competitive.competitorsByProductLine = [line("Verandol dominates the market", fact("No reviewed source establishes that Verandol dominates the market.")),
+      line("Corvista", fact("Corvista competes with Nordhavn Pharma's topical cream."))];
+    const checked = await verified(report);
+    const status = (path: string) => checked.appendix.verificationLog!.find(entry => entry.path === path)?.validationStatus;
+    expect(status("business.products[0].claims[0]")).toBe("cited");
+    expect(status("business.products[2].claims[0]")).toBe("cited");
+    // "Verandol" and "Corvista" are segment names; the assertion and the unlisted "Zelvan" fall back.
+    const expected = [UNNAMED_PRODUCT_LINE_HEADING, "Verandol", UNNAMED_PRODUCT_LINE_HEADING, UNNAMED_PRODUCT_LINE_HEADING, "Corvista"];
+    for (const headings of renderedLineHeadings(checked)) expect(headings).toEqual(expected);
+    // Control: the same report without segment rows prints no model-written heading at all.
+    checked.business.segments.product = [];
+    checked.business.segments.geographic = [];
+    for (const headings of renderedLineHeadings(checked)) expect(new Set(headings)).toEqual(new Set([UNNAMED_PRODUCT_LINE_HEADING]));
   });
 
   // Review round 1, finding 2: trademark signs are removed before compatibility normalization.

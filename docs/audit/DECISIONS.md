@@ -124,6 +124,26 @@ evidence collection:
   business in the Business section" when only that list is filled, and names
   both when both are.
 
+### Review round 2 correction (independent review REJECT; lead fix)
+
+- **A heading must be a name code already holds (HIGH).** Round 2 reproduced a
+  heading that asserts what its only naming claim says is unproven:
+  "Verandol dominates the market" over the FACT "No reviewed source
+  establishes that Verandol dominates the market." That claim is a cited
+  qualitative statement, so the round-1 rule printed the affirmative heading
+  unmarked in app, Markdown and print, in both product-line arrays. Two review
+  rounds were used, so the lead fixed it under P18 (code owns labels): at read
+  time (`businessStoryBlocks`), a product-line heading also has to equal, as a
+  whole name (case, spacing, dashes and trademark signs aside;
+  `productLineHeadingKey`), a product or geographic segment name in the
+  report's own segment table, which code built from filed or provider data and
+  never from model text. Otherwise the fixed heading prints and the line's
+  claims keep their own marks. Cost: a product the segment table does not name
+  (a recent launch grouped into "other") prints under the fixed heading, with
+  its name in the claim text. A test pins the reviewer's reproduction, a segment
+  name that stands, an unlisted name that falls back, and the same report with
+  no segment rows printing no model-written heading at all.
+
 ### Scope and limits
 
 No figure, gap, score, payload byte or evidence selection changes; evidence
