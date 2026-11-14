@@ -172,6 +172,8 @@ export interface StatementFieldProvenance {
   shareUnitConversion?: { ordinarySharesPerQuotedUnit: number; sourceIds: string[] };
   filings: { accn: string; filed: string; form: string }[];
   documents?: { accession: string; filed: string; form: string; url: string }[];
+  /** P1: exact filed operands of a monetary FY/YTD identity, by concept. */
+  flowOperands?: { tag: string; points: { start?: string; end: string; val: number; accn: string; filed: string; form: string }[] }[];
   /** Quarter reconstruction; absent for a directly reported field. */
   derivation?: "ytd-difference" | "fy-minus-ytd" | "fy-minus-quarters" | "fy-share-identity";
   /** Arithmetic within an unchanged source interval; distinct from quarter reconstruction. */

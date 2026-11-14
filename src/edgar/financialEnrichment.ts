@@ -13,7 +13,7 @@ import { sameFiledInstant, vendorAgreesWithDerived, vendorAgreesWithFiled } from
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 import { COMBINED_CURRENT_DEBT_TAG, CONSOLIDATED_NET_INCOME_TAGS, tagsFor } from "@/edgar/tagSynonyms";
 import { millions, millionsPair } from "@/pipeline/stageB/netDebt";
-import { oneBasisPair, representationLabelled, type LabelCopy } from "@/edgar/presentationLineage";
+import { movedBeyond, oneBasisPair, representationLabelled, type LabelCopy } from "@/edgar/presentationLineage";
 import { DISCONTINUED_LABEL_TAGS, RESTATEMENT_THRESHOLD_PCT, longTermInvestmentsChainAt } from "@/edgar/statements";
 
 /** Already acquired filing sections only; no additional provider reads. */
@@ -289,6 +289,19 @@ function filedTtmFlowName(tag: string): string {
 export function filedWindowFlow(facts: CompanyFacts, tag: string, unit: string, start: string, end: string, observedAt: string): FiledCashFlowTtm | null {
   if (!validDay(start) || !validDay(end)) return null;
   const identity = filedCashFlowTtm(facts, tag, unit, end, observedAt);
+  if (identity && identity.points.length === 3) {
+    const [annual, , prior] = identity.points as [FactPoint, FactPoint, FactPoint];
+    const copies = points(facts, tag, unit, observedAt);
+    const priorAtAnnual = unambiguousNewest(copies.filter(p => p.start === prior.start && p.end === prior.end && p.filed <= annual.filed));
+    // D-260 (P1/P2): a newer comparative can only repeat or re-round the
+    // annual's own presentation; it cannot silently recast one side of it.
+    const labels = labelCopies(facts, observedAt);
+    if (annual.accn !== prior.accn && (priorAtAnnual ? movedBeyond(priorAtAnnual, prior, 0)
+      : representationLabelled(labels, prior, RESTATEMENT_THRESHOLD_PCT))) return null;
+    const pair = oneBasisPair(copies, annual, () => priorAtAnnual ? [priorAtAnnual] : [prior], RESTATEMENT_THRESHOLD_PCT,
+      p => representationLabelled(labels, p, RESTATEMENT_THRESHOLD_PCT));
+    if (pair.kind !== "pair" || pair.minuend !== annual) return null;
+  }
   const copies = points(facts, tag, unit, observedAt).filter(p => p.start === start && p.end === end);
   const stated = unambiguousNewest(copies);
   if (copies.length > 0 && !stated) return null;
