@@ -1,3 +1,4 @@
+import { insiderEvidence, resultsHistory } from "./providerEvidence";
 import { forwardAnnualEstimates } from "./forwardEstimates";
 /**
  * D-62: the provider market and consensus data a reader expects on page 1
@@ -224,6 +225,8 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; 
     shares,
     ...historicalEv,
     estimates,
+    resultsHistory: resultsHistory(bundle, issuer),
+    insiderEvidence: insiderEvidence(bundle),
     estimatesAsOf: asOfOf(bundle.analystEstimates),
     ...(bundle.analystEstimates?.ok ? { estimateTiming: readEstimateTiming(bundle.analystEstimates.value.data.estimateTiming, bundle.analystEstimates.value) } : {}),
     priceTarget,

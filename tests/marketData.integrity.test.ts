@@ -74,3 +74,24 @@ describe("quoted market cap origin", () => {
     expect(withQuote("fmp")?.marketCapOrigin).toBe("provider");
   });
 });
+
+import { insiderEvidence, resultsHistory } from "@/pipeline/providerEvidence";
+it("keeps earnings differences provider-only and leaves missing operands unavailable", () => {
+ const b=currencyBundle();
+ b.earningsHistory={ok:true,value:{source:"fmp",endpoint:"earnings",asOf:"2026-01-01",fetchedAt:b.builtAt,data:{rows:[{date:"2025-11-01",revenueActual:120,revenueEstimated:100,epsActual:2,epsEstimated:null},{date:"2099-01-01",revenueActual:300}],raw:{}}}};
+ expect(resultsHistory(b)).toMatchObject([{date:"2025-11-01",values:{revenueDifference:20,epsDifference:null}}]);
+});
+it("distinguishes officer, director, ten-percent and former-holder selected sales", () => {
+ const b=currencyBundle();
+ b.insiderTrades={ok:true,value:{source:"fmp",endpoint:"insider-trades",asOf:"2026-01-01",fetchedAt:b.builtAt,data:{rows:["officer: CEO","director","10% owner","other: Former 10% Shareholder"].map((typeOfOwner,i)=>({typeOfOwner,reportingName:`Person ${i}`,transactionType:"S-Sale",transactionDate:"2025-11-01",securitiesTransacted:10})),raw:{}}}};
+ const notes=insiderEvidence(b).join(" ");
+ expect(notes).toContain("not limited to officers and directors");
+ expect(notes).toContain("officer: CEO (officer/director): 1 code S sale rows; 10 shares");
+ expect(notes).toContain("director (officer/director)");
+ expect(notes).toContain("Former 10% Shareholder (ten-percent, former or other owner)");
+ expect(notes).toContain("sellers: Person 3");
+});
+it("does not invent dividend figures or earnings rows for missing inputs",()=>{
+ const b=currencyBundle(); expect(resultsHistory(b)).toEqual([]);
+ expect(buildMarketData(b)).not.toHaveProperty("dividendYield");
+});

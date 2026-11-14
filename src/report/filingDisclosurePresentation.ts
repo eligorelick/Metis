@@ -24,6 +24,7 @@ const METRIC_LABELS: Record<GuidanceRow["metric"], string> = {
   "adjusted-ebitda-margin-expansion": "Adjusted EBITDA margin expansion",
   "gross-margin": "Gross margin",
   "operating-expenses": "Operating expenses",
+  "performance-margin": "Performance margin",
   "operating-margin": "Operating margin",
   "operating-income": "Operating income",
   "other-income": "Other income (expense)",

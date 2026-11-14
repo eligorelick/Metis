@@ -221,9 +221,67 @@ const HEADERS = /\bMetric\s+(?:Q([1-4])\s+(20\d{2})|Full Year\s+(20\d{2}))(?:\s+
 const ROWS = /\b(Adjusted EBITDA margin expansion|Adjusted EBITDA|Gross Bookings|Revenue)\*{0,2}\s+/g;
 const STOP = /\*\*\s*A reconciliation|\bQuarterly Dividend\b|\bConference Call\b|\bForward-Looking Statements\b/;
 
+/** D-272 (P9): annual guidance requires a dated company introduction and
+ * actual source cells. Empty filing-layout spacers carry no values. */
+function parseAnnualDocumentTable(text: string, document: ParsedDocument): IssuerGuidance | null {
+  if (document.fullText !== text || explicitHtmlHiddenState(document.pre) !== "clear") return null;
+  for (const table of document.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {
+    const context = htmlToText(document.pre.slice(Math.max(0, table.index - 4000), table.index));
+    const intro = /The following table summarizes (?:the company's )?(?:updated )?full-year (20\d{2}) (?:non-GAAP )?financial guidance\b/i.exec(context);
+    if (!intro) continue;
+    const refused: IssuerGuidance = { period: null, items: [], qualifiers: [], unparsed: [htmlToText(table[0])] };
+    if (table[0].length > 60000 || /<table\b/i.test(table[0].slice(6)) || /\browspan\s*=/i.test(table[0])) return refused;
+    const rows = [...table[0].matchAll(/<tr\b[^>]*>[\s\S]*?<\/tr\s*>/gi)].map(row => ({ raw: row, cells: [...row[0].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]\s*>/gi)].map(c => htmlToText(c[1]!)).filter(Boolean) })).filter(r => r.cells.length);
+    const header = rows[0];
+    if (!header) return refused;
+    const revised = header.cells.join(" ") === "Prior Updated";
+    if (!revised && !new RegExp(`^${intro[1]} Guidance$`, "i").test(header.cells.join(" "))) return refused;
+    const period: FiscalPeriod = { label: `FY${intro[1]}`, fiscalYear: Number(intro[1]), fiscalQuarter: null };
+    const spanOf = (r: RegExpExecArray) => {
+      const prefix = htmlToText(document.pre.slice(0, table.index + r.index));
+      const start = prefix.length + (prefix ? 1 : 0), value = htmlToText(r[0]);
+      return text.slice(start, start + value.length) === value ? { start, end: start + value.length, text: value } : null;
+    };
+    const headerSpan = spanOf(header.raw);
+    if (!headerSpan) return refused;
+    const items: GuidanceItem[] = [], qualifiers: string[] = [];
+    const range = (value: string) => {
+      const m = /^(\$)?\s*(\d+(?:\.\d+)?)(%)?\s*(?:to|[-??])\s*\$?\s*(\d+(?:\.\d+)?)(%)?\s*(billion|million)?$/i.exec(value);
+      if (!m || Boolean(m[3]) !== Boolean(m[5])) return null;
+      const scale = m[6]?.toLowerCase() === "billion" ? 1e9 : m[6]?.toLowerCase() === "million" ? 1e6 : 1;
+      const low = Number(m[2]) * scale, high = Number(m[4]) * scale;
+      return low <= high ? { low, high, mid: (low + high) / 2, money: !!m[1], percent: !!m[3], scaled: scale !== 1 } : null;
+    };
+    for (const row of rows.slice(1)) {
+      if (row.cells.length === 1 && /^\(\d+\)/.test(row.cells[0]!)) { qualifiers.push(row.cells[0]!); continue; }
+      const label = row.cells[0]!.replace(/\(\d+\)/g, "").trim();
+      const metric = ({ Revenue: "revenue", "Performance Margin": "performance-margin", "Tax Rate": "tax-rate", "Earnings per Share": "eps" } as Record<string, GuidanceItem["metric"]>)[label];
+      if (!metric || row.cells.length !== (revised ? 3 : 2) || items.some(i => i.metric === metric)) return refused;
+      const current = range(row.cells.at(-1)!); const prior = revised ? range(row.cells[1]!) : null;
+      if (!current || (revised && !prior)) return refused;
+      if (prior && (prior.money !== current.money || prior.percent !== current.percent || prior.scaled !== current.scaled)) return refused;
+      const percent = metric === "performance-margin" || metric === "tax-rate";
+      if (percent ? !current.percent || current.money || current.scaled : !current.money || current.percent || (metric === "revenue" ? !current.scaled : current.scaled)) return refused;
+      const span = spanOf(row.raw); if (!span) return refused;
+      items.push({ metric, basis: metric === "revenue" ? "unspecified" : /non-GAAP/i.test(context + qualifiers.join(" ")) ? "non-gaap" : "unspecified", period, unit: percent ? "%" : metric === "eps" ? "currency-per-share" : "currency", symbol: percent ? null : "$", low: current.low, mid: current.mid, high: current.high, form: "range", sentence: span.text, span, headerSpan, ...(prior ? { previous: { low: prior.low, mid: prior.mid, high: prior.high } } : {}) });
+    }
+    const after = document.pre.slice(table.index + table[0].length);
+    const stop = guidanceQualificationEnd(after);
+    const following = htmlToText(after.slice(0, stop ?? after.length));
+    if (following.length > 3000) return refused;
+    if (following) qualifiers.push(following);
+    // Footnotes can define the accounting basis after the data rows.
+    if (/non-GAAP/i.test(context + qualifiers.join(" "))) for (const item of items) if (item.metric !== "revenue") item.basis = "non-gaap";
+    return { period, items, qualifiers, unparsed: [] };
+  }
+  return null;
+}
+
 /** Old compact formats plus bounded single-quarter tables with document evidence. */
 export function parseGuidanceTables(text: string, document?: ParsedDocument): IssuerGuidance | null {
   if (document !== undefined) {
+    const annual = parseAnnualDocumentTable(text, document);
+    if (annual !== null) return annual;
     const layout = parseLayoutGuidance(text, document);
     if (layout !== null) return layout;
     const quarterly = parseQuarterlyDocumentTable(text, document);

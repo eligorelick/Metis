@@ -1,13 +1,13 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
-  "payloadVersion": "1.104.0",
-  "fingerprint": "1.104.0:733018d3",
-  "summary": {"promptBytes": 181895, "promptFnv1a32": "733018d3", "provenanceCount": 536, "provenanceHash": "ad7ee477", "provenanceIdsHash": "1f4e2f3b", "citationCount": 87, "citationHash": "0292dcdc", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "48e9bce7"},
+  "payloadVersion": "1.105.0",
+  "fingerprint": "1.105.0:fdd3c1dc",
+  "summary": {"promptBytes": 183430, "promptFnv1a32": "fdd3c1dc", "provenanceCount": 536, "provenanceHash": "ad7ee477", "provenanceIdsHash": "1f4e2f3b", "citationCount": 87, "citationHash": "8dcf2ead", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "48e9bce7"},
   "prompt": {
-    "bytes": 181895,
-    "sha256": "ed2475b5e7087d140ce8776b81fe1389b995e986592cf6bf85f688292c9c8f01",
+    "bytes": 183430,
+    "sha256": "8a5ab03eb7454b65a35148fe4eb8df4dc0adfeba474b4550bb08af39c4f1b503",
     "sections": [
-      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "7f8dea1dbcad20f65a2e51d96614b149e2d8f8f050e648c3ded43b2405682cfc"},
+      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "47aede4648588be1e91dcfb7083b915036c70176dc7db4968d3c474422292b73"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
       {"heading": "## Returns (computed)", "bytes": 4404, "sha256": "e6a3241a0880a89b297438994c04127838cbf59b682e8fe516005210afaba4e7"},
@@ -30,7 +30,7 @@
       {"heading": "## Quarterly trend (computed: last eight quarters, segment growth, results vs prior guidance) (untrusted provider data)", "bytes": 3067, "sha256": "2d4850facac3465b9bee118620f0151fc5ab0da90310fb2732b71efba54e0ea2"},
       {"heading": "## Analyst estimates & targets", "bytes": 3043, "sha256": "0ee4ccd402e3f32979914844f3e9c239e8fb0a90ebb2e772361f81a16b12c706"},
       {"heading": "## Peers (untrusted provider data)", "bytes": 615, "sha256": "5769331d2758bd56ca0f610011fc808d1d8996a3da2c9f9f48940cbcf560a071"},
-      {"heading": "## Insider activity & sentiment (untrusted provider data)", "bytes": 4253, "sha256": "62abdf05d05594baa34314d8e642e13255bdff01dc1b010330966abc8ed1ffe5"},
+      {"heading": "## Insider activity & sentiment (untrusted provider data)", "bytes": 5788, "sha256": "debf4385412a3d414025c6b61d267f0f5cbf3022ce6c938a2d470c6b9b82c25f"},
       {"heading": "## Institutional (13F 2026 Q1, quarter end 2026-03-31) (untrusted provider data)", "bytes": 865, "sha256": "e82069a3f98ce3eb828d0148f11dfb7ee09aed8292ff03a7af9e960f60999b3b"},
       {"heading": "## Leadership & compensation (untrusted provider data)", "bytes": 617, "sha256": "4bcefbd2c2feb066d6d9bd9d49c83c8cc521430d4f0965ea8f3ce484cf6325c1"},
       {"heading": "## Short interest", "bytes": 276, "sha256": "f4aad2a367534e5a8866403769783fbf4b26bfcd22d9faeac00fcb5928ee7558"},
@@ -5645,7 +5645,7 @@
       "kind": "payload-text",
       "asOf": "2026-07-06",
       "origin": "pipeline:insider-coverage",
-      "allowedNumbers": [1, 1]
+      "allowedNumbers": [10, 1, 1]
     },
     {"id": "fmp:revenue-product-segmentation", "kind": "payload-unestablished", "asOf": "2025-09-27", "origin": "fmp:revenue-product-segmentation", "currencyUnknown": true},
     {"id": "fmp:revenue-geographic-segmentation", "kind": "payload-unestablished", "asOf": "2025-09-27", "origin": "fmp:revenue-geographic-segmentation", "currencyUnknown": true},
@@ -5685,7 +5685,7 @@
     {"id": "fmp:key-executives", "kind": "payload-text", "asOf": null, "origin": "fmp:key-executives"}
   ],
   "payload": {
-    "payloadVersion": "1.104.0",
+    "payloadVersion": "1.105.0",
     "symbol": "AAPL",
     "companyName": "Apple Inc.",
     "route": {"base": "general", "overlays": [], "sector": "Technology", "industry": "Consumer Electronics"},
@@ -7305,6 +7305,15 @@
       "title": "Insider activity & sentiment",
       "figures": [
         {
+          "label": "Form 4 statistics reporting-person scope",
+          "value": "Insider statistics: statistics count all Form 4 reporting persons, including officers, directors, holders of more than 10% and former holders; they are not limited to officers and directors. Do not attribute aggregate statistics to officers unless retained transaction rows prove it.",
+          "unit": "",
+          "source": "pipeline:insider-coverage",
+          "asOf": "2026-07-06",
+          "currency": null,
+          "period": null
+        },
+        {
           "label": "insider purchase transactions (Form 4 code P), four calendar quarters ended 2026-03-31",
           "value": 1,
           "unit": "count",
@@ -7371,6 +7380,13 @@
         {"label": "MSPR 2026-06", "value": -12.5, "unit": "index", "source": "finnhub:insider-sentiment", "asOf": "2026-06-01", "currency": null, "period": null, "provenanceId": "payload.insiders.mspr-2026-06"}
       ],
       "notes": [
+        "Insider statistics: statistics count all Form 4 reporting persons, including officers, directors, holders of more than 10% and former holders; they are not limited to officers and directors. Do not attribute aggregate statistics to officers unless retained transaction rows prove it.",
+        "2026 Q1: purchases 0, sales 1 transactions; shares acquired 30000, disposed 40000 [fmp:insider-statistics; as-of 2026-06-30].",
+        "2025 Q4: purchases 1, sales 4 transactions; shares acquired 20000, disposed 60000 [fmp:insider-statistics; as-of 2026-06-30].",
+        "2025 Q3: purchases 0, sales 2 transactions; shares acquired 10000, disposed 30000 [fmp:insider-statistics; as-of 2026-06-30].",
+        "2025 Q2: purchases 0, sales 3 transactions; shares acquired 20000, disposed 50000 [fmp:insider-statistics; as-of 2026-06-30].",
+        "Selected Form 4 rows, 2026-06-01 to 2026-06-01; source FMP insider-trades endpoint, as-of 2026-06-01. Not a complete review; amendments and joint filings may overlap. Counts and shares below are code S sale rows only.",
+        "CEO (ten-percent, former or other owner): 1 code S sale rows; 50000 shares; sellers: Tim Cook.",
         "Insider statistics: FMP calendar quarters 2025 Q2, 2025 Q3, 2025 Q4, 2026 Q1 (2025-04-01 to 2026-03-31) summed; 2026 Q2 is in progress at 2026-06-30 and is left out (its Form 4 rows are listed below). Purchase and sale figures count open-market or private transactions (Form 4 codes P and S), not shares; their venue and motive are not established. Per-code share totals for the aggregate window are not available; selected F-code rows do not establish the tax-withholding share of total dispositions. The provider's acquired-share subtotal can be incomplete, including option exercises; these are provider aggregates, not a complete SEC transaction inventory.",
         "No dated post-window Form 4 rows are available in the selected provider rows after 2026-03-31; this does not establish no activity.",
         "Form 4 purchases and sales by person (codes P and S, open-market or private), 2026-01-04 to 2026-07-06, from all 1 selected provider row (the detailed rows below are the newest 1). Row totals may overlap across amendments or joint filings; venue and motive are not established.",

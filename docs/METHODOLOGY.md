@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.85.0 / payload 1.104.0, Stage B `STAGE_B_2026_11_CARRYING_INVESTMENTS_77` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.86.0 / payload 1.105.0, Stage B `STAGE_B_2026_11_CARRYING_INVESTMENTS_77` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -8871,3 +8871,9 @@ A failed proof remains a gap. Source selection follows the newest compatible
 filing. Carrying-only supplements neither replace statement history nor imply
 new annual history. Missing original instance evidence needs a separately
 identified evidence refresh; saved snapshots and reports remain immutable.
+
+### Release and provider coverage (D-272)
+
+Annual release tables require a dated company introduction and source cells proving Prior/Updated or a single named guidance column. Performance margin retains the issuer's own definition and footnotes. An unreadable newest outlook is a named gap; older outlook quotations are marked superseded. Whole product-revenue and regulatory/clinical tables have a separate 16,000-character evidence budget and never replace filed statement figures. Frozen snapshots without these source tables cannot recover them during replay.
+
+Reported results versus consensus retains the last four dated provider reports at the cutoff, actuals and estimates, and code-computed differences. EPS accounting basis is unverified, and missing operands remain gaps. Report dates do not establish fiscal windows. Form 4 statistics include all reporting persons; complete calendar quarters and selected code S rows by vendor owner type retain separate windows, sources and as-of dates. Selected rows are not a complete review and may overlap across joint filings or amendments. Trailing dividends per share on the quote's share basis are not admitted by the current capital block; yield and matched trailing dividend payout remain unavailable rather than gaining new admission here.

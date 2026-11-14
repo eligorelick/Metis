@@ -220,6 +220,7 @@ export function buildLeadershipGuidance(
     "- ROIC / margin trend over the executive's tenure: the computed growth & margins and returns",
     "  figures plus the statement extracts, read against the titleSince dates or the filing-sourced officer tenure in leadership context.",
     `- Capital-allocation record: buyback timing vs price paid (the capital section's buyback-price analysis and the cash-flow extract), M&A${options.webSearch ? " (web search for deals)" : " (as the analyst cases cite it — this pass has no web search)"}.`,
+    "- Form 4 statistics cover all reporting persons including ten-percent and former holders. Never attribute aggregate disposals to officers unless retained rows establish that scope.",
     "- Insider net activity trailing 12 months (payload insider trades + statistics). State the window the totals",
     "  cover. Attribute sales to tax withholding or a Rule 10b5-1 plan only for transactions the records classify that",
     "  way; neither establishes motive, and plan capacity is not an executed sale.",

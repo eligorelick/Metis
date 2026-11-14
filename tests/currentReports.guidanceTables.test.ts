@@ -58,3 +58,24 @@ describe("explicit previous/current guidance tables", () => {
     expect(parseGuidance(text)?.items.some((i) => i.metric === "revenue" && i.period.fiscalQuarter === null) ?? false).toBe(false);
   });
 });
+
+// D-272: annual table cells prove which range is current.
+import { parseDocument } from "@/edgar/extract";
+it.each([true, false])("reads annual current columns (revised=%s)", revised => {
+  const html = `<p>The following table summarizes the company's full-year 2027 financial guidance:</p><table><tr><th></th>${revised ? "<th>Prior</th><th>Updated</th>" : "<th>2027 Guidance</th>"}</tr><tr><td>Revenue</td>${revised ? "<td>$10 to $11 billion</td>" : ""}<td>$12 to $13 billion</td></tr><tr><td>Performance Margin (1)</td>${revised ? "<td>40% to 41%</td>" : ""}<td>42% to 43%</td></tr></table><p>(1) Excludes acquired research costs.</p><h2>Conference Call</h2>`;
+  const doc = parseDocument(html);
+  expect(parseGuidance(doc.fullText, doc)?.items).toMatchObject([{metric:"revenue", low:12e9, high:13e9}, {metric:"performance-margin",low:42,high:43}]);
+});
+it("does not read an ambiguous annual table as current guidance", () => {
+ const doc=parseDocument(`<p>The following table summarizes full-year 2027 financial guidance:</p><table><tr><th></th><th>A</th><th>B</th></tr><tr><td>Revenue</td><td>$10 to $11 billion</td><td>$12 to $13 billion</td></tr></table>`);
+ expect(parseGuidance(doc.fullText,doc)?.items).toEqual([]);
+});
+
+import { releaseEvidenceTables } from "@/edgar/currentReports";
+it("keeps complete product and clinical tables outside narrative with their own budget",()=>{
+ const doc=parseDocument(`<h2>Non-GAAP Measures</h2><table><tr><td>Selected Products</td><td>Revenue (USD millions), quarter ended September 30, 2027</td></tr><tr><td>Launch A</td><td>120</td></tr></table><table><tr><td>Regulatory</td><td>Approved</td></tr><tr><td>Clinical</td><td>Phase 3</td></tr></table><table><tr><td>Balance sheet</td><td>200</td></tr></table>`);
+ const tables=releaseEvidenceTables(doc);
+ expect(tables).toHaveLength(2); expect(tables[0]).toContain("USD millions"); expect(tables[1]).toContain("Phase 3");
+ expect(releaseEvidenceTables(parseDocument(`<div hidden>${doc.pre}</div>`))).toEqual([]);
+ expect(releaseEvidenceTables(parseDocument(`<table><tr><td>Selected Products ${"x".repeat(16001)}</td></tr></table>`))).toEqual([]);
+});

@@ -2205,6 +2205,7 @@ const GuidanceMetricSchema = z.enum([
   "adjusted-ebitda-margin-expansion",
   "gross-margin",
   "operating-expenses",
+  "performance-margin",
   "operating-margin",
   "operating-income",
   "other-income",
@@ -2596,6 +2597,8 @@ export const MarketDataSchema = z
       epsAvg: NullableNumber, epsLow: NullableNumber, epsHigh: NullableNumber,
       analystsRevenue: NullableNumber, analystsEps: NullableNumber,
     }).strict()),
+    resultsHistory: z.array(z.object({ date: IsoDaySchema, asOf: z.string().nullable(), currency: IsoCurrencySchema.nullable(), values: z.object({ revenueActual: NullableNumber, revenueEstimated: NullableNumber, revenueDifference: NullableNumber, epsActual: NullableNumber, epsEstimated: NullableNumber, epsDifference: NullableNumber }).strict() }).strict()).optional(),
+    insiderEvidence: z.array(z.string()).optional(),
     estimatesAsOf: z.string().nullable(),
     /** Additive timing evidence; absent on old saved reports. */
     estimateTiming: EstimateTimingSchema.optional(),

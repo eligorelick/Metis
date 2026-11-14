@@ -29,6 +29,7 @@ import {
   parseCapitalReturn,
   parseCommitmentTables,
   parseGuidance,
+  releaseEvidenceTables,
   parseIssuerFreeCashFlow,
   parseNonGaapBasisNote,
   parseReconciliation,
@@ -132,6 +133,7 @@ export interface EarningsReleaseRecord {
   workingCapital?: WorkingCapitalFacts | null;
   /** Narrative prose (newest release only), bounded. */
   releaseNarrative: string | null;
+  releaseTables?: string[];
   commentaryNarrative: string | null;
 }
 
@@ -260,6 +262,7 @@ export function buildEarningsReleaseRecord(args: {
     ...commitmentsOf(releaseText, commentaryText, source),
     nonGaapBasisNote: parseNonGaapBasisNote(releaseText) ?? (commentaryText === null ? null : parseNonGaapBasisNote(commentaryText)),
     workingCapital: (commentaryText === null ? null : parseWorkingCapital(commentaryText)) ?? parseWorkingCapital(releaseText),
+    releaseTables: args.includeNarrative ? releaseEvidenceTables(args.releaseDocument) : [],
     releaseNarrative: args.includeNarrative ? releaseNarrative(releaseText).slice(0, NARRATIVE_CHARS) : null,
     commentaryNarrative: args.includeNarrative && commentaryText !== null ? releaseNarrative(commentaryText).slice(0, NARRATIVE_CHARS) : null,
   };

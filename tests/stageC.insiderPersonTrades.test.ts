@@ -55,7 +55,11 @@ describe("coded purchases and sales by person", () => {
     expect(header).toContain("venue and motive are not established");
     expect(notes).toContain(`2026-05-02 ${CEO} (director, officer: Chief Executive Officer): code S sales, 2 rows 2026-05-01 to 2026-05-02, 3500 shares at 40.25-41.5 [fmp:insider-trades · 2026-05-02]`);
     expect(notes).toContain(`2026-04-15 ${CFO} (officer: Chief Financial Officer): code P purchases, 1 row on 2026-04-15, 300 shares at 38 [fmp:insider-trades · 2026-04-15]`);
-    expect(notes.join("\n")).not.toContain("7777 shares"); // outside the window
+    const personLines = notes.filter(note => /\): code [PS] (?:sales|purchases), /.test(note));
+    expect(personLines.join("\n")).not.toContain("7777 shares"); // outside the six-month person window
+    // D-272 separately covers ALL selected rows over their own disclosed window.
+    expect(notes.join("\n")).toContain("Selected Form 4 rows, 2025-12-01 to 2026-06-20");
+    expect(notes.join("\n")).toContain("officer: Chief Financial Officer (officer/director): 1 code S sale rows; 7777 shares");
     expect(notes.join("\n")).not.toContain("9999 shares"); // code F
     expect(notes.indexOf(header)).toBeLessThan(notes.findIndex((note) => note.includes("A-Award")));
   });

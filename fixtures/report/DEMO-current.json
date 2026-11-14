@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.85.0",
+    "specVersion": "1.86.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.85.0",
+    "pipelineVersion": "1.86.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
@@ -12509,6 +12509,10 @@
         "analystsRevenue": null,
         "analystsEps": null
       }
+    ],
+    "resultsHistory": [],
+    "insiderEvidence": [
+      "Insider statistics: statistics count all Form 4 reporting persons, including officers, directors, holders of more than 10% and former holders; they are not limited to officers and directors. Do not attribute aggregate statistics to officers unless retained transaction rows prove it."
     ],
     "estimatesAsOf": "2026-07-01",
     "estimateTiming": {

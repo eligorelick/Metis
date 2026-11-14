@@ -267,6 +267,7 @@ export type GuidanceMetric =
   | "adjusted-ebitda-margin-expansion"
   | "gross-margin"
   | "operating-expenses"
+  | "performance-margin"
   | "operating-margin"
   | "operating-income"
   | "other-income"
@@ -1735,4 +1736,22 @@ function aggregatePrincipal(text: string): { count: number; text: string } | nul
     return s.endsWith(".") ? `${s}0` : s;
   };
   return { count: amounts.length, text: sum >= 1e9 ? `${symbol}${fmt(sum / 1e9)} billion` : `${symbol}${fmt(sum / 1e6)} million` };
+}
+
+/** D-272: whole source tables have a separate evidence budget; no statement admission. */
+export function releaseEvidenceTables(document?: ParsedDocument): string[] {
+  if (!document || explicitHtmlHiddenState(document.pre) !== "clear") return [];
+  const evidence: string[] = [];
+  let remaining = 16000;
+  for (const table of document.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {
+    if (/<table\b/i.test(table[0].slice(6))) continue;
+    const text = htmlToText(table[0]);
+    if (!/\bSelected Products\b|\bProduct (?:Revenue|Sales)\b|^Regulatory\b[\s\S]*\bClinical\b/i.test(text)) continue;
+    if (text.length > remaining) continue;
+    const prefix = htmlToText(document.pre.slice(0,table.index));
+    const start = prefix.length + (prefix ? 1 : 0);
+    if (document.fullText.slice(start,start+text.length)!==text) continue;
+    evidence.push(text); remaining -= text.length;
+  }
+  return evidence;
 }

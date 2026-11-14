@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "bd2441f94402cb5bb1f44a1aac466eefaa702389e2fc50632a95f91c1072b4c9",
+  "projectionSha256": "c1c6e009a52e10c6fe464c7be475ba1923510c1e2b509ed064832fff48a8015f",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -2112,7 +2112,7 @@
         "symbol": "DEMO",
         "companyName": "Thesis Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.85.0",
+        "specVersion": "1.86.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",
@@ -4400,6 +4400,38 @@
         "estimates": [
           {"fiscalYearEnd": "2026-12-31", "revenueAvg": 13500000000, "revenueLow": 13200000000, "revenueHigh": 13800000000, "epsAvg": 9.1, "epsLow": 8.19, "epsHigh": 10.01, "analystsRevenue": 8, "analystsEps": 7},
           {"fiscalYearEnd": "2027-12-31", "revenueAvg": 14550000000, "revenueLow": 14100000000, "revenueHigh": 15000000000, "epsAvg": 10, "epsLow": 9, "epsHigh": 11, "analystsRevenue": 7, "analystsEps": 6}
+        ],
+        "resultsHistory": [
+          {
+            "date": "2025-12-31",
+            "asOf": "2025-12-31",
+            "currency": "USD",
+            "values": {"revenueActual": 3300000000, "revenueEstimated": 3200000000, "revenueDifference": 100000000, "epsActual": 2.3, "epsEstimated": 2.2, "epsDifference": 0.09999999999999964}
+          },
+          {
+            "date": "2025-09-30",
+            "asOf": "2025-12-31",
+            "currency": "USD",
+            "values": {"revenueActual": 3200000000, "revenueEstimated": 3100000000, "revenueDifference": 100000000, "epsActual": 2.2, "epsEstimated": 2.1, "epsDifference": 0.10000000000000009}
+          },
+          {
+            "date": "2025-06-30",
+            "asOf": "2025-12-31",
+            "currency": "USD",
+            "values": {"revenueActual": 3100000000, "revenueEstimated": 3000000000, "revenueDifference": 100000000, "epsActual": 2.15, "epsEstimated": 2.05, "epsDifference": 0.10000000000000009}
+          },
+          {
+            "date": "2025-03-31",
+            "asOf": "2025-12-31",
+            "currency": "USD",
+            "values": {"revenueActual": 2900000000, "revenueEstimated": 2850000000, "revenueDifference": 50000000, "epsActual": 2.1, "epsEstimated": 2, "epsDifference": 0.10000000000000009}
+          }
+        ],
+        "insiderEvidence": [
+          "Insider statistics: statistics count all Form 4 reporting persons, including officers, directors, holders of more than 10% and former holders; they are not limited to officers and directors. Do not attribute aggregate statistics to officers unless retained transaction rows prove it.",
+          "2025 Q4: purchases 800000, sales 400000 transactions; shares acquired 20000, disposed 10000 [fmp:insider-statistics; as-of 2026-07-06].",
+          "Selected Form 4 rows, 2025-05-15 to 2025-11-15; source FMP insider-trades endpoint, as-of 2025-11-15. Not a complete review; amendments and joint filings may overlap. Counts and shares below are code S sale rows only.",
+          "officer (officer/director): 1 code S sale rows; 8000 shares."
         ],
         "estimatesAsOf": "2026-07-06",
         "estimateTiming": {"version": "1", "asOfRole": "fallback-day", "acquisitionOrigin": "fixture-load", "acquiredAt": null, "fixtureLoadedAt": "2026-07-06T00:00:00.000Z", "recordedAt": null, "publishedAt": null},

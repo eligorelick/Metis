@@ -804,7 +804,9 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     if (sourceCurrency === null || sourceCurrency !== currency) notes.push(`Implicit-dollar amounts from 8-K ${release.accession} (reported period ${release.reported.periodEnd ?? "unknown"}) are left out: that period's statement currency is ${sourceCurrency ?? "unestablished"}, rather than current ${currency ?? "unestablished"}. Explicit currency labels are checked separately.`);
   }
 
-  const guided = releases.find((r) => r.guidance?.items.some((i) => forwardGuidance(i, releases)));
+  const newestOutlook = releases.find(r => r.guidance !== null);
+  const guided = newestOutlook?.guidance?.items.some(i => forwardGuidance(i, releases)) ? newestOutlook : undefined;
+  if (newestOutlook && !guided) notes.push(`Current outlook coverage gap: 8-K ${newestOutlook.accession}, filed ${newestOutlook.filingDate}; the newest retained outlook could not be read as compatible structured guidance.`);
   const guidance: FilingDisclosures["guidance"] = guided && guided.guidance
     ? {
         source: releaseRef(guided, guided.guidanceExhibit),
@@ -969,7 +971,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     for (const release of releases) {
       const period = release.reported.fiscal?.label ?? (release.reported.periodEnd !== null ? `the period ended ${release.reported.periodEnd}` : null);
       for (const sentence of release.guidance?.unparsed ?? []) {
-        notes.push(`Issuer outlook statement not read as structured guidance (8-K ${release.accession}, filed ${release.filingDate}${period === null ? "" : `; release for ${period}`}): "${sentence}"`);
+        notes.push(`${release === newestOutlook ? "Current issuer" : "Earlier, superseded issuer"} outlook statement not read as structured guidance (8-K ${release.accession}, filed ${release.filingDate}${period === null ? "" : `; release for ${period}`}): "${sentence}"`);
       }
     }
     notes.push(...reports.notes.filter((note) => !/: outlook sentence not read as guidance: /.test(note)).slice(0, 6));
