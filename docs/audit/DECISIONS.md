@@ -74,17 +74,34 @@ provider, so the ChatGPT prompt is byte-for-byte unchanged.
 
 **Local and private addresses (P26).** WebFetch runs on the user's own computer, so a
 web page could try to steer the model toward this machine's services, including Metis's
-own local server. A WebFetch request whose URL is not a public web address stops the CLI
-and rejects the research (`local_web_research_boundary`). Public means http or https,
-no credentials, a dotted DNS name, no IP literal (IPv4 in any form the URL parser
-normalises, or IPv6), and no local or private-use name (`localhost`, `.local`,
-`.internal`, `.lan`, `.home.arpa` and similar). The same rule (`publicWebUrl`) drops such
-links from search-result provenance. This check runs when the CLI announces the call, so
-it is a fast local stop rather than a guarantee that no connection began; in a live probe
-(2026-11-14) the CLI made no request to a local test listener when asked to fetch
-`127.0.0.1` and `localhost`, and its own tool guidance says WebFetch refuses localhost and
-dotless hosts. A public name that resolves to a private address (DNS rebinding) is not
-detected; that residual risk is recorded here.
+own local server. Two layers, from one list (`NON_PUBLIC_WEBFETCH_HOSTS`: private and
+reserved IPv4 blocks, IPv6 literals, local-use names such as `localhost`, `.local`,
+`.internal` and `.home.arpa`, and public wildcard-DNS services such as `nip.io` and
+`localtest.me` that map names onto private addresses):
+
+- *Before a fetch runs.* Each pattern is passed to the CLI as a deny rule,
+  `--disallowedTools "WebFetch(domain:<pattern>)"`, which the CLI checks before it
+  executes the tool. Live checks on 2.1.323 (2026-11-14) confirmed exact, leading and
+  trailing wildcards, that `*` spans dots, and that with the full list a public page
+  (`www.sec.gov`, HTTP 200) still fetched while `app.localtest.me` was refused by the CLI
+  with no fetch. The CLI then reports a permission denial, which rejects the research.
+- *When the call is announced.* The stream observer rejects any WebFetch whose URL is not
+  a public web address (`publicWebUrl`: http or https, no credentials, a dotted name, no
+  IP literal in any form the URL parser normalises, and not on the list) and stops the
+  CLI (`local_web_research_boundary`). The same rule drops such links from search-result
+  provenance. This layer reads the CLI's output, so it is a second check, not the
+  boundary.
+
+In a further live probe the CLI made no request to a local test listener when asked to
+fetch `127.0.0.1` and `localhost`. Residual risk, not covered by either layer: a public
+name that resolves to a private address (DNS rebinding or a private DNS record), and a
+redirect from a public page, which the CLI's own guidance says it reports back to the
+model rather than following across hosts (not independently verified). Metis's own
+server refuses a request whose Host header is not a loopback or configured name
+(`assertAllowedHost` in `src/app/requestSecurity.ts`), so a rebound public name cannot
+read it, but another unauthenticated service on the user's network could answer. Closing this fully
+needs either a local egress proxy that checks resolved addresses, or research with
+WebSearch only (no WebFetch); that choice is left to the owner.
 
 **Choices considered.**
 
@@ -133,7 +150,8 @@ check on the after set reports every figure as expected (265 figures in 13 cases
 **Tests.** `tests/ai.claude.test.ts` (research and tool-free arguments; the stream
 observer: counts, provenance only from typed events, the limit before the result, the
 `searchCount` and `webSearchRequests` checks, a failed fetch, prose URLs ignored,
-fourteen rejection shapes, eleven non-public fetch targets and a public control), `tests/ai.claudeLifecycle.test.ts` (the spawned CLI: split
+fourteen rejection shapes, sixteen non-public fetch targets, the CLI deny rules and public
+controls), `tests/ai.claudeLifecycle.test.ts` (the spawned CLI: split
 chunks, kill at the limit, the deadline, a failing exit), `tests/ai.claudeTransport.test.ts`
 (research wiring, unchanged tool-free record, terminal rejections, refused
 configurations), `tests/stageC.index.test.ts` (research before a tool-free writer; a

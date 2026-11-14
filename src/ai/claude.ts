@@ -49,6 +49,20 @@ const RESEARCH_TOOL_SET: ReadonlySet<string> = new Set(CLAUDE_RESEARCH_TOOLS);
 /** Same local research deadline as the ChatGPT route (D-269). */
 export const CLAUDE_RESEARCH_TIMEOUT_MS = 10 * 60_000;
 const MAX_OUTPUT_CHARS = 8_000_000;
+/**
+ * Hosts WebFetch must never reach, as the CLI's own permission globs (`*` spans
+ * dots; live-checked on 2.1.323). They become deny rules the CLI checks before
+ * a fetch runs, and the same list drives the stream observer's check (D-269, P26).
+ * Private and reserved IPv4 blocks, IPv6 literals, local-use names and public
+ * wildcard-DNS services that map names onto private addresses.
+ */
+export const NON_PUBLIC_WEBFETCH_HOSTS: readonly string[] = [
+  "localhost", "*.localhost", "*.local", "*.localdomain", "*.internal", "*.intranet", "*.lan", "*.home", "*.corp", "*.home.arpa",
+  "0.*.*.*", "10.*.*.*", "100.*.*.*", "127.*.*.*", "169.254.*.*", "192.168.*.*", "198.18.*.*", "198.19.*.*",
+  ...Array.from({ length: 16 }, (_, index) => `172.${16 + index}.*.*`), "*:*", "[*",
+  ...["nip.io", "sslip.io", "xip.io", "localtest.me", "lvh.me", "traefik.me", "vcap.me"].flatMap(service => [service, `*.${service}`]),
+];
+const NON_PUBLIC_HOST = new RegExp(`^(?:${NON_PUBLIC_WEBFETCH_HOSTS.map(glob => glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")).join("|")})$`);
 
 /**
  * Print-mode arguments for the unmodified CLI. Writing, judge and verify are
@@ -63,7 +77,8 @@ export function claudeRunArgs(model: string, effort?: ChatGptEffort, research = 
     "--safe-mode", "--setting-sources", "",
     "--settings", JSON.stringify({ disableAllHooks: true, autoMemoryEnabled: false }),
     ...(research ? ["--tools", CLAUDE_RESEARCH_TOOLS.join(","), "--allowedTools", ...CLAUDE_RESEARCH_TOOLS] : ["--tools", ""]),
-    "--disallowedTools", "mcp__*", "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
+    "--disallowedTools", "mcp__*", ...(research ? NON_PUBLIC_WEBFETCH_HOSTS.map(host => `WebFetch(domain:${host})`) : []),
+    "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
     "--no-session-persistence", "--permission-mode", "dontAsk",
     "--model", model, ...(effort ? ["--effort", effort] : [])];
 }
@@ -105,9 +120,10 @@ export interface ClaudeResearchResult extends ClaudeResult {
   researchText: string;
 }
 /**
- * A public web address: http(s), no credentials, a dotted DNS name that is not
- * an IP literal or a local/private-use name. WebFetch runs on the user's own
- * computer, so a page could steer it toward this machine's services (P26).
+ * A public web address by its name: http(s), no credentials, a dotted DNS name
+ * that is not an IP literal and not on {@link NON_PUBLIC_WEBFETCH_HOSTS}. This
+ * is a name check, not a network boundary: a public name that resolves to a
+ * private address is not detected (D-269 records that residual risk).
  */
 export function publicWebUrl(raw: unknown): string | null {
   if (typeof raw !== "string" || raw.length > 8_192) return null;
@@ -115,8 +131,7 @@ export function publicWebUrl(raw: unknown): string | null {
   if (!url) return null;
   const parsed = new URL(url);
   const host = parsed.hostname.toLowerCase().replace(/\.$/, "");
-  if (parsed.username || parsed.password || !host.includes(".") || host.startsWith("[") || /^[\d.]+$/.test(host) || /^0x/i.test(host) ||
-      /(^|\.)(localhost|local|internal|intranet|lan|home|corp|localdomain|home\.arpa)$/.test(host)) return null;
+  if (parsed.username || parsed.password || !host.includes(".") || /^[\d.]+$/.test(host) || NON_PUBLIC_HOST.test(host)) return null;
   return url;
 }
 const UNCOMPLETED = "Claude did not complete the requested web research. No searched evidence was accepted and no paid fallback was attempted.";

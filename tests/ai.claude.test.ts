@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach, vi } from "vitest";
-import { claudeEnvironment, claudeRunArgs, parseClaudeResult, claudeIdentity, claudeResearchObserver, ClaudeResearchError, CLAUDE_RESEARCH_TOOLS, publicWebUrl } from "@/ai/claude";
+import { claudeEnvironment, claudeRunArgs, parseClaudeResult, claudeIdentity, claudeResearchObserver, ClaudeResearchError, CLAUDE_RESEARCH_TOOLS, NON_PUBLIC_WEBFETCH_HOSTS, publicWebUrl } from "@/ai/claude";
 afterEach(() => vi.unstubAllEnvs());
 it("keeps OAuth in the official CLI and excludes inherited paid keys and code injection", () => {
   vi.stubEnv("ANTHROPIC_API_KEY", "not-a-real-key"); vi.stubEnv("CLAUDE_CODE_OAUTH_TOKEN", "not-a-real-token");
@@ -110,7 +110,20 @@ describe("Claude research arguments and stream observation (D-269)", () => {
       expect((error as Error).message).toContain("local, private or non-web address");
     });
 
+  it("has the CLI itself deny WebFetch to every non-public host pattern before a fetch runs, on research requests only", () => {
+    const research = claudeRunArgs("claude-opus-5-5", undefined, true);
+    const denied = research.slice(research.indexOf("--disallowedTools") + 1, research.indexOf("--strict-mcp-config"));
+    expect(denied).toEqual(["mcp__*", ...NON_PUBLIC_WEBFETCH_HOSTS.map(host => `WebFetch(domain:${host})`)]);
+    for (const host of ["localhost", "*.local", "10.*.*.*", "127.*.*.*", "169.254.*.*", "172.16.*.*", "172.31.*.*", "192.168.*.*", "*.nip.io"]) expect(NON_PUBLIC_WEBFETCH_HOSTS).toContain(host);
+    expect(claudeRunArgs("claude-opus-5-5").join(" ")).not.toContain("WebFetch(");
+  });
+
+  it.each(["http://10.0.0.1.nip.io/", "https://app.localtest.me/", "http://172.20.1.1/", "http://a.b.internal/", "http://LOCALHOST./x"])(
+    "uses the same host list for the observer: %s", url => expect(publicWebUrl(url)).toBeNull());
+
   it("keeps public addresses, and drops search links to local or private hosts from provenance", () => {
+    expect(publicWebUrl("https://nip.io.example.com/page")).toBe("https://nip.io.example.com/page");
+    expect(publicWebUrl("https://www.172.example.org/")).toBe("https://www.172.example.org/");
     expect(publicWebUrl("https://investor.issuer.example/news?id=1#top")).toBe("https://investor.issuer.example/news?id=1");
     expect(publicWebUrl("http://www.regulator.example.gov/filing")).toBe("http://www.regulator.example.gov/filing");
     const result = run([init(), search("toolu_1"), searchResult("toolu_1", [{ title: "Local", url: "http://192.168.1.1/" },
