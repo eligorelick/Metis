@@ -18,6 +18,15 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Node 24 pinned for version managers (2026-11-13)
+
+- `.node-version` pins Node 24, the version CI tests and the README names. A
+  Node version manager that read only `engines` (`>=24`) chose Node 26, whose
+  native SQLite build differs from the one `npm ci` installs under Node 24, so
+  the app started and then could not open its database ("Could not load
+  watchlist").
+- No calculation, report content or version stamp changes.
+
 ## Unreleased - Claude Fable 5.2, and new models added by the refresh (2026-11-13)
 
 - `claude-fable-5-2` is selectable: $8 input and $40 output per million tokens,
