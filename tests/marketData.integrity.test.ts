@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildMarketData } from "@/pipeline/marketData";
 import { currencyBundle } from "./helpers/currencyBundle";
 import { MarketDataSchema, type Report } from "@/report/schema";
-import { consensusTables } from "@/report/presentation";
+import { insiderEvidenceTables, consensusTables } from "@/report/presentation";
 
 function marketData(counts: Record<string, unknown>) {
   const bundle = currencyBundle();
@@ -72,5 +72,80 @@ describe("quoted market cap origin", () => {
   it("marks a Yahoo quote's market cap as computed and a vendor's as provided", () => {
     expect(withQuote("yahoo")?.marketCapOrigin).toBe("computed");
     expect(withQuote("fmp")?.marketCapOrigin).toBe("provider");
+  });
+});
+
+import { insiderEvidence, resultsHistory } from "@/pipeline/providerEvidence";
+it("keeps earnings differences provider-only and leaves missing operands unavailable", () => {
+ const b=currencyBundle();
+ b.earningsHistory={ok:true,value:{source:"fmp",endpoint:"earnings",asOf:"2026-01-01",fetchedAt:b.builtAt,data:{rows:[{date:"2025-11-01",currency:"USD",revenueActual:120,revenueEstimated:100,epsActual:2,epsEstimated:null},{date:"2099-01-01",revenueActual:300}],raw:{}}}};
+ expect(resultsHistory(b)).toMatchObject([{date:"2025-11-01",values:{revenueDifference:20,epsDifference:null}}]);
+});
+it("distinguishes officer, director, ten-percent and former-holder selected sales", () => {
+ const b=currencyBundle();
+ b.insiderTrades={ok:true,value:{source:"fmp",endpoint:"insider-trades",asOf:"2026-01-01",fetchedAt:b.builtAt,data:{rows:["officer: CEO","director","10% owner","other: Former 10% Shareholder"].map((typeOfOwner,i)=>({typeOfOwner,reportingName:`Person ${i}`,transactionType:"S-Sale",transactionDate:"2025-11-01",securitiesTransacted:10})),raw:{}}}};
+ const notes=insiderEvidence(b).join(" ");
+ expect(notes).toContain("not limited to officers and directors");
+ expect(notes).toContain("officer: CEO (officer/director): 1 code S sale rows; 10 shares");
+ expect(notes).toContain("director (officer/director)");
+ expect(notes).toContain("Former 10% Shareholder (ten-percent, former or other owner)");
+ expect(notes).toContain("sellers: Person 3");
+});
+it("does not invent dividend figures or earnings rows for missing inputs",()=>{
+ const b=currencyBundle(); expect(resultsHistory(b)).toEqual([]);
+ const d=buildFilingDisclosures(completeCurrencyBundle({}));
+ expect(d?.dividends?.indicated.value).toBeNull();
+ expect(d?.dividends?.indicated.reason).toContain("declared dividend");
+});
+
+import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { buildFilingDisclosures } from "@/pipeline/filingDisclosures";
+import { assembleContextPayload } from "@/pipeline/stageC/payload";
+import { runStageB } from "@/pipeline/compute";
+import { ReportSchema } from "@/report/schema";
+import { readFileSync } from "node:fs";
+it("D-272 renders both provider tables with scope, source, basis and rounded fractional shares",()=>{
+ const b=completeCurrencyBundle({});
+ b.earningsHistory={ok:true,value:{source:"fmp",endpoint:"earnings",asOf:"2026-06-01",fetchedAt:b.builtAt,data:{rows:[{date:"2026-06-01",revenueActual:120,revenueEstimated:100,epsActual:2,epsEstimated:1}],raw:{}}}};
+ b.insiderTrades={ok:true,value:{source:"fmp",endpoint:"insider-trades",asOf:"2026-06-01",fetchedAt:b.builtAt,data:{rows:[{reportingName:"Example Holder",typeOfOwner:"10% owner",transactionType:"S-Sale",transactionDate:"2026-05-01",securitiesTransacted:128.95950000000002}],raw:{}}}};
+ const report=ReportSchema.parse(JSON.parse(readFileSync("fixtures/report/DEMO-sample.json","utf8")));report.marketData=buildMarketData(b);
+ const results=consensusTables(report).find(t=>t.heading.includes("Reported results"))!;
+ expect(results.headers).toContain("Fiscal window"); expect(JSON.stringify(results)).toContain("accounting basis unverified");expect(JSON.stringify(results)).toContain("fmp:earnings / 2026-06-01");
+ const insider=JSON.stringify(insiderEvidenceTables(report));expect(insider).toContain("128.9595 shares");expect(insider).not.toContain("00000002");expect(insider).not.toContain("Do not attribute");
+});
+it("D-272 registers quarter-specific insider operands and plain revenue labels without a fictitious report-date period",()=>{
+ const b=completeCurrencyBundle({});
+ b.insiderStats={ok:true,value:{source:"fmp",endpoint:"insider-statistics",asOf:"2026-07-01",fetchedAt:b.builtAt,data:{rows:[{year:2026,quarter:2,totalSales:327,totalPurchases:0,totalAcquired:0,totalDisposed:1000}],raw:{}}}};
+ b.earningsHistory={ok:true,value:{source:"fmp",endpoint:"earnings",asOf:"2026-06-01",fetchedAt:b.builtAt,data:{rows:[{date:"2026-06-01",revenueActual:120,revenueEstimated:100,epsActual:2,epsEstimated:1}],raw:{}}}};
+ const p=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]});
+ expect(p.insiders.figures.find(f=>f.label.includes("sale transactions, 2026 Q2"))).toMatchObject({value:327,unit:"count",periodContext:{kind:"duration",start:"2026-04-01",end:"2026-06-30"}});
+ const revenue=p.estimates.figures.find(f=>f.label.includes("reported versus consensus") && f.label.includes("revenue actual"))!;
+ expect(revenue.period).toBeNull();expect(revenue.label).not.toContain("EPS");expect(p.estimates.figures.find(f=>f.label.includes("provider EPS actual"))?.label).toContain("accounting basis unverified");
+ expect(p.provenanceRegistry?.some(r=>r.label?.includes("sale transactions, 2026 Q2"))).toBe(true);
+});
+
+it("D-272 withholds result differences when the operand currency is unestablished",()=>{
+ const b=completeCurrencyBundle({});b.earningsHistory={ok:true,value:{source:"fmp",endpoint:"earnings",asOf:"2026-06-01",fetchedAt:b.builtAt,data:{rows:[{date:"2026-06-01",revenueActual:120,revenueEstimated:100,epsActual:2,epsEstimated:1}],raw:{}}}};
+ expect(resultsHistory(b)[0]).toMatchObject({currency:null,values:{revenueDifference:null,epsDifference:null}});
+});
+
+// D-272 (review thread): results history and insider evidence are kept even when every other market input is missing.
+describe("market data presence with only provider evidence", () => {
+  const bare = () => {
+    const b = currencyBundle() as unknown as Record<string, unknown>;
+    for (const key of ["quote", "sharesFloat", "analystEstimates", "priceTargetConsensus", "priceTargetSummary", "gradesConsensus", "shortInterest", "earningsHistory", "insiderStats", "insiderTrades"]) b[key] = { ok: false, error: { kind: "unavailable", message: "test" } };
+    const statements = b.statements as Record<string, unknown>;
+    for (const key of Object.keys(statements)) statements[key] = { ok: false, error: { kind: "unavailable", message: "test" } };
+    return b as unknown as ReturnType<typeof currencyBundle>;
+  };
+  it("control: no market input at all builds no block", () => {
+    expect(buildMarketData(bare())).toBeUndefined();
+  });
+  it("keeps quarterly insider statistics as their own evidence", () => {
+    const b = bare();
+    b.insiderStats = { ok: true, value: { source: "fmp", endpoint: "insider-statistics", asOf: "2026-07-01", fetchedAt: b.builtAt, data: { rows: [{ year: 2026, quarter: 1, totalSales: 3, totalPurchases: 0, totalAcquired: 0, totalDisposed: 100 }], raw: {} } } } as unknown as typeof b.insiderStats;
+    const md = buildMarketData(b);
+    expect(md?.insiderEvidence?.length).toBeGreaterThan(1);
+    expect(md?.quote ?? null).toBeNull();
   });
 });

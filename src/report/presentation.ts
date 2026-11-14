@@ -1342,10 +1342,22 @@ export function keyDataRows(report: Report): KeyDataRow[] {
  * interest and the provider's period-end enterprise value. Empty when the
  * report carries no provider market data.
  */
+export function insiderEvidenceTables(report: Pick<Report, "marketData">): BodyTable[] {
+  const notes = report.marketData?.insiderEvidence;
+  return notes?.length ? [{ heading: "Form 4 reporting-person scope and selected rows", headers: ["Evidence"], rows: notes.map(note => [note]), note: "Provider aggregates and selected rows have separate windows." }] : [];
+}
+
 export function consensusTables(report: Report): BodyTable[] {
   const md = withHistoricalEnterpriseValueSafety(report).marketData;
   if (!md) return [];
   const tables: BodyTable[] = [];
+  if (md.resultsHistory?.length) tables.push({
+    heading: "Reported results versus provider consensus (last four reports)",
+    headers: ["Report date", "Fiscal window", "Revenue actual", "Revenue estimate", "Difference", "Provider EPS actual (accounting basis unverified)", "Provider EPS estimate (accounting basis unverified)", "EPS difference (accounting basis unverified)", "Source / as-of"],
+    rows: md.resultsHistory.map(r => [r.date, r.periodStart && r.periodEnd ? `${r.periodStart} to ${r.periodEnd}` : r.fiscalLabel ? `${r.fiscalLabel}${r.periodEnd ? `; ended ${r.periodEnd}` : ""} (start unestablished)` : "Unestablished", ...Object.entries(r.values).map(([key,v]) => v === null ? "Unavailable: input or currency not established" : r.currency ? money(v,r.currency,key.startsWith("eps")) : `${v} (currency unestablished)`), `fmp:earnings / ${r.asOf ?? "unavailable"}`]),
+    note: "Differences are provider actual minus provider estimate. Report dates are not fiscal period boundaries. Provider EPS accounting basis unverified; never compare with GAAP EPS. Missing operands remain gaps.",
+  });
+
   const cur = md.estimateCurrency;
   const price = md.quote?.price ?? null;
   if (md.estimates.length > 0 && cur !== null) {

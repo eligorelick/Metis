@@ -253,6 +253,8 @@ export interface ShareCountTrend {
 }
 
 export interface CapitalResult {
+  /** D-272: fiscal-year common cash payout disclosure only; never scored. */
+  cashDividendPayout?: {value:number|null;dividends:number|null;commonIncome:number|null;start:string|null;end:string|null;source:string;asOf:string|null;currency:string|null;reason:string|null}[];
   /** Admitted primary execution pairs, including years whose market/cash comparison is refused. */
   primaryRepurchaseExecutions?: RepurchaseExecution[];
   /** Current comparable flow/balance window used in capital grading. Annual series remain historical. */

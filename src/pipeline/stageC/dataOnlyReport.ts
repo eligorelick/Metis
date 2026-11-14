@@ -942,7 +942,7 @@ function enrichDataOnlyReportInContext(stub: Report, args: EnrichDataOnlyReportA
       ...computed.gaps.filter(gap => gap.field.startsWith("statements.income.")),
     ].map(gap => [`${gap.field}|${gap.reason}`, gap])).values()] },
     scenarioPresentation: buildScenarioPresentation(computed, comparableScenarioPrice(computed, bundle)),
-    thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability))),
+    thesisTriggers: buildThesisTriggers(computed, guidanceLowCitation(buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability, computed.capital?.cashDividendPayout))),
     verdict: {
       synthesis: synthesis(computed, bundle, args.reason, currency, classifyManifest(currentManifest).dataGaps.length),
       gradeStrip: {
@@ -991,7 +991,7 @@ function enrichDataOnlyReportInContext(stub: Report, args: EnrichDataOnlyReportA
   };
   // Guidance, 8-K events, XBRL segments and the quarterly trend are filing
   // facts, not analyst judgment, so the data-only report carries them too.
-  const filingDisclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability);
+  const filingDisclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability, computed.capital?.cashDividendPayout);
   if (filingDisclosures) candidate.filingDisclosures = filingDisclosures;
   // D-62: provider market and consensus data for the key-data box.
   const marketData = buildMarketData(bundle, { isAdr: computed.route?.overlays?.includes("adr") === true, stageBGaps: computed.gaps, cashFlowApplicability: computed.route?.cashFlowApplicability });

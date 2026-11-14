@@ -108,6 +108,7 @@ import {
   compactLongIntegers,
   confidenceText,
   consensusTables,
+  insiderEvidenceTables,
   dataGapTables,
   dataStateText,
   displayProse,
@@ -755,7 +756,7 @@ function sectionLeadership(l: Leadership, report: Report): string {
   const others = groups.notAssessed.length > 0
     ? `<div class="exec"><h4>${groups.assessed.length > 0 ? "Other officers" : "Officers"}</h4>${groups.notAssessedLines.map((line) => `<p>${esc(line)}</p>`).join("")}${claimList(groups.notAssessedClaims)}</div>`
     : "";
-  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${l.executives.length === 0 ? "<p>No individual executive assessment recorded.</p>" : ""}${execs}${others}${managementActionsBlock(l.managementActions)}${subsection("Insider activity", claimList(l.insiderSummary))}${subsection("Provider executive roster", claimList(roster.roster))}${subsection("Governance", claimList(roster.governance))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
+  return `<section class="block">${sectionHeading("leadership")}${gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, gradeContext(report, "leadership"))}<h3>Executives</h3>${l.executives.length === 0 ? "<p>No individual executive assessment recorded.</p>" : ""}${execs}${others}${managementActionsBlock(l.managementActions)}${subsection("Insider activity", claimList(l.insiderSummary))}${bodyTables(insiderEvidenceTables(report))}${subsection("Provider executive roster", claimList(roster.roster))}${subsection("Governance", claimList(roster.governance))}${bodyTables(filingDisclosureTables(report.filingDisclosures, "leadership"))}</section>`;
 }
 
 function sectionCompetitive(c: Competitive, report: Report): string {

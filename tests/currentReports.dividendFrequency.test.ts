@@ -38,3 +38,10 @@ it("keeps the payment and record dates of a dividend increase", () => {
  expect(facts.dividendChange).toEqual({ from: 0.1, to: 0.12, symbol: "$" });
  expect(facts.dividendPerShare).toMatchObject({ value: 0.12, frequency: "quarterly", payDate: "2026-11-12", recordDate: "2026-11-05" });
 });
+
+import { dividendFrequencyEvidenceFromFacts } from "@/edgar/dividendFrequency";
+it("D-272 retains the currency-bound filed frequency operands without changing legacy admission",()=>{
+ const evidence=dividendFrequencyEvidenceFromFacts(facts(),"2026-10-27",0.26,"USD");
+ expect(evidence?.frequency).toBe("quarterly"); expect(evidence?.source).toContain("CommonStockDividendsPerShareDeclared"); expect(evidence?.source).toContain("filed 2026-09-30");
+ expect(dividendFrequencyEvidenceFromFacts(facts(),"2026-10-27",0.26,"EUR")).toBeNull();
+});

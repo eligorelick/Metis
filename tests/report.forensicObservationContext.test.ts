@@ -234,6 +234,11 @@ describe("retained forensic observation context on real data-only exports", () =
       m.basis = endsWithoutStop.has(m.key) ? prior.replace(/\.$/, "") : prior;
     }
     // FIN-402-V1/FIN-102/FIN-113: separately asserted metadata restoration; old numeric pin remains.
+    // D-272: retain the entire old byte pin, then pin the added disclosure too.
+    const dividendDisclosure=restored.capital.cashDividendPayout;
+    delete restored.capital.cashDividendPayout;
     expect(invariantHash(restored)).toBe("14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6");
+    restored.capital.cashDividendPayout=dividendDisclosure;
+    expect(invariantHash(restored)).toBe("a6805e0c6688de809e3c42b7ea935875aded80adbc56f41dd184707a3d67e85e");
   });
 });

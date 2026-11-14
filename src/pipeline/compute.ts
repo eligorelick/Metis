@@ -4854,6 +4854,27 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
       ? incomeAvailableToCommon(income, num(balance?.preferredStock), num(balance?.minorityInterest)) ?? undefined : undefined };
   });
 
+  // Reuse the statement owner's existing admission only to recover provenance
+  // for unchanged admitted operands in old snapshots. No value is replaced.
+  const payoutFacts = confirmedIssuerFacts(bundle.symbol, bundle.edgar);
+  const payoutObserved = bundle.edgar?.companyFacts?.ok ? bundle.edgar.companyFacts.value.fetchedAt : null;
+  const payoutFiled = payoutFacts && payoutObserved && Date.parse(payoutObserved)<=Date.parse(bundle.builtAt)
+    ? buildStatementsFromCompanyFacts(payoutFacts,{symbol:bundle.symbol,cik:String(payoutFacts.cik),annualPeriods:3,quarterlyPeriods:1,
+        asOf:bundle.builtAt.slice(0,10),factsObservedAt:payoutObserved,vendorSplits:{status:"unavailable",source:"cash-payout-evidence",reason:"only additive unchanged common cash and income operands; no per-share inference"}}) : null;
+  const payoutRows=commonPayoutRows.map(row=>{
+    const filed=payoutFiled?.cashflowAnnual.rows.find(f=>f.date===row.date && f.reportedCurrency===row.reportedCurrency);
+    return !row.fieldProvenance?.commonDividendsPaid && row.fieldConflicts?.commonDividendsPaid?.usable!==false && filed?.commonDividendsPaid===row.commonDividendsPaid && filed?.fieldProvenance?.commonDividendsPaid
+      ? {...row,fieldProvenance:{...row.fieldProvenance,commonDividendsPaid:filed.fieldProvenance.commonDividendsPaid}} : row;
+  });
+  const payoutIncome=ctx.incomeAnnual.map(row=>{
+    const filed=payoutFiled?.incomeAnnual.rows.find(f=>f.date===row.date && f.reportedCurrency===row.reportedCurrency);
+    const admitted=commonPayoutRows.find(r=>r.date===row.date)?.netIncome;
+    const field=num(filed?.netIncomeAvailableToCommon)!==null ? "netIncomeAvailableToCommon" : "netIncome";
+    return !row.fieldProvenance?.netIncomeAvailableToCommon && !row.fieldProvenance?.netIncome && admitted!=null && filed?.[field]===admitted && filed?.fieldProvenance?.[field]
+      ? {...row,fieldProvenance:{...row.fieldProvenance,[field]:filed.fieldProvenance[field]}} : row;
+  });
+  ctx.capital.cashDividendPayout = fiscalCashDividendPayout(payoutRows,payoutIncome,bundle.builtAt.slice(0,10));
+
   // Audit 2026-10-22 C-10: start from the trailing four quarters when that
   // return is complete and newer than the latest fiscal year, from the book
   // value at the window's end; the fiscal-year start is valued beside it.
@@ -5684,6 +5705,36 @@ export function newestBalanceRow<TRow extends { date?: unknown }>(
   // Ties keep the quarterly row: same period end, but quarterly is the
   // finer-grained statement the rest of the runway model is built from.
   return a > q ? annual : quarterly;
+}
+
+/** D-272: rows have already passed the common-holder admission above; this
+ * disclosure adds exact filed-window proof and never changes the valuation payout. */
+export function fiscalCashDividendPayout(rows: readonly FmpCashFlowRow[], incomes: readonly FmpIncomeStatementRow[], cutoff: string) {
+  return rows.slice(0,3).map(row=>{
+    const income=incomes.find(i=>i.date===row.date);
+    const dividendProof=row.fieldProvenance?.commonDividendsPaid;
+    const incomeField=income?.fieldProvenance?.netIncomeAvailableToCommon ? "netIncomeAvailableToCommon" as const : "netIncome" as const;
+    const incomeProof=income?.fieldProvenance?.[incomeField];
+    const start=dividendProof?.periodStart ?? null, end=isoDay(row.date);
+    const proofs=[dividendProof,incomeProof];
+    // P5/P13: the income operand is the admitted common earnings on the payout row, and it must equal the
+    // proven field of the income row; a parent or consolidated figure the common-income owner withheld never stands in.
+    const admittedIncome=num(row.netIncome), provenIncome=num(income?.[incomeField]);
+    const commonIncome=admittedIncome!==null && admittedIncome===provenIncome ? admittedIncome : null, cash=num(row.commonDividendsPaid);
+    // P7/P13 (D-272 review round 2): both operands must be read from one filing (a shared accession).
+    const oneFiling=!!dividendProof && !!incomeProof && dividendProof.filings.some(d=>incomeProof.filings.some(i=>i.accn===d.accn));
+    const reason=!start || !end || !incomeProof?.periodStart || start!==incomeProof.periodStart || end!==incomeProof.periodEnd || end!==dividendProof?.periodEnd
+      ? "Exact matching filed fiscal-year windows for common dividends and common income are not established."
+      : proofs.some(p=>!p || p.unit!==dividendProof!.unit || p.filings.length===0 || p.filings.some(f=>f.filed>cutoff) || p.observedAt.slice(0,10)>cutoff)
+      ? "Compatible filed currency and cutoff evidence for both payout operands is missing."
+      : !oneFiling ? "Common dividends and common income are not established from one filing."
+      : commonIncomeFlowRefusal(income ? commonFlowScope(income,incomeField,"annual") : undefined,commonFlowScope(row,"commonDividendsPaid","annual"))!==null || income?.fieldConflicts?.netIncome?.usable===false || income?.fieldConflicts?.netIncomeAvailableToCommon?.usable===false || row.fieldConflicts?.commonDividendsPaid?.usable===false || commonIncome===null || commonIncome<=0 || cash===null || cash>0
+      ? "Admitted common cash dividends or positive income available to common is unavailable." : null;
+    const source=proofs.flatMap(p=>p ? p.filings.map(f=>`${f.form} ${f.accn} filed ${f.filed}; ${p.tags.join(", ")}`) : []).join("; ");
+    const dates=proofs.flatMap(p=>p?.filings.map(f=>f.filed) ?? []).sort();
+    return {value:reason===null ? Math.abs(cash!)/commonIncome!*100 : null,dividends:reason===null ? Math.abs(cash!) : null,commonIncome:reason===null ? commonIncome : null,
+      start,end,source,asOf:dates.at(-1) ?? null,currency:dividendProof?.unit ?? null,reason};
+  });
 }
 
 export function payoutRatioPct3y(cashflowAnnual: FmpCashFlowRow[]): number | null {

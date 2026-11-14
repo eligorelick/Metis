@@ -43,3 +43,8 @@ it.each(["officer: CFO", "officer: EVP, Operations"])("AI-116 retains correct si
  const entry = { claim: `SMITH JOHN (${roles}) recorded a gift`, path: "insider", outcome: "unverified" as const, reason: "named-individual-title-mismatch" as const, source: "fmp:insider-trades", note: 'The claim calls SMITH JOHN "director"', check: "named-individual" as const };
  expect(legacyCheckNote(entry, [entry], "1.55.0")).toBeNull();
 });
+
+it("D-272 accepts people only after an ISO date, never owner-type summary titles", () => {
+ const insiderNotes=["officer: EVP & President, International (officer/director): 2 code S sale rows; 12 shares.","other: Former 10% Shareholder (ten-percent, former or other owner): 2 code S sale rows; 10 shares.","2026-10-01 DOE JANE (officer: EVP & President, International): S-Sale 12 @ 10"];
+ expect(collectPersonNames({insiderNotes})).toEqual(["DOE JANE"]);
+});

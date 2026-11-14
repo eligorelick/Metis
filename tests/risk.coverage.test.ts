@@ -281,6 +281,7 @@ const EXPECTED_RISK_SOURCES = [
   "src/report/presentation.ts",
   "src/report/export/auditMarkdown.ts",
   "src/pipeline/marketData.ts",
+  "src/pipeline/providerEvidence.ts",
   "src/pipeline/forwardEstimates.ts",
   "src/pipeline/releaseQuarterEarnings.ts",
   "src/report/supplementalNumericAudit.ts",
