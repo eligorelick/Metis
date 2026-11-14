@@ -464,5 +464,47 @@
       "$.payload.payloadVersion",
       "$.payload.computed[4].notes[1]"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-267",
+    "reason": "P1 P13 D-267 after merging D-262: report spec 1.80.0 for balance-date Altman market equity; the DEMO projection changes only its spec label and enclosing digest.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "d1c8aac937934a1019868929c16721f721813a290f7229969b3fc597e1dc2d75",
+    "afterSha256": "6c4deacb951a5fa700ed3b9b177ad287db8c51a8a3c8c9ce53a50f9c2da7a72d",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-267",
+    "reason": "P1 P13 D-267 after merging D-262: payload 1.98.0 for balance-date Altman market equity; only the version header and dependent hashes change.",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ],
+    "beforeSha256": "bb9a010c42dd372aa7999a05c359519b0203051e4fe26a79d9c7698cf6663e51",
+    "afterSha256": "185226a5b86c1686fab813bd336781911252f120fc76af88b834a020509db588",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ]
   }
 ]
