@@ -1,3 +1,6 @@
+import { assembleContextPayload } from "@/pipeline/stageC/payload";
+import { runStageB } from "@/pipeline/compute";
+import * as tagOwner from "@/edgar/tagSynonyms";
 import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { CompanyFacts } from "@/edgar/xbrl";
@@ -46,15 +49,15 @@ describe("D-262 review: same quantity, not a convenient component", () => {
   });
   it.each([false, true])("does not turn combined interest and dividends into interest alone (bank %s)", bank => {
     const out = admitFiledStatementFlows({ ...interestRow(), interestIncome: 0 }, facts({ InterestAndDividendIncomeOperating: [annual(90 * M)] }), "income", "annual", observedAt, bank);
-    expect(out.row.interestIncome).toBe(0);
-    expect(out.gaps.some(g => g.reason.includes("InterestAndDividendIncomeOperating"))).toBe(true);
+    expect(out.row.interestIncome).toBe(bank ? 90 * M : 0);
+    if (!bank) expect(out.gaps.some(g => g.reason.includes("InterestAndDividendIncomeOperating"))).toBe(true);
   });
   it("treats an absent expense at a vendor-zero row as expected", () => {
     expect(admitFiledInterestExpense(interestRow(0), facts({}), "annual", observedAt).gaps[0]).toMatchObject({ severity: "info", expected: true });
     expect(admitFiledInterestExpense(interestRow(1), facts({}), "annual", observedAt).gaps[0]).toMatchObject({ severity: "warn" });
   });
   it("discloses expense parts on a mixed operating basis", () => {
-    const out = admitFiledStatementFlows({ ...interestRow(), sellingGeneralAndAdministrativeExpenses: 80 * M, operatingExpenses: 100 * M }, facts({ SellingGeneralAndAdministrativeExpense: [annual(90 * M)] }), "income", "annual", observedAt);
+    const out = admitFiledStatementFlows({ ...interestRow(), sellingGeneralAndAdministrativeExpenses: 80 * M, researchAndDevelopmentExpenses: 20 * M, operatingExpenses: 100 * M }, facts({ SellingGeneralAndAdministrativeExpense: [annual(90 * M)] }), "income", "annual", observedAt);
     expect(out.gaps.some(g => /mixed basis/i.test(g.reason))).toBe(true);
   });
 });
@@ -131,10 +134,10 @@ describe("D-262: filed PP&E spending replaces a conflicting vendor capex family"
     expect(cashRows(cashBasis(f, [row]))[0]?.capitalExpenditure).toBe(-120 * M);
   });
 
-  it("uses the filed total independently of an other-PP&E line from a different filing", () => {
+  it("retains the observation when another admitted filing carries a competing period line", () => {
     const f = facts({ PaymentsToAcquirePropertyPlantAndEquipment: [annual(100 * M)], [PPE]: [{ ...annual(90 * M), accn: "another-filing" }],
       PaymentsToAcquireIntangibleAssets: [annual(20 * M)], PaymentsToAcquireInProcessResearchAndDevelopment: [annual(30 * M)] });
-    expect(cashRows(cashBasis(f))[0]?.capitalExpenditure).toBe(-100 * M);
+    expect(cashRows(cashBasis(f))[0]?.capitalExpenditure).toBe(-120 * M);
   });
 
   it.each(["currency", "issuer", "period", "future", "ambiguous", "negative"])("does not replace an unproved %s capex value", reason => {
@@ -252,8 +255,9 @@ describe("D-262 breadth: independently tagged statement flows", () => {
     const f = facts({ [tag]: [annual(90 * M), nineMonths(60 * M)] });
     const a = enrichIncomeClassification(source([{ ...interestRow(), [field]: 80 * M }]), f, "annual", observedAt);
     const q = enrichIncomeClassification(source([{ ...interestRow(), period: "Q4", [field]: 20 * M }]), f, "quarter", observedAt);
-    expect(a.income.ok && a.income.value.data.rows[0]?.[field]).toBe(90 * M);
-    expect(q.income.ok && q.income.value.data.rows[0]?.[field]).toBe(30 * M);
+    expect(a.income.ok && a.income.value.data.rows[0]?.[field]).toBe((field === "depreciationAndAmortization" ? 80 : 90) * M);
+    if (field === "depreciationAndAmortization") expect(a.income.ok && a.income.value.data.rows[0]?.fieldProvenance?.[field]).toBeUndefined();
+    expect(q.income.ok && q.income.value.data.rows[0]?.[field]).toBe((field === "depreciationAndAmortization" ? 20 : 30) * M);
   });
 
   it("does not call partial depreciation total D&A", () => {
@@ -296,12 +300,12 @@ describe("D-262 breadth: independently tagged statement flows", () => {
     expect(out.income.ok && out.income.value.data.rows[0]).toMatchObject({ costOfRevenue: 1000 * M, grossProfit: 1000 * M, operatingExpenses: 400 * M });
   });
 
-  it("preserves proved bank revenue when a sibling D&A correction creates a new row object", () => {
+  it("preserves proved bank revenue when a sibling R&D correction creates a new row object", () => {
     const f = facts({ Revenues: [annual(1000 * M)], InterestIncomeExpenseNet: [annual(600 * M)], NoninterestIncome: [annual(400 * M)],
-      CostDepreciationAmortizationAndDepletion: [annual(90 * M)] });
-    const row = { ...interestRow(), revenue: 2000 * M, depreciationAndAmortization: 80 * M };
+      ResearchAndDevelopmentExpense: [annual(90 * M)] });
+    const row = { ...interestRow(), revenue: 2000 * M, researchAndDevelopmentExpenses: 80 * M };
     const out = enrichIncomeClassification(source([row]), f, "annual", observedAt, { bankRevenue: true });
-    expect(out.income.ok && out.income.value.data.rows[0]).toMatchObject({ revenue: 1000 * M, depreciationAndAmortization: 90 * M,
+    expect(out.income.ok && out.income.value.data.rows[0]).toMatchObject({ revenue: 1000 * M, researchAndDevelopmentExpenses: 90 * M,
       fieldConflicts: { revenue: { usable: true, vendorValue: 2000 * M } } });
   });
 
@@ -329,4 +333,46 @@ it("preserves original lease-principal precision through the legacy enrichment l
 it("does not narrow an income D&A observation already agreeing with a separately filed D&A basis", () => {
   const out = admitFiledStatementFlows({ ...interestRow(), depreciationAndAmortization: 80 * M }, facts({ CostDepreciationAmortizationAndDepletion: [annual(70 * M)], DepreciationDepletionAndAmortization: [annual(80 * M)] }), "income", "annual", observedAt);
   expect(out.row.depreciationAndAmortization).toBe(80 * M);
+});
+
+it.each(["PaymentsForConstructionInProcess", "PaymentsForSoftware"])("blocks the capital sibling %s", tag => {
+ expect(admitFiledCapitalExpenditure(cashRow(-1000*M),facts({ PaymentsToAcquirePropertyPlantAndEquipment:[annual(300*M)], [tag]:[annual(700*M)] }),"annual",observedAt).row.capitalExpenditure).toBe(-1000*M);
+});
+it("covers every member of the owner's capital spending family", () => {
+ const family = (tagOwner as unknown as { capitalSpendingTags:()=>readonly string[] }).capitalSpendingTags();
+ expect(family).toContain("PaymentsForConstructionInProcess");
+ for(const tag of family) {
+  const selected=tag===PPE?"PaymentsToAcquirePropertyPlantAndEquipment":PPE;
+  const out=admitFiledCapitalExpenditure(cashRow(-1000*M),facts({[selected]:[annual(300*M)],[tag]:[annual(700*M)]}),"annual",observedAt);
+  expect(out.row.capitalExpenditure,tag).toBe(-1000*M);
+ }
+});
+it("recognizes competing period facts in another admitted filing", () => {
+ const out=admitFiledCapitalExpenditure(cashRow(-1000*M),facts({[PPE]:[annual(300*M)],PaymentsForSoftware:[{...annual(700*M),accn:"other",filed:"2026-03-01"}]}),"annual",observedAt);
+ expect(out.row.capitalExpenditure).toBe(-1000*M);
+});
+it("ignores an explicit zero competing component", () => {
+ expect(admitFiledCapitalExpenditure(cashRow(-900*M),facts({PaymentsToAcquirePropertyPlantAndEquipment:[annual(1000*M)],[PPE]:[annual(0)]}),"annual",observedAt).row.capitalExpenditure).toBe(-1000*M);
+});
+it("does not narrow unproved total income D&A to the cost portion", () => {
+ expect(admitFiledStatementFlows({...interestRow(),depreciationAndAmortization:200*M},facts({CostDepreciationAmortizationAndDepletion:[annual(150*M)]}),"income","annual",observedAt).row.depreciationAndAmortization).toBe(200*M);
+});
+it("does not disclose a mixed basis when the corrected parts agree", () => {
+ const out=admitFiledStatementFlows({...interestRow(),researchAndDevelopmentExpenses:20*M,sellingGeneralAndAdministrativeExpenses:80*M,operatingExpenses:110*M},facts({SellingGeneralAndAdministrativeExpense:[annual(90*M)]}),"income","annual",observedAt);
+ expect(out.gaps.some(g=>/Mixed basis/.test(g.reason))).toBe(false);
+});
+
+it("keeps the manifest disclosure visible while documenting the existing row-qualification limit", () => {
+ const f=facts({SellingGeneralAndAdministrativeExpense:[annual(90*M)]});
+ const out=admitFiledStatementFlows({...interestRow(),researchAndDevelopmentExpenses:20*M,sellingGeneralAndAdministrativeExpenses:80*M,operatingExpenses:100*M},f,"income","annual",observedAt);
+ expect(out.gaps.some(g=>g.field.includes("2025-12-31") && g.reason.includes("Mixed basis"))).toBe(true);
+ const b=completeCurrencyBundle({});b.builtAt=observedAt;withIssuerFacts(b,f);b.statements.incomeAnnual=source([out.row]);b.gaps.push(...out.gaps);
+ const payload=assembleContextPayload(b,runStageB(b),{checks:[],flags:[],gaps:[]});
+ const statement=payload.statements.find(s=>s.title.startsWith("Income statement") && s.title.endsWith("annual"));
+ expect(statement).toBeDefined();
+ expect(statement!.notes.join(" ")).not.toContain("Mixed basis");
+});
+it("honors the latest explicit component zero without treating an omitted period as zero", () => {
+ const f=facts({[PPE]:[annual(1000*M)],PaymentsForSoftware:[{...annual(100*M),accn:"earlier"},{...annual(0),accn:"newer",filed:"2026-03-01"}]});
+ expect(admitFiledCapitalExpenditure(cashRow(-900*M),f,"annual",observedAt).row.capitalExpenditure).toBe(-1000*M);
 });

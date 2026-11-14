@@ -58,8 +58,8 @@ describe("standalone capex on an independently established annual tag basis", ()
     const { b, facts } = fixture();
     if (kind === "conflicting annual vendor" && b.statements.cashflowAnnual.ok) b.statements.cashflowAnnual.value.data.rows[0]!.capitalExpenditure = -999 * M;
     if (kind === "separate software tag") facts.facts["us-gaap"]!.PaymentsToDevelopSoftware = structuredClone(facts.facts["us-gaap"]!.PaymentsToAcquirePropertyPlantAndEquipment);
-    expect(quarter(b)).toMatchObject(kind === "separate software tag" ? { capitalExpenditure: 396 * M, freeCashFlow: -101 * M } : { capitalExpenditure: -189 * M, freeCashFlow: -686 * M });
-    if (kind === "separate software tag") expect(quarter(b).fieldProvenance?.capitalExpenditure).toBeUndefined();
+    expect(quarter(b)).toMatchObject({ capitalExpenditure: -189 * M, freeCashFlow: -686 * M });
+    if (kind === "separate software tag") expect(quarter(b).fieldProvenance?.capitalExpenditure).toMatchObject({ derivation: "ytd-difference" });
   });
 });
 describe("recoverable vendor SBC zero placeholders", () => {
@@ -95,4 +95,17 @@ describe("recoverable vendor SBC zero placeholders", () => {
     prior.fieldConflicts.stockBasedCompensation.reason = "Independent refusal";
     expect(admitStockCompensation(prior, facts, "quarter", at).row.stockBasedCompensation).toBeNull();
   });
+});
+
+it.each([-75, -50])("retains the proved annual basis despite software, vendor quarter %s", value => {
+ const { b, facts, row } = fixture();
+ facts.facts["us-gaap"]!.PaymentsToAcquirePropertyPlantAndEquipment = { units: { USD: [point(100,"2025-01-01","2025-12-31","2026-02-13"),point(75,"2025-01-01","2025-09-30","2025-11-07"),point(42,"2025-01-01","2025-06-30","2025-08-08")] } };
+ facts.facts["us-gaap"]!.PaymentsToDevelopSoftware = { units: { USD: [point(8,"2025-01-01","2025-12-31","2026-02-13"),point(6,"2025-01-01","2025-09-30","2025-11-07")] } };
+ if (!b.statements.cashflowAnnual.ok) throw Error("fixture");
+ b.statements.cashflowAnnual.value.data.rows[0]!.capitalExpenditure = -100*M;
+ Object.assign(row,{capitalExpenditure:value*M,operatingCashFlow:1000*M,freeCashFlow:(1000+value)*M});
+ const out = withCashFlowSbcBasis(b), q = quarter(b);
+ expect(q.capitalExpenditure).toBe(value === -75 ? -33*M : null);
+ expect(q.freeCashFlow).toBe(value === -75 ? 967*M : null);
+ if(value === -50) expect(out.gaps.some(g => g.severity === "warn" && g.field.endsWith("capitalExpenditure"))).toBe(true);
 });

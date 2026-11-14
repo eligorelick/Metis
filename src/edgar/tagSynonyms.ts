@@ -663,3 +663,17 @@ export const UNUSUAL_OPERATING_CHARGE_COMPONENT_TAGS = [
   "ImpairmentOfLongLivedAssetsHeldForUse",
   "ImpairmentOfIntangibleAssetsExcludingGoodwill",
 ] as const;
+
+/** Capital-spending scope family. Components are competitors, not total synonyms.
+ * Keep this owner shared with admission; adding a capex synonym automatically
+ * adds it to the scope check without making components additive. */
+export function capitalSpendingTags(): string[] {
+  return [...new Set([...tagsFor("capitalExpenditure"),
+    "PaymentsToAcquireOtherProductiveAssets", "PaymentsToAcquireOilAndGasProperty",
+    "PaymentsToAcquireRealEstate", "PaymentsToAcquireCommercialRealEstate",
+    "PaymentsToAcquireAndDevelopRealEstate", "PaymentsToDevelopSoftware",
+    "PaymentsForConstructionInProcess", "PaymentsForSoftware",
+    "PaymentsForCapitalImprovements", "PaymentsForDepositsOnRealEstateAcquisitions",
+    "PaymentsForProceedsFromProductiveAssets",
+  ])];
+}
