@@ -20,7 +20,9 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Same-date fallback models (D-267 part 1)
 
-- Withhold fiscal-year fallback DCFs that mix balance and statement dates, with a typed root cause. D-260 follow-up counts identical operating figures once.
+- Withhold fiscal-year fallback DCFs that mix balance and statement dates, with a typed root cause.
+- D-260 follow-up: restructuring candidates use the existing reporting-unit rule; identical operating figures count once and different matching figures remain ambiguous.
+- D-267 review: preserve independent critical capital and lease gaps before the date refusal; an unparseable fallback date withholds the model. Restore trailing-route date disclosure regressions.
 - Report 1.84.0, payload 1.102.0, Stage B FALLBACK_DATE_76. Trailing models retain the existing date rule.
 
 ## Unreleased - Filed cash recovery and named root gaps (D-261)
@@ -49,7 +51,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - A proved reconstructed quarter is reviewed even when its original vendor filing no longer supplies the current SEC pair. Unsupported operating expenses and margins remain withheld.
 - Report 1.77.0, payload 1.96.0 and Stage B `STAGE_B_2026_11_FILED_INCOME_WINDOWS_69` identify the new calculation meaning. Stored reports, DCF methods, growth guards, weights and score bands are unchanged.
 
-- D-260 review: restructuring membership requires one unambiguous filed reconciliation under the existing reporting-unit rule; recovered trailing tax pairs restore their denominator atomically. Replay ownership documentation and fourth-quarter operand assertions now match the implementation.
+- D-260 review: restructuring membership requires an exact filed reconciliation; recovered trailing tax pairs restore their denominator atomically. Replay ownership documentation and fourth-quarter operand assertions now match the implementation.
 
 ## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
 

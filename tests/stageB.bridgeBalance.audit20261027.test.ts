@@ -21,13 +21,13 @@ const HIST = ["2026-06-30", "2025-06-30", "2024-06-30", "2023-06-30", "2022-06-3
   date, revenue: (80 - 4 * i) * B, operatingIncome: (18 - i) * B, grossProfit: 45 * B, incomeBeforeTax: (18 - i) * B, incomeTaxExpense: (3.2 - 0.15 * i) * B,
 }));
 
-function build(balanceDate: string, valuationDate = "2026-11-05") {
+function build(balanceDate: string, valuationDate = "2026-11-05", extra: Partial<DcfAssumptionInputs> = {}) {
   return buildDcfAssumptions({
     revenueCagr3yPct: 5, revenueCagr5yPct: 5, analystEstimates: null, waccPct: 9, riskFreePct: 4.3,
     incomeTtm: { basis: "annual", ...HIST[0]! },
     incomeHistory: HIST,
     balance: { date: balanceDate, basis: "quarter", totalDebt: 20 * B, totalStockholdersEquity: 55 * B, cashAndShortTermInvestments: 18 * B },
-    marketCap: 250 * B, domicileCountry: "US", valuationDate,
+    marketCap: 250 * B, domicileCountry: "US", valuationDate, ...extra,
   } as DcfAssumptionInputs);
 }
 
@@ -190,7 +190,7 @@ describe("FIN-103 the valuation-date basis names the balance bridged", () => {
     expect(reason("none-filed", null)).toMatch(/^no balance sheet is filed at the fiscal-year statement date 2026-06-30; the only admitted balance is 2026-03-31, 91 days before/);
     expect(reason("incomplete", "totalDebt")).toMatch(/^the balance sheet at the fiscal-year statement date 2026-06-30 lacks totalDebt; the only admitted balance is 2026-03-31/);
     expect(reason("statement-row-refused", "consolidated equity")).toMatch(/^the balance sheet at the fiscal-year statement date 2026-06-30 is withheld \(consolidated equity\); the only admitted balance is 2026-03-31/);
-    expect(reason("anchor-refused", "x")).toMatch(/^the market EV's balance \(2026-03-31\) is withheld \(x\) and no balance at the fiscal-year statement date 2026-06-30 replaces it/);
+    expect(reason("anchor-refused", "x")).toMatch(/^the market EV's balance \(2026-03-31\) is withheld \(x\); a refused anchor is never replaced by another date's balance/);
   });
 
   it("past the roll-forward limit the statement-date note names the bridge balance too", () => {
@@ -216,5 +216,92 @@ describe("D-267 fallback scope controls", () => {
     if (v.kind !== "dcf") throw new Error("expected DCF");
     expect(v.assumptions).not.toBeNull();
     expect(v.gaps.some(g => g.cause === "dcf-balance-date-mismatch")).toBe(false);
+  });
+});
+
+describe("D-267 review: date refusal preserves independent failures", () => {
+  const balance = { date: "2026-09-30", basis: "quarter" as const, totalDebt: 20 * B, totalStockholdersEquity: 55 * B, cashAndShortTermInvestments: 18 * B };
+  it("keeps the critical missing-capital operand on an off-date balance", () => {
+    const built = build(balance.date, undefined, { balance: { ...balance, totalDebt: null } });
+    expect(built.assumptions).toBeNull();
+    expect(built.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.salesToCapital", severity: "critical", cause: "invested-capital-balance-fields-missing", reason: expect.stringContaining("totalDebt") }));
+  });
+  it("keeps the critical nonpositive capital on an off-date balance", () => {
+    const built = build(balance.date, undefined, { balance: { ...balance, totalStockholdersEquity: -55 * B } });
+    expect(built.assumptions).toBeNull();
+    expect(built.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.salesToCapital", severity: "critical", reason: expect.stringContaining("invested capital <= 0") }));
+  });
+  it("keeps the critical lease conflict beside the date warn on a refused anchor", () => {
+    const built = build(balance.date, undefined, {
+      balance: { ...balance, operatingLeaseLiability: 40 * B, capitalLeaseObligations: 40 * B },
+      bridgeCause: { cause: "anchor-refused", detail: "lease conflict" },
+    });
+    expect(built.assumptions).toBeNull();
+    expect(built.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.leaseIntegrity", severity: "critical" }));
+    expect(dcfWithheldWarnGap(built.gaps)?.cause).toBe("dcf-balance-date-mismatch");
+  });
+  it("keeps the bridge-only lease-scope critical beside the date warn", () => {
+    const provenance = (tag: string) => ({ tags: [tag], source: "edgar", unit: "USD", periodEnd: balance.date, filings: [{ accn: "synthetic" }] });
+    const built = build(balance.date, undefined, { includeLeasesInEv: true, balance: {
+      ...balance, shortTermDebt: 5 * B, longTermDebt: 10 * B, operatingLeaseLiability: 5 * B, financeLeaseLiability: 0,
+      fieldProvenance: { shortTermDebt: provenance("us-gaap/LongTermDebtCurrent"), longTermDebt: provenance("us-gaap/LongTermDebtNoncurrent"), operatingLeaseLiability: provenance("us-gaap/OperatingLeaseLiabilityNoncurrent") },
+    } });
+    expect(built.assumptions).toBeNull();
+    expect(built.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.netDebt.leaseScope", severity: "critical" }));
+    expect(dcfWithheldWarnGap(built.gaps)?.cause).toBe("dcf-balance-date-mismatch");
+  });
+  it.each(["", "FY2026"])("withholds a fallback whose statement date cannot be established (%s)", date => {
+    const built = build(balance.date, undefined, { incomeTtm: { ...HIST[0]!, basis: "annual", date } });
+    expect(built.assumptions).toBeNull();
+    const gap = dcfWithheldWarnGap(built.gaps)!;
+    expect(gap).toMatchObject({ field: "valuation.dcf.bridgeBalanceDate", severity: "warn", cause: "dcf-balance-date-mismatch" });
+    expect(gap.reason).toMatch(/date offset cannot be established/);
+  });
+});
+
+function buildTrailing(balanceDate: string, valuationDate = "2026-11-05") {
+  return build(balanceDate, valuationDate, { incomeTtm: { basis: "ttm", ...HIST[0]! } });
+}
+
+describe("FIN-103 trailing-route date disclosures (preserved D-65 assertions)", () => {
+  it("with no balance at the statement date the basis names the balance used", () => {
+    const built = buildTrailing("2026-09-30");
+    const a = built.assumptions!;
+    expect(a).not.toBeNull();
+    expect(a.valuationDate!.basis).toMatch(/equity bridge uses the 2026-09-30 balance, 92 days after the statement date/);
+    expect(built.notes.join("\n")).toMatch(/Valuation date:.*equity bridge uses the 2026-09-30 balance/);
+    expect(a.valuationDate!.basis).not.toMatch(/stays at the 2026-06-30 balance/);
+    expect(built.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.bridgeBalanceDate", severity: "info" }));
+
+    // an OLDER balance (2026-03-31 against the 2026-06-30 statement) is named as such
+    const older = buildTrailing("2026-03-31");
+    expect(older.assumptions!.valuationDate!.basis).toMatch(/equity bridge uses the 2026-03-31 balance, 91 days before the statement date/);
+    expect(older.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.bridgeBalanceDate", severity: "info" }));
+
+    // control: a balance dated at the statement date keeps the D-65 sentence and raises no gap
+    const matched = buildTrailing("2026-06-30");
+    expect(matched.assumptions!.valuationDate!.basis).toMatch(/equity bridge stays at the 2026-06-30 balance/);
+    expect(matched.gaps.some((g) => g.field === "valuation.dcf.bridgeBalanceDate")).toBe(false);
+  });
+
+  it("each cause words the gap with what was checked", () => {
+    const withCause = (cause: "none-filed" | "incomplete" | "statement-row-refused" | "anchor-refused", detail: string | null) =>
+      buildDcfAssumptions({
+        revenueCagr3yPct: 5, revenueCagr5yPct: 5, analystEstimates: null, waccPct: 9, riskFreePct: 4.3,
+        incomeTtm: { basis: "ttm", ...HIST[0]! }, incomeHistory: HIST,
+        balance: { date: "2026-03-31", basis: "quarter", totalDebt: 20 * B, totalStockholdersEquity: 55 * B, cashAndShortTermInvestments: 18 * B },
+        bridgeCause: { cause, detail },
+        marketCap: 250 * B, domicileCountry: "US", valuationDate: "2026-11-05",
+      } as DcfAssumptionInputs).gaps.find((g) => g.field === "valuation.dcf.bridgeBalanceDate")!.reason;
+    expect(withCause("none-filed", null)).toMatch(/^no balance sheet is filed at the statement date 2026-06-30; the equity bridge uses the 2026-03-31 balance, 91 days before/);
+    expect(withCause("incomplete", "totalDebt")).toMatch(/^the balance sheet at the statement date 2026-06-30 lacks totalDebt; the equity bridge uses the 2026-03-31 balance/);
+    expect(withCause("statement-row-refused", "consolidated equity")).toMatch(/^the balance sheet at the statement date 2026-06-30 is withheld \(consolidated equity\); the equity bridge keeps the 2026-03-31 balance/);
+    expect(withCause("anchor-refused", "x")).toMatch(/^the market EV's balance \(2026-03-31\) is withheld \(x\), so the equity bridge keeps it and the DCF stays withheld as before/);
+  });
+
+  it("past the roll-forward limit the statement-date note names the bridge balance too", () => {
+    const far = buildTrailing("2026-09-30", "2027-09-30");
+    expect(far.notes.join("\n")).toMatch(/beyond the \d+-day roll-forward limit[^\n]*equity bridge uses the 2026-09-30 balance/);
+    expect(far.gaps).toContainEqual(expect.objectContaining({ field: "valuation.dcf.bridgeBalanceDate", severity: "info" }));
   });
 });
