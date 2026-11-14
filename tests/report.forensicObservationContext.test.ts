@@ -17,8 +17,11 @@ import { restoreCapexBasisGolden } from "./helpers/capexBasisGolden";
 import { restoreForensicCurrentUseGolden } from "./helpers/forensicCurrentUseGolden";
 import { restoreExpeReport1ForensicDate } from "./helpers/expeReport1ScopeGolden";
 
-function fixture(amounts: (number | null | undefined)[] = [-50e6, 32e6, 0, undefined]) {
-  const bundle = completeCurrencyBundle({ sic: "3571" });
+/** D-267: a market value of equity observed at the 2025-12-31 balance date, equal to the quote's cap. */
+const BALANCE_DATE_CAP = [{ date: "2025-12-31", marketCap: 10_000e6 }];
+
+function fixture(amounts: (number | null | undefined)[] = [-50e6, 32e6, 0, undefined], marketCapHistory?: { date: string; marketCap: number }[]) {
+  const bundle = completeCurrencyBundle({ sic: "3571", ...(marketCapHistory ? { marketCapHistory } : {}) });
   if (!bundle.statements.incomeAnnual.ok) throw new Error("annual fixture");
   bundle.statements.incomeAnnual.value.data.rows.forEach((row, index) => {
     row.netIncomeFromDiscontinuedOperations = amounts[index];
@@ -64,18 +67,27 @@ function invariantHash(c: ComputedMetrics) {
 
 describe("retained forensic observation context on real data-only exports", () => {
   it("distinguishes an unknown cap observation date from a missing positive operand", () => {
+    // D-267: an undated current cap is not set against the 2025-12-31 balance; the score is withheld and says why.
     const bundle = fixture();
     const before = structuredClone(bundle);
     const c = runStageB(bundle, { evIncludeLeases: false });
-    expect(c.forensics.altman).toMatchObject({ variant: "original", asOf: { marketCap: null } });
-    expect(c.forensics.altman!.score).toBeGreaterThan(0);
-    expect(c.forensics.altman!.components.x4).toBeGreaterThan(0);
-    const driver = c.scores.aspects.quality.signals!.find(d => d.id === "altmanZOriginalScale")!;
-    expect(driver.period).toBe("Balance 2025-12-31; income 2025-12-31; market-cap observation date unavailable");
-    expect(driver.operands?.[0]).toMatchObject({ source: "computed.forensics.altman.score", asOf: "2025-12-31", value: c.forensics.altman!.score });
+    expect(c.forensics.altman).toMatchObject({ variant: "original", score: null, asOf: { marketCap: null } });
+    expect(c.forensics.altman!.components.x4).toBeNull();
+    expect(c.forensics.altman!.gaps.map(g => g.field)).toEqual(["forensics.altman.marketCapDate"]);
+    // The signal is unscored (P17: the existing unscored-aspect rules apply), and the manifest names the cause.
+    expect(c.scores.aspects.quality.signals!.find(d => d.id === "altmanZOriginalScale")).toBeUndefined();
     const out = exportsOf(bundle, c);
-    for (const text of [out.markdown, out.audit]) expect(text).toContain("market-cap observation date unavailable");
+    expect(out.audit).toContain("no market value of equity observed on or before the balance-sheet date 2025-12-31");
     expect(bundle).toEqual(before);
+
+    // With an observation dated at the balance date the score is computed on it and the row names its date and source.
+    const dated = runStageB(fixture(undefined, BALANCE_DATE_CAP), { evIncludeLeases: false });
+    expect(dated.forensics.altman).toMatchObject({ variant: "original", asOf: { marketCap: "2025-12-31", marketCapSource: "historical-market-capitalization" } });
+    expect(dated.forensics.altman!.score).toBeGreaterThan(0);
+    expect(dated.forensics.altman!.components.x4).toBeGreaterThan(0);
+    const datedDriver = dated.scores.aspects.quality.signals!.find(d => d.id === "altmanZOriginalScale")!;
+    expect(datedDriver.period).toBe("Balance 2025-12-31; income 2025-12-31; market cap 2025-12-31 (historical-market-capitalization)");
+    expect(datedDriver.operands?.[0]).toMatchObject({ source: "computed.forensics.altman.score", asOf: "2025-12-31", value: dated.forensics.altman!.score });
   });
 
   it("keeps a selected cap's own date and never borrows the quote's date", () => {
@@ -83,9 +95,12 @@ describe("retained forensic observation context on real data-only exports", () =
     if (!bundle.profile.ok) throw new Error("profile fixture");
     bundle.profile.value.data.rows[0].date = "2026-06-30";
     const c = runStageB(bundle, { evIncludeLeases: false });
-    expect(c.forensics.altman!.asOf.marketCap).toBe("2026-06-30");
-    expect(c.scores.aspects.quality.signals!.find(d => d.id === "altmanZOriginalScale")!.period)
-      .toBe("Balance 2025-12-31; income 2025-12-31; market cap 2026-06-30");
+    // D-267: the cap's own date (2026-06-30) is kept as its date, never the quote's, and it is not the balance date,
+    // so it is not set against the 2025-12-31 balance sheet.
+    expect(c.forensics.altman!.score).toBeNull();
+    expect(c.forensics.altman!.gaps.find(g => g.field === "forensics.altman.marketCapDate")?.reason).toContain("current market cap (2026-06-30)");
+    expect(c.forensics.altman!.gaps.find(g => g.field === "forensics.altman.marketCapDate")?.reason).not.toContain("2026-07-05");
+    expect(c.scores.aspects.quality.signals!.find(d => d.id === "altmanZOriginalScale")).toBeUndefined();
   });
 
   it("keeps a genuine missing-cap refusal and the book-equity variant independent", () => {
@@ -96,7 +111,8 @@ describe("retained forensic observation context on real data-only exports", () =
     const c = runStageB(bundle, { evIncludeLeases: false });
     expect(c.forensics.altman!.variant).toBe("original");
     expect(c.forensics.altman!.score).toBeNull();
-    expect(c.forensics.altman!.gaps.some(g => g.field === "forensics.altman.marketCap")).toBe(true);
+    // D-267: with no cap and no dated history, the refusal names the missing balance-date observation.
+    expect(c.forensics.altman!.gaps.some(g => g.field === "forensics.altman.marketCapDate")).toBe(true);
     const other = fixture();
     other.edgar!.sic = "7372";
     const nonManufacturer = runStageB(other, { evIncludeLeases: false });
@@ -160,7 +176,20 @@ describe("retained forensic observation context on real data-only exports", () =
   });
 
   it("pins complete pre-fix Stage B output apart from the owned context", () => {
-    const computed = runStageB(fixture(), { evIncludeLeases: false });
+    // D-267: the pre-fix run set the quote's cap against the 2025-12-31 balance. The pin supplies that same amount
+    // observed at the balance date, so every value is unchanged; the four leaves the dated history adds are asserted
+    // exactly below and restored, and the pin keeps checking every other byte.
+    const computed = runStageB(fixture(undefined, BALANCE_DATE_CAP), { evIncludeLeases: false });
+    expect(computed.forensics.altman!.asOf).toEqual({ balanceSheet: "2025-12-31", incomeStatement: "2025-12-31", marketCap: "2025-12-31", marketCapSource: "historical-market-capitalization" });
+    computed.forensics.altman!.asOf = { balanceSheet: "2025-12-31", incomeStatement: "2025-12-31", marketCap: null };
+    const buyback = computed.capital.buybackPriceAnalysis.years[2]!;
+    expect(buyback.note).toBe("market-cap history starts 2025-12-31, inside the fiscal window 2024-12-31 to 2025-12-31; a part-window average is not the fiscal year's average price");
+    buyback.note = "no market-cap history inside the fiscal window";
+    const partial = "window 2025-12-31: partial historical multiple window: no positive/computable evToSales, evToEbitda, priceToFcf, priceToBook";
+    const unavailable = "window 2025-12-31: no enterprise-values history row on or before the TTM period end within 45 calendar days (future rows are ineligible); historical multiple window unavailable";
+    const windowGaps = [computed.valuation.multiples!.gaps, computed.valuation.gaps, computed.gaps].flatMap(list => list.filter(g => g.reason.includes(partial)));
+    expect(windowGaps).toHaveLength(3);
+    for (const gap of windowGaps) gap.reason = gap.reason.replace(partial, unavailable);
     // FIN-401 / FIN-401-V1 (B4b) moved only the fair-value and scenario-target method stamps on
     // this fixture: a leaf diff against integration d4802acb (hash 50ef4b29…) found these two
     // stamps and no value, so the hash is re-pinned for them alone.

@@ -24,6 +24,7 @@ import { selectReceivablesPair, type ReceivablesPair } from "@/pipeline/stageB/r
 import type { FiledReceivablesCandidates } from "@/edgar/receivables";
 import type { FmpStatementRow } from "@/providers/fmp";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
+import { latestOnOrBeforeWithin, STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS } from "@/pipeline/stageB/asOfSelection";
 import type { CompanyRoute, ManifestEntry } from "@/types/core";
 
 // ---------------------------------------------------------------------------
@@ -391,6 +392,24 @@ export interface AltmanInputs {
    * then suppresses X4/Z rather than emit a wrong number.
    */
   quoteCurrency?: string | null;
+  /**
+   * D-267 (P1, P13): dated market values of equity (the provider's market-cap history, on that series' own share
+   * basis and in the quote currency). When supplied, the original-variant X4 reads only an observation paired with
+   * the balance-sheet date by the statement-date market-value rule (`latestOnOrBeforeWithin`,
+   * STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS); `marketCap` then counts only as one more observation at
+   * `marketCapAsOf`. Absent (a direct caller that already supplies the balance-date value), `marketCap` is used as
+   * given. The pipeline always supplies it.
+   */
+  marketCapHistory?: ReadonlyArray<{ date: string; marketCap: number | null }> | null;
+  /** Source of `marketCapHistory` (the endpoint or derivation), recorded beside the observation date. */
+  marketCapHistorySource?: string | null;
+  /**
+   * D-267: the dated market value cannot be put in the statement currency at the balance date (for example a cap
+   * converted only at the quote-date rate). Read as the owner's currency refusal of X4, as an ADR mismatch is.
+   */
+  marketCapHistoryCurrencyReason?: string | null;
+  /** Analysis cutoff (P2): an observation dated after it is never used. */
+  analysisCutoff?: string | null;
 }
 
 export interface AltmanResult {
@@ -405,7 +424,30 @@ export interface AltmanResult {
     balanceSheet: string | null;
     incomeStatement: string | null;
     marketCap: string | null;
+    /** D-267: where the market value set against the balance sheet came from. */
+    marketCapSource?: string | null;
   };
+}
+
+/**
+ * D-267 (P1, P2): the market value of equity observed at the balance-sheet date, by the statement-date pairing rule
+ * the own-history multiples use. The current observation is one candidate among the dated history; nothing dated after
+ * the balance date or the analysis cutoff is eligible.
+ */
+function marketValueAtBalanceDate(inputs: AltmanInputs, balanceDate: string): { value: number; date: string; source: string | null } | null {
+  const cutoff = inputs.analysisCutoff ? inputs.analysisCutoff.slice(0, 10) : null;
+  const rows: Array<{ date: string; marketCap: number; source: string | null }> = [];
+  for (const row of inputs.marketCapHistory ?? []) {
+    if (typeof row.marketCap === "number" && Number.isFinite(row.marketCap) && row.marketCap > 0) {
+      rows.push({ date: String(row.date).slice(0, 10), marketCap: row.marketCap, source: inputs.marketCapHistorySource ?? null });
+    }
+  }
+  if (typeof inputs.marketCap === "number" && Number.isFinite(inputs.marketCap) && inputs.marketCap > 0 && inputs.marketCapAsOf) {
+    rows.push({ date: inputs.marketCapAsOf.slice(0, 10), marketCap: inputs.marketCap, source: "current market capitalization" });
+  }
+  const eligible = cutoff === null ? rows : rows.filter((row) => row.date <= cutoff);
+  const hit = latestOnOrBeforeWithin(eligible, balanceDate.slice(0, 10), STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS);
+  return hit === null ? null : { value: hit.marketCap, date: hit.date, source: hit.source };
 }
 
 /**
@@ -421,7 +463,7 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
   const b = inputs.balance;
   const inc = inputs.income;
   const components: AltmanComponents = { x1: null, x2: null, x3: null, x4: null, x5: null };
-  const asOf = {
+  const asOf: AltmanResult["asOf"] = {
     balanceSheet: b.date ?? null,
     incomeStatement: inc.date ?? null,
     marketCap: inputs.marketCapAsOf ?? null,
@@ -541,7 +583,13 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
     // (the multiples path withholds on the same rule). An UNKNOWN currency on
     // either side leaves the ratio unproven, so it is withheld too.
     const x4Currency = comparePriceCurrency(inputs.reportedCurrency, inputs.quoteCurrency);
-    if (!x4Currency.comparable) {
+    const pairing = inputs.marketCapHistory !== undefined;
+    if (pairing && inputs.marketCapHistoryCurrencyReason) {
+      asOf.marketCap = null;
+      notes.push(`Currency not established at the balance date (${inputs.marketCapHistoryCurrencyReason}) — original-variant X4 (market value of equity over liabilities) cannot be formed; suppressed.`);
+      gaps.push(gapEntry("forensics.altman.currency",
+        `${inputs.marketCapHistoryCurrencyReason} — market-equity X4 cannot be set against the ${b.date ?? "balance-sheet"} liabilities; original-variant Z suppressed (D-267)`, "warn"));
+    } else if (!x4Currency.comparable) {
       equityNumerator = null;
       notes.push(
         x4Currency.mismatch
@@ -560,6 +608,20 @@ export function computeAltman(inputs: AltmanInputs, variant: AltmanVariant): Alt
     } else if (inputs.marketEquityWithheldReason) {
       gaps.push(gapEntry("forensics.altman.marketEquityScope",
         `original-variant X4 (market value of equity) withheld: ${inputs.marketEquityWithheldReason}`, "warn"));
+    } else if (pairing) {
+      // D-267 (P1, P13): X4 is the market value of equity AT the balance-sheet date the other four ratios read.
+      const observed = b.date ? marketValueAtBalanceDate(inputs, b.date) : null;
+      asOf.marketCap = observed?.date ?? null;
+      asOf.marketCapSource = observed?.source ?? null;
+      if (observed !== null) {
+        equityNumerator = observed.value;
+      } else {
+        gaps.push(gapEntry("forensics.altman.marketCapDate",
+          `no market value of equity observed on or before the balance-sheet date ${b.date ?? "(undated)"} within ${STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS} days` +
+          `${inputs.marketCapHistorySource ? ` in ${inputs.marketCapHistorySource}` : " (no dated market-cap history)"}; ` +
+          `the current market cap${inputs.marketCapAsOf ? ` (${inputs.marketCapAsOf.slice(0, 10)})` : ""} is not set against an older balance sheet, so original-variant X4 and Z are withheld (D-267)`,
+          "warn"));
+      }
     } else {
       equityNumerator = posOrNull(inputs.marketCap);
       if (equityNumerator === null) {
@@ -2506,6 +2568,11 @@ export interface ForensicsInputs {
   marketCap?: number | null;
   marketEquityWithheldReason?: string | null;
   marketCapAsOf?: string | null;
+  /** D-267: dated market-cap history, its source, a balance-date currency refusal and the cutoff (see `AltmanInputs`). */
+  marketCapHistory?: AltmanInputs["marketCapHistory"];
+  marketCapHistorySource?: string | null;
+  marketCapHistoryCurrencyReason?: string | null;
+  analysisCutoff?: string | null;
   /** Statements' reported currency; with quoteCurrency, flags the ADR mismatch for X4. */
   reportedCurrency?: string | null;
   /** Trading/quote currency of marketCap (differs from reportedCurrency for ADRs). */
@@ -2807,6 +2874,12 @@ export function runForensics(route: CompanyRoute, inputs: ForensicsInputs): Fore
         marketCapAsOf: inputs.marketCapAsOf ?? null,
         reportedCurrency: inputs.reportedCurrency ?? null,
         quoteCurrency: inputs.quoteCurrency ?? null,
+        ...(inputs.marketCapHistory !== undefined ? {
+          marketCapHistory: inputs.marketCapHistory,
+          marketCapHistorySource: inputs.marketCapHistorySource ?? null,
+          marketCapHistoryCurrencyReason: inputs.marketCapHistoryCurrencyReason ?? null,
+          analysisCutoff: inputs.analysisCutoff ?? null,
+        } : {}),
       };
       altman = computeAltman(altmanInputs, altmanSelection.variant);
       // Z' (Altman 1983) exists precisely for a firm whose MARKET equity is

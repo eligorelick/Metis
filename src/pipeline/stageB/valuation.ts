@@ -34,7 +34,7 @@ import { deriveFcf } from "@/pipeline/stageB/financialValues";
 import { RATE_REGULATED_UTILITY_SIC } from "@/edgar/sic";
 import { leaseDebtConflict, millions, operatingLeaseOutOfDebt, operatingLeaseScopeUnproven, resolveNetDebt } from "@/pipeline/stageB/netDebt";
 import { LEASE_EMPTIED_CAPITAL_LEAD, TEMPORARY_EQUITY_REFUSAL_LEAD, temporaryEquityClaims, type TemporaryEquityClaims } from "@/pipeline/stageB/seniorClaims";
-import { latestOnOrBeforeWithin } from "@/pipeline/stageB/asOfSelection";
+import { latestOnOrBeforeWithin, STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS } from "@/pipeline/stageB/asOfSelection";
 import { metricPolicy, type ReitSubmap } from "@/pipeline/stageB/sectorRouting";
 import { CAGR_SPAN_TOLERANCE_YEARS, interiorMissingDates, missingAnnualIntervals, unavailableAnnualPeriods, linearRegressionSlope, yearsBetweenDates } from "@/pipeline/stageB/growth";
 import { classifyValuationDateUse, MAX_ROLL_FORWARD_DAYS, valuationUseExplanation } from "@/pipeline/stageB/valuationUse";
@@ -4244,7 +4244,6 @@ const DERIVED_HISTORY_KEYS: readonly MultipleKey[] = [
   "priceToFcf",
   "priceToBook",
 ];
-const OWN_HISTORY_EV_MAX_AGE_DAYS = 45;
 
 // A consolidated/parent difference proves outside ownership, never its market value. The test is the P5 owner's
 // (`noncontrollingOwnershipUnresolved`, src/pipeline/stageB/ownership.ts; D-248); compute.ts reads the same one.
@@ -4367,7 +4366,7 @@ function deriveOwnHistory(
     const ev = latestOnOrBeforeWithin(
       evRows ?? [],
       window[0].date,
-      OWN_HISTORY_EV_MAX_AGE_DAYS,
+      STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS,
     );
     if (!ev) {
       unusableWindows.push({

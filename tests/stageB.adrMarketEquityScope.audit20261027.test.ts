@@ -81,7 +81,8 @@ describe("FIN-307: ADR Altman market equity, with the WACC publication ruling", 
     const missing = run({ adr: false, cap: null });
     expect(missing.forensics.altman?.variant).toBe("original");
     expect(missing.forensics.altman?.score).toBeNull();
-    expect(missing.forensics.gaps.some(g => g.field === "forensics.altman.marketCap")).toBe(true);
+    // D-267: with no cap and no dated observation, the refusal names the missing balance-date market value.
+    expect(missing.forensics.gaps.some(g => g.field === "forensics.altman.marketCapDate")).toBe(true);
     expect(missing.forensics.gaps.some(g => g.field === "forensics.altman.marketEquityScope")).toBe(false);
   });
 });

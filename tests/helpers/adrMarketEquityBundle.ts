@@ -7,7 +7,9 @@ export function adrMarketEquityBundle(options: {
   const b = completeCurrencyBundle({ sic: "3571", symbol: "SCOPE", debt: (options.debt ?? 300e6) / 1e6,
     annualCurrency: options.statementsCurrency ?? "USD",
     quarterCurrencies: Array(4).fill(options.statementsCurrency ?? "USD"),
-    siblingQuarterCurrencies: Array(4).fill(options.statementsCurrency ?? "USD") });
+    siblingQuarterCurrencies: Array(4).fill(options.statementsCurrency ?? "USD"),
+    // D-267: the same cap observed at the 2025-12-31 balance date, which Altman's original X4 reads.
+    ...(options.cap === null ? {} : { marketCapHistory: [{ date: "2025-12-31", marketCap: options.cap ?? 10_000e6 }] }) });
   if (!b.profile.ok || !b.quote.ok || !b.statements.balanceAnnual.ok) throw new Error("fixture inputs missing");
   Object.assign(b.profile.value.data.rows[0]!, { isAdr: options.adr ?? true,
     marketCap: options.cap === undefined ? 10_000e6 : options.cap,

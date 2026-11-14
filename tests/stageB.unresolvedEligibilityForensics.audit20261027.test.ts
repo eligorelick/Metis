@@ -10,7 +10,8 @@ const pt = (val: number, start?: string) => ({ units: { USD: [{ ...(start ? { st
   accn: "0000000001-26-000001", form: "10-K", filed: "2026-02-15", fy: 2025, fp: "FY" }] } });
 
 function run(bankFacts: boolean, broadSic = false) {
-  const b = completeCurrencyBundle({ symbol: "TECHBANK", sic: broadSic ? "6199" : "3571" });
+  // D-267: the market value of equity is observed at the 2025-12-31 balance date (same amount as the quote's cap).
+  const b = completeCurrencyBundle({ symbol: "TECHBANK", sic: broadSic ? "6199" : "3571", marketCapHistory: [{ date: "2025-12-31", marketCap: 10_000e6 }] });
   if (!b.statements.balanceAnnual.ok || !b.profile.ok) throw new Error("fixture inputs missing");
   for (const row of b.statements.balanceAnnual.value.data.rows) Object.assign(row, {
     totalCurrentAssets: 700_000_000, totalCurrentLiabilities: 300_000_000, retainedEarnings: 600_000_000,

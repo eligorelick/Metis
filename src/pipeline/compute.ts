@@ -2861,6 +2861,17 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     ...(adrQuote && (foreignBasis || forensicCapRow?.marketCapSecurityBasis === "issuer-common") ? { marketCapSecurityBasis: "issuer-common" as const } : {}),
     ...(forensicClassAmbiguity ? { marketCapSecurityBasis: "unresolved" as const, marketCapScopeEvidence: forensicClassAmbiguity } : {}),
   }, bundle.economicShareEvidence ?? [], isoDay(bundle.builtAt) ?? "");
+  // D-267 (P1, P13): Altman X4 sets the market value of equity AT the balance-sheet date against that balance's
+  // liabilities. The dated market-cap history is the provider series on its own share basis (the keyless derivation
+  // uses the count in force each day). It is not admitted where the current cap had to be rebuilt on the issuer's
+  // economic class basis (the provider series is not on it; the own-history multiples refuse it the same way), and a
+  // cap converted at the quote-date rate cannot be converted at the balance date with that rate.
+  const forensicClassScopeRebuilt = forensicEquityScope.status === "resolved" &&
+    (forensicEquityScope.multiClass === true || forensicEquityScope.weightedClasses === true);
+  const forensicMarketCapHistory = foreignBasis || forensicClassScopeRebuilt ? [] : rowsOf(bundle.marketCapHistory).flatMap((r) => {
+    const date = isoDay(r.date);
+    return date === null ? [] : [{ date, marketCap: num(r.marketCap) }];
+  });
   const forensics = runForensics(route, {
     filedReceivables: filedReceivablesCandidates(companyFacts, {
       periods: balanceAnnual.flatMap(row => {
@@ -2883,6 +2894,14 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     marketCapAsOf: foreignBasis ? foreignBasis.fx.quoteDate : forensicEquityScope.status === "resolved" ? forensicEquityScope.priceAsOf ?? null
       : forensicEquityScope.status === "unresolved" ? null
         : quotePriceObservationDay(num(profile?.marketCap) !== null ? profile : quote),
+    marketCapHistory: forensicMarketCapHistory,
+    marketCapHistorySource: forensicClassScopeRebuilt
+      ? "no admitted history: the provider market-cap series is not on the issuer's economic class basis"
+      : bundle.marketCapHistory.ok ? bundle.marketCapHistory.value.endpoint : null,
+    marketCapHistoryCurrencyReason: foreignBasis
+      ? `the market cap is converted to ${currencies.model} only at the ${foreignBasis.fx.quoteDate} quote-date rate, and no exchange rate dated at the balance-sheet date is admitted`
+      : null,
+    analysisCutoff: isoDay(bundle.builtAt),
     reportedCurrency: str(inc0?.reportedCurrency),
     quoteCurrency: foreignBasis ? currencies.model : str(profile?.currency),
     classification: {
