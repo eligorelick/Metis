@@ -58,3 +58,86 @@ describe("explicit previous/current guidance tables", () => {
     expect(parseGuidance(text)?.items.some((i) => i.metric === "revenue" && i.period.fiscalQuarter === null) ?? false).toBe(false);
   });
 });
+
+// D-272: annual table cells prove which range is current.
+import { parseDocument } from "@/edgar/extract";
+it.each([true, false])("reads annual current columns (revised=%s)", revised => {
+  const html = `<p>The following table summarizes the company's full-year 2027 financial guidance:</p><table><tr><th></th>${revised ? "<th>Prior</th><th>Updated</th>" : "<th>2027 Guidance</th>"}</tr><tr><td>Revenue</td>${revised ? "<td>$10 to $11 billion</td>" : ""}<td>$12 to $13 billion</td></tr><tr><td>Performance Margin (1)</td>${revised ? "<td>40% to 41%</td>" : ""}<td>42% to 43%</td></tr></table><p>(1) Excludes acquired research costs.</p><h2>Conference Call</h2>`;
+  const doc = parseDocument(html);
+  expect(parseGuidance(doc.fullText, doc)?.items).toMatchObject([{metric:"revenue", low:12e9, high:13e9}, {metric:"performance-margin",low:42,high:43}]);
+});
+it("does not read an ambiguous annual table as current guidance", () => {
+ const doc=parseDocument(`<p>The following table summarizes full-year 2027 financial guidance:</p><table><tr><th></th><th>A</th><th>B</th></tr><tr><td>Revenue</td><td>$10 to $11 billion</td><td>$12 to $13 billion</td></tr></table>`);
+ expect(parseGuidance(doc.fullText,doc)?.items).toEqual([]);
+});
+
+import { releaseEvidenceTables } from "@/edgar/currentReports";
+it("keeps complete product and clinical tables outside narrative with their own budget",()=>{
+ const doc=parseDocument(`<h2>Non-GAAP Measures</h2><table><tr><td>Selected Products</td><td>Revenue (USD millions), quarter ended September 30, 2027</td></tr><tr><td>Launch A</td><td>120</td></tr></table><table><tr><td>Regulatory</td><td>Approved</td></tr><tr><td>Clinical</td><td>Phase 3</td></tr></table><table><tr><td>Balance sheet</td><td>200</td></tr></table>`);
+ const tables=releaseEvidenceTables(doc);
+ expect(tables).toHaveLength(2); expect(tables[0]).toContain("USD millions"); expect(tables[1]).toContain("Phase 3");
+ expect(releaseEvidenceTables(parseDocument(`<div hidden>${doc.pre}</div>`))).toEqual([]);
+ expect(releaseEvidenceTables(parseDocument(`<table><tr><td>Selected Products ${"x".repeat(16001)}</td></tr></table>`))).toEqual([]);
+});
+
+function annualReviewDoc(extra="", before="", after="") { return parseDocument(`${before}<p>The following table summarizes the company's full-year 2027 financial guidance:</p><table><tr><th></th><th>2027 Guidance</th></tr><tr><td>Revenue</td><td>$12\u201313 billion</td></tr><tr><td>GAAP diluted EPS</td><td>$2 to $3</td></tr>${extra}</table>${after}<h2>Conference Call</h2>`); }
+it.each(["", "<tr><td>Unsupported metric</td><td>$1 to $2</td></tr>"])("D-272 preserves quarterly prose beside a successful or refused annual table: %s", extra=>{
+ const doc=annualReviewDoc(extra,"","<p>For the first quarter of 2027, the company expects revenue of $3.0 billion to $3.2 billion.</p>");
+ const guidance=parseGuidance(doc.fullText,doc);
+ expect(guidance?.items).toContainEqual(expect.objectContaining({metric:"revenue",period:expect.objectContaining({fiscalQuarter:1}),low:3e9,high:3.2e9}));
+ if (!extra) expect(guidance?.items).toContainEqual(expect.objectContaining({metric:"revenue",period:expect.objectContaining({fiscalQuarter:null}),low:12e9,high:13e9}));
+ else expect(guidance?.unparsed.join(" ")).toContain("Unsupported metric");
+});
+// Review round 2 (P9): prose outside the issuer-bounded guidance section, quoted speech, forward-looking
+// boilerplate and scenario language never set a quarterly value; the annual table rows still stand.
+const q4 = "For the fourth quarter of 2027, the company expects revenue of $4.0 billion to $4.2 billion";
+it.each([
+ ["before the guidance table", `<p>${q4}.</p>`, ""],
+ ["after a later heading", "", `<h2>Forward-Looking Statements</h2><p>${q4}.</p>`],
+ ["forward-looking boilerplate beside the table", "", `<p>This release contains forward-looking statements. ${q4} in a downside scenario.</p>`],
+ ["a quoted third party", "", `<p>“${q4},” said an analyst at a brokerage firm.</p>`],
+])("D-272 does not read quarterly guidance from %s", (_case, before, after)=>{
+ const doc=annualReviewDoc("",before,after);
+ const guidance=parseGuidance(doc.fullText,doc);
+ expect(guidance?.items.filter(i=>i.period.fiscalQuarter===4)).toEqual([]);
+ expect(guidance?.items).toContainEqual(expect.objectContaining({metric:"revenue",period:expect.objectContaining({fiscalQuarter:null}),low:12e9,high:13e9}));
+});
+it("D-272 control: the same quarterly sentence inside the bounded guidance section is read",()=>{
+ const doc=annualReviewDoc("","",`<p>${q4}.</p>`);
+ expect(parseGuidance(doc.fullText,doc)?.items).toContainEqual(expect.objectContaining({metric:"revenue",period:expect.objectContaining({fiscalQuarter:4}),low:4e9,high:4.2e9}));
+});
+it("D-272 binds explicit GAAP basis to its row despite nearby non-GAAP discussion",()=>{
+ const doc=annualReviewDoc("","<p>Non-GAAP adjusted earnings are discussed elsewhere.</p>","<p>The non-GAAP reconciliation follows.</p>");
+ expect(parseGuidance(doc.fullText,doc)?.items.find(i=>i.metric==="eps")).toMatchObject({basis:"gaap",low:2,high:3});
+});
+
+it.each([null,2028,2027])("D-272 labels earlier guidance by covered period when newest outlook year is %s", year=>{
+ const b=withRelease(); if (!b.edgar.currentReports?.ok) throw new Error("fixture");
+ const earlier=b.edgar.currentReports.value.data.releases[0]!;
+ earlier.guidance={period:{label:"FY2027",fiscalYear:2027,fiscalQuarter:null},items:[],qualifiers:[],unparsed:["The company expects revenue of $12 billion for full-year 2027."]};
+ earlier.filingDate="2026-08-05";
+ const latest={...earlier,accession:"newer-source",filingDate:"2026-09-05",guidance:year===null ? null : {period:{label:`FY${year}`,fiscalYear:year,fiscalQuarter:null},items:[],qualifiers:[],unparsed:[`The company expects revenue of $13 billion for full-year ${year}.`]}};
+ b.edgar.currentReports.value.data.releases=[latest,earlier];
+ const notes=buildFilingDisclosures(b)!.notes;
+ expect(notes.join(" ")).toContain("Current outlook coverage gap: 8-K newer-source");
+ const old=notes.find(n=>n.includes("outlook statement") && n.includes("8-K guidance-source"))!;
+ expect(old).toContain(year===2027 ? "Earlier, superseded issuer" : "Earlier issuer");
+ expect(old).not.toContain("Current issuer");
+ if(year!==2027) expect(old).not.toContain("superseded");
+});
+
+it("D-272 merges independent quarterly document tables with annual rows",()=>{
+ const doc=annualReviewDoc("","",`<h2>Business Outlook</h2><table><tr><th>Metric</th><th>Q1 FY27 Estimates</th></tr><tr><td>Revenues</td><td>$3.0B - $3.2B</td></tr></table>`);
+ const guide=parseGuidance(doc.fullText,doc);
+ expect(guide?.items.filter(i=>i.metric==="revenue")).toEqual(expect.arrayContaining([expect.objectContaining({low:12e9,period:expect.objectContaining({fiscalQuarter:null})}),expect.objectContaining({low:3e9,period:expect.objectContaining({fiscalQuarter:1})})]));
+});
+
+it.each(["\u2013","\u2014"])("D-272 accepts a source dash range separator %s",separator=>{
+ const doc=annualReviewDoc();const changed=parseDocument(doc.pre.replace("$12\u201313 billion",`$12${separator}13 billion`));
+ expect(parseGuidance(changed.fullText,changed)?.items.find(i=>i.metric==="revenue")).toMatchObject({low:12e9,high:13e9});
+});
+it("D-272 leaves unlabelled EPS basis unestablished beside unrelated non-GAAP prose",()=>{
+ const doc=annualReviewDoc("","<p>Non-GAAP adjusted earnings from the prior quarter.</p>");
+ const changed=parseDocument(doc.pre.replace("GAAP diluted EPS","EPS"));
+ expect(parseGuidance(changed.fullText,changed)?.items.find(i=>i.metric==="eps")?.basis).toBe("unspecified");
+});

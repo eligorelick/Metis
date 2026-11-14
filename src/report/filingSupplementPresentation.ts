@@ -3,6 +3,9 @@ import { formatFinancialValue, formatNumber, formatPct } from "@/report/format";
 import type { FilingRef } from "@/report/schema";
 import { readerBaseUnits } from "@/report/readerConventions";
 
+/** D-273: a basis cell that repeats the row above word for word. */
+export const SAME_PASSAGE_AS_ABOVE = "Same passage as the row above.";
+
 /**
  * The optional D-66 disclosure contract. Kept structural so the presentation
  * changes can also be validated against the preceding stored-report schema.
@@ -107,18 +110,22 @@ export function filingFactTables(d: FilingSupplements): ReportAuditTable[] {
     const showBasis = rowBases.some((basis) => basis !== "");
     const groupNote = notes.filter((n) => !n.unlessEveryRow || !bases.every((basis) => n.unlessEveryRow!.test(basis.join(" "))))
       .map((n) => n.text).join(" ");
+    // D-273: one filing behind every row is named once, and a passage the row above already quotes is referenced.
+    const sources = facts.map((f) => sourceText(f.source));
+    const oneSource = facts.length > 1 && sources.every((source) => source === sources[0]) ? sources[0]! : null;
     return [{
       heading,
-      headers: ["Disclosure", "Value as stated", "Period / as of", ...(showBasis ? ["Basis / issuer context"] : []), "Source"],
+      headers: ["Disclosure", "Value as stated", "Period / as of", ...(showBasis ? ["Basis / issuer context"] : []), ...(oneSource === null ? ["Source"] : [])],
       rows: facts.map((f, i) => {
         const amount = f.unit === "currency" ? formatFinancialValue(f.value, "currency", d.currency)
           : f.unit === "percent" ? formatPct(f.value)
             : `${formatNumber(f.value, Number.isInteger(f.value) ? 0 : 1)}${f.unit === "days" ? " days" : f.unit === "shares" ? " shares" : ""}`;
+        const basis = i > 0 && rowBases[i] !== "" && rowBases[i] === rowBases[i - 1] ? SAME_PASSAGE_AS_ABOVE : rowBases[i]!;
         return [f.label, `${f.qualifier ? `${f.qualifier} ` : ""}${amount}`, [f.period, f.asOf ? `as of ${f.asOf}` : null].filter(Boolean).join("; ") || "Not recorded",
-          ...(showBasis ? [rowBases[i]!] : []), sourceText(f.source)];
+          ...(showBasis ? [basis] : []), ...(oneSource === null ? [sources[i]!] : [])];
       }),
       // Each shared sentence was written for one row ("These are same-date ... balances").
-      note: [shared.length ? `Applies to each row: ${shared.join(" ")}` : "", groupNote].filter(Boolean).join(" "),
+      note: [oneSource === null ? "" : `Source for every row: ${oneSource}.`, shared.length ? `Applies to each row: ${shared.join(" ")}` : "", groupNote].filter(Boolean).join(" "),
     }];
   });
 }

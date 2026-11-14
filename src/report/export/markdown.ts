@@ -76,11 +76,19 @@ import {
   establishedCurrency,
   peerColumnKeys,
 } from "@/report/format";
-import { peerTableColumns, scenarioListItem } from "@/report/presentation";
+import { peerTableColumns } from "@/report/presentation";
 import {
   annualSegmentHeading,
   BUSINESS_STORY_HEADING,
   businessStoryBlocks,
+  BUSINESS_BRIEF_HEADING,
+  BRIEF_NOT_ESTABLISHED,
+  BRIEF_PART_NOT_ESTABLISHED,
+  businessBrief,
+  scenarioReaderLists,
+  SEPARATE_CONDITIONS_HEADING,
+  repeatedClaimsNote,
+  withoutRepeatedClaims,
   assessmentLine,
   auditExportFilename,
   citedMark,
@@ -88,6 +96,7 @@ import {
   compactLongIntegers,
   confidenceText,
   consensusTables,
+  insiderEvidenceTables,
   dataGapTables,
   displayProse,
   displayClaimText,
@@ -101,8 +110,6 @@ import {
   seeAlsoText,
   withoutTabled,
   dataStateText,
-  factorExposureTable,
-  factorContributionSensitivityTable,
   figureRows,
   figureValueText,
   gapCountText,
@@ -121,9 +128,11 @@ import {
   pruneTable,
   reverseDcfValueText,
   runSummary,
-  scoreDriverTable,
   scorecardTable,
   gradeReliabilityTable,
+  SCORE_DIAGNOSTICS_NOTE,
+  readerSources,
+  DISAGREEMENT_SIDES_NOTE,
   sourceLabel,
   splitCommonLines,
   qualitativeScenarioConditions,
@@ -136,9 +145,9 @@ import {
   type FigureRow,
 } from "@/report/presentation";
 import { unavailableCashFlowModel, cashFlowModelExplanation, providerPeerListPresentation, leadershipRosterPresentation, unavailableModelInputTables } from "@/report/readerConventions";
-import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, projectionsNotRecordedNotice, manifestReconciliationRows, routeMetricsForDisplay } from "@/report/presentation";
+import { presentationReportId, reportIdentityNote, type ReportPresentationContext, syntheticNotice, evidenceContractNotice, projectionsNotRecordedNotice, routeMetricsForDisplay } from "@/report/presentation";
 import { providerFallbackNotice } from "@/report/providerFallback";
-import { reportSection, type ReportSectionKey } from "@/report/sectionManifest";
+import { REPORT_SECTION_MANIFEST, reportSection, type ReportSectionKey } from "@/report/sectionManifest";
 import {
   MANAGEMENT_ACTIONS_HEADING, MANAGEMENT_ACTOR_LABELS, MANAGEMENT_CATEGORY_LABELS, NO_MANAGEMENT_ACTIONS, NO_RECENT_DEVELOPMENTS,
   RECENT_DEVELOPMENTS_HEADING, SHAREHOLDER_ALIGNMENT_LABELS, developmentClaims, eventDateText, managementActionClaims,
@@ -234,9 +243,13 @@ function claimReasoning(reasoning: SourcedClaim | SourcedClaim[]): string {
 
 /** A bullet list of sourced claims, each with its label and ONE source marker (D-62). */
 function claimList(claims: readonly SourcedClaim[], numbers?: readonly TracedNumber[]): string {
-  return claims
-    .map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_${statusMarkSuffix(c)}`)
-    .join("\n");
+  // D-273: a statement shown in full elsewhere is referenced, not repeated.
+  const { shown, homes } = withoutRepeatedClaims(claims);
+  const note = repeatedClaimsNote(homes);
+  return [
+    ...shown.map((c) => `- **[${markdownListItem(c.label)}]** ${markdownListItem(displayClaimText(c, numbers))} _(${markdownProse(claimCitation(c))})_${statusMarkSuffix(c)}`),
+    ...(note ? [`- _${markdownListItem(note)}_`] : []),
+  ].join("\n");
 }
 
 function figureTable(rows: readonly FigureRow[], metricHeader = "Metric"): string {
@@ -382,15 +395,9 @@ function renderKeyData(report: Report): string {
 
 function renderDisagreements(disagreements: readonly Disagreement[]): string[] {
   if (disagreements.length === 0) return [];
-  const lines: string[] = ["### Bull/bear disagreements", ""];
-  for (const d of disagreements) {
-    lines.push(
-      `- **${markdownListItem(d.topic)}** (${markdownListItem(d.kind)})`,
-      `  - Bull: ${item(d.bullView)}`,
-      `  - Bear: ${item(d.bearView)}`,
-      `  - Judge: ${item(d.judgeResolution)}`,
-    );
-  }
+  const lines: string[] = ["### Bull/bear disagreements", "", `_${markdownProse(DISAGREEMENT_SIDES_NOTE)}_`, ""];
+  // D-273: topic and resolution; the two sides are in the audit export.
+  for (const d of disagreements) lines.push(`- **${markdownListItem(d.topic)}** (${markdownListItem(d.kind)}): ${item(d.judgeResolution)}`);
   return [...lines, ""];
 }
 
@@ -404,7 +411,7 @@ function renderVerdict(report: Report): string {
       displayProse(block.oneLineWhy),
     ]),
   );
-  const lines: string[] = [sectionHeading("verdict"), "", prose(v.synthesis), ""];
+  const lines: string[] = [sectionHeading("verdict"), "", ...renderBusinessBrief(report), prose(v.synthesis), ""];
   const figureNote = plainFigureReaderNote(report);
   if (figureNote) lines.push(figureNote, "");
   if (v.executiveSummary && v.executiveSummary.length > 0) {
@@ -415,6 +422,15 @@ function renderVerdict(report: Report): string {
   // D-62: the debate belongs with the verdict it informs, not under Macro.
   lines.push(...renderDisagreements(report.disagreements));
   return lines.join("\n").trimEnd();
+}
+
+/** D-273: the five-part brief, verified claims only; a part with no support says so. */
+function renderBusinessBrief(report: Report): string[] {
+  const parts = businessBrief(report);
+  if (parts.every(part => part.claims.length === 0)) return [`### ${BUSINESS_BRIEF_HEADING}`, "", markdownProse(BRIEF_NOT_ESTABLISHED), ""];
+  return [`### ${BUSINESS_BRIEF_HEADING}`, "", ...parts.map(part => `- **${part.heading}:** ${part.claims.length === 0
+    ? markdownListItem(BRIEF_PART_NOT_ESTABLISHED)
+    : part.claims.map(c => `${markdownListItem(displayClaimText(c))} _(${markdownProse(claimCitation(c))})_${statusMarkSuffix(c)}`).join(" ")}`), ""];
 }
 
 /** Q1: absent on saved reports (nothing printed); an empty list says so. */
@@ -433,8 +449,6 @@ function renderRecentDevelopments(developments: Verdict["recentDevelopments"]): 
 function renderScores(scores: Scoring): string {
   const c = scores.composite;
   const card = scorecardTable(scores);
-  const drivers = scoreDriverTable(scores);
-  const exposure = factorExposureTable(scores);
   const assessment = assessmentLine(scores);
   return [
     // A sub-heading of the verdict, as on the print surface.
@@ -449,11 +463,9 @@ function renderScores(scores: Scoring): string {
     table(card.headers, card.rows),
     "",
     ...(card.note ? [`_${markdownProse(card.note)}_`, ""] : []),
+    // D-139: the missing-input grade ranges qualify the grades, so they stay. D-273 (P22): drivers and factor tables are audit diagnostics.
     ...auditTableBlocks([gradeReliabilityTable(scores)]),
-    ...(drivers ? auditTableBlocks([drivers]) : []),
-    ...(exposure ? auditTableBlocks([exposure]) : []),
-    ...auditTableBlocks([factorContributionSensitivityTable(scores)]),
-    `_${markdownProse(c.methodology)}_ _(${markdownProse(SCORE_BANDS_READER_NOTE)})_`,
+    `_${markdownProse(c.methodology)}_ _${markdownProse(SCORE_DIAGNOSTICS_NOTE)}_ _(${markdownProse(SCORE_BANDS_READER_NOTE)})_`,
   ].join("\n");
 }
 
@@ -703,11 +715,16 @@ function renderScenario(row: ScenarioRowView): string {
   if (assumptions.length > 0) {
     lines.push("", "Assumptions:", "", assumptions.map((assumption) => `- ${markdownListItem(assumption)}`).join("\n"));
   }
-  if (sc.whatWouldHaveToBeTrue.length > 0) {
-    lines.push("", "What would have to be true:", "", sc.whatWouldHaveToBeTrue.map((condition) => `- ${item(scenarioListItem(condition))}`).join("\n"));
+  // D-273 review round 1: a repeated label is stated once; every condition still prints.
+  const shown = scenarioReaderLists(sc, assumptions);
+  if (shown.conditions.length > 0) {
+    lines.push("", "What would have to be true:", "", shown.conditions.map((condition) => `- ${item(condition)}`).join("\n"));
   }
-  if (sc.qualitativeCommentary?.length) {
-    lines.push("", "Qualitative commentary (not valuation inputs):", "", ...sc.qualitativeCommentary.map((text) => `- ${item(scenarioListItem(text))}`));
+  if (shown.commentary.length > 0) {
+    lines.push("", "Qualitative commentary (not valuation inputs):", "", ...shown.commentary.map((text) => `- ${item(text)}`));
+  }
+  if (shown.separateConditions.length > 0) {
+    lines.push("", `${SEPARATE_CONDITIONS_HEADING}:`, "", ...shown.separateConditions.map((text) => `- ${item(text)}`));
   }
   return lines.join("\n");
 }
@@ -764,7 +781,7 @@ function renderTechnicals(report: Report, ctx: GradeContext = {}): string {
   return lines.join("\n").trimEnd();
 }
 
-function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDisclosures" | "appendix" | "outlook">> = {}, ctx: GradeContext = {}): string {
+function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDisclosures" | "appendix" | "outlook" | "marketData">> = {}, ctx: GradeContext = {}): string {
   const lines: string[] = [sectionHeading("leadership"), ""];
   const roster = leadershipRosterPresentation(l);
   lines.push(gradeBlock("Leadership (capital-stewardship proxy)", l.graded, new Map(), report, ctx), "");
@@ -810,6 +827,7 @@ function renderLeadership(l: Leadership, report: Partial<Pick<Report, "filingDis
     ), "");
   }
   lines.push(...subsection("### Insider activity", claimList(l.insiderSummary)));
+  lines.push(...auditTableBlocks(insiderEvidenceTables(report)));
   lines.push(...subsection("### Provider executive roster", claimList(roster.roster)));
   lines.push(...subsection("### Governance", claimList(roster.governance)));
   lines.push(...auditTableBlocks(filingDisclosureTables(report.filingDisclosures, "leadership")));
@@ -995,21 +1013,19 @@ function renderAppendix(report: Report, completeness: ReportCompletenessPresenta
 
   // D-67: one row per underlying data gap; process disclosures and moot entries apart.
   lines.push("### Data gaps", "", markdownProse(`${gapCountText(a.missingData, completeness)} ${dataStateText(completeness)}`), "");
-  lines.push(bodyTable(["Manifest reconciliation", "Displayed groups", "Recorded entries"], manifestReconciliationRows(a.missingData, completeness).map(row => [row.label, String(row.groups), String(row.entries)])), "", "Recorded warning and critical severities are retained in the full audit. Grouping describes related issues; numerical matches do not validate whole prose claims.", "");
+  // D-273: the manifest reconciliation table is in the audit export.
+  lines.push("Recorded warning and critical severities are retained in the full audit, with the manifest reconciliation. Grouping describes related issues; numerical matches do not validate whole prose claims.", "");
   lines.push(...auditTableBlocks(dataGapTables(completeness), "####"));
   const families = gapSummary(a.missingData, completeness.classification);
   if (families.length > 0) lines.push(table(["Gap family", "Entries", "Highest severity (as shown)"], families.map((row) => [row.family, String(row.entries), row.highest])), "");
 
-  lines.push(
-    "### Sources",
-    "",
-    table(
-      SOURCE_ENTRY_FIELDS.map((field) => field.label),
-      a.sources.map((source) =>
-        SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? (source.stale === undefined ? "unknown" : source.stale ? "yes" : "no") : source[field.key]))),
-    ),
-    "",
-  );
+  // D-273: providers once and stale sources by name; the full list is in the audit export.
+  const shownSources = readerSources(a.sources);
+  lines.push("### Sources", "", markdownProse(shownSources.summary), "");
+  if (shownSources.stale.length > 0) lines.push(table(
+    SOURCE_ENTRY_FIELDS.map((field) => field.label),
+    shownSources.stale.map((source) => SOURCE_ENTRY_FIELDS.map((field) => (field.key === "stale" ? "yes" : String(source[field.key])))),
+  ), "");
 
   const path = auditExportFilename(report,context);
   lines.push(
@@ -1053,22 +1069,25 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
     newerFilingBanner(report.filingDisclosures) ? blockquote(newerFilingBanner(report.filingDisclosures)!, "Newer filing not reflected.") : "",
     hasFactStatusMarks(report) ? markdownProse(FACT_STATUS_LEGEND) : "",
     renderKeyData(report),
-    renderVerdict(report),
-    report.scores ? renderScores(report.scores) : "",
-    renderBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business"), report.competitive),
-    renderFundamentals(report.fundamentals, report.sourceFactSummary, [...filingDisclosureTables(report.filingDisclosures, "fundamentals"), ...lenderTables], report, gradeContext(report, "fundamentals", completeness)),
-    renderBalanceSheet(report.balanceSheet, report, gradeContext(report, "balanceSheet", completeness)),
-    renderValuation(report.valuation, report.scenarioTargets, report.fairValue, routeMetricsForDisplay(report), { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers, report }, gradeContext(report, "valuation", completeness)),
-    renderQuality(report.quality, gradeContext(report, "quality", completeness)),
-    renderTechnicals(report, gradeContext(report, "technicals", completeness)),
-    renderLeadership(report.leadership, report, gradeContext(report, "leadership", completeness)),
-    ...auditTableBlocks(primaryCapitalEvidenceTables(report.primaryCapitalEvidence), "##"),
-    renderCompetitive(report.competitive, gradeContext(report, "moat", completeness), report),
-    renderCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks")),
-    renderOutlook(report),
-    report.projections && !unavailableCashFlowModel(report) ? renderProjections(report.projections) : renderProjectionsNotRecorded(report),
-    renderMacro(report.macro),
-    renderAppendix(report, completeness, context),
+    // D-273 (P22): sections follow the shared manifest order, as in print and the app.
+    ...REPORT_SECTION_MANIFEST.flatMap((section): string[] => {
+      switch (section.key) {
+        case "verdict": return [renderVerdict(report), report.scores ? renderScores(report.scores) : ""];
+        case "business": return [renderBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business"), report.competitive)];
+        case "competitive": return [renderCompetitive(report.competitive, gradeContext(report, "moat", completeness), report)];
+        case "outlook": return [renderOutlook(report)];
+        case "catalystsRisks": return [renderCatalystsRisks(report.catalystsRisks, report.appendix.missingData.some((gap) => gap.field === "analysis.llm"), filingDisclosureTables(report.filingDisclosures, "catalystsRisks"))];
+        case "fundamentals": return [renderFundamentals(report.fundamentals, report.sourceFactSummary, [...filingDisclosureTables(report.filingDisclosures, "fundamentals"), ...lenderTables], report, gradeContext(report, "fundamentals", completeness))];
+        case "balanceSheet": return [renderBalanceSheet(report.balanceSheet, report, gradeContext(report, "balanceSheet", completeness))];
+        case "valuation": return [renderValuation(report.valuation, report.scenarioTargets, report.fairValue, routeMetricsForDisplay(report), { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers, report }, gradeContext(report, "valuation", completeness))];
+        case "quality": return [renderQuality(report.quality, gradeContext(report, "quality", completeness))];
+        case "technicals": return [renderTechnicals(report, gradeContext(report, "technicals", completeness))];
+        case "leadership": return [renderLeadership(report.leadership, report, gradeContext(report, "leadership", completeness)), ...auditTableBlocks(primaryCapitalEvidenceTables(report.primaryCapitalEvidence), "##")];
+        case "projections": return [report.projections && !unavailableCashFlowModel(report) ? renderProjections(report.projections) : renderProjectionsNotRecorded(report)];
+        case "macro": return [renderMacro(report.macro)];
+        case "appendix": return [renderAppendix(report, completeness, context)];
+      }
+    }),
   ].filter((b) => b.length > 0);
 
   // Join sections with a blank-line-separated horizontal rule for readability;

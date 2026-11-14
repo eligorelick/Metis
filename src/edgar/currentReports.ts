@@ -24,7 +24,7 @@
  * Pure: no network, no clock.
  */
 
-import { parseGuidanceTables } from "@/edgar/guidanceTables";
+import { annualGuidanceSectionAfterTable, parseAnnualDocumentTable, parseGuidanceTables } from "@/edgar/guidanceTables";
 import { htmlToText, type ParsedDocument } from "@/edgar/extract";
 import { explicitHtmlHiddenState } from "@/edgar/htmlHidden";
 
@@ -267,6 +267,7 @@ export type GuidanceMetric =
   | "adjusted-ebitda-margin-expansion"
   | "gross-margin"
   | "operating-expenses"
+  | "performance-margin"
   | "operating-margin"
   | "operating-income"
   | "other-income"
@@ -553,8 +554,40 @@ function parseAnnualGuidanceBullets(text: string, document?: ParsedDocument): Is
   return { period, items, qualifiers: qualifiers.slice(0, 4), unparsed: unparsed.slice(0, 4) };
 }
 
+/** Exact outlook periods only; report periods cannot prove supersession. */
+export function outlookPeriodLabels(guidance: IssuerGuidance | null): string[] {
+  if (!guidance) return [];
+  return [...new Set([...(guidance.period ? [guidance.period.label] : []), ...guidance.items.map(i=>i.period.label),
+    ...guidance.unparsed.flatMap(text=>[fullYearPhrase(text)?.label, quarterPhrase(text)?.label].filter((x): x is string=>!!x))])];
+}
+
 /** Guidance from a release or commentary; null when it prints no outlook. */
 export function parseGuidance(rawText: string, document?: ParsedDocument): IssuerGuidance | null {
+  const annual = document ? parseAnnualDocumentTable(rawText, document) : null;
+  if (!annual) return parseGuidanceWithoutAnnual(rawText, document);
+  const other = parseGuidanceTables(rawText, document);
+  let proseText = rawText;
+  for (const table of document!.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {
+    proseText = proseText.replace(htmlToText(table[0]), ".");
+  }
+  const prose = parseGuidanceWithoutAnnual(proseText);
+  // Review round 2 (P9): quarterly prose beside the annual table counts only
+  // inside the guidance section the issuer's own structure bounds (after the
+  // table, before the next heading or table). Quoted speech, forward-looking
+  // boilerplate and scenario language never set a guidance value.
+  const paragraphItems = [...annualGuidanceSectionAfterTable(document!).matchAll(/<(p|div)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)]
+    .map(block => htmlToText(block[2]!))
+    .filter(text => !/["“”]|\bforward-looking\b|\bsafe harbor\b|\bscenarios?\b/i.test(text))
+    .flatMap(text => splitSentences(text).flatMap(sentence => parseGuidanceSentence(sentence, null)));
+  // Annual table refusal must not swallow independently dated quarterly guidance.
+  // Conversely, flattened prose may never rescue refused annual table values.
+  const quarterly = [...(other?.items ?? []), ...(prose?.items ?? []), ...paragraphItems].filter((item,index,all) => item.period.fiscalQuarter !== null && all.findIndex(i => i.metric===item.metric && i.basis===item.basis && i.period.label===item.period.label)===index);
+  return { period: annual.period ?? other?.period ?? null, items: [...annual.items, ...quarterly],
+    qualifiers: [...new Set([...annual.qualifiers, ...(other?.qualifiers ?? []), ...(prose?.qualifiers ?? [])])],
+    unparsed: [...new Set([...annual.unparsed, ...(other?.unparsed ?? []), ...(prose?.unparsed ?? [])])] };
+}
+
+function parseGuidanceWithoutAnnual(rawText: string, document?: ParsedDocument): IssuerGuidance | null {
   const table = parseGuidanceTables(rawText, document);
   if (table !== null) return table;
   const annualBullets = parseAnnualGuidanceBullets(rawText, document);
@@ -1735,4 +1768,22 @@ function aggregatePrincipal(text: string): { count: number; text: string } | nul
     return s.endsWith(".") ? `${s}0` : s;
   };
   return { count: amounts.length, text: sum >= 1e9 ? `${symbol}${fmt(sum / 1e9)} billion` : `${symbol}${fmt(sum / 1e6)} million` };
+}
+
+/** D-272: whole source tables have a separate evidence budget; no statement admission. */
+export function releaseEvidenceTables(document?: ParsedDocument): string[] {
+  if (!document || explicitHtmlHiddenState(document.pre) !== "clear") return [];
+  const evidence: string[] = [];
+  let remaining = 16000;
+  for (const table of document.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {
+    if (/<table\b/i.test(table[0].slice(6))) continue;
+    const text = htmlToText(table[0]);
+    if (!/\bSelected Products\b|\bProduct (?:Revenue|Sales)\b|^Regulatory\b[\s\S]*\bClinical\b/i.test(text)) continue;
+    if (text.length > remaining) continue;
+    const prefix = htmlToText(document.pre.slice(0,table.index));
+    const start = prefix.length + (prefix ? 1 : 0);
+    if (document.fullText.slice(start,start+text.length)!==text) continue;
+    evidence.push(text); remaining -= text.length;
+  }
+  return evidence;
 }

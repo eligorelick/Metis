@@ -74,7 +74,8 @@ describe("data-only figure marks (audit 2026-10-22 F-23)", () => {
     const report = loadTask28Fixture();
     report.appendix.sources.push({ provider: "computed", endpoint: "derived:profile(edgar:submissions)", asOf: "2026-06-30", fetchedAt: "2026-07-01T00:00:00.000Z" });
     report.appendix.sources.push({ provider: "edgar", endpoint: "companyfacts", asOf: "2026-06-30", fetchedAt: "2026-07-01T00:00:00.000Z" });
-    expect(reportToPrintBody(report)).toContain("<td>computed</td>");
+    // D-273: the documents name each provider once in the sources line; "computed" is one of them.
+    expect(reportToPrintBody(report)).toMatch(/source records from [^<]*computed/);
     expect(reportToPrintBody(report)).not.toContain("table-legend");
     expect(reportToMarkdown(report)).not.toContain(COMPUTED_MARK_LEGEND);
   });

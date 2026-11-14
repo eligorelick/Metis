@@ -6,6 +6,7 @@ import { ReportView } from "@/components/report/ReportView";
 import { scoreAuditTables } from "@/report/auditTables";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
+import { SCORE_DIAGNOSTICS_NOTE } from "@/report/presentation";
 import type { Scoring, ScoreSignal } from "@/report/schema";
 import { computeScores, type ScoringInputs } from "@/pipeline/stageB/grading";
 import { describeScoreEvidence } from "@/pipeline/stageB/scoringEvidence";
@@ -85,10 +86,15 @@ describe("factor contribution sensitivity", () => {
     const report = loadTask28Fixture();
     expect(sensitivity(report.scores!)?.rows[0][0]).toBe("Unavailable");
     report.scores = scores();
-    for (const surface of [renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores })), reportToMarkdown(report), reportToPrintBody(report), reportToAuditMarkdown(report)]) {
+    // D-273: the app's score panel (D-246 frozen facts) and the audit export show it; the documents point to the audit export.
+    for (const surface of [renderToStaticMarkup(createElement(CompositeScorecard, { scores: report.scores })), reportToAuditMarkdown(report)]) {
       expect(surface).toContain(heading);
       expect(surface).toContain("53.00");
       expect(surface).toContain("69.00");
+    }
+    for (const surface of [reportToMarkdown(report), reportToPrintBody(report)]) {
+      expect(surface).not.toContain(heading);
+      expect(surface).toContain(SCORE_DIAGNOSTICS_NOTE);
     }
   });
 

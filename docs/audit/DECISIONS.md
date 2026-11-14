@@ -11,6 +11,184 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-273 - A readable report: an opening brief, the business first, less repetition (2026-11-14)
+
+P18, P21 and P22. Owners: `src/report/sectionManifest.ts` (the one reading
+order), `src/report/presentation.ts` (the brief, the repeat rule, the moved
+diagnostics), `src/report/filingSupplementPresentation.ts` (filing-note tables),
+`src/report/export/auditMarkdown.ts` (the new home of what left the body).
+
+**Problem.** Report #63 (Eli Lilly) runs to about 35,000 words in our count
+(the owner counts about 40,000). It opens with a long list of figures, puts the
+business story in four separate sections between the figures (sections 2, 9, 10
+and 11), and states the same facts in several places: the executive summary,
+the section commentary, the bull and bear views and the judge.
+
+**Decisions.**
+
+1. *Opening brief.* A five-part brief opens the verdict (after the key-data
+   table): what it sells, who buys it, why it wins, what is next, what could
+   break it. Code assembles it; the writer authors nothing new. Mechanism chosen
+   over a writer-authored `brief` field because it works at read time for every
+   saved report (P21), needs no schema, prompt or stamp change, and leaves no
+   model text that a code drop would have to police (P18). Each part takes at
+   most one claim, and only from the field that answers it (review round 1,
+   lead decision): sells: product lines, then what they sell; buyers: customers
+   and suppliers claims that name a customer or buyer group (a fixed word list),
+   so a supplier-only statement never enters; wins: protection, then the moat
+   assessment, widest first (the moat grade's figures are not reasons); next:
+   what is coming only; risks: the risks, highest severity first, then the
+   concentration risks. A statement of a limitation or absence ("no reviewed
+   source", "not established", "does not disclose", "not disclosed",
+   "unavailable", "cannot", by a fixed word list) never fills a part. A saved
+   report without the D-271 fields therefore shows fewer parts. A claim is eligible only when it
+   is a FACT whose own verification-log entry is validated (a matched figure) or
+   cited (a supported statement with no figure, shown "[qualitative]"), the same
+   supporting set D-271 uses for product-line headings. Unverified, unchecked
+   and contradicted claims and every judgment never enter. A part with no
+   eligible claim prints "Not established from verified sources."; when no part
+   has one (every data-only report) one line says so. Each claim keeps its
+   citation and mark.
+2. *Business before figures.* The shared section manifest now reads: verdict,
+   business and segments, competitive landscape, future outlook, catalysts and
+   risks, fundamentals, balance sheet, valuation, quality, technicals,
+   leadership, projections, macro, appendix. The brief names the business
+   group; the competitive landscape (competitors, moat, protection) and the
+   outlook (guidance, management's plan, scenario narratives) are that group's
+   remaining parts, so they follow the business section. Markdown now follows
+   the manifest as print and the app already did. Read time only: a saved report
+   renders in this order and its stored bytes do not change.
+3. *Shown once.* A statement printed in full in one claim list is skipped in a
+   later list (reading order, across a fixed set of reader lists), and that list
+   prints one line naming where it is shown ("Also stated here, shown in full
+   under Verdict › Executive summary."). The same statement means the same label,
+   text, stored citation, source id, resolved citation date and verification
+   mark (review round 1: two citations that differ only in their resolved date
+   are different statements); otherwise both copies print. The brief is exempt
+   on every surface, the app included: it is a summary by design. Executive cards keep
+   their earlier exact-duplicate rule (they already skip shared company
+   actions). The verification log, the header counts and the stored claims are
+   unchanged.
+4. *Diagnostics to the audit export.* Moved, with a one-line pointer where they
+   were: the score drivers table and factor-family exposure (this revises D-62,
+   which kept them in the body; marked there), factor contribution sensitivity
+   (all three were already in the audit export), the full
+   bull and bear statements of each disagreement (added to the audit export as
+   "Bull/bear statements"; the reader keeps the topic and the judge's
+   resolution, which weighs both), the full source list (the audit export already
+   lists every source; the reader names the providers once, counts sources whose
+   freshness is not recorded, and still lists every source marked stale, P2),
+   and the manifest reconciliation table (already in the audit export).
+   The app is the exception for this item: D-246 requires the dossier to keep
+   every fact the removed classic layout showed, so the app keeps these
+   diagnostics, both sides of each disagreement and the full source list inside
+   its collapsed panels (the reading order, the brief and the shown-once rule
+   apply to the app too). The Markdown and print documents are where the words
+   are cut. Loosening D-246 is not decided here.
+5. *Filing-note tables.* When every row comes from one filing, the filing is
+   named once under the table instead of in a Source column on every row; a
+   basis cell that repeats the row above word for word reads "Same passage as the
+   row above."
+6. *Repeated labels* (review round 1, Markdown and print). In a scenario card a
+   modeled condition that opens with an assumption the card already lists refers
+   to "the year-one shift under Assumptions" instead of repeating it, and the
+   analyst conditions each stored with "Separate qualitative condition, not a
+   modeled input or prerequisite for this target:" print under one heading that
+   keeps that warning once. Quarterly-trend notes that withhold the same item
+   with the same cause in several quarters are stated once, naming every
+   quarter; a quarter with a different cause keeps its own note. The dated
+   reference cell's repeated sentence no longer occurs on main (the reader form
+   is already one sentence), so nothing changes there.
+
+**Kept on purpose (not cut).** Each aspect's text in the scorecard ("What it
+measures", review round 1, P12): it states what the score means (leadership is a
+capital-stewardship proxy, not an assessment of executives; the share-count
+trend is not outstanding shares or economic dilution; management quality,
+guidance execution and governance are not score inputs; the FCF-conversion band
+uses before-SBC cash flow over consolidated net income and is unbacktested). The
+composite method text (D-62). The missing-input grade ranges (D-139: they
+qualify the grades). Every data gap, refusal note, qualification,
+withheld-value reason, disclaimer and the FRED attribution. The DCF assumption basis, the
+multiples' basis and limitations, the enterprise-value note and the balance
+sheet's capital-grading basis are the largest remaining blocks; they carry
+qualifications P12 requires where the figure is shown, so moving them needs a
+lead decision.
+
+**Word counts** (words with a letter or digit, rendered Markdown, same inputs,
+main 73b9a44a against this change; LLY against f071ed04, whose code main
+73b9a44a does not change):
+
+| Case | Before | After | Change |
+| --- | --- | --- | --- |
+| LLY #63, stored analyst output (`lly-fixed-analyst`) | 34,666 | 32,098 | -7.4% |
+| LLY data-only | 16,350 | 14,787 | -9.6% |
+| AMZN fixed analyst | 19,415 | 17,981 | -7.4% |
+| META fixed analyst | 19,347 | 18,280 | -5.5% |
+| MU fixed analyst | 20,239 | 18,991 | -6.2% |
+| NVDA fixed analyst | 26,090 | 24,508 | -6.1% |
+
+The 13 data-only golden cases are 7.2% to 12.3% shorter. Review round 1 put each
+aspect's scorecard text back (P12), which is most of the difference from the
+first measurement; the stale-source table keeps its Stale column.
+
+The brief's 20% target is not reached; the rest would come from the blocks
+listed under "Kept on purpose".
+
+**Version stamps.** None move. Nothing stored changes meaning: no schema,
+payload, Stage B or figure changes, and saved reports keep their bytes (P21).
+This is a read-time view of the same claims and tables.
+
+**Same-report check** (golden cases pinned at main 73b9a44a). All 17 golden cases and both LLY cases: stageB.json,
+payload.txt and report.json are byte-identical, so no numeric leaf changes. The
+reader files (report.md, print.html, web-dossier.html) change as described
+above, and audit.md changes only in the five reports with disagreements, where it gains the bull/bear statements (no audit line removed). Accuracy check: every figure as expected.
+
+**Approved report changes.** Reader layout only, for every case: section order
+and numbers; the brief at the top of the verdict; repeated statements replaced
+by a reference line; score diagnostics, bull/bear sides, the full source list
+and the manifest reconciliation table replaced by pointers to the audit export;
+filing-note tables with one shared filing name the filing once.
+
+**Tests.** `tests/report.readable.test.ts`: the brief's verified-only rule on a
+drug maker and a bank shape (an unverified, unchecked or contradicted claim
+never enters; a judgment never enters; a part with no support says so; a
+report with nothing verified prints one line), a buyer statement read by its
+words with a non-buyer control, the reading order in Markdown, print and the
+app, a historical fixture rendering in the new order with its bytes unchanged,
+the repeat rule with a control where the marks differ, the moved diagnostics,
+and the filing-note table with a two-filing control. Revised existing tests
+(each assertion replaced by an equally strict one on the new layout) are listed
+in the pull request.
+
+### D-273 review round 2 (independent review APPROVE WITH FIXES; lead fix; P18, P22)
+
+Round 2 (GPT-6.1 Sol) confirmed the round-1 fixes for score qualifications,
+repeat identity, the app brief and the quarterly notes, and reproduced three
+remaining meaning changes. Two review rounds were used, so the lead fixed them.
+
+- **Buyer part (P18).** A customer word does not prove whose customer a
+  statement names ("The company buys medicines from wholesalers", "Competitors
+  serve municipal customers ..." both filled "Who buys it"). The part is now
+  labelled by its field, "Customers and suppliers", and reads every verified
+  claim of that field; the customer-word filter is removed.
+- **Protection part (P18).** A negative protection statement ("The company has
+  no patent protection ...") filled "Why it wins". The part is now labelled
+  "Protection and competition", so a negative statement reads as what it is.
+  A statement that the filings give "no details" or "no information" now
+  counts as a limitation and never fills a part.
+- **Scenario reference (P22).** The reader replaced any assumption that
+  prefixed a modeled condition, so "Revenue grows 5%" turned "Revenue grows
+  5%-10%." into a corrupted line, and "WACC remains 8%." was called the
+  year-one shift. Now only a whole code-written "Year-one shift versus base:"
+  sentence (ending in a full stop and followed by the end or a space) is
+  replaced; every other condition prints as stored.
+
+Tests pin all reviewer reproductions with controls. No figure, stamp, payload
+or stored byte changes. After merging main 17c791d2 (D-272), the lead's same-report
+run shows stageB.json, payload.txt and report.json byte-identical to main in all 17
+golden cases and both LLY cases; LLY report.md words 41,377 -> 37,814 (-8.6%) for the
+stored analyst output and 21,890 -> 19,353 (-11.6%) data-only.
+
 ## D-275 - A4 TSM same-report capture (2026-11-14)
 
 Principles: P2 (newest admitted filing wins), P10 (gaps stay disclosed), P21 (stored
@@ -7702,6 +7880,7 @@ Business/MD&A schedule selection and budgets revised by D-270; other D-63 rules 
 
 
 Revised by D-264: reader-only duplicate/segment presentation; original generation rules remain.
+Revised by D-273: the score drivers and factor-family exposure tables leave the Markdown and print body for the audit export (the app keeps them in its collapsed score panel, D-246).
 
 - **Evidence**: the integration rerun (`data/recovery/nvda-integration-20261015`) never named CUDA, TSMC or OpenAI. No 10-K Item 1 or 10-Q note was read; section-evidence-2 kept 11% of the 114,916-char Item 1A, 19% of the 10-Q MD&A, 58% of the Q2 release and 59% of the CFO commentary, and its 1,200-char cut of the residual-value-guarantee 8-K dropped "An affiliate of OpenAI Group PBC … will be the tenant". The report then said evidence it held was "not in the filings": the $59M principal payments between issuer FCF and OCF less capex, the non-GAAP reconciliation, the Hugging Face price, and the DSO and inventory build behind the OCF drop. All 30 FACT claims stated no figure (numeric validation 0/30). Every executive was "not-assessed", although the report printed revenue above the guided range three quarters running, and no pay was stated although D-57 registered the compensation rows. Six figures the excerpts printed were untraced. The "Other" geography and Edge Computing showed dashes where the total less the other rows was known. An 18-month-old charge was the only "high" flag, and "$6.1 billion" against "$6.042 billion" was called a discrepancy. The next earnings date was printed beside a past date: the earnings envelope's newest reported row.
 - **Options**: (a) raise every budget; (b) read new sources with family profiles suited to each, under bounded budgets, and register the release tables as typed records; (c) attribute company guidance to no individual, and print the executive cards once as not assessed.
@@ -17625,3 +17804,116 @@ Compared with the reviewed PR head 5c395faf, LLY falls from 80/319 to 77/319: th
 Accuracy matches all existing expectations: 265 figures, 173 match, 5 mismatch, 61 gap, 26 not-established. No expectation update. Focused verifier/excerpt/refusal checks pass 886 tests, including all 124 copied reproductions plus 3 controls, and new formula tests. New-file risk/release checks passed on the run whose only failure was the now-revised frozen row 21 assertion; the final verifier run passes that strengthened row and its new formula controls. Typecheck and lint pass (one inherited unused-variable warning). The required changed sweep is recorded at delivery.
 
 Final changed sweep: 646 test files passed; 16,391 tests passed, one existing skipped test, zero failing tests. PowerShell redirection classified the emitted Vitest configuration warning as NativeCommandError and returned wrapper exit 1, despite the complete passing test summary; no test or timeout was changed for this warning.
+
+
+
+### D-274 independent review, round 2 (lead fix; P3, P19)
+
+Round 2 (Claude Opus 5.5, adversarial) confirmed the four round-1 classes closed for every shape tried, and found two remaining false confirmations from the same omitted-unit inference. Two review rounds were used, so the lead fixed them in `src/pipeline/stageC/claimEvidence.ts`:
+
+- **Percentage change read as percent (P19).** The guard only knew the direction vocabulary, so "Gross margin percentage widened 2.1." confirmed "... widened 2.1%." (and improved, change was, moved, compressed, and the reverse). `excerptMetricUnit` now never infers percent when the label holds any change word (`PERCENT_CHANGE_WORDS`: widened, narrowed, improved, compressed, expanded, contracted, deteriorated, change, moved, swing, delta, variance, difference, increase, decrease, decline, rise/rose, fell, grew, gain, drop, loss, up, down, higher, lower, by).
+- **Scaled count read as a plain count (P3).** Only a parenthesised "(in millions)" before the figure was seen, so "Subscriber count, in millions, was 260." confirmed "Subscriber count was 260." and contradicted the correct "260 million". A count is no longer inferred when the label, or the rest of the figure's own sentence, carries any scale word or marker (`COUNT_SCALE_WORDS`: thousand(s), million(s), billion(s), mm, mn, bn, k, 000s); the figure's own text ("260 million") is excluded from that check, so an explicit scaled count still confirms.
+
+All eleven reviewer reproductions now stay unverified (`tests/stageC.claimEvidence.review201c.test.ts`), with controls that an explicit unit on both sides still confirms. Every other reviewer reproduction gives the same result as before the fix. Verifier and consistency suites: 864 passed. On the stored LLY analyst output the verified total is unchanged (331 entries), so no stored claim changes status. Not changed (pre-existing on main, listed for a later change): a shared scope across "and" or ";" in a direct claim ("In the U.S. revenue was ... and operating income was ...") is not carried to each figure.
+
+**Stamp.** D-272 merged first with report 1.87.0, so this entry's report meaning moves to **1.88.0** (pins in the version-stamp, payload-pass and job-runner tests; the DEMO sample and the frozen audit fixture re-recorded under D-274 with only the spec stamp and its digests changing). Payload, Stage B and pipeline stamps are unchanged.
+
+## D-272 - Annual release tables and provider observation scope (P2, P9, P20)
+
+**Decision.** Fix the general class of annual guidance tables with Prior/Updated columns or a single explicitly dated guidance column at the table parser. Source cells, a dated full-year company introduction, exact source spans, visible HTML, metric/unit checks and the issuer footnotes are required. Performance margin is its own issuer-defined metric, never operating margin. Whole product-revenue and regulatory/clinical tables have a separate 16,000-character budget; they are evidence, never statement or computed financial replacements. The newest retained outlook must not silently fall back to an older quotation; unreadable outlooks disclose a named gap and earlier quotations say superseded.
+
+The last four provider report dates, actual/estimated revenue and EPS, and actual-minus-estimate differences now reach one shared reader table and the payload registry. EPS accounting basis remains unverified; report dates do not imply fiscal boundaries. Unknown operands and currencies remain disclosed. All-person Form 4 statistics retain the existing consecutive complete-calendar-quarter rule, now shared by payload and reader. Each quarter's counts and shares, and selected code S rows by the literal vendor owner type, are shown with source, as-of and their own date window. Non-officer/director sellers are named; selected rows may overlap and are not a complete inventory. Aggregate counts cannot be attributed to officers by the analysts.
+
+**Filed-source check and before/after.** The locally cached October release (8-K 0000059478-26-000104, filed 2026-10-29; FY2026 guidance table) parses from zero rows to four source-backed rows: revenue $91-92 billion, performance margin 52.0-52.5%, tax rate 19-20%, EPS $35-36. The table's Prior/Updated header and footnotes accompany each row. The source's product and clinical tables are retained whole (562 and 4,043 characters respectively). This evidence is local only; no vendor rows or source bodies are committed.
+
+**Replay limitation / lead decision.** Both LLY snapshots froze already-parsed release records, with no retained source HTML or the later tables. Their four guidance item arrays are empty. Replaying immutable snapshots cannot retroactively collect the tables. Both therefore change from an unlabelled February quotation to an explicitly superseded quotation and a dated October coverage gap. A fresh collection is needed to satisfy the latest-guidance and product-table reader acceptance; do not modify frozen input bytes or claim that replay recovered them. The cached-source parser check above verifies collection behavior separately. Current capital admission has no trailing dividends-per-share series with quote-compatible share basis and exact periods; dividend yield and matched trailing dividend payout remain unavailable. No new dividend admission is added.
+
+**Approved report changes.** Against origin/main 66fff44f6e1d, all 19 Stage B artifacts are byte-identical: every statement, score and fair-value figure is unchanged before/after. Accuracy's 265 figures in 13 configured cases retain their existing expectations. New provider observations are explicitly qualified; they do not assert SEC validation, so vendor operands are not copied into this ledger.
+
+- amzn-data-only / amzn-fixed-analyst: new provider results and Form 4 evidence, plus explicit current/superseded labels on retained outlook quotations; structured guidance is unchanged.
+- figr-data-only: new provider results and Form 4 evidence; named newest-outlook gap and dated quotation labels.
+- meta-data-only / meta-fixed-analyst: new provider results and Form 4 evidence; current/superseded quotation labels with structured guidance unchanged.
+- mu-data-only / mu-fixed-analyst: new provider results and Form 4 evidence; named newest-outlook gap.
+- nvda-data-only / nvda-fixed-analyst: new provider results and Form 4 evidence.
+- qcom-data-only: new provider results and Form 4 evidence; named newest-outlook gap and superseded earlier quotation.
+- jpm-data-only (bank), pgr-data-only (insurer), o-data-only (REIT), duk-data-only (utility), tsm-data-only (foreign filer), rivn-data-only (loss-making), vktx-data-only (pre-revenue): the same provider-only coverage additions, with unavailable operands retained. O and RIVN also name the newest-outlook coverage gap and label current/earlier quotations. No financial rule changes by sector.
+- lly-data-only / lly-fixed-analyst: the same provider results and Form 4 additions (including named former-holder sellers), plus the explicit latest-outlook gap and superseded earlier quotation described above.
+
+Initial delivery used report/payload stamps 1.86.0 / 1.105.0; the reviewed stamps are recorded below. Payload registry/fingerprint and corresponding coverage, citation, verification-log ordering and diagnostic missing-data metadata change with added evidence; stored analyst prose is reused. Shared app/Markdown/print renderers show the same tables. No saved reports or owner database are written. Sibling routes covered: annual and quarterly source tables retain separate parsers; both data-only and fixed-analyst report builders use the same provider evidence; historical saved reports lack the optional additions and remain readable. Existing quarterly parsing/refusal rules are unchanged.
+
+**Tests and frozen records.** Synthetic tests add annual revised/single-column/unreadable tables, provider missing operands/future dates, officer/director/ten-percent/former-holder sales and missing-history/dividend controls. Version assertions in report.versionStamps, jobRunner and stageC.payload.passes and the fingerprint regex pins move together; no behavioral assertion is loosened. Existing calendar-quarter tests remain intact. stageC.insiderPersonTrades narrows its old global absence check for a sale older than six months to the existing six-month person lines, and additionally requires that same sale in the new all-selected-row owner breakdown with its exact broader window. D-272 explicitly requires the latter scope; the combined assertion is stricter and preserves the old person-window rule. The new pure helper is in the risk source manifest. Sample and frozen payload/audit records are refreshed under D-272 only for new evidence, corresponding hashes and stamps; finance and projection calculations are not re-recorded as changed.
+
+
+**Local verification.** The required changed-test sweep ran once: 16,470 passed, eight failures, one existing skip. The failures were three old version pins, a missing-input guard exposed by an intentionally partial market-data bundle, a new untagged summary mistaken for a dated trade-row note, the explicitly revised six-month assertion described above, the changelog header stamp, and a Windows EPERM during CLI temporary-directory cleanup after a slow import. All eight pass on focused reruns at existing timeouts (17 targeted tests plus all seven CLI tests); no tests were deleted or skipped to clear failures. TypeScript and ESLint pass, with one pre-existing unused-variable warning. Sample build, both frozen records, explicit risk/release/refusal/version checks and the cached-source check pass. Full verify is left to CI. LLY is not configured in the accuracy companies list, so accuracy is run on the configured 17-case set, with its existing expectation unchanged.
+
+**Initial-delivery same-report result (before review).** On that tree, all 19 Stage B artifacts remained byte-identical to the then-pinned main. Every changed report root is confined to meta, appendix, filingDisclosures or marketData. The golden diff lists the documented evidence/stamp changes (119 differences in the 17-case set, 14 in the LLY pair); accuracy again matches all existing expectations.
+
+**Correction after independent review.** The initial delivery's description of those five LLY claims was wrong. Owner-type titles were parsed as people and the named-individual check fell from 42/42 to 37/42; supported factual claims fell from 296 to 291. The round-1 fix below restores the five checks. This was a verification regression, not harmless missing metadata.
+
+
+### D-272 independent review, round 1 (P2, P3, P9, P13, P18, P20)
+
+Merged origin/main 73b9a44a5634c1b006e3da236e2d67cf6f264a2b. Report 1.87.0, payload 1.105.0 and Stage B STAGE_B_2026_11_DIVIDEND_DISCLOSURES_78 identify the revised meaning. Main's business-section additions and frozen-refresh history are preserved.
+
+- Person-name collection now requires the ISO date prefix of an actual trade line. Owner summaries cannot supply titles as person names. The LLY replay restores 42/42 named-individual checks and 296 supported factual claims, equal to pinned main; all factual-validation and citation totals also match main.
+- Annual tables no longer stop independent quarterly parsers. Refused annual tables remain unparsed evidence; successful annual rows merge independently proved quarterly document rows and prose paragraphs outside tables. Flattened annual metrics cannot rename a quarterly revenue sentence. En/em dash separators use Unicode escapes. Basis comes from an explicit row label, the table's own introduction, or a numbered footnote referenced by that row; explicit GAAP wins over nearby non-GAAP discussion.
+- Current means the newest release overall. A newest release with no readable outlook creates a gap. An older outlook is labelled superseded only when a newer outlook proves the same fiscal period; otherwise it is dated earlier evidence. Unknown periods do not prove supersession.
+- Scope is deliberately bounded: the annual reader currently requires the source's dated full-year financial-guidance table introduction beginning 'The following table summarizes'. It supports visible source cells with Prior/Updated or a single year-labelled Guidance header and explicit money/percentage ranges. Row labels include revenue, EPS/earnings per share, performance/gross/operating margin, tax rate and operating expenses, with case-insensitive row matching and explicit GAAP/non-GAAP prefixes. It does not claim to read arbitrary issuer outlook prose, point estimates or every table layout. Other existing guidance parsers remain available.
+- Fractional owner totals and quarterly counts use the shared number formatter. Each complete calendar quarter now has numeric registry records for purchases, sales, shares acquired and disposed, on its exact window. The analyst attribution instruction occurs in the prompt only. Revenue results labels have no EPS caveat; provider EPS labels retain it. Announcement dates remain labels, not fiscal periods; unknown fiscal windows remain unknown, while a filed fiscal label or explicit window can travel with a result.
+
+**Authorized dividend additions, disclosure only.** Indicated dividend yield annualizes a declared per-share amount by a proven recurring frequency and divides it by a positive dated quote. The share-unit owner requires same-share-basis proof covering declaration-as-observed and quote, and independently proves an ADS ratio. Unknown declared share units, currency, split coverage, ratios, or frequency produce a named gap. Native foreign dividends use the existing admitted FX/security owner when conversion is established. Payment frequency reuses the existing release/XBRL owner; the currency-bound XBRL variant retains the three filed proof observations. The older helper's acceptance thresholds are unchanged. Declaration-as-of is the filing observation date, not an inferred board-action date.
+
+Fiscal-year common cash payout is admitted common cash dividends divided by positive net income available to common for the exact same filed fiscal year and currency. It excludes repurchases and is not clamped at 100%. When old snapshots lack provenance, the existing statement-family reader recovers proof only for exactly unchanged already-admitted operands; it never replaces a statement value or clears a refusal. Missing or incompatible proof remains a gap. Neither new dividend figure is read by scores, valuation or projections.
+
+**LLY operands and result.** FY2025 payout changes from absent to 26.085271317829456% (reader 26.09%): USD 5,384,000,000 cash dividends / USD 20,640,000,000 net income, both 2025-01-01 through 2025-12-31, us-gaap/PaymentsOfDividends and us-gaap/NetIncomeLoss in 10-K 0000059478-26-000013, filed 2026-02-12. The existing statement owner establishes common-holder scope before this ratio. The retained releases have no admitted declared dividend, so LLY indicated yield stays unavailable with its cause. The October release's USD 1.73 paid-per-share table is a paid amount, not a declaration; it is not annualized into an indicated yield. No quote price or vendor row is copied into this decision.
+
+**Additional regressions.** Synthetic ordinary quarterly payer, proven ADS, missing ratio/unit, missing frequency and positive-quote non-payer controls; exact-window annual payout and refused common income; explicit GAAP beside unrelated non-GAAP prose; dash ranges; independent quarterly prose/table routes after annual success/refusal; current/earlier/superseded gap cases; both shared provider tables; fiscal-period-safe payload and quarter-specific registry records. The old non-payer test now inspects the actual dividend output and gap. Resume coverage includes payload 1.104.0. The selected-row formatting assertion now expects the shared thousands separator; it retains its prior exact share-count/window check.
+
+
+**Round-1 compatibility and frozen pins.** Legacy report assembly may have no computed capital block; the new disclosure argument remains optional there. The capital subtree digest moves from 345abeca6e98de5e to 249342fbfd071cd5 solely for cashDividendPayout, and the forensic whole-output digest moves from 14a8778e8d360e26bdaac8804f4ce69d8015717caf978549ec19710dc41db6d6 to a6805e0c6688de809e3c42b7ea935875aded80adbc56f41dd184707a3d67e85e. Both tests additionally retain their exact preceding hash after removing only that new optional field; no prior assertion is weakened. The frozen log is regenerated from main's complete chain rather than concatenating two divergent draft chains. Prior draft refresh entries remain in this branch's git history; the final log appends D-272 transitions directly to main and remains hash-linked.
+
+
+**Final round-1 comparison against 73b9a44a.** Every pre-existing Stage B field is exactly equal in all 17 golden cases and both LLY cases after removing only the new optional capital.cashDividendPayout block. Thus statements, scores, valuations, fair values and projection inputs/outputs are unchanged. Report differences are confined to meta, appendix, filingDisclosures and marketData. Both golden diffs contain the approved evidence, metadata and new disclosure changes (136 entries for the golden set; 16 for LLY). Accuracy checks all 265 configured figures against the existing expectation with no expectation edit. LLY has 42/42 named-individual checks and 296/319 supported factual claims, matching main, and the prior false named-person warning is gone. Quarterly owner aggregates are registry operands, and their presence does not alter any existing grade.
+
+All 19 cases add scoped provider history, insider evidence and dividend disclosure/gap rows. AMZN (both), FIGR, JPM, DUK, QCOM, RIVN, TSM and VKTX have no established annual cash payout ratio under the exact common-holder/window proof; they disclose the cause. META, MU, NVDA, O, PGR and LLY add the filed-source ratios below. Both modes of a company have identical new metrics. O's ratios deliberately exceed 100% because these are cash dividends over common net income, not FFO/AFFO payouts; no clamp or scoring rule is introduced. All indicated yields are gaps except MU and NVDA, whose retained declared amounts match the existing quarterly-frequency proof. Unknown earnings currencies withhold calculated consensus differences; raw provider operands retain their existing currency qualification. LLY's newest outlook is a named gap on frozen inputs; February's statement is dated earlier evidence, with no unsupported same-period supersession claim.
+
+| Case(s) | Filed fiscal window | Cash payout: absent -> computed | Filed dividends / common income (currency) | Filing/tag proof |
+|---|---|---|---|---|
+| meta (data-only / fixed-analyst) | 2025-01-01 to 2025-12-31 | absent -> 8.806113% | 5,324,000,000 / 60,458,000,000 (USD) | 10-K 0001628280-26-003942 filed 2026-01-29; us-gaap/PaymentsOfDividends; 10-K 0001628280-26-003942 filed 2026-01-29; us-gaap/NetIncomeLoss |
+| meta (data-only / fixed-analyst) | 2024-01-01 to 2024-12-31 | absent -> 8.133419% | 5,072,000,000 / 62,360,000,000 (USD) | 10-K 0001628280-26-003942 filed 2026-01-29; us-gaap/PaymentsOfDividends; 10-K 0001628280-26-003942 filed 2026-01-29; us-gaap/NetIncomeLoss |
+| meta (data-only / fixed-analyst) | 2023-01-01 to 2023-12-31 | absent -> 0.000000% | 0 / 39,098,000,000 (USD) | 10-K 0001628280-26-003942 filed 2026-01-29; us-gaap/PaymentsOfDividends; 10-K 0001628280-26-003942 filed 2026-01-29; us-gaap/NetIncomeLoss |
+| mu (data-only / fixed-analyst) | 2025-08-29 to 2026-09-03 | absent -> 0.717909% | 610,000,000 / 84,969,000,000 (USD) | 10-K 0000723125-26-000023 filed 2026-10-09; us-gaap/PaymentsOfDividendsCommonStock; 10-K 0000723125-26-000023 filed 2026-10-09; us-gaap/NetIncomeLoss |
+| mu (data-only / fixed-analyst) | 2024-08-30 to 2025-08-28 | absent -> 6.113128% | 522,000,000 / 8,539,000,000 (USD) | 10-K 0000723125-26-000023 filed 2026-10-09; us-gaap/PaymentsOfDividendsCommonStock; 10-K 0000723125-26-000023 filed 2026-10-09; us-gaap/NetIncomeLoss |
+| mu (data-only / fixed-analyst) | 2023-09-01 to 2024-08-29 | absent -> 65.938303% | 513,000,000 / 778,000,000 (USD) | 10-K 0000723125-26-000023 filed 2026-10-09; us-gaap/PaymentsOfDividendsCommonStock; 10-K 0000723125-26-000023 filed 2026-10-09; us-gaap/NetIncomeLoss |
+| nvda (data-only / fixed-analyst) | 2025-01-27 to 2026-01-25 | absent -> 0.811214% | 974,000,000 / 120,067,000,000 (USD) | 10-K 0001045810-26-000021 filed 2026-02-25; us-gaap/PaymentsOfDividends; 10-K 0001045810-26-000021 filed 2026-02-25; us-gaap/NetIncomeLoss |
+| nvda (data-only / fixed-analyst) | 2024-01-29 to 2025-01-26 | absent -> 1.144347% | 834,000,000 / 72,880,000,000 (USD) | 10-K 0001045810-26-000021 filed 2026-02-25; us-gaap/PaymentsOfDividends; 10-K 0001045810-26-000021 filed 2026-02-25; us-gaap/NetIncomeLoss |
+| nvda (data-only / fixed-analyst) | 2023-01-30 to 2024-01-28 | absent -> 1.327285% | 395,000,000 / 29,760,000,000 (USD) | 10-K 0001045810-26-000021 filed 2026-02-25; us-gaap/PaymentsOfDividends; 10-K 0001045810-26-000021 filed 2026-02-25; us-gaap/NetIncomeLoss |
+| o (data-only) | 2025-01-01 to 2025-12-31 | absent -> 275.923162% | 2,920,895,000 / 1,058,590,000 (USD) | 10-K 0000726728-26-000011 filed 2026-02-25; us-gaap/PaymentsOfDividendsCommonStock; 10-K 0000726728-26-000011 filed 2026-02-25; us-gaap/NetIncomeLossAvailableToCommonStockholdersBasic |
+| o (data-only) | 2024-01-01 to 2024-12-31 | absent -> 317.459750% | 2,691,719,000 / 847,893,000 (USD) | 10-K 0000726728-25-000055 filed 2025-02-25; us-gaap/PaymentsOfDividendsCommonStock; 10-K 0000726728-26-000011 filed 2026-02-25; us-gaap/NetIncomeLossAvailableToCommonStockholdersBasic |
+| o (data-only) | 2023-01-01 to 2023-12-31 | absent -> 242.092309% | 2,111,793,000 / 872,309,000 (USD) | 10-K 0000726728-24-000047 filed 2024-02-21; us-gaap/PaymentsOfDividendsCommonStock; 10-K 0000726728-26-000011 filed 2026-02-25; us-gaap/NetIncomeLossAvailableToCommonStockholdersBasic |
+| pgr (data-only) | 2025-01-01 to 2025-12-31 | absent -> 25.389105% | 2,871,000,000 / 11,308,000,000 (USD) | 10-K 0000080661-26-000086 filed 2026-03-02; us-gaap/PaymentsOfDividendsCommonStock; 10-K 0000080661-26-000086 filed 2026-03-02; us-gaap/NetIncomeLossAvailableToCommonStockholdersBasic |
+| pgr (data-only) | 2024-01-01 to 2024-12-31 | absent -> 7.964079% | 674,000,000 / 8,463,000,000 (USD) | 10-K 0000080661-26-000086 filed 2026-03-02; us-gaap/PaymentsOfDividendsCommonStock; 10-K 0000080661-26-000086 filed 2026-03-02; us-gaap/NetIncomeLossAvailableToCommonStockholdersBasic |
+| pgr (data-only) | 2023-01-01 to 2023-12-31 | absent -> 6.054647% | 234,000,000 / 3,864,800,000 (USD) | 10-K 0000080661-26-000086 filed 2026-03-02; us-gaap/PaymentsOfDividendsCommonStock; 10-K 0000080661-24-000007 filed 2024-02-26; us-gaap/NetIncomeLossAvailableToCommonStockholdersBasic |
+
+LLY's filed operands and 26.085271% result are detailed above. Indicated yield newly computes to 0.068372% at MU (USD 0.15 declared per share, quarterly; 8-K 0000723125-26-000018 filed 2026-09-30; quote observation 2026-10-23) and 0.462963% at NVDA (USD 0.25 declared per share, quarterly; 8-K 0001045810-26-000073 filed 2026-08-26; quote observation 2026-10-26). MU's frequency proof is the three quarterly us-gaap/CommonStockDividendsPerShareCashPaid windows 2025-11-28 through 2026-09-03 in 10-K 0000723125-26-000023 filed 2026-10-09. NVDA's frequency proof is us-gaap/CommonStockDividendsPerShareDeclared for 2026-01-26 to 2026-04-26 and 2026-04-27 to 2026-07-26 in 10-Q 0001045810-26-000075 filed 2026-08-26, and 2025-07-28 to 2025-10-26 in 10-Q 0001045810-25-000230 filed 2025-11-19. Existing split/share-basis admission covers each declaration observation through its dated quote. Quote source/endpoint and observation date accompany the computed figure in the report; no vendor price row is committed here. The LLY source-paid amount is not substituted for a declaration.
+
+**Round-1 checks.** Required changed sweep ran once: 16,566 passed, 11 failures, one existing skipped test. The failures exposed the draft frozen-log merge chain, the intentionally changed output pins, optional legacy computed-capital access, and unavailable dividend records intruding into release-only sections/established insider note ordering. The fixes retain optional legacy access, keep named dividend gaps as notes instead of numeric records, and preserve established transaction-note ordering. All 11 failures pass in the 726-test focused rerun, including all eight affected files and the explicit risk/release/refusal/version contracts; no test is disabled or timeout loosened. The two changed hash tests now also assert their full original hashes after removing just the new dividend field. TypeScript, ESLint (one pre-existing unused-variable warning), sample build and both current frozen records pass. Narrow annual layout/quarterly/basis/dash tests and ordinary/ADS/non-payer dividend regressions also pass. CI owns full verify. No database or stored report is modified.
+
+### D-272 independent review, round 2 (lead fix; P7, P9, P13)
+
+Round 2 (Claude Opus 5.5) rejected one item and noted two more. Two review rounds were used, so the lead fixed them directly.
+
+- **Unbounded quarterly prose (blocking, P9).** Round 1 let every paragraph outside tables feed quarterly guidance once an annual table was read, so forward-looking boilerplate ("revenue for the fourth quarter of 2027 is expected to be $4.0 billion to $4.2 billion in a downside scenario") or a quoted third party could set a quarterly value, which can anchor the DCF year one. Quarterly prose beside the annual table now counts only inside the section the issuer's own structure bounds: after the full-year guidance table and before the next heading or table (`annualGuidanceSectionAfterTable` in `src/edgar/guidanceTables.ts`, sharing one `ANNUAL_GUIDANCE_INTRO` pattern with `parseAnnualDocumentTable`). Paragraphs with quotation marks, "forward-looking", "safe harbor" or "scenario" never set a value. The outlook-block and quarterly-table routes are unchanged. Tests: the same quarterly sentence before the table, after a later heading, inside boilerplate and inside a quote yields no quarterly item while the annual rows stand (all four fail on the round-1 code), and a control inside the bounded section is read.
+- **Payout operands from one filing (P5, P7, P13).** The payout ratio now requires the dividend and income operands to share a filing accession. The income operand stays the admitted common earnings on the payout row (the common-income owner's value, which withholds parent net income when preferred claims lack filed common earnings and removes noncontrolling interests), and it must also equal the income row's proven field (`netIncomeAvailableToCommon` or `netIncome`); otherwise the ratio is withheld. A first lead draft read the proven field directly; the merge-gate confirmation showed that would let parent net income replace a withheld common figure (P5, P11), so it was corrected before merge. Tests cover a withheld common figure beside a proven parent figure, an admitted figure that differs from the proven one, a missing income value, two different filings (refused, with the reason "Common dividends and common income are not established from one filing.") and a shared accession among several filings (kept).
+- **Not changed (listed, low):** the reader can show the legacy-citation diagnostic tag on a refused payout row of an older saved report; presentation only.
+
+**Before and after (full golden set and both LLY cases, against round-1 head 9a776797).** LLY is byte-identical in stageB.json, report.json and payload.txt (FY2025 payout stays 26.085271%, both operands in 10-K 0000059478-26-000013). Every other case's payout rows are unchanged except three rows whose operands came from two different 10-Ks; each becomes a disclosed gap:
+
+| Case | Filed fiscal window | Round 1 -> round 2 | Why |
+|---|---|---|---|
+| o (data-only) | 2024-01-01 to 2024-12-31 | 317.459750% -> gap | dividends 10-K 0000726728-25-000055, income 10-K 0000726728-26-000011 |
+| o (data-only) | 2023-01-01 to 2023-12-31 | 242.092309% -> gap | dividends 10-K 0000726728-24-000047, income 10-K 0000726728-26-000011 |
+| pgr (data-only) | 2023-01-01 to 2023-12-31 | 6.054647% -> gap | dividends 10-K 0000080661-26-000086, income 10-K 0000080661-24-000007 |
+
+No score, valuation or projection reads these figures. Checks: focused guidance, current-report and dividend tests (766 passed), frozen-fixture and payload tests (390 passed), TypeScript and ESLint on the changed files. CI owns the full run.
+

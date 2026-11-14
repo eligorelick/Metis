@@ -90,6 +90,8 @@ import {
 import type { ManifestEntry } from "@/types/core";
 import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
 import { claimStatusMark } from "@/report/verificationMarks";
+import { citationAsOf, citationSourceId } from "@/pipeline/stageC/citations";
+import { developmentClaims, managementActionClaims, RECENT_DEVELOPMENTS_HEADING } from "@/report/qualitativeAnalysis";
 import type {
   Business,
   Competitive,
@@ -704,6 +706,48 @@ export function scenarioListItem(text: string): string {
   return stripped === text || stripped.length === 0 ? text : stripped[0]!.toUpperCase() + stripped.slice(1);
 }
 
+/** The label scenario presentation stores before each analyst condition (applyScenarioPresentation). */
+export const SEPARATE_CONDITION_PREFIX = "Separate qualitative condition, not a modeled input or prerequisite for this target: ";
+export const SEPARATE_CONDITIONS_HEADING = "Separate qualitative conditions (not modeled inputs or prerequisites for this target)";
+const MODELED_CONDITIONS = "Modeled conditions: ";
+/** Stands in for the first assumption a modeled condition repeats word for word. */
+export const MODELED_SHIFT_REFERENCE = "the year-one shift under Assumptions.";
+
+export interface ScenarioReaderLists {
+  conditions: string[];
+  commentary: string[];
+  /** The analyst conditions the stored text prefixed one by one, printed under one heading. */
+  separateConditions: string[];
+}
+
+/**
+ * D-273 review round 1 (P22): the Markdown and print scenario cards state a
+ * repeated label once. A modeled condition that opens with an assumption the
+ * card already lists refers to it instead of repeating it; the conditions each
+ * stored with the same "separate qualitative condition" prefix print under one
+ * heading that keeps that warning once. Every assumption and condition still
+ * prints; stored text is unchanged.
+ */
+export function scenarioReaderLists(scenario: Pick<Scenario, "whatWouldHaveToBeTrue" | "qualitativeCommentary" | "assumptions">, assumptions: readonly string[]): ScenarioReaderLists {
+  const listed = [...new Set([...assumptions, ...scenario.assumptions])].filter(a => a.trim().length > 0).sort((x, y) => y.length - x.length);
+  const conditions = scenario.whatWouldHaveToBeTrue.map(condition => {
+    if (!condition.startsWith(MODELED_CONDITIONS)) return scenarioListItem(condition);
+    const rest = condition.slice(MODELED_CONDITIONS.length);
+    // Review round 2 (lead fix): only a whole code-written year-one-shift
+    // sentence is replaced, so the reference names what it replaces and a
+    // longer or different condition ("Revenue grows 5%-10%.") prints as stored.
+    const repeated = listed.find(a => /^Year-one shift\b/.test(a) && /\.$/.test(a) && rest.startsWith(a) && (rest.length === a.length || rest[a.length] === " "));
+    return repeated === undefined ? condition : `${MODELED_CONDITIONS}${MODELED_SHIFT_REFERENCE}${rest.slice(repeated.length)}`;
+  });
+  const commentary: string[] = [];
+  const separateConditions: string[] = [];
+  for (const text of scenario.qualitativeCommentary ?? []) {
+    if (text.startsWith(SEPARATE_CONDITION_PREFIX) && text.length > SEPARATE_CONDITION_PREFIX.length) separateConditions.push(text.slice(SEPARATE_CONDITION_PREFIX.length));
+    else commentary.push(scenarioListItem(text));
+  }
+  return { conditions, commentary, separateConditions };
+}
+
 /**
  * Peer-table columns keyed by metric (peerColumnKeys) with reader headings:
  * the key of a registry figure is its id's last segment ("pettm-current"),
@@ -842,6 +886,194 @@ export function businessStoryBlocks(
     { key: "industry", heading: "Industry", claims: business.industry ?? [], lines: [] },
   ];
   return blocks.filter(block => block.claims.length > 0 || block.lines.length > 0);
+}
+
+/* ======================================================================== *
+ * D-273: a statement repeated in several places is shown once in full
+ * ======================================================================== */
+
+/** Repeated claim object → the place (section › list) where it is shown in full. */
+const claimHomes = new WeakMap<object, string>();
+const echoIndexed = new WeakSet<object>();
+
+/**
+ * Review round 1: the identity keeps the whole citation (the stored source and
+ * source id) and its resolved date, so the same words cited to a different
+ * filing or date are a different statement and print in both places.
+ */
+function claimEchoKey(claim: SourcedClaim): string {
+  return [claim.label, claim.text.trim().replace(/\s+/g, " "), citationSourceId(claim) ?? "", claim.source, claim.sourceId ?? "",
+    citationAsOf(claim) ?? "", claim.asOf ?? "", claimStatusMark(claim) ?? ""].join("\u0000");
+}
+
+/**
+ * D-273 (P22): the reader's claim lists in reading order (the D-273 section
+ * order), each with the label of where it prints. Only these lists take part
+ * in repeat removal; a claim anywhere else always prints.
+ */
+function readerClaimLists(report: Report): Array<readonly [string, readonly SourcedClaim[]]> {
+  const at = (key: Parameters<typeof reportSection>[0], list: string) => `${reportSection(key).printTitle} › ${list}`;
+  const v = report.verdict;
+  const b = report.business;
+  const c = report.competitive;
+  const o = report.outlook;
+  const bs = report.balanceSheet;
+  const lists: Array<readonly [string, readonly SourcedClaim[]]> = [
+    [at("verdict", "Executive summary"), v.executiveSummary ?? []],
+    [at("verdict", RECENT_DEVELOPMENTS_LIST), [...(v.recentDevelopments?.summary ?? []), ...(v.recentDevelopments?.items ?? []).flatMap(developmentClaims)]],
+    [at("business", "What they sell"), b.whatTheySell],
+    [at("business", "Market & industry structure"), b.marketStructure ?? []],
+    ...businessStoryBlocks(b, c).map(block => [at("business", block.heading), [...block.claims, ...block.lines.flatMap(line => line.claims)]] as const),
+    [at("business", "Concentration risks"), b.concentrationRisks],
+    [at("competitive", "Moat grade"), c.moatGraded.reasoning],
+    [at("competitive", "Competitors"), c.competitors ?? []],
+    [at("competitive", "Moat assessment"), c.moatAssessment.flatMap(m => m.reasoning)],
+    [at("outlook", "Segment trajectories"), o.segmentTrajectories],
+    [at("outlook", "TAM"), o.tam ?? []],
+    [at("outlook", "Estimate-revision trend"), o.estimateRevisionTrend],
+    [at("outlook", "Guidance credibility"), o.guidanceCredibility],
+    [at("outlook", "Scenario narratives"), [...o.scenarioNarratives.y1, ...o.scenarioNarratives.y3, ...o.scenarioNarratives.y5]],
+    [at("catalystsRisks", "Catalysts"), report.catalystsRisks.catalysts.flatMap(item => Array.isArray(item.reasoning) ? item.reasoning : [])],
+    [at("catalystsRisks", "Risks"), report.catalystsRisks.risks.flatMap(item => Array.isArray(item.reasoning) ? item.reasoning : [])],
+    [at("fundamentals", "Reasoning"), report.fundamentals.graded.reasoning],
+    [at("fundamentals", "Commentary"), report.fundamentals.commentary],
+    [at("balanceSheet", "Reasoning"), bs.graded?.reasoning ?? []],
+    [at("balanceSheet", "Debt profile"), bs.debtProfile.commentary],
+    [at("balanceSheet", "Coverage"), bs.coverage.commentary],
+    [at("balanceSheet", "Capex trajectory"), bs.capexTrajectory.commentary],
+    [at("balanceSheet", "Capital allocation"), bs.capitalAllocation],
+    [at("valuation", "Reasoning"), report.valuation.graded.reasoning],
+    [at("quality", "Reasoning"), report.quality.graded.reasoning],
+    [at("technicals", "Reasoning"), report.technicals.graded.reasoning],
+    [at("leadership", "Reasoning"), report.leadership.graded.reasoning],
+    [at("leadership", "Management actions"), (report.leadership.managementActions ?? []).flatMap(managementActionClaims)],
+    [at("leadership", "Insider activity"), report.leadership.insiderSummary],
+    [at("macro", "Sensitivity notes"), report.macro.sensitivityNotes],
+  ];
+  return lists;
+}
+const RECENT_DEVELOPMENTS_LIST = RECENT_DEVELOPMENTS_HEADING;
+
+/**
+ * D-273 (P22): index the report a reader surface is about to print. The first
+ * occurrence of a statement (same label, text, citation, date and verification
+ * mark) in reading order is its home and prints in full; every later
+ * occurrence is skipped and its list says where the statement is. A statement
+ * whose marks differ is not the same statement and prints in both places.
+ * Read time only; stored claims and the verification log are unchanged (P21).
+ */
+export function indexRepeatedClaims(report: Report): void {
+  if (echoIndexed.has(report)) return;
+  echoIndexed.add(report);
+  const homes = new Map<string, string>();
+  for (const [home, claims] of readerClaimLists(report)) {
+    for (const claim of claims) {
+      const key = claimEchoKey(claim);
+      const first = homes.get(key);
+      if (first === undefined) homes.set(key, home);
+      else claimHomes.set(claim, first);
+    }
+  }
+}
+
+/** Where a repeated claim is shown in full, or undefined for a claim that prints here. */
+export function repeatedClaimHome(claim: SourcedClaim): string | undefined {
+  return claimHomes.get(claim);
+}
+
+/** The claims a list prints, and the homes of the repeats it skips (in first-seen order). */
+export function withoutRepeatedClaims(claims: readonly SourcedClaim[]): { shown: SourcedClaim[]; homes: string[] } {
+  const shown: SourcedClaim[] = [];
+  const homes: string[] = [];
+  for (const claim of claims) {
+    const home = claimHomes.get(claim);
+    if (home === undefined) shown.push(claim);
+    else if (!homes.includes(home)) homes.push(home);
+  }
+  return { shown, homes };
+}
+
+/** The one line a list prints for its skipped repeats, or null when none. */
+export function repeatedClaimsNote(homes: readonly string[]): string | null {
+  return homes.length === 0 ? null : `Also stated here, shown in full under ${homes.join("; ")}.`;
+}
+
+/* ======================================================================== *
+ * D-273: the opening business brief
+ * ======================================================================== */
+
+export const BUSINESS_BRIEF_HEADING = "Business in brief";
+/** A part with no verified support says so in one line. */
+export const BRIEF_PART_NOT_ESTABLISHED = "Not established from verified sources.";
+/** Printed once instead of five empty parts. */
+export const BRIEF_NOT_ESTABLISHED = "No part of the business brief is established from verified sources: no statement about the business passed verification.";
+/** The most claims one part prints, so the brief stays short. */
+export const BRIEF_CLAIMS_PER_PART = 1;
+
+export interface BusinessBriefPart {
+  key: "sells" | "buyers" | "wins" | "next" | "risks";
+  heading: string;
+  /** Verified claims only, each keeping its own citation; empty means not established. */
+  claims: readonly SourcedClaim[];
+}
+
+/**
+ * Review round 1 (lead decision): a statement of a limitation or an absence
+ * ("no reviewed source", "not disclosed") says what is not known; it never
+ * fills a brief part, which then says it is not established.
+ */
+const LIMITATION_WORDS = /\b(?:no (?:reviewed |cited |retained )?(?:sources?|filings?|evidence|data)|no (?:further )?(?:details|information|disclosure)|not (?:established|disclosed|stated|available|reported|given|known|measured|in the (?:excerpts|filings|evidence))|(?:does|do|did) not (?:disclose|state|report|give|establish)|unavailable|cannot|could not)\b/i;
+const SEVERITY_RANK: Readonly<Record<string, number>> = { high: 0, medium: 1, low: 2 };
+const MOAT_RANK: Readonly<Record<MoatAssessment["strength"], number>> = { wide: 0, narrow: 1, none: 2 };
+
+/**
+ * D-273 (P18, P19): a claim may enter the brief only when it is a FACT whose
+ * own verification-log entry passed: a matched figure ("validated") or a cited
+ * statement with no figure ("qualitative"). An unverified, contradicted or
+ * unchecked claim, and every judgment, never enters. Code owns the selection;
+ * no model text raises a claim's standing. Read time, so a saved report obeys too.
+ */
+export function isBriefEligible(claim: SourcedClaim): boolean {
+  return claim.label === "FACT" && SUPPORTING_MARKS.has(claimStatusMark(claim) ?? "") && !LIMITATION_WORDS.test(claim.text);
+}
+
+function briefClaims(...sources: readonly (readonly SourcedClaim[])[]): SourcedClaim[] {
+  const picked: SourcedClaim[] = [];
+  const seen = new Set<string>();
+  for (const claim of sources.flat()) {
+    if (picked.length >= BRIEF_CLAIMS_PER_PART) break;
+    const key = claim.text.trim();
+    if (!isBriefEligible(claim) || seen.has(key)) continue;
+    seen.add(key);
+    picked.push(claim);
+  }
+  return picked;
+}
+
+/**
+ * D-273 (P22): the five-part brief that opens the verdict, assembled by code
+ * from the business fields in a fixed order (the D-271 field first, then the
+ * older field that holds the same story). Call after the report's verification
+ * marks are indexed (prepareReportForSurface does it); with no marks every
+ * part is not established.
+ */
+export function businessBrief(report: Pick<Report, "business" | "competitive" | "catalystsRisks">): BusinessBriefPart[] {
+  const b = report.business;
+  const c = report.competitive;
+  // Review round 1 (lead decision): each part reads only the field that answers it.
+  // Review round 2 (lead fix, P18): a word match cannot prove whose customer a
+  // statement names or that a protection statement is a strength, so those two
+  // parts carry code-owned labels that describe their field ("Customers and
+  // suppliers", "Protection and competition") instead of an interpretation.
+  const moats = [...c.moatAssessment].filter(m => m.strength !== "none").sort((x, y) => MOAT_RANK[x.strength] - MOAT_RANK[y.strength]);
+  const risks = [...report.catalystsRisks.risks].sort((x, y) => (SEVERITY_RANK[x.severity] ?? 3) - (SEVERITY_RANK[y.severity] ?? 3));
+  return [
+    { key: "sells", heading: "What it sells", claims: briefClaims((b.products ?? []).flatMap(item => item.claims), b.whatTheySell) },
+    { key: "buyers", heading: "Customers and suppliers", claims: briefClaims(b.customersAndSuppliers ?? []) },
+    { key: "wins", heading: "Protection and competition", claims: briefClaims(b.protection ?? [], moats.flatMap(m => m.reasoning)) },
+    { key: "next", heading: "What is next", claims: briefClaims(b.whatIsComing ?? []) },
+    { key: "risks", heading: "What could break it", claims: briefClaims(risks.flatMap(item => reasoningClaims(item.reasoning)), b.concentrationRisks) },
+  ];
 }
 
 /* ======================================================================== *
@@ -1342,10 +1574,22 @@ export function keyDataRows(report: Report): KeyDataRow[] {
  * interest and the provider's period-end enterprise value. Empty when the
  * report carries no provider market data.
  */
+export function insiderEvidenceTables(report: Pick<Report, "marketData">): BodyTable[] {
+  const notes = report.marketData?.insiderEvidence;
+  return notes?.length ? [{ heading: "Form 4 reporting-person scope and selected rows", headers: ["Evidence"], rows: notes.map(note => [note]), note: "Provider aggregates and selected rows have separate windows." }] : [];
+}
+
 export function consensusTables(report: Report): BodyTable[] {
   const md = withHistoricalEnterpriseValueSafety(report).marketData;
   if (!md) return [];
   const tables: BodyTable[] = [];
+  if (md.resultsHistory?.length) tables.push({
+    heading: "Reported results versus provider consensus (last four reports)",
+    headers: ["Report date", "Fiscal window", "Revenue actual", "Revenue estimate", "Difference", "Provider EPS actual (accounting basis unverified)", "Provider EPS estimate (accounting basis unverified)", "EPS difference (accounting basis unverified)", "Source / as-of"],
+    rows: md.resultsHistory.map(r => [r.date, r.periodStart && r.periodEnd ? `${r.periodStart} to ${r.periodEnd}` : r.fiscalLabel ? `${r.fiscalLabel}${r.periodEnd ? `; ended ${r.periodEnd}` : ""} (start unestablished)` : "Unestablished", ...Object.entries(r.values).map(([key,v]) => v === null ? "Unavailable: input or currency not established" : r.currency ? money(v,r.currency,key.startsWith("eps")) : `${v} (currency unestablished)`), `fmp:earnings / ${r.asOf ?? "unavailable"}`]),
+    note: "Differences are provider actual minus provider estimate. Report dates are not fiscal period boundaries. Provider EPS accounting basis unverified; never compare with GAAP EPS. Missing operands remain gaps.",
+  });
+
   const cur = md.estimateCurrency;
   const price = md.quote?.price ?? null;
   if (md.estimates.length > 0 && cur !== null) {
@@ -2288,6 +2532,29 @@ const SCORE_ASPECT_LABEL: Record<(typeof SCORE_ASPECT_ORDER)[number], string> = 
  * constant itself (`scores.bandsVersion`) is a machine id; it is printed in
  * the audit export's scorecard ("Band table: ..."), not in the body.
  */
+/**
+ * D-273 (P22): the judge's resolution restates and settles both sides, so the
+ * reader shows the topic and the resolution once; the full bull and bear
+ * statements are kept verbatim in the audit export.
+ */
+export const DISAGREEMENT_SIDES_NOTE = "Each resolution weighs both analysts' statements; the full bull and bear statements are in the audit export.";
+/**
+ * D-273 (P22): the appendix names the providers once and lists only the
+ * sources marked stale (P2: a stale input is named where it applies); every
+ * source with its endpoint and fetch time is in the audit export.
+ */
+export function readerSources(sources: Report["appendix"]["sources"]): { summary: string; stale: Report["appendix"]["sources"] } {
+  const providers = [...new Set(sources.map(source => source.provider))];
+  const stale = sources.filter(source => source.stale === true);
+  const unknown = sources.filter(source => source.stale === undefined).length;
+  const freshness = [stale.length > 0 ? `${stale.length} marked stale (listed below)` : "none marked stale", ...(unknown > 0 ? [`${unknown} with freshness not recorded`] : [])].join(", ");
+  return {
+    summary: `${sources.length} source ${sources.length === 1 ? "record" : "records"} from ${providers.join(", ") || "no provider"}; ${freshness}. Every source with its endpoint, as-of date and fetch time is in the audit export.`,
+    stale,
+  };
+}
+/** D-273 (P22): where the score diagnostics live once they leave the reader body. */
+export const SCORE_DIAGNOSTICS_NOTE = "The score drivers and the factor-family exposure and sensitivity tables are in the audit export.";
 export const SCORE_BANDS_READER_NOTE = "House scoring bands in force when this report was built; the band version is recorded in the audit export";
 
 /**
@@ -2296,8 +2563,9 @@ export const SCORE_BANDS_READER_NOTE = "House scoring bands in force when this r
  */
 export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable {
   const limited = SCORE_ASPECT_ORDER.filter((key) => hasLimitedEvidence(scores.aspects[key]));
-  return {
+  const table: BodyTable = {
     heading: "Scorecard",
+    // D-273 review round 1 (P12): each aspect's text qualifies what its score means, so it stays beside the score.
     headers: ["Aspect", "Score", "Band", "Weight", "Evidence (all signal weights)", "What it measures"],
     rows: SCORE_ASPECT_ORDER.map((key) => {
       const aspect = scores.aspects[key];
@@ -2324,6 +2592,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable
         return `${SCORE_ASPECT_LABEL[key]} has evidence for ${evidencePercentText(scores.aspects[key].dataCompleteness)} of its signal weight, ${why}, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
       }).join(" ")}`.trim(),
   };
+  return table;
 }
 
 /** The same missing-input interpretation on the app, Markdown and print scorecards. */

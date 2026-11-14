@@ -152,8 +152,15 @@ it("shows recorded field notes on live, Markdown, print and audit surfaces witho
   for (const surface of [reportToMarkdown(checked.verifiedReport), reportToPrintBody(checked.verifiedReport),
     reportToAuditMarkdown(checked.verifiedReport), renderToStaticMarkup(createElement(ReportView, { report: checked.verifiedReport }))]) {
     expect(surface).toContain("Differs from the record: USD 706.73 per share stated, USD 606.73 per share recorded.");
-    expect(surface).toContain("Differs from the record: USD 806.73 per share stated, USD 606.73 per share recorded.");
   }
+  // D-273: a bull or bear statement, with its own field note, prints in the audit export only; the reader shows the resolution.
+  const audit = reportToAuditMarkdown(checked.verifiedReport);
+  expect(audit).toContain("Differs from the record: USD 806.73 per share stated, USD 606.73 per share recorded.");
+  for (const surface of [reportToMarkdown(checked.verifiedReport), reportToPrintBody(checked.verifiedReport)]) {
+    expect(surface).not.toContain("The price is USD 806.73 per share.");
+  }
+  // The app keeps both sides in its collapsed debate panel (D-246 frozen facts), with the note.
+  expect(renderToStaticMarkup(createElement(ReportView, { report: checked.verifiedReport }))).toContain("Differs from the record: USD 806.73 per share stated, USD 606.73 per share recorded.");
   expect(JSON.stringify(report)).toBe(before);
   expect(JSON.stringify(checked.verifiedReport)).toBe(verifiedBefore);
 });
