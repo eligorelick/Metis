@@ -143,7 +143,8 @@ searches. Replayed through `claudeResearchObserver`: 1 action and 1 source; 1 ac
 
 **Approved report changes.** None. The same-report check against pinned main `57ba3f54`
 found no differing leaf in the 17 stored cases (119 files, check database) or the two LLY
-cases (14 files, the round's working-copy database, read-only). The golden harness runs
+cases (14 files, the round's working-copy database, read-only), and again with no differing
+leaf against main `e8d3b567` after merging it (17 cases). The golden harness runs
 no model, and this change touches only the model transport and its wiring. The accuracy
 check on the after set reports every figure as expected (265 figures in 13 cases).
 
