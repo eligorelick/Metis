@@ -263,3 +263,21 @@ it("D-263 second review keeps a different amount stated for a declared cash outf
   // Control: the plain statement of the outflow still confirms.
   expect(checkPlainFigures("Cash capital expenditure as of 2026-01-25 was USD 1.234 billion.", options)[0].outcome).toBe("confirmed");
 });
+
+// D-278 (Part C audit, LLY #65 and JPM #64): a figure whose own description adds a qualifier the record lacks
+// is a different quantity, so it is never shown as differing from that record; real conflicts stay.
+it("D-278 marks a conflict only when the figure's description names only the record's metric", () => {
+  const revenue: NumericProvenanceRecord = { ...inc, id: "payload.statements.income-statement-quarterly.revenue-2026-09-30", kind: "provider", origin: "fmp",
+    label: "revenue, quarter ended 2026-09-30", value: 24397e6, period: "2026-09-30", asOf: "2026-09-30" };
+  const price: NumericProvenanceRecord = { ...inc, id: "payload.quote.price", kind: "provider", origin: "fmp", label: "share price", value: 346.19,
+    unit: "currency-per-share", period: "2026-11-13", asOf: "2026-11-13", displayPrecision: 2 };
+  const registry = [revenue, price];
+  const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
+  for (const text of ["Foundayo revenue for the quarter ended 2026-09-30 was $184 million.",
+    "The quarter ended 2026-09-30 included approximately $900 million of benefits to revenue."])
+    expect(checkPlainFigures(text, options)[0].outcome).not.toBe("contradiction");
+  // Controls: the record's own metric with a different value is still a conflict, and the equal value confirms.
+  expect(checkPlainFigures("Revenue for the quarter ended 2026-09-30 was $25,397 million.", options)[0].outcome).toBe("contradiction");
+  expect(checkPlainFigures("Revenue for the quarter ended 2026-09-30 was $24,397 million.", options)[0].outcome).toBe("confirmed");
+  expect(checkPlainFigures("The share price on 2026-11-13 was USD 341.19.", options)[0].outcome).toBe("contradiction");
+});

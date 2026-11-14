@@ -11,6 +11,18 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-278 - A conflict note needs the figure to name only the record's metric (2026-11-14)
+
+P19. Owner: `src/pipeline/stageC/claimEvidence.ts` (`checkPlainFigures`); the note text is written in `src/pipeline/stageC/passes.ts`.
+
+**Evidence (Part C audits).** Fresh LLY #65: "(Differs from the record: $184 million stated, USD 24,397 million recorded.)" on a Foundayo revenue sentence, and the same note for "approximately $900 million of benefits"; both bound to total quarterly revenue (AUDIT-LLY LLY-12). Fresh JPM #64 (JPM-14) and TSM #66 (TSM-08) show the same class. Stored NVDA golden case: "+0.38 percentage points stated, -2.62 percentage points recorded" bound the 12-1 month relative strength to the 6-month record. Each note told the reader a figure conflicted with a record that measures something else.
+
+**Rule.** A plain-prose figure is reported as differing from a record only when every metric word of its own description (parenthetical asides, a stated cash direction and bounds excepted, as D-263 decided; a code-owned technical frame already proves the metric) is a word of that record's own label. A qualifier the record lacks (a product name, "benefits", "12-1 month") makes it a different quantity: the record is dropped for that figure, and the figure is reported as "not matched" or "value matched; context not confirmed" (unverified). A dropped candidate still counts as ambiguity, so it never lets the remaining candidates confirm: confirmations are unchanged. The verifier's own grammar already treats "total" and "reported" as meaningful, so "Total revenue" is not the plain revenue record here either.
+
+**Before and after (same-report check, 17 cases and both LLY cases against main f97588e2).** stageB.json and payload.txt are byte-identical everywhere. The only report change is NVDA fixed-analyst, `technicals.read.relativeStrength`: the note "Differs from the record: +0.38 percentage points stated, -2.62 percentage points recorded." becomes "Value matched; context not confirmed: +0.38 percentage points; -2.62 percentage points." Both LLY cases are byte-identical. The fresh reports' notes were written at generation and are not rewritten (P21); new reports get the rule.
+
+Tests: the LLY reproductions (product revenue and benefits against total revenue) with controls that the record's own metric at a different value is still a conflict, the equal value confirms, and a share-price conflict on another record shape remains. All earlier D-263 conflict tests (parentheticals, cash direction, bounds, technical frames) pass unchanged.
+
 ## D-276 - Brief lines describe the business, not the stock (2026-11-14)
 
 P18 and P22. Owner: `src/report/presentation.ts` (`isBriefEligible`, `briefClaims`). Revises D-273's brief selection; read time only, so saved reports render with it and their bytes do not change.

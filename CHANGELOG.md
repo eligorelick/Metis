@@ -18,6 +18,10 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Conflict notes name the same metric (P19, D-278) (2026-11-14)
+
+- "Differs from the record" is reported only when the figure's own description names only that record's metric; a qualifier the record lacks (a product name, a different window) leaves the figure unverified instead. Confirmations are unchanged; no figure changes.
+
 ## Unreleased - Brief lines describe the business (P18, P22, D-276) (2026-11-14)
 
 - The opening brief never shows a market or computed figure (such as the share price) as a business line, and its descriptive parts skip statements of change. Read time only; no figure or stored byte changes.
