@@ -11,6 +11,172 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-264 - Reader presentation across company types (2026-11-13)
+
+Principles P22 (one shared presentation rule), P21 (immutable saved reports),
+P18 (code owns labels) and P20 (retain evidence and dates). The local LLY #63
+reader and the two offline rebuilds exposed duplicated valuation diagnostics,
+periodless metric aliases, incomplete segment indentation and repeated executive
+context. Inspection covered every reader file in all 17 pinned golden cases,
+including JPM (bank), PGR (insurer), O (REIT), DUK (utility), TSM (foreign filer),
+and RIVN/VKTX (loss-making), plus the four fixed-analyst cases.
+
+The shared figure owner now merges registered aliases at the same displayed value,
+unit and as-of when their only period difference is an omitted label equal to that
+as-of date. It keeps the supplied label; distinct fiscal windows, currencies and
+period contexts remain separate. Currency does not define a unitless percentage
+ratio. Generic reader tables also suppress byte-identical rows, including their
+source cells; equal amounts alone never prove identity. This extends D-62.
+
+The segment reader reuses the builder's established subtotal test: agreement in
+all jointly populated quarters, at least two quarters, and the existing rounding
+allowance for candidate generation. Following review, reader candidates must also
+sum exactly in every displayed quarter, with no missing parent or component
+values. This proof applies only to additional links: every stored childOf is
+established pipeline structure and must survive missing or rounded arithmetic.
+Inference may never remove or override it. Read-time search is capped at 20
+members and five components. Wider axes keep stored links and source order, with
+no additional inference, subset enumeration or quadratic hierarchy ordering. The limits bound work rather than relax any arithmetic evidence test.
+Four- and five-component controls and a 48-member independent axis cover this;
+the generation default
+remains two/three components. It changes hierarchy and order only, never any
+number or stored childOf. The note names every parent relationship and warns that
+shares across parents, components and other partitions overlap. This extends
+D-63's arithmetic display convention, rather than inventing a filing hierarchy.
+One-quarter coincidences remain ungrouped. The vendor geography display retains
+broad labels (Non-US, Outside U.S., International, Foreign) beside named regions
+with a scope qualification; it does not invent a remainder or assert that a region
+is exhaustive. Routes use the same reader rule; no route's evidence gates change.
+
+A reader-only valuation helper supplies one plain dated-model sentence. Generation
+and audit keep the original diagnostic helper. Available and suppressed reader
+bases also translate the same generated registry/LLM sentence into a plain model
+estimate disclosure, retaining every financial qualification. The shared composite-note owner
+joins sentences with one full stop. Executive cards link to the shared Management
+actions chronology and to the single outlook guidance block. The original officer
+prefix on the LLY operating-cash-flow sentence is stored analyst text and remains
+untouched. Reports carrying fact-status tags receive one legend before the first
+claims: citation coverage is provenance, while a validated tag records numerical
+matching. Statuses themselves never change.
+
+Breadth: sibling searches covered table duplicates and aliases, registry/pipeline
+wording in basis cells, segment parents, broad vendor geography names, and repeated
+executive context. AMZN shares the debt/cash alias defect; composite punctuation
+occurs across routes; segment notes and grouping apply to all axes. Existing
+splitCommonLines already handles common scenario/projection assumptions. The
+Versions row is intentionally build metadata, not a valuation basis. The live
+company overview also uses the reader-only dated-valuation helper; its separately
+labelled raw model diagnostics remain available. Historical
+analyst prose and its verification marks remain immutable. No company type is
+excluded from these reader rules. The golden set has no 40-F case; synthetic
+controls cover absent hierarchy, inconsistent quarters and distinct measurement
+windows without asserting new source evidence.
+
+No spec/payload/Stage-B stamp changes: calculation and stored-report meaning are
+unchanged; these are read-time layout, labels and explanations only.
+
+Approved report changes:
+
+- LLY data-only and fixed-analyst: report.md, print.html and web-dossier.html only.
+  Model reference stays $518.37 at 2025-12-31, compared with the price dated
+  2026-11-13 only as a dated reference. Cash stays $4.89B, net debt $44.62B,
+  cash-flow accrual ratio 16%, and aggregate cash-flow accruals $15.12B; duplicated
+  rows become one with the supplied date. Guidance context appears once, with
+  links from the executive cards. Product/geography rows are grouped and their
+  overlapping shares disclosed. Annual Non-US remains 9.3%, with scope qualified.
+- Regression baseline pinned to 9f0d54765a5760e460c53342431c21468dd7c0fc:
+  17 of 17 cases change only report.md, print.html and web-dossier.html. Every
+  stageB.json, payload.txt, report.json and audit.md is byte-for-byte identical.
+  The same is true for both LLY cases (six changed reader files).
+- amzn-data-only: segment overlap note. amzn-fixed-analyst: that note, fact-tag
+  legend, debt/cash/lease and accrual alias deduplication. Numbers remain $119.33B
+  net debt, $122.99B cash, $96.32B operating-lease observation, 18% accrual ratio.
+- duk-data-only and figr-data-only: composite punctuation and segment overlap note.
+- meta-data-only: composite punctuation and segment overlap notes.
+  meta-fixed-analyst: those notes, legend, aggregate cash-flow accrual deduplication
+  ($20.83B unchanged).
+- mu-data-only: composite punctuation. mu-fixed-analyst: punctuation, legend,
+  debt/cash and accrual alias deduplication ($5.18B debt, $43.43B cash, -7% cash-flow
+  accrual ratio, 18% balance-sheet accrual ratio and $63.10B scaler unchanged).
+- nvda-data-only: composite punctuation and segment overlap note.
+  nvda-fixed-analyst: those notes, legend, debt/lease/accrual alias deduplication
+  ($38.86B debt, $5.49B lease observation and 60% accrual ratio unchanged).
+- o-data-only: composite punctuation only. pgr-data-only: punctuation and plain
+  model-basis wording; REIT/insurer method
+  and all filed figures remain identical. No new fact or numerical admission.
+- qcom-data-only: segment overlap note. rivn-data-only: punctuation and segment
+  overlap notes. vktx-data-only: composite punctuation only.
+- jpm-data-only and tsm-data-only: reader-only plain model-basis wording; bank
+  and foreign-filer financial qualifications, values and sources remain intact.
+- The available-model wording sibling also changes amzn-data-only,
+  amzn-fixed-analyst, mu-data-only, mu-fixed-analyst, nvda-data-only,
+  nvda-fixed-analyst and qcom-data-only. No company type is left on an old rule.
+
+Review follow-up: the live-card test now checks both valuation/quote dates, the
+explicit not-current qualification and absence of current upside, rather than the
+old label. The other reader assertion on that label was updated; generation and
+audit assertions keep their original wording. Web management actions now has its
+linked anchor, and Markdown outlook gains its missing anchor. A three-surface
+regression requires both introduced links to have exactly one matching target.
+No stored field, financial value, calculation rule or version stamp changes.
+
+Follow-up 2 corrects the earlier reader regression that erased stored parent links.
+Stored links now survive on every axis, including wide axes; only new links require
+exact proof in every displayed quarter. Notes explicitly warn that subtotal rows
+can appear with their components, that shares must not be added, and that absence
+of indentation does not establish independence. They no longer discuss indented
+rows when there are none. No new rounding tolerance is introduced.
+
+Sibling defect for a separate owner change: src/edgar/segmentFacts.ts,
+buildQuarterlySegments (initializes childOf and calls markSubtotals) and
+markSubtotals (sets childOf) do not admit all parent relationships established by
+the filing's own structure. These include Cardiometabolic Health products and
+regions under Outside U.S. The presentation fix preserves admitted structure but
+does not repair this Stage B extraction/structure omission; the filingDisclosures
+builder only carries the admitted parent into the saved report.
+
+Follow-up 2 verification against pinned main
+9f0d54765a5760e460c53342431c21468dd7c0fc: all 19 case rebuilds preserve
+stageB.json, payload.txt, report.json and audit.md byte for byte. Only report.md,
+print.html and web-dossier.html differ from main (51 regression reader leaves,
+six LLY reader leaves). The additional change since 0a9cfaf7 restores stored
+component indentation and updates each segment table's overlap note. No numbers
+or additional parent links are admitted by issuer rounding.
+
+Indented Markdown row counts, main -> after (label multisets also checked for loss):
+
+- lly-data-only and lly-fixed-analyst: 4 -> 4 each.
+- figr-data-only: 3 -> 3.
+- nvda-data-only and nvda-fixed-analyst: 2 -> 2 each.
+- amzn-data-only, amzn-fixed-analyst, duk-data-only, jpm-data-only,
+  meta-data-only, meta-fixed-analyst, mu-data-only, mu-fixed-analyst,
+  o-data-only, pgr-data-only, qcom-data-only, rivn-data-only,
+  tsm-data-only and vktx-data-only: 0 -> 0 each.
+
+Presentation/currency validation: 23 files, 493 tests pass. TypeScript and lint
+pass, with the same pre-existing unused-variable lint warning. The first full run
+found one assertion pinning the replaced note wording; its expected meaning was
+updated and all nine tests in that file pass. The final full changed-suite run
+passes all 576 files: 14,076 tests passed, one skipped, no failures.
+
+Approved review-follow-up deltas relative to the original PR head: only additional
+reader hierarchy may be withheld where bounded, exact proof is absent; Markdown gets an outlook
+anchor and the web view gets the management-actions anchor. All immutable outputs
+and audit exports must remain byte-identical to the pinned main baseline.
+
+Validation: TypeScript and lint pass (one pre-existing unused-variable warning).
+The first changed-suite run covered 576 files and exposed old presentation
+expectations plus scheduler startup/restart timeouts. All failed files and the
+presentation/company-overview coverage pass on focused rerun: 8 files, 278 tests.
+The final basis-wording extension passes another 3-file, 54-test parity/snapshot
+run. No scheduler code or limits changed. A slower broad retry was stopped and
+its worktree-named node processes cleaned up before the focused rerun.
+
+These deltas change no filed figure or selected SEC tag. The LLY segment labels
+remain those retained from its 2026 10-Q instances and 2025 10-K; arithmetic
+component display is expressly qualified as such. Raw source/tag/date provenance
+stays in the identical audit exports, not copied vendor rows in this decision.
+
 ## D-262 - Filed additive flows replace conflicting vendor observations (2026-11-13)
 
 Principles P8 (filed beats vendor), P13 (one definition), P1 (exact periods),
@@ -5319,6 +5485,8 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 
 ## D-63 (NVDA report 34 audit P1-8, P1-9, P1-10, P1-14, P0-10, P0-11, P2-10 and the 2026-10-15 rerun findings) Read the business, the 10-Q notes and the release tables; give the CEO and CFO a citable outlook record
 
+Revised by D-264: reader-only duplicate/segment presentation; original generation rules remain.
+
 - **Evidence**: the integration rerun (`data/recovery/nvda-integration-20261015`) never named CUDA, TSMC or OpenAI. No 10-K Item 1 or 10-Q note was read; section-evidence-2 kept 11% of the 114,916-char Item 1A, 19% of the 10-Q MD&A, 58% of the Q2 release and 59% of the CFO commentary, and its 1,200-char cut of the residual-value-guarantee 8-K dropped "An affiliate of OpenAI Group PBC … will be the tenant". The report then said evidence it held was "not in the filings": the $59M principal payments between issuer FCF and OCF less capex, the non-GAAP reconciliation, the Hugging Face price, and the DSO and inventory build behind the OCF drop. All 30 FACT claims stated no figure (numeric validation 0/30). Every executive was "not-assessed", although the report printed revenue above the guided range three quarters running, and no pay was stated although D-57 registered the compensation rows. Six figures the excerpts printed were untraced. The "Other" geography and Edge Computing showed dashes where the total less the other rows was known. An 18-month-old charge was the only "high" flag, and "$6.1 billion" against "$6.042 billion" was called a discrepancy. The next earnings date was printed beside a past date: the earnings envelope's newest reported row.
 - **Options**: (a) raise every budget; (b) read new sources with family profiles suited to each, under bounded budgets, and register the release tables as typed records; (c) attribute company guidance to no individual, and print the executive cards once as not assessed.
 - **Choice**: (b), plus attribution for the CEO and CFO only.
@@ -5341,6 +5509,8 @@ Format: `D-nn (WSn) Title` → Options / Risks / Choice / Why / Disclosure.
 - **Revised by D-128 (B1 OD-3, audit 2026-10-27 AI-302-V1)**: a clause naming no period takes the excerpt's own only when it is not forward-looking. A forward-looking clause (management's expectation, outlook or guidance) inherits no period or window from the excerpt and binds only a forward-looking claim, and a result clause binds only a result claim. See the entry "The claim verifier compares the periods, windows, comparison bases and recency a claim states".
 
 ## D-62 (NVDA report 34 audit, WP10 / P3 + P1-12 + P0-7 headline, 2026-10-15) Write the report for a reader; move the audit trail to its own export
+
+Revised by D-264: reader-only duplicate/segment presentation; original generation rules remain.
 
 - **Evidence**: the live NVDA rerun (report 2, `data/recovery/nvda-integration-20261015/`) was 367 KB and 2,118 lines with 1,728 "n/a" cells. 220 KB of it was the verification log, the 70-row missing-data manifest, four 17-column projection-series tables and raw score-driver traces. The header led with "Factual prose claims (numeric support): 0/30 validated" although all 30 factual claims were qualitative and 286/292 figures traced. Registry ids served as metric names (`computed.deterministic-aspect-scores.fundamentals-score`); every claim carried "`source id: X` `src: X`"; values printed as 66.89858183148777, 24285000000, "$11,063.00 millions", "95.00 0-100", "-1.1 score", "40.25 index" and "$-7.35B". The peer table was a 10×10 diagonal of dashes. Guidance, issuer FCF and results-vs-guidance appeared in three to six places, Q1 FY27 revenue printed $81.61B in one table and $81.62B in the next (`toFixed` on the binary 81.61499…), "$26.00B" stood for the release's "approximately $26.0 billion", and consensus was used in the DCF but never shown.
 - **Options**: (a) trim text inside the existing renderers; (b) a shared presentation layer used by all three surfaces plus a separate audit export carrying every raw leaf; (c) drop the audit material.

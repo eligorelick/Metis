@@ -18,6 +18,21 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
+
+- Review follow-up preserves every stored segment parent link and bounds
+  additional hierarchy searches with exact proof in every displayed quarter.
+  Notes explain subtotal overlap even when no hierarchy can be inferred.
+- Repairs web management-actions and Markdown outlook link targets, and checks
+  the live card's dated/not-current meaning explicitly.
+
+- App, Markdown and print show plain dated-model wording, one dated row for known
+  duplicate metric aliases, consistent segment components with overlapping shares
+  disclosed, and qualified broad vendor geography labels.
+- Executive cards link to shared company actions and outlook guidance. A short
+  fact-tag legend distinguishes numerical matching from citation coverage.
+- Saved inputs, payloads, figures, reports and verification statuses stay unchanged.
+
 ## Unreleased - Filed statement flows replace conflicting vendor observations (2026-11-13)
 
 - D-262 (P8, P13): filed PP&E and interest expense now settle exact-period

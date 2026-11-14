@@ -36,3 +36,20 @@ export function recordedValuationTrace(dcf: Pick<Dcf, "perShare">, fairValue?: F
 export function recordedFairValueTrace(fairValue?: FairValue): FairValue["perShare"] {
   return fairValue?.perShare ?? fairValue?.reference?.perShare ?? fairValue?.auditValue ?? null;
 }
+
+/** D-264: reader-only wording; generation and audit retain the full recorded basis. */
+export function readerFairValueReferenceText(fairValue: FairValue): string | null {
+  const ref = fairValue.status === "dated-reference" ? fairValue.reference : undefined;
+  return ref ? `Model value at ${ref.valuationDate}; not a current fair value because it has not been updated to the price dated ${ref.quoteDate}.` : null;
+}
+
+export function readerFairValueWithheldText(fairValue: FairValue): string {
+  return readerFairValueReferenceText(fairValue) ?? readerFairValueBasisText([fairValueWithheldText(fairValue)]);
+}
+
+/** D-264: translate only the generated workflow sentence; retain financial caveats. */
+export function readerFairValueBasisText(basis: readonly string[]): string {
+  return basis.join(" ")
+    .replace(/Computed-derived \(source computed\.valuation\.\*\), not a source-verified analyst target . the LLM interprets it but does not author the number\./g, "This is a model estimate, not an analyst price target.")
+    .replace(/Intrinsic value per share = the deterministic /g, "Model estimate from the ");
+}
