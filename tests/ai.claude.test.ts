@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach, vi } from "vitest";
-import { claudeEnvironment, claudeRunArgs, parseClaudeResult, claudeIdentity, claudeResearchObserver, ClaudeResearchError, CLAUDE_RESEARCH_TOOLS, NON_PUBLIC_WEBFETCH_HOSTS, publicWebUrl, CLAUDE_WEBFETCH_FIXED_DOMAINS, claudeWebFetchDomains, issuerWebFetchDomain } from "@/ai/claude";
+import { claudeEnvironment, claudeRunArgs, parseClaudeResult, claudeIdentity, claudeResearchObserver, ClaudeResearchError, CLAUDE_RESEARCH_TOOLS, NON_PUBLIC_WEBFETCH_HOSTS, publicWebUrl, CLAUDE_WEBFETCH_FIXED_DOMAINS, claudeWebFetchAllowlist, issuerWebFetchHost, registrableWebFetchParent } from "@/ai/claude";
 afterEach(() => vi.unstubAllEnvs());
 it("keeps OAuth in the official CLI and excludes inherited paid keys and code injection", () => {
   vi.stubEnv("ANTHROPIC_API_KEY", "not-a-real-key"); vi.stubEnv("CLAUDE_CODE_OAUTH_TOKEN", "not-a-real-token");
@@ -47,7 +47,7 @@ describe("Claude research arguments and stream observation (D-269)", () => {
   };
   it("gives only analyst research the CLI's built-in WebSearch and WebFetch, with every isolation flag kept", () => {
     const free = claudeRunArgs("claude-opus-5-5", "high");
-    const research = claudeRunArgs("claude-opus-5-5", "high", { webFetchDomains: claudeWebFetchDomains("issuer.example") });
+    const research = claudeRunArgs("claude-opus-5-5", "high", { webFetch: claudeWebFetchAllowlist("issuer.example") });
     isolation(free); isolation(research);
     expect(free[free.indexOf("--tools") + 1]).toBe(""); expect(free).not.toContain("--allowedTools");
     expect(free[free.indexOf("--output-format") + 1]).toBe("json"); expect(free).not.toContain("--verbose");
@@ -76,7 +76,7 @@ describe("Claude research arguments and stream observation (D-269)", () => {
     modelUsage: { "claude-opus-5-5": { inputTokens: 4, outputTokens: 50, cacheReadInputTokens: 10, webSearchRequests: 0 },
       "claude-haiku-5-5": { inputTokens: 900, outputTokens: 60, webSearchRequests: 0 } }, ...extra });
   const run = (events: unknown[], maxActions = 8) => {
-    const observer = claudeResearchObserver(maxActions, claudeWebFetchDomains("issuer.example"));
+    const observer = claudeResearchObserver(maxActions, claudeWebFetchAllowlist("issuer.example"));
     for (const event of events) observer.line(typeof event === "string" ? event : JSON.stringify(event));
     return observer.finish();
   };
@@ -113,7 +113,7 @@ describe("Claude research arguments and stream observation (D-269)", () => {
     });
 
   it("has the CLI itself deny WebFetch to every non-public host pattern before a fetch runs, on research requests only", () => {
-    const research = claudeRunArgs("claude-opus-5-5", undefined, { webFetchDomains: claudeWebFetchDomains() });
+    const research = claudeRunArgs("claude-opus-5-5", undefined, { webFetch: claudeWebFetchAllowlist() });
     const denied = research.slice(research.indexOf("--disallowedTools") + 1, research.indexOf("--strict-mcp-config"));
     expect(denied).toEqual(["mcp__*", ...NON_PUBLIC_WEBFETCH_HOSTS.map(host => `WebFetch(domain:${host})`)]);
     for (const host of ["localhost", "*.local", "10.*.*.*", "127.*.*.*", "169.254.*.*", "172.16.*.*", "172.31.*.*", "192.168.*.*", "*.nip.io"]) expect(NON_PUBLIC_WEBFETCH_HOSTS).toContain(host);
@@ -125,20 +125,23 @@ describe("Claude research arguments and stream observation (D-269)", () => {
 
   it("builds the WebFetch allowlist from the fixed list and the profile's issuer domain", () => {
     expect(CLAUDE_WEBFETCH_FIXED_DOMAINS).toEqual(expect.arrayContaining(["sec.gov", "fda.gov", "federalreserve.gov", "ftc.gov", "europa.eu", "nasdaq.com", "nyse.com"]));
-    expect(issuerWebFetchDomain("https://www.lilly.com")).toBe("lilly.com");
-    expect(issuerWebFetchDomain("https://investor.example-bank.co.uk/ir/")).toBe("investor.example-bank.co.uk");
-    expect(issuerWebFetchDomain("www.tsmc.com")).toBe("tsmc.com");
-    expect(claudeWebFetchDomains(issuerWebFetchDomain("https://www.lilly.com"))).toEqual([...CLAUDE_WEBFETCH_FIXED_DOMAINS, "lilly.com"]);
-    expect(claudeWebFetchDomains(null)).toEqual([...CLAUDE_WEBFETCH_FIXED_DOMAINS]);
-    expect(claudeWebFetchDomains("sec.gov")).toEqual([...CLAUDE_WEBFETCH_FIXED_DOMAINS]);
+    expect(issuerWebFetchHost("https://www.lilly.com")).toBe("www.lilly.com");
+    expect(claudeWebFetchAllowlist(issuerWebFetchHost("https://www.lilly.com"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS, "lilly.com"], hosts: [] });
+    expect(claudeWebFetchAllowlist(issuerWebFetchHost("www.tsmc.com"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS, "tsmc.com"], hosts: [] });
+    expect(claudeWebFetchAllowlist(issuerWebFetchHost("https://www.example.de/"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS, "example.de"], hosts: [] });
+    // Under a generic ccTLD second level the issuer gets its exact host only.
+    expect(claudeWebFetchAllowlist(issuerWebFetchHost("https://investor.example-bank.co.uk/ir/"))).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: ["investor.example-bank.co.uk"] });
+    expect(claudeWebFetchAllowlist(null)).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: [] });
+    expect(claudeWebFetchAllowlist("sec.gov")).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: [] });
+    expect(claudeWebFetchAllowlist("www.sec.gov")).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: [] });
   });
 
   it.each([null, undefined, "", 42, "http://127.0.0.1", "https://10.1.2.3/", "http://[::1]/", "localhost", "https://localhost:3000", "https://intranet/",
     "https://files.corp", "https://printer.local", "https://10.0.0.1.nip.io", "https://app.localtest.me", "https://issuer.github.io", "https://x.azurewebsites.net",
     "https://user:pw@issuer.example", "javascript:alert(1)", "ftp://issuer.example", "https://bad_label.example"])(
     "gives no issuer domain for an IP literal, local-use, shared-hosting or malformed profile website: %j", website => {
-      expect(issuerWebFetchDomain(website)).toBeNull();
-      expect(claudeWebFetchDomains(website as string)).toEqual([...CLAUDE_WEBFETCH_FIXED_DOMAINS]);
+      expect(issuerWebFetchHost(website)).toBeNull();
+      expect(claudeWebFetchAllowlist(website as string)).toEqual({ domains: [...CLAUDE_WEBFETCH_FIXED_DOMAINS], hosts: [] });
     });
 
   it("counts a fetch the CLI refused outside the allowlist as a failed action, never a source", () => {
@@ -218,7 +221,6 @@ describe("Claude research arguments and stream observation (D-269)", () => {
     ["a result for an unknown action", [init(), fetchResult("toolu_404", 200)]],
     ["a fetch without a URL", [init(), call("toolu_1", "WebFetch", { prompt: "x" })]],
     ["a denied tool request", [init(), final("Notes.", { permission_denials: [{ tool_name: "WebFetch" }] })]],
-    ["an action that never completed", [init(), search("toolu_1"), final("Notes.")]],
     ["a failed result", [init(), final("partial", { subtype: "error_during_execution", is_error: true })]],
     ["no result event", [init(), search("toolu_1"), searchResult("toolu_1", [])]],
     ["an event after the result", [init(), final("Notes."), search("toolu_1")]],
@@ -226,5 +228,65 @@ describe("Claude research arguments and stream observation (D-269)", () => {
     const error = rejection(events as unknown[]);
     expect(error.providerFailure).toMatchObject({ disposition: "terminal", code: "local_web_research_boundary" });
     expect(error.message).toMatch(/^Claude .*No (searched evidence was accepted and no )?paid fallback was attempted\.$/);
+  });
+
+  /* Independent review round 1 (2026-11-14) reproductions. */
+  it.each(["https://co.uk", "com.au", "https://www.co.jp", "org.uk", "https://github.io", "https://ir.example.co.uk"])(
+    "never grants a public-suffix-like base as a WebFetch wildcard: %s", website => {
+      const args = claudeRunArgs("claude-opus-5-5", undefined, { webFetch: claudeWebFetchAllowlist(issuerWebFetchHost(website)) });
+      const allowed = args.slice(args.indexOf("--allowedTools") + 1, args.indexOf("--disallowedTools"));
+      const wildcards = allowed.filter(arg => arg.startsWith("WebFetch(domain:*.")).map(arg => arg.slice("WebFetch(domain:*.".length, -1));
+      for (const base of wildcards) expect(CLAUDE_WEBFETCH_FIXED_DOMAINS).toContain(base);
+    });
+
+  it.each(["https://co.uk", "com.au", "co.jp", "org.uk", "https://github.io", "https://x.github.io"])("gives no issuer host for a bare public suffix or shared host: %s",
+    website => expect(issuerWebFetchHost(website)).toBeNull());
+
+  it("grants the issuer's registrable parent with subdomains, or its exact host only", () => {
+    const rules = (website: string) => { const args = claudeRunArgs("claude-opus-5-5", undefined, { webFetch: claudeWebFetchAllowlist(issuerWebFetchHost(website)) });
+      return args.slice(args.indexOf("--allowedTools") + 1, args.indexOf("--disallowedTools")).slice(1 + 2 * CLAUDE_WEBFETCH_FIXED_DOMAINS.length); };
+    expect(rules("https://www.lilly.com")).toEqual(["WebFetch(domain:lilly.com)", "WebFetch(domain:*.lilly.com)"]);
+    expect(rules("https://ir.example.co.uk")).toEqual(["WebFetch(domain:ir.example.co.uk)"]);
+    expect(rules("https://www.co.jp")).toEqual(["WebFetch(domain:www.co.jp)"]);
+    expect(registrableWebFetchParent("ir.example.co.uk")).toBeNull();
+    expect(registrableWebFetchParent("a.b.com.au")).toBeNull();
+    expect(registrableWebFetchParent("investor.lilly.com")).toBe("lilly.com");
+    // The observer reads the same allowlist: the exact host is fetchable, its siblings are not.
+    const observer = claudeResearchObserver(8, claudeWebFetchAllowlist("ir.example.co.uk"));
+    for (const event of [init(), fetch("toolu_1", "https://ir.example.co.uk/results"), fetchResult("toolu_1", 200),
+      fetch("toolu_2", "https://other.example.co.uk/x"), fetchResult("toolu_2", 200), final("Notes.")]) observer.line(JSON.stringify(event));
+    expect(observer.finish().fetchedUrls).toEqual(["https://ir.example.co.uk/results"]);
+    // Entries that bypass the builders are filtered again before they reach the CLI.
+    const forged = claudeRunArgs("claude-opus-5-5", undefined, { webFetch: { domains: ["co.uk", "sec.gov"], hosts: ["127.0.0.1", "com.au"] } });
+    expect(forged.join(" ")).not.toMatch(/domain:(\*\.)?(co\.uk|com\.au|127\.0\.0\.1)\)/);
+  });
+
+  it("rejects a reused tool id with a different call instead of counting one action and keeping its first URL", () => {
+    const events = [init(), ...Array.from({ length: 9 }, (_, index) => fetch("toolu_1", `https://www.sec.gov/page-${index}`)), fetchResult("toolu_1", 200), final("Notes.")];
+    expect(rejection(events).providerFailure.code).toBe("local_web_research_boundary");
+  });
+
+  it("counts an exact repeat of the same tool block once", () => {
+    expect(run([init(), fetch("toolu_1", "https://www.sec.gov/a"), fetch("toolu_1", "https://www.sec.gov/a"), fetchResult("toolu_1", 200), final("Notes.")]))
+      .toMatchObject({ webSearches: 1, fetchedUrls: ["https://www.sec.gov/a"] });
+  });
+
+  it("counts a call with no result by the final event as a failed action, never a source", () => {
+    expect(run([init(), search("toolu_1"), fetch("toolu_2", "https://www.sec.gov/x"), final("Notes.")])).toMatchObject({ webSearches: 2, fetchedUrls: [] });
+  });
+
+  it.each([
+    ["a string is_error on a tool result", [init(), fetch("toolu_1", "https://www.sec.gov/x"), fetchResult("toolu_1", 200, { is_error: "true" }), final("Notes.")]],
+    ["a numeric is_error on a tool result", [init(), fetch("toolu_1", "https://www.sec.gov/x"), fetchResult("toolu_1", 200, { is_error: 0 }), final("Notes.")]],
+    ["a non-boolean is_error on the final event", [init(), final("Notes.", { is_error: 0 })]],
+    ["a final event from a nested agent with no init", [final("Notes.", { parent_tool_use_id: "toolu_0" })]],
+    ["a final event from a nested agent after init", [init(), final("Notes.", { parent_tool_use_id: "toolu_0" })]],
+    ["a final event with no init", [final("Notes.")]],
+    ["an event before init", [{ type: "rate_limit_event" }, init(), final("Notes.")]],
+    ["a second init", [init(), init(), final("Notes.")]],
+    ["a nested system event", [init(), { type: "system", subtype: "status", parent_tool_use_id: "toolu_0" }, final("Notes.")]],
+    ["non-array permission denials", [init(), final("Notes.", { permission_denials: { tool_name: "Bash" } })]],
+  ])("rejects malformed or nested metadata: %s", (_name, events) => {
+    expect(rejection(events as unknown[]).providerFailure.code).toBe("local_web_research_boundary");
   });
 });

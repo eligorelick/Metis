@@ -46,12 +46,22 @@ provider, so the ChatGPT prompt is byte-for-byte unchanged.
 **Observation from typed events only.** The research request uses
 `--output-format stream-json --verbose`, and Metis reads each line as it arrives:
 
-- The `system`/`init` event must offer no tool other than WebSearch and WebFetch and
-  no MCP server; an assistant `tool_use` of any other name, any other tool-like block
-  (such as a server-side tool), an event from a nested agent (`parent_tool_use_id`), a
-  tool result for an unknown action, a permission denial other than a refused WebFetch
-  outside the allowlist, a malformed line or an event after the final result stops the
-  CLI and rejects the research.
+- The `system`/`init` event must come first, exactly once, and offer no tool other than
+  WebSearch and WebFetch and no MCP server. Any of the following stops the CLI and
+  rejects the research:
+  - an event before init, or a second init;
+  - an assistant `tool_use` of any other name, or any other tool-like block (such as a
+    server-side tool);
+  - an event of any type from a nested agent (a non-null `parent_tool_use_id`);
+  - a tool call id reused for a different call (an exact repeat of the same block counts
+    once);
+  - a tool result for an unknown action;
+  - an `is_error` that is present but not a boolean, on a tool result or the final event;
+  - `permission_denials` that is not an array, or that names anything other than a
+    refused WebFetch outside the allowlist;
+  - a malformed line, or an event after the final result.
+- Actions are counted by `tool_use` blocks. A call with no result by the final event is a
+  failed action: it counts and never becomes a source.
 - Each WebFetch counts as one action and each WebSearch as the number of searches its
   typed result reports (`searchCount`, at least one); the final `result` event's
   per-model `webSearchRequests` is a second check. The first observed action beyond
@@ -96,15 +106,27 @@ attacker's site in a second fetch. Doubt denies access, so:
   - `europa.eu` (EU institutions, including the EMA at `ema.europa.eu` and the European
     Commission) and `gov.uk` (UK government, including the MHRA and the CMA). These
     cover the official foreign regulators most theses need.
-- *The issuer's own domain is added* when the bundle's company profile gives a website:
-  deterministic data, never model text (`issuerWebFetchDomain`, read in `toPassDeps`
-  through the payload's assembly context). It is the plain public hostname with a
-  leading `www.` removed, the same derivation the issuer-website readers use (for
-  example `https://www.lilly.com` gives `lilly.com`). There is no issuer domain if the
-  value is absent or malformed, or is an IP literal, a localhost-like or other local-use
-  name, a wildcard-DNS name, or a shared-hosting suffix where anyone can publish a
-  subdomain (such as `github.io` or `azurewebsites.net`). The transport re-validates the
-  domain, and `runClaude` lets only fixed or re-validated domains reach the CLI's rules.
+- *The issuer's own site is added* when the bundle's company profile gives a website:
+  deterministic data, never model text (`issuerWebFetchHost`, read in `toPassDeps`
+  through the payload's assembly context).
+  - **No issuer host** if the value is absent or malformed, or is an IP literal, a
+    localhost-like or other local-use name, a wildcard-DNS name, a shared-hosting name
+    where anyone can publish a subdomain (such as `github.io` or `azurewebsites.net`),
+    or a bare public suffix (`co.uk`, `com.au`, `org.uk`).
+  - **Wildcard only for a registrable parent** (`claudeWebFetchAllowlist`,
+    `registrableWebFetchParent`; review round 1, 2026-11-14). The issuer's parent (last
+    two labels) gets `d` and `*.d` only when it is plausibly registrable: a generic TLD
+    of three or more letters, or a two-letter ccTLD whose second-level label is not a
+    generic public second level (co, com, net, org, gov, edu, ac, ne, or, go, gob, gv,
+    ltd, plc and similar). For example, `https://www.lilly.com` gives `lilly.com` and
+    `*.lilly.com`.
+  - **Otherwise the exact host only.** `https://ir.example.co.uk` gives that host and
+    nothing under `co.uk`, and `www.co.jp` gives only that host.
+  - **Fail closed, no dependency.** A public suffix can never become a wildcard. No
+    public-suffix list is installed, so none was added; the cost is that an issuer under
+    a ccTLD's generic second level gets its exact site, not its subdomains.
+  - **Re-validated twice.** The transport re-validates the host, and `runClaude` and
+    `claudeRunArgs` let only fixed or re-validated entries reach the CLI's rules.
 - *A refused fetch is a failed action.* A WebFetch outside the allowlist that the CLI
   refuses counts toward the eight actions and never becomes a source. Its permission
   denial does not reject the research; a denial of any other tool, or of an
@@ -195,7 +217,7 @@ no longer a source.
 **Approved report changes.** None. The same-report check against pinned main `57ba3f54`
 found no differing leaf in the 17 stored cases (119 files, check database) or the two LLY
 cases (14 files, the round's working-copy database, read-only), and again with no differing
-leaf against main `e8d3b567` after merging it, including after the WebFetch allowlist and the disclosure wording (17 stored cases and the two LLY cases). The golden harness runs
+leaf against main `e8d3b567` after merging it, including after the WebFetch allowlist and the disclosure wording (17 stored cases and the two LLY cases). After the review-round-1 fixes and merging main `efa432ee`, the check re-pinned to `efa432ee` again shows no differing leaf in either set. The golden harness runs
 no model, and this change touches only the model transport and its wiring. The accuracy
 check on the after set reports every figure as expected (265 figures in 13 cases).
 
@@ -221,6 +243,20 @@ with `importOriginal` so the real error class is available. This branch's own ea
 assertion that research allows a bare `WebFetch` was replaced, as the allowlist decision
 requires, by the stricter assertion that the allowed list is exactly WebSearch plus the
 domain rules and never contains a bare `WebFetch`.
+
+**Independent review round 1 (2026-11-14, REJECT, three fail-open cases; no computed
+number affected).** Each was reproduced as a failing test first, then fixed:
+
+1. A public suffix could become a broad fetch permission (`co.uk` gave `*.co.uk`). Fixed
+   by the registrable-parent rule above.
+2. A reused tool id could bypass the action cap and misattribute provenance. A reused id
+   now rejects the research unless it exactly repeats the same block.
+3. Malformed error metadata or a nested final event could be accepted. Field types are
+   now strict, init must come first, and a nested event of any type rejects.
+
+One earlier test row, "an action that never completed" (rejected), was replaced by the
+reviewer's rule. Such a call is now a counted failed action that is never a source,
+asserted in its own test. Rejection for a missing final event is unchanged.
 
 ## D-268 - Bounded carrying investment subtotals (2026-11-14; independent review corrections)
 

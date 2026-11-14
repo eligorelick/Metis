@@ -476,7 +476,7 @@ describe("subscription research wiring", () => {
   });
 
   it("adds the profile's issuer domain to the Claude research request, and never an IP-literal website (D-269)", async () => {
-    for (const [website, expected] of [["https://www.example-issuer.com", { issuerDomain: "example-issuer.com" }], ["http://127.0.0.1:3000", {}]] as const) {
+    for (const [website, expected] of [["https://www.example-issuer.com", { issuerHost: "www.example-issuer.com" }], ["http://127.0.0.1:3000", {}]] as const) {
       vi.restoreAllMocks();
       const transport = vi.spyOn(subscriptionTransport, "runSubscriptionPass").mockResolvedValue({ ...refusal, error: { ...refusal.error, model: "claude/example" } });
       const { bundle, computed, validation } = buildInputs();

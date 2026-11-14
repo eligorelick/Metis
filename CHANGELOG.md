@@ -24,6 +24,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Metis reads the CLI's typed stream events: any other tool, MCP server, nested agent or fetch of a local, private or IP-literal address stops the request, the first action beyond eight or ten minutes stops the CLI, and only typed search links and successfully fetched URLs become citable sources. Prose URLs never do. No failure switches to a paid route.
 - WebSearch is unrestricted. WebFetch runs on your computer, so it may read only sec.gov, a short list of regulator, statistics and exchange sites, and the issuer's own website domain from the company profile (validated, never an IP or local name); the CLI refuses any other fetch before it runs, and a refused fetch counts as an action but is never a source. Private-address deny rules and a stop-on-attempt check stay as extra defence.
 - Run details say how many Claude Code web searches and page fetches ran, including zero.
+- Review round 1: an issuer under a public suffix (co.uk, com.au) gets its exact site only, never a suffix-wide permission. A reused tool id, a non-boolean error flag, an event before the CLI's init event, or any nested-agent event rejects the research. A call with no result counts as a failed action.
 - No calculation, payload or report stamp changes; computed figures still come only from filings and the supplied evidence. Settings, README, privacy, operations, methodology and Claude usage text now say so.
 
 ## Unreleased - Bounded carrying investment subtotals (P7, P8, D-268)
