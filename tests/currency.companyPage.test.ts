@@ -95,7 +95,8 @@ describe("company page money cells", () => {
     bundle.quote.value.data.rows[0]!.timestamp = Date.parse("2026-11-04T20:00:00Z") / 1000;
     const p = await panels({ bank }, bundle);
     expect(p.ValuationPanel?.includes("vs price")).toBe(false);
-    expect(p.ValuationPanel?.includes("Dated reference value")).toBe(true);
+    expect(p.ValuationPanel).toMatch(/Model value at \d{4}-\d{2}-\d{2}/);
+    expect(p.ValuationPanel).toContain("not a current fair value");
     expect(p.ValuationPanel?.includes("2026-11-04")).toBe(true);
   });
   it.each(["unresolved", "bank", "standard"])("labels the actual Piotroski variant in the live forensics panel (%s)", async variant => {

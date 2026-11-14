@@ -224,16 +224,18 @@ export function SectionFrame({
 
 /** Small labeled sub-block used inside sections. */
 function SubBlock({
+  id,
   label,
   semanticToken,
   children,
 }: {
+  id?: string;
   label: ReactNode;
   semanticToken?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
+    <div id={id} className="flex min-w-0 flex-col gap-1.5">
       <div className="text-[9px] uppercase tracking-[0.12em] text-faint">
         {semanticToken && <span aria-hidden="true" className="sr-only">{semanticToken}</span>}
         {label}
@@ -547,7 +549,7 @@ export function RecentDevelopmentsBlock({ developments }: { developments: NonNul
 /** Q1: dated actions by the CEO, other executives or the board. Absent on saved reports. */
 function ManagementActionsBlock({ actions }: { actions: NonNullable<Leadership["managementActions"]> }) {
   return (
-    <SubBlock label={MANAGEMENT_ACTIONS_HEADING}>
+    <SubBlock id="report-management-actions" label={MANAGEMENT_ACTIONS_HEADING}>
       {actions.length === 0 ? (
         <div className="text-[11px] text-faint">{NO_MANAGEMENT_ACTIONS}</div>
       ) : (

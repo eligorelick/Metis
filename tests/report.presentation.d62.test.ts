@@ -1,3 +1,4 @@
+import * as segmentFacts from "@/edgar/segmentFacts";
 /**
  * D-62: the reader-facing presentation rules shared by the Markdown, print and
  * live surfaces, and the separate audit export. Focused on the defects the
@@ -5,7 +6,7 @@
  */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ReportView } from "@/components/report/ReportView";
 import { reportToPrintBody } from "@/report/export/printHtml";
@@ -293,19 +294,19 @@ it("D-264 keeps segment shares explicitly non-additive and qualifies broad vendo
 });
 
 
-it("D-264 groups four-part subtotals only across matching quarters and discloses overlap on every surface", () => {
+it.each([{parts:[40,30,20,10]}, {parts:[40,30,20,7,3]}])("D-264 groups larger exact subtotals only across matching quarters: $parts", ({parts}) => {
   const r = loadTask28Fixture();
   r.filingDisclosures = { version: "1.0.0", currency: "USD", currencyBasis: "synthetic", guidance: null, guidanceChecks: [], freeCashFlow: [], freeCashFlowDefinition: null, capitalReturn: null, events: [], quarterlyTrend: [], notes: [],
     segments: [{ axis: "example", axisLabel: "Geography", currency: "USD", quarters: ["2026-06-30", "2026-03-31"], total: [200, 200], sources: ["synthetic filing"], priorPresentation: [], derivedCells: 0,
-      rows: [{ label: "Aggregate", childOf: null, values: [100,100] }, ...[40,30,20,10].map((v,i) => ({ label: `Region ${i}`, childOf: null, values: [v,v] }))] }] };
+      rows: [{ label: "Aggregate", childOf: null, values: [100,100] }, ...parts.map((v,i) => ({ label: `Region ${i}`, childOf: null, values: [v,v] }))] }] };
   const before = JSON.stringify(r);
   for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) {
-    expect(text).toContain("Region 3 is part of Aggregate");
+    expect(text).toContain(`Region ${parts.length - 1} is part of Aggregate`);
     expect(text).toContain("shares must not be added");
   }
   expect(JSON.stringify(r)).toBe(before);
-  r.filingDisclosures.segments[0]!.rows[4]!.values[1] = 15;
-  for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) expect(text).not.toContain("Region 3 is part of Aggregate");
+  r.filingDisclosures.segments[0]!.rows[parts.length]!.values[1]! += 5;
+  for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) expect(text).not.toContain(`Region ${parts.length - 1} is part of Aggregate`);
 });
 
 it("D-264 removes periodless accrual aliases on all surfaces, without confusing a separate metric", () => {
@@ -325,4 +326,34 @@ it.each(["Non-US", "Outside U.S.", "International"])("D-264 qualifies the broad 
   expect(geographyLabel(name, [{name:"Europe"}, {name:"United States"}])).toContain("scope not established");
   expect(geographyLabel(name, [{name:"United States"}])).toBe(name);
   expect(geographyLabel("Europe", [{name:"United States"}])).toBe("Europe");
+});
+
+
+it("D-264 renders a wide independent axis without enumerating subsets or inventing hierarchy", () => {
+  const r = loadTask28Fixture();
+  r.filingDisclosures = { version: "1.0.0", currency: "USD", currencyBasis: "synthetic", guidance: null, guidanceChecks: [], freeCashFlow: [], freeCashFlowDefinition: null, capitalReturn: null, events: [], quarterlyTrend: [], notes: [],
+    segments: [{ axis: "wide", axisLabel: "Independent members", currency: "USD", quarters: ["2026-06-30", "2026-03-31"], total: [1000, 1000], sources: ["synthetic filing"], priorPresentation: [], derivedCells: 0,
+      rows: Array.from({length: 48}, (_, i) => ({label: `Member ${i}`, childOf: null, values: [100 + i, 200 + i]})) }] };
+  const before = JSON.stringify(r);
+  // Fail immediately on the old implementation, rather than executing its exponential search.
+  const search = vi.spyOn(segmentFacts, "markSubtotals").mockImplementation(() => { throw new Error("wide axis must not enumerate subsets"); });
+  try {
+    const started = performance.now();
+    for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) {
+      expect(text).toContain("Member 47");
+      expect(text).toContain("Hierarchy is not established for this wide segment table");
+      expect(text).not.toContain("is part of");
+    }
+    expect(performance.now() - started).toBeLessThan(2000);
+    expect(search).not.toHaveBeenCalled();
+    expect(JSON.stringify(r)).toBe(before);
+  } finally { search.mockRestore(); }
+});
+
+it("D-264 refuses a near subtotal that does not sum exactly on the retained numbers", () => {
+  const r = loadTask28Fixture();
+  r.filingDisclosures = { version: "1.0.0", currency: "USD", currencyBasis: "synthetic", guidance: null, guidanceChecks: [], freeCashFlow: [], freeCashFlowDefinition: null, capitalReturn: null, events: [], quarterlyTrend: [], notes: [],
+    segments: [{ axis: "near", axisLabel: "Near subtotal", currency: "USD", quarters: ["2026-06-30", "2026-03-31"], total: [200,200], sources: ["synthetic filing"], priorPresentation: [], derivedCells: 0,
+      rows: [{ label:"Aggregate", childOf:null, values:[100,100] }, {label:"Part A", childOf:null, values:[60,60]}, {label:"Part B", childOf:null, values:[40.01,40.01]}] }] };
+  for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) expect(text).not.toContain("is part of");
 });

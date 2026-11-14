@@ -343,6 +343,10 @@ function trackRecordTable(d: FilingDisclosures): ReportAuditTable[] {
   }];
 }
 
+// D-264: fixed work bounds, independent of the size of a saved axis.
+const MAX_READER_HIERARCHY_MEMBERS = 20;
+const MAX_READER_HIERARCHY_COMPONENTS = 5;
+
 function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
   const tables = d.segments.map((s) => {
     const latest = s.quarters[0]!;
@@ -364,16 +368,35 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
     const total = s.total[0] ?? null;
     // D-264: use the builder's existing multi-quarter subtotal proof at read time.
     // The builder historically tried only two/three components; stored bytes stay intact.
-    const members = s.rows.map(r => ({ ...r, member: r.label }));
-    markSubtotals(members, members.length);
-    const ordered: typeof members = [];
+    const wide = s.rows.length > MAX_READER_HIERARCHY_MEMBERS;
+    const members = s.rows.map(r => ({ ...r, member: r.label, childOf: null as string | null }));
+    if (!wide) {
+      markSubtotals(members, MAX_READER_HIERARCHY_COMPONENTS);
+      // Candidate generation uses the builder's existing rounding rule; a reader
+      // relationship additionally requires exact sums in every comparable quarter.
+      for (const parent of members) {
+        const children = members.filter(r => r.childOf === parent.label);
+        if (!children.length) continue;
+        let agreeing = 0;
+        const exact = s.quarters.every((_, q) => {
+          if (parent.values[q] == null || children.some(r => r.values[q] == null)) return true;
+          agreeing++;
+          return children.reduce((sum, r) => sum + r.values[q]!, 0) === parent.values[q];
+        });
+        if (!exact || agreeing < 2) for (const child of children) child.childOf = null;
+      }
+    }
+    // Wide axes keep source order with no hierarchy; avoid even quadratic sorting.
+    const ordered: typeof members = wide ? members : [];
     const append = (row: typeof members[number], ancestors: Set<string>) => {
       if (ancestors.has(row.label) || ordered.includes(row)) return;
       ordered.push(row);
       for (const child of members.filter(r => r.childOf === row.label)) append(child, new Set([...ancestors, row.label]));
     };
-    for (const row of members.filter(r => r.childOf === null)) append(row, new Set());
-    for (const row of members) append(row, new Set());
+    if (!wide) {
+      for (const row of members.filter(r => r.childOf === null)) append(row, new Set());
+      for (const row of members) append(row, new Set());
+    }
     const rows = ordered.map((r) => [
       r.childOf === null ? decodeEntities(r.label) : `  ↳ ${decodeEntities(r.label)}`,
       ...s.quarters.map((_, i) => money(r.values[i] ?? null, s.currency)),
@@ -387,6 +410,7 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
       crossFilingClause(s.quarters.filter((_,i)=>s.totalCrossFilingAt?.includes(i)||s.rows.some(r=>r.crossFilingAt?.includes(i)))).trim(),
       `XBRL revenue facts from ${s.sources.join(", ")}; the newest filing's figure wins where filings overlap (recast comparatives).`,
       members.some((r) => r.childOf !== null) ? `Component relationships (established across at least two quarters): ${members.filter(r => r.childOf !== null).map(r => `${decodeEntities(r.label)} is part of ${decodeEntities(r.childOf!)}`).join("; ").replace(/\.+$/, "")}.` : "",
+      wide ? "Hierarchy is not established for this wide segment table; rows remain in source order and shares may overlap." : "",
       "Shares use consolidated revenue as the denominator. Parent rows and their components overlap; shares must not be added across those levels. Other revenue partitions in the same table can also overlap.",
       `YoY revenue change subtracts the comparable quarter ended ${yearAgo < 0 ? "(unavailable)" : s.quarters[yearAgo]} from ${latest}, on the same presentation. Indented component rows are not added again to their parent; changes are not profit contributions or proof that displayed members exhaust consolidated revenue.`,
       s.priorPresentation.length > 0 ? `Members tagged only in earlier quarters (a prior presentation) are omitted: ${s.priorPresentation.join(", ")}.` : "",

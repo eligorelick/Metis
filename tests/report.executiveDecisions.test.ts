@@ -1,3 +1,4 @@
+import { ReportView } from "@/components/report/ReportView";
 import fs from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -331,9 +332,13 @@ it("D-264 points executive cards to one outlook guidance block and preserves sto
   report.outlook.guidanceCredibility = [guidance];
   report.appendix.verificationLog = [...actionLog(), { path: "outlook.guidanceCredibility[0]", claim: guidance.text, source: guidance.source, outcome: "unverified", validationStatus: "unchecked" }];
   const before = JSON.stringify(report);
-  for (const [i, text] of [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(LeadershipSection, { leadership: report.leadership, report, index: 7 }))].entries()) {
+  for (const [i, text] of [reportToMarkdown(report), reportToPrintBody(report), renderToStaticMarkup(createElement(ReportView, {report}))].entries()) {
     expect(text).toContain("See the Management actions table");
     expect(text).toContain("#report-outlook");
+    for (const id of ["report-management-actions", "report-outlook"]) {
+      expect(text).toContain(i === 0 ? `](#${id})` : `href="#${id}"`);
+      expect(text.match(new RegExp(`id="${id}"`, "g"))).toHaveLength(1);
+    }
     expect(text).not.toContain("shared management chronology");
     expect(text).not.toContain("Company guidance context");
     expect(text).toContain(stored.text);

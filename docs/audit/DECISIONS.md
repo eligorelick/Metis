@@ -30,7 +30,13 @@ source cells; equal amounts alone never prove identity. This extends D-62.
 
 The segment reader reuses the builder's established subtotal test: agreement in
 all jointly populated quarters, at least two quarters, and the existing rounding
-allowance. It can display four-or-more-part subtotals; the generation default
+allowance for candidate generation. Following review, reader candidates must also
+sum exactly in every comparable quarter. Read-time search is capped at 20 members
+and five components. Wider axes show no hierarchy, retain source order and disclose
+the limitation; there is no subset enumeration or quadratic hierarchy ordering on
+that path. The limits bound work rather than relax any arithmetic evidence test.
+Four- and five-component controls and a 48-member independent axis cover this;
+the generation default
 remains two/three components. It changes hierarchy and order only, never any
 number or stored childOf. The note names every parent relationship and warns that
 shares across parents, components and other partitions overlap. This extends
@@ -103,6 +109,19 @@ Approved report changes:
 - The available-model wording sibling also changes amzn-data-only,
   amzn-fixed-analyst, mu-data-only, mu-fixed-analyst, nvda-data-only,
   nvda-fixed-analyst and qcom-data-only. No company type is left on an old rule.
+
+Review follow-up: the live-card test now checks both valuation/quote dates, the
+explicit not-current qualification and absence of current upside, rather than the
+old label. The other reader assertion on that label was updated; generation and
+audit assertions keep their original wording. Web management actions now has its
+linked anchor, and Markdown outlook gains its missing anchor. A three-surface
+regression requires both introduced links to have exactly one matching target.
+No stored field, financial value, calculation rule or version stamp changes.
+
+Approved review-follow-up deltas relative to the original PR head: reader hierarchy
+may be withheld where bounded, exact proof is absent; Markdown gets an outlook
+anchor and the web view gets the management-actions anchor. All immutable outputs
+and audit exports must remain byte-identical to the pinned main baseline.
 
 Validation: TypeScript and lint pass (one pre-existing unused-variable warning).
 The first changed-suite run covered 576 files and exposed old presentation

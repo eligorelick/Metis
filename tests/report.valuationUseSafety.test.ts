@@ -144,9 +144,13 @@ describe("immutable current-use report view", () => {
   });
   it("presents the same dated-reference limit on live, Markdown, print and audit surfaces", () => {
     const report = legacy(), before = JSON.stringify(report);
-    for (const text of [renderToStaticMarkup(createElement(ReportView, { report })), reportToMarkdown(report), reportToPrintBody(report), reportToAuditMarkdown(report)]) {
-      expect(text).toContain("Dated reference value"); expect(text).toContain("2025-12-31"); expect(text).toContain("2026-07-20");
+    for (const text of [renderToStaticMarkup(createElement(ReportView, { report })), reportToMarkdown(report), reportToPrintBody(report)]) {
+      expect(text).toContain("Model value at 2025-12-31");
+      expect(text).toContain("not a current fair value");
+      expect(text).toContain("2026-07-20");
     }
+    // Generation/audit deliberately retain the original diagnostic wording.
+    expect(reportToAuditMarkdown(report)).toContain("Dated reference value");
     expect(JSON.stringify(report)).toBe(before);
   });
   it("registers reference values separately and binds the same qualification on the data-only path", () => {

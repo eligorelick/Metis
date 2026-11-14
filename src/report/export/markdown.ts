@@ -853,7 +853,7 @@ function renderCatalystsRisks(cr: CatalystsRisks, dataOnly = false, extra: reado
 
 function renderOutlook(report: Report): string {
   const o = report.outlook;
-  const lines: string[] = [sectionHeading("outlook"), ""];
+  const lines: string[] = ['<a id="report-outlook"></a>', "", sectionHeading("outlook"), ""];
   lines.push(...subsection("### Segment trajectories", claimList(o.segmentTrajectories)));
   if (o.tam && o.tam.length > 0) lines.push(...subsection("### TAM", claimList(o.tam)));
   lines.push(...subsection("### Estimate-revision trend", claimList(o.estimateRevisionTrend)));
