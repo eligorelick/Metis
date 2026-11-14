@@ -213,3 +213,35 @@ it("D-263 review keeps an explicit positive sign as a real outflow conflict", ()
   const registry = [record];
   expect(checkPlainFigures(text, { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) })[0].outcome).toBe("contradiction");
 });
+
+// D-263 second review: blocking a rebuilt-label confirmation must not also drop a value conflict the rebuild finds.
+it("D-263 second review keeps a value conflict under a declared definition and binds no other record", () => {
+  const gross: NumericProvenanceRecord = { ...inc, id: "computed.margins.gross", label: "gross margin", unit: "percent", currency: null, value: 40, componentDefinitions: ["gross profit divided by revenue"] };
+  const operating: NumericProvenanceRecord = { ...inc, id: "computed.margins.operating", label: "operating margin", unit: "percent", currency: null, value: 22.34, componentDefinitions: ["operating income divided by revenue"] };
+  const registry = [gross, operating];
+  const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
+  // The clause names the gross-margin definition and states the operating-margin value: a real conflict with gross margin.
+  const conflict = checkPlainFigures("Margin (gross profit divided by revenue) as of 2026-01-25 was 22.34%.", options)[0];
+  expect(conflict.outcome).toBe("contradiction");
+  expect(conflict.source).toBe("computed.margins.gross");
+  // Control: the rebuilt label never confirms, so a matching value stays at most a value match.
+  expect(checkPlainFigures("Margin (operating income divided by revenue) as of 2026-01-25 was 22.34%.", options)[0].outcome).not.toBe("contradiction");
+  expect(checkPlainFigures("Margin (gross profit divided by revenue) as of 2026-01-25 was 40%.", options)[0].outcome).not.toBe("contradiction");
+  // Another shape: a definition declared by one record cannot make a different record the subject.
+  const fcf: NumericProvenanceRecord = { ...inc, id: "computed.fcf", label: "free cash flow", value: 19.66e9, componentDefinitions: ["operating cash flow less capital expenditure"] };
+  const ocf: NumericProvenanceRecord = { ...inc, id: "computed.ocf", label: "operating cash flow", value: 30.64e9 };
+  const cash = [fcf, ocf];
+  const cashOptions = { registry: cash, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(cash), index: buildPlainFigureIndex(cash, [], "USD", []) };
+  expect(checkPlainFigures("Free cash flow (operating cash flow less capital expenditure) as of 2026-01-25 was USD 19.66 billion.", cashOptions)[0].outcome).toBe("confirmed");
+});
+
+it("D-263 second review keeps a different amount stated for a declared cash outflow as a conflict", () => {
+  const record: NumericProvenanceRecord = { ...inc, label: "cash capital expenditure", value: -1.234e9, cashFlowDirection: "outflow" };
+  const registry = [record];
+  const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
+  expect(checkPlainFigures("Cash capital expenditure as of 2026-01-25 was a source of cash of USD 2.5 billion.", options)[0].outcome).toBe("contradiction");
+  // Control: the same magnitude with an opposed direction is never confirmed.
+  expect(checkPlainFigures("Cash capital expenditure as of 2026-01-25 was a source of cash of USD 1.234 billion.", options)[0].outcome).not.toBe("confirmed");
+  // Control: the plain statement of the outflow still confirms.
+  expect(checkPlainFigures("Cash capital expenditure as of 2026-01-25 was USD 1.234 billion.", options)[0].outcome).toBe("confirmed");
+});

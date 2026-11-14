@@ -316,12 +316,17 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
       let result = frame ? undefined : validate(isolated);
       let display = record.unit === "ratio" && record.unitScale === "fraction" && q.unit === "percent" ? record.value * 100 : record.value;
       if (!result || (result.status !== "validated" && !(result.status === "contradicted" && result.reason === "value-mismatch"))) {
-        if (components.definitions.length > 0) continue;
-        // D-263: reconstructing a label must not discard an opposed cash-use direction.
-        if (declaredOutflow(record)) continue;
+        // D-263 (second review): a rebuilt label may still find a value conflict, but it never confirms where the
+        // clause held a declared definition or the record is a declared cash outflow (the rebuild drops the clause's
+        // own words, including an opposed cash-use direction). Only the record that declares a found definition is
+        // read under it; any other record stays unbound, so a definition cannot select a different metric.
+        const ownsDefinition = declaredDefinitions(record).some(d => components.definitions.includes(d.trim().toLowerCase().replace(/\s+/g, " ")));
+        if (components.definitions.length > 0 && !ownsDefinition) continue;
+        const confirmationBlocked = ownsDefinition || declaredOutflow(record);
         if (frame && !frame.source(record)) continue;
         if (!frame && descriptionConflictsWithRecord({ metric: own.own, segment: own.own }, record, options.ignoreWords)) continue;
-        const reading = frame ? { label: frame.label } : readings.find(({ tokens }) => tokens.length > 0 && words.some((_, i) => namesMetric(words.slice(i, i + tokens.length), tokens)));
+        const reading = frame ? { label: frame.label } : readings.find(({ tokens }) => tokens.length > 0 && words.some((_, i) => namesMetric(words.slice(i, i + tokens.length), tokens)))
+          ?? (ownsDefinition ? readings.find(({ tokens }) => tokens.length > 0 && words.length > 0 && words.every(w => tokens.includes(w))) : undefined);
         if (!reading) continue;
         const sourceWords = [...metricTokens(reading.label, options.ignoreWords, { keepDirectionWords: true }), ...(frame?.label.startsWith("SMA") ? ["average"] : [])];
         const defining = new Set([...DEFINITION_MODIFIERS, "growth", "decline", "increase", "decrease", "change", "spread", "ratio", "conversion", "margin", "after", "before", "discount", "threshold"]);
@@ -332,6 +337,7 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
         const money = q.unit === "currency" && record.unit === "currency-per-share" ? `${raw} per share` : raw;
         const periods = [...own.periods.map(p => `for ${p.raw}`), ...own.bases.map(p => `compared with ${p.raw}`)].join(" ");
         result = validate(`${reading.label}: ${money} ${periods}`);
+        if (confirmationBlocked && result.status === "validated") continue;
         if (frame?.flip) display = -display;
       }
       if (result.status === "validated" || (result.status === "contradicted" && result.reason === "value-mismatch")) {

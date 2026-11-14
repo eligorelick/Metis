@@ -15058,3 +15058,21 @@ scan matches only the five approved main-to-final claims listed above. No final
 case gains a validation versus submitted head 3bf334038067f78f2191c1b4f6aead84875f497d.
 The final reader has no false legacy warning or FCF difference note. No verify,
 paid provider/model call, application-database write or merge was performed.
+
+### Second independent review (2026-11-14)
+
+A second review by a different model family confirmed the eight earlier
+findings fixed and found two cases where reader prose that main marks as a
+conflict was only left unverified. Both came from skipping the label rebuild
+entirely for a declared cash outflow or a clause holding a declared definition.
+The rebuild now runs for those records but can only report a value conflict; it
+never confirms. Under a found definition only the record that declares that
+definition is read, so a definition cannot make a different metric the subject.
+"Margin (gross profit divided by revenue) was 22.34%" against a 40% gross margin
+is again a conflict, and a different amount stated for a declared outflow is
+again a conflict. Known limit, kept on the cautious side (P19: doubt means
+unverified): uncited prose that states the same magnitude as a declared outflow
+but calls it a source of cash is left unverified, not marked as a conflict,
+because the rebuilt label no longer carries the clause's direction words. It is
+never confirmed. No stored-company figure changes: across the 17 regression
+cases and the two Eli Lilly rebuilds no numeric Stage B leaf differs from main.
