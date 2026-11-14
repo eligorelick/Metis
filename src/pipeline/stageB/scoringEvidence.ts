@@ -35,8 +35,9 @@ export function scoreSignalRefusal(i: ScoringInputs, aspect: ScoreAspect, id: st
     const key = id.startsWith("piotroski") ? /piotroski/i : id.startsWith("altman") ? /altman/i : id.startsWith("accruals") ? /accruals/i : /beneish/i;
     causes = i.forensics.gaps.filter(g => key.test(g.field)).map(g => g.reason);
   } else if (aspect === "valuation" || id === "equityReturnVsCoeSpread") {
-    causes = i.valuation.gaps.map(g => g.reason);
-    if (i.valuationUse.status !== "current") causes.push(`valuation use is ${i.valuationUse.status}: ${i.valuationUse.reason}; value date ${i.valuationUse.valueDate ?? "unestablished"}, quote date ${i.valuationUse.quoteDate ?? "unestablished"}`);
+    if (i.valuationUse.status !== "current") return `${id} withheld: valuation use is ${i.valuationUse.status}: ${i.valuationUse.reason}; value date ${i.valuationUse.valueDate ?? "unestablished"}, quote date ${i.valuationUse.quoteDate ?? "unestablished"}.`;
+    const root = id.includes("OwnHistoryRank") ? /history|ownHistory/i : id.startsWith("reverse") ? /reverseDcf/ : /valuation\.dcf(?:$|\.)/;
+    causes = i.valuation.gaps.filter(g => g.severity !== "info" && root.test(g.field)).slice(0,1).map(g => g.reason);
   } else if (aspect === "balanceSheet" || aspect === "leadership") {
     const key = id === "buybackTiming" ? /buyback|repurchase/i : id === "shareCountTrend" ? /share/i : id === "netDebtToEbitda" ? /netDebt|ebitda|cash/i
       : id === "interestCoverage" ? /interest|ebit/i : id === "sbcPctOfFcf" ? /sbc|fcf/i : id === "fcfConversionBeforeSbc" ? /fcf|netIncome/i : new RegExp(id, "i");

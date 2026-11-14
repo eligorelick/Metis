@@ -20,7 +20,7 @@ export interface LeaseDebtInputs {
   capitalLeaseObligationsCurrent?: number | null;
   capitalLeaseObligationsNonCurrent?: number | null;
   fieldProvenance?: Readonly<Record<string, { readonly tags: readonly string[]; readonly source?: string;
-    readonly periodEnd?: string | null; readonly periodStart?: string | null; readonly filings?: readonly { readonly accn?: string }[] } | undefined>>;
+    readonly calculation?: string; readonly periodEnd?: string | null; readonly periodStart?: string | null; readonly filings?: readonly { readonly accn?: string }[] } | undefined>>;
 }
 
 /** An amount in millions with grouped digits ("96,320M"); the refusal names the values it compared. */
@@ -192,6 +192,7 @@ export function operatingLeaseOutOfDebt(
 }
 
 export interface NetDebtInputs extends LeaseDebtInputs {
+  cashBasis?: "cash-only";
   date?: string | null;
   totalDebt?: number | null;
   cashAndCashEquivalents?: number | null;
@@ -206,7 +207,7 @@ export interface NetDebtInputs extends LeaseDebtInputs {
   /** Accepted only for diagnostics; its cash-only convention is never used. */
   vendorNetDebt?: number | null;
   /** The admission's refusals: a total debt refused there is named as refused, not missing (KNW-04). */
-  fieldConflicts?: Readonly<Record<string, { readonly usable?: boolean; readonly reason?: string } | undefined>>;
+  fieldConflicts?: Readonly<Record<string, { readonly usable?: boolean; readonly reason?: string; readonly cause?: string } | undefined>>;
 }
 
 export interface NetDebtResolution {
@@ -219,7 +220,7 @@ export interface NetDebtResolution {
   version: typeof NET_DEBT_RESOLVER_VERSION;
   value: number | null;
   asOf: string | null;
-  cashBasis: "combined-field" | "component-sum" | null;
+  cashBasis: "combined-field" | "component-sum" | "cash-only" | null;
   components: {
     totalDebt: number | null;
     cashAndCashEquivalents: number | null;
@@ -301,6 +302,22 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
   const leaseConflict = leaseDebtConflict(inputs);
   if (leaseConflict !== null) {
     return { ...base, value: null, cashBasis: null, conflict: true, reason: leaseConflict };
+  }
+
+  const refusedCash = ["cashAndCashEquivalents", "cashAndShortTermInvestments"].find(f => inputs.fieldConflicts?.[f]?.usable === false &&
+    !(f === "cashAndShortTermInvestments" && inputs.cashBasis === "cash-only" && inputs.fieldConflicts[f]?.cause === "liquidity-not-established"));
+  if (refusedCash) return { ...base, value: null, cashBasis: null, conflict: true,
+    reason: `${refusedCash} refused: ${inputs.fieldConflicts![refusedCash]!.reason ?? "incompatible liquidity evidence"}` };
+  if (inputs.cashBasis === "cash-only" && cash !== null) {
+    const debtProof = inputs.fieldProvenance?.totalDebt;
+    // Completing only a vendor lease line does not prove the rest of that vendor debt total.
+    if (debtProof?.source !== "edgar" || debtProof.calculation === "noncurrent-lease-line-completed" ||
+        debtProof.periodEnd !== inputs.date || debtProof.periodStart !== null || !debtProof.filings?.length) {
+      return { ...base, value: null, cashBasis: "cash-only",
+        reason: "cash-only liquidity established, but same-instant filed total debt is not established; house net debt unavailable" };
+    }
+    return { ...base, value: totalDebt - cash, cashBasis: "cash-only",
+      reason: "total debt minus filed cash only (narrower basis); short-term investments not established from the undimensioned facts available" };
   }
 
   if (combinedCash !== null) {

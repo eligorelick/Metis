@@ -60,6 +60,7 @@ const READERS: readonly ConflictCodeReader[] = ["leaseLineNoOperatingTotal", "re
 const READ_FIELDS: Record<ConflictCodeReader, readonly string[] | "any"> = { leaseLineNoOperatingTotal: "any", recoverableDebtScope: "any",
   shortTermDebtMaturityScope: ["shortTermDebt"], longTermDebtNoncurrentAllocation: ["longTermDebt"], noteRecoverableDebtTotal: ["totalDebt", "netDebt"],
   combinedAggregateExceedsComponents: ["totalDebt"], debtTotalMinorDifference: ["totalDebt"], legacyVendorSumRefusal: ["totalDebt"],
+  vendorSecLease: ["operatingLeaseLiability", "financeLeaseLiability"], vendorSecTemporaryEquity: ["temporaryEquity", "temporaryEquityAttributableToParent", "temporaryEquityAttributableToNoncontrollingInterest"],
   vendorSecStockCompensation: ["stockBasedCompensation"], vendorSecCash: ["cashAndCashEquivalents"], vendorShareRecheck: ["eps", "epsDiluted"] };
 /** D-221: a reader no current writer's code reaches; only a row without a code can pass it. */
 const LEGACY_ONLY: readonly ConflictCodeReader[] = ["legacyVendorSumRefusal"];
@@ -1197,7 +1198,7 @@ describe("run input snapshots", () => {
     expect(kept.map((conflict) => conflict.cause).filter((cause) => cause !== undefined).sort()).toEqual([
       "borrowing-cost-scope", "debt-aggregate-exceeds-components", "debt-combined-aggregate-exceeds-components", "debt-component-maturity-scope",
       "debt-components-incomplete", "debt-lease-line-no-operating-total", "debt-lease-line-refused", "debt-maturity-scope", "debt-noncurrent-allocation",
-      "debt-total-minor-difference", "debt-vendor-short-term-zero", "operating-basis", "operating-scope", "revenue-scope", "vendor-sec-value-conflict",
+      "debt-total-minor-difference", "debt-vendor-short-term-zero", "liquidity-not-established", "operating-basis", "operating-scope", "revenue-scope", "vendor-sec-value-conflict",
       "vendor-share-value-conflict"]);
     expect(kept.map((conflict) => conflict.cause).sort()).toEqual([...STATEMENT_CONFLICT_CAUSES].sort());
     const dropped = STATEMENT_CONFLICT_CAUSES.filter((cause) => DUAL_WRITTEN_CONFLICT_CAUSES.has(cause) && !CONFLICT_CAUSES_READ_BY_CODE.has(cause));

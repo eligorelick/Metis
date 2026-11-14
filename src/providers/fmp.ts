@@ -198,6 +198,8 @@ export interface StatementFieldConflict {
 export interface FiledIncomeLine { value: number; proof: StatementFieldProvenance; role?: "operating-sales" | "admitted-revenue" }
 
 export interface FmpStatementRow extends FmpRawRow {
+  /** D-261: a qualified cash-only operand, never a filed combined total. */
+  cashBasis?: "cash-only";
   date?: string;
   symbol?: string;
   reportedCurrency?: string | null;

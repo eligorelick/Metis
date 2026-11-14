@@ -31,10 +31,10 @@ const PINNED: Record<string, number> = {
   // G1/G2's overlay one, G3's two leads, G4's balance-fields one, G5's prefix and SEC-silent suffix,
   // P1's quota one, P2/P5's exact empty-array one, P3's containment one, P5's no-key and
   // unlisted-ticker ones, P4's unlinked-predecessor one and P7a's symbol-refusal one (13 lines).
-  // D-261 review: two deliberate legacy-only compatibility patterns moved here
-  // for the lease comparison and matched temporary-equity comparison. Typed
+  // D-261 review: the existing cash comparison site now shares legacy-only compatibility patterns
+  // with lease and temporary-equity comparisons; no additional wording site. Typed
   // causes and exact filing evidence decide re-admission everywhere else.
-  "src/edgar/refusalCauseRead.ts": 27,
+  "src/edgar/refusalCauseRead.ts": 25,
   // C13 (src/pipeline/keyless.ts) moved to its code in D-222; that file reads no wording now.
   // C15: netDebt removed when its sentence equals totalDebt's. C14 moved to its code in D-219.
   "src/pipeline/stageB/leaseScope.ts": 1,

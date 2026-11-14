@@ -616,34 +616,40 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       const latest = unambiguousNewest(copies);
       if (latest && latest.val >= 0 && copies.every(p => vendorAgreesWithFiled(p.val, latest.val))) {
         const cash = resolved(latest.val, [tag], [latest], unit, observedAt, null, row.date!);
-        const inFiling = (t: string) => instant(facts, t, unit, row.date!, observedAt, undefined, cash.evidence.filings);
-        const investment = tagsFor("shortTermInvestments").map(inFiling).find((p): p is Resolved => p !== null);
-        const investmentTagged = tagsFor("shortTermInvestments").some(t => points(facts, t, unit, observedAt).some(p =>
-          p.end === row.date && p.start === undefined && p.accn === latest.accn && p.filed === latest.filed && p.form === latest.form));
+        // D-261: the newest filing carrying the complete family anchors composition.
+        const carriesLiquidity = (p: FactPoint) => [...tagsFor("shortTermInvestments"), "CashCashEquivalentsAndShortTermInvestments"].some(t =>
+          points(facts, t, unit, observedAt).some(v => v.end === row.date && !v.start && v.accn === p.accn && v.filed === p.filed));
+        const anchor = newest(copies.filter(carriesLiquidity)) ?? latest;
+        const familyCash = resolved(anchor.val, [tag], [anchor], unit, observedAt, null, row.date!);
+        const inFiling = (t: string) => instant(facts, t, unit, row.date!, observedAt, undefined, familyCash.evidence.filings);
+        const investmentTag = tagsFor("shortTermInvestments").find(t => points(facts, t, unit, observedAt).some(p =>
+          p.end === row.date && !p.start && p.accn === anchor.accn && p.filed === anchor.filed));
+        const investment = investmentTag ? inFiling(investmentTag) : null;
+        const combinedFiled = inFiling("CashCashEquivalentsAndShortTermInvestments");
         const investmentRefused = out.fieldConflicts?.shortTermInvestments?.usable === false &&
           !(replayCash && sameFiledInstant(out.fieldConflicts.shortTermInvestments.secEvidence, sec.evidence) &&
             conflictCauseMatches(out.fieldConflicts.shortTermInvestments, "vendorSecCash"));
-        const combinedFiled = inFiling("CashCashEquivalentsAndShortTermInvestments");
         const original = (f: string): number | null => {
           const v = row.fieldConflicts?.[f]?.vendorValue ?? row[f];
           return typeof v === "number" && Number.isFinite(v) ? v : null;
         };
-        // P7: only disjoint filed components from this filing can be added.
-        // A vendor total equal to filed cash establishes that cash observation
-        // alone; its nonzero investment split cannot be added to it again.
-        const sum = investment ? cash.value + investment.value : null;
-        const combinedCompatible = combinedFiled && combinedFiled.value >= cash.value &&
-          (sum === null || vendorAgreesWithFiled(combinedFiled.value, sum));
-        const cashOnly = !investmentTagged && !combinedFiled && original("cashAndShortTermInvestments") !== null &&
-          vendorAgreesWithFiled(original("cashAndShortTermInvestments")!, cash.value);
-        const liquidity = investmentRefused || investmentTagged && !investment ? null
-          : combinedCompatible ? combinedFiled.value : combinedFiled ? null : sum ?? (cashOnly ? cash.value : null);
-        const liquidityEvidence = { ...cash.evidence, tags: [...new Set([...cash.evidence.tags,
-          ...(investment?.evidence.tags ?? []), ...(combinedCompatible ? combinedFiled.evidence.tags : [])])] };
-        const basis = investment ? `cash plus separately filed short-term investments ${millions(investment.value)} ${unit}, counted once`
-          : cashOnly ? "cash-only liquidity: the vendor combined total equals filed cash alone; short-term investments are unreported in this filing, not assumed zero; the uncorroborated vendor split is not added"
-            : combinedCompatible ? "the directly filed cash-and-short-term-investments total"
-              : "combined liquidity withheld: no compatible filed total or complete component sum establishes it";
+        const sum = investment ? familyCash.value + investment.value : null;
+        const otherParts = (["netReceivables", "inventory"] as const).flatMap(f => {
+          const part = tagsFor(f).map(inFiling).find(p => p !== null); return part ? [part.value] : [];
+        });
+        const assets = inFiling("AssetsCurrent");
+        const disjoint = sum !== null && (combinedFiled !== null && vendorAgreesWithFiled(combinedFiled.value, sum) ||
+          investmentTag !== "InterestBearingDepositsInBanks" && assets !== null &&
+          vendorAgreesWithFiled(assets.value, sum + otherParts.reduce((a,b) => a+b,0)));
+        const contradiction = investmentRefused || combinedFiled !== null && (combinedFiled.value < familyCash.value ||
+          sum !== null && !vendorAgreesWithFiled(combinedFiled.value, sum)) || investmentTag !== undefined && investment === null;
+        const liquidity = contradiction ? null : combinedFiled?.value ?? (disjoint ? sum : null);
+        const cashOnly = !contradiction && liquidity === null;
+        const liquidityEvidence = { ...familyCash.evidence, tags: [...new Set([...familyCash.evidence.tags,
+          ...(investment?.evidence.tags ?? []), ...(combinedFiled?.evidence.tags ?? [])])] };
+        const basis = contradiction ? "combined liquidity refused: incompatible or ambiguous filed cash/investment operands"
+          : cashOnly ? "cash-only (narrower basis): short-term investments not established from the undimensioned facts available; no vendor total proves a combined figure"
+            : "the reconciled same-filing cash and disjoint investments";
         const reason = `Vendor cash reconciled at ${row.date}: directly filed ${tag} ${millions(cash.value)} ${unit} used; every available exact-instant filed copy agrees within the same-observation rule; original vendor ${millions(vendor)} retained. Liquidity uses ${basis}.`;
         const fieldConflicts = { ...out.fieldConflicts };
         const fieldProvenance: Record<string, StatementFieldProvenance> = { ...out.fieldProvenance, [field]: cash.evidence };
@@ -652,11 +658,15 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
           replayCash && sameFiledInstant(fieldConflicts[f]?.secEvidence, sec.evidence) && conflictCauseMatches(fieldConflicts[f]!, "vendorSecCash");
         const amounts: Record<string, number | null> = { cashAndCashEquivalents: cash.value };
         for (const [f, amount, evidence] of [
-          ["shortTermInvestments", investment?.value ?? null, investment?.evidence ?? cash.evidence],
+          ["shortTermInvestments", disjoint ? investment?.value ?? null : null, investment?.evidence ?? cash.evidence],
           ["cashAndShortTermInvestments", liquidity, liquidityEvidence],
         ] as const) {
           if (!dependentOfCash(f)) { amounts[f] = null; delete fieldProvenance[f]; continue; }
           amounts[f] = amount;
+          if (f === "cashAndShortTermInvestments" && cashOnly) {
+            fieldConflicts[f] = { usable: false, cause: "liquidity-not-established", vendorValue: original(f), secValue: null, reason };
+            delete fieldProvenance[f]; continue;
+          }
           fieldConflicts[f] = { usable: amount !== null, vendorValue: original(f), secValue: amount,
             ...(amount !== null ? { resolution: "filed-family" as const } : {}), reason, secEvidence: evidence };
           if (amount !== null) fieldProvenance[f] = evidence;
@@ -680,10 +690,11 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
           amounts.netDebt = null;
           delete fieldProvenance.netDebt;
         }
-        out = { ...out, ...amounts, fieldConflicts, fieldProvenance,
+        out = { ...out, ...amounts, cashBasis: cashOnly ? "cash-only" : undefined, fieldConflicts, fieldProvenance,
           vendorNetDebt: out.vendorNetDebt !== undefined ? out.vendorNetDebt : original("netDebt") };
         gaps.push({ field: `statements.balance.${row.date}.${field}`, reason, severity: "info", expected: true,
           attemptedSources: liquidityEvidence.tags.map(t => `edgar:companyfacts/${t}`) });
+        if (cashOnly) gaps.push({ field: `statements.balance.${row.date}.cashBasis`, reason: basis, severity: "info" });
         continue;
       }
       const inclusiveTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents";

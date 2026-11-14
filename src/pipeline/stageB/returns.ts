@@ -1340,6 +1340,7 @@ export interface ReturnsIncomeRow extends Omit<CommonIncomeInputs, "netIncome"> 
 }
 
 export interface ReturnsBalanceRow extends PreferredCapitalInputs {
+  cashBasis?: "cash-only";
   commonEquityPeriodEnd?: string | null;
   /** The admission's refusals, so a refused total debt is named (KNW-03/KNW-04). */
   fieldConflicts?: Record<string, { usable?: boolean; reason?: string } | undefined>;
@@ -1515,6 +1516,7 @@ function investedCapital(
   if (b.leaseCoverageNote) notes.push(`${b.date}: retained debt/lease scope: ${b.leaseCoverageNote} ROIC is an otherwise-unchanged calculation on these retained operands, not a fully corrected lease-inclusive economic-capital measure.`);
   notes.push(`${b.date}: invested-capital equity basis ${equity.basis}: ${equity.reason}`);
   if (equity.value === null) {
+    refusals.push({ kind: "cash", reason: "consolidated equity is missing" });
     notes.push(`totalStockholdersEquity/consolidated equity missing on ${b.date} - invested capital uncomputable`);
     return null;
   }
@@ -1524,7 +1526,10 @@ function investedCapital(
       const reason = `total debt withheld (${refused.reason ?? "refused at admission"})`;
       notes.push(`${b.date}: ${reason} — invested capital uncomputable`);
       refusals.push({ reason, kind: "debt" });
-    } else notes.push(`totalDebt missing on ${b.date} — invested capital uncomputable`);
+    } else {
+      refusals.push({ kind: "debt", reason: "totalDebt is missing" });
+      notes.push(`totalDebt missing on ${b.date} — invested capital uncomputable`);
+    }
     return null;
   }
   if (b.totalDebt < 0) {
@@ -1578,8 +1583,12 @@ function investedCapital(
     cashAndCashEquivalents: b.cashAndCashEquivalents ?? null,
     shortTermInvestments: b.shortTermInvestments ?? null,
     cashAndShortTermInvestments: b.cashAndShortTermInvestments ?? null,
+    cashBasis: b.cashBasis,
+    fieldConflicts: b.fieldConflicts,
+    fieldProvenance: b.fieldProvenance,
   });
   if (resolution.value !== null) {
+    if (resolution.cashBasis === "cash-only") notes.push(`${b.date}: invested capital nets cash only (narrower basis); ${resolution.reason}`);
     return resolution.value + equity.value + temporaryTotal;
   }
 
@@ -1588,7 +1597,7 @@ function investedCapital(
   // back to cash-only there would compute invested capital from data the
   // resolver just rejected, and disclose it as "short-term investments
   // unreported", which is false.
-  if (resolution.conflict === true) {
+  if (resolution.conflict === true || b.cashBasis === "cash-only") {
     notes.push(
       `${b.date}: ${resolution.reason ?? "cash components conflict"} — invested capital uncomputable (no trustworthy cash basis)`,
     );
@@ -1596,18 +1605,19 @@ function investedCapital(
     return null;
   }
 
-  // Short-term investments are genuinely unreported. Cash alone is then the
+  // Short-term investments are not established from available facts. Cash alone is then the
   // best available liquidity figure — no other metric has a better one either —
   // so disclose the narrower basis rather than suppress a 0.35-weight quality
   // signal. The defect this replaces was using cash-only even when short-term
   // investments WERE reported, which overstated invested capital.
   if (!isFiniteNumber(b.cashAndCashEquivalents)) {
     const refused = b.fieldConflicts?.cashAndCashEquivalents;
+    refusals.push({ kind: "cash", reason: `cashAndCashEquivalents missing or refused: ${refused?.reason ?? "no admitted cash operand"}` });
     notes.push(`cashAndCashEquivalents ${refused?.usable === false ? `withheld (${refused.reason ?? "refused at admission"})` : "missing"} on ${b.date} — invested capital uncomputable`);
     return null;
   }
   notes.push(
-    `short-term investments unreported on ${b.date} — invested capital nets cash only ` +
+    `short-term investments not established from the undimensioned facts available on ${b.date} — invested capital nets cash only ` +
       "(narrower than the house cash + short-term-investments basis)",
   );
   return debt + equity.value + temporaryTotal - b.cashAndCashEquivalents;
@@ -1842,7 +1852,7 @@ export function computeRoic(
     return { series: [], latestRoicPct: null, asOf: inc[0]?.date ?? null, notes, gaps };
   }
   notes.push(
-    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; cash-only where short-term investments are unreported, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
+    `invested capital = totalDebt (less the operating-lease liability where the balance sheet discloses it) + consolidated equity (totalEquity, else parent totalStockholdersEquity + minorityInterest) - (cash + short-term investments): consolidated capital matches consolidated NOPAT; the house net-debt basis (${NET_DEBT_RESOLVER_VERSION}; cash-only where short-term investments are not established from available facts, disclosed per year; marketable equity securities inside short-term investments stay subtracted, being non-operating) and the EV bridge's lease rule (METHODOLOGY "EV bridge")`,
   );
   const leaseDisclosed = bal.some((b) => isFiniteNumber(b.operatingLeaseLiability) && b.operatingLeaseLiability >= 0);
   if (includeOperatingLeases) {
@@ -1856,6 +1866,7 @@ export function computeRoic(
   }
 
   const series: RoicYear[] = [];
+  const rootCauses = new Map<string,string>();
   const refusedYears: { date: string; reason: string }[] = [];
   /** The latest fiscal year's refusal: the balance it read and whether it was that balance's debt. */
   let latestRefusal: { balanceDate: string; kind: "debt" | "cash" | "temporary-equity" } | null = null;
@@ -1881,6 +1892,7 @@ export function computeRoic(
         ? row.ebit
         : null;
     if (ebit === null) {
+      rootCauses.set(row.date, "operatingIncome/ebit is missing");
       yearNotes.push("operatingIncome/ebit missing — NOPAT uncomputable");
       continue;
     }
@@ -1901,6 +1913,7 @@ export function computeRoic(
     const terminalTax = normalizedEbit > 0
       ? (t ?? (normalizedEbit !== ebit && isFiniteNumber(pretax) && pretax <= 0 ? marginalTaxFloor(options.domicileCountry).pct / 100 : null)) : 0;
     if (t === null) {
+      rootCauses.set(row.date, !isFiniteNumber(row.incomeBeforeTax) || row.incomeBeforeTax! <= 0 ? "incomeBeforeTax is missing or non-positive" : "incomeTaxExpense is missing");
       gaps.push({
         field: "returns.roic.taxRate",
         reason: `${row.date}: an observed effective tax rate could not be computed — NOPAT and ROIC suppressed for this period`,
@@ -1921,6 +1934,7 @@ export function computeRoic(
 
     const balNow = findBalanceForDate(bal, row.date);
     if (balNow === null) {
+      rootCauses.set(row.date, `no balance sheet within ${BALANCE_MATCH_TOLERANCE_DAYS}d of ${row.date}`);
       yearNotes.push(`no balance sheet within ${BALANCE_MATCH_TOLERANCE_DAYS}d of ${row.date}`);
       continue;
     }
@@ -1928,6 +1942,7 @@ export function computeRoic(
     const refusals: { reason: string; kind: "debt" | "cash" | "temporary-equity" }[] = [];
     const icNow = investedCapital(balNow, yearNotes, includeOperatingLeases, refusals);
     if (icNow === null) {
+      rootCauses.set(row.date, refusals[0]?.reason ?? "invested capital is not established");
       if (refusals.length > 0) {
         refusedYears.push({ date: row.date, reason: refusals[0]!.reason });
         if (i === 0) latestRefusal = { balanceDate: balNow.date.slice(0, 10), kind: refusals[0]!.kind };
@@ -1943,6 +1958,7 @@ export function computeRoic(
       balanceDatesRead.add(balPrev.date.slice(0, 10));
       const priorScopeRefusal = leaseDebtScopeRefusal(balPrev, includeOperatingLeases);
       if (priorScopeRefusal) {
+        rootCauses.set(row.date, priorScopeRefusal);
         yearNotes.push(`Prior capital has a known scope refusal: ${priorScopeRefusal} Average-capital ROIC withheld.`);
         refusedYears.push({ date: row.date, reason: `the prior balance ${balPrev.date}: ${priorScopeRefusal}` });
         if (i === 0) latestRefusal = { balanceDate: balPrev.date.slice(0, 10), kind: "debt" };
@@ -1961,6 +1977,7 @@ export function computeRoic(
     }
 
     if (icAvg <= 0) {
+      rootCauses.set(row.date, "average invested capital is not positive");
       yearNotes.push(
         `average invested capital ≤ 0 (${fmt(icAvg)}) — ROIC not meaningful (buyback-depleted equity guard)`,
       );
@@ -1991,9 +2008,8 @@ export function computeRoic(
   // D-261 (P10, P11): ordinary missing operands used to leave only a private
   // per-year note. Every withheld annual ROIC must name that root in the manifest.
   for (const year of series) if (year.roicPct === null) {
-    const cause = year.notes.find(note => /uncomputable|suppressed|not meaningful|no balance sheet|ROIC withheld/i.test(note))
-      ?? year.notes.at(-1) ?? "NOPAT or invested capital is not established";
-    gaps.push({ field: `returns.roic.${year.date}`, reason: `${year.date}: ROIC withheld because ${cause}`, severity: "warn" });
+    const cause = rootCauses.get(year.date) ?? "NOPAT or invested capital is not established";
+    gaps.push({ field: `returns.roic.${year.date}`, reason: `${year.date}: ROIC withheld because ${cause}`, severity: "info" });
   }
   const latest = series.length > 0 ? series[series.length - 1] : null;
   return {

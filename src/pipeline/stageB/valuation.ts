@@ -764,6 +764,9 @@ export interface DcfIncomeRow extends FiscalDatedRow {
 
 /** Selected whole balance-sheet slice used by the DCF builder (FMP field names). */
 export interface DcfBalanceRow {
+  cashBasis?: "cash-only";
+  cashAndCashEquivalents?: number | null;
+  shortTermInvestments?: number | null;
   fieldProvenance?: import("./leaseScope").LeaseScopeRow["fieldProvenance"];
   operatingLeaseLiability?: number | null;
   financeLeaseLiability?: number | null;
@@ -2360,8 +2363,10 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const leaseOut = leaseExcluded || bal === null ? { amount: 0, note: null, clause: null } : operatingLeaseOutOfDebt(bal, inputs.includeLeasesInEv === true);
   const leaseBasis = { fcx1Excluded: leaseExcluded, includeLeasesInEv: inputs.includeLeasesInEv === true, currentRowExcludesLease: leaseOut.note === null };
   const icDebt = bal && bal.fieldConflicts?.totalDebt?.usable !== false && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : leaseOut.amount) : null;
-  const admittedLiquidity = bal?.fieldConflicts?.cashAndShortTermInvestments?.usable !== false &&
-    bal?.fieldConflicts?.cashAndCashEquivalents?.usable !== false && isNum(bal?.cashAndShortTermInvestments);
+  const liquidityResolution = resolveNetDebt({ ...bal, totalDebt: icDebt });
+  const admittedLiquidity = liquidityResolution.value !== null;
+  const liquidity = icDebt !== null && liquidityResolution.value !== null ? icDebt - liquidityResolution.value : null;
+  if (liquidityResolution.cashBasis === "cash-only") notes.push(liquidityResolution.reason);
   const equity = resolveConsolidatedEquity(bal ?? {});
   // FIN-119-V1: temporary equity (redeemable preferred and redeemable NCI) is financing capital. A refused operand leaves
   // the capital unknown, never zero (D-87): the DCF is withheld as it is for missing equity.
@@ -2369,7 +2374,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const temporaryText = temporary !== null && temporary.capitalTotal !== 0 ? ` + temporaryEquity ${fmtMoney(temporary.capitalTotal)} [${temporary.capitalBasis}]` : "";
   const ic =
     bal && icDebt !== null && equity.value !== null && admittedLiquidity
-      ? icDebt + equity.value + (temporary === null ? 0 : temporary.capitalTotal) - bal.cashAndShortTermInvestments!
+      ? icDebt + equity.value + (temporary === null ? 0 : temporary.capitalTotal) - liquidity!
       : null;
   const mainCapitalGap = (lead: string, cause?: GapCause): ManifestEntry => gapEntry(
     "valuation.dcf.salesToCapital",

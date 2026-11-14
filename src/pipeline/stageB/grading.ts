@@ -1206,7 +1206,7 @@ export function computeScores(inputs: ScoringInputs, gaps: ManifestEntry[] = [])
   for (const aspect of Object.keys(scored) as ScoreAspect[]) {
     if (scored[aspect].routeInapplicable) continue;
     for (const signal of scored[aspect].withheld) gaps.push({
-      field: `scores.${aspect}.${signal.name}`, severity: "warn",
+      field: `scores.${aspect}.${signal.name}`, severity: "info",
       reason: scoreSignalRefusal(inputs, aspect, signal.name),
     });
   }

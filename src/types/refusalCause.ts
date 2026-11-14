@@ -35,6 +35,8 @@ export const STATEMENT_CONFLICT_CAUSES = [
   "operating-basis",
   "operating-scope",
   "borrowing-cost-scope",
+  /** D-261: no combined liquidity fact is established; only an explicitly qualified cash basis may be used. */
+  "liquidity-not-established",
   // D-218 step 1: written beside the sentence; read since D-219 to D-222.
   /** "vendor/SEC <field> conflict: ...", on the conflicted field and on each dependent field that carries the same sentence. */
   "vendor-sec-value-conflict",

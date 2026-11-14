@@ -32,7 +32,14 @@ describe("D-261 filed balance cash replaces a vendor split", () => {
     expect(out.row.cashBasis).toBe("cash-only");
     expect(out.gaps.map(g => g.reason).join(" ")).toContain("short-term investments not established from the undimensioned facts available");
     expect(out.gaps.map(g => g.reason).join(" ")).not.toContain("unreported in this filing");
-    expect(resolveNetDebt(out.row)).toMatchObject({ value: 300e6, cashBasis: "cash-only" });
+    expect(resolveNetDebt(out.row)).toMatchObject({ value: null, cashBasis: "cash-only" });
+    const filedDebt = { ...out.row, fieldProvenance: { ...out.row.fieldProvenance, totalDebt: {
+      source: "edgar" as const, unit: "USD", periodStart: null, periodEnd: vendor.date!, observedAt,
+      tags: ["us-gaap/LongTermDebt"], filings: [{ accn: point(0).accn, filed: point(0).filed, form: "10-Q" }] } } };
+    expect(resolveNetDebt(filedDebt)).toMatchObject({ value: 300e6, cashBasis: "cash-only" });
+    const partialDebt = { ...filedDebt, fieldProvenance: { ...filedDebt.fieldProvenance,
+      totalDebt: { ...filedDebt.fieldProvenance.totalDebt, calculation: "noncurrent-lease-line-completed" } } };
+    expect(resolveNetDebt(partialDebt)).toMatchObject({ value: null, cashBasis: "cash-only" });
   });
   it("carries cash-only evidence through the invested-capital note, DCF note and grade qualification", () => {
     const b = completeCurrencyBundle({});
@@ -60,6 +67,10 @@ describe("D-261 filed balance cash replaces a vendor split", () => {
     expect(out.row.cashAndShortTermInvestments).toBeNull();
     expect(out.row.shortTermInvestments).toBeNull();
     expect(resolveNetDebt(out.row).value).not.toBe(620e6);
+    // An accidental current-assets equality is not a disjointness proof for a cash member.
+    const overlap = admitBalanceCash(vendor, facts({ [cashTag]: [point(100e6)],
+      InterestBearingDepositsInBanks: [point(80e6)], AssetsCurrent: [point(180e6)] }), "quarter", observedAt).row;
+    expect(overlap.cashAndShortTermInvestments).toBeNull();
   });
   it("carries an incompatible filed combined total into net debt and ROIC as a refusal", () => {
     const out = admitBalanceCash(vendor, facts({ [cashTag]: [point(500e6)], ShortTermInvestments: [point(40e6)],
@@ -83,7 +94,7 @@ describe("D-261 filed balance cash replaces a vendor split", () => {
   it("adopts unambiguous cash, retains the observations and does not add unfiled investments twice", () => {
     const f = facts({ [cashTag]: [point(500e6), point(500e6, { filed: "2026-09-01", accn: "0000000001-26-000003" })] });
     const out = admitBalanceCash(vendor, f, "quarter", observedAt);
-    expect(out.row).toMatchObject({ cashAndCashEquivalents: 500e6, shortTermInvestments: null, cashAndShortTermInvestments: 500e6,
+    expect(out.row).toMatchObject({ cashAndCashEquivalents: 500e6, shortTermInvestments: null, cashAndShortTermInvestments: null, cashBasis: "cash-only",
       fieldConflicts: { cashAndCashEquivalents: { usable: true, resolution: "filed-family", vendorValue: 480e6, secValue: 500e6 },
         shortTermInvestments: { usable: false, vendorValue: 20e6 } } });
     expect(out.row.fieldProvenance?.cashAndCashEquivalents?.filings[0]?.filed).toBe("2026-09-01");
@@ -95,7 +106,7 @@ describe("D-261 filed balance cash replaces a vendor split", () => {
     const debtProof = { source: "edgar" as const, unit: "USD", periodStart: null, periodEnd: vendor.date!, observedAt,
       tags: ["us-gaap/LongTermDebt"], filings: [{ accn: point(0).accn, filed: point(0).filed, form: "10-Q" }] };
     const out = admitBalanceCash<FmpBalanceSheetRow>({ ...vendor, fieldProvenance: { totalDebt: debtProof } },
-      facts({ [cashTag]: [point(500e6)], MarketableSecuritiesCurrent: [point(40e6)] }), "quarter", observedAt);
+      facts({ [cashTag]: [point(500e6)], MarketableSecuritiesCurrent: [point(40e6)], AssetsCurrent: [point(540e6)] }), "quarter", observedAt);
     expect(out.row).toMatchObject({ cashAndCashEquivalents: 500e6, shortTermInvestments: 40e6, cashAndShortTermInvestments: 540e6, netDebt: 300e6 });
     expect(out.row.fieldProvenance?.cashAndShortTermInvestments?.tags).toEqual([`us-gaap/${cashTag}`, "us-gaap/MarketableSecuritiesCurrent"]);
   });
@@ -108,7 +119,8 @@ describe("D-261 filed balance cash replaces a vendor split", () => {
       cashAndCashEquivalents: refusal, cashAndShortTermInvestments: { ...refusal, vendorValue: 500e6, secValue: null },
       netDebt: { usable: false, vendorValue: 320e6, secValue: null, reason: "independent debt scope refusal" } } };
     const admitted = admitBalanceCash(row, facts({ [cashTag]: [point(500e6)] }), "quarter", observedAt).row;
-    expect(admitted.cashAndShortTermInvestments).toBe(500e6);
+    expect(admitted.cashAndShortTermInvestments).toBeNull();
+    expect(admitted.cashBasis).toBe("cash-only");
     expect(admitted.fieldConflicts?.netDebt).toEqual(row.fieldConflicts.netDebt);
   });
   it.each([
@@ -133,6 +145,10 @@ describe("D-261 filed balance cash replaces a vendor split", () => {
     const refused = { ...vendor, shortTermInvestments: null, fieldConflicts: { shortTermInvestments: {
       usable: false, vendorValue: 20e6, secValue: null, reason: "independent investment scope refusal" } } };
     expect(admitBalanceCash(refused, facts({ [cashTag]: [point(500e6)], ShortTermInvestments: [point(40e6)] }), "quarter", observedAt).row.cashAndShortTermInvestments).toBeNull();
+    const complete = admitBalanceCash(refused, facts({ [cashTag]: [point(500e6)], ShortTermInvestments: [point(40e6)],
+      CashCashEquivalentsAndShortTermInvestments: [point(540e6)] }), "quarter", observedAt).row;
+    expect(complete.cashAndShortTermInvestments).toBeNull();
+    expect(resolveNetDebt(complete)).toMatchObject({ value: null, conflict: true });
   });
 });
 

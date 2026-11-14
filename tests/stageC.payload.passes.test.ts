@@ -1116,7 +1116,7 @@ describe("payload determinism + provenance", () => {
       "route 67088d486e79efec",
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
-      "returns 04acba1118ea2ecc",
+      "returns b32e80844ad5bd4b",
       "capital 1e4c3fff2067cefb",
       "forensics 0d59d3ffecb6f45c",
       "technicals 0d0c7b3f39a71e07",
@@ -1129,7 +1129,7 @@ describe("payload determinism + provenance", () => {
       "fairValue (frozen record)",
       "suppressed 4f53cda18c2baa0c",
       "notes 2e5b1aca5def94d8",
-      "gaps 3548a2825e78560a", // D-261: named gaps for missing score operands; financial subtrees unchanged.
+      "gaps fc87bde1040606cb", // D-261: named gaps for missing score operands; financial subtrees unchanged.
     ];
     expect(digests(buildInputs())).toEqual(expected);
     expect(digests(buildFreshInputs())).toEqual(expected);
@@ -1255,7 +1255,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.95.0"); // D-261
+    expect(first.payloadVersion).toBe("1.96.0"); // D-261
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -2931,7 +2931,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.76.0"); // D-261: bank revenue report semantics
+    expect(report.meta.specVersion).toBe("1.77.0"); // D-261: bank revenue report semantics
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
