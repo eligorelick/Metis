@@ -33,8 +33,11 @@ it("computes annual cash payout only for admitted common income in the exact sam
  const dividend={date:"2025-12-31",netIncome:100,commonDividendsPaid:-25,fieldProvenance:{commonDividendsPaid:proof("us-gaap/PaymentsOfDividendsCommonStock")}};
  const income={date:"2025-12-31",netIncome:100,fieldProvenance:{netIncome:proof("us-gaap/NetIncomeLoss")}};
  expect(fiscalCashDividendPayout([dividend],[income],"2026-07-01")[0]).toMatchObject({value:25,dividends:25,commonIncome:100,start:"2025-01-01",end:"2025-12-31"});
- // Review round 2 (P13): the income operand is the income row's proven field, not the cash-flow row's copy.
- expect(fiscalCashDividendPayout([{...dividend,netIncome:999}],[income],"2026-07-01")[0]).toMatchObject({value:25,commonIncome:100});
+ // Review round 2 (P5, P13): the operand is the admitted common earnings on the payout row and must equal the
+ // income row's proven field. A withheld common figure (preferred claims, NCI) is never replaced by parent net income.
+ expect(fiscalCashDividendPayout([{...dividend,netIncome:undefined}],[income],"2026-07-01")[0]!.value).toBeNull();
+ expect(fiscalCashDividendPayout([{...dividend,netIncome:undefined}],[{...income,netIncome:120}],"2026-07-01")[0]).toMatchObject({value:null,reason:"Admitted common cash dividends or positive income available to common is unavailable."});
+ expect(fiscalCashDividendPayout([{...dividend,netIncome:90}],[income],"2026-07-01")[0]!.value).toBeNull();
  expect(fiscalCashDividendPayout([dividend],[{...income,netIncome:undefined}],"2026-07-01")[0]!.value).toBeNull();
  // Review round 2 (P7): operands from two different filings are refused; a shared accession among several stands.
  const otherFiling={...proof("us-gaap/NetIncomeLoss"),filings:[{accn:"other-10-K",filed:"2026-02-01",form:"10-K"}]};

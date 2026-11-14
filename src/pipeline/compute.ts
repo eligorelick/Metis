@@ -5717,8 +5717,10 @@ export function fiscalCashDividendPayout(rows: readonly FmpCashFlowRow[], income
     const incomeProof=income?.fieldProvenance?.[incomeField];
     const start=dividendProof?.periodStart ?? null, end=isoDay(row.date);
     const proofs=[dividendProof,incomeProof];
-    // P13: the income operand is the proven field of the income row, never the cash-flow row's copy.
-    const commonIncome=num(income?.[incomeField]), cash=num(row.commonDividendsPaid);
+    // P5/P13: the income operand is the admitted common earnings on the payout row, and it must equal the
+    // proven field of the income row; a parent or consolidated figure the common-income owner withheld never stands in.
+    const admittedIncome=num(row.netIncome), provenIncome=num(income?.[incomeField]);
+    const commonIncome=admittedIncome!==null && admittedIncome===provenIncome ? admittedIncome : null, cash=num(row.commonDividendsPaid);
     // P7/P13 (D-272 review round 2): both operands must be read from one filing (a shared accession).
     const oneFiling=!!dividendProof && !!incomeProof && dividendProof.filings.some(d=>incomeProof.filings.some(i=>i.accn===d.accn));
     const reason=!start || !end || !incomeProof?.periodStart || start!==incomeProof.periodStart || end!==incomeProof.periodEnd || end!==dividendProof?.periodEnd
