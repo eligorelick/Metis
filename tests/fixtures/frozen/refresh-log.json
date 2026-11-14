@@ -257,5 +257,22 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-260",
+    "reason": "P1 D-260 uses the next free report spec 1.77.0; this control changes only the spec label and its enclosing digest.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "922d5868a3b1f0b4527fd538c9dd462ccd38928b92d355479752ddafecf04602",
+    "afterSha256": "90e4f7b3ccbf895b7dd7d67a487d6e68bfaaefadea05561340674fb28482b670",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

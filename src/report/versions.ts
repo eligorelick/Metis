@@ -222,8 +222,8 @@
 // P/E basis are on the filed total net revenue where the filing proves it, so shown figures and an aspect band change
 // meaning for new reports; three reader labels name consolidated net income. No display cutoff is added; stored
 // reports keep their bytes.
-// 1.76.0 (P1, D-260): complete filed operating costs and exact additive income windows.
-export const REPORT_SPEC_VERSION = "1.76.0" as const;
+// 1.77.0 (P1, D-260): complete filed operating costs and exact additive income windows.
+export const REPORT_SPEC_VERSION = "1.77.0" as const;
 
 /**
  * Current payload format version.

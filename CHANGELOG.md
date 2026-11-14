@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.76.0** and
+Current source declares application **0.1.0**, report spec **1.77.0** and
 payload **1.95.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -23,7 +23,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 - P1, D-260: complete operating reconciliations include separately filed acquired research and special charges. A research total owns its acquired-research children; cash acquisition payments are never substituted for an expense.
 - Missing additive annual and quarterly income fields use exact filed operands. Trailing monetary flows can use a compatible fiscal year plus current YTD minus prior-year YTD, retaining every operand; EPS and weighted share counts remain outside this identity.
 - A proved reconstructed quarter is reviewed even when its original vendor filing no longer supplies the current SEC pair. Unsupported operating expenses and margins remain withheld.
-- Report 1.76.0, payload 1.95.0 and Stage B `STAGE_B_2026_11_FILED_INCOME_WINDOWS_69` identify the new calculation meaning. Stored reports, DCF methods, growth guards, weights and score bands are unchanged.
+- Report 1.77.0, payload 1.95.0 and Stage B `STAGE_B_2026_11_FILED_INCOME_WINDOWS_69` identify the new calculation meaning. Stored reports, DCF methods, growth guards, weights and score bands are unchanged.
 
 ## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
 
