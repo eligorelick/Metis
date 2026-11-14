@@ -79,3 +79,9 @@ export function vendorAgreesWithDerived(vendor: number, derived: number, operand
   const rounding = Math.min(derivedRoundingAllowance(operands), larger / VENDOR_SEC_TOLERANCE.minUnits);
   return Math.abs(vendor - derived) <= Math.max(filedAllowance(vendor, derived), rounding);
 }
+
+/** D-268 (P7): a filed component bound uses the existing comparison, not a new allowance. */
+export function filedSumWithinTotal(parts: readonly number[], total: number): boolean {
+  const sum = parts.reduce((a, b) => a + b, 0);
+  return sum <= total || vendorAgreesWithFiled(sum, total);
+}

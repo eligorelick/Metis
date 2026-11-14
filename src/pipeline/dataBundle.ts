@@ -90,7 +90,7 @@ import {
   type SectionSpec,
 } from "@/edgar/extract";
 import { latestEligibleFactEnd, latestFactEnd, looksLikeBankTagging, type CompanyFacts } from "@/edgar/xbrl";
-import { feedCoverage, mergeInstanceFacts, needsInstance, parseInstanceFacts, type InstanceFacts } from "@/edgar/instanceFacts";
+import { mergeInstanceFacts, parseInstanceFacts, type InstanceFacts } from "@/edgar/instanceFacts";
 // WS4 (D-14): successor registrants — the predecessor CIK and its facts.
 import {
   SUCCESSOR_FORM,
@@ -1357,15 +1357,14 @@ async function buildEdgarBundle(
   const pQuarterlySegments = sub.ok && filingDisclosures
     ? settle(`edgar.quarterlySegments(${symbol})`, collectQuarterlySegments(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10), readInstance))
     : null;
-  // D-236: the core periodic filings the segment read does not fetch (Forms
-  // 20-F and 40-F, amendments), each read only where companyfacts does not
-  // carry its statement facts. No request when it carries them all.
+  // D-268: companyfacts omits dimensional investment totals even for covered
+  // filings. Read the bounded periodic inventory once, reusing segment reads;
+  // the merge supplements covered filings only with proved carrying totals.
   const pUnreadInstances: Promise<UnreadInstance[]> = sub.ok && filingDisclosures
     ? pFacts.then((facts) => {
       if (!facts.ok) return [];
-      const coverage = feedCoverage(facts.value.data);
       return collectPeriodicInstances(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10),
-        (filing) => needsInstance(coverage, { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate }), readInstance);
+        () => true, readInstance);
     })
     : Promise.resolve([]);
 
@@ -1703,22 +1702,29 @@ export function companyFactsInstanceEntries(instances: CompanyFactsInstances | u
   // read is a coverage gap, named, never taken as the filing stating nothing.
   const unread: ManifestEntry[] = (instances.unread ?? []).map((f) => ({
     field: "edgar.companyFacts.unreadFilings",
-    reason: `SEC companyfacts does not carry the financial statements of ${f.form} ${f.accession} (filed ${f.filingDate}) and the filing's own XBRL instance could not be read: ${f.reason}; ` +
-      "figures that need its filed facts rest on earlier filings or are withheld",
+    reason: `The ${f.form} ${f.accession} filing's own XBRL instance (filed ${f.filingDate}) could not be read: ${f.reason}; ` +
+      "facts absent from companyfacts, including dimensional investment totals, remain unestablished; figures that need those facts rest on earlier filings or are withheld",
     severity: "warn",
     attemptedSources: [f.accession],
   }));
-  if (instances.merged.length === 0) return unread;
-  const filings = instances.merged.map((f) => `${f.form} ${f.accession} (${f.periodEnd === null ? "period end not stated" : `period ended ${f.periodEnd}`}, filed ${f.filingDate})`).join("; ");
+  const carrying = instances.merged.filter(f => f.carryingOnly === true);
+  const carryingEntries: ManifestEntry[] = carrying.length === 0 ? [] : [{
+    field: "edgar.companyFacts.carryingInvestments", severity: "info",
+    attemptedSources: carrying.map(f => f.accession),
+    reason: `Carrying investment totals were added from ${carrying.map(f => `${f.form} ${f.accession} (${f.periodEnd === null ? "period end not stated" : `period ended ${f.periodEnd}`}, filed ${f.filingDate})`).join("; ")}; existing companyfacts statement history is unchanged`,
+  }];
+  const statements = instances.merged.filter(f => f.carryingOnly !== true);
+  if (statements.length === 0) return [...carryingEntries, ...unread];
+  const filings = statements.map((f) => `${f.form} ${f.accession} (${f.periodEnd === null ? "period end not stated" : `period ended ${f.periodEnd}`}, filed ${f.filingDate})`).join("; ");
   return [{
     field: "edgar.companyFacts.newerFilings",
     reason: `SEC companyfacts carried periodic reports only through the one filed ${instances.companyFactsThrough ?? "(none)"}; ` +
-      (instances.merged.length === 1
+      (statements.length === 1
         ? `the facts of ${filings} were read from the filing's own XBRL instance and merged, each citing that filing`
         : `the facts of ${filings} were read from each filing's own XBRL instance and merged, each citing its filing`),
     severity: "info",
-    attemptedSources: instances.merged.map((f) => f.accession),
-  }, ...unread];
+    attemptedSources: statements.map((f) => f.accession),
+  }, ...carryingEntries, ...unread];
 }
 
 /**

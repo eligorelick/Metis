@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { admitBalanceCash } from "@/edgar/financialEnrichment";
 import { mergeInstanceFacts, parseInstanceFacts } from "@/edgar/instanceFacts";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
+import type { FmpStatementRow } from "@/providers/fmp";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { VendorSplitEvidence } from "@/providers/splitEvents";
 
@@ -230,5 +232,249 @@ describe("the bundle's companyfacts after the merge (audit 2026-10-22 B-23)", ()
     const result = withNewerFilings(served, [older]);
     expect(result.companyFacts).toBe(served);
     expect(result.companyFactsInstances).toBeNull();
+  });
+});
+
+
+describe("D-268 carrying measurements preserve plain investment families", () => {
+  const tag = "us-gaap:AvailableForSaleSecuritiesDebtSecuritiesCurrent";
+  const xml = (extra = "", facts: Fact[] = [{ tag, ctx: "carrying", unit: "usd", val: "105000000" }]) =>
+    instance([{ id: "carrying", end: "2025-12-31", member: "placeholder" }, { id: "bs", end: "2025-12-31" }, { id: "q", start: "2025-10-01", end: "2025-12-31" }], facts)
+      .replace('<xbrldi:explicitMember dimension="dei:LegalEntityAxis">duk:placeholder</xbrldi:explicitMember>',
+        `<xbrldi:explicitMember dimension="us-gaap:FairValueByMeasurementBasisAxis">us-gaap:CarryingReportedAmountFairValueDisclosureMember</xbrldi:explicitMember>${extra}`);
+  it("reads a complete carrying total for domestic and foreign annual filers", () => {
+    for (const form of ["10-K", "20-F", "40-F"]) {
+      const result = parseInstanceFacts(xml(), { ...Q2_FILING, form }, CIK);
+      expect(result.facts["us-gaap"]?.AvailableForSaleSecuritiesDebtSecuritiesCurrent?.USD).toEqual([
+        expect.objectContaining({ val: 105e6, end: "2025-12-31", instanceCarryingAmount: true, form }),
+      ]);
+    }
+  });
+  it("composes same-filing filed cash and carrying investments after a cash refusal", () => {
+    const parsed = parseInstanceFacts(xml("", [
+      { tag, ctx: "carrying", unit: "usd", val: "105000000" },
+      { tag: "us-gaap:CashAndCashEquivalentsAtCarryingValue", ctx: "bs", unit: "usd", val: "7268000000" },
+      { tag: "us-gaap:AssetsCurrent", ctx: "bs", unit: "usd", val: "10000000000" },
+    ]), Q2_FILING, CIK);
+    const facts: CompanyFacts = { cik: Number(CIK), entityName: "Synthetic", facts: Object.fromEntries(
+      Object.entries(parsed.facts).map(([ns, concepts]) => [ns, Object.fromEntries(Object.entries(concepts).map(([name, units]) => [name, { units }]))])) };
+    const result = admitBalanceCash({ date: "2025-12-31", reportedCurrency: "USD", cik: CIK,
+      cashAndCashEquivalents: 9000000000, shortTermInvestments: null as number | null, cashAndShortTermInvestments: null as number | null }, facts, "annual", "2026-09-01").row;
+    expect(result.cashAndCashEquivalents).toBe(7268e6);
+    expect(result.shortTermInvestments).toBe(105e6);
+    expect(result.cashAndShortTermInvestments).toBe(7373e6);
+    const unchangedCash = admitBalanceCash({ date: "2025-12-31", reportedCurrency: "USD", cik: CIK,
+      cashAndCashEquivalents: 7268e6, shortTermInvestments: 0, cashAndShortTermInvestments: 7268e6 }, facts, "annual", "2026-09-01").row;
+    expect(unchangedCash.cashAndShortTermInvestments).toBe(7373e6);
+    const noBound = structuredClone(facts);
+    delete noBound.facts["us-gaap"]!.AssetsCurrent;
+    const missingBound = admitBalanceCash({ date: "2025-12-31", reportedCurrency: "USD", cik: CIK,
+      cashAndCashEquivalents: 9000000000, cashAndShortTermInvestments: null as number | null }, noBound, "annual", "2026-09-01").row;
+    expect(missingBound.cashAndShortTermInvestments).toBeNull();
+    const crowded = structuredClone(facts);
+    (crowded.facts["us-gaap"]!.AssetsCurrent as { units: { USD: { val: number }[] } }).units.USD[0]!.val = 7000e6;
+    const bounded = admitBalanceCash({ date: "2025-12-31", reportedCurrency: "USD", cik: CIK,
+      cashAndCashEquivalents: 9000000000, cashAndShortTermInvestments: null as number | null }, crowded, "annual", "2026-09-01").row;
+    expect(bounded.cashAndShortTermInvestments).toBeNull();
+    const refused = admitBalanceCash({ date: "2025-12-31", reportedCurrency: "USD", cik: CIK,
+      cashAndCashEquivalents: 9000000000, shortTermInvestments: null as number | null,
+      cashAndShortTermInvestments: null as number | null,
+      fieldConflicts: { shortTermInvestments: { usable: false, vendorValue: null, secValue: null, reason: "Independent scope refusal" } },
+    }, facts, "annual", "2026-09-01").row;
+    expect(refused.cashAndShortTermInvestments).toBeNull();
+    for (const mismatch of ["filing", "instant", "currency"]) {
+      const changed = structuredClone(facts);
+      const concept = changed.facts["us-gaap"]!.AvailableForSaleSecuritiesDebtSecuritiesCurrent as { units: Record<string, { accn: string; end: string }[]> };
+      if (mismatch === "filing") concept.units.USD![0]!.accn = "0001326160-26-000001";
+      if (mismatch === "instant") concept.units.USD![0]!.end = "2025-12-30";
+      if (mismatch === "currency") { concept.units.EUR = concept.units.USD!; delete concept.units.USD; }
+      const withheld = admitBalanceCash({ date: "2025-12-31", reportedCurrency: "USD", cik: CIK,
+        cashAndCashEquivalents: 9000000000, shortTermInvestments: null as number | null,
+        cashAndShortTermInvestments: null as number | null }, changed, "annual", "2026-09-01").row;
+      expect(withheld.cashAndShortTermInvestments).toBeNull();
+    }
+  });
+  it.each(["us-gaap:LongTermInvestments", "us-gaap:MarketableSecuritiesCurrent", "us-gaap:ShortTermInvestments"])("uses the same measurement proof for %s", sibling => {
+    const result = parseInstanceFacts(xml().replaceAll(tag, sibling), Q2_FILING, CIK);
+    expect(result.facts["us-gaap"]?.[sibling.split(":")[1]!]?.USD?.[0]?.val).toBe(105e6);
+  });
+  function typedLiquidityRefusal() {
+    const parsed = parseInstanceFacts(xml("", [
+      { tag, ctx: "carrying", unit: "usd", val: "105000000" },
+      { tag: "us-gaap:CashAndCashEquivalentsAtCarryingValue", ctx: "bs", unit: "usd", val: "7268000000" },
+      { tag: "us-gaap:AssetsCurrent", ctx: "bs", unit: "usd", val: "10000000000" },
+    ]), Q2_FILING, CIK);
+    const facts: CompanyFacts = { cik: Number(CIK), entityName: "Synthetic", facts: Object.fromEntries(Object.entries(parsed.facts).map(([ns, concepts]) =>
+      [ns, Object.fromEntries(Object.entries(concepts).map(([name, units]) => [name, { units }]))])) };
+    const row: FmpStatementRow = { date: "2025-12-31", reportedCurrency: "USD", cik: CIK,
+      cashAndCashEquivalents: 9000e6, totalDebt: 10000e6, shortTermInvestments: null, cashAndShortTermInvestments: null, netDebt: null,
+      fieldProvenance: { totalDebt: { source: "edgar", unit: "USD", periodStart: null, periodEnd: "2025-12-31", observedAt: "2026-09-01",
+        tags: ["us-gaap/LongTermDebtNoncurrent"], filings: [{ accn: Q2_FILING.accession, filed: Q2_FILING.filingDate, form: Q2_FILING.form }] } },
+      fieldConflicts: Object.fromEntries(["shortTermInvestments", "cashAndShortTermInvestments", "netDebt"].map(field => [field,
+        { usable: false, vendorValue: null, secValue: null, cause: "liquidity-not-established" as const, reason: "Investment scope not established" }])) };
+    return { facts, row };
+  }
+  it("recovers typed liquidity refusals with bounded same-filing carrying proof", () => {
+    const { facts, row } = typedLiquidityRefusal();
+    const out = admitBalanceCash(row, facts, "annual", "2026-09-01").row;
+    expect(out.shortTermInvestments).toBe(105e6);
+    expect(out.cashAndShortTermInvestments).toBe(7373e6);
+    expect(out.netDebt).toBe(2732e6); // statement's existing debt-minus-cash definition
+    for (const field of ["shortTermInvestments", "cashAndShortTermInvestments", "netDebt"])
+      expect(out.fieldConflicts?.[field]).toMatchObject({ usable: true, resolution: "filed-family" });
+  });
+  it("recovers an earlier cash-admission result when the missing investment proof arrives", () => {
+    const { facts, row } = typedLiquidityRefusal();
+    const earlierFacts = structuredClone(facts);
+    delete earlierFacts.facts["us-gaap"]!.AvailableForSaleSecuritiesDebtSecuritiesCurrent;
+    const earlier = admitBalanceCash(row, earlierFacts, "annual", "2026-09-01").row;
+    expect(earlier.fieldProvenance?.cashAndCashEquivalents?.source).toBe("edgar");
+    expect(earlier.fieldConflicts?.cashAndShortTermInvestments).toMatchObject({ usable: false, cause: "liquidity-not-established" });
+    const recovered = admitBalanceCash(earlier, facts, "annual", "2026-09-01").row;
+    expect(recovered.shortTermInvestments).toBe(105e6);
+    expect(recovered.cashAndShortTermInvestments).toBe(7373e6);
+    expect(recovered.fieldConflicts?.cashAndShortTermInvestments).toMatchObject({ usable: true, resolution: "filed-family" });
+    expect(recovered.fieldConflicts?.cashAndCashEquivalents?.vendorValue).toBe(9000e6);
+    expect(admitBalanceCash(recovered, facts, "annual", "2026-09-01").row.fieldConflicts).toEqual(recovered.fieldConflicts);
+  });
+  it.each(["shortTermInvestments", "cashAndShortTermInvestments", "netDebt"])("preserves an independent refusal on %s", field => {
+    const { facts, row } = typedLiquidityRefusal();
+    const independent = { usable: false, vendorValue: null, secValue: null, cause: "vendor-sec-value-conflict" as const, reason: "Independent source disagreement" };
+    row.fieldConflicts![field] = independent;
+    const out = admitBalanceCash(row, facts, "annual", "2026-09-01").row;
+    expect(out[field]).toBeNull();
+    expect(out.fieldConflicts?.[field]).toEqual(independent);
+  });
+  it.each(["missing bound", "exceeded bound", "other filing", "other instant"])("retains typed refusals with %s", mismatch => {
+    const { facts, row } = typedLiquidityRefusal();
+    if (mismatch === "missing bound") delete facts.facts["us-gaap"]!.AssetsCurrent;
+    if (mismatch === "exceeded bound") (facts.facts["us-gaap"]!.AssetsCurrent as { units: { USD: { val: number }[] } }).units.USD[0]!.val = 7000e6;
+    const concept = facts.facts["us-gaap"]!.AvailableForSaleSecuritiesDebtSecuritiesCurrent as { units: { USD: { accn: string; end: string }[] } };
+    if (mismatch === "other filing") concept.units.USD[0]!.accn = "0001326160-26-000001";
+    if (mismatch === "other instant") concept.units.USD[0]!.end = "2025-12-30";
+    const out = admitBalanceCash(row, facts, "annual", "2026-09-01").row;
+    for (const field of ["shortTermInvestments", "cashAndShortTermInvestments", "netDebt"])
+      expect(out[field]).toBeNull();
+  });
+  it.each([[false, "-6"], [true, "-6"], [false, "INF"], [true, "INF"]] as const)("F2: plain facts win (reversed=%s, carrying precision=%s)", (reverse, decimals) => {
+    const facts: Fact[] = [{ tag: "us-gaap:ShortTermInvestments", ctx: "bs", unit: "usd", val: "2000" },
+      { tag: "us-gaap:ShortTermInvestments", ctx: "carrying", unit: "usd", val: "500", decimals }];
+    const parsed = parseInstanceFacts(xml("", reverse ? facts.reverse() : facts), Q2_FILING, CIK);
+    expect(parsed.facts["us-gaap"]?.ShortTermInvestments?.USD).toEqual([expect.objectContaining({ val: 2000 })]);
+    expect(parsed.facts["us-gaap"]?.ShortTermInvestments?.USD?.[0]?.instanceCarryingAmount).toBeUndefined();
+  });
+  it("does not fill over a nil plain observation in a sibling line", () => {
+    const parsed = parseInstanceFacts(xml("", [
+      { tag, ctx: "carrying", unit: "usd", val: "500" },
+      { tag: "us-gaap:ShortTermInvestments", ctx: "bs", unit: "usd", val: "", nil: true },
+    ]), Q2_FILING, CIK);
+    expect(parsed.facts["us-gaap"]?.AvailableForSaleSecuritiesDebtSecuritiesCurrent).toBeUndefined();
+  });
+  it("F1 B/D: a note subtotal cannot displace a sibling balance-sheet investment or supply cash", () => {
+    const parsed = parseInstanceFacts(xml("", [
+      { tag: "us-gaap:Revenues", ctx: "q", unit: "usd", val: "10000" },
+      { tag: "us-gaap:Assets", ctx: "bs", unit: "usd", val: "10000" },
+      { tag, ctx: "carrying", unit: "usd", val: "500" },
+      { tag: "us-gaap:DebtSecuritiesCurrent", ctx: "bs", unit: "usd", val: "2000" },
+      { tag: "us-gaap:CashAndCashEquivalentsAtCarryingValue", ctx: "carrying", unit: "usd", val: "1000" },
+      { tag: "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents", ctx: "bs", unit: "usd", val: "7000" },
+    ]).replaceAll("2025-12-31", "2026-06-30").replaceAll("2025-10-01", "2026-04-01"), Q2_FILING, CIK);
+    expect(parsed.facts["us-gaap"]?.AvailableForSaleSecuritiesDebtSecuritiesCurrent).toBeUndefined();
+    const facts: CompanyFacts = { cik: Number(CIK), entityName: "Synthetic", facts: Object.fromEntries(Object.entries(parsed.facts).map(([ns, concepts]) =>
+      [ns, Object.fromEntries(Object.entries(concepts).map(([name, units]) => [name, { units }]))])) };
+    const built = buildStatementsFromCompanyFacts(facts, { symbol: "TEST", cik: CIK, asOf: "2026-09-01", annualPeriods: 1, quarterlyPeriods: 8, vendorSplits: NO_VENDOR_SPLITS });
+    expect(built.balanceQuarterly.rows[0]?.cashAndCashEquivalents).toBeNull();
+    expect(built.balanceQuarterly.rows[0]?.shortTermInvestments).toBe(2000);
+    // Same conflict may arrive through companyfacts rather than the instance.
+    const note = parseInstanceFacts(xml().replaceAll("2025-12-31", "2026-06-30"), Q2_FILING, CIK);
+    expect(mergeInstanceFacts(facts, [note]).facts.facts["us-gaap"]?.AvailableForSaleSecuritiesDebtSecuritiesCurrent).toBeUndefined();
+    const cash = admitBalanceCash({ date: "2026-06-30", reportedCurrency: "USD", cik: CIK,
+      cashAndCashEquivalents: 9000, shortTermInvestments: null as number | null, cashAndShortTermInvestments: null as number | null }, facts, "annual", "2026-09-01").row;
+    expect(cash.cashAndShortTermInvestments).toBeNull();
+    const directCash: CompanyFacts = structuredClone(facts);
+    directCash.facts["us-gaap"]!.CashAndCashEquivalentsAtCarryingValue = { units: { USD: [{
+      end: "2026-06-30", val: 7000, accn: Q2_FILING.accession, form: Q2_FILING.form, filed: Q2_FILING.filingDate,
+    }] } };
+    const reproB = admitBalanceCash({ date: "2026-06-30", reportedCurrency: "USD", cik: CIK,
+      cashAndCashEquivalents: 9000, shortTermInvestments: null as number | null, cashAndShortTermInvestments: null as number | null },
+      directCash, "quarter", "2026-09-01").row;
+    expect(reproB.cashAndCashEquivalents).toBe(7000);
+    expect(reproB.shortTermInvestments).toBeNull();
+    expect(reproB.cashAndShortTermInvestments).toBeNull();
+  });
+  it.each([undefined, "8000", "10000"])("applies the same bound to SEC-built liquidity (AssetsCurrent=%s)", assets => {
+    const parsed = parseInstanceFacts(xml("", [
+      { tag: "us-gaap:Revenues", ctx: "q", unit: "usd", val: "10000" },
+      { tag: "us-gaap:Assets", ctx: "bs", unit: "usd", val: "10000" },
+      { tag: "us-gaap:CashAndCashEquivalentsAtCarryingValue", ctx: "bs", unit: "usd", val: "7000" },
+      { tag, ctx: "carrying", unit: "usd", val: "500" },
+      { tag: "us-gaap:AccountsReceivableNetCurrent", ctx: "bs", unit: "usd", val: "1000" },
+      { tag: "us-gaap:InventoryNet", ctx: "bs", unit: "usd", val: "1000" },
+      ...(assets ? [{ tag: "us-gaap:AssetsCurrent", ctx: "bs", unit: "usd", val: assets }] : []),
+    ]).replaceAll("2025-12-31", "2026-06-30").replaceAll("2025-10-01", "2026-04-01"), Q2_FILING, CIK);
+    const facts: CompanyFacts = { cik: Number(CIK), entityName: "Synthetic", facts: Object.fromEntries(Object.entries(parsed.facts).map(([ns, concepts]) =>
+      [ns, Object.fromEntries(Object.entries(concepts).map(([name, units]) => [name, { units }]))])) };
+    const row = buildStatementsFromCompanyFacts(facts, { symbol: "TEST", cik: CIK, asOf: "2026-09-01", annualPeriods: 1, quarterlyPeriods: 8, vendorSplits: NO_VENDOR_SPLITS }).balanceQuarterly.rows[0]!;
+    expect(row.shortTermInvestments).toBe(500);
+    expect(row.cashAndCashEquivalents).toBe(7000);
+    expect(row.cashAndShortTermInvestments).toBe(assets === "10000" ? 7500 : null);
+  });
+  it("F1: a long-term note total cannot displace a plain component family", () => {
+    const parsed = parseInstanceFacts(xml("", [
+      { tag: "us-gaap:LongTermInvestments", ctx: "carrying", unit: "usd", val: "500" },
+      { tag: "us-gaap:OtherLongTermInvestments", ctx: "bs", unit: "usd", val: "2000" },
+    ]), Q2_FILING, CIK);
+    expect(parsed.facts["us-gaap"]?.LongTermInvestments).toBeUndefined();
+    expect(parsed.facts["us-gaap"]?.OtherLongTermInvestments?.USD?.[0]?.val).toBe(2000);
+  });
+  it.each(["CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsAndShortTermInvestments", "EquityMethodInvestments", "EquitySecuritiesWithoutReadilyDeterminableFairValueAmount", "AvailableForSaleSecuritiesDebtSecuritiesNoncurrent"])("F1: carrying %s cannot enter cash or fallback component sums", concept => {
+    expect(parseInstanceFacts(xml().replaceAll(tag, `us-gaap:${concept}`), Q2_FILING, CIK).facts["us-gaap"]?.[concept]).toBeUndefined();
+  });
+  it("F4/F5: covered carrying-only supplementation is disclosed separately from new statement history", async () => {
+    const { withNewerFilings, companyFactsInstanceEntries } = await import("@/pipeline/dataBundle");
+    const parsed = parseInstanceFacts(xml(), Q2_FILING, CIK);
+    const existing: CompanyFacts = { cik: Number(CIK), entityName: "Synthetic", facts: { "us-gaap": {
+      Assets: { units: { USD: [{ end: "2025-12-31", val: 500e6, accn: Q2_FILING.accession, form: Q2_FILING.form, filed: Q2_FILING.filingDate }] } },
+    } } };
+    const served = { ok: true as const, value: { source: "edgar" as const, endpoint: "test", data: existing, asOf: "2025-12-31", fetchedAt: "2026-09-01" } };
+    const result = withNewerFilings(served, [parsed]);
+    expect(result.companyFactsInstances?.merged[0]).toMatchObject({ carryingOnly: true });
+    expect(companyFactsInstanceEntries(result.companyFactsInstances ?? undefined)[0]?.reason).toBe(
+      `Carrying investment totals were added from ${Q2_FILING.form} ${Q2_FILING.accession} (period ended 2026-06-30, filed ${Q2_FILING.filingDate}); existing companyfacts statement history is unchanged`);
+  });
+  it("rejects estimates, partial measurements and typed/scenario scope", () => {
+    for (const bad of [xml().replaceAll("CarryingReportedAmountFairValueDisclosureMember", "EstimateOfFairValueFairValueDisclosureMember"),
+      xml().replaceAll("CarryingReportedAmountFairValueDisclosureMember", "PortionAtOtherThanFairValueFairValueDisclosureMember"),
+      xml('<xbrldi:typedMember dimension="custom:Axis"><custom:Value>scope</custom:Value></xbrldi:typedMember>'),
+      xml().replaceAll("segment", "scenario")]) expect(parseInstanceFacts(bad, Q2_FILING, CIK).count).toBe(0);
+  });
+  it("never treats a single instrument member as the total", () => {
+    const extra = '<xbrldi:explicitMember dimension="us-gaap:FinancialInstrumentAxis">us-gaap:OtherDebtSecuritiesMember</xbrldi:explicitMember>';
+    expect(parseInstanceFacts(xml(extra), Q2_FILING, CIK).count).toBe(0);
+  });
+  it.each([false, true])("plain wins for equal duplicates in either XML order (plainFirst=%s)", plainFirst => {
+    const facts: Fact[] = [{ tag, ctx: "carrying", unit: "usd", val: "105000000" },
+      { tag, ctx: "bs", unit: "usd", val: "105000000" }];
+    const result = parseInstanceFacts(xml("", plainFirst ? facts.reverse() : facts), Q2_FILING, CIK);
+    const points = result.facts["us-gaap"]?.AvailableForSaleSecuritiesDebtSecuritiesCurrent?.USD;
+    expect(points?.map(p => p.val)).toEqual([105e6]);
+    expect(points?.[0]).not.toHaveProperty("instanceCarryingAmount");
+    const covered: CompanyFacts = { cik: Number(CIK), entityName: "Synthetic", facts: { "us-gaap": {
+      Assets: { units: { USD: [{ end: "2025-12-31", val: 500e6, accn: Q2_FILING.accession, form: Q2_FILING.form, filed: Q2_FILING.filingDate }] } },
+    } } };
+    // A plain observation is never relabelled as carrying-only supplementation.
+    expect(mergeInstanceFacts(covered, [result]).facts).toEqual(covered);
+  });
+  it("does not generalize measurement scope to another issuer or a noninvestment concept", () => {
+    expect(parseInstanceFacts(xml(), Q2_FILING, "999").count).toBe(0);
+    expect(parseInstanceFacts(xml().replaceAll(tag, "us-gaap:Revenues"), Q2_FILING, CIK).count).toBe(0);
+  });
+  it("supplements a covered filing without replacing its existing facts", () => {
+    const parsed = parseInstanceFacts(xml(), Q2_FILING, CIK);
+    const existing: CompanyFacts = { cik: Number(CIK), entityName: "Synthetic", facts: { "us-gaap": {
+      Assets: { units: { USD: [{ end: "2025-12-31", val: 500e6, accn: Q2_FILING.accession, form: Q2_FILING.form, filed: Q2_FILING.filingDate }] } },
+    } } };
+    expect(mergeInstanceFacts(existing, [parsed]).facts.facts["us-gaap"]?.AvailableForSaleSecuritiesDebtSecuritiesCurrent).toBeDefined();
+    expect(existing.facts["us-gaap"]?.AvailableForSaleSecuritiesDebtSecuritiesCurrent).toBeUndefined();
   });
 });

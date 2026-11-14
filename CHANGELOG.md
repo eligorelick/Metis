@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.84.0** and
-payload **1.102.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.85.0** and
+payload **1.103.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,14 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Bounded carrying investment subtotals (P7, P8, D-268)
+
+- Clear pre-existing typed liquidity refusals at both admission gates only with bounded carrying proof; retain independent refusals and original observations, including on a repeated cash-admission view. Equal plain facts win in either XML order.
+
+- Preserve plain facts across investment lookup lists and sibling lines. Carrying note subtotals never supply cash or fallback component sums; liquidity composition requires a same-filing current-assets bound.
+- Separate carrying-only supplementation from statement acquisition disclosures and successor history. Revisit admitted cash only when newly proved investment evidence arrives.
+- Report 1.85.0, payload 1.103.0, Stage B CARRYING_INVESTMENTS_77. All original-input financial outputs remain unchanged. The separately refreshed four-instance LLY case recovers FY2025 ROIC 39.7485% and changes September bridge net debt 44,618M to 44,544M; model value becomes 739.3363643527257 USD/share. Saved inputs stay unchanged.
 
 ## Unreleased - Same-date fallback models (D-267 part 1)
 

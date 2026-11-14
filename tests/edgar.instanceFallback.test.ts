@@ -421,8 +421,8 @@ describe("which instances the fallback requests (D-236)", () => {
     expect(result.companyFactsInstances).toEqual({ companyFactsThrough: "2025-04-17", merged: [], unread: [{ ...FY2025_20F, reason: "instance unreadable (document HTTP 404)" }] });
     expect(companyFactsInstanceEntries(result.companyFactsInstances ?? undefined)).toEqual([{
       field: "edgar.companyFacts.unreadFilings", severity: "warn", attemptedSources: [FY2025_20F.accession],
-      reason: "SEC companyfacts does not carry the financial statements of 20-F 0001628280-26-025362 (filed 2026-04-16) and the filing's own XBRL instance could not be read: " +
-        "instance unreadable (document HTTP 404); figures that need its filed facts rest on earlier filings or are withheld",
+      reason: "The 20-F 0001628280-26-025362 filing's own XBRL instance (filed 2026-04-16) could not be read: " +
+        "instance unreadable (document HTTP 404); facts absent from companyfacts, including dimensional investment totals, remain unestablished; figures that need those facts rest on earlier filings or are withheld",
     }]);
     // A filing read beside one that was not: both are disclosed.
     const both = withNewerFilings(served, [tsmInstance()], unread.slice(0, 1));
@@ -533,10 +533,11 @@ describe("building the data bundle for a 20-F filer (D-236)", () => {
     }]);
   });
 
-  it("requests no instance when the feed carries the filing's statements", async () => {
+  it("checks dimensional investments even when the feed carries statements (D-268)", async () => {
     const carried = mergeInstanceFacts(storedFeed(), [tsmInstance()]).facts;
     const { bundle, instanceRequests } = await tsmBundle(carried);
-    expect(instanceRequests).toEqual([]);
+    expect(instanceRequests).toEqual(["https://www.sec.gov/Archives/edgar/data/1046179/000162828026025362/tsm-20251231_htm.xml"]);
+    expect(bundle.edgar.companyFacts.ok && bundle.edgar.companyFacts.value.data).toEqual(carried);
     expect(bundle.edgar.companyFactsInstances).toBeUndefined();
     expect(bundle.edgar.companyFacts.ok && bundle.edgar.companyFacts.value.endpoint).toBe("https://data.sec.gov/api/xbrl/companyfacts/CIK0001046179.json");
     expect(bundle.gaps.filter((g) => g.field.startsWith("edgar.companyFacts."))).toEqual([]);
