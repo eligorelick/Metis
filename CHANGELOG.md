@@ -22,7 +22,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 - Altman's original X4 now uses the market value of equity observed at the balance-sheet date (the latest observation on or before it within 45 days, the rule the own-history multiples already use; one shared constant). The current quote's cap no longer stands in for an older balance sheet. Without a qualifying observation the score is withheld with a named gap and the signal is unscored; a cap converted only at the quote-date exchange rate takes the existing currency refusal and its disclosed Z-prime substitute.
 - The score evidence names the observation date and source. Stored cases: mu, qcom and LLY scores move to their balance-date values; nvda and vktx are unchanged (X4 at the house cap); tsm moves to the book-equity Z-prime. Quality and composite change only for tsm.
-- Report 1.80.0, payload 1.98.0 and Stage B `STAGE_B_2026_11_BALANCE_DATE_MARKET_EQUITY_72` identify the new meaning. The DCF balance-date rule of the same work package is not included (see D-267).
+- Report 1.80.0, payload 1.98.0 and Stage B `STAGE_B_2026_11_BALANCE_DATE_MARKET_EQUITY_72` identify the new meaning. The DCF balance-date rule of the same work package is not included: even narrowed to the fiscal-year fallback it changes existing tests, so it awaits a decision (see D-267).
 
 ## Unreleased - Filed operating income and complete trailing income flows (2026-11-13)
 

@@ -70,26 +70,35 @@ WACC market-value weights use the current cap with the latest debt, a separate
 owner (`returns.ts`) and a different convention; not changed here and listed
 for the lead.
 
-**DCF balance date (brief part 1) is not changed by this entry.** The rule was
-implemented and tested (model withheld with a typed cause whenever the balance
-that supplies invested capital and the bridge is not dated at the statement
-date, on the fiscal-year and trailing-window routes alike). It was not shipped:
-the shared offline test bundle (`tests/helpers/currencyBundle.ts`) is itself a
-trailing-window model on an earlier fiscal-year balance (its quarterly balance
-rows carry no currency label), so the rule withholds the DCF in 166 tests across
-53 files. Re-pinning that fixture is a separate change. The trailing-window route
-does reach a different-dated balance (window end 2026-03-31, balance 2025-12-31 in
-that fixture; `dcfBridgeRow` falls back to the anchor when the window-end row is
-missing, incomplete or refused). D-65 is therefore not revised yet. None of the
-17 stored regression cases, and neither LLY case on this main (after D-260),
-reaches that path.
+**DCF balance date (brief part 1) is not changed by this entry.** Two versions of
+the rule were built and tested; neither ships. The first withheld the model value
+whenever the balance that supplies invested capital and the equity bridge is not
+dated at the statement date, on both routes. It broke 166 tests in 53 files,
+because the shared offline test bundle (`tests/helpers/currencyBundle.ts`) is
+itself a trailing-window model on an earlier fiscal-year balance (its quarterly
+balance rows carry no currency label). The second applied the rule to the
+fiscal-year fallback route only. It still broke 6 tests in 4 files: four tests
+that pin the D-65 behaviour being revised
+(`tests/stageB.bridgeBalance.audit20261027.test.ts`, three tests;
+`tests/stageB.branchFix1.audit20261027.test.ts`, one), and two whose own inline
+fixtures happen to take that shape (`tests/stageB.periodLength.test.ts`, the
+53-week annual fallback built on the shared bundle with its annual rows re-dated
+to 2026-01-31 while the balance stays 2025-12-31;
+`tests/stageB.seasonalGuidance.test.ts`, an annual base dated 2025-12-31 on the
+scenario's 2026-09-30 balance). Re-pinning those is left to the lead's decision.
+So today the fiscal-year fallback still publishes a value on a different-dated
+balance with its D-65 note. The trailing-window route can also take an earlier
+balance through `dcfBridgeRow`'s anchor fallback, with its existing note. No
+stored case has either shape today (none of the 17 regression cases carries
+`valuation.dcf.bridgeBalanceDate`, and neither LLY case does on this main after
+D-260). D-65 is not revised. Both routes are left for separate work.
 
 **Stamps.** Report spec 1.80.0, payload 1.98.0, Stage B
 `STAGE_B_2026_11_BALANCE_DATE_MARKET_EQUITY_72`: Stage B results change on
 identical retained inputs.
 
-**Approved report changes** (same-report check, main 569635e4 to this branch; all
-17 stored cases plus the two LLY cases). The balance-sheet and income figures each
+**Approved report changes** (same-report check, main e2b32711, after D-262, to this
+branch; all 17 stored cases plus the two LLY cases). The balance-sheet and income figures each
 score uses are unchanged (total assets, current assets and liabilities, retained
 earnings, total liabilities, operating income and revenue from the annual
 statements at the balance date shown). Only the market value of equity moved to
@@ -102,7 +111,7 @@ figure; it is described by date and source.
 | nvda (data-only, fixed-analyst) | 2026-01-25 (10-K) | 2026-01-23 (last session before the Sunday year end), provider market-cap history | original 16.84 | original 16.84 (X4 at the house cap both times) | 60.03 / 60.03 | 75.97 / 75.97 |
 | qcom (data-only) | 2025-09-28 (10-K) | 2025-09-26 (last session before the Sunday year end), provider market-cap history | original 6.38 | original 6.58 | 64.56 / 64.56 | 56.96 / 56.96 |
 | vktx (data-only) | 2025-12-31 (10-K) | 2025-12-31, provider market-cap history | original 9.76 | original 9.76 (X4 at the house cap both times) | 75.59 / 75.59 | 43.95 / 43.95 |
-| lly (data-only, fixed-analyst) | 2025-12-31 (10-K) | 2025-12-31, provider market-cap history | original 11.45 | original 8.68 | 68.43 / 68.43 | 63.05 / 63.05 |
+| lly (data-only, fixed-analyst) | 2025-12-31 (10-K) | 2025-12-31, provider market-cap history | original 11.45 | original 8.68 | 68.43 / 68.43 | 62.90 / 62.90 |
 | tsm (data-only) | 2025-12-31 (20-F) | none admitted: the cap converts only at the 2026-11-12 quote-date rate | original 14.57 | Z-prime (book equity) 2.92, currency refusal disclosed | 83.21 / 80.01 | 72.35 / 71.87 |
 
 Quality and composite scores stay the same where the score moved within the top
@@ -119,7 +128,8 @@ the balance date, no observation in the window, an observation after the cutoff,
 book-equity variants untouched, a foreign filer on the quote-date rate). Fixtures
 in neighbouring tests about currency, ADR scope and eligibility now supply the cap
 observed at the balance date; tests that pinned the old mixed-date output assert
-the new refusal instead.
+the new refusal instead, each with an exact expected value (no assertion removed
+or loosened).
 
 ## D-260 - Complete filed operating costs and exact additive income windows (2026-11-13)
 
