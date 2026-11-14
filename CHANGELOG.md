@@ -20,6 +20,12 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
 
+- D-262 review: competing capital tags no longer establish a total; income D&A
+  stays distinct from the cash add-back, and interest excludes combined dividends.
+  Expected zero-expense gaps are informational, mixed operating parts are disclosed,
+  and original lease precision and primary repurchase cash bridges are preserved.
+  Normal merge of D-263 retains its verification fixes; D-262 uses report 1.78.0.
+
 - Review follow-up preserves every stored segment parent link and bounds
   additional hierarchy searches with exact proof in every displayed quarter.
   Notes explain subtotal overlap even when no hierarchy can be inferred.

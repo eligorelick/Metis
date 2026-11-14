@@ -1119,7 +1119,7 @@ describe("payload determinism + provenance", () => {
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
       "returns 04acba1118ea2ecc",
-      "capital 9f5c591c94c53346",
+      "capital 345abeca6e98de5e",
       "forensics 0d59d3ffecb6f45c",
       "technicals 0d0c7b3f39a71e07",
       "valuation (frozen record)",

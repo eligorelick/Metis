@@ -2,7 +2,7 @@
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
   "payloadVersion": "1.95.0",
   "fingerprint": "1.95.0:b8c7dc55",
-  "summary": {"promptBytes": 155141, "promptFnv1a32": "b8c7dc55", "provenanceCount": 536, "provenanceHash": "67a18127", "provenanceIdsHash": "1f4e2f3b", "citationCount": 79, "citationHash": "7c7763ca", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "de666f21"},
+  "summary": {"promptBytes": 155141, "promptFnv1a32": "b8c7dc55", "provenanceCount": 536, "provenanceHash": "ad7ee477", "provenanceIdsHash": "1f4e2f3b", "citationCount": 79, "citationHash": "7c7763ca", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "de666f21"},
   "prompt": {
     "bytes": 155141,
     "sha256": "1326e49c5c5e47e081ec4a1633f8b906c7d1d5547399cdc9f18dee7e5ffc0079",

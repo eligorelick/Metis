@@ -1,6 +1,6 @@
 # D-262 approved offline replay changes
 
-Baseline: main `cf3eb287`. Both runs use identical frozen local inputs and Node 24, with the harness network blocked. No model or paid provider is called. This record lists filed input corrections, their propagated report changes, and every differing JSON leaf. Original vendor rows and report exports are not reproduced.
+Baseline: main `cf3eb287`. Current output includes the normal merge of main 742d4d2f: D-263 adds affirmative EBITDA/cash-flow producer metadata and rechecks prose. Those inherited verification/metadata leaves are included below. Both runs use identical frozen local inputs and Node 24, with the harness network blocked. No model or paid provider is called. This record lists filed input corrections, their propagated report changes, and every differing JSON leaf. Original vendor rows and report exports are not reproduced.
 
 A changed file hash is approved only for the causes and leaf set listed here. Text/HTML are the same deterministic figures, qualifications, provenance and version identifiers in reader/audit/print/web forms. A fixed-analyst case retains its saved analyst output and rechecks it; it does not regenerate prose. All 17 golden cases change compatibility metadata and/or disclosures; cases with no corrected input are identified explicitly.
 
@@ -19,14 +19,14 @@ Paths use the golden harness's dotted notation. Braces enumerate alternatives; `
 
 ### stageB.json
 
-SHA-256 before `9381e9cafc27f42b7f7a6c4048bc887e0dd19aea32962a8bbffc3e5e6ab459c4`; after `18c48fe6bbe0164383396b45160953b9e4b7f48c823d1a247ab09059818d1ac3`.
+SHA-256 before `9381e9cafc27f42b7f7a6c4048bc887e0dd19aea32962a8bbffc3e5e6ab459c4`; after `723cd62dc1ffc529e21395c14536b2b5ebbbf490329b8413fa755b8f2e286d55`.
 
-306 changed JSON leaves, all enumerated below.
+308 changed JSON leaves, all enumerated below.
 
-- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.cashBridge.definition
+capital.{current.{cashBridge.definition,ebitdaComputed},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (300 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -49,13 +49,13 @@ scores.aspects.fundamentals.signals.3.{fallbackReason,operands.{6,7}.value}
 
 ### payload.txt
 
-SHA-256 before `2dbcf2787731fe38a3bada47664855d48c17012430236b85a2eeb5f247bbe7c2`; after `5cf63c7b777e0a3dd92338749d07f9b2666c30cbc9807e4d794d37dbe19ea3ae`.
+SHA-256 before `2dbcf2787731fe38a3bada47664855d48c17012430236b85a2eeb5f247bbe7c2`; after `66d46bfc1335b7b440bb94cdf0e5e276189b9a6590b5e2d1ba3caa581e3e72c8`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `cb8a4884af74bf8643841a341761d6c772d80fdec65e8f41351bb6455dac0248`; after `649b645ec1e5b365249d3f656ffd358d3e83f605687317818eb33b003e878df1`.
+SHA-256 before `cb8a4884af74bf8643841a341761d6c772d80fdec65e8f41351bb6455dac0248`; after `f438146ec8abb9dd7647d5eb816a45cb646c0ca6d7e161e44030a5cd1e4a62e7`.
 
 218 changed JSON leaves, all enumerated below.
 
@@ -91,29 +91,29 @@ scores.aspects.fundamentals.signals.3.{fallbackReason,operands.{6,7}.value}
 
 ### report.md
 
-SHA-256 before `818a87ecd255fcbf019cc2bd50c65d8822fad04323662c240f39a981cf2a028b`; after `3e2c64d89f5938e4a63cb5329994ccbab99e7685aebcab6bca3b8974f40b7d39`.
+SHA-256 before `818a87ecd255fcbf019cc2bd50c65d8822fad04323662c240f39a981cf2a028b`; after `3ac10a77a68e305e2e346943e6d9a07866784bd9a859cce4239380af0ec48485`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `8008e09ee39a70245dbbed0bc8be4cafa37d29ade0c7b48814e7e6294293b5be`; after `deb76a36e5b7d288aa670f2a0c9df6f3789a1387b1eb3b5b5aeaf2d16b6aa1af`.
+SHA-256 before `8008e09ee39a70245dbbed0bc8be4cafa37d29ade0c7b48814e7e6294293b5be`; after `58be484a86f7845b68215fbfc39542c2a514fd13a26dd2ff235bd671fa142fa5`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `fe75285733330a2451dbfde4c9d5e1dbe5eae93047328a2d8a41127e0d228a35`; after `8ac1ca5049cc686834286f6be4b9d0c68018f60c1aa252eb9d7c240f6eb5ab16`.
+SHA-256 before `fe75285733330a2451dbfde4c9d5e1dbe5eae93047328a2d8a41127e0d228a35`; after `3ac4aaf78f4dbdd25557085dc1e31974e8d085534aa7b687a847891af8aa17e3`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `9d63c422d74a7003ff5d365b924984d44048f07c37f5fffec255b9ab657333cf`; after `a3fb5b86ae39f6b90e2bcc21e7397da54fe2e539bef42dd4dc56e8f56a95501e`.
+SHA-256 before `9d63c422d74a7003ff5d365b924984d44048f07c37f5fffec255b9ab657333cf`; after `445d1d600395592be60c57a6bf256ad3188d6ce7e3160820ae797f8421b6e787`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:d3a902a8"` to `"1.95.0:e15627bd"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:d3a902a8"` to `"1.95.0:8ca6b713"`, approved because its version and covered deterministic content changed.
 
 ## figr-data-only
 
@@ -135,9 +135,15 @@ Manifest payloadFingerprint: `"1.94.0:d3a902a8"` to `"1.95.0:e15627bd"`, approve
 
 ### stageB.json
 
-SHA-256 before `e4e38961697bd6e4fb7541e06e9e7cf9f765b686131e7780d076873ce8ed2e9d`; after `ee7bd689e3fc62ae265a343c456999290e3bfa14c48006500b5c20fb48938fbb`.
+SHA-256 before `e4e38961697bd6e4fb7541e06e9e7cf9f765b686131e7780d076873ce8ed2e9d`; after `030e39786cd6529167c8914446ab978218ff6d7cd739e7d3b9b55a04cd7b0f17`.
 
-251 changed JSON leaves, all enumerated below.
+252 changed JSON leaves, all enumerated below.
+
+- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+
+```text
+capital.netDebtToEbitda.ebitdaComputed
+```
 
 - **gaps (251 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
 
@@ -153,7 +159,7 @@ Approved changes: the corrected filed facts and unchanged-formula consequences l
 
 ### report.json
 
-SHA-256 before `802a33ed6447a242d8e56f788c0dbba742ce423adfd91e10eeb9e3d679f971ce`; after `2e80ed8c8a72b13d67412aeaef9f68b4fb14ff611af06502b94c8a119f8e677f`.
+SHA-256 before `802a33ed6447a242d8e56f788c0dbba742ce423adfd91e10eeb9e3d679f971ce`; after `794fc811a2cd61a46e21c9f86754ae71406e3d333e5d6d2de1ea5e716273f22d`.
 
 254 changed JSON leaves, all enumerated below.
 
@@ -177,25 +183,25 @@ verdict.synthesis
 
 ### report.md
 
-SHA-256 before `d595dbbba285e6b4cab71e530f0dbbf1cca8106a95b10bfc9021760158ca5fc4`; after `01302f7b4d2758b25ec7818df4d2f5e13ddc4677c6be741e6370d0712a88a88e`.
+SHA-256 before `d595dbbba285e6b4cab71e530f0dbbf1cca8106a95b10bfc9021760158ca5fc4`; after `1df220a189870505c5e690b1cf8de4135d38bdca2cf65b6cded9ffa9975d5468`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `af1525136f250637f4053c6b025d686fa69ef1184ada07251b9dd64221bbe6c9`; after `3433d1d197d0d101847653166c1aebf251bb802533325081dc905d74f77d51d4`.
+SHA-256 before `af1525136f250637f4053c6b025d686fa69ef1184ada07251b9dd64221bbe6c9`; after `918582fd647e06479be784eec71507fec5b3a5b5a2c1380688fd346c3a463785`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `5e6a67d3b772385379a245cbd2c459808edd03439352b897e78f8aeae8b1f6e5`; after `df17506fb95d63ad53876a7ce80c0d3fc322c5e501905889951b18f13310a8b4`.
+SHA-256 before `5e6a67d3b772385379a245cbd2c459808edd03439352b897e78f8aeae8b1f6e5`; after `b4e0b99462d2c69fb9da87d11fd4c02483e07e71e8d968cd16fb5ab745742132`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `d8bd6f95d36424fe16d2860fd343602d635db1e39b52e7c19ade255399e39c8d`; after `69bf08b223bb887486b4a8216b4f3f2e3670b9080b9379afc649ae73624149f1`.
+SHA-256 before `d8bd6f95d36424fe16d2860fd343602d635db1e39b52e7c19ade255399e39c8d`; after `18b5e7301567b0961a5cd8ecc0f2501f0c8c051de8067bbe25a01cdb947ba0ee`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
@@ -214,14 +220,14 @@ Manifest payloadFingerprint: `"1.94.0:82cd4ed7"` to `"1.95.0:87d8b61d"`, approve
 
 ### stageB.json
 
-SHA-256 before `ebfb1046771b5640b383fc795c0741adb0ca38241b7a92acf9a40dc827f0adab`; after `9f8547e32a3369342abfff5ccd06fd404ede13d88f473b9cb051a8c5902283bc`.
+SHA-256 before `ebfb1046771b5640b383fc795c0741adb0ca38241b7a92acf9a40dc827f0adab`; after `56952c4238fc112230dbf4cb0b8babea2f694e36d9f0596fef572fb1a74549fb`.
 
-411 changed JSON leaves, all enumerated below.
+413 changed JSON leaves, all enumerated below.
 
-- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (5 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.{cashBridge.definition,{interestCoverage,interestExpense}}
+capital.{current.{cashBridge.definition,{ebitdaComputed,interestCoverage,interestExpense}},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (401 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -244,13 +250,13 @@ scores.aspects.balanceSheet.{drivers.1.value,signals.1.{operands.{0,2}.value,raw
 
 ### payload.txt
 
-SHA-256 before `0d676d6a44378b390501ae457aff13995de5ed4d6926799219c576cf101457df`; after `f6a5371b09fbf28cb8c296a1f0793049928df61db1eb0a4c5bbab910a7f26e8f`.
+SHA-256 before `0d676d6a44378b390501ae457aff13995de5ed4d6926799219c576cf101457df`; after `fcc504016193acbf565b9e1c75bd1ce7858ca1c913aab8ae3deddfdf26932bb1`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `850c3ea8c7f9e939f13d4507229f8fc88d4eea7bcf1779529565bf750073dc38`; after `266b0a314cf4a7c253fa0231d8a087a653353edaafa3e0d6e16d1a968d28ab2d`.
+SHA-256 before `850c3ea8c7f9e939f13d4507229f8fc88d4eea7bcf1779529565bf750073dc38`; after `d7d25435d8e0dc86a4e6c81494944ed91db650afbba7377d973f56f6b8178135`.
 
 408 changed JSON leaves, all enumerated below.
 
@@ -286,29 +292,29 @@ verdict.{gradeStrip.balanceSheet.keyNumbers.1.value,synthesis}
 
 ### report.md
 
-SHA-256 before `663f92764de714722e6f8398807b7cc8e78e7715df61ce5f76ffa0c434a372bf`; after `d45b72f5016af67b83fb2980070e10afd75cf9c64174b4763ff769a145ce283f`.
+SHA-256 before `663f92764de714722e6f8398807b7cc8e78e7715df61ce5f76ffa0c434a372bf`; after `bd2e966d17be0716640ea00b4015bb3c9ed41918d1206a228fe8e71f9c2760cf`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `13e70700c8f89586ca188a880613fe11585aff2e6f69cf946d377ca9cab65555`; after `d48145cc454efbd99c5917c2ea5d41ad4b13e94116750960800b7f9365865797`.
+SHA-256 before `13e70700c8f89586ca188a880613fe11585aff2e6f69cf946d377ca9cab65555`; after `0aa781a12031815fd020d2707420a302f84102a48b57b6340e4538b111d91767`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `99fa29d6435dafc1bfda9e2874ed5c410986c7b8532221b3cf62f9c9b322d936`; after `4ac26e9d70fed4bd7cd91a067ccaac48cf10b7f1c2b19d112a67d561ac6cc063`.
+SHA-256 before `99fa29d6435dafc1bfda9e2874ed5c410986c7b8532221b3cf62f9c9b322d936`; after `0aebf7112d3c3d3c660dd9e4340ca7c9ed3f80bba16f0db7c2abaf2ca39ef9e4`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `07257d30b6c467d04db09f932a83e94c8ac03ea810aa9141ddde03fe32264430`; after `24827bac80e4d45e51ae631f6867fa406f5103c5996f2fb3c4f3131bf43974c1`.
+SHA-256 before `07257d30b6c467d04db09f932a83e94c8ac03ea810aa9141ddde03fe32264430`; after `9957b8145de220111330f649c7d63b7216c0f8d2f6b7e3bc574f43f703956e52`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:0ff64fb6"` to `"1.95.0:36ed8be1"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:0ff64fb6"` to `"1.95.0:3bbee120"`, approved because its version and covered deterministic content changed.
 
 ## mu-data-only
 
@@ -319,14 +325,14 @@ No scalar input correction: only the revised definition, compatibility identifie
 
 ### stageB.json
 
-SHA-256 before `221c0a467a91e1522bdce283b855072801ae97ddd1061ea42d148fc3c34fbae9`; after `6fd276e28539f97b5a67dc5e30d11efa630d219e92d06ef211f128a745fef058`.
+SHA-256 before `221c0a467a91e1522bdce283b855072801ae97ddd1061ea42d148fc3c34fbae9`; after `afa75afeed094b61b2e309998ee6b2e7e75ee80d488fae68b954653f3964bb6b`.
 
-1 changed JSON leaves, all enumerated below.
+3 changed JSON leaves, all enumerated below.
 
-- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.cashBridge.definition
+capital.{current.{cashBridge.definition,ebitdaComputed},netDebtToEbitda.ebitdaComputed}
 ```
 
 ### payload.txt
@@ -337,7 +343,7 @@ Approved changes: the corrected filed facts and unchanged-formula consequences l
 
 ### report.json
 
-SHA-256 before `b0e28b9b520a56476caf612331073c1fbb0d4b74e12e5a73232b310161c95ec0`; after `09485f78d606551e79362d4fe3f13f3183f908d0bee5f622ed81dbcf7b60c4a3`.
+SHA-256 before `b0e28b9b520a56476caf612331073c1fbb0d4b74e12e5a73232b310161c95ec0`; after `c0f4940a603b763a5e72a8f0aee4f66ad4aa9c9040e60fd41bd117204a57c4be`.
 
 2 changed JSON leaves, all enumerated below.
 
@@ -355,25 +361,25 @@ meta.specVersion
 
 ### report.md
 
-SHA-256 before `12437439152797de8848c6db7dca8037106d99494564c139697c509aea03809b`; after `be497303b640799aff716ae2d7190148c5a2c1610868164a75486324e3840f01`.
+SHA-256 before `12437439152797de8848c6db7dca8037106d99494564c139697c509aea03809b`; after `f73028cdafed3aab2e9f2ab692337e465573b89a63c0ae79a1c956d055aca579`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `8b24306478846c0b6cb498dc16652295eec851936a2809b75d4750528240afc1`; after `d25ba35c674d7a6b22879a6465c4c2805e4769a6ea4a0ff987d77454a4836a39`.
+SHA-256 before `8b24306478846c0b6cb498dc16652295eec851936a2809b75d4750528240afc1`; after `95bf44e0bf9271ccac8f1cf330148cbd813e06ba56e4e02fff6449377ec99b39`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `2ec772ef496d4b10a917e11d1bcfa234284d5c094440b6ef595e0263772f0a97`; after `455b56980d616c1b463600538c402096dc730bd149a8495a5112d7a0309e8dff`.
+SHA-256 before `2ec772ef496d4b10a917e11d1bcfa234284d5c094440b6ef595e0263772f0a97`; after `d0661c1c29ca4dbbecff239139dbe253baf55e5f6ca736c6bf0660f96e206067`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `9aa87a104010828199f13cdf3aefd73848835b98c33098e12d47be3378966500`; after `b208ad4622ecf10d7979a08d988da4a872759b0e8292c31132e97e85a7533714`.
+SHA-256 before `9aa87a104010828199f13cdf3aefd73848835b98c33098e12d47be3378966500`; after `232b640bb970d922fb5c8d3af190d564c697a7aaa2f13cacc2eab8fe101fd052`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
@@ -396,14 +402,14 @@ Manifest payloadFingerprint: `"1.94.0:ae6c7800"` to `"1.95.0:83ff7142"`, approve
 
 ### stageB.json
 
-SHA-256 before `b4f6677ad08d828bc353afaf4bbe835a42154e54dea708fc178316c14f37e553`; after `34fb2ca82371a3b4656a8b2390dc3f86e872b500bdb05356ae9a3656e7de608e`.
+SHA-256 before `b4f6677ad08d828bc353afaf4bbe835a42154e54dea708fc178316c14f37e553`; after `114392a1568693b0ddb71bb380afe2c383f3428f108e1dd812e3185b276ba93b`.
 
-180 changed JSON leaves, all enumerated below.
+182 changed JSON leaves, all enumerated below.
 
-- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.cashBridge.definition
+capital.{current.{cashBridge.definition,ebitdaComputed},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (179 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -414,13 +420,13 @@ gaps.{{51..61}.{field,reason},{62..89,91,92}.{expected,field,reason},90.{attempt
 
 ### payload.txt
 
-SHA-256 before `c4abe6679d23ad37e37f446db0418e80d211224167956131f42ed774e1ad9e3e`; after `ba02bcba8923fa8370f1bbb3a02e0d9dc4e387f4b445eeca5f259941dec7796c`.
+SHA-256 before `c4abe6679d23ad37e37f446db0418e80d211224167956131f42ed774e1ad9e3e`; after `1e79cd34cb89b9151f44113f5213e0eb0d66696d33b2b68cdfaabb8fa70fc42a`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `d067ae4092241a52825e12a18f73f6a246fe941cb816321044b06cafca6d6f2a`; after `7457b4bd78ff69b3a57e89d3b1fde9087c6a7043735002bc06f23aadc61e5b50`.
+SHA-256 before `d067ae4092241a52825e12a18f73f6a246fe941cb816321044b06cafca6d6f2a`; after `079437b2f29edc749b74865daa3e1a92c691991f2da7108546c05763ada02214`.
 
 181 changed JSON leaves, all enumerated below.
 
@@ -444,29 +450,29 @@ meta.specVersion
 
 ### report.md
 
-SHA-256 before `bee69308c1a5eb7d4073ef7adbd6e68c45aa9f7db9a91f0246665df2d1b58f28`; after `f09619e6ee155949fc284e56c4c3b6de65f915fba42d208186dc1e7ef66cd9d6`.
+SHA-256 before `bee69308c1a5eb7d4073ef7adbd6e68c45aa9f7db9a91f0246665df2d1b58f28`; after `29c3ffc885d161aa6480164a63423b644a5b77b767bc756f39d6f69bbd4d5148`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `762cf1a6cd0f25ae046021e372758debe8484d04b920cd231f70022093d9b923`; after `482792ad0343d0e1438e7904c066a87fee3cac5c031b8ee629e3f6635e6e5743`.
+SHA-256 before `762cf1a6cd0f25ae046021e372758debe8484d04b920cd231f70022093d9b923`; after `8388012a91e6f11701a1f10f2e63da8e646d731cc63610e4196d063b085f3427`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `43ac6827d0b3f55f2111d5263e4161870869e695fb67a2c794ab613df3cdf96c`; after `6c3093b33495b533207145ca858ff7ab2e4227b4e8c959ff5b13b91df768f197`.
+SHA-256 before `43ac6827d0b3f55f2111d5263e4161870869e695fb67a2c794ab613df3cdf96c`; after `462efc746ee0fdb4838838d20edf495bc7c118f103e7d3f58b69b9a7eecf785b`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `3de91090bd801df2d2ea0ac73be4f88aa4617b3794f4637616864f740284d45e`; after `f06f6645bbc91bdf87445139916ca0d91ccde6ee0866e6fd6d50a3ed8a07a009`.
+SHA-256 before `3de91090bd801df2d2ea0ac73be4f88aa4617b3794f4637616864f740284d45e`; after `26e9b8c80136f3032d6bf47c556b5c5d5616d247ba2b144fb98f3d70a8422ef5`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:182abc3c"` to `"1.95.0:e1f4a67c"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:182abc3c"` to `"1.95.0:c67bcb33"`, approved because its version and covered deterministic content changed.
 
 ## qcom-data-only
 
@@ -479,14 +485,14 @@ Manifest payloadFingerprint: `"1.94.0:182abc3c"` to `"1.95.0:e1f4a67c"`, approve
 
 ### stageB.json
 
-SHA-256 before `b07eb9aea95833b278f0f0f21bd503c5385c7dcaf923f3378e2488b00b11193e`; after `e0abb4f284f760db2d116bb48b7a7f3c7dc27c7aac85a47e0f0314a71012f08a`.
+SHA-256 before `b07eb9aea95833b278f0f0f21bd503c5385c7dcaf923f3378e2488b00b11193e`; after `8f236c3eaae060a33da7491a204cbc888e1931741d8ee8421779b7aa79630f1c`.
 
-282 changed JSON leaves, all enumerated below.
+284 changed JSON leaves, all enumerated below.
 
-- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.cashBridge.definition
+capital.{current.{cashBridge.definition,ebitdaComputed},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (281 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -497,13 +503,13 @@ gaps.{{9,11,12}.{field,reason,severity},{10,13,14,16}.{attemptedSources,expected
 
 ### payload.txt
 
-SHA-256 before `da45b2de65b722a5998f24b19f62c2825588b591eb2c03c3475a55e8e9e082c5`; after `1836a64f4ede9f8e5f343cc6a190dc3e308f137b09c57e12f57e609dacd9a39a`.
+SHA-256 before `da45b2de65b722a5998f24b19f62c2825588b591eb2c03c3475a55e8e9e082c5`; after `07a8f75aaf1ee91a8db2e8c48646335c1162979cfaa898aa902a2d77154d20b8`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `fd43370aa275b8076006392653c1c6aac3b70dc695cb832ef12e452e116a08bf`; after `9112bdf0ca6a0650af08c02435974584641388901c31ec71ea093b4996cfacdb`.
+SHA-256 before `fd43370aa275b8076006392653c1c6aac3b70dc695cb832ef12e452e116a08bf`; after `db046224584b0732808f90e3a16dc9ee4dc492d3186c9dcd720825e984e41f49`.
 
 292 changed JSON leaves, all enumerated below.
 
@@ -533,29 +539,29 @@ verdict.synthesis
 
 ### report.md
 
-SHA-256 before `b18066345c106fd5008de7cd9083fce93b6b94f6b51a73228f7086e832ad3acc`; after `2d08e3c153dd2c8bfc71bef80b200a199019e530c1c54d6f796db80053875e37`.
+SHA-256 before `b18066345c106fd5008de7cd9083fce93b6b94f6b51a73228f7086e832ad3acc`; after `24afd51c35c4d96e324aa0b05f80ee33009a5085072761bfcd1f9c4c7bbbdb4a`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `4622245c6e29b02991946348fedd6e8b3258fcf0001f111c9f9dff34a4a47540`; after `dc21f49ae951b7e413b8f5e9f2587f4767cfddbae1ab9c06a225abf8a4cf030c`.
+SHA-256 before `4622245c6e29b02991946348fedd6e8b3258fcf0001f111c9f9dff34a4a47540`; after `019190ee9845852641329cb48f829e4735c4ed8c9a6954dd04a929e648a75e2b`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `a6af831984ba65e641d70648e63c86e9ebb793fc466f704adf40da0b4833f625`; after `d70cdd5b945b01d85a3c81e3a36260e38e1d2740d7d5188938b9f4c75c6061a7`.
+SHA-256 before `a6af831984ba65e641d70648e63c86e9ebb793fc466f704adf40da0b4833f625`; after `a0772171c86d96ae7b045a06e0d4d5401bb36844862f4557bdff2440af2d3d2a`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `7182ecb944de754759d63341b67ae604485bc8904a75b76bfada4e6a6481fe36`; after `072de8248de56ec248784e486413881facbe51b74061fe155c7e9ea15b5216f4`.
+SHA-256 before `7182ecb944de754759d63341b67ae604485bc8904a75b76bfada4e6a6481fe36`; after `fc097fa6ae3daf1194e4a2d8e5cb0a20c9b8ba29fe79901d8e06712b5e6a1c0f`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:75d7d0b1"` to `"1.95.0:47de36c6"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:75d7d0b1"` to `"1.95.0:cd106f11"`, approved because its version and covered deterministic content changed.
 
 ## jpm-data-only
 
@@ -609,7 +615,7 @@ Manifest payloadFingerprint: `"1.94.0:75d7d0b1"` to `"1.95.0:47de36c6"`, approve
 
 ### stageB.json
 
-SHA-256 before `49546bede47877232cf872d54a23e2a66c0c36287cdcc07490fa9c6138ae6a6d`; after `c3a77fb60c99deb5d9852450855f05908b98935da959263e9dabd76b3c921a12`.
+SHA-256 before `49546bede47877232cf872d54a23e2a66c0c36287cdcc07490fa9c6138ae6a6d`; after `a619248653c1ecf5000fe58ce55f3938bf63e9e3313630a58a130e951b0e07ec`.
 
 412 changed JSON leaves, all enumerated below.
 
@@ -651,13 +657,13 @@ valuation.excessReturn.{bookValuePath.{1..10},{equityValue,impliedPToBv,perShare
 
 ### payload.txt
 
-SHA-256 before `73db1a5485b3824dd242eb81deabfac76a84434a6547363635696337d16eb8ea`; after `78f0b3608ca1fa934658807188cf3e5e79f451f729c2c471eef5d5cd6c3cd8d7`.
+SHA-256 before `73db1a5485b3824dd242eb81deabfac76a84434a6547363635696337d16eb8ea`; after `147b44fd072b6770498f2ec9f26f39e6ddd72ab565eb8f0cb4ccc18ca88605a8`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `0d523607ba91c7f861dc21fa862a17d9027eb554ccc9006b1d8eb321df98cebf`; after `8b9e840de9ff588aabbab5d9ed3f228c2c7340166fa14c0706eed1d1d12aa0bd`.
+SHA-256 before `0d523607ba91c7f861dc21fa862a17d9027eb554ccc9006b1d8eb321df98cebf`; after `4d0e638af4c711aee582d9100585d6fc744a6e792efdd66774f06b5c769237b4`.
 
 317 changed JSON leaves, all enumerated below.
 
@@ -723,29 +729,29 @@ verdict.{gradeStrip.valuation.{keyNumbers.0.value,oneLineWhy,reasoning.0.text},s
 
 ### report.md
 
-SHA-256 before `f2bcb3bcfa5cfc09300413b3054ced95b47ec5e571e3c44eabf88f27f2918d6e`; after `e67155cb35396d339cbb2c4225afe87d7a524349474d3eed555fbd87c8630cdd`.
+SHA-256 before `f2bcb3bcfa5cfc09300413b3054ced95b47ec5e571e3c44eabf88f27f2918d6e`; after `c025a6b9f469a8db3191cda798159afac80f5bd8799faef51bbbf465e4d8a384`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `d92b2007537e0f4c9725bde3f38e20377670880fb8a51cd1a52b599c33756113`; after `baa62c4f77b4faea529579302f72544120b436f7b5ce5f9a895cd7f7d5dfaa32`.
+SHA-256 before `d92b2007537e0f4c9725bde3f38e20377670880fb8a51cd1a52b599c33756113`; after `2af34b1386c87a5cddee649447c1ac4c3afd81abbbdfca16d51cd7db2322be46`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `435fe88648a29242dffc5f535e6c8518984db815262a990566b040a63be3ac12`; after `53ed1187cdd57614cfd24df38c2dd7940e02475d4c93f5af340970a1b48da82c`.
+SHA-256 before `435fe88648a29242dffc5f535e6c8518984db815262a990566b040a63be3ac12`; after `14c9da8878d76ba5f7c605312ac652842a5cb7d305d183168d9d438b6c2058a1`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `da7257f76683ad4921be70a480d90da49122b24ff4300d8410b43e1f3095127a`; after `0be2778bcd0c8b23cd8ed04218f382a71ef796de6f465773618503c0cca52078`.
+SHA-256 before `da7257f76683ad4921be70a480d90da49122b24ff4300d8410b43e1f3095127a`; after `6555085d29d6819c1d3296776a42b2bfd35969a7f8499f2344e3938e96d8a422`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:c7a70366"` to `"1.95.0:9dda21f9"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:c7a70366"` to `"1.95.0:9bec9651"`, approved because its version and covered deterministic content changed.
 
 ## pgr-data-only
 
@@ -822,7 +828,7 @@ Approved changes: the corrected filed facts and unchanged-formula consequences l
 
 ### report.json
 
-SHA-256 before `36b6896b51f3d7b7856f3a11fa9344e961117f5918814a7668b5ea74218b01e0`; after `1dc53c3dd9956c98d7d8c31331629e7391fad026c4612b443a885e51d27cb217`.
+SHA-256 before `36b6896b51f3d7b7856f3a11fa9344e961117f5918814a7668b5ea74218b01e0`; after `687220acff8d0910f46cd029698d7be0380f4cc8ddf15140e0ceaf92ce95ff52`.
 
 558 changed JSON leaves, all enumerated below.
 
@@ -846,25 +852,25 @@ verdict.synthesis
 
 ### report.md
 
-SHA-256 before `cfb77c3fd7a14137bddc8bafffe9c253e4fbbcdbe31c60a98e92426aacd24686`; after `32a48f76a1909486cd0a5d8f4056b18e02c6ad78a933c4cdc0db4f36c37c7b96`.
+SHA-256 before `cfb77c3fd7a14137bddc8bafffe9c253e4fbbcdbe31c60a98e92426aacd24686`; after `5188b67547af6eb6c1217d7008467224d1f2474ef905297b826a64a8befe3963`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `391bc1fb1ec64ca1fd6a66978504ed95fa7f818345d275099fcd48a87870ea57`; after `e860a845b99ec4af777d6c6c9560530bcf0c0dd544a6a6d3111bf6af5ff22070`.
+SHA-256 before `391bc1fb1ec64ca1fd6a66978504ed95fa7f818345d275099fcd48a87870ea57`; after `5f15f92d67679f69de54fe63056e96206543c9f38e7c85636016bd4f763ca877`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `52815cf86c1eaa967a36fea0695362564bd47dea579de91b2ed46b817fbc4fc7`; after `1c50b392b6bfdc69d9e3feb2b0b6547bbe790c9b81e02782e8adcc98846ea6fd`.
+SHA-256 before `52815cf86c1eaa967a36fea0695362564bd47dea579de91b2ed46b817fbc4fc7`; after `b09471f0f671aa4972802e61e6ac862f350ed5255b03eff28e660063e5e045b8`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `985d244ad9341a8aa69c99d33c1d1840f8372cd290253c000cd6abe4c1f5f759`; after `9078ade92026f59bd8836d39d22336409091825be59bfc3849fbc17a21f7007d`.
+SHA-256 before `985d244ad9341a8aa69c99d33c1d1840f8372cd290253c000cd6abe4c1f5f759`; after `7a563663be25075407da2a6299137fd88d0bdb7cb1a2597bbfc223d9ace3efda`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
@@ -1008,14 +1014,14 @@ Manifest payloadFingerprint: `"1.94.0:6bb0b997"` to `"1.95.0:981e58d9"`, approve
 
 ### stageB.json
 
-SHA-256 before `f80f5c46ce634b53cabf79ea1db26768623f33505408b1cc5a594d0857672021`; after `6fe38b682418cfce31690e6de1d0eb78746014042de7db495c3551f30737e2b8`.
+SHA-256 before `f80f5c46ce634b53cabf79ea1db26768623f33505408b1cc5a594d0857672021`; after `7da29aee6b524525074cb86a41201ce2d669b6f2c9b0832f25730774b0876b04`.
 
-747 changed JSON leaves, all enumerated below.
+748 changed JSON leaves, all enumerated below.
 
-- **capital (4 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (5 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.{current.{cashBridge.definition,interestExpense},interestCoverage.{interestExpense,value}}
+capital.{current.{cashBridge.definition,interestExpense},interestCoverage.{interestExpense,value},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (721 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -1038,13 +1044,13 @@ valuation.{gaps.2.reason,multiples.gaps.2.reason}
 
 ### payload.txt
 
-SHA-256 before `52b716052275711574e37c93f7cbb47a33aff7d549ae88cfd38e384ebae8739e`; after `77ad0df8a4ec31e1cb720324c7bd16d72f9cfaf3c3179dbce08bea818b2306d5`.
+SHA-256 before `52b716052275711574e37c93f7cbb47a33aff7d549ae88cfd38e384ebae8739e`; after `b21fffea3e4492c4b15cc6a379e0a578763cac0d9ed5ce3e680871dd8b9dc2fd`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `2231610c98538b3a4bf274f1a51dd0ee8387764a4fe4145852f2aceeeff24cda`; after `48a0d4d8f664653c86e13b7bb316e81d9943fff035a0c46746a2e74f480ec2b2`.
+SHA-256 before `2231610c98538b3a4bf274f1a51dd0ee8387764a4fe4145852f2aceeeff24cda`; after `cf9c96335f3e02f32c510b2bc82e7ef4ff6b0345e85086c1d40a66c746be688a`.
 
 667 changed JSON leaves, all enumerated below.
 
@@ -1080,61 +1086,38 @@ verdict.synthesis
 
 ### report.md
 
-SHA-256 before `61128eb609eeaed4b3583cecca38254d609012791b27b9d031230b5199499c1d`; after `ab1d48089382c54c161e51dcd57a573f8e76c6e77b40af692c374d801984b49a`.
+SHA-256 before `61128eb609eeaed4b3583cecca38254d609012791b27b9d031230b5199499c1d`; after `e206bfe1798fe8d56e1de04c4f7b106b9eea0d845b0daf9624eeb634ddcc4828`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `6b5b1ed5b886dd41c36d95775a303bc3fd27d509c2a584c820805dd955d4074b`; after `7998b83db14b66009551375bc0234acd5ef80d11648673f43da248243db14f3d`.
+SHA-256 before `6b5b1ed5b886dd41c36d95775a303bc3fd27d509c2a584c820805dd955d4074b`; after `5b97a959cd338dab97b8119fec7f33f8ca36e6b8f966b106aa37b4f28c14d285`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `d8b1b6a96c7e16a13d9bb38e358bca584e3b916d9dcd2fbb793e59d9e07e6864`; after `52f471c958a3db23af52ef2227d2f3837ea8d59a27ed1a915b2164a0f76e2155`.
+SHA-256 before `d8b1b6a96c7e16a13d9bb38e358bca584e3b916d9dcd2fbb793e59d9e07e6864`; after `8419b4da92991eadfa0133a68e06096ae4af5c09d00e9a51871a60f25a305ca6`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `593c6f2cd13ff954b90cf4aad641010ed1bcf445bf4848593afec271209d6f17`; after `dd56920cf0f82a2fb030cd5675857d618d473d078483b296cdf0ade9c6f66961`.
+SHA-256 before `593c6f2cd13ff954b90cf4aad641010ed1bcf445bf4848593afec271209d6f17`; after `20a064641c0b4cd562571eb3496eee60381730db485b6148103200d531555ac8`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:f47d08c3"` to `"1.95.0:63d85314"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:f47d08c3"` to `"1.95.0:9aebc350"`, approved because its version and covered deterministic content changed.
 
 ## duk-data-only
 
-43 independently filed input corrections are listed below. Repeated aliases and dependent FCF are represented by their capex input, not counted again.
+20 independently filed input corrections are listed below. Repeated aliases and dependent FCF are represented by their capex input, not counted again.
 
 | Field | Window | Filed/admitted amount | SEC tag(s) | Filing evidence |
 | --- | --- | ---: | --- | --- |
-| incomeAnnual.depreciationAndAmortization | 2024-01-01 to 2024-12-31 | 5793000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-K 0001326160-25-000072, filed 2025-02-27 |
-| incomeAnnual.depreciationAndAmortization | 2023-01-01 to 2023-12-31 | 5253000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-K 0001326160-24-000037, filed 2024-02-23 |
-| incomeAnnual.depreciationAndAmortization | 2022-01-01 to 2022-12-31 | 5086000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-K 0001326160-23-000073, filed 2023-02-27 |
-| incomeAnnual.depreciationAndAmortization | 2019-01-01 to 2019-12-31 | 4548000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-K 0001326160-20-000034, filed 2020-02-20 |
-| incomeAnnual.depreciationAndAmortization | 2018-01-01 to 2018-12-31 | 4074000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-K 0001326160-19-000057, filed 2019-02-28 |
 | incomeAnnual.interestExpense | 2016-01-01 to 2016-12-31 | 1916000000 USD | us-gaap/InterestExpense | 10-K 0001326160-17-000016, filed 2017-02-24 |
-| incomeQuarterly.depreciationAndAmortization | 2026-04-01 to 2026-06-30 | 1700000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-26-000040, filed 2026-08-04 |
-| incomeQuarterly.depreciationAndAmortization | 2026-01-01 to 2026-03-31 | 1689000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-26-000026, filed 2026-05-05 |
-| incomeQuarterly.depreciationAndAmortization | 2025-07-01 to 2025-09-30 | 1626000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-25-000192, filed 2025-11-07 |
-| incomeQuarterly.depreciationAndAmortization | 2025-04-01 to 2025-06-30 | 1583000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-25-000168, filed 2025-08-05 |
-| incomeQuarterly.depreciationAndAmortization | 2025-01-01 to 2025-03-31 | 1512000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-25-000150, filed 2025-05-06 |
-| incomeQuarterly.depreciationAndAmortization | 2024-10-01 to 2024-12-31 | 1481000000 USD (compatible YTD difference) | us-gaap/CostDepreciationAmortizationAndDepletion | 10-K 0001326160-25-000072, filed 2025-02-27 + 10-Q 0001326160-24-000181, filed 2024-11-07 |
-| incomeQuarterly.depreciationAndAmortization | 2024-07-01 to 2024-09-30 | 1516000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-24-000181, filed 2024-11-07 |
-| incomeQuarterly.depreciationAndAmortization | 2024-04-01 to 2024-06-30 | 1409000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-24-000167, filed 2024-08-06 |
-| incomeQuarterly.depreciationAndAmortization | 2024-01-01 to 2024-03-31 | 1387000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-24-000108, filed 2024-05-07 |
-| incomeQuarterly.depreciationAndAmortization | 2023-10-01 to 2023-12-31 | 1340000000 USD (compatible YTD difference) | us-gaap/CostDepreciationAmortizationAndDepletion | 10-K 0001326160-24-000037, filed 2024-02-23 + 10-Q 0001326160-23-000191, filed 2023-11-02 |
-| incomeQuarterly.depreciationAndAmortization | 2023-07-01 to 2023-09-30 | 1353000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-23-000191, filed 2023-11-02 |
-| incomeQuarterly.depreciationAndAmortization | 2023-04-01 to 2023-06-30 | 1333000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-23-000172, filed 2023-08-08 |
-| incomeQuarterly.depreciationAndAmortization | 2023-01-01 to 2023-03-31 | 1227000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-23-000148, filed 2023-05-09 |
-| incomeQuarterly.depreciationAndAmortization | 2021-10-01 to 2021-12-31 | 1292000000 USD (compatible YTD difference) | us-gaap/CostDepreciationAmortizationAndDepletion | 10-K 0001326160-22-000072, filed 2022-02-24 + 10-Q 0001326160-21-000231, filed 2021-11-04 |
 | incomeQuarterly.interestExpense | 2021-10-01 to 2021-12-31 | 592000000 USD (compatible YTD difference) | us-gaap/InterestExpense | 10-K 0001326160-22-000072, filed 2022-02-24 + 10-Q 0001326160-21-000231, filed 2021-11-04 |
-| incomeQuarterly.depreciationAndAmortization | 2021-07-01 to 2021-09-30 | 1265000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-21-000231, filed 2021-11-04 |
-| incomeQuarterly.depreciationAndAmortization | 2021-04-01 to 2021-06-30 | 1207000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-21-000216, filed 2021-08-05 |
-| incomeQuarterly.depreciationAndAmortization | 2021-01-01 to 2021-03-31 | 1226000000 USD | us-gaap/CostDepreciationAmortizationAndDepletion | 10-Q 0001326160-21-000136, filed 2021-05-10 |
-| incomeQuarterly.depreciationAndAmortization | 2020-10-01 to 2020-12-31 | 1208000000 USD (compatible YTD difference) | us-gaap/CostDepreciationAmortizationAndDepletion | 10-K 0001326160-21-000063, filed 2021-02-25 + 10-Q 0001326160-20-000224, filed 2020-11-05 |
 | cashflowAnnual.netCashProvidedByInvestingActivities | 2025-01-01 to 2025-12-31 | -14338000000 USD | us-gaap/NetCashProvidedByUsedInInvestingActivities | 10-K 0001326160-26-000014, filed 2026-02-26 |
 | cashflowAnnual.depreciationAndAmortization | 2025-01-01 to 2025-12-31 | 7704000000 USD | us-gaap/DepreciationDepletionAndAmortization | 10-K 0001326160-26-000014, filed 2026-02-26 |
 | cashflowAnnual.incomeTaxesPaid | 2025-01-01 to 2025-12-31 | -625000000 USD | us-gaap/IncomeTaxesPaidNet | 10-K 0001326160-26-000014, filed 2026-02-26 |
@@ -1156,14 +1139,14 @@ Manifest payloadFingerprint: `"1.94.0:f47d08c3"` to `"1.95.0:63d85314"`, approve
 
 ### stageB.json
 
-SHA-256 before `9a5f22b992dfa6ae55c8649cccf1211d9deba2704bf588fcb3b114bf3ae194a0`; after `ccac560042467ff4fca033d0b3ca0d3f03161675093c17f3c58eed18ff6849c9`.
+SHA-256 before `9a5f22b992dfa6ae55c8649cccf1211d9deba2704bf588fcb3b114bf3ae194a0`; after `59068392f47d3daea6b80c651eca6557a129ff9c53ec6a5be7db3c7d4e58f72e`.
 
-896 changed JSON leaves, all enumerated below.
+842 changed JSON leaves, all enumerated below.
 
-- **capital (9 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (11 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.{capexIntensity.series.4.capexToDA,current.{cashBridge.definition,{ebitda,netDebtToEbitda}},maintenanceVsGrowthCapex.{capexToDA5yAvg,capexToDALatest,impliedGrowthCapex,impliedMaintenanceCapex},netDebtToEbitda.ebitda}
+capital.{capexIntensity.series.4.capexToDA,current.{cashBridge.definition,{ebitda,ebitdaComputed,netDebtToEbitda}},maintenanceVsGrowthCapex.{capexToDA5yAvg,capexToDALatest,impliedGrowthCapex,impliedMaintenanceCapex},netDebtToEbitda.{ebitda,ebitdaComputed}}
 ```
 
 - **forensics (13 leaves):** The unchanged forensic formulas read the corrected D&A, acquisition, cash-flow totals, compensation or cost operands; related warnings/source labels follow those same facts.
@@ -1172,40 +1155,34 @@ capital.{capexIntensity.series.4.capexToDA,current.{cashBridge.definition,{ebitd
 forensics.{accruals.{{aggregateAccrualsCashFlow,cashFlowAccrualRatio,definition,investingCashFlow,operatingInvestingCashFlow},notes.{1,4}},beneish.{indices.depi,{score,sgiNeutralScore,tataBalanceSheet}},notes.{10,13}}
 ```
 
-- **gaps (806 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
+- **gaps (803 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
 
 ```text
-gaps.{{16,91,101,106..109}.{attemptedSources.{0,1},{field,reason}},{17,18,28,29,53,63,73}.{attemptedSources,field},{19..24,30,42..45,52,54,55,57,62,64,65,72,74,75,233,235,236,265,267,268}.field,{25..27,46,48..51,58,60,61,67,69..71,86,90,125,127,128,130,133,135,136,138,140,141,143..145,149,151,155,159,160,165,168,172,176,180,184..186,190,191,195,196,200,204..206,208,211,220,221,223,224,226..229,231,232,234,239,242,245,253,256,259,261,264,266,271,273,277,278,280,285,286,290..292}.{field,reason},{31,41,47,56,59,66,68,76..78,87,93,95,96,120,122..124,126,129,131,132,134,137,139,142,146..148,150,161,281..284}.{attemptedSources,field,reason},{79,80}.{attemptedSources,field,reason,severity},{81..85}.{attemptedSources,expected,field,reason,severity},{88,89,92,94}.{attemptedSources.0,{expected,field,reason}},{97,98,102..105,164,173,182,194,198,199}.{attemptedSources,expected,field,reason},{99,100}.{attemptedSources.{0,1},{expected,field,reason}},{110..117,119,121}.{attemptedSources.0,{field,reason}},118.{attemptedSources.{0..2},{field,reason}},{152..154,156..158,162,163,166,167,169..171,174,175,177..179,181,183,187..189,192,193,197,201..203,207,209,210,212..219,222,225,230,237,238,240,241,243,244,246..252,254,255,257,258,260,262,263,269,270,272,274..276,279,287..289}.{expected,field,reason},{293..397}}
+gaps.{{16,91,101,106..109}.{attemptedSources.{0,1},{field,reason}},{17,18,28,29,53,63,73}.{attemptedSources,field},{19..24,30,42..45,52,54,55,57,62,64,65,72,74,75,269,271,272}.field,{25..27,46,48..51,58,60,61,67,69..71,86,90,125,127,128,130,133,135,136,138,140,141,143..145,149,151,155,159,160,165,168,172,176,180,184..186,190,191,195,196,200,204..206,208,211,220,223,230,235,237,245,251,253,254,256,258,259,265,266,268,270,277,278,280,288..290}.{field,reason},{31,41,47,56,59,66,68,76..78,87,93,95,96,120,122..124,126,129,131,132,134,137,139,142,146..148,150,161}.{attemptedSources,field,reason},{79,80}.{attemptedSources,field,reason,severity},{81..85}.{attemptedSources,expected,field,reason,severity},{88,89,92,94}.{attemptedSources.0,{expected,field,reason}},{97,98,102..105,164,173,182,194,198,199,281..284}.{attemptedSources,expected,field,reason},{99,100}.{attemptedSources.{0,1},{expected,field,reason}},{110..117,119,121}.{attemptedSources.0,{field,reason}},118.{attemptedSources.{0..2},{field,reason}},{152..154,156..158,162,163,166,167,169..171,174,175,177..179,181,183,187..189,192,193,197,201..203,207,209,210,212..219,221,222,224..229,231..234,236,238..244,246..250,252,255,257,260..264,267,273..276,279,285..287,291,292}.{expected,field,reason},{293..376}}
 ```
 
-- **scores (44 leaves):** The unchanged scoring formulas read the corrected operands above; driver values, signal arithmetic, aspect/composite results and completeness follow those operands.
+- **scores (15 leaves):** The unchanged scoring formulas read the corrected operands above; driver values, signal arithmetic, aspect/composite results and completeness follow those operands.
 
 ```text
-scores.{aspects.{quality.{drivers.{1,2}.value,score,signals.{1.{{contributionPoints,fallbackReason,raw,transformedScore},operands.0.value},2.{{contributionPoints,raw,transformedScore},operands.0.value}}},valuation.{{band,score},drivers.0.value,signals.0.{{contributionPoints,raw,transformedScore},operands.{0,1,3..18}.value}}},assessments.{businessQuality.score,valuation.{band,score}},composite.score,factorExposure.{3,5}.aboveNeutralPoints,qualification.{aspects.valuation.reasons.0.detail,composite.reasons.0.detail}}
-```
-
-- **valuation (24 leaves):** The unchanged valuation/DCF and multiple formulas read the admitted cash/cost operands and growth history; related inputs, availability, sensitivities and descriptions move together.
-
-```text
-valuation.multiples.{multiples.1.{current,ownHistory.{observationDetails.{0..15}.value,{p25,p5,p50,p75,p95,percentileRank}}},notes.28}
+scores.{aspects.quality.{drivers.{1,2}.value,score,signals.{1.{{contributionPoints,fallbackReason,raw,transformedScore},operands.0.value},2.{{contributionPoints,raw,transformedScore},operands.0.value}}},assessments.businessQuality.score,composite.score,factorExposure.3.aboveNeutralPoints}
 ```
 
 ### payload.txt
 
-SHA-256 before `3c6fd15c2dcfc0f41bcdb093c7b4024aeb49f83f234210250a7960f94e0a059a`; after `13d66ce5ff8d6c45643e9e5895235abefc51268768be1f92124469c235eaf4ba`.
+SHA-256 before `3c6fd15c2dcfc0f41bcdb093c7b4024aeb49f83f234210250a7960f94e0a059a`; after `55b308cefe92acb53065f268864fbcf24bc98f3b16d00c07f7b3a01c6e65f6c2`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `7c5e4b8edde374cd3fd3612da5a7dd72dc4511c734fcd06972dd7284842de859`; after `2a06849f0bb9e77c5e6dacc4c24cf44b8e27ac0085a09b047450fa33c15ffa2b`.
+SHA-256 before `7c5e4b8edde374cd3fd3612da5a7dd72dc4511c734fcd06972dd7284842de859`; after `bf2f537e24db6723ec6478c1c072878aaa8114b325f910d490d878d1e0611d7e`.
 
-839 changed JSON leaves, all enumerated below.
+760 changed JSON leaves, all enumerated below.
 
-- **appendix (717 leaves):** Substitution/missing-data/provenance records carry the changed inputs, filings and compatibility stamps; ordered arrays shift after additions. Existing unknown evidence stays unknown.
+- **appendix (695 leaves):** Substitution/missing-data/provenance records carry the changed inputs, filings and compatibility stamps; ordered arrays shift after additions. Existing unknown evidence stays unknown.
 
 ```text
-appendix.missingData.{{78..80,104..109,131,137,139,145,153,160,163,171,177,181,183,185,189..192,201..204,213,214,216,218..226,229..231,290,291,293,294}.{field,reason},{81..87}.{attemptedSources,expected,field,reason,severity},88.{attemptedSources,field,reason,severity},{89,97}.{attemptedSources.{0,1},{expected,field,reason}},{90,98,103,110..116}.{attemptedSources.0,{field,reason}},{91..95,99..102}.{attemptedSources.{0,1},{field,reason}},96.{attemptedSources.0,{expected,field,reason}},{117,119,121,124,178,180,198..200,205..208,248,279,280,288}.{attemptedSources,expected,field,reason},{118,120,122,123,179,186..188,215,217,227,228}.{attemptedSources,field,reason},{125..130,134..136,142..144,150..152,158,159,161,162,168..170,182,184,193..197,209..212,232..247,249..278,281..287,289,292,295,296}.{expected,field,reason},{132,133,138,140,141,146..149,154..157,164..167,172..176}.field,{297..402}}
+appendix.missingData.{{78..80,104..109,131,137,139,145,153,160,163,171,177,181,183,185,189..192,201..204,213,214,216,218..226,229..231,290,291,293,294,296}.{field,reason},{81..87}.{attemptedSources,expected,field,reason,severity},88.{attemptedSources,field,reason,severity},{89,97}.{attemptedSources.{0,1},{expected,field,reason}},{90,98,103,110..116}.{attemptedSources.0,{field,reason}},{91..95,99..102}.{attemptedSources.{0,1},{field,reason}},96.{attemptedSources.0,{expected,field,reason}},{117,119,121,124,178,180,198..200,205..208,248,279,280,288}.{attemptedSources,expected,field,reason},{118,120,122,123,179,186..188,215,217,227,228}.{attemptedSources,field,reason},{125..130,134..136,142..144,150..152,158,159,161,162,168..170,182,184,193..197,209..212,232..247,249..278,281..287,289,292,295}.{expected,field,reason},{132,133,138,140,141,146..149,154..157,164..167,172..176}.field,{297..381}}
 ```
 
 - **balanceSheet (5 leaves):** Cash, coverage and capital descriptions read the corrected filed flow family and its qualifications; no balance-sheet stock is independently substituted by this change.
@@ -1226,49 +1203,43 @@ meta.{dataCompleteness.warningCount,specVersion}
 quality.{forensicScores.{accruals,beneish}.{score,variant},graded.{keyNumbers.{{1..4}.value,{9,10}.{source,sourceId,value},{11,12}},oneLineWhy,reasoning.0.text},notes.{1,4..12}}
 ```
 
-- **scores (44 leaves):** The unchanged scoring formulas read the corrected operands above; driver values, signal arithmetic, aspect/composite results and completeness follow those operands.
+- **scores (15 leaves):** The unchanged scoring formulas read the corrected operands above; driver values, signal arithmetic, aspect/composite results and completeness follow those operands.
 
 ```text
-scores.{aspects.{quality.{drivers.{1,2}.value,score,signals.{1.{{contributionPoints,fallbackReason,raw,transformedScore},operands.0.value},2.{{contributionPoints,raw,transformedScore},operands.0.value}}},valuation.{{band,score},drivers.0.value,signals.0.{{contributionPoints,raw,transformedScore},operands.{0,1,3..18}.value}}},assessments.{businessQuality.score,valuation.{band,score}},composite.score,factorExposure.{3,5}.aboveNeutralPoints,qualification.{aspects.valuation.reasons.0.detail,composite.reasons.0.detail}}
+scores.{aspects.quality.{drivers.{1,2}.value,score,signals.{1.{{contributionPoints,fallbackReason,raw,transformedScore},operands.0.value},2.{{contributionPoints,raw,transformedScore},operands.0.value}}},assessments.businessQuality.score,composite.score,factorExposure.3.aboveNeutralPoints}
 ```
 
-- **valuation (23 leaves):** The unchanged valuation/DCF and multiple formulas read the admitted cash/cost operands and growth history; related inputs, availability, sensitivities and descriptions move together.
+- **verdict (15 leaves):** The unchanged verdict presentation reads the recalculated composite and evidence qualifications.
 
 ```text
-valuation.{graded.{{grade,oneLineWhy},keyNumbers.0.value,qualification.reasons.0.detail,reasoning.0.text},multiples.1.{{current,own5yPercentile},ownHistoryDetails.{0..15}.value}}
-```
-
-- **verdict (20 leaves):** The unchanged verdict presentation reads the recalculated composite and evidence qualifications.
-
-```text
-verdict.{gradeStrip.{quality.{keyNumbers.{{1..4}.value,{9,10}.{source,sourceId,value},{11,12}},oneLineWhy,reasoning.0.text},valuation.{{grade,oneLineWhy},keyNumbers.0.value,qualification.reasons.0.detail,reasoning.0.text}},synthesis}
+verdict.{gradeStrip.quality.{keyNumbers.{{1..4}.value,{9,10}.{source,sourceId,value},{11,12}},oneLineWhy,reasoning.0.text},synthesis}
 ```
 
 ### report.md
 
-SHA-256 before `a8e8b13f2019b3c4c2a1b7f33b2f9628af4984122e0f6d98170d48730f83d94a`; after `04a2bfe79e6970b390c72a3419f21cae0931721874b483211b4111ab3d71a43e`.
+SHA-256 before `a8e8b13f2019b3c4c2a1b7f33b2f9628af4984122e0f6d98170d48730f83d94a`; after `b030aa94be00047ca8aa82bb65597450cc9cca4f97211eb36918b54b21616e51`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `bf88c13badb158a58de4d0b4b37bfc926b954cbf7f33549c5dbfcbfe94081cdd`; after `5e9b40dad3c72e9c28c72f583c01c608bf39c4e10e33546004aa332876e90ae9`.
+SHA-256 before `bf88c13badb158a58de4d0b4b37bfc926b954cbf7f33549c5dbfcbfe94081cdd`; after `25d384445462ed6ecfa05bf0fe2468db7bf32cdfadff703f0847bdbbb106b081`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `fdc117eb9ead7fcdaec21bd4d44e7a98e032688be7813868ca45a4da63329b5c`; after `493fb76df9d2df691f0bf46704d19f6e7ee9c97072749a46c4715833717f55a9`.
+SHA-256 before `fdc117eb9ead7fcdaec21bd4d44e7a98e032688be7813868ca45a4da63329b5c`; after `00fdc72819501f190b7d2e4a4da4920c73c31171f894b55acc1dfda9c27d24af`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `2d425b989629365be7f5759ae582977fbbdc4564eb7f06ed2a5bdc5a2f42477d`; after `abc9bac76109e6b882d648f2ea1fa33108fef274c811008a92c9f752ec98997e`.
+SHA-256 before `2d425b989629365be7f5759ae582977fbbdc4564eb7f06ed2a5bdc5a2f42477d`; after `241274a933b5f8ce7d8e2827e67302bde37a0bf80a273ab938d09ae8f14cd810`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:98ff17ff"` to `"1.95.0:c0113ef9"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:98ff17ff"` to `"1.95.0:6f5b4a40"`, approved because its version and covered deterministic content changed.
 
 ## tsm-data-only
 
@@ -1279,14 +1250,14 @@ No scalar input correction: only the revised definition, compatibility identifie
 
 ### stageB.json
 
-SHA-256 before `e96bdb78936f7d705c1bf8fe9d189d4b97c74409fa4f0881536b3e7844c2832e`; after `475cdcb3e9b7eea174afbb2e03b68d1e6f2ceb07383d1818df86ceac49ec2ed0`.
+SHA-256 before `e96bdb78936f7d705c1bf8fe9d189d4b97c74409fa4f0881536b3e7844c2832e`; after `b8dc5ed2174b2bf94a8bc6cac7d4b3ca5d51d3b6f9af39d5f009d6af8e7c5ff2`.
 
-336 changed JSON leaves, all enumerated below.
+338 changed JSON leaves, all enumerated below.
 
-- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.cashBridge.definition
+capital.{current.{cashBridge.definition,ebitdaComputed},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (335 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -1303,7 +1274,7 @@ Approved changes: the corrected filed facts and unchanged-formula consequences l
 
 ### report.json
 
-SHA-256 before `81be5e52f834aeacb12188bf6a5c060f1f55d610d3abc0a23c6a96cbaee5fc44`; after `1562368c215fa111a6c1c4967e1f44575daa5c779eacdb2dfbfb958f43fe4f0f`.
+SHA-256 before `81be5e52f834aeacb12188bf6a5c060f1f55d610d3abc0a23c6a96cbaee5fc44`; after `73da94e3933252d8ed8c78719e8d0a878603e3928fa41ff143bceceb8cfe218e`.
 
 360 changed JSON leaves, all enumerated below.
 
@@ -1333,25 +1304,25 @@ verdict.synthesis
 
 ### report.md
 
-SHA-256 before `3645d46db50e5a17ddaa7f6bc39b377fe6ad377057e0dee50bdf65c19b2648e5`; after `fdbd223997ff525ab8e5d520f90444d9a033de6eb32c1d3f842f31dca6466fbd`.
+SHA-256 before `3645d46db50e5a17ddaa7f6bc39b377fe6ad377057e0dee50bdf65c19b2648e5`; after `fe2cd88144376b36c94977e48c3b1814b748ef499193249a993cd50c0a893fbf`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `89be7d69e3b4d81759451d5754f314f13bd64e4d32e53cc575f9c29119e4ef0d`; after `b28aff794ad4ed9cec9b34c8c25edf00a8cda354e7229cb6f4ede69e06467c04`.
+SHA-256 before `89be7d69e3b4d81759451d5754f314f13bd64e4d32e53cc575f9c29119e4ef0d`; after `1fd833f62ff33b3f615cf621fa65221bef17978d7dfbb0f7dd38e753b2b7b114`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `9824c8bb6b1205ff3d098e189f38de083a1d496c18aaafaf0b08e7334edf59a4`; after `45ff98aea947974a6200d2a25571b78705f2007c563510ffb4153c9378de143f`.
+SHA-256 before `9824c8bb6b1205ff3d098e189f38de083a1d496c18aaafaf0b08e7334edf59a4`; after `46295de53e97e03394b0f7d7920261360ad9ba7936aa9d2d779698339a976f58`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `87280f799ba21e6b6f0d439eee27bb0f0f62614b5783fae4e08baca8c6f583d7`; after `1412fba7b8cc05f4164f24cc3d1aed193eeff9fa00ac2c34daaac629cfb229e0`.
+SHA-256 before `87280f799ba21e6b6f0d439eee27bb0f0f62614b5783fae4e08baca8c6f583d7`; after `1de8b2227393a089cd82ea225172cd0ab5863991c593bccfdae95e41cbeaf718`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
@@ -1384,14 +1355,14 @@ Manifest payloadFingerprint: `"1.94.0:9e66a774"` to `"1.95.0:9f5c5896"`, approve
 
 ### stageB.json
 
-SHA-256 before `f04b44a7d1cfce93da7577348610537597ca9711da8c89b77059ebd98dc73dca`; after `906851ee189e83582ceea09180f8937e59fa446c184ac5765bc863afb2ada536`.
+SHA-256 before `f04b44a7d1cfce93da7577348610537597ca9711da8c89b77059ebd98dc73dca`; after `a6cc48e53e3112563995b092fb4867d3a62f5450bdf8366a7f84d04b49f2a04a`.
 
-373 changed JSON leaves, all enumerated below.
+375 changed JSON leaves, all enumerated below.
 
-- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.cashBridge.definition
+capital.{current.{cashBridge.definition,ebitdaComputed},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **forensics (4 leaves):** The unchanged forensic formulas read the corrected D&A, acquisition, cash-flow totals, compensation or cost operands; related warnings/source labels follow those same facts.
@@ -1408,13 +1379,13 @@ gaps.{{32..37,43,46,61..63,72,74,76..80,82..91,93,96,98,100}.{field,reason},38.{
 
 ### payload.txt
 
-SHA-256 before `aaa2bcf2ec2a4701b0e8a12d8ce90410273659d5d819058e81bc9871a0626a61`; after `4b215c411bf4c04def112ec13a5ff69f02288dd5c22e2e9a7f1825b487b520c6`.
+SHA-256 before `aaa2bcf2ec2a4701b0e8a12d8ce90410273659d5d819058e81bc9871a0626a61`; after `2ed2e3f740f5ddae5075669526c747f49d7840ebdb4e12a23b82f3dbbb2e1d7b`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `33fb30b93d508efc744d1855a266e23685099ed1ff0708d1a6d13880989686a4`; after `eba3b2ba452159eaf8e515f5b94d62b1fc5a46ba694328c9d22b4171ff036e4f`.
+SHA-256 before `33fb30b93d508efc744d1855a266e23685099ed1ff0708d1a6d13880989686a4`; after `4d1545ce690cb5b21fadea828a0b05e7022c72f1ce0566d98d61ac052c075c5b`.
 
 378 changed JSON leaves, all enumerated below.
 
@@ -1450,29 +1421,29 @@ verdict.synthesis
 
 ### report.md
 
-SHA-256 before `9023878668f9ad4e7783036e6bdcb63c21b44255f0d5a185712994165dec2fae`; after `2169e2416f6734843c73b2eee0261c796132480eb1bd140ab79a5041e76a4ab4`.
+SHA-256 before `9023878668f9ad4e7783036e6bdcb63c21b44255f0d5a185712994165dec2fae`; after `617f80e9e664e25e052d42ceea50c4d884e0bf97d135ba485f03e777b1a4dcdd`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `55e0d4b9c2368573517bebb705eadfee90e3d2747dfeea61ba593f14ca547e1f`; after `4d5a1232fedcd3faa1d6899c459a53766cc4d72db31f030e7b659114df60c1a7`.
+SHA-256 before `55e0d4b9c2368573517bebb705eadfee90e3d2747dfeea61ba593f14ca547e1f`; after `efce2541324a9a51fc5445505ed194ed920680acaa01a4c43ca3fba5991b25d0`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `7ba8d6d816b59d51dc98cb829245092fffe08a4f9e0598f61305eda1fc5f64b1`; after `36746e1358332fe4c05e11794c0b04ff3be21c57dd91248548acd8cc99e43442`.
+SHA-256 before `7ba8d6d816b59d51dc98cb829245092fffe08a4f9e0598f61305eda1fc5f64b1`; after `412c4d44f03c58c6bb8bcdc940d52a79103d554277e637defa0ab31c88288ac0`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `edb23cc31cc632a2c699ab13a1730e033d78f42b466030aa014fe782ac3b4f2f`; after `dd0faf1314143818358ba0ac96d342242ae8dbf02e123a61c839a2391274ab38`.
+SHA-256 before `edb23cc31cc632a2c699ab13a1730e033d78f42b466030aa014fe782ac3b4f2f`; after `ce83c5e6b198200ef69e44b9cae3d387b83f09e3c173c00b645c78698cac4332`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:a64b7469"` to `"1.95.0:dda308fd"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:a64b7469"` to `"1.95.0:82e60c3c"`, approved because its version and covered deterministic content changed.
 
 ## vktx-data-only
 
@@ -1487,14 +1458,14 @@ Manifest payloadFingerprint: `"1.94.0:a64b7469"` to `"1.95.0:dda308fd"`, approve
 
 ### stageB.json
 
-SHA-256 before `0ef2c05d948cd9c97c32a90f810fa3254b79b49d71257cc91dbd12b03e2d5a93`; after `3a1d0ab031157c71c310e2664d77fda45b8e5a5a38da2ad693af292f536342c6`.
+SHA-256 before `0ef2c05d948cd9c97c32a90f810fa3254b79b49d71257cc91dbd12b03e2d5a93`; after `418e2265e5675b28d53d0de8e96f09e33598c4f7a43e9f68a61bdd9f4b5b6790`.
 
-438 changed JSON leaves, all enumerated below.
+440 changed JSON leaves, all enumerated below.
 
-- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.cashBridge.definition
+capital.{current.{cashBridge.definition,ebitdaComputed},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (437 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -1511,7 +1482,7 @@ Approved changes: the corrected filed facts and unchanged-formula consequences l
 
 ### report.json
 
-SHA-256 before `ddae34524ea2547dee5869f0b0af849a149f1e96c425e83ab9880d250e02c209`; after `91d2406f178ad57b3f21167066fc6022a470b78d3b1c0cafd11cf93ab2dc999e`.
+SHA-256 before `ddae34524ea2547dee5869f0b0af849a149f1e96c425e83ab9880d250e02c209`; after `adecd3e36546ec0f1b68cd5b0077a28b3fd807bcde954abddaaf9cd53e6ac214`.
 
 355 changed JSON leaves, all enumerated below.
 
@@ -1541,25 +1512,25 @@ verdict.synthesis
 
 ### report.md
 
-SHA-256 before `8389592b8f2599afa3e5568a9111f53d5a574cd3866e1c81c051f4fe9438c65f`; after `464171ae28af0ef4e0dd4e8d5dacac77004e7a2dd1c0f9a879a7a836f82e2254`.
+SHA-256 before `8389592b8f2599afa3e5568a9111f53d5a574cd3866e1c81c051f4fe9438c65f`; after `d6793e6b42f305dceb6f9b61d6777774872ab4815bd745032fff19b9d994515a`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `597cccd532ae323f833819c070b1326e29a226767bba1da6d6529e58fd4e6bd5`; after `451dcf3fceb492e18ac52919164b844e7fd507338ad00bdb1b1b10335ed8f329`.
+SHA-256 before `597cccd532ae323f833819c070b1326e29a226767bba1da6d6529e58fd4e6bd5`; after `91974bb583a8ac5367605ec47d44ed11048446e52e20c65da48c14dc38c46095`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `3f9bf669dc8ac5d933f3a05d27452570f8f31b70213bf8f1624daabda9e84cf5`; after `d178f158f5de3e08838d695f36820704bc0c456f094d7d6abaf0201b1ac0e70c`.
+SHA-256 before `3f9bf669dc8ac5d933f3a05d27452570f8f31b70213bf8f1624daabda9e84cf5`; after `a5d130144ac4d7f167e2700ec084612f21e0b361de237e34937a16a9c2e600c7`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `abc9fd85fea456e4514c5855930d9e153be0bca514e213b294fac76c52b2bb66`; after `8d82c2bac670b12a2e7cf685c0c9a05f5c86fff58791fc5938957ecc703f318f`.
+SHA-256 before `abc9fd85fea456e4514c5855930d9e153be0bca514e213b294fac76c52b2bb66`; after `f828d2cbbb33b43b21b63ca64ce86782649053c18c56da4f339939575fe95100`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
@@ -1576,14 +1547,14 @@ Manifest payloadFingerprint: `"1.94.0:d2838e19"` to `"1.95.0:8f3f3c5b"`, approve
 
 ### stageB.json
 
-SHA-256 before `9381e9cafc27f42b7f7a6c4048bc887e0dd19aea32962a8bbffc3e5e6ab459c4`; after `18c48fe6bbe0164383396b45160953b9e4b7f48c823d1a247ab09059818d1ac3`.
+SHA-256 before `9381e9cafc27f42b7f7a6c4048bc887e0dd19aea32962a8bbffc3e5e6ab459c4`; after `723cd62dc1ffc529e21395c14536b2b5ebbbf490329b8413fa755b8f2e286d55`.
 
-306 changed JSON leaves, all enumerated below.
+308 changed JSON leaves, all enumerated below.
 
-- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.cashBridge.definition
+capital.{current.{cashBridge.definition,ebitdaComputed},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (300 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -1606,20 +1577,20 @@ scores.aspects.fundamentals.signals.3.{fallbackReason,operands.{6,7}.value}
 
 ### payload.txt
 
-SHA-256 before `2dbcf2787731fe38a3bada47664855d48c17012430236b85a2eeb5f247bbe7c2`; after `5cf63c7b777e0a3dd92338749d07f9b2666c30cbc9807e4d794d37dbe19ea3ae`.
+SHA-256 before `2dbcf2787731fe38a3bada47664855d48c17012430236b85a2eeb5f247bbe7c2`; after `66d46bfc1335b7b440bb94cdf0e5e276189b9a6590b5e2d1ba3caa581e3e72c8`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `0761353d161bc0e321a07e641fca47adb402c8739dfae79d6ccbed1609eb0d8e`; after `5d704cf4a5a7dd7fb16e068b6600f48f6fc712a465e0994d80d56e562c1e2973`.
+SHA-256 before `0761353d161bc0e321a07e641fca47adb402c8739dfae79d6ccbed1609eb0d8e`; after `4c734da71b7dbcd8622848ac89ca59626b0d2b5586691130962466b01b6e30d5`.
 
-309 changed JSON leaves, all enumerated below.
+917 changed JSON leaves, all enumerated below.
 
-- **appendix (304 leaves):** Substitution/missing-data/provenance records carry the changed inputs, filings and compatibility stamps; ordered arrays shift after additions. Existing unknown evidence stays unknown.
+- **appendix (909 leaves):** Substitution/missing-data/provenance records carry the changed inputs, filings and compatibility stamps; ordered arrays shift after additions. Existing unknown evidence stays unknown.
 
 ```text
-appendix.{missingData.{{96..98,106..108,112..114,118..120,124..126,130..132,136..138,142..144,152,179}.{attemptedSources,field,reason},{99..105,109..111,115..117,121..123,127..129,133..135,139..141,145,146,180,182}.{field,reason},{147,148,150,151,153,154,156,157,159,160,162,163,165,166,168,169,171,172,174,175,177,178,183}.{expected,field,reason},{149,155,158,161,164,167,170,173,176,181}.{attemptedSources,expected,field,reason},{184..241}},verificationLog.355.claim}
+appendix.{missingData.{{96..98,106..108,112..114,118..120,124..126,130..132,136..138,142..144,152,179}.{attemptedSources,field,reason},{99..105,109..111,115..117,121..123,127..129,133..135,139..141,145,146,180,182}.{field,reason},{147,148,150,151,153,154,156,157,159,160,162,163,165,166,168,169,171,172,174,175,177,178,183}.{expected,field,reason},{149,155,158,161,164,167,170,173,176,181}.{attemptedSources,expected,field,reason},{184..241}},provenanceCoverage.factualValidation.{contradicted,rate,validated},verificationLog.{355.claim,{356,409}.{claimSupportStatus,note,numericSupportStatus,reason,traceKind,validationStatus},447.{note,reason,source,traceKind},{448,451..454,458}.{claim,note,path},{449,450,455,456,460}.{claim,note,path,source},457.{claim,note,path,reason,source,traceKind},459.{claim,note,path,reason,traceKind},461.{claim,evidenceKind,note,path,reason,source,traceKind},{462..676,678..726}.{claim,path},677.path,727}}
 ```
 
 - **balanceSheet (1 leaves):** Cash, coverage and capital descriptions read the corrected filed flow family and its qualifications; no balance-sheet stock is independently substituted by this change.
@@ -1628,10 +1599,10 @@ appendix.{missingData.{{96..98,106..108,112..114,118..120,124..126,130..132,136.
 balanceSheet.coverage.commentary.3.text
 ```
 
-- **meta (1 leaves):** Report/payload/Stage B compatibility stamps advance; payload fingerprint and method-identity hashes identify the revised meaning. Stored-report bytes are untouched.
+- **meta (4 leaves):** Report/payload/Stage B compatibility stamps advance; payload fingerprint and method-identity hashes identify the revised meaning. Stored-report bytes are untouched.
 
 ```text
-meta.specVersion
+meta.{provenanceCoverage.factualValidation.{contradicted,rate,validated},specVersion}
 ```
 
 - **scores (3 leaves):** The unchanged scoring formulas read the corrected operands above; driver values, signal arithmetic, aspect/composite results and completeness follow those operands.
@@ -1642,29 +1613,29 @@ scores.aspects.fundamentals.signals.3.{fallbackReason,operands.{6,7}.value}
 
 ### report.md
 
-SHA-256 before `77886bd04f5eff3742141d9398db8b8ff207abbf045d7edbc987081f092b9299`; after `00d4ed43ccf0e6a7ca24caf6f8479a063eda9da96f01d6efe7a90c6d89a868d4`.
+SHA-256 before `77886bd04f5eff3742141d9398db8b8ff207abbf045d7edbc987081f092b9299`; after `adae16bc2efb4212706c0abd6c1b95d8bca4ea73dc9338d2e96b5abae2da0ee3`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `2e49a7f26fa3ee9a00f4aac3a81422bc3b0aaa1b4e406c5649860aac508bee52`; after `46d3e66df31b3f4c9047d84f29d36456026395ab39c4c47927a9d3094dc5d075`.
+SHA-256 before `2e49a7f26fa3ee9a00f4aac3a81422bc3b0aaa1b4e406c5649860aac508bee52`; after `0bc2492f1708756714910c1aa74fcd605f8299a53478993874046f60a596ac82`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `b426e2cc6d086c4bbc64aed1327e6741754138939a86c33c7be4f2f2b954a726`; after `a817029258b6cdb147946b43aa8234a37d0af10c1ba5f1f3a35a15bb2cfd1110`.
+SHA-256 before `b426e2cc6d086c4bbc64aed1327e6741754138939a86c33c7be4f2f2b954a726`; after `1cb0dd4315b64d78f142a63612c84f8767b823e8349b02e161ba3acf004129e9`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `46e84253fa9d514a7746d10c1a35d5faf448ec28a8942b3fa36e400d0f81f3bd`; after `2f8a25a0e3c5f907152924754cd25af23e53daffeba9cc1b17f64d21aade01aa`.
+SHA-256 before `46e84253fa9d514a7746d10c1a35d5faf448ec28a8942b3fa36e400d0f81f3bd`; after `0050439f955cf691735994409a4733abada5d92d33e2e59f249ba41ae83902e3`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:d3a902a8"` to `"1.95.0:e15627bd"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:d3a902a8"` to `"1.95.0:8ca6b713"`, approved because its version and covered deterministic content changed.
 
 ## meta-fixed-analyst
 
@@ -1679,14 +1650,14 @@ Manifest payloadFingerprint: `"1.94.0:d3a902a8"` to `"1.95.0:e15627bd"`, approve
 
 ### stageB.json
 
-SHA-256 before `ebfb1046771b5640b383fc795c0741adb0ca38241b7a92acf9a40dc827f0adab`; after `9f8547e32a3369342abfff5ccd06fd404ede13d88f473b9cb051a8c5902283bc`.
+SHA-256 before `ebfb1046771b5640b383fc795c0741adb0ca38241b7a92acf9a40dc827f0adab`; after `56952c4238fc112230dbf4cb0b8babea2f694e36d9f0596fef572fb1a74549fb`.
 
-411 changed JSON leaves, all enumerated below.
+413 changed JSON leaves, all enumerated below.
 
-- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (5 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.{cashBridge.definition,{interestCoverage,interestExpense}}
+capital.{current.{cashBridge.definition,{ebitdaComputed,interestCoverage,interestExpense}},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (401 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -1709,13 +1680,13 @@ scores.aspects.balanceSheet.{drivers.1.value,signals.1.{operands.{0,2}.value,raw
 
 ### payload.txt
 
-SHA-256 before `0d676d6a44378b390501ae457aff13995de5ed4d6926799219c576cf101457df`; after `f6a5371b09fbf28cb8c296a1f0793049928df61db1eb0a4c5bbab910a7f26e8f`.
+SHA-256 before `0d676d6a44378b390501ae457aff13995de5ed4d6926799219c576cf101457df`; after `fcc504016193acbf565b9e1c75bd1ce7858ca1c913aab8ae3deddfdf26932bb1`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `3cccad378e9f950f5298c3eb1caec78e37355b0f0520094127ad4f7d763aa0b5`; after `639eb26946be374120092d355ac1e3ab8f9aa6f248dea2826ae6fcb1ed14113b`.
+SHA-256 before `3cccad378e9f950f5298c3eb1caec78e37355b0f0520094127ad4f7d763aa0b5`; after `326bd7d308ad30dd497e461d83161bb86e253e3863681d61426e48e1eed28c28`.
 
 479 changed JSON leaves, all enumerated below.
 
@@ -1745,29 +1716,29 @@ scores.aspects.balanceSheet.{drivers.1.value,signals.1.{operands.{0,2}.value,raw
 
 ### report.md
 
-SHA-256 before `04edf31e120fee6be1b29396cee8fbfd02ac30dbaba0c5cdbdf5c7419f046d1e`; after `32b3121084a07e20d3f86a539c331f8cdbf327e652259afef1d9b1d752613022`.
+SHA-256 before `04edf31e120fee6be1b29396cee8fbfd02ac30dbaba0c5cdbdf5c7419f046d1e`; after `f30e09ddebceb4b7c9f5e704367c0ae252e35b97d6c47242c7853f02a9195f4d`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `3d731bff7dbd12f4d0479a93acd86193fac51871d77037280f6560cbc21a26ba`; after `2fdbb9e6304791c34bf0422de115d7c8721719b325a7f94e069fb0e5d3695325`.
+SHA-256 before `3d731bff7dbd12f4d0479a93acd86193fac51871d77037280f6560cbc21a26ba`; after `dbf703a3f9cce95efd45ce5fe52138e583fb24bf0d62ea3c29e5c3db3b9ce1b1`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `a60013601fec2067a0f5f910f7fda08f431ec4adf6b3734c6b5bfbd1ddbc32bf`; after `f3c4a6c0e18278cd30a2314d1d147e93d168584766ddbac4656676b631ae03fb`.
+SHA-256 before `a60013601fec2067a0f5f910f7fda08f431ec4adf6b3734c6b5bfbd1ddbc32bf`; after `943bac02796a1238cccd06d83212993a2f32b605ac5bd2fd40954ed8580fdc06`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `5fe1e7aec36d6d17e531ea9803f496f7a11af801f9cb2ea7174e380acf661bc6`; after `05a419e5fb36ecfb765730c1c150f1edb92ab905fc9689b164d191ce9fb47f5a`.
+SHA-256 before `5fe1e7aec36d6d17e531ea9803f496f7a11af801f9cb2ea7174e380acf661bc6`; after `e7f427ccfb549b73144c8d1b82810b934e783bedc56fd07926afb4c9ef92410e`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:0ff64fb6"` to `"1.95.0:36ed8be1"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:0ff64fb6"` to `"1.95.0:3bbee120"`, approved because its version and covered deterministic content changed.
 
 ## mu-fixed-analyst
 
@@ -1778,14 +1749,14 @@ No scalar input correction: only the revised definition, compatibility identifie
 
 ### stageB.json
 
-SHA-256 before `221c0a467a91e1522bdce283b855072801ae97ddd1061ea42d148fc3c34fbae9`; after `6fd276e28539f97b5a67dc5e30d11efa630d219e92d06ef211f128a745fef058`.
+SHA-256 before `221c0a467a91e1522bdce283b855072801ae97ddd1061ea42d148fc3c34fbae9`; after `afa75afeed094b61b2e309998ee6b2e7e75ee80d488fae68b954653f3964bb6b`.
 
-1 changed JSON leaves, all enumerated below.
+3 changed JSON leaves, all enumerated below.
 
-- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.cashBridge.definition
+capital.{current.{cashBridge.definition,ebitdaComputed},netDebtToEbitda.ebitdaComputed}
 ```
 
 ### payload.txt
@@ -1796,7 +1767,7 @@ Approved changes: the corrected filed facts and unchanged-formula consequences l
 
 ### report.json
 
-SHA-256 before `86e6bb54852aa99761a75f9068bd5ea8bedd4672455d381eae99132e743dceb2`; after `25e47b72c230bfac9943c66838600413e34993b47d84a1d6ef763290b8e0929a`.
+SHA-256 before `86e6bb54852aa99761a75f9068bd5ea8bedd4672455d381eae99132e743dceb2`; after `3e07af03e3bfeb5c12d12f0e3580b6c999be9bbd6a6560cab0c5bda8c5d21901`.
 
 3 changed JSON leaves, all enumerated below.
 
@@ -1820,25 +1791,25 @@ meta.specVersion
 
 ### report.md
 
-SHA-256 before `88a9427fc848130682b1e9edb36c1ccbe39a66e41bd52443326181b50b08dc58`; after `1ccee3003a5ee8d6a139ea877bd3867f56d9badb58d637234a0cc18e59818704`.
+SHA-256 before `88a9427fc848130682b1e9edb36c1ccbe39a66e41bd52443326181b50b08dc58`; after `866e00b91ccf56b90902f428f7d4f8ac0098647901cafc6d6b64cc56fe079bb6`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `751f25604ec76fd1450485eae4f2d9a4b6c2ddf9581784da5c78db3c93b6ba49`; after `be0958f6220d99e2439eec3fc916d3832fecd8864f8e2f0fb7cf232c5521ebd1`.
+SHA-256 before `751f25604ec76fd1450485eae4f2d9a4b6c2ddf9581784da5c78db3c93b6ba49`; after `8c08dc2792316d5e025952209c193e6f3f701c77591a984944295b445373eaa0`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `884b4373251bc88424c021eadae880a4b6dc17615bdae546dc7b494b3c8695af`; after `d8a10f7152612cfec2ffd4faa9c949dcfb166a7a34a68c2ec3770ed4b0747162`.
+SHA-256 before `884b4373251bc88424c021eadae880a4b6dc17615bdae546dc7b494b3c8695af`; after `f680f77c52f3002af3ecbb71204e2141fc8e6f2377734c46e5cdf9809c04bcae`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `dc3413c67804dde6dcb224041fd1fc62d725458b174cb8e0ab70bf4bbfb36c36`; after `8523d833305f157bf4cc3e744f49fe23d524ce8395553689b0810a21ddac1890`.
+SHA-256 before `dc3413c67804dde6dcb224041fd1fc62d725458b174cb8e0ab70bf4bbfb36c36`; after `ebf882d898b529a65b54eb7eaf2089257f7ea5f8f2d3ad0a12df011eb5b8b56a`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
@@ -1861,14 +1832,14 @@ Manifest payloadFingerprint: `"1.94.0:ae6c7800"` to `"1.95.0:83ff7142"`, approve
 
 ### stageB.json
 
-SHA-256 before `b4f6677ad08d828bc353afaf4bbe835a42154e54dea708fc178316c14f37e553`; after `34fb2ca82371a3b4656a8b2390dc3f86e872b500bdb05356ae9a3656e7de608e`.
+SHA-256 before `b4f6677ad08d828bc353afaf4bbe835a42154e54dea708fc178316c14f37e553`; after `114392a1568693b0ddb71bb380afe2c383f3428f108e1dd812e3185b276ba93b`.
 
-180 changed JSON leaves, all enumerated below.
+182 changed JSON leaves, all enumerated below.
 
-- **capital (1 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (3 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.current.cashBridge.definition
+capital.{current.{cashBridge.definition,ebitdaComputed},netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (179 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -1879,13 +1850,13 @@ gaps.{{51..61}.{field,reason},{62..89,91,92}.{expected,field,reason},90.{attempt
 
 ### payload.txt
 
-SHA-256 before `c4abe6679d23ad37e37f446db0418e80d211224167956131f42ed774e1ad9e3e`; after `ba02bcba8923fa8370f1bbb3a02e0d9dc4e387f4b445eeca5f259941dec7796c`.
+SHA-256 before `c4abe6679d23ad37e37f446db0418e80d211224167956131f42ed774e1ad9e3e`; after `1e79cd34cb89b9151f44113f5213e0eb0d66696d33b2b68cdfaabb8fa70fc42a`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `bc56369a7773a0e66915aff9be7c692bea09caf102f4d7bc5805ff130173efef`; after `b4f25128aa84854717c4103731eae499e12bab0f3f8498229812048aee1e28f0`.
+SHA-256 before `bc56369a7773a0e66915aff9be7c692bea09caf102f4d7bc5805ff130173efef`; after `8e3f3ac71280780d9a9935b1f71953935c2812699074a09f756cbbfc88158133`.
 
 195 changed JSON leaves, all enumerated below.
 
@@ -1909,29 +1880,29 @@ meta.specVersion
 
 ### report.md
 
-SHA-256 before `2b0a040e7e010446108a4785675c3bb10bfbf7c5d028d4bb73806b28a7095f68`; after `91e072907253f113a504238eaaee5adc2e6d18f2cd0ee3287208ea97b7c7c533`.
+SHA-256 before `2b0a040e7e010446108a4785675c3bb10bfbf7c5d028d4bb73806b28a7095f68`; after `70082af35fc922a35cea53f96481ec28d25b8bca4a677e256e9b657a75392ed5`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `41504b0ee73503790919d73863151fc257e80993afa919b1a88cac6592b1f56d`; after `b8d9dffc89404470ecf4ea323b46024d6eae5d50d3d99e8ff040473a03e90607`.
+SHA-256 before `41504b0ee73503790919d73863151fc257e80993afa919b1a88cac6592b1f56d`; after `50ef9c3859f8997bd49d6351ba7fa3c780a5cae7fe60876bfda00095f8ec2f0c`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `f2828dc35371e1b29b0823846368a68fab87079507033d1174bd360cb63101fc`; after `42dca9cf12d63b8ddca9a68b543a8dceced0f203d8b15ef780159c28aa6bf960`.
+SHA-256 before `f2828dc35371e1b29b0823846368a68fab87079507033d1174bd360cb63101fc`; after `17324778334cacb94d58f38cd99fe82a77e49eab645f7ac6f6f0a23f683f9205`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `b259752adc661984f86562c6eb199854a52b432cd9975fbdf1b9db9390bc660a`; after `58cfa1490835dafc016d00b2d70d9d2c7e11c05a57fe3e7ff3c407f50417329c`.
+SHA-256 before `b259752adc661984f86562c6eb199854a52b432cd9975fbdf1b9db9390bc660a`; after `5d9e090e68a4a1ecaf94d3213608f9d1f93e2f280353180c454e140a29ee74e7`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:182abc3c"` to `"1.95.0:e1f4a67c"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:182abc3c"` to `"1.95.0:c67bcb33"`, approved because its version and covered deterministic content changed.
 
 ## lly-data-only
 
@@ -1999,14 +1970,14 @@ Manifest payloadFingerprint: `"1.94.0:182abc3c"` to `"1.95.0:e1f4a67c"`, approve
 
 ### stageB.json
 
-SHA-256 before `1e45f11f6a39257b63f83a4e053cf6bb263046763b7f888c468aab96ca23ffbe`; after `2dedd767848a673a1b67df82a7fa23dc6abed6a7961aa1f4ceaaf1471b74bcc7`.
+SHA-256 before `1e45f11f6a39257b63f83a4e053cf6bb263046763b7f888c468aab96ca23ffbe`; after `cfe3dd9cd5e5df5c65ddcc4725a0fa737696a5f541026ece78a29a5d18daf47f`.
 
-630 changed JSON leaves, all enumerated below.
+631 changed JSON leaves, all enumerated below.
 
-- **capital (29 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (30 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.{capexIntensity.{series.{0,1}.{capex,capexToDA,capexToRevenuePct},slopePctPtsPerYear},current.{cashBridge.{afterSbcStandardizedFcf,cashCapitalExpenditure,definition,standardizedFcf},{fcfBeforeSbc,fcfConversionBeforeSbc,interestExpense,sbcPctOfFcf},filedCashFlows.capitalExpenditure},fcf.series.{0,1}.{fcf,fcfBeforeSbc,fcfConversion,fcfConversionBeforeSbc,note},interestCoverage.{interestExpense,value},maintenanceVsGrowthCapex.capexToDA5yAvg}
+capital.{capexIntensity.{series.{0,1}.{capex,capexToDA,capexToRevenuePct},slopePctPtsPerYear},current.{cashBridge.{afterSbcStandardizedFcf,cashCapitalExpenditure,definition,standardizedFcf},{fcfBeforeSbc,fcfConversionBeforeSbc,interestExpense,sbcPctOfFcf},filedCashFlows.capitalExpenditure},fcf.series.{0,1}.{fcf,fcfBeforeSbc,fcfConversion,fcfConversionBeforeSbc,note},interestCoverage.{interestExpense,value},maintenanceVsGrowthCapex.capexToDA5yAvg,netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (494 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -2047,13 +2018,13 @@ valuation.{assumptions.{notes.10,sbc.{basis,value.{afterSbc,beforeSbc}}},multipl
 
 ### payload.txt
 
-SHA-256 before `69f9dacf4b21c582d3cbd401865d688b0ff02a3a97694286123308224c1ab6c3`; after `3d7ed45b4fa62e9e0bbb3e1e90058c97dab846e95455f79213ee134a1b01eb04`.
+SHA-256 before `69f9dacf4b21c582d3cbd401865d688b0ff02a3a97694286123308224c1ab6c3`; after `bde37798199d601b178235722687040dfeabcad6c8e18ba4f89ebb2bbc804892`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `4806bd919b7e84f3d2f48acdaf331c8db75a084c7518b693bf6deba84d3f767e`; after `103f6b6fbb265d6883f7f5a296248394b4c870ee2c61eddea76f83dcfe37ace9`.
+SHA-256 before `4806bd919b7e84f3d2f48acdaf331c8db75a084c7518b693bf6deba84d3f767e`; after `9021131c301a5feb5acfa6ab13b061ffa42e2f7fa385730b2c64712398070078`.
 
 628 changed JSON leaves, all enumerated below.
 
@@ -2113,29 +2084,29 @@ verdict.{gradeStrip.{balanceSheet.keyNumbers.{0,1}.value,fundamentals.{keyNumber
 
 ### report.md
 
-SHA-256 before `937bf0d8bbb2447bb5d5312ca8c313190b091ed3046d807794850263fa0f60dd`; after `902acd3c28da22ebdb12ea749886997ce50a74e0ec17aeb3d5ac187939d66b12`.
+SHA-256 before `937bf0d8bbb2447bb5d5312ca8c313190b091ed3046d807794850263fa0f60dd`; after `be3fa9b30e9828a4eccebfa6e1ad76c82190d69eacccb45a21b44d799da68873`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `523c3a7425d241891612e9809f29f67f1524f954e1baae81f7fb97dae1cd1cd0`; after `5602a64524aa99e5f17354759ea21dcd914467f31ab40c687c88ca88a7193d47`.
+SHA-256 before `523c3a7425d241891612e9809f29f67f1524f954e1baae81f7fb97dae1cd1cd0`; after `a3af7b85bb3c55ba9c302ad794821fc5550c5ec74cd27d59faf226cc17159ad4`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `7e27aab690fab05c0123f0963d5b07c0fc82d469d785509693615a9236a0aa9c`; after `6e464c8fd6d56d4e9697eaf01c73f4c18b8b10f3ba7ab510eb919acef0296abd`.
+SHA-256 before `7e27aab690fab05c0123f0963d5b07c0fc82d469d785509693615a9236a0aa9c`; after `c3c3491e746186ca63bf766896a88ead6df126b032ed4a8fffa01adaec5a4b4f`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `c940d9ec1cdfadca7e5a972e6b88d5b58cab9f817610a3e1bab6b7ee9c3bf3b3`; after `d97ce0590354f44aba072bc3e1c9f470b145eb0c0aca214a9918424851634162`.
+SHA-256 before `c940d9ec1cdfadca7e5a972e6b88d5b58cab9f817610a3e1bab6b7ee9c3bf3b3`; after `ccba8641619346a803bd23427d7d215f198c4954401774e26842250cf73f0c16`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:b7c9e5bd"` to `"1.95.0:b1eae941"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:b7c9e5bd"` to `"1.95.0:264712b3"`, approved because its version and covered deterministic content changed.
 
 ## lly-fixed-analyst
 
@@ -2203,14 +2174,14 @@ Manifest payloadFingerprint: `"1.94.0:b7c9e5bd"` to `"1.95.0:b1eae941"`, approve
 
 ### stageB.json
 
-SHA-256 before `1e45f11f6a39257b63f83a4e053cf6bb263046763b7f888c468aab96ca23ffbe`; after `2dedd767848a673a1b67df82a7fa23dc6abed6a7961aa1f4ceaaf1471b74bcc7`.
+SHA-256 before `1e45f11f6a39257b63f83a4e053cf6bb263046763b7f888c468aab96ca23ffbe`; after `cfe3dd9cd5e5df5c65ddcc4725a0fa737696a5f541026ece78a29a5d18daf47f`.
 
-630 changed JSON leaves, all enumerated below.
+631 changed JSON leaves, all enumerated below.
 
-- **capital (29 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
+- **capital (30 leaves):** Statement-specific D&A, admitted capex, SBC, dividends, repurchases or interest change the cash/capital operands, ratios and their descriptions; exact input facts are listed below.
 
 ```text
-capital.{capexIntensity.{series.{0,1}.{capex,capexToDA,capexToRevenuePct},slopePctPtsPerYear},current.{cashBridge.{afterSbcStandardizedFcf,cashCapitalExpenditure,definition,standardizedFcf},{fcfBeforeSbc,fcfConversionBeforeSbc,interestExpense,sbcPctOfFcf},filedCashFlows.capitalExpenditure},fcf.series.{0,1}.{fcf,fcfBeforeSbc,fcfConversion,fcfConversionBeforeSbc,note},interestCoverage.{interestExpense,value},maintenanceVsGrowthCapex.capexToDA5yAvg}
+capital.{capexIntensity.{series.{0,1}.{capex,capexToDA,capexToRevenuePct},slopePctPtsPerYear},current.{cashBridge.{afterSbcStandardizedFcf,cashCapitalExpenditure,definition,standardizedFcf},{fcfBeforeSbc,fcfConversionBeforeSbc,interestExpense,sbcPctOfFcf},filedCashFlows.capitalExpenditure},fcf.series.{0,1}.{fcf,fcfBeforeSbc,fcfConversion,fcfConversionBeforeSbc,note},interestCoverage.{interestExpense,value},maintenanceVsGrowthCapex.capexToDA5yAvg,netDebtToEbitda.ebitdaComputed}
 ```
 
 - **gaps (494 leaves):** New filed substitutions and missing-compatible-counterpart disclosures are added; recovered typed value-only conflicts retire only their own old refusal. Array positions shift after insertion.
@@ -2251,20 +2222,20 @@ valuation.{assumptions.{notes.10,sbc.{basis,value.{afterSbc,beforeSbc}}},multipl
 
 ### payload.txt
 
-SHA-256 before `69f9dacf4b21c582d3cbd401865d688b0ff02a3a97694286123308224c1ab6c3`; after `3d7ed45b4fa62e9e0bbb3e1e90058c97dab846e95455f79213ee134a1b01eb04`.
+SHA-256 before `69f9dacf4b21c582d3cbd401865d688b0ff02a3a97694286123308224c1ab6c3`; after `bde37798199d601b178235722687040dfeabcad6c8e18ba4f89ebb2bbc804892`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### report.json
 
-SHA-256 before `d75787e1eff32fd770febb336fe5d1e50c0060c3747c9343bdad34b5e3b26ee7`; after `5401b3fe3ce5f76e8bbbb48ab33d6751e3ac44a00790e666b0ea05787b32c161`.
+SHA-256 before `d75787e1eff32fd770febb336fe5d1e50c0060c3747c9343bdad34b5e3b26ee7`; after `ef45abd3c9215598a463a54818416a3598d658edfe2c9808c80f922da9626b3c`.
 
-850 changed JSON leaves, all enumerated below.
+1607 changed JSON leaves, all enumerated below.
 
-- **appendix (703 leaves):** Substitution/missing-data/provenance records carry the changed inputs, filings and compatibility stamps; ordered arrays shift after additions. Existing unknown evidence stays unknown.
+- **appendix (1460 leaves):** Substitution/missing-data/provenance records carry the changed inputs, filings and compatibility stamps; ordered arrays shift after additions. Existing unknown evidence stays unknown.
 
 ```text
-appendix.{consistencyChecks.unit.{checked,passed},missingData.{{15,16,28,29,39,44,54..56,132}.{attemptedSources,field,reason},{17,23,26,52,59,62,65,66,69,70,94,98,105,108,111,114,118,121..123,126,133,136,137,140,141}.{field,reason},18.{field,reason,severity},{19..21}.{attemptedSources,expected,field,reason,severity},{22,24,57,58,130,131}.{attemptedSources,expected,field,reason},{25,31,38,49}.{attemptedSources.0,{expected,field,reason}},{27,43,45,47,48,53}.{attemptedSources.{0,1},{field,reason}},{30,33..37,50}.{attemptedSources.0,{field,reason}},{32,40..42,46,51}.{attemptedSources.{0,1},{expected,field,reason}},{60,61,63,64,67,68,71..93,95..97,99..104,106,107,109,110,112,113,115..117,119,120,124,125,127..129,134,135,138,139,142}.{expected,field,reason},{143..279}},provenanceCoverage.{factualValidation.{contradicted,rate,validated},numeric.{rate,supported}},verificationLog.{{2,6,24,32,38,74,75,80,82,83,89,101,103,116,118,123}.{note,outcome,reason,traceKind,validationStatus},107.{claim,note},{108,110..112,196,201,202,257,285..344,499,1070,1077,1092}.claim,{346,448}.{claimSupportStatus,note,numericSupportStatus,reason,traceKind,validationStatus}},verificationRate}
+appendix.{consistencyChecks.unit.{checked,passed},missingData.{{15,16,28,29,39,44,54..56,132}.{attemptedSources,field,reason},{17,23,26,52,59,62,65,66,69,70,94,98,105,108,111,114,118,121..123,126,133,136,137,140,141}.{field,reason},18.{field,reason,severity},{19..21}.{attemptedSources,expected,field,reason,severity},{22,24,57,58,130,131}.{attemptedSources,expected,field,reason},{25,31,38,49}.{attemptedSources.0,{expected,field,reason}},{27,43,45,47,48,53}.{attemptedSources.{0,1},{field,reason}},{30,33..37,50}.{attemptedSources.0,{field,reason}},{32,40..42,46,51}.{attemptedSources.{0,1},{expected,field,reason}},{60,61,63,64,67,68,71..93,95..97,99..104,106,107,109,110,112,113,115..117,119,120,124,125,127..129,134,135,138,139,142}.{expected,field,reason},{143..279}},provenanceCoverage.{factualValidation.{rate,unchecked,validated},numeric.{rate,supported}},verificationLog.{{2,6,24,32,38,74,75,80,82,83,89,101,103,116,118,123}.{note,outcome,reason,traceKind,validationStatus},107.{claim,note},{108,110..112,196,201,202,257,285..344,499}.claim,{346,448,470,503,733}.{claimSupportStatus,note,numericSupportStatus,reason,traceKind,validationStatus},818.{note,reason,source,traceKind},{819..838,840,841,847..849,853..856,859,860,863}.{claim,note,path,source},{839,844..846,851,852,857,858,861,862}.{claim,note,path},842.{claim,note,path,reason,traceKind},843.{note,reason,traceKind},{850,865..930,932..1096,1098..1146}.{claim,path},864.{claim,evidenceKind,note,path,reason,source,traceKind},{931,1097}.path,1147},verificationRate}
 ```
 
 - **balanceSheet (18 leaves):** Cash, coverage and capital descriptions read the corrected filed flow family and its qualifications; no balance-sheet stock is independently substituted by this change.
@@ -2288,7 +2259,7 @@ fundamentals.{fcf.{0.values.{3,4}.value.{verificationNote,verified},1.values.4.v
 - **meta (10 leaves):** Report/payload/Stage B compatibility stamps advance; payload fingerprint and method-identity hashes identify the revised meaning. Stored-report bytes are untouched.
 
 ```text
-meta.{consistencyChecks.unit.{checked,passed},dataCompleteness.warningCount,provenanceCoverage.{factualValidation.{contradicted,rate,validated},numeric.{rate,supported}},{specVersion,verificationRate}}
+meta.{consistencyChecks.unit.{checked,passed},dataCompleteness.warningCount,provenanceCoverage.{factualValidation.{rate,unchecked,validated},numeric.{rate,supported}},{specVersion,verificationRate}}
 ```
 
 - **projections (63 leaves):** Existing projection calculations read corrected historical/growth inputs, without a new forecast rule.
@@ -2317,26 +2288,254 @@ verdict.gradeStrip.{balanceSheet.keyNumbers.2.{verificationNote,verified},fundam
 
 ### report.md
 
-SHA-256 before `bd0a7a989bddcbffa73476a3fa02dca39d97acdc4c7f9e925a299c33e054ad78`; after `daab1a681754afdce3da57a2daab713f2ae24a207c77b653e54adec2a15cb46f`.
+SHA-256 before `bd0a7a989bddcbffa73476a3fa02dca39d97acdc4c7f9e925a299c33e054ad78`; after `eccf37de08395bcc0bade7092620ff71c51ed64094670b249acc630ac13e4328`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### print.html
 
-SHA-256 before `a932199ba534591fe53134332098ccb86b6fb1b764dd6138a08928f3d82ee462`; after `79f396d8794f6cd6ffeea6b1c52c124ede30cf2dc0372b53dde685e6cdfbf11e`.
+SHA-256 before `a932199ba534591fe53134332098ccb86b6fb1b764dd6138a08928f3d82ee462`; after `7801c259e6036ed102017f962ce20c673937e79595065dd61deda9511e6b30cd`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### audit.md
 
-SHA-256 before `d70eedde9a048c23cee2120fdc6b233af18c65ac2015a87a06d19eae3c83acf7`; after `b075118c2532449e3607b97f9f0d8748c363be505dc001af37715f159fdc17db`.
+SHA-256 before `d70eedde9a048c23cee2120fdc6b233af18c65ac2015a87a06d19eae3c83acf7`; after `5e2d81bc272b0ae14386e30437d7c3283f2a7c5bee1b926c65dd95018337cbfe`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
 ### web-dossier.html
 
-SHA-256 before `d4ba9d570cee6b1a08202f71bb7dafc019c7651e7c5756e23cb6e4054bf0e625`; after `27f9886f3bae5b528bde83522cdadb696df2db1b8d6e650019676a6e01135245`.
+SHA-256 before `d4ba9d570cee6b1a08202f71bb7dafc019c7651e7c5756e23cb6e4054bf0e625`; after `42250dbba01301fdf94970480078e293f521cd5f0dc938a3c989aec5a6c112a4`.
 
 Approved changes: the corrected filed facts and unchanged-formula consequences listed for this case; the associated evidence/unknown-coverage and capex-definition text; version/fingerprint identifiers; and deterministic fixed-analyst verification of those records. No separate numerical or presentation policy is introduced.
 
-Manifest payloadFingerprint: `"1.94.0:b7c9e5bd"` to `"1.95.0:b1eae941"`, approved because its version and covered deterministic content changed.
+Manifest payloadFingerprint: `"1.94.0:b7c9e5bd"` to `"1.95.0:264712b3"`, approved because its version and covered deterministic content changed.
+
+## Review follow-up, 2026-11-14
+
+Comparison: pinned main cf3eb287; review-before is branch 7b172879. Current outputs also include the normal merge of main 742d4d2f (D-263). Input amounts below are filed facts, never vendor rows. Derived scores and valuation comparisons are Metis outputs, not independently filed model values.
+
+| Case | Main warnings | Review-before warnings | Final warnings | Composite main → final | Composite review-before → final |
+| --- | ---: | ---: | ---: | --- | --- |
+| amzn-data-only | 8 | 8 | 8 | 56.12 → 56.12 | 56.12 → 56.12 |
+| figr-data-only | 27 | 33 | 33 | 53.53 → 53.53 | 53.53 → 53.53 |
+| meta-data-only | 44 | 50 | 50 | 60 → 60 | 60 → 60 |
+| mu-data-only | 36 | 36 | 36 | 77.91 → 77.91 | 77.91 → 77.91 |
+| nvda-data-only | 8 | 8 | 8 | 75.97 → 75.97 | 75.97 → 75.97 |
+| qcom-data-only | 4 | 12 | 12 | 56.96 → 56.96 | 56.96 → 56.96 |
+| jpm-data-only | 14 | 15 | 15 | 56.54 → 56.47 | 56.47 → 56.47 |
+| pgr-data-only | 41 | 42 | 42 | 59.72 → 59.72 | 59.72 → 59.72 |
+| o-data-only | 32 | 33 | 33 | 51.09 → 51.09 | 51.09 → 51.09 |
+| duk-data-only | 75 | 83 | 83 | 57.29 → 57.3 | 57.5 → 57.3 |
+| tsm-data-only | 7 | 35 | 34 | 72.35 → 72.35 | 72.35 → 72.35 |
+| rivn-data-only | 33 | 37 | 37 | 45.97 → 45.97 | 45.97 → 45.97 |
+| vktx-data-only | 54 | 81 | 76 | 43.95 → 43.95 | 43.95 → 43.95 |
+| amzn-fixed-analyst | 9 | 9 | 9 | 56.12 → 56.12 | 56.12 → 56.12 |
+| meta-fixed-analyst | 46 | 52 | 52 | 60 → 60 | 60 → 60 |
+| mu-fixed-analyst | 37 | 37 | 37 | 77.91 → 77.91 | 77.91 → 77.91 |
+| nvda-fixed-analyst | 11 | 11 | 11 | 75.97 → 75.97 | 75.97 → 75.97 |
+| lly-data-only | 12 | 16 | 16 | 63.74 → 63.59 | 63.59 → 63.59 |
+| lly-fixed-analyst | 13 | 17 | 17 | 63.74 → 63.59 | 63.59 → 63.59 |
+
+Operating-part check: 222 rows with R&D, SG&A and an operating-expense total; 11 have corrected parts; 4 previously agreeing part sums cease agreeing under the existing P8 same-observation rule. Every independent part correction now carries a row-dated mixed-basis disclosure; no total is plugged.
+
+### Same-quantity review reversions
+
+All earlier income-D&A substitutions are removed: JPM Q3 2026; DUK FY2025 and Q3 2026; LLY FY2024 and Q1?Q3 2025. The cash add-back never establishes the income line. DUK restores filed CostDepreciationAmortizationAndDepletion 6,324M (FY2025, 10-K 0001326160-26-000014, 2026-02-26) and 1,709M (Q3 2026, 10-Q 0001326160-26-000051, 2026-11-05). The other retained income observations are unverified and their vendor amounts are not reproduced here. PGR?s 34 InterestAndDividendIncomeOperating substitutions are also removed: a combined line cannot prove interest alone. No independently filed interest-only replacement is claimed.
+
+### Parallel branch frozen-record receipts
+
+The merged live log follows main?s linear hash chain and records D-262?s scoped integration. These earlier branch receipts preserve the parallel history rather than falsely chaining its hashes after D-263. All receipts concern synthetic fixtures, not vendor data.
+
+| Target | Date | Before hash | After hash | Changed leaves |
+| --- | --- | --- | --- | ---: |
+| audit-fixture | 2026-11-14 | `738cfcfcc5658feaa1e6360c74d36260bc60c7153c36216699d50f7be76ac975` | `dac441547fca213787b1a2ac190cbbb72037fa29740b19185c9295b8369eb9bd` | 4 |
+| stagec-payload | 2026-11-14 | `f90848c2e57a07702d5d2491d00b9cbffb1fd800546aee150cd8f830420fa2da` | `b39c36e6f4d888513e6e368fb6c1e30835bf717bceba773c8862d55126096c67` | 11 |
+| audit-fixture | 2026-11-14 | `dac441547fca213787b1a2ac190cbbb72037fa29740b19185c9295b8369eb9bd` | `f2fec74e3c9a00fb4108d54c629e6ec0e7b935b7106525a5b10a833b8f82f76d` | 2 |
+| audit-fixture | 2026-11-14 | `e807d4dbb303980754701a2418b13358d1947d0ab0cfeddcc5eec6f0848dc79c` | `d1c8aac937934a1019868929c16721f721813a290f7229969b3fc597e1dc2d75` | 2 |
+| stagec-payload | 2026-11-14 | `77754c944ec592e40f0f341188b48fa91016c51f422a6e659caa27f86cf58b78` | `168dfa18f0252101295afebc7cb073540e07f3c3b323f95af24462f7f97e3316` | 1 |
+
+### Discarded wider filed observations
+
+These are public filed quantities formerly substituted into a different field. Their amounts do not prove the income field. Final retained observations remain unverified and vendor amounts are not reproduced.
+
+| Case | Field / period | Wider filed amount (USD) | Tag | Filing |
+| --- | --- | ---: | --- | --- |
+| jpm-data-only | depreciationAndAmortization: 2026-07-01 to 2026-09-30 | 2903000000 | us-gaap/DepreciationAmortizationAndAccretionNet | 10-Q 0001628280-26-069523, 2026-11-03 + 10-Q 0001628280-26-054343, 2026-08-06 |
+| pgr-data-only | interestIncome: 2025-01-01 to 2025-12-31 | 3583000000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-26-000086, 2026-03-02 |
+| pgr-data-only | interestIncome: 2024-01-01 to 2024-12-31 | 2832000000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-25-000007, 2025-03-03 |
+| pgr-data-only | interestIncome: 2023-01-01 to 2023-12-31 | 1891800000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-24-000007, 2024-02-26 |
+| pgr-data-only | interestIncome: 2022-01-01 to 2022-12-31 | 1260300000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-23-000006, 2023-02-27 |
+| pgr-data-only | interestIncome: 2021-01-01 to 2021-12-31 | 860900000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-22-000046, 2022-02-28 |
+| pgr-data-only | interestIncome: 2020-01-01 to 2020-12-31 | 936600000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-21-000014, 2021-03-01 |
+| pgr-data-only | interestIncome: 2019-01-01 to 2019-12-31 | 1042000000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-20-000006, 2020-03-02 |
+| pgr-data-only | interestIncome: 2018-01-01 to 2018-12-31 | 820500000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-19-000008, 2019-02-27 |
+| pgr-data-only | interestIncome: 2017-01-01 to 2017-12-31 | 563100000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-18-000011, 2018-02-27 |
+| pgr-data-only | interestIncome: 2016-01-01 to 2016-12-31 | 478900000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-17-000012, 2017-03-01 |
+| pgr-data-only | interestIncome: 2026-07-01 to 2026-09-30 | 1035000000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-26-000379, 2026-11-02 |
+| pgr-data-only | interestIncome: 2026-04-01 to 2026-06-30 | 979000000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-26-000308, 2026-08-03 |
+| pgr-data-only | interestIncome: 2026-01-01 to 2026-03-31 | 917000000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-26-000177, 2026-05-04 |
+| pgr-data-only | interestIncome: 2025-10-01 to 2025-12-31 | 974000000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-26-000086, 2026-03-02 + 10-Q 0000080661-25-000129, 2025-11-03 |
+| pgr-data-only | interestIncome: 2025-07-01 to 2025-09-30 | 924000000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-25-000129, 2025-11-03 |
+| pgr-data-only | interestIncome: 2025-04-01 to 2025-06-30 | 871000000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-25-000051, 2025-08-04 |
+| pgr-data-only | interestIncome: 2025-01-01 to 2025-03-31 | 814000000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-25-000023, 2025-05-05 |
+| pgr-data-only | interestIncome: 2024-10-01 to 2024-12-31 | 789900000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-25-000007, 2025-03-03 + 10-Q 0000080661-24-000045, 2024-11-04 |
+| pgr-data-only | interestIncome: 2024-07-01 to 2024-09-30 | 739500000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-24-000045, 2024-11-04 |
+| pgr-data-only | interestIncome: 2024-04-01 to 2024-06-30 | 685000000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-24-000031, 2024-08-05 |
+| pgr-data-only | interestIncome: 2024-01-01 to 2024-03-31 | 617600000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-24-000018, 2024-05-06 |
+| pgr-data-only | interestIncome: 2023-10-01 to 2023-12-31 | 507500000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-24-000007, 2024-02-26 + 10-Q 0000080661-23-000049, 2023-10-31 |
+| pgr-data-only | interestIncome: 2023-07-01 to 2023-09-30 | 510200000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-23-000049, 2023-10-31 |
+| pgr-data-only | interestIncome: 2023-04-01 to 2023-06-30 | 454500000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-23-000037, 2023-08-01 |
+| pgr-data-only | interestIncome: 2023-01-01 to 2023-03-31 | 419600000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-23-000023, 2023-05-02 |
+| pgr-data-only | interestIncome: 2022-10-01 to 2022-12-31 | 392100000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-23-000006, 2023-02-27 + 10-Q 0000080661-22-000080, 2022-11-01 |
+| pgr-data-only | interestIncome: 2022-07-01 to 2022-09-30 | 333600000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-22-000080, 2022-11-01 |
+| pgr-data-only | interestIncome: 2022-04-01 to 2022-06-30 | 292400000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-22-000071, 2022-08-02 |
+| pgr-data-only | interestIncome: 2022-01-01 to 2022-03-31 | 242200000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-22-000058, 2022-05-02 |
+| pgr-data-only | interestIncome: 2021-10-01 to 2021-12-31 | 221100000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-22-000046, 2022-02-28 + 10-Q 0000080661-21-000053, 2021-11-02 |
+| pgr-data-only | interestIncome: 2021-07-01 to 2021-09-30 | 208900000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-21-000053, 2021-11-02 |
+| pgr-data-only | interestIncome: 2021-04-01 to 2021-06-30 | 210700000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-21-000044, 2021-08-03 |
+| pgr-data-only | interestIncome: 2021-01-01 to 2021-03-31 | 220200000 | us-gaap/InterestAndDividendIncomeOperating | 10-Q 0000080661-21-000030, 2021-05-04 |
+| pgr-data-only | interestIncome: 2020-10-01 to 2020-12-31 | 221100000 | us-gaap/InterestAndDividendIncomeOperating | 10-K 0000080661-21-000014, 2021-03-01 + 10-Q 0000080661-20-000040, 2020-11-03 |
+| duk-data-only | depreciationAndAmortization: 2025-01-01 to 2025-12-31 | 7704000000 | us-gaap/DepreciationDepletionAndAmortization | 10-K 0001326160-26-000014, 2026-02-26 |
+| duk-data-only | depreciationAndAmortization: 2026-07-01 to 2026-09-30 | 1830000000 | us-gaap/DepreciationDepletionAndAmortization | 10-Q 0001326160-26-000051, 2026-11-05 + 10-Q 0001326160-26-000040, 2026-08-04 |
+| lly-data-only | depreciationAndAmortization: 2024-01-01 to 2024-12-31 | 1766600000 | us-gaap/DepreciationDepletionAndAmortization | 10-K 0000059478-25-000067, 2025-02-19 |
+| lly-data-only | depreciationAndAmortization: 2025-07-01 to 2025-09-30 | 470000000 | us-gaap/DepreciationDepletionAndAmortization | 10-Q 0000059478-25-000254, 2025-10-30 + 10-Q 0000059478-25-000204, 2025-08-07 |
+| lly-data-only | depreciationAndAmortization: 2025-04-01 to 2025-06-30 | 478500000 | us-gaap/DepreciationDepletionAndAmortization | 10-Q 0000059478-25-000204, 2025-08-07 + 10-Q 0000059478-25-000132, 2025-05-01 |
+| lly-data-only | depreciationAndAmortization: 2025-01-01 to 2025-03-31 | 462800000 | us-gaap/DepreciationDepletionAndAmortization | 10-Q 0000059478-25-000132, 2025-05-01 |
+
+### DUK derived numeric changes in this review
+
+These are unchanged-formula consequences of restoring the same income expense quantity proved above, not additional input substitutions.
+
+| Stage B leaf | Review-before | Final |
+| --- | ---: | ---: |
+| `.scores.aspects.valuation.drivers.0.value` | 14.492153715203843 | 17.36935145189677 |
+| `.scores.aspects.valuation.score` | 83.81 | 81.12 |
+| `.scores.aspects.valuation.signals.0.contributionPoints` | 2.4263629090294083 | 2.2336319601600247 |
+| `.scores.aspects.valuation.signals.0.operands.0.value` | 11.50496948050432 | 11.58680484039739 |
+| `.scores.aspects.valuation.signals.0.operands.1.value` | 14.492153715203843 | 17.36935145189677 |
+| `.scores.aspects.valuation.signals.0.operands.3.value` | 10.821550315199627 | 10.89852448415731 |
+| `.scores.aspects.valuation.signals.0.raw` | 14.492153715203843 | 17.36935145189677 |
+| `.scores.aspects.valuation.signals.0.transformedScore` | 83.80732319914308 | 81.12193864489635 |
+| `.scores.assessments.valuation.score` | 83.81 | 81.12 |
+| `.scores.composite.score` | 57.5 | 57.3 |
+| `.scores.factorExposure.5.aboveNeutralPoints` | 2.4263629090294083 | 2.2336319601600247 |
+| `.valuation.multiples.multiples.1.current` | 11.50496948050432 | 11.58680484039739 |
+| `.valuation.multiples.multiples.1.ownHistory.observationDetails.0.value` | 10.821550315199627 | 10.89852448415731 |
+| `.valuation.multiples.multiples.1.ownHistory.p5` | 11.200254139422036 | 11.219497681661455 |
+| `.valuation.multiples.multiples.1.ownHistory.percentileRank` | 14.492153715203843 | 17.36935145189677 |
+
+Parallel-branch receipt details (scope and changed paths preserved):
+
+```json
+[
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-262",
+    "reason": "D-262 changes the declared filed PP&E precedence and report version; synthetic DEMO arithmetic and all unrelated leaves remain pinned.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.stageB.capital.current.cashBridge.definition",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.balanceSheet.coverage.commentary[1].text"
+    ],
+    "beforeSha256": "738cfcfcc5658feaa1e6360c74d36260bc60c7153c36216699d50f7be76ac975",
+    "afterSha256": "dac441547fca213787b1a2ac190cbbb72037fa29740b19185c9295b8369eb9bd",
+    "changedLeaves": 4,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.stageB.capital.current.cashBridge.definition",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.balanceSheet.coverage.commentary[1].text"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-262",
+    "reason": "D-262 identifies the filed PP&E precedence in the capital definition and advances payload compatibility; numeric synthetic fixture values are unchanged.",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptBytes",
+      "$.summary.promptFnv1a32",
+      "$.prompt.bytes",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.prompt.sections[6].bytes",
+      "$.prompt.sections[6].sha256",
+      "$.payload.payloadVersion",
+      "$.payload.computed[4].notes[1]"
+    ],
+    "beforeSha256": "f90848c2e57a07702d5d2491d00b9cbffb1fd800546aee150cd8f830420fa2da",
+    "afterSha256": "b39c36e6f4d888513e6e368fb6c1e30835bf717bceba773c8862d55126096c67",
+    "changedLeaves": 11,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptBytes",
+      "$.summary.promptFnv1a32",
+      "$.prompt.bytes",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.prompt.sections[6].bytes",
+      "$.prompt.sections[6].sha256",
+      "$.payload.payloadVersion",
+      "$.payload.computed[4].notes[1]"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-262",
+    "reason": "D-262 review moves report compatibility to 1.77.0 to reserve 1.76.0 for D-263; synthetic arithmetic remains unchanged.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "dac441547fca213787b1a2ac190cbbb72037fa29740b19185c9295b8369eb9bd",
+    "afterSha256": "f2fec74e3c9a00fb4108d54c629e6ec0e7b935b7106525a5b10a833b8f82f76d",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-262",
+    "reason": "D-262 merges D-263 proof metadata and uses reserved report spec 1.78.0; synthetic calculation values remain unchanged.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion",
+      "$.projection.stageB.capital.current.ebitdaComputed",
+      "$.projection.stageB.capital.netDebtToEbitda.ebitdaComputed"
+    ],
+    "beforeSha256": "e807d4dbb303980754701a2418b13358d1947d0ab0cfeddcc5eec6f0848dc79c",
+    "afterSha256": "d1c8aac937934a1019868929c16721f721813a290f7229969b3fc597e1dc2d75",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-262",
+    "reason": "D-262 merge combines D-263 affirmative producer metadata with the filed-flow capital definition; only the provenance hash changes.",
+    "scope": [
+      "$.summary.provenanceHash"
+    ],
+    "beforeSha256": "77754c944ec592e40f0f341188b48fa91016c51f422a6e659caa27f86cf58b78",
+    "afterSha256": "168dfa18f0252101295afebc7cb073540e07f3c3b323f95af24462f7f97e3316",
+    "changedLeaves": 1,
+    "changedPaths": [
+      "$.summary.provenanceHash"
+    ]
+  }
+]
+```

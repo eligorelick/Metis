@@ -207,8 +207,10 @@ together; independent CFO/FCF refusals do not clear. The ordinary whole-row CFO
 switch is unchanged. Live acquisition and offline calculation views share the
 same admission functions; source envelopes, raw arrays and stored bytes remain.
 
-The PP&E total precedes other PP&E and productive assets. These alternatives
-are not summed; software, acquired research, businesses and investments are not
+The PP&E total precedes other PP&E and productive assets for lookup only.
+A same-period, same-filing competing capital-purchase tag blocks substitution,
+including software, oil-and-gas, real estate, improvements and productive
+assets. No ordering proves which is a total. These alternatives are not summed; software, acquired research, businesses and investments are not
 added to PP&E. Missing filed capex leaves the retained convention and its
 disclosure. Interest expense uses expense tags only, never net interest,
 interest paid or costs that include capitalized interest. Unproved expense
@@ -240,7 +242,7 @@ are not presumed interchangeable with a similarly named US-GAAP concept.
 | --- | --- | --- |
 | Cash capex, PP&E alias, standardized FCF | PP&E/productive-assets tags; no annual conflict check, quarterly annual-vendor gate | Added other PP&E; exact filed spending replaces conflicts; aliases and FCF share it |
 | Income interest expense | Five existing ordered expense tags; capitalized-cost refusal only on vendor path | Exact annual/quarter expense replaces conflicts, including vendor zero; missing compatible expense is disclosed unverified |
-| Income and cash-flow D&A | Combined D&A tags with component floors; cash-flow/valuation extracted them but vendor fields were unchecked | Compare full tagged totals on the existing floors; partial depreciation or composed lower bounds do not replace a total |
+| Income and cash-flow D&A | Cash add-back tags are not income-statement expense | Income uses CostDepreciationAmortizationAndDepletion only; any agreeing separately filed D&A basis prevents narrowing. Cash retains the full combined family and floors |
 | Cash-flow SBC | `ShareBasedCompensation`; some quarterly repairs, annual conflicts could remain refused | Same filed rule for both frequencies; typed value-only refusals reopen only against the identical recorded fact; allocated expense is a separate basis |
 | Common, preferred and total dividends paid | Existing direct dividend chains and common/preferred composition | Correct independently tagged fields; do not infer total from common when preferred is unproved |
 | Common-share cash repurchases | `PaymentsForRepurchaseOfCommonStock`; conflicts previously refused; primary cash/cost bridge has its own scope gate | Correct exact bulk counterparts unless independently refused/proved; primary cash scope has precedence; unresolved excise/commission scope stays with its owner |
@@ -276,70 +278,113 @@ value-only conflicts that a scalar admission can settle. The operating-family
 gate remains at `src/edgar/incomeClassification.ts:494` for incomplete or
 financial-company placements.
 
-### Approved report changes
+### Approved report changes and independent-review fixes
 
-The approved leaf sets, SEC tags/filings for every corrected input, per-case
-effects and exact file hashes are recorded in
-[the D-262 replay record](2026-11-13-filed-flow-deltas.md). The baseline is main
-`9f0d54765a5760e460c53342431c21468dd7c0fc`, fetched and pinned before any replay.
-All inputs were reused offline; application database reads were read-only.
+Report spec 1.78.0 is reserved for D-262; D-263 holds 1.76.0 and D-260
+reserves 1.77.0. Payload 1.95.0 and Stage B FILED_FLOWS_69 do not collide.
+Main 742d4d2f was merged normally, preserving D-263's producer proof metadata
+and cash-flow verification. The reviewed baseline remains pinned cf3eb287.
 
-LLY quarterly FCF (USD millions): Q3 2025 8,612 -> 6,748.2, Q2 1,283.0 ->
-1,389.8, Q4 2024 726.6 -> 977.8. Q1 remains withheld by the frozen SEC-row
-investment-scope refusal: the row retains its first-reporter date but its CFO
-comes from a later comparative; an untyped independent refusal is not cleared
-by recognizing a new capex tag alone. Latest four quarters remain 8,219,
-7,757, 3,007 and 677.9. Five-/three-year FCF CAGR changes from
-14.949380%/24.938961% to 11.908940%/16.111753%. Fundamentals 84.24 -> 83.51
-(B); deterministic composite 63.74 -> 63.59 (C). FY2025 interest expense
-795.3 -> 895, coverage 33.071797x -> 29.387709x; Q4 expense 123 -> 222.6,
-trailing expense 1,178 -> 1,277.6. New recognition of the existing filed TTM
-capex identity gives 10,984 rather than the 10,983.7 vendor-quarter sum, so
-TTM FCF is 19,660.6 rather than 19,660.9; the 0.3 difference is the current
-filing's rounded prior-year YTD, not a change to a quarterly fact.
+1. Competing same-filing capital purchases leave the retained observation and
+   a gap naming all competing tags. No components are summed. Separate acquired
+   research, business and acquired-intangible purchases are outside PP&E.
+2. Income D&A cannot be replaced by a cash-flow add-back. An agreeing filed
+   D&A observation is not narrowed to a different basis. All earlier income-D&A
+   substitutions are reverted: one JPM quarter, two DUK periods and four LLY
+   periods. Cash-flow D&A admission is unchanged.
+3. Combined interest-and-dividend tags cannot establish interest alone, even on
+   a financial-company route. PGR's 34 such substitutions are reverted to its
+   retained unverified observations. Other admitted families were checked for
+   component/total scope: dividends, acquisitions, repurchases and cash versus
+   income expense keep their independent scope gates.
+4. Absent filed expense at a retained zero is info/expected. Positive unverified
+   interest expense remains a warning. The warning table below compares every
+   case against both pinned main and the review-before branch.
+5. Independently filed R&D, SG&A, selling and administrative parts explicitly
+   disclose their mixed basis with separately admitted operating subtotals. No
+   operating total is plugged. The audit below checks the displayed part sums.
+6. D-200 is marked Revised by D-262; D-215 is named above and retains its link.
+7. The legacy enrichment loop skips an already admitted, proven filed-family
+   lease-principal field, preserving original precision after rerounding.
+8. The primary-capital owner compares the original retained cash observation
+   after a bulk-tag substitution and requires its same-filing cost bridge.
+   Missing bridges remain refused. JPM's FY2025 cash-flow statement explicitly
+   labels Treasury stock repurchased 31,591M USD, with FY2024 18,830M and FY2023
+   9,824M; these match PaymentsForRepurchaseOfCommonStock in Form 10-K
+   0001628280-26-008131, filed 2026-02-13. These are cash-flow outlays, not an
+   equity-cost proxy. The resulting year-one payout is 61.5582409% versus the previous model 60.3950489%, and excess-return value per share is 246.1163299 versus 247.2200427. The model payout remains not-established as a
+   standalone filed ratio; its expectation hash is deliberately updated with
+   that exact tag, period and filing. No match is claimed for the derived ratio.
 
-Report 1.78.0, payload 1.95.0 and Stage B
-`STAGE_B_2026_11_FILED_FLOWS_69` identify the changed meaning. Stage C, score
-bands and valuation-method stamps stay: their algorithms are unchanged. Frozen
-synthetic records change only the capex-definition wording, report/payload
-stamps and dependent hashes/lengths, with exact scopes in `refresh-log.json`.
-The fictional current DEMO sample changes exactly five leaves: its two report
-stamps and the capex definition in two commentary entries and one verification
-entry. Its figures and chart bytes remain unchanged.
-No stored report or real vendor fixture is rewritten.
+DUK's FY2025 income D&A is the filed 6,324M USD
+CostDepreciationAmortizationAndDepletion, rather than the wider 7,704M cash
+add-back, Form 10-K 0001326160-26-000014, filed 2026-02-26. Its Q3 2026 income
+line is 1,709M, rather than the 1,830M add-back, Form 10-Q
+0001326160-26-000051, filed 2026-11-05. The exact filed dates and intervals are
+also in the acquired fact records. These same-quantity reversions change the
+current EV/EBITDA from 11.5049694805x to 11.5868048404x, its historical
+percentile from 14.4921537152 to 17.3693514519, valuation score from 83.81 to
+81.12 and composite from 57.50 to 57.30. No other company's calculated scores
+or headline model figures change further in this review. Restored unverified
+JPM/LLY income fields and PGR combined-income fields are not claimed as filed
+values; their discarded wider tags never proved those quantities.
 
-The reviewed golden run changes all 17 cases: 14 have corrected filed input
-observations, while MU data-only, MU fixed-analyst and TSM change only the
-definition, version or explicit coverage disclosures. The two LLY replays have
-the same deterministic figures. The exact comparisons accept 136 golden and
-16 LLY file/manifest changes and nothing else. Leaf-set compression was checked
-by expanding it back to the complete golden-harness path list.
+LLY filed quarterly FCF remains Q3 2025 6,748.2M, Q2 2025 1,389.8M and Q4
+2024 977.8M USD. Annual interest remains 895M (InterestExpenseNonoperating,
+FY2025, 10-K 0000059478-26-000013), coverage 29.3877095x, five-/three-year
+FCF CAGR 11.908940%/16.111753%, fundamentals 83.51 and composite 63.59.
+Q1 remains withheld by the independent investment-scope refusal. The exact
+input facts, filings, leaf sets and hashes for all 17 stored and two LLY
+cases are in [the regenerated replay record](2026-11-13-filed-flow-deltas.md).
 
-Local delivery checks: `npm run typecheck` passed; `npm run lint` passed with
-one pre-existing unused-variable warning in
-`tests/revenueAdmission.scopeUnresolvedCode.test.ts:88`. The final
-`npx vitest run --config vitest.config.ts --changed origin/main` summary is
-664 files passed, 16,491 tests passed and three skipped, with native exit 0.
-The six explicit tag,
-risk, release, corrected-CLI, stamp and documentation checks also passed
-(175 tests, native exit 0). PowerShell's redirected native-stderr warning made
-the changed-run wrapper return 1 despite the all-green Vitest summary; the
-explicit run captured and returned `$LASTEXITCODE` rather than that wrapper
-status; a final complete changed-suite rerun with that explicit native-exit
-handling confirmed the same green summary and exit 0. Earlier runs exposed
-obsolete refusal/stamp fixtures; their corrected
-expectations preserve independent refusals and preferred-fact ambiguity.
-Failing synthetic regressions preceded each rule correction, including the
-bank object-identity and securities-interest ordering repairs. No full verify
-gate was run locally; CI owns it under this work package's instructions.
+The normal merge produced parallel frozen-record histories. The live refresh
+log now follows main's chain and records the explicit D-262 integration on
+that chain; the earlier branch receipts are preserved in the replay record.
+Synthetic figures are unchanged; the capital digest also includes D-263's
+EBITDA producer-proof metadata. Stored reports remain immutable.
 
-Other defect left for the lead: the fixed LLY analyst output still says that
-Q3 2026 FCF was below the year-earlier quarter, now contradicted by the corrected
-cash figures. That statement is saved JUDGMENT prose with an absolute-level
-citation. The direction checker (`stageC/consistency.ts`, direction block)
-requires a cited delta record and an attached numeric observation, so it does
-not establish this comparison. This is a claim-verification defect outside the
-filed-flow admission rule; no model is rerun or prose silently rewritten here.
+## Review follow-up, 2026-11-14
+
+Comparison: pinned main cf3eb287; review-before is branch 7b172879. Current outputs also include the normal merge of main 742d4d2f (D-263). Input amounts below are filed facts, never vendor rows. Derived scores and valuation comparisons are Metis outputs, not independently filed model values.
+
+| Case | Main warnings | Review-before warnings | Final warnings | Composite main → final | Composite review-before → final |
+| --- | ---: | ---: | ---: | --- | --- |
+| amzn-data-only | 8 | 8 | 8 | 56.12 → 56.12 | 56.12 → 56.12 |
+| figr-data-only | 27 | 33 | 33 | 53.53 → 53.53 | 53.53 → 53.53 |
+| meta-data-only | 44 | 50 | 50 | 60 → 60 | 60 → 60 |
+| mu-data-only | 36 | 36 | 36 | 77.91 → 77.91 | 77.91 → 77.91 |
+| nvda-data-only | 8 | 8 | 8 | 75.97 → 75.97 | 75.97 → 75.97 |
+| qcom-data-only | 4 | 12 | 12 | 56.96 → 56.96 | 56.96 → 56.96 |
+| jpm-data-only | 14 | 15 | 15 | 56.54 → 56.47 | 56.47 → 56.47 |
+| pgr-data-only | 41 | 42 | 42 | 59.72 → 59.72 | 59.72 → 59.72 |
+| o-data-only | 32 | 33 | 33 | 51.09 → 51.09 | 51.09 → 51.09 |
+| duk-data-only | 75 | 83 | 83 | 57.29 → 57.3 | 57.5 → 57.3 |
+| tsm-data-only | 7 | 35 | 34 | 72.35 → 72.35 | 72.35 → 72.35 |
+| rivn-data-only | 33 | 37 | 37 | 45.97 → 45.97 | 45.97 → 45.97 |
+| vktx-data-only | 54 | 81 | 76 | 43.95 → 43.95 | 43.95 → 43.95 |
+| amzn-fixed-analyst | 9 | 9 | 9 | 56.12 → 56.12 | 56.12 → 56.12 |
+| meta-fixed-analyst | 46 | 52 | 52 | 60 → 60 | 60 → 60 |
+| mu-fixed-analyst | 37 | 37 | 37 | 77.91 → 77.91 | 77.91 → 77.91 |
+| nvda-fixed-analyst | 11 | 11 | 11 | 75.97 → 75.97 | 75.97 → 75.97 |
+| lly-data-only | 12 | 16 | 16 | 63.74 → 63.59 | 63.59 → 63.59 |
+| lly-fixed-analyst | 13 | 17 | 17 | 63.74 → 63.59 | 63.59 → 63.59 |
+
+Operating-part check: 222 rows with R&D, SG&A and an operating-expense total; 11 have corrected parts; 4 previously agreeing part sums cease agreeing under the existing P8 same-observation rule. Every independent part correction now carries a row-dated mixed-basis disclosure; no total is plugged.
+
+Delivery checks after the normal main merge: 365 focused owner/compatibility
+regressions passed, including all four explicitly required test files; the 350
+payload/audit integration tests passed after resolving the parallel fixture
+histories, and 29 documentation/release tests passed. Typecheck passed. Lint
+passed with its one pre-existing unused-variable warning. Approved comparisons
+against cf3eb287 accept 136 stored-case and 16 LLY changes, nothing else.
+Accuracy: 265 figures, 170 match, seven mismatch, 62 gap, 26 not-established;
+every figure matches its expectation. Only JPM's intended payout expectation
+hash changed, with the filed cash-payment proof above. No full suite, paid
+call, application-database write or GitHub review reply occurred.
+
+Other defect left for the lead: saved fixed-analyst LLY prose still describes
+Q3 2026 FCF as below the prior year. This is the separate claim-verification
+issue in stageC/consistency.ts's direction block; no analyst is rerun here.
 
 ## D-259 - Claude Fable 5.2 joins the registry, and the refresh adds newly published models itself (2026-11-13)
 

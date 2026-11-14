@@ -1782,7 +1782,7 @@ differently. Neither construction establishes standalone quarters or capex.
 cash PP&E spending replaces conflicting vendor capex, its PP&E alias and the
 standardized FCF that subtracts it. The ordered tag family is owned by
 `tagSynonyms.ts`: the PP&E total first, then other PP&E, then productive
-assets. These are alternatives, never additive components. Acquired research,
+assets. A competing same-filing, same-period capital-purchase tag blocks substitution; order alone does not prove a total. These are alternatives, never additive components. Acquired research,
 businesses and financial investments are not added. Annual figures and
 quarters use the same definition where the filed tag covers them. A quarter
 may be a direct fact or the difference of compatible cumulative facts; every
@@ -1800,11 +1800,11 @@ allowance distinguishes reporting precision from a conflict; no new tolerance
 or score band is introduced.
 
 **Sibling additive flows (P8, D-262).** Income and cash-flow rows apply the
-same exact-period admission to independently tagged D&A totals, SBC cash-flow
+same exact-period admission to statement-specific D&A (income expense never inferred from a cash add-back), SBC cash-flow
 add-backs, dividends, common-share repurchases and issuance, acquisitions,
 working-capital changes, cash tax/interest payments, finance-lease principal,
 investing/financing totals, research, selling/administrative costs, interest
-income and bank net interest income. Full D&A/R&D must pass the existing
+income (interest-only tags, never combined dividends) and bank net interest income. Independent operating-expense parts disclose a mixed basis with separately admitted subtotals. Absent filed interest expense at a vendor zero is expected information. Full D&A/R&D must pass the existing
 component floors; partial D&A does not replace a total. Total dividends do not
 come from common dividends unless preferred dividends are explicitly zero.
 Primary cash-repurchase evidence has precedence over bulk cost-inclusive tags.

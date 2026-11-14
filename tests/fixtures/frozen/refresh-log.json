@@ -370,15 +370,15 @@
     "date": "2026-11-14",
     "target": "audit-fixture",
     "decision": "D-262",
-    "reason": "D-262 changes the declared filed PP&E precedence and report version; synthetic DEMO arithmetic and all unrelated leaves remain pinned.",
+    "reason": "D-262 integration applies its capex definition and report spec 1.78.0 on the merged D-263 frozen record; numeric synthetic figures are unchanged.",
     "scope": [
       "$.projectionSha256",
-      "$.projection.stageB.capital.current.cashBridge.definition",
       "$.projection.report.meta.specVersion",
+      "$.projection.stageB.capital.current.cashBridge.definition",
       "$.projection.report.balanceSheet.coverage.commentary[1].text"
     ],
-    "beforeSha256": "738cfcfcc5658feaa1e6360c74d36260bc60c7153c36216699d50f7be76ac975",
-    "afterSha256": "dac441547fca213787b1a2ac190cbbb72037fa29740b19185c9295b8369eb9bd",
+    "beforeSha256": "1cdc597504cfb978d82a0d1207f25db7366e72d50e3714ada6c0536b045a2572",
+    "afterSha256": "d1c8aac937934a1019868929c16721f721813a290f7229969b3fc597e1dc2d75",
     "changedLeaves": 4,
     "changedPaths": [
       "$.projectionSha256",
@@ -391,12 +391,13 @@
     "date": "2026-11-14",
     "target": "stagec-payload",
     "decision": "D-262",
-    "reason": "D-262 identifies the filed PP&E precedence in the capital definition and advances payload compatibility; numeric synthetic fixture values are unchanged.",
+    "reason": "D-262 integration applies its payload stamp and capex definition on the merged D-263 frozen record, preserving all numeric figures and affirmative producer metadata.",
     "scope": [
       "$.payloadVersion",
       "$.fingerprint",
       "$.summary.promptBytes",
       "$.summary.promptFnv1a32",
+      "$.summary.provenanceHash",
       "$.prompt.bytes",
       "$.prompt.sha256",
       "$.prompt.sections[0].sha256",
@@ -405,8 +406,8 @@
       "$.payload.payloadVersion",
       "$.payload.computed[4].notes[1]"
     ],
-    "beforeSha256": "f90848c2e57a07702d5d2491d00b9cbffb1fd800546aee150cd8f830420fa2da",
-    "afterSha256": "b39c36e6f4d888513e6e368fb6c1e30835bf717bceba773c8862d55126096c67",
+    "beforeSha256": "d1848e7fd39b37b57ad1e2f70b1804109d0b93110b1c24f8ad0abfff3264c31c",
+    "afterSha256": "168dfa18f0252101295afebc7cb073540e07f3c3b323f95af24462f7f97e3316",
     "changedLeaves": 11,
     "changedPaths": [
       "$.payloadVersion",
@@ -420,23 +421,6 @@
       "$.prompt.sections[6].sha256",
       "$.payload.payloadVersion",
       "$.payload.computed[4].notes[1]"
-    ]
-  },
-  {
-    "date": "2026-11-14",
-    "target": "audit-fixture",
-    "decision": "D-262",
-    "reason": "D-262 review moves report compatibility to 1.77.0 to reserve 1.76.0 for D-263; synthetic arithmetic remains unchanged.",
-    "scope": [
-      "$.projectionSha256",
-      "$.projection.report.meta.specVersion"
-    ],
-    "beforeSha256": "dac441547fca213787b1a2ac190cbbb72037fa29740b19185c9295b8369eb9bd",
-    "afterSha256": "f2fec74e3c9a00fb4108d54c629e6ec0e7b935b7106525a5b10a833b8f82f76d",
-    "changedLeaves": 2,
-    "changedPaths": [
-      "$.projectionSha256",
-      "$.projection.report.meta.specVersion"
     ]
   }
 ]
