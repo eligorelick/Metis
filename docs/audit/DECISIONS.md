@@ -65,9 +65,9 @@ the section commentary, the bull and bear views and the judge.
    actions). The verification log, the header counts and the stored claims are
    unchanged.
 4. *Diagnostics to the audit export.* Moved, with a one-line pointer where they
-   were: the score drivers table, factor-family exposure, factor contribution
-   sensitivity (all three were already in the audit export), the missing-input
-   grade ranges (added to the audit export), each aspect's method text (already in
+   were: the score drivers table and factor-family exposure (this revises D-62,
+   which kept them in the body; marked there), factor contribution sensitivity
+   (all three were already in the audit export), each aspect's method text (already in
    the audit export's score tables; the composite method text stays in the body,
    as D-62 decided), the full
    bull and bear statements of each disagreement (added to the audit export as
@@ -87,7 +87,8 @@ the section commentary, the bull and bear views and the judge.
    basis cell that repeats the row above word for word reads "Same passage as the
    row above."
 
-**Kept on purpose (not cut).** Every data gap, refusal note, qualification,
+**Kept on purpose (not cut).** The missing-input grade ranges (D-139: they
+qualify the grades), every data gap, refusal note, qualification,
 withheld-value reason, disclaimer and the FRED attribution. The scorecard keeps
 an unscored aspect's reason ("Why not scored"). The DCF assumption basis, the
 multiples' basis and limitations, the enterprise-value note and the balance
@@ -122,8 +123,7 @@ This is a read-time view of the same claims and tables.
 **Same-report check** (golden cases pinned at main 73b9a44a). All 17 golden cases and both LLY cases: stageB.json,
 payload.txt and report.json are byte-identical, so no numeric leaf changes. The
 reader files (report.md, print.html, web-dossier.html) change as described
-above, and audit.md only gains the bull/bear statements and the grade-range
-table (no audit line removed). Accuracy check: every figure as expected.
+above, and audit.md only gains the bull/bear statements (no audit line removed). Accuracy check: every figure as expected.
 
 **Approved report changes.** Reader layout only, for every case: section order
 and numbers; the brief at the top of the verdict; repeated statements replaced
@@ -7831,6 +7831,7 @@ Business/MD&A schedule selection and budgets revised by D-270; other D-63 rules 
 
 
 Revised by D-264: reader-only duplicate/segment presentation; original generation rules remain.
+Revised by D-273: the score drivers and factor-family exposure tables leave the Markdown and print body for the audit export (the app keeps them in its collapsed score panel, D-246).
 
 - **Evidence**: the integration rerun (`data/recovery/nvda-integration-20261015`) never named CUDA, TSMC or OpenAI. No 10-K Item 1 or 10-Q note was read; section-evidence-2 kept 11% of the 114,916-char Item 1A, 19% of the 10-Q MD&A, 58% of the Q2 release and 59% of the CFO commentary, and its 1,200-char cut of the residual-value-guarantee 8-K dropped "An affiliate of OpenAI Group PBC … will be the tenant". The report then said evidence it held was "not in the filings": the $59M principal payments between issuer FCF and OCF less capex, the non-GAAP reconciliation, the Hugging Face price, and the DSO and inventory build behind the OCF drop. All 30 FACT claims stated no figure (numeric validation 0/30). Every executive was "not-assessed", although the report printed revenue above the guided range three quarters running, and no pay was stated although D-57 registered the compensation rows. Six figures the excerpts printed were untraced. The "Other" geography and Edge Computing showed dashes where the total less the other rows was known. An 18-month-old charge was the only "high" flag, and "$6.1 billion" against "$6.042 billion" was called a discrepancy. The next earnings date was printed beside a past date: the earnings envelope's newest reported row.
 - **Options**: (a) raise every budget; (b) read new sources with family profiles suited to each, under bounded budgets, and register the release tables as typed records; (c) attribute company guidance to no individual, and print the executive cards once as not assessed.

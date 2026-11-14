@@ -2486,7 +2486,7 @@ export function readerSources(sources: Report["appendix"]["sources"]): { summary
   };
 }
 /** D-273 (P22): where the score diagnostics live once they leave the reader body. */
-export const SCORE_DIAGNOSTICS_NOTE = "The method of each aspect, the score drivers, factor-family exposure and sensitivity, and the missing-input grade ranges are in the audit export.";
+export const SCORE_DIAGNOSTICS_NOTE = "The method of each aspect, the score drivers and the factor-family exposure and sensitivity tables are in the audit export.";
 export const SCORE_BANDS_READER_NOTE = "House scoring bands in force when this report was built; the band version is recorded in the audit export";
 
 /**
@@ -2494,7 +2494,7 @@ export const SCORE_BANDS_READER_NOTE = "House scoring bands in force when this r
  * measures (D-62: replaces the separate weights and aspect-score tables).
  */
 /**
- * `full` keeps each aspect's method text and the reliability sentence: the app
+ * `full` keeps each aspect's method text: the app
  * shows them in its collapsed score panel (D-246 frozen facts); the documents
  * point to the audit export instead (D-273).
  */
@@ -2518,7 +2518,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>, detail: "d
         full || aspect.score === null ? withoutDecisionNumbers(aspect.notApplicableReason ?? aspect.note) : "",
       ];
     }),
-    note: `Evidence here uses each aspect's full configured signal weight. ${full ? "The reliability table's applicable evidence excludes route-inapplicable inputs. " : ""}${limited.map((key) => {
+    note: `Evidence here uses each aspect's full configured signal weight. The reliability table's applicable evidence excludes route-inapplicable inputs. ${limited.map((key) => {
         const signals = scores.aspects[key].signals ?? [];
         const effective = signals.length > 0
           ? signals.reduce((sum, s) => sum + s.effectiveCompositeWeightPct, 0)

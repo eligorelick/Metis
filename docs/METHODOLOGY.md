@@ -8923,8 +8923,7 @@ or cited; an unverified, unchecked or contradicted claim, or a judgment, never
 enters, and a part with none says "Not established from verified sources." A
 statement shown in full in one list is referenced, not repeated, in a later
 list when its label, text, citation, date and verification mark all match.
-Score drivers, factor exposure and sensitivity, missing-input grade ranges,
-each aspect's method text, the full bull and bear statements, the full source list and the
+Score drivers, factor exposure and sensitivity, each aspect's method text, the full bull and bear statements, the full source list and the
 manifest reconciliation are in the audit export, not the Markdown or print
 documents (the app keeps them in collapsed panels, D-246); every surface keeps every gap,
 qualification, refusal note, disclaimer and stale-source name. These are

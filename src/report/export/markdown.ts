@@ -126,6 +126,7 @@ import {
   reverseDcfValueText,
   runSummary,
   scorecardTable,
+  gradeReliabilityTable,
   SCORE_DIAGNOSTICS_NOTE,
   readerSources,
   DISAGREEMENT_SIDES_NOTE,
@@ -459,7 +460,8 @@ function renderScores(scores: Scoring): string {
     table(card.headers, card.rows),
     "",
     ...(card.note ? [`_${markdownProse(card.note)}_`, ""] : []),
-    // D-273 (P22): drivers, factor exposure and sensitivity, missing-input ranges and the method text are audit diagnostics.
+    // D-139: the missing-input grade ranges qualify the grades, so they stay. D-273 (P22): drivers and factor tables are audit diagnostics.
+    ...auditTableBlocks([gradeReliabilityTable(scores)]),
     `_${markdownProse(c.methodology)}_ _${markdownProse(SCORE_DIAGNOSTICS_NOTE)}_ _(${markdownProse(SCORE_BANDS_READER_NOTE)})_`,
   ].join("\n");
 }

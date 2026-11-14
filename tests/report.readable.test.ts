@@ -193,13 +193,15 @@ describe("shorter report (D-273)", () => {
     // D-246: the app keeps every frozen fact, so its collapsed debate panel still shows both sides.
     expect(appOf(report)).toContain("Volume growth keeps outrunning price cuts.");
     const markdown = markdownOf(report);
-    for (const heading of ["### Score drivers", "### Factor-family exposure", "### Factor contribution sensitivity", "### Attribute grade reliability"]) expect(markdown).not.toContain(heading);
+    for (const heading of ["### Score drivers", "### Factor-family exposure", "### Factor contribution sensitivity"]) expect(markdown).not.toContain(heading);
+    // D-139: the grade ranges qualify the grades and stay in the body.
+    if (report.scores) expect(markdown).toContain("### Attribute grade reliability");
     if (report.scores) expect(markdown).toContain(SCORE_DIAGNOSTICS_NOTE);
     const audit = reportToAuditMarkdown(report);
     expect(audit).toContain("## Bull/bear statements");
     expect(audit).toContain("- Bull: Volume growth keeps outrunning price cuts.");
     expect(audit).toContain("- Bear: Price erosion is structural.");
-    if (report.scores) expect(audit).toContain("### Attribute grade reliability");
+    if (report.scores) for (const heading of ["### Score drivers", "### Factor contribution sensitivity"]) expect(audit).toContain(heading);
     expect(audit).toContain("## Sources");
   });
 

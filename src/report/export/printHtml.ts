@@ -144,6 +144,7 @@ import {
   reverseDcfValueText,
   runSummary,
   scorecardTable,
+  gradeReliabilityTable,
   SCORE_DIAGNOSTICS_NOTE,
   readerSources,
   DISAGREEMENT_SIDES_NOTE,
@@ -513,6 +514,7 @@ function sectionScores(scores: Scoring): string {
     <p class="faint">${esc(compositeNote(scores))}</p>
     ${assessment ? `<p>${esc(assessment)}</p>` : ""}
     ${table(card.headers, card.rows.map((row) => row.map(esc)))}${card.note ? `<p class="faint">${esc(card.note)}</p>` : ""}
+    ${bodyTables([gradeReliabilityTable(scores)])}
     <p class="faint">${esc(c.methodology)} ${esc(SCORE_DIAGNOSTICS_NOTE)} <em>(${esc(SCORE_BANDS_READER_NOTE)})</em></p></section>`;
 }
 

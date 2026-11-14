@@ -28,7 +28,7 @@ import {
   formatCostUsd,
   roundedDisplayedCostTotal,
 } from "@/report/format";
-import { runSummary, displayedValidationStatus, geographicBasisNote, gradeReliabilityTable, qualityAccrualClarifications, trustRows } from "@/report/presentation";
+import { runSummary, displayedValidationStatus, geographicBasisNote, qualityAccrualClarifications, trustRows } from "@/report/presentation";
 import { figureCitationStatus } from "@/report/verificationMarks";
 import { providerFallbackNotice } from "@/report/providerFallback";
 import {
@@ -246,8 +246,6 @@ function renderScores(scores: Scoring): string {
     ),
     "",
     ...scoreAuditTables(scores).flatMap((t) => [`### ${t.heading}`, "", table(t.headers, t.rows), ...(t.note ? ["", markdownProse(t.note)] : []), ""]),
-    // D-273: the missing-input grade ranges left the reader body for this export.
-    ...[gradeReliabilityTable(scores)].flatMap((t) => [`### ${t.heading}`, "", table(t.headers, t.rows), ...(t.note ? ["", markdownProse(t.note)] : []), ""]),
     `_Band table: ${markdownProse(scores.bandsVersion)}._`,
   ].join("\n");
 }
