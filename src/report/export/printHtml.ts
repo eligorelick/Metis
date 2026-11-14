@@ -524,8 +524,7 @@ function sectionBusiness(b: Business, extra: ReportAuditTable[] = [], c?: Pick<C
       ? `${subsection(annualSegmentHeading("Geographic", b.segments.geographic, quarterly.length > 0), segmentTable(b.segments.geographic, true))}${geographicBasisNote(b.segments.geographic) ? `<p class="faint">${esc(geographicBasisNote(b.segments.geographic)!)}</p>` : ""}` : "");
   return `<section class="block">${sectionHeading("business")}
     ${subsection("What they sell", claimList(b.whatTheySell))}
-    ${b.marketStructure?.length ? subsection("Market & industry structure", claimList(b.marketStructure)) : ""}
-    ${businessStory(b, c)}
+    ${b.marketStructure?.length ? subsection("Market & industry structure", claimList(b.marketStructure)) : ""}${businessStory(b, c)}
     ${quarterly}
     ${annual}
     ${subsection("Concentration risks", claimList(b.concentrationRisks))}</section>`;
