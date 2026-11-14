@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.78.0 / payload 1.96.0, Stage B `STAGE_B_2026_11_FILED_FLOWS_70` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.80.0 / payload 1.98.0, Stage B `STAGE_B_2026_11_BALANCE_DATE_MARKET_EQUITY_72` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -3726,9 +3726,11 @@ is not set against an older balance sheet); the signal is unscored and the usual
 unscored-aspect rules apply, with no penalty and no switch of variant. Where the
 current cap had to be rebuilt on the issuer's economic class basis, the provider
 series is not on that basis and is not admitted. A cap converted to the statement
-currency at the quote-date exchange rate cannot be converted at the balance date
-with that rate, so the currency refusal above applies and its disclosed Z-prime
-substitute is used. Book-equity variants are unaffected.
+currency at one dated exchange rate counts only when the quote date and the
+rate's own date both pass the same pairing rule against the balance date;
+otherwise the currency refusal above applies and its disclosed Z-prime
+substitute is used. A reading from the public derivation counts only when the
+share count it multiplied was observed on or before that reading's day. Book-equity variants are unaffected.
 
 **Forensic observation context (D-138, Task 8).** A stored report built before
 D-267 can carry an original Altman score on a market-cap operand without a

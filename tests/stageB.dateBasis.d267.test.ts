@@ -137,6 +137,15 @@ describe("D-267 review fix 1: a foreign cap converted on the balance date is adm
     expect(altman.asOf.marketCapSource).toMatch(/converted at the 2025-12-31 FRED DEXTAUS rate/);
   });
 
+  it("the forensic note says what Altman did with the converted cap on each path (review thread)", () => {
+    const fxNote = (notes: string[]) => notes.find((n) => n.startsWith("Valuation translated at one spot rate"))!;
+    const admitted = fxNote(runStageB(sameDateForeign()).forensics.notes);
+    expect(admitted).toContain("Altman X4 converts the admitted USD market capitalization observed on 2025-12-31 back into the reporting currency (current market capitalization converted at the 2025-12-31 FRED DEXTAUS rate) for its local-currency liability denominator, both dated with the 2025-12-31 balance sheet (D-267).");
+    const refused = fxNote(runStageB(foreignBundle()).forensics.notes);
+    expect(refused).toContain("Altman X4 does not use the converted market capitalization: the market cap is converted to TWD only at the 2026-07-02 quote-date rate, and no exchange rate dated at the balance-sheet date is admitted; the book-equity Z-prime variant is used instead (D-267).");
+    expect(refused).not.toContain("Altman X4 converts the admitted USD market capitalization");
+  });
+
   it("control: the same filer with only later-dated rates keeps the currency refusal", () => {
     const altman = runStageB(foreignBundle()).forensics.altman!;
     expect(altman.variant).toBe("private");

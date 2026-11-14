@@ -56,6 +56,23 @@ evidence row reads "Balance d; income d; market cap d (source)".
   equity, FIN-307) is used, as for an ADR whose cap cannot be converted.
 - Book-equity variants (Z-prime, Z-double-prime) are untouched.
 
+**Review fixes (independent review of PR #193).** (1) A foreign filer's cap,
+converted at one dated rate, is the quote's observation at the rate's own date.
+It is admitted when the quote date and the rate's observation date both pass the
+same pairing rule against the balance date (on or before it, at most 45 days
+earlier). Only when they do not does the currency refusal above apply. A filer
+whose quote, quoted-share count and rate are all dated at the balance now keeps
+the original variant on the converted cap. The stored foreign case holds only a
+later-dated rate and keeps the refusal. (2) The public derivation of the
+market-cap history prices a day older than the first filed share count on that
+earliest count (`sharePointOnOrBefore`'s fallback, unchanged for its existing
+consumers). Altman admits a derived reading only when the share count it
+multiplied was observed on or before the reading's day; otherwise the reading
+does not qualify and the rule moves to the next one or to the named gap. Derived
+rows now carry that count's date (`sharesAsOf`, values unchanged). A stored row
+written before this resolves it from the same filed share series by the same
+selection.
+
 Options considered: (a) keep the current cap with a note (rejected: the result is
 not proven); (b) a new tolerance for the date gap (rejected: rule 1); (c) reuse the
 existing statement-date market-value pairing (chosen).
