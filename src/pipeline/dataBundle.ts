@@ -90,7 +90,7 @@ import {
   type SectionSpec,
 } from "@/edgar/extract";
 import { latestEligibleFactEnd, latestFactEnd, looksLikeBankTagging, type CompanyFacts } from "@/edgar/xbrl";
-import { feedCoverage, mergeInstanceFacts, needsInstance, parseInstanceFacts, type InstanceFacts } from "@/edgar/instanceFacts";
+import { mergeInstanceFacts, parseInstanceFacts, type InstanceFacts } from "@/edgar/instanceFacts";
 // WS4 (D-14): successor registrants — the predecessor CIK and its facts.
 import {
   SUCCESSOR_FORM,
@@ -1357,15 +1357,14 @@ async function buildEdgarBundle(
   const pQuarterlySegments = sub.ok && filingDisclosures
     ? settle(`edgar.quarterlySegments(${symbol})`, collectQuarterlySegments(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10), readInstance))
     : null;
-  // D-236: the core periodic filings the segment read does not fetch (Forms
-  // 20-F and 40-F, amendments), each read only where companyfacts does not
-  // carry its statement facts. No request when it carries them all.
+  // D-268: companyfacts omits dimensional investment totals even for covered
+  // filings. Read the bounded periodic inventory once, reusing segment reads;
+  // the merge supplements covered filings only with proved carrying totals.
   const pUnreadInstances: Promise<UnreadInstance[]> = sub.ok && filingDisclosures
     ? pFacts.then((facts) => {
       if (!facts.ok) return [];
-      const coverage = feedCoverage(facts.value.data);
       return collectPeriodicInstances(edgar, String(cik), sub.value.data.recentFilings, nowIso.slice(0, 10),
-        (filing) => needsInstance(coverage, { accession: filing.accessionNumber, form: filing.form, filingDate: filing.filingDate }), readInstance);
+        (filing) => !instanceFacts.some(instance => instance.filing.accession === filing.accessionNumber), readInstance);
     })
     : Promise.resolve([]);
 
@@ -1703,8 +1702,8 @@ export function companyFactsInstanceEntries(instances: CompanyFactsInstances | u
   // read is a coverage gap, named, never taken as the filing stating nothing.
   const unread: ManifestEntry[] = (instances.unread ?? []).map((f) => ({
     field: "edgar.companyFacts.unreadFilings",
-    reason: `SEC companyfacts does not carry the financial statements of ${f.form} ${f.accession} (filed ${f.filingDate}) and the filing's own XBRL instance could not be read: ${f.reason}; ` +
-      "figures that need its filed facts rest on earlier filings or are withheld",
+    reason: `The ${f.form} ${f.accession} filing's own XBRL instance (filed ${f.filingDate}) could not be read: ${f.reason}; ` +
+      "facts absent from companyfacts, including dimensional investment totals, remain unestablished; figures that need those facts rest on earlier filings or are withheld",
     severity: "warn",
     attemptedSources: [f.accession],
   }));

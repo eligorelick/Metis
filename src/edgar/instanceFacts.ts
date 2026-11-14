@@ -21,7 +21,11 @@
  * facts its instance states, so every figure that needs a filed fact of
  * fiscal 2025 went without one. `feedCoverage` is the one coverage test.
  *
- * Only what companyfacts itself publishes is read: numeric, non-nil facts in
+ * D-268 additionally reads whole-line investment carrying amounts: the sole
+ * allowed dimension is the standard carrying-reported-amount measurement axis.
+ * Instrument, hierarchy, entity, typed and scenario breakdowns stay excluded.
+ * Covered filings can supply these omitted points without replacing feed facts.
+ * Numeric, non-nil facts are read in
  * the us-gaap, srt, dei and ifrs-full taxonomies, on contexts with no segment
  * or scenario (the consolidated registrant; a combined filing's subsidiaries
  * sit on dei:LegalEntityAxis and are left out), for the filer's own CIK. A
@@ -31,6 +35,7 @@
  * Pure: no network, no clock.
  */
 
+import { tagsFor } from "@/edgar/tagSynonyms";
 import { CORE_FACT_FORMS, type CompanyFacts, type FactPoint } from "@/edgar/xbrl";
 
 /** companyfacts namespace keys, matched by the taxonomy URI an instance declares. */
@@ -56,7 +61,15 @@ export interface InstanceFacts {
   count: number;
 }
 
-interface Context { start?: string; end: string }
+interface Context { start?: string; end: string; carryingAmount?: true }
+
+// D-268 (P5, P7): this dimension qualifies measurement, not entity or an
+// instrument subset. Every additional axis remains excluded. Never sum members.
+const INVESTMENT_TAGS = new Set(([
+  "cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermInvestments",
+  "longTermInvestments", "noncurrentDebtSecurities", "otherLongTermInvestments",
+  "nonMarketableEquitySecurities", "equityMethodInvestments",
+] as const).flatMap(field => tagsFor(field)));
 
 function attr(attrs: string, name: string): string | null {
   return new RegExp(`\\b${name}="([^"]*)"`).exec(attrs)?.[1] ?? null;
@@ -65,7 +78,7 @@ function attr(attrs: string, name: string): string | null {
 const localName = (measure: string): string => measure.trim().replace(/^[^:]*:/, "");
 
 /**
- * The undimensioned facts of one periodic filing's instance. `cik` is the
+ * Undimensioned facts and proved carrying investment totals (D-268). `cik` is the
  * filer's: a context naming another entity is not this registrant's.
  */
 export function parseInstanceFacts(xml: string, filing: InstanceFiling, cik: string): InstanceFacts {
@@ -79,14 +92,23 @@ export function parseInstanceFacts(xml: string, filing: InstanceFiling, cik: str
   for (const m of xml.matchAll(/<(?:[\w-]+:)?context\b([^>]*)>([\s\S]*?)<\/(?:[\w-]+:)?context>/g)) {
     const id = attr(m[1]!, "id");
     const body = m[2]!;
-    if (id === null || /<(?:[\w-]+:)?(?:segment|scenario)\b/.test(body)) continue;
+    if (id === null) continue;
+    const dimensions = [...body.matchAll(/<(?:[\w-]+:)?explicitMember\b([^>]*)>\s*([^<\s]+)\s*<\/(?:[\w-]+:)?explicitMember>/g)];
+    const qname = (value: string | null, name: string): boolean => value !== null &&
+      prefixes.get(value.split(":")[0]!) === "us-gaap" && value.split(":")[1] === name;
+    const carryingAmount = dimensions.length === 1 &&
+      [...body.matchAll(/<(?:[\w-]+:)?explicitMember\b/g)].length === 1 &&
+      qname(attr(dimensions[0]![1]!, "dimension"), "FairValueByMeasurementBasisAxis") &&
+      qname(dimensions[0]![2]!, "CarryingReportedAmountFairValueDisclosureMember") &&
+      !/<(?:[\w-]+:)?(?:typedMember|scenario)\b/.test(body);
+    if (/<(?:[\w-]+:)?(?:segment|scenario|explicitMember|typedMember)\b/.test(body) && !carryingAmount) continue;
     const identifier = /<(?:[\w-]+:)?identifier\b[^>]*>\s*([^<\s]+)\s*</.exec(body)?.[1];
     if (identifier === undefined || !/^\d{1,10}$/.test(identifier) || Number(identifier) !== filer) continue;
     const instant = /<(?:[\w-]+:)?instant>\s*(\d{4}-\d{2}-\d{2})\s*</.exec(body)?.[1];
     const start = /<(?:[\w-]+:)?startDate>\s*(\d{4}-\d{2}-\d{2})\s*</.exec(body)?.[1];
     const end = /<(?:[\w-]+:)?endDate>\s*(\d{4}-\d{2}-\d{2})\s*</.exec(body)?.[1];
-    if (instant !== undefined) contexts.set(id, { end: instant });
-    else if (start !== undefined && end !== undefined && start <= end) contexts.set(id, { start, end });
+    if (instant !== undefined) contexts.set(id, { end: instant, ...(carryingAmount ? { carryingAmount: true } : {}) });
+    else if (!carryingAmount && start !== undefined && end !== undefined && start <= end) contexts.set(id, { start, end });
   }
   const units = new Map<string, string>();
   for (const m of xml.matchAll(/<(?:[\w-]+:)?unit\b([^>]*)>([\s\S]*?)<\/(?:[\w-]+:)?unit>/g)) {
@@ -128,9 +150,11 @@ export function parseInstanceFacts(xml: string, filing: InstanceFiling, cik: str
       const decimals = decimalsAttr === "INF" ? Infinity : decimalsAttr !== null && /^-?\d+$/.test(decimalsAttr) ? Number(decimalsAttr) : -Infinity;
       const ns = prefixes.get(m[1]!)!;
       const concept = m[2]!;
+      if (ctx.carryingAmount && (ns !== "us-gaap" || !INVESTMENT_TAGS.has(concept) || !/^[A-Z]{3}$/.test(unit) || val < 0)) continue;
       const key = `${ns}|${concept}|${unit}|${ctx.start ?? ""}|${ctx.end}`;
       const point: FactPoint = {
         ...(ctx.start === undefined ? {} : { start: ctx.start }),
+        ...(ctx.carryingAmount ? { instanceCarryingAmount: true as const } : {}),
         end: ctx.end, val, accn: filing.accession, fy, fp, form: filing.form, filed: filing.filingDate,
       };
       const prior = found.get(key);
@@ -225,13 +249,16 @@ export interface InstanceMerge {
  * Adds to `facts` the instances of the core periodic filings the fallback
  * applies to (`needsInstance`). A point companyfacts already holds for such a
  * filing (the cover-page fact of a filing it only mentions) is not added
- * again. The input is not modified.
+ * again. D-268 supplements covered filings only with whole-line carrying
+ * investment totals absent from the feed. The input is not modified.
  */
 export function mergeInstanceFacts(facts: CompanyFacts, instances: readonly InstanceFacts[]): InstanceMerge {
   const coverage = feedCoverage(facts);
   const unchanged: InstanceMerge = { facts, merged: [], companyFactsThrough: coverage.through };
   const newer = instances
-    .filter((i) => i.count > 0 && needsInstance(coverage, i.filing))
+    .filter((i) => i.count > 0 && CORE_FACT_FORMS.has(i.filing.form) &&
+      (needsInstance(coverage, i.filing) || Object.values(i.facts).some(ns => Object.values(ns).some(units =>
+        Object.values(units).some(points => points.some(p => p.instanceCarryingAmount === true))))))
     .sort((a, b) => a.filing.filingDate.localeCompare(b.filing.filingDate) || a.filing.accession.localeCompare(b.filing.accession));
   if (newer.length === 0) return unchanged;
   const reading = new Set(newer.map((i) => i.filing.accession));
@@ -251,9 +278,11 @@ export function mergeInstanceFacts(facts: CompanyFacts, instances: readonly Inst
         const nextUnits: Record<string, unknown[]> = { ...(existing?.units ?? {}) };
         let conceptAdded = 0;
         for (const [unit, points] of Object.entries(units)) {
-          const fresh = points.filter((p) => !held.has(pointKey(ns, concept, unit, p)));
+          const fresh = points.filter((p) => !held.has(pointKey(ns, concept, unit, p)) &&
+            (needsInstance(coverage, instance.filing) || p.instanceCarryingAmount === true));
           if (fresh.length === 0) continue;
           nextUnits[unit] = [...(nextUnits[unit] ?? []), ...fresh];
+          for (const p of fresh) held.add(pointKey(ns, concept, unit, p));
           conceptAdded += fresh.length;
         }
         if (conceptAdded === 0) continue;

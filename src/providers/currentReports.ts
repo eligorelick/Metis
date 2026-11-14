@@ -617,8 +617,8 @@ export function segmentFilings(filings: readonly EdgarFiling[], today: string): 
 /**
  * D-236: the other core periodic filings (`CORE_FACT_FORMS`: Forms 20-F and
  * 40-F and every amendment) under the same rule, which the segment read does
- * not fetch. Their instances are read only where companyfacts lacks them
- * (`collectPeriodicInstances`). At most eight filings: one of each of the five
+ * not fetch. D-268 also reads covered filings for dimensional investment
+ * totals omitted by companyfacts (`collectPeriodicInstances`). At most eight filings: one of each of the five
  * annual forms left and three amended interim reports.
  */
 export function fallbackInstanceFilings(filings: readonly EdgarFiling[], today: string): EdgarFiling[] {
@@ -636,9 +636,9 @@ export interface UnreadInstance {
 
 /**
  * D-236 (P2, P9, P10): reads the XBRL instance of each `fallbackInstanceFilings`
- * filing that `needed` says companyfacts does not carry, and hands it to
- * `onInstance` for the companyfacts merge. A filing companyfacts carries costs
- * no request. Each filing read is one index request (a second when the first
+ * filing selected by `needed`, and hands it to `onInstance` for the
+ * companyfacts merge. D-268 includes covered filings for investment totals.
+ * Each filing read is one index request (a second when the first
  * index form is unusable) and one instance request, through the cached,
  * rate-limited client: at most 24 for the eight filings, none of them repeated
  * while the client's cache holds the immutable documents. Returns the filings

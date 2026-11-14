@@ -901,7 +901,11 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
           p.end === row.date && !p.start && p.accn === anchor.accn && p.filed === anchor.filed));
         const investment = investmentTag ? inFiling(investmentTag) : null;
         const combinedFiled = inFiling("CashCashEquivalentsAndShortTermInvestments");
+        const carryingInvestment = investmentTag !== undefined && investmentTag !== "InterestBearingDepositsInBanks" &&
+          points(facts, investmentTag, unit, observedAt).some(p => p.end === row.date && !p.start &&
+            p.accn === anchor.accn && p.filed === anchor.filed && p.instanceCarryingAmount === true && p.val === investment?.value);
         const investmentRefused = out.fieldConflicts?.shortTermInvestments?.usable === false &&
+          !(carryingInvestment && out.fieldConflicts.shortTermInvestments.cause === "liquidity-not-established") &&
           !(replayCash && sameFiledInstant(out.fieldConflicts.shortTermInvestments.secEvidence, sec.evidence) &&
             conflictCauseMatches(out.fieldConflicts.shortTermInvestments, "vendorSecCash"));
         const original = (f: string): number | null => {
@@ -913,7 +917,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
           const part = tagsFor(f).map(inFiling).find(p => p !== null); return part ? [part.value] : [];
         });
         const assets = inFiling("AssetsCurrent");
-        const disjoint = sum !== null && (combinedFiled !== null && vendorAgreesWithFiled(combinedFiled.value, sum) ||
+        const disjoint = sum !== null && (carryingInvestment || combinedFiled !== null && vendorAgreesWithFiled(combinedFiled.value, sum) ||
           investmentTag !== "InterestBearingDepositsInBanks" && assets !== null &&
           vendorAgreesWithFiled(assets.value, sum + otherParts.reduce((a,b) => a+b,0)));
         const contradiction = investmentRefused || combinedFiled !== null && (combinedFiled.value < familyCash.value ||

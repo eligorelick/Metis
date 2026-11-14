@@ -11,7 +11,134 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-268 - Whole-line carrying investment measurements (2026-11-14)
+
+P5, P7, P8, P10, P11, P20 and P27. **Revises D-261 and D-236** only for admission of
+proved dimensional investment totals. Owner: `src/edgar/instanceFacts.ts`;
+existing cash-family composition remains in `financialEnrichment.ts`.
+
+### Proof and breadth
+
+The cached LLY FY2025 10-K instance, accession **0000059478-26-000013**, filed
+2026-02-12, states `AvailableForSaleSecuritiesDebtSecuritiesCurrent` at
+2025-12-31 as **105M USD** in context c-193. Its only dimension is
+`FairValueByMeasurementBasisAxis = CarryingReportedAmountFairValueDisclosureMember`.
+That member identifies the reported carrying measurement of the entire concept,
+not an instrument, entity, geography or hierarchy subset. The same instance
+separately files instrument members 16M and 89M; those members are excluded,
+not summed with 105M. Context c-217 carries the corresponding 155M total at
+2024-12-31. A sole instrument member would prove no inventory completeness.
+
+Read a nonnegative monetary instant only when that standard measurement is its
+sole dimension, the entity is the requested CIK and the concept belongs to the
+existing cash/current/noncurrent investment chains. Reject additional axes,
+typed members, scenarios, partial measurements and fair-value estimates.
+Unrecognized dimensional shapes remain gaps. No inventory is inferred from the
+number of members. No new tolerance: the existing same-observation comparator
+still governs reconciliation. Duplicate concept/instant/unit facts use the
+existing precision/conflict rule, never addition. Covered companyfacts filings
+are supplemented only for these missing carrying totals; existing points are
+never replaced. Repeated instance reads cannot duplicate a point.
+
+The bounded periodic acquisition inventory now reads covered foreign annual
+filings too, reusing domestic segment instance reads. US GAAP tags on 10-K,
+10-Q, amendments, 20-F and 40-F follow the same rule. IFRS/custom measurement
+axes without this standard proof remain excluded; this is an evidence boundary,
+not an issuer exemption. Long-term investments, noncurrent debt securities,
+marketable securities, cash equivalents, equity-method and other investment
+chains share the parser. Their existing composition owners are unchanged.
+Only a carrying-proved, exact same-filing, same-currency, same-instant current
+investment can satisfy the repaired cash family's disjoint component path;
+interest-bearing bank deposits retain their separate overlap guard. Independent
+refusals remain sticky; only the typed liquidity-not-established cause may clear
+on this new evidence. No company condition, balancing plug or vendor agreement
+establishes a total.
+
+### Approved same-report changes
+
+Pinned main: **57ba3f54ec35285bdf51b7b6d89ed040a1ddf2a1**. All **17 golden cases
+and two LLY cases** retain byte-identical Stage B financial outputs, reports and
+rendered exports. Every changed leaf is the payload header version, with its
+manifest fingerprint/hash. No financial expectation changes. Accuracy remains
+171 matches, 7 mismatches, 61 gaps and 26 not-established figures (265 total).
+FIGR and QCOM therefore retain their original investment admission behavior;
+no newly computed figure is asserted without new dimensional source evidence.
+
+The retained snapshots contain normalized companyfacts, not the original
+instance XML. Replaying those immutable inputs cannot recover an omitted
+context. A separate **scratch-only refreshed-evidence** LLY run merged the
+cached 10-K through the production parser and merge, captured a new snapshot
+and ran the offline golden worker. No original snapshot/database/report was
+changed. Its results demonstrate acquisition plus calculation, not a same-input
+financial delta:
+
+| FY2025 figure | Original snapshot | Refreshed filing evidence |
+| --- | ---: | ---: |
+| Cash | 7,268M | 7,268M |
+| Short-term investment admitted in repaired liquidity | gap | 105M |
+| Combined liquidity | gap | 7,373M |
+| Debt less combined liquidity before lease adjustment | gap | 36,492M |
+| House net debt after operating leases | gap | 35,130M |
+| Ending invested capital | gap | 61,665M |
+| Average invested capital | gap | 53,078.8M |
+| ROIC | gap | 39.748496481549836% |
+
+All current balance operands are at **2025-12-31, 0000059478-26-000013**:
+`CashAndCashEquivalentsAtCarryingValue` 7,268M, the investment tag above 105M,
+`StockholdersEquity` 26,535M, debt family `LongTermDebtNoncurrent`, `DebtCurrent`,
+`CommercialPaper`, `OperatingLeaseLiabilityCurrent` and
+`OperatingLeaseLiabilityNoncurrent` (admitted total debt 43,865M, operating leases
+1,362M). Ending capital is 26,535 + 43,865 - 1,362 - 7,373 = 61,665M.
+Opening admitted capital remains 44,492.6M from FY2024, **0000059478-25-000067**
+(2024-12-31; the same debt/cash/equity families, `OperatingLeaseLiability` and
+`StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest`).
+No new 2024 amount replaces that previously admitted row. NOPAT remains
+21,098.024950448875M, derived by the existing owner from FY2025
+`OperatingIncomeLoss`, `IncomeTaxExpenseBenefit` and pretax earnings; division
+by 53,078.8M produces the ROIC above.
+
+On that refreshed-input run, downstream recovery also restores NOA/accrual
+coverage, one historical EV/EBITDA and EV/revenue observation, quality and moat
+signals, and the existing evidence-backed terminal-return convention. Consequently
+the computed model value moves 662.078517539688 to 739.1859561963481 USD/share;
+bull/base/bear 1,009.57/662.08/411.64 to 1,135.17/739.19/456.89;
+quality/moat/composite 68.43/80.79/62.90 to 73.86/87.09/67.34. These are model
+outputs, not filed prices. Their cause is the recovered FY2025 capital/ROIC
+input, not a changed valuation rule. The current September bridge net debt
+remains 44,618M. Fresh FIGR/QCOM source collection and adoption of refreshed
+snapshot cases are left to integration; existing snapshots do not prove an
+additional dimensional total for them.
+
+### Tests, compatibility and verification
+
+Failing-first parser and composition regressions cover whole carrying totals,
+a lone instrument member, an undimensioned total plus its carrying copy,
+another issuer, foreign forms, noncurrent/current sibling concepts, partial
+measurements, estimates and typed/scenario exclusions. Existing covered-20-F
+fetch-policy assertion is replaced by an exact one-request assertion plus
+unchanged full companyfacts equality. The exact unread-instance wording test
+now names missing dimensional coverage truthfully even for a covered filing.
+Version pins advance to payload **1.102.0**, Stage B
+**STAGE_B_2026_11_CARRYING_INVESTMENTS_76**; report schema, score bands and saved
+bytes do not change. Payload fingerprint/header pins and the exact deterministic-registry version assertion advance with the constant.
+The fictional sample is rebuilt; the payload frozen record refresh changes only
+version/header identities and their hashes. The audit fixture needs no refresh
+(it already matches). No financial assertion is deleted, skipped or loosened.
+
+Verification: 666 changed-test files ran (16,877 tests passed; one old payload
+version pin failed and its corrected targeted test passed; three pre-existing
+skips). The final focused parser/fallback/refusal/version/methodology set passed
+179 tests. Typecheck and lint passed, with one existing unused-variable lint
+warning. Initial local setup lacked the native SQLite binding; rebuilding that
+dependency resolved the setup failures. Sample build and frozen payload refresh
+passed. Freeze scope discovery initially refused incomplete scopes; only the
+six version/header/hash paths were ultimately refreshed. The audit refresh
+correctly refused an already matching record. No full verify command, live test
+network, paid call, real application database write, merge or force-push ran.
+
 ## D-261 - Preserve admitted liquidity; repair refused cash (2026-11-14, narrowed owner policy)
+
+**Revised by D-268:** a whole-line carrying measurement can now establish an investment total; other dimensional shapes remain excluded.
 
 Final parity audit: unrepaired rows use pinned main's complete invested-capital path, including its prior-year fallback and exact disclosures. New liquidity refusal, cash-only, average-basis and ROIC-root gap rules are restricted to repaired rows; 216 synthetic cases captured from e2b32711 pin numeric results and all disclosure ordering. Reading dimensioned investment facts remains separate work. Mixed-basis averages on the repaired path compare each row's actual liquidity deduction, including main's unmarked cash-only opening fallback, and are withheld in both directions.
 
@@ -3876,6 +4003,10 @@ export or classic page changes; the same-report check differs only in eight
 `web-dossier.html` files). Reversible by one revert.
 
 ## D-236 - A periodic filing SEC's data feed lists but does not carry is read from its own XBRL instance (2026-11-12)
+
+**Revised by D-268:** the bounded instance inventory also reads covered filings
+for whole-line investment carrying measurements omitted by companyfacts.
+Existing feed facts remain authoritative; only absent proved totals supplement them.
 
 Principles P2 (the newest compatible filing wins), P9 and P10 (a failed
 extraction is a coverage gap, not absence), P20 (provenance) and P3 (unit,

@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.83.0 / payload 1.101.0, Stage B `STAGE_B_2026_11_FILED_BALANCES_GAPS_75` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.83.0 / payload 1.102.0, Stage B `STAGE_B_2026_11_CARRYING_INVESTMENTS_76` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -8843,3 +8843,14 @@ names beside named regions retain their original name with a scope qualification
 Executive cards link to the shared company chronology and outlook guidance.
 Fact tags describe code's numerical matching; citation coverage describes tracing,
 not correctness. These rules never rewrite stored reports or recompute figures.
+
+
+### Whole-line carrying investment facts (D-268)
+
+A current or noncurrent investment's standard carrying-reported-amount measurement
+may supply its total when that is its only dimension and issuer, instant, filing
+and monetary unit are established. Instrument/entity/hierarchy subsets, partial
+measurements and fair-value estimates do not prove a total. Members are never
+added to a total. The existing cash-family owner composes compatible cash and
+investments once; independent refusals remain gaps. Old snapshots without the
+instance evidence retain their gaps until a separately labelled evidence refresh.
