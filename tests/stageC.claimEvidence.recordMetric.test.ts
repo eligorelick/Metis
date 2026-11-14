@@ -296,4 +296,11 @@ it("D-278 keeps a dropped conflict visible when another record holds the stated 
   // Control: the same amount stated without a dropped candidate still finds its record.
   const plain = checkPlainFigures("Cash balance on 2026-09-30 was $25,397 million.", options)[0].outcome;
   expect(["confirmed", "value-match"]).toContain(plain);
+  // Review round 2: the same metric for another period holding the stated amount never hides the conflict either.
+  const june: NumericProvenanceRecord = { ...revenue, id: "payload.statements.income-statement-quarterly.revenue-2026-06-30",
+    label: "revenue, quarter ended 2026-06-30", value: 25397e6, period: "2026-06-30", asOf: "2026-06-30" };
+  const periods = [revenue, june];
+  const periodOptions = { registry: periods, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(periods), index: buildPlainFigureIndex(periods, [], "USD", []) };
+  const september = checkPlainFigures("The company generated revenue for the quarter ended 2026-09-30 of $25,397 million.", periodOptions)[0].outcome;
+  expect(["not-found", "contradiction"]).toContain(september);
 });

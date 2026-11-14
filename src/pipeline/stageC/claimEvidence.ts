@@ -372,14 +372,10 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
       return { figure, outcome: "contradiction", source: first.record.id, recorded: displayedPlainValue(q, first.display, first.record.currency) };
     }
     const value = plainValue(lookup, frame ? { ...own, own: frame.label } : lookup !== q ? { ...own, own: own.label } : own, options.reportingCurrency);
-    // D-278 review round 1: a figure that lost a candidate above keeps a visible warning. A coincidental value in
-    // a record whose metric the clause does not name ("value matched", which the reader does not mark) never
-    // stands in for it; a value in a record of the metric the clause names still matches as before.
-    const named = (source: string | undefined) => {
-      const record = source === undefined ? undefined : options.registry.find(r => r.id === source);
-      return !!record && (options.index.readings.get(record) ?? []).some(reading => reading.tokens.some(w => nearby.includes(w)));
-    };
-    const matched = value && valueFound(value, qualifiedConflict ? options.index.values.filter(v => named(v.source)) : options.index.values);
+    // D-278 review rounds 1-2: a figure that lost a candidate above keeps a visible warning. Any value found
+    // elsewhere, even the same metric for another period, would print as the unmarked "value matched" and hide
+    // a real conflict, so the figure is reported as not matched (P19: doubt means unverified).
+    const matched = value && !qualifiedConflict ? valueFound(value, options.index.values) : undefined;
     return { figure, outcome: matched ? "value-match" : "not-found", ...(matched?.source ? { source: matched.source } : {}) };
   });
 }
