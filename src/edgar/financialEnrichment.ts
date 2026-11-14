@@ -11,7 +11,8 @@ import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRow
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
 import { vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
-import { COMBINED_CURRENT_DEBT_TAG, CONSOLIDATED_NET_INCOME_TAGS, tagsFor } from "@/edgar/tagSynonyms";
+import { ACQUISITION_OTHER_PAYMENT_TAG, COMBINED_CURRENT_DEBT_TAG, CONSOLIDATED_NET_INCOME_TAGS, capitalSpendingTags, floorsFor, tagFloorsFor, tagsFor, type LineItem } from "@/edgar/tagSynonyms";
+import { belowComponentFloor } from "@/edgar/synonymFloor";
 import { millions, millionsPair } from "@/pipeline/stageB/netDebt";
 import { movedBeyond, oneBasisPair, representationLabelled, type LabelCopy } from "@/edgar/presentationLineage";
 import { DISCONTINUED_LABEL_TAGS, RESTATEMENT_THRESHOLD_PCT, longTermInvestmentsChainAt } from "@/edgar/statements";
@@ -282,8 +283,214 @@ export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, obse
   return filedCashFlowTtm(facts, OPERATING_CASH_FLOW_TAG, unit, end, observedAt);
 }
 
-/** The capital-spending lines a cash-capex figure may stand on (R9: no new synonyms, no component sums). */
+/** The retained cash-capex family; software remains a separately proved legacy basis, never an added component. */
 const CASH_CAPEX_TAGS: readonly string[] = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"];
+
+/** Competing capital purchases are scope evidence, never additive synonyms. */
+function competingCapex(facts: CompanyFacts, sec: Resolved): string[] {
+  const selected = sec.evidence.tags.map(t => t.replace(/^us-gaap\//, ""));
+  const operands = sec.operands ?? points(facts, selected[0]!, sec.evidence.unit, sec.evidence.observedAt).filter(p =>
+    p.start === sec.evidence.periodStart && p.end === sec.evidence.periodEnd && sec.evidence.filings.some(f => f.accn === p.accn && f.filed === p.filed));
+  const periods = [...operands.map(p => ({ start: p.start, end: p.end })), { start: sec.evidence.periodStart, end: sec.evidence.periodEnd }];
+  return capitalSpendingTags().filter(tag => !selected.includes(tag) && periods.some(o => {
+    const copies = points(facts, tag, sec.evidence.unit, sec.evidence.observedAt).filter(p => p.start === o.start && p.end === o.end);
+    if (!copies.length) return false;
+    const latest = copies.reduce((day, p) => p.filed > day ? p.filed : day, "");
+    // Absence in a later filing does not prove a component disappeared. Only
+    // the latest explicit period observation can establish a zero.
+    return copies.some(p => p.filed === latest && p.val !== 0);
+  }));
+}
+
+/** D-262 (P1, P8): one ordered filed concept for this row, never a net/cash/total-cost interest proxy.
+ * A conflicting preferred concept cannot expose a less preferred one. Original
+ * filing precision is retained only when later copies merely re-round each
+ * operand under the existing presentation-lineage rule. Material re-filings
+ * and incompatible cumulative presentations cannot establish this row. */
+function filedRowFlow(row: FmpStatementRow, facts: CompanyFacts, tags: readonly string[], scope: "annual" | "quarter", observedAt: string, signed = false): Resolved | null {
+  const unit = row.reportedCurrency;
+  if (!validDay(row.date) || !unit || !/^[A-Z]{3}$/.test(unit) || row.cik != null && Number(row.cik) !== facts.cik) return null;
+  const tag = tags.find(tag => points(facts, tag, unit, observedAt).some(p => p.end === row.date && span(p) !== null &&
+    (scope === "annual" ? span(p)! >= ANNUAL_FLOW_DAYS[0] && span(p)! <= ANNUAL_FLOW_DAYS[1]
+      : span(p)! >= QUARTER_DURATION_DAYS[0] && span(p)! <= ANNUAL_FLOW_DAYS[1])));
+  if (!tag) return null;
+  const context = (at: string): DerivationContext => ({ labels: labelCopies(facts, at), withheld: new Set(), unverified: new Map() });
+  let sec = filedFlow(facts, tag, unit, row.date, scope, observedAt, signed, context(observedAt));
+  if (!sec || row.periodStart != null && row.periodStart !== sec.evidence.periodStart) return null;
+  if (validDay(row.filingDate) && sec.evidence.filings[0]?.filed !== row.filingDate) {
+    const original = filedFlow(facts, tag, unit, row.date, scope, row.filingDate, signed, context(row.filingDate));
+    if (!original || original.evidence.filings[0]?.filed !== row.filingDate || original.evidence.periodStart !== sec.evidence.periodStart) return null;
+    const copies = (r: Resolved) => r.operands ?? points(facts, tag, unit, r.evidence.observedAt).filter(p =>
+      p.start === r.evidence.periodStart && p.end === r.evidence.periodEnd &&
+      r.evidence.filings.some(f => f.accn === p.accn && f.filed === p.filed && f.form === p.form));
+    const current = copies(sec), prior = copies(original);
+    if (prior.length === 0 || prior.length !== current.length || prior.some((p, i) =>
+      p.start !== current[i]!.start || p.end !== current[i]!.end || movedBeyond(p, current[i]!, 0))) return null;
+    sec = { ...original, evidence: { ...original.evidence, observedAt } };
+  }
+  return sec;
+}
+
+interface FiledFlowSpec { field: string; item?: LineItem; tags?: readonly string[]; sign?: -1; signed?: boolean }
+const CASH_FILED_FLOWS: readonly FiledFlowSpec[] = [
+  { field: "depreciationAndAmortization", item: "depreciationAndAmortization" },
+  { field: "stockBasedCompensation", item: "stockBasedCompensation", signed: true },
+  { field: "changeInWorkingCapital", item: "changeInWorkingCapital", sign: -1, signed: true },
+  { field: "acquisitionsNet", item: "acquisitionsNet", sign: -1 },
+  { field: "commonStockIssuance", item: "commonStockIssuance" },
+  { field: "commonStockRepurchased", item: "commonStockRepurchased", sign: -1 },
+  { field: "netDividendsPaid", item: "netDividendsPaid", sign: -1 },
+  { field: "commonDividendsPaid", item: "commonDividendsPaid", sign: -1 },
+  { field: "preferredDividendsPaid", item: "preferredDividendsPaid", sign: -1 },
+  { field: "incomeTaxesPaid", item: "incomeTaxesPaid", signed: true },
+  { field: "interestPaid", item: "interestPaid" },
+  { field: "financeLeasePrincipalPayments", tags: [PRINCIPAL_TAG] },
+  { field: "netCashProvidedByInvestingActivities", item: "netCashProvidedByInvestingActivities", signed: true },
+  { field: "netCashProvidedByFinancingActivities", item: "netCashProvidedByFinancingActivities", signed: true },
+];
+const INCOME_FILED_FLOWS: readonly FiledFlowSpec[] = [
+  { field: "depreciationAndAmortization", tags: ["CostDepreciationAmortizationAndDepletion"] },
+  { field: "researchAndDevelopmentExpenses", item: "researchAndDevelopmentExpenses" },
+  { field: "sellingGeneralAndAdministrativeExpenses", item: "sellingGeneralAndAdministrativeExpenses" },
+  { field: "sellingAndMarketingExpenses", item: "sellingAndMarketingExpenses" },
+  { field: "generalAndAdministrativeExpenses", item: "generalAndAdministrativeExpenses" },
+  { field: "interestIncome", item: "interestIncome" },
+  { field: "netInterestIncome", item: "netInterestIncome", signed: true },
+];
+
+/** D-262 breadth (P8): independently defined additive flows share one exact-period
+ * admission. Revenue, earnings, operating placement, cash scope and investment
+ * buckets retain their own complete-family owners. Total issuance is never
+ * inferred from long-term-debt/common-share components or an absent zero. */
+export function admitFiledStatementFlows<T extends FmpStatementRow>(row: T, facts: CompanyFacts, kind: "income" | "cashflow", scope: "annual" | "quarter", observedAt: string, bank = false): { row: T; gaps: ManifestEntry[] } {
+  if (!validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") || row.cik != null && Number(row.cik) !== facts.cik) return { row, gaps: [] };
+  let out = row;
+  const gaps: ManifestEntry[] = [], unverified: string[] = [];
+  for (const spec of kind === "cashflow" ? CASH_FILED_FLOWS : INCOME_FILED_FLOWS) {
+    const { field, signed } = spec;
+    const prior = row.fieldConflicts?.[field];
+    if (row.fieldProvenance?.[field] || prior?.usable === false && prior.cause !== "vendor-sec-value-conflict") continue;
+    const vendor = prior?.usable === false ? prior.vendorValue : row[field];
+    if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
+    // A vendor D&A observation already agreeing with another filed basis is
+    // not a conflict that a narrower income cost line can settle.
+    if (kind === "income" && field === "depreciationAndAmortization" &&
+        [...tagsFor("depreciationAndAmortization"), "CostDepreciationAmortizationAndDepletion"].some(tag => {
+          const basis = filedRowFlow(row, facts, [tag], scope, observedAt);
+          return basis && agreesWithSec(vendor, basis.value, [basis]);
+        })) continue;
+    if (kind === "income" && field === "depreciationAndAmortization") {
+      unverified.push("depreciationAndAmortization (a cost D&A portion does not establish the statement total)");
+      continue;
+    }
+    const item = bank && spec.item === "interestIncome" ? "bankInterestIncome" : spec.item;
+    let tags = spec.tags ?? tagsFor(item!);
+    if (field === "interestIncome" && !bank) {
+      for (const tag of tags.filter(t => /Dividend/.test(t)))
+        if (filedRowFlow(row, facts, [tag], scope, observedAt)) unverified.push(`${field} (excluded combined ${tag})`);
+      tags = tags.filter(t => !/Dividend/.test(t));
+    }
+    const sec = filedRowFlow(row, facts, tags, scope, observedAt, signed);
+    if (!sec) { unverified.push(field); continue; }
+    // D-68's separately tagged business payment is not proven disjoint from
+    // the generic acquisition line. Neither a numerical match nor a residual
+    // makes that component the vendor's whole acquisition scope.
+    if (field === "acquisitionsNet" && filedRowFlow(row, facts, [ACQUISITION_OTHER_PAYMENT_TAG], scope, observedAt)?.value) {
+      unverified.push(field); continue;
+    }
+    // P11: only a value conflict recorded for this very operand can reopen.
+    if (prior?.usable === false && (prior.secValue !== sec.value * (spec.sign ?? 1) ||
+        prior.secEvidence?.unit !== sec.evidence.unit || prior.secEvidence.periodStart !== sec.evidence.periodStart ||
+        prior.secEvidence.periodEnd !== sec.evidence.periodEnd || JSON.stringify(prior.secEvidence.tags) !== JSON.stringify(sec.evidence.tags) ||
+        JSON.stringify(prior.secEvidence.filings) !== JSON.stringify(sec.evidence.filings))) continue;
+    const selectedTag = sec.evidence.tags[0]!.replace(/^us-gaap\//, "");
+    // Use the existing owner floors; a partial depreciation/R&D line is not a total.
+    const components = [...new Set(item ? [...floorsFor(item), ...(tagFloorsFor(item)[selectedTag] ?? [])] : [])].flatMap(tag => {
+      const component = filedRowFlow(row, facts, [tag], scope, observedAt);
+      return component && component.evidence.periodStart === sec.evidence.periodStart &&
+        JSON.stringify(component.evidence.filings) === JSON.stringify(sec.evidence.filings) ? [{ tag, value: component.value }] : [];
+    });
+    if (belowComponentFloor(sec.value, components) || field === "netDividendsPaid" &&
+        tagsFor("commonDividendsPaid").includes(selectedTag) && filedRowFlow(row, facts, tagsFor("preferredDividendsPaid"), scope, observedAt)?.value !== 0 ||
+        bank && field === "interestIncome" && !tagsFor("bankInterestIncome").slice(0, 2).includes(selectedTag)) {
+      unverified.push(field); continue;
+    }
+    const value = sec.value * (spec.sign ?? 1);
+    if (agreesWithSec(vendor, value, [sec])) continue;
+    const [vendorText, filedText] = millionsPair(vendor, value);
+    const reason = `${field} for ${sec.evidence.periodStart} through ${row.date} corrected from vendor ${vendorText} to ${filedText} ${row.reportedCurrency}: ${sec.evidence.tags.join(", ")}, ${sec.operands ? `derived ${derivedFrom(sec)}` : `directly filed in ${sec.evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ")}`}. Exact-period filed flow replaces the conflicting vendor observation, which is retained.`;
+    out = { ...out, [field]: value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence },
+      fieldConflicts: { ...out.fieldConflicts, [field]: { usable: true, resolution: "filed-family", vendorValue: prior?.vendorValue ?? vendor, secValue: value, reason, secEvidence: sec.evidence } } };
+    gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "info", expected: true });
+  }
+  if (kind === "income") {
+    for (const [total, parts] of [
+      ["operatingExpenses", ["researchAndDevelopmentExpenses", "sellingGeneralAndAdministrativeExpenses"]],
+      ["sellingGeneralAndAdministrativeExpenses", ["sellingAndMarketingExpenses", "generalAndAdministrativeExpenses"]],
+    ] as const) {
+      const finite = (r: T, f: string) => typeof r[f] === "number" && Number.isFinite(r[f]) && r.fieldConflicts?.[f]?.usable !== false;
+      if (![total, ...parts].every(f => finite(row, f) && finite(out, f))) continue;
+      if (!parts.some(f => out[f] !== row[f])) continue;
+      const sum = (r: T) => parts.reduce((n, f) => n + (r[f] as number), 0);
+      if (vendorAgreesWithFiled(sum(row), row[total] as number) && !vendorAgreesWithFiled(sum(out), out[total] as number))
+        gaps.push({ field: `statements.income.${row.date}.${total}.basis`, severity: "info", expected: true,
+          reason: `Mixed basis for ${row.date}: corrected filed ${parts.join(" + ")} no longer agree with the independently retained ${total}. No subtotal is plugged.` });
+    }
+  }
+  if (unverified.length) gaps.push({ field: `statements.${kind}.${row.date}.filedFlowCoverage`, severity: "info", expected: true,
+    reason: `Vendor flows kept unverified for ${row.date}: ${unverified.join(", ")}. No unambiguous exact-period filed counterpart on a compatible currency, filing and total/component definition was established; no missing component is presumed zero.` });
+  return { row: out, gaps };
+}
+
+/** D-262 (P8, P13): filed PP&E replaces conflicting capex and its alias as one
+ * family; standardized FCF reads that same signed outflow. Independent refusals
+ * remain sticky. No filed PP&E means the retained convention is unchanged. */
+export function admitFiledCapitalExpenditure<T extends FmpCashFlowRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+  if (!finite(row.capitalExpenditure) || row.fieldConflicts?.capitalExpenditure?.usable === false || row.fieldProvenance?.capitalExpenditure) return { row, gaps: [] };
+  const sec = filedRowFlow(row, facts, tagsFor("capitalExpenditure"), scope, observedAt);
+  const competing = sec ? competingCapex(facts, sec) : [];
+  if (sec && competing.length) return { row, gaps: [{ field: `statements.cashflow.${row.date}.capitalExpenditure`, severity: "info", expected: true,
+    reason: `Capital spending kept on its retained basis: competing admitted exact-period tags ${[...sec.evidence.tags, ...competing].join(", ")} do not prove which is the total. No components summed.` }] };
+  if (!sec || agreesWithSec(-row.capitalExpenditure, sec.value, [sec])) return { row, gaps: [] };
+  const value = -sec.value, unit = row.reportedCurrency!;
+  const [vendorText, filedText] = millionsPair(row.capitalExpenditure, value);
+  const reason = `Cash capital expenditure for ${sec.evidence.periodStart} through ${row.date} corrected from vendor ${vendorText} to ${filedText} ${unit}: ${sec.evidence.tags.join(", ")}, ${sec.operands ? `derived ${derivedFrom(sec)}` : `directly filed in ${sec.evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ")}`}. Filed PP&E spending replaces the conflicting vendor family; acquired research, businesses and investments are not added. Vendor observations retained.`;
+  const fieldConflicts = { ...row.fieldConflicts };
+  const fieldProvenance = { ...row.fieldProvenance };
+  const amounts: Record<string, number | null> = {};
+  for (const field of ["capitalExpenditure", "investmentsInPropertyPlantAndEquipment"] as const) {
+    if (field !== "capitalExpenditure" && (!finite(row[field]) || fieldConflicts[field]?.usable === false)) continue;
+    amounts[field] = value; fieldProvenance[field] = sec.evidence;
+    fieldConflicts[field] = { usable: true, resolution: "filed-family", vendorValue: fieldConflicts[field]?.vendorValue ?? row[field] ?? null, secValue: value, reason, secEvidence: sec.evidence };
+  }
+  if (fieldConflicts.freeCashFlow?.usable !== false) {
+    const cfo = row.fieldConflicts?.operatingCashFlow?.usable === false || row.fieldConflicts?.netCashProvidedByOperatingActivities?.usable === false ? null
+      : finite(row.operatingCashFlow) ? row.operatingCashFlow : finite(row.netCashProvidedByOperatingActivities) ? row.netCashProvidedByOperatingActivities : null;
+    const fcf = cfo === null ? null : cfo + value;
+    amounts.freeCashFlow = fcf;
+    fieldConflicts.freeCashFlow = { usable: fcf !== null, resolution: "filed-family", vendorValue: row.fieldConflicts?.freeCashFlow?.vendorValue ?? row.freeCashFlow ?? null,
+      secValue: fcf, reason: `${reason} Standardized FCF uses operating cash flow plus this signed PP&E outflow${cfo === null ? "; usable operating cash flow is unavailable" : `: ${millions(cfo)} + ${millions(value)} = ${millions(fcf!)} ${unit}`}.`, secEvidence: sec.evidence };
+  }
+  return { row: { ...row, ...amounts, fieldProvenance, fieldConflicts }, gaps: [{ field: `statements.cashflow.${row.date}.capitalExpenditure`, reason, severity: "info", expected: true }] };
+}
+
+/** D-262 (P8): expense only, in the existing ordered interest family. Missing
+ * or incompatible filed expense leaves a disclosed, unverified vendor amount. */
+export function admitFiledInterestExpense<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+  const vendor = row.interestExpense;
+  if (typeof vendor !== "number" || !Number.isFinite(vendor) || row.fieldConflicts?.interestExpense?.usable === false || row.fieldProvenance?.interestExpense ||
+      !validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") || row.cik != null && Number(row.cik) !== facts.cik) return { row, gaps: [] };
+  const field = `statements.income.${row.date}.interestExpense`;
+  const sec = filedRowFlow(row, facts, tagsFor("interestExpense"), scope, observedAt);
+  if (!sec) return { row, gaps: [{ field, severity: vendor === 0 ? "info" : "warn", ...(vendor === 0 ? { expected: true } : {}), reason: `Vendor interest expense ${millions(vendor)} ${row.reportedCurrency} kept unverified for ${row.date}: no unambiguous exact-period expense in the compatible filed interest-expense family. Net interest income/expense, cash interest paid and costs including capitalized interest cannot establish interest expense.` }] };
+  if (agreesWithSec(vendor, sec.value, [sec])) return { row, gaps: [] };
+  const [vendorText, filedText] = millionsPair(vendor, sec.value);
+  const reason = `Interest expense for ${sec.evidence.periodStart} through ${row.date} corrected from vendor ${vendorText} to ${filedText} ${row.reportedCurrency}: ${sec.evidence.tags.join(", ")}, ${sec.operands ? `derived ${derivedFrom(sec)}` : `directly filed in ${sec.evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ")}`}. The filed expense replaces the vendor observation, which is retained; no net-interest or capitalized-interest proxy used.`;
+  return { row: { ...row, interestExpense: sec.value, fieldProvenance: { ...row.fieldProvenance, interestExpense: sec.evidence },
+    fieldConflicts: { ...row.fieldConflicts, interestExpense: { usable: true, resolution: "filed-family", vendorValue: row.fieldConflicts?.interestExpense?.vendorValue ?? vendor, secValue: sec.value, reason, secEvidence: sec.evidence } } },
+    gaps: [{ field, reason, severity: "info", expected: true }] };
+}
 
 /** R9: retain exactly the annual capex tag basis; no new quarterly capex synonyms or component sums. */
 export function filedCapexTtm(facts: CompanyFacts, annualRow: FmpCashFlowRow | undefined, unit: string, end: string, observedAt: string): FiledCashFlowTtm | null {
@@ -326,11 +533,13 @@ export function admitQuarterlyCapex(row: FmpCashFlowRow, facts: CompanyFacts, an
   const admittedTags = (r: FmpCashFlowRow, tag: string) => !r.fieldProvenance?.capitalExpenditure ||
     r.fieldProvenance.capitalExpenditure.source === "edgar" && r.fieldProvenance.capitalExpenditure.unit === unit &&
     r.fieldProvenance.capitalExpenditure.tags.length === 1 && r.fieldProvenance.capitalExpenditure.tags[0] === `us-gaap/${tag}`;
-  const candidates = CASH_CAPEX_TAGS.filter(tag => admittedTags(annual, tag) && admittedTags(row, tag)).flatMap(tag => {
+  const allCandidates = CASH_CAPEX_TAGS.filter(tag => admittedTags(annual, tag) && admittedTags(row, tag)).flatMap(tag => {
     const p = unambiguousNewest(points(facts, tag, unit, observedAt).filter(p => p.end === annual.date && span(p) !== null && span(p)! >= 350 && span(p)! <= 380 &&
       (!validDay(annual.filingDate) || p.filed === annual.filingDate)));
     return p && p.val >= 0 && vendorAgreesWithFiled(Math.abs(annual.capitalExpenditure!), p.val) ? [{ tag, annual: p }] : [];
   });
+  const ppeCandidates = allCandidates.filter(c => tagsFor("capitalExpenditure").includes(c.tag));
+  const candidates = ppeCandidates.length ? ppeCandidates : allCandidates;
   if (candidates.length !== 1) return { row, gaps: [] };
   const { tag, annual: annualPoint } = candidates[0]!;
   const ctx: DerivationContext = { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() };
@@ -2090,9 +2299,11 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         ["operatingLeaseLiability", liability(facts, "Operating", currency, row.date, observedAt)],
         ["financeLeaseLiability", liability(facts, "Finance", currency, row.date, observedAt)],
       ] : [["financeLeasePrincipalPayments", principal(facts, currency, row.date, scope, observedAt, ctx)]];
-      let out = row;
+      const flows = kind === "cashflow" ? admitFiledStatementFlows(row, facts, "cashflow", scope, observedAt) : { row, gaps: [] };
+      let out = flows.row;
+      gaps.push(...flows.gaps);
       for (const [field, sec] of candidates) {
-        if (out.fieldConflicts?.[field]?.usable === false) continue;
+        if (out.fieldConflicts?.[field]?.usable === false || out.fieldConflicts?.[field]?.resolution === "filed-family" && out.fieldProvenance?.[field]) continue;
         if (!sec) {
           if (kind === "cashflow" && typeof row[field] === "number" && Number.isFinite(row[field])) keptUnverified(ctx, field, row.date, [PRINCIPAL_TAG]);
           const tag = field === "operatingLeaseLiability" ? "OperatingLeaseLiability" : field === "financeLeaseLiability" ? "FinanceLeaseLiability" : "FinanceLeasePrincipalPayments";
@@ -2104,7 +2315,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
           gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason: `SEC field enrichment withheld: SEC period starts ${sec.evidence.periodStart}, conflicting with vendor period start ${row.periodStart}`, severity: "warn" });
           continue;
         }
-        const vendor = row[field];
+        const vendor = out[field];
         if (typeof vendor === "number" && Number.isFinite(vendor)) {
           if (agreesWithSec(vendor, sec.value, [sec])) continue;
           // FIN-511-V2: a quarter derived from two filings is called derived.
@@ -2133,6 +2344,9 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         const investmentScope = admitCashInvestment(out, cashInvestment, facts.cik, scope, observedAt);
         out = investmentScope.row;
         gaps.push(...investmentScope.gaps);
+        const capex = admitFiledCapitalExpenditure(out, facts, scope, observedAt);
+        out = capex.row;
+        gaps.push(...capex.gaps);
       }
       if (kind === "balance") {
         if (temporaryRows !== null) {

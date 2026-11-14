@@ -1,3 +1,4 @@
+import { admitFiledStatementFlows } from "@/edgar/financialEnrichment";
 import { describe, expect, it } from "vitest";
 import { parseDocument } from "@/edgar/extract";
 import { primaryCapitalEvidence } from "@/edgar/primaryCapital";
@@ -336,4 +337,14 @@ describe("shared primary capital admission", () => {
     expect(audit.replace(/\\([:._])/g, "$1")).toContain(capitalIdentity.documentUrl);
     expect(audit).toContain("20.1");
   });
+});
+
+it("keeps the original cash observation through a fresh bulk-tag admission and primary cost bridge", () => {
+  const b = fixture(), row = cashRows(b)[0]!;
+  row.commonStockRepurchased = -40 * M; delete row.fieldConflicts;
+  cashRows(b)[0] = admitFiledStatementFlows(row, facts(), "cashflow", "annual", b.builtAt).row;
+  const out = cashRows(withPrimaryCapitalBasis(b))[0]!;
+  expect(out.commonStockRepurchased).toBe(-40 * M);
+  expect(out.fieldProvenance?.commonStockRepurchased?.primaryCapital).toBeDefined();
+  expect(out.fieldConflicts?.commonStockRepurchased).toMatchObject({ usable: true, resolution: "primary-cash-line", vendorValue: -40 * M });
 });

@@ -181,7 +181,8 @@ describe("FIN-511-V2 ruling: a derived SEC value is compared within its operands
   it("a derived 1M finance-lease principal (4M - 3M) does not keep a vendor 2M", () => {
     const facts = recastFacts("FinanceLeasePrincipalPayments", [pt(F.q324!, "2024-01-01", "2024-09-30", 3 * M), pt(F.k24!, "2024-01-01", "2024-12-31", 4 * M)]);
     const out = enrichOut(facts, vendorQ4({ financeLeasePrincipalPayments: 2 * M }));
-    expect(out.row.fieldConflicts?.financeLeasePrincipalPayments).toMatchObject({ vendorValue: 2 * M, secValue: 1 * M, usable: false });
+    expect(out.row.financeLeasePrincipalPayments).toBe(1 * M);
+    expect(out.row.fieldConflicts?.financeLeasePrincipalPayments).toMatchObject({ vendorValue: 2 * M, secValue: 1 * M, usable: true, resolution: "filed-family" });
   });
 
   it("a derived sum is compared within every operand's rounding (sales 149.8M + maturities 99.7M, four operands, 1.1M)", () => {
@@ -202,9 +203,9 @@ describe("FIN-511-V2 ruling: the cash-flow and investment conflict reasons say a
   const buybacks = () => recastFacts("PaymentsForRepurchaseOfCommonStock", [pt(F.q324!, "2024-01-01", "2024-09-30", 300.1 * M), pt(F.k24!, "2024-01-01", "2024-12-31", 400 * M)]);
   it("admitCashFields: a derived buyback conflict reads derived, with the period and both filings", () => {
     const out = enrichOut(buybacks(), vendorQ4({ commonStockRepurchased: -120 * M }));
-    expect(out.row.commonStockRepurchased).toBeNull();
+    expect(out.row.commonStockRepurchased).toBe(-99.9 * M);
     expect(reasons(out.gaps)).toContain(
-      `vendor/SEC commonStockRepurchased conflict: derived -99.9M USD for 2024-10-01 through 2024-12-31 ${FROM}; vendor -120M; field unavailable until reconciled`,
+      `commonStockRepurchased for 2024-10-01 through 2024-12-31 corrected from vendor -120M to -99.9M USD: us-gaap/PaymentsForRepurchaseOfCommonStock, derived ${FROM}`,
     );
     expect(reasons(out.gaps)).not.toMatch(/commonStockRepurchased conflict: exact/);
   });
@@ -310,14 +311,13 @@ describe("FIN-511-V2 fix round 1: reason amounts in millions on both branches", 
     const facts = recastFacts("FinanceLeasePrincipalPayments", [pt(F.q324!, "2024-01-01", "2024-09-30", 3 * M), pt(F.k24!, "2024-01-01", "2024-12-31", 10 * M)]);
     const out = enrichOut(facts, vendorQ4({ financeLeasePrincipalPayments: 9 * M }));
     expect(reasons(out.gaps)).toContain(
-      `vendor/SEC conflict for financeLeasePrincipalPayments at 2024-12-31: vendor 9M versus derived 7M USD for 2024-10-01 through 2024-12-31 ${FROM}; ` +
-        "vendor observation preserved and field unavailable for reconciliation",
+      `financeLeasePrincipalPayments for 2024-10-01 through 2024-12-31 corrected from vendor 9M to 7M USD: us-gaap/FinanceLeasePrincipalPayments, derived ${FROM}`,
     );
   });
   it("C3: a directly filed principal conflict prints both amounts in millions", () => {
     const out = enrichOut(recastFacts("FinanceLeasePrincipalPayments", [quarter(7 * M)]), vendorQ4({ financeLeasePrincipalPayments: 9 * M }));
     expect(reasons(out.gaps)).toContain(
-      "vendor/SEC conflict for financeLeasePrincipalPayments at 2024-12-31: 9M versus 7M USD; vendor observation preserved and field unavailable for reconciliation",
+      "financeLeasePrincipalPayments for 2024-10-01 through 2024-12-31 corrected from vendor 9M to 7M USD:",
     );
   });
   it("C3: a directly filed CFO conflict prints the filed amount in millions", () => {
@@ -327,7 +327,7 @@ describe("FIN-511-V2 fix round 1: reason amounts in millions on both branches", 
   it("C3/M6: a directly filed buyback conflict prints both amounts in millions, without \"raw\"", () => {
     const out = enrichOut(recastFacts("PaymentsForRepurchaseOfCommonStock", [quarter(99.9 * M)]), vendorQ4({ commonStockRepurchased: -120 * M }));
     expect(reasons(out.gaps)).toContain(
-      "vendor/SEC commonStockRepurchased conflict: exact 2024-10-01 through 2024-12-31 USD; vendor -120M, filed -99.9M; field unavailable until reconciled",
+      "commonStockRepurchased for 2024-10-01 through 2024-12-31 corrected from vendor -120M to -99.9M USD:",
     );
   });
   it("C3: a directly filed investment classification conflict prints the filed buckets in millions", () => {
@@ -375,20 +375,22 @@ describe("FIN-511-V2 re-review N1: two amounts that read alike in millions print
   });
   it("a direct principal conflict of 1,000,237 against 1,000,000 prints both in full", () => {
     const out = enrichOut(recastFacts("FinanceLeasePrincipalPayments", [quarter(1_000_000)]), vendorQ4({ financeLeasePrincipalPayments: 1_000_237 }));
-    expect(reasons(out.gaps)).toContain("vendor/SEC conflict for financeLeasePrincipalPayments at 2024-12-31: 1,000,237 versus 1,000,000 USD;");
+    expect(reasons(out.gaps)).toContain("corrected from vendor 1,000,237 to 1,000,000 USD:");
   });
   it("a derived principal conflict prints both in full when the millions read alike", () => {
     const out = enrichOut(derived("FinanceLeasePrincipalPayments"), vendorQ4({ financeLeasePrincipalPayments: 1_000_237 }));
-    expect(reasons(out.gaps)).toContain(`vendor 1,000,237 versus derived 1,000,000 USD for 2024-10-01 through 2024-12-31 ${FROM};`);
+    expect(reasons(out.gaps)).toContain("corrected from vendor 1,000,237 to 1,000,000 USD:");
+    expect(reasons(out.gaps)).toContain(`derived ${FROM}`);
   });
   it("direct and derived buyback conflicts print both in full when the millions read alike", () => {
     const direct = enrichOut(recastFacts("PaymentsForRepurchaseOfCommonStock", [quarter(1_000_000)]), vendorQ4({ commonStockRepurchased: -1_000_237 }));
-    expect(reasons(direct.gaps)).toContain("conflict: exact 2024-10-01 through 2024-12-31 USD; vendor -1,000,237, filed -1,000,000; field unavailable");
+    expect(reasons(direct.gaps)).toContain("commonStockRepurchased for 2024-10-01 through 2024-12-31 corrected from vendor -1,000,237 to -1,000,000 USD:");
     const fromPair = enrichOut(derived("PaymentsForRepurchaseOfCommonStock"), vendorQ4({ commonStockRepurchased: -1_000_237 }));
-    expect(reasons(fromPair.gaps)).toContain(`conflict: derived -1,000,000 USD for 2024-10-01 through 2024-12-31 ${FROM}; vendor -1,000,237; field unavailable`);
+    expect(reasons(fromPair.gaps)).toContain("corrected from vendor -1,000,237 to -1,000,000 USD:");
+    expect(reasons(fromPair.gaps)).toContain(`derived ${FROM}`);
   });
   it("control: a pair that reads apart in millions still prints in millions", () => {
     const out = enrichOut(recastFacts("PaymentsForRepurchaseOfCommonStock", [quarter(99.9 * M)]), vendorQ4({ commonStockRepurchased: -120 * M }));
-    expect(reasons(out.gaps)).toContain("vendor -120M, filed -99.9M;");
+    expect(reasons(out.gaps)).toContain("corrected from vendor -120M to -99.9M USD:");
   });
 });
