@@ -72,17 +72,31 @@ describe("valuation headline decisions", () => {
     }
   });
 
-  it("prints the withheld sentence in reader form in Markdown only (EXCEPTION markdown-withheld-reader-form)", () => {
+  it("D-264 states the dated reference basis plainly on all surfaces", () => {
     const reference = fairValue({ status: "dated-reference", perShare: null, reference: { perShare: { ...perShare, value: 31.4876543 }, valuationDate: "2025-12-31", quoteDate: "2026-07-20", basis: [] } });
-    expect(valuationHeadlineView(valuation(), reference, "markdown").basisCaveat).toContain("31.49");
-    for (const surface of ["print", "dossier"] as const) expect(valuationHeadlineView(valuation(), reference, surface).basisCaveat).toContain("31.4876543");
+    for (const surface of SURFACES) expect(valuationHeadlineView(valuation(), reference, surface).basisCaveat).toBe("Model value at 2025-12-31; not a current fair value because it has not been updated to the price dated 2026-07-20.");
   });
 
-  it("prints the no-model sentence as stored in Markdown only (EXCEPTION markdown-no-model-reader-form)", () => {
+  it("D-264 shares the dated reference sentence when no current model is shown", () => {
     const reference = fairValue({ status: "dated-reference", perShare: null, reference: { perShare: { ...perShare, value: 31.4876543 }, valuationDate: "2025-12-31", quoteDate: "2026-07-20", basis: [] } });
-    expect(valuationNoModelWithheldText(reference, "markdown")).toContain("31.4876543");
-    expect(valuationNoModelWithheldText(reference, "print")).toContain("31.49");
+    for (const surface of SURFACES) expect(valuationNoModelWithheldText(reference, surface)).toBe("Model value at 2025-12-31; not a current fair value because it has not been updated to the price dated 2026-07-20.");
     expect(valuationNoModelWithheldText(undefined, "print")).toBeNull();
+  });
+
+  it("D-264 removes generated workflow wording from available model bases on every surface and retains financial qualifications", () => {
+    for (const basis of [
+      ["Computed-derived (source computed.valuation.*), not a source-verified analyst target \u2014 the LLM interprets it but does not author the number.", "Lease coverage is partial."],
+      ["Intrinsic value per share = the deterministic excess-return model.", "Capital requirements are uncertain."],
+      ["Source evidence is incomplete; this financial qualification must remain."],
+    ]) {
+      const fv = fairValue({basis});
+      for (const surface of SURFACES) {
+        const text = valuationHeadlineView(valuation(), fv, surface).basisCaveat!;
+        expect(text).not.toContain("LLM");
+        expect(text).not.toContain("computed.valuation");
+        expect(text).toContain(basis.at(-1)!);
+      }
+    }
   });
 
   it("names the key-data row once (EXCEPTION key-data-unavailable-label)", () => {

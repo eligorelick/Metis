@@ -61,7 +61,7 @@ export { displayedValidationStatus } from "@/report/claimMatching";
 import { isComputedFigure } from "@/report/verificationMarks";
 import { dcfBaseRateText } from "@/pipeline/stageB/fairValue";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
-import { fairValueDegradedText, fairValueReferenceText, fairValueWithheldText } from "@/report/fairValueText";
+import { fairValueDegradedText, readerFairValueBasisText, readerFairValueReferenceText, readerFairValueWithheldText } from "@/report/fairValueText";
 import { riskFreeSourceLabel } from "@/pipeline/riskFreeSeries";
 export { factorContributionSensitivityTable } from "@/report/auditTables";
 import type { ClassifiedGap, ReportCompletenessPresentation } from "@/report/completeness";
@@ -585,6 +585,8 @@ function figureIdentities(row: FigureRow): string[] {
  * report printed both. `seen` carries identities across the tables of one
  * section. The first occurrence wins. Currency and measurement metadata must
  * agree; missing metadata is not evidence that two different windows match.
+ * D-264: registered aliases may omit only a period label equal to their shared
+ * as-of date; keep the supplied label. A unitless ratio has no currency basis.
  */
 export function dedupeFigureRows(rows: readonly FigureRow[], seen: Map<string, FigureRow> = new Map()): FigureRow[] {
   const out: FigureRow[] = [];
@@ -595,7 +597,16 @@ export function dedupeFigureRows(rows: readonly FigureRow[], seen: Map<string, F
         (entry.trace.sourceId ?? entry.trace.source) !== (row.trace.sourceId ?? row.trace.source)
         || entry.trace.value === row.trace.value
       ));
-    if (prior) {
+    const alias = FIGURE_METRIC_ALIASES.get(row.trace.sourceId ?? row.trace.source);
+    const compatible = alias === undefined ? undefined : out.find(entry =>
+      FIGURE_METRIC_ALIASES.get(entry.trace.sourceId ?? entry.trace.source) === alias &&
+      (entry.trace.sourceId ?? entry.trace.source) !== (row.trace.sourceId ?? row.trace.source) &&
+      entry.value === row.value && entry.trace.unit === row.trace.unit &&
+      (entry.trace.currency === row.trace.currency || isRatioAsPercent(row.trace.source)) && entry.asOf === row.asOf &&
+      entry.trace.periodContext === undefined && row.trace.periodContext === undefined &&
+      (entry.period === row.period || entry.period === null && row.period === row.asOf || row.period === null && entry.period === entry.asOf));
+    if (prior || compatible) {
+      if (compatible && compatible.period === null && row.period !== null) Object.assign(compatible, row);
       continue;
     }
     const copy = { ...row };
@@ -630,7 +641,14 @@ export function pruneTable(
   rows: readonly (readonly string[])[],
   keep: readonly string[] = [],
 ): { headers: string[]; rows: string[][] } | null {
-  const contentRows = rows.filter((row) => row.some((cell, index) => (index === 0 ? !isEmptyCell(cell) : !isEmptyCell(cell))));
+  const rowKeys = new Set<string>();
+  const contentRows = rows.filter(row => {
+    if (!row.some(cell => !isEmptyCell(cell))) return false;
+    const key = JSON.stringify(row);
+    if (rowKeys.has(key)) return false;
+    rowKeys.add(key);
+    return true;
+  });
   if (contentRows.length === 0) return null;
   const keepIndex = headers.map((header, index) =>
     index === 0 || keep.includes(header) || contentRows.some((row) => !isEmptyCell(row[index] ?? "")));
@@ -724,7 +742,12 @@ export function qualitativeScenarioConditions(scenarios: readonly Pick<Scenario,
 }
 
 /** Display name for a geographic segment ("TAIWAN, PROVINCE OF CHINA" → "Taiwan"). */
-export function geographyLabel(name: string): string {
+export function geographyLabel(name: string, siblings: readonly { name: string }[] = []): string {
+  // D-264: retain the vendor's words, without claiming an exhaustive non-US scope.
+  if (/^(?:non[ -]?us|outside u\.?s\.?|international|foreign)$/i.test(name.trim()) && siblings.some(row =>
+    !/^(?:non[ -]?us|outside u\.?s\.?|international|foreign|united states|u\.?s\.?|usa)$/i.test(row.name.trim()))) {
+    return `${name} (vendor label; scope not established beside named regions)`;
+  }
   const fixed: Record<string, string> = {
     "TAIWAN, PROVINCE OF CHINA": "Taiwan",
     "TAIWAN": "Taiwan",
@@ -1206,7 +1229,7 @@ export function keyDataRows(report: Report): KeyDataRow[] {
     const reference = report.fairValue.reference;
     rows.push({ label: "Dated reference model value",
       value: formatFinancialAmount(reference.perShare.value, reference.perShare.unit, reference.perShare.currency),
-      note: fairValueReferenceText(report.fairValue) ?? undefined });
+      note: readerFairValueReferenceText(report.fairValue) ?? undefined });
   }
 
   if (dcf) {
@@ -2512,11 +2535,11 @@ export function valuationHeadlineView(
     comparison: valuationComparison(perShare, valuation.dcf.upsidePct, surface),
     degradedCaveat: degraded ? displayProse(degraded) : null,
     basisCaveat: fairValue === undefined ? null
-      : fairValue.status === "available" ? displayProse(fairValue.basis.join(" "))
+      : fairValue.status === "available" ? displayProse(readerFairValueBasisText(fairValue.basis))
         // EXCEPTION markdown-withheld-reader-form: only Markdown prints the withheld or
         // dated-reference sentence in reader form (displayProse: registry ids as reader
         // labels, figures at reader precision); print and the app print it as stored.
-        : surface === "markdown" ? displayProse(fairValueWithheldText(fairValue)) : fairValueWithheldText(fairValue),
+        : surface === "markdown" ? displayProse(readerFairValueWithheldText(fairValue)) : readerFairValueWithheldText(fairValue),
     provenanceLabel: surface === "dossier" || fairValue?.method === "excess-return" ? "Model value provenance" : "DCF provenance",
   };
 }
@@ -2529,7 +2552,7 @@ export function valuationHeadlineView(
  */
 export function valuationNoModelWithheldText(fairValue: FairValue | undefined, surface: ValuationSurface): string | null {
   if (fairValue === undefined) return null;
-  const text = fairValueWithheldText(fairValue);
+  const text = readerFairValueWithheldText(fairValue);
   return surface === "markdown" ? text : displayProse(text);
 }
 

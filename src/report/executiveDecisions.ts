@@ -263,3 +263,7 @@ export function executiveOfficeContext(e: Executive, leadership: Leadership, log
   const specific = /^(?:Execution is not assessed:|Execution assesses decisions|Validated dated decisions)/.test(e.assessmentReason ?? "") ? e.assessmentReason : undefined;
   return { actions, guidance: outlook, note: `${specific ?? `${execution} ${credibility}`} The decisions below are the company's and the board's. They give context for the office and do not measure this person's own record.` };
 }
+
+/** D-264: shared company context has one home, rather than repeated claim lists. */
+export const OFFICE_CONTEXT_LINK = "See the Management actions table for the shared company chronology.";
+export const GUIDANCE_CONTEXT_LINK = "See Guidance credibility in Future outlook for company guidance context.";

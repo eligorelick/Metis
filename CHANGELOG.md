@@ -25,6 +25,21 @@ original versions and bytes; source merge does not deploy or publish a release.
 - A proved reconstructed quarter is reviewed even when its original vendor filing no longer supplies the current SEC pair. Unsupported operating expenses and margins remain withheld.
 - Report 1.76.0, payload 1.95.0 and Stage B `STAGE_B_2026_11_FILED_INCOME_WINDOWS_69` identify the new calculation meaning. Stored reports, DCF methods, growth guards, weights and score bands are unchanged.
 
+## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
+
+- Review follow-up preserves every stored segment parent link and bounds
+  additional hierarchy searches with exact proof in every displayed quarter.
+  Notes explain subtotal overlap even when no hierarchy can be inferred.
+- Repairs web management-actions and Markdown outlook link targets, and checks
+  the live card's dated/not-current meaning explicitly.
+
+- App, Markdown and print show plain dated-model wording, one dated row for known
+  duplicate metric aliases, consistent segment components with overlapping shares
+  disclosed, and qualified broad vendor geography labels.
+- Executive cards link to shared company actions and outlook guidance. A short
+  fact-tag legend distinguishes numerical matching from citation coverage.
+- Saved inputs, payloads, figures, reports and verification statuses stay unchanged.
+
 ## Unreleased - `best` removed from the Claude CLI model list (2026-11-13)
 
 - Claude Code documents its `best` alias as the same model as `opus`, so the

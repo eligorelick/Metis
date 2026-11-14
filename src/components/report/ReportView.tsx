@@ -1,3 +1,4 @@
+import { FACT_STATUS_LEGEND, hasFactStatusMarks } from "@/report/verificationMarks";
 import { prepareReportForSurface } from "@/report/readerPreparation";
 import { RunNotices } from "./RunNotices";
 import { withoutCodeIdentity } from "@/report/codeIdentity";
@@ -135,6 +136,7 @@ export function ReportView({
   const sections: Record<ReportSectionKey, ReactNode> = {
     verdict: (
       <div id={sectionAnchorId("verdict")} tabIndex={-1} className="scroll-mt-28">
+        {hasFactStatusMarks(report) && <p className="text-[11px] text-muted">{FACT_STATUS_LEGEND}</p>}
         <DossierCover report={report} completeness={completeness} />{figureNote}
       </div>
     ),

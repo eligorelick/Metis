@@ -105,7 +105,9 @@ describe("evidence-backed reader remediation", () => {
     expect(table.rows.find(r => r[0] === "Legacy")![delta]).toBe("−$20M");
     expect(table.rows.find(r => r[0] === "Growth")![delta]).toBe("+$10M");
     expect(table.rows.find(r => r[0] === "Total revenue")![delta]).toBe("−$10M");
-    expect(table.note).toContain("component rows are not added again");
+    expect(table.note).toContain("subtotal rows");
+    expect(table.note).toContain("shares must not be added");
+    expect(table.note).toContain("Growth subcategory is part of Growth");
     disclosure.segments[0]!.rows[0]!.earlierPresentationAt = [1];
     disclosure.segments[0]!.totalEarlierPresentationAt = [1];
     const refused = filingDisclosureTables(disclosure, "business").find(t => t.heading.startsWith("Segment revenue by quarter"))!;
