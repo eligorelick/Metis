@@ -88,7 +88,10 @@ import {
   establishedCurrency,
 } from "@/report/format";
 import type { ManifestEntry } from "@/types/core";
+import { productLineNamedInClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
 import type {
+  Business,
+  Competitive,
   Dcf,
   FairValue,
   MetricRow,
@@ -778,6 +781,57 @@ export function moatHeading(m: Pick<MoatAssessment, "source" | "strength">): str
 
 export function moatSourceLabel(source: MoatAssessment["source"]): string {
   return MOAT_SOURCE[source] ?? source;
+}
+
+/* ======================================================================== *
+ * D-271: the business story
+ * ======================================================================== */
+
+/** The group heading over the business-story subsections (D-271). */
+export const BUSINESS_STORY_HEADING = "The business";
+
+export interface BusinessStoryLine {
+  /** The stated name when one of the line's FACT claims writes it; otherwise the code-owned heading (P18). */
+  heading: string;
+  claims: readonly SourcedClaim[];
+}
+
+export interface BusinessStoryBlock {
+  key: "products" | "whatIsComing" | "customersAndSuppliers" | "competitorsByProductLine" | "protection" | "managementPlan" | "industry";
+  heading: string;
+  /** Plain claim list; empty for a product-line block. */
+  claims: readonly SourcedClaim[];
+  /** Product-line items; empty for a plain claim block. */
+  lines: readonly BusinessStoryLine[];
+}
+
+const productLines = (items: Business["products"] | Competitive["competitorsByProductLine"]): BusinessStoryLine[] =>
+  (items ?? []).filter(item => item.claims.length > 0).map(item => ({
+    heading: productLineNamedInClaims(item) ? item.productLine.trim() : UNNAMED_PRODUCT_LINE_HEADING,
+    claims: item.claims,
+  }));
+
+/**
+ * D-271 (P22): the subsections of "The business", in reading order, for the
+ * app, Markdown and print. A field that is absent (every report saved before
+ * D-271) or empty yields no block, so no empty heading is printed; when no
+ * block remains the group itself is omitted. Read-time only: stored values
+ * are never changed.
+ */
+export function businessStoryBlocks(
+  business: Pick<Business, "products" | "whatIsComing" | "customersAndSuppliers" | "protection" | "managementPlan" | "industry">,
+  competitive?: Pick<Competitive, "competitorsByProductLine">,
+): BusinessStoryBlock[] {
+  const blocks: BusinessStoryBlock[] = [
+    { key: "products", heading: "Products and services", claims: [], lines: productLines(business.products) },
+    { key: "whatIsComing", heading: "What is coming", claims: business.whatIsComing ?? [], lines: [] },
+    { key: "customersAndSuppliers", heading: "Customers and suppliers", claims: business.customersAndSuppliers ?? [], lines: [] },
+    { key: "competitorsByProductLine", heading: "Competitors by product line", claims: [], lines: productLines(competitive?.competitorsByProductLine) },
+    { key: "protection", heading: "Protection and expiry", claims: business.protection ?? [], lines: [] },
+    { key: "managementPlan", heading: "Management's plan", claims: business.managementPlan ?? [], lines: [] },
+    { key: "industry", heading: "Industry", claims: business.industry ?? [], lines: [] },
+  ];
+  return blocks.filter(block => block.claims.length > 0 || block.lines.length > 0);
 }
 
 /* ======================================================================== *

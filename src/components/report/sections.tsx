@@ -30,6 +30,8 @@ import { ownHistoryRankLabel } from "@/report/ownHistoryPresentation";
 import { projectionAuditTables, type ReportAuditTable } from "@/report/auditTables";
 import {
   annualSegmentHeading,
+  BUSINESS_STORY_HEADING,
+  businessStoryBlocks,
   assessmentLine,
   auditExportPath,
   compactLongIntegers,
@@ -677,12 +679,37 @@ function SegmentTable({
   );
 }
 
+/** D-271: "The business" group; nothing at all when every field is absent or empty. */
+function BusinessStory({ business, competitive }: { business: Business; competitive?: Pick<Competitive, "competitorsByProductLine"> }) {
+  const blocks = businessStoryBlocks(business, competitive);
+  if (blocks.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="text-[11px] font-semibold text-fg">{BUSINESS_STORY_HEADING}</div>
+      {blocks.map(block => (
+        <SubBlock key={block.key} label={block.heading}>
+          {block.claims.length > 0 && <ClaimList claims={block.claims} />}
+          {block.lines.map((line, i) => (
+            <div key={i} className="flex flex-col gap-1">
+              <div className="text-[11px] text-fg">{line.heading}</div>
+              <ClaimList claims={line.claims} />
+            </div>
+          ))}
+        </SubBlock>
+      ))}
+    </div>
+  );
+}
+
 export function BusinessSegments({
   business,
+  competitive,
   index,
   extraTables = [],
 }: {
   business: Business;
+  /** D-271: competitors by product line render in "The business" group. */
+  competitive?: Pick<Competitive, "competitorsByProductLine">;
   index: number;
   /** Deterministic filing-disclosure tables (XBRL segment revenue by quarter). */
   extraTables?: ReportAuditTable[];
@@ -700,6 +727,7 @@ export function BusinessSegments({
       {business.marketStructure && business.marketStructure.length > 0 && <SubBlock label="Market & industry structure">
         <ClaimList claims={business.marketStructure} />
       </SubBlock>}
+      <BusinessStory business={business} competitive={competitive} />
       <ExtraAuditTables tables={extraTables} />
       {/* Keep referenced annual categories and dated geography beside quarterly evidence. */}
       {(annualProductShown || annualGeographyShown) && <div className="grid gap-4 lg:grid-cols-2">

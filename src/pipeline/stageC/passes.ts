@@ -82,6 +82,8 @@ import {
   invalidAnalystCaseSections,
   invalidJudgeOutputSections,
   noBuySellHold,
+  productLineNamedInClaims,
+  UNNAMED_PRODUCT_LINE_HEADING,
   type AnalystCase,
   type JudgeOutput,
   type Report,
@@ -2730,7 +2732,35 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
     root.valuation = valuation;
   }
 
-  return splitEmbeddedJudgments(root);
+  return withNamedProductLines(splitEmbeddedJudgments(root));
+}
+
+/** D-271 (P18): the generated business-story lists whose items carry a product-line heading. */
+const PRODUCT_LINE_FIELDS = [["business", "products"], ["competitive", "competitorsByProductLine"]] as const;
+/** D-271: the generated business-story claim lists (blank claims are regenerated). */
+const BUSINESS_STORY_CLAIM_FIELDS = [["business", "marketStructure"], ["business", "whatIsComing"], ["business", "customersAndSuppliers"],
+  ["business", "protection"], ["business", "managementPlan"], ["business", "industry"], ["competitive", "competitors"]] as const;
+
+/**
+ * D-271 (P18): a product-line heading is a label, so it stands only when one of
+ * the item's own FACT claims writes that name. Otherwise the code-owned
+ * heading replaces it; the claims are kept and verified as usual. Runs after
+ * embedded judgments are split, so only sourced statements can name the line.
+ */
+function withNamedProductLines(value: unknown): unknown {
+  if (!isPlainObject(value)) return value;
+  const root = { ...value };
+  for (const [section, field] of PRODUCT_LINE_FIELDS) {
+    const owner = root[section];
+    if (!isPlainObject(owner) || !Array.isArray(owner[field])) continue;
+    root[section] = { ...owner, [field]: owner[field].map(item => {
+      if (!isPlainObject(item) || typeof item.productLine !== "string" || !Array.isArray(item.claims)) return item;
+      const claims = item.claims.filter((claim): claim is { text: string; label: SourcedClaim["label"] } =>
+        isPlainObject(claim) && typeof claim.text === "string" && typeof claim.label === "string");
+      return productLineNamedInClaims({ productLine: item.productLine, claims }) ? item : { ...item, productLine: UNNAMED_PRODUCT_LINE_HEADING };
+    }) };
+  }
+  return root;
 }
 
 const parseJudgeOutput = (raw: unknown) => {
@@ -2752,10 +2782,15 @@ function invalidJudgeGenerationSections(sections: Record<string, unknown>): stri
       (sections.business.whatTheySell.length === 0 || sections.business.whatTheySell.some(claim => isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim()))) invalid.push("business");
   // The arrays may be empty or absent (historical output), but a carried blank
   // claim must be regenerated just as it would be in a complete response.
-  for (const [section, field] of [["business", "marketStructure"], ["competitive", "competitors"]] as const) {
+  const blank = (claim: unknown) => isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim();
+  for (const [section, field] of BUSINESS_STORY_CLAIM_FIELDS) {
     const value = sections[section];
-    if (isPlainObject(value) && Array.isArray(value[field]) && value[field].some(claim =>
-      isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim()) && !invalid.includes(section)) invalid.push(section);
+    if (isPlainObject(value) && Array.isArray(value[field]) && value[field].some(blank) && !invalid.includes(section)) invalid.push(section);
+  }
+  for (const [section, field] of PRODUCT_LINE_FIELDS) {
+    const value = sections[section];
+    if (isPlainObject(value) && Array.isArray(value[field]) && value[field].some(item =>
+      isPlainObject(item) && Array.isArray(item.claims) && item.claims.some(blank)) && !invalid.includes(section)) invalid.push(section);
   }
   return invalid;
 }

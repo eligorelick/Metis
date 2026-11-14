@@ -99,6 +99,8 @@ import {
 } from "@/report/format";
 import {
   annualSegmentHeading,
+  BUSINESS_STORY_HEADING,
+  businessStoryBlocks,
   assessmentLine,
   auditExportFilename,
   citedMark,
@@ -504,7 +506,15 @@ function sectionScores(scores: Scoring): string {
  * Section renderers
  * ======================================================================== */
 
-function sectionBusiness(b: Business, extra: ReportAuditTable[] = []): string {
+/** D-271: "The business" group, or nothing when every field is absent or empty. */
+function businessStory(b: Business, c?: Pick<Competitive, "competitorsByProductLine">): string {
+  const blocks = businessStoryBlocks(b, c);
+  if (blocks.length === 0) return "";
+  return `<h3>${esc(BUSINESS_STORY_HEADING)}</h3>${blocks.map(block => subsection(block.heading,
+    claimList(block.claims) + block.lines.map(line => `<p class="product-line"><strong>${esc(line.heading)}</strong></p>${claimList(line.claims)}`).join(""), "h4")).join("")}`;
+}
+
+function sectionBusiness(b: Business, extra: ReportAuditTable[] = [], c?: Pick<Competitive, "competitorsByProductLine">): string {
   const quarterly = bodyTables(extra);
   // Keep dated geography and explicitly referenced annual categories inspectable.
   const annualProductReference = [...b.whatTheySell, ...b.concentrationRisks].some(c => /annual product|product categor|product table/i.test(c.text));
@@ -515,6 +525,7 @@ function sectionBusiness(b: Business, extra: ReportAuditTable[] = []): string {
   return `<section class="block">${sectionHeading("business")}
     ${subsection("What they sell", claimList(b.whatTheySell))}
     ${b.marketStructure?.length ? subsection("Market & industry structure", claimList(b.marketStructure)) : ""}
+    ${businessStory(b, c)}
     ${quarterly}
     ${annual}
     ${subsection("Concentration risks", claimList(b.concentrationRisks))}</section>`;
@@ -894,7 +905,7 @@ export function reportToPrintBody(report: Report, context: ReportPresentationCon
   const { lenderTables, scopeQualifications, completeness } = prepared;
   const sections: Record<ReportSectionKey, string> = {
     verdict: `${sectionVerdict(report)}${report.scores ? sectionScores(report.scores) : ""}`,
-    business: sectionBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
+    business: sectionBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business"), report.competitive),
     fundamentals: sectionFundamentals(report.fundamentals, report.sourceFactSummary, [...filingDisclosureTables(report.filingDisclosures, "fundamentals"), ...lenderTables], report),
     balanceSheet: sectionBalanceSheet(report.balanceSheet, report),
     valuation: sectionValuation(report.valuation, report.scenarioTargets, report.fairValue, routeMetricsForDisplay(report), { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers }, report),
