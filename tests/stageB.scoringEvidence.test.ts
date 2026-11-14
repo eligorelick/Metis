@@ -16,6 +16,13 @@ function inputs(bank = false): ScoringInputs {
 const operand = (result: ReturnType<typeof describeScoreEvidence>, name: string) => result.operands.find(o => o.name === name)!;
 
 describe("D-261 every withheld scoring signal discloses its inputs", () => {
+  it("names the latest investment root once instead of repeating an aggregate ROIC refusal", () => {
+    const i = inputs(); i.roic.latestRoicPct = null; i.roicVsWacc.spreadPctPts = null;
+    i.roic.gaps = [{ field: "returns.roic", severity: "warn", reason: "ShortTermInvestments aggregate refusal" },
+      { field: `returns.roic.${i.roic.asOf}`, severity: "info", reason: "ShortTermInvestments exact latest root" }];
+    const gaps: ManifestEntry[] = []; computeScores(i, gaps);
+    expect(gaps.find(g => g.field === "scores.quality.roicVsWaccSpread")?.reason.match(/ShortTermInvestments/g)).toHaveLength(1);
+  });
   it("names valuation-use first and never copies unrelated valuation gaps into a score cause", () => {
     const i = inputs();
     i.valuationUse = { ...i.valuationUse, status: "dated-reference", reason: "not-rolled-to-quote" };

@@ -20,7 +20,8 @@ export function scoreSignalRefusal(i: ScoringInputs, aspect: ScoreAspect, id: st
   const evidence = describeScoreEvidence(i, aspect, id);
   let causes: string[] = [];
   if (/^roic/.test(id)) {
-    const years = id.endsWith("Floor") ? i.roic.gaps : i.roic.gaps.filter(g => g.field === `returns.roic.${i.roic.asOf}` || g.field === "returns.roic");
+    const latest = i.roic.gaps.find(g => g.field === `returns.roic.${i.roic.asOf}`) ?? i.roic.gaps.find(g => g.field === "returns.roic");
+    const years = id.endsWith("Floor") ? i.roic.gaps.filter(g => g.field !== "returns.roic") : latest ? [latest] : [];
     if (id.endsWith("Floor") || i.roic.latestRoicPct === null) causes.push(...years.map(g => g.reason));
     if (id === "roicVsWaccSpread" && i.wacc.waccPct === null) causes.push(...i.wacc.gaps.map(g => g.reason));
   } else if (/^rote/.test(id)) causes = i.rote.gaps.map(g => g.reason);

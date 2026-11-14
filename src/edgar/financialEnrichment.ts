@@ -810,7 +810,8 @@ function investmentObservations(facts: CompanyFacts, unit: string, end: string, 
       roots.push(`us-gaap/${tag} investment family, instant ${end}, filing ${section.accession} (dated primary filing table; dimensional context is not admitted)`);
     }
   }
-  return [...new Set(roots)];
+  // One observed witness proves that this root input is not absent.
+  return [...new Set(roots)].slice(0, 1);
 }
 
 /** Cash honors field-level SEC lineage; unproved vendor values use their original filing. */

@@ -19,7 +19,7 @@ Independent scope and composition refusals remain authoritative. Net debt is
 recomputed only from admitted debt and cash in the same filing. Combined
 liquidity uses a compatible filed total or same-filing components proved to be
 disjoint by that total or a current-assets reconciliation. Vendor agreement
-proves nothing. Otherwise the combined field stays unavailable with a typed
+proves nothing. An observed investment that cannot be admitted withholds net debt, invested capital, ROIC and dependent model figures. Cash-only arithmetic is allowed only when no investment-family fact is observed at the instant in the retained facts and source-bound filing tables. Otherwise the combined field stays unavailable with a typed
 liquidity-not-established cause; a qualified cash-only basis says that short-term
 investments are not established from the undimensioned facts available. This
 does not assert absence from the filing. A bank deposit member is not added

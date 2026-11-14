@@ -26,9 +26,8 @@ original versions and bytes; source merge does not deploy or publish a release.
   proved components; disclose cash-only liquidity without treating missing
   investments as zero.
 - Name the root input for every withheld applicable scoring signal and every
-  withheld annual ROIC. Restore LLY's FY2025 ROIC on a qualified cash-only
-  basis; retain its dated DCF statement anchor. Report 1.79.0, payload 1.97.0
-  and Stage B implementation 70;
+  withheld annual ROIC. Withhold capital and model figures when an observed investment cannot be admitted; preserve filed cash. Report 1.79.0, payload 1.97.0
+  and Stage B implementation 71;
   stored reports and scoring bands keep their original meaning and bytes.
 
 ## Unreleased - Filed operating income and complete trailing income flows (2026-11-13)

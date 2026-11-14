@@ -11,1453 +11,685 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
-## D-261 - Filed balance facts and root-input gaps; review corrections (2026-11-14)
+## D-261 - Filed cash remains; unadmitted investments withhold capital (2026-11-14, final owner policy)
 
-P7, P8, P10, P11 and P12. This entry supersedes the earlier D-261 liquidity claim. D-133, D-200 and D-210 retain their explicit "Revised by D-261" markers.
+P8, P10, P11, P12 and P13. This replaces the earlier cash-only policy. Report 1.79.0, payload 1.97.0 and Stage B FILED_BALANCES_GAPS_71 follow the main integration. The final comparison pins main 569635e4 (D-260, including the trailing-income model window).
 
-### Evidence and rule owners
+### A-G implementation and evidence
 
-1. Exact-instant filed balances replace this owner's vendor comparison refusal only after the existing issuer, currency, unit, cutoff, ambiguity and filed-copy checks. Lease and temporary-equity re-admission read typed causes plus the matching evidence; old sentence patterns live only in refusalCauseRead.ts. The wording ratchet remains 25 in that compatibility reader; its allowance is not raised.
-2. Filed cash is cash, not a proved combined liquidity total. Vendor agreement establishes nothing. A combined value needs a directly filed total or disjoint same-filing components. Without that proof, combined liquidity is a typed liquidity-not-established gap; consumers may use an explicit cash-only basis. No new instance-extraction route was added.
-3. The cashBasis value travels through resolveNetDebt, invested capital, DCF/equity-bridge input mapping and grade qualifications. Cash-only debt arithmetic additionally needs same-instant filed debt evidence; merely completing a vendor lease line does not prove the remaining debt total. A qualified calculation stays provisional.
-4. A potentially overlapping InterestBearingDepositsInBanks component cannot be added to cash on an accidental current-assets equality. A directly filed combined total can establish the sum; other current-investment components require the filed total or the current-assets reconciliation. Ambiguous or independently refused components remain refusals.
-5. Withheld score signals name their own missing operands. Price-based signals name valuation-use status first, rather than copying unrelated lease/peer notes. Derived score and dated ROIC entries are informational; existing root data warnings remain. They do not multiply the warning count or confidence cap.
-6. Incompatible filed totals leave an unusable combined field, honored by net debt and invested capital even when components exist. No downstream component-sum or cash-only escape reconstructs a rejected total. The GitHub review thread is deliberately left for the lead to reply to and resolve.
-7. Both plausible findings were real: a newer cash-only comparative could hide an older complete same-instant family, and ROIC selected a cause by matching note wording. The family anchor now uses the newest complete filing, subject to unchanged cash copies; ROIC records its cause in the computation branch.
-8. This entry cites filing facts and computed results. Uncorroborated vendor observations are retained locally in replay inputs and are not reproduced in committed documentation.
+A. Exact filed cash remains admitted. When an investment-family fact exists at the same instant but its scope or separation from cash is not admitted, combined liquidity, net debt and capital returns are unavailable. The owner examines every same-instant investment-family observation in retained companyfacts and dated, issuer/accession-bound primary filing tables. Primary tables refute absence; they do not establish an admitted dimensional amount. The refusal names one observed investment root, its instant, filing and the unavailable scope. A nonzero vendor split or vendor agreement is never proof.
 
-Cash replacement remains at edgar/financialEnrichment.ts; its balance siblings are complete operating/finance lease liabilities and matching temporary-equity categories. Annual/quarterly instants and admitted 10-K/10-Q/20-F/40-F facts share the rule. Synthetic tests cover an industrial issuer, bank deposit overlap, foreign lease facts, temporary equity, conflicting and ambiguous facts, and available/refused controls. No company-specific condition was added.
+The example's retained FY2025 notes explicitly report short-term investments in the dated fair-value table. The root family is us-gaap:AvailableForSaleSecuritiesDebtSecuritiesCurrent at 2025-12-31, 10-K 0000059478-26-000013; the raw dimensioned 105M fact is not admitted into combined liquidity. The September 2026 dated table similarly reports investments, 10-Q 0000059478-26-000108. Both prevent claiming investment absence. No company-specific condition or new tolerance was added.
 
-Other lookalikes keep their own rules: duration cash-flow/SBC/repurchase fields in admitCashFields, the reconciled operating-cash-flow family, quarterly capex, carrying-debt completeness in admitDebtFields, noncurrent-investment enrichment and share/split scope in keyless.ts. They are not this exact-instant comparison rule. No company route is exempt from the corrected owner. Dimensioned investment facts remain outside this undimensioned admission path and are named as unestablished, never "unreported".
+B. The DCF resolves liquidity against full debt, then removes operating leases once when computing capital. The regression shape has debt 400, of which operating leases 300; it retains the model instead of comparing that lease against reduced debt 100.
 
-### Filed proof and LLY results
+C. resolveNetDebt now honors an independently refused shortTermInvestments operand. The old independent ROIC cash-only fallback is removed: all cash-only arithmetic goes through resolveNetDebt and retains qualification. Only a proven no-investment-fact input can use that narrower basis; a partial vendor-lease completion still does not establish total debt.
 
-F1: us-gaap:CashAndCashEquivalentsAtCarryingValue, USD instant facts: 2025-12-31 = 7,268M (10-K 0000059478-26-000013); 2026-03-31 = 5,282M (10-Q 0000059478-26-000045); 2026-06-30 = 8,950M (10-Q 0000059478-26-000081); 2026-09-30 = 4,885M (10-Q 0000059478-26-000108). Later compatible copies of the December instant agree.
+D. Average capital is unavailable when opening and closing liquidity bases differ, or the opening liquidity carries an independent refusal. The reason names the basis difference or the refused investment root.
 
-The FY2025 10-K also reports 105M of us-gaap:AvailableForSaleSecuritiesDebtSecuritiesCurrent with a carrying-amount dimension, within other current assets. Its absence from undimensioned companyfacts does not mean absence from the filing. It is not admitted as an undimensioned component here. The first three restored cash dates therefore have an investment/combined-liquidity gap. September's existing retained row is unchanged; it was not a comparison refusal or a newly stamped filed family.
+E. Restored the original broad unknown-currency and origin assertions. Independent dependent-field refusals are compared as complete objects. The score-gap formatter names the Altman root without copying its descriptive model-label prose; the original score-evidence label assertion remains unchanged. No test was deleted, skipped or loosened.
 
-F2: same FY2025 filing and its FY2024 comparative: LongTermDebtNoncurrent, DebtCurrent, CommercialPaper, OperatingLeaseLiabilityCurrent/Noncurrent and consolidated equity establish the retained financing and equity operands. Unchanged operating income and IncomeBeforeTax/IncomeTaxExpense establish NOPAT. With F1's restored cash, the existing lease convention gives FY2025 cash-only house net debt 35,235M; closing invested capital 61,770M and average invested capital 53,131.3M; NOPAT 21,098.024950448875M / average capital yields 39.70922027213502% ROIC. These are narrower cash-only calculations, not the full filed cash-plus-investment basis.
+F. Cash-basis qualifications reach the manifest/grades from consumed net-debt, ROIC or DCF inputs; unused statement-row qualifications are filtered. A dated unused quarter cannot qualify a grade.
 
-F3: the existing deterministic DCF uses the 2025-12-31 statement anchor, unchanged forward operating assumptions and the existing 2026-09-30 equity bridge. The restored fourth positive annual ROIC observation changes terminal excess-return eligibility under the unchanged rule. The resulting model values are derived, not amounts reported by the filer. The value remains a dated reference against the 2026-11-13 quote.
+G. Corrected stamp history comments. The legacy compatibility reader in edgar/refusalCauseRead.ts now also recognizes old lease and temporary-equity comparison wording. Its scope grew, its ratchet count did not; typed causes and exact evidence decide live recovery. Prior parallel frozen-refresh histories remain in mergedBranchHistory while the active hash chain continues from main.
 
-| LLY figure (both stored cases) | Pinned-main before | After | Proof |
-| --- | ---: | ---: | --- |
-| Cash, 2025-12-31 | gap | 7,268M USD | F1 |
-| Cash, 2026-03-31 | gap | 5,282M USD | F1 |
-| Cash, 2026-06-30 | gap | 8,950M USD | F1 |
-| Cash, 2026-09-30 | 4,885M USD | unchanged | F1 |
-| Investments/combined, first three dates | uncorroborated component / combined gap | investment and combined gaps | dimensioned fact is outside admitted path |
-| Net operating assets, FY2025 | gap | gap | combined financial assets unestablished |
-| Closing / average invested capital | gap / gap | 61,770M / 53,131.3M USD | F1, F2, cash-only |
-| Quality / moat / composite | 68.43 / 80.79 / 63.74 | 76.68 / 87.07 / 68.96 | restored ROIC; NOA stays a gap; unchanged grading arithmetic |
-| DCF statement anchor | 2025-12-31 | unchanged | F3 |
-| Dated-reference per share | 518.3660970361865 USD | 583.8761926954309 USD | F3 |
+Breadth: the same exact-instant owner covers cash, complete operating/finance leases and matched temporary-equity categories, including annual/quarterly core foreign forms. Duration cash-flow/CFO/capex, carrying-debt completeness, noncurrent investments and share/split rules retain their different evidence owners. D-133, D-200 and D-210 retain their Revised by D-261 markers.
 
-The 2018 cash refusal remains: CashAndCashEquivalentsAtCarryingValue at 2018-12-31 is 7,998.2M in 10-K 0000059478-19-000082 but 7,320.7M in 10-Q 0000059478-19-000174 and later comparatives. Those filed copies do not establish one unchanged observation.
+### LLY main versus final policy
 
-The exact rejected head f98e9170 had admitted a combined annual cash-only total and published NOA 60,330M, quality 73.87, composite 68.54, a December bridge and DCF 619.3008538711213 USD/share. Those unsupported combined/NOA assertions are withdrawn. The corrected build retains the existing September bridge, leaves NOA unavailable, and reports the qualified values above; the ROIC value itself stays the same as that head.
+Cash proof is CashAndCashEquivalentsAtCarryingValue, USD, at each exact instant: 2025-12-31 7,268M (0000059478-26-000013), 2026-03-31 5,282M (0000059478-26-000045), 2026-06-30 8,950M (0000059478-26-000081), 2026-09-30 4,885M (0000059478-26-000108). The first three are gaps on main and admitted on this branch; September cash is unchanged. Their cash-plus-investment figures require independent proof and are unavailable when investment scope is unadmitted. LLY 2018 remains withheld because the original and comparative filed cash copies disagree.
 
-### All stored-case checks
+Main and final both withhold FY2025 combined liquidity, net debt, invested capital and ROIC. Final names the investment root instead of publishing the known-biased cash-only 39.709% result. Quality 68.43 and moat 80.79 stay unchanged, with no restored ROIC signal. Composite 63.05 becomes 65.22 because unavailable valuation evidence is shrunk under the existing grading rule, not because a ROIC signal was gained. Main's trailing statement anchor is 2026-09-30, with DCF 662.078517539688 USD/share; the final model is unavailable because September liquidity is refused. This additional current-model withholding is explicit.
 
-Baseline: cf3eb2875deddcf92ed3e7685cda4912ce7505d1, as requested. The branch also normally merges main 742d4d2f (D-263), preserving D-264. Report spec 1.79.0 is assigned by the owner; 1.77.0/1.78.0 are reserved for D-260/D-262. Payload 1.96.0 and Stage B FILED_BALANCES_GAPS_70 invalidate the changed computational inputs.
+### Other stored figures changed
 
-All 17 golden and two LLY cases use retained inputs and fixed analyst output, with network/model access blocked and only scratch storage. All 17 golden cases retain numeric scores, composite, fair value and scenario prices. All data-only warning counts are unchanged. LLY fixed-analyst alone rises from 13 to 14: the retained executive-credibility sentence cites the non-registry object computed.returns.roic and still says ROIC is unavailable. With restored ROIC, deterministic verification discloses that unsupported object-level citation under verify.check.namedIndividual (credibility-source-restricted); this is a real stale-analyst evidence gap, not a derived score warning. No analyst prose is rewritten or newly generated. Outside LLY, FIGR and QCOM lose unproved investment diagnostics; FIGR's prior computed net-debt diagnostic becomes a gap. No replacement number is invented.
+FIGR: the computed net-debt diagnostic -346.943M becomes unavailable, and its unproved investment observation becomes a gap. Filed cash is 1,198.141M at 2025-12-31, CashAndCashEquivalentsAtCarryingValue, 10-K 0002064124-26-000009 and comparative 10-Q 0001628280-26-057061. Its debt proof only completes the lease line; it does not prove the complete total. The published leverage was already unavailable.
 
-F4 (FIGR): 2025-12-31 cash is 1,198.141M under CashAndCashEquivalentsAtCarryingValue, 10-K 0002064124-26-000009, repeated in 10-Q 0001628280-26-057061. The investment chain establishes no disjoint component. Debt provenance is noncurrent-lease-line-completed (LongTermDebtNoncurrent plus OperatingLeaseLiability, original 10-K); it does not establish the whole debt total. Consequently capital.netDebtToEbitda.resolution.value changes from the prior computed -346.943M USD to a gap, and its uncorroborated investment component becomes a gap. The public leverage result was already unavailable and remains unavailable.
+QCOM: the unproved investment diagnostic becomes a gap. Filed cash remains 5,520M at 2025-09-28, CashAndCashEquivalentsAtCarryingValue, comparative 10-Q 0000804328-26-000086. The investment chain cannot establish disjoint combined liquidity; carrying debt remains refused under 10-K 0000804328-25-000085. No replacement number is produced.
 
-F5 (QCOM): CashAndCashEquivalentsAtCarryingValue at 2025-09-28 is 5,520M USD in 10-Q 0000804328-26-000086 (comparative). That cash is unchanged from this baseline. A disjoint same-filing short-term-investment component/combined total is not established by the admitted chain; the old diagnostic investment observation becomes a gap. Debt remains refused under its existing 10-K 0000804328-25-000085 carrying-debt rule. No new net-debt number or score is produced.
+RIVN: 2022-12-31 average invested capital 3,194M and terminal-evidence ROIC -214.65247338760176% become gaps. ShortTermInvestments is observed at that instant in 10-Q 0001874178-23-000041; the owner's unadmitted investment refusal now reaches capital. NOPAT and public ROIC were already unavailable. All 17 golden headline scores, composites, model values and scenario prices remain unchanged.
 
-The tables below record every stored case's warning count and JSON leaf totals. A separate offline rebuild of the exact rejected head f98e9170 supplies the reviewed-head warning column; all its inflated derived-warning counts fall or remain unchanged. "Before" always means pinned main, not the rejected PR's inflated score-warning count. Rendered Markdown/HTML/payload changes are projections of these JSON changes and version/provenance identities; D-263's numeric-verification/period-context changes are inherited main behavior, not an additional D-261 policy.
+No stored case publishes a cash-only figure after this policy. FIGR retains cashBasis=cash-only as a diagnostic with a null value because total debt is not established; that is not a computed net-debt figure. Synthetic no-investment controls retain qualified cash-only computation.
 
-| Case | Main warnings | Reviewed-head warnings | After warnings | Stage B leaves | Report leaves |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| amzn-data-only | 8 | 8 | 8 | 4 | 1 |
-| figr-data-only | 27 | 33 | 27 | 229 | 136 |
-| meta-data-only | 44 | 57 | 44 | 289 | 124 |
-| mu-data-only | 36 | 38 | 36 | 144 | 93 |
-| nvda-data-only | 8 | 8 | 8 | 4 | 1 |
-| qcom-data-only | 4 | 9 | 4 | 143 | 142 |
-| jpm-data-only | 14 | 16 | 14 | 106 | 33 |
-| pgr-data-only | 41 | 43 | 41 | 361 | 166 |
-| o-data-only | 32 | 49 | 32 | 474 | 169 |
-| duk-data-only | 75 | 86 | 75 | 519 | 227 |
-| tsm-data-only | 7 | 11 | 7 | 94 | 59 |
-| rivn-data-only | 33 | 47 | 33 | 250 | 144 |
-| vktx-data-only | 54 | 70 | 54 | 191 | 40 |
-| amzn-fixed-analyst | 9 | 9 | 9 | 4 | 609 |
-| meta-fixed-analyst | 46 | 59 | 46 | 289 | 286 |
-| mu-fixed-analyst | 37 | 39 | 37 | 144 | 143 |
-| nvda-fixed-analyst | 11 | 11 | 11 | 4 | 1 |
-| lly-data-only | 12 | 19 | 12 | 621 | 590 |
-| lly-fixed-analyst | 13 | 21 | 14 | 621 | 4927 |
+### Warning counts and checks
 
-### Exact changed financial figures (both LLY cases share these values)
+| Stored case | Main | Final policy |
+| --- | ---: | ---: |
+| amzn-data-only | 8 | 8 |
+| figr-data-only | 27 | 27 |
+| meta-data-only | 44 | 44 |
+| mu-data-only | 36 | 36 |
+| nvda-data-only | 8 | 8 |
+| qcom-data-only | 4 | 4 |
+| jpm-data-only | 14 | 14 |
+| pgr-data-only | 41 | 41 |
+| o-data-only | 32 | 32 |
+| duk-data-only | 75 | 75 |
+| tsm-data-only | 7 | 7 |
+| rivn-data-only | 33 | 33 |
+| vktx-data-only | 54 | 54 |
+| amzn-fixed-analyst | 9 | 9 |
+| meta-fixed-analyst | 46 | 46 |
+| mu-fixed-analyst | 37 | 37 |
+| nvda-fixed-analyst | 11 | 11 |
+| lly-data-only | 12 | 14 |
+| lly-fixed-analyst | 13 | 15 |
 
-The following is the full Stage B numeric delta inventory, including derived DCF years/grids and score mirrors. Missing values are gaps. F1/F2 prove restored operating-capital inputs; F3 explains every derived valuation/score movement. Output copies of these figures in report.json use the same value and proof. Raw vendor component observations are intentionally described as uncorroborated-to-gap above rather than reproduced.
+LLY's additional warnings disclose newly refused September net-debt/multiples bridges. The DCF also carries a critical investment-root gap. Scoring descendants are informational and do not add data-warning counts. All other stored warning counts are unchanged.
 
-| Stage B leaf | Before | After | Filed-input proof / derivation |
-| --- | ---: | ---: | --- |
-| `capital.netDebtToEbitda.netDebt` | gap | 35235000000 | F1/F2, explicit cash-only basis |
-| `capital.netDebtToEbitda.resolution.components.cashAndCashEquivalents` | gap | 7268000000 | F1/F2, explicit cash-only basis |
-| `capital.netDebtToEbitda.resolution.value` | gap | 36597000000 | F1/F2, explicit cash-only basis |
-| `capital.netDebtToEbitda.value` | gap | 1.2450969998939891 | F1/F2, explicit cash-only basis |
-| `fairValue.reference.perShare.value` | 518.37 | 583.88 | F3, restored F1/F2 ROIC evidence |
-| `returns.roic.latestRoicPct` | gap | 39.70922027213502 | F1/F2, explicit cash-only basis |
-| `returns.roic.series[4].investedCapitalAvg` | gap | 53131300000 | F1/F2, explicit cash-only basis |
-| `returns.roic.series[4].roicPct` | gap | 39.70922027213502 | F1/F2, explicit cash-only basis |
-| `returns.roic.series[4].terminalEvidenceRoicPct` | gap | 39.70922027213502 | F1/F2, explicit cash-only basis |
-| `returns.roicVsWacc.spreadPctPts` | gap | 31.901226846502258 | F1/F2, explicit cash-only basis |
-| `scores.aspects.moat.applicableCompleteness` | 0.55 | 1 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.dataCompleteness` | 0.55 | 1 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.drivers[0].value` | 17.812481441610068 | 39.70922027213502 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.drivers[1].value` | 83.04361834333143 | 17.812481441610068 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.score` | 80.79 | 87.07 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[0].contributionPoints` | 0.8901548302831702 | 3.020489385919899 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[0].effectiveCompositeWeightPct` | 4.5 | 6.75 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[0].operands[0].value` | 26.36549320395039 | 39.70922027213502 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[0].raw` | 17.812481441610068 | 39.70922027213502 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[0].signalWeight` | 0.3 | 0.45 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[0].transformedScore` | 69.78121845073711 | 94.74799090251702 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[0].windowYears` | 2.001368925393566 | gap | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[1].contributionPoints` | 1.65 | 0.8901548302831702 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[1].effectiveCompositeWeightPct` | 3.75 | 4.5 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[1].operands[0].value` | 83.04361834333143 | 26.36549320395039 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[1].raw` | 83.04361834333143 | 17.812481441610068 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[1].signalWeight` | 0.25 | 0.3 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[1].transformedScore` | 94 | 69.78121845073711 | F1/F2, unchanged grading rule |
-| `scores.aspects.moat.signals[1].windowYears` | gap | 3.0006844626967832 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.applicableCompleteness` | 0.65 | 1 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.dataCompleteness` | 0.65 | 1 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.drivers[0].value` | 0.7777777777777778 | 31.901226846502258 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.drivers[1].value` | 11.453100641714352 | 0.7777777777777778 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.drivers[2].value` | 0.15814560211809245 | 11.453100641714352 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.drivers[3].value` | -1.8477161488245366 | 0.15814560211809245 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.score` | 68.43 | 76.68 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[0].contributionPoints` | 0.913333333333333 | 2.205 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[0].effectiveCompositeWeightPct` | 3.3 | 5.25 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[0].operands[0].value` | 7 | 39.70922027213502 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[0].operands[1].value` | 9 | 7.807993425632762 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[0].raw` | 0.7777777777777778 | 31.901226846502258 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[0].signalWeight` | 0.22 | 0.35 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[0].transformedScore` | 77.67676767676767 | 92 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[0].windowYears` | 2.001368925393566 | gap | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[1].contributionPoints` | 1.008 | 0.913333333333333 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[1].effectiveCompositeWeightPct` | 2.4 | 3.3 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[1].operands[0].value` | 11.453100641714352 | 7 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[1].raw` | 11.453100641714352 | 0.7777777777777778 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[1].signalWeight` | 0.16 | 0.22 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[1].transformedScore` | 92 | 77.67676767676767 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[1].windowYears` | gap | 2.001368925393566 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[2].contributionPoints` | -0.08165520953141599 | 1.008 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[2].effectiveCompositeWeightPct` | 2.25 | 2.4 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[2].operands[0].value` | 0.15814560211809245 | 11.453100641714352 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[2].raw` | 0.15814560211809245 | 11.453100641714352 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[2].signalWeight` | 0.15 | 0.16 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[2].transformedScore` | 46.37087957638151 | 92 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[2].windowYears` | 0.999315537303217 | gap | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[3].contributionPoints` | -0.0429064964992996 | -0.08165520953141599 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[3].effectiveCompositeWeightPct` | 1.8 | 2.25 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[3].operands[0].value` | -1.8477161488245366 | 0.15814560211809245 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[3].raw` | -1.8477161488245366 | 0.15814560211809245 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[3].signalWeight` | 0.12 | 0.15 | F1/F2, unchanged grading rule |
-| `scores.aspects.quality.signals[3].transformedScore` | 47.61630575003891 | 46.37087957638151 | F1/F2, unchanged grading rule |
-| `scores.assessments.businessQuality.evidenceCompleteness` | 0.6496256684491978 | 0.8096256684491978 | F1/F2, unchanged grading rule |
-| `scores.assessments.businessQuality.score` | 67.16 | 74.12 | F1/F2, unchanged grading rule |
-| `scores.assessments.evidenceCompleteness` | 0.5372192513368984 | 0.6572192513368984 | F1/F2, unchanged grading rule |
-| `scores.composite.score` | 63.74 | 68.96 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[0].aboveNeutralPoints` | 4.568875473633628 | 6.115644216203069 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[0].weightPct` | 14.000000000000002 | 16.5 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[1].aboveNeutralPoints` | 3.93 | 4.568875473633628 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[1].weightPct` | 9.75 | 14.000000000000002 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[2].aboveNeutralPoints` | 1.7967716273026175 | 3.93 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[3].aboveNeutralPoints` | 0.8678716902497978 | 1.7967716273026175 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[3].weightPct` | 5 | 9.75 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[4].aboveNeutralPoints` | 0.5432788504964027 | 0.8678716902497978 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[4].weightPct` | 4.545454545454545 | 5 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[5].aboveNeutralPoints` | 0.8901548302831702 | 0.5432788504964027 | F1/F2, unchanged grading rule |
-| `scores.factorExposure[5].weightPct` | 4.5 | 4.545454545454545 | F1/F2, unchanged grading rule |
-| `valuation.assumptions.terminal.reinvestmentRate.value` | 0.3201846958263031 | 0.19519060612544706 | F3, restored F1/F2 ROIC evidence |
-| `valuation.assumptions.terminal.roicTermPct.value` | 7.807993425632762 | 12.807993425632763 | F3, restored F1/F2 ROIC evidence |
-| `valuation.dcf.enterpriseValue` | 504556001092.129 | 563082720554.0979 | F3, restored F1/F2 ROIC evidence |
-| `valuation.dcf.equityValue` | 463108271092.129 | 521634990554.0979 | F3, restored F1/F2 ROIC evidence |
-| `valuation.dcf.perShare` | 518.3660970361865 | 583.8761926954309 | F3, restored F1/F2 ROIC evidence |
-| `valuation.dcf.pvTerminal` | 318313927390.8767 | 376840646852.8455 | F3, restored F1/F2 ROIC evidence |
-| `valuation.dcf.terminalShare` | 0.630879281391709 | 0.6692456243054625 | F3, restored F1/F2 ROIC evidence |
-| `valuation.dcf.terminalValue` | 650189254506.8398 | 769736157174.9734 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[0][0]` | 215.64804346790615 | 241.1997677943502 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[0][1]` | 261.2895053248966 | 291.05025568707975 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[0][2]` | 306.9309671818871 | 340.9007435798092 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[1][0]` | 276.63444520563627 | 312.45126103000973 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[1][1]` | 338.1589588843865 | 379.8757252716283 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[1][2]` | 399.6834725631368 | 447.3001895132467 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[2][0]` | 354.63419170178776 | 403.9102271185643 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[2][1]` | 436.5001443689871 | 493.8932099069976 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[2][2]` | 518.3660970361865 | 583.8761926954309 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[3][0]` | 453.53715538281165 | 520.227154446658 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[3][1]` | 561.1940638178036 | 638.8696205996721 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[3][2]` | 668.8509722527955 | 757.5120867526862 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[4][0]` | 577.7912575639901 | 666.746534956546 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[4][1]` | 717.8478571395074 | 821.4563561220506 | F3, restored F1/F2 ROIC evidence |
-| `valuation.growthMarginGrid.perShare[4][2]` | 857.9044567150246 | 976.1661772875551 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[0][0]` | 752.4344313834567 | 843.7121873390049 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[0][1]` | 755.2258679090808 | 893.5878142322427 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[0][2]` | 758.0173044347044 | 958.0872810427338 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[0][3]` | 760.8087409603284 | 1045.0224863581461 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[0][4]` | 763.600177485952 | 1168.9747575703266 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[1][0]` | 615.5831727697841 | 668.4855793134552 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[1][1]` | 617.7610059305529 | 696.0164942668449 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[1][2]` | 619.9388390913217 | 729.6465986016755 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[1][3]` | 622.1166722520906 | 771.7784132914805 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[1][4]` | 624.2945054128593 | 826.2670141757843 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[2][0]` | 514.890048535355 | 547.6422732542616 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[2][1]` | 516.6280727857709 | 564.2907888639518 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[2][2]` | 518.3660970361865 | 583.8761926954309 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[2][3]` | 520.1041212866021 | 607.3147364867307 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[2][4]` | 521.8421455370177 | 635.9480448339667 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[3][0]` | 437.96028826479204 | 459.25409972940537 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[3][1]` | 439.37160607696023 | 469.998664778157 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[3][2]` | 440.7829238891282 | 482.3038367565197 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[3][3]` | 442.19424170129645 | 496.5726654310599 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[3][4]` | 443.6055595134644 | 513.3600657777531 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[4][0]` | 377.46080022065144 | 391.84022846642233 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[4][1]` | 378.62272141542877 | 399.123539377896 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[4][2]` | 379.7846426102061 | 407.2981645511685 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[4][3]` | 380.94656380498344 | 416.5604865778661 | F3, restored F1/F2 ROIC evidence |
-| `valuation.sensitivity.perShare[4][4]` | 382.1084849997606 | 427.1691527282134 | F3, restored F1/F2 ROIC evidence |
+Seven policy regressions include six failures reproduced against the rejected head and a separate latest-root deduplication failure. Focused owner tests, restored assertions, refusal ratchet, stamp/currency tests, typecheck and lint pass; lint retains the pre-existing unused-variable warning. Frozen records are refreshed under D-261 with exact scopes and hash chains. No full local suite or paid/network test is run. All replays use committed code and retained inputs, scratch output only. Accuracy check passes its existing expectations: 265 figures, 171 matches, seven existing mismatches, 61 gaps and 26 not-established; no expectation update.
 
-### Every changed leaf: disclosure and inherited-main inventory
+### Complete financial delta inventory
 
-The inventories below enumerate all changed JSON paths, grouped by exact path shape (a [*] expands to the stated count of changed indexed leaves). For numeric financial leaves, the values/proof are above (FIGR/QCOM F4/F5; LLY F1-F3). For other leaves: gap field/reason/severity/source paths carry the named root cause and informational classification, and array membership/order shifts copy those same entries; ROIC notes describe the typed operand and narrower basis; net-debt notes describe the resolver's actual basis; score qualification/assessment/driver/signal paths carry those same operands, available evidence and provisional status; report copies/reader prose/record identity derive from them. Period-context, record-metric bindings and verification-mark paths introduced by the merged D-263 retain that decision's verified entity/period scope. The spec stamp and payload fingerprint are build identities. LLY fixed-analyst verificationLog and related warning/confidence leaves additionally disclose the unsupported executive-credibility citation described above. No additional independent figure or evidence policy is hidden in the render diff.
+All LLY-derived valuation cells withdrawn with the model are covered below. These are prior computed outputs becoming gaps, not new admitted observations. Filed-input proof is the cash and investment scope above; the policy withdraws dependent numbers rather than manufacturing a replacement. FIGR/QCOM uncorroborated vendor component values are not reproduced in committed documentation. Rendered copies, score metadata, period labels, gap/source/qualification fields and payload identities derive from these figures and the stated root/refusal/qualification changes. Array movements copy the same entries; no other financial policy changes.
+
 
 <details>
-<summary>amzn-data-only: changed paths</summary>
+<summary>figr-data-only: every changed numeric Stage B leaf</summary>
 
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-returns.roic.notes[*] (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-```
+| Figure | Main | Final policy |
+| --- | ---: | ---: |
+| `capital.netDebtToEbitda.resolution.value` | -346943000 | gap |
 
 </details>
 
 <details>
-<summary>figr-data-only: changed paths</summary>
+<summary>rivn-data-only: every changed numeric Stage B leaf</summary>
 
-
-stageB.json
-
-```text
-capital.gaps[*].attemptedSources (2 leaves)
-capital.gaps[*].field (2 leaves)
-capital.gaps[*].reason (2 leaves)
-capital.gaps[*].severity (1 leaves)
-capital.gaps[*] (1 leaves)
-capital.netDebtToEbitda.resolution.cashBasis (1 leaves)
-capital.netDebtToEbitda.resolution.components.shortTermInvestments (1 leaves)
-capital.netDebtToEbitda.resolution.reason (1 leaves)
-capital.netDebtToEbitda.resolution.value (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].reason (58 leaves)
-gaps[*].attemptedSources (23 leaves)
-gaps[*].expected (34 leaves)
-gaps[*].field (61 leaves)
-gaps[*].attemptedSources[*] (15 leaves)
-gaps[*] (9 leaves)
-returns.gaps[*].reason (1 leaves)
-returns.gaps[*] (3 leaves)
-scores.qualification.aspects.moat.reasons[*] (1 leaves)
-scores.qualification.aspects.moat.status (1 leaves)
-scores.qualification.aspects.valuation.reasons[*] (1 leaves)
-scores.qualification.composite.reasons[*].aspect (1 leaves)
-scores.qualification.composite.reasons[*].code (1 leaves)
-scores.qualification.composite.reasons[*].detail (1 leaves)
-scores.qualification.composite.reasons[*].field (1 leaves)
-scores.qualification.composite.reasons[*] (2 leaves)
-valuation.gaps[*].reason (1 leaves)
-valuation.multiples.gaps[*].reason (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-verdict.synthesis (1 leaves)
-verdict.gradeStrip.valuation.qualification.reasons[*] (1 leaves)
-verdict.gradeStrip.moat.qualification.status (1 leaves)
-verdict.gradeStrip.moat.qualification.reasons[*] (1 leaves)
-valuation.graded.qualification.reasons[*] (1 leaves)
-competitive.moatGraded.qualification.status (1 leaves)
-competitive.moatGraded.qualification.reasons[*] (1 leaves)
-appendix.missingData[*].reason (42 leaves)
-appendix.missingData[*].field (44 leaves)
-appendix.missingData[*].attemptedSources (7 leaves)
-appendix.missingData[*].attemptedSources[*] (1 leaves)
-appendix.missingData[*].expected (16 leaves)
-appendix.missingData[*] (9 leaves)
-scores.qualification.aspects.valuation.reasons[*] (1 leaves)
-scores.qualification.aspects.moat.status (1 leaves)
-scores.qualification.aspects.moat.reasons[*] (1 leaves)
-scores.qualification.composite.reasons[*].code (1 leaves)
-scores.qualification.composite.reasons[*].aspect (1 leaves)
-scores.qualification.composite.reasons[*].field (1 leaves)
-scores.qualification.composite.reasons[*].detail (1 leaves)
-scores.qualification.composite.reasons[*] (2 leaves)
-```
+| Figure | Main | Final policy |
+| --- | ---: | ---: |
+| `returns.roic.series[1].investedCapitalAvg` | 3194000000 | gap |
+| `returns.roic.series[1].terminalEvidenceRoicPct` | -214.65247338760176 | gap |
 
 </details>
 
 <details>
-<summary>meta-data-only: changed paths</summary>
+<summary>lly-data-only: every changed numeric Stage B leaf</summary>
 
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].attemptedSources (37 leaves)
-gaps[*].expected (26 leaves)
-gaps[*].field (95 leaves)
-gaps[*].reason (80 leaves)
-gaps[*].attemptedSources[*] (24 leaves)
-gaps[*] (13 leaves)
-returns.gaps[*] (5 leaves)
-returns.roic.gaps[*] (4 leaves)
-returns.roic.notes[*] (1 leaves)
-returns.roicVsWacc.note (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (49 leaves)
-appendix.missingData[*].expected (26 leaves)
-appendix.missingData[*].reason (34 leaves)
-appendix.missingData[*].attemptedSources (1 leaves)
-appendix.missingData[*] (13 leaves)
-```
+| Figure | Main | Final policy |
+| --- | ---: | ---: |
+| `capital.current.debtBridge.cashAndShortTermInvestments` | 4885000000 | gap |
+| `capital.current.debtBridge.netDebtIncludingLeases` | 44618000000 | gap |
+| `capital.current.netDebt` | 44618000000 | gap |
+| `capital.current.netDebtToEbitda` | 1.204274258630974 | gap |
+| `capital.netDebtToEbitda.resolution.components.cashAndCashEquivalents` | gap | 7268000000 |
+| `fairValue.perShare.value` | 662.08 | gap |
+| `fairValue.upsidePct` | -54.13370280568064 | gap |
+| `projections.scenarioAssumptions.growthMarginCorrelation` | 0.7505345142474684 | gap |
+| `projections.scenarioAssumptions.scenarios[0].effectiveMarginDeltaPp` | 0.6078503590840754 | gap |
+| `projections.scenarioAssumptions.scenarios[0].growthDeltaPp` | 15.92696419387493 | gap |
+| `projections.scenarioAssumptions.scenarios[0].marginDeltaPp` | 6.17828533713081 | gap |
+| `projections.scenarioAssumptions.scenarios[1].growthDeltaPp` | 0 | gap |
+| `projections.scenarioAssumptions.scenarios[1].marginDeltaPp` | 0 | gap |
+| `projections.scenarioAssumptions.scenarios[2].growthDeltaPp` | -15.92696419387493 | gap |
+| `projections.scenarioAssumptions.scenarios[2].marginDeltaPp` | -6.17828533713081 | gap |
+| `projections.series[0].base[0].value.value` | 99507131372.11 | gap |
+| `projections.series[0].base[1].value.value` | 115632534663.73 | gap |
+| `projections.series[0].base[2].value.value` | 127304782290.48 | gap |
+| `projections.series[0].base[3].value.value` | 138234153769.96 | gap |
+| `projections.series[0].base[4].value.value` | 147788026682.4 | gap |
+| `projections.series[0].bear[0].value.value` | 85736359590.8 | gap |
+| `projections.series[0].bear[1].value.value` | 89194469926.04 | gap |
+| `projections.series[0].bear[2].value.value` | 89999756838.55 | gap |
+| `projections.series[0].bear[3].value.value` | 91583175869.14 | gap |
+| `projections.series[0].bear[4].value.value` | 93381030815.83 | gap |
+| `projections.series[0].bull[0].value.value` | 113277903153.42 | gap |
+| `projections.series[0].bull[1].value.value` | 145422914955.29 | gap |
+| `projections.series[0].bull[2].value.value` | 173468704492.38 | gap |
+| `projections.series[0].bull[3].value.value` | 200202040832.48 | gap |
+| `projections.series[0].bull[4].value.value` | 223945310912.45 | gap |
+| `projections.series[0].historical[0].value.value` | 28541400000 | gap |
+| `projections.series[0].historical[1].value.value` | 34124000000 | gap |
+| `projections.series[0].historical[2].value.value` | 45043000000 | gap |
+| `projections.series[0].historical[3].value.value` | 65179000000 | gap |
+| `projections.series[0].weighted[0].value.value` | 99507131372.11 | gap |
+| `projections.series[0].weighted[1].value.value` | 116470613552.2 | gap |
+| `projections.series[0].weighted[2].value.value` | 129519506477.97 | gap |
+| `projections.series[0].weighted[3].value.value` | 142063381060.39 | gap |
+| `projections.series[0].weighted[4].value.value` | 153225598773.27 | gap |
+| `projections.series[1].base[0].value.value` | 40.34 | gap |
+| `projections.series[1].base[1].value.value` | 40.49 | gap |
+| `projections.series[1].base[2].value.value` | 40.64 | gap |
+| `projections.series[1].base[3].value.value` | 40.79 | gap |
+| `projections.series[1].base[4].value.value` | 40.94 | gap |
+| `projections.series[1].bear[0].value.value` | 34.16 | gap |
+| `projections.series[1].bear[1].value.value` | 35.77 | gap |
+| `projections.series[1].bear[2].value.value` | 37.08 | gap |
+| `projections.series[1].bear[3].value.value` | 38.14 | gap |
+| `projections.series[1].bear[4].value.value` | 39.03 | gap |
+| `projections.series[1].bull[0].value.value` | 40.94 | gap |
+| `projections.series[1].bull[1].value.value` | 40.94 | gap |
+| `projections.series[1].bull[2].value.value` | 40.94 | gap |
+| `projections.series[1].bull[3].value.value` | 40.94 | gap |
+| `projections.series[1].bull[4].value.value` | 40.94 | gap |
+| `projections.series[1].historical[0].value.value` | 24.97 | gap |
+| `projections.series[1].historical[1].value.value` | 18.92 | gap |
+| `projections.series[1].historical[2].value.value` | 28.64 | gap |
+| `projections.series[1].historical[3].value.value` | 40.35 | gap |
+| `projections.series[1].weighted[0].value.value` | 38.94 | gap |
+| `projections.series[1].weighted[1].value.value` | 39.42 | gap |
+| `projections.series[1].weighted[2].value.value` | 39.83 | gap |
+| `projections.series[1].weighted[3].value.value` | 40.17 | gap |
+| `projections.series[1].weighted[4].value.value` | 40.46 | gap |
+| `projections.series[2].base[0].value.value` | 19636009403.24 | gap |
+| `projections.series[2].base[1].value.value` | 22036855121.5 | gap |
+| `projections.series[2].base[2].value.value` | 30084204199.77 | gap |
+| `projections.series[2].base[3].value.value` | 34445508669.4 | gap |
+| `projections.series[2].base[4].value.value` | 38975603538.29 | gap |
+| `projections.series[2].bear[0].value.value` | 23230512842.05 | gap |
+| `projections.series[2].bear[1].value.value` | 22059498614.45 | gap |
+| `projections.series[2].bear[2].value.value` | 25690791975.41 | gap |
+| `projections.series[2].bear[3].value.value` | 26191989472.66 | gap |
+| `projections.series[2].bear[4].value.value` | 27172773409.11 | gap |
+| `projections.series[2].bull[0].value.value` | 11707200656.66 | gap |
+| `projections.series[2].bull[1].value.value` | 17141190544.33 | gap |
+| `projections.series[2].bull[2].value.value` | 30054804627.33 | gap |
+| `projections.series[2].bull[3].value.value` | 39927786380.91 | gap |
+| `projections.series[2].bull[4].value.value` | 50392792525.49 | gap |
+| `projections.series[2].historical[0].value.value` | 4229300000 | gap |
+| `projections.series[2].historical[1].value.value` | 164000000 | gap |
+| `projections.series[2].historical[2].value.value` | 3114500000 | gap |
+| `projections.series[2].historical[3].value.value` | 8346000000 | gap |
+| `projections.series[2].weighted[0].value.value` | 18552433076.3 | gap |
+| `projections.series[2].weighted[1].value.value` | 20818599850.45 | gap |
+| `projections.series[2].weighted[2].value.value` | 28978501250.57 | gap |
+| `projections.series[2].weighted[3].value.value` | 33752698298.09 | gap |
+| `projections.series[2].weighted[4].value.value` | 38879193252.79 | gap |
+| `projections.series[3].base[0].value.value` | 34.36 | gap |
+| `projections.series[3].base[1].value.value` | 40.28 | gap |
+| `projections.series[3].base[2].value.value` | 44.62 | gap |
+| `projections.series[3].base[3].value.value` | 48.73 | gap |
+| `projections.series[3].base[4].value.value` | 52.36 | gap |
+| `projections.series[3].bear[0].value.value` | 24.73 | gap |
+| `projections.series[3].bear[1].value.value` | 27.04 | gap |
+| `projections.series[3].bear[2].value.value` | 28.33 | gap |
+| `projections.series[3].bear[3].value.value` | 29.7 | gap |
+| `projections.series[3].bear[4].value.value` | 31.03 | gap |
+| `projections.series[3].bull[0].value.value` | 39.91 | gap |
+| `projections.series[3].bull[1].value.value` | 51.57 | gap |
+| `projections.series[3].bull[2].value.value` | 61.73 | gap |
+| `projections.series[3].bull[3].value.value` | 71.41 | gap |
+| `projections.series[3].bull[4].value.value` | 79.99 | gap |
+| `projections.series[3].capitalReturn.appliedShareCountAnnualizedPct` | 0 | gap |
+| `projections.series[3].capitalReturn.netIncomeToEbit` | 0.7648882663695067 | gap |
+| `projections.series[3].capitalReturn.shareCountAnnualizedPct` | -0.6586891184868104 | gap |
+| `projections.series[3].flatShare.base[0].value.value` | 34.36 | gap |
+| `projections.series[3].flatShare.base[1].value.value` | 40.28 | gap |
+| `projections.series[3].flatShare.base[2].value.value` | 44.62 | gap |
+| `projections.series[3].flatShare.base[3].value.value` | 48.73 | gap |
+| `projections.series[3].flatShare.base[4].value.value` | 52.36 | gap |
+| `projections.series[3].flatShare.bear[0].value.value` | 24.73 | gap |
+| `projections.series[3].flatShare.bear[1].value.value` | 27.04 | gap |
+| `projections.series[3].flatShare.bear[2].value.value` | 28.33 | gap |
+| `projections.series[3].flatShare.bear[3].value.value` | 29.7 | gap |
+| `projections.series[3].flatShare.bear[4].value.value` | 31.03 | gap |
+| `projections.series[3].flatShare.bull[0].value.value` | 39.91 | gap |
+| `projections.series[3].flatShare.bull[1].value.value` | 51.57 | gap |
+| `projections.series[3].flatShare.bull[2].value.value` | 61.73 | gap |
+| `projections.series[3].flatShare.bull[3].value.value` | 71.41 | gap |
+| `projections.series[3].flatShare.bull[4].value.value` | 79.99 | gap |
+| `projections.series[3].flatShare.weighted[0].value.value` | 33.34 | gap |
+| `projections.series[3].flatShare.weighted[1].value.value` | 39.79 | gap |
+| `projections.series[3].flatShare.weighted[2].value.value` | 44.83 | gap |
+| `projections.series[3].flatShare.weighted[3].value.value` | 49.64 | gap |
+| `projections.series[3].flatShare.weighted[4].value.value` | 53.93 | gap |
+| `projections.series[3].historical[0].value.value` | 6.9 | gap |
+| `projections.series[3].historical[1].value.value` | 5.8 | gap |
+| `projections.series[3].historical[2].value.value` | 11.71 | gap |
+| `projections.series[3].historical[3].value.value` | 22.95 | gap |
+| `projections.series[3].shareTrend.base[0].value.value` | 34.59 | gap |
+| `projections.series[3].shareTrend.base[1].value.value` | 40.81 | gap |
+| `projections.series[3].shareTrend.base[2].value.value` | 45.52 | gap |
+| `projections.series[3].shareTrend.base[3].value.value` | 50.03 | gap |
+| `projections.series[3].shareTrend.base[4].value.value` | 54.12 | gap |
+| `projections.series[3].shareTrend.bear[0].value.value` | 24.89 | gap |
+| `projections.series[3].shareTrend.bear[1].value.value` | 27.4 | gap |
+| `projections.series[3].shareTrend.bear[2].value.value` | 28.89 | gap |
+| `projections.series[3].shareTrend.bear[3].value.value` | 30.5 | gap |
+| `projections.series[3].shareTrend.bear[4].value.value` | 32.07 | gap |
+| `projections.series[3].shareTrend.bull[0].value.value` | 40.17 | gap |
+| `projections.series[3].shareTrend.bull[1].value.value` | 52.26 | gap |
+| `projections.series[3].shareTrend.bull[2].value.value` | 62.97 | gap |
+| `projections.series[3].shareTrend.bull[3].value.value` | 73.32 | gap |
+| `projections.series[3].shareTrend.bull[4].value.value` | 82.68 | gap |
+| `projections.series[3].shareTrend.weighted[0].value.value` | 33.56 | gap |
+| `projections.series[3].shareTrend.weighted[1].value.value` | 40.32 | gap |
+| `projections.series[3].shareTrend.weighted[2].value.value` | 45.72 | gap |
+| `projections.series[3].shareTrend.weighted[3].value.value` | 50.97 | gap |
+| `projections.series[3].shareTrend.weighted[4].value.value` | 55.75 | gap |
+| `projections.series[3].weighted[0].value.value` | 33.34 | gap |
+| `projections.series[3].weighted[1].value.value` | 39.79 | gap |
+| `projections.series[3].weighted[2].value.value` | 44.83 | gap |
+| `projections.series[3].weighted[3].value.value` | 49.64 | gap |
+| `projections.series[3].weighted[4].value.value` | 53.93 | gap |
+| `returns.roic.series[1].investedCapitalAvg` | 24802200000 | gap |
+| `returns.roic.series[1].roicPct` | 26.36549320395039 | gap |
+| `returns.roic.series[1].terminalEvidenceRoicPct` | 26.36549320395039 | gap |
+| `scenarioTargets.dispersion.growthMarginCorrelation` | 0.7505345142474684 | gap |
+| `scenarioTargets.dispersion.growthSigmaPp` | 15.93 | gap |
+| `scenarioTargets.dispersion.marginSigmaPp` | 8.23 | gap |
+| `scenarioTargets.scenarioAssumptions.growthMarginCorrelation` | 0.7505345142474684 | gap |
+| `scenarioTargets.scenarioAssumptions.scenarios[0].effectiveMarginDeltaPp` | 0.6078503590840754 | gap |
+| `scenarioTargets.scenarioAssumptions.scenarios[0].growthDeltaPp` | 15.92696419387493 | gap |
+| `scenarioTargets.scenarioAssumptions.scenarios[0].marginDeltaPp` | 6.17828533713081 | gap |
+| `scenarioTargets.scenarioAssumptions.scenarios[1].growthDeltaPp` | 0 | gap |
+| `scenarioTargets.scenarioAssumptions.scenarios[1].marginDeltaPp` | 0 | gap |
+| `scenarioTargets.scenarioAssumptions.scenarios[2].growthDeltaPp` | -15.92696419387493 | gap |
+| `scenarioTargets.scenarioAssumptions.scenarios[2].marginDeltaPp` | -6.17828533713081 | gap |
+| `scenarioTargets.targets[0].growthDeltaPp` | 15.92696419387493 | gap |
+| `scenarioTargets.targets[0].marginDeltaPp` | 6.17828533713081 | gap |
+| `scenarioTargets.targets[0].perShare.value` | 1009.57 | gap |
+| `scenarioTargets.targets[0].upsidePct` | -30.060962937305156 | gap |
+| `scenarioTargets.targets[1].growthDeltaPp` | 0 | gap |
+| `scenarioTargets.targets[1].marginDeltaPp` | 0 | gap |
+| `scenarioTargets.targets[1].perShare.value` | 662.08 | gap |
+| `scenarioTargets.targets[1].upsidePct` | -54.13370280568064 | gap |
+| `scenarioTargets.targets[2].growthDeltaPp` | -15.92696419387493 | gap |
+| `scenarioTargets.targets[2].marginDeltaPp` | -6.17828533713081 | gap |
+| `scenarioTargets.targets[2].perShare.value` | 411.64 | gap |
+| `scenarioTargets.targets[2].upsidePct` | -71.48320055420851 | gap |
+| `scores.aspects.balanceSheet.applicableCompleteness` | 1 | 0.6470588235294118 |
+| `scores.aspects.balanceSheet.dataCompleteness` | 1 | 0.6470588235294118 |
+| `scores.aspects.balanceSheet.score` | 74.37 | 77.01 |
+| `scores.aspects.valuation.applicableCompleteness` | 1 | 0 |
+| `scores.aspects.valuation.dataCompleteness` | 1 | 0 |
+| `scores.aspects.valuation.score` | 33.98 | gap |
+| `scores.composite.score` | 63.05 | 65.22 |
+| `scores.factorExposure[0].aboveNeutralPoints` | -3.2032748568780818 | 4.568875473633628 |
+| `scores.factorExposure[0].weightPct` | 20 | 14.000000000000002 |
+| `scores.factorExposure[1].aboveNeutralPoints` | 4.568875473633628 | 3.93 |
+| `scores.factorExposure[1].weightPct` | 14.000000000000002 | 9.75 |
+| `scores.factorExposure[2].aboveNeutralPoints` | 2.766550041008283 | 1.7967716273026175 |
+| `scores.factorExposure[2].weightPct` | 12.352941176470589 | 9.75 |
+| `scores.factorExposure[3].aboveNeutralPoints` | 3.93 | 1.7316183935503133 |
+| `scores.factorExposure[3].weightPct` | 9.75 | 7.0588235294117645 |
+| `scores.factorExposure[4].aboveNeutralPoints` | 1.7967716273026175 | 0.8678716902497978 |
+| `scores.factorExposure[4].weightPct` | 9.75 | 5 |
+| `scores.factorExposure[5].aboveNeutralPoints` | 0.8678716902497978 | 0.5432788504964027 |
+| `scores.factorExposure[5].weightPct` | 5 | 4.545454545454545 |
+| `scores.factorExposure[6].aboveNeutralPoints` | 0.5432788504964027 | 0.8901548302831702 |
+| `scores.factorExposure[6].weightPct` | 4.545454545454545 | 4.5 |
+| `scores.factorExposure[7].aboveNeutralPoints` | 0.8901548302831702 | 0.889667249389876 |
+| `scores.factorExposure[7].weightPct` | 4.5 | 2.6470588235294117 |
+| `scores.factorExposure[8].aboveNeutralPoints` | 0.889667249389876 | gap |
+| `scores.factorExposure[8].weightPct` | 2.6470588235294117 | gap |
+| `valuation.assumptions.ebitMarginPath.value[0]` | 40.33679535518493 | gap |
+| `valuation.assumptions.ebitMarginPath.value[1]` | 40.48875794495595 | gap |
+| `valuation.assumptions.ebitMarginPath.value[2]` | 40.64072053472697 | gap |
+| `valuation.assumptions.ebitMarginPath.value[3]` | 40.79268312449799 | gap |
+| `valuation.assumptions.ebitMarginPath.value[4]` | 40.94464571426901 | gap |
+| `valuation.assumptions.ebitMarginPath.value[5]` | 40.94464571426901 | gap |
+| `valuation.assumptions.ebitMarginPath.value[6]` | 40.94464571426901 | gap |
+| `valuation.assumptions.ebitMarginPath.value[7]` | 40.94464571426901 | gap |
+| `valuation.assumptions.ebitMarginPath.value[8]` | 40.94464571426901 | gap |
+| `valuation.assumptions.ebitMarginPath.value[9]` | 40.94464571426901 | gap |
+| `valuation.assumptions.growthAnchor.methods[0].valuePct` | 12.194034232768502 | gap |
+| `valuation.assumptions.growthAnchor.methods[1].valuePct` | 31.687374880620432 | gap |
+| `valuation.assumptions.growthAnchor.methods[2].valuePct` | 21.57585565669087 | gap |
+| `valuation.assumptions.growthAnchor.methods[3].valuePct` | 20.74317874515724 | gap |
+| `valuation.assumptions.growthAnchor.pointPct` | 21.159517200924057 | gap |
+| `valuation.assumptions.growthAnchor.rangePct[0]` | 12.194034232768502 | gap |
+| `valuation.assumptions.growthAnchor.rangePct[1]` | 31.687374880620432 | gap |
+| `valuation.assumptions.growthPath.value[0]` | 15.087704855441197 | gap |
+| `valuation.assumptions.growthPath.value[1]` | 16.205274003241787 | gap |
+| `valuation.assumptions.growthPath.value[2]` | 10.09425907742958 | gap |
+| `valuation.assumptions.growthPath.value[3]` | 8.585201029241674 | gap |
+| `valuation.assumptions.growthPath.value[4]` | 6.911369333756911 | gap |
+| `valuation.assumptions.growthPath.value[5]` | 5.582848236641797 | gap |
+| `valuation.assumptions.growthPath.value[6]` | 4.528400343080558 | gap |
+| `valuation.assumptions.growthPath.value[7]` | 3.6914844953381767 | gap |
+| `valuation.assumptions.growthPath.value[8]` | 3.0272239467806195 | gap |
+| `valuation.assumptions.growthPath.value[9]` | 2.5 | gap |
+| `valuation.assumptions.improvingMarginFade.currentPct` | 40.33679535518493 | gap |
+| `valuation.assumptions.improvingMarginFade.targetPct` | 40.94464571426901 | gap |
+| `valuation.assumptions.investmentTax.ratePct` | 21 | gap |
+| `valuation.assumptions.nonOperatingInvestments.value` | 4013000000 | gap |
+| `valuation.assumptions.revenueAnchor.anchoredGrowthPct[0]` | 15.087704855441197 | gap |
+| `valuation.assumptions.revenueAnchor.anchoredGrowthPct[1]` | 16.205274003241787 | gap |
+| `valuation.assumptions.revenueAnchor.anchoredGrowthPct[2]` | 10.09425907742958 | gap |
+| `valuation.assumptions.revenueAnchor.anchoredGrowthPct[3]` | 8.585201029241674 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].consensus` | 99507131372.11157 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].fiscalYears[0].analysts` | 17 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].fiscalYears[0].days` | 92 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].fiscalYears[0].dispersionPct` | 0.6674885273177706 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].fiscalYears[0].reportedToDate` | 67170000000 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].fiscalYears[0].revenue` | 91334188610 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].fiscalYears[1].analysts` | 21 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].fiscalYears[1].days` | 273 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].fiscalYears[1].dispersionPct` | 2.0664772386233503 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].fiscalYears[1].revenue` | 107018240264 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[0].year` | 1 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[1].consensus` | 115632534663.72803 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[1].fiscalYears[0].analysts` | 21 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[1].fiscalYears[0].days` | 92 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[1].fiscalYears[0].dispersionPct` | 2.0664772386233503 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[1].fiscalYears[0].revenue` | 107018240264 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[1].fiscalYears[1].analysts` | 25 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[1].fiscalYears[1].days` | 274 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[1].fiscalYears[1].dispersionPct` | 6.045536231338544 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[1].fiscalYears[1].revenue` | 119254112583 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[1].year` | 2 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[2].consensus` | 127304782290.48329 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[2].fiscalYears[0].analysts` | 25 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[2].fiscalYears[0].days` | 92 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[2].fiscalYears[0].dispersionPct` | 6.045536231338544 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[2].fiscalYears[0].revenue` | 119254112583 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[2].fiscalYears[1].analysts` | 12 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[2].fiscalYears[1].days` | 273 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[2].fiscalYears[1].dispersionPct` | 3.774060204699618 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[2].fiscalYears[1].revenue` | 130689403978 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[2].year` | 3 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[3].consensus` | 138234153769.95975 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[3].fiscalYears[0].analysts` | 12 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[3].fiscalYears[0].days` | 92 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[3].fiscalYears[0].dispersionPct` | 3.774060204699618 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[3].fiscalYears[0].revenue` | 130689403978 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[3].fiscalYears[1].analysts` | 12 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[3].fiscalYears[1].days` | 273 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[3].fiscalYears[1].dispersionPct` | 3.7740602048535328 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[3].fiscalYears[1].revenue` | 141406079175 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[3].year` | 4 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[4].fiscalYears[0].analysts` | 12 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[4].fiscalYears[0].days` | 92 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[4].fiscalYears[0].dispersionPct` | 3.7740602048535328 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[4].fiscalYears[0].revenue` | 141406079175 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[4].year` | 5 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[5].year` | 6 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[6].year` | 7 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[7].year` | 8 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[8].year` | 9 | gap |
+| `valuation.assumptions.revenueAnchor.consensusPath[9].year` | 10 | gap |
+| `valuation.assumptions.revenueAnchor.consensusYears[0]` | 1 | gap |
+| `valuation.assumptions.revenueAnchor.consensusYears[1]` | 2 | gap |
+| `valuation.assumptions.revenueAnchor.consensusYears[2]` | 3 | gap |
+| `valuation.assumptions.revenueAnchor.consensusYears[3]` | 4 | gap |
+| `valuation.assumptions.revenueAnchor.evidence.consensusYearOne` | 99507131372.11157 | gap |
+| `valuation.assumptions.revenueAnchor.evidence.consensusYearTwo` | 115632534663.72803 | gap |
+| `valuation.assumptions.revenueAnchor.runRate.latestQuarterAnnualized` | 97588000000 | gap |
+| `valuation.assumptions.revenueAnchor.runRate.latestQuarterWeeks` | 13 | gap |
+| `valuation.assumptions.revenueAnchor.runRate.seasonallyNeutral` | 97723707118.31856 | gap |
+| `valuation.assumptions.revenueAnchor.runRate.value` | 97588000000 | gap |
+| `valuation.assumptions.revenueAnchor.runRate.yoyPct` | 38.61144253167434 | gap |
+| `valuation.assumptions.revenueAnchor.yearOneGrowthPct` | 15.087704855441197 | gap |
+| `valuation.assumptions.revenueAnchor.yearOneRevenue` | 99507131372.11157 | gap |
+| `valuation.assumptions.revenueAnchor.yearTwoGrowthPct` | 16.205274003241787 | gap |
+| `valuation.assumptions.salesToCapital.value` | 1.0690686977595332 | gap |
+| `valuation.assumptions.sbc.value.afterSbc` | 18962900000 | gap |
+| `valuation.assumptions.sbc.value.beforeSbc` | 19660900000 | gap |
+| `valuation.assumptions.sbc.value.sbc` | 698000000 | gap |
+| `valuation.assumptions.scenarioMarginCeiling.grossMarginPct` | 83.63477597094678 | gap |
+| `valuation.assumptions.scenarioMarginCeiling.minOpexRatioPct` | 42.69013025667777 | gap |
+| `valuation.assumptions.scenarioMarginCeiling.pct` | 40.94464571426901 | gap |
+| `valuation.assumptions.startRevenue.value` | 86462000000 | gap |
+| `valuation.assumptions.taxRatePath.value[0]` | 20.677783785649368 | gap |
+| `valuation.assumptions.taxRatePath.value[1]` | 20.713585587243884 | gap |
+| `valuation.assumptions.taxRatePath.value[2]` | 20.749387388838397 | gap |
+| `valuation.assumptions.taxRatePath.value[3]` | 20.785189190432913 | gap |
+| `valuation.assumptions.taxRatePath.value[4]` | 20.820990992027426 | gap |
+| `valuation.assumptions.taxRatePath.value[5]` | 20.856792793621942 | gap |
+| `valuation.assumptions.taxRatePath.value[6]` | 20.892594595216455 | gap |
+| `valuation.assumptions.taxRatePath.value[7]` | 20.92839639681097 | gap |
+| `valuation.assumptions.taxRatePath.value[8]` | 20.964198198405484 | gap |
+| `valuation.assumptions.taxRatePath.value[9]` | 21 | gap |
+| `valuation.assumptions.terminal.gTermPct.value` | 2.5 | gap |
+| `valuation.assumptions.terminal.reinvestmentRate.value` | 0.3201846958263031 | gap |
+| `valuation.assumptions.terminal.roicTermPct.value` | 7.807993425632762 | gap |
+| `valuation.assumptions.valuationDate.elapsedYears` | 0.12046543463381246 | gap |
+| `valuation.assumptions.wacc.value` | 7.807993425632762 | gap |
+| `valuation.assumptions.years` | 10 | gap |
+| `valuation.dcf.bridge.dilutedShares` | 893400000 | gap |
+| `valuation.dcf.bridge.minorityInterest` | 0 | gap |
+| `valuation.dcf.bridge.netDebt` | 44618000000 | gap |
+| `valuation.dcf.bridge.nonOperatingAssets` | 3170270000 | gap |
+| `valuation.dcf.bridge.nonOperatingComponents[0].value` | 4013000000 | gap |
+| `valuation.dcf.bridge.nonOperatingComponents[1].value` | -842730000 | gap |
+| `valuation.dcf.bridge.preferred` | 0 | gap |
+| `valuation.dcf.bridge.sharesOutstandingAtQuote` | 940745000 | gap |
+| `valuation.dcf.enterpriseValue` | 632948677569.9573 | gap |
+| `valuation.dcf.equityValue` | 591500947569.9573 | gap |
+| `valuation.dcf.gTermUsedPct` | 2.5 | gap |
+| `valuation.dcf.perShare` | 662.078517539688 | gap |
+| `valuation.dcf.pvExplicit` | 258283194595.8216 | gap |
+| `valuation.dcf.pvTerminal` | 374665482974.1356 | gap |
+| `valuation.dcf.terminalShare` | 0.5919365917827126 | gap |
+| `valuation.dcf.terminalValue` | 758393354450.0613 | gap |
+| `valuation.dcf.yearRows[0].discountFactor` | 1.0289450186183204 | gap |
+| `valuation.dcf.yearRows[0].ebit` | 40137987945.383675 | gap |
+| `valuation.dcf.yearRows[0].ebitMarginPct` | 40.33679535518493 | gap |
+| `valuation.dcf.yearRows[0].fcff` | 19636009403.2406 | gap |
+| `valuation.dcf.yearRows[0].growthPct` | 15.087704855441197 | gap |
+| `valuation.dcf.yearRows[0].nopat` | 31838341582.127228 | gap |
+| `valuation.dcf.yearRows[0].pv` | 19083633282.571373 | gap |
+| `valuation.dcf.yearRows[0].reinvestment` | 12202332178.886625 | gap |
+| `valuation.dcf.yearRows[0].revenue` | 99507131372.11157 | gap |
+| `valuation.dcf.yearRows[0].taxRatePct` | 20.677783785649368 | gap |
+| `valuation.dcf.yearRows[0].year` | 1 | gap |
+| `valuation.dcf.yearRows[1].discountFactor` | 1.1092849780254146 | gap |
+| `valuation.dcf.yearRows[1].ebit` | 46818177065.61413 | gap |
+| `valuation.dcf.yearRows[1].ebitMarginPct` | 40.48875794495595 | gap |
+| `valuation.dcf.yearRows[1].fcff` | 22036855121.5046 | gap |
+| `valuation.dcf.yearRows[1].growthPct` | 16.205274003241787 | gap |
+| `valuation.dcf.yearRows[1].nopat` | 37120453888.74075 | gap |
+| `valuation.dcf.yearRows[1].pv` | 19865819476.55269 | gap |
+| `valuation.dcf.yearRows[1].reinvestment` | 15083598767.236155 | gap |
+| `valuation.dcf.yearRows[1].revenue` | 115632534663.72803 | gap |
+| `valuation.dcf.yearRows[1].taxRatePct` | 20.713585587243884 | gap |
+| `valuation.dcf.yearRows[1].year` | 2 | gap |
+| `valuation.dcf.yearRows[2].discountFactor` | 1.195897876181171 | gap |
+| `valuation.dcf.yearRows[2].ebit` | 51737580798.0179 | gap |
+| `valuation.dcf.yearRows[2].ebitMarginPct` | 40.64072053472697 | gap |
+| `valuation.dcf.yearRows[2].fcff` | 30084204199.77179 | gap |
+| `valuation.dcf.yearRows[2].growthPct` | 10.09425907742958 | gap |
+| `valuation.dcf.yearRows[2].nopat` | 41002349732.62389 | gap |
+| `valuation.dcf.yearRows[2].pv` | 25156164919.231133 | gap |
+| `valuation.dcf.yearRows[2].reinvestment` | 10918145532.852104 | gap |
+| `valuation.dcf.yearRows[2].revenue` | 127304782290.48329 | gap |
+| `valuation.dcf.yearRows[2].taxRatePct` | 20.749387388838397 | gap |
+| `valuation.dcf.yearRows[2].year` | 3 | gap |
+| `valuation.dcf.yearRows[3].discountFactor` | 1.2892735037306786 | gap |
+| `valuation.dcf.yearRows[3].ebit` | 56389420317.210976 | gap |
+| `valuation.dcf.yearRows[3].ebitMarginPct` | 40.79268312449799 | gap |
+| `valuation.dcf.yearRows[3].fcff` | 34445508669.39553 | gap |
+| `valuation.dcf.yearRows[3].growthPct` | 8.585201029241674 | gap |
+| `valuation.dcf.yearRows[3].nopat` | 44668772620.89027 | gap |
+| `valuation.dcf.yearRows[3].pv` | 26716991057.151974 | gap |
+| `valuation.dcf.yearRows[3].reinvestment` | 10223263951.494736 | gap |
+| `valuation.dcf.yearRows[3].revenue` | 138234153769.95975 | gap |
+| `valuation.dcf.yearRows[3].taxRatePct` | 20.785189190432913 | gap |
+| `valuation.dcf.yearRows[3].year` | 4 | gap |
+| `valuation.dcf.yearRows[4].discountFactor` | 1.389939894140395 | gap |
+| `valuation.dcf.yearRows[4].ebit` | 60511283933.21603 | gap |
+| `valuation.dcf.yearRows[4].ebitMarginPct` | 40.94464571426901 | gap |
+| `valuation.dcf.yearRows[4].fcff` | 38975603538.28621 | gap |
+| `valuation.dcf.yearRows[4].growthPct` | 6.911369333756911 | gap |
+| `valuation.dcf.yearRows[4].nopat` | 47912234956.320984 | gap |
+| `valuation.dcf.yearRows[4].pv` | 28041215093.2545 | gap |
+| `valuation.dcf.yearRows[4].reinvestment` | 8936631418.034771 | gap |
+| `valuation.dcf.yearRows[4].revenue` | 147788026682.3951 | gap |
+| `valuation.dcf.yearRows[4].taxRatePct` | 20.820990992027426 | gap |
+| `valuation.dcf.yearRows[4].year` | 5 | gap |
+| `valuation.dcf.yearRows[5].discountFactor` | 1.498466309695124 | gap |
+| `valuation.dcf.yearRows[5].ebit` | 63889537081.250885 | gap |
+| `valuation.dcf.yearRows[5].ebitMarginPct` | 40.94464571426901 | gap |
+| `valuation.dcf.yearRows[5].fcff` | 42846500884.73179 | gap |
+| `valuation.dcf.yearRows[5].growthPct` | 5.582848236641797 | gap |
+| `valuation.dcf.yearRows[5].nopat` | 50564228715.41013 | gap |
+| `valuation.dcf.yearRows[5].pv` | 28593569710.252132 | gap |
+| `valuation.dcf.yearRows[5].reinvestment` | 7717727830.678345 | gap |
+| `valuation.dcf.yearRows[5].revenue` | 156038807924.00092 | gap |
+| `valuation.dcf.yearRows[5].taxRatePct` | 20.856792793621942 | gap |
+| `valuation.dcf.yearRows[5].year` | 6 | gap |
+| `valuation.dcf.yearRows[6].discountFactor` | 1.6154664606414413 | gap |
+| `valuation.dcf.yearRows[6].ebit` | 66782711097.63083 | gap |
+| `valuation.dcf.yearRows[6].ebitMarginPct` | 40.94464571426901 | gap |
+| `valuation.dcf.yearRows[6].fcff` | 46220521035.28359 | gap |
+| `valuation.dcf.yearRows[6].growthPct` | 4.528400343080558 | gap |
+| `valuation.dcf.yearRows[6].nopat` | 52830070008.30819 | gap |
+| `valuation.dcf.yearRows[6].pv` | 28611253877.057377 | gap |
+| `valuation.dcf.yearRows[6].reinvestment` | 6609548973.024594 | gap |
+| `valuation.dcf.yearRows[6].revenue` | 163104869837.37018 | gap |
+| `valuation.dcf.yearRows[6].taxRatePct` | 20.892594595216455 | gap |
+| `valuation.dcf.yearRows[6].year` | 7 | gap |
+| `valuation.dcf.yearRows[7].discountFactor` | 1.7416019756816274 | gap |
+| `valuation.dcf.yearRows[7].ebit` | 69247984523.36636 | gap |
+| `valuation.dcf.yearRows[7].ebitMarginPct` | 40.94464571426901 | gap |
+| `valuation.dcf.yearRows[7].fcff` | 49123495496.55365 | gap |
+| `valuation.dcf.yearRows[7].growthPct` | 3.6914844953381767 | gap |
+| `valuation.dcf.yearRows[7].nopat` | 54755491825.51394 | gap |
+| `valuation.dcf.yearRows[7].pv` | 28205925453.964714 | gap |
+| `valuation.dcf.yearRows[7].reinvestment` | 5631996328.960291 | gap |
+| `valuation.dcf.yearRows[7].revenue` | 169125860818.55823 | gap |
+| `valuation.dcf.yearRows[7].taxRatePct` | 20.92839639681097 | gap |
+| `valuation.dcf.yearRows[7].year` | 8 | gap |
+| `valuation.dcf.yearRows[8].discountFactor` | 1.8775861434435392 | gap |
+| `valuation.dcf.yearRows[8].ebit` | 71344276093.52065 | gap |
+| `valuation.dcf.yearRows[8].ebitMarginPct` | 40.94464571426901 | gap |
+| `valuation.dcf.yearRows[8].fcff` | 51598475222.36131 | gap |
+| `valuation.dcf.yearRows[8].growthPct` | 3.0272239467806195 | gap |
+| `valuation.dcf.yearRows[8].nopat` | 56387520650.05736 | gap |
+| `valuation.dcf.yearRows[8].pv` | 27481282498.031456 | gap |
+| `valuation.dcf.yearRows[8].reinvestment` | 4789045427.696042 | gap |
+| `valuation.dcf.yearRows[8].revenue` | 174245679377.45648 | gap |
+| `valuation.dcf.yearRows[8].taxRatePct` | 20.964198198405484 | gap |
+| `valuation.dcf.yearRows[8].year` | 9 | gap |
+| `valuation.dcf.yearRows[9].discountFactor` | 2.0241879460842025 | gap |
+| `valuation.dcf.yearRows[9].ebit` | 73127882995.85866 | gap |
+| `valuation.dcf.yearRows[9].ebitMarginPct` | 40.94464571426901 | gap |
+| `valuation.dcf.yearRows[9].fcff` | 53696320306.50676 | gap |
+| `valuation.dcf.yearRows[9].growthPct` | 2.5 | gap |
+| `valuation.dcf.yearRows[9].nopat` | 57771027566.72834 | gap |
+| `valuation.dcf.yearRows[9].pv` | 26527339227.754246 | gap |
+| `valuation.dcf.yearRows[9].reinvestment` | 4074707260.2215815 | gap |
+| `valuation.dcf.yearRows[9].revenue` | 178601821361.89288 | gap |
+| `valuation.dcf.yearRows[9].taxRatePct` | 21 | gap |
+| `valuation.dcf.yearRows[9].year` | 10 | gap |
+| `valuation.growthMarginGrid.growthShiftsPp[0]` | -20 | gap |
+| `valuation.growthMarginGrid.growthShiftsPp[1]` | -10 | gap |
+| `valuation.growthMarginGrid.growthShiftsPp[2]` | 0 | gap |
+| `valuation.growthMarginGrid.growthShiftsPp[3]` | 10 | gap |
+| `valuation.growthMarginGrid.growthShiftsPp[4]` | 20 | gap |
+| `valuation.growthMarginGrid.marginShiftsPp[0]` | -10 | gap |
+| `valuation.growthMarginGrid.marginShiftsPp[1]` | -5 | gap |
+| `valuation.growthMarginGrid.marginShiftsPp[2]` | 0 | gap |
+| `valuation.growthMarginGrid.marginShiftsPp[3]` | 5 | gap |
+| `valuation.growthMarginGrid.marginShiftsPp[4]` | 10 | gap |
+| `valuation.growthMarginGrid.perShare[0][0]` | 270.7446490796736 | gap |
+| `valuation.growthMarginGrid.perShare[0][1]` | 323.12577559985687 | gap |
+| `valuation.growthMarginGrid.perShare[0][2]` | 375.5069021200403 | gap |
+| `valuation.growthMarginGrid.perShare[1][0]` | 361.12789198798635 | gap |
+| `valuation.growthMarginGrid.perShare[1][1]` | 432.44274603006403 | gap |
+| `valuation.growthMarginGrid.perShare[1][2]` | 503.75760007214177 | gap |
+| `valuation.growthMarginGrid.perShare[2][0]` | 470.67260292691077 | gap |
+| `valuation.growthMarginGrid.perShare[2][1]` | 566.3755602332994 | gap |
+| `valuation.growthMarginGrid.perShare[2][2]` | 662.078517539688 | gap |
+| `valuation.growthMarginGrid.perShare[3][0]` | 610.3309911053561 | gap |
+| `valuation.growthMarginGrid.perShare[3][1]` | 737.1155556367911 | gap |
+| `valuation.growthMarginGrid.perShare[3][2]` | 863.900120168226 | gap |
+| `valuation.growthMarginGrid.perShare[4][0]` | 786.6455589910354 | gap |
+| `valuation.growthMarginGrid.perShare[4][1]` | 952.6583178645869 | gap |
+| `valuation.growthMarginGrid.perShare[4][2]` | 1118.6710767381383 | gap |
+| `valuation.multiples.enterpriseValue.excludingLeases` | 1402583407500 | gap |
+| `valuation.multiples.enterpriseValue.includingLeases` | 1402583407500 | gap |
+| `valuation.multiples.enterpriseValue.value` | 1402583407500 | gap |
+| `valuation.multiples.multiples[1].current` | 37.8568087595851 | gap |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[1].value` | 28.111448298575578 | 31.242162573639504 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[2].value` | 37.44972725423384 | 25.646807341089545 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[3].value` | 47.2442297163043 | 35.39628564623567 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[4].value` | 47.6581332736795 | 28.111448298575578 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[5].value` | 65.48220379297221 | 37.44972725423384 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[6].value` | 73.97939491333507 | 47.2442297163043 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[7].value` | 72.00610942928544 | 47.6581332736795 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[8].value` | 62.31304324884819 | 65.48220379297221 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[9].value` | 71.10273684359461 | 73.97939491333507 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[10].value` | 53.64195651637962 | 72.00610942928544 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[11].value` | gap | 62.31304324884819 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[12].value` | gap | 71.10273684359461 |
+| `valuation.multiples.multiples[1].ownHistory.observationDetails[13].value` | gap | 53.64195651637962 |
+| `valuation.multiples.multiples[1].ownHistory.observations` | 11 | 14 |
+| `valuation.multiples.multiples[1].ownHistory.p25` | 42.34697848526907 | 32.28069334178855 |
+| `valuation.multiples.multiples[1].ownHistory.p5` | 28.58529094153971 | 27.248823963455465 |
+| `valuation.multiples.multiples[1].ownHistory.p50` | 53.64195651637962 | 47.4511814949919 |
+| `valuation.multiples.multiples[1].ownHistory.p75` | 68.29247031828342 | 64.6899136569412 |
+| `valuation.multiples.multiples[1].ownHistory.p95` | 72.99275217131026 | 72.69675934870281 |
+| `valuation.multiples.multiples[1].ownHistory.percentileRank` | 20.41562244425145 | gap |
+| `valuation.multiples.multiples[2].current` | 16.2219634926326 | gap |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[1].value` | 12.066234382573105 | 14.012619335726658 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[2].value` | 13.826308598187346 | 11.914495017301038 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[3].value` | 15.856665822988877 | 15.367624875115066 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[4].value` | 16.08132807313949 | 12.066234382573105 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[5].value` | 20.211630974493005 | 13.826308598187346 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[6].value` | 21.821591278119765 | 15.856665822988877 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[7].value` | 19.726476882787257 | 16.08132807313949 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[8].value` | 16.052080690157396 | 20.211630974493005 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[9].value` | 16.45211693475719 | 21.821591278119765 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[10].value` | 15.628146169978486 | 19.726476882787257 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[11].value` | 12.325706650440209 | 16.052080690157396 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[12].value` | 12.700679815285865 | 16.45211693475719 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[13].value` | 10.413428581200089 | 15.628146169978486 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[14].value` | 10.529360111727616 | 12.325706650440209 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[15].value` | 9.763612405704777 | 12.700679815285865 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[16].value` | 8.447037428175154 | 10.413428581200089 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[17].value` | gap | 10.529360111727616 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[18].value` | gap | 9.763612405704777 |
+| `valuation.multiples.multiples[2].ownHistory.observationDetails[19].value` | gap | 8.447037428175154 |
+| `valuation.multiples.multiples[2].ownHistory.observations` | 17 | 20 |
+| `valuation.multiples.multiples[2].ownHistory.p25` | 12.066234382573105 | 12.028299541255087 |
+| `valuation.multiples.multiples[2].ownHistory.p5` | 9.500297410198852 | 9.697783656828296 |
+| `valuation.multiples.multiples[2].ownHistory.p50` | 13.826308598187346 | 13.919463966957002 |
+| `valuation.multiples.multiples[2].ownHistory.p75` | 16.08132807313949 | 16.05939253590292 |
+| `valuation.multiples.multiples[2].ownHistory.p95` | 20.533623035218355 | 20.292128989674342 |
+| `valuation.multiples.multiples[2].ownHistory.percentileRank` | 77.3705441635898 | gap |
+| `valuation.reverseDcf.baseRevenueGrowthPct` | 15.087704855441197 | gap |
+| `valuation.reverseDcf.impliedGrowthPathPct[0]` | 45.2587890625 | gap |
+| `valuation.reverseDcf.impliedGrowthPathPct[1]` | 39.26289672183697 | gap |
+| `valuation.reverseDcf.impliedGrowthPathPct[2]` | 27.505923671063556 | gap |
+| `valuation.reverseDcf.impliedGrowthPathPct[3]` | 21.515665689409733 | gap |
+| `valuation.reverseDcf.impliedGrowthPathPct[4]` | 16.28510324969316 | gap |
+| `valuation.reverseDcf.impliedGrowthPathPct[5]` | 12.133603090097441 | gap |
+| `valuation.reverseDcf.impliedGrowthPathPct[6]` | 8.838555229803246 | gap |
+| `valuation.reverseDcf.impliedGrowthPathPct[7]` | 6.223274009944959 | gap |
+| `valuation.reverseDcf.impliedGrowthPathPct[8]` | 4.1475239301470985 | gap |
+| `valuation.reverseDcf.impliedGrowthPathPct[9]` | 2.5 | gap |
+| `valuation.reverseDcf.impliedRevenueGrowthPct` | 45.2587890625 | gap |
+| `valuation.sensitivity.gTermPcts[0]` | 1.5 | gap |
+| `valuation.sensitivity.gTermPcts[1]` | 2 | gap |
+| `valuation.sensitivity.gTermPcts[2]` | 2.5 | gap |
+| `valuation.sensitivity.gTermPcts[3]` | 3 | gap |
+| `valuation.sensitivity.gTermPcts[4]` | 3.5 | gap |
+| `valuation.sensitivity.perShare[0][0]` | 937.8988033116498 | gap |
+| `valuation.sensitivity.perShare[0][1]` | 941.1770083773555 | gap |
+| `valuation.sensitivity.perShare[0][2]` | 944.4552134430611 | gap |
+| `valuation.sensitivity.perShare[0][3]` | 947.7334185087665 | gap |
+| `valuation.sensitivity.perShare[0][4]` | 951.0116235744719 | gap |
+| `valuation.sensitivity.perShare[1][0]` | 776.814257146447 | gap |
+| `valuation.sensitivity.perShare[1][1]` | 779.3747590393589 | gap |
+| `valuation.sensitivity.perShare[1][2]` | 781.9352609322709 | gap |
+| `valuation.sensitivity.perShare[1][3]` | 784.495762825183 | gap |
+| `valuation.sensitivity.perShare[1][4]` | 787.0562647180949 | gap |
+| `valuation.sensitivity.perShare[2][0]` | 657.9870993567624 | gap |
+| `valuation.sensitivity.perShare[2][1]` | 660.0328084482251 | gap |
+| `valuation.sensitivity.perShare[2][2]` | 662.078517539688 | gap |
+| `valuation.sensitivity.perShare[2][3]` | 664.1242266311507 | gap |
+| `valuation.sensitivity.perShare[2][4]` | 666.1699357226133 | gap |
+| `valuation.sensitivity.perShare[3][0]` | 566.9538374985186 | gap |
+| `valuation.sensitivity.perShare[3][1]` | 568.6168515285203 | gap |
+| `valuation.sensitivity.perShare[3][2]` | 570.2798655585219 | gap |
+| `valuation.sensitivity.perShare[3][3]` | 571.9428795885236 | gap |
+| `valuation.sensitivity.perShare[3][4]` | 573.6058936185252 | gap |
+| `valuation.sensitivity.perShare[4][0]` | 495.1555398291038 | gap |
+| `valuation.sensitivity.perShare[4][1]` | 496.5261892658032 | gap |
+| `valuation.sensitivity.perShare[4][2]` | 497.89683870250263 | gap |
+| `valuation.sensitivity.perShare[4][3]` | 499.2674881392021 | gap |
+| `valuation.sensitivity.perShare[4][4]` | 500.6381375759014 | gap |
+| `valuation.sensitivity.waccPcts[0]` | 5.807993425632762 | gap |
+| `valuation.sensitivity.waccPcts[1]` | 6.807993425632762 | gap |
+| `valuation.sensitivity.waccPcts[2]` | 7.807993425632762 | gap |
+| `valuation.sensitivity.waccPcts[3]` | 8.807993425632763 | gap |
+| `valuation.sensitivity.waccPcts[4]` | 9.807993425632763 | gap |
 
 </details>
 
-<details>
-<summary>mu-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].attemptedSources (2 leaves)
-gaps[*].expected (4 leaves)
-gaps[*].field (78 leaves)
-gaps[*].reason (52 leaves)
-gaps[*] (2 leaves)
-returns.gaps[*] (1 leaves)
-returns.roic.gaps[*] (1 leaves)
-returns.roic.notes[*] (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (56 leaves)
-appendix.missingData[*].reason (30 leaves)
-appendix.missingData[*].expected (4 leaves)
-appendix.missingData[*] (2 leaves)
-```
-
-</details>
-
-<details>
-<summary>nvda-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-returns.roic.notes[*] (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-```
-
-</details>
-
-<details>
-<summary>qcom-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.resolution.components.shortTermInvestments (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].attemptedSources (10 leaves)
-gaps[*].field (47 leaves)
-gaps[*].reason (34 leaves)
-gaps[*].expected (16 leaves)
-gaps[*].attemptedSources[*] (2 leaves)
-gaps[*] (6 leaves)
-returns.gaps[*].attemptedSources (1 leaves)
-returns.gaps[*].field (1 leaves)
-returns.gaps[*].reason (1 leaves)
-returns.gaps[*] (2 leaves)
-returns.roic.gaps[*] (1 leaves)
-returns.roic.notes[*] (1 leaves)
-returns.roicVsWacc.note (1 leaves)
-scores.qualification.aspects.balanceSheet.reasons[*] (1 leaves)
-scores.qualification.aspects.balanceSheet.status (1 leaves)
-scores.qualification.aspects.moat.reasons[*] (1 leaves)
-scores.qualification.aspects.moat.status (1 leaves)
-scores.qualification.aspects.quality.reasons[*] (1 leaves)
-scores.qualification.aspects.quality.status (1 leaves)
-scores.qualification.aspects.valuation.reasons[*] (1 leaves)
-scores.qualification.aspects.valuation.status (1 leaves)
-scores.qualification.composite.reasons[*].aspect (1 leaves)
-scores.qualification.composite.reasons[*].code (1 leaves)
-scores.qualification.composite.reasons[*].detail (1 leaves)
-scores.qualification.composite.reasons[*].field (1 leaves)
-scores.qualification.composite.reasons[*] (4 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-verdict.synthesis (1 leaves)
-verdict.gradeStrip.valuation.qualification.status (1 leaves)
-verdict.gradeStrip.valuation.qualification.reasons[*] (1 leaves)
-verdict.gradeStrip.quality.qualification.status (1 leaves)
-verdict.gradeStrip.quality.qualification.reasons[*] (1 leaves)
-verdict.gradeStrip.moat.qualification.status (1 leaves)
-verdict.gradeStrip.moat.qualification.reasons[*] (1 leaves)
-verdict.gradeStrip.balanceSheet.qualification.status (1 leaves)
-verdict.gradeStrip.balanceSheet.qualification.reasons[*] (1 leaves)
-balanceSheet.graded.qualification.status (1 leaves)
-balanceSheet.graded.qualification.reasons[*] (1 leaves)
-valuation.graded.qualification.status (1 leaves)
-valuation.graded.qualification.reasons[*] (1 leaves)
-quality.graded.qualification.status (1 leaves)
-quality.graded.qualification.reasons[*] (1 leaves)
-competitive.moatGraded.qualification.status (1 leaves)
-competitive.moatGraded.qualification.reasons[*] (1 leaves)
-appendix.missingData[*].field (45 leaves)
-appendix.missingData[*].reason (32 leaves)
-appendix.missingData[*].attemptedSources (6 leaves)
-appendix.missingData[*].expected (16 leaves)
-appendix.missingData[*].attemptedSources[*] (3 leaves)
-appendix.missingData[*] (6 leaves)
-scores.qualification.aspects.valuation.status (1 leaves)
-scores.qualification.aspects.valuation.reasons[*] (1 leaves)
-scores.qualification.aspects.quality.status (1 leaves)
-scores.qualification.aspects.quality.reasons[*] (1 leaves)
-scores.qualification.aspects.balanceSheet.status (1 leaves)
-scores.qualification.aspects.balanceSheet.reasons[*] (1 leaves)
-scores.qualification.aspects.moat.status (1 leaves)
-scores.qualification.aspects.moat.reasons[*] (1 leaves)
-scores.qualification.composite.reasons[*].code (1 leaves)
-scores.qualification.composite.reasons[*].aspect (1 leaves)
-scores.qualification.composite.reasons[*].field (1 leaves)
-scores.qualification.composite.reasons[*].detail (1 leaves)
-scores.qualification.composite.reasons[*] (4 leaves)
-```
-
-</details>
-
-<details>
-<summary>jpm-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-gaps[*].attemptedSources (8 leaves)
-gaps[*].expected (4 leaves)
-gaps[*].field (44 leaves)
-gaps[*].reason (44 leaves)
-gaps[*].attemptedSources[*] (4 leaves)
-gaps[*] (2 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (10 leaves)
-appendix.missingData[*].expected (4 leaves)
-appendix.missingData[*].attemptedSources (4 leaves)
-appendix.missingData[*].reason (10 leaves)
-appendix.missingData[*].attemptedSources[*] (2 leaves)
-appendix.missingData[*] (2 leaves)
-```
-
-</details>
-
-<details>
-<summary>pgr-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-gaps[*].attemptedSources (8 leaves)
-gaps[*].expected (44 leaves)
-gaps[*].field (147 leaves)
-gaps[*].reason (147 leaves)
-gaps[*].attemptedSources[*] (13 leaves)
-gaps[*] (2 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (87 leaves)
-appendix.missingData[*].reason (64 leaves)
-appendix.missingData[*].expected (6 leaves)
-appendix.missingData[*].attemptedSources (6 leaves)
-appendix.missingData[*] (2 leaves)
-```
-
-</details>
-
-<details>
-<summary>o-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].attemptedSources (41 leaves)
-gaps[*].expected (50 leaves)
-gaps[*].field (161 leaves)
-gaps[*].reason (155 leaves)
-gaps[*].attemptedSources[*] (35 leaves)
-gaps[*] (17 leaves)
-returns.gaps[*] (6 leaves)
-returns.roic.gaps[*] (5 leaves)
-returns.roic.notes[*] (1 leaves)
-returns.roicVsWacc.note (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (70 leaves)
-appendix.missingData[*].expected (6 leaves)
-appendix.missingData[*].reason (67 leaves)
-appendix.missingData[*].attemptedSources (8 leaves)
-appendix.missingData[*] (17 leaves)
-```
-
-</details>
-
-<details>
-<summary>duk-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].attemptedSources (33 leaves)
-gaps[*].expected (74 leaves)
-gaps[*].field (189 leaves)
-gaps[*].reason (179 leaves)
-gaps[*].attemptedSources[*] (17 leaves)
-gaps[*] (11 leaves)
-returns.gaps[*] (6 leaves)
-returns.roic.gaps[*] (5 leaves)
-returns.roic.notes[*] (1 leaves)
-returns.roicVsWacc.note (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (92 leaves)
-appendix.missingData[*].reason (92 leaves)
-appendix.missingData[*].expected (22 leaves)
-appendix.missingData[*].attemptedSources (9 leaves)
-appendix.missingData[*] (11 leaves)
-```
-
-</details>
-
-<details>
-<summary>tsm-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].attemptedSources (12 leaves)
-gaps[*].expected (8 leaves)
-gaps[*].field (33 leaves)
-gaps[*].reason (33 leaves)
-gaps[*] (4 leaves)
-returns.roic.notes[*] (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (15 leaves)
-appendix.missingData[*].reason (15 leaves)
-appendix.missingData[*].expected (8 leaves)
-appendix.missingData[*].attemptedSources (8 leaves)
-appendix.missingData[*].attemptedSources[*] (8 leaves)
-appendix.missingData[*] (4 leaves)
-```
-
-</details>
-
-<details>
-<summary>rivn-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].field (79 leaves)
-gaps[*].reason (72 leaves)
-gaps[*].attemptedSources (33 leaves)
-gaps[*].expected (32 leaves)
-gaps[*].attemptedSources[*] (4 leaves)
-gaps[*].cause (1 leaves)
-gaps[*] (14 leaves)
-returns.gaps[*] (6 leaves)
-returns.roic.gaps[*] (5 leaves)
-returns.roic.notes[*] (1 leaves)
-returns.roicVsWacc.note (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (53 leaves)
-appendix.missingData[*].reason (46 leaves)
-appendix.missingData[*].expected (28 leaves)
-appendix.missingData[*].attemptedSources (1 leaves)
-appendix.missingData[*].cause (1 leaves)
-appendix.missingData[*] (14 leaves)
-```
-
-</details>
-
-<details>
-<summary>vktx-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].field (49 leaves)
-gaps[*].reason (49 leaves)
-gaps[*].attemptedSources (33 leaves)
-gaps[*].expected (26 leaves)
-gaps[*].attemptedSources[*] (2 leaves)
-gaps[*] (16 leaves)
-returns.gaps[*] (6 leaves)
-returns.roic.gaps[*] (5 leaves)
-returns.roic.notes[*] (1 leaves)
-returns.roicVsWacc.note (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (11 leaves)
-appendix.missingData[*].reason (11 leaves)
-appendix.missingData[*].attemptedSources (1 leaves)
-appendix.missingData[*] (16 leaves)
-```
-
-</details>
-
-<details>
-<summary>amzn-fixed-analyst: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-returns.roic.notes[*] (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-meta.provenanceCoverage.factualValidation.validated (1 leaves)
-meta.provenanceCoverage.factualValidation.contradicted (1 leaves)
-meta.provenanceCoverage.factualValidation.rate (1 leaves)
-appendix.provenanceCoverage.factualValidation.validated (1 leaves)
-appendix.provenanceCoverage.factualValidation.contradicted (1 leaves)
-appendix.provenanceCoverage.factualValidation.rate (1 leaves)
-appendix.verificationLog[*].validationStatus (2 leaves)
-appendix.verificationLog[*].numericSupportStatus (2 leaves)
-appendix.verificationLog[*].claimSupportStatus (2 leaves)
-appendix.verificationLog[*].note (17 leaves)
-appendix.verificationLog[*].reason (6 leaves)
-appendix.verificationLog[*].traceKind (6 leaves)
-appendix.verificationLog[*].source (8 leaves)
-appendix.verificationLog[*].claim (278 leaves)
-appendix.verificationLog[*].path (279 leaves)
-appendix.verificationLog[*].evidenceKind (1 leaves)
-appendix.verificationLog[*] (1 leaves)
-```
-
-</details>
-
-<details>
-<summary>meta-fixed-analyst: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].attemptedSources (37 leaves)
-gaps[*].expected (26 leaves)
-gaps[*].field (95 leaves)
-gaps[*].reason (80 leaves)
-gaps[*].attemptedSources[*] (24 leaves)
-gaps[*] (13 leaves)
-returns.gaps[*] (5 leaves)
-returns.roic.gaps[*] (4 leaves)
-returns.roic.notes[*] (1 leaves)
-returns.roicVsWacc.note (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (98 leaves)
-appendix.missingData[*].reason (83 leaves)
-appendix.missingData[*].attemptedSources (40 leaves)
-appendix.missingData[*].expected (26 leaves)
-appendix.missingData[*].attemptedSources[*] (24 leaves)
-appendix.missingData[*].severity (1 leaves)
-appendix.missingData[*] (13 leaves)
-```
-
-</details>
-
-<details>
-<summary>mu-fixed-analyst: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-gaps[*].attemptedSources (2 leaves)
-gaps[*].expected (4 leaves)
-gaps[*].field (78 leaves)
-gaps[*].reason (52 leaves)
-gaps[*] (2 leaves)
-returns.gaps[*] (1 leaves)
-returns.roic.gaps[*] (1 leaves)
-returns.roic.notes[*] (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-appendix.missingData[*].field (80 leaves)
-appendix.missingData[*].reason (54 leaves)
-appendix.missingData[*].attemptedSources (2 leaves)
-appendix.missingData[*].expected (4 leaves)
-appendix.missingData[*] (2 leaves)
-```
-
-</details>
-
-<details>
-<summary>nvda-fixed-analyst: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.current.ebitdaComputed (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-returns.roic.notes[*] (1 leaves)
-valuation.notes[*] (1 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-```
-
-</details>
-
-<details>
-<summary>lly-data-only: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.gaps[*] (1 leaves)
-capital.netDebtToEbitda.netDebt (1 leaves)
-capital.netDebtToEbitda.note (1 leaves)
-capital.netDebtToEbitda.resolution.cashBasis (1 leaves)
-capital.netDebtToEbitda.resolution.components.cashAndCashEquivalents (1 leaves)
-capital.netDebtToEbitda.resolution.components.shortTermInvestments (1 leaves)
-capital.netDebtToEbitda.resolution.reason (1 leaves)
-capital.netDebtToEbitda.resolution.value (1 leaves)
-capital.netDebtToEbitda.value (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-fairValue.reference.perShare.value (1 leaves)
-gaps[*].attemptedSources[*] (22 leaves)
-gaps[*].field (122 leaves)
-gaps[*].reason (116 leaves)
-gaps[*].attemptedSources (28 leaves)
-gaps[*].severity (3 leaves)
-gaps[*].expected (50 leaves)
-gaps[*] (9 leaves)
-returns.gaps[*] (1 leaves)
-returns.roic.gaps[*] (1 leaves)
-returns.roic.latestRoicPct (1 leaves)
-returns.roic.notes[*] (1 leaves)
-returns.roic.series[*].investedCapitalAvg (1 leaves)
-returns.roic.series[*].notes[*] (3 leaves)
-returns.roic.series[*].roicPct (1 leaves)
-returns.roic.series[*].terminalEvidenceRoicPct (1 leaves)
-returns.roicVsWacc.note (1 leaves)
-returns.roicVsWacc.spreadPctPts (1 leaves)
-scores.aspects.moat.applicableCompleteness (1 leaves)
-scores.aspects.moat.band (1 leaves)
-scores.aspects.moat.dataCompleteness (1 leaves)
-scores.aspects.moat.drivers[*].asOf (1 leaves)
-scores.aspects.moat.drivers[*].period (2 leaves)
-scores.aspects.moat.drivers[*].source (2 leaves)
-scores.aspects.moat.drivers[*].value (2 leaves)
-scores.aspects.moat.drivers[*] (1 leaves)
-scores.aspects.moat.score (1 leaves)
-scores.aspects.moat.signals[*].asOf (1 leaves)
-scores.aspects.moat.signals[*].contributionPoints (2 leaves)
-scores.aspects.moat.signals[*].effectiveCompositeWeightPct (2 leaves)
-scores.aspects.moat.signals[*].endDate (1 leaves)
-scores.aspects.moat.signals[*].id (2 leaves)
-scores.aspects.moat.signals[*].operands[*].asOf (2 leaves)
-scores.aspects.moat.signals[*].operands[*].name (2 leaves)
-scores.aspects.moat.signals[*].operands[*].source (2 leaves)
-scores.aspects.moat.signals[*].operands[*].value (2 leaves)
-scores.aspects.moat.signals[*].operands[*] (5 leaves)
-scores.aspects.moat.signals[*].period (2 leaves)
-scores.aspects.moat.signals[*].raw (2 leaves)
-scores.aspects.moat.signals[*].signalWeight (2 leaves)
-scores.aspects.moat.signals[*].startDate (2 leaves)
-scores.aspects.moat.signals[*].transformedScore (2 leaves)
-scores.aspects.moat.signals[*].windowYears (2 leaves)
-scores.aspects.moat.signals[*].family (1 leaves)
-scores.aspects.moat.signals[*] (1 leaves)
-scores.aspects.quality.applicableCompleteness (1 leaves)
-scores.aspects.quality.band (1 leaves)
-scores.aspects.quality.dataCompleteness (1 leaves)
-scores.aspects.quality.drivers[*].period (3 leaves)
-scores.aspects.quality.drivers[*].source (4 leaves)
-scores.aspects.quality.drivers[*].unit (4 leaves)
-scores.aspects.quality.drivers[*].value (4 leaves)
-scores.aspects.quality.drivers[*] (1 leaves)
-scores.aspects.quality.score (1 leaves)
-scores.aspects.quality.signals[*].contributionPoints (4 leaves)
-scores.aspects.quality.signals[*].effectiveCompositeWeightPct (4 leaves)
-scores.aspects.quality.signals[*].family (1 leaves)
-scores.aspects.quality.signals[*].id (4 leaves)
-scores.aspects.quality.signals[*].operands[*].name (5 leaves)
-scores.aspects.quality.signals[*].operands[*].source (5 leaves)
-scores.aspects.quality.signals[*].operands[*].value (5 leaves)
-scores.aspects.quality.signals[*].operands[*].asOf (1 leaves)
-scores.aspects.quality.signals[*].period (3 leaves)
-scores.aspects.quality.signals[*].raw (4 leaves)
-scores.aspects.quality.signals[*].signalWeight (4 leaves)
-scores.aspects.quality.signals[*].startDate (3 leaves)
-scores.aspects.quality.signals[*].transformedScore (4 leaves)
-scores.aspects.quality.signals[*].unit (4 leaves)
-scores.aspects.quality.signals[*].windowYears (3 leaves)
-scores.aspects.quality.signals[*].operands[*] (1 leaves)
-scores.aspects.quality.signals[*] (1 leaves)
-scores.assessments.businessQuality.band (1 leaves)
-scores.assessments.businessQuality.evidenceCompleteness (1 leaves)
-scores.assessments.businessQuality.score (1 leaves)
-scores.assessments.evidenceCompleteness (1 leaves)
-scores.composite.methodology (1 leaves)
-scores.composite.score (1 leaves)
-scores.factorExposure[*].aboveNeutralPoints (6 leaves)
-scores.factorExposure[*].family (6 leaves)
-scores.factorExposure[*].weightPct (5 leaves)
-scores.qualification.aspects.balanceSheet.reasons[*] (3 leaves)
-scores.qualification.aspects.moat.reasons[*] (3 leaves)
-scores.qualification.aspects.moat.status (1 leaves)
-scores.qualification.aspects.quality.reasons[*] (3 leaves)
-scores.qualification.aspects.quality.status (1 leaves)
-scores.qualification.aspects.valuation.reasons[*] (3 leaves)
-scores.qualification.composite.reasons[*].aspect (2 leaves)
-scores.qualification.composite.reasons[*].code (2 leaves)
-scores.qualification.composite.reasons[*].detail (2 leaves)
-scores.qualification.composite.reasons[*].field (2 leaves)
-scores.qualification.composite.reasons[*] (12 leaves)
-valuation.assumptions.notes[*] (5 leaves)
-valuation.assumptions.terminal.reinvestmentRate.basis (1 leaves)
-valuation.assumptions.terminal.reinvestmentRate.value (1 leaves)
-valuation.assumptions.terminal.roicTermPct.basis (1 leaves)
-valuation.assumptions.terminal.roicTermPct.value (1 leaves)
-valuation.dcf.enterpriseValue (1 leaves)
-valuation.dcf.equityValue (1 leaves)
-valuation.dcf.perShare (1 leaves)
-valuation.dcf.pvTerminal (1 leaves)
-valuation.dcf.terminalShare (1 leaves)
-valuation.dcf.terminalValue (1 leaves)
-valuation.gaps[*].reason (1 leaves)
-valuation.growthMarginGrid.perShare[*][*] (15 leaves)
-valuation.notes[*] (11 leaves)
-valuation.sensitivity.notes[*] (1 leaves)
-valuation.sensitivity.perShare[*][*] (25 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-verdict.synthesis (1 leaves)
-verdict.gradeStrip.valuation.qualification.reasons[*] (3 leaves)
-verdict.gradeStrip.quality.grade (1 leaves)
-verdict.gradeStrip.quality.oneLineWhy (1 leaves)
-verdict.gradeStrip.quality.reasoning[*].text (1 leaves)
-verdict.gradeStrip.quality.confidence (1 leaves)
-verdict.gradeStrip.quality.keyNumbers[*].value (14 leaves)
-verdict.gradeStrip.quality.keyNumbers[*].unit (6 leaves)
-verdict.gradeStrip.quality.keyNumbers[*].source (14 leaves)
-verdict.gradeStrip.quality.keyNumbers[*].period (6 leaves)
-verdict.gradeStrip.quality.keyNumbers[*].currency (2 leaves)
-verdict.gradeStrip.quality.keyNumbers[*].sourceId (10 leaves)
-verdict.gradeStrip.quality.keyNumbers[*].asOf (2 leaves)
-verdict.gradeStrip.quality.keyNumbers[*] (1 leaves)
-verdict.gradeStrip.quality.qualification.status (1 leaves)
-verdict.gradeStrip.quality.qualification.reasons[*] (3 leaves)
-verdict.gradeStrip.moat.grade (1 leaves)
-verdict.gradeStrip.moat.oneLineWhy (1 leaves)
-verdict.gradeStrip.moat.reasoning[*].text (1 leaves)
-verdict.gradeStrip.moat.confidence (1 leaves)
-verdict.gradeStrip.moat.keyNumbers[*].value (2 leaves)
-verdict.gradeStrip.moat.keyNumbers[*].source (2 leaves)
-verdict.gradeStrip.moat.keyNumbers[*].asOf (1 leaves)
-verdict.gradeStrip.moat.keyNumbers[*].period (2 leaves)
-verdict.gradeStrip.moat.keyNumbers[*] (1 leaves)
-verdict.gradeStrip.moat.qualification.status (1 leaves)
-verdict.gradeStrip.moat.qualification.reasons[*] (3 leaves)
-verdict.gradeStrip.balanceSheet.qualification.reasons[*] (3 leaves)
-fundamentals.returns[*].values[*] (1 leaves)
-fundamentals.returns[*] (1 leaves)
-balanceSheet.graded.qualification.reasons[*] (3 leaves)
-balanceSheet.debtProfile.commentary[*].text (2 leaves)
-balanceSheet.debtProfile.commentary[*].label (1 leaves)
-balanceSheet.debtProfile.commentary[*].source (1 leaves)
-balanceSheet.debtProfile.commentary[*].asOf (1 leaves)
-balanceSheet.debtProfile.commentary[*] (1 leaves)
-balanceSheet.debtProfile.numbers[*].value (4 leaves)
-balanceSheet.debtProfile.numbers[*].unit (1 leaves)
-balanceSheet.debtProfile.numbers[*].currency (1 leaves)
-balanceSheet.debtProfile.numbers[*].period (3 leaves)
-balanceSheet.debtProfile.numbers[*].source (4 leaves)
-balanceSheet.debtProfile.numbers[*].sourceId (3 leaves)
-balanceSheet.debtProfile.numbers[*].asOf (2 leaves)
-balanceSheet.debtProfile.numbers[*] (2 leaves)
-valuation.graded.qualification.reasons[*] (3 leaves)
-valuation.dcf.assumptions[*].value (2 leaves)
-valuation.dcf.assumptions[*].basis (2 leaves)
-valuation.dcf.sensitivityGrid[*].perShare (25 leaves)
-valuation.dcf.sensitivityNotes[*] (1 leaves)
-valuation.dcf.growthMarginGrid.perShare[*][*] (15 leaves)
-valuation.dcf.bridge.enterpriseValue (1 leaves)
-valuation.dcf.bridge.equityValue (1 leaves)
-valuation.dcf.bridge.presentValueTerminal (1 leaves)
-valuation.scenarios[*].assumptions[*] (3 leaves)
-quality.graded.grade (1 leaves)
-quality.graded.oneLineWhy (1 leaves)
-quality.graded.reasoning[*].text (1 leaves)
-quality.graded.confidence (1 leaves)
-quality.graded.keyNumbers[*].value (14 leaves)
-quality.graded.keyNumbers[*].unit (6 leaves)
-quality.graded.keyNumbers[*].source (14 leaves)
-quality.graded.keyNumbers[*].period (6 leaves)
-quality.graded.keyNumbers[*].currency (2 leaves)
-quality.graded.keyNumbers[*].sourceId (10 leaves)
-quality.graded.keyNumbers[*].asOf (2 leaves)
-quality.graded.keyNumbers[*] (1 leaves)
-quality.graded.qualification.status (1 leaves)
-quality.graded.qualification.reasons[*] (3 leaves)
-competitive.moatGraded.grade (1 leaves)
-competitive.moatGraded.oneLineWhy (1 leaves)
-competitive.moatGraded.reasoning[*].text (1 leaves)
-competitive.moatGraded.confidence (1 leaves)
-competitive.moatGraded.keyNumbers[*].value (2 leaves)
-competitive.moatGraded.keyNumbers[*].source (2 leaves)
-competitive.moatGraded.keyNumbers[*].asOf (1 leaves)
-competitive.moatGraded.keyNumbers[*].period (2 leaves)
-competitive.moatGraded.keyNumbers[*] (1 leaves)
-competitive.moatGraded.qualification.status (1 leaves)
-competitive.moatGraded.qualification.reasons[*] (3 leaves)
-appendix.missingData[*].field (71 leaves)
-appendix.missingData[*].reason (64 leaves)
-appendix.missingData[*].attemptedSources (6 leaves)
-appendix.missingData[*].expected (3 leaves)
-appendix.missingData[*] (12 leaves)
-scenarioPresentation.sensitivity.minPerShare (1 leaves)
-scenarioPresentation.sensitivity.maxPerShare (1 leaves)
-scores.aspects.quality.score (1 leaves)
-scores.aspects.quality.band (1 leaves)
-scores.aspects.quality.dataCompleteness (1 leaves)
-scores.aspects.quality.applicableCompleteness (1 leaves)
-scores.aspects.quality.drivers[*].value (4 leaves)
-scores.aspects.quality.drivers[*].unit (4 leaves)
-scores.aspects.quality.drivers[*].source (4 leaves)
-scores.aspects.quality.drivers[*].period (3 leaves)
-scores.aspects.quality.drivers[*] (1 leaves)
-scores.aspects.quality.signals[*].id (4 leaves)
-scores.aspects.quality.signals[*].raw (4 leaves)
-scores.aspects.quality.signals[*].unit (4 leaves)
-scores.aspects.quality.signals[*].transformedScore (4 leaves)
-scores.aspects.quality.signals[*].signalWeight (4 leaves)
-scores.aspects.quality.signals[*].effectiveCompositeWeightPct (4 leaves)
-scores.aspects.quality.signals[*].contributionPoints (4 leaves)
-scores.aspects.quality.signals[*].family (1 leaves)
-scores.aspects.quality.signals[*].period (3 leaves)
-scores.aspects.quality.signals[*].startDate (3 leaves)
-scores.aspects.quality.signals[*].windowYears (3 leaves)
-scores.aspects.quality.signals[*].operands[*].name (5 leaves)
-scores.aspects.quality.signals[*].operands[*].value (5 leaves)
-scores.aspects.quality.signals[*].operands[*].source (5 leaves)
-scores.aspects.quality.signals[*].operands[*].asOf (1 leaves)
-scores.aspects.quality.signals[*].operands[*] (1 leaves)
-scores.aspects.quality.signals[*] (1 leaves)
-scores.aspects.moat.score (1 leaves)
-scores.aspects.moat.band (1 leaves)
-scores.aspects.moat.dataCompleteness (1 leaves)
-scores.aspects.moat.applicableCompleteness (1 leaves)
-scores.aspects.moat.drivers[*].value (2 leaves)
-scores.aspects.moat.drivers[*].source (2 leaves)
-scores.aspects.moat.drivers[*].asOf (1 leaves)
-scores.aspects.moat.drivers[*].period (2 leaves)
-scores.aspects.moat.drivers[*] (1 leaves)
-scores.aspects.moat.signals[*].id (2 leaves)
-scores.aspects.moat.signals[*].raw (2 leaves)
-scores.aspects.moat.signals[*].transformedScore (2 leaves)
-scores.aspects.moat.signals[*].signalWeight (2 leaves)
-scores.aspects.moat.signals[*].effectiveCompositeWeightPct (2 leaves)
-scores.aspects.moat.signals[*].contributionPoints (2 leaves)
-scores.aspects.moat.signals[*].asOf (1 leaves)
-scores.aspects.moat.signals[*].period (2 leaves)
-scores.aspects.moat.signals[*].startDate (2 leaves)
-scores.aspects.moat.signals[*].endDate (1 leaves)
-scores.aspects.moat.signals[*].windowYears (2 leaves)
-scores.aspects.moat.signals[*].operands[*].name (2 leaves)
-scores.aspects.moat.signals[*].operands[*].value (2 leaves)
-scores.aspects.moat.signals[*].operands[*].source (2 leaves)
-scores.aspects.moat.signals[*].operands[*].asOf (2 leaves)
-scores.aspects.moat.signals[*].operands[*] (5 leaves)
-scores.aspects.moat.signals[*].family (1 leaves)
-scores.aspects.moat.signals[*] (1 leaves)
-scores.composite.score (1 leaves)
-scores.composite.methodology (1 leaves)
-scores.factorExposure[*].family (6 leaves)
-scores.factorExposure[*].weightPct (5 leaves)
-scores.factorExposure[*].aboveNeutralPoints (6 leaves)
-scores.assessments.businessQuality.score (1 leaves)
-scores.assessments.businessQuality.band (1 leaves)
-scores.assessments.businessQuality.evidenceCompleteness (1 leaves)
-scores.assessments.evidenceCompleteness (1 leaves)
-scores.qualification.aspects.valuation.reasons[*] (3 leaves)
-scores.qualification.aspects.quality.status (1 leaves)
-scores.qualification.aspects.quality.reasons[*] (3 leaves)
-scores.qualification.aspects.balanceSheet.reasons[*] (3 leaves)
-scores.qualification.aspects.moat.status (1 leaves)
-scores.qualification.aspects.moat.reasons[*] (3 leaves)
-scores.qualification.composite.reasons[*].code (2 leaves)
-scores.qualification.composite.reasons[*].aspect (2 leaves)
-scores.qualification.composite.reasons[*].field (2 leaves)
-scores.qualification.composite.reasons[*].detail (2 leaves)
-scores.qualification.composite.reasons[*] (12 leaves)
-fairValue.reference.perShare.value (1 leaves)
-```
-
-</details>
-
-<details>
-<summary>lly-fixed-analyst: changed paths</summary>
-
-
-stageB.json
-
-```text
-capital.gaps[*] (1 leaves)
-capital.netDebtToEbitda.netDebt (1 leaves)
-capital.netDebtToEbitda.note (1 leaves)
-capital.netDebtToEbitda.resolution.cashBasis (1 leaves)
-capital.netDebtToEbitda.resolution.components.cashAndCashEquivalents (1 leaves)
-capital.netDebtToEbitda.resolution.components.shortTermInvestments (1 leaves)
-capital.netDebtToEbitda.resolution.reason (1 leaves)
-capital.netDebtToEbitda.resolution.value (1 leaves)
-capital.netDebtToEbitda.value (1 leaves)
-capital.netDebtToEbitda.ebitdaComputed (1 leaves)
-fairValue.reference.perShare.value (1 leaves)
-gaps[*].attemptedSources[*] (22 leaves)
-gaps[*].field (122 leaves)
-gaps[*].reason (116 leaves)
-gaps[*].attemptedSources (28 leaves)
-gaps[*].severity (3 leaves)
-gaps[*].expected (50 leaves)
-gaps[*] (9 leaves)
-returns.gaps[*] (1 leaves)
-returns.roic.gaps[*] (1 leaves)
-returns.roic.latestRoicPct (1 leaves)
-returns.roic.notes[*] (1 leaves)
-returns.roic.series[*].investedCapitalAvg (1 leaves)
-returns.roic.series[*].notes[*] (3 leaves)
-returns.roic.series[*].roicPct (1 leaves)
-returns.roic.series[*].terminalEvidenceRoicPct (1 leaves)
-returns.roicVsWacc.note (1 leaves)
-returns.roicVsWacc.spreadPctPts (1 leaves)
-scores.aspects.moat.applicableCompleteness (1 leaves)
-scores.aspects.moat.band (1 leaves)
-scores.aspects.moat.dataCompleteness (1 leaves)
-scores.aspects.moat.drivers[*].asOf (1 leaves)
-scores.aspects.moat.drivers[*].period (2 leaves)
-scores.aspects.moat.drivers[*].source (2 leaves)
-scores.aspects.moat.drivers[*].value (2 leaves)
-scores.aspects.moat.drivers[*] (1 leaves)
-scores.aspects.moat.score (1 leaves)
-scores.aspects.moat.signals[*].asOf (1 leaves)
-scores.aspects.moat.signals[*].contributionPoints (2 leaves)
-scores.aspects.moat.signals[*].effectiveCompositeWeightPct (2 leaves)
-scores.aspects.moat.signals[*].endDate (1 leaves)
-scores.aspects.moat.signals[*].id (2 leaves)
-scores.aspects.moat.signals[*].operands[*].asOf (2 leaves)
-scores.aspects.moat.signals[*].operands[*].name (2 leaves)
-scores.aspects.moat.signals[*].operands[*].source (2 leaves)
-scores.aspects.moat.signals[*].operands[*].value (2 leaves)
-scores.aspects.moat.signals[*].operands[*] (5 leaves)
-scores.aspects.moat.signals[*].period (2 leaves)
-scores.aspects.moat.signals[*].raw (2 leaves)
-scores.aspects.moat.signals[*].signalWeight (2 leaves)
-scores.aspects.moat.signals[*].startDate (2 leaves)
-scores.aspects.moat.signals[*].transformedScore (2 leaves)
-scores.aspects.moat.signals[*].windowYears (2 leaves)
-scores.aspects.moat.signals[*].family (1 leaves)
-scores.aspects.moat.signals[*] (1 leaves)
-scores.aspects.quality.applicableCompleteness (1 leaves)
-scores.aspects.quality.band (1 leaves)
-scores.aspects.quality.dataCompleteness (1 leaves)
-scores.aspects.quality.drivers[*].period (3 leaves)
-scores.aspects.quality.drivers[*].source (4 leaves)
-scores.aspects.quality.drivers[*].unit (4 leaves)
-scores.aspects.quality.drivers[*].value (4 leaves)
-scores.aspects.quality.drivers[*] (1 leaves)
-scores.aspects.quality.score (1 leaves)
-scores.aspects.quality.signals[*].contributionPoints (4 leaves)
-scores.aspects.quality.signals[*].effectiveCompositeWeightPct (4 leaves)
-scores.aspects.quality.signals[*].family (1 leaves)
-scores.aspects.quality.signals[*].id (4 leaves)
-scores.aspects.quality.signals[*].operands[*].name (5 leaves)
-scores.aspects.quality.signals[*].operands[*].source (5 leaves)
-scores.aspects.quality.signals[*].operands[*].value (5 leaves)
-scores.aspects.quality.signals[*].operands[*].asOf (1 leaves)
-scores.aspects.quality.signals[*].period (3 leaves)
-scores.aspects.quality.signals[*].raw (4 leaves)
-scores.aspects.quality.signals[*].signalWeight (4 leaves)
-scores.aspects.quality.signals[*].startDate (3 leaves)
-scores.aspects.quality.signals[*].transformedScore (4 leaves)
-scores.aspects.quality.signals[*].unit (4 leaves)
-scores.aspects.quality.signals[*].windowYears (3 leaves)
-scores.aspects.quality.signals[*].operands[*] (1 leaves)
-scores.aspects.quality.signals[*] (1 leaves)
-scores.assessments.businessQuality.band (1 leaves)
-scores.assessments.businessQuality.evidenceCompleteness (1 leaves)
-scores.assessments.businessQuality.score (1 leaves)
-scores.assessments.evidenceCompleteness (1 leaves)
-scores.composite.methodology (1 leaves)
-scores.composite.score (1 leaves)
-scores.factorExposure[*].aboveNeutralPoints (6 leaves)
-scores.factorExposure[*].family (6 leaves)
-scores.factorExposure[*].weightPct (5 leaves)
-scores.qualification.aspects.balanceSheet.reasons[*] (3 leaves)
-scores.qualification.aspects.moat.reasons[*] (3 leaves)
-scores.qualification.aspects.moat.status (1 leaves)
-scores.qualification.aspects.quality.reasons[*] (3 leaves)
-scores.qualification.aspects.quality.status (1 leaves)
-scores.qualification.aspects.valuation.reasons[*] (3 leaves)
-scores.qualification.composite.reasons[*].aspect (2 leaves)
-scores.qualification.composite.reasons[*].code (2 leaves)
-scores.qualification.composite.reasons[*].detail (2 leaves)
-scores.qualification.composite.reasons[*].field (2 leaves)
-scores.qualification.composite.reasons[*] (12 leaves)
-valuation.assumptions.notes[*] (5 leaves)
-valuation.assumptions.terminal.reinvestmentRate.basis (1 leaves)
-valuation.assumptions.terminal.reinvestmentRate.value (1 leaves)
-valuation.assumptions.terminal.roicTermPct.basis (1 leaves)
-valuation.assumptions.terminal.roicTermPct.value (1 leaves)
-valuation.dcf.enterpriseValue (1 leaves)
-valuation.dcf.equityValue (1 leaves)
-valuation.dcf.perShare (1 leaves)
-valuation.dcf.pvTerminal (1 leaves)
-valuation.dcf.terminalShare (1 leaves)
-valuation.dcf.terminalValue (1 leaves)
-valuation.gaps[*].reason (1 leaves)
-valuation.growthMarginGrid.perShare[*][*] (15 leaves)
-valuation.notes[*] (11 leaves)
-valuation.sensitivity.notes[*] (1 leaves)
-valuation.sensitivity.perShare[*][*] (25 leaves)
-```
-
-report.json
-
-```text
-meta.specVersion (1 leaves)
-meta.verificationRate (1 leaves)
-meta.provenanceCoverage.numeric.supported (1 leaves)
-meta.provenanceCoverage.numeric.total (1 leaves)
-meta.provenanceCoverage.numeric.rate (1 leaves)
-meta.provenanceCoverage.judgments.cited (1 leaves)
-meta.provenanceCoverage.judgments.rate (1 leaves)
-meta.provenanceCoverage.factualValidation.validated (1 leaves)
-meta.provenanceCoverage.factualValidation.unchecked (1 leaves)
-meta.provenanceCoverage.factualValidation.contradicted (1 leaves)
-meta.provenanceCoverage.factualValidation.rate (1 leaves)
-meta.consistencyChecks.unit.checked (1 leaves)
-meta.consistencyChecks.unit.passed (1 leaves)
-meta.consistencyChecks.namedIndividual.passed (1 leaves)
-meta.consistencyChecks.namedIndividual.failed (1 leaves)
-meta.consistencyChecks.namedIndividual.rate (1 leaves)
-meta.dataCompleteness.warningCount (1 leaves)
-verdict.gradeStrip.valuation.qualification.reasons[*] (3 leaves)
-verdict.gradeStrip.quality.qualification.status (1 leaves)
-verdict.gradeStrip.quality.qualification.reasons[*] (3 leaves)
-verdict.gradeStrip.quality.gradeContract.originalBand (1 leaves)
-verdict.gradeStrip.quality.gradeContract.distance (1 leaves)
-verdict.gradeStrip.quality.gradeContract.status (1 leaves)
-verdict.gradeStrip.quality.gradeContract.reason (1 leaves)
-verdict.gradeStrip.quality.keyNumbers[*].verified (1 leaves)
-verdict.gradeStrip.quality.keyNumbers[*].verificationNote (1 leaves)
-verdict.gradeStrip.quality.assessmentStatus (1 leaves)
-verdict.gradeStrip.moat.qualification.status (1 leaves)
-verdict.gradeStrip.moat.qualification.reasons[*] (3 leaves)
-verdict.gradeStrip.moat.gradeContract.originalBand (1 leaves)
-verdict.gradeStrip.moat.gradeContract.distance (1 leaves)
-verdict.gradeStrip.moat.gradeContract.status (1 leaves)
-verdict.gradeStrip.moat.gradeContract.reason (1 leaves)
-verdict.gradeStrip.moat.keyNumbers[*].verified (1 leaves)
-verdict.gradeStrip.moat.keyNumbers[*].verificationNote (1 leaves)
-verdict.gradeStrip.moat.assessmentStatus (1 leaves)
-verdict.gradeStrip.balanceSheet.qualification.reasons[*] (3 leaves)
-balanceSheet.graded.qualification.reasons[*] (3 leaves)
-valuation.graded.qualification.reasons[*] (3 leaves)
-valuation.graded.keyNumbers[*].verified (1 leaves)
-valuation.graded.keyNumbers[*].verificationNote (1 leaves)
-valuation.dcf.assumptions[*].value (2 leaves)
-valuation.dcf.assumptions[*].basis (2 leaves)
-valuation.dcf.sensitivityGrid[*].perShare (25 leaves)
-valuation.dcf.sensitivityNotes[*] (1 leaves)
-valuation.dcf.bridge.enterpriseValue (1 leaves)
-valuation.dcf.bridge.equityValue (1 leaves)
-valuation.dcf.bridge.presentValueTerminal (1 leaves)
-valuation.dcf.growthMarginGrid.perShare[*][*] (15 leaves)
-valuation.scenarios[*].assumptions[*] (3 leaves)
-quality.graded.qualification.status (1 leaves)
-quality.graded.qualification.reasons[*] (3 leaves)
-quality.graded.gradeContract.originalBand (1 leaves)
-quality.graded.gradeContract.distance (1 leaves)
-quality.graded.gradeContract.status (1 leaves)
-quality.graded.gradeContract.reason (1 leaves)
-quality.graded.keyNumbers[*].verified (1 leaves)
-quality.graded.keyNumbers[*].verificationNote (1 leaves)
-quality.graded.assessmentStatus (1 leaves)
-competitive.moatGraded.qualification.status (1 leaves)
-competitive.moatGraded.qualification.reasons[*] (3 leaves)
-competitive.moatGraded.gradeContract.originalBand (1 leaves)
-competitive.moatGraded.gradeContract.distance (1 leaves)
-competitive.moatGraded.gradeContract.status (1 leaves)
-competitive.moatGraded.gradeContract.reason (1 leaves)
-competitive.moatGraded.keyNumbers[*].verified (1 leaves)
-competitive.moatGraded.keyNumbers[*].verificationNote (1 leaves)
-competitive.moatGraded.assessmentStatus (1 leaves)
-appendix.missingData[*].field (125 leaves)
-appendix.missingData[*].reason (120 leaves)
-appendix.missingData[*].attemptedSources (25 leaves)
-appendix.missingData[*].expected (50 leaves)
-appendix.missingData[*].attemptedSources[*] (22 leaves)
-appendix.missingData[*] (13 leaves)
-appendix.verificationRate (1 leaves)
-appendix.provenanceCoverage.numeric.supported (1 leaves)
-appendix.provenanceCoverage.numeric.total (1 leaves)
-appendix.provenanceCoverage.numeric.rate (1 leaves)
-appendix.provenanceCoverage.judgments.cited (1 leaves)
-appendix.provenanceCoverage.judgments.rate (1 leaves)
-appendix.provenanceCoverage.factualValidation.validated (1 leaves)
-appendix.provenanceCoverage.factualValidation.unchecked (1 leaves)
-appendix.provenanceCoverage.factualValidation.contradicted (1 leaves)
-appendix.provenanceCoverage.factualValidation.rate (1 leaves)
-appendix.consistencyChecks.unit.checked (1 leaves)
-appendix.consistencyChecks.unit.passed (1 leaves)
-appendix.consistencyChecks.namedIndividual.passed (1 leaves)
-appendix.consistencyChecks.namedIndividual.failed (1 leaves)
-appendix.consistencyChecks.namedIndividual.rate (1 leaves)
-appendix.verificationLog[*].outcome (7 leaves)
-appendix.verificationLog[*].validationStatus (275 leaves)
-appendix.verificationLog[*].note (375 leaves)
-appendix.verificationLog[*].reason (277 leaves)
-appendix.verificationLog[*].traceKind (145 leaves)
-appendix.verificationLog[*].claim (949 leaves)
-appendix.verificationLog[*].source (606 leaves)
-appendix.verificationLog[*].path (947 leaves)
-appendix.verificationLog[*].numericSupportStatus (270 leaves)
-appendix.verificationLog[*].claimSupportStatus (124 leaves)
-appendix.verificationLog[*].evidenceKind (236 leaves)
-appendix.verificationLog[*].sourceSpans (24 leaves)
-appendix.verificationLog[*].check (3 leaves)
-appendix.verificationLog[*] (4 leaves)
-scores.aspects.quality.score (1 leaves)
-scores.aspects.quality.band (1 leaves)
-scores.aspects.quality.dataCompleteness (1 leaves)
-scores.aspects.quality.applicableCompleteness (1 leaves)
-scores.aspects.quality.drivers[*].value (4 leaves)
-scores.aspects.quality.drivers[*].unit (4 leaves)
-scores.aspects.quality.drivers[*].period (3 leaves)
-scores.aspects.quality.drivers[*].sourceId (4 leaves)
-scores.aspects.quality.drivers[*].source (4 leaves)
-scores.aspects.quality.drivers[*] (1 leaves)
-scores.aspects.quality.signals[*].id (4 leaves)
-scores.aspects.quality.signals[*].raw (4 leaves)
-scores.aspects.quality.signals[*].unit (4 leaves)
-scores.aspects.quality.signals[*].transformedScore (4 leaves)
-scores.aspects.quality.signals[*].signalWeight (4 leaves)
-scores.aspects.quality.signals[*].effectiveCompositeWeightPct (4 leaves)
-scores.aspects.quality.signals[*].contributionPoints (4 leaves)
-scores.aspects.quality.signals[*].family (1 leaves)
-scores.aspects.quality.signals[*].period (3 leaves)
-scores.aspects.quality.signals[*].startDate (3 leaves)
-scores.aspects.quality.signals[*].windowYears (3 leaves)
-scores.aspects.quality.signals[*].operands[*].name (5 leaves)
-scores.aspects.quality.signals[*].operands[*].value (5 leaves)
-scores.aspects.quality.signals[*].operands[*].source (5 leaves)
-scores.aspects.quality.signals[*].operands[*].asOf (1 leaves)
-scores.aspects.quality.signals[*].operands[*] (1 leaves)
-scores.aspects.quality.signals[*] (1 leaves)
-scores.aspects.moat.score (1 leaves)
-scores.aspects.moat.band (1 leaves)
-scores.aspects.moat.dataCompleteness (1 leaves)
-scores.aspects.moat.applicableCompleteness (1 leaves)
-scores.aspects.moat.drivers[*].value (2 leaves)
-scores.aspects.moat.drivers[*].period (2 leaves)
-scores.aspects.moat.drivers[*].sourceId (2 leaves)
-scores.aspects.moat.drivers[*].source (2 leaves)
-scores.aspects.moat.drivers[*].asOf (1 leaves)
-scores.aspects.moat.drivers[*] (1 leaves)
-scores.aspects.moat.signals[*].id (2 leaves)
-scores.aspects.moat.signals[*].raw (2 leaves)
-scores.aspects.moat.signals[*].transformedScore (2 leaves)
-scores.aspects.moat.signals[*].signalWeight (2 leaves)
-scores.aspects.moat.signals[*].effectiveCompositeWeightPct (2 leaves)
-scores.aspects.moat.signals[*].contributionPoints (2 leaves)
-scores.aspects.moat.signals[*].asOf (1 leaves)
-scores.aspects.moat.signals[*].period (2 leaves)
-scores.aspects.moat.signals[*].startDate (2 leaves)
-scores.aspects.moat.signals[*].endDate (1 leaves)
-scores.aspects.moat.signals[*].windowYears (2 leaves)
-scores.aspects.moat.signals[*].operands[*].name (2 leaves)
-scores.aspects.moat.signals[*].operands[*].value (2 leaves)
-scores.aspects.moat.signals[*].operands[*].source (2 leaves)
-scores.aspects.moat.signals[*].operands[*].asOf (2 leaves)
-scores.aspects.moat.signals[*].operands[*] (5 leaves)
-scores.aspects.moat.signals[*].family (1 leaves)
-scores.aspects.moat.signals[*] (1 leaves)
-scores.composite.score (1 leaves)
-scores.composite.methodology (1 leaves)
-scores.assessments.businessQuality.score (1 leaves)
-scores.assessments.businessQuality.band (1 leaves)
-scores.assessments.businessQuality.evidenceCompleteness (1 leaves)
-scores.assessments.evidenceCompleteness (1 leaves)
-scores.qualification.composite.reasons[*].code (2 leaves)
-scores.qualification.composite.reasons[*].aspect (2 leaves)
-scores.qualification.composite.reasons[*].field (2 leaves)
-scores.qualification.composite.reasons[*].detail (2 leaves)
-scores.qualification.composite.reasons[*] (12 leaves)
-scores.qualification.aspects.valuation.reasons[*] (3 leaves)
-scores.qualification.aspects.quality.status (1 leaves)
-scores.qualification.aspects.quality.reasons[*] (3 leaves)
-scores.qualification.aspects.balanceSheet.reasons[*] (3 leaves)
-scores.qualification.aspects.moat.status (1 leaves)
-scores.qualification.aspects.moat.reasons[*] (3 leaves)
-scores.factorExposure[*].family (6 leaves)
-scores.factorExposure[*].weightPct (5 leaves)
-scores.factorExposure[*].aboveNeutralPoints (6 leaves)
-scenarioPresentation.sensitivity.minPerShare (1 leaves)
-scenarioPresentation.sensitivity.maxPerShare (1 leaves)
-fairValue.reference.perShare.value (1 leaves)
-```
-
-</details>
-
-### Validation and remaining limits
-
-The same-report hash approval file is local under tmp; it binds each changed artifact and manifest field to its before/after identity and D-261/D-263 explanation. Accuracy check: 265 figures across 13 data-only cases; 170 match, 7 existing mismatches, 62 gaps, 26 not-established, all as expected. No accuracy expectation update. Focused tests, refusal wording ratchet, version stamps, currency company page, risk coverage, repository release, typecheck and lint pass; lint retains the pre-existing unused-variable warning in revenueAdmission.scopeUnresolvedCode.test.ts. No full local suite, paid call, live test request, saved-report write or real application-database write. The active frozen-log chain continues from merged main; earlier parallel D-261 refresh entries remain intact in mergedBranchHistory on the merge refresh entries. No guard assertion was changed. Synthetic current/frozen fixtures were explicitly refreshed under D-261 with exact change logs; numeric synthetic scores stay unchanged.
-
-The dimensioned investment admission and the unrelated carrying-debt completeness problem disclosed by FIGR are not broadened here. Both remain named gaps. The review thread is unresolved for lead action; this branch is not merged.
+Both LLY cases share the same Stage B figure inventory; retained analyst prose is not regenerated. The lead owns review-thread replies and resolution.
 
 ## D-260 - Complete filed operating costs and exact additive income windows (2026-11-13)
 
