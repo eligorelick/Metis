@@ -11,6 +11,102 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-265 - The share basis of market-value and per-share figures is stated; a divisor below the quote count is not dilution (2026-11-14)
+
+Principles P3 (unit, scale and share basis) and P20 (provenance and disclosure); P2 for the cutoff on the new
+filed fact; P13 for why the market-value side is not moved. Disclosure only.
+
+**Defect.** The LLY #63 report printed "P/E (TTM)" (price over the sum of four quarterly diluted EPS) and
+"Market cap / TTM common earnings" about 5% apart with no explanation, and the equity-bridge note and the D-60
+valuation note both said the gap between the weighted diluted divisor and the count the quoted market cap implies
+was option and RSU dilution. For LLY the diluted divisor is the smaller count (5.03% below), so dilution cannot be
+the reason: a diluted count can only rise above the basic count. The quoted count is the cover-page
+`dei:EntityCommonStockSharesOutstanding` (2026-10-26); the divisor is the latest quarter's weighted diluted count.
+The filings give the reason: `us-gaap:CommonStockSharesHeldInEmployeeTrustShares` is 50,000,000 at 2025-12-31
+(10-K 0000059478-26-000013, filed 2026-02-12), and the equity note says stock held by that employee benefit trust
+is not considered outstanding in the computation of EPS. The cover count includes those shares; EPS excludes them.
+
+**Class of defect.** Any wording that explained a difference between two share counts by a cause the direction of
+the difference rules out, on every surface that sets the two counts side by side: the bridge-table note
+(`src/report/auditTables.ts`), the D-60 valuation note (`src/pipeline/stageB/valuation.ts`), and the basis text of
+every multiple on provider market cap (P/FCF, P/B, P/TBV, EV/Sales, EV/EBITDA, P/FFO, P/AFFO, P/E on market cap /
+common income), P/E on price / diluted EPS, and the peer "Market cap / TTM common earnings" comparison.
+
+**Fix, at the P3 owner (`src/pipeline/stageB/dilutedDivisor.ts`).**
+
+- `employeeTrustSharesFiled` reads a filed held-share count through the SEC-facts path: `us-gaap`
+  `CommonStockSharesHeldInEmployeeTrustShares`, else `EmployeeStockOwnershipPlanESOPNumberOfSuspenseShares`
+  (an ESOP's unreleased shares, the same class of filed evidence); unit `shares` only; an instant (no duration
+  fact); a core form; a positive value; instant AND filing date on or before the analysis cutoff (P2: a fact filed
+  or dated after the cutoff is never used); the newest instant, then the newest filing. Facts are read only for a
+  confirmed issuer (`confirmedIssuerFacts`).
+- `compareShareBasis` computes once: divisor, quote count (market cap ÷ price), the measured difference
+  ((divisor ÷ quote − 1) × 100), the direction and the cause. At or above: "dilution or share changes", and the
+  present sentences stand unchanged. Below: "employee-trust-filed" when a held-share fact is admitted, else
+  "not-established". A multi-class issuer (`commonClassScope.ts` / `resolveEconomicEquityScope`) or an ADS quote
+  (`shareUnits.ts` and the ADR security basis) is "scope-owner": the existing owner's note speaks and this
+  comparison attributes nothing, so it neither contradicts nor repeats them. The held-share fact is in ordinary
+  shares, so it is never set against an ADS-unit divisor.
+- `shareBasisNote` (bridge and D-60 note, divisor below only) states the measured difference, says option and RSU
+  dilution can only raise a diluted count and so does not explain it, then either names the filed fact (tag,
+  value, instant, form, accession, filing date, and "a dated observation at {instant}, before the quote ({date})"
+  when it is older than the quote) without sizing each cause, or says the cause of the difference is not
+  established. Nothing is guessed: the held count is set beside the difference, never subtracted from it.
+- `shareBasisSentence` adds one "Share basis:" sentence to the basis text of each shown multiple: which count it
+  sits on (market cap: the count the provider's market cap implies; P/E: weighted diluted counts) and the measured
+  difference, with the same cause wording.
+- A difference under 0.1% reads "agree within 0.1%" and attributes nothing. This is the D-60 note's existing
+  display threshold, moved into the owner as `SHARE_BASIS_DISPLAY_MIN_PCT` so the three surfaces read one value; it
+  decides wording only. No new tolerance, day band or status word.
+- FIN-404's statement of what a loss-period divisor carries is kept beside the new sentence.
+- Read time (P21): a stored report without the new `shareBasisNote` field is read from its two stored counts; a
+  divisor below the stored quote count no longer prints the dilution sentence and says the stored report does not
+  record the cause. Stored bytes are unchanged.
+
+**Not changed (method question left open).** Market capitalisation, enterprise value, every multiple, the WACC
+equity weight and every score stay on the quoted (vendor) share count. Own-history percentiles and peer medians use
+the vendor share basis for every date; moving only the current figure to the EPS share basis would break their
+comparability (P13). For LLY's shape the measured difference is 5.03% (the divisor below the quote count), so each
+market-cap multiple is that much higher than it would be on the EPS share basis. Moving the market-value side to the
+EPS basis is an open method question: it would need dated held-share evidence for every history date and every
+peer, and an owner decision.
+
+**Tests** (`tests/stageB.shareBasisDisclosure.test.ts`, synthetic): the fact reader (newest admissible instant;
+filed after the cutoff and dated after the cutoff both refused, an older admissible fact still read; other unit,
+non-core form, zero, duration fact, no facts, invalid cutoff refused; the ESOP tag); the four shapes (divisor above
+with ordinary dilution; below with a filed trust fact; below with none; class and quoted-unit shapes deferring);
+the sub-0.1% agreement wording; runStageB through the bridge table, the D-60 note and the multiples basis, including
+the post-cutoff fact; a disclosure-only control (with and without the trust fact every value, multiple, EV and score
+is identical); the read-time view of a stored bridge without the field. Failing on main first (13 of 14).
+
+**Same-report check (all 17 stored cases and the two LLY cases).** No numeric leaf of any `stageB.json` changed;
+the only new numeric leaves are the disclosure fields `valuation.dcf.bridge.shareBasis.*` (divisor, quote count,
+difference, and for LLY the filed held-share fact). Text changes: the multiples' basis strings, the peer
+comparison basis, the D-60 note and the bridge note. Cases whose diluted divisor is below the quote count:
+
+- `lly-data-only`, `lly-fixed-analyst` (DCF bridge, 5.03% below): the bridge and D-60 notes name
+  `us-gaap:CommonStockSharesHeldInEmployeeTrustShares` 50M shares at 2025-12-31 (10-K 0000059478-26-000013, filed
+  2026-02-12) as a dated observation before the 2026-11-13 quote; nothing says dilution explains the lower count.
+  The multiples' basis text names the same fact.
+- `o-data-only` (REIT, no DCF bridge, 0.51% below): the multiples' basis text says the difference is not dilution
+  and its cause is not established (no held-share fact is filed on or before the cutoff).
+- `tsm-data-only` (ADS quote, under 0.1% below): the bridge note and basis text say the two counts agree within
+  0.1% and attribute nothing; the quoted-unit owner's notes are unchanged.
+
+Every other case's divisor is at or above the quote count (ordinary dilution); their bridge note is unchanged and
+their basis text gains only the measured "Share basis" sentence. FIGR, META, RIVN and VKTX show no multiple or
+bridge that sets the two counts side by side and are byte-identical in `stageB.json`.
+
+**Approved report changes.** Basis text of the shown multiples and the peer comparison in every case with a quote
+and a diluted count (AMZN, DUK, JPM, LLY, MU, NVDA, O, PGR, QCOM, TSM); the D-60 note and bridge note for LLY and
+TSM; the new `valuation.dcf.bridge.shareBasis` disclosure object in every DCF case; the payload's multiples notes.
+No figure, grade, band or headline changes.
+
+**Stamps.** Report spec 1.81.0, payload 1.99.0, Stage B `STAGE_B_2026_11_SHARE_BASIS_DISCLOSURE_73`: Stage B
+writes different text and a new disclosure object on identical retained inputs (a cache and replay key), new
+reports carry corrected reader wording, and the payload's multiples notes change. Frozen records re-recorded under
+D-265 with `npm run freeze:refresh`.
+
 ## D-260 - Complete filed operating costs and exact additive income windows (2026-11-13)
 
 Principles: P1 (exact additive periods), P2 (compatible current filings), P7

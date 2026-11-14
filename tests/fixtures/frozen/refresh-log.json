@@ -464,5 +464,88 @@
       "$.payload.payloadVersion",
       "$.payload.computed[4].notes[1]"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-265",
+    "reason": "D-265 share-basis disclosure: each multiple's basis text gains a Share basis sentence and the payload stamp moves to 1.99.0; no figure changes",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary",
+      "$.prompt",
+      "$.payload.payloadVersion",
+      "$.payload.computed",
+      "$.finance.valuation"
+    ],
+    "beforeSha256": "bb9a010c42dd372aa7999a05c359519b0203051e4fe26a79d9c7698cf6663e51",
+    "afterSha256": "3c5dfa7b1f9dcdb10f39b7ad38be9277eddeb1d693cac43b9c82d6a245140c9f",
+    "changedLeaves": 26,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptBytes",
+      "$.summary.promptFnv1a32",
+      "$.summary.financeHash",
+      "$.prompt.bytes",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.prompt.sections[8].bytes",
+      "$.prompt.sections[8].sha256",
+      "$.finance.valuation.multiples.multiples[0].basis",
+      "$.finance.valuation.multiples.multiples[1].basis",
+      "$.finance.valuation.multiples.multiples[2].basis",
+      "$.finance.valuation.multiples.multiples[3].basis",
+      "$.finance.valuation.multiples.multiples[4].basis",
+      "$.payload.payloadVersion",
+      "$.payload.computed[6].notes[14]",
+      "$.payload.computed[6].notes[15]",
+      "$.payload.computed[6].notes[16]",
+      "$.payload.computed[6].notes[17]",
+      "$.payload.computed[6].notes[18]",
+      "$.finance.valuation.dcf.bridge.shareBasis.divisorShares",
+      "$.finance.valuation.dcf.bridge.shareBasis.quoteShares",
+      "$.finance.valuation.dcf.bridge.shareBasis.differencePct",
+      "$.finance.valuation.dcf.bridge.shareBasis.direction",
+      "$.finance.valuation.dcf.bridge.shareBasis.cause"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-265",
+    "reason": "D-265 share-basis disclosure: multiples basis text and the share-count notes state the basis each figure sits on; report stamp 1.81.0; no figure changes",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.stageB.valuation.multiples.multiples",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.valuation.multiples",
+      "$.projection.stageB.valuation.dcf.bridge.shareBasis"
+    ],
+    "beforeSha256": "d1c8aac937934a1019868929c16721f721813a290f7229969b3fc597e1dc2d75",
+    "afterSha256": "6396a5df9b36dede42cc957662b1693995f54a69e0bc0e26d77241b6e84abfdf",
+    "changedLeaves": 19,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.stageB.valuation.multiples.multiples[0].basis",
+      "$.projection.stageB.valuation.multiples.multiples[1].basis",
+      "$.projection.stageB.valuation.multiples.multiples[2].basis",
+      "$.projection.stageB.valuation.multiples.multiples[3].basis",
+      "$.projection.stageB.valuation.multiples.multiples[4].basis",
+      "$.projection.stageB.valuation.multiples.multiples[5].basis",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.valuation.multiples[0].basis",
+      "$.projection.report.valuation.multiples[1].basis",
+      "$.projection.report.valuation.multiples[2].basis",
+      "$.projection.report.valuation.multiples[3].basis",
+      "$.projection.report.valuation.multiples[4].basis",
+      "$.projection.report.valuation.multiples[5].basis",
+      "$.projection.stageB.valuation.dcf.bridge.shareBasis.divisorShares",
+      "$.projection.stageB.valuation.dcf.bridge.shareBasis.quoteShares",
+      "$.projection.stageB.valuation.dcf.bridge.shareBasis.differencePct",
+      "$.projection.stageB.valuation.dcf.bridge.shareBasis.direction",
+      "$.projection.stageB.valuation.dcf.bridge.shareBasis.cause"
+    ]
   }
 ]

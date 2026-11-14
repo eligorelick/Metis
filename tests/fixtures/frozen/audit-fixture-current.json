@@ -1,7 +1,7 @@
 {
   "fixture": "fixtures/fmp + fixtures/report/DEMO-sample.json via tests/helpers/auditFixtureComparison.ts (no restore step)",
   "fixtureIdentity": {"fmpTreeSha256": "2d4278a6d73453ea372bf655f299e9b8709b627098214ce5d0d3c2190aa3c7d9", "reportSha256": "e98dbece14978fa5662db016e002ab5b4706b24ac0cf5bbe0408c9f17c969c88"},
-  "projectionSha256": "3dc43fe2c2a647ff274d8546db1a0673918c79377115039b0b5098f65956fec1",
+  "projectionSha256": "375bd86ea39ea3b63c0e6cc682c1fe0fbe50bdb3f6e96bc8cd7f0a4cda815afb",
   "projection": {
     "fixtureControl": {"symbol": "DEMO", "companyName": "Thesis Example Systems", "quotePrice": 40},
     "stageB": {
@@ -793,7 +793,8 @@
                 "basis": "21% of the 500000000 added above; the rate is max(statutory 21% — US federal corporate rate, 26 U.S.C. §11(b); state taxes excluded — and the 15% global minimum tax, OECD Pillar Two). The tax basis of each holding is not filed in the statements, so none is assumed: this is the most the tax could be, and it overstates it for holdings carried near cost"
               }
             ],
-            "sharesOutstandingAtQuote": 200000000
+            "sharesOutstandingAtQuote": 200000000,
+            "shareBasis": {"divisorShares": 205000000, "quoteShares": 200000000, "differencePct": 2.499999999999991, "direction": "above", "cause": "dilution-or-share-changes"}
           },
           "pvExplicit": 14716954826.169065,
           "pvTerminal": 15252341287.375484,
@@ -999,11 +1000,18 @@
         },
         "multiples": {
           "multiples": [
-            {"key": "peTtm", "current": 4.685714285714285, "basis": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed)", "period": "FY2025", "ownHistory": null, "peers": null},
+            {
+              "key": "peTtm",
+              "current": 4.685714285714285,
+              "basis": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed). Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 205M); the market-cap multiples sit on the 200M shares the quoted market cap implies, 2.5% fewer.",
+              "period": "FY2025",
+              "ownHistory": null,
+              "peers": null
+            },
             {
               "key": "evToEbitda",
               "current": 2.392857142857143,
-              "basis": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000. Balance basis: latest quarterly balance sheet 2025-12-31.",
+              "basis": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000. Balance basis: latest quarterly balance sheet 2025-12-31. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M, 2.5% more).",
               "period": "FY2025",
               "ownHistory": null,
               "peers": null
@@ -1011,7 +1019,7 @@
             {
               "key": "evToSales",
               "current": 0.536,
-              "basis": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000.",
+              "basis": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). 2025-12-31: The recorded lease line is a positive observation. Operating, finance and combined lease coverage is unverified. The calculation uses the retained debt basis; no separate operating-lease amount was subtracted. EV = market cap + total debt + preferred stock + minority interest − cash and short-term investments. EV/EBITDA uses this same EV. Under US GAAP (ASC 842) operating-lease cost stays in operating expenses, so EBIT and EBITDA are already AFTER it. Finance-lease right-of-use amortisation is included in EBIT and added back in EBITDA; finance-lease interest is below EBIT. The selected convention does not subtract the finance-lease observation. Provided market capitalization retained; all-class economic coverage is not independently established. A single SEC share fact alone does not establish complete common-class scope. Non-operating holdings are not comprehensively resolved; this bridge does not establish a fully adjusted operating enterprise value.  EV on the operating-lease adjustment basis 6,700,000,000; EV on retained debt basis 6,700,000,000. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M, 2.5% more).",
               "period": "FY2025",
               "ownHistory": null,
               "peers": null
@@ -1019,21 +1027,21 @@
             {
               "key": "priceToFcf",
               "current": 4.444444444444445,
-              "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed",
+              "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M, 2.5% more).",
               "ownHistory": null,
               "peers": null
             },
             {
               "key": "priceToBook",
               "current": 1.3333333333333333,
-              "basis": "marketCap / common equity (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness",
+              "basis": "marketCap / common equity (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M, 2.5% more).",
               "ownHistory": null,
               "peers": null
             },
             {
               "key": "priceToTbv",
               "current": 1.7777777777777777,
-              "basis": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 1000000000 and intangibleAssets 500000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)",
+              "basis": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 1000000000 and intangibleAssets 500000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M, 2.5% more).",
               "ownHistory": null,
               "peers": null
             }
@@ -2096,7 +2104,7 @@
         "symbol": "DEMO",
         "companyName": "Thesis Example Systems",
         "generatedAt": "2026-07-06T12:00:00.000Z",
-        "specVersion": "1.78.0",
+        "specVersion": "1.81.0",
         "model": "synthetic-fixture",
         "pipelineVersion": "audit-fixture-comparison",
         "evidenceContract": "EVIDENCE_CONTRACT_1",
@@ -2878,10 +2886,19 @@
         },
         "reverseDcf": {"impliedMetric": "terminal EBIT margin", "impliedValue": 2.933349609375, "narrative": "SYNTHETIC demonstration text for valuation reverse dcf narrative; it describes fictional inputs and is not a current market observation."},
         "multiples": [
-          {"name": "P/E (FY2025)", "basis": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed)", "current": 4.685714285714285, "peerMedian": null, "peerCount": null, "own5yPercentile": null, "ownHistoryObservations": null, "sectorAppropriate": true},
+          {
+            "name": "P/E (FY2025)",
+            "basis": "price / epsDiluted (latest annual FY 2025-12-31 — TTM suppressed). Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 205M); the market-cap multiples sit on the 200M shares the quoted market cap implies, 2.5% fewer.",
+            "current": 4.685714285714285,
+            "peerMedian": null,
+            "peerCount": null,
+            "own5yPercentile": null,
+            "ownHistoryObservations": null,
+            "sectorAppropriate": true
+          },
           {
             "name": "EV/EBITDA (FY2025)",
-            "basis": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2025-12-31.",
+            "basis": "EV / (operatingIncome + D&A), latest annual FY 2025-12-31 — TTM suppressed-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2025-12-31. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M, 2.5% more).",
             "current": 2.392857142857143,
             "peerMedian": null,
             "peerCount": null,
@@ -2889,10 +2906,19 @@
             "ownHistoryObservations": null,
             "sectorAppropriate": true
           },
-          {"name": "EV/Sales", "basis": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value as stated once in the enterprise-value bridge note.", "current": 0.536, "peerMedian": null, "peerCount": null, "own5yPercentile": null, "ownHistoryObservations": null, "sectorAppropriate": true},
+          {
+            "name": "EV/Sales",
+            "basis": "EV / revenue (latest annual FY 2025-12-31 — TTM suppressed). Enterprise value as stated once in the enterprise-value bridge note. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M, 2.5% more).",
+            "current": 0.536,
+            "peerMedian": null,
+            "peerCount": null,
+            "own5yPercentile": null,
+            "ownHistoryObservations": null,
+            "sectorAppropriate": true
+          },
           {
             "name": "P/FCF (before SBC)",
-            "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed",
+            "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (latest annual FY 2025-12-31 — TTM suppressed; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M, 2.5% more).",
             "current": 4.444444444444445,
             "peerMedian": null,
             "peerCount": null,
@@ -2902,7 +2928,7 @@
           },
           {
             "name": "P/B",
-            "basis": "marketCap / common equity (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness",
+            "basis": "marketCap / common equity (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M, 2.5% more).",
             "current": 1.3333333333333333,
             "peerMedian": null,
             "peerCount": null,
@@ -2912,7 +2938,7 @@
           },
           {
             "name": "P/TBV",
-            "basis": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 1000000000 and intangibleAssets 500000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)",
+            "basis": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 1000000000 and intangibleAssets 500000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2025-12-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 200M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 205M, 2.5% more).",
             "current": 1.7777777777777777,
             "peerMedian": null,
             "peerCount": null,
