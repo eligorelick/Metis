@@ -140,7 +140,7 @@ export function ReportView({
         <DossierCover report={report} completeness={completeness} />{figureNote}
       </div>
     ),
-    business: <BusinessSegments business={report.business} index={reportSection("business").index} extraTables={filingDisclosureTables(report.filingDisclosures, "business")} />,
+    business: <BusinessSegments business={report.business} competitive={report.competitive} index={reportSection("business").index} extraTables={filingDisclosureTables(report.filingDisclosures, "business")} />,
     fundamentals: <FundamentalsSection report={report} fundamentals={report.fundamentals} sourceFactSummary={report.sourceFactSummary} index={reportSection("fundamentals").index} grading={grading("fundamentals")} chart={fundamentalsChart} extraTables={[...filingDisclosureTables(report.filingDisclosures, "fundamentals"), ...lenderTables]} />,
     balanceSheet: <BalanceSheetSection report={report} grading={grading("balanceSheet")} balanceSheet={report.balanceSheet} index={reportSection("balanceSheet").index} />,
     valuation: <ValuationSection report={report} grading={grading("valuation")} valuation={report.valuation} scenarioTargets={report.scenarioTargets} fairValue={report.fairValue} routeMetrics={routeMetricsForDisplay(report)} scenarioPresentation={report.scenarioPresentation} thesisTriggers={report.thesisTriggers} index={reportSection("valuation").index} />,

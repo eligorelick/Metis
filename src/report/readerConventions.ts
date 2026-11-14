@@ -1,5 +1,6 @@
 /** Read-time copy only. Stored reports and their audit trail keep their original detail. */
 import type { Report } from "@/report/schema";
+import { BUSINESS_STORY_HEADING } from "@/report/schema";
 import type { ReportAuditTable } from "@/report/auditTables";
 
 const LENDER_PARAGRAPH = /Owner FCF, P\/FCF, FCF yield, FCF conversion\/growth and cash runway are not applicable:[\s\S]*?Source: https?:\/\/\S+\.(?=\s|$)/g;
@@ -100,10 +101,15 @@ export function providerPeerListPresentation(report: Pick<Report, "competitive">
   // A subject row or incomplete model-authored peer rows cannot override the
   // pipeline's comparable screen. With no screen recorded, preserve old tables.
   if (coverage && coverage.candidates > 0 && coverage.eligible.length === 0) {
-    // Only point at a competitor discussion the report actually carries.
+    // Only point at a competitor discussion the report actually carries. D-271:
+    // competitors by product line render in the business section's group.
     const discussed = (report.competitive.competitors?.length ?? 0) > 0;
+    const byLine = (report.competitive.competitorsByProductLine ?? []).some(item => item.claims.length > 0);
+    const byLineText = `competitors by product line are under ${BUSINESS_STORY_HEADING} in the Business section`;
+    const pointer = discussed && byLine ? `; competitors are discussed in this section, and ${byLineText}`
+      : discussed ? "; competitors are discussed in this section" : byLine ? `; ${byLineText}` : "";
     return { heading: "Peer table", hideTable: true,
-      note: `The data provider's peer list contained no comparable companies${discussed ? "; competitors are discussed in this section" : ""}.` };
+      note: `The data provider's peer list contained no comparable companies${pointer}.` };
   }
   if (report.competitive.peerTable.length === 0 && coverage && (coverage.evaluated > 0 || coverage.eligible.length > 0)) {
     return { heading: "Peer table", hideTable: true,

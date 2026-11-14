@@ -3,11 +3,11 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.85.0 / payload 1.103.0, Stage B `STAGE_B_2026_11_CARRYING_INVESTMENTS_77` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.86.0 / payload 1.104.0, Stage B `STAGE_B_2026_11_CARRYING_INVESTMENTS_77` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
-An explicit fiscal-year guidance introduction can bind annual revenue and tax-rate bullets. Intervening prose, a new outlook or trailing restrictions cannot silently inherit that annual scope. Unsupported operating measures remain source narrative, and annual guidance is not converted into quarterly guidance. Primary earnings schedules can confirm quarter/date rows under an explicit results-release announcement, with enclosing uncertainty or conflicting rows refused. General evidence selector `section-evidence-8` reserves at most a fifth of the existing excerpt budget for complete calendar passages, merging overlapping selections; notes/risk and event selectors keep their own versions. An unexplained pretax-to-net-income residual is disclosed without diagnosing an unproved equity-method adjustment.
+An explicit fiscal-year guidance introduction can bind annual revenue and tax-rate bullets. Intervening prose, a new outlook or trailing restrictions cannot silently inherit that annual scope. Unsupported operating measures remain source narrative, and annual guidance is not converted into quarterly guidance. Primary earnings schedules can confirm quarter/date rows under an explicit results-release announcement, with enclosing uncertainty or conflicting rows refused. General evidence selector `section-evidence-10` reserves at most a fifth of the existing excerpt budget for complete calendar passages, merging overlapping selections; notes/risk and event selectors keep their own versions. An unexplained pretax-to-net-income residual is disclosed without diagnosing an unproved equity-method adjustment.
 
 D-261 preserves liquidity already admitted by main, including its notes and qualification. Dimensioned-investment policy for those admitted rows is separate work.
 
@@ -8850,6 +8850,14 @@ not correctness. These rules never rewrite stored reports or recompute figures.
 D-267 part 1 (P1/P13, revises D-65): a fiscal-year fallback DCF requires invested capital and the equity bridge at the fiscal-year statement date. An earlier or later admitted balance withholds the model with a typed date-mismatch cause and the missing or refused statement-date operand disclosed. An unparseable or missing date also withholds the fallback because the offset cannot be established. Existing critical capital and lease findings retain their severity and disclosure before or beside the date refusal. The trailing-window route retains its D-65 disclosure pending separate work.
 
 
+### Issuer schedules and filing evidence budgets (D-270; P9, P20)
+
+Business, annual MD&A (`annual`) and quarterly MD&A (`quarterly`) read IP/exclusivity, development/capacity, competition, customers and suppliers. The business product family includes medicines, indications and services. Default `financial` readings of releases, CFO commentary, transcripts, IR documents and Other Information retain main's families and selection; legacy `interim` remains available for the binding-budget controls. Notes, risk and event readings retain their previous behavior.
+
+A schedule becomes an atomic block only when actual source paragraph breaks bound it and its complete lead, rows and footnote paragraphs fit within the 40% table share. A flattened section without those breaks, or a block above the share, falls back to ordinary source passages. A header phrase anywhere in flattened text never makes the entire section a table. Whole sections that fit their budget remain whole. The annual MD&A profile never splits a passage at a character count: an oversized unit is omitted, and adjacent selected units join without an omission separator. This changes the filing reading without changing the legacy default financial profile.
+
+`PAYLOAD_BUDGETS` owns the floors and caps. Business grows from 12,000 to source length capped at 96,000; annual MD&A from 14,000 capped at 50,000; quarterly MD&A from 12,000 capped at 48,000. Maximum extra source context is 156,000 characters. Other section budgets and paid reservation bounds are unchanged; the 2,000,000-character input guard and model-specific pre-launch context check remain enforced. D-270 records measured UTF-8 payload growth, conditional API spend estimates and Haiku 4.5 refusals at zero cost. No calculation or saved report changes.
+
 ### Carrying investment subtotals (D-268)
 
 A standard carrying-measurement investment fact may fill a missing investment
@@ -8863,3 +8871,41 @@ A failed proof remains a gap. Source selection follows the newest compatible
 filing. Carrying-only supplements neither replace statement history nor imply
 new annual history. Missing original instance evidence needs a separately
 identified evidence refresh; saved snapshots and reports remain immutable.
+
+### The business story (D-271)
+
+The report has one home for the business itself, for every company type: a
+"The business" group in the business section with Products and services, What
+is coming, Customers and suppliers, Competitors by product line, Protection and
+expiry, Management's plan, and Industry. Each item is a sourced claim (a FACT
+with a dated source, or a labelled JUDGMENT), so the existing claim verifier
+checks it at its own report path. A figure in these claims, such as a product
+line's revenue, must cite its payload record; nothing here is computed or
+changes a computed figure. Competitors by product line may include
+foreign-listed rivals; they are never valuation peers and never enter the
+multiples.
+
+The analysts and the judge receive one sector-neutral checklist (products,
+what is coming, customers and suppliers, industry, competitors by product line,
+protection and expiry, management's plan, what could change the story) in place
+of wording written for a chip and software issuer. Where no source supports an
+item, the writer says so in one sentence. Research looks for market size and
+named competitors before news. A web page is untrusted third-party text: it is
+cited with its publisher, link and date and never used for a figure Metis
+computes from filings.
+
+A product-line heading is a name, never a claim, so code checks it (P18). At
+generation it must carry no digit, percent sign, currency symbol or number word,
+have at most 8 words and 60 characters, and be written as a whole word or phrase
+in one of the item's own FACT claims (case, spacing, dashes and trademark signs
+aside). At read time it prints only when a FACT claim that writes the name is
+marked validated or qualitative; a contradicted, unverified or unchecked claim
+never supports a heading. At report assembly it must also be, as a whole name, a product or geographic
+segment name in the bundle's own segmentation data (code-owned, never model
+text), so a model-written assertion never becomes a caption (D-271 review
+round 2). Otherwise the fixed heading "Product line (its name is
+not in the cited claims)" prints and the claims keep their own marks. When the
+provider's peer list has no comparable company, the peer note points to the
+competitors by product line in "The business" when the report carries them. App, Markdown and print read the same
+presentation rule (P22); a report saved before this change has none of these
+fields and prints none of these headings (P21).

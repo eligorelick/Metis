@@ -80,6 +80,197 @@ case list against new showed differences only in `tsm-data-only`. `accuracy:chec
 173 match, 5 mismatch, 61 gap, 26 not established. The two TSM improvements are recorded
 with `--update-expectation`, and their notes now state the filed match.
 
+## D-271 - A home for the business story, for every company type (2026-11-14)
+
+P18, P20, P21 and P22. Owners: `src/report/schema.ts` (fields and the heading
+rule), `src/pipeline/stageC/passes.ts` (generation), `src/pipeline/stageC/prompts.ts`
+(the checklist), `src/report/presentation.ts` (one reading for app, Markdown and
+print).
+
+### Evidence
+
+The 2026-11-14 business-coverage diagnosis scored four stored reports (a drug
+maker, a foundry filing a 20-F, an online travel agency and a broker) on eight
+reader items. Two causes are owned by the report and the prompts rather than by
+evidence collection:
+
+- **The report had no place for it (gaps G7, G8).** `business` held only what
+  the company sells, market structure, segments and concentration risks;
+  `competitive` held free competitor claims and the peer table. Nothing held
+  what is coming (pipeline, roadmap, launches, capacity with dates), protection
+  (patents, exclusivity, contracts, switching costs with expiries), management's
+  stated plan and current guidance, customers and suppliers as dependencies, or
+  competitors by product line. Facts the writer had were scattered across
+  catalysts and actions.
+- **The analysts were not asked (gap G9).** The Item 1 instruction named "the
+  software platform and developer ecosystem, the product roadmap" (wording for a
+  chip and software issuer); product-level competitors were asked for only "when
+  supported"; the research framing put market and competitor research last,
+  after news.
+
+### Choice
+
+1. **Schema (P21).** Seven optional fields, so every saved report parses and
+   prints exactly as before: under `business`, `products` (one item per product
+   or service line: a heading plus sourced claims), `whatIsComing`,
+   `customersAndSuppliers`, `protection`, `managementPlan`, `industry`; under
+   `competitive`, `competitorsByProductLine` (heading plus claims; foreign-listed
+   rivals allowed; never valuation peers, never in the multiples). Every entry is
+   a `SourcedClaim`, so the existing claim verifier checks each at its exact path
+   (for example `business.products[0].claims[1]`); a revenue or growth figure
+   must cite its payload record and verifies against it like any other claim.
+   The fresh judge request requires the seven arrays (`[]` is an honest empty
+   answer), which adds no optional wire parameter.
+2. **Product-line headings are labels (P18).** A model may not author a label
+   that code cannot tie to a source. Rule: a heading stands only when one of the
+   item's own FACT claims writes that name as a whole word or phrase, ignoring
+   case, spacing, dash style and trademark signs (`productLineNamedInClaims`). A
+   JUDGMENT never names a line, and a part of a longer word does not match
+   ("Pharma" in "Pharmaceuticals"). Generation (`normalizeJudgeOutput`, after
+   embedded judgments are split) replaces a failing heading with the fixed
+   heading "Product line (its name is not in the cited claims)" and keeps the
+   claims; the presentation applies the same function, so a report assembled
+   by any other path prints the same (review round 1 below adds stricter
+   rules). Alternatives rejected: rejecting the
+   section costs a paid repair round for a label problem; dropping the item
+   would hide sourced claims; requiring the name inside the cited excerpt text
+   is not possible for web and news citations, which keep no fetched text. The
+   raw model heading stays in the pass artifact.
+3. **Prompts.** The analysts and the judge receive one sector-neutral checklist
+   (products and services; what is coming; customers and suppliers; industry;
+   competitors by product line, foreign-listed included; protection and expiry;
+   management's plan and current guidance; what could change the story). Where
+   no source supports an item the writer says so in one sentence. Product-level
+   competitors are asked for by default. Research looks for market size and
+   named competitors with products and dates first, then the business itself
+   (pipeline, protection, customers, plan), then news; each finding carries its
+   URL, publisher and date. Web pages remain untrusted third-party text and are
+   never used for a figure Metis computes from filings. The judge fills the new
+   fields; the analysts supply the evidence.
+4. **Rendering (P22).** `businessStoryBlocks` in `src/report/presentation.ts`
+   gives app, Markdown and print one "The business" group, in the order Products
+   and services, What is coming, Customers and suppliers, Competitors by product
+   line, Protection and expiry, Management's plan, Industry. An absent or empty
+   field yields no heading; with none left, the group is omitted. The group sits
+   after market structure in the business section; the wider report order is
+   left to the later reorder step.
+5. **Claim-path registration.** The claim collector, verification log,
+   verification marks and audit export walk claims by path without a section
+   allowlist, so the new paths are covered without new lists (tested). The
+   generation blank-claim check now covers every business-story list, including
+   claims inside product-line items. The grade contract and the confidence
+   ceiling enumerate graded sections only; these fields are not graded, so
+   neither changes.
+
+### Review round 1 corrections (independent review, lead decisions)
+
+- **A heading is a name, never a claim (HIGH).** The review showed that a
+  heading such as "Verandol revenue grew 99%", repeated in its own FACT claim,
+  passed the name rule. Its bullet was marked contradicted, but Markdown and
+  print showed the heading unmarked, which hid the verification failure. The
+  lead decided two rules, both now in force for both product-line arrays:
+  (a) at generation (`productLineHeadingIsName` in `passes.ts`), a heading with
+  any digit, percent sign, Unicode currency symbol or number word (the
+  verifier's existing `statesNumberWord` list, so no new vocabulary), or longer
+  than 8 words or 60 characters, is replaced by the fixed heading; (b) at read
+  time (`businessStoryBlocks`, so stored and new reports obey), a heading prints
+  only when a FACT claim that writes the name carries the validated or
+  qualitative mark. A contradicted, unverified or unchecked claim never lends
+  its words to an unmarked heading, and with no verification log nothing
+  supports a name. If several claims name the line, one validated or
+  qualitative claim is enough: the others keep their own marks on their
+  bullets. Requiring every one to verify would also hide valid names wherever
+  an unrelated multi-figure sentence goes unverified, which was the outcome for
+  58% of LLY's factual claims.
+- **Trademark signs (LOW).** Compatibility normalization turned "™" into the
+  letters "TM" before they were removed, so "Verandol" did not match
+  "Verandol™ treats diabetes." The ™, ℠, ® and © signs (and a following emoji
+  variation selector) are now removed before normalization. Letters "TM"
+  written into a word stay part of it.
+- **Empty-peer note (LOW).** When the provider's peer list has no comparable
+  company, the note pointed to competitors only for the older `competitors`
+  list. It now also points to "competitors by product line ... under The
+  business in the Business section" when only that list is filled, and names
+  both when both are.
+
+### Review round 2 correction (independent review REJECT; lead fix)
+
+- **A heading must be a name code already holds (HIGH).** Round 2 reproduced a
+  heading that asserts what its only naming claim says is unproven:
+  "Verandol dominates the market" over the FACT "No reviewed source
+  establishes that Verandol dominates the market." That claim is a cited
+  qualitative statement, so the round-1 rule printed the affirmative heading
+  unmarked in app, Markdown and print, in both product-line arrays. Two review
+  rounds were used, so the lead fixed it under P18 (code owns labels). A first
+  lead fix checked the heading against the report's own segment table at read
+  time; the merge-gate confirmation showed those product rows keep
+  judge-authored names (`applySegmentShares` recomputes only the share), so
+  that was not code-owned either. The rule now runs at report assembly
+  (`gateProductLineHeadings`, `bundleSegmentNameKeys` in `passes.ts`): a
+  product-line heading stands only when it equals, as a whole name (case,
+  spacing, dashes and trademark signs aside; `productLineHeadingKey`), a
+  product or geographic segment name in the bundle's own segmentation rows
+  (filed or provider data, never model text); otherwise the fixed heading
+  replaces it and the claims are kept. The read-time rule above (a naming FACT
+  must be validated or qualitative) still applies. Cost: a product the
+  segmentation data does not name (a recent launch grouped into "other") prints
+  under the fixed heading, with its name in the claim text. Tests pin the
+  reviewer's reproduction, segment names that stand (including a trademark sign
+  and a different case), an unlisted name, and no or refused segmentation data
+  keeping no model-written heading. Known adjacent limit (not changed here): the
+  report's product segment rows themselves keep judge-authored names beside
+  their traced revenue.
+
+### Scope and limits
+
+No figure, gap, score, payload byte or evidence selection changes; evidence
+selection and payload budgets are another work package. Whether a live writer
+fills these fields well is observable only in a later run (Part C). Market size
+on the sign-in route still has no source; the writer states that gap.
+
+### Stamps
+
+Report spec 1.85.0 to **1.86.0** (accepted report shape, P21) and pipeline
+`stage-c-1.6.44` to **`stage-c-1.6.45`** (prompts and generation). Payload
+1.103.0 and Stage B are unchanged. The fictional sample gains business-story
+content, and the frozen DEMO projection is re-recorded for its spec stamp and
+hash only.
+
+### Same-report check
+
+Main pinned at `66fff44f` (after merging main, including D-269 and D-270, for review round 1; earlier runs at `efa432ee` and `bec62776`, same result). All 17 stored cases (data-only and fixed-analyst,
+including the bank, insurer, REIT and utility cases) and both LLY cases differ
+only in `meta.specVersion` and `meta.pipelineVersion`, the matching version
+lines of Markdown, print, audit and dossier, and the dossier's report-identity
+hash, which is computed from those bytes. The fixed-analyst cases render as
+before: their stored judge output has none of the new fields, so no group is
+printed. `accuracy:check`: 265 figures in 13 cases, every figure as expected;
+the expectation file is unchanged.
+
+### Approved report changes
+
+None beyond the version metadata above. No figure, gap, grade or status
+changes for any company.
+
+### Tests
+
+`tests/report.businessStory.test.ts`: saved reports parse and print unchanged;
+a drug-maker-like, a bank-like and a REIT/industrial-like synthetic report
+render the group in order on all three surfaces with no empty headings; the
+heading rule (named, normalized, JUDGMENT-only, partial-word and missing-name
+controls) at generation and at read time; blank story claims regenerate the
+section; new claims verify at their exact paths; the full and sectioned judge
+schemas require the seven fields; the checklist text is pinned verbatim in
+both analysts' and the judge's prompts; research puts market and competitors
+before news. Review round 1 adds: numeric, currency, number-word and
+over-long headings replaced at generation in both arrays; contradicted,
+unverified and unlogged headings fall back on all three renderers while
+validated and qualitative ones print; trademark-sign matches with a literal
+"TM" control; and the empty-peer note for each combination of the two
+competitor lists. Revised test assertions: the stamp pins only
+(`tests/report.versionStamps.test.ts`, `tests/jobRunner.test.ts`,
+`tests/stageC.payload.passes.test.ts`), each moved to the new stamp.
+
 ## D-269 - Analyst web research on the Claude Code sign-in route (2026-11-14)
 
 Principles: P18 (code owns numbers), P20 (provenance and disclosure), P24 (runtime
@@ -7504,6 +7695,9 @@ Revised by D-267 (part 1, 2026-11-14): the fiscal-year fallback DCF now withhold
 - **Disclosure**: field provenance `derivation: "fy-share-identity"` and a statement note naming the backed-out count; a withheld figure carries a note saying why.
 
 ## D-63 (NVDA report 34 audit P1-8, P1-9, P1-10, P1-14, P0-10, P0-11, P2-10 and the 2026-10-15 rerun findings) Read the business, the 10-Q notes and the release tables; give the CEO and CFO a citable outlook record
+
+Business/MD&A schedule selection and budgets revised by D-270; other D-63 rules remain in force.
+
 
 Revised by D-264: reader-only duplicate/segment presentation; original generation rules remain.
 
@@ -17292,3 +17486,59 @@ but calls it a source of cash is left unverified, not marked as a conflict,
 because the rebuilt label no longer carries the clause's direction words. It is
 never confirmed. No stored-company figure changes: across the 17 regression
 cases and the two Eli Lilly rebuilds no numeric Stage B leaf differs from main.
+
+
+## D-270 (2026-11-14; review round 1) Retain filing evidence without consuming release coverage (P9, P20)
+
+**Evidence and approved revision.** Independent Opus 5.5 review rejected round 0: unstructured sections with a schedule phrase could become empty, added families displaced release evidence, and annual MD&A chunks could end inside a sentence or row. No computed Stage B figure changed. This round supersedes the earlier D-270 selector and budget decisions and revises the D-63 fixed filing budgets. The lead approved the profile separation and caps below. Generality: all 10-K/20-F business and annual review sections, and all 10-Q MD&A; no issuer conditions.
+
+**F1/P9.** An atomic schedule requires actual source paragraph breaks bounding it and a complete lead/rows/footnotes group that fits the 40% table share. A flattened section is never promoted to a whole-section table by a phrase such as product revenue or segment sales. Unproved or over-share schedules use ordinary source passages, as the lead instructed. Tests use flattened single-line release and over-cap business shapes, plus structured blocks and footnotes. This explicitly replaces round 0's over-share whole-block refusal test: that shape must now retain ordinary passages rather than disappear. Qualified, fitting structured blocks still remain whole.
+
+**F2.** `financial` keeps main's families, scores, priority and selection for releases, CFO commentary, transcripts, IR documents and 10-Q Item 5. Separate `annual` and `quarterly` filing profiles carry IP/exclusivity, development/capacity, named competition, customers and suppliers. The existing `interim` profile remains the main control; the 10-Q Item 2 payload uses `quarterly`. This prevents the new families from changing unrelated callers or weakening the original binding-budget controls. Business also broadens products beyond technology. Notes/risk/event rules remain unchanged.
+
+**F3/F6.** `PAYLOAD_BUDGETS` owns floors/caps: business min(96k, max(12k, source)), annual MD&A min(50k, max(14k, source)), quarterly MD&A min(48k, max(12k, source)). Maximum source-text growth is 156k characters. Other section budgets and paid reservation rules are unchanged; no provider pricing, paid admission, context cap or transport code changed. Existing model-specific pre-launch and 2m-character checks remain enforced. Model cost and context observations below are offline estimates, not paid calls.
+
+**F4/P9.** Annual MD&A reads complete sentence/row units with abbreviation-aware boundaries. An oversized unit is omitted instead of split at 1,100 characters. Adjacent retained units join with no false omission marker; nonadjacent units carry the marker. The default financial profile remains exactly main as required by F2. A long flattened MD&A regression checks complete units, omission of an over-budget unit, exact original offsets and adjacent joins.
+
+**F5.** Restore the financial 12k control excluding both TSMC and officers, the interim 14k concentration control while other text is omitted, and the interim 12k negative control for the operating update. Keep the additional complete-source assertions and filing-budget assertions. Release regressions pin exact main selection hashes for two flattened header shapes. The expanded filing-family tests target annual/quarterly profiles; they no longer demand those families from default financial. Owner cap tests read the constants, with one explicit pin of their approved values.
+
+**Merge and stamps.** Merge origin/main efa432ee39c5515dd883740c2fa45279cf377942 (D-268), then bec62776fb0bd31b1db0c063b4bfee1844d96213 (D-269) as main advanced. Payload moves to 1.104.0 and general evidence selector to section-evidence-10. Report and Stage B stamps retain current main values. Refresh the Stage C frozen record on the main fixture under D-270, preserving D-268's finance changes; refresh sample and declared stamps together. No expectation or stored report edits.
+
+**Same-report permission.** Only filing excerpts, selection coverage, source spans/labels, evidence records and resulting refusal/verification metadata may change. Financial values and Stage B outputs must stay byte-identical to the merged main baseline. No financial before/after changes are authorized, so there are no replacement SEC numeric facts to establish.
+
+
+**Measured frozen-source replay.** Main and changed payloads were assembled in separate processes so aliases cannot mix selector versions. All 19 measured byte counts match the actual golden payload files. The report #61/#62/#63 snapshots were read read-only from the database copy; no source responses or report exports are committed. Retained source characters (omission markers excluded):
+
+| Frozen input | Business chars | Annual MD&A chars | Quarterly MD&A chars |
+|---|---:|---:|---:|
+| LLY #63 | 11,102 -> 83,909 | 12,271 -> 48,814 | 10,021 -> 29,848 |
+| TSM #61 | 10,851 -> 53,551 | 12,731 -> 36,172 | absent |
+| EXPE #62 | 10,926 -> 43,572 | 12,891 -> 48,555 | 10,154 -> 36,241 |
+| JPM bank | 11,167 -> 39,135 | 13,326 -> 48,241 | 10,171 -> 44,230 |
+| DUK utility | 10,568 -> 74,209 | 13,060 -> 47,498 | 10,229 -> 44,136 |
+| O REIT | 11,229 -> 41,101 | 13,015 -> 48,046 | 10,293 -> 44,837 |
+
+All five requested LLY patent rows and the orforglipron/retatrutide pipeline rows survive. TSM Arizona and 2-nanometer capacity plans survive. EXPE retains Booking and adds the Airbnb MD&A passage. JPM's source names competitor types rather than rival firms, which remains a collection gap. VKTX's over-cap Item 1 now retains 93,099 of 133,174 source characters versus main's 10,948. AMZN's release, and every other release/commentary/notes/risk excerpt, is text-identical to main. Across all 19 cases and the three supplementary stored-report inputs, no excerpt shrinks at all, including the cap-bound filings. Only business, annual MD&A and quarterly MD&A grow. The PR lists every case's three section counts and unchanged other excerpts.
+
+**Growth, spend and reservations.** Payload growth across 19 cases is 62,996 to 141,698 UTF-8 bytes; largest payload is LLY at 565,100 bytes, below the unchanged 2m-character guard. The API reservation code is untouched: it already reserves against model context/output/search maxima, so larger actual prefixes do not enlarge its worst-case bounds. No paid admission or pricing change.
+
+Conditional spend estimate using this repository's Opus 5.5 pricing (input $4/M tokens, cache read $0.20/M) and its bytes/2.25 token estimate: ten prefix exposures in a single-order example (four analyst research/writing loads plus six judge section loads) add $1.1188 to $2.52248 per run if all are uncached input reads, or $0.05594 to $0.126124 if all are cache reads. These are comparison scenarios, not worst-case spend promises: real cache writes, search sampling, a second judge order, retries, outputs and elapsed-time cache expiry change billing. Existing reservation bounds still cover those paths. No paid call was made to measure this.
+
+**Haiku 4.5 limitation at zero cost.** Calling the existing real `pipelinePasses.preflightPass` with the assembled bull request refuses these six golden cases before any provider call. Its registry window is 200,000 input tokens; the prior-tokenizer input estimate divides full request UTF-8 bytes (including schema/framing) by 2.75. Payload bytes below exclude that request overhead. No paid work is launched, so API cost is $0. Other golden cases fit this check; the supplementary EXPE #62 input also refuses at 573,406 payload bytes / 226,884 estimated request tokens.
+
+| Golden case | Payload UTF-8 bytes after caps | Haiku input estimate |
+|---|---:|---:|
+| nvda-data-only | 511,894 | 204,129 |
+| o-data-only | 549,412 | 217,801 |
+| duk-data-only | 558,424 | 221,056 |
+| nvda-fixed-analyst | 511,894 | 204,129 |
+| lly-data-only | 565,100 | 223,715 |
+| lly-fixed-analyst | 565,100 | 223,715 |
+
+**Same-report verification.** Final main baseline bec62776fb0bd31b1db0c063b4bfee1844d96213: all 19 `stageB.json` files are byte-identical. All validation statuses remain unchanged. Fourteen data-only report JSON files are identical; the five fixed-analyst reports change only evidence coverage, source bindings/labels and existing refusal explanations. AMZN's already-unverified FCF cell explains ambiguity instead of missing source text; its value/status do not change. Accuracy matches all existing expectations (265 figures across 13 configured companies); no expectation is revised. Final check outcomes are recorded before delivery.
+
+
+**Round 1 local checks.** TypeScript and lint pass (one existing unused-variable warning). Sample build and D-270 frozen refresh pass. The changed-test sweep ran once: 17,022 passed, three existing skipped tests, one 30s timeout in the unchanged sensitivity-table UI file. The isolated file rerun passes all five tests at its original timeout. No test or timeout was loosened. Golden diffs and accuracy pass the invariants above.
+
+
+**Final merge validation.** After main advanced, also merged bec62776fb0bd31b1db0c063b4bfee1844d96213 (D-269). Replayed all 19 cases again against that main: Stage B byte-identical; before/after payload files are also byte-identical to the earlier measured matrix, so all section counts, growth and pre-launch figures above remain exact. Final focused suite passes 785 tests across 15 files; the stronger single-line long-unit regression also passes. TypeScript, lint, sample, frozen record and accuracy checks pass; final golden diffs contain only the documented evidence outputs (54 changed outputs/manifest fields in the regression set, nine in the LLY pair). All validation statuses remain unchanged. The reviewer can assess round 2 on the pushed head.
