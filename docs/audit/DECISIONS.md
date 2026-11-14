@@ -141,7 +141,7 @@ hash only.
 
 ### Same-report check
 
-Main pinned at `bec62776` (after merging main for review round 1; first run at `efa432ee`, same result). All 17 stored cases (data-only and fixed-analyst,
+Main pinned at `66fff44f` (after merging main, including D-269 and D-270, for review round 1; earlier runs at `efa432ee` and `bec62776`, same result). All 17 stored cases (data-only and fixed-analyst,
 including the bank, insurer, REIT and utility cases) and both LLY cases differ
 only in `meta.specVersion` and `meta.pipelineVersion`, the matching version
 lines of Markdown, print, audit and dossier, and the dossier's report-identity
