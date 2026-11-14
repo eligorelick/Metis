@@ -17,6 +17,7 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
   const [model, setModel] = useState("");
   const [models, setModels] = useState<ChatGptModelChoice[]>([]);
   const [effort, setEffort] = useState<ChatGptEffort | "">("");
+  const [customClaude, setCustomClaude] = useState(false);
   const [serviceTier, setServiceTier] = useState<"default" | "fast">("default");
   const [catalogRevision, setCatalogRevision] = useState(0);
   const [catalogState, setCatalogState] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -25,6 +26,7 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
   const applySelection = useCallback((selected: AiConnectionsView["selection"]) => {
     setChosen("connectionId" in selected ? selected.connectionId : selected.provider);
     setModel("model" in selected ? selected.model : "");
+    setCustomClaude(false);
     setEffort("effort" in selected ? selected.effort ?? "" : "");
     setServiceTier("serviceTier" in selected ? selected.serviceTier ?? "default" : "default");
   }, []);
@@ -98,6 +100,9 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
   // Standard is the only speed offered, and a saved Fast reads as Standard here.
   const fastOffered = model !== "" && chatGptFastOffered(model);
   const speed = fastOffered ? serviceTier : "default";
+  // A saved full model ID is not one of the aliases, so it opens the ID box too. Typing in the
+  // box sets the flag, so emptying it to enter another ID keeps the box open.
+  const claudeCustom = customClaude || (model !== "" && !(CLAUDE_MODELS as readonly string[]).includes(model));
   return <Panel title="AI connections">
     <div className="space-y-3 text-sm">
       <p>Choose how Metis runs its AI research. Financial calculations and citation checks stay in Metis.</p>
@@ -126,7 +131,7 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
           </div>
         </div>)}
         <label className="block">Use for new reports
-          <select className="mt-1 w-full border border-edge bg-bg p-2" value={chosen} disabled={busy} onChange={(e) => { dirty.current = true; setChosen(e.target.value); setModels([]); setCatalogState("idle"); setCatalogError(""); setEffort(""); setServiceTier("default"); const provider = view.connections.find((c) => c.id === e.target.value)?.provider; setModel(provider === "claude" ? "default" : ""); }}>
+          <select className="mt-1 w-full border border-edge bg-bg p-2" value={chosen} disabled={busy} onChange={(e) => { dirty.current = true; setChosen(e.target.value); setModels([]); setCatalogState("idle"); setCatalogError(""); setEffort(""); setCustomClaude(false); setServiceTier("default"); const provider = view.connections.find((c) => c.id === e.target.value)?.provider; setModel(provider === "claude" ? "default" : ""); }}>
             <option value="none">AI off — data-only reports</option>
             {chosenUnavailable && <option value={chosen} disabled>Saved connection unavailable — select a connected account</option>}
             {view.connections.filter((c) => c.connected && c.planEnabled).map((c) => <option key={c.id} value={c.id}>{c.provider === "chatgpt" ? "ChatGPT plan" : "Claude via local CLI"} · {c.label}</option>)}
@@ -156,9 +161,12 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
             : "OpenAI offers Fast only for GPT-6.1 Sol, GPT-6.1 Terra, GPT-6 Astra, GPT-6 Sol and GPT-6 Luna, so this model runs at Standard speed."}{" "}<a className="underline" href="https://learn.chatgpt.com/docs/agent-configuration/speed" target="_blank" rel="noreferrer">Speed and usage details</a>.</p>
         </div>}
         {connection?.provider === "claude" && <div className="space-y-2">
-          <label className="block">Claude model<input list="claude-models" className="mt-1 w-full border border-edge bg-bg p-2" value={model} maxLength={128} disabled={busy} onChange={e => { dirty.current = true; setModel(e.target.value); }} /></label>
-          <datalist id="claude-models">{CLAUDE_MODELS.map(id => <option key={id} value={id} />)}</datalist>
-          <p className="text-xs text-faint">Choose default, opus, sonnet, haiku, fable or best, or enter a full Claude model ID. Aliases resolve through your installed CLI; account access may vary. Reports record the models returned by the CLI. Research uses the supplied financial evidence; web tools are disabled for this connection.</p>
+          <label className="block">Claude model<select className="mt-1 w-full border border-edge bg-bg p-2" value={claudeCustom ? "custom" : model} disabled={busy} onChange={e => { dirty.current = true; const custom = e.target.value === "custom"; setCustomClaude(custom); setModel(custom ? "" : e.target.value); }}>
+            {CLAUDE_MODELS.map(id => <option key={id} value={id}>{id}</option>)}
+            <option value="custom">Other — enter a full model ID</option>
+          </select></label>
+          {claudeCustom && <input aria-label="Claude model ID" placeholder="Full Claude model ID" className="w-full border border-edge bg-bg p-2" value={model} maxLength={128} disabled={busy} onChange={e => { dirty.current = true; setCustomClaude(true); setModel(e.target.value); }} />}
+          <p className="text-xs text-faint">Choose default, opus, sonnet, haiku, fable or best, or pick Other to enter a full Claude model ID. Aliases resolve through your installed CLI; account access may vary. Reports record the models returned by the CLI. Research uses the supplied financial evidence; web tools are disabled for this connection.</p>
           <label className="block">Claude reasoning effort<select className="mt-1 w-full border border-edge bg-bg p-2" value={effort} disabled={busy} onChange={e => { dirty.current = true; setEffort(e.target.value as ChatGptEffort | ""); }}>
             <option value="">CLI default</option>{CHATGPT_EFFORTS.map(level => <option key={level} value={level}>{level}</option>)}
           </select></label>
