@@ -1292,7 +1292,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.103.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
+    expect(first.payloadVersion).toBe("1.104.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1802,7 +1802,7 @@ describe("payload budget helpers", () => {
     if (!bundle.edgar.mdna.ok) throw new Error("fixture requires MD&A");
     const original = [
       "RESULTS OF OPERATIONS\nRevenue was $61 billion; operating margin was 31%.",
-      "General discussion without material figures. ".repeat(1400),
+      "General discussion without material figures. ".repeat(2800),
       "LIQUIDITY AND CAPITAL RESOURCES\nCash and equivalents were $40 billion.",
       "CFO OUTLOOK\nWe expect capital expenditures of $130 billion to $145 billion in 2026.",
       "INCOME TAXES\nThe $15.93 billion tax charge included a $14.03 billion valuation allowance.",
@@ -1815,7 +1815,7 @@ describe("payload budget helpers", () => {
     expect(excerpt.text).toContain("$15.93 billion tax charge");
     expect(excerpt.text).toContain("Legal charges and severance");
     expect(excerpt.text).toContain("Cash and equivalents");
-    expect(excerpt.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.mdnaChars);
+    expect(excerpt.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.mdnaMaxChars);
     expect(excerpt.coverage?.omittedChars).toBeGreaterThan(0);
     expect(excerpt.coverage?.categories).toEqual(expect.arrayContaining([
       expect.objectContaining({ category: "guidance", status: "retained" }),
@@ -1861,7 +1861,7 @@ describe("payload budget helpers", () => {
     const funding = "Subsequent to June 30, 2026, we funded the remaining commitment amount of $2.3 billion.";
     const earnings = "Other income (expense), net was $7.1 billion in Q2 2026, primarily from upward adjustments to preferred stock investments.";
     const original = [
-      ...Array.from({ length: 100 }, (_, i) => `Operating income and revenue in division ${i} were $18 billion and $91 billion in Q2 2026 versus $16 billion and $85 billion in Q2 2025; operating margin was 21% versus 19%.`),
+      ...Array.from({ length: 700 }, (_, i) => `Operating income and revenue in division ${i} were $18 billion and $91 billion in Q2 2026 versus $16 billion and $85 billion in Q2 2025; operating margin was 21% versus 19%.`),
       earnings, investment, funding,
     ].join("\n");
     bundle.edgar.tenQMdna = { ...bundle.edgar.mdna, value: { ...bundle.edgar.mdna.value,
@@ -1870,7 +1870,7 @@ describe("payload budget helpers", () => {
     const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
     const excerpt = payload.filings.find((entry) => entry.source === "edgar:10-Q item2")!;
     expect(excerpt.asOf).toBe("2026-06-30");
-    expect(excerpt.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.tenQMdnaChars);
+    expect(excerpt.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.tenQMdnaMaxChars);
     for (const disclosure of [earnings, investment, funding]) expect(excerpt.text).toContain(disclosure);
     for (const span of excerpt.spans ?? []) expect(original.slice(span.start, span.end)).toBe(span.text);
     expect(payload.citationRegistry).toEqual(expect.arrayContaining([
@@ -6246,4 +6246,21 @@ it("D-263 review does not declare an outflow convention for positive-only shareh
     expect(figure).toBeDefined();
     expect(figure!.cashFlowDirection).toBeUndefined();
   } finally { spy.mockRestore(); }
+});
+
+describe("D-270 annual evidence budgets", () => {
+ it("keeps the existing floors and applies each owner cap", async () => {
+  const { businessEvidenceBudget, mdnaEvidenceBudget, tenQMdnaEvidenceBudget } = await import("@/pipeline/stageC/payload");
+  expect(businessEvidenceBudget(1)).toBe(12_000);
+  expect(mdnaEvidenceBudget(1)).toBe(14_000);
+  for (const [budget, cap] of [[businessEvidenceBudget, PAYLOAD_BUDGETS.businessMaxChars], [mdnaEvidenceBudget, PAYLOAD_BUDGETS.mdnaMaxChars], [tenQMdnaEvidenceBudget, PAYLOAD_BUDGETS.tenQMdnaMaxChars]] as const) {
+   expect(budget(84_000)).toBe(Math.min(84_000, cap));
+   expect(budget(2_000_000)).toBe(cap);
+  }
+ });
+});
+
+it("D-270 pins the three owner caps", async () => {
+ const { PAYLOAD_BUDGETS } = await import("@/pipeline/stageC/payload");
+ expect(PAYLOAD_BUDGETS).toMatchObject({ businessMaxChars: 96_000, mdnaMaxChars: 50_000, tenQMdnaMaxChars: 48_000 });
 });
