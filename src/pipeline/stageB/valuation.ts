@@ -17,7 +17,7 @@
  * Methodology source: the valuation methodology (Damodaran-standard).
  */
 
-import { compareShareBasis, SHARE_BASIS_DISPLAY_MIN_PCT, shareBasisNote, shareBasisSentence, type EmployeeTrustShares, type ShareBasisComparison } from "@/pipeline/stageB/dilutedDivisor";
+import { compareShareBasis, SHARE_BASIS_DISPLAY_MIN_PCT, shareBasisNote, shareBasisRelation, shareBasisSentence, type EmployeeTrustShares, type ShareBasisComparison } from "@/pipeline/stageB/dilutedDivisor";
 import { convertibleVariants, convertibleReadingGaps, foldConvertiblePreferred, type ConvertibleInstrument, type ConvertibleReading } from "@/pipeline/stageB/convertibles";
 import { comparePriceCurrency } from "@/pipeline/stageB/priceCurrency";
 import { displayClassName } from "@/edgar/classEvidence";
@@ -6798,10 +6798,15 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
   const multiplesShareBasis = compareShareBasis(inputs.dilutedShares, quoteShares, inputs.employeeTrustShares, shareScopeOwner);
   if (multiplesShareBasis !== null) {
     const onMarketCap = (key: MultipleKey, basis: string) => key !== "peTtm" || basis.startsWith("marketCap /");
+    const quoteDay = inputs.multiples.quote.priceAsOf;
+    const withSentence = (basis: string, marketCap: boolean): string => {
+      const sentence = shareBasisSentence(multiplesShareBasis, marketCap, quoteDay);
+      return sentence === null ? basis : `${basis}${/[.;]$/.test(basis.trimEnd()) ? "" : "."} ${sentence}`;
+    };
     multiples.multiples = multiples.multiples.map(row => row.current === null ? row
-      : { ...row, basis: `${row.basis}${/[.;]$/.test(row.basis.trimEnd()) ? "" : "."} ${shareBasisSentence(multiplesShareBasis, onMarketCap(row.key, row.basis))}` });
+      : { ...row, basis: withSentence(row.basis, onMarketCap(row.key, row.basis)) });
     if (multiples.peerCoverage) multiples.peerCoverage = { ...multiples.peerCoverage, comparisons: multiples.peerCoverage.comparisons.map(c =>
-      c.current === null ? c : { ...c, basis: `${c.basis} ${shareBasisSentence(multiplesShareBasis, true)}` }) };
+      c.current === null ? c : { ...c, basis: withSentence(c.basis, true) }) };
   }
   const cashFlowApplicability = route.cashFlowApplicability;
   if (cashFlowApplicability?.status === "not-applicable") {
@@ -7446,7 +7451,9 @@ function valueCompanyCore(route: CompanyRoute, inputs: ValuationBundleInputs): V
             : substituted !== null
               ? "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the restored award dilution is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure)."
               : "The gap is option and RSU dilution plus repurchases or issuance since the quarter; the diluted count is kept so the per-share value carries the dilution the market cap omits (D-60 disclosure).";
-          notes.push(`${head}; the quoted market cap implies ${fmtMoney(implied)} shares outstanding at the quote, ${fmtNum(Math.abs(diff))}% ${diff > 0 ? "fewer" : "more"}. ${tail}`);
+          // D-265 review: one statement with one denominator, the divisor against the quote count.
+          const relation = shareBasis === null ? `${fmtNum(Math.abs(diff))}% ${diff < 0 ? "below" : "above"}` : shareBasisRelation(shareBasis);
+          notes.push(`${head}; the quoted market cap implies ${fmtMoney(implied)} shares outstanding at the quote, and the divisor is ${relation} that count. ${tail}`);
         }
       }
       // The reverse DCF solves for the growth the market cap implies, so it

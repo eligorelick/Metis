@@ -145,11 +145,11 @@ export function convertibleFiledNear(facts: CompanyFacts | null, date: string): 
 }
 
 /**
- * D-265 (P3, P20): the issuer's own shares held where EPS does not count them, read from the filed facts. An employee
- * benefit trust's shares (`CommonStockSharesHeldInEmployeeTrustShares`) and an ESOP's unreleased suspense shares
- * (`EmployeeStockOwnershipPlanESOPNumberOfSuspenseShares`) can be issued, and so inside the quoted count, while EPS
- * leaves them out. Disclosure only: the count names filed evidence beside a share-basis difference and never moves
- * the divisor, the market cap or any value.
+ * D-265 (P3, P20): a filed count of the issuer's own shares held in an employee benefit trust
+ * (`CommonStockSharesHeldInEmployeeTrustShares`) or as an ESOP's unreleased suspense shares
+ * (`EmployeeStockOwnershipPlanESOPNumberOfSuspenseShares`), read from the filed facts. The tag establishes only a
+ * held count at an instant: it is reported beside a share-basis difference as a dated fact, never as its cause, and
+ * it never moves the divisor, the market cap or any value.
  */
 export const HELD_SHARE_TAGS = [
   "CommonStockSharesHeldInEmployeeTrustShares",
@@ -173,16 +173,20 @@ export interface EmployeeTrustShares {
 const isDay = (v: string): boolean => /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(`${v}T00:00:00Z`));
 
 /**
- * The newest filed held-share count at an instant on or before `cutoff` (P2: nothing filed or dated after the cutoff),
- * in shares, on a core form; the first tag of `HELD_SHARE_TAGS` with such a fact wins. Null when none is filed.
+ * The newest compatible held-share observation per tag (P2: an instant and a filing date on or before `cutoff`, in
+ * shares, on a core form; the newest instant, then the newest filing wins, so a later correction supersedes), and
+ * only then whether it supplies a positive count: a newest value of zero means there is no held count to report.
+ * The first tag of `HELD_SHARE_TAGS` whose newest observation is positive wins. Null when none is.
  */
 export function employeeTrustSharesFiled(facts: CompanyFacts | null, cutoff: string): EmployeeTrustShares | null {
   if (facts === null || !isDay(cutoff)) return null;
   for (const tag of HELD_SHARE_TAGS) {
-    const best = points(facts, tag, "shares")
-      .filter((p) => p.start === undefined && p.val > 0 && isDay(p.end) && isDay(p.filed) && p.end <= cutoff && p.filed <= cutoff)
+    const newest = points(facts, tag, "shares")
+      .filter((p) => p.start === undefined && isDay(p.end) && isDay(p.filed) && p.end <= cutoff && p.filed <= cutoff)
       .sort((a, b) => b.end.localeCompare(a.end) || b.filed.localeCompare(a.filed) || b.accn.localeCompare(a.accn))[0];
-    if (best !== undefined) return { tag, shares: best.val, instant: best.end, accession: best.accn, form: best.form.trim(), filed: best.filed };
+    if (newest !== undefined && newest.val > 0) {
+      return { tag, shares: newest.val, instant: newest.end, accession: newest.accn, form: newest.form.trim(), filed: newest.filed };
+    }
   }
   return null;
 }
@@ -190,19 +194,23 @@ export function employeeTrustSharesFiled(facts: CompanyFacts | null, cutoff: str
 /**
  * D-265: which share count each market-value and per-share figure sits on. The divisor is the weighted-average
  * diluted count the per-share values divide by (and diluted EPS uses); the quote count is market cap ÷ price.
- * `scopeOwner` hands the explanation to the owner that already speaks for the shape: "class" (a multi-class issuer,
- * `commonClassScope.ts`) or "quoted-unit" (an ADS quote, `shareUnits.ts`), whose counts are not on one ordinary-share
- * basis with a held-share fact.
+ * `scopeOwner` hands the whole statement to the owner that already speaks for the shape: "class" (a multi-class
+ * issuer, `commonClassScope.ts`) or "quoted-unit" (an ADS quote, `shareUnits.ts`); no competing sentence is written.
  */
 export interface ShareBasisComparison {
   divisorShares: number;
   quoteShares: number;
-  /** (divisor ÷ quote count − 1) × 100. */
+  /** (divisor ÷ quote count − 1) × 100: the one measured difference, against the quote count. */
   differencePct: number;
   direction: "above" | "below";
   /** Quote count − divisor, when the divisor is below. */
   shortfallShares?: number;
-  cause: "dilution-or-share-changes" | "employee-trust-filed" | "not-established" | "scope-owner";
+  /**
+   * Below the quote count, the cause is "not-established": a reported held count (`employeeTrust`) is a dated
+   * fact beside the difference, not its proven cause.
+   */
+  cause: "dilution-or-share-changes" | "not-established" | "scope-owner";
+  scopeOwner?: "class" | "quoted-unit";
   employeeTrust?: EmployeeTrustShares;
 }
 
@@ -212,11 +220,11 @@ export function compareShareBasis(
 ): ShareBasisComparison | null {
   if (!finite(divisorShares) || !finite(quoteShares) || divisorShares <= 0 || quoteShares <= 0) return null;
   const differencePct = (divisorShares / quoteShares - 1) * 100;
-  const base = { divisorShares, quoteShares, differencePct };
-  if (divisorShares >= quoteShares) return { ...base, direction: "above", cause: options.scopeOwner ? "scope-owner" : "dilution-or-share-changes" };
-  const below = { ...base, direction: "below" as const, shortfallShares: quoteShares - divisorShares };
-  if (options.scopeOwner) return { ...below, cause: "scope-owner" };
-  return trust ? { ...below, cause: "employee-trust-filed", employeeTrust: trust } : { ...below, cause: "not-established" };
+  const direction = divisorShares >= quoteShares ? "above" as const : "below" as const;
+  const base = { divisorShares, quoteShares, differencePct, direction, ...(direction === "below" ? { shortfallShares: quoteShares - divisorShares } : {}) };
+  if (options.scopeOwner) return { ...base, cause: "scope-owner", scopeOwner: options.scopeOwner };
+  if (direction === "above") return { ...base, cause: "dilution-or-share-changes" };
+  return { ...base, cause: "not-established", ...(trust ? { employeeTrust: trust } : {}) };
 }
 
 const pct = (v: number): string => String(Math.round(Math.abs(v) * 100) / 100);
@@ -230,41 +238,59 @@ export const SHARE_BASIS_DISPLAY_MIN_PCT = 0.1;
 const agrees = (c: ShareBasisComparison): boolean => Math.abs(c.differencePct) < SHARE_BASIS_DISPLAY_MIN_PCT;
 
 /**
- * The reader sentence for a divisor below the quoted count (null otherwise). It states the measured difference, says
- * dilution cannot explain it, and names a filed held-share count, dated against the quote, or says the cause is not
- * established; for a class or quoted-unit shape it defers to that owner's note and attributes nothing.
+ * The one statement of the difference, always the divisor against the quote count ("4.76% below", "5% above",
+ * "within 0.1% of"); every surface follows it with the quote count it is measured against.
+ */
+export function shareBasisRelation(c: ShareBasisComparison): string {
+  if (agrees(c)) return `within ${SHARE_BASIS_DISPLAY_MIN_PCT}% of`;
+  return `${pct(c.differencePct)}% ${c.differencePct < 0 ? "below" : "above"}`;
+}
+
+/** The held count as the filer reports it, with its filing, dated against the quote; no relation to either count is asserted. */
+function heldCountReported(t: EmployeeTrustShares, quoteDay: string | null | undefined): string {
+  const quote = quoteDay && isDay(quoteDay) ? quoteDay : null;
+  const dated = quote !== null && t.instant >= quote ? "" : `, a dated observation${quote === null ? "" : ` before the quote (${quote})`}`;
+  return `${millions(t.shares)} ${HELD_SHARE_LABEL[t.tag]} (us-gaap:${t.tag}) at ${t.instant} (${t.form} ${t.accession}, filed ${t.filed})${dated}`;
+}
+
+const deferral = (owner: "class" | "quoted-unit"): string => owner === "class"
+  ? "The diluted denominator and the quoted count are on the scopes the share-class note states; this note does not compare them."
+  : "The diluted denominator and the quoted count are put on the quoted basis by the ADS (quoted-unit) note; this note does not compare them.";
+
+/**
+ * The bridge and valuation sentence: for a class or ADS shape, the deferral to that owner (any direction); for a
+ * divisor below the quote count, the measured difference, that dilution cannot explain it, the reported held count
+ * when one is filed, and that the cause is not established; null for a divisor at or above it.
  */
 export function shareBasisNote(c: ShareBasisComparison, quoteDay: string | null | undefined): string | null {
+  if (c.cause === "scope-owner") return deferral(c.scopeOwner ?? "class");
   if (c.direction !== "below") return null;
   if (agrees(c)) {
     return `The diluted divisor (${millions(c.divisorShares)}) and the ${millions(c.quoteShares)} shares the quoted market cap implies agree within ` +
       `${SHARE_BASIS_DISPLAY_MIN_PCT}%; no cause is attributed to so small a difference.`;
   }
-  const measured = `The diluted divisor (${millions(c.divisorShares)}) is ${millions(c.shortfallShares ?? 0)} shares (${pct(c.differencePct)}%) below the ` +
-    `${millions(c.quoteShares)} shares the quoted market cap implies`;
-  if (c.cause === "scope-owner") return `${measured}; the class or quoted-unit note states how each count is put on the quoted basis, and this comparison does not attribute the difference.`;
-  const head = `${measured}; option and RSU dilution can only raise a diluted count, so it does not explain this difference.`;
+  const head = `The diluted divisor (${millions(c.divisorShares)}) is ${shareBasisRelation(c)} the ${millions(c.quoteShares)} shares the quoted market cap implies ` +
+    `(${millions(c.shortfallShares ?? 0)} shares fewer); option and RSU dilution can only raise a diluted count, so it does not explain this difference.`;
   const t = c.employeeTrust;
-  if (c.cause !== "employee-trust-filed" || t === undefined) {
-    return `${head} No filed employee-trust or unreleased ESOP share count on or before the analysis cutoff explains it, so the cause of the difference is not established.`;
+  if (t === undefined) {
+    return `${head} No filed employee-trust or unreleased ESOP share count on or before the analysis cutoff is admitted, and the cause of the difference is not established.`;
   }
-  const dated = quoteDay && isDay(quoteDay) && t.instant >= quoteDay ? "" : ` The held count is a dated observation at ${t.instant}, before the quote${quoteDay && isDay(quoteDay) ? ` (${quoteDay})` : ""}.`;
-  return `${head} Filed evidence: us-gaap:${t.tag} ${millions(t.shares)} shares at ${t.instant} (${t.form} ${t.accession}, filed ${t.filed}); ` +
-    "such shares can be issued, and so inside the quoted count, while EPS and its diluted count leave them out." + dated +
-    " Period averaging, awards and share transactions since the quarter also move the two counts; this comparison does not size each cause.";
+  return `${head} The filer reports ${heldCountReported(t, quoteDay)}; the cause of the difference is not established by the admitted evidence.`;
 }
 
-/** The basis sentence for a multiple on provider market cap (`marketCap` true) or on price / diluted EPS. */
-export function shareBasisSentence(c: ShareBasisComparison, marketCap: boolean): string {
-  const quote = `the ${millions(c.quoteShares)} shares the ${marketCap ? "provider's" : "quoted"} market cap implies`;
-  const word = (more: boolean) => agrees(c) ? `within ${SHARE_BASIS_DISPLAY_MIN_PCT}%` : `${pct(c.differencePct)}% ${more ? "more" : "fewer"}`;
+/**
+ * The basis sentence for a multiple on provider market cap (`marketCap` true) or on price / diluted EPS; null for a
+ * class or ADS shape, whose owner states the basis.
+ */
+export function shareBasisSentence(c: ShareBasisComparison, marketCap: boolean, quoteDay?: string | null): string | null {
+  if (c.cause === "scope-owner") return null;
+  const relation = `${shareBasisRelation(c)} that count`;
   const t = c.employeeTrust;
-  const tail = agrees(c) ? ""
-    : c.cause === "employee-trust-filed" && t
-      ? ` The difference is not dilution; the filer tags ${millions(t.shares)} ${HELD_SHARE_LABEL[t.tag]} at ${t.instant} (us-gaap:${t.tag}), filed evidence that can explain it; this comparison does not size each cause.`
-      : c.cause === "not-established" ? " The difference is not dilution, and its cause is not established."
-        : c.cause === "scope-owner" ? " The class or quoted-unit note states how each count is put on the quoted basis; this comparison does not attribute the difference." : "";
+  const tail = agrees(c) || c.direction !== "below" ? ""
+    : t !== undefined
+      ? ` The difference is not dilution, and its cause is not established by the admitted evidence; the filer reports ${heldCountReported(t, quoteDay)}.`
+      : " The difference is not dilution, and its cause is not established.";
   return marketCap
-    ? `Share basis: market cap is the quote price × ${quote}; diluted EPS and per-share values divide by weighted-average diluted shares (latest ${millions(c.divisorShares)}, ${word(c.differencePct > 0)}).${tail}`
-    : `Share basis: price / diluted EPS sits on weighted-average diluted shares (latest ${millions(c.divisorShares)}); the market-cap multiples sit on ${quote}, ${word(c.differencePct < 0)}.${tail}`;
+    ? `Share basis: market cap is the quote price × the ${millions(c.quoteShares)} shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest ${millions(c.divisorShares)}), ${relation}.${tail}`
+    : `Share basis: price / diluted EPS sits on weighted-average diluted shares (latest ${millions(c.divisorShares)}); the market-cap multiples sit on the ${millions(c.quoteShares)} shares the quoted market cap implies, and the diluted count is ${relation}.${tail}`;
 }
