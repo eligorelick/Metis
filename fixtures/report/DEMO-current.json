@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.85.0",
+    "specVersion": "1.86.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.85.0",
+    "pipelineVersion": "1.86.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
@@ -34,23 +34,23 @@
         "rate": 0.8501742160278746
       },
       "factualClaims": {
-        "supported": 33,
-        "total": 33,
+        "supported": 42,
+        "total": 42,
         "rate": 1
       },
       "judgments": {
-        "cited": 56,
-        "total": 56,
+        "cited": 58,
+        "total": 58,
         "rate": 1
       },
       "factualValidation": {
-        "cited": 33,
+        "cited": 42,
         "validated": 16,
-        "unchecked": 17,
+        "unchecked": 26,
         "contradicted": 0,
-        "qualitative": 8,
-        "total": 33,
-        "rate": 0.48484848484848486
+        "qualitative": 17,
+        "total": 42,
+        "rate": 0.38095238095238093
       }
     },
     "consistencyChecks": {
@@ -819,6 +819,91 @@
       {
         "text": "Warehouse capacity spending drives equipment demand; the installed base supports service demand through the cycle. No measured market-share trend is supplied.",
         "label": "JUDGMENT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      }
+    ],
+    "products": [
+      {
+        "productLine": "Hardware and installation",
+        "claims": [
+          {
+            "text": "Hardware and installation revenue is recognized on customer acceptance; installation bids compete on price.",
+            "label": "FACT",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "productLine": "Support subscriptions",
+        "claims": [
+          {
+            "text": "Annual support subscriptions are recognized over the service term and compete on uptime.",
+            "label": "FACT",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
+          },
+          {
+            "text": "Support subscriptions follow the installed base, so they are steadier than new installations.",
+            "label": "JUDGMENT",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
+          }
+        ]
+      }
+    ],
+    "whatIsComing": [
+      {
+        "text": "The invented filing names no product launch, roadmap or new capacity with a date.",
+        "label": "FACT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      }
+    ],
+    "customersAndSuppliers": [
+      {
+        "text": "Customers include independent distributors and regional logistics operators; the invented filing names no critical supplier.",
+        "label": "FACT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      }
+    ],
+    "protection": [
+      {
+        "text": "Replacing support requires retraining and planned downtime; the invented filing states no patent, licence or contract expiry date.",
+        "label": "FACT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      },
+      {
+        "text": "Switching costs protect support renewals more than hardware tenders.",
+        "label": "JUDGMENT",
+        "sourceId": "edgar:10-K item1",
+        "source": "edgar:10-K item1",
+        "asOf": "2025-12-31"
+      }
+    ],
+    "managementPlan": [
+      {
+        "text": "In this invented June strategy note, the board prioritized service capacity over acquisitions.",
+        "label": "FACT",
+        "sourceId": "edgar:10-Q item2",
+        "source": "edgar:10-Q item2",
+        "asOf": "2026-03-31"
+      }
+    ],
+    "industry": [
+      {
+        "text": "Equipment demand follows warehouse capacity investment; no reviewed source states the industry's growth or pricing beyond the invented planning study.",
+        "label": "FACT",
         "sourceId": "edgar:10-K item1",
         "source": "edgar:10-K item1",
         "asOf": "2025-12-31"
@@ -3528,6 +3613,32 @@
         "asOf": "2025-12-31"
       }
     ],
+    "competitorsByProductLine": [
+      {
+        "productLine": "Hardware and installation",
+        "claims": [
+          {
+            "text": "In hardware and installation, Lantern Quay Automation bids lower installation prices but offers less local support.",
+            "label": "FACT",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "productLine": "Support subscriptions",
+        "claims": [
+          {
+            "text": "In support subscriptions, Bramble Circuit Works has broader support coverage but slower custom deployments.",
+            "label": "FACT",
+            "sourceId": "edgar:10-K item1",
+            "source": "edgar:10-K item1",
+            "asOf": "2025-12-31"
+          }
+        ]
+      }
+    ],
     "moatAssessment": [
       {
         "source": "switchingCosts",
@@ -3937,23 +4048,23 @@
         "rate": 0.8501742160278746
       },
       "factualClaims": {
-        "supported": 33,
-        "total": 33,
+        "supported": 42,
+        "total": 42,
         "rate": 1
       },
       "judgments": {
-        "cited": 56,
-        "total": 56,
+        "cited": 58,
+        "total": 58,
         "rate": 1
       },
       "factualValidation": {
-        "cited": 33,
+        "cited": 42,
         "validated": 16,
-        "unchecked": 17,
+        "unchecked": 26,
         "contradicted": 0,
-        "qualitative": 8,
-        "total": 33,
-        "rate": 0.48484848484848486
+        "qualitative": 17,
+        "total": 42,
+        "rate": 0.38095238095238093
       }
     },
     "consistencyChecks": {
@@ -7497,6 +7608,123 @@
         "traceKind": "source-cited"
       },
       {
+        "claim": "Hardware and installation revenue is recognized on customer acceptance; installation bids compete on price.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.products[0].claims[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Annual support subscriptions are recognized over the service term and compete on uptime.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.products[1].claims[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Support subscriptions follow the installed base, so they are steadier than new installations.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.products[1].claims[1]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "The invented filing names no product launch, roadmap or new capacity with a date.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.whatIsComing[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Customers include independent distributors and regional logistics operators; the invented filing names no critical supplier.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.customersAndSuppliers[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Replacing support requires retraining and planned downtime; the invented filing states no patent, licence or contract expiry date.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.protection[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Switching costs protect support renewals more than hardware tenders.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.protection[1]",
+        "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "In this invented June strategy note, the board prioritized service capacity over acquisitions.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.managementPlan[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-Q item2",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "Equipment demand follows warehouse capacity investment; no reviewed source states the industry's growth or pricing beyond the invented planning study.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "business.industry[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
         "claim": "The largest customer contributed USD 120 million of FY2025 revenue.",
         "outcome": "unverified",
         "validationStatus": "unchecked",
@@ -8092,6 +8320,32 @@
         "note": "citation observed; factual content not machine-validated",
         "path": "competitive.competitors[3]",
         "evidenceKind": "judgment",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "In hardware and installation, Lantern Quay Automation bids lower installation prices but offers less local support.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "competitive.competitorsByProductLine[0].claims[0]",
+        "evidenceKind": "factual-claim",
+        "source": "edgar:10-K item1",
+        "reason": "supported",
+        "traceKind": "source-cited"
+      },
+      {
+        "claim": "In support subscriptions, Bramble Circuit Works has broader support coverage but slower custom deployments.",
+        "outcome": "unverified",
+        "validationStatus": "cited",
+        "numericSupportStatus": "cited",
+        "claimSupportStatus": "cited",
+        "note": "citation observed; factual content not machine-validated",
+        "path": "competitive.competitorsByProductLine[1].claims[0]",
+        "evidenceKind": "factual-claim",
         "source": "edgar:10-K item1",
         "reason": "supported",
         "traceKind": "source-cited"
