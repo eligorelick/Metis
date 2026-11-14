@@ -3029,5 +3029,23 @@
       "$.payload.filings[1].spans[60].start",
       "$.payload.filings[1].spans[60].end"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-271",
+    "reason": "D-271 moves the report spec to 1.86.0 for the optional business-story fields; the frozen DEMO projection changes only its spec stamp and hash, no figure.",
+    "scope": [
+      "$.fixtureIdentity.reportSha256",
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "e0a9d931826cda75a2bb7bd210f93f77c83c78d463b2679ab6d0c0b17992df80",
+    "afterSha256": "ae0061570f25d8229a986a25c0ebabd1587548a300fdfc4ec9192dce68ea73f3",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

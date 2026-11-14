@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.85.0** and
+Current source declares application **0.1.0**, report spec **1.86.0** and
 payload **1.104.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -17,6 +17,13 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - A home for the business story (P18, P20, P22, D-271)
+
+- New optional report fields give the business one home for every company type: products and services, what is coming (pipeline, roadmap, launches, capacity with dates), customers and suppliers, competitors by product line (foreign-listed rivals included, never valuation peers), protection and expiry, management's plan and current guidance, and industry. Each is a sourced claim the existing verifier checks; app, Markdown and print show them under "The business". Saved reports have none of these fields and print exactly as before.
+- A product-line heading is a name, never a claim: it may hold no figure, currency, number word or more than 8 words / 60 characters, must be written in one of its own FACT claims, and prints only when such a claim is validated or qualitative. Otherwise a fixed heading prints and the claims keep their marks. Trademark signs no longer block a match, and the empty-peer note points to competitors by product line (review round 1). Review round 2: at report assembly a heading also has to be a product or geographic segment name in the bundle's own segmentation data (code-owned), so a model-written assertion never becomes a caption.
+- The analysts and the judge get one sector-neutral business checklist in place of wording written for a chip and software issuer; product-level competitors are asked for by default, and research looks for market size and named competitors before news.
+- Report 1.86.0, pipeline stage-c-1.6.45; this change leaves the payload and Stage B unchanged. No figure changes; the same-report check differs only in version metadata.
 
 ## Unreleased - Filing evidence review round 1 (D-270; P9, P20)
 

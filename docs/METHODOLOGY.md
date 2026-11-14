@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.85.0 / payload 1.104.0, Stage B `STAGE_B_2026_11_CARRYING_INVESTMENTS_77` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.86.0 / payload 1.104.0, Stage B `STAGE_B_2026_11_CARRYING_INVESTMENTS_77` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -8871,3 +8871,41 @@ A failed proof remains a gap. Source selection follows the newest compatible
 filing. Carrying-only supplements neither replace statement history nor imply
 new annual history. Missing original instance evidence needs a separately
 identified evidence refresh; saved snapshots and reports remain immutable.
+
+### The business story (D-271)
+
+The report has one home for the business itself, for every company type: a
+"The business" group in the business section with Products and services, What
+is coming, Customers and suppliers, Competitors by product line, Protection and
+expiry, Management's plan, and Industry. Each item is a sourced claim (a FACT
+with a dated source, or a labelled JUDGMENT), so the existing claim verifier
+checks it at its own report path. A figure in these claims, such as a product
+line's revenue, must cite its payload record; nothing here is computed or
+changes a computed figure. Competitors by product line may include
+foreign-listed rivals; they are never valuation peers and never enter the
+multiples.
+
+The analysts and the judge receive one sector-neutral checklist (products,
+what is coming, customers and suppliers, industry, competitors by product line,
+protection and expiry, management's plan, what could change the story) in place
+of wording written for a chip and software issuer. Where no source supports an
+item, the writer says so in one sentence. Research looks for market size and
+named competitors before news. A web page is untrusted third-party text: it is
+cited with its publisher, link and date and never used for a figure Metis
+computes from filings.
+
+A product-line heading is a name, never a claim, so code checks it (P18). At
+generation it must carry no digit, percent sign, currency symbol or number word,
+have at most 8 words and 60 characters, and be written as a whole word or phrase
+in one of the item's own FACT claims (case, spacing, dashes and trademark signs
+aside). At read time it prints only when a FACT claim that writes the name is
+marked validated or qualitative; a contradicted, unverified or unchecked claim
+never supports a heading. At report assembly it must also be, as a whole name, a product or geographic
+segment name in the bundle's own segmentation data (code-owned, never model
+text), so a model-written assertion never becomes a caption (D-271 review
+round 2). Otherwise the fixed heading "Product line (its name is
+not in the cited claims)" prints and the claims keep their own marks. When the
+provider's peer list has no comparable company, the peer note points to the
+competitors by product line in "The business" when the report carries them. App, Markdown and print read the same
+presentation rule (P22); a report saved before this change has none of these
+fields and prints none of these headings (P21).

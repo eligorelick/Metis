@@ -11,6 +11,197 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-271 - A home for the business story, for every company type (2026-11-14)
+
+P18, P20, P21 and P22. Owners: `src/report/schema.ts` (fields and the heading
+rule), `src/pipeline/stageC/passes.ts` (generation), `src/pipeline/stageC/prompts.ts`
+(the checklist), `src/report/presentation.ts` (one reading for app, Markdown and
+print).
+
+### Evidence
+
+The 2026-11-14 business-coverage diagnosis scored four stored reports (a drug
+maker, a foundry filing a 20-F, an online travel agency and a broker) on eight
+reader items. Two causes are owned by the report and the prompts rather than by
+evidence collection:
+
+- **The report had no place for it (gaps G7, G8).** `business` held only what
+  the company sells, market structure, segments and concentration risks;
+  `competitive` held free competitor claims and the peer table. Nothing held
+  what is coming (pipeline, roadmap, launches, capacity with dates), protection
+  (patents, exclusivity, contracts, switching costs with expiries), management's
+  stated plan and current guidance, customers and suppliers as dependencies, or
+  competitors by product line. Facts the writer had were scattered across
+  catalysts and actions.
+- **The analysts were not asked (gap G9).** The Item 1 instruction named "the
+  software platform and developer ecosystem, the product roadmap" (wording for a
+  chip and software issuer); product-level competitors were asked for only "when
+  supported"; the research framing put market and competitor research last,
+  after news.
+
+### Choice
+
+1. **Schema (P21).** Seven optional fields, so every saved report parses and
+   prints exactly as before: under `business`, `products` (one item per product
+   or service line: a heading plus sourced claims), `whatIsComing`,
+   `customersAndSuppliers`, `protection`, `managementPlan`, `industry`; under
+   `competitive`, `competitorsByProductLine` (heading plus claims; foreign-listed
+   rivals allowed; never valuation peers, never in the multiples). Every entry is
+   a `SourcedClaim`, so the existing claim verifier checks each at its exact path
+   (for example `business.products[0].claims[1]`); a revenue or growth figure
+   must cite its payload record and verifies against it like any other claim.
+   The fresh judge request requires the seven arrays (`[]` is an honest empty
+   answer), which adds no optional wire parameter.
+2. **Product-line headings are labels (P18).** A model may not author a label
+   that code cannot tie to a source. Rule: a heading stands only when one of the
+   item's own FACT claims writes that name as a whole word or phrase, ignoring
+   case, spacing, dash style and trademark signs (`productLineNamedInClaims`). A
+   JUDGMENT never names a line, and a part of a longer word does not match
+   ("Pharma" in "Pharmaceuticals"). Generation (`normalizeJudgeOutput`, after
+   embedded judgments are split) replaces a failing heading with the fixed
+   heading "Product line (its name is not in the cited claims)" and keeps the
+   claims; the presentation applies the same function, so a report assembled
+   by any other path prints the same (review round 1 below adds stricter
+   rules). Alternatives rejected: rejecting the
+   section costs a paid repair round for a label problem; dropping the item
+   would hide sourced claims; requiring the name inside the cited excerpt text
+   is not possible for web and news citations, which keep no fetched text. The
+   raw model heading stays in the pass artifact.
+3. **Prompts.** The analysts and the judge receive one sector-neutral checklist
+   (products and services; what is coming; customers and suppliers; industry;
+   competitors by product line, foreign-listed included; protection and expiry;
+   management's plan and current guidance; what could change the story). Where
+   no source supports an item the writer says so in one sentence. Product-level
+   competitors are asked for by default. Research looks for market size and
+   named competitors with products and dates first, then the business itself
+   (pipeline, protection, customers, plan), then news; each finding carries its
+   URL, publisher and date. Web pages remain untrusted third-party text and are
+   never used for a figure Metis computes from filings. The judge fills the new
+   fields; the analysts supply the evidence.
+4. **Rendering (P22).** `businessStoryBlocks` in `src/report/presentation.ts`
+   gives app, Markdown and print one "The business" group, in the order Products
+   and services, What is coming, Customers and suppliers, Competitors by product
+   line, Protection and expiry, Management's plan, Industry. An absent or empty
+   field yields no heading; with none left, the group is omitted. The group sits
+   after market structure in the business section; the wider report order is
+   left to the later reorder step.
+5. **Claim-path registration.** The claim collector, verification log,
+   verification marks and audit export walk claims by path without a section
+   allowlist, so the new paths are covered without new lists (tested). The
+   generation blank-claim check now covers every business-story list, including
+   claims inside product-line items. The grade contract and the confidence
+   ceiling enumerate graded sections only; these fields are not graded, so
+   neither changes.
+
+### Review round 1 corrections (independent review, lead decisions)
+
+- **A heading is a name, never a claim (HIGH).** The review showed that a
+  heading such as "Verandol revenue grew 99%", repeated in its own FACT claim,
+  passed the name rule. Its bullet was marked contradicted, but Markdown and
+  print showed the heading unmarked, which hid the verification failure. The
+  lead decided two rules, both now in force for both product-line arrays:
+  (a) at generation (`productLineHeadingIsName` in `passes.ts`), a heading with
+  any digit, percent sign, Unicode currency symbol or number word (the
+  verifier's existing `statesNumberWord` list, so no new vocabulary), or longer
+  than 8 words or 60 characters, is replaced by the fixed heading; (b) at read
+  time (`businessStoryBlocks`, so stored and new reports obey), a heading prints
+  only when a FACT claim that writes the name carries the validated or
+  qualitative mark. A contradicted, unverified or unchecked claim never lends
+  its words to an unmarked heading, and with no verification log nothing
+  supports a name. If several claims name the line, one validated or
+  qualitative claim is enough: the others keep their own marks on their
+  bullets. Requiring every one to verify would also hide valid names wherever
+  an unrelated multi-figure sentence goes unverified, which was the outcome for
+  58% of LLY's factual claims.
+- **Trademark signs (LOW).** Compatibility normalization turned "™" into the
+  letters "TM" before they were removed, so "Verandol" did not match
+  "Verandol™ treats diabetes." The ™, ℠, ® and © signs (and a following emoji
+  variation selector) are now removed before normalization. Letters "TM"
+  written into a word stay part of it.
+- **Empty-peer note (LOW).** When the provider's peer list has no comparable
+  company, the note pointed to competitors only for the older `competitors`
+  list. It now also points to "competitors by product line ... under The
+  business in the Business section" when only that list is filled, and names
+  both when both are.
+
+### Review round 2 correction (independent review REJECT; lead fix)
+
+- **A heading must be a name code already holds (HIGH).** Round 2 reproduced a
+  heading that asserts what its only naming claim says is unproven:
+  "Verandol dominates the market" over the FACT "No reviewed source
+  establishes that Verandol dominates the market." That claim is a cited
+  qualitative statement, so the round-1 rule printed the affirmative heading
+  unmarked in app, Markdown and print, in both product-line arrays. Two review
+  rounds were used, so the lead fixed it under P18 (code owns labels). A first
+  lead fix checked the heading against the report's own segment table at read
+  time; the merge-gate confirmation showed those product rows keep
+  judge-authored names (`applySegmentShares` recomputes only the share), so
+  that was not code-owned either. The rule now runs at report assembly
+  (`gateProductLineHeadings`, `bundleSegmentNameKeys` in `passes.ts`): a
+  product-line heading stands only when it equals, as a whole name (case,
+  spacing, dashes and trademark signs aside; `productLineHeadingKey`), a
+  product or geographic segment name in the bundle's own segmentation rows
+  (filed or provider data, never model text); otherwise the fixed heading
+  replaces it and the claims are kept. The read-time rule above (a naming FACT
+  must be validated or qualitative) still applies. Cost: a product the
+  segmentation data does not name (a recent launch grouped into "other") prints
+  under the fixed heading, with its name in the claim text. Tests pin the
+  reviewer's reproduction, segment names that stand (including a trademark sign
+  and a different case), an unlisted name, and no or refused segmentation data
+  keeping no model-written heading. Known adjacent limit (not changed here): the
+  report's product segment rows themselves keep judge-authored names beside
+  their traced revenue.
+
+### Scope and limits
+
+No figure, gap, score, payload byte or evidence selection changes; evidence
+selection and payload budgets are another work package. Whether a live writer
+fills these fields well is observable only in a later run (Part C). Market size
+on the sign-in route still has no source; the writer states that gap.
+
+### Stamps
+
+Report spec 1.85.0 to **1.86.0** (accepted report shape, P21) and pipeline
+`stage-c-1.6.44` to **`stage-c-1.6.45`** (prompts and generation). Payload
+1.103.0 and Stage B are unchanged. The fictional sample gains business-story
+content, and the frozen DEMO projection is re-recorded for its spec stamp and
+hash only.
+
+### Same-report check
+
+Main pinned at `66fff44f` (after merging main, including D-269 and D-270, for review round 1; earlier runs at `efa432ee` and `bec62776`, same result). All 17 stored cases (data-only and fixed-analyst,
+including the bank, insurer, REIT and utility cases) and both LLY cases differ
+only in `meta.specVersion` and `meta.pipelineVersion`, the matching version
+lines of Markdown, print, audit and dossier, and the dossier's report-identity
+hash, which is computed from those bytes. The fixed-analyst cases render as
+before: their stored judge output has none of the new fields, so no group is
+printed. `accuracy:check`: 265 figures in 13 cases, every figure as expected;
+the expectation file is unchanged.
+
+### Approved report changes
+
+None beyond the version metadata above. No figure, gap, grade or status
+changes for any company.
+
+### Tests
+
+`tests/report.businessStory.test.ts`: saved reports parse and print unchanged;
+a drug-maker-like, a bank-like and a REIT/industrial-like synthetic report
+render the group in order on all three surfaces with no empty headings; the
+heading rule (named, normalized, JUDGMENT-only, partial-word and missing-name
+controls) at generation and at read time; blank story claims regenerate the
+section; new claims verify at their exact paths; the full and sectioned judge
+schemas require the seven fields; the checklist text is pinned verbatim in
+both analysts' and the judge's prompts; research puts market and competitors
+before news. Review round 1 adds: numeric, currency, number-word and
+over-long headings replaced at generation in both arrays; contradicted,
+unverified and unlogged headings fall back on all three renderers while
+validated and qualitative ones print; trademark-sign matches with a literal
+"TM" control; and the empty-peer note for each combination of the two
+competitor lists. Revised test assertions: the stamp pins only
+(`tests/report.versionStamps.test.ts`, `tests/jobRunner.test.ts`,
+`tests/stageC.payload.passes.test.ts`), each moved to the new stamp.
+
 ## D-269 - Analyst web research on the Claude Code sign-in route (2026-11-14)
 
 Principles: P18 (code owns numbers), P20 (provenance and disclosure), P24 (runtime

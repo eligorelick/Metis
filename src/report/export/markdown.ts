@@ -79,6 +79,8 @@ import {
 import { peerTableColumns, scenarioListItem } from "@/report/presentation";
 import {
   annualSegmentHeading,
+  BUSINESS_STORY_HEADING,
+  businessStoryBlocks,
   assessmentLine,
   auditExportFilename,
   citedMark,
@@ -459,11 +461,27 @@ function renderScores(scores: Scoring): string {
  * Section renderers (sections 2–13)
  * ======================================================================== */
 
-function renderBusiness(b: Business, extra: readonly ReportAuditTable[] = []): string {
+/** D-271: "The business" group, or nothing when every field is absent or empty. */
+function renderBusinessStory(b: Business, c?: Pick<Competitive, "competitorsByProductLine">): string[] {
+  const blocks = businessStoryBlocks(b, c);
+  if (blocks.length === 0) return [];
+  const lines = [`### ${BUSINESS_STORY_HEADING}`, ""];
+  for (const block of blocks) {
+    const body = [
+      ...(block.claims.length > 0 ? [claimList(block.claims)] : []),
+      ...block.lines.map(line => `**${markdownProse(line.heading)}**\n\n${claimList(line.claims)}`),
+    ].join("\n\n");
+    lines.push(...subsection(`#### ${block.heading}`, body));
+  }
+  return lines;
+}
+
+function renderBusiness(b: Business, extra: readonly ReportAuditTable[] = [], c?: Pick<Competitive, "competitorsByProductLine">): string {
   const quarterly = auditTableBlocks(extra);
   const lines: string[] = [sectionHeading("business"), ""];
   lines.push(...subsection("### What they sell", claimList(b.whatTheySell)));
   if (b.marketStructure?.length) lines.push(...subsection("### Market & industry structure", claimList(b.marketStructure)));
+  lines.push(...renderBusinessStory(b, c));
   lines.push(...quarterly);
   // Keep dated geography and explicitly referenced annual categories inspectable.
   const annualProductReference = [...b.whatTheySell, ...b.concentrationRisks].some(c => /annual product|product categor|product table/i.test(c.text));
@@ -1037,7 +1055,7 @@ export function reportToMarkdown(report: Report, context: ReportPresentationCont
     renderKeyData(report),
     renderVerdict(report),
     report.scores ? renderScores(report.scores) : "",
-    renderBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business")),
+    renderBusiness(report.business, filingDisclosureTables(report.filingDisclosures, "business"), report.competitive),
     renderFundamentals(report.fundamentals, report.sourceFactSummary, [...filingDisclosureTables(report.filingDisclosures, "fundamentals"), ...lenderTables], report, gradeContext(report, "fundamentals", completeness)),
     renderBalanceSheet(report.balanceSheet, report, gradeContext(report, "balanceSheet", completeness)),
     renderValuation(report.valuation, report.scenarioTargets, report.fairValue, routeMetricsForDisplay(report), { scenarioPresentation: report.scenarioPresentation, thesisTriggers: report.thesisTriggers, report }, gradeContext(report, "valuation", completeness)),

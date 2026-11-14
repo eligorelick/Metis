@@ -232,7 +232,10 @@
 // 1.83.0 (D-261, P8/P10): exact filed cash recovery and root-input gaps on repaired liquidity rows.
 // 1.84.0 (D-267 part 1 / D-260 follow-up): same-date fallback and distinct operating candidates.
 // 1.85.0 (D-268): bounded carrying investment admission preserves plain facts.
-export const REPORT_SPEC_VERSION = "1.85.0" as const;
+// 1.86.0 (D-271, P18/P20/P22): optional business-story fields (products, what is coming, customers and suppliers,
+// protection, management plan, industry, competitors by product line); a product-line heading must be named in its
+// own FACT claim. No figure changes; stored reports keep their bytes.
+export const REPORT_SPEC_VERSION = "1.86.0" as const;
 
 /**
  * Current payload format version.
@@ -404,7 +407,9 @@ export const PAYLOAD_VERSION = "1.104.0" as const;
 // 1.6.39: source-owned lease evidence and stable refusal qualifications survive enrichment.
 // 1.6.40 (D-211): public evidence recovery and ChatGPT plan research.
 // 1.6.44: primary repurchase evidence survives acquisition, calculation, analyst context and export.
-export const PIPELINE_VERSION = "stage-c-1.6.44" as const;
+// 1.6.45 (D-271): sector-neutral business checklist for the analysts and judge, research order (market and competitors
+// before news), the judge writes the business story, and generation replaces a product-line heading its claims do not name.
+export const PIPELINE_VERSION = "stage-c-1.6.45" as const;
 
 /** The evidence-rules contract this build writes on new reports. */
 export const EVIDENCE_CONTRACT_VERSION = "EVIDENCE_CONTRACT_1" as const;

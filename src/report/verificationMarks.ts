@@ -71,6 +71,11 @@ export function indexVerificationMarks(report: Report): void {
   }
 }
 
+/** The claim's indexed status, or undefined when no factual-claim entry marks it. */
+export function claimStatusMark(claim: SourcedClaim): ClaimStatusMark | undefined {
+  return marks.get(claim);
+}
+
 /** The compact text form, e.g. "[validated]". */
 export function claimStatusMarkText(claim: SourcedClaim): string | null {
   const mark = marks.get(claim);
