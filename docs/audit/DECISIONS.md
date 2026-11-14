@@ -1231,7 +1231,7 @@ switch is unchanged. Live acquisition and offline calculation views share the
 same admission functions; source envelopes, raw arrays and stored bytes remain.
 
 The PP&E total precedes other PP&E and productive assets for lookup only.
-A same-period, same-filing competing capital-purchase tag blocks substitution,
+An admitted exact-period competing capital-purchase tag blocks a new scalar substitution,
 including software, oil-and-gas, real estate, improvements and productive
 assets. No ordering proves which is a total. These alternatives are not summed; software, acquired research, businesses and investments are not
 added to PP&E. Missing filed capex leaves the retained convention and its
@@ -1265,7 +1265,7 @@ are not presumed interchangeable with a similarly named US-GAAP concept.
 | --- | --- | --- |
 | Cash capex, PP&E alias, standardized FCF | PP&E/productive-assets tags; no annual conflict check, quarterly annual-vendor gate | Added other PP&E; exact filed spending replaces conflicts; aliases and FCF share it |
 | Income interest expense | Five existing ordered expense tags; capitalized-cost refusal only on vendor path | Exact annual/quarter expense replaces conflicts, including vendor zero; missing compatible expense is disclosed unverified |
-| Income and cash-flow D&A | Cash add-back tags are not income-statement expense | Income uses CostDepreciationAmortizationAndDepletion only; any agreeing separately filed D&A basis prevents narrowing. Cash retains the full combined family and floors |
+| Income and cash-flow D&A | Cash add-back tags are not income-statement expense | A cost portion alone never establishes a statement total; retain the observation and existing status when total proof is absent. Cash retains the full combined family and floors |
 | Cash-flow SBC | `ShareBasedCompensation`; some quarterly repairs, annual conflicts could remain refused | Same filed rule for both frequencies; typed value-only refusals reopen only against the identical recorded fact; allocated expense is a separate basis |
 | Common, preferred and total dividends paid | Existing direct dividend chains and common/preferred composition | Correct independently tagged fields; do not infer total from common when preferred is unproved |
 | Common-share cash repurchases | `PaymentsForRepurchaseOfCommonStock`; conflicts previously refused; primary cash/cost bridge has its own scope gate | Correct exact bulk counterparts unless independently refused/proved; primary cash scope has precedence; unresolved excise/commission scope stays with its owner |
@@ -1304,7 +1304,7 @@ financial-company placements.
 ### Approved report changes and independent-review fixes
 
 Report spec 1.78.0 is reserved for D-262; D-263 holds 1.76.0 and D-260
-reserves 1.77.0. Payload 1.95.0 and Stage B FILED_FLOWS_69 do not collide.
+reserves 1.77.0. The final main integration assigns payload 1.96.0 and Stage B FILED_FLOWS_70 after D-260's payload 1.95.0 and FILED_INCOME_WINDOWS_69.
 Main 742d4d2f was merged normally, preserving D-263's producer proof metadata
 and cash-flow verification. The reviewed baseline remains pinned cf3eb287.
 
@@ -1366,6 +1366,27 @@ that chain; the earlier branch receipts are preserved in the replay record.
 Synthetic figures are unchanged; the capital digest also includes D-263's
 EBITDA producer-proof metadata. Stored reports remain immutable.
 
+### Final main integration and committed-head receipt
+
+Main 569635e45c351b50965570cb877603c37914fcbb was merged normally as
+3bb63624; frozen records follow main's D-260 entries and then the D-262
+integration receipt. Report remains 1.78.0; payload is 1.96.0, Stage B is
+STAGE_B_2026_11_FILED_FLOWS_70. Both owning stamp histories remain in merge
+order, and 1.95.0 is an earlier incompatible payload in the regression list.
+The same-report runs use committed implementation e9f3d8765fbd0fbff82ee90983b5373174c6fb52
+and a separately rebuilt pinned 569635e4 baseline (17 stored plus two LLY
+cases). The delta record and hashes now describe only differences from that
+baseline, not D-260 changes inherited from main. Approved comparisons contain
+136 stored-case and 16 LLY changes, nothing else. The post-merge 571 focused/stamp/frozen regressions passed; the final interval-boundary change passed all 222 focused/stamp tests. Typecheck and lint also pass. Accuracy has 171 matches, seven
+existing mismatches, 61 gaps and 26 not-established values, with no expectation
+difference and no update in this final round.
+
+Relative to 448cee20 the inherited D-260 disclosure changes are also recorded
+in the replay record. They do not change any score, current valuation or
+headline model amount. This distinction prevents treating an inherited main
+change as new D-262 evidence. Mixed-basis row qualification remains the stated
+reader limitation, not a claim that manifest text reached the row display.
+
 ## Review follow-up, 2026-11-14
 
 Comparison: pinned main cf3eb287; review-before is branch 7b172879. Current outputs also include the normal merge of main 742d4d2f (D-263). Input amounts below are filed facts, never vendor rows. Derived scores and valuation comparisons are Metis outputs, not independently filed model values.
@@ -1417,7 +1438,7 @@ C. Capital-spending competitors are owned by capitalSpendingTags() in
 components. Construction-in-process and software payments are included. A
 regression exercises every family member, including future additions.
 D/E. Exact-period competitors count across admitted filings within cutoff.
-The latest explicit zero does not compete; absence alone never proves zero.
+The latest explicit zero does not compete; absence alone never proves zero. Direct target-quarter intervals are checked alongside cumulative operand intervals.
 F. CostDepreciationAmortizationAndDepletion alone cannot prove the statement's
 full D&A. With no affirmative total proof in this owner, scalar substitution
 is declined and the observation retains its status. Cash D&A is unchanged.
