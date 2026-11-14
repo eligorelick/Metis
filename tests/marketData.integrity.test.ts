@@ -128,3 +128,24 @@ it("D-272 withholds result differences when the operand currency is unestablishe
  const b=completeCurrencyBundle({});b.earningsHistory={ok:true,value:{source:"fmp",endpoint:"earnings",asOf:"2026-06-01",fetchedAt:b.builtAt,data:{rows:[{date:"2026-06-01",revenueActual:120,revenueEstimated:100,epsActual:2,epsEstimated:1}],raw:{}}}};
  expect(resultsHistory(b)[0]).toMatchObject({currency:null,values:{revenueDifference:null,epsDifference:null}});
 });
+
+// D-272 (review thread): results history and insider evidence are kept even when every other market input is missing.
+describe("market data presence with only provider evidence", () => {
+  const bare = () => {
+    const b = currencyBundle() as unknown as Record<string, unknown>;
+    for (const key of ["quote", "sharesFloat", "analystEstimates", "priceTargetConsensus", "priceTargetSummary", "gradesConsensus", "shortInterest", "earningsHistory", "insiderStats", "insiderTrades"]) b[key] = { ok: false, error: { kind: "unavailable", message: "test" } };
+    const statements = b.statements as Record<string, unknown>;
+    for (const key of Object.keys(statements)) statements[key] = { ok: false, error: { kind: "unavailable", message: "test" } };
+    return b as unknown as ReturnType<typeof currencyBundle>;
+  };
+  it("control: no market input at all builds no block", () => {
+    expect(buildMarketData(bare())).toBeUndefined();
+  });
+  it("keeps quarterly insider statistics as their own evidence", () => {
+    const b = bare();
+    b.insiderStats = { ok: true, value: { source: "fmp", endpoint: "insider-statistics", asOf: "2026-07-01", fetchedAt: b.builtAt, data: { rows: [{ year: 2026, quarter: 1, totalSales: 3, totalPurchases: 0, totalAcquired: 0, totalDisposed: 100 }], raw: {} } } } as unknown as typeof b.insiderStats;
+    const md = buildMarketData(b);
+    expect(md?.insiderEvidence?.length).toBeGreaterThan(1);
+    expect(md?.quote ?? null).toBeNull();
+  });
+});

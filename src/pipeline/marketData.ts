@@ -215,7 +215,10 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; 
     epsAvg: n(row.epsAvg), epsLow: n(row.epsLow), epsHigh: n(row.epsHigh),
     analystsRevenue: n(row.numAnalystsRevenue), analystsEps: n(row.numAnalystsEps),
   }));
-  if (!quote && !shares && !enterpriseValue && estimates.length === 0 && !priceTarget && !gradeCounts && !shortInterest) return undefined;
+  // D-272: results history and insider evidence count as market data on their own, so they are never dropped
+  // when every other input is missing (the insider list always carries its scope note).
+  const results = resultsHistory(bundle, issuer), insiders = insiderEvidence(bundle);
+  if (!quote && !shares && !enterpriseValue && estimates.length === 0 && !priceTarget && !gradeCounts && !shortInterest && results.length === 0 && insiders.length <= 1) return undefined;
   return {
     version: "1",
     currency: currencies.trading,
@@ -225,8 +228,8 @@ export function buildMarketData(bundle: DataBundle, options: { isAdr?: boolean; 
     shares,
     ...historicalEv,
     estimates,
-    resultsHistory: resultsHistory(bundle, issuer),
-    insiderEvidence: insiderEvidence(bundle),
+    resultsHistory: results,
+    insiderEvidence: insiders,
     estimatesAsOf: asOfOf(bundle.analystEstimates),
     ...(bundle.analystEstimates?.ok ? { estimateTiming: readEstimateTiming(bundle.analystEstimates.value.data.estimateTiming, bundle.analystEstimates.value) } : {}),
     priceTarget,
