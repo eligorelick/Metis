@@ -1,13 +1,13 @@
 {
   "fixture": "tests/stageC.payload.passes.test.ts buildInputs(\"AAPL\"), no restore step",
-  "payloadVersion": "1.103.0",
-  "fingerprint": "1.103.0:0f300566",
-  "summary": {"promptBytes": 182674, "promptFnv1a32": "0f300566", "provenanceCount": 536, "provenanceHash": "ad7ee477", "provenanceIdsHash": "1f4e2f3b", "citationCount": 87, "citationHash": "0292dcdc", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "48e9bce7"},
+  "payloadVersion": "1.104.0",
+  "fingerprint": "1.104.0:733018d3",
+  "summary": {"promptBytes": 181895, "promptFnv1a32": "733018d3", "provenanceCount": 536, "provenanceHash": "ad7ee477", "provenanceIdsHash": "1f4e2f3b", "citationCount": 87, "citationHash": "0292dcdc", "computedFigureLabelHash": "513988eb", "projectionPathPeriodHash": "fb9c4bf0", "financeHash": "48e9bce7"},
   "prompt": {
-    "bytes": 182674,
-    "sha256": "0ea4d6c0f180451e67a522da710dd241930eeb97afc71bcd66878d37e74fd53d",
+    "bytes": 181895,
+    "sha256": "ed2475b5e7087d140ce8776b81fe1389b995e986592cf6bf85f688292c9c8f01",
     "sections": [
-      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "2fa9048ac268e0a6416bab9399192a0b1c04577927d3dfd07f8290202efcc45a"},
+      {"heading": "(before the first ## heading)", "bytes": 499, "sha256": "7f8dea1dbcad20f65a2e51d96614b149e2d8f8f050e648c3ded43b2405682cfc"},
       {"heading": "## Quote", "bytes": 520, "sha256": "5146e60fd664d5a82bbbf06b3413303e1136d43422948e7ad1e8c645380d4026"},
       {"heading": "## Growth & margins (computed)", "bytes": 2984, "sha256": "0a99f8d4e346e47a0c3816bac522e18117123512e830df57a2ae624db2407749"},
       {"heading": "## Returns (computed)", "bytes": 4404, "sha256": "e6a3241a0880a89b297438994c04127838cbf59b682e8fe516005210afaba4e7"},
@@ -36,12 +36,12 @@
       {"heading": "## Short interest", "bytes": 276, "sha256": "f4aad2a367534e5a8866403769783fbf4b26bfcd22d9faeac00fcb5928ee7558"},
       {"heading": "## Revenue segmentation (keys as each source names them — never hard-coded) (untrusted provider data)", "bytes": 1267, "sha256": "ad10f40ed4095573412b51932fca0def9d061dc0f21b167b21a844a944207a28"},
       {"heading": "## Macro (FRED latest values)", "bytes": 468, "sha256": "29fc6f7dff34b1831471bd9be52146d2f7785bd1e2ce1f5e61f65eda17e45876"},
-      {"heading": "## Provider transcript/filing excerpt (untrusted source data)", "bytes": 21479, "sha256": "7459853a845818cf0732031bc917a104a5f2b44bd0fd305b5c976d4af965fa2c"},
+      {"heading": "## Provider transcript/filing excerpt (untrusted source data)", "bytes": 21003, "sha256": "9d5e013f110b5078de37e0c5408d7f055a2f15c60c3a7c775690cdf8fe7d0425"},
       {"heading": "## Provider transcript/filing excerpt (untrusted source data)", "bytes": 15831, "sha256": "a73b1f40ead88c7ee67678f741530079e071b402cf92eec24e3aec1d1d3c76fc"},
-      {"heading": "## Provider transcript/filing excerpt (untrusted source data)", "bytes": 42421, "sha256": "508e974c4425d2258b5b24ca0f4e7eff4c895dbee7ab9cf838be16273f9c2550"},
+      {"heading": "## Provider transcript/filing excerpt (untrusted source data)", "bytes": 42429, "sha256": "142ad099d12461e67d7228103d1f0a373f126d4271501a0c4c221125bcc46615"},
       {"heading": "## Provider news/press snippets (untrusted source data)", "bytes": 314, "sha256": "5188737400534b60ef1e78266e8a1e16b0ea53af3b87978db4ae3258c80674d1"},
       {"heading": "## Data-quality flags (Stage A validation; untrusted provider data)", "bytes": 796, "sha256": "bd25f9b7783f7e0714ee8cb26ac9a3a541a7bd23915bda9a7b8cd5e2fcffde84"},
-      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 9502, "sha256": "ac8266feabc520443b1de006697620c3d1d6284c44e325a7e48c3b5b735481a2"}
+      {"heading": "## Missing-data manifest (gaps are DISCLOSED, never filled — rule #4; untrusted provider data)", "bytes": 9191, "sha256": "5e768db9b02817879f542f777911db995301fdc22bbf1e37d0ee86f9ece2a6e7"}
     ]
   },
   "projectionPathPeriodMatrix": [
@@ -5685,7 +5685,7 @@
     {"id": "fmp:key-executives", "kind": "payload-text", "asOf": null, "origin": "fmp:key-executives"}
   ],
   "payload": {
-    "payloadVersion": "1.103.0",
+    "payloadVersion": "1.104.0",
     "symbol": "AAPL",
     "companyName": "Apple Inc.",
     "route": {"base": "general", "overlays": [], "sector": "Technology", "industry": "Consumer Electronics"},
@@ -7734,7 +7734,7 @@
         {"start": 9440, "end": 9472, "text": "CEO: Revenue grew this quarter. "}
       ],
       "coverage": {
-        "version": "section-evidence-9",
+        "version": "section-evidence-10",
         "retainedChars": 9472,
         "omittedChars": 54528,
         "categories": [
@@ -7748,12 +7748,7 @@
           {"category": "subsequent-liquidity", "status": "not-found", "availablePassages": 0, "retainedPassages": 0},
           {"category": "distribution-costs", "status": "not-found", "availablePassages": 0, "retainedPassages": 0},
           {"category": "operating-costs", "status": "not-found", "availablePassages": 0, "retainedPassages": 0},
-          {"category": "commercial-terms", "status": "not-found", "availablePassages": 0, "retainedPassages": 0},
-          {"category": "ip-exclusivity", "status": "not-found", "availablePassages": 0, "retainedPassages": 0},
-          {"category": "development-capacity", "status": "not-found", "availablePassages": 0, "retainedPassages": 0},
-          {"category": "competition", "status": "not-found", "availablePassages": 0, "retainedPassages": 0},
-          {"category": "customers", "status": "not-found", "availablePassages": 0, "retainedPassages": 0},
-          {"category": "suppliers-manufacturing", "status": "not-found", "availablePassages": 0, "retainedPassages": 0}
+          {"category": "commercial-terms", "status": "not-found", "availablePassages": 0, "retainedPassages": 0}
         ]
       }
     },
@@ -8578,7 +8573,7 @@
           }
         ],
         "coverage": {
-          "version": "section-evidence-9",
+          "version": "section-evidence-10/annual",
           "retainedChars": 33000,
           "omittedChars": 0,
           "categories": [
@@ -8634,7 +8629,7 @@
       },
       {
         "field": "evidenceCoverage.fmp:earning-call-transcript",
-        "reason": "54528 of 64000 source chars omitted by section-evidence-9 for fmp:earning-call-transcript as of 2026-05-01. results: retained (296/2000 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained); operating-costs: not-found (0/0 candidate passages retained); commercial-terms: not-found (0/0 candidate passages retained); ip-exclusivity: not-found (0/0 candidate passages retained); development-capacity: not-found (0/0 candidate passages retained); competition: not-found (0/0 candidate passages retained); customers: not-found (0/0 candidate passages retained); suppliers-manufacturing: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist.",
+        "reason": "54528 of 64000 source chars omitted by section-evidence-10 for fmp:earning-call-transcript as of 2026-05-01. results: retained (296/2000 candidate passages retained); guidance: not-found (0/0 candidate passages retained); capex-liquidity: not-found (0/0 candidate passages retained); tax: not-found (0/0 candidate passages retained); exceptional: not-found (0/0 candidate passages retained); fcf: not-found (0/0 candidate passages retained); earnings-quality: not-found (0/0 candidate passages retained); subsequent-liquidity: not-found (0/0 candidate passages retained); distribution-costs: not-found (0/0 candidate passages retained); operating-costs: not-found (0/0 candidate passages retained); commercial-terms: not-found (0/0 candidate passages retained). Retained evidence is not a complete source review; not-found means no matching passage was identified, not that the item does not exist.",
         "severity": "info",
         "attemptedSources": ["fmp:earning-call-transcript"]
       },

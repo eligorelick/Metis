@@ -11,7 +11,206 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-268 - Bounded carrying investment subtotals (2026-11-14; independent review corrections)
+
+P2, P5, P7, P8, P10, P11, P20 and P27. Revises D-261's investment evidence
+boundary and D-236's covered-filing acquisition policy. The independent review
+identified plain-fact displacement and hidden plain values (F1/F2). The lead
+specified the admission and bound below. The source owner remains
+`src/edgar/instanceFacts.ts`, with liquidity composition in `financialEnrichment.ts`.
+
+### Evidence and rule
+
+LLY has **no short-term-investments balance-sheet line**. Its FY2025 10-K,
+**0000059478-26-000013**, reports a **105M USD short-term investments subtotal
+in the fair-value note**, composed of instrument members 16M and 89M, inside
+**OtherAssetsCurrent 147M**, instant **2025-12-31**. The subtotal's concept is
+`AvailableForSaleSecuritiesDebtSecuritiesCurrent`; its sole dimension is
+`FairValueByMeasurementBasisAxis = CarryingReportedAmountFairValueDisclosureMember`.
+That proves a carrying measurement without an instrument partition, not that the
+note is a balance-sheet line or a complete investment inventory. Member counts
+never prove completeness and members are never summed into the subtotal.
+
+**Plain facts take precedence across the entire field family.** A carrying
+candidate fills a field only if its filing and instant has no plain fact for
+any tag in the lookup list or sibling lines, including a nil or conflicting plain
+observation that the normal parser withholds. Current investment aliases and
+the combined cash/investment total form one family; all noncurrent total and
+component aliases form another. Plain and carrying deduplication are separate:
+a plain balance-sheet amount survives a different, even more precise, carrying
+amount. The same block is applied against companyfacts during merge, so an
+omitted instance fact cannot displace a different plain feed tag.
+
+Cash and combined cash concepts never admit carrying facts. Noncurrent
+component tags never admit carrying facts into a fallback sum: only the direct
+LongTermInvestments total is eligible on that route. Unknown dimensions,
+additional axes, instrument/entity/hierarchy members, scenarios, typed members,
+partial measurements and estimates remain excluded. The rule covers core
+periodic forms including 20-F/40-F and amendments; unproved IFRS/custom
+measurement shapes remain gaps.
+
+For a carrying investment to join cash, the cash, investment and tagged
+receivable/inventory operands must come from the same filing, instant, issuer
+and currency, and their sum must be **at most AssetsCurrent** from that same
+filing and instant (or agree under the existing `vendorAgreesWithFiled`
+comparison). Missing or exceeded bounds refuse combined liquidity. The bound
+is retained in liquidity provenance with its tags. Interest-bearing bank
+deposits retain their overlap guard. Independent refusals remain sticky.
+New investment evidence also revisits liquidity when cash already agrees with
+the filing; otherwise the September 74M subtotal would be silently ignored.
+No new tolerance, balancing plug or company condition is introduced.
+The AssetsCurrent bound is a ceiling, not an overlap proof; separation from cash rests on the short-term-investment concept definitions excluding cash equivalents and the block whenever a plain balance-sheet investment-family fact exists at that filing and instant.
+SEC-built rows enforce the same bound and typed refusal as vendor-row admission;
+both paths use `filedSumWithinTotal` in the existing comparison owner.
+
+Covered-filing supplements carry `carryingOnly: true`. Their disclosure says
+only that carrying investment totals were added and existing statement history
+is unchanged (F4); they do not exclude an accession from companyfacts-owned
+annual history or cause a predecessor warning (F5). New statement acquisitions
+retain their original distinct disclosure/history behavior. The ineffective
+segment-set overlap predicate is removed: the bounded fallback collector's
+inventory already excludes segment filings.
+
+### Original-input replay and accuracy
+
+Main **e8d3b567a0db554ac9f134ff1a344b7c0472e4ff** was merged before correction.
+The 17 golden cases plus both LLY cases were rebuilt against that pinned main.
+The original normalized snapshots lack the omitted instance facts. Their
+financial outputs remain unchanged, including FIGR/QCOM; all differences are
+report/payload version identities and derived fingerprints/exports. Accuracy
+retains 171 matches, 7 mismatches, 61 gaps and 26 not-established figures (265).
+No expectation was changed and no source fact was retrofitted into saved inputs.
+
+### Four-instance LLY evidence refresh (F3/F6)
+
+A separately identified scratch snapshot merges **all four cached production
+segment instances together** through the production parser/merge, then runs the
+offline golden worker. The instances are 10-K 0000059478-26-000013 (filed
+2026-02-12), and 10-Qs 0000059478-26-000045 (2026-04-30),
+0000059478-26-000081 (2026-08-05), 0000059478-26-000108 (2026-10-29).
+Original reports, snapshots and databases remain unchanged. Amounts below are
+USD millions, except percentages and per-share model outputs.
+
+| Instant | Admitted cash | Carrying investment | Combined liquidity before -> after | Net debt before -> after | Cash/investment/bound filing cited |
+| --- | ---: | ---: | --- | --- | --- |
+| 2025-12-31 | 7,268 | 105 | gap -> 7,373 | gap -> 36,492 before leases; 35,130 after leases | 0000059478-26-000108 |
+| 2026-03-31 | 5,282 | 146 | gap -> 5,428 | gap -> 37,942 | 0000059478-26-000045 |
+| 2026-06-30 | 8,950 | 60 | gap -> 9,010 | gap -> 45,898 | 0000059478-26-000081 |
+| 2026-09-30 | 4,885 | 74 | 4,885 -> 4,959 | 44,618 -> 44,544 (valuation bridge) | 0000059478-26-000108 |
+
+Every row cites `CashAndCashEquivalentsAtCarryingValue`,
+`AvailableForSaleSecuritiesDebtSecuritiesCurrent`, `AssetsCurrent`,
+`AccountsReceivableNetCurrent` and `InventoryNet` at the stated instant.
+**P2:** FY2025 cash/investments and their bound now cite the latest compatible
+September 10-Q comparative, not the older 10-K. The 105M repeats unchanged in
+all three 10-Qs. Current debt values retain their admitted debt-family proof:
+43,865M (FY2025), 43,370M (March), 54,908M (June), 49,503M (September), using
+`LongTermDebtNoncurrent`, `DebtCurrent`, `CommercialPaper` and admitted lease
+coverage from each period's original filing (the FY2025 proof remains the 10-K).
+No new lease amount is invented for interim dates.
+
+FY2025 ending invested capital becomes **61,665M** = equity **26,535M** + total
+debt **43,865M** - operating leases **1,362M** - liquidity **7,373M**. Equity
+(`StockholdersEquity`), debt and operating lease split tags are from
+2025-12-31, 0000059478-26-000013; compatible cash/investment comparatives follow
+P2 above. Unchanged opening capital **44,492.6M** is from 2024-12-31,
+0000059478-25-000067, using cash/equity/debt and `OperatingLeaseLiability`.
+Average capital moves **gap -> 53,078.8M**. Unchanged NOPAT **21,098.024950448875M**
+uses FY2025 `OperatingIncomeLoss`, `IncomeTaxExpenseBenefit` and pretax earnings
+in 0000059478-26-000013. ROIC moves **gap -> 39.748496481549836%**.
+
+This restores the fourth observed above-WACC fiscal year (2022-2025), meeting
+`TERMINAL_EXCESS_RETURN_MIN_YEARS = 4`. The existing terminal-return rule then
+moves terminal ROIC **7.807993425632762% (WACC) -> 12.807993425632763%
+(WACC + capped 5pp)** and reinvestment **32.01846958263031% ->
+19.519060612544706%**. Together with the September bridge's 74M reduction,
+the model value changes **662.078517539688 -> 739.3363643527257 USD/share**.
+These are deterministic model outputs, not filed prices or a new valuation rule.
+Bull/base/bear outputs move **1,009.57/662.08/411.64 -> 1,135.40/739.34/456.98 USD/share**.
+The recovered annual liquidity also restores NOA/accrual coverage and historical
+EV observations. Quality/moat/composite move **68.43/80.79/62.90 ->
+73.86/87.09/66.86**; balance-sheet score **74.37 -> 74.38**, valuation score
+**33.98 -> 29.72**. Other aspect scores are unchanged. The scratch numerical-delta
+artifact enumerates derived grids, multiples, score operands and model outputs;
+they inherit the FY2025 liquidity/ROIC and September bridge sources above.
+
+### Confirmation bot-thread follow-up
+
+Equal plain and carrying observations are tested in both XML orders, including
+plain first. The earlier F2 fix already keeps them in separate dedup groups and
+drops the carrying copy whenever a plain family observation exists. The plain
+point remains unmarked and cannot masquerade as carrying-only supplementation.
+
+A separate failing-first regression confirmed that pre-existing typed
+`liquidity-not-established` refusals reached the family proof but were rejected
+again by `dependentOfCash`. Both gates now use the same same-filing/instant,
+same-currency carrying proof and AssetsCurrent bound. Only that typed cause
+clears. This covers a raw refused row and the result of an earlier cash
+admission whose cash provenance was already established. Independent investment,
+combined-liquidity and net-debt refusals remain refused, including independent
+vendor/SEC conflicts. Root-gap propagation may relabel a vendor conflict only
+when its evidence proves inheritance from that row's original cash refusal;
+it cannot turn an independent refusal into a recoverable liquidity cause.
+
+The earlier four-instance LLY scratch did not exercise this bug: FY2025's
+short-term investment had no prior refusal, while combined liquidity and net
+debt inherited the cash comparison's vendor/SEC conflict with the same cash
+tag/instant/filing evidence. The existing `replayCash` branch cleared those
+inherited conflicts. That explains the already computed 7,373M, rather than
+showing that typed-liquidity recovery worked. No vendor observations are
+changed or copied into this decision record. This corrects implementation of
+the declared D-268 rule; report/payload/Stage B stamps remain 1.85.0/1.103.0/_77.
+The prepared-row recovery retains the original vendor observation and is
+idempotent once the typed refusals are cleared.
+
+Follow-up verification: 113 focused investment/cash/refusal tests pass, including
+both equal-fact XML orders, raw and prepared typed-refusal recovery, independent
+refusals on each dependent field, and missing/exceeded/different-filing/instant
+proof controls. Typecheck and lint pass (the existing unused-variable warning
+remains). All 19 original-input Stage B outputs are byte-identical to pinned
+main e8d3b567a0db554ac9f134ff1a344b7c0472e4ff; all exported outputs also match
+the previous PR delivery byte for byte. Accuracy remains 171 match / 7 mismatch /
+61 gap / 26 not-established across 265 figures, with no expectation update.
+The separately refreshed four-instance LLY output is unchanged, including
+7,373M FY2025 liquidity. No stored input/report/database was modified.
+
+### Regressions, stamps and checks
+
+Failing-first review regressions reproduce F1's different-tag displacement,
+restricted-inclusive cash case, cash and noncurrent-piece exclusions, missing
+and exceeded current-asset bounds, and F2's plain/carrying conflict in both
+orders and at unequal precision. Covered-supplement disclosure and successor
+history tests cover F4/F5 with the new-statement warning control retained.
+The earlier no-subset, unrelated-issuer, foreign-form and independent-refusal
+controls remain. The former cash/noncurrent-component admission assertions are
+replaced by explicit refusals under the lead's narrower policy; no assertion
+is removed to conceal a failure.
+
+After main's report 1.84.0 / payload 1.102.0 / Stage B _76, advance to report
+**1.85.0**, payload **1.103.0**, Stage B
+**STAGE_B_2026_11_CARRYING_INVESTMENTS_77**. Update methodology, current changelog,
+exact version pins and prior-payload rejection, rebuild the fictional sample
+and refresh both frozen records with identity-only scopes. Stored reports and
+frozen historical cutoffs stay unchanged. Full verify remains CI-owned.
+
+Final verification: the 19 original-input Stage B outputs are byte-identical to
+pinned main. Golden diff has 133 version/fingerprint/export identity differences
+across 19 cases; numerical accuracy exactly matches the existing expectation.
+The focused fallback/successor/refusal/tag/version/methodology/release set passed
+254 tests; the final expanded investment regression file passed all 35 tests.
+The final investment/tag/refusal/cash-scope batch passed 67 tests, including
+failing-first SEC-built missing/exceeded-bound controls and a proved positive.
+The required changed run executed 666 files: 16,905 passed, two failures, three
+existing skips. Its stale persisted-report stamp was corrected to 1.85.0 and
+passed the targeted rerun. Its sensitivity test timed out under load and passed
+all five unchanged tests in a targeted rerun; no timeout was loosened. Final
+typecheck passed; lint passed with one existing unused-variable warning. Sample
+build and both scoped frozen refreshes passed. No paid call, real application
+database write, full verify command, merge to main or force-push occurred.
+
 ## D-261 - Preserve admitted liquidity; repair refused cash (2026-11-14, narrowed owner policy)
+
+**Revised by D-268:** a bounded carrying investment subtotal can fill an otherwise absent investment field; other dimensional shapes remain excluded.
 
 Final parity audit: unrepaired rows use pinned main's complete invested-capital path, including its prior-year fallback and exact disclosures. New liquidity refusal, cash-only, average-basis and ROIC-root gap rules are restricted to repaired rows; 216 synthetic cases captured from e2b32711 pin numeric results and all disclosure ordering. Reading dimensioned investment facts remains separate work. Mixed-basis averages on the repaired path compare each row's actual liquidity deduction, including main's unmarked cash-only opening fallback, and are withheld in both directions.
 
@@ -3904,6 +4103,10 @@ export or classic page changes; the same-report check differs only in eight
 `web-dossier.html` files). Reversible by one revert.
 
 ## D-236 - A periodic filing SEC's data feed lists but does not carry is read from its own XBRL instance (2026-11-12)
+
+**Revised by D-268:** the bounded instance inventory also reads covered filings
+for eligible carrying investment subtotals omitted by companyfacts.
+Existing feed facts remain authoritative; only absent proved totals supplement them.
 
 Principles P2 (the newest compatible filing wins), P9 and P10 (a failed
 extraction is a coverage gap, not absence), P20 (provenance) and P3 (unit,
@@ -16770,39 +16973,54 @@ never confirmed. No stored-company figure changes: across the 17 regression
 cases and the two Eli Lilly rebuilds no numeric Stage B leaf differs from main.
 
 
-## D-270 (2026-11-14) Keep source-bounded issuer schedules in filing evidence (P9, P20)
+## D-270 (2026-11-14; review round 1) Retain filing evidence without consuming release coverage (P9, P20)
 
-**Problem and scope.** Business and MD&A filters dropped collected IP schedules, clinical pipelines and capacity plans. The same defect affects pharmaceutical, industrial, financial, property and foreign issuers. This changes evidence sent to analysts, never computed financial facts. Revises D-63's small fixed business/MD&A excerpts and the prior exclusion of tables from business family turns.
+**Evidence and approved revision.** Independent Opus 5.5 review rejected round 0: unstructured sections with a schedule phrase could become empty, added families displaced release evidence, and annual MD&A chunks could end inside a sentence or row. No computed Stage B figure changed. This round supersedes the earlier D-270 selector and budget decisions and revises the D-63 fixed filing budgets. The lead approved the profile separation and caps below. Generality: all 10-K/20-F business and annual review sections, and all 10-Q MD&A; no issuer conditions.
 
-**Choice.** Add IP/exclusivity and development/capacity families to business and financial/interim readings; financial/interim also gain named competition, customers and suppliers. Broaden business product coverage beyond technology. Preserve notes, risk and event behavior. Give explicitly headed issuer schedules at most 40% of a truncated section budget. Retain a whole source paragraph block, not guessed flattened rows; blank lines bound a block, and a flattened section without them is one block. Keep following numbered footnotes and an explicit adjacent table introduction atomically. If the block cannot fit, disclose omission.
+**F1/P9.** An atomic schedule requires actual source paragraph breaks bounding it and a complete lead/rows/footnotes group that fits the 40% table share. A flattened section is never promoted to a whole-section table by a phrase such as product revenue or segment sales. Unproved or over-share schedules use ordinary source passages, as the lead instructed. Tests use flattened single-line release and over-cap business shapes, plus structured blocks and footnotes. This explicitly replaces round 0's over-share whole-block refusal test: that shape must now retain ordinary passages rather than disappear. Qualified, fitting structured blocks still remain whole.
 
-**Budget and tradeoff.** Grow business and annual/interim MD&A from their existing 12k/14k/12k floors to source length, capped at 96k apiece. The frozen sources lost HTML table structure; retaining complete bounded sections is the conservative way to preserve tables and all their qualifications. Maximum added source text is 250k characters, with no transfer from another section. The 2m input guard remains enforced. This spends more context; very long flattened tables may still be withheld whole. No new evidence fetch or paid model call.
+**F2.** `financial` keeps main's families, scores, priority and selection for releases, CFO commentary, transcripts, IR documents and 10-Q Item 5. Separate `annual` and `quarterly` filing profiles carry IP/exclusivity, development/capacity, named competition, customers and suppliers. The existing `interim` profile remains the main control; the 10-Q Item 2 payload uses `quarterly`. This prevents the new families from changing unrelated callers or weakening the original binding-budget controls. Business also broadens products beyond technology. Notes/risk/event rules remain unchanged.
 
-**Stamps.** Payload 1.103.0 and general selector section-evidence-9. Report, Stage B, notes/risk and event stamps stay fixed. Refresh sample and frozen Stage C payload (including prompt hashes and coverage metadata); this is an evidence-meaning change, not a calculation change.
+**F3/F6.** `PAYLOAD_BUDGETS` owns floors/caps: business min(96k, max(12k, source)), annual MD&A min(50k, max(14k, source)), quarterly MD&A min(48k, max(12k, source)). Maximum source-text growth is 156k characters. Other section budgets and paid reservation rules are unchanged; no provider pricing, paid admission, context cap or transport code changed. Existing model-specific pre-launch and 2m-character checks remain enforced. Model cost and context observations below are offline estimates, not paid calls.
 
-**Regression changes.** The existing late-guidance MD&A test now uses a source above the new cap and asserts the 96k bound; all existing inclusion, coverage and exact-offset assertions remain. Payload stamp pins and prior-resume cases move together. New synthetic tests cover IP and pipeline schedules, dated plant plans, named banking competitors and sole suppliers, an oversized schedule, an unrelated numeric table and atomic footnote refusal. No test is skipped or loosened.
+**F4/P9.** Annual MD&A reads complete sentence/row units with abbreviation-aware boundaries. An oversized unit is omitted instead of split at 1,100 characters. Adjacent retained units join with no false omission marker; nonadjacent units carry the marker. The default financial profile remains exactly main as required by F2. A long flattened MD&A regression checks complete units, omission of an over-budget unit, exact original offsets and adjacent joins.
 
-**Approved report changes.** Filing excerpt text, source spans, category coverage and derived evidence records/verification can change; coverage gaps disappear where a whole section now fits. Computed Stage B numeric leaves must remain identical. Frozen source replays and same-report check results are recorded below before delivery. No vendor rows or changed financial figures are authorized.
+**F5.** Restore the financial 12k control excluding both TSMC and officers, the interim 14k concentration control while other text is omitted, and the interim 12k negative control for the operating update. Keep the additional complete-source assertions and filing-budget assertions. Release regressions pin exact main selection hashes for two flattened header shapes. The expanded filing-family tests target annual/quarterly profiles; they no longer demand those families from default financial. Owner cap tests read the constants, with one explicit pin of their approved values.
+
+**Merge and stamps.** Merge origin/main efa432ee39c5515dd883740c2fa45279cf377942 (including D-268). Payload moves to 1.104.0 and general evidence selector to section-evidence-10. Report and Stage B stamps retain current main values. Refresh the Stage C frozen record on the main fixture under D-270, preserving D-268's finance changes; refresh sample and declared stamps together. No expectation or stored report edits.
+
+**Same-report permission.** Only filing excerpts, selection coverage, source spans/labels, evidence records and resulting refusal/verification metadata may change. Financial values and Stage B outputs must stay byte-identical to the merged main baseline. No financial before/after changes are authorized, so there are no replacement SEC numeric facts to establish.
 
 
-**Frozen-source replay.** Read report #61/#62/#63 snapshots from the final-round database in read-only mode, plus JPM and O golden snapshots. Source characters retained (before -> after):
+**Measured frozen-source replay.** Main and changed payloads were assembled in separate processes so aliases cannot mix selector versions. All 19 measured byte counts match the actual golden payload files. The report #61/#62/#63 snapshots were read read-only from the database copy; no source responses or report exports are committed. Retained source characters (omission markers excluded):
 
-| Snapshot | Business | Annual MD&A | Interim MD&A |
+| Frozen input | Business chars | Annual MD&A chars | Quarterly MD&A chars |
 |---|---:|---:|---:|
-| 63 | 11,102 -> 83,909 | 12,271 -> 48,814 | 10,021 -> 29,848 |
-| 61 | 10,851 -> 53,551 | 12,731 -> 36,172 | absent |
-| 62 | 10,926 -> 43,572 | 12,891 -> 64,172 | 10,154 -> 54,444 |
-| jpm-data-only | 11,167 -> 39,135 | 13,326 -> 91,697 | 10,171 -> 90,923 |
-| o-data-only | 11,229 -> 41,101 | 13,015 -> 71,070 | 10,293 -> 83,817 |
+| LLY #63 | 11,102 -> 83,909 | 12,271 -> 48,814 | 10,021 -> 29,848 |
+| TSM #61 | 10,851 -> 53,551 | 12,731 -> 36,172 | absent |
+| EXPE #62 | 10,926 -> 43,572 | 12,891 -> 48,555 | 10,154 -> 36,241 |
+| JPM bank | 11,167 -> 39,135 | 13,326 -> 48,241 | 10,171 -> 44,230 |
+| DUK utility | 10,568 -> 74,209 | 13,060 -> 47,498 | 10,229 -> 44,136 |
+| O REIT | 11,229 -> 41,101 | 13,015 -> 48,046 | 10,293 -> 44,837 |
 
-LLY's Mounjaro/Zepbound, Trulicity, Jardiance, Verzenio and Ebglyss patent rows and the orforglipron/retatrutide pipeline rows are now present in full. TSM Arizona and 2-nanometer plans are retained. EXPE's Booking passage remains and its MD&A Airbnb passage is added. JPM's business competition paragraph remains; it names competitor types rather than rival firms, so named bank rivals remain a source gap. No source acquisition or invented competitor list is authorized here. Risk and notes retained-character counts are identical before/after in all five representative replays. The bank and REIT now use the same growing business/MD&A budgets; no issuer type is exempt. Long sections above the cap retain disclosed omissions.
+All five requested LLY patent rows and the orforglipron/retatrutide pipeline rows survive. TSM Arizona and 2-nanometer capacity plans survive. EXPE retains Booking and adds the Airbnb MD&A passage. JPM's source names competitor types rather than rival firms, which remains a collection gap. VKTX's over-cap Item 1 now retains 93,099 of 133,174 source characters versus main's 10,948. AMZN's release, and every other release/commentary/notes/risk excerpt, is text-identical to main. Across all 19 cases and the three supplementary stored-report inputs, no excerpt shrinks at all, including the cap-bound filings. Only business, annual MD&A and quarterly MD&A grow. The PR lists every case's three section counts and unchanged other excerpts.
 
-**Same-report and accuracy.** Baseline is origin/main e8d3b567a0db554ac9f134ff1a344b7c0472e4ff. All 17 regression cases and both LLY cases have exactly identical Stage B JSON, including every numeric leaf. No financial figure changes, so no replacement filed tag/period/accession is needed. Payloads and their fingerprints change in all 19. The five fixed-analyst reports (AMZN, META, MU, NVDA, LLY) change only evidence coverage gaps, source bindings/spans, source labels and refusal explanations; all validation statuses remain unchanged. The 14 data-only reports are identical. Maximum replayed payload is 622,398 characters (DUK), versus the unchanged 2,000,000 guard; LLY is 564,327. Accuracy passes the existing expectations for all 265 figures in 13 configured companies; no expectation changed. The separate LLY accuracy invocation has no configured company and refuses that directory; LLY instead has the exact Stage B comparison and fixed-analyst replay.
+**Growth, spend and reservations.** Payload growth across 19 cases is 62,996 to 141,698 UTF-8 bytes; largest payload is LLY at 565,100 bytes, below the unchanged 2m-character guard. The API reservation code is untouched: it already reserves against model context/output/search maxima, so larger actual prefixes do not enlarge its worst-case bounds. No paid admission or pricing change.
 
-**Test revisions completing the budget change.** `currentReports` and `edgar.filingFacts` now use the actual growing budgets and assert exact complete text/zero omission where it fits, retaining every earlier content assertion. `stageC.interimSupersession` compares with the actual capped budget and verifies that an ordinary retained update does not acquire the supersession label for an absent or older annual basis; the older exclusion caused only by the 12k budget is replaced with explicit inclusion. The quarterly earnings/funding regression now exceeds 96k and keeps all citation, date, context and coverage assertions at that cap. `evidenceSelection.eventReferent` moves only the general-selector stamp pin. Notes/risk/event method pins remain unchanged. These are D-270 replacements of fixed-budget assertions, not waived checks.
+Conditional spend estimate using this repository's Opus 5.5 pricing (input $4/M tokens, cache read $0.20/M) and its bytes/2.25 token estimate: ten prefix exposures in a single-order example (four analyst research/writing loads plus six judge section loads) add $1.1188 to $2.52248 per run if all are uncached input reads, or $0.05594 to $0.126124 if all are cache reads. These are comparison scenarios, not worst-case spend promises: real cache writes, search sampling, a second judge order, retries, outputs and elapsed-time cache expiry change billing. Existing reservation bounds still cover those paths. No paid call was made to measure this.
+
+**Haiku 4.5 limitation at zero cost.** Calling the existing real `pipelinePasses.preflightPass` with the assembled bull request refuses these six golden cases before any provider call. Its registry window is 200,000 input tokens; the prior-tokenizer input estimate divides full request UTF-8 bytes (including schema/framing) by 2.75. Payload bytes below exclude that request overhead. No paid work is launched, so API cost is $0. Other golden cases fit this check; the supplementary EXPE #62 input also refuses at 573,406 payload bytes / 226,884 estimated request tokens.
+
+| Golden case | Payload UTF-8 bytes after caps | Haiku input estimate |
+|---|---:|---:|
+| nvda-data-only | 511,894 | 204,129 |
+| o-data-only | 549,412 | 217,801 |
+| duk-data-only | 558,424 | 221,056 |
+| nvda-fixed-analyst | 511,894 | 204,129 |
+| lly-data-only | 565,100 | 223,715 |
+| lly-fixed-analyst | 565,100 | 223,715 |
+
+**Same-report verification.** Main baseline efa432ee39c5515dd883740c2fa45279cf377942: all 19 `stageB.json` files are byte-identical. All validation statuses remain unchanged. Fourteen data-only report JSON files are identical; the five fixed-analyst reports change only evidence coverage, source bindings/labels and existing refusal explanations. AMZN's already-unverified FCF cell explains ambiguity instead of missing source text; its value/status do not change. Accuracy matches all existing expectations (265 figures across 13 configured companies); no expectation is revised. Final check outcomes are recorded before delivery.
 
 
-**Local checks.** TypeScript passes. ESLint passes with one pre-existing unused-variable warning in the revenue-admission test. Sample build and D-270 frozen-payload refresh pass (the later refresh correctly reports no further delta). The required `--changed origin/main` sweep ran once: 16,160 passed, five stale budget/stamp assertions failed, one existing skipped test. Each failure was revised under the explicit D-270 budget/stamp replacement above and passes its focused recheck. No full `verify` run, model call or database write was performed. The existing verifier can leave newly exposed ambiguous source context unverified: AMZN's FCF refusal explanation moves from missing text to ambiguous text without changing its value or validation status. That verifier behavior is outside this selection change.
-
-
-Final focused suite: 634 tests passed across 11 files after the budget/stamp replacements. All 19 final-tree Stage B outputs remain identical; final validation statuses are unchanged.
+**Round 1 local checks.** TypeScript and lint pass (one existing unused-variable warning). Sample build and D-270 frozen refresh pass. The changed-test sweep ran once: 17,022 passed, three existing skipped tests, one 30s timeout in the unchanged sensitivity-table UI file. The isolated file rerun passes all five tests at its original timeout. No test or timeout was loosened. Golden diffs and accuracy pass the invariants above.

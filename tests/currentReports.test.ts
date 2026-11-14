@@ -466,13 +466,16 @@ describe("D-63 filing evidence", () => {
   it("retains the business description's platform, roadmap, suppliers, competitors and officers, and the 10-Q notes' material passages", () => {
     const item1 = selectMaterialEvidence(ITEM1, businessEvidenceBudget(ITEM1.length), "business");
     expect(item1.text).toBe(ITEM1);
-    expect(item1.text.length).toBeLessThanOrEqual(96_000);
+    expect(item1.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.businessMaxChars);
     for (const needle of ["CUDA", "Taiwan Semiconductor Manufacturing Company Limited, or TSMC", "Rubin", "Our current competitors include",
       "Colette M. Kress joined NVIDIA in 2013", "export"]) expect(item1.text).toContain(needle);
-    // D-270: financial readings now retain the same named supplier family.
+    const binding = selectMaterialEvidence(ITEM1, 12_000);
+    expect(binding.text).not.toContain("TSMC");
+    expect(binding.text).not.toContain("Colette M. Kress");
+    // Complete source text remains intact when it fits the budget.
     expect(selectMaterialEvidence(ITEM1, mdnaEvidenceBudget(ITEM1.length)).text).toBe(ITEM1);
     for (const span of item1.spans) expect(ITEM1.slice(span.start, span.end)).toBe(span.text);
-    expect(item1.coverage.version).toBe("section-evidence-9/business");
+    expect(item1.coverage.version).toBe("section-evidence-10/business");
 
     // D-66 reserves concentration passages and raises the bounded notes budget.
     const notes = selectMaterialEvidence(NOTES, 14_000, "notes");

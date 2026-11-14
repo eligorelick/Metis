@@ -1257,7 +1257,7 @@ describe("payload determinism + provenance", () => {
     const second = buildFreshInputs().payload;
     const ids = first.provenanceRegistry!.map((entry) => entry.id);
 
-    expect(first.payloadVersion).toBe("1.103.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
+    expect(first.payloadVersion).toBe("1.104.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
     expect(first.provenanceRegistry).toEqual(second.provenanceRegistry);
     expect(new Set(ids).size).toBe(ids.length);
     expect(ids).toContain("payload.quote.price");
@@ -1780,7 +1780,7 @@ describe("payload budget helpers", () => {
     expect(excerpt.text).toContain("$15.93 billion tax charge");
     expect(excerpt.text).toContain("Legal charges and severance");
     expect(excerpt.text).toContain("Cash and equivalents");
-    expect(excerpt.text.length).toBeLessThanOrEqual(96_000);
+    expect(excerpt.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.mdnaMaxChars);
     expect(excerpt.coverage?.omittedChars).toBeGreaterThan(0);
     expect(excerpt.coverage?.categories).toEqual(expect.arrayContaining([
       expect.objectContaining({ category: "guidance", status: "retained" }),
@@ -1835,7 +1835,7 @@ describe("payload budget helpers", () => {
     const payload = assembleContextPayload(bundle, computed, validateBundle(bundle, { now: new Date("2026-07-06T00:00:00Z") }));
     const excerpt = payload.filings.find((entry) => entry.source === "edgar:10-Q item2")!;
     expect(excerpt.asOf).toBe("2026-06-30");
-    expect(excerpt.text.length).toBeLessThanOrEqual(96_000);
+    expect(excerpt.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.tenQMdnaMaxChars);
     for (const disclosure of [earnings, investment, funding]) expect(excerpt.text).toContain(disclosure);
     for (const span of excerpt.spans ?? []) expect(original.slice(span.start, span.end)).toBe(span.text);
     expect(payload.citationRegistry).toEqual(expect.arrayContaining([
@@ -2933,7 +2933,7 @@ describe("assembleReport", () => {
     expect(report.meta.disclaimer).toBe(
       "Informational only - not investment advice. Where present, A-F letter grades and scenario price targets are model outputs derived from the data and assumptions disclosed here, and neither is a recommendation to buy, sell, or hold any security.",
     );
-    expect(report.meta.specVersion).toBe("1.84.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
+    expect(report.meta.specVersion).toBe("1.85.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
     // verifyModel is no longer stamped (deterministic verification, no model);
     // the schema keeps it OPTIONAL so legacy persisted reports still parse.
     expect(report.meta.verifyModel).toBeUndefined();
@@ -6214,13 +6214,18 @@ it("D-263 review does not declare an outflow convention for positive-only shareh
 });
 
 describe("D-270 annual evidence budgets", () => {
- it("keeps the existing floors and caps each growing section at 96k", async () => {
+ it("keeps the existing floors and applies each owner cap", async () => {
   const { businessEvidenceBudget, mdnaEvidenceBudget, tenQMdnaEvidenceBudget } = await import("@/pipeline/stageC/payload");
   expect(businessEvidenceBudget(1)).toBe(12_000);
   expect(mdnaEvidenceBudget(1)).toBe(14_000);
-  for (const budget of [businessEvidenceBudget, mdnaEvidenceBudget, tenQMdnaEvidenceBudget]) {
-   expect(budget(84_000)).toBe(84_000);
-   expect(budget(2_000_000)).toBe(96_000);
+  for (const [budget, cap] of [[businessEvidenceBudget, PAYLOAD_BUDGETS.businessMaxChars], [mdnaEvidenceBudget, PAYLOAD_BUDGETS.mdnaMaxChars], [tenQMdnaEvidenceBudget, PAYLOAD_BUDGETS.tenQMdnaMaxChars]] as const) {
+   expect(budget(84_000)).toBe(Math.min(84_000, cap));
+   expect(budget(2_000_000)).toBe(cap);
   }
  });
+});
+
+it("D-270 pins the three owner caps", async () => {
+ const { PAYLOAD_BUDGETS } = await import("@/pipeline/stageC/payload");
+ expect(PAYLOAD_BUDGETS).toMatchObject({ businessMaxChars: 96_000, mdnaMaxChars: 50_000, tenQMdnaMaxChars: 48_000 });
 });

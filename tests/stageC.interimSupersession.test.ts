@@ -65,7 +65,8 @@ describe("a newer 10-Q's update of a 10-K operating figure (audit 2026-10-22 C-1
 
   it("leaves the selection unchanged when the 10-K states no such figure, or the 10-Q is not newer", () => {
     const text = interimMdna();
-    const plain = selectMaterialEvidence(text, tenQMdnaEvidenceBudget(text.length), "interim");
+    expect(selectMaterialEvidence(text, PAYLOAD_BUDGETS.tenQMdnaChars, "interim").text).not.toContain("16 gigawatts");
+    const plain = selectMaterialEvidence(text, tenQMdnaEvidenceBudget(text.length), "quarterly");
     // D-270: the larger ordinary budget can now retain this passage too.
     expect(plain.text).toContain("16 gigawatts");
     expect(payloadFor("We sell electricity to data centers.").title).not.toMatch(/kept first/);

@@ -6,7 +6,8 @@ import { confirmedQuarterResultsSchedules } from "@/edgar/earningsSchedule";
 export { EVIDENCE_SELECTION_VERSION } from "@/report/versions";
 export { NOTES_RISK_SELECTION_VERSION } from "@/report/versions";
 export { EVENT_SELECTION_VERSION } from "@/report/versions";
-export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs", "operating-costs", "commercial-terms", "ip-exclusivity", "development-capacity", "competition", "customers", "suppliers-manufacturing"] as const;
+export const MATERIAL_CATEGORIES = ["results", "guidance", "capex-liquidity", "tax", "exceptional", "fcf", "earnings-quality", "subsequent-liquidity", "distribution-costs", "operating-costs", "commercial-terms"] as const;
+const FILING_CATEGORIES = [...MATERIAL_CATEGORIES, "ip-exclusivity", "development-capacity", "competition", "customers", "suppliers-manufacturing"] as const;
 /**
  * D-63: 10-K Item 1 (Business) families. A business description carries few
  * figures, so the financial families above found almost nothing in it; these
@@ -29,7 +30,7 @@ export type EvidenceCategory = typeof MATERIAL_CATEGORIES[number] | typeof BUSIN
  * reading of an 8-K item that first keeps every passage introducing a named
  * party (the counterparty, tenant or acquiree of the operative paragraph).
  */
-export type EvidenceProfile = "financial" | "business" | "risk" | "notes" | "event" | "interim";
+export type EvidenceProfile = "financial" | "annual" | "quarterly" | "business" | "risk" | "notes" | "event" | "interim";
 export interface EvidenceSpan { start: number; end: number; text: string }
 export interface EvidenceCoverage {
   version: string;
@@ -215,7 +216,9 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   // D-66: a 10-Q MD&A read as `financial`, keeping its concentration-of-revenue
   // statements first (the quarter's 16% direct customer, the indirect AI
   // customer), within an eighth of the budget.
+  annual: { categories: FILING_CATEGORIES, priority: (passage) => DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.125 },
   interim: { categories: MATERIAL_CATEGORIES, priority: (passage) => CONCENTRATION_PRIORITY.some((pattern) => pattern.test(passage)) || DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.25 },
+  quarterly: { categories: FILING_CATEGORIES, priority: (passage) => CONCENTRATION_PRIORITY.some((pattern) => pattern.test(passage)) || DISTRIBUTION_COST_PRIORITY.test(passage), priorityShare: 0.25 },
   business: {
     categories: BUSINESS_CATEGORIES,
     prose: { bonus: /\b(?:expected to (?:commence|begin|ship|launch|be available)|roadmap|unveiled|next[- ]generation|joined [A-Z][\w.&-]* in (?:19|20)\d{2}|(?:has|have) served as|co-founded|foundr(?:y|ies)|competitors include|customers include)\b/i },
@@ -236,7 +239,7 @@ const PROFILES: Record<EvidenceProfile, ProfileSpec> = {
   // The operative paragraph of an 8-K item: its dated lead, the parties it
   // names and the amounts it commits (a cap, a purchase price).
   event: {
-    categories: MATERIAL_CATEGORIES.filter(category => !["ip-exclusivity", "development-capacity", "competition", "customers", "suppliers-manufacturing"].includes(category)),
+    categories: MATERIAL_CATEGORIES,
     priorityTier: eventPriorityTier,
     abbreviations: true,
   },
@@ -279,7 +282,7 @@ const SUPERSEDING_SHARE = 0.15;
 const PRIMARY_TABLE = /\b(?:Results of Operations|statements? of (?:operations|income|earnings)|reconciliation of\b[^.]{0,160}\b(?:adjusted|non-GAAP))/i;
 const PRIMARY_TABLE_SHARE = 0.4;
 
-interface Passage extends EvidenceSpan { categories: EvidenceCategory[]; score: number; table: boolean }
+interface Passage extends EvidenceSpan { categories: EvidenceCategory[]; score: number; table: boolean; schedule?: boolean }
 
 /** Legal-entity suffixes: a passage naming suppliers, customers or competitors. */
 const ENTITY = /\b(?:Inc|Ltd|Limited|Corp|Corporation|Co|LLC|PLC|plc|N\.V|S\.A|AG|SE|PBC|Group)\b\.?/g;
@@ -384,7 +387,7 @@ function contextLinks(all: readonly Passage[], profile: EvidenceProfile): Map<Pa
   for (let i = 0; i < all.length; i++) {
     const passage = all[i]!;
     // D-270: numbered/lettered footnotes remain attached to their schedule.
-    if ((profile === "business" || profile === "financial" || profile === "interim") && passage.table && ISSUER_SCHEDULE_HEADER.test(passage.text)) {
+    if (passage.schedule === true) {
       for (let j = i + 1; j < all.length && FOOTNOTE.test(all[j]!.text); j++) bind(passage, all[j]!);
       const previous = all[i - 1];
       if (previous && /(?:as follows|following table|table below)[^:]*:\s*$/i.test(previous.text)) bind(previous, passage);
@@ -529,17 +532,17 @@ export function selectGovernanceEvidence(text: string, maxChars: number): Select
 /** D-270: explicit schedule headers, not numeric density or a passing keyword. */
 const ISSUER_SCHEDULE_HEADER = /\b(?:Product\s+Protection\s+Territory|Estimated Expiry(?: Date)?|(?:Compound|Product|Program)\s+Indication(?:\/Study)?\s+(?:Status|Stage)|Pipeline\s+(?:Product|Program|Stage)|(?:Product|Customer|Segment|Capacity)\s+(?:Name\s+)?(?:Stage|Revenue|Sales|Capacity|Expected|Concentration))\b/i;
 
-function passages(text: string, profile: EvidenceProfile): Passage[] {
+function passages(text: string, profile: EvidenceProfile, budget = 0): Passage[] {
   const { categories: families, prose, abbreviations } = PROFILES[profile];
-  const contextual = profile === "notes" || profile === "interim" || profile === "event";
+  const contextual = profile === "notes" || profile === "interim" || profile === "quarterly" || profile === "event";
   // Numbered clauses in an 8-K sentence are not table footnotes.
   const split = profile === "event" ? new RegExp(CONTEXT_BOUNDARY.source.replace(String.raw`\s+(?=\(\d{1,2}\)\s+[A-Z])|`, ""), "g")
-    : contextual ? CONTEXT_BOUNDARY : prose !== undefined || abbreviations === true ? PROSE_BOUNDARY : FINANCIAL_BOUNDARY;
+    : profile === "annual" ? PROSE_BOUNDARY : contextual ? CONTEXT_BOUNDARY : prose !== undefined || abbreviations === true ? PROSE_BOUNDARY : FINANCIAL_BOUNDARY;
   // Source paragraph breaks bound a block. Flattened schedules keep the
   // entire block with its lead and qualifications; never guess interior rows.
   const sourceBlocks = [...text.matchAll(/(?:[^\n]|\n(?![ \t]*\n))+/g)];
   const scheduleBlocks: { start: number; end: number }[] = [];
-  if (profile === "business" || profile === "financial" || profile === "interim") {
+  if (sourceBlocks.length > 1 && (profile === "business" || profile === "annual" || profile === "quarterly")) {
     for (let i = 0; i < sourceBlocks.length; i++) {
       const block = sourceBlocks[i]!;
       if (!ISSUER_SCHEDULE_HEADER.test(block[0])) continue;
@@ -551,7 +554,7 @@ function passages(text: string, profile: EvidenceProfile): Passage[] {
         const footnote = sourceBlocks[++i]!;
         end = footnote.index + footnote[0].length;
       }
-      scheduleBlocks.push({ start, end });
+      if (end - start <= Math.floor(budget * PRIMARY_TABLE_SHARE)) scheduleBlocks.push({ start, end });
     }
   }
   const boundaries = [...new Set([0, ...[...text.matchAll(split)].map((match) => match.index + match[0].length), text.length, ...scheduleBlocks.flatMap(block => [block.start, block.end])])]
@@ -564,7 +567,7 @@ function passages(text: string, profile: EvidenceProfile): Passage[] {
       // Whole sentences and flattened tables are atomic in the filing reading.
       // Oversized units are omitted with coverage, never printed as half a row.
       const scheduleBlock = scheduleBlocks.some(block => start === block.start && stop === block.end);
-      let end = contextual || scheduleBlock ? stop : Math.min(stop, start + 1_100);
+      let end = contextual || profile === "annual" || scheduleBlock ? stop : Math.min(stop, start + 1_100);
       if (end < stop) {
         const space = text.lastIndexOf(" ", end);
         if (space > start + 700) end = space;
@@ -586,7 +589,7 @@ function passages(text: string, profile: EvidenceProfile): Passage[] {
           if (table) score -= 12;
         }
         if (scheduleBlock) table = true;
-        out.push({ start, end, text: body, categories, score, table });
+        out.push({ start, end, text: body, categories, score, table, ...(scheduleBlock ? { schedule: true } : {}) });
       }
       start = end;
     }
@@ -603,7 +606,7 @@ function passages(text: string, profile: EvidenceProfile): Passage[] {
 export function selectMaterialEvidence(text: string, maxChars: number, profile: EvidenceProfile = "financial", superseding: readonly OperatingMeasure[] = []): SelectedEvidence {
   const budget = Math.max(0, Math.floor(maxChars));
   const spec = PROFILES[profile];
-  const all = passages(text, profile);
+  const all = passages(text, profile, budget);
   const schedules = new Set<Passage>();
   if (profile === "financial") {
     // A schedule's introduction and date rows must survive as one exact source
@@ -618,7 +621,7 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
       schedules.add(combined);
     }
   }
-  const contextual = profile === "notes" || profile === "interim" || profile === "event";
+  const contextual = profile === "notes" || profile === "interim" || profile === "quarterly" || profile === "event";
   const links = contextLinks(all, profile);
   const selected: Passage[] = [];
   const superseded = new Set<string>();
@@ -636,7 +639,7 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
   }).length) : 0;
   const reserve = text.length > budget ? Math.min(budget, 210 + coverageCost) : 0;
   let remaining = budget - reserve;
-  const issuerSchedules = profile === "business" || profile === "financial" || profile === "interim";
+  const issuerSchedules = profile === "business" || profile === "annual" || profile === "quarterly";
   let issuerTableTurn = false;
   const add = (passage: Passage, limit = remaining): boolean => {
     if (selected.includes(passage)) return true;
@@ -673,7 +676,7 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
         if (!selected.includes(linked) && !additions.includes(linked)) additions.push(linked);
       }
     }
-    if (issuerSchedules && !issuerTableTurn && additions.some(candidate => candidate.table && ISSUER_SCHEDULE_HEADER.test(candidate.text))) return false;
+    if (issuerSchedules && !issuerTableTurn && additions.some(candidate => candidate.schedule === true)) return false;
     const cost = profile === "financial"
       ? additions.reduce((sum, candidate) => sum + candidate.text.length, 0) +
         separator.length * (selected.length > 0 ? additions.length : additions.length - 1)
@@ -737,19 +740,19 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
     }
     // Primary statement tables first (see PRIMARY_TABLE); a table split across
     // passages keeps its directly following row passages with it.
-    if (profile === "interim" || profile === "business" || profile === "financial") {
+    if (profile === "interim" || profile === "quarterly" || profile === "business" || profile === "annual") {
       const cap = Math.floor(budget * PRIMARY_TABLE_SHARE);
       let used = 0;
-      for (const passage of all.filter((candidate) => candidate.table && (ISSUER_SCHEDULE_HEADER.test(candidate.text) || (profile === "interim" && PRIMARY_TABLE.test(candidate.text.slice(0, 400)))))) {
+      for (const passage of all.filter((candidate) => candidate.table && (candidate.schedule === true || ((profile === "interim" || profile === "quarterly") && PRIMARY_TABLE.test(candidate.text.slice(0, 400)))))) {
         const group = [passage];
         for (let i = all.indexOf(passage) + 1; i < all.length && all[i]!.table && all[i]!.start === group.at(-1)!.end &&
-          !PRIMARY_TABLE.test(all[i]!.text.slice(0, 400)) && !ISSUER_SCHEDULE_HEADER.test(group[0]!.text) && !ISSUER_SCHEDULE_HEADER.test(all[i]!.text); i++) group.push(all[i]!);
+          !PRIMARY_TABLE.test(all[i]!.text.slice(0, 400)) && !group[0]!.schedule && !all[i]!.schedule; i++) group.push(all[i]!);
         const size = group.reduce((sum, member) => sum + member.text.length, 0);
         if (selected.includes(passage) || used + size > cap) continue;
         const before = remaining;
         const kept = selected.length;
         issuerTableTurn = true;
-        const complete = group.every((member) => add(member, cap - used));
+        const complete = group.every((member) => add(member, cap - used - (before - remaining)));
         issuerTableTurn = false;
         if (!complete) {
           // Atomic: a primary table without its rows is not kept.
@@ -810,11 +813,11 @@ export function selectMaterialEvidence(text: string, maxChars: number, profile: 
         if (next) add(next);
       }
     }
-    if (all[0] && !(issuerSchedules && ISSUER_SCHEDULE_HEADER.test(all[0].text))) add(all[0]);
+    if (all[0] && !(issuerSchedules && all[0].schedule === true)) add(all[0]);
     // Generic risk/business narrative can be useful without a keyword or
     // amount. Notes/interim fillers need a score or qualifying context; event
     // fallback skips agreement recitals but still admits named-person context.
-    for (const passage of all.filter(candidate => !issuerSchedules || !candidate.table || !ISSUER_SCHEDULE_HEADER.test(candidate.text)).filter(candidate => !(profile === "notes" && HYPOTHETICAL_CLAIM.test(candidate.text) && LEGAL_CONTEXT.test(candidate.text) && !criticalDisclosure(candidate.text)))
+    for (const passage of all.filter(candidate => !issuerSchedules || !candidate.schedule).filter(candidate => !(profile === "notes" && HYPOTHETICAL_CLAIM.test(candidate.text) && LEGAL_CONTEXT.test(candidate.text) && !criticalDisclosure(candidate.text)))
       .filter((candidate) => candidate.score > 0 || (profile === "event"
       ? !/\b(?:foregoing description|incorporated by reference|previously reported|capitalized terms|representations, warranties)\b/i.test(candidate.text)
       : contextual ? contextKind(candidate) !== null : !/\bforward[- ]looking statements\b/i.test(candidate.text)))

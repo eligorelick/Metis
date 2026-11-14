@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -199,7 +200,7 @@ describe("D-270 filing schedules", () => {
   const crowd = Array.from({ length: 120 }, (_, i) => `Revenue was $${i + 100} million and operating income was $20 million; demand remains uncertain.`).join("\n");
   const patent = "Product Protection Territory Estimated Expiry Date Alpha compound patent US 2036 Beta data protection EU 2030 (1) Extensions remain uncertain.";
   const pipeline = "Pipeline Product Stage Expected launch Alpha Phase 3 2028 Beta Submitted 2027 (1) Approval is not assured.";
-  it.each(["business", "financial", "interim"] as const)("keeps whole IP and pipeline schedules and named dependencies in %s", profile => {
+  it.each(["business", "annual", "quarterly"] as const)("keeps whole IP and pipeline schedules and named dependencies in %s", profile => {
     const capacity = "Our Arizona plant will start production of the 2-nanometer node in 2028.";
     const rivals = "Our competitors include Example Bank Corporation and Regional Finance Ltd.";
     const original = [crowd, patent, pipeline, capacity, rivals, "Our sole-source supplier is Example Materials Ltd.", "One customer accounts for 40% of revenue."].join("\n\n");
@@ -208,11 +209,11 @@ describe("D-270 filing schedules", () => {
     for (const span of selected.spans) expect(original.slice(span.start, span.end)).toBe(span.text);
     expect(selected.text.length).toBeLessThanOrEqual(4_000);
   });
-  it("omits an oversized schedule whole and preserves bank risk prose", () => {
+  it("falls back to ordinary passages for an over-share schedule and preserves bank risk prose", () => {
     const table = `Product Protection Territory Estimated Expiry Date ${"Alpha patent US 2036 ".repeat(200)}`;
     const risk = "Our competitors include Example Bank Corporation. Our sole-source supplier is Clearing Ltd.";
     const selected = selectMaterialEvidence(`${table}\n\n${risk}\n\n${crowd}`, 2_000, "business");
-    expect(selected.text).not.toContain("Alpha patent");
+    expect(selected.coverage.retainedChars).toBeGreaterThan(1_000);
     expect(selected.text).toContain("Example Bank Corporation");
     expect(selected.text).toContain("Clearing Ltd");
   });
@@ -230,5 +231,40 @@ describe("D-270 filing schedules", () => {
   const footnote = "(1) The expiry may be extended and is subject to litigation. Extensions are not assured.";
   const text = `${table}\n\n${footnote}\n\n${longMdna()}`;
   expect(selectMaterialEvidence(text, 3_000, "business").text).toContain(footnote);
-  expect(selectMaterialEvidence(text, 300, "business").text).not.toContain(table);
+  expect(selectMaterialEvidence(text, 300, "business").text.length).toBeLessThanOrEqual(300);
  });
+
+// D-270 review round 1: frozen inputs are flattened, with no blank lines.
+describe("D-270 flattened-source regressions", () => {
+  const body = Array.from({ length: 600 }, (_, i) => `Revenue in division ${i} was $100 million and operating income was $20 million. We expect earnings growth in 2027.`).join(" ");
+  it.each(["Product revenue", "Segment sales"])("keeps useful release evidence when flattened text contains %s", header => {
+    const text = `${body} ${header} 2026 2025 Alpha 100 90. Our guidance remains $5 per share.`;
+    expect(text).not.toContain("\n");
+    const selected = selectMaterialEvidence(text, 9_000);
+    expect(selected.coverage.retainedChars).toBe(6_412);
+    expect(createHash("sha256").update(selected.text).digest("hex")).toBe(header === "Product revenue" ? "bdb2020322d0a7027bbfe2f65c53f435abeddf9684c776d105549361f07e610b" : "3106dce215d7c354f42f53b148029ffd5fa3d078c356ba706efaa395e228a72a");
+    expect(selected.coverage.categories.map(c => c.category)).not.toContain("ip-exclusivity");
+  });
+  it("does not turn an over-cap flattened Item 1 into an empty table", () => {
+    const text = `${body.repeat(2)} Product revenue 2026 2025 Alpha 100 90. Our competitors include Example Ltd.`;
+    const selected = selectMaterialEvidence(text, 12_000, "business");
+    expect(selected.coverage.retainedChars).toBeGreaterThan(8_000);
+    expect(selected.text).toContain("Example Ltd");
+  });
+  it("keeps annual MD&A units whole and joins adjacent units without a false omission", () => {
+    const unit = `Revenue and operating income: ${"Alpha 2026 100 2025 90; ".repeat(110)}the complete row ends here.`;
+    const text = `${unit}\n${unit}\n${unit}\n${body}`;
+    const selected = selectMaterialEvidence(text, 6_000, "annual");
+    expect(selected.spans.length).toBeGreaterThan(0);
+    for (const span of selected.spans) {
+      expect(text.slice(span.start, span.end)).toBe(span.text);
+      expect(span.text.trim()).toMatch(/[.!?]$/);
+    }
+    for (let i = 1; i < selected.spans.length; i++) {
+      const a = selected.spans[i - 1]!, b = selected.spans[i]!;
+      if (a.end === b.start) expect(selected.text).toContain(a.text + b.text);
+    }
+    const tooBig = `Revenue ${"unchopped row ".repeat(800)}ends here.`;
+    expect(selectMaterialEvidence(`${tooBig}\nGuidance is stable.`, 2_000, "annual").text).not.toContain("unchopped row");
+  });
+});

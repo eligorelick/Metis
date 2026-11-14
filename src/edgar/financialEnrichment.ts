@@ -9,7 +9,7 @@ import { reconcileDebtNoteCarrying } from "@/edgar/debtNoteCarrying";
 import type { EdgarBundle, ExtractedSection } from "@/pipeline/types";
 import { supplementTemporaryEquity, temporaryEquityFiledEnds, temporaryEquityRows } from "@/edgar/temporaryEquityEnrichment";
 import { admitCashInvestment, type FilingCashInvestment } from "@/edgar/cashInvestment";
-import { sameFiledInstant, vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
+import { filedSumWithinTotal, sameFiledInstant, vendorAgreesWithDerived, vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import type { FilingEquityStatementNci } from "@/edgar/equityStatementNci";
 import { ACQUISITION_OTHER_PAYMENT_TAG, COMBINED_CURRENT_DEBT_TAG, CONSOLIDATED_NET_INCOME_TAGS, capitalSpendingTags, floorsFor, tagFloorsFor, tagsFor, type LineItem } from "@/edgar/tagSynonyms";
 import { belowComponentFloor } from "@/edgar/synonymFloor";
@@ -813,7 +813,14 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
       gaps.push({ field: `statements.cashflow.${row.date}.${field}`, reason, severity: "info", expected: true });
       continue;
     }
-    if (agreesWithSec(vendor, value, [sec])) continue;
+    const typedLiquidityRecovery = ["shortTermInvestments", "cashAndShortTermInvestments", "netDebt"].some(f =>
+      row.fieldConflicts?.[f]?.usable === false && row.fieldConflicts[f]?.cause === "liquidity-not-established");
+    const newCarryingInvestment = kind === "balance" && field === "cashAndCashEquivalents" &&
+      (proof === undefined || balanceFilings !== undefined && typedLiquidityRecovery) &&
+      tagsFor("shortTermInvestments").some(t => points(facts, t, unit, observedAt).some(p =>
+        p.instanceCarryingAmount === true && !p.start && p.end === row.date &&
+        sec.evidence.filings.some(f => f.accn === p.accn && f.filed === p.filed && f.form === p.form)));
+    if (agreesWithSec(vendor, value, [sec]) && !newCarryingInvestment) continue;
     if (kind === "cashflow" && scope === "quarter" && field === "stockBasedCompensation" && proof === undefined &&
       out.fieldConflicts?.[field]?.usable !== false && !sec.operands && sec.evidence.periodStart && sec.evidence.filings.length === 1 && value >= 0) {
       const filing = sec.evidence.filings[0]!;
@@ -830,7 +837,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
         continue;
       }
     }
-    if (kind === "balance" && field === "cashAndCashEquivalents" && proof === undefined && (out.fieldConflicts?.[field]?.usable !== false || replayCash)) {
+    if (kind === "balance" && field === "cashAndCashEquivalents" && (proof === undefined || newCarryingInvestment) && (out.fieldConflicts?.[field]?.usable !== false || replayCash)) {
       const inclusiveTag = "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents";
       let inclusive = instant(facts, inclusiveTag, unit, row.date!, observedAt, undefined, sec.evidence.filings);
       // A later comparative may establish the definition when it repeats the
@@ -901,19 +908,31 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
           p.end === row.date && !p.start && p.accn === anchor.accn && p.filed === anchor.filed));
         const investment = investmentTag ? inFiling(investmentTag) : null;
         const combinedFiled = inFiling("CashCashEquivalentsAndShortTermInvestments");
-        const investmentRefused = out.fieldConflicts?.shortTermInvestments?.usable === false &&
-          !(replayCash && sameFiledInstant(out.fieldConflicts.shortTermInvestments.secEvidence, sec.evidence) &&
-            conflictCauseMatches(out.fieldConflicts.shortTermInvestments, "vendorSecCash"));
+        const carryingInvestment = investmentTag !== undefined && investmentTag !== "InterestBearingDepositsInBanks" &&
+          points(facts, investmentTag, unit, observedAt).some(p => p.end === row.date && !p.start &&
+            p.accn === anchor.accn && p.filed === anchor.filed && p.form === anchor.form && p.instanceCarryingAmount === true && p.val === investment?.value);
         const original = (f: string): number | null => {
           const v = row.fieldConflicts?.[f]?.vendorValue ?? row[f];
           return typeof v === "number" && Number.isFinite(v) ? v : null;
         };
         const sum = investment ? familyCash.value + investment.value : null;
-        const otherParts = (["netReceivables", "inventory"] as const).flatMap(f => {
-          const part = tagsFor(f).map(inFiling).find(p => p !== null); return part ? [part.value] : [];
+        const otherResolved = (["netReceivables", "inventory"] as const).flatMap(f => {
+          const part = tagsFor(f).map(inFiling).find(p => p !== null); return part ? [part] : [];
         });
+        const otherParts = otherResolved.map(part => part.value);
         const assets = inFiling("AssetsCurrent");
-        const disjoint = sum !== null && (combinedFiled !== null && vendorAgreesWithFiled(combinedFiled.value, sum) ||
+        const currentLines = sum === null ? null : sum + otherParts.reduce((a,b) => a+b,0);
+        const carryingBound = carryingInvestment && currentLines !== null && assets !== null &&
+          filedSumWithinTotal([currentLines], assets.value);
+        // D-268/P11: new proof clears only this exact typed liquidity cause.
+        // Use the same bounded proof at both the family and dependent gates.
+        const recoverCarryingRefusal = (f: string) => carryingBound &&
+          out.fieldConflicts?.[f]?.cause === "liquidity-not-established";
+        const investmentRefused = out.fieldConflicts?.shortTermInvestments?.usable === false &&
+          !recoverCarryingRefusal("shortTermInvestments") &&
+          !(replayCash && sameFiledInstant(out.fieldConflicts.shortTermInvestments.secEvidence, sec.evidence) &&
+            conflictCauseMatches(out.fieldConflicts.shortTermInvestments, "vendorSecCash"));
+        const disjoint = sum !== null && (carryingBound || combinedFiled !== null && vendorAgreesWithFiled(combinedFiled.value, sum) ||
           investmentTag !== "InterestBearingDepositsInBanks" && assets !== null &&
           vendorAgreesWithFiled(assets.value, sum + otherParts.reduce((a,b) => a+b,0)));
         const contradiction = investmentRefused || combinedFiled !== null && (combinedFiled.value < familyCash.value ||
@@ -921,15 +940,17 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
         const liquidity = contradiction ? null : combinedFiled?.value ?? (disjoint ? sum : null);
         const cashOnly = !contradiction && liquidity === null;
         const liquidityEvidence = { ...familyCash.evidence, tags: [...new Set([...familyCash.evidence.tags,
-          ...(investment?.evidence.tags ?? []), ...(combinedFiled?.evidence.tags ?? [])])] };
+          ...(investment?.evidence.tags ?? []), ...(combinedFiled?.evidence.tags ?? []),
+          ...(carryingBound ? [...assets!.evidence.tags, ...otherResolved.flatMap(p => p.evidence.tags)] : [])])] };
         const basis = contradiction ? "combined liquidity refused: incompatible or ambiguous filed cash/investment operands"
           : cashOnly ? "cash-only (narrower basis): short-term investments not established from the undimensioned facts available; no vendor total proves a combined figure"
             : "the reconciled same-filing cash and disjoint investments";
-        const reason = `Vendor cash reconciled at ${row.date}: directly filed ${tag} ${millions(cash.value)} ${unit} used; every available exact-instant filed copy agrees within the same-observation rule; original vendor ${millions(vendor)} retained. Liquidity uses ${basis}.`;
+        const reason = `Vendor cash reconciled at ${row.date}: directly filed ${tag} ${millions(cash.value)} ${unit} used; every available exact-instant filed copy agrees within the same-observation rule; original vendor ${millions(original(field) ?? vendor)} retained. Liquidity uses ${basis}.`;
         const fieldConflicts = { ...out.fieldConflicts };
         const fieldProvenance: Record<string, StatementFieldProvenance> = { ...out.fieldProvenance, [field]: cash.evidence };
-        fieldConflicts[field] = { usable: true, vendorValue: vendor, secValue: cash.value, resolution: "filed-family", reason, secEvidence: cash.evidence };
+        fieldConflicts[field] = { usable: true, vendorValue: original(field), secValue: cash.value, resolution: "filed-family", reason, secEvidence: cash.evidence };
         const dependentOfCash = (f: string) => fieldConflicts[f]?.usable !== false ||
+          liquidity !== null && recoverCarryingRefusal(f) ||
           replayCash && sameFiledInstant(fieldConflicts[f]?.secEvidence, sec.evidence) && conflictCauseMatches(fieldConflicts[f]!, "vendorSecCash");
         const amounts: Record<string, number | null> = { cashAndCashEquivalents: cash.value };
         for (const [f, amount, evidence] of [
@@ -1048,7 +1069,11 @@ export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: Compa
     const fieldProvenance = { ...cash.row.fieldProvenance };
     for (const field of ["shortTermInvestments", "cashAndShortTermInvestments", "netDebt"]) {
       const prior = fieldConflicts[field];
-      if (prior?.usable === false && prior.cause !== "liquidity-not-established" && prior.cause !== "vendor-sec-value-conflict") continue;
+      const cashRefusal = row.fieldConflicts?.cashAndCashEquivalents;
+      const inheritedCashRefusal = cashRefusal?.usable === false && cashRefusal.secEvidence !== undefined &&
+        conflictCauseMatches(cashRefusal, "vendorSecCash") && prior?.usable === false &&
+        conflictCauseMatches(prior, "vendorSecCash") && sameFiledInstant(prior.secEvidence, cashRefusal.secEvidence);
+      if (prior?.usable === false && prior.cause !== "liquidity-not-established" && !inheritedCashRefusal) continue;
       fieldConflicts[field] = { usable: false, cause: "liquidity-not-established", reason,
         vendorValue: prior?.vendorValue ?? (typeof row[field] === "number" ? row[field] as number : null), secValue: null };
       delete fieldProvenance[field];

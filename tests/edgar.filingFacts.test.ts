@@ -200,6 +200,9 @@ describe("D-66 recovered filing facts", () => {
     const retainedNotes = selectMaterialEvidence(notes, 14_000, "notes");
     expect(retainedNotes.text.length).toBeLessThanOrEqual(14_000);
     for (const needle of ["one direct customer represented 16 %", "three direct customers represented 16 %, 15 %, and 13 %", "22 %, 14 %, 13 %, 11 %, and 10 %", "90 days up to one year", "equity method"]) expect(retainedNotes.text).toContain(needle);
+    const binding = selectMaterialEvidence(mdna, 14_000, "interim");
+    expect(binding.text).toContain("one AI research and deployment company contributed a meaningful amount");
+    expect(binding.coverage.omittedChars).toBeGreaterThan(0);
     const retainedMdna = selectMaterialEvidence(mdna, tenQMdnaEvidenceBudget(mdna.length), "interim");
     expect(retainedMdna.text).toContain("one AI research and deployment company contributed a meaningful amount");
     expect(retainedNotes.coverage.omittedChars).toBeGreaterThan(0);

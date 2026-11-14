@@ -3,11 +3,11 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.84.0 / payload 1.103.0, Stage B `STAGE_B_2026_11_FALLBACK_DATE_76` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.85.0 / payload 1.104.0, Stage B `STAGE_B_2026_11_CARRYING_INVESTMENTS_77` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
-An explicit fiscal-year guidance introduction can bind annual revenue and tax-rate bullets. Intervening prose, a new outlook or trailing restrictions cannot silently inherit that annual scope. Unsupported operating measures remain source narrative, and annual guidance is not converted into quarterly guidance. Primary earnings schedules can confirm quarter/date rows under an explicit results-release announcement, with enclosing uncertainty or conflicting rows refused. General evidence selector `section-evidence-9` reserves at most a fifth of the existing excerpt budget for complete calendar passages, merging overlapping selections; notes/risk and event selectors keep their own versions. An unexplained pretax-to-net-income residual is disclosed without diagnosing an unproved equity-method adjustment.
+An explicit fiscal-year guidance introduction can bind annual revenue and tax-rate bullets. Intervening prose, a new outlook or trailing restrictions cannot silently inherit that annual scope. Unsupported operating measures remain source narrative, and annual guidance is not converted into quarterly guidance. Primary earnings schedules can confirm quarter/date rows under an explicit results-release announcement, with enclosing uncertainty or conflicting rows refused. General evidence selector `section-evidence-10` reserves at most a fifth of the existing excerpt budget for complete calendar passages, merging overlapping selections; notes/risk and event selectors keep their own versions. An unexplained pretax-to-net-income residual is disclosed without diagnosing an unproved equity-method adjustment.
 
 D-261 preserves liquidity already admitted by main, including its notes and qualification. Dimensioned-investment policy for those admitted rows is separate work.
 
@@ -8850,8 +8850,22 @@ D-267 part 1 (P1/P13, revises D-65): a fiscal-year fallback DCF requires investe
 
 ### Issuer schedules and filing evidence budgets (D-270; P9, P20)
 
-Business and annual/interim MD&A read IP and exclusivity, development stages and capacity plans, named competition, customers and suppliers across issuer types. The business product family includes medicines, indications and services. Notes, risk and event readings retain their prior families and stamps.
+Business, annual MD&A (`annual`) and quarterly MD&A (`quarterly`) read IP/exclusivity, development/capacity, competition, customers and suppliers. The business product family includes medicines, indications and services. Default `financial` readings of releases, CFO commentary, transcripts, IR documents and Other Information retain main's families and selection; legacy `interim` remains available for the binding-budget controls. Notes, risk and event readings retain their previous behavior.
 
-Explicit issuer schedule headers protect the entire source paragraph block, including its lead and qualifications. A paragraph has source blank-line bounds; a flattened section with no paragraph breaks is one block. We do not guess table-row endpoints from punctuation. Separate following numbered footnotes and an explicit preceding introduction are linked atomically. Schedule blocks receive at most 40% of a truncated section's budget; blocks and their qualifications either fit together or are omitted with coverage. Whole sections that fit are kept whole.
+A schedule becomes an atomic block only when actual source paragraph breaks bound it and its complete lead, rows and footnote paragraphs fit within the 40% table share. A flattened section without those breaks, or a block above the share, falls back to ordinary source passages. A header phrase anywhere in flattened text never makes the entire section a table. Whole sections that fit their budget remain whole. The annual MD&A profile never splits a passage at a character count: an oversized unit is omitted, and adjacent selected units join without an omission separator. This changes the filing reading without changing the legacy default financial profile.
 
-Business and both MD&A budgets grow one character per source character from their existing floors (12,000 / 14,000 / 12,000), capped at 96,000 each. This deliberately retains complete moderate-length flattened sections whose original HTML table bounds are unavailable. The combined maximum increase is 250,000 source characters; other section budgets are unchanged. The existing 2,000,000-character model input guard remains enforced. Longer unbounded schedules can still be omitted, with coverage rather than a partial table. No calculation or historical report changes.
+`PAYLOAD_BUDGETS` owns the floors and caps. Business grows from 12,000 to source length capped at 96,000; annual MD&A from 14,000 capped at 50,000; quarterly MD&A from 12,000 capped at 48,000. Maximum extra source context is 156,000 characters. Other section budgets and paid reservation bounds are unchanged; the 2,000,000-character input guard and model-specific pre-launch context check remain enforced. D-270 records measured UTF-8 payload growth, conditional API spend estimates and Haiku 4.5 refusals at zero cost. No calculation or saved report changes.
+
+### Carrying investment subtotals (D-268)
+
+A standard carrying-measurement investment fact may fill a missing investment
+field only if no plain fact exists in the same filing and instant for its
+lookup list or sibling lines. Plain facts always survive conflicting carrying
+facts. Carrying facts never enter cash or a fallback sum of investment pieces.
+A note subtotal may join cash only within a same-filing, same-instant,
+same-currency bound: cash plus the investment and other tagged current lines
+must not exceed filed current assets under the existing comparison rule.
+A failed proof remains a gap. Source selection follows the newest compatible
+filing. Carrying-only supplements neither replace statement history nor imply
+new annual history. Missing original instance evidence needs a separately
+identified evidence refresh; saved snapshots and reports remain immutable.
