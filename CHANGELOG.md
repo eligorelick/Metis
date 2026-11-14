@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.77.0** and
-payload **1.95.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.80.0** and
+payload **1.98.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,12 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Altman market equity at the balance-sheet date (P1, P13, D-267) (2026-11-14)
+
+- Altman's original X4 now uses the market value of equity observed at the balance-sheet date (the latest observation on or before it within 45 days, the rule the own-history multiples already use; one shared constant). The current quote's cap no longer stands in for an older balance sheet. Without a qualifying observation the score is withheld with a named gap and the signal is unscored; a cap converted only at the quote-date exchange rate takes the existing currency refusal and its disclosed Z-prime substitute.
+- The score evidence names the observation date and source. Stored cases: mu, qcom and LLY scores move to their balance-date values; nvda and vktx are unchanged (X4 at the house cap); tsm moves to the book-equity Z-prime. Quality and composite change only for tsm.
+- Report 1.80.0, payload 1.98.0 and Stage B `STAGE_B_2026_11_BALANCE_DATE_MARKET_EQUITY_72` identify the new meaning. The DCF balance-date rule of the same work package is not included (see D-267).
 
 ## Unreleased - Filed operating income and complete trailing income flows (2026-11-13)
 

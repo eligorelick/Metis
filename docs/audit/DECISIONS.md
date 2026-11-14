@@ -11,6 +11,116 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-267 - One date for Altman's market value of equity and its balance sheet (2026-11-14)
+
+Principles: P1 (exact period), P13 (one basis per ratio), P2 (point in time), P10
+(withhold, never guess), P17 (unscored signals), P21/P27 (stamps). Owner's rule
+for this package: every input to one calculation comes from the same date or
+period. Owner: `computeAltman` in `src/pipeline/stageB/forensics.ts`, fed by
+`src/pipeline/compute.ts`; the pairing rule is `latestOnOrBeforeWithin` with
+`STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS` in `src/pipeline/stageB/asOfSelection.ts`.
+
+**Defect.** The original Altman X4 is market value of equity over total
+liabilities. The four other ratios read the fiscal-year balance sheet and income
+statement, but X4 took the provider's current market capitalization, observed
+months later (on LLY report #63, the 2026-11-13 quote against the 2025-12-31
+balance sheet). The score-evidence row disclosed "market-cap observation date
+unavailable" and the score was graded anyway. A ratio whose two operands are from
+different dates is not a proven number (P13).
+
+**Rule.** X4 reads the market value of equity observed at the balance-sheet date,
+paired by the rule the own-history multiples already use for a quarter's market
+value: the latest observation on or before that date and at most 45 calendar days
+older (future rows are ineligible). The 45-day number was a local constant in the
+multiples code; it now lives once in `asOfSelection.ts` and both readers import it.
+No new window or tolerance is added. Candidates are the bundle's dated market-cap
+history (the provider series, or the public derivation that multiplies each close
+by the share count in force that day) and the current cap when it carries its own
+date. Nothing after the analysis cutoff is eligible. The chosen date and its
+source are recorded in `asOf.marketCap` and `asOf.marketCapSource`, and the score
+evidence row reads "Balance d; income d; market cap d (source)".
+
+- No qualifying observation: X4 and the original Z are withheld with
+  `forensics.altman.marketCapDate` (warn), which names the balance date and the
+  current cap's own date. The signal is unscored and the existing unscored-aspect
+  rules apply (neutral midpoint, composite note); no penalty, cap or variant
+  switch is added.
+- Current cap rebuilt on the issuer's economic class basis (multi-class or
+  weighted classes): the provider series is not on that basis, so the history is
+  not admitted (the own-history multiples refuse it the same way). The current
+  cap, dated at its price session, can still qualify if it falls in the window.
+- Foreign filer whose cap is converted to the statement currency at the
+  quote-date rate: no exchange rate dated at the balance date is admitted, so the
+  owner's existing currency refusal of market-equity X4 applies
+  (`forensics.altman.currency`) and its disclosed Z-prime substitute (book
+  equity, FIN-307) is used, as for an ADR whose cap cannot be converted.
+- Book-equity variants (Z-prime, Z-double-prime) are untouched.
+
+Options considered: (a) keep the current cap with a note (rejected: the result is
+not proven); (b) a new tolerance for the date gap (rejected: rule 1); (c) reuse the
+existing statement-date market-value pairing (chosen).
+
+**Sibling signals checked.** Other uses of a market value against a dated
+statement figure in forensics, grading and score evidence: Beneish, Piotroski and
+the accrual ratio use no market value. The valuation multiples (P/E, P/B, EV
+multiples) intentionally set the current price against the latest trailing or
+balance figures; that is their definition, not a mixed-date ratio, and is left
+as is. The own-history multiples already pair by date (the rule reused here). The
+WACC market-value weights use the current cap with the latest debt, a separate
+owner (`returns.ts`) and a different convention; not changed here and listed
+for the lead.
+
+**DCF balance date (brief part 1) is not changed by this entry.** The rule was
+implemented and tested (model withheld with a typed cause whenever the balance
+that supplies invested capital and the bridge is not dated at the statement
+date, on the fiscal-year and trailing-window routes alike). It was not shipped:
+the shared offline test bundle (`tests/helpers/currencyBundle.ts`) is itself a
+trailing-window model on an earlier fiscal-year balance (its quarterly balance
+rows carry no currency label), so the rule withholds the DCF in 166 tests across
+53 files. Re-pinning that fixture is a separate change. The trailing-window route
+does reach a different-dated balance (window end 2026-03-31, balance 2025-12-31 in
+that fixture; `dcfBridgeRow` falls back to the anchor when the window-end row is
+missing, incomplete or refused). D-65 is therefore not revised yet. None of the
+17 stored regression cases, and neither LLY case on this main (after D-260),
+reaches that path.
+
+**Stamps.** Report spec 1.80.0, payload 1.98.0, Stage B
+`STAGE_B_2026_11_BALANCE_DATE_MARKET_EQUITY_72`: Stage B results change on
+identical retained inputs.
+
+**Approved report changes** (same-report check, main 569635e4 to this branch; all
+17 stored cases plus the two LLY cases). The balance-sheet and income figures each
+score uses are unchanged (total assets, current assets and liabilities, retained
+earnings, total liabilities, operating income and revenue from the annual
+statements at the balance date shown). Only the market value of equity moved to
+its balance-date observation. Market capitalization is market data, not a filed
+figure; it is described by date and source.
+
+| Case | Balance date (filing) | Market value observation | Altman before | Altman after | Quality before / after | Composite before / after |
+| --- | --- | --- | --- | --- | --- | --- |
+| mu (data-only, fixed-analyst) | 2026-09-03 (10-K) | 2026-09-03, public derivation: daily close times the dei share count in force | original 14.04 | original 14.97 | 83.11 / 83.11 | 77.91 / 77.91 |
+| nvda (data-only, fixed-analyst) | 2026-01-25 (10-K) | 2026-01-23 (last session before the Sunday year end), provider market-cap history | original 16.84 | original 16.84 (X4 at the house cap both times) | 60.03 / 60.03 | 75.97 / 75.97 |
+| qcom (data-only) | 2025-09-28 (10-K) | 2025-09-26 (last session before the Sunday year end), provider market-cap history | original 6.38 | original 6.58 | 64.56 / 64.56 | 56.96 / 56.96 |
+| vktx (data-only) | 2025-12-31 (10-K) | 2025-12-31, provider market-cap history | original 9.76 | original 9.76 (X4 at the house cap both times) | 75.59 / 75.59 | 43.95 / 43.95 |
+| lly (data-only, fixed-analyst) | 2025-12-31 (10-K) | 2025-12-31, provider market-cap history | original 11.45 | original 8.68 | 68.43 / 68.43 | 63.05 / 63.05 |
+| tsm (data-only) | 2025-12-31 (20-F) | none admitted: the cap converts only at the 2026-11-12 quote-date rate | original 14.57 | Z-prime (book equity) 2.92, currency refusal disclosed | 83.21 / 80.01 | 72.35 / 71.87 |
+
+Quality and composite scores stay the same where the score moved within the top
+grading band. The other 9 stored cases have no original-variant Altman and do not
+change. In the fixed-analyst replays (mu, lly) the recorded analyst text still
+quotes the old score, so verification now marks those sentences contradicted
+(P19 fails closed); a new run gives the analyst the new figure. Every other
+changed leaf is the version stamps, the evidence-row wording and the payload
+fingerprint. Accuracy check on the rebuilt set: every figure as expected.
+
+**Tests.** `tests/stageB.dateBasis.d267.test.ts` (US filer on a dated
+observation, a 52/53-week filer whose year end is a weekend, a control dated at
+the balance date, no observation in the window, an observation after the cutoff,
+book-equity variants untouched, a foreign filer on the quote-date rate). Fixtures
+in neighbouring tests about currency, ADR scope and eligibility now supply the cap
+observed at the balance date; tests that pinned the old mixed-date output assert
+the new refusal instead.
+
 ## D-260 - Complete filed operating costs and exact additive income windows (2026-11-13)
 
 Principles: P1 (exact additive periods), P2 (compatible current filings), P7

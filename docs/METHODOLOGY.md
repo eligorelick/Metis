@@ -3672,13 +3672,31 @@ guards stay dominant. No ADS ratio
 is inferred, and this Altman correction does not claim to fix the deferred
 WACC scope limitation above.
 
-**Forensic observation context (D-138, Task 8).** An original Altman score can
-use a positive market-cap operand without a retained observation date. Its
-score-evidence caption then says `market-cap observation date unavailable`;
-the cap value, selected variant and existing source-date admission stay unchanged.
-A recorded cap date remains displayed; other variants and genuine missing-cap
-refusals retain their existing behavior. No quote, build or filing date fills
-an absent cap-observation date, and FIN-312's tombstoned date policy stays deferred.
+**Altman market equity at the balance-sheet date (D-267).** The original
+model's X4 divides the market value of equity by total liabilities, so both
+come from one date: the balance sheet the other four ratios read. X4 takes the
+market capitalization observed on or before that balance date, no more than 45
+calendar days earlier, from the dated market-cap history (the provider's series,
+or the public derivation that multiplies each close by the share count in force
+that day). This is the same pairing rule the own-history multiples use for a
+quarter's market value; it is one shared constant, not a new window. The current
+quote's cap counts only when it is itself dated inside that window. Nothing
+observed after the analysis cutoff is used. The score evidence names the
+observation date and its source. When no observation qualifies, X4 and the
+original Z are withheld with a gap that names the balance date (the current cap
+is not set against an older balance sheet); the signal is unscored and the usual
+unscored-aspect rules apply, with no penalty and no switch of variant. Where the
+current cap had to be rebuilt on the issuer's economic class basis, the provider
+series is not on that basis and is not admitted. A cap converted to the statement
+currency at the quote-date exchange rate cannot be converted at the balance date
+with that rate, so the currency refusal above applies and its disclosed Z-prime
+substitute is used. Book-equity variants are unaffected.
+
+**Forensic observation context (D-138, Task 8).** A stored report built before
+D-267 can carry an original Altman score on a market-cap operand without a
+retained observation date. Its score-evidence caption says `market-cap
+observation date unavailable`. No quote, build or filing date fills an absent
+cap-observation date, and FIN-312's tombstoned date policy stays deferred.
 
 The discontinued-results supporting flag retains its existing nonzero count,
 five-year lookback, two-observation trigger, severity and scoring. It describes
