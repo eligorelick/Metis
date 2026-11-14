@@ -59,6 +59,15 @@ foreign filer reporting in its listing currency (EUR). Compaction: a URL with an
 a dashed accession and a padded CIK in prose (untouched), and an ordinary long integer that still compacts, also
 beside a URL and when negative. Synthetic fixtures only.
 
+**Test revision (stricter, listed per the round rules).** `tests/stageB.lenderCashFlow.test.ts` "L5" used a default
+helper bundle as its non-lender control; that bundle's balance quarters carry no currency label, so this decision
+withholds its provider EV. The control now labels its balance quarters USD and still asserts the EV is shown, and
+the test additionally asserts that the unlabelled bundle is withheld for its currency cause and never for the
+lender reason. No assertion is removed or loosened.
+
+**Checks.** Focused tests, `tsc`, ESLint; `npx vitest run --changed origin/main` once (16,475 passed, one existing
+skip; its single failure was the control above, fixed and rerun with the stamp, sample and P8-agreement tests).
+
 **Limits and open items.**
 
 - Saved reports are immutable (P21): earlier TSM reports keep the "$72.77T" row. A read-time view could refuse it

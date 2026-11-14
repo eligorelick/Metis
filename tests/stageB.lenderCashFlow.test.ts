@@ -51,8 +51,14 @@ describe("R-FIGR-1 held-for-sale lending cash-flow applicability", () => {
     expect(report.marketData?.enterpriseValue).toBeNull();
     expect(report.marketData?.enterpriseValueNote).toMatch(/Provider enterprise value not applicable.*held-for-sale/i);
     expect(reportToMarkdown(report)).toMatch(/Provider enterprise value not applicable/i);
-    const control = completeCurrencyBundle({}); control.enterpriseValues = b.enterpriseValues;
+    // D-279 (P4): the non-lender control needs a same-date balance established in the listing currency; an
+    // unlabelled one withholds the EV for its currency, never for the lender reason.
+    const control = completeCurrencyBundle({ siblingQuarterCurrencies: ["USD", "USD", "USD", "USD"] }); control.enterpriseValues = b.enterpriseValues;
     expect(buildMarketData(control)?.enterpriseValue).not.toBeNull();
+    const unlabelled = completeCurrencyBundle({}); unlabelled.enterpriseValues = b.enterpriseValues;
+    expect(buildMarketData(unlabelled)?.enterpriseValue).toBeNull();
+    expect(buildMarketData(unlabelled)?.enterpriseValueNote).toMatch(/^Provider enterprise value withheld at 2026-03-31: the vendor row states no currency .*statements' currency unknown \(quote in USD\)/);
+    expect(buildMarketData(unlabelled)?.enterpriseValueNote).not.toMatch(/held-for-sale|not applicable/i);
   });
   it("makes owner-FCF measures inapplicable without hiding filed OCF, capex, income or book value", () => {
     const b = lender(); const before = JSON.stringify(b);
