@@ -2767,5 +2767,48 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-268",
+    "reason": "D-268 review: plain facts take precedence and carrying subtotals require compatible bounds; payload identity advances after merging D-267.",
+    "scope": [
+      "$.payload.payloadVersion",
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256"
+    ],
+    "beforeSha256": "1e696b563b864dce63b06ed3810d92d11e2e0939cbb44466ffdbfb64af655cc3",
+    "afterSha256": "210dda22bf7f0fd2ff48f9c4f23c5b5b70f315f0d51702452e826ee3f34aa422",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-268",
+    "reason": "D-268 advances report and payload identities after merging main; the fictional sample is rebuilt under report 1.85.0 without changing financial rules.",
+    "scope": [
+      "$.fixtureIdentity.reportSha256",
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "045bb64a6662d29e1779f944e4eaacdfc4410d939894248c4d606052aae9f094",
+    "afterSha256": "e0a9d931826cda75a2bb7bd210f93f77c83c78d463b2679ab6d0c0b17992df80",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

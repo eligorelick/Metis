@@ -634,7 +634,7 @@ describe("applyKeylessFallbacks — a successor registrant's pre-reorganization 
     expect(entry.reason).toMatch(/only the successor's own filing history/);
   });
 
-  it("still warns when the only annual history is a newer filing merged from its instance (audit 2026-10-22 B-23)", async () => {
+  it.each([false, true])("distinguishes new instance history from covered carrying supplementation (carryingOnly=%s)", async carryingOnly => {
     const base = inputs();
     const accn = "0002115436-26-000009";
     const merged: CompanyFacts = { cik: 2115436, entityName: "EXAMPLE SUCCESSOR HOLDINGS CORP", facts: { "us-gaap": { Revenues: { label: "Revenues", units: { USD: [
@@ -649,11 +649,11 @@ describe("applyKeylessFallbacks — a successor registrant's pre-reorganization 
             ok: true,
             value: { data: merged, asOf: "2026-06-30", source: "edgar", endpoint: "companyfacts", fetchedAt: NOW.toISOString() },
           },
-          companyFactsInstances: { companyFactsThrough: null, merged: [{ accession: accn, form: "10-K", filingDate: "2026-08-20", periodEnd: "2026-06-30", count: 1 }] },
+          companyFactsInstances: { companyFactsThrough: null, merged: [{ accession: accn, form: "10-K", filingDate: "2026-08-20", periodEnd: "2026-06-30", count: 1, ...(carryingOnly ? { carryingOnly: true as const } : {}) }] },
         },
       }),
     );
-    expect(out.gaps.find((g) => g.field === "edgar.predecessor")?.severity).toBe("warn");
+    expect(out.gaps.find((g) => g.field === "edgar.predecessor")?.severity).toBe(carryingOnly ? undefined : "warn");
   });
 
   it("files no warning for a successor that carries its own us-gaap history", async () => {
