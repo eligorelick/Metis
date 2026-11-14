@@ -21,7 +21,7 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.75.0",
+    "specVersion": "1.76.0",
     "model": "synthetic-handwritten",
     "pipelineVersion": "1.75.0",
     "costUsd": 0,

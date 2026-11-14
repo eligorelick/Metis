@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.75.0** and
+Current source declares application **0.1.0**, report spec **1.76.0** and
 payload **1.94.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -32,6 +32,15 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Executive cards link to shared company actions and outlook guidance. A short
   fact-tag legend distinguishes numerical matching from citation coverage.
 - Saved inputs, payloads, figures, reports and verification statuses stay unchanged.
+
+## Unreleased - P19 verification marks (D-263)
+
+- Independent review tightened the rule: only established negative-for-outflow producers qualify; cash-use prose has no label-rebuild fallback; only declared prose definitions are masked; label qualifiers and ambiguous legacy operand refusals remain. EBITDA and net-debt definitions now require the actual current producer evidence.
+
+- Verify explicitly declared cash-use magnitudes without treating their unsigned prose amounts as conflicts. Real sign, value and direction conflicts remain contradicted.
+- Bind prose to its clause subject when a parenthetical spells out a producer-declared component definition, covering free cash flow, net debt, EBITDA, margins and coverage ratios.
+- Preserve indexed score-operand source paths on read, removing a false legacy-citation warning and its confidence-cap contribution. Stored report bytes remain unchanged.
+- Report spec moves to 1.76.0. Payload, Stage B and pipeline stamps stay unchanged: prompt text, calculations and orchestration are unchanged.
 
 ## Unreleased - `best` removed from the Claude CLI model list (2026-11-13)
 
