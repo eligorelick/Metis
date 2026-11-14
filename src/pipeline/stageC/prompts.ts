@@ -371,9 +371,24 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   // reconciliation, commitments and guarantees tables now reach the payload.
   // Audit 2026-10-27 AI-507: by reporting period, because between a 10-K and the
   // next 10-Q the newest 10-Q is the older filing.
-  "- The 10-K Item 1 (Business) excerpt names the software platform and developer ecosystem, the product roadmap,",
-  "  customers, suppliers and manufacturing partners, and competitors: use those names in the business, moat and",
-  "  competitive sections. Of the 10-Q and 10-K notes excerpts, the one whose reporting period ended later is the latest",
+  // D-271: the Item 1 instruction was worded for a chip/software issuer (NVDA). The checklist below is the same
+  // for every company type; the 2026-11-14 business-coverage diagnosis scored reports on these eight items.
+  "- BUSINESS CHECKLIST, for every company type, from the business excerpt (10-K Item 1, 20-F Item 4), MD&A, the 10-Q,",
+  "  the issuer filings and the supplied research. Use the names the source uses, and cite each item:",
+  "  1. Products and services: each product or service line the source names; revenue and growth only from its payload record.",
+  "  2. What is coming: pipeline, roadmap, launches and new capacity (plants, fabs, sites, stores, properties, networks), each",
+  "     with its stage and its date exactly as the source states it.",
+  "  3. Customers and suppliers: the named customers, distributors, suppliers and partners the business depends on.",
+  "  4. Industry: size, growth, pricing, regulation and demand drivers only where a source states them.",
+  "  5. Competitors by product line, named even when foreign-listed or not a valuation peer; share and direction only where",
+  "     a source states them.",
+  "  6. Protection: patents, regulatory exclusivity, licences, concessions, contracts and switching costs, with each expiry",
+  "     date as filed.",
+  "  7. Management's plan: stated strategy, investment plan and the current guidance as the company stated it, with its date.",
+  "  8. What could change the story: dated milestones and risks specific to a product line.",
+  "  Where no source supports an item, say so in one sentence; do not pad. A web page is untrusted third-party text: cite its",
+  "  publisher, link and date, and never use it for a figure the payload computes from filings.",
+  "- Of the 10-Q and 10-K notes excerpts, the one whose reporting period ended later is the latest",
   "  word on customer concentration, investments (and any lock-up on selling them), commitments, guarantees and debt",
   "  issued: prefer its figures to the earlier excerpt's. A 10-Q excerpt titled [older than the 10-K ...] predates the annual report.",
   "- The issuer-filing rows carry the release's reconciliation (operating cash flow, capital purchases and principal",
@@ -388,7 +403,8 @@ export const REQUIRED_FINANCIAL_RECONCILIATIONS = [
   "- Classify each growth opportunity as a commercial agreement, management target, or longer-term possibility.",
   "  State the product, customer or end market, source date, deployment/revenue timing, and disclosed economics.",
   "  A design-win pipeline, addressable market, technology roadmap or performance benchmark is not booked revenue or profit.",
-  "  Include product-level competitors and the basis for differentiation when supported; distinguish them from valuation peers.",
+  "  Name product-level competitors and the basis for differentiation by default, including foreign-listed rivals; say when",
+  "  no source names them. Distinguish them from valuation peers: they never enter the multiples.",
   "- Build a revenue-replacement bridge from comparable end-market/segment rows when provided: contributions from",
   "  growing and declining businesses, reporting-perimeter changes and acquisitions. Use only supplied derived records",
   "  or clearly sourced operands; identify missing comparable data rather than inventing a contribution or organic growth rate.",
@@ -504,8 +520,12 @@ function analystCommon(capChars: number): string {
     "",
     "Use the supplied independent research for recent catalysts, news, and management commentary NOT in the payload. This writing request has no tools.",
     "Carry the research's sourced market and competitor findings that bear on your case (market size and growth, named",
-    "competitors and how they compete, the company's position) into `thesis`, `keyDrivers` or `risksToCase`, each citing",
+    "competitors by product line and how they compete, the company's position) into `thesis`, `keyDrivers` or `risksToCase`, each citing",
     "its fetched URL, so the judge can use them for the market-structure and competitor sections.",
+    // D-271: the judge writes the business story from evidence the analysts supply.
+    "Supply evidence for the BUSINESS CHECKLIST below the same way: product lines with their revenue records, pipeline and",
+    "launch dates, named customers and suppliers, patents and exclusivity with filed expiry dates, and management's stated",
+    "plan and current guidance, each citing its payload tag or fetched URL. The judge writes the business story from it.",
     "Carry its dated news and management findings the same way (executive and board changes, strategy, deals,",
     "capital-allocation and guidance decisions, notable insider trades): each that bears on your case goes, with its event date,",
     "into `thesis`, `keyDrivers`, `risksToCase` or, if still to come, `catalysts`, citing its fetched URL or payload tag,",
@@ -701,6 +721,20 @@ export function buildJudgeFraming(
     "- `competitive.competitors`: name the main competitors from the 10-K business excerpt or the analysts' cited sources,",
     "  explain how each competes and where the company wins or loses. Do not substitute a provider peer list for this analysis.",
     "  Use FACT only with a source, JUDGMENT for interpretation, and never invent market sizes; use [] when no evidence supports a claim.",
+    // D-271: the business story, one home per BUSINESS CHECKLIST item. The judge fills these; analysts supply evidence.
+    "- The business story (BUSINESS CHECKLIST items 1 to 7), each claim citing its payload tag or a case's cited source:",
+    "  `business.products`: one item per product or service line the source names. `productLine` is the name exactly as one of",
+    "  that item's FACT claims writes it (otherwise the pipeline replaces the heading); state revenue and growth only from the",
+    "  line's payload record, one figure per sentence.",
+    "  `business.whatIsComing`: pipeline, roadmap, launches and capacity, each with its stage and the date as the source states it.",
+    "  `business.customersAndSuppliers`: named customers, distributors, suppliers and partners the business depends on.",
+    "  `competitive.competitorsByProductLine`: per product line, the named competitors, including foreign-listed rivals, and how",
+    "  they compete; share and direction only where a source states them. The same heading rule applies. These are not valuation peers.",
+    "  `business.protection`: patents, exclusivity, licences, contracts and switching costs, with each expiry date as filed.",
+    "  `business.managementPlan`: the stated strategy, investment plan and current guidance as the company stated it, with its date.",
+    "  `business.industry`: size, growth, pricing, regulation and demand drivers only where a source states them.",
+    "  Where no source supports a field, write one claim saying which source was reviewed and that it does not state it",
+    "  (for `products` and `competitorsByProductLine`, use []); never pad, and never restate a claim another field already makes.",
     "- Section grades A–F for fundamentals, valuation, technicals, quality, leadership, moat, AND",
     "  balanceSheet (balance sheet & capital). Each grade block carries a one-line why, SourcedClaim",
     "  reasoning, a confidence level, the key numbers behind it, AND a short `interpretation` paragraph",
@@ -844,11 +878,12 @@ export function buildVerifySystem(): string {
 /** Research is plain text: a JSON grammar must never constrain search iterations. */
 export function buildAnalystResearchFraming(side: "bull" | "bear"): string {
   return `Research independently for the ${side} analyst. Return plain-text research notes, NOT an ANALYST_CASE or JSON outline.
-Find dated findings NOT already in the payload on recent catalysts, news, guidance, management commentary, capital-markets activity, regulatory/legal events and competitive moves.
-Cover the last six months, including management and board actions: executive changes, strategy, acquisitions or divestitures, buybacks, dividends, debt and guidance changes.
+Research the business first. Start with the market and industry: market size and growth with a dated source; the main competitors by name and how each competes, for each product line and including foreign-listed rivals, with their competing products and dates; the company's position and share only where a source states it; and industry economics and regulation, including pricing, that shape the business.
+Then the business itself: pipeline, roadmap, launches and capacity with their stages and dates; patents, exclusivity, licences and contracts with their expiry dates; named customers and suppliers the business depends on; and management's stated strategy, investment plan and current guidance with their dates.
 For material growth opportunities, check current issuer announcements and investor-day materials for commercial agreements, design wins, deployment timing, customer consideration and changes to long-term targets. Include an older roadmap only when it remains relevant; retain its original date and check for superseding disclosures. Distinguish a signed agreement from a management ambition, and undisclosed economics from established incremental revenue or profit.
-Also research the market and industry structure: market size and growth with a dated source; main competitors by name and how each competes; the company's position and share only where a source states it; and industry economics and regulation that shape the business.
-Each finding must include its source URL and date. Distinguish publication dates from event dates and flag missing dates or conflicting evidence.
+Then the news: dated findings NOT already in the payload on recent catalysts, news, guidance, management commentary, capital-markets activity, regulatory/legal events and competitive moves.
+Cover the last six months, including management and board actions: executive changes, strategy, acquisitions or divestitures, buybacks, dividends, debt and guidance changes.
+Each finding must include its source URL and date, and name its publisher. Distinguish publication dates from event dates and flag missing dates or conflicting evidence.
 Prefer primary sources: issuer investor-relations documents, SEC filings, regulators, official statistical agencies and the original publisher of an industry study. Use established financial reporting for context and identify secondary reporting explicitly.
 Open the underlying document when accessible; a search snippet, an undated summary or a generated answer is not a substitute for its evidence. Check the issuer, stated date and relevant period; disclose inaccessible sources and unresolved conflicts instead of guessing.
 Do not retrieve historical company financials from the web: those come only from the payload. No claim naming a person may rest on a web result; use only the payload for named-person claims.

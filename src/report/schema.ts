@@ -938,11 +938,89 @@ export const SegmentRowSchema = z
   .strict();
 export type SegmentRow = z.infer<typeof SegmentRowSchema>;
 
+/**
+ * D-271 (P18): one product or service line with the sourced claims about it.
+ * The heading is a label, so code decides whether it stands: it must be written
+ * in the text of one of the item's own FACT claims ({@link productLineNamedInClaims}).
+ * Generation replaces a heading that is not with {@link UNNAMED_PRODUCT_LINE_HEADING}.
+ */
+export const ProductLineItemSchema = z
+  .object({
+    productLine: z.string().trim().min(1).describe("The product or service line's name exactly as one of this item's FACT claims writes it."),
+    claims: z.array(SourcedClaimSchema).min(1),
+  })
+  .strict();
+export type ProductLineItem = z.infer<typeof ProductLineItemSchema>;
+
+/** D-271: the code-owned heading for an item whose stated name is not in its FACT claims. */
+export const UNNAMED_PRODUCT_LINE_HEADING = "Product line (its name is not in the cited claims)";
+/** D-271: the group heading over the business-story subsections (read by the presentation and the peer note). */
+export const BUSINESS_STORY_HEADING = "The business";
+
+/**
+ * Trademark, service-mark, registered and copyright signs, and the emoji
+ * variation selector that can follow them. Removed BEFORE compatibility
+ * normalization, which would otherwise turn "™" into the letters "TM" and
+ * glue them to the name ("Verandol™" read as "verandoltm"; review round 1).
+ */
+const MARK_SIGNS = /[™℠®©]\uFE0F?/g;
+
+const headingText = (text: string): string => text.replace(MARK_SIGNS, "").normalize("NFKC")
+  .replace(/[‘’ʼ]/g, "'")
+  .replace(/[‐-―−]/g, "-")
+  .replace(/\s+/g, " ")
+  .trim()
+  .toLowerCase();
+
+/** D-271: the comparison key for a product-line heading or a segment name (case, spacing, dashes and trademark signs aside). */
+export const productLineHeadingKey = (text: string): string => headingText(text);
+
+/**
+ * D-271 (P18): a product-line heading stands only when one of the item's FACT
+ * claims writes the same name as a whole word or phrase (case, spacing, dashes
+ * and trademark signs aside). A JUDGMENT never names a product line, and a
+ * heading that is only part of a longer word ("Pharma" in "Pharmaceuticals")
+ * does not match.
+ */
+export function productLineNamedInClaims(item: { productLine: string; claims: readonly Pick<SourcedClaim, "text" | "label">[] }): boolean {
+  return productLineNamingClaims(item).length > 0;
+}
+
+/**
+ * D-271: the item's FACT claims that write its heading as a whole word or
+ * phrase (the claims that support the name). Empty when none does; the read-time
+ * presentation then also needs one of them to be validated or qualitative.
+ */
+export function productLineNamingClaims<C extends Pick<SourcedClaim, "text" | "label">>(item: { productLine: string; claims: readonly C[] }): C[] {
+  const heading = headingText(item.productLine);
+  if (!heading || heading === headingText(UNNAMED_PRODUCT_LINE_HEADING)) return [];
+  const wordChar = /[\p{L}\p{N}]/u;
+  return item.claims.filter(claim => {
+    if (claim.label !== "FACT") return false;
+    const text = headingText(claim.text);
+    for (let at = text.indexOf(heading); at >= 0; at = text.indexOf(heading, at + 1)) {
+      const before = at === 0 ? "" : text[at - 1]!;
+      const after = text[at + heading.length] ?? "";
+      if (!wordChar.test(before) && !wordChar.test(after)) return true;
+    }
+    return false;
+  });
+}
+
+const businessClaims = (description: string) => z.array(SourcedClaimSchema).optional().describe(description);
+
 export const BusinessSchema = z
   .object({
     whatTheySell: z.array(SourcedClaimSchema),
     /** Market economics and sourced size/growth/share; absent on historical reports. */
     marketStructure: z.array(SourcedClaimSchema).optional().describe("Served-market size, growth and company share only where cited evidence states them; industry structure, value accrual and company position. FACT with a source; JUDGMENT for interpretation; never invent market sizes."),
+    // D-271: the business story. Optional so saved reports parse unchanged (P21).
+    products: z.array(ProductLineItemSchema).optional().describe("Each product or service line the filings or cited sources name, with its revenue and growth only where a payload record states them (cite that record). One item per line."),
+    whatIsComing: businessClaims("Pipeline, roadmap, launches and new capacity, each with its stage and the date as the source states it; say so when the source gives no date."),
+    customersAndSuppliers: businessClaims("Named customers, distributors, suppliers and partners the business depends on, with the share or commitment only where a source states it."),
+    protection: businessClaims("Patents, exclusivity, licences, contracts and switching costs, with the expiry date as filed; say so when no source states an expiry."),
+    managementPlan: businessClaims("Management's stated strategy, investment plan and current guidance as the company stated it, with its date and source."),
+    industry: businessClaims("Industry size, growth, pricing, regulation and demand drivers only where a source states them; otherwise one claim saying no reviewed source states them."),
     segments: z
       .object({
         product: z.array(SegmentRowSchema),
@@ -1440,6 +1518,8 @@ export const CompetitiveSchema = z
     peerTable: z.array(PeerRowSchema),
     /** Named competitors and the basis of competition; absent on historical reports. */
     competitors: z.array(SourcedClaimSchema).optional().describe("Main competitors named in the 10-K business excerpt or analysts' cited sources; how each competes and where the company wins or loses. FACT with a source; JUDGMENT for interpretation."),
+    /** D-271: competitors per product line, including foreign-listed rivals; never valuation peers. */
+    competitorsByProductLine: z.array(ProductLineItemSchema).optional().describe("Per product line, the named competitors (including foreign-listed rivals) and how they compete; share and direction only where a source states them. These are not valuation peers."),
     moatAssessment: z.array(MoatAssessmentSchema),
     marketShareDirection: ratingSafeString(),
   })
@@ -3201,6 +3281,14 @@ const ALWAYS_FILLED_BY_GENERATION = new Set([
   "tam",
   "marketStructure",
   "competitors",
+  // D-271: the business-story arrays have an honest empty form ([]).
+  "products",
+  "whatIsComing",
+  "customersAndSuppliers",
+  "protection",
+  "managementPlan",
+  "industry",
+  "competitorsByProductLine",
   // Q1: optional only for saved reports; arrays/objects with an honest empty
   // form, and a date the generation normalizer turns to null when unreadable.
   "recentDevelopments",

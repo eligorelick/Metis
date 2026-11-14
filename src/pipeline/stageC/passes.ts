@@ -82,6 +82,9 @@ import {
   invalidAnalystCaseSections,
   invalidJudgeOutputSections,
   noBuySellHold,
+  productLineHeadingKey,
+  productLineNamedInClaims,
+  UNNAMED_PRODUCT_LINE_HEADING,
   type AnalystCase,
   type JudgeOutput,
   type Report,
@@ -2733,7 +2736,54 @@ export function normalizeJudgeOutput(raw: unknown): unknown {
     root.valuation = valuation;
   }
 
-  return splitEmbeddedJudgments(root);
+  return withNamedProductLines(splitEmbeddedJudgments(root));
+}
+
+/** D-271 (P18): the generated business-story lists whose items carry a product-line heading. */
+const PRODUCT_LINE_FIELDS = [["business", "products"], ["competitive", "competitorsByProductLine"]] as const;
+/** D-271: the generated business-story claim lists (blank claims are regenerated). */
+const BUSINESS_STORY_CLAIM_FIELDS = [["business", "marketStructure"], ["business", "whatIsComing"], ["business", "customersAndSuppliers"],
+  ["business", "protection"], ["business", "managementPlan"], ["business", "industry"], ["competitive", "competitors"]] as const;
+
+/**
+ * D-271 (P18): a product-line heading is a label, so it stands only when one of
+ * the item's own FACT claims writes that name. Otherwise the code-owned
+ * heading replaces it; the claims are kept and verified as usual. Runs after
+ * embedded judgments are split, so only sourced statements can name the line.
+ */
+/** D-271 review round 1 (lead decision a): a heading longer than this is a sentence, not a name. */
+export const PRODUCT_LINE_HEADING_MAX_WORDS = 8;
+export const PRODUCT_LINE_HEADING_MAX_CHARS = 60;
+
+/**
+ * D-271 review round 1 (lead decision a): a heading is a name, never a claim.
+ * It may carry no digit, percent sign, currency symbol (Unicode Sc) or number
+ * word (the verifier's own `statesNumberWord` list), and at most
+ * {@link PRODUCT_LINE_HEADING_MAX_WORDS} words and
+ * {@link PRODUCT_LINE_HEADING_MAX_CHARS} characters.
+ */
+export function productLineHeadingIsName(heading: string): boolean {
+  const text = heading.trim();
+  return text.length > 0 && text.length <= PRODUCT_LINE_HEADING_MAX_CHARS &&
+    text.split(/\s+/).length <= PRODUCT_LINE_HEADING_MAX_WORDS &&
+    !/[\p{N}%\p{Sc}]/u.test(text) && !statesNumberWord(text);
+}
+
+function withNamedProductLines(value: unknown): unknown {
+  if (!isPlainObject(value)) return value;
+  const root = { ...value };
+  for (const [section, field] of PRODUCT_LINE_FIELDS) {
+    const owner = root[section];
+    if (!isPlainObject(owner) || !Array.isArray(owner[field])) continue;
+    root[section] = { ...owner, [field]: owner[field].map(item => {
+      if (!isPlainObject(item) || typeof item.productLine !== "string" || !Array.isArray(item.claims)) return item;
+      const claims = item.claims.filter((claim): claim is { text: string; label: SourcedClaim["label"] } =>
+        isPlainObject(claim) && typeof claim.text === "string" && typeof claim.label === "string");
+      return productLineHeadingIsName(item.productLine) && productLineNamedInClaims({ productLine: item.productLine, claims })
+        ? item : { ...item, productLine: UNNAMED_PRODUCT_LINE_HEADING };
+    }) };
+  }
+  return root;
 }
 
 const parseJudgeOutput = (raw: unknown) => {
@@ -2755,10 +2805,15 @@ function invalidJudgeGenerationSections(sections: Record<string, unknown>): stri
       (sections.business.whatTheySell.length === 0 || sections.business.whatTheySell.some(claim => isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim()))) invalid.push("business");
   // The arrays may be empty or absent (historical output), but a carried blank
   // claim must be regenerated just as it would be in a complete response.
-  for (const [section, field] of [["business", "marketStructure"], ["competitive", "competitors"]] as const) {
+  const blank = (claim: unknown) => isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim();
+  for (const [section, field] of BUSINESS_STORY_CLAIM_FIELDS) {
     const value = sections[section];
-    if (isPlainObject(value) && Array.isArray(value[field]) && value[field].some(claim =>
-      isPlainObject(claim) && typeof claim.text === "string" && !claim.text.trim()) && !invalid.includes(section)) invalid.push(section);
+    if (isPlainObject(value) && Array.isArray(value[field]) && value[field].some(blank) && !invalid.includes(section)) invalid.push(section);
+  }
+  for (const [section, field] of PRODUCT_LINE_FIELDS) {
+    const value = sections[section];
+    if (isPlainObject(value) && Array.isArray(value[field]) && value[field].some(item =>
+      isPlainObject(item) && Array.isArray(item.claims) && item.claims.some(blank)) && !invalid.includes(section)) invalid.push(section);
   }
   return invalid;
 }
@@ -4479,6 +4534,38 @@ export function applySegmentShares(
   };
 }
 
+/**
+ * D-271, review round 2 (lead fix, P18: code owns labels): the product and
+ * geographic segment names in the bundle's own segmentation data (filed or
+ * provider rows, never model text), as heading keys.
+ */
+export function bundleSegmentNameKeys(bundle: DataBundle | undefined): Set<string> {
+  const keys = new Set<string>();
+  for (const res of [bundle?.segmentation?.product, bundle?.segmentation?.geographic]) {
+    if (res === undefined || !res.ok || !res.value) continue;
+    for (const row of res.value.data.rows ?? []) {
+      const data = row?.data;
+      if (data === undefined || data === null || typeof data !== "object") continue;
+      for (const name of Object.keys(data)) { const key = productLineHeadingKey(name); if (key) keys.add(key); }
+    }
+  }
+  return keys;
+}
+
+/**
+ * D-271, review round 2: a model-written product-line heading can assert what
+ * its only naming claim says is unproven ("Verandol dominates the market" over
+ * "No reviewed source establishes that Verandol dominates the market"), and the
+ * report's own segment rows keep judge-authored names, so neither the claims
+ * nor those rows make a heading code-owned. At assembly a heading stands only
+ * when it equals, as a whole name, a segment name in the bundle's segmentation
+ * data; otherwise the fixed heading replaces it and the claims are kept. The
+ * read-time rule (a naming FACT must be validated or qualitative) still applies.
+ */
+export function gateProductLineHeadings<T extends { productLine: string }>(items: readonly T[] | undefined, names: ReadonlySet<string>): T[] | undefined {
+  return items?.map(item => names.has(productLineHeadingKey(item.productLine)) ? item : { ...item, productLine: UNNAMED_PRODUCT_LINE_HEADING });
+}
+
 /** The sources an executive decision may quote: the same excerpts the verify pass reads. */
 function retainedDecisionSources(payload: ContextPayload): { source: string; text: string }[] {
   return [payload.transcript ?? null, ...(payload.filings ?? [])].filter((excerpt): excerpt is NonNullable<typeof excerpt> => excerpt !== null);
@@ -4600,7 +4687,12 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
     args.computed.valuation,
   ), args.computed);
   const quality = applyForensicScores(args.judgeOutput.quality, args.computed.forensics);
-  const business = applySegmentShares(args.judgeOutput.business, args.bundle);
+  const segmentNames = bundleSegmentNameKeys(args.bundle);
+  const sharedBusiness = applySegmentShares(args.judgeOutput.business, args.bundle);
+  const business = sharedBusiness.products === undefined ? sharedBusiness
+    : { ...sharedBusiness, products: gateProductLineHeadings(sharedBusiness.products, segmentNames) };
+  const competitive = args.judgeOutput.competitive.competitorsByProductLine === undefined ? args.judgeOutput.competitive
+    : { ...args.judgeOutput.competitive, competitorsByProductLine: gateProductLineHeadings(args.judgeOutput.competitive.competitorsByProductLine, segmentNames) };
   // Audit work package 3: guidance, issuer FCF, capital return, dated 8-K
   // events, XBRL segment revenue by quarter and the eight-quarter trend,
   // pipeline-filled from the bundle. Built before the triggers (D-65), which
@@ -4620,7 +4712,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
       read: { ...args.judgeOutput.technicals.read, trend: technicalTrendText(args.computed.technicals, statementCurrencies(args.bundle).trading) },
     } : args.judgeOutput.technicals,
     leadership: args.judgeOutput.leadership,
-    competitive: args.judgeOutput.competitive,
+    competitive,
     catalystsRisks: args.judgeOutput.catalystsRisks,
     outlook: args.judgeOutput.outlook,
     macro: args.judgeOutput.macro,

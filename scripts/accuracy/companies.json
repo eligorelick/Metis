@@ -611,7 +611,7 @@
       "instanceFilings": [
         {
           "accn": "0001628280-26-025362",
-          "why": "SEC companyfacts carries no financial facts from TSM's Form 20-F for 2025 (filed 2026-04-16); its quarterly reports are Form 6-K without XBRL"
+          "why": "SEC companyfacts carries no financial facts from TSM's Form 20-F for 2025 (filed 2026-04-16; re-checked 2026-11-14: only two share-count facts, no statement lines); its quarterly reports are Form 6-K without XBRL"
         }
       ],
       "scale": {

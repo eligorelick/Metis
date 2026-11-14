@@ -137,6 +137,20 @@ function enrichNarrative(payload: ReturnType<typeof assembleContextPayload>) {
   judge.business.whatTheySell = [fact("Controllers, installation and annual support subscriptions serve regional warehouse operators. Equipment revenue is recognized on acceptance; support is recognized over the service term."), fact("Hardware and installation contributed USD 650 million of FY2025 revenue."), fact("Support contributed USD 350 million of FY2025 revenue."), fact("All sales were domestic; customers include independent distributors and regional logistics operators.")];
   judge.business.marketStructure = [fact("The invented management planning study defines a USD 8 billion annual served market for regional warehouse equipment and support. This is a fictional planning assumption, not an independent market estimate."), claim("Value accrues to reliable service and integration expertise; hardware tenders remain price competitive."), claim("Renewal pricing power appears narrow: switching disrupts operations, but cheaper installation bids and software substitutes constrain lifetime economics."), claim("Warehouse capacity spending drives equipment demand; the installed base supports service demand through the cycle. No measured market-share trend is supplied.")];
   judge.business.concentrationRisks = [fact("The largest customer contributed USD 120 million of FY2025 revenue."), claim("Domestic exposure and regional customers concentrate the business in the same warehouse investment cycle; renewal resilience should be tested when capacity budgets tighten.")];
+  // D-271: the business story; every name is invented and every heading is written in its own FACT claim.
+  judge.business.products = [
+    { productLine: "Hardware and installation", claims: [fact("Hardware and installation revenue is recognized on customer acceptance; installation bids compete on price.")] },
+    { productLine: "Support subscriptions", claims: [fact("Annual support subscriptions are recognized over the service term and compete on uptime."), claim("Support subscriptions follow the installed base, so they are steadier than new installations.")] },
+  ];
+  judge.business.whatIsComing = [fact("The invented filing names no product launch, roadmap or new capacity with a date.")];
+  judge.business.customersAndSuppliers = [fact("Customers include independent distributors and regional logistics operators; the invented filing names no critical supplier.")];
+  judge.business.protection = [fact("Replacing support requires retraining and planned downtime; the invented filing states no patent, licence or contract expiry date."), claim("Switching costs protect support renewals more than hardware tenders.")];
+  judge.business.managementPlan = [fact("In this invented June strategy note, the board prioritized service capacity over acquisitions.", "edgar:10-Q item2")];
+  judge.business.industry = [fact("Equipment demand follows warehouse capacity investment; no reviewed source states the industry's growth or pricing beyond the invented planning study.")];
+  judge.competitive.competitorsByProductLine = [
+    { productLine: "Hardware and installation", claims: [fact("In hardware and installation, Lantern Quay Automation bids lower installation prices but offers less local support.")] },
+    { productLine: "Support subscriptions", claims: [fact("In support subscriptions, Bramble Circuit Works has broader support coverage but slower custom deployments.")] },
+  ];
   judge.competitive.competitors = [
     claim("Against Lantern Quay Automation, Thesis wins on local service continuity and loses on installation price."),
     claim("Against Bramble Circuit Works, Thesis wins on custom deployment speed and loses on support-network breadth."),
