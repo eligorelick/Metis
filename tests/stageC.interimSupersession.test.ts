@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runStageB } from "@/pipeline/compute";
 import { operatingMeasuresStated, selectMaterialEvidence } from "@/pipeline/stageC/evidenceSelection";
-import { assembleContextPayload, PAYLOAD_BUDGETS } from "@/pipeline/stageC/payload";
+import { assembleContextPayload, PAYLOAD_BUDGETS, tenQMdnaEvidenceBudget } from "@/pipeline/stageC/payload";
 import type { DataBundle } from "@/pipeline/types";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
 
@@ -59,14 +59,18 @@ describe("a newer 10-Q's update of a 10-K operating figure (audit 2026-10-22 C-1
   it("keeps the 10-Q passage restating the figure, within the same budget", () => {
     const excerpt = payloadFor(ANNUAL);
     expect(excerpt.text).toContain("approximately 16 gigawatts of new contracts");
-    expect(excerpt.text.length).toBeLessThanOrEqual(PAYLOAD_BUDGETS.tenQMdnaChars);
+    expect(excerpt.text.length).toBeLessThanOrEqual(tenQMdnaEvidenceBudget(interimMdna().length));
     expect(excerpt.title).toMatch(/kept first.*gigawatts/);
   });
 
   it("leaves the selection unchanged when the 10-K states no such figure, or the 10-Q is not newer", () => {
     const text = interimMdna();
-    const plain = selectMaterialEvidence(text, PAYLOAD_BUDGETS.tenQMdnaChars, "interim");
-    expect(plain.text).not.toContain("16 gigawatts");
+    expect(selectMaterialEvidence(text, PAYLOAD_BUDGETS.tenQMdnaChars, "interim").text).not.toContain("16 gigawatts");
+    const plain = selectMaterialEvidence(text, tenQMdnaEvidenceBudget(text.length), "quarterly");
+    // D-270: the larger ordinary budget can now retain this passage too.
+    expect(plain.text).toContain("16 gigawatts");
+    expect(payloadFor("We sell electricity to data centers.").title).not.toMatch(/kept first/);
+    expect(payloadFor(ANNUAL, "2025-09-30").title).not.toMatch(/kept first/);
     expect(payloadFor("We sell electricity to data centers.").text).toBe(plain.text);
     expect(payloadFor(ANNUAL, "2025-09-30").text).toBe(plain.text);
   });

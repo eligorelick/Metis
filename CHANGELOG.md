@@ -7,7 +7,7 @@ not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
 Current source declares application **0.1.0**, report spec **1.86.0** and
-payload **1.103.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+payload **1.104.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -23,8 +23,13 @@ original versions and bytes; source merge does not deploy or publish a release.
 - New optional report fields give the business one home for every company type: products and services, what is coming (pipeline, roadmap, launches, capacity with dates), customers and suppliers, competitors by product line (foreign-listed rivals included, never valuation peers), protection and expiry, management's plan and current guidance, and industry. Each is a sourced claim the existing verifier checks; app, Markdown and print show them under "The business". Saved reports have none of these fields and print exactly as before.
 - A product-line heading is a name, never a claim: it may hold no figure, currency, number word or more than 8 words / 60 characters, must be written in one of its own FACT claims, and prints only when such a claim is validated or qualitative. Otherwise a fixed heading prints and the claims keep their marks. Trademark signs no longer block a match, and the empty-peer note points to competitors by product line (review round 1).
 - The analysts and the judge get one sector-neutral business checklist in place of wording written for a chip and software issuer; product-level competitors are asked for by default, and research looks for market size and named competitors before news.
-- Report 1.86.0, pipeline stage-c-1.6.45; payload 1.103.0 and Stage B unchanged. No figure changes; the same-report check differs only in version metadata.
+- Report 1.86.0, pipeline stage-c-1.6.45; this change leaves the payload and Stage B unchanged. No figure changes; the same-report check differs only in version metadata.
 
+## Unreleased - Filing evidence review round 1 (D-270; P9, P20)
+
+- Payload 1.104.0 / section-evidence-10: keep flattened releases and over-cap business sections useful; only source-bounded schedules fitting the table share become atomic blocks.
+- Isolate added filing families in annual/quarterly MD&A profiles; default financial selection stays as on main. Annual MD&A retains whole units and joins adjacent source passages without false omission markers.
+- Put source-length caps of 96,000 / 50,000 / 48,000 characters in `PAYLOAD_BUDGETS`; paid reservations stay unchanged. Restore binding-budget controls beside the whole-source assertions. No computed figure changes.
 ## Unreleased - Analyst web research on the Claude Code sign-in route (P18, P20, P24, P26, D-269) (2026-11-14)
 
 - The bull and bear analysts on a Claude Code connection now each send one separate research request with only the CLI's own WebSearch and WebFetch tools, up to eight actions, as on the ChatGPT connection. Writers and the judge stay tool-free; every other isolation flag is kept, and Metis still never reads the CLI's sign-in files or uses an API key on this route.
