@@ -242,12 +242,12 @@ describe("sector-neutral business checklist in the prompts (D-271)", () => {
     for (const side of ["bull", "bear"] as const) {
       const framing = buildAnalystResearchFraming(side);
       const market = framing.indexOf("market size and growth with a dated source");
-      const competitors = framing.indexOf("main competitors by name for each product line, including foreign-listed rivals");
+      const competitors = framing.indexOf("main competitors by name and how each competes, for each product line and including foreign-listed rivals");
       const news = framing.indexOf("Then the news");
       expect(market).toBeGreaterThan(0);
       expect(competitors).toBeGreaterThan(market);
       expect(news).toBeGreaterThan(competitors);
-      expect(framing).toContain("source URL, publisher and date");
+      expect(framing).toContain("source URL and date, and name its publisher");
     }
   });
 });
