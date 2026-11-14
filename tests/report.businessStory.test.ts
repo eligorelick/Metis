@@ -14,6 +14,8 @@ import {
 import { reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { BUSINESS_STORY_HEADING, businessStoryBlocks } from "@/report/presentation";
+import { providerPeerListPresentation } from "@/report/readerConventions";
+import { indexVerificationMarks } from "@/report/verificationMarks";
 import {
   judgeOutputToJsonSchema,
   productLineNamedInClaims,
@@ -41,7 +43,7 @@ const HEADINGS = ["Products and services", "What is coming", "Customers and supp
 function pharmaLike(): Report {
   const report = loadTask28Fixture();
   Object.assign(report.business, {
-    products: [line("Verandol", fact("Verandol is a once-weekly injectable for type 2 diabetes.")),
+    products: [line("Verandol", fact("Verandol is a once-weekly injectable for adults with diabetes.")),
       line("Corvista", fact("Corvista treats moderate plaque psoriasis."), judgment("Its growth depends on new indications."))],
     whatIsComing: [fact("Orvane is in Phase 3 for obesity; the filing expects a submission in the first half of the year.")],
     customersAndSuppliers: [fact("Three wholesale distributors account for most U.S. product sales.")],
@@ -85,6 +87,36 @@ function reitLike(): Report {
 
 const surfaces = (report: Report) => [reportToMarkdown(report), readableHtml(reportToPrintBody(report)).text,
   readableHtml(renderToStaticMarkup(createElement(ReportView, { report }))).text];
+/** The Markdown of the business-story group only (from its heading to the next level-3 heading). */
+const storyMarkdown = (markdown: string) => {
+  const at = markdown.indexOf(`### ${BUSINESS_STORY_HEADING}`);
+  if (at < 0) return "";
+  const end = markdown.indexOf("\n### ", at + 4);
+  return markdown.slice(at, end < 0 ? undefined : end);
+};
+/** The product-line headings each renderer prints, read from its own markup (Markdown, print, app). */
+const renderedLineHeadings = (report: Report) => [
+  [...storyMarkdown(reportToMarkdown(report)).matchAll(/^\*\*(.+)\*\*$/gm)].map(m => m[1]!),
+  [...reportToPrintBody(report).matchAll(/<p class="product-line"><strong>([^<]*)<\/strong><\/p>/g)].map(m => m[1]!),
+  [...renderToStaticMarkup(createElement(ReportView, { report })).matchAll(/data-product-line="true"[^>]*>([^<]*)</g)].map(m => m[1]!),
+].map(list => list.map(text => text.replace(/&#x27;|&#39;/g, "'").replace(/&amp;/g, "&")));
+
+/**
+ * Run the deterministic verify pass over a report whose story claims cite one
+ * filing excerpt (`excerpt`, default: every story FACT's own text), and attach
+ * its log, as the pipeline does before a report is saved.
+ */
+async function verified(report: Report, excerpt?: string): Promise<Report> {
+  const story = [...(report.business.products ?? []).flatMap(item => item.claims), ...(report.competitive.competitorsByProductLine ?? []).flatMap(item => item.claims),
+    ...(["whatIsComing", "customersAndSuppliers", "protection", "managementPlan", "industry"] as const).flatMap(key => report.business[key] ?? [])];
+  const text = excerpt ?? story.filter(claim => claim.label === "FACT").map(claim => claim.text).join(" ");
+  const payload = { provenanceRegistry: [], citationRegistry: [{ id: source, asOf, origin: source, kind: "payload-text" }],
+    filings: [{ source, asOf, text, title: "Business", truncated: false, originalChars: text.length }] } as unknown as ContextPayload;
+  const result = await runVerifyPass({} as PassDeps, payload, report);
+  const checked = ReportSchema.parse(result.verifiedReport);
+  checked.appendix.verificationLog = result.log;
+  return checked;
+}
 
 describe("business story (D-271)", () => {
   it("parses saved reports without the new fields unchanged and renders no business-story heading", () => {
@@ -101,9 +133,13 @@ describe("business story (D-271)", () => {
   });
 
   it.each([["pharma-like", pharmaLike], ["bank-like", bankLike], ["REIT/industrial-like", reitLike]] as const)(
-    "renders the %s business story on every surface in reading order, without empty headings", (_name, build) => {
-      const report = ReportSchema.parse(build());
+    "renders the %s business story on every surface in reading order, without empty headings", async (_name, build) => {
+      const report = await verified(ReportSchema.parse(build()));
+      indexVerificationMarks(report);
       const blocks = businessStoryBlocks(report.business, report.competitive);
+      // Every stored heading is supported by a qualitative FACT that names it, so each is printed as written.
+      const stored = [...(report.business.products ?? []), ...(report.competitive.competitorsByProductLine ?? [])].map(item => item.productLine);
+      expect(blocks.flatMap(block => block.lines.map(item => item.heading))).toEqual(stored);
       const shown = blocks.map(block => block.heading);
       expect(shown).toEqual(HEADINGS.filter(heading => shown.includes(heading)));
       const claims = blocks.flatMap(block => [...block.claims, ...block.lines.flatMap(item => item.claims)]);
@@ -171,13 +207,67 @@ describe("product-line headings are code-checked labels (D-271, P18)", () => {
     expect(out.competitive.competitorsByProductLine[0]!.productLine).toBe(UNNAMED_PRODUCT_LINE_HEADING);
   });
 
-  it("prints the code-owned heading on every surface when a stored heading is not in its claims", () => {
+  it("prints the code-owned heading on every surface when a stored heading is not in its claims", async () => {
     const report = reitLike();
     report.business.products = [line("Premier portfolio", fact("Logistics warehouses are leased to tenants."))];
-    for (const text of surfaces(ReportSchema.parse(report))) {
+    for (const text of surfaces(await verified(ReportSchema.parse(report)))) {
       expect(text).toContain(UNNAMED_PRODUCT_LINE_HEADING);
       expect(text).not.toContain("Premier portfolio");
     }
+  });
+
+  // Review round 1, finding 1 (lead decision a): a heading is a name, never a claim.
+  it("replaces a heading that carries a figure, a currency, a number word or too many words at generation", () => {
+    const named = (heading: string) => line(heading, fact(`${heading} is sold to hospitals and clinics.`));
+    const headings = ["Verandol revenue grew 99%", "Gen 2 controllers", "$ savings accounts", "€ deposits", "Two-dose regimen",
+      "Twice-yearly maintenance service", "Branch banking for small and mid-sized business owners nationwide",
+      "Comprehensive regional logistics warehouse and distribution centre portfolio"];
+    const out = normalizeJudgeOutput({ business: { whatTheySell: [fact("Products.")], products: [...headings.map(named), named("Verandol"), named("Logistics warehouses")] },
+      competitive: { competitorsByProductLine: [named("Verandol revenue grew 99%"), named("Savings accounts")] } }) as {
+      business: { products: ProductLineItem[] }; competitive: { competitorsByProductLine: ProductLineItem[] } };
+    expect(headings.slice(-1)[0]!.length).toBeGreaterThan(60);
+    expect(headings[6]!.split(" ").length).toBeGreaterThan(8);
+    expect(out.business.products.map(item => item.productLine)).toEqual([...headings.map(() => UNNAMED_PRODUCT_LINE_HEADING), "Verandol", "Logistics warehouses"]);
+    expect(out.competitive.competitorsByProductLine.map(item => item.productLine)).toEqual([UNNAMED_PRODUCT_LINE_HEADING, "Savings accounts"]);
+    for (const item of [...out.business.products, ...out.competitive.competitorsByProductLine]) expect(item.claims).toHaveLength(1);
+  });
+
+  // Review round 1, finding 1 (lead decision b): read time, so stored reports obey too.
+  it("prints a heading only when a validated or qualitative FACT names it, on every renderer and both arrays", async () => {
+    const report = pharmaLike();
+    // Stored as written (no generation step): the contradicted, unverified and unchecked names must not print.
+    report.business.products = [
+      line("Verandol revenue grew 99%", fact("Verandol revenue grew 99%.")),
+      line("Corvista", fact("Corvista revenue grew 40%.")),
+      line("Orvane", fact("Orvane revenue grew 12%.")),
+      line("Lunessa", fact("Lunessa treats migraine.")),
+    ];
+    report.competitive.competitorsByProductLine = [line("Verandol revenue grew 99%", fact("Verandol revenue grew 99%.")), line("Lunessa", fact("Lunessa competes with Nordhavn Pharma's migraine tablet."))];
+    const checked = await verified(report, "Verandol revenue grew 12%. Orvane revenue grew 12%. Lunessa treats migraine. Lunessa competes with Nordhavn Pharma's migraine tablet.");
+    const status = (path: string) => checked.appendix.verificationLog!.find(entry => entry.path === path);
+    expect(status("business.products[0].claims[0]")).toMatchObject({ validationStatus: "contradicted" });
+    expect(["validated", "cited"]).not.toContain(status("business.products[1].claims[0]")?.validationStatus);
+    expect(status("business.products[2].claims[0]")).toMatchObject({ validationStatus: "validated" });
+    expect(status("business.products[3].claims[0]")).toMatchObject({ validationStatus: "cited" });
+    const expected = [[UNNAMED_PRODUCT_LINE_HEADING, UNNAMED_PRODUCT_LINE_HEADING, "Orvane", "Lunessa"], [UNNAMED_PRODUCT_LINE_HEADING, "Lunessa"]];
+    for (const headings of renderedLineHeadings(checked)) expect(headings).toEqual(expected.flat());
+    // The bullets keep their own marks; only the label falls back.
+    for (const text of surfaces(checked)) {
+      expect(text).toContain("Verandol revenue grew 99%.");
+      expect(text).toContain("[contradicted]");
+    }
+    // Without any verification log nothing supports a name: every heading falls back (fail closed).
+    for (const headings of renderedLineHeadings(ReportSchema.parse(report))) expect(new Set(headings)).toEqual(new Set([UNNAMED_PRODUCT_LINE_HEADING]));
+  });
+
+  // Review round 1, finding 2: trademark signs are removed before compatibility normalization.
+  it("matches a name written with a trademark, service-mark, registered or copyright sign", () => {
+    for (const text of ["Verandol™ treats diabetes.", "Verandol® treats diabetes.", "Verandol℠ treats diabetes.", "Verandol© treats diabetes.", "Verandol™️ treats diabetes."]) {
+      expect(productLineNamedInClaims(line("Verandol", fact(text))), text).toBe(true);
+      expect(productLineNamedInClaims(line("Verandol™", fact(text))), text).toBe(true);
+    }
+    // Control: a literal "TM" written as letters stays part of the word.
+    expect(productLineNamedInClaims(line("Verandol", fact("VerandolTM treats diabetes.")))).toBe(false);
   });
 
   it("drops a carried business section whose story claim or product-line claim is blank, and keeps a valid one", () => {
@@ -200,6 +290,29 @@ describe("product-line headings are code-checked labels (D-271, P18)", () => {
     expect(result.log.find(entry => entry.path === "business.products[0].claims[1]")).toMatchObject({ validationStatus: "contradicted" });
     expect(result.log.find(entry => entry.path === "competitive.competitorsByProductLine[0].claims[0]")).toMatchObject({ validationStatus: "cited" });
     expect(result.log.find(entry => entry.path === "business.protection[0]")).toMatchObject({ evidenceKind: "factual-claim" });
+  });
+});
+
+// Review round 1, finding 3: the empty-peer note points where competitor analysis actually renders.
+describe("empty provider peer list note (D-271)", () => {
+  const withEmptyScreen = (competitive: Partial<Report["competitive"]>) => {
+    const report = loadTask28Fixture();
+    report.competitive = { ...report.competitive, competitors: [], competitorsByProductLine: [], ...competitive };
+    report.valuation.peerCoverage = { candidates: 1, evaluated: 1, eligible: [], methodology: [], exclusions: [{ symbol: "HSPN", reason: "business model excluded" }] } as unknown as NonNullable<Report["valuation"]["peerCoverage"]>;
+    return report;
+  };
+  const rival = line("Logistics warehouses", fact("In logistics warehouses, Harbor Span Industrial competes for the same tenants."));
+
+  it.each([
+    ["only competitors by product line", { competitorsByProductLine: [rival] }, "The data provider's peer list contained no comparable companies; competitors by product line are under The business in the Business section."],
+    ["both lists", { competitors: [fact("Harbor Span Industrial competes for tenants.")], competitorsByProductLine: [rival] },
+      "The data provider's peer list contained no comparable companies; competitors are discussed in this section, and competitors by product line are under The business in the Business section."],
+    ["only named competitors", { competitors: [fact("Harbor Span Industrial competes for tenants.")] }, "The data provider's peer list contained no comparable companies; competitors are discussed in this section."],
+    ["neither (control)", {}, "The data provider's peer list contained no comparable companies."],
+  ] as const)("names %s", (_name, competitive, note) => {
+    const report = withEmptyScreen(competitive as Partial<Report["competitive"]>);
+    expect(providerPeerListPresentation(report).note).toBe(note);
+    for (const text of surfaces(report)) expect(text).toContain(note);
   });
 });
 
