@@ -252,10 +252,12 @@ describe("D-270 flattened-source regressions", () => {
     expect(selected.text).toContain("Example Ltd");
   });
   it("keeps annual MD&A units whole and joins adjacent units without a false omission", () => {
-    const unit = `Revenue and operating income: ${"Alpha 2026 100 2025 90; ".repeat(110)}the complete row ends here.`;
-    const text = `${unit}\n${unit}\n${unit}\n${body}`;
+    const unit = `Revenue and operating income: ${"Alpha 2026 $100 million 2025 $90 million; ".repeat(40)}the complete row ends here.`;
+    const text = `${unit} ${unit} ${unit} ${body}`;
     const selected = selectMaterialEvidence(text, 6_000, "annual");
-    expect(selected.spans.length).toBeGreaterThan(0);
+    expect(selected.spans.some(span => span.text.length > 1_100)).toBe(true);
+    expect(selected.text).toContain(unit);
+    expect(selected.spans.some((span, i) => i > 0 && selected.spans[i - 1]!.end === span.start)).toBe(true);
     for (const span of selected.spans) {
       expect(text.slice(span.start, span.end)).toBe(span.text);
       expect(span.text.trim()).toMatch(/[.!?]$/);
@@ -265,6 +267,6 @@ describe("D-270 flattened-source regressions", () => {
       if (a.end === b.start) expect(selected.text).toContain(a.text + b.text);
     }
     const tooBig = `Revenue ${"unchopped row ".repeat(800)}ends here.`;
-    expect(selectMaterialEvidence(`${tooBig}\nGuidance is stable.`, 2_000, "annual").text).not.toContain("unchopped row");
+    expect(selectMaterialEvidence(`${tooBig} Guidance is stable.`, 2_000, "annual").text).not.toContain("unchopped row");
   });
 });

@@ -23,6 +23,15 @@ original versions and bytes; source merge does not deploy or publish a release.
 - Payload 1.104.0 / section-evidence-10: keep flattened releases and over-cap business sections useful; only source-bounded schedules fitting the table share become atomic blocks.
 - Isolate added filing families in annual/quarterly MD&A profiles; default financial selection stays as on main. Annual MD&A retains whole units and joins adjacent source passages without false omission markers.
 - Put source-length caps of 96,000 / 50,000 / 48,000 characters in `PAYLOAD_BUDGETS`; paid reservations stay unchanged. Restore binding-budget controls beside the whole-source assertions. No computed figure changes.
+## Unreleased - Analyst web research on the Claude Code sign-in route (P18, P20, P24, P26, D-269) (2026-11-14)
+
+- The bull and bear analysts on a Claude Code connection now each send one separate research request with only the CLI's own WebSearch and WebFetch tools, up to eight actions, as on the ChatGPT connection. Writers and the judge stay tool-free; every other isolation flag is kept, and Metis still never reads the CLI's sign-in files or uses an API key on this route.
+- Metis reads the CLI's typed stream events: any other tool, MCP server, nested agent or fetch of a local, private or IP-literal address stops the request, the first action beyond eight or ten minutes stops the CLI, and only typed search links and successfully fetched URLs become citable sources. Prose URLs never do. No failure switches to a paid route.
+- WebSearch is unrestricted. WebFetch runs on your computer, so it may read only sec.gov, a short list of regulator, statistics and exchange sites, and the issuer's own website host from the company profile (validated, never an IP or local name); the CLI refuses any other fetch before it runs, and a refused fetch counts as an action but is never a source. Private-address deny rules and a stop-on-attempt check stay as extra defence.
+- Run details say how many Claude Code web searches and page fetches ran, including zero.
+- Review round 1: an issuer under a public suffix (co.uk, com.au), or whose profile names a deeper host, gets its exact site only, never a suffix-wide permission. A reused tool id, a non-boolean error flag, an event before the CLI's init event, or any nested-agent event rejects the research. A call with no result counts as a failed action.
+- Review round 2 (lead fix): the issuer's website gives exact hosts only (www.lilly.com and lilly.com), never a wildcard, because public suffixes such as workers.dev or uk.com cannot be ruled out without a public-suffix list; every failure path reports the call-based action count.
+- No calculation, payload or report stamp changes; computed figures still come only from filings and the supplied evidence. Settings, README, privacy, operations, methodology and Claude usage text now say so.
 
 ## Unreleased - Bounded carrying investment subtotals (P7, P8, D-268)
 

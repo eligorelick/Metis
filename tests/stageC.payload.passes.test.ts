@@ -758,13 +758,48 @@ describe("analyst research and writing boundaries", () => {
     { code: "subscription_sharing_unsupported_capability", param: "tools", httpStatus: 403 },
     { code: "local_web_action_limit", aborted: true },
   ])("keeps non-optional research failures terminal: %j", async ({ code, param, httpStatus, aborted }) => {
+    await expectTerminalResearch("chatgpt/example", { code, param, httpStatus, aborted });
+  });
+
+  it.each([
+    ["local_web_action_limit", "action_limit"],
+    ["local_web_time_limit", "time_limit"],
+  ] as const)("continues a Claude Code analyst to the tool-free writer after research limitation %s (D-269)", async (code, limitation) => {
+    const { payload } = buildInputs();
+    const mock = new MockRunPass()
+      .on("llm.bear", { kind: "error", error: { kind: "transport", message: "local cap", model: "claude/example", webSearches: 9, costUsd: 0,
+        execution: { modelObserved: false, usageReported: false, webSearches: 9 },
+        providerFailure: { disposition: "terminal", code, bodyShape: "stream-error" } } })
+      .onJson("llm.bear", analystCase("bear"))
+      .onJson("llm.bear", analystCase("bear"));
+    const run = await runBearPass(makeDeps(mock, { model: "claude/example", sectionedOutput: true,
+      webSearchTool: maxActions => ({ type: "claude_web_research", maxActions }) }), payload);
+    if (!run.ok) throw new Error(run.error.message);
+    expect(mock.calls[0].tools).toEqual([{ type: "claude_web_research", maxActions: 8 }]);
+    expect(mock.calls.slice(1).every(call => call.tools === undefined)).toBe(true);
+    expect(JSON.stringify(mock.calls[1].messages)).toContain("Optional web research");
+    expect(run.result.research).toMatchObject({ limitation, sources: [], webResearchUsed: false });
+    expect(run.result.fetchedUrls).toEqual([]);
+    expect(run.result.execution).toMatchObject({ webSearches: 9, webResearchUsed: false, webResearchLimitation: limitation });
+  });
+
+  it.each([
+    { code: "local_web_research_boundary" }, { code: "local_web_action_limit", aborted: true },
+    // The capability refusal is a ChatGPT HTTP 400 signal; the Claude CLI route never produces it.
+    { code: "subscription_sharing_unsupported_capability", param: "tools", httpStatus: 400 },
+  ])("keeps other Claude Code research failures terminal: %j (D-269)", async failure => {
+    await expectTerminalResearch("claude/example", failure);
+  });
+
+  async function expectTerminalResearch(model: string, { code, param, httpStatus, aborted }: { code: string; param?: string; httpStatus?: number; aborted?: boolean }) {
     const { payload } = buildInputs();
     const mock = new MockRunPass().on("llm.bull", { kind: "error", error: { kind: "transport", message: "must stop",
       aborted, providerFailure: { disposition: "terminal", code, param, httpStatus, bodyShape: "error" } } });
-    const run = await runBullPass(makeDeps(mock, { model: "chatgpt/example", webSearchTool: () => ({ type: "chatgpt_web_search", maxActions: 8 }) }), payload);
+    const run = await runBullPass(makeDeps(mock, { model, webSearchTool: maxActions =>
+      ({ type: model.startsWith("claude/") ? "claude_web_research" : "chatgpt_web_search", maxActions }) }), payload);
     expect(run.ok).toBe(false);
     expect(mock.calls).toHaveLength(1);
-  });
+  }
 
   it.each(["empty", "failed"] as const)("handles %s research without treating it as an analyst case", async kind => {
     const { payload } = buildInputs();
