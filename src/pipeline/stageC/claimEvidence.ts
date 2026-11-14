@@ -1429,7 +1429,7 @@ function isPerShareCell(quantity: Quantity, column: { scale: number | null; exce
  */
 function tableScaleFor(quantity: Quantity, column: { scale: number | null; exceptPerShare: boolean; label: string } | undefined): number {
   if (column === undefined || quantity.scaled) return 1;
-  if (quantity.unit !== "currency" && quantity.unit !== "shares" && quantity.unit !== "count" && quantity.unit !== null) return 1;
+  if (quantity.unit !== "currency" && quantity.unit !== "shares" && quantity.unit !== null) return 1;
   if (isPerShareCell(quantity, column)) return 1;
   return column.scale ?? 1;
 }
@@ -1646,8 +1646,13 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const aliases = column.period.kind === "period" ? (/^Q[1-4]/.test(column.period.key) ? [column.period.key] : []) : inherited.some((period) => period.kind === "date" && period.key === column.period.key) && (column.window === null || column.window.key === "quarter")
           ? inherited.filter((period) => period.kind === "period").map((period) => period.key)
           : [];
-        const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true } : quantity;
-        const tableColumn = { scale: column.scale, aliases, date: column.period.key, exceptPerShare: column.exceptPerShare, label: column.label };
+        // D-274 review round 2 (lead fix, P3): a header can scale counts ("(In millions)") or except them
+        // ("(In thousands, except subscriber counts)"), and only a per-share exception is read, so a count cell
+        // under a declared scale has no established unit and stays unverified.
+        const scaledCountCell = quantity.unit === "count" && column.scale !== null && column.scale !== 1;
+        const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true }
+          : scaledCountCell ? { ...quantity, unit: null } : quantity;
+        const tableColumn ={ scale: column.scale, aliases, date: column.period.key, exceptPerShare: column.exceptPerShare, label: column.label };
         // AI-403: a decimal cell of an "except per share data" table is the per-share line, in dollars, and is never scaled.
         const cell = dollarCell.unit === "currency" && isPerShareCell(dollarCell, tableColumn) ? { ...dollarCell, unit: "currency-per-share" as const } : dollarCell;
         return { quantity: cell, context: own, inherited, inheritedWindows: new Set<string>(), forwardLooking: false, yearEnd, listAmbiguous: false, levelBeforeComparison: false, column: tableColumn,
