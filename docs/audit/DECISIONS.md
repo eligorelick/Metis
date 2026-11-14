@@ -72,6 +72,20 @@ provider, so the ChatGPT prompt is byte-for-byte unchanged.
   the Claude research request; tool-free Claude passes keep their execution record
   unchanged.
 
+**Local and private addresses (P26).** WebFetch runs on the user's own computer, so a
+web page could try to steer the model toward this machine's services, including Metis's
+own local server. A WebFetch request whose URL is not a public web address stops the CLI
+and rejects the research (`local_web_research_boundary`). Public means http or https,
+no credentials, a dotted DNS name, no IP literal (IPv4 in any form the URL parser
+normalises, or IPv6), and no local or private-use name (`localhost`, `.local`,
+`.internal`, `.lan`, `.home.arpa` and similar). The same rule (`publicWebUrl`) drops such
+links from search-result provenance. This check runs when the CLI announces the call, so
+it is a fast local stop rather than a guarantee that no connection began; in a live probe
+(2026-11-14) the CLI made no request to a local test listener when asked to fetch
+`127.0.0.1` and `localhost`, and its own tool guidance says WebFetch refuses localhost and
+dotless hosts. A public name that resolves to a private address (DNS rebinding) is not
+detected; that residual risk is recorded here.
+
 **Choices considered.**
 
 - *Reject research when a fetch fails.* The ChatGPT route rejects on a failed hosted
@@ -118,8 +132,8 @@ check on the after set reports every figure as expected (265 figures in 13 cases
 
 **Tests.** `tests/ai.claude.test.ts` (research and tool-free arguments; the stream
 observer: counts, provenance only from typed events, the limit before the result, the
-`searchCount` and `webSearchRequests` checks, a failed fetch, prose URLs ignored, and
-fourteen rejection shapes), `tests/ai.claudeLifecycle.test.ts` (the spawned CLI: split
+`searchCount` and `webSearchRequests` checks, a failed fetch, prose URLs ignored,
+fourteen rejection shapes, eleven non-public fetch targets and a public control), `tests/ai.claudeLifecycle.test.ts` (the spawned CLI: split
 chunks, kill at the limit, the deadline, a failing exit), `tests/ai.claudeTransport.test.ts`
 (research wiring, unchanged tool-free record, terminal rejections, refused
 configurations), `tests/stageC.index.test.ts` (research before a tool-free writer; a

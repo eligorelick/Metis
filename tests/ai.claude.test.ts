@@ -1,5 +1,5 @@
 import { describe, expect, it, afterEach, vi } from "vitest";
-import { claudeEnvironment, claudeRunArgs, parseClaudeResult, claudeIdentity, claudeResearchObserver, ClaudeResearchError, CLAUDE_RESEARCH_TOOLS } from "@/ai/claude";
+import { claudeEnvironment, claudeRunArgs, parseClaudeResult, claudeIdentity, claudeResearchObserver, ClaudeResearchError, CLAUDE_RESEARCH_TOOLS, publicWebUrl } from "@/ai/claude";
 afterEach(() => vi.unstubAllEnvs());
 it("keeps OAuth in the official CLI and excludes inherited paid keys and code injection", () => {
   vi.stubEnv("ANTHROPIC_API_KEY", "not-a-real-key"); vi.stubEnv("CLAUDE_CODE_OAUTH_TOKEN", "not-a-real-token");
@@ -96,6 +96,26 @@ describe("Claude research arguments and stream observation (D-269)", () => {
     expect(result.fetchedUrls).not.toContain("https://invented.example/fiction");
     expect(result).toMatchObject({ webSearches: 2, researchText: expect.stringContaining("stated date"), model: "multiple-models",
       observedModels: ["claude-opus-5-5", "claude-haiku-5-5"], input: 914, output: 110 });
+  });
+
+  it.each(["http://127.0.0.1:3000/api/ai/connections", "http://localhost:3000/", "http://[::1]/", "http://169.254.169.254/latest/meta-data",
+    "http://10.0.0.8/admin", "http://0x7f.1/", "http://printer.local/", "http://intranet/", "https://db.internal/x", "file:///C:/Users/secret.txt", "https://user:pw@issuer.example/"])(
+    "stops the CLI the moment it is asked to fetch a non-public address: %s", url => {
+      const observer = claudeResearchObserver(8);
+      observer.line(JSON.stringify(init()));
+      let error: unknown;
+      try { observer.line(JSON.stringify(fetch("toolu_1", url))); } catch (caught) { error = caught; }
+      expect(error).toBeInstanceOf(ClaudeResearchError);
+      expect((error as ClaudeResearchError).providerFailure.code).toBe("local_web_research_boundary");
+      expect((error as Error).message).toContain("local, private or non-web address");
+    });
+
+  it("keeps public addresses, and drops search links to local or private hosts from provenance", () => {
+    expect(publicWebUrl("https://investor.issuer.example/news?id=1#top")).toBe("https://investor.issuer.example/news?id=1");
+    expect(publicWebUrl("http://www.regulator.example.gov/filing")).toBe("http://www.regulator.example.gov/filing");
+    const result = run([init(), search("toolu_1"), searchResult("toolu_1", [{ title: "Local", url: "http://192.168.1.1/" },
+      { title: "Loopback", url: "http://localhost/x" }, { title: "Public", url: "https://news.example.com/story" }]), final("Notes.")]);
+    expect(result.fetchedUrls).toEqual(["https://news.example.com/story"]);
   });
 
   it("counts a failed fetch as an observed action without creating provenance", () => {

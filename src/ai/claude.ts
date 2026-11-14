@@ -104,6 +104,21 @@ export interface ClaudeResearchResult extends ClaudeResult {
   fetchedSources: { url: string; title: string; pageAge: null }[];
   researchText: string;
 }
+/**
+ * A public web address: http(s), no credentials, a dotted DNS name that is not
+ * an IP literal or a local/private-use name. WebFetch runs on the user's own
+ * computer, so a page could steer it toward this machine's services (P26).
+ */
+export function publicWebUrl(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw.length > 8_192) return null;
+  const url = canonicalizeFetchedUrl(raw);
+  if (!url) return null;
+  const parsed = new URL(url);
+  const host = parsed.hostname.toLowerCase().replace(/\.$/, "");
+  if (parsed.username || parsed.password || !host.includes(".") || host.startsWith("[") || /^[\d.]+$/.test(host) || /^0x/i.test(host) ||
+      /(^|\.)(localhost|local|internal|intranet|lan|home|corp|localdomain|home\.arpa)$/.test(host)) return null;
+  return url;
+}
 const UNCOMPLETED = "Claude did not complete the requested web research. No searched evidence was accepted and no paid fallback was attempted.";
 const INVALID_EVENT = "Claude returned invalid web-research event metadata. No paid fallback was attempted.";
 
@@ -130,11 +145,8 @@ export function claudeResearchObserver(maxActions: number) {
     if (count() > maxActions) reject(`Claude web research exceeded the local observed-action limit (${maxActions}). The CLI was stopped; remote work may already have run. No paid fallback was attempted.`, "local_web_action_limit");
   };
   const addSource = (raw: unknown, title: unknown = "") => {
-    if (typeof raw !== "string" || raw.length > 8_192) return;
-    const url = canonicalizeFetchedUrl(raw);
-    if (!url) return;
-    const parsed = new URL(url);
-    if (parsed.username || parsed.password || !sources.has(url) && sources.size >= 200) return;
+    const url = publicWebUrl(raw);
+    if (!url || !sources.has(url) && sources.size >= 200) return;
     const existing = sources.get(url);
     sources.set(url, { url, title: typeof title === "string" && title.trim() ? title.slice(0, 500) : existing?.title ?? "", pageAge: null });
   };
@@ -167,6 +179,8 @@ export function claudeResearchObserver(maxActions: number) {
           if (typeof id !== "string" || !id || id.length > 256 || !input || typeof input !== "object") reject(INVALID_EVENT);
           const args = input as { query?: unknown; url?: unknown };
           if (name === "WebSearch" ? typeof args.query !== "string" : typeof args.url !== "string") reject(INVALID_EVENT);
+          // Stop the CLI the moment it is asked to fetch a non-public address.
+          if (name === "WebFetch" && !publicWebUrl(args.url)) reject("Claude asked to fetch a local, private or non-web address during web research. The CLI was stopped and no research was accepted. No paid fallback was attempted.");
           if (!actions.has(id as string)) actions.set(id as string, { tool: name as ClaudeResearchTool, weight: 1, done: false, ...(name === "WebFetch" ? { url: args.url as string } : {}) });
           enforceLimit();
         }

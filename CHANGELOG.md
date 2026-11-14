@@ -21,7 +21,7 @@ original versions and bytes; source merge does not deploy or publish a release.
 ## Unreleased - Analyst web research on the Claude Code sign-in route (P18, P20, P24, P26, D-269) (2026-11-14)
 
 - The bull and bear analysts on a Claude Code connection now each send one separate research request with only the CLI's own WebSearch and WebFetch tools, up to eight actions, as on the ChatGPT connection. Writers and the judge stay tool-free; every other isolation flag is kept, and Metis still never reads the CLI's sign-in files or uses an API key on this route.
-- Metis reads the CLI's typed stream events: any other tool, MCP server or nested agent stops the request, the first action beyond eight or ten minutes stops the CLI, and only typed search links and successfully fetched URLs become citable sources. Prose URLs never do. No failure switches to a paid route.
+- Metis reads the CLI's typed stream events: any other tool, MCP server, nested agent or fetch of a local, private or IP-literal address stops the request, the first action beyond eight or ten minutes stops the CLI, and only typed search links and successfully fetched URLs become citable sources. Prose URLs never do. No failure switches to a paid route.
 - No calculation, payload or report stamp changes; computed figures still come only from filings and the supplied evidence. Settings, README, privacy, operations, methodology and Claude usage text now say so.
 
 ## Unreleased - Filed cash recovery and named root gaps (D-261)
