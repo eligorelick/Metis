@@ -5991,7 +5991,7 @@
             "period": "ttm: 2025-03-29 to 2026-03-28",
             "provenanceId": "computed.current-capital.standardized-fcf"
           },
-          {"label": "finance lease principal payments", "value": null, "unit": "currency", "currency": "USD", "cashFlowDirection": "outflow", "source": "computed.capital.current.cashBridge.financeLeasePrincipalPayments", "asOf": "2026-03-28", "period": "ttm: 2025-03-29 to 2026-03-28"},
+          {"label": "finance lease principal payments", "value": null, "unit": "currency", "currency": "USD", "source": "computed.capital.current.cashBridge.financeLeasePrincipalPayments", "asOf": "2026-03-28", "period": "ttm: 2025-03-29 to 2026-03-28"},
           {"label": "lease adjusted fcf", "value": null, "unit": "currency", "currency": "USD", "source": "computed.capital.current.cashBridge.leaseAdjustedFcf", "asOf": "2026-03-28", "period": "ttm: 2025-03-29 to 2026-03-28"},
           {"label": "issuer fcf", "value": null, "unit": "currency", "currency": "USD", "source": "computed.capital.current.cashBridge.issuerFcf", "asOf": "2026-03-28", "period": "ttm: 2025-03-29 to 2026-03-28"},
           {"label": "SBC, cash-flow add-back", "value": null, "unit": "currency", "currency": "USD", "source": "computed.capital.current.cashBridge.stockBasedCompensation", "asOf": "2026-03-28", "period": "ttm: 2025-03-29 to 2026-03-28"},

@@ -331,5 +331,39 @@
     "changedPaths": [
       "$.payload.computed[4].figures[9].cashFlowDirection"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-263",
+    "reason": "P19 independent review: finance-lease principal is positive or null by construction, so it cannot declare a negative-for-outflow convention; all figures and prompt bytes stay unchanged.",
+    "scope": [
+      "$.payload.computed"
+    ],
+    "beforeSha256": "a139adcfb7b361ca1b7d34e3f48590e8cbcaefa8938e49fd19f6ebe7786a2e2e",
+    "afterSha256": "d1848e7fd39b37b57ad1e2f70b1804109d0b93110b1c24f8ad0abfff3264c31c",
+    "changedLeaves": 1,
+    "changedPaths": [
+      "$.payload.computed[4].figures[9].cashFlowDirection"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-263",
+    "reason": "P19 independent review requires affirmative construction proof for the actual EBITDA producer; only proof metadata and its projection hash change, never calculation values.",
+    "scope": [
+      "$.projection.stageB.capital.netDebtToEbitda.ebitdaComputed",
+      "$.projection.stageB.capital.current.ebitdaComputed",
+      "$.projectionSha256"
+    ],
+    "beforeSha256": "922d5868a3b1f0b4527fd538c9dd462ccd38928b92d355479752ddafecf04602",
+    "afterSha256": "1cdc597504cfb978d82a0d1207f25db7366e72d50e3714ada6c0536b045a2572",
+    "changedLeaves": 3,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.stageB.capital.netDebtToEbitda.ebitdaComputed",
+      "$.projection.stageB.capital.current.ebitdaComputed"
+    ]
   }
 ]

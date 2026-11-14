@@ -116,13 +116,14 @@ it("D-263 validates declared cash expenditure magnitudes and preserves real conf
 });
 
 it("D-263 binds the subject outside a parenthetical cash-flow definition", () => {
-  const fcf: NumericProvenanceRecord = { ...inc, id: "computed.current-capital.standardized-fcf", origin: "computed.capital.current.cashBridge.standardizedFcf", label: "standardized fcf", value: 19660900000, period: "TTM: 2025-10-01 to 2026-09-30", asOf: "2026-09-30", periodContext: { kind: "duration", start: "2025-10-01", end: "2026-09-30", basis: "rolling-12-month" } };
+  const fcf: NumericProvenanceRecord = { ...inc, id: "computed.current-capital.standardized-fcf", origin: "computed.capital.current.cashBridge.standardizedFcf", label: "standardized fcf", componentDefinitions: ["operating cash flow less capital expenditure", "operating cash flow less cash capital expenditure"], value: 19660900000, period: "TTM: 2025-10-01 to 2026-09-30", asOf: "2026-09-30", periodContext: { kind: "duration", start: "2025-10-01", end: "2026-09-30", basis: "rolling-12-month" } };
   for (const definition of ["operating cash flow less capital expenditure", "operating cash flow less cash capital expenditure"]) {
     const text = `Standardized free cash flow (${definition}) for the twelve months ended 2026-09-30 was USD 19.66 billion.`;
     expect(check(text, fcf)).toBe("validated");
     expect(check(text.replace("19.66", "29.66"), fcf)).toBe("contradicted");
     const cfo = { ...fcf, id: "computed.current-capital.operating-cash-flow", origin: "computed.capital.current.cashBridge.operatingCashFlow", label: "operating cash flow", value: 30644600000 };
     expect(check(text, cfo)).toBe("unchecked");
+    expect(check(text.replace(definition, "cash capital expenditure less operating cash flow"), fcf)).toBe("unchecked");
   }
 });
 
@@ -142,7 +143,7 @@ it("D-263 plain prose compares FCF to FCF and retains real value differences", (
   expect(checkPlainFigures(text, { ...options, registry: ambiguous, index: buildPlainFigureIndex(ambiguous, [], "USD", []) })[0].outcome).not.toBe("contradiction");
 });
 
-it.each(["cash capital expenditure", "share repurchases", "dividends paid", "cash paid for acquisitions", "debt repayment", "income taxes paid", "interest paid"])("D-263 supports declared %s across issuer and period shapes", label => {
+it.each(["cash capital expenditure", "share repurchases"])("D-263 supports declared %s across issuer and period shapes", label => {
   for (const kind of ["provider", "computed"] as const) {
     const record = { ...inc, id: `synthetic.${kind}`, label, value: -1234000000, cashFlowDirection: "outflow" as const, kind };
     expect(check(`${label} as of 2026-01-25 was USD 1.234 billion.`, record)).toBe("validated");
@@ -166,9 +167,9 @@ it.each([
 
 it.each([
   ["industrial 10-K", "cash capital expenditure", "fiscal-year", "2025-01-01", "2025-12-31"],
-  ["bank 10-Q", "dividends paid", "fiscal-quarter", "2026-04-01", "2026-06-30"],
-  ["foreign 20-F", "income taxes paid", "rolling-12-month", "2025-07-01", "2026-06-30"],
-  ["utility YTD", "debt repayment", "year-to-date", "2026-01-01", "2026-06-30"],
+  ["bank 10-Q", "share repurchases", "fiscal-quarter", "2026-04-01", "2026-06-30"],
+  ["foreign 20-F", "cash capital expenditure", "rolling-12-month", "2025-07-01", "2026-06-30"],
+  ["utility YTD", "share repurchases", "year-to-date", "2026-01-01", "2026-06-30"],
 ] as const)("D-263 preserves period evidence for %s cash uses", (_shape, label, basis, start, end) => {
   const record: NumericProvenanceRecord = { ...inc, label, value: -1.234e9, cashFlowDirection: "outflow", asOf: end, period: `${start} to ${end}`, periodContext: { kind: "duration", start, end, basis } };
   expect(check(`${label} from ${start} to ${end} was USD 1.234 billion.`, record)).toBe("validated");
@@ -186,4 +187,29 @@ it("D-263 plain cash-use fallback does not discard an explicit inflow", () => {
   const registry = [record];
   const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
   expect(checkPlainFigures("Dividends paid inflow as of 2026-01-25 was USD 1.234 billion.", options)[0].outcome).not.toBe("confirmed");
+});
+
+it.each(["positive", "proceeds", "refund", "received", "a source of cash", "provided", "added", "reversal"])("D-263 review preserves the opposing cash-use cue %s", cue => {
+  const record: NumericProvenanceRecord = { ...inc, label: "cash capital expenditure", value: -1.234e9, cashFlowDirection: "outflow" };
+  const registry = [record];
+  const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
+  expect(checkPlainFigures(`Cash capital expenditure as of 2026-01-25 was a ${cue} USD 1.234 billion.`, options)[0].outcome).not.toBe("confirmed");
+});
+it.each(["more or less", "well over plan", "plus or minus", "less buybacks"])("D-263 review retains incidental parenthetical %s", aside => {
+  const record: NumericProvenanceRecord = { ...inc, label: "gross margin", value: 12.34, unit: "percent", currency: null };
+  const registry = [record];
+  const options = { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) };
+  expect(checkPlainFigures(`Gross margin (${aside}) as of 2026-01-25 was 22.34%.`, options)[0].outcome).toBe("contradiction");
+});
+it("D-263 review retains qualifiers in record labels", () => {
+  const record: NumericProvenanceRecord = { ...inc, label: "margin (adjusted, less stock compensation)", value: 12.34, unit: "percent", currency: null };
+  expect(check("Margin as of 2026-01-25 was 12.34%.", record)).toBe("unchecked");
+});
+
+it("D-263 review keeps an explicit positive sign as a real outflow conflict", () => {
+  const record: NumericProvenanceRecord = { ...inc, label: "cash capital expenditure", value: -1.234e9, cashFlowDirection: "outflow" };
+  const text = "Cash capital expenditure as of 2026-01-25 was +USD 1.234 billion.";
+  expect(check(text, record)).toBe("contradicted");
+  const registry = [record];
+  expect(checkPlainFigures(text, { registry, excerpts: [], reportingCurrency: "USD", ignoreWords: [], seriesLatest: reportedSeriesLatest(registry), index: buildPlainFigureIndex(registry, [], "USD", []) })[0].outcome).toBe("contradiction");
 });

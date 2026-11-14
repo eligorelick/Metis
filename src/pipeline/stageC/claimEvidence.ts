@@ -266,23 +266,28 @@ function technicalPlainFrame(text: string, q: Quantity, all: Quantity[], own: Co
   return endpoint ? { label: `52w ${endpoint}`, source: r => r.kind === "computed" && r.origin === "computed.technicals.range52w" && r.label === `52w ${endpoint}` && r.unit === "currency-per-share" } : undefined;
 }
 
-/** D-263: separate a metric subject from a component definition. Never discard qualifiers.
- * An unrecognised definition remains unchecked; only its producer can establish the formula.
+/** D-263: only an explicitly declared definition can be removed from prose.
+ * A record label remains intact: its parentheticals may define accounting basis.
  */
-function componentContext(text: string): { text: string; definitions: string[] } {
-  const definitions: string[] = [];
+function declaredDefinitions(record: NumericProvenanceRecord): readonly string[] {
+  return record.componentDefinitions ?? [];
+}
+function componentContext(text: string, definitions: readonly string[]): { text: string; definitions: string[] } {
+  const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, " ");
+  const known = new Set(definitions.map(normalize));
+  const found: string[] = [];
   const masked = text.replace(/\(([^()]*)\)/g, (match, contents: string) => {
-    if (/\d|\b(?:year|quarter|month|yoy|qoq|ttm|ltm)\b/i.test(contents) || !/\b(?:less|minus|plus|divided by|over|earnings before)\b|\s[+\/\u2212-]\s/i.test(contents)) return match;
-    definitions.push(contents.trim().toLowerCase().replace(/\s+/g, " "));
+    if (!known.has(normalize(contents))) return match;
+    found.push(normalize(contents));
     return " ".repeat(match.length);
   });
-  return { text: masked, definitions };
+  return { text: masked, definitions: found };
 }
 
 /** Context checks run before evidence-wide value lookup, including coincidental equal values. */
 export function checkPlainFigures(text: string, options: PlainFigureOptions): PlainFigureResult[] {
   const original = text;
-  const components = componentContext(text);
+  const components = componentContext(text, options.registry.flatMap(record => [...declaredDefinitions(record)]));
   text = components.text;
   const all = quantities(text);
   return all.filter(q => q.unit === "currency" || q.unit === "currency-per-share" || q.unit === "percent" ||
@@ -313,7 +318,7 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
       if (!result || (result.status !== "validated" && !(result.status === "contradicted" && result.reason === "value-mismatch"))) {
         if (components.definitions.length > 0) continue;
         // D-263: reconstructing a label must not discard an opposed cash-use direction.
-        if (declaredOutflow(record) && (/\binflows?\b/i.test(isolated) || findDirectionWords(isolated).length > 0)) continue;
+        if (declaredOutflow(record)) continue;
         if (frame && !frame.source(record)) continue;
         if (!frame && descriptionConflictsWithRecord({ metric: own.own, segment: own.own }, record, options.ignoreWords)) continue;
         const reading = frame ? { label: frame.label } : readings.find(({ tokens }) => tokens.length > 0 && words.some((_, i) => namesMetric(words.slice(i, i + tokens.length), tokens)));
@@ -330,7 +335,7 @@ export function checkPlainFigures(text: string, options: PlainFigureOptions): Pl
         if (frame?.flip) display = -display;
       }
       if (result.status === "validated" || (result.status === "contradicted" && result.reason === "value-mismatch")) {
-        if (declaredOutflow(record) && q.value > 0 && !q.explicitSign) display = Math.abs(display);
+        if (declaredOutflow(record) && q.value > 0 && !q.explicitSign && result.status === "validated") display = Math.abs(display);
         const boundSupported = q.bound === "lower" ? (q.strict ? display > q.value : display >= q.value)
           : q.bound === "upper" ? (q.strict ? display < q.value : display <= q.value) : false;
         if (/\b(?:must|would need|would have to|well beyond|threshold)\b/i.test(own.own)) continue;
@@ -969,8 +974,6 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
   const label = record.label;
   if (!label) return [];
   const forms = new Set<string>([label]);
-  const componentLabel = componentContext(label);
-  if (componentLabel.definitions.length > 0) forms.add(componentLabel.text.trim());
   for (const form of [...forms]) { const bare = withoutAxis(form); if (bare !== null) forms.add(bare); }
   for (const form of [...forms]) { const bare = withoutRestatedAcronyms(form); if (bare !== null) forms.add(bare); }
   if (record.kind === "computed") {
@@ -1778,14 +1781,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   registry?: readonly NumericProvenanceRecord[];
 }): ClaimNumericSupport {
   const record = options.record;
-  const components = componentContext(claim.text);
-  if (record && components.definitions.length > 0) {
-    const definitions = [...(record.componentDefinitions ?? []), ...componentContext(record.label ?? "").definitions, ...(currentCapitalFcfReading(record) === "standardized"
-      ? ["operating cash flow less capital expenditure", "operating cash flow less cash capital expenditure"] : [])];
-    if (!components.definitions.every(definition => definitions.some(known => known.trim().toLowerCase().replace(/\s+/g, " ") === definition)))
-      return support("unchecked", "text-context-mismatch", "the cited record does not establish the parenthetical component definition");
-    claim = { ...claim, text: components.text };
-  }
+  if (record) claim = { ...claim, text: componentContext(claim.text, declaredDefinitions(record)).text };
   if (record === undefined) {
     // Attribution identifies the cited document, not the figure's definition.
     // Keep all negation, basis words, dates and quantities, and require the
@@ -1846,7 +1842,7 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     }
     if (!matchingLabels.some(({ label, words }) => {
       const operands = labelOperands(label);
-      const original = labelOperands(componentContext(record.label ?? "").text);
+      const original = labelOperands(record.label ?? "");
       return (operands === null || operandsInOrder(words, operands, ignore)) && (original === null || operandsInOrder(words, original, ignore));
     })) return support("unchecked", "text-context-mismatch", "the prose reverses the operands of the cited difference or ratio");
     // AI-303-V4: a record citation states one figure, so the whole claim is read.

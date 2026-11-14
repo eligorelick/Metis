@@ -53,6 +53,7 @@ export interface CurrentCapitalSnapshot {
   periodStartIsApproximate?: true;
   industrialMetricsApplicable?: boolean;
   basis: "ttm" | "annual"; asOf: string | null; periodStart: string | null; currency: string | null; fallbackReason: string | null;
+  ebitdaComputed?: true;
   netDebtToEbitda: number | null; netDebt: number | null; ebitda: number | null;
   interestCoverage: number | null; fcfConversionBeforeSbc: number | null; sbcPctOfFcf: number | null;
   ebit?: number | null; interestExpense?: number | null; fcfBeforeSbc?: number | null; netIncome?: number | null;
@@ -182,6 +183,7 @@ export function attachCurrentCapital(annual: CapitalResult, input: {
     ...(exactStart === null ? {periodStartIsApproximate: true as const} : {}), currency: input.currency,
     fallbackReason: usable ? null : "Complete, current, currency-compatible TTM income and cash-flow windows unavailable; using latest annual capital metrics. Cash/debt components with a different year are withheld rather than relabeled.",
     netDebtToEbitda: bridgeBalance ? snapshot.netDebtToEbitda.value : null, netDebt: bridgeBalance ? snapshot.netDebtToEbitda.netDebt : null, ebitda: snapshot.netDebtToEbitda.ebitda,
+    ...(snapshot.netDebtToEbitda.ebitdaComputed ? { ebitdaComputed: true as const } : {}),
     ebit: snapshot.interestCoverage.ebit, interestExpense: snapshot.interestCoverage.interestExpense, fcfBeforeSbc:fcf, netIncome,
     interestCoverage: snapshot.interestCoverage.value,
     fcfConversionBeforeSbc: fcf !== null && netIncome !== null && netIncome > 0 ? fcf/netIncome : null,

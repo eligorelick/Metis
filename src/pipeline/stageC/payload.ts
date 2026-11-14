@@ -671,7 +671,6 @@ function peerScreenSection(peerCoverage: PeerCoverage, collectionNotes: Readonly
 const CURRENT_CAPITAL_DEFINITIONS: Readonly<Record<string, readonly string[]>> = {
   "cashBridge.standardizedFcf": ["operating cash flow less capital expenditure", "operating cash flow less cash capital expenditure"],
   "cashBridge.afterSbcStandardizedFcf": ["operating cash flow less cash capital expenditure less stock-based compensation"],
-  ebitda: ["ebit plus depreciation and amortization", "earnings before interest, taxes, depreciation and amortization"],
   interestCoverage: ["ebit divided by interest expense"],
   netDebtToEbitda: ["net debt divided by ebitda"],
   fcfConversionBeforeSbc: ["standardized free cash flow divided by net income"],
@@ -963,9 +962,9 @@ function computedSections(
           { label: "increase in goodwill and other intangible assets", value: fx.accruals.acquiredGoodwillAndIntangibles ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquiredGoodwillAndIntangibles", asOf: fx.accruals.asOf.current },
           { label: fx.accruals.acquisitionCashPaidUnallocated != null
             ? "cash on the classified vendor acquisitions line (partial; filed payment overlap unresolved)"
-            : "cash paid for acquisitions, net of cash acquired", value: fx.accruals.acquisitionCashPaid ?? null, cashFlowDirection: "outflow" as const, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquisitionCashPaid", asOf: fx.accruals.asOf.current },
+            : "cash paid for acquisitions, net of cash acquired", value: fx.accruals.acquisitionCashPaid ?? null, unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquisitionCashPaid", asOf: fx.accruals.asOf.current },
           ...(fx.accruals.acquisitionCashPaidUnallocated != null
-            ? [{ label: "filed business payment (unallocated; overlap with classified acquisitions unresolved)", value: fx.accruals.acquisitionCashPaidUnallocated, cashFlowDirection: "outflow" as const,
+            ? [{ label: "filed business payment (unallocated; overlap with classified acquisitions unresolved)", value: fx.accruals.acquisitionCashPaidUnallocated,
               unit: "currency", currency: currencies.forensics, source: "computed.forensics.accruals.acquisitionCashPaidUnallocated", asOf: fx.accruals.asOf.current }]
             : []),
           { label: "goodwill and intangibles increase as a share of the net-operating-asset increase", value: fx.accruals.acquiredShareOfNoaIncreasePct ?? null, unit: "%", source: "computed.forensics.accruals.acquiredShareOfNoaIncreasePct", asOf: fx.accruals.asOf.current },
@@ -1021,10 +1020,11 @@ function computedSections(
       const label = (key === "cashBridge.stockBasedCompensation" ? "SBC, cash-flow add-back" : key === "allocatedSbcExpense" ? "SBC, allocated expense" : undefined)
         ?? (key === "debtBridge.totalDebtIncludingLeases" ? currentCapital.debtBridge.providerDebtPerimeterLabel : undefined) ?? (key.startsWith("debtBridge.") ? LEASE_DEBT_LABELS[key.slice("debtBridge.".length)] : undefined) ?? key.replace(/^(?:cash|debt)Bridge\./, "").replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
       figures.push({ label, value, unit, currency: unit === "currency" ? currentCapital.currency : null,
-        ...(key === "netDebt" && cap.netDebtToEbitda.netDebt === cap.netDebtToEbitda.resolution.value && !cap.netDebtToEbitda.resolution.nonOperatingEquitySecurities
+        ...(key === "netDebt" && value !== null && value === currentCapital.debtBridge.netDebtIncludingLeases && !currentCapital.debtBridge.marketableEquitySecurities
           ? { componentDefinitions: ["total debt less cash and short-term investments"] } : {}),
+        ...(key === "ebitda" && currentCapital.ebitdaComputed === true ? { componentDefinitions: ["ebit plus depreciation and amortization", "earnings before interest, taxes, depreciation and amortization"] } : {}),
         ...(CURRENT_CAPITAL_DEFINITIONS[key] ? { componentDefinitions: CURRENT_CAPITAL_DEFINITIONS[key] } : {}),
-        ...((key === "cashBridge.cashCapitalExpenditure" || key === "cashBridge.financeLeasePrincipalPayments") ? { cashFlowDirection: "outflow" as const } : {}),
+        ...(key === "cashBridge.cashCapitalExpenditure" ? { cashFlowDirection: "outflow" as const } : {}),
         source: `computed.capital.current.${key}`, asOf: currentCapital.asOf, period,
         ...(construction ? {
           periodContext: { kind: "duration" as const, start: construction.start, end: construction.end, basis: "rolling-12-month" as const },
@@ -1481,11 +1481,7 @@ const BALANCE_LINE_ITEMS: { key: keyof FmpBalanceSheetRow; label: string; unit: 
 
 // D-263: explicit cash-use field contracts, never guessed from labels or signs.
 // Net financing/investing totals, losses and net cash/debt are deliberately absent.
-const CASH_USE_FIELDS: ReadonlySet<string> = new Set([
-  "capitalExpenditure", "investmentsInPropertyPlantAndEquipment", "commonStockRepurchased",
-  "netDividendsPaid", "commonDividendsPaid", "preferredDividendsPaid", "acquisitionsNet",
-  "debtRepayment", "incomeTaxesPaid", "interestPaid", "financeLeasePrincipalPayments",
-]);
+const CASH_USE_FIELDS: ReadonlySet<string> = new Set(["capitalExpenditure", "commonStockRepurchased"]);
 
 const CASHFLOW_LINE_ITEMS: { key: keyof FmpCashFlowRow; label: string; unit: string }[] = [
   { key: "netIncome", label: "net income (cash-flow)", unit: "currency" },
@@ -2896,7 +2892,7 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
   const cr = disclosures.capitalReturn;
   if (cr !== null) {
     const base = { unit: "currency", currency, source: `edgar:${cr.source.form} ${cr.source.exhibit ?? cr.source.accession}`, asOf: cr.source.filingDate };
-    if (cr.returned !== null) figures.push({ ...base, cashFlowDirection: "outflow", label: `returned to shareholders via repurchases and dividends${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, value: cr.returned });
+    if (cr.returned !== null) figures.push({ ...base, label: `returned to shareholders via repurchases and dividends${cr.returnedPeriod ? `, ${cr.returnedPeriod}` : ""}`, value: cr.returned });
     if (cr.authorizationRemaining !== null) {
       const authoritySource=cr.authorizationRemainingSource ?? cr.source;
       figures.push({ ...base, source:`edgar:${authoritySource.form} ${authoritySource.exhibit ?? authoritySource.accession}`,

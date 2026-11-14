@@ -103,7 +103,8 @@ export function sanitizeLegacyEntityConflicts(
   let invalidCitationCount = 0;
   // D-263: score operands carry typed source coordinates, including array indexes.
   const scoreOperands = new Set<object>(Object.values(cloned.scores?.aspects ?? {})
-    .flatMap(aspect => aspect.signals?.flatMap(signal => signal.operands) ?? []));
+    .flatMap(aspect => aspect.signals?.flatMap(signal => signal.operands) ?? [])
+    .filter(operand => operand.source.includes(".") && /\[\d+\]/.test(operand.source) && /^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*|\[(?:0|[1-9]\d*)\])+$/.test(operand.source)));
   // Counted claim entries withheld below, as recorded before the rewrite.
   const withdrawn: VerificationLogEntry[] = [];
   const walk = (value: unknown): unknown => {

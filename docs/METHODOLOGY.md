@@ -8652,20 +8652,24 @@ company page's free-cash-flow bars read the same admitted rows.
 
 ### Cash outflow amounts and clause subjects (P19, D-263)
 
-A cash-use record may explicitly declare `cashFlowDirection: outflow` at its producer.
-The verifier permits a positive prose magnitude only for a negative currency record
-whose prose names that cash use and states no inflow or opposing
-direction. Other records retain signed matching and the existing display rounding.
-The older statement capex/buyback producer contract remains supported (D-187).
-A parenthetical component definition explains its clause subject; its operand names
-do not select a different metric's record. Definitions must match the producer's
-own label or explicitly declared formula. This applies to free cash flow, net debt,
-EBITDA, margins and coverage ratios. Unknown definitions, differing bases and
-ambiguous records stay unchecked. Period qualifiers and numerical operands are not
-masked. The same checks serve cited claims and uncited reader prose.
-Statement extraction declares cash-use metadata by field identity for capex,
-repurchases, dividend payments, acquisition cash, debt repayments, taxes, interest
-and finance-lease principal. It creates no new source records for undisclosed fields.
-Income-tax expense, losses, net cash and net financing totals are not cash-use records.
-Score operands carry source coordinates, including array indexes, rather than rendered
-citation tokens. The legacy citation parser applies to citations, not those operands.
+A producer may declare cashFlowDirection: outflow only for a stored convention
+that is negative for cash outflow. Statement cash capex and repurchases, and the
+current cash-capex record, establish that convention. Acquisition cash paid is
+positive for payments and negative for net inflows; unallocated payments,
+finance-lease principal and shareholder distributions are positive/null. They
+retain signed matching. Losses, net cash and all undeclared records also retain
+signed matching. Existing display rounding, period, currency and unit checks hold.
+Uncited cash-use clauses never rebuild their labels to remove unestablished words;
+the whole clause must validate directly before an absolute magnitude can confirm.
+
+A prose parenthetical is masked only if it exactly matches an explicitly declared
+producer definition. Incidental asides stay intact, as do all record-label
+qualifiers. FCF, net debt, EBITDA, margin and coverage definitions require their
+own producer's basis. EBITDA declares EBIT plus D&A only with affirmative proof
+from the actual construction; a vendor EBITDA fallback supplies no such proof.
+Net debt declarations use the emitted current snapshot's own debt perimeter.
+
+Only score operands with the writer's dotted coordinate path containing [index]
+bypass rendered-citation parsing. Malformed or ambiguous tokens, empty sources
+and conflicting source/as-of dates remain unsupported and disclosed. Saved bytes
+are never rewritten.
