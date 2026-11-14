@@ -1652,7 +1652,7 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const scaledCountCell = quantity.unit === "count" && column.scale !== null && column.scale !== 1;
         const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true }
           : scaledCountCell ? { ...quantity, unit: null } : quantity;
-        const tableColumn ={ scale: column.scale, aliases, date: column.period.key, exceptPerShare: column.exceptPerShare, label: column.label };
+        const tableColumn = { scale: column.scale, aliases, date: column.period.key, exceptPerShare: column.exceptPerShare, label: column.label };
         // AI-403: a decimal cell of an "except per share data" table is the per-share line, in dollars, and is never scaled.
         const cell = dollarCell.unit === "currency" && isPerShareCell(dollarCell, tableColumn) ? { ...dollarCell, unit: "currency-per-share" as const } : dollarCell;
         return { quantity: cell, context: own, inherited, inheritedWindows: new Set<string>(), forwardLooking: false, yearEnd, listAmbiguous: false, levelBeforeComparison: false, column: tableColumn,
