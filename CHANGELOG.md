@@ -6,8 +6,8 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.78.0** and
-payload **1.96.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
+Current source declares application **0.1.0**, report spec **1.81.0** and
+payload **1.99.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
 ChatGPT/local Claude CLI account connections have their own model selection. These are
@@ -17,6 +17,13 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Share basis of market-value and per-share figures (P3, P20, D-265)
+
+- The equity-bridge note and the valuation note no longer explain a diluted divisor that is BELOW the count the quoted market cap implies as option and RSU dilution. They state the divisor as X% below the quote count, report a filed employee-trust or unreleased ESOP share count on or before the cutoff as a dated fact (tag, value, instant, filing; the newest observation, so a later zero supersedes it) and say the cause is not established by the admitted evidence. Multi-class and ADS shapes defer the whole statement to their existing class and quoted-unit notes; a difference under 0.1% reads as agreement.
+- Each shown multiple on provider market cap (P/FCF, P/B, P/TBV, EV/Sales, EV/EBITDA, P/FFO, P/AFFO), P/E and the peer market cap / common earnings comparison say which share count they sit on and the measured difference, so the P/E and the market cap / earnings multiple are not read as conflicting figures.
+- Disclosure only: market cap, EV, every multiple, WACC weights, values and scores are unchanged in every stored case; the market-value side stays on the quoted count (an open method question). Stored reports keep their bytes; an older report's bridge note is read from its two stored counts.
+- Report 1.81.0, payload 1.99.0 and Stage B `STAGE_B_2026_11_SHARE_BASIS_DISCLOSURE_73`.
 
 ## Unreleased - Filed operating income and complete trailing income flows (2026-11-13)
 

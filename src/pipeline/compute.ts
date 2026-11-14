@@ -151,7 +151,7 @@ import { computeProjections, interestRunRate, type ProjectionIncomeRow } from "@
 import { computeScenarioTargets } from "@/pipeline/stageB/scenarioTargets";
 import { computeFairValue, degradedInputsReason, withDegradedInputs } from "@/pipeline/stageB/fairValue";
 import { leaseDebtConflict, operatingLeaseOutOfDebt, resolveNetDebt, type LeaseDebtInputs, type NetDebtResolution } from "@/pipeline/stageB/netDebt";
-import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, type DivisorResult, type DivisorRow } from "@/pipeline/stageB/dilutedDivisor";
+import { awardDilutedDivisor, convertibleFiledNear, conversionSharesFiled, employeeTrustSharesFiled, type DivisorResult, type DivisorRow } from "@/pipeline/stageB/dilutedDivisor";
 import { temporaryEquityClaims, temporaryEquityOperands, temporaryEquityUnknownAt } from "@/pipeline/stageB/seniorClaims";
 import { predecessorFactsFor, successorObligationsAt } from "@/pipeline/stageB/debtLikeObligations";
 import { deferredIncomeTaxesAt, utilityCreditMetrics } from "@/pipeline/stageB/utilityCredit";
@@ -4071,7 +4071,8 @@ function incomeDivisors(
 /** The valuation input that discloses a non-filed divisor (FIN-404); callers pass only a result whose basis is not "filed". */
 function divisorDisclosure(d: DivisorResult): NonNullable<ValuationBundleInputs["dilutedShareDivisor"]> {
   const note = d.note ?? "";
-  if (d.basis === "loss-period-substituted") return { basis: d.basis, donorDate: d.donorDate ?? "", donorPeriod: d.donorPeriod ?? "quarter", note };
+  if (d.basis === "loss-period-substituted") return { basis: d.basis, donorDate: d.donorDate ?? "", donorPeriod: d.donorPeriod ?? "quarter", note,
+    ...(typeof d.filedShares === "number" ? { filedShares: d.filedShares } : {}) };
   return { basis: d.basis === "loss-period-withheld" ? "loss-period-withheld" : "loss-period-basic", note };
 }
 
@@ -4137,6 +4138,7 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
         ? "quarter"
         : "annual";
   const dilutedShareDivisor = dilutedSharesBasis === "quarter" ? divisors.quarter : dilutedSharesBasis === "annual" ? divisors.annual : null;
+  const employeeTrustShares = employeeTrustSharesFiled(confirmedIssuerFacts(bundle.symbol, bundle.edgar), bundle.builtAt.slice(0, 10));
 
   const netDebtInfo = netDebtFromBalance(balPoint);
 
@@ -5013,6 +5015,8 @@ function computeValuation(bundle: DataBundle, ctx: ValuationCtx): ValuationResul
     ...(economicDiluted ? { dilutedShareEconomicBasis: economicDiluted.shares === null ? economicDiluted.reason : economicDiluted.basis } : {}),
     // FIN-404: how the divisor row's count was formed, so a loss period's substitution is disclosed.
     ...(disclosedDivisor !== null && disclosedDivisor.basis !== "filed" ? { dilutedShareDivisor: divisorDisclosure(disclosedDivisor) } : {}),
+    // D-265 (P3, P2): filed held-share evidence beside a share-basis difference; disclosure only.
+    ...(employeeTrustShares !== null ? { employeeTrustShares } : {}),
     noncontrollingOwnershipUnresolved: noncontrollingOwnershipUnresolvedAt(bridgePoint),
     minorityInterest: bridgePoint ? num(bridgePoint.minorityInterest) : null,
     preferred: bridgePoint ? num(bridgePoint.preferredStock) : null,

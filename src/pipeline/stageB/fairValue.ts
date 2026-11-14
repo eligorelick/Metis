@@ -509,6 +509,8 @@ export interface DcfDisplay {
     valuationDate?: string; rollForwardFactor?: number;
     /** D-65: shares outstanding the quote implies, beside the diluted denominator. */
     sharesOutstandingAtQuote?: number;
+    /** D-265: why a diluted divisor below the quote count differs from it (absent when the divisor is at or above it). */
+    shareBasisNote?: string;
     /** E-5: how the NCI deducted in `minorityInterest` was sized (book, or its share of trailing profit). */
     noncontrollingBasis?: string;
     /** E-5: the filed book NCI, shown beside an earnings-share deduction. */
@@ -594,6 +596,7 @@ export function computeDcfDisplay(valuation: ValuationResult, currency: string |
     ...(dcf.bridge.nonOperatingComponents ? { nonOperatingComponents: dcf.bridge.nonOperatingComponents.map((c) => ({ label: c.label, value: c.value })) } : {}),
     ...(vd !== undefined ? { valuationDate: vd.value, rollForwardFactor: Math.pow(1 + a.wacc.value / 100, vd.elapsedYears) } : {}),
     ...(dcf.bridge.sharesOutstandingAtQuote !== undefined ? { sharesOutstandingAtQuote: dcf.bridge.sharesOutstandingAtQuote } : {}),
+    ...(dcf.bridge.shareBasisNote !== undefined ? { shareBasisNote: dcf.bridge.shareBasisNote } : {}),
     ...(dcf.bridge.noncontrollingDeductionBasis !== undefined ? { noncontrollingBasis: noncontrollingBasisText(dcf.bridge) } : {}),
     ...(dcf.bridge.noncontrollingDeductionBasis === "earnings-share" && isNum(dcf.bridge.minorityInterest) ? { noncontrollingBook: dcf.bridge.minorityInterest } : {}),
     ...(dcf.bridge.temporaryEquity !== undefined ? { temporaryEquity: {

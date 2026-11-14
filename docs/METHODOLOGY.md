@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.78.0 / payload 1.96.0, Stage B `STAGE_B_2026_11_FILED_FLOWS_70` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.81.0 / payload 1.99.0, Stage B `STAGE_B_2026_11_SHARE_BASIS_DISCLOSURE_73` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -2497,7 +2497,24 @@ saved figures and dates are never rewritten.
 diluted count, which carries option and RSU dilution (except a loss period's, below); the bridge table also
 prints the shares outstanding the quote implies (market cap ÷ price) and says
 which one divides. That is the rule for a value per share (the DCF and the
-excess-return model). A flow per share is different: FFO and AFFO per share
+excess-return model). The note states the measured difference between the two
+counts (D-265), always as the divisor X% below or above the quote count: a
+divisor at or above it carries the dilution the quoted count omits; a divisor
+below it is never explained as dilution, which can only raise a diluted count,
+and its cause is "not established by the admitted evidence". A filed
+employee-trust or unreleased ESOP share count
+(`CommonStockSharesHeldInEmployeeTrustShares`,
+`EmployeeStockOwnershipPlanESOPNumberOfSuspenseShares`; the newest instant, in
+shares, filed and dated on or before the cutoff, positive) is reported beside it
+as a dated fact with its filing, without asserting that those shares are in the
+quoted count or outside EPS. A multi-class or ADS shape defers the whole
+statement to its class or quoted-unit note, and a difference under 0.1% reads as
+agreement. Each multiple's
+basis text says which count it sits on: market cap, EV and every market-cap
+multiple use the count the provider's market cap implies, and P/E on diluted EPS
+uses weighted diluted counts. The market-value side stays on the quoted count,
+because own-history percentiles and peer medians use the vendor share basis for
+every date (P13); moving it to the EPS share basis is an open method question. A flow per share is different: FFO and AFFO per share
 divide by the weighted count of the flow's own fiscal year (D-233, "FFO and
 AFFO (NAREIT)").
 
