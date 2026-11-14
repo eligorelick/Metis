@@ -685,6 +685,8 @@ export interface FmpMarketCapRow extends FmpRawRow {
   symbol?: string;
   date?: string;
   marketCap?: number;
+  /** D-267 review: a derived row's share-count observation date (the count the close was multiplied by). */
+  sharesAsOf?: string;
 }
 
 export interface FmpSharesFloatRow extends FmpRawRow {

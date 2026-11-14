@@ -23,12 +23,21 @@ describe("constant-currency foreign valuation consumers", () => {
     expect(c.valuation.multiples.multiples.find(r => r.key === "peTtm")?.current).toBeCloseTo(100 / (1.8 / 32), 8);
     expect(JSON.stringify(b)).toBe(JSON.stringify({ ...original, valuationFx: b.valuationFx }));
   });
-  it("uses the corroborated quote capitalization for Altman when the profile disagrees", () => {
-    const b = foreignBundle();
-    if (!b.profile.ok) throw new Error("fixture");
-    b.profile.value.data.rows[0]!.marketCap = 1;
-    const c = runStageB(b);
-    expect(c.forensics.altman?.components.x4).toBe(20);
+  it("never converts a quote-date capitalization for Altman against an older balance sheet, whichever cap is selected", () => {
+    // D-267: the cap converts at the quote-date rate only; no rate dated at the balance date is admitted, so the
+    // market-equity X4 is refused by the owner's currency rule and its book-equity substitute is used and disclosed.
+    for (const profileCap of [undefined, 1]) {
+      const b = foreignBundle();
+      if (!b.profile.ok) throw new Error("fixture");
+      if (profileCap !== undefined) b.profile.value.data.rows[0]!.marketCap = profileCap;
+      const c = runStageB(b);
+      expect(c.forensics.altman?.variant).toBe("private");
+      expect(c.forensics.altman?.gaps.find(g => g.field === "forensics.altman.currency")?.reason).toMatch(/no exchange rate dated at the balance-sheet date is admitted/);
+      // Z-prime X4 is book equity over liabilities, both from the 2025-12-31 balance (500 / 1,500), and the score is
+      // the same whichever capitalization the profile carries: the converted cap never reaches Altman.
+      expect(c.forensics.altman?.components.x4).toBeCloseTo(500 / 1_500, 12);
+      expect(c.forensics.altman?.score).toBeCloseTo(1.14845, 10);
+    }
   });
   it("runs DCF and reverse DCF in USD per ADS without applying the ratio twice", () => {
     const c = runStageB(foreignBundle());
@@ -46,8 +55,9 @@ describe("constant-currency foreign valuation consumers", () => {
     if (!("multiples" in c.valuation) || !c.valuation.multiples) throw new Error("fixture route");
     const book = c.valuation.multiples.multiples.find(r => r.key === "priceToBook");
     expect(book?.current).toBeCloseTo(10_000 / (520 / 32), 8);
-    expect(c.forensics.altman?.variant).toBe("original");
-    expect(c.forensics.altman?.components.x4).not.toBeNull();
+    // D-267: Altman's market X4 is not converted at the quote-date rate against an older balance (see above).
+    expect(c.forensics.altman?.variant).toBe("private");
+    expect(c.forensics.altman?.components.x4).toBeCloseTo(500 / 1_500, 12);
     expect(c.gaps.some(g => g.field === "valuation.priceComparison.currency")).toBe(false);
     expect(validateBundle(foreignBundle()).gaps.some(g => g.field === "validation.currencyMismatch")).toBe(false);
   });

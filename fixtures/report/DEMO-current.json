@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.79.0",
+    "specVersion": "1.82.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.79.0",
+    "pipelineVersion": "1.82.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
@@ -82,7 +82,7 @@
     "dataCompleteness": {
       "state": "degraded",
       "criticalCount": 0,
-      "warningCount": 4,
+      "warningCount": 5,
       "edgar": "missing",
       "xbrl": "skipped",
       "forensicValidation": "provisional"
@@ -2650,7 +2650,7 @@
     "multiples": [
       {
         "name": "P/E (TTM)",
-        "basis": "price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum.",
+        "basis": "price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 100M); the market-cap multiples sit on the 100M shares the quoted market cap implies, and the diluted count is within 0.1% of that count.",
         "current": 17.77777777777778,
         "peerMedian": null,
         "peerCount": null,
@@ -2660,7 +2660,7 @@
       },
       {
         "name": "EV/EBITDA",
-        "basis": "EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2026-03-31.",
+        "basis": "EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2026-03-31. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 10.620689655172415,
         "peerMedian": null,
         "peerCount": null,
@@ -2670,7 +2670,7 @@
       },
       {
         "name": "EV/Sales",
-        "basis": "EV / revenue (TTM). Enterprise value as stated once in the enterprise-value bridge note.",
+        "basis": "EV / revenue (TTM). Enterprise value as stated once in the enterprise-value bridge note. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 2.566666666666667,
         "peerMedian": null,
         "peerCount": null,
@@ -2680,7 +2680,7 @@
       },
       {
         "name": "P/FCF (before SBC)",
-        "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (TTM; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed",
+        "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (TTM; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 17.77777777777778,
         "peerMedian": null,
         "peerCount": null,
@@ -2690,7 +2690,7 @@
       },
       {
         "name": "P/B",
-        "basis": "marketCap / common equity (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness",
+        "basis": "marketCap / common equity (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 6.153846153846154,
         "peerMedian": null,
         "peerCount": null,
@@ -2700,7 +2700,7 @@
       },
       {
         "name": "P/TBV",
-        "basis": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 40000000 and intangibleAssets 10000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known)",
+        "basis": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 40000000 and intangibleAssets 10000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 6.808510638297872,
         "peerMedian": null,
         "peerCount": null,
@@ -3769,6 +3769,11 @@
     ],
     "missingData": [
       {
+        "field": "forensics.altman.marketCapDate",
+        "reason": "no market value of equity observed on or before the balance-sheet date 2025-12-31 within 45 days (no dated market-cap history); the current market cap is not set against an older balance sheet, so original-variant X4 and Z are withheld (D-267)",
+        "severity": "warn"
+      },
+      {
         "field": "forensics.altman.retainedEarnings",
         "reason": "retainedEarnings missing — X2 not computable; Z-score suppressed rather than assuming zero retained earnings",
         "severity": "warn"
@@ -3819,58 +3824,8 @@
         "severity": "info"
       },
       {
-        "field": "returns.roic.2022-12-31",
-        "reason": "2022-12-31: ROIC withheld because no balance sheet within 45d of 2022-12-31",
-        "severity": "info"
-      },
-      {
-        "field": "returns.roic.2023-12-31",
-        "reason": "2023-12-31: ROIC withheld because no balance sheet within 45d of 2023-12-31",
-        "severity": "info"
-      },
-      {
         "field": "returns.wacc.erp",
         "reason": "equity risk premium missing — dated Damodaran 4.18% fallback used for the cost of equity",
-        "severity": "info"
-      },
-      {
-        "field": "scores.balanceSheet.fcfConversionBeforeSbc",
-        "reason": "fcfConversionBeforeSbc withheld: consolidated net income (including noncontrolling interests' share) (computed.capital.current.netIncome) is missing or refused; FCF / consolidated net income (computed.capital.current.fcfConversionBeforeSbc) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.balanceSheet.interestCoverage",
-        "reason": "interestCoverage withheld: interestExpense = 0 treated as undisclosed (FMP zero-for-undisclosed) — coverage n/m. EBIT / interest expense (computed.capital.current.interestCoverage) is missing or refused; interest expense (computed.capital.current.interestExpense) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.balanceSheet.sbcPctOfFcf",
-        "reason": "sbcPctOfFcf withheld: SBC (computed.capital.current.cashBridge.stockBasedCompensation) is missing or refused; SBC / FCF before SBC, percent (computed.capital.current.sbcPctOfFcf) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.leadership.buybackTiming",
-        "reason": "buybackTiming withheld: share of repurchase dollars covered, percent (computed.capital.buybackPriceAnalysis.timingCoveragePct) is missing or refused. This same-year execution-price comparison does not assess contemporaneous intrinsic-value discipline.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.quality.altmanZOriginalScale",
-        "reason": "altmanZOriginalScale withheld: totalCurrentAssets/totalCurrentLiabilities missing (unclassified balance sheet) — Z-score unavailable; retainedEarnings missing — X2 not computable; Z-score suppressed rather than assuming zero retained earnings. Altman Z-score (computed.forensics.altman.score) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.technicals.pctFromHigh52w",
-        "reason": "pctFromHigh52w withheld: issuer observations inside the trailing year start 2025-09-08, after the 2025-07-02 boundary plus 7-day allowance. 52-week high (computed.technicals.range52w.high52w) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.technicals.relStrength12m1m",
-        "reason": "relStrength12m1m withheld: no sector ETF resolved for this symbol; no valid SPY closes supplied for relative-strength alignment. issuer return (computed.technicals.relativeStrength.benchmark.momentum12m1m.symbolReturnPct) is missing or refused; benchmark return (computed.technicals.relativeStrength.benchmark.momentum12m1m.benchmarkReturnPct) is missing or refused.",
-        "severity": "info"
-      },
-      {
-        "field": "scores.valuation.peOwnHistoryRank",
-        "reason": "peOwnHistoryRank withheld: no admitted current multiple and compatible historical multiple sample establish a percentile rank. Own-history rank unavailable.",
         "severity": "info"
       },
       {

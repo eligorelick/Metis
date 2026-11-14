@@ -17,7 +17,7 @@ Final parity audit: unrepaired rows use pinned main's complete invested-capital 
 
 Confirmation follow-up: buildDcfAssumptions uses main's combined-field cash rule and resolveNetDebt ignores new refusal-metadata checks on unrepaired rows; only cashConflictReconciled rows take the new checks, with all four main-parity reproductions and repaired-row controls pinned by regression tests.
 
-P8, P10, P11, P12 and P13. This supersedes the broader investment-withdrawal policy. Main is pinned to e2b32711, including D-260 and D-262; report 1.79.0, payload 1.97.0 and Stage B FILED_BALANCES_GAPS_71 stay after those main changes in merge order.
+P8, P10, P11, P12 and P13. This supersedes the broader investment-withdrawal policy. Final integration merges da0300d7; report 1.83.0, payload 1.101.0 and Stage B FILED_BALANCES_GAPS_75 follow main in merge order. The final same-report check uses that merged main as its pinned baseline.
 
 ### Rule and implementation
 
@@ -78,6 +78,270 @@ All warning counts equal main. Added score-root disclosures are informational. R
 Failing-first regressions cover both undimensioned and primary-table investment observations on already admitted cash, main's restricted-inclusive component path, unchanged averages and unchanged single-period capital when an old opening lease is unusable. The earlier lease-heavy, independent-refusal, newly repaired mixed-basis, strict-assertion and unused-date controls remain. Focused tests, refusal ratchet, report stamps, both currency tests, typecheck and lint pass; lint retains one existing unused-variable warning. Frozen records were refreshed under D-261 after the normal D-262 merge, with prior branch histories retained beside the active main hash chain.
 
 The same-report harness rebuilds committed code with retained immutable inputs, offline and in scratch storage. All financial deltas and disclosure groups above are intentional; no expectation is changed to conceal a figure difference. No full local suite, paid/model call, live-network test, real application database write, PR merge or review-thread reply.
+
+## D-267 - One date for Altman's market value of equity and its balance sheet (2026-11-14)
+
+Principles: P1 (exact period), P13 (one basis per ratio), P2 (point in time), P10
+(withhold, never guess), P17 (unscored signals), P21/P27 (stamps). Owner's rule
+for this package: every input to one calculation comes from the same date or
+period. Owner: `computeAltman` in `src/pipeline/stageB/forensics.ts`, fed by
+`src/pipeline/compute.ts`; the pairing rule is `latestOnOrBeforeWithin` with
+`STATEMENT_DATE_MARKET_VALUE_MAX_AGE_DAYS` in `src/pipeline/stageB/asOfSelection.ts`.
+
+**Defect.** The original Altman X4 is market value of equity over total
+liabilities. The four other ratios read the fiscal-year balance sheet and income
+statement, but X4 took the provider's current market capitalization, observed
+months later (on LLY report #63, the 2026-11-13 quote against the 2025-12-31
+balance sheet). The score-evidence row disclosed "market-cap observation date
+unavailable" and the score was graded anyway. A ratio whose two operands are from
+different dates is not a proven number (P13).
+
+**Rule.** X4 reads the market value of equity observed at the balance-sheet date,
+paired by the rule the own-history multiples already use for a quarter's market
+value: the latest observation on or before that date and at most 45 calendar days
+older (future rows are ineligible). The 45-day number was a local constant in the
+multiples code; it now lives once in `asOfSelection.ts` and both readers import it.
+No new window or tolerance is added. Candidates are the bundle's dated market-cap
+history (the provider series, or the public derivation that multiplies each close
+by the share count in force that day) and the current cap when it carries its own
+date. Nothing after the analysis cutoff is eligible. The chosen date and its
+source are recorded in `asOf.marketCap` and `asOf.marketCapSource`, and the score
+evidence row reads "Balance d; income d; market cap d (source)".
+
+- No qualifying observation: X4 and the original Z are withheld with
+  `forensics.altman.marketCapDate` (warn), which names the balance date and the
+  current cap's own date. The signal is unscored and the existing unscored-aspect
+  rules apply (neutral midpoint, composite note); no penalty, cap or variant
+  switch is added.
+- Current cap rebuilt on the issuer's economic class basis (multi-class or
+  weighted classes): the provider series is not on that basis, so the history is
+  not admitted (the own-history multiples refuse it the same way). The current
+  cap, dated at its price session, can still qualify if it falls in the window.
+- Foreign filer whose cap is converted to the statement currency at the
+  quote-date rate: no exchange rate dated at the balance date is admitted, so the
+  owner's existing currency refusal of market-equity X4 applies
+  (`forensics.altman.currency`) and its disclosed Z-prime substitute (book
+  equity, FIN-307) is used, as for an ADR whose cap cannot be converted.
+- Book-equity variants (Z-prime, Z-double-prime) are untouched.
+
+**Review fixes (independent review of PR #193).** (1) A foreign filer's cap,
+converted at one dated rate, is the quote's observation at the rate's own date.
+It is admitted when the quote date and the rate's observation date both pass the
+same pairing rule against the balance date (on or before it, at most 45 days
+earlier). Only when they do not does the currency refusal above apply. A filer
+whose quote, quoted-share count and rate are all dated at the balance now keeps
+the original variant on the converted cap. The stored foreign case holds only a
+later-dated rate and keeps the refusal. (2) The public derivation of the
+market-cap history prices a day older than the first filed share count on that
+earliest count (`sharePointOnOrBefore`'s fallback, unchanged for its existing
+consumers). Altman admits a derived reading only when the share count it
+multiplied was observed on or before the reading's day; otherwise the reading
+does not qualify and the rule moves to the next one or to the named gap. Derived
+rows now carry that count's date (`sharesAsOf`, values unchanged). A stored row
+written before this resolves it from the same filed share series by the same
+selection. (3) The foreign-valuation note in the forensic evidence no longer says
+unconditionally that Altman converts the market capitalization. It states what
+was done: converted at a rate dated with the balance, or not used (with the
+reason) and the book-equity variant used instead. On the stored set this changes
+only tsm's note text.
+
+Options considered: (a) keep the current cap with a note (rejected: the result is
+not proven); (b) a new tolerance for the date gap (rejected: rule 1); (c) reuse the
+existing statement-date market-value pairing (chosen).
+
+**Sibling signals checked.** Other uses of a market value against a dated
+statement figure in forensics, grading and score evidence: Beneish, Piotroski and
+the accrual ratio use no market value. The valuation multiples (P/E, P/B, EV
+multiples) intentionally set the current price against the latest trailing or
+balance figures; that is their definition, not a mixed-date ratio, and is left
+as is. The own-history multiples already pair by date (the rule reused here). The
+WACC market-value weights use the current cap with the latest debt, a separate
+owner (`returns.ts`) and a different convention; not changed here and listed
+for the lead.
+
+**DCF balance date (brief part 1) is not changed by this entry.** Two versions of
+the rule were built and tested; neither ships. The first withheld the model value
+whenever the balance that supplies invested capital and the equity bridge is not
+dated at the statement date, on both routes. It broke 166 tests in 53 files,
+because the shared offline test bundle (`tests/helpers/currencyBundle.ts`) is
+itself a trailing-window model on an earlier fiscal-year balance (its quarterly
+balance rows carry no currency label). The second applied the rule to the
+fiscal-year fallback route only. It still broke 6 tests in 4 files: four tests
+that pin the D-65 behaviour being revised
+(`tests/stageB.bridgeBalance.audit20261027.test.ts`, three tests;
+`tests/stageB.branchFix1.audit20261027.test.ts`, one), and two whose own inline
+fixtures happen to take that shape (`tests/stageB.periodLength.test.ts`, the
+53-week annual fallback built on the shared bundle with its annual rows re-dated
+to 2026-01-31 while the balance stays 2025-12-31;
+`tests/stageB.seasonalGuidance.test.ts`, an annual base dated 2025-12-31 on the
+scenario's 2026-09-30 balance). Re-pinning those is left to the lead's decision.
+So today the fiscal-year fallback still publishes a value on a different-dated
+balance with its D-65 note. The trailing-window route can also take an earlier
+balance through `dcfBridgeRow`'s anchor fallback, with its existing note. No
+stored case has either shape today (none of the 17 regression cases carries
+`valuation.dcf.bridgeBalanceDate`, and neither LLY case does on this main after
+D-260). D-65 is not revised. Both routes are left for separate work.
+
+**Stamps.** Report spec 1.82.0, payload 1.100.0, Stage B
+`STAGE_B_2026_11_BALANCE_DATE_MARKET_EQUITY_74`: Stage B results change on
+identical retained inputs.
+
+**Approved report changes** (same-report check, main e2b32711, after D-262, to this
+branch; all 17 stored cases plus the two LLY cases). The balance-sheet and income figures each
+score uses are unchanged (total assets, current assets and liabilities, retained
+earnings, total liabilities, operating income and revenue from the annual
+statements at the balance date shown). Only the market value of equity moved to
+its balance-date observation. Market capitalization is market data, not a filed
+figure; it is described by date and source.
+
+| Case | Balance date (filing) | Market value observation | Altman before | Altman after | Quality before / after | Composite before / after |
+| --- | --- | --- | --- | --- | --- | --- |
+| mu (data-only, fixed-analyst) | 2026-09-03 (10-K) | 2026-09-03, public derivation: daily close times the dei share count in force | original 14.04 | original 14.97 | 83.11 / 83.11 | 77.91 / 77.91 |
+| nvda (data-only, fixed-analyst) | 2026-01-25 (10-K) | 2026-01-23 (last session before the Sunday year end), provider market-cap history | original 16.84 | original 16.84 (X4 at the house cap both times) | 60.03 / 60.03 | 75.97 / 75.97 |
+| qcom (data-only) | 2025-09-28 (10-K) | 2025-09-26 (last session before the Sunday year end), provider market-cap history | original 6.38 | original 6.58 | 64.56 / 64.56 | 56.96 / 56.96 |
+| vktx (data-only) | 2025-12-31 (10-K) | 2025-12-31, provider market-cap history | original 9.76 | original 9.76 (X4 at the house cap both times) | 75.59 / 75.59 | 43.95 / 43.95 |
+| lly (data-only, fixed-analyst) | 2025-12-31 (10-K) | 2025-12-31, provider market-cap history | original 11.45 | original 8.68 | 68.43 / 68.43 | 62.90 / 62.90 |
+| tsm (data-only) | 2025-12-31 (20-F) | none admitted: the cap converts only at the 2026-11-12 quote-date rate | original 14.57 | Z-prime (book equity) 2.92, currency refusal disclosed | 83.21 / 80.01 | 72.35 / 71.87 |
+
+Quality and composite scores stay the same where the score moved within the top
+grading band. The other 9 stored cases have no original-variant Altman and do not
+change. In the fixed-analyst replays (mu, lly) the recorded analyst text still
+quotes the old score, so verification now marks those sentences contradicted
+(P19 fails closed); a new run gives the analyst the new figure. Every other
+changed leaf is the version stamps, the evidence-row wording and the payload
+fingerprint. Accuracy check on the rebuilt set: every figure as expected.
+
+**Tests.** `tests/stageB.dateBasis.d267.test.ts` (US filer on a dated
+observation, a 52/53-week filer whose year end is a weekend, a control dated at
+the balance date, no observation in the window, an observation after the cutoff,
+book-equity variants untouched, a foreign filer on the quote-date rate). Fixtures
+in neighbouring tests about currency, ADR scope and eligibility now supply the cap
+observed at the balance date; tests that pinned the old mixed-date output assert
+the new refusal instead, each with an exact expected value (no assertion removed
+or loosened).
+
+## D-265 - The share basis of market-value and per-share figures is stated; a divisor below the quote count is not dilution (2026-11-14)
+
+Principles P3 (unit, scale and share basis) and P20 (provenance and disclosure); P2 for the cutoff on the new
+filed fact; P13 for why the market-value side is not moved. Disclosure only.
+
+**Defect.** The LLY #63 report printed "P/E (TTM)" (price over the sum of four quarterly diluted EPS) and
+"Market cap / TTM common earnings" about 5% apart with no explanation, and the equity-bridge note and the D-60
+valuation note both said the gap between the weighted diluted divisor and the count the quoted market cap implies
+was option and RSU dilution. For LLY the diluted divisor is the smaller count (5.03% below), so dilution cannot be
+the reason: a diluted count can only rise above the basic count. The quoted count is the cover-page
+`dei:EntityCommonStockSharesOutstanding` (2026-10-26); the divisor is the latest quarter's weighted diluted count.
+The filings give the reason: `us-gaap:CommonStockSharesHeldInEmployeeTrustShares` is 50,000,000 at 2025-12-31
+(10-K 0000059478-26-000013, filed 2026-02-12), and the equity note says stock held by that employee benefit trust
+is not considered outstanding in the computation of EPS. That relationship is read by a person from the filing's
+text; the pipeline reads only the tagged count, so the report states the count as a dated fact and does not assert
+it (see the review round below).
+
+**Class of defect.** Any wording that explained a difference between two share counts by a cause the direction of
+the difference rules out, on every surface that sets the two counts side by side: the bridge-table note
+(`src/report/auditTables.ts`), the D-60 valuation note (`src/pipeline/stageB/valuation.ts`), and the basis text of
+every multiple on provider market cap (P/FCF, P/B, P/TBV, EV/Sales, EV/EBITDA, P/FFO, P/AFFO, P/E on market cap /
+common income), P/E on price / diluted EPS, and the peer "Market cap / TTM common earnings" comparison.
+
+**Fix, at the P3 owner (`src/pipeline/stageB/dilutedDivisor.ts`).**
+
+- `employeeTrustSharesFiled` reads a filed held-share count through the SEC-facts path: `us-gaap`
+  `CommonStockSharesHeldInEmployeeTrustShares`, else `EmployeeStockOwnershipPlanESOPNumberOfSuspenseShares`
+  (an ESOP's unreleased shares, the same class of filed evidence); unit `shares` only; an instant (no duration
+  fact); a core form; instant AND filing date on or before the analysis cutoff (P2: a fact filed or dated after the
+  cutoff is never used). The newest compatible observation is selected first (the newest instant, then the newest
+  filing), and only then tested for a positive count: a later zero supersedes an earlier positive and leaves no
+  held count to report. Facts are read only for a confirmed issuer (`confirmedIssuerFacts`).
+- `compareShareBasis` computes once: divisor, quote count (market cap ÷ price), the measured difference
+  ((divisor ÷ quote − 1) × 100), the direction and the cause. At or above: "dilution or share changes", and the
+  present sentences stand unchanged. Below: "not-established", with the admitted held-share fact attached as a
+  dated observation when one is filed (the tag proves a held count at an instant, not a cause). A multi-class issuer
+  (`commonClassScope.ts` / `resolveEconomicEquityScope`) or an ADS quote (`shareUnits.ts` and the ADR security
+  basis) is "scope-owner" in either direction: the whole share-basis statement defers to that owner. The bridge note
+  then says only that the counts are on the scopes the share-class note (or the ADS note) states, with no counts,
+  and no multiple gains a basis sentence, so nothing competes with or repeats the owner. The held-share fact is in
+  ordinary shares and is never set against an ADS-unit divisor.
+- `shareBasisRelation` states the difference once, with one denominator: the divisor is X% below (or above, or
+  within 0.1% of) the quote count. The bridge note, the D-60 valuation note (whose earlier "N shares outstanding,
+  X% more/fewer" wording measured against the quote count while naming the other one) and every basis sentence use
+  it.
+- `shareBasisNote` (bridge and D-60 note, divisor below only) states the measured difference, says option and RSU
+  dilution can only raise a diluted count and so does not explain it, then says "The filer reports {count} shares
+  held in an employee trust (us-gaap:{tag}) at {instant} ({form} {accession}, filed {date}), a dated observation
+  before the quote ({date})" (the dated clause only when the instant is older than the quote) and that "the cause of
+  the difference is not established by the admitted evidence"; with no admitted fact it says none is admitted and
+  the cause is not established. It never says the held shares are inside the quoted count or outside EPS, and never
+  sizes or subtracts anything (P10, P18).
+- `shareBasisSentence` adds one "Share basis:" sentence to the basis text of each shown multiple: which count it
+  sits on (market cap: the count the provider's market cap implies; P/E: weighted diluted counts), the one relation,
+  and below the quote count the same neutral wording with the full filing provenance (P20).
+- A difference under 0.1% reads "agree within 0.1%" and attributes nothing. This is the D-60 note's existing
+  display threshold, moved into the owner as `SHARE_BASIS_DISPLAY_MIN_PCT` so the three surfaces read one value; it
+  decides wording only. No new tolerance, day band or status word.
+- FIN-404's statement of what a loss-period divisor carries is kept beside the new sentence.
+- Read time (P21): a stored report without the new `shareBasisNote` field is read from its two stored counts; a
+  divisor below the stored quote count no longer prints the dilution sentence and says the stored report does not
+  record the cause. Stored bytes are unchanged.
+
+**Not changed (method question left open).** Market capitalisation, enterprise value, every multiple, the WACC
+equity weight and every score stay on the quoted (vendor) share count. Own-history percentiles and peer medians use
+the vendor share basis for every date; moving only the current figure to the EPS share basis would break their
+comparability (P13). For LLY's shape the divisor is 5.03% below the quote count, so a market-cap multiple
+recomputed on the divisor would be 5.03% lower. Moving the market-value side to the
+EPS basis is an open method question: it would need dated held-share evidence for every history date and every
+peer, and an owner decision.
+
+**Tests** (`tests/stageB.shareBasisDisclosure.test.ts`, synthetic): the fact reader (newest admissible instant;
+filed after the cutoff and dated after the cutoff both refused, an older admissible fact still read; other unit,
+non-core form, zero, duration fact, no facts, invalid cutoff refused; the ESOP tag); the four shapes (divisor above
+with ordinary dilution; below with a filed trust fact; below with none; class and quoted-unit shapes deferring);
+the sub-0.1% agreement wording; runStageB through the bridge table, the D-60 note and the multiples basis, including
+the post-cutoff fact; a disclosure-only control (with and without the trust fact every value, multiple, EV and score
+is identical); the read-time view of a stored bridge without the field. Failing on main first (13 of 14).
+
+**Same-report check (all 17 stored cases and the two LLY cases; committed head against main e2b32711).** No numeric leaf of any `stageB.json` changed;
+the only new numeric leaves are the disclosure fields `valuation.dcf.bridge.shareBasis.*` (divisor, quote count,
+difference, and for LLY the filed held-share fact). Text changes: the multiples' basis strings, the peer
+comparison basis, the D-60 note and the bridge note. Cases whose diluted divisor is below the quote count:
+
+- `lly-data-only`, `lly-fixed-analyst` (DCF bridge, 5.03% below): the bridge and D-60 notes report
+  `us-gaap:CommonStockSharesHeldInEmployeeTrustShares` 50M shares at 2025-12-31 (10-K 0000059478-26-000013, filed
+  2026-02-12) as a dated observation before the 2026-11-13 quote and say the cause of the difference is not
+  established by the admitted evidence; nothing says dilution explains the lower count, and nothing says the trust
+  shares are in the quoted count or outside EPS. The multiples' basis text carries the same fact and provenance.
+- `o-data-only` (REIT, no DCF bridge, 0.51% below): the multiples' basis text says the difference is not dilution
+  and its cause is not established (no held-share fact is filed on or before the cutoff).
+- `tsm-data-only` (ADS quote, under 0.1% below): the shape defers to the ADS owner, so the bridge note says only
+  that the counts are put on the quoted basis by the ADS (quoted-unit) note, and no multiple gains a basis
+  sentence; the D-60 valuation note stays absent (under its threshold, as before).
+
+Every other case's divisor is at or above the quote count (ordinary dilution); their bridge note is unchanged and
+their basis text gains only the measured "Share basis" sentence. FIGR, META, RIVN and VKTX show no multiple or
+bridge that sets the two counts side by side and are byte-identical in `stageB.json`.
+
+**Review round (independent review of PR #192, four disclosure defects; fixed with failing tests first).**
+(1) The held count was described as shares inside the quoted count and outside EPS and as evidence that explains the
+difference; the tag proves only a held count at a date, so the wording is now neutral and the cause is "not
+established by the admitted evidence", with the filing provenance in both the bridge note and the basis text.
+(2) The positive filter ran before selection, so a superseded positive survived a newer zero; selection now comes
+first. (3) A multi-class or ADS shape still received a basis sentence on the quoted count with a disclaimer; the
+whole statement now defers to the owner. (4) "105M ... 4.76% more" used the quote count as the denominator while
+naming it as the larger count; every surface now states the divisor X% below or above the quote count. No figure
+changed in this round either. A later review thread: when the latest quarter is a loss and FIN-404 restores a
+profitable period's award dilution, the valuation divisor is not the count EPS divides by. The comparison now carries
+the latest filed weighted-average diluted count beside a restored divisor (`restored.filedShares`); the P/E sentence
+names that filed count ("latest filed"), and the bridge note and the per-share sentences name the restored valuation
+divisor as restored, not filed. Each count is labelled as what it is; nothing is recomputed.
+
+**Approved report changes.** Basis text of the shown multiples and the peer comparison in every case with a quote
+and a diluted count, except the ADS case (AMZN, DUK, JPM, LLY, MU, NVDA, O, PGR, QCOM); the D-60 note (relation wording) in every
+case that prints it and the bridge note for LLY and TSM; the new `valuation.dcf.bridge.shareBasis` disclosure object in every DCF case; the payload's multiples notes.
+No figure, grade, band or headline changes.
+
+**Stamps.** Report spec 1.81.0, payload 1.99.0, Stage B `STAGE_B_2026_11_SHARE_BASIS_DISCLOSURE_73`: Stage B
+writes different text and a new disclosure object on identical retained inputs (a cache and replay key), new
+reports carry corrected reader wording, and the payload's multiples notes change. Frozen records re-recorded under
+D-265 with `npm run freeze:refresh`.
 
 ## D-260 - Complete filed operating costs and exact additive income windows (2026-11-13)
 

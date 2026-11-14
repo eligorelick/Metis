@@ -242,8 +242,10 @@ export function describeScoreEvidence(i: ScoringInputs, aspect: ScoreAspect, id:
       dates(null, altman?.asOf.balanceSheet ?? altman?.asOf.incomeStatement);
       operand("original variant Z score before grade-scale mapping", altman?.score, "computed.forensics.altman.score");
       const capDate = day(altman?.asOf.marketCap);
+      // D-267: the market value of equity is observed at the balance date; the row names that date and its source.
+      const capSource = altman?.asOf.marketCapSource ?? null;
       const capContext = altman?.variant === "original" && capDate === null
-        ? "market-cap observation date unavailable" : `market cap ${capDate ?? "unavailable"}`;
+        ? "market-cap observation date unavailable" : `market cap ${capDate ?? "unavailable"}${capDate !== null && capSource ? ` (${capSource})` : ""}`;
       result.period = `Balance ${day(altman?.asOf.balanceSheet) ?? "unavailable"}; income ${day(altman?.asOf.incomeStatement) ?? "unavailable"}; ${capContext}`;
     } else {
       const metric = id === "beneishM" || id === "beneishMSgiNeutral" ? i.forensics.beneish : id === "piotroskiF" ? i.forensics.piotroski : id === "accrualsRatioAbs" ? i.forensics.accruals : null;

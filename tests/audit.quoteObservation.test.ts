@@ -58,6 +58,11 @@ it.each(["resolved", "vendor-undated", "vendor-profile-dated", "vendor-quote-dat
     ]}];
   }
   const result=runStageB(bundle);
-  expect(result.forensics.altman?.asOf.marketCap).toBe(mode==="vendor-undated" || mode==="vendor-both-undated" ? null : mode==="vendor-profile-dated" || mode==="wacc-profile-dated" ? "2026-06-29" : "2026-06-30");
+  // D-267: the current cap is observed after the 2025-12-31 balance date, so it is not set against that balance
+  // (asOf.marketCap names only an observation at the balance date); the withheld gap keeps the cap's actual date.
+  const capDate = mode==="vendor-undated" || mode==="vendor-both-undated" ? null : mode==="vendor-profile-dated" || mode==="wacc-profile-dated" ? "2026-06-29" : "2026-06-30";
+  expect(result.forensics.altman?.asOf.marketCap).toBeNull();
+  const dateGap = result.forensics.altman?.gaps.find(g => g.field === "forensics.altman.marketCapDate")?.reason ?? "";
+  expect(dateGap).toContain(capDate === null ? "the current market cap is not set against" : `the current market cap (${capDate}) is not set against`);
   expect(result.returns.wacc.asOf?.marketCap ?? null).toBe(mode==="vendor-both-undated" ? null : mode==="wacc-profile-dated" ? "2026-06-29" : "2026-06-30");
 });
