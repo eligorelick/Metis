@@ -1131,7 +1131,7 @@ describe("payload determinism + provenance", () => {
       "fairValue (frozen record)",
       "suppressed 4f53cda18c2baa0c",
       "notes 2e5b1aca5def94d8",
-      "gaps fc87bde1040606cb", // D-261: named gaps for missing score operands; financial subtrees unchanged.
+      "gaps a35ea1ec529c528f", // D-261: named gaps for missing score operands; financial subtrees unchanged.
     ];
     expect(digests(buildInputs())).toEqual(expected);
     expect(digests(buildFreshInputs())).toEqual(expected);
