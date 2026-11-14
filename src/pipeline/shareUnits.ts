@@ -1,9 +1,11 @@
+import { establishedIsoCode } from "@/pipeline/estimateCurrency";
+import { sameShareBasis } from "@/edgar/splits";
 import type { DataBundle } from "./types";
 import { confirmedIssuerFacts } from "@/edgar/issuerFacts";
 import { filerShareUnitRepair } from "@/edgar/shareUnitRepair";
 import { quotePriceObservationDay } from "./stageB/priceCurrency";
 import { guardVendorShareFields, vendorShareUnitShownAcross, type PrimaryShareReconciliation } from "./keyless";
-import { resolveForeignShareRatio } from "./foreignCurrency";
+import { resolveForeignShareRatio, resolveForeignValuation } from "./foreignCurrency";
 
 /** Same-period filed admission for fresh inputs and immutable frozen replay. */
 function withFiledShareValues(bundle: DataBundle): DataBundle {
@@ -82,4 +84,35 @@ export function withFilerShareUnits(bundle: DataBundle): DataBundle {
     return { ...input, value: { ...input.value, data: { ...input.value.data, rows } } };
   };
   return { ...bundle, statements: { ...bundle.statements, incomeAnnual: family("incomeAnnual"), incomeQuarterly: family("incomeQuarterly") }, gaps };
+}
+
+/** D-272: presentation-only indicated annual rate; never a trailing yield or score input. */
+export function indicatedDividendYield(bundle: DataBundle, declaration: { amount: number | null; currency: string | null; frequency: string | null | undefined; declarationAsOf: string | null; source: string; shareUnit: "ordinary" | "ADS" | null }) {
+  const quote=bundle.quote?.ok ? bundle.quote.value.data.rows[0] : undefined;
+  const profile=bundle.profile?.ok ? bundle.profile.value.data.rows[0] : undefined;
+  const quoteDate=quotePriceObservationDay(quote);
+  const quoteCurrency=establishedIsoCode(profile?.currency);
+  const payments=({quarterly:4,monthly:12,"semi-annual":2,annual:1} as Record<string,number>)[declaration.frequency ?? ""] ?? null;
+  const price=typeof quote?.price==="number" && quote.price>0 ? quote.price : null;
+  let reason: string | null=null, ratio: number | null=null, fx=1, basis="";
+  if (declaration.amount===null || !Number.isFinite(declaration.amount) || declaration.amount<0) reason="No admitted declared dividend per share is available.";
+  else if (!payments) reason="A recurring dividend payment frequency is not proven; special, supplemental and variable dividends are not annualized.";
+  else if (!quoteDate || !price || !declaration.declarationAsOf || declaration.declarationAsOf>quoteDate || quoteDate>bundle.builtAt.slice(0,10)) reason="A compatible dated declaration and positive dated quote are required.";
+  else if (!bundle.edgar?.shareBasis || sameShareBasis(bundle.edgar.shareBasis.splits,declaration.declarationAsOf,quoteDate)!==null) reason="Share basis between declaration and quote is unestablished or a split intervenes.";
+  else if (profile?.isAdr===false && declaration.shareUnit==="ordinary") ratio=1;
+  else if (profile?.isAdr===true && declaration.shareUnit!==null) {
+    const proof=resolveForeignShareRatio(bundle);
+    if (!proof.basis || proof.basis.securityEvidence.some(e=>e.effectiveFrom>declaration.declarationAsOf!)) reason=proof.reason ?? "The ADS ratio is not proven at the declaration date.";
+    else {ratio=proof.basis.ratio;basis=proof.basis.note;}
+  } else reason="The declared dividend share unit is not established against the quote; an ADS requires independent ratio proof.";
+  if (!reason && (!declaration.currency || !quoteCurrency)) reason="Dividend and quote currencies are unestablished.";
+  if (!reason && declaration.currency!==quoteCurrency) {
+    const foreign=resolveForeignValuation(bundle,declaration.currency);
+    if (!foreign.basis || quoteCurrency!=="USD") reason=foreign.reason ?? "No admitted currency conversion for the dividend and quote.";
+    else {fx=foreign.basis.fx.usdPerReportingUnit;basis += ` ${foreign.basis.note}`;}
+  }
+  const annualizedPerQuotedShare=reason===null && ratio!==null ? declaration.amount!*payments!*(declaration.shareUnit==="ADS" ? 1 : ratio)*fx : null;
+  return {value:annualizedPerQuotedShare===null ? null : annualizedPerQuotedShare/price!*100, annualizedPerQuotedShare,
+    declaredPerShare:declaration.amount, paymentsPerYear:payments, ordinarySharesPerQuotedUnit:ratio, price,quoteDate,
+    basis,quoteSource:bundle.quote?.ok ? `${bundle.quote.value.source}: ${bundle.quote.value.endpoint}` : "Quote unavailable",declarationAsOf:declaration.declarationAsOf,source:declaration.source,currency:quoteCurrency,reason};
 }

@@ -2382,6 +2382,10 @@ export const FilingDisclosuresSchema = z
       z.object({ periodEnd: IsoDaySchema, months: z.number().int(), value: z.number(), source: FilingRefSchema }).strict(),
     ),
     freeCashFlowDefinition: z.string().nullable(),
+    dividends: z.object({
+      indicated: z.object({value:z.number().nullable(),annualizedPerQuotedShare:z.number().nullable(),declaredPerShare:z.number().nullable(),paymentsPerYear:z.number().nullable(),ordinarySharesPerQuotedUnit:z.number().nullable(),price:z.number().nullable(),quoteDate:IsoDaySchema.nullable(),basis:z.string(),quoteSource:z.string(),declarationAsOf:IsoDaySchema.nullable(),source:z.string(),currency:IsoCurrencySchema.nullable(),reason:z.string().nullable()}).strict(),
+      cashPayout: z.array(z.object({value:z.number().nullable(),dividends:z.number().nullable(),commonIncome:z.number().nullable(),start:IsoDaySchema.nullable(),end:IsoDaySchema.nullable(),source:z.string(),asOf:IsoDaySchema.nullable(),currency:IsoCurrencySchema.nullable(),reason:z.string().nullable()}).strict()),
+    }).strict().optional(),
     capitalReturn: z
       .object({
         source: FilingRefSchema,
@@ -2677,7 +2681,7 @@ export const MarketDataSchema = z
       epsAvg: NullableNumber, epsLow: NullableNumber, epsHigh: NullableNumber,
       analystsRevenue: NullableNumber, analystsEps: NullableNumber,
     }).strict()),
-    resultsHistory: z.array(z.object({ date: IsoDaySchema, asOf: z.string().nullable(), currency: IsoCurrencySchema.nullable(), values: z.object({ revenueActual: NullableNumber, revenueEstimated: NullableNumber, revenueDifference: NullableNumber, epsActual: NullableNumber, epsEstimated: NullableNumber, epsDifference: NullableNumber }).strict() }).strict()).optional(),
+    resultsHistory: z.array(z.object({ date: IsoDaySchema, periodStart: IsoDaySchema.nullable().optional(), periodEnd: IsoDaySchema.nullable().optional(), fiscalLabel:z.string().nullable().optional(), asOf: z.string().nullable(), currency: IsoCurrencySchema.nullable(), values: z.object({ revenueActual: NullableNumber, revenueEstimated: NullableNumber, revenueDifference: NullableNumber, epsActual: NullableNumber, epsEstimated: NullableNumber, epsDifference: NullableNumber }).strict() }).strict()).optional(),
     insiderEvidence: z.array(z.string()).optional(),
     estimatesAsOf: z.string().nullable(),
     /** Additive timing evidence; absent on old saved reports. */

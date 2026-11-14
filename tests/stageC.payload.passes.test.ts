@@ -1143,6 +1143,10 @@ describe("payload determinism + provenance", () => {
     const finance = new Set(["scores", "projections", "valuation", "fairValue", "scenarioTargets"]);
     const digests = ({ computed }: ReturnType<typeof buildInputs>) => {
       const written = JSON.parse(JSON.stringify(computed)) as Record<string, unknown>;
+      // D-272: keep the preceding capital bytes pinned separately from the new disclosure.
+      const priorCapital={...(written.capital as Record<string,unknown>)};
+      delete priorCapital.cashDividendPayout;
+      expect(sha256Text(JSON.stringify(priorCapital)).slice(0,16)).toBe("345abeca6e98de5e");
       // Every top-level key in its serialized order; finance keys are pinned leaf by leaf above.
       return Object.entries(written).map(([key, value]) =>
         finance.has(key) ? `${key} (frozen record)` : `${key} ${sha256Text(JSON.stringify(value)).slice(0, 16)}`);
@@ -1154,7 +1158,7 @@ describe("payload determinism + provenance", () => {
       "degradation f591b71ec31aefa2",
       "growth 3b108cfa32943129",
       "returns 04acba1118ea2ecc",
-      "capital 345abeca6e98de5e",
+      "capital 249342fbfd071cd5", // D-272: only cashDividendPayout is new; preceding capital hash asserted above.
       "forensics 0d59d3ffecb6f45c",
       "technicals 0d0c7b3f39a71e07",
       "valuation (frozen record)",

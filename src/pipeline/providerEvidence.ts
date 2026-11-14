@@ -1,3 +1,4 @@
+import { formatNumber } from "@/report/format";
 /** D-272 (P2, P20): provider observations, never filed statement replacements. */
 import type { DataBundle } from "@/pipeline/types";
 import type { FmpInsiderTradeStatisticsRow } from "@/providers/fmp";
@@ -97,6 +98,7 @@ export function insiderStatisticsWindow(rows: readonly FmpInsiderTradeStatistics
 }
 
 
+const displayNumber=(x: unknown) => typeof x === "number" && Number.isFinite(x) ? formatNumber(x,4).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "") : "unavailable";
 const finite = (x: unknown): number | null => typeof x === "number" && Number.isFinite(x) ? x : null;
 const day = (x: unknown): string | null => typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.slice(0,10)) && Number.isFinite(Date.parse(x.slice(0,10))) ? x.slice(0,10) : null;
 export function resultsHistory(bundle: DataBundle, issuer: InheritedIssuerCurrency = inheritedIssuerCurrency({ reporting: null, listing: null, isAdr: false })) {
@@ -108,18 +110,26 @@ export function resultsHistory(bundle: DataBundle, issuer: InheritedIssuerCurren
     const date = day(row.date);
     if (!date || date > cutoff || [row.epsActual,row.revenueActual].every(v => finite(v) === null)) return [];
     const revenueActual=finite(row.revenueActual), revenueEstimated=finite(row.revenueEstimated), epsActual=finite(row.epsActual), epsEstimated=finite(row.epsEstimated);
-    return [{ date, asOf: fetch.value.asOf, currency: providerRowCurrency(row,issuer).code,
-      values: { revenueActual,revenueEstimated,revenueDifference:difference(revenueActual,revenueEstimated),epsActual,epsEstimated,epsDifference:difference(epsActual,epsEstimated) } }];
+    const releases=bundle.edgar?.currentReports;
+    const release=releases?.ok ? releases.value.data.releases.find(r=>r.filingDate===date) : undefined;
+    const fiscalEnd=release?.reported.periodEnd ?? null;
+    const income=bundle.statements.incomeQuarterly?.ok ? bundle.statements.incomeQuarterly.value.data.rows.find(r=>r.date===fiscalEnd) : undefined;
+    const periodStart=day(income?.fieldProvenance?.revenue?.periodStart ?? income?.periodStart);
+    const periodEnd=day(fiscalEnd);
+    const fiscalLabel=release?.reported.fiscal?.label ?? null;
+    const currency=providerRowCurrency(row,issuer).code;
+    return [{ date, periodStart, periodEnd, fiscalLabel, asOf: fetch.value.asOf, currency,
+      values: { revenueActual,revenueEstimated,revenueDifference:currency===null ? null : difference(revenueActual,revenueEstimated),epsActual,epsEstimated,epsDifference:currency===null ? null : difference(epsActual,epsEstimated) } }];
   }).sort((a,b) => b.date.localeCompare(a.date)).slice(0,4);
 }
-export const INSIDER_SCOPE = "Insider statistics: statistics count all Form 4 reporting persons, including officers, directors, holders of more than 10% and former holders; they are not limited to officers and directors. Do not attribute aggregate statistics to officers unless retained transaction rows prove it.";
+export const INSIDER_SCOPE = "Insider statistics: statistics count all Form 4 reporting persons, including officers, directors, holders of more than 10% and former holders; they are not limited to officers and directors.";
 export function insiderEvidence(bundle: DataBundle): string[] {
   const notes = [INSIDER_SCOPE];
   if (bundle.insiderStats?.ok) {
     const fetch=bundle.insiderStats.value, win=insiderStatisticsWindow(fetch.data.rows,fetch.asOf);
     for (const q of win?.quarters ?? []) {
       const row=insiderStatisticRows(fetch.data.rows).find(r => r.year===q.year && r.quarter===q.quarter)!;
-      notes.push(`${q.year} Q${q.quarter}: purchases ${finite(row.totalPurchases) ?? "unavailable"}, sales ${finite(row.totalSales) ?? "unavailable"} transactions; shares acquired ${finite(row.totalAcquired) ?? "unavailable"}, disposed ${finite(row.totalDisposed) ?? "unavailable"} [fmp:insider-statistics; as-of ${fetch.asOf}].`);
+      notes.push(`${q.year} Q${q.quarter}: purchases ${displayNumber(row.totalPurchases)}, sales ${displayNumber(row.totalSales)} transactions; shares acquired ${displayNumber(row.totalAcquired)}, disposed ${displayNumber(row.totalDisposed)} [fmp:insider-statistics; as-of ${fetch.asOf}].`);
     }
   }
   if (!bundle.insiderTrades?.ok) return notes;
@@ -136,7 +146,19 @@ export function insiderEvidence(bundle: DataBundle): string[] {
   for (const [owner, sales] of groups) {
     const officerDirector = /officer|director/i.test(owner) && !/former/i.test(owner);
     const shares=sales.every(r => finite(r.securitiesTransacted)!==null) ? sales.reduce((n,r)=>n+r.securitiesTransacted!,0) : null;
-    notes.push(`${owner} (${officerDirector ? "officer/director" : "ten-percent, former or other owner"}): ${sales.length} code S sale rows; ${shares ?? "unavailable"} shares${officerDirector ? "" : `; sellers: ${[...new Set(sales.map(r => r.reportingName ?? "name unavailable"))].join(", ")}`}.`);
+    notes.push(`${owner} (${officerDirector ? "officer/director" : "ten-percent, former or other owner"}): ${sales.length} code S sale rows; ${shares === null ? "unavailable" : formatNumber(shares,4).replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "")} shares${officerDirector ? "" : `; sellers: ${[...new Set(sales.map(r => r.reportingName ?? "name unavailable"))].join(", ")}`}.`);
   }
   return notes;
+}
+
+/** Same calendar-quarter owner as totals; separate registry records for attribution. */
+export function insiderQuarterFigures(bundle: DataBundle) {
+ if(!bundle.insiderStats?.ok) return [];
+ const {data,asOf}=bundle.insiderStats.value;
+ const win=insiderStatisticsWindow(data.rows,asOf);
+ return (win?.quarters ?? []).flatMap(q=>{
+  const row=insiderStatisticRows(data.rows).find(r=>r.year===q.year && r.quarter===q.quarter)!;
+  const window=insiderStatisticsWindow([row],asOf)!;
+  return ([ ["purchase transactions",row.totalPurchases,"count"], ["sale transactions",row.totalSales,"count"], ["shares acquired",row.totalAcquired,"shares"], ["shares disposed",row.totalDisposed,"shares"] ] as const).map(([metric,v,unit])=>({label:`all Form 4 reporting persons ${metric}, ${q.year} Q${q.quarter}`,value:finite(v),unit,source:"fmp:insider-statistics",asOf,period:window.end,periodContext:{kind:"duration" as const,start:window.start,end:window.end}}));
+ });
 }

@@ -4697,7 +4697,7 @@ function assembleReportInContext(args: AssembleReportArgs, generatedAt?: string)
   // events, XBRL segment revenue by quarter and the eight-quarter trend,
   // pipeline-filled from the bundle. Built before the triggers (D-65), which
   // cite its guidance records.
-  const filingDisclosures = buildFilingDisclosures(args.bundle, args.computed.route?.cashFlowApplicability);
+  const filingDisclosures = buildFilingDisclosures(args.bundle, args.computed.route?.cashFlowApplicability, args.computed.capital?.cashDividendPayout);
 
   const candidate: Report = {
     meta,

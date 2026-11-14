@@ -482,7 +482,7 @@ export const EVIDENCE_CONTRACT_VERSION = "EVIDENCE_CONTRACT_1" as const;
 // D-261 (_75): repaired filed balances, root-input gaps and consistent liquidity bases.
 // D-267 (_76, part 1; D-260 follow-up): same-date annual fallback and distinct operating candidates.
 // D-268 (_77): plain-first admission, bounded liquidity and covered-history preservation.
-export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_CARRYING_INVESTMENTS_77" as const;
+export const STAGE_B_IMPLEMENTATION_VERSION = "STAGE_B_2026_11_DIVIDEND_DISCLOSURES_78" as const;
 
 /** Versioned method prior — bump when the resolution changes. */
 // D-102 (audit 2026-10-22): the outside-domain status, the NCI earnings key and the excess-return trailing start and payout fade.

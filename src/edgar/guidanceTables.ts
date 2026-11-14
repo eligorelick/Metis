@@ -223,7 +223,7 @@ const STOP = /\*\*\s*A reconciliation|\bQuarterly Dividend\b|\bConference Call\b
 
 /** D-272 (P9): annual guidance requires a dated company introduction and
  * actual source cells. Empty filing-layout spacers carry no values. */
-function parseAnnualDocumentTable(text: string, document: ParsedDocument): IssuerGuidance | null {
+export function parseAnnualDocumentTable(text: string, document: ParsedDocument): IssuerGuidance | null {
   if (document.fullText !== text || explicitHtmlHiddenState(document.pre) !== "clear") return null;
   for (const table of document.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {
     const context = htmlToText(document.pre.slice(Math.max(0, table.index - 4000), table.index));
@@ -246,7 +246,7 @@ function parseAnnualDocumentTable(text: string, document: ParsedDocument): Issue
     if (!headerSpan) return refused;
     const items: GuidanceItem[] = [], qualifiers: string[] = [];
     const range = (value: string) => {
-      const m = /^(\$)?\s*(\d+(?:\.\d+)?)(%)?\s*(?:to|[-??])\s*\$?\s*(\d+(?:\.\d+)?)(%)?\s*(billion|million)?$/i.exec(value);
+      const m = /^(\$)?\s*(\d+(?:\.\d+)?)(%)?\s*(?:to|[-\u2013\u2014])\s*\$?\s*(\d+(?:\.\d+)?)(%)?\s*(billion|million)?$/i.exec(value);
       if (!m || Boolean(m[3]) !== Boolean(m[5])) return null;
       const scale = m[6]?.toLowerCase() === "billion" ? 1e9 : m[6]?.toLowerCase() === "million" ? 1e6 : 1;
       const low = Number(m[2]) * scale, high = Number(m[4]) * scale;
@@ -255,23 +255,33 @@ function parseAnnualDocumentTable(text: string, document: ParsedDocument): Issue
     for (const row of rows.slice(1)) {
       if (row.cells.length === 1 && /^\(\d+\)/.test(row.cells[0]!)) { qualifiers.push(row.cells[0]!); continue; }
       const label = row.cells[0]!.replace(/\(\d+\)/g, "").trim();
-      const metric = ({ Revenue: "revenue", "Performance Margin": "performance-margin", "Tax Rate": "tax-rate", "Earnings per Share": "eps" } as Record<string, GuidanceItem["metric"]>)[label];
+      const plainLabel = label.replace(/^(?:GAAP|non-GAAP|adjusted)\s+/i, "").replace(/^diluted\s+/i, "");
+      const metric = ({ Revenue: "revenue", "Performance Margin": "performance-margin", "Tax Rate": "tax-rate", "Earnings per Share": "eps", "EPS": "eps", "Gross Margin": "gross-margin", "Operating Margin": "operating-margin", "Operating Expenses": "operating-expenses" } as Record<string, GuidanceItem["metric"]>)[Object.keys({ Revenue:1, "Performance Margin":1,"Tax Rate":1,"Earnings per Share":1,EPS:1,"Gross Margin":1,"Operating Margin":1,"Operating Expenses":1 }).find(k=>k.toLowerCase()===plainLabel.toLowerCase()) ?? ""];
       if (!metric || row.cells.length !== (revised ? 3 : 2) || items.some(i => i.metric === metric)) return refused;
       const current = range(row.cells.at(-1)!); const prior = revised ? range(row.cells[1]!) : null;
       if (!current || (revised && !prior)) return refused;
       if (prior && (prior.money !== current.money || prior.percent !== current.percent || prior.scaled !== current.scaled)) return refused;
-      const percent = metric === "performance-margin" || metric === "tax-rate";
-      if (percent ? !current.percent || current.money || current.scaled : !current.money || current.percent || (metric === "revenue" ? !current.scaled : current.scaled)) return refused;
+      const percent = metric === "performance-margin" || metric === "tax-rate" || metric === "gross-margin" || metric === "operating-margin";
+      if (percent ? !current.percent || current.money || current.scaled : !current.money || current.percent || (metric === "eps" ? current.scaled : !current.scaled)) return refused;
       const span = spanOf(row.raw); if (!span) return refused;
-      items.push({ metric, basis: metric === "revenue" ? "unspecified" : /non-GAAP/i.test(context + qualifiers.join(" ")) ? "non-gaap" : "unspecified", period, unit: percent ? "%" : metric === "eps" ? "currency-per-share" : "currency", symbol: percent ? null : "$", low: current.low, mid: current.mid, high: current.high, form: "range", sentence: span.text, span, headerSpan, ...(prior ? { previous: { low: prior.low, mid: prior.mid, high: prior.high } } : {}) });
+      items.push({ metric, basis: /^(?:non-GAAP|adjusted)\b/i.test(label) ? "non-gaap" : /^GAAP\b/i.test(label) ? "gaap" : /non-GAAP/i.test(intro[0]) && metric !== "revenue" ? "non-gaap" : "unspecified", period, unit: percent ? "%" : metric === "eps" ? "currency-per-share" : "currency", symbol: percent ? null : "$", low: current.low, mid: current.mid, high: current.high, form: "range", sentence: span.text, span, headerSpan, ...(prior ? { previous: { low: prior.low, mid: prior.mid, high: prior.high } } : {}) });
     }
     const after = document.pre.slice(table.index + table[0].length);
-    const stop = guidanceQualificationEnd(after);
-    const following = htmlToText(after.slice(0, stop ?? after.length));
-    if (following.length > 3000) return refused;
-    if (following) qualifiers.push(following);
+    // Only immediately following numbered footnotes belong to this table.
+    // A new paragraph/section/table ends the run; nearby accounting discussion
+    // cannot silently change the basis of a row.
+    for (const block of after.matchAll(/<(p|div|h[1-6]|table)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)) {
+      const note=htmlToText(block[2]!);
+      if(!note) continue;
+      if(!/^\(\d+\)/.test(note) || note.length>3000 || /<table\b/i.test(block[2]!)) break;
+      qualifiers.push(note);
+    }
     // Footnotes can define the accounting basis after the data rows.
-    if (/non-GAAP/i.test(context + qualifiers.join(" "))) for (const item of items) if (item.metric !== "revenue") item.basis = "non-gaap";
+    for (const item of items) {
+      if (item.basis !== "unspecified" || item.metric === "revenue") continue;
+      const refs = [...item.sentence.matchAll(/\((\d+)\)/g)].map(m=>m[1]);
+      if (qualifiers.some(note => refs.some(ref => note.startsWith(`(${ref})`)) && /non-GAAP/i.test(note))) item.basis = "non-gaap";
+    }
     return { period, items, qualifiers, unparsed: [] };
   }
   return null;
@@ -280,8 +290,6 @@ function parseAnnualDocumentTable(text: string, document: ParsedDocument): Issue
 /** Old compact formats plus bounded single-quarter tables with document evidence. */
 export function parseGuidanceTables(text: string, document?: ParsedDocument): IssuerGuidance | null {
   if (document !== undefined) {
-    const annual = parseAnnualDocumentTable(text, document);
-    if (annual !== null) return annual;
     const layout = parseLayoutGuidance(text, document);
     if (layout !== null) return layout;
     const quarterly = parseQuarterlyDocumentTable(text, document);

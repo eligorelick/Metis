@@ -1,9 +1,12 @@
+import { indicatedDividendYield } from "@/pipeline/shareUnits";
+import type { CapitalResult } from "@/pipeline/stageB/capital";
+import { outlookPeriodLabels } from "@/edgar/currentReports";
 import { withReleaseQuarterEarnings } from "./releaseQuarterEarnings";
 import { withholdContradictedReleaseLabels, fiscalLabelContradicted, fiscalLabelEndedBy, fiscalOutlookLabelContradicted, type FiscalLabelledPeriod } from "@/report/filingDisclosurePresentation";
 import {isTableOfContentsStub} from "@/edgar/currentReports";
 import {latestResultsRelease} from "@/providers/currentReports";
 import {isoFromMonthDate} from "@/edgar/currentReports";
-import { dividendFrequencyFromFacts } from "@/edgar/dividendFrequency";
+import { dividendFrequencyFromFacts, dividendFrequencyEvidenceFromFacts } from "@/edgar/dividendFrequency";
 /**
  * The bundle's 8-K, segment-XBRL and quarterly-statement evidence assembled
  * into the report's deterministic `filingDisclosures` block and the
@@ -761,7 +764,7 @@ export function residualNote(axisLabel: string, cells: number): string {
 }
 
 /** Null when the bundle carries none of this evidence (old bundles, fixtures). */
-export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability?: { reason: string }): FilingDisclosures | undefined {
+export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability?: { reason: string }, cashPayout: NonNullable<CapitalResult["cashDividendPayout"]> = []): FilingDisclosures | undefined {
   bundle = withReleaseQuarterEarnings(bundle);
   bundle = balanceIntegrityView(bundle);
   const reports = currentReportsOf(bundle);
@@ -804,7 +807,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     if (sourceCurrency === null || sourceCurrency !== currency) notes.push(`Implicit-dollar amounts from 8-K ${release.accession} (reported period ${release.reported.periodEnd ?? "unknown"}) are left out: that period's statement currency is ${sourceCurrency ?? "unestablished"}, rather than current ${currency ?? "unestablished"}. Explicit currency labels are checked separately.`);
   }
 
-  const newestOutlook = releases.find(r => r.guidance !== null);
+  const newestOutlook = [...releases].sort((a,b)=> b.filingDate.localeCompare(a.filingDate) || (b.acceptedAt ?? "").localeCompare(a.acceptedAt ?? ""))[0];
   const guided = newestOutlook?.guidance?.items.some(i => forwardGuidance(i, releases)) ? newestOutlook : undefined;
   if (newestOutlook && !guided) notes.push(`Current outlook coverage gap: 8-K ${newestOutlook.accession}, filed ${newestOutlook.filingDate}; the newest retained outlook could not be read as compatible structured guidance.`);
   const guidance: FilingDisclosures["guidance"] = guided && guided.guidance
@@ -862,6 +865,9 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
         dividendChangeTo: capital.dividendChange && capitalCurrency(capital.dividendChange.symbol) ? capital.dividendChange.to : null,
       }
     : null;
+  const frequencyEvidence=capitalReturn?.dividendPerShare!=null && capital?.dividendPerShare?.frequency==null && bundle.edgar?.companyFacts.ok
+    ? dividendFrequencyEvidenceFromFacts(bundle.edgar.companyFacts.value.data,bundle.builtAt.slice(0,10),capitalReturn.dividendPerShare,currency) : null;
+  const indicatedFrequency=capital?.dividendPerShare?.frequency ?? frequencyEvidence?.frequency ?? null;
   // Reuse the strict issuer / primary-document / filing-date admission used
   // for quarterly segment facts. A retained dated MD&A balance is evidence
   // even when the earnings release did not repeat it. AMZN audit 2026-10-20
@@ -971,7 +977,7 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     for (const release of releases) {
       const period = release.reported.fiscal?.label ?? (release.reported.periodEnd !== null ? `the period ended ${release.reported.periodEnd}` : null);
       for (const sentence of release.guidance?.unparsed ?? []) {
-        notes.push(`${release === newestOutlook ? "Current issuer" : "Earlier, superseded issuer"} outlook statement not read as structured guidance (8-K ${release.accession}, filed ${release.filingDate}${period === null ? "" : `; release for ${period}`}): "${sentence}"`);
+        notes.push(`${release === newestOutlook ? "Current issuer" : releases.some(newer => newer.filingDate > release.filingDate && outlookPeriodLabels(newer.guidance).some(label => outlookPeriodLabels(release.guidance).includes(label))) ? "Earlier, superseded issuer" : "Earlier issuer"} outlook statement not read as structured guidance (8-K ${release.accession}, filed ${release.filingDate}${period === null ? "" : `; release for ${period}`}): "${sentence}"`);
       }
     }
     notes.push(...reports.notes.filter((note) => !/: outlook sentence not read as guidance: /.test(note)).slice(0, 6));
@@ -1121,6 +1127,9 @@ export function buildFilingDisclosures(bundle: DataBundle, cashFlowApplicability
     freeCashFlow,
     freeCashFlowDefinition: fcfDefinitions.size === 1 ? [...fcfDefinitions][0] ?? null : null,
     capitalReturn,
+    dividends: { indicated: indicatedDividendYield(bundle,{ amount:capitalReturn?.dividendPerShare ?? null,currency,frequency:indicatedFrequency,
+      declarationAsOf:capitalReturn?.source.filingDate ?? null,source:capitalReturn ? `${capitalReturn.source.form} ${capitalReturn.source.accession} filed ${capitalReturn.source.filingDate}${frequencyEvidence ? `; payment frequency: ${frequencyEvidence.source}` : ""}` : "No admitted declaration",
+      shareUnit:bundle.profile?.ok && bundle.profile.value.data.rows[0]?.isAdr===false ? "ordinary" : capital?.sentences.some(s=>/per ordinary share/i.test(s)) ? "ordinary" : capital?.sentences.some(s=>/per (?:ADS|ADR|depositary share)/i.test(s)) ? "ADS" : null }), cashPayout },
     events,
     ...(companyStatements.length === 0 ? {} : { companyStatements }),
     segments: segmentTables,

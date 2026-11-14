@@ -1,4 +1,4 @@
-import { insiderQuarterIndex, insiderStatisticsWindow, insiderStatisticRows, insiderQuarterContaining, insiderEvidence, INSIDER_SCOPE, resultsHistory } from "@/pipeline/providerEvidence";
+import { insiderQuarterIndex, insiderStatisticsWindow, insiderStatisticRows, insiderQuarterContaining, insiderEvidence, insiderQuarterFigures, INSIDER_SCOPE, resultsHistory } from "@/pipeline/providerEvidence";
 export { insiderStatisticsWindow } from "@/pipeline/providerEvidence";
 import { PAYLOAD_VERSION } from "@/report/versions";
 import { fairValueReferenceText } from "@/report/fairValueText";
@@ -1811,7 +1811,8 @@ function estimatesSection(bundle: DataBundle, issuer: InheritedIssuerCurrency, c
     );
   }
   for (const row of resultsHistory(bundle, issuer)) {
-    for (const [metric, value] of Object.entries(row.values)) figures.push({ label: `reported versus consensus ${row.date} ${metric} (provider EPS accounting basis unverified)`, value, unit: metric.startsWith("eps") ? "currency/share" : "currency", period: row.date, source: "fmp:earnings", asOf: row.asOf, ...(row.currency ? { currency: row.currency } : {}) });
+    const names:Record<string,string>={revenueActual:"revenue actual",revenueEstimated:"revenue estimate",revenueDifference:"revenue difference",epsActual:"provider EPS actual (accounting basis unverified)",epsEstimated:"provider EPS estimate (accounting basis unverified)",epsDifference:"provider EPS difference (accounting basis unverified)"};
+    for (const [metric, value] of Object.entries(row.values)) figures.push({ label: `reported versus consensus ${row.date} ${names[metric]}`, value, unit: metric.startsWith("eps") ? "currency/share" : "currency", period: row.fiscalLabel ?? (row.periodStart ? row.periodEnd : null), ...(row.periodStart && row.periodEnd ? {periodContext:{kind:"duration" as const,start:row.periodStart,end:row.periodEnd}} : {}), source: "fmp:earnings", asOf: row.asOf, ...(row.currency ? { currency: row.currency } : {}) });
   }
   const ptc = firstRow(bundle.priceTargetConsensus);
   const ptcAsOf = bundle.priceTargetConsensus.ok ? bundle.priceTargetConsensus.value.asOf : null;
@@ -1992,7 +1993,8 @@ function personTradeNotes(observed: readonly FmpRawRow[], shown: number, builtAt
 
 function insidersSection(bundle: DataBundle): PayloadSection {
   const figures: PayloadFigureInput[] = [];
-  const notes: string[] = insiderEvidence(bundle);
+  const notes: string[] = [];
+  figures.push(...insiderQuarterFigures(bundle));
   figures.push({ label: "Form 4 statistics reporting-person scope", value: INSIDER_SCOPE, unit: "", source: "pipeline:insider-coverage", asOf: bundle.builtAt.slice(0,10) });
   const statsAsOf = bundle.insiderStats.ok ? bundle.insiderStats.value.asOf : null;
   const statRows = rowsOf(bundle.insiderStats);
@@ -2094,6 +2096,7 @@ function insidersSection(bundle: DataBundle): PayloadSection {
       });
     }
   }
+  notes.push(...insiderEvidence(bundle).filter(note=>note!==INSIDER_SCOPE));
   return payloadSection({ title: "Insider activity & sentiment", figures, notes });
 }
 
@@ -2835,6 +2838,15 @@ function issuerFilingsSection(disclosures: FilingDisclosures | undefined): Paylo
     if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) figures.push({ ...base, unit: "currency/share", label: "quarterly cash dividend per share before the increase", value: cr.dividendChangeFrom });
     if (cr.dividendPayDate !== null) notes.push(`Next ${cr.dividendFrequency ? `${cr.dividendFrequency} ` : ""}dividend payable ${cr.dividendPayDate}${cr.dividendRecordDate ? ` to holders of record on ${cr.dividendRecordDate}` : ""} (8-K ${cr.source.accession}).`);
   }
+  if(disclosures.dividends) {
+    const i=disclosures.dividends.indicated;
+    if(i.value!==null) figures.push({label:"indicated dividend yield (annualized declared rate)",value:i.value,unit:"%",period:i.declarationAsOf,source:"computed.dividends.indicatedYield",asOf:i.quoteDate});
+    notes.push(`Indicated dividend yield operands: declared per share ${i.declaredPerShare ?? "unavailable"}; proven payments per year ${i.paymentsPerYear ?? "unavailable"}; ordinary shares per quoted unit ${i.ordinarySharesPerQuotedUnit ?? "unavailable"}; quote ${i.price ?? "unavailable"} ${i.currency ?? "currency unestablished"} at ${i.quoteDate ?? "unavailable"} (${i.quoteSource}). ${i.basis} Source ${i.source}; declaration as-of ${i.declarationAsOf ?? "unavailable"}.${i.reason ? ` Gap: ${i.reason}` : ""}`);
+    for(const r of disclosures.dividends.cashPayout) {
+      if(r.value!==null) figures.push({label:`fiscal-year common cash dividend payout ratio ${r.end ?? "unknown"}`,value:r.value,unit:"%",period:r.end,source:"computed.capital.fiscalCashDividendPayout",asOf:r.asOf,...(r.start && r.end ? {periodContext:{kind:"duration" as const,start:r.start,end:r.end}}:{})});
+      notes.push(`Fiscal-year common cash dividend payout: dividends ${r.dividends ?? "unavailable"} / income available to common ${r.commonIncome ?? "unavailable"}, ${r.currency ?? "currency unestablished"}, ${r.start ?? "unestablished"} to ${r.end ?? "unestablished"}; ${r.source}; as-of ${r.asOf ?? "unavailable"}.${r.reason ? ` Gap: ${r.reason}` : ""}`);
+    }
+  }
   for (const check of disclosures.guidanceChecks) {
     notes.push(`${check.period} ${guidanceMetricLabel(check.metric, check.basis)}: actual ${check.position === "within" ? "within" : check.position} the guided range (outlook from 8-K filed ${check.guidance.filingDate}; actual from ${check.actualSource}).`);
   }
@@ -3347,7 +3359,8 @@ function attachProvenanceRegistry(
     const id = uniqueId(`${prefix}.${semanticSlug(registryLabel)}`);
     figure.provenanceId = id;
     figure.currency = resolvedCurrency;
-    figure.period ??= periodFromLabel(figure.label);
+    // Earnings report dates in labels are announcement dates, never fiscal windows.
+    if(figure.source!=="fmp:earnings") figure.period ??= periodFromLabel(figure.label);
     figure.asOf = asOf;
     registry.push({
       id,
@@ -3377,7 +3390,10 @@ function attachProvenanceRegistry(
     section: PayloadSection,
     kind: NumericProvenanceRecord["kind"],
   ): void => {
-    for (const figure of section.figures) registerFigure(prefix, figure, kind);
+    for (const figure of section.figures) {
+      const dividendComputation=figure.source==="computed.dividends.indicatedYield" || figure.source==="computed.capital.fiscalCashDividendPayout";
+      registerFigure(prefix,figure,dividendComputation ? "computed" : kind);
+    }
   };
 
   const registerStageBNumber = (
@@ -3701,7 +3717,7 @@ function assembleContextPayloadInContext(
     const text = [...new Set(leadership.officerTenures.map(t => t.quote))].join("\n");
     filings.push({ source: biography.documentUrl, asOf: biography.filingDate, title: `${biography.form} officer tenure (${biography.accession}; filed ${biography.filingDate})`, text, truncated: false, originalChars: text.length });
   }
-  const disclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability);
+  const disclosures = buildFilingDisclosures(bundle, computed.route?.cashFlowApplicability, computed.capital?.cashDividendPayout);
   const anchor = computed.valuation.kind === "dcf" ? computed.valuation.assumptions?.revenueAnchor : undefined;
   const guidedAccession = /^sec:8-K EX-99\.1 (\d{10}-\d{2}-\d{6})$/.exec(anchor?.evidence?.guidedQuarter?.source ?? "")?.[1] ?? null;
   const latestEnd = anchor?.runRate?.latestQuarterEnd;

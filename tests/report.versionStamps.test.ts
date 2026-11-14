@@ -154,7 +154,7 @@ describe("new version stamps", () => {
     expect(PAYLOAD_VERSION).toBe("1.105.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
     expect(PIPELINE_VERSION).toBe("stage-c-1.6.45"); // D-271: sector-neutral business checklist and business story
     expect(INSIDER_ROLES_READ_FROM).toBe("1.56.0"); // AI-116 frozen display cutoff
-    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_CARRYING_INVESTMENTS_77"); // D-267 part 1: same-date fallback; D-260 candidate identity
+    expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_DIVIDEND_DISCLOSURES_78"); // D-267 part 1: same-date fallback; D-260 candidate identity
     expect(SCORE_BANDS_VERSION).toBe("SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE");
     expect(IMPLIED_RETURN_SHARE_BASIS_SPEC).toBe("1.52.0");
     expect(specVersionBefore(IMPLIED_RETURN_SHARE_BASIS_SPEC, REPORT_SPEC_VERSION)).toBe(true);

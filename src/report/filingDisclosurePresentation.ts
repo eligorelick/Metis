@@ -176,7 +176,7 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
   }
   const fcf = d.freeCashFlow;
   const cr = d.capitalReturn;
-  if (fcf.length > 0 || cr !== null) {
+  if (fcf.length > 0 || cr !== null || d.dividends) {
     const rows: string[][] = fcf.map((f) => [
       `Free cash flow (issuer definition), ${f.months === 3 ? "quarter" : `${f.months} months`} ended ${f.periodEnd}`,
       money(f.value, d.currency),
@@ -194,6 +194,15 @@ function trendTables(d: FilingDisclosures): ReportAuditTable[] {
         rows.push([`${cr.dividendFrequency === undefined ? "Quarterly" : cr.dividendFrequency === null ? "Cash" : cr.dividendFrequency[0]!.toUpperCase()+cr.dividendFrequency.slice(1)}${cr.dividendFrequency===null ? "" : " cash"} dividend per share${cr.dividendFrequency===null ? " (frequency not stated)":""}${dates ? ` (${dates})` : ""}`, money(cr.dividendPerShare, d.currency, true), src]);
       }
       if (cr.dividendChangeFrom !== null && cr.dividendChangeTo !== null) rows.push(["Dividend change (per share, quarterly)", `${money(cr.dividendChangeFrom, d.currency, true)} → ${money(cr.dividendChangeTo, d.currency, true)}`, src]);
+    }
+    if(d.dividends) {
+      const i=d.dividends.indicated;
+      rows.push([`Indicated dividend yield (annualized declared rate; quote ${i.quoteDate ?? "unavailable"})`,i.value===null ? `Unavailable: ${i.reason}` : `${decimalRound(i.value,2).toFixed(2)}%`,`${i.source}; declaration as-of ${i.declarationAsOf ?? "unavailable"}; quote ${i.quoteDate ?? "unavailable"}`]);
+      if(i.value!==null) {
+        rows.push(["Annualized declared dividend per quoted share",money(i.annualizedPerQuotedShare!,i.currency,true),`${i.source}; ${i.paymentsPerYear} proven payments per year. ${i.basis}`]);
+        rows.push([`Dividend-yield quote (${i.quoteDate})`,money(i.price!,i.currency,true),i.quoteSource]);
+      }
+      for(const r of d.dividends.cashPayout) rows.push([`Fiscal-year common cash dividend payout ratio (${r.start ?? "start unestablished"} to ${r.end ?? "end unestablished"})`,r.value===null ? `Unavailable: ${r.reason}` : `${decimalRound(r.value,2).toFixed(2)}%`,`${r.source}; as-of ${r.asOf ?? "unavailable"}`]);
     }
     const capitalNotes = d.notes.filter(isCapitalReturnNote);
     const note = [d.freeCashFlowDefinition ? `Issuer definition: ${d.freeCashFlowDefinition}` : "", ...capitalNotes].filter((n) => n !== "").join(" ");

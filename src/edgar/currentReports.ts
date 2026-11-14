@@ -24,7 +24,7 @@
  * Pure: no network, no clock.
  */
 
-import { parseGuidanceTables } from "@/edgar/guidanceTables";
+import { parseAnnualDocumentTable, parseGuidanceTables } from "@/edgar/guidanceTables";
 import { htmlToText, type ParsedDocument } from "@/edgar/extract";
 import { explicitHtmlHiddenState } from "@/edgar/htmlHidden";
 
@@ -554,8 +554,35 @@ function parseAnnualGuidanceBullets(text: string, document?: ParsedDocument): Is
   return { period, items, qualifiers: qualifiers.slice(0, 4), unparsed: unparsed.slice(0, 4) };
 }
 
+/** Exact outlook periods only; report periods cannot prove supersession. */
+export function outlookPeriodLabels(guidance: IssuerGuidance | null): string[] {
+  if (!guidance) return [];
+  return [...new Set([...(guidance.period ? [guidance.period.label] : []), ...guidance.items.map(i=>i.period.label),
+    ...guidance.unparsed.flatMap(text=>[fullYearPhrase(text)?.label, quarterPhrase(text)?.label].filter((x): x is string=>!!x))])];
+}
+
 /** Guidance from a release or commentary; null when it prints no outlook. */
 export function parseGuidance(rawText: string, document?: ParsedDocument): IssuerGuidance | null {
+  const annual = document ? parseAnnualDocumentTable(rawText, document) : null;
+  if (!annual) return parseGuidanceWithoutAnnual(rawText, document);
+  const other = parseGuidanceTables(rawText, document);
+  let proseText = rawText;
+  for (const table of document!.pre.matchAll(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi)) {
+    proseText = proseText.replace(htmlToText(table[0]), ".");
+  }
+  const prose = parseGuidanceWithoutAnnual(proseText);
+  const outsideTables = document!.pre.replace(/<table\b[^>]*>[\s\S]*?<\/table\s*>/gi, "");
+  const paragraphItems = [...outsideTables.matchAll(/<(p|div)\b[^>]*>([\s\S]*?)<\/\1\s*>/gi)]
+    .flatMap(block => splitSentences(htmlToText(block[2]!)).flatMap(sentence => parseGuidanceSentence(sentence, null)));
+  // Annual table refusal must not swallow independently dated quarterly guidance.
+  // Conversely, flattened prose may never rescue refused annual table values.
+  const quarterly = [...(other?.items ?? []), ...(prose?.items ?? []), ...paragraphItems].filter((item,index,all) => item.period.fiscalQuarter !== null && all.findIndex(i => i.metric===item.metric && i.basis===item.basis && i.period.label===item.period.label)===index);
+  return { period: annual.period ?? other?.period ?? null, items: [...annual.items, ...quarterly],
+    qualifiers: [...new Set([...annual.qualifiers, ...(other?.qualifiers ?? []), ...(prose?.qualifiers ?? [])])],
+    unparsed: [...new Set([...annual.unparsed, ...(other?.unparsed ?? []), ...(prose?.unparsed ?? [])])] };
+}
+
+function parseGuidanceWithoutAnnual(rawText: string, document?: ParsedDocument): IssuerGuidance | null {
   const table = parseGuidanceTables(rawText, document);
   if (table !== null) return table;
   const annualBullets = parseAnnualGuidanceBullets(rawText, document);

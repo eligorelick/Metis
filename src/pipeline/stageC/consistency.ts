@@ -1025,7 +1025,7 @@ export function collectPersonNames(sources: {
   for (const note of sources.insiderNotes ?? []) {
     // "2026-01-02 Jane Roe (officer): ..." — the name sits between the date and
     // the parenthesised owner type.
-    add(/^\S+\s+([^(]+)\(/.exec(note)?.[1]);
+    add(/^\d{4}-\d{2}-\d{2}\s+([^(]+)\(/.exec(note)?.[1]);
   }
   for (const name of sources.executiveNames ?? []) add(name);
   return [...names];

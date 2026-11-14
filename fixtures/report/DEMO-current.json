@@ -21,9 +21,9 @@
     "symbol": "DEMO",
     "companyName": "Thesis Example Systems",
     "generatedAt": "2026-11-03T12:00:00.000Z",
-    "specVersion": "1.86.0",
+    "specVersion": "1.87.0",
     "model": "synthetic-handwritten",
-    "pipelineVersion": "1.86.0",
+    "pipelineVersion": "1.87.0",
     "evidenceContract": "EVIDENCE_CONTRACT_1",
     "costUsd": 0,
     "verificationRate": 0.8501742160278746,
@@ -826,7 +826,7 @@
     ],
     "products": [
       {
-        "productLine": "Hardware and installation",
+        "productLine": "Product line (its name is not in the cited claims)",
         "claims": [
           {
             "text": "Hardware and installation revenue is recognized on customer acceptance; installation bids compete on price.",
@@ -838,7 +838,7 @@
         ]
       },
       {
-        "productLine": "Support subscriptions",
+        "productLine": "Product line (its name is not in the cited claims)",
         "claims": [
           {
             "text": "Annual support subscriptions are recognized over the service term and compete on uptime.",
@@ -3615,7 +3615,7 @@
     ],
     "competitorsByProductLine": [
       {
-        "productLine": "Hardware and installation",
+        "productLine": "Product line (its name is not in the cited claims)",
         "claims": [
           {
             "text": "In hardware and installation, Lantern Quay Automation bids lower installation prices but offers less local support.",
@@ -3627,7 +3627,7 @@
         ]
       },
       {
-        "productLine": "Support subscriptions",
+        "productLine": "Product line (its name is not in the cited claims)",
         "claims": [
           {
             "text": "In support subscriptions, Bramble Circuit Works has broader support coverage but slower custom deployments.",
@@ -8662,6 +8662,19 @@
         "traceKind": "value-match"
       },
       {
+        "claim": "32",
+        "outcome": "unverified",
+        "validationStatus": "unchecked",
+        "numericSupportStatus": "unchecked",
+        "claimSupportStatus": "unreviewed",
+        "note": "Supplemental numeric inventory: metric, unit, period and accounting basis not independently matched; excluded from the tracing rate.",
+        "path": "filingDisclosures.dividends.indicated.price",
+        "evidenceKind": "number",
+        "reason": "text-context-mismatch",
+        "check": "plain-figure",
+        "traceKind": "untraced"
+      },
+      {
         "claim": "300000000",
         "outcome": "unverified",
         "validationStatus": "unchecked",
@@ -12605,6 +12618,58 @@
     "guidanceChecks": [],
     "freeCashFlow": [],
     "freeCashFlowDefinition": null,
+    "dividends": {
+      "indicated": {
+        "value": null,
+        "annualizedPerQuotedShare": null,
+        "declaredPerShare": null,
+        "paymentsPerYear": null,
+        "ordinarySharesPerQuotedUnit": null,
+        "price": 32,
+        "quoteDate": "2026-07-02",
+        "basis": "",
+        "quoteSource": "fmp: quote",
+        "declarationAsOf": null,
+        "source": "No admitted declaration",
+        "currency": "USD",
+        "reason": "No admitted declared dividend per share is available."
+      },
+      "cashPayout": [
+        {
+          "value": null,
+          "dividends": null,
+          "commonIncome": null,
+          "start": null,
+          "end": "2025-12-31",
+          "source": "",
+          "asOf": null,
+          "currency": null,
+          "reason": "Exact matching filed fiscal-year windows for common dividends and common income are not established."
+        },
+        {
+          "value": null,
+          "dividends": null,
+          "commonIncome": null,
+          "start": null,
+          "end": "2024-12-31",
+          "source": "",
+          "asOf": null,
+          "currency": null,
+          "reason": "Exact matching filed fiscal-year windows for common dividends and common income are not established."
+        },
+        {
+          "value": null,
+          "dividends": null,
+          "commonIncome": null,
+          "start": null,
+          "end": "2023-12-31",
+          "source": "",
+          "asOf": null,
+          "currency": null,
+          "reason": "Exact matching filed fiscal-year windows for common dividends and common income are not established."
+        }
+      ]
+    },
     "capitalReturn": null,
     "events": [],
     "segments": [],
@@ -12766,7 +12831,7 @@
     ],
     "resultsHistory": [],
     "insiderEvidence": [
-      "Insider statistics: statistics count all Form 4 reporting persons, including officers, directors, holders of more than 10% and former holders; they are not limited to officers and directors. Do not attribute aggregate statistics to officers unless retained transaction rows prove it."
+      "Insider statistics: statistics count all Form 4 reporting persons, including officers, directors, holders of more than 10% and former holders; they are not limited to officers and directors."
     ],
     "estimatesAsOf": "2026-07-01",
     "estimateTiming": {

@@ -18,10 +18,13 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
-## Unreleased - D-272 (report 1.87.0 / payload 1.105.0)
+## Unreleased - D-272 (report 1.87.0 / payload 1.105.0; Stage B DIVIDEND_DISCLOSURES_78)
 
 - Read dated annual Prior/Updated guidance tables with their footnotes; retain whole release product and clinical tables separately. Disclose unreadable latest outlooks.
 - Show provider results versus consensus and code-computed differences, with unverified EPS basis; distinguish all-person Form 4 statistics from selected sellers and show the quarterly concentration. No statement or valuation rule changes.
+
+- Review round 1: require dates on person rows, preserve independent quarterly guidance, bind accounting basis to the table, label supersession by fiscal period, and register quarterly insider operands with plain result labels.
+- Add indicated dividend yield where declaration/frequency/share/currency proof permits, and exact fiscal-year common cash payout ratios from admitted operands. Both are disclosures without score or valuation use. LLY FY2025 payout is 26.09%; its indicated yield remains a named missing-declaration gap.
 
 ## Unreleased - A4 TSM same-report capture (P2, D-275) (2026-11-14)
 
