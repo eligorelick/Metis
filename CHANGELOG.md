@@ -18,6 +18,14 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - `best` removed from the Claude CLI model list (2026-11-13)
+
+- Claude Code documents its `best` alias as the same model as `opus`, so the
+  name promised more than it delivered. The Settings dropdown for the local
+  Claude Code connection no longer lists it; `fable` is the choice for Fable
+  5.2. A selection of `best` saved earlier still loads, shown under "Other",
+  and still runs: the server accepts the same model names as before.
+
 ## Unreleased - Claude CLI model is a dropdown (2026-11-13)
 
 - In Settings, the model for the local Claude Code connection was a text box

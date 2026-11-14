@@ -166,7 +166,7 @@ export function AiConnections({ onRoute }: { onRoute?: (route: AnalysisRoute | n
             <option value="custom">Other — enter a full model ID</option>
           </select></label>
           {claudeCustom && <input aria-label="Claude model ID" placeholder="Full Claude model ID" className="w-full border border-edge bg-bg p-2" value={model} maxLength={128} disabled={busy} onChange={e => { dirty.current = true; setCustomClaude(true); setModel(e.target.value); }} />}
-          <p className="text-xs text-faint">Choose default, opus, sonnet, haiku, fable or best, or pick Other to enter a full Claude model ID. Aliases resolve through your installed CLI; account access may vary. Reports record the models returned by the CLI. Research uses the supplied financial evidence; web tools are disabled for this connection.</p>
+          <p className="text-xs text-faint">Choose default, opus, sonnet, haiku or fable, or pick Other to enter a full Claude model ID. Aliases resolve through your installed CLI; account access may vary. Reports record the models returned by the CLI. Research uses the supplied financial evidence; web tools are disabled for this connection.</p>
           <label className="block">Claude reasoning effort<select className="mt-1 w-full border border-edge bg-bg p-2" value={effort} disabled={busy} onChange={e => { dirty.current = true; setEffort(e.target.value as ChatGptEffort | ""); }}>
             <option value="">CLI default</option>{CHATGPT_EFFORTS.map(level => <option key={level} value={level}>{level}</option>)}
           </select></label>
