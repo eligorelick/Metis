@@ -18,6 +18,13 @@ describe('D-261 admitted-row main parity',()=>{
   const r=buildDcfAssumptions(dcf({capitalLeaseObligations:200}));expect(r.assumptions).not.toBeNull();
   expect(r.assumptions?.salesToCapital.value).toBeCloseTo(1000/1480,12);
  });
+ it.each(['cashAndShortTermInvestments','cashAndCashEquivalents'])('matches main: rejects unrepaired refused %s', field=>{
+  const reason='independent liquidity refusal';
+  const r=buildDcfAssumptions(dcf({fieldConflicts:{[field]:{usable:false,reason}}}));
+  expect(r.assumptions).toBeNull();
+  expect(r.gaps).toContainEqual({field:'valuation.dcf.salesToCapital',severity:'critical',cause:'invested-capital-balance-fields-missing',
+    reason:`balance-sheet fields missing for invested capital: ${field==='cashAndShortTermInvestments'?'cashAndShortTermInvestments withheld ('+reason+')':'cashAndShortTermInvestments, cashAndCashEquivalents withheld ('+reason+')'} at ${date} - this sales-to-capital DCF is suppressed instead of inventing a capital-efficiency input. An explicit operating-cash-flow model requires separately supported reinvestment assumptions; negative book capital alone does not prohibit valuation`});
+ });
  it('matches main: unrepaired independently refused investments keep the cash-only ROIC',()=>{
   expect(computeRoic(income,[balance(null)]).latestRoicPct).toBeCloseTo(80/1050*100,12);
  });

@@ -2367,7 +2367,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const liquidityResolution = bal?.cashConflictReconciled ? resolveNetDebt(bal) : null;
   const liquidity = bal?.cashConflictReconciled
     ? isNum(bal.totalDebt) && liquidityResolution?.value != null ? bal.totalDebt - liquidityResolution.value : null
-    : isNum(bal?.cashAndShortTermInvestments) ? bal.cashAndShortTermInvestments : null;
+    : bal?.fieldConflicts?.cashAndShortTermInvestments?.usable !== false &&
+      bal?.fieldConflicts?.cashAndCashEquivalents?.usable !== false && isNum(bal?.cashAndShortTermInvestments)
+      ? bal.cashAndShortTermInvestments : null;
   const admittedLiquidity = liquidity !== null;
   if (liquidityResolution?.cashBasis === "cash-only") notes.push(liquidityResolution.reason);
   const equity = resolveConsolidatedEquity(bal ?? {});
