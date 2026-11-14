@@ -4,7 +4,9 @@ import { completeCurrencyBundle, M } from "./helpers/currencyBundle";
 import { withIssuerFacts } from "./helpers/confirmedIssuer";
 import { bindPrimaryIncome, parsePrimaryIncomeStatements, primaryPerimeterChange } from "@/edgar/primaryIncome";
 import type { CompanyFacts } from "@/edgar/xbrl";
-import { runStageB, statementCurrencies } from "@/pipeline/compute";
+import { runStageB, statementCurrencies, ttmIncome, effectiveTaxRateFromTtm, waccTaxRateFromStatements } from "@/pipeline/compute";
+import { withFiledIncomeWindow } from "@/pipeline/incomeBasis";
+import type { ManifestEntry } from "@/types/core";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 
 const header = "CONSOLIDATED STATEMENTS OF INCOME Years Ended December 31, 2025 2024 (Dollars in millions) ";
@@ -103,6 +105,41 @@ function trailingOnlyFixture() {
   }
   return b;
 }
+it.each(["complete", "missing tax", "refused tax", "before equity"])("recovers a tax pair atomically with its own denominator: %s (D-260)", mode => {
+  const b = trailingOnlyFixture();
+  if (!b.edgar.companyFacts.ok || !b.statements.incomeQuarterly.ok) throw Error("fixture");
+  const facts = b.edgar.companyFacts.value.data.facts["us-gaap"]!;
+  const tag = "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest";
+  const pretax = facts[tag] as { units: { USD: { val: number }[] } };
+  if (mode !== "missing tax") facts.IncomeTaxExpenseBenefit = { units: { USD: pretax.units.USD.map(p => ({ ...p, val: p.val * 0.1 })) } };
+  if (mode === "before equity") {
+    facts.IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments = pretax;
+    delete facts[tag];
+  }
+  const q = b.statements.incomeQuarterly.value.data.rows;
+  q.forEach(r => { r.incomeBeforeTax = undefined; r.incomeTaxExpense = 1; });
+  if (mode === "refused tax") q[0]!.fieldConflicts = { incomeTaxExpense: { usable: false, vendorValue: null, secValue: null, reason: "Independent tax refusal" } };
+  const gaps: ManifestEntry[] = [];
+  const window = ttmIncome(q, gaps)!;
+  expect(window.taxRatePretaxIncome).toBeNull();
+  const out = withFiledIncomeWindow(b, window, q, gaps)!;
+  if (mode === "complete" || mode === "before equity") {
+    expect(out.incomeBeforeTax).toBe(370 * M);
+    expect(out.incomeTaxExpense).toBe(37 * M);
+    expect(out.taxRatePretaxIncome).toBe(370 * M);
+    expect(out.taxRatePretaxBasis).toContain("filed");
+    expect(effectiveTaxRateFromTtm(out)).toBe(0.1);
+    const waccTax = waccTaxRateFromStatements(out, { incomeBeforeTax: 100, incomeTaxExpense: 40 });
+    expect(waccTax).toMatchObject({ rate: 0.1, fallback: null });
+    expect(waccTax.basis).toMatch(mode === "before equity" ? /before equity-method results/ : /TTM incomeTaxExpense \/ incomeBeforeTax/);
+    expect(gaps.some(g => g.field === "compute.ttmIncome.taxPair")).toBe(false);
+  } else {
+    expect(out.incomeBeforeTax).toBeNull();
+    expect(out.incomeTaxExpense).toBeNull();
+    expect(out.taxRatePretaxIncome).toBeNull();
+    expect(gaps.some(g => g.field === "compute.ttmIncome.taxPair")).toBe(true);
+  }
+});
 it("uses a complete filed FY plus YTD identity when standalone operating quarters cannot be proved (D-260)", () => {
   const c = runStageB(trailingOnlyFixture());
   expect(c.gaps).toContainEqual(expect.objectContaining({ field: "compute.ttmIncome.operatingIncome", reason: expect.stringContaining("390000000 USD") }));

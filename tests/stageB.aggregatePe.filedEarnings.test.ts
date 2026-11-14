@@ -5,6 +5,7 @@ import { assembleContextPayload, serializePayloadForPrompt } from "@/pipeline/st
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { FmpIncomeStatementRow } from "@/providers/fmp";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
+import { withIncomeOperatingBasis } from "@/pipeline/incomeBasis";
 import retained from "./fixtures/figr-pre2-common-earnings.json";
 
 function fixture() {
@@ -32,6 +33,21 @@ describe("L2 filed aggregate common-earnings P/E", () => {
     // additive fields, before the later aggregate-only fallback runs.
     expect(c.gaps).toContainEqual(expect.objectContaining({ field: "statements.income.2026-03-31.netIncomeAvailableToCommon",
       reason: expect.stringMatching(/44945000.*0002064124-26-000029/) }));
+    const admitted = withIncomeOperatingBasis(b).statements.incomeQuarterly;
+    if (!admitted.ok) throw new Error("fixture");
+    const q4 = admitted.value.data.rows.find(r => r.date === "2025-12-31")!;
+    expect(q4.netIncomeAvailableToCommon).toBe(23_027_000);
+    expect(q4.fieldProvenance?.netIncomeAvailableToCommon).toMatchObject({ derivation: "fy-minus-ytd",
+      filings: [{ accn: "0002064124-26-000009" }, { accn: "0002064124-25-000032" }] });
+    // This older retained row predates flowOperands; its references bind the
+    // original amounts retained in companyfacts, rather than rewriting history.
+    const concept = (b.edgar.companyFacts as { ok: true; value: { data: CompanyFacts } }).value.data.facts["us-gaap"]!.NetIncomeLossAvailableToCommonStockholdersBasic as { units: { USD: { start: string; end: string; accn: string; val: number }[] } };
+    const points = [
+      concept.units.USD.find(p => p.accn === "0002064124-26-000009" && p.start === "2025-01-01" && p.end === "2025-12-31")!,
+      concept.units.USD.find(p => p.accn === "0002064124-25-000032" && p.start === "2025-01-01" && p.end === "2025-09-30")!,
+    ];
+    expect(points.map(p => p.accn)).toEqual(["0002064124-26-000009", "0002064124-25-000032"]);
+    expect(points[0]!.val - points[1]!.val).toBe(23_027_000);
     expect(c.gaps.some(g => /commonIncome/.test(g.field) && /unavailable/.test(g.reason))).toBe(false);
     expect(serializePayloadForPrompt(assembleContextPayload(b, c, { checks: [], flags: [], gaps: [] }))).toMatch(/aggregate basis/i);
     expect(JSON.stringify(b)).toBe(before);
@@ -43,6 +59,9 @@ describe("L2 filed aggregate common-earnings P/E", () => {
     const row = built.incomeQuarterly.rows.find(r => r.date === "2025-12-31")!;
     expect(row.netIncomeAvailableToCommon).toBe(23_027_000);
     expect(row.fieldProvenance?.netIncomeAvailableToCommon).toMatchObject({ derivation: "fy-minus-ytd", periodStart: "2025-10-01", filings: [{ accn: "0002064124-26-000009" }, { accn: "0002064124-25-000032" }] });
+    const points = row.fieldProvenance!.netIncomeAvailableToCommon!.flowOperands![0]!.points;
+    expect(points.map(p => p.accn)).toEqual(["0002064124-26-000009", "0002064124-25-000032"]);
+    expect(points[0]!.val - points[1]!.val).toBe(23_027_000);
     expect(row.epsDiluted).toBeNull();
   });
   it.each(["issuer", "currency", "future", "unavailable", "conflict", "missing-quarter"])("refuses %s common-income supplementation", mode => {

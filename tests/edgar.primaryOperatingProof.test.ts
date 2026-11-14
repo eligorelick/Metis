@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { corroborateOperatingIncome } from "@/edgar/revenueAdmission";
+import { operatingBridgeProof } from "@/edgar/revenuePresentation";
 import { operatingIncomeForNonMargins } from "@/pipeline/incomeBasis";
 import type { FmpIncomeStatementRow, StatementFieldProvenance } from "@/providers/fmp";
 
@@ -18,6 +19,19 @@ function row(vendor: number, pretax: number): FmpIncomeStatementRow {
 }
 
 describe("complete primary operating proof", () => {
+  it.each([[280, 300], [230, 250], [229, null]])("proves restructuring membership by exact pretax reconciliation (%s, D-260)", (pretax, expected) => {
+    const r = row(300, pretax!);
+    Object.assign(r.filedIncomeLines!, { CostOfRevenue: line(400, "CostOfRevenue"),
+      SellingGeneralAndAdministrativeExpense: line(300, "SellingGeneralAndAdministrativeExpense"),
+      InterestExpense: line(20, "InterestExpense"),
+      RestructuringSettlementAndImpairmentProvisions: line(50, "RestructuringSettlementAndImpairmentProvisions") });
+    const result = operatingBridgeProof(line(1000, "Revenues"), line(pretax!, pretaxTag), r.filedIncomeLines!);
+    expect(result.status).toBe(expected === null ? "unavailable" : "complete");
+    if (result.status === "complete") {
+      expect(result.line.value).toBe(expected);
+      expect(result.line.proof.tags.includes("us-gaap/RestructuringSettlementAndImpairmentProvisions")).toBe(expected === 250);
+    }
+  });
   it("includes acquired research and special charges in a disjoint filed operating bridge (P1, D-260)", () => {
     const r = row(300, 180);
     Object.assign(r.filedIncomeLines!, {
