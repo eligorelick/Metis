@@ -271,5 +271,22 @@
       "$.payload.payloadVersion",
       "$.payload.computed[4].notes[1]"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-262",
+    "reason": "D-262 review moves report compatibility to 1.77.0 to reserve 1.76.0 for D-263; synthetic arithmetic remains unchanged.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "dac441547fca213787b1a2ac190cbbb72037fa29740b19185c9295b8369eb9bd",
+    "afterSha256": "f2fec74e3c9a00fb4108d54c629e6ec0e7b935b7106525a5b10a833b8f82f76d",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

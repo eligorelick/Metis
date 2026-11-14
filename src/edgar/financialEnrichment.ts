@@ -273,6 +273,17 @@ export function filedCfoTtm(facts: CompanyFacts, unit: string, end: string, obse
 /** The retained cash-capex family; software remains a separately proved legacy basis, never an added component. */
 const CASH_CAPEX_TAGS: readonly string[] = [...tagsFor("capitalExpenditure"), "PaymentsToDevelopSoftware"];
 
+/** Competing capital purchases are scope evidence, never additive synonyms. */
+function competingCapex(facts: CompanyFacts, sec: Resolved): string[] {
+  const selected = sec.evidence.tags.map(t => t.replace(/^us-gaap\//, ""));
+  const operands = sec.operands ?? points(facts, selected[0]!, sec.evidence.unit, sec.evidence.observedAt).filter(p =>
+    p.start === sec.evidence.periodStart && p.end === sec.evidence.periodEnd && sec.evidence.filings.some(f => f.accn === p.accn && f.filed === p.filed));
+  return Object.keys(facts.facts["us-gaap"] ?? {}).filter(tag => !selected.includes(tag) &&
+    (/^PaymentsToAcquire/.test(tag) && !/Businesses|BusinessTwo|Investments|Securities|InProcessResearch|IntangibleAssets/.test(tag) || /^PaymentsTo(DevelopSoftware|Improve|Construct)/.test(tag) || /^PaymentsFor(CapitalImprovements|DepositsOnRealEstateAcquisitions|ProceedsFromProductiveAssets)/.test(tag)) &&
+    points(facts, tag, sec.evidence.unit, sec.evidence.observedAt).some(p => operands.some(o =>
+      p.start === o.start && p.end === o.end && p.accn === o.accn && p.filed === o.filed)));
+}
+
 /** D-262 (P1, P8): one ordered filed concept for this row, never a net/cash/total-cost interest proxy.
  * A conflicting preferred concept cannot expose a less preferred one. Original
  * filing precision is retained only when later copies merely re-round each
@@ -320,7 +331,7 @@ const CASH_FILED_FLOWS: readonly FiledFlowSpec[] = [
   { field: "netCashProvidedByFinancingActivities", item: "netCashProvidedByFinancingActivities", signed: true },
 ];
 const INCOME_FILED_FLOWS: readonly FiledFlowSpec[] = [
-  { field: "depreciationAndAmortization", item: "depreciationAndAmortization" },
+  { field: "depreciationAndAmortization", tags: ["CostDepreciationAmortizationAndDepletion"] },
   { field: "researchAndDevelopmentExpenses", item: "researchAndDevelopmentExpenses" },
   { field: "sellingGeneralAndAdministrativeExpenses", item: "sellingGeneralAndAdministrativeExpenses" },
   { field: "sellingAndMarketingExpenses", item: "sellingAndMarketingExpenses" },
@@ -344,7 +355,12 @@ export function admitFiledStatementFlows<T extends FmpStatementRow>(row: T, fact
     const vendor = prior?.usable === false ? prior.vendorValue : row[field];
     if (typeof vendor !== "number" || !Number.isFinite(vendor)) continue;
     const item = bank && spec.item === "interestIncome" ? "bankInterestIncome" : spec.item;
-    const tags = spec.tags ?? tagsFor(item!);
+    let tags = spec.tags ?? tagsFor(item!);
+    if (field === "interestIncome") {
+      for (const tag of tags.filter(t => /Dividend/.test(t)))
+        if (filedRowFlow(row, facts, [tag], scope, observedAt)) unverified.push(`${field} (excluded combined ${tag})`);
+      tags = tags.filter(t => !/Dividend/.test(t));
+    }
     const sec = filedRowFlow(row, facts, tags, scope, observedAt, signed);
     if (!sec) { unverified.push(field); continue; }
     // D-68's separately tagged business payment is not proven disjoint from
@@ -377,6 +393,9 @@ export function admitFiledStatementFlows<T extends FmpStatementRow>(row: T, fact
     out = { ...out, [field]: value, fieldProvenance: { ...out.fieldProvenance, [field]: sec.evidence },
       fieldConflicts: { ...out.fieldConflicts, [field]: { usable: true, resolution: "filed-family", vendorValue: prior?.vendorValue ?? vendor, secValue: value, reason, secEvidence: sec.evidence } } };
     gaps.push({ field: `statements.${kind}.${row.date}.${field}`, reason, severity: "info", expected: true });
+    if (kind === "income" && /^(researchAndDevelopmentExpenses|sellingGeneralAndAdministrativeExpenses|sellingAndMarketingExpenses|generalAndAdministrativeExpenses)$/.test(field))
+      gaps.push({ field: `statements.income.${row.date}.${field}.basis`, severity: "info", expected: true,
+        reason: `Mixed basis: ${field} uses the exact filed line; operating-expense totals and operating income retain their independently admitted basis. This component correction does not establish reconciliation of the displayed operating subtotals.` });
   }
   if (unverified.length) gaps.push({ field: `statements.${kind}.${row.date}.filedFlowCoverage`, severity: "info", expected: true,
     reason: `Vendor flows kept unverified for ${row.date}: ${unverified.join(", ")}. No unambiguous exact-period filed counterpart on a compatible currency, filing and total/component definition was established; no missing component is presumed zero.` });
@@ -390,6 +409,9 @@ export function admitFiledCapitalExpenditure<T extends FmpCashFlowRow>(row: T, f
   const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
   if (!finite(row.capitalExpenditure) || row.fieldConflicts?.capitalExpenditure?.usable === false || row.fieldProvenance?.capitalExpenditure) return { row, gaps: [] };
   const sec = filedRowFlow(row, facts, tagsFor("capitalExpenditure"), scope, observedAt);
+  const competing = sec ? competingCapex(facts, sec) : [];
+  if (sec && competing.length) return { row, gaps: [{ field: `statements.cashflow.${row.date}.capitalExpenditure`, severity: "info", expected: true,
+    reason: `Capital spending kept on its retained basis: competing same-filing, same-period tags ${[...sec.evidence.tags, ...competing].join(", ")} do not prove which is the total. No components summed.` }] };
   if (!sec || agreesWithSec(-row.capitalExpenditure, sec.value, [sec])) return { row, gaps: [] };
   const value = -sec.value, unit = row.reportedCurrency!;
   const [vendorText, filedText] = millionsPair(row.capitalExpenditure, value);
@@ -421,7 +443,7 @@ export function admitFiledInterestExpense<T extends FmpStatementRow>(row: T, fac
       !validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") || row.cik != null && Number(row.cik) !== facts.cik) return { row, gaps: [] };
   const field = `statements.income.${row.date}.interestExpense`;
   const sec = filedRowFlow(row, facts, tagsFor("interestExpense"), scope, observedAt);
-  if (!sec) return { row, gaps: [{ field, severity: "warn", reason: `Vendor interest expense ${millions(vendor)} ${row.reportedCurrency} kept unverified for ${row.date}: no unambiguous exact-period expense in the compatible filed interest-expense family. Net interest income/expense, cash interest paid and costs including capitalized interest cannot establish interest expense.` }] };
+  if (!sec) return { row, gaps: [{ field, severity: vendor === 0 ? "info" : "warn", ...(vendor === 0 ? { expected: true } : {}), reason: `Vendor interest expense ${millions(vendor)} ${row.reportedCurrency} kept unverified for ${row.date}: no unambiguous exact-period expense in the compatible filed interest-expense family. Net interest income/expense, cash interest paid and costs including capitalized interest cannot establish interest expense.` }] };
   if (agreesWithSec(vendor, sec.value, [sec])) return { row, gaps: [] };
   const [vendorText, filedText] = millionsPair(vendor, sec.value);
   const reason = `Interest expense for ${sec.evidence.periodStart} through ${row.date} corrected from vendor ${vendorText} to ${filedText} ${row.reportedCurrency}: ${sec.evidence.tags.join(", ")}, ${sec.operands ? `derived ${derivedFrom(sec)}` : `directly filed in ${sec.evidence.filings.map(f => `${f.form} ${f.accn}, filed ${f.filed}`).join(" + ")}`}. The filed expense replaces the vendor observation, which is retained; no net-interest or capitalized-interest proxy used.`;
@@ -506,6 +528,7 @@ export function admitQuarterlyCapex(row: FmpCashFlowRow, facts: CompanyFacts, an
     return { row: { ...row, ...unavailable, fieldConflicts },
       gaps: [{ field: `statements.cashflow.${row.date}.capitalExpenditure`, reason, severity: "warn" }] };
   }
+  if (competingCapex(facts, sec).length) return { row, gaps: [] };
   const agrees = agreesWithSec(Math.abs(vendor), sec.value, [sec]);
   // A source-proved cumulative period mistake can be repaired. A different
   // amount with no such explanation retains the observation but withholds FCF.

@@ -1051,8 +1051,8 @@
       "case": "jpm-data-only",
       "figure": "fv.payoutRatio",
       "status": "not-established",
-      "valueSha256": "15dbccd9051e2d76",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "valueSha256": "8112ea42ee61ea59",
+      "changeReason": "D-262 P8: JPM common cash repurchases use us-gaap:PaymentsForRepurchaseOfCommonStock, FY 2025-01-01 to 2025-12-31, Form 10-K 0001628280-26-008131; the filed cash payout changes the year-one payout and dependent excess-return valuation; the payout ratio remains not-established as a standalone filed quantity."
     },
     {
       "case": "pgr-data-only",

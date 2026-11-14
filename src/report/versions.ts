@@ -222,8 +222,8 @@
 // P/E basis are on the filed total net revenue where the filing proves it, so shown figures and an aspect band change
 // meaning for new reports; three reader labels name consolidated net income. No display cutoff is added; stored
 // reports keep their bytes.
-// 1.76.0 (D-262, P8/P13): exact-period filed additive flows replace conflicting vendor observations.
-export const REPORT_SPEC_VERSION = "1.76.0" as const;
+// 1.78.0 (D-262, P8/P13): exact-period filed additive flows replace conflicting vendor observations.
+export const REPORT_SPEC_VERSION = "1.78.0" as const;
 
 /**
  * Current payload format version.

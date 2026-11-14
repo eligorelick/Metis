@@ -220,7 +220,7 @@ overlap prevents treating a component as the full acquisitions line. Primary
 repurchase cash evidence is admitted before bulk repurchase comparisons, so
 cost-inclusive tags cannot displace proved cash scope.
 
-This revises D-150's retained capex convention, D-212's annual-vendor gate and
+This revises D-200's sibling-flow handling and D-215's borrowing-cost precedence, as well as D-150's retained capex convention, D-212's annual-vendor gate and
 its unexplained-conflict refusal, D-239's refusal of a zero contradicted by
 exact filed PP&E, and D-203's cost refusal when a complete operating family
 does establish placement. D-89's CFO rule remains; its sibling value-only
@@ -298,7 +298,7 @@ capex identity gives 10,984 rather than the 10,983.7 vendor-quarter sum, so
 TTM FCF is 19,660.6 rather than 19,660.9; the 0.3 difference is the current
 filing's rounded prior-year YTD, not a change to a quarterly fact.
 
-Report 1.76.0, payload 1.95.0 and Stage B
+Report 1.78.0, payload 1.95.0 and Stage B
 `STAGE_B_2026_11_FILED_FLOWS_69` identify the changed meaning. Stage C, score
 bands and valuation-method stamps stay: their algorithms are unchanged. Frozen
 synthetic records change only the capex-definition wording, report/payload
@@ -11897,6 +11897,8 @@ All ten execution grades remain unchanged; NVO's CEO retains C on the
 post-appointment June 2026 cash-flow evidence.
 
 ## D-200 - Filed figures over vendor conflicts (2026-11-04)
+
+Revised by D-262: sibling flow admission requires the same statement quantity, not a component or combined-income proxy.
 
 Implements source-data findings 1-5 and 8 from fair-value coverage baseline
 `7ffa9fde`, on branch `t3/verify-data-fix`, implementation `0c9d8a9d`.

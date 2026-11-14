@@ -1,9 +1,10 @@
+import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { CompanyFacts } from "@/edgar/xbrl";
 import type { FmpCashFlowRow, FmpIncomeStatementRow, FmpStatementRow } from "@/providers/fmp";
 import { buildStatementsFromCompanyFacts } from "@/edgar/statements";
 import { enrichIncomeClassification } from "@/edgar/incomeClassification";
-import { enrichFinancialFields } from "@/edgar/financialEnrichment";
+import { enrichFinancialFields, admitFiledStatementFlows, admitFiledCapitalExpenditure, admitFiledInterestExpense } from "@/edgar/financialEnrichment";
 import { withCashFlowSbcBasis } from "@/pipeline/cashFlowBasis";
 import { withBorrowingCostBasis } from "@/pipeline/borrowingCostBasis";
 import { completeCurrencyBundle } from "./helpers/currencyBundle";
@@ -20,6 +21,43 @@ type Point = ReturnType<typeof point>;
 const facts = (tags: Record<string, Point[]>, unit = "USD"): CompanyFacts => ({ cik: 1, entityName: "Synthetic equipment manufacturer",
   facts: { "us-gaap": Object.fromEntries(Object.entries(tags).map(([tag, ps]) => [tag, { units: { [unit]: ps } }])) } });
 const annual = (val: number) => point("2025-01-01", "2025-12-31", val, "2026-02-10");
+describe("D-262 review: same quantity, not a convenient component", () => {
+  it.each([
+    ["PaymentsToAcquireProductiveAssets", 1000, PPE, 50],
+    ["PaymentsToAcquireOilAndGasProperty", 900, PPE, 100],
+    ["PaymentsToAcquirePropertyPlantAndEquipment", 300, "PaymentsToAcquireRealEstate", 700],
+    ["PaymentsToAcquirePropertyPlantAndEquipment", 300, "PaymentsToDevelopSoftware", 700],
+    ["PaymentsToAcquirePropertyPlantAndEquipment", 300, "PaymentsForCapitalImprovements", 700],
+    ["PaymentsToAcquirePropertyPlantAndEquipment", 300, "PaymentsForProceedsFromProductiveAssets", 700],
+    ["PaymentsToAcquireRealEstate", 300, PPE, 700],
+  ] as const)("retains capex beside competing %s and %s", (a, av, b, bv) => {
+    const out = admitFiledCapitalExpenditure(cashRow(-1000 * M), facts({ [a]: [annual(av * M)], [b]: [annual(bv * M)] }), "annual", observedAt);
+    expect(out.row.capitalExpenditure).toBe(-1000 * M);
+    expect(out.gaps.some(g => g.reason.includes(a) && g.reason.includes(b))).toBe(true);
+  });
+  it("retains income D&A agreeing with the income line, not the wider cash add-back", () => {
+    const row = { ...interestRow(), depreciationAndAmortization: 80 * M };
+    const out = admitFiledStatementFlows(row, facts({ CostDepreciationAmortizationAndDepletion: [annual(80 * M)], DepreciationDepletionAndAmortization: [annual(90 * M)] }), "income", "annual", observedAt);
+    expect(out.row.depreciationAndAmortization).toBe(80 * M);
+  });
+  it("does not establish income D&A from the cash-flow line alone", () => {
+    const out = admitFiledStatementFlows({ ...interestRow(), depreciationAndAmortization: 80 * M }, facts({ DepreciationDepletionAndAmortization: [annual(90 * M)] }), "income", "annual", observedAt);
+    expect(out.row.depreciationAndAmortization).toBe(80 * M);
+  });
+  it.each([false, true])("does not turn combined interest and dividends into interest alone (bank %s)", bank => {
+    const out = admitFiledStatementFlows({ ...interestRow(), interestIncome: 0 }, facts({ InterestAndDividendIncomeOperating: [annual(90 * M)] }), "income", "annual", observedAt, bank);
+    expect(out.row.interestIncome).toBe(0);
+    expect(out.gaps.some(g => g.reason.includes("InterestAndDividendIncomeOperating"))).toBe(true);
+  });
+  it("treats an absent expense at a vendor-zero row as expected", () => {
+    expect(admitFiledInterestExpense(interestRow(0), facts({}), "annual", observedAt).gaps[0]).toMatchObject({ severity: "info", expected: true });
+    expect(admitFiledInterestExpense(interestRow(1), facts({}), "annual", observedAt).gaps[0]).toMatchObject({ severity: "warn" });
+  });
+  it("discloses expense parts on a mixed operating basis", () => {
+    const out = admitFiledStatementFlows({ ...interestRow(), sellingGeneralAndAdministrativeExpenses: 80 * M, operatingExpenses: 100 * M }, facts({ SellingGeneralAndAdministrativeExpense: [annual(90 * M)] }), "income", "annual", observedAt);
+    expect(out.gaps.some(g => /mixed basis/i.test(g.reason))).toBe(true);
+  });
+});
 const nineMonths = (val: number) => point("2025-01-01", "2025-09-30", val, "2025-10-30");
 const sixMonths = (val: number) => point("2025-01-01", "2025-06-30", val, "2025-07-30");
 const firstQuarter = (val: number) => point("2025-01-01", "2025-03-31", val, "2025-04-30");
@@ -51,7 +89,7 @@ const incomeRows = (b: ReturnType<typeof interestBasis>, quarter = false) => {
 
 describe("D-262: filed PP&E spending replaces a conflicting vendor capex family", () => {
   it("corrects the annual capex, its alias and standardized FCF, retaining every vendor observation", () => {
-    const out = cashBasis(facts({ [PPE]: [annual(90 * M)], PaymentsToAcquireInProcessResearchAndDevelopment: [annual(30 * M)] }));
+    const out = cashBasis(facts({ [PPE]: [annual(90 * M)], PaymentsToAcquireIntangibleAssets: [annual(20 * M)], PaymentsToAcquireInProcessResearchAndDevelopment: [annual(30 * M)] }));
     expect(cashRows(out)[0]).toMatchObject({ capitalExpenditure: -90 * M, investmentsInPropertyPlantAndEquipment: -90 * M, freeCashFlow: 910 * M,
       fieldConflicts: { capitalExpenditure: { usable: true, resolution: "filed-family", vendorValue: -120 * M, secValue: -90 * M },
         freeCashFlow: { vendorValue: 880 * M, secValue: 910 * M } },
@@ -93,9 +131,9 @@ describe("D-262: filed PP&E spending replaces a conflicting vendor capex family"
     expect(cashRows(cashBasis(f, [row]))[0]?.capitalExpenditure).toBe(-120 * M);
   });
 
-  it("uses the filed total before an other-PP&E component and never sums research or acquisitions", () => {
-    const f = facts({ PaymentsToAcquirePropertyPlantAndEquipment: [annual(100 * M)], [PPE]: [annual(90 * M)],
-      PaymentsToAcquireInProcessResearchAndDevelopment: [annual(30 * M)] });
+  it("uses the filed total independently of an other-PP&E line from a different filing", () => {
+    const f = facts({ PaymentsToAcquirePropertyPlantAndEquipment: [annual(100 * M)], [PPE]: [{ ...annual(90 * M), accn: "another-filing" }],
+      PaymentsToAcquireIntangibleAssets: [annual(20 * M)], PaymentsToAcquireInProcessResearchAndDevelopment: [annual(30 * M)] });
     expect(cashRows(cashBasis(f))[0]?.capitalExpenditure).toBe(-100 * M);
   });
 
@@ -118,7 +156,7 @@ describe("D-262: filed PP&E spending replaces a conflicting vendor capex family"
   });
 
   it("the statement owner extracts other PP&E as cash capex without adding acquired research", () => {
-    const f = facts({ Revenues: [annual(2000 * M)], [PPE]: [annual(90 * M)], PaymentsToAcquireInProcessResearchAndDevelopment: [annual(30 * M)], NetCashProvidedByUsedInOperatingActivities: [annual(1000 * M)] });
+    const f = facts({ Revenues: [annual(2000 * M)], [PPE]: [annual(90 * M)], PaymentsToAcquireIntangibleAssets: [annual(20 * M)], PaymentsToAcquireInProcessResearchAndDevelopment: [annual(30 * M)], NetCashProvidedByUsedInOperatingActivities: [annual(1000 * M)] });
     const out = buildStatementsFromCompanyFacts(f, { symbol: "SYNTH", cik: "1", asOf: observedAt.slice(0, 10), factsObservedAt: observedAt,
       annualPeriods: 1, quarterlyPeriods: 0, vendorSplits: { status: "unavailable", source: "fixture", reason: "additive cash only" } });
     expect(out.cashflowAnnual.rows[0]).toMatchObject({ capitalExpenditure: -90 * M, freeCashFlow: 910 * M });
@@ -205,7 +243,7 @@ describe("D-262 breadth: independently tagged statement flows", () => {
   });
 
   it.each([
-    ["depreciationAndAmortization", "DepreciationDepletionAndAmortization"],
+    ["depreciationAndAmortization", "CostDepreciationAmortizationAndDepletion"],
     ["researchAndDevelopmentExpenses", "ResearchAndDevelopmentExpense"],
     ["sellingGeneralAndAdministrativeExpenses", "SellingGeneralAndAdministrativeExpense"],
     ["interestIncome", "InvestmentIncomeInterest"],
@@ -260,7 +298,7 @@ describe("D-262 breadth: independently tagged statement flows", () => {
 
   it("preserves proved bank revenue when a sibling D&A correction creates a new row object", () => {
     const f = facts({ Revenues: [annual(1000 * M)], InterestIncomeExpenseNet: [annual(600 * M)], NoninterestIncome: [annual(400 * M)],
-      DepreciationDepletionAndAmortization: [annual(90 * M)] });
+      CostDepreciationAmortizationAndDepletion: [annual(90 * M)] });
     const row = { ...interestRow(), revenue: 2000 * M, depreciationAndAmortization: 80 * M };
     const out = enrichIncomeClassification(source([row]), f, "annual", observedAt, { bankRevenue: true });
     expect(out.income.ok && out.income.value.data.rows[0]).toMatchObject({ revenue: 1000 * M, depreciationAndAmortization: 90 * M,
@@ -273,4 +311,10 @@ describe("D-262 breadth: independently tagged statement flows", () => {
       shape === "bank" ? { bankRevenue: true } : { securitiesRevenue: true });
     expect(out.income.ok && out.income.value.data.rows[0]?.interestIncome).toBe(100 * M);
   });
+});
+
+it("records both revised decisions", () => {
+  const text = fs.readFileSync("docs/audit/DECISIONS.md", "utf8");
+  expect(text.split("## D-200 -")[1]!.split("\n## ")[0]).toContain("Revised by D-262");
+  expect(text.split("## D-262 -")[1]!.split("\n## ")[0]).toContain("D-215");
 });

@@ -58,7 +58,8 @@ describe("standalone capex on an independently established annual tag basis", ()
     const { b, facts } = fixture();
     if (kind === "conflicting annual vendor" && b.statements.cashflowAnnual.ok) b.statements.cashflowAnnual.value.data.rows[0]!.capitalExpenditure = -999 * M;
     if (kind === "separate software tag") facts.facts["us-gaap"]!.PaymentsToDevelopSoftware = structuredClone(facts.facts["us-gaap"]!.PaymentsToAcquirePropertyPlantAndEquipment);
-    expect(quarter(b)).toMatchObject({ capitalExpenditure: -189 * M, freeCashFlow: -686 * M });
+    expect(quarter(b)).toMatchObject(kind === "separate software tag" ? { capitalExpenditure: 396 * M, freeCashFlow: -101 * M } : { capitalExpenditure: -189 * M, freeCashFlow: -686 * M });
+    if (kind === "separate software tag") expect(quarter(b).fieldProvenance?.capitalExpenditure).toBeUndefined();
   });
 });
 describe("recoverable vendor SBC zero placeholders", () => {
