@@ -2650,7 +2650,7 @@
     "multiples": [
       {
         "name": "P/E (TTM)",
-        "basis": "price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 100M); the market-cap multiples sit on the 100M shares the quoted market cap implies, within 0.1%.",
+        "basis": "price / epsDiluted (TTM). EPS convention: sum of four reported quarterly diluted EPS observations; annual or year-to-date GAAP diluted EPS is not reconstructed. Share-count changes and period-specific anti-dilution can make the results differ; a common split basis is not independently verified by this sum. Share basis: price / diluted EPS sits on weighted-average diluted shares (latest 100M); the market-cap multiples sit on the 100M shares the quoted market cap implies, and the diluted count is within 0.1% of that count.",
         "current": 17.77777777777778,
         "peerMedian": null,
         "peerCount": null,
@@ -2660,7 +2660,7 @@
       },
       {
         "name": "EV/EBITDA",
-        "basis": "EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2026-03-31. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M, within 0.1%).",
+        "basis": "EV / (operatingIncome + D&A), TTM-computed — vendor ebitda field not trusted. Enterprise value as stated once in the enterprise-value bridge note. Balance basis: latest quarterly balance sheet 2026-03-31. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 10.620689655172415,
         "peerMedian": null,
         "peerCount": null,
@@ -2670,7 +2670,7 @@
       },
       {
         "name": "EV/Sales",
-        "basis": "EV / revenue (TTM). Enterprise value as stated once in the enterprise-value bridge note. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M, within 0.1%).",
+        "basis": "EV / revenue (TTM). Enterprise value as stated once in the enterprise-value bridge note. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 2.566666666666667,
         "peerMedian": null,
         "peerCount": null,
@@ -2680,7 +2680,7 @@
       },
       {
         "name": "P/FCF (before SBC)",
-        "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (TTM; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M, within 0.1%).",
+        "basis": "marketCap / (operatingCashFlow + capitalExpenditure) (TTM; FMP capex negative) — free cash flow BEFORE stock-based compensation, the vendor convention, which is also the basis of the own-history distribution this multiple is ranked in. The capital block's house-default free cash flow subtracts SBC and is a DIFFERENT figure; the two are never mixed. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 17.77777777777778,
         "peerMedian": null,
         "peerCount": null,
@@ -2690,7 +2690,7 @@
       },
       {
         "name": "P/B",
-        "basis": "marketCap / common equity (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M, within 0.1%).",
+        "basis": "marketCap / common equity (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock); carrying parent common-equity measure: repurchases and omitted internally generated intangibles can limit comparison; this ratio does not independently establish expensiveness. Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 6.153846153846154,
         "peerMedian": null,
         "peerCount": null,
@@ -2700,7 +2700,7 @@
       },
       {
         "name": "P/TBV",
-        "basis": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 40000000 and intangibleAssets 10000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M, within 0.1%).",
+        "basis": "marketCap / (common equity - goodwill - intangibleAssets); deducts goodwill 40000000 and intangibleAssets 10000000 (source monetary units; vendor composition unverified unless stated).  (latest quarterly balance sheet 2026-03-31; parent stockholders equity (excludes noncontrolling equity) less preferred stock; undisclosed preferred assumed zero only when no material preferred amount is known). Share basis: market cap is the quote price × the 100M shares the provider's market cap implies; diluted EPS and per-share values divide by weighted-average diluted shares (latest 100M), within 0.1% of that count.",
         "current": 6.808510638297872,
         "peerMedian": null,
         "peerCount": null,
