@@ -1366,6 +1366,15 @@ The new pinned-main diff preserves the earlier case/figure ledger, with these me
 
 Verification: the six initially failing restructuring/tax assertions were observed red before the fix; the WACC source-wording control also failed before the consumer correction. The focused set covers 15 files / 865 tests; the restored Q4 evidence file was rerun successfully after binding its amount assertion to the correct retained record. Final tax/WACC, Q4, TTM and refusal controls passed 149 tests across four files. Typecheck passed; lint passed with the existing unused _dropped warning. Both nineteen-case builds completed offline against pinned main. Final accuracy check: 265 figures across 13 referenced cases, 171 match, 7 mismatch, 61 gap, 26 not-established, every expectation satisfied; no expectation update. No full suite or verify was run.
 
+
+### Final restructuring reporting-unit control (2026-11-14)
+
+The owner confirmed that the existing one-dollar reporting-unit predicate governs both the separate and embedded restructuring candidates. Exactly one distinct operating figure must satisfy it; neither matching or two different figures matching keeps the gap. Identical operating figures count as one candidate. The predicate and its allowance are unchanged. This supersedes the exact-tie membership requirement recorded in the preceding review round.
+
+The new pretax 281 / restructuring 50 control and the ambiguous pretax 280 / restructuring 1 control were observed failing before the fix. Under the owner's explicit clarification, the old neither-case input moves from 229 to 200 while its gap expectation is preserved. A separate 229 control now explicitly requires operating income 250. The existing exact embedded and separate controls and every other expectation remain unchanged. All figures in these controls are synthetic.
+
+Dated follow-up (2026-11-14, final A1, P1/P10): the zero-restructuring regression failed on 0855db38 because both memberships yielded 300 but were counted twice. Candidate identity now uses exact numeric equality, without changing the existing one-dollar reconciliation predicate. Zero restructuring computes 300; restructuring 1 with pretax 280 keeps a gap because 299 and 300 both match. An aggregate operating-cost control computes 300 independently of child membership. All synthetic controls passed. No company-specific conditions were added. Same-report results against pinned main 57ba3f54 are recorded with D-267 part 1 below.
+
 ## D-264 - Reader presentation across company types (2026-11-13)
 
 Principles P22 (one shared presentation rule), P21 (immutable saved reports),

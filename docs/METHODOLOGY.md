@@ -8476,8 +8476,9 @@ expense, and restructuring, settlement and impairment provisions. A filed total
 research expense replaces its children once; conflicting totals close the proof.
 Cash payments for acquisitions cannot establish these income-statement expenses.
 Restructuring can already be included in another cost. When a component bridge
-carries that tag, its membership is proved by an exact tie to filed pretax income,
-with or without that component. Neither exact tie means the bridge stays unavailable.
+carries that tag, both candidate memberships use the existing one-dollar
+reporting-unit rule against filed pretax income. Exactly one must match;
+neither or both matching keeps the bridge unavailable.
 Every bridge still reconciles independently to same-scope filed pretax income.
 
 Missing monetary income fields use the statement owner's exact annual or
