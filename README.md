@@ -8,15 +8,21 @@
 
 > **Informational only — not investment advice.** Grades and price targets are model outputs from disclosed data and assumptions, not human recommendations. Market data and AI output can be delayed, incomplete, or wrong.
 
-[Try the sample](#see-a-sample-report) · [Get started](#quick-start) · [Methodology](docs/METHODOLOGY.md) · [Validation](docs/VALIDATION-STATUS.md) · [Contribute](CONTRIBUTING.md)
+[Try the sample](#see-a-sample-report) · [Get started](#quick-start) · [Documentation](#documentation) · [Methodology](docs/METHODOLOGY.md) · [Validation](docs/VALIDATION-STATUS.md) · [Contribute](CONTRIBUTING.md)
 
 ## What a report covers
 
-Verdict and executive summary · how the company makes money, its segments, and its market and industry structure · fundamentals and quarterly trends · balance sheet and capital · valuation (a sector-appropriate intrinsic value, multiples against history and peers, sensitivity grids, reverse DCF) · quality and forensic red flags · technicals · leadership, compensation and insider activity · competitors and moat · dated catalysts and risks · outlook and weighted bull/base/bear projections · macro context · an appendix of sources, data gaps and verification results.
+- **Verdict:** a verdict and executive summary, with a scorecard of section grades.
+- **Business:** how the company makes money, its segments, its market and industry structure, and its competitors and moat.
+- **Financials:** fundamentals and quarterly trends, balance sheet and capital, and quality and forensic red flags.
+- **Valuation:** a sector-appropriate intrinsic value, multiples against history and peers, sensitivity grids and a reverse DCF.
+- **People:** leadership, compensation and insider activity.
+- **Outlook:** dated catalysts and risks, weighted bull, base and bear projections, technicals and macro context.
+- **Appendix:** sources, data gaps and verification results.
 
 ## See a sample report
 
-From `/report/sample`: a fictional company, with real code outputs on invented inputs.
+These screenshots come from the built-in sample at `/report/sample`. The company is fictional: the inputs are invented, and the figures are real outputs of the code run on them.
 
 ![Sample report: key data and section grades](public/screenshots/sample-overview.png)
 
@@ -26,14 +32,14 @@ From `/report/sample`: a fictional company, with real code outputs on invented i
 
 ## How it works
 
-1. **Collect.** Typed data from Financial Modeling Prep, SEC EDGAR, Yahoo Finance, FINRA, FRED, Finnhub, the U.S. Treasury and an EDGAR-confirmed issuer's own website, checked for freshness, balance-sheet identities and selected vendor figures against EDGAR XBRL.
-2. **Compute.** Growth, returns, capital structure, valuation, scenarios, technicals, grades and forensic indicators on a sector route (industrial, bank, insurer, REIT and others) drawn from the industry label and SIC code and checked against filed facts. Missing inputs become disclosed gaps, never guesses.
+1. **Collect.** Metis gathers typed data from Financial Modeling Prep, SEC EDGAR, Yahoo Finance, FINRA, FRED, Finnhub, the U.S. Treasury and an EDGAR-confirmed issuer's own website. It checks freshness and balance-sheet identities, and checks selected vendor figures against EDGAR XBRL.
+2. **Compute.** Deterministic code computes growth, returns, capital structure, valuation, scenarios, technicals, grades and forensic indicators. Each company follows a sector route (industrial, bank, insurer, REIT and others) drawn from its industry label and SIC code and checked against filed facts. Missing inputs become disclosed gaps, never guesses.
 3. **Analyse (optional AI).** Independent bull and bear analysts research recent developments, the market and the competitors, then a judge weighs both cases and writes the report.
 4. **Verify.** Cited figures are traced to the record they cite, and the prose around them is checked for direction, period and unit, without another model call.
 
 ## Quick start
 
-Node.js 24 or newer and npm are required (`package.json`); use Node 24 for development. CI tests Node 24. Windows is the primary development platform. macOS/Linux use the npm commands below; CI runs the full gate on Linux and product/integration smoke checks on Windows.
+You need Node.js 24 or newer and npm (`package.json`). CI tests Node 24, and `.node-version` pins it for version managers that read that file. Windows is the primary development platform; macOS and Linux use the same npm commands. CI runs the full gate on Linux and product/integration smoke checks on Windows.
 
 ```powershell
 git clone https://github.com/eligorelick/Metis.git
@@ -43,124 +49,71 @@ Copy-Item .env.example .env
 npm run dev
 ```
 
-On macOS/Linux, use `cp .env.example .env`. For everyday use, `npm run app` serves the faster production build and rebuilds it only when the source changed (or run `npm run build`, then `npm start`). Keep `.env*` private; only the placeholder `.env.example` belongs in Git. **Settings → Provider keys and SEC contact** offers **Save**, **Test**, and **Remove saved** for each value; a green check confirms usable provider test data. Saved values use protected local storage, override environment keys, and apply without restarting. Removing an override restores any environment value and keeps account connections intact. Existing saved keys stay hidden; tests do not generate paid Claude responses.
+On macOS/Linux, use `cp .env.example .env`. Then open <http://127.0.0.1:3000>; development and production both bind to `127.0.0.1`. For everyday use, `npm run app` serves the faster production build and rebuilds it only when the source changed (or run `npm run build`, then `npm start`).
 
-Open <http://127.0.0.1:3000>; development and production both bind to `127.0.0.1`. Every provider key is optional: with no `FMP_API_KEY`, set
-`EDGAR_CONTACT` to a truthful "Name email" identity and real US-listed tickers
-come from SEC EDGAR and Yahoo. With no key at all, open the **[sample report](http://127.0.0.1:3000/report/sample)**, a complete fictional report. `/company/DEMO` and `/company/DBNK` are reserved strings
-served from `fixtures/fmp` whatever keys are set. None reaches a market-data provider: the company slices disclose fixtures and the sample is synthetic.
-Other symbols use live/cache data; generating fixture reports can still call selected AI.
+No paid API key is required to try the app, and every provider key is optional:
 
-No paid API key is required to try the app. For real keyless research, SEC EDGAR requires `EDGAR_CONTACT` (a contact identity, not a key). Optional keys: `FMP_API_KEY` for vendor data, `FRED_API_KEY` for macro requests, `FINNHUB_API_KEY` for Finnhub, and `ANTHROPIC_API_KEY` only for Claude API analysis. `ANTHROPIC_ADMIN_KEY` is only for optional cost reconciliation. Configure provider keys and the SEC contact in `.env` or Settings; Settings also supports Save, Test and Remove saved for the optional admin key in protected local storage. See the configuration table below for limits and defaults.
+| You set | You get |
+| --- | --- |
+| Nothing | The **[sample report](http://127.0.0.1:3000/report/sample)**, a complete fictional report, and the fixture companies `/company/DEMO` and `/company/DBNK`. |
+| `EDGAR_CONTACT` | Research on real US-listed companies from SEC EDGAR and Yahoo. SEC requires this truthful "Name email" contact identity; it is not a key. |
+| `FMP_API_KEY`, `FRED_API_KEY`, `FINNHUB_API_KEY` | Vendor data, authenticated macro requests, and Finnhub insider sentiment, company news and earnings-date fallbacks. |
+| An AI connection or `ANTHROPIC_API_KEY` | Bull and bear analysts and a judge's report; see [AI analysis](#ai-analysis-optional). |
 
-Financial-data subscriptions are optional: useful APIs are preferred, with public issuer documents and SEC proxies as bounded fallbacks. Unsupported documents and unresolved accounting conflicts remain explicit; see [public evidence limits](docs/METHODOLOGY.md#optional-apis-and-public-evidence-d-211).
+`/company/DEMO` and `/company/DBNK` are reserved strings served from `fixtures/fmp` whatever keys are set. Neither they nor the sample reach a market-data provider: the company pages disclose that they are fixtures, and the sample is synthetic. Generating a report for a fixture company can still call the AI you selected. Every other symbol uses live or cached data.
 
-Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps. Measured complete runs in November 2026 cost $1.62 (Haiku 4.5 analysts at medium effort with the Sonnet 5.5 judge), $2.28 (Sonnet 5.5 at high), $4.71 (Opus 5.5 at high), $12.27 (Opus 5.5 at extra high), $3.08 (Sonnet 5.5 on JPM) and $6.30 (Opus 5.5 on NVO), so expect more than the estimate at higher effort. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) and the detailed pricing table below.
+Set keys and the SEC contact in `.env` or in **Settings → Provider keys and SEC contact**, which offers **Save**, **Test** and **Remove saved** for each value; a green check confirms usable provider test data. Saved values use protected local storage, override environment keys and apply without restarting. Removing a saved value restores any environment value and keeps account connections intact. Saved keys stay hidden, and **Test** never generates a paid Claude response. `ANTHROPIC_ADMIN_KEY` is only for optional cost reconciliation and can be saved the same way. Keep `.env*` private; only the placeholder `.env.example` belongs in Git. The [configuration table](#configuration) lists limits and defaults.
 
-## AI connections
+## Using the app
 
-In **Settings → AI connections**, connect ChatGPT through official plan OAuth, then save. ChatGPT offers account models, reasoning choices and opt-in Fast speed. Sign-in runs no inference; failures never switch to paid API usage. Claude API remains separately billed. Plan allowances and credit settings apply; API dollar caps do not measure them. See [setup, controls and limits](docs/PRIVACY.md#ai-connection-setup).
-Claude account access uses your installed, unmodified **Claude Code 2.1.319+**: run `claude auth login`, complete Anthropic's sign-in, then click **Connect local Claude Code** in Settings. Choose a CLI model alias or full model ID and an optional reasoning effort, then save the connection. OAuth tokens stay with the CLI. [Anthropic's authentication rules](https://code.claude.com/docs/en/legal-and-compliance) describe this local CLI path.
-ChatGPT supports hosted plan research; Claude API retains API search, while Claude through the local CLI uses supplied evidence. Writers and judges stay tool-free. Explicit optional-search limits fall back to supplied evidence with a coverage notice; authentication, policy and allowance failures still stop the run.
-Connections have offline test coverage, and complete reports have run live through a ChatGPT connection. One complete report has run live through a Claude Code subscription connection (one company, 2026-11-12, Claude Code 2.1.322, model alias `default`, which the CLI reported as `claude-opus-5-5`): every pass finished and $0 API cost was recorded. One run is not a guarantee: subscription usage limits apply and Metis cannot read them, the CLI does not report the effort it used, and this route does no web research. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
+- Saved reports have a **Rerun ticker** control and a **Delete** action with confirmation. Deleting a report keeps its job, input and cost records for accounting.
+- **Ticker data** recalls compatible local inputs from prior visits or runs and shows when they were collected; ordinary revisits reuse retained data. After an app upgrade, inputs are rebuilt if their calculation versions differ.
+- **Update ticker data** checks for updated source data without running AI. Fresh provider responses and immutable filings remain cached during an update.
 
-Saved reports have a **Rerun ticker** control and a **Delete** action with confirmation. **Ticker data** recalls compatible local inputs from prior visits or runs and shows when they were collected. **Update ticker data** checks for updated source data without running AI; ordinary revisits reuse retained data. App upgrades rebuild inputs if their calculation versions differ. Fresh provider responses and immutable filings remain cached during an update. Deleting a report keeps job, input and cost records for accounting.
+[Operations](docs/OPERATIONS.md) covers pages, AI selection, jobs and recovery, exports and the local HTTP API.
 
-## Configuration
+## AI analysis (optional)
 
-<!-- BEGIN GENERATED: config -->
+With AI off or unavailable, reports retain deterministic results and disclose the missing analysis. With AI on, two analysts and a judge add a bull case, a bear case and the judge's synthesis.
 
-Every key is optional. This table is generated from `.env.example`, which carries the long form of each one.
-Its `METIS_*` lines ship commented out, so uncomment only what you mean to set. Old `THESIS_*` names are
-no longer read: if one is still set, Metis refuses to start and names its `METIS_*` replacement. See [compatibility](docs/BRAND.md#compatibility).
+### Connect a provider
 
-| Key | Shipped value, built-in default or opt-in example | What it does |
-| --- | --- | --- |
-| `FMP_API_KEY` | unset | Financial Modeling Prep key — any plan. |
-| `ANTHROPIC_API_KEY` | unset | Anthropic key enables Claude analyst/judge passes when Claude API is selected. |
-| `FRED_API_KEY` | unset | FRED key enables authenticated macro-series requests. |
-| `FINNHUB_API_KEY` | unset | Finnhub — free-tier key. |
-| `EDGAR_CONTACT` | unset | SEC EDGAR is keyless but REQUIRES a declared contact in the User-Agent of every request. |
-| `METIS_STATEMENT_SOURCE` | `auto` | Where the income statement, balance sheet and cash flow history comes from. |
-| `ANALYSIS_MODEL` | `auto` | Claude model used when the Claude API connection is selected. |
-| `ANALYSIS_EFFORT` | `high` | Claude reasoning effort: low \| medium \| high \| xhigh \| max. |
-| `METIS_JUDGE_ORDER` | `random` | Which order the judge/synthesis pass reads the two analyst cases in. |
-| `ANTHROPIC_ADMIN_KEY` | unset | Optional Admin API key (distinct from ANTHROPIC_API_KEY). |
-| `METIS_MAX_ACTIVE_JOBS` | `1` | Maximum concurrent report jobs across processes sharing the SQLite database. |
-| `METIS_MAX_ACTIVE_LLM_CALLS` | `2` | Maximum concurrent paid Claude permits across processes sharing the SQLite database. |
-| `METIS_MAX_JOB_COST_USD` | unset | Optional exact USD caps. |
-| `METIS_MAX_ROLLING_COST_USD` | unset | Optional exact USD caps. |
-| `METIS_RESERVATION_MODE` | `request` | How paid work is admitted against these caps: one reservation per provider request, or one per pass. |
-| `METIS_STREAM_IDLE_SECONDS` | `300` | Base gap with no stream event after which a paid request is abandoned, scaled by analysis effort. |
-| `METIS_ROLLING_COST_WINDOW_MINUTES` | `1440` | Rolling paid-cost window in minutes (1440 means 24 hours). |
-| `METIS_PAID_PASS_LEASE_SECONDS` | `900` | Paid-pass lease lifetime in seconds, renewed every quarter of its TTL. |
-| `METIS_JOB_LEASE_SECONDS` | `900` | Job-claim lease lifetime in seconds, never shorter than the paid-pass lease. |
-| `METIS_RESUME_ON_START` | `1` | Automatically resume queued work at startup with 1, or hold it with 0. |
-| `METIS_EV_INCLUDE_LEASES` | `1` (opt in) | Include a separable operating-lease liability only when explicitly set to 1. |
-| `METIS_ALLOWED_HOST` | unset | `npm run dev` and `npm start` bind to 127.0.0.1 by default. |
-| `METIS_TOKEN_FILE` | unset (opt in) | Override the startup token file path (default `<data dir>/csrf-token`). |
-| `METIS_DB_PATH` | unset (opt in) | Override the SQLite file (fresh default `<data dir>/metis.db`, with existing `thesis.db` or recovery files reused). |
-| `METIS_DATA_DIR` | unset (opt in) | Override the app-data directory used by the default DB and startup token. |
-| `METIS_IMPORT_LEGACY_DB` | `1` (opt in) | One-time migration only. |
-| `NEXT_TELEMETRY_DISABLED` | `1` | The Next.js CLI behind `npm run dev` / `npm run build` posts anonymous usage events to telemetry.nextjs.org unless this is set. |
+Choose a route in **Settings → AI connections**:
 
-<!-- END GENERATED: config -->
+| Route | Setup | Billing | Analyst web research |
+| --- | --- | --- | --- |
+| ChatGPT plan | Connect through official plan OAuth, then save. It offers your account's models, reasoning choices and opt-in Fast speed. | Your plan's allowances and credit settings; API dollar caps do not measure them. | Hosted plan research |
+| Claude subscription | Install unmodified **Claude Code 2.1.319+**, run `claude auth login`, complete Anthropic's sign-in, then click **Connect local Claude Code**. Choose a CLI model alias or full model ID and an optional reasoning effort, then save. OAuth tokens stay with the CLI. | Your Claude subscription's usage limits | None: it uses the supplied evidence |
+| Claude API | Set `ANTHROPIC_API_KEY` in `.env` or Settings. | Billed separately by Anthropic; see [cost](#cost-of-claude-api-analysis). | API search |
 
-Claude model/effort settings beat environment/defaults; reset with `npm run settings:reset -- --yes`. `METIS_UI_REDESIGN` is gone with the classic layout (D-246): the dossier is the only layout, and a leftover value is ignored. [Operations](docs/OPERATIONS.md) covers AI selection, jobs, exports and API contracts.
+Sign-in runs no inference, and a failed connection never switches to paid API usage. [Anthropic's authentication rules](https://code.claude.com/docs/en/legal-and-compliance) describe the local CLI path. Writers and judges stay tool-free. Explicit optional-search limits fall back to supplied evidence with a coverage notice; authentication, policy and allowance failures still stop the run. See [setup, controls and limits](docs/PRIVACY.md#ai-connection-setup).
 
-## Where the numbers come from
+Connections have offline test coverage, and complete reports have run live through a ChatGPT connection. One complete report has run live through a Claude Code subscription connection (one company, 2026-11-12, Claude Code 2.1.322, model alias `default`, which the CLI reported as `claude-opus-5-5`): every pass finished and $0 API cost was recorded. One run is not a guarantee: subscription usage limits apply and Metis cannot read them, the CLI does not report the effort it used, and this route does no web research.
 
-With an FMP key, FMP is the default provider unless the statement policy selects EDGAR.
-Restricted endpoints and history limits use bounded retries, available fallbacks or
-disclosed gaps. Five annual periods can support some calculations; the own-history
-multiple rank still needs eight compatible quarterly observations.
+Settings follows a saved Claude key unless a connection was chosen explicitly. If the AI connection store cannot be read, saved reports stay readable but new jobs do not start. LAN mode disables credential and connection management. Stop all Metis servers before changing credential-lock versions; see [upgrade/downgrade guidance](docs/PRIVACY.md).
 
-Configure `EDGAR_CONTACT` even with a free FMP key. Metis learns explicit access
-restrictions and skips repeat refusals for 15 minutes; see [fallback limits](docs/PRIVACY.md#limited-fmp-access).
+### How the analysis works
 
-With no FMP key, set `EDGAR_CONTACT` for real US filers' research: supported statements, share counts and public float from SEC EDGAR XBRL company facts, prices from Yahoo's unofficial chart endpoint, and the profile and enterprise values derived from the two. `METIS_STATEMENT_SOURCE` chooses between the vendor and EDGAR; no statement row mixes source fields, and the manifest names how many each served.
+Two analysts independently build bull and bear cases without seeing each other's output; the bear prompt forbids assuming a bull case exists. They share evidence, so agreement is not independent factual corroboration. The rubric discourages double-counting repeated disclosures or derived metrics while allowing distinct facts from one filing. This is prompt guidance, not a deterministic evidence count or calibrated probability.
 
-Where a filer uses an extension tag the field is `null` rather than a guess,
-and each stand-in is named in the manifest with the periods it served. Analyst
-estimates, price targets, peers, insider trades (SEC Form 4), institutional
-ownership, news, transcripts and executive compensation have no implemented
-keyless source. SEC quarterly segment coverage is partial; IFRS-only facts remain gaps.
-See [License and data rights](docs/DATA-RIGHTS.md) for what each allows.
+Each analyst rates its case 1–5; a judge reads both, may discount a weak case, and writes the report. The order in which the judge reads the cases comes from the job id and appears in the report header. `METIS_JUDGE_ORDER=both` compares every section grade with case order swapped; retries retaining earlier sections skip it. Both cases share a character target; actual lengths and protected-content excess are disclosed.
 
-## What the numbers mean
+Failed AI runs may retain charges and produce a deterministic-only report: it has no analyst assessment, and any letter grade is a deterministic score band. Plan-run recovery files in `<data dir>/recovery/sections` stay until deleted with Metis stopped.
 
-[Methodology](docs/METHODOLOGY.md) defines sources, sector eligibility and house
-conventions. Banks, insurers and mortgage REITs use applicable equity models;
-unsupported industrial metrics stay excluded. Growth shows supported methods;
-free cash flow shows before/after stock-based compensation; history ranks show sample size.
-Grades are **Provisional** when key applicable evidence is missing or limited.
-Supported older values may appear as dated references, with no current upside or targets.
+### How verification works
 
-[`docs/RESEARCH.md`](docs/RESEARCH.md) documents the forensic scores' papers,
-coefficients, estimation populations and limits; the source cites it by section.
+The verification pass makes no model call. It reports two results side by side; checked is printed beside cited, never merged into it:
 
-With AI off or unavailable, reports retain deterministic results and disclose
-missing analysis. Failed AI runs may retain charges and produce such a report: it has no analyst assessment, and any letter grade is a deterministic score band.
-Plan-run recovery files in `<data dir>/recovery/sections` stay until deleted with Metis stopped. If the AI connection store cannot be read, saved reports stay readable but new jobs do not start. Settings follows a saved Claude key unless a connection was chosen explicitly. LAN mode disables credential and connection management.
+- **Cited:** citation coverage, meaning whether each figure can be traced to the record it cites.
+- **Checked:** the prose around figures it can locate. A direction word must match the sign of its change. A period naming a year must match the cited year, and a comparison base the period the figure is measured against. A unit word must fit the registered unit. A claim naming a person must rest on a filing, a transcript, a registry figure or attributed executive/insider rows; any other source, or none, fails it.
 
-## AI analysis
+### Cost of Claude API analysis
 
-Two analysts independently build bull and bear cases without seeing each other's output; the bear prompt forbids assuming a bull case exists. They share evidence, so agreement is not independent factual corroboration.
-The rubric discourages double-counting repeated disclosures or derived metrics while allowing distinct facts from one filing.
-This is prompt guidance, not a deterministic evidence count or calibrated probability. Each analyst rates its case 1–5; a judge reads both, may discount a weak case, and writes the report.
-Judge order comes from the job id and appears in the header. Both cases share a character target; actual lengths and protected-content excess are disclosed. `METIS_JUDGE_ORDER=both` compares every section grade with case order swapped; retries retaining earlier sections skip it.
+Claude API analysis is separately billed. The checked-in registry's illustrative run estimates range from about **$1.30 to $8.60**, with default Opus 5.5 around **$3.42**; actual charges vary with tokens, research, retries and effort. These are neither measured prices nor spending caps; set `METIS_MAX_JOB_COST_USD` and `METIS_MAX_ROLLING_COST_USD` to cap spend.
 
-The [prospective study workflow](docs/REPORT-EVALUATION.md#prospective-report-studies) predeclares slots and baselines, freezes reports before deadlines and retains every planned issuer, including missing reports and outcomes.
-It groups descriptive errors by sector and exact horizon with paired baseline comparisons. Neither the rubric nor local registration establishes forecast accuracy or historical source truth. Strict forecast admission still requires an upstream producer of complete typed measurement definitions; predefined cohorts, point-in-time inputs and later outcomes are needed to assess accuracy.
+Measured complete runs in November 2026 cost $1.62 (Haiku 4.5 analysts at medium effort with the Sonnet 5.5 judge), $2.28 (Sonnet 5.5 at high), $4.71 (Opus 5.5 at high), $12.27 (Opus 5.5 at extra high), $3.08 (Sonnet 5.5 on JPM) and $6.30 (Opus 5.5 on NVO), so expect more than the estimate at higher effort.
 
-Scorecards show each attribute's missing-input score range and conditional bands from recorded applicable coverage: arithmetic sensitivity, not probabilities. Valuation robustness requires complete modeled grids, including when displaying saved reports. Evidence timing distinguishes contemporaneous capture, later-acquired inputs and unverified historical timing.
-
-The verification pass makes no model call. It measures citation coverage — can each figure be traced to the record it cites — and separately checks the prose around figures it can locate: a direction word must match the sign of its change, a period naming a year must match the cited year (and a comparison base the period the figure is measured against), a unit word must fit the registered unit, and a claim naming a person must rest on a filing, a transcript, a registry figure or attributed executive/insider rows; any other source, or none, fails it. Checked is printed beside cited, never merged into it.
-
-Claude model prices and limits come from `config/models.json`; unknown IDs
-degrade to data-only reports because their spend cannot be bounded. `auto`
-prefers Opus 5.5; Haiku's judge uses Sonnet 5.5 with a disclosed model floor.
-See [Claude model, effort and usage guidance](docs/CLAUDE-USAGE.md).
+Claude model prices and limits come from `config/models.json`; unknown IDs degrade to data-only reports because their spend cannot be bounded. `auto` prefers Opus 5.5; Haiku's judge uses Sonnet 5.5 with a disclosed model floor. See [Claude usage and cost controls](docs/CLAUDE-USAGE.md) for model, effort and cap guidance.
 
 <!-- BEGIN GENERATED: pricing -->
 
@@ -202,20 +155,90 @@ maximum prices, and the measurements do not establish model quality.
 
 <!-- END GENERATED: pricing -->
 
-## Running it safely
+## Where the numbers come from
 
-Metis has no telemetry, analytics or update check; its own outbound traffic goes only to the providers you configure and an EDGAR-confirmed issuer's own website. The Next.js CLI has separate anonymous telemetry, off when the shipped `NEXT_TELEMETRY_DISABLED=1` is in your `.env` (or `npx next telemetry disable`). [Privacy and safety](docs/PRIVACY.md) names what each receives, where the local database lives, and how to delete it.
+With an FMP key, FMP is the default provider unless the statement policy selects EDGAR. Restricted endpoints and history limits use bounded retries, available fallbacks or disclosed gaps. Five annual periods can support some calculations; the own-history multiple rank still needs eight compatible quarterly observations.
 
-The application is single-user and has no authentication; keep it on loopback
-unless you add a security layer of your own. Mutating routes reject a request
-carrying neither browser Fetch Metadata nor a matching `Origin`; browsers send
-those automatically; scripts send `X-Metis-Token` (the old `X-Thesis-Token` is refused) with the contents of
-the `csrf-token` file the server writes at every start and names on stdout. That
-is a browser-CSRF boundary, not local access control: any process on the machine
-can present the same headers. Report security problems through the
-repository's [private advisory form](https://github.com/eligorelick/Metis/security/advisories/new), not a public issue.
+Configure `EDGAR_CONTACT` even with a free FMP key so SEC statement fallbacks can run. Metis learns explicit access restrictions and skips repeat refusals for 15 minutes; see [fallback limits](docs/PRIVACY.md#limited-fmp-access).
 
-## Commands
+With no FMP key, set `EDGAR_CONTACT` for real US filers' research: supported statements, share counts and public float come from SEC EDGAR XBRL company facts, prices from Yahoo's unofficial chart endpoint, and the profile and enterprise values are derived from the two. `METIS_STATEMENT_SOURCE` chooses between the vendor and EDGAR; no statement row mixes source fields, and the manifest names how many each served.
+
+Where a filer uses an extension tag the field is `null` rather than a guess, and each stand-in is named in the manifest with the periods it served. SEC quarterly segment coverage is partial; IFRS-only facts remain gaps. Analyst estimates, price targets, peers, insider trades (SEC Form 4), institutional ownership and news have no implemented keyless source.
+
+Financial-data subscriptions are optional: useful APIs are preferred, with public issuer documents and SEC proxies as bounded fallbacks. When vendor press releases, transcripts, executive compensation or ownership data are unavailable, Metis can recover bounded text from an EDGAR-confirmed issuer's own website (recent releases and one earnings transcript) and its latest proxy statement (compensation and beneficial-ownership tables). These are source excerpts, not normalized datasets, and the vendor dataset stays marked unavailable. Unsupported documents and unresolved accounting conflicts remain explicit; see [public evidence limits](docs/METHODOLOGY.md#optional-apis-and-public-evidence-d-211). See [License and data rights](docs/DATA-RIGHTS.md) for what each source allows.
+
+## What the numbers mean
+
+[Methodology](docs/METHODOLOGY.md) defines sources, sector eligibility and house conventions. In brief:
+
+- Banks, insurers and mortgage REITs use applicable equity models; unsupported industrial metrics stay excluded.
+- Growth shows supported methods; free cash flow shows before/after stock-based compensation; history ranks show sample size.
+- Grades are **Provisional** when key applicable evidence is missing or limited.
+- Supported older values may appear as dated references, with no current upside or targets.
+- Scorecards show each attribute's missing-input score range and conditional bands from recorded applicable coverage: arithmetic sensitivity, not probabilities. Valuation robustness requires complete modeled grids, including when displaying saved reports.
+- Evidence timing distinguishes contemporaneous capture, later-acquired inputs and unverified historical timing.
+
+[`docs/RESEARCH.md`](docs/RESEARCH.md) documents the forensic scores' papers, coefficients, estimation populations and limits; the source cites it by section.
+
+## Configuration
+
+<!-- BEGIN GENERATED: config -->
+
+Every key is optional. This table is generated from `.env.example`, which carries the long form of each one.
+Its `METIS_*` lines ship commented out, so uncomment only what you mean to set. Old `THESIS_*` names are
+no longer read: if one is still set, Metis refuses to start and names its `METIS_*` replacement. See [compatibility](docs/BRAND.md#compatibility).
+
+| Key | Shipped value, built-in default or opt-in example | What it does |
+| --- | --- | --- |
+| `FMP_API_KEY` | unset | Financial Modeling Prep key — any plan. |
+| `ANTHROPIC_API_KEY` | unset | Anthropic key enables Claude analyst/judge passes when Claude API is selected. |
+| `FRED_API_KEY` | unset | FRED key enables authenticated macro-series requests. |
+| `FINNHUB_API_KEY` | unset | Finnhub — free-tier key. |
+| `EDGAR_CONTACT` | unset | SEC EDGAR is keyless but REQUIRES a declared contact in the User-Agent of every request. |
+| `METIS_STATEMENT_SOURCE` | `auto` | Where the income statement, balance sheet and cash flow history comes from. |
+| `ANALYSIS_MODEL` | `auto` | Claude model used when the Claude API connection is selected. |
+| `ANALYSIS_EFFORT` | `high` | Claude reasoning effort: low \| medium \| high \| xhigh \| max. |
+| `METIS_JUDGE_ORDER` | `random` | Which order the judge/synthesis pass reads the two analyst cases in. |
+| `ANTHROPIC_ADMIN_KEY` | unset | Optional Admin API key (distinct from ANTHROPIC_API_KEY). |
+| `METIS_MAX_ACTIVE_JOBS` | `1` | Maximum concurrent report jobs across processes sharing the SQLite database. |
+| `METIS_MAX_ACTIVE_LLM_CALLS` | `2` | Maximum concurrent paid Claude permits across processes sharing the SQLite database. |
+| `METIS_MAX_JOB_COST_USD` | unset | Optional exact USD caps. |
+| `METIS_MAX_ROLLING_COST_USD` | unset | Optional exact USD caps. |
+| `METIS_RESERVATION_MODE` | `request` | How paid work is admitted against these caps: one reservation per provider request, or one per pass. |
+| `METIS_STREAM_IDLE_SECONDS` | `300` | Base gap with no stream event after which a paid request is abandoned, scaled by analysis effort. |
+| `METIS_ROLLING_COST_WINDOW_MINUTES` | `1440` | Rolling paid-cost window in minutes (1440 means 24 hours). |
+| `METIS_PAID_PASS_LEASE_SECONDS` | `900` | Paid-pass lease lifetime in seconds, renewed every quarter of its TTL. |
+| `METIS_JOB_LEASE_SECONDS` | `900` | Job-claim lease lifetime in seconds, never shorter than the paid-pass lease. |
+| `METIS_RESUME_ON_START` | `1` | Automatically resume queued work at startup with 1, or hold it with 0. |
+| `METIS_EV_INCLUDE_LEASES` | `1` (opt in) | Include a separable operating-lease liability only when explicitly set to 1. |
+| `METIS_ALLOWED_HOST` | unset | `npm run dev` and `npm start` bind to 127.0.0.1 by default. |
+| `METIS_TOKEN_FILE` | unset (opt in) | Override the startup token file path (default `<data dir>/csrf-token`). |
+| `METIS_DB_PATH` | unset (opt in) | Override the SQLite file (fresh default `<data dir>/metis.db`, with existing `thesis.db` or recovery files reused). |
+| `METIS_DATA_DIR` | unset (opt in) | Override the app-data directory used by the default DB and startup token. |
+| `METIS_IMPORT_LEGACY_DB` | `1` (opt in) | One-time migration only. |
+| `NEXT_TELEMETRY_DISABLED` | `1` | The Next.js CLI behind `npm run dev` / `npm run build` posts anonymous usage events to telemetry.nextjs.org unless this is set. |
+
+<!-- END GENERATED: config -->
+
+Claude model and effort chosen in Settings beat the environment and the defaults; reset them with `npm run settings:reset -- --yes`.
+
+## Privacy and security
+
+Metis has no telemetry, analytics or update check; its own outbound traffic goes only to the providers you configure and an EDGAR-confirmed issuer's own website. The Next.js CLI has separate anonymous telemetry, off when the shipped `NEXT_TELEMETRY_DISABLED=1` is in your `.env` (or `npx next telemetry disable`). [Privacy and safety](docs/PRIVACY.md) names what each provider receives, where the local database lives, and how to delete it.
+
+The application is single-user and has no authentication; keep it on loopback unless you add a security layer of your own. Mutating routes reject a request carrying neither browser Fetch Metadata nor a matching `Origin`. Browsers send those automatically; scripts send `X-Metis-Token` (the old `X-Thesis-Token` is refused) with the contents of the `csrf-token` file the server writes at every start and names on stdout. That is a browser-CSRF boundary, not local access control: any process on the machine can present the same headers.
+
+Report security problems through the repository's [private advisory form](https://github.com/eligorelick/Metis/security/advisories/new), not a public issue; see [SECURITY.md](SECURITY.md).
+
+## Development
+
+Metis is a Next.js (App Router) application written in TypeScript, with React, a local SQLite database (better-sqlite3 and Drizzle ORM), Tailwind CSS and Vitest.
+
+- `src/app`: pages and the local HTTP API.
+- `src/providers`, `src/edgar`: data providers, and SEC filing and XBRL handling.
+- `src/pipeline`: data collection (`stageA`), deterministic calculation (`stageB`), and AI analysis and verification (`stageC`).
+- `src/report`: report presentation and exports.
+- `config/models.json`: the Claude model registry. `fixtures/`: offline test data. `tests/`, `scripts/`, `docs/`: tests, tooling and documentation.
 
 <!-- BEGIN GENERATED: commands -->
 
@@ -250,28 +273,40 @@ repository's [private advisory form](https://github.com/eligorelick/Metis/securi
 
 <!-- END GENERATED: commands -->
 
-The product suite makes no network request whatever your `.env` contains; one
-live SEC check is opt-in with `EDGAR_LIVE_SMOKE=1` and a real `EDGAR_CONTACT`.
-Protect `main` by requiring the `full` and `windows-smoke` checks in GitHub.
-Contributions should preserve source tracing, add regressions and pass `npm run verify`.
+The product suite makes no network request whatever your `.env` contains; one live SEC check is opt-in with `EDGAR_LIVE_SMOKE=1` and a real `EDGAR_CONTACT`. Protect `main` by requiring the `full` and `windows-smoke` checks in GitHub. Contributions should preserve source tracing, add regressions and pass `npm run verify`.
+
+## Documentation
+
+| Document | What it covers |
+| --- | --- |
+| [Methodology](docs/METHODOLOGY.md) | Sources, sector eligibility, calculations and house conventions |
+| [Research basis](docs/RESEARCH.md) | The forensic scores' papers, coefficients, estimation populations and limits |
+| [Validation status](docs/VALIDATION-STATUS.md) | What has been checked, and what has not |
+| [Report evaluation](docs/REPORT-EVALUATION.md) | Offline evaluation of reports and claims, and prospective studies |
+| [Operations](docs/OPERATIONS.md) | Startup, settings, jobs and recovery, exports and the local HTTP API |
+| [Claude usage and cost controls](docs/CLAUDE-USAGE.md) | Models, effort, spend caps and reservations |
+| [Privacy and safety](docs/PRIVACY.md) | What each provider receives, local storage and AI connection setup |
+| [Data rights](docs/DATA-RIGHTS.md) | What each data source and model output allows |
+| [Brand and compatibility](docs/BRAND.md) | Naming, and renamed settings |
+| [Decision log](docs/audit/DECISIONS.md) | The reasoning behind each evidence and calculation rule |
+| [Changelog](CHANGELOG.md) | What changed in each development batch |
 
 ## Troubleshooting
 
-- **Install or native SQLite errors:** check `node --version` is Node 24 (`.node-version` pins it for version managers that read that file), then run `npm ci` in the repository root. Do not reuse `node_modules` across operating systems or Node versions.
-- **App does not open:** use the URL printed by the npm server (normally http://127.0.0.1:3000). Check for another process using port 3000. Production startup needs `npm run build` first; local Windows launchers do not build or install dependencies.
+- **Install or native SQLite errors:** check `node --version` is Node 24, then run `npm ci` in the repository root. Do not reuse `node_modules` across operating systems or Node versions.
+- **App does not open:** use the URL printed by the npm server (normally http://127.0.0.1:3000). Check for another process using port 3000. `npm start` needs `npm run build` first; `npm run app` builds for you.
 - **Missing figures or unsupported symbol:** configure a truthful `EDGAR_CONTACT`, test optional provider keys in Settings, and read the report's disclosed gaps. Plan restrictions and unsupported instruments do not become guessed values; see [data-source limits](docs/PRIVACY.md#limited-fmp-access).
 - **AI missing or a run held:** check the selected AI connection, provider allowance and spend caps in Settings. A failed connection does not silently switch to paid Claude. See [jobs and recovery](docs/OPERATIONS.md#report-lifecycle-and-recovery) and [Claude guidance](docs/CLAUDE-USAGE.md).
 
-For reproducible problems, use the repository's bug/data issue forms with sanitized diagnostics. Read [contribution guidance](CONTRIBUTING.md) before sending a patch, and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
-
 ## Limitations
 
-- Metis is a research tool for one local user, not a broker or a trading
-  system. A traced number can still come from incorrect source data, and AI
-  narrative can be wrong even when its citations resolve.
-- Verification checks numeric content against dated registry records and retained
-  passages; citation presence alone does not validate a claim or qualitative truth.
-  Oversized analyst cases disclose removed material and any remaining excess.
+- Metis is a research tool for one local user, not a broker or a trading system. A traced number can still come from incorrect source data, and AI narrative can be wrong even when its citations resolve.
+- Verification checks numeric content against dated registry records and retained passages; citation presence alone does not validate a claim or qualitative truth. Oversized analyst cases disclose removed material and any remaining excess.
+- Forecast accuracy is not established. The [prospective study workflow](docs/REPORT-EVALUATION.md#prospective-report-studies) predeclares slots and baselines, freezes reports before deadlines and retains every planned issuer, including missing reports and outcomes. It groups descriptive errors by sector and exact horizon with paired baseline comparisons. Neither the rubric nor local registration establishes forecast accuracy or historical source truth. Strict forecast admission still requires an upstream producer of complete typed measurement definitions; predefined cohorts, point-in-time inputs and later outcomes are needed to assess accuracy.
+
+## Contributing and support
+
+Metis is under active development; the [changelog](CHANGELOG.md) records what changed. For reproducible problems, use the repository's [bug and data issue forms](https://github.com/eligorelick/Metis/issues/new/choose) with sanitized diagnostics. Read the [contribution guidance](CONTRIBUTING.md) and [code of conduct](CODE_OF_CONDUCT.md) before sending a patch, and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
 ## License and data rights
 
