@@ -184,9 +184,10 @@ remaining meaning changes. Two review rounds were used, so the lead fixed them.
   replaced; every other condition prints as stored.
 
 Tests pin all reviewer reproductions with controls. No figure, stamp, payload
-or stored byte changes; the measured word counts are unchanged within a few
-words (two headings are longer, one filter admits a supplier line on reports
-that have one).
+or stored byte changes. After merging main 17c791d2 (D-272), the lead's same-report
+run shows stageB.json, payload.txt and report.json byte-identical to main in all 17
+golden cases and both LLY cases; LLY report.md words 41,377 -> 37,814 (-8.6%) for the
+stored analyst output and 21,890 -> 19,353 (-11.6%) data-only.
 
 ## D-275 - A4 TSM same-report capture (2026-11-14)
 
