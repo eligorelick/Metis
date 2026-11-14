@@ -288,3 +288,21 @@ it("D-263 review carries EBITDA construction proof from the actual current produ
   expect(fallback.current?.ebitda).toBe(99);
   expect(fallback.current?.ebitdaComputed).toBeUndefined();
 });
+
+// D-280: quarter admission must precede addition, across reporting currencies.
+describe("complete trailing interest denominator", () => {
+  it.each(["USD", "TWD", "EUR"])("withholds a zero or missing quarter for %s and retains the complete control", currency => {
+    const bundle = completeCurrencyBundle({ annualCurrency: currency, quarterCurrencies: [currency,currency,currency,currency], siblingQuarterCurrencies: [currency,currency,currency,currency] });
+    if (!bundle.statements.incomeQuarterly.ok) throw new Error("quarters required");
+    const rows = bundle.statements.incomeQuarterly.value.data.rows;
+    for (const row of rows) row.interestExpense = 2 * M;
+    expect(runStageB(bundle, {evIncludeLeases:false}).capital.current?.interestCoverage).not.toBeNull();
+    for (const missing of [0, undefined]) {
+      rows[1]!.interestExpense = missing;
+      const result = runStageB(bundle, {evIncludeLeases:false});
+      expect(result.capital.current?.interestCoverage).toBeNull();
+      expect(result.capital.current?.interestExpense).toBeNull();
+      expect(result.capital.gaps.some(g => g.field === "capital.current.interestCoverage" && g.reason.includes(rows[1]!.date!))).toBe(true);
+    }
+  });
+});

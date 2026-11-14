@@ -509,7 +509,7 @@ function normalizeAnnual<T extends { date: string }>(
 }
 
 /** FMP zero-for-undisclosed: interest expense of exactly 0 is implausible → null. */
-function zeroAsNull(v: number | null | undefined): number | null {
+export function zeroAsNull(v: number | null | undefined): number | null {
   if (!isFiniteNumber(v)) return null;
   return v === 0 ? null : v;
 }

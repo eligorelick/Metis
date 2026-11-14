@@ -210,6 +210,8 @@ describe("annual primary-filing geography fallback", () => {
     const { result } = await bundle();
     const business = loadTask28Fixture().business;
     business.segments.geographic = [{ name: "Invented traveler locations", revenue: { value: 999, unit: "currency", currency: "USD", source: "model-memory", asOf: "2025-12-31", verified: false }, sharePct: 100 }];
+    result.statements.incomeAnnual = { ok: true, value: { source: "fmp", endpoint: "income", asOf: "2025-12-31", fetchedAt: now,
+      data: { rows: [{ date: "2025-12-31", reportedCurrency: "USD", revenue: 14733000000 }], raw: null } } };
     const normalized = applySegmentShares(business, result);
     expect(normalized.segments.geographic.map(row => row.name)).toEqual(["United States", "All other countries"]);
     expect(normalized.segments.geographic[0]?.revenue).toMatchObject({ value: 8710000000, currency: "USD", asOf: "2025-12-31", period: "2025-12-31", source: expect.stringContaining("/annual.htm"), verificationNote: expect.stringContaining(definition) });

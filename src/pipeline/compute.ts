@@ -2742,6 +2742,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
     vendorAgreesWithDerived(trailingNetIncome, filedWindowProfit.value, filedWindowProfit.operands) ? filedWindowProfit : null;
   const consolidatedConversionIncome = consolidatedWindowIncome ?? filedConversionIncome?.value ?? null;
   const capital = attachCurrentCapital(annualCapital, {
+    trailingIncome: incomeQuarterly.slice(0,4).map(toCapitalIncome),
     trailingCashFlow: cashflowQuarterly.slice(0,4).map(toCapitalCashFlow),
     periodStart: ttmInc && ttmCf && currencies.ttmIncomeUsable && currencies.ttmCashFlowUsable ? ttmInc.periodStart : incomeAnnual[0]?.fieldProvenance?.revenue?.periodStart ?? null,
     route: route.base,

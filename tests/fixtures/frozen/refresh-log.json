@@ -3627,5 +3627,47 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-280",
+    "reason": "D-280 versions complete-quarter interest admission and reconciled segment shares; only the payload stamp and dependent hashes move in this complete control.",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ],
+    "beforeSha256": "33a9d4c0585dc7c21ab4bcf6c19a4db641f185ec850300c2c29d617489054f4e",
+    "afterSha256": "ffe9a12fdb0db9dbc271050e8acce5720a504da870fc0d421aa5fe0f2283919a",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-280",
+    "reason": "D-280 records the new report convention for complete interest and segment denominators; this annual synthetic control changes only its stamp and projection hash.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "45a52701c13c50a685f23cfe42b2690da73eeea8d040db2d620f4d35f006f313",
+    "afterSha256": "584f8d54cb3c5350a39f63d66d965f9ac6b3f8d9ad7d731aa4b127e62c3f5403",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

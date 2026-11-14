@@ -68,6 +68,7 @@ import {
   applyMultiples,
   applyReverseDcf,
   applyScenarioTargets,
+  applySegmentShares,
 } from "@/pipeline/stageC/passes";
 import type {
   AspectScore,
@@ -780,37 +781,30 @@ function segmentRows(
   const entries = Object.entries(data as Record<string, unknown>)
     .filter((entry): entry is [string, number] => isNum(entry[1]))
     .sort((a, b) => b[1] - a[1]);
-  // The same denominator the LLM path uses (passes.ts applySegmentShares):
-  // the NET sum of every finite segment value, so an elimination or corporate
-  // row that the issuer reports negative reduces the total to reported revenue
-  // and the shares add to 100. A positive-only denominator (before the
-  // 2026-09-06 audit, F167/F177) gave the same feed different shares on the
-  // two paths.
-  const total = entries.reduce((acc, [, value]) => acc + value, 0);
   const rows: Report["business"]["segments"]["product"] = [];
   for (const [name, value] of entries) {
     const revenue = traced(value, "currency", result.value.source === "edgar" ? result.value.endpoint : source, asOf, { currency, period: asOf });
     if (revenue === null) continue;
     const primaryBasis = selectedGeographyNotes(result)[0];
     if (primaryBasis) revenue.verificationNote = primaryBasis;
-    const pct = total > 0 ? (value / total) * 100 : null;
+
     rows.push({
       name,
       revenue,
-      sharePct: pct !== null && Number.isFinite(pct) ? round(pct, 1) : null,
+      sharePct: null,
     });
   }
   return rows;
 }
 
 function businessSection(stub: Report["business"], bundle: DataBundle): Report["business"] {
-  return {
+  return applySegmentShares({
     ...stub,
     segments: {
       product: segmentRows(bundle.segmentation.product, "fmp:revenue-product-segmentation"),
       geographic: segmentRows(admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments), "fmp:revenue-geographic-segmentation"),
     },
-  };
+  }, bundle);
 }
 
 /* ------------------------------------------------------------------------ *

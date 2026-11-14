@@ -1,3 +1,4 @@
+import { vendorAgreesWithFiled } from "@/edgar/vendorAgreement";
 import { withComputationContext } from "@/edgar/computationContext";
 import { supplementalNumericAudit } from "@/report/supplementalNumericAudit";
 /**
@@ -4472,6 +4473,7 @@ export function applyForensicScores(
  */
 function latestSegmentationTotal(
   res: DataBundle["segmentation"]["product"] | undefined,
+  bundle: DataBundle | undefined,
 ): number | null {
   if (res === undefined || !res.ok || !res.value) return null;
   const data = res.value.data.rows[0]?.data;
@@ -4485,19 +4487,18 @@ function latestSegmentationTotal(
       counted++;
     }
   }
-  return counted > 0 && total > 0 ? total : null;
+  const latest = res.value.data.rows[0]!;
+  // D-280 (P7/P8/P13): exact period and currency, using the existing same-observation allowance.
+  const income = latest.period?.startsWith("Q") ? bundle?.statements.incomeQuarterly : bundle?.statements.incomeAnnual;
+  const rows = income?.ok ? income.value.data.rows : [];
+  const revenue = rows.find(row => row.date === latest.date && row.reportedCurrency === latest.reportedCurrency);
+  return counted > 0 && total > 0 && typeof latest.reportedCurrency === "string" &&
+    typeof revenue?.revenue === "number" && Number.isFinite(revenue.revenue) && revenue.revenue > 0 &&
+    vendorAgreesWithFiled(total, revenue.revenue) ? revenue.revenue : null;
 }
 
-/**
- * Overwrite every business.segments row's sharePct DETERMINISTICALLY (2026-07
- * invariant-1 hardening): sharePct = segment traced revenue ÷ the sum of the
- * latest-period bundle segmentation values × 100, rounded to 1 decimal —
- * product rows divide by the product-segmentation total, geographic rows by
- * the geographic total. When the bundle feed is unavailable the share is null
- * (disclosed as n/a, never fabricated). The judge-emitted sharePct is ALWAYS
- * discarded; the row's name + traced revenue stay judge-authored (and the
- * revenue TracedNumber remains subject to the verify pass). Pure; returns a
- * new business section.
+/** D-280: shares use same-period consolidated revenue only after the full split reconciles (P8).
+ * Missing, partial or overlapping splits withhold every share; model percentages are discarded.
  */
 export function applySegmentShares(
   business: JudgeOutput["business"],
@@ -4508,11 +4509,11 @@ export function applySegmentShares(
     const pct = (revenueValue / total) * 100;
     return Number.isFinite(pct) ? Math.round(pct * 10) / 10 : null;
   };
-  const productTotal = latestSegmentationTotal(bundle?.segmentation?.product);
+  const productTotal = latestSegmentationTotal(bundle?.segmentation?.product, bundle);
   // AI-509: the share basis follows the same admission as the payload and the data-only report.
   const primary = bundle?.segmentation?.geographic === undefined ? undefined
     : admittedGeography(bundle.segmentation.geographic, bundle.edgar?.quarterlySegments);
-  const geographicTotal = latestSegmentationTotal(primary);
+  const geographicTotal = latestSegmentationTotal(primary, bundle);
   const basis = selectedGeographyNotes(primary)[0];
   const latest = primary?.ok ? primary.value.data.rows[0] : undefined;
   const geographic = basis && primary?.ok && latest?.data && typeof latest.reportedCurrency === "string" && typeof latest.date === "string"

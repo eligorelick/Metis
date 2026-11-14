@@ -371,6 +371,7 @@ describe("data-only report (keyless / no-LLM degraded path)", () => {
 
   it("computes segment shares on the same net denominator as the LLM path (audit 2026-09-06, F167/F177)", () => {
     const { bundle, computed, validation } = buildInputs();
+    if (bundle.statements.incomeAnnual.ok) bundle.statements.incomeAnnual.value.data.rows[0]!.revenue = 250;
     const segmented = {
       ...bundle,
       segmentation: {
