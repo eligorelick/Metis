@@ -221,10 +221,15 @@ export function buildExecutionMetadataEntry(input: {
   const subscription = subscriptionExecution({ effectiveModel, requestedModel });
   if (subscription) {
     const provider = subscription.provider === "chatgpt" ? "ChatGPT plan" : subscription.provider === "claude" ? "Claude Code account" : "Google Gemini CLI";
+    // Claude Code research (D-269) counts web searches and page fetches, refused
+    // fetches included, and states a research request that ran none as zero.
+    const claudeResearch = subscription.provider === "claude";
     const searchNote = limitation !== undefined
       ? `${webResearchLimitationText(limitation)} ${webSearches ?? 0} observed web research actions were recorded for this attempt; this count is not an API charge estimate.`
       : webSearches !== undefined && webSearches > 0
-      ? `This pass used supplied evidence and ${webSearches} observed web research actions; this count is not an API charge estimate.`
+      ? `This pass used supplied evidence and ${webSearches} observed web research actions${claudeResearch ? " (Claude Code web searches and page fetches, refused fetches included)" : ""}; this count is not an API charge estimate.`
+      : claudeResearch && webSearches === 0 && !webResearchUsed
+      ? "Web research was available to this pass, but 0 web searches or page fetches ran, so it used only the supplied evidence."
       : webResearchUsed ? "This pass used supplied evidence and retained web research; no new web research actions were recorded."
       : "This pass used the supplied evidence without additional web search.";
     notes.push(input.execution?.usageReported === false

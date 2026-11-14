@@ -5271,8 +5271,10 @@ cited figures the verification log marks contradicted (a value mismatch). These
 are the records the audit export prints. When a figure
 is counted, the count names the split, as in "1 contradicted (1 cited figure, 0
 prose claims)". The audit export's prose-claim sentence still counts prose
-claims only. Local Claude CLI passes and tool-free ChatGPT passes use the supplied
-evidence. ChatGPT analysts can also conduct separate hosted research (D-211).
+claims only. Tool-free local Claude CLI and ChatGPT passes use the supplied
+evidence. ChatGPT analysts can also conduct separate hosted research (D-211), and
+Claude Code analysts a separate research request with the CLI's own WebSearch and
+WebFetch tools (D-269).
 When a plan pass ran, the report
 header and run details carry an Evidence line, for example "bull, bear and judge
 used only the supplied evidence (payload-only; no web search)". It is derived
