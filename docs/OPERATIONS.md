@@ -605,7 +605,7 @@ Which company covers which kind of report (the route and overlays are the ones `
 | RIVN | Loss-making company with revenue | general + unprofitable |
 | VKTX | Pre-revenue company (no revenue in any period) | general + unprofitable + pre-revenue |
 
-**The check database.** The seven newer cases (JPM to VKTX) were captured on 2026-11-12 into the check database at `%USERPROFILE%\metis-check\check.db`. It is a copy of a backup of the app database, kept only for this check. Captures never open or write the app's real database (under `%LOCALAPPDATA%`). Without `--db`, `golden:run` reads that real database (read-only) for any input not yet cached, so pass `--db` to use the check database instead. The older ten cases' inputs are in it too, so `--db "%USERPROFILE%\metis-check\check.db"` exports all seventeen.
+**The check database.** The seven newer cases (JPM to VKTX) were captured on 2026-11-12 into the check database (TSM was captured again on 2026-11-14 so its evidence includes the 2025 Form 20-F, D-275) at `%USERPROFILE%\metis-check\check.db`. It is a copy of a backup of the app database, kept only for this check. Captures never open or write the app's real database (under `%LOCALAPPDATA%`). Without `--db`, `golden:run` reads that real database (read-only) for any input not yet cached, so pass `--db` to use the check database instead. The older ten cases' inputs are in it too, so `--db "%USERPROFILE%\metis-check\check.db"` exports all seventeen.
 
 To add a case:
 

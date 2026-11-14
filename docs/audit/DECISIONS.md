@@ -137,6 +137,75 @@ and the filing-note table with a two-filing control. Revised existing tests
 (each assertion replaced by an equally strict one on the new layout) are listed
 in the pull request.
 
+## D-275 - A4 TSM same-report capture (2026-11-14)
+
+Principles: P2 (newest admitted filing wins), P10 (gaps stay disclosed), P21 (stored
+reports are immutable). Owner: the same-report check's case list
+(`scripts/golden/cases.json`) and the accuracy reference for TSM
+(`scripts/accuracy/reference.json`, `companies.json`, `expectation.json`). No code changes.
+
+### Problem
+
+The `tsm-data-only` case pinned a capture made on 2026-11-12 (snapshot `07a7c25c...`).
+Its SEC company facts carried periodic reports only through the 20-F filed 2025-04-17.
+Only two facts came from TSM's 2025 Form 20-F (accession 0001628280-26-025362, period
+ended 2025-12-31, filed 2026-04-16). So the report's latest-year diluted EPS row still
+showed FY2024, and FY2025 net income held the parent's profit as a disclosed stand-in.
+
+### Change
+
+One new data-only TSM run went against the check database only. Its settings: AI off, no
+Anthropic key, a fresh data folder and a fresh local-app-data folder, so no saved AI
+connection was visible. The job finished `done` and data-only. All four model steps
+were skipped, no cost rows were written, and the total cost was 0. Snapshot `10d5dda4...`
+(`10d5dda40d3b0dd9a40783f2538d7a268aef1464d710b32654bf43f89eeb91d2`) replaces the old
+one. Current code reads the 20-F's own XBRL instance and merges 781 of its facts, each
+citing that filing. The report discloses this as an info gap
+(`edgar.companyFacts.newerFilings`).
+
+### Re-checked accuracy notes
+
+- `instanceFilings` note: as of 2026-11-14, SEC companyfacts still has only two facts
+  from 0001628280-26-025362, both share counts (`dei:EntityCommonStockSharesOutstanding`,
+  `srt:StockRepurchaseProgramNumberOfSharesAuthorizedToBeRepurchased`). The reference
+  therefore keeps reading the filing's instance. The `why` now records the re-check.
+- The "IFRS filer" and "6-K without XBRL" notes still hold. The latest balance date is
+  2026-09-30, from a Form 6-K without XBRL, so the balance and fair-value inputs stay
+  not established.
+- `reference.json`: only TSM's `cutoffAt` moved (2026-11-12T18:21:28.303Z to
+  2026-11-14T17:03:28.420Z). Every filed value is unchanged.
+
+### Approved report changes (TSM only; the other 16 cases are byte-identical)
+
+- Latest-year diluted EPS: before, it was the FY2024 row (filed FY2024 44.67 per share × 5
+  = 223.35 per ADS), a period mismatch. After, it is FY2025, 327.35 per ADS, equal to
+  `ifrs-full:DilutedEarningsLossPerShare` 2025-01-01..2025-12-31 = 65.47 per share × 5
+  (0001628280-26-025362). Accuracy: mismatch to match.
+- FY2025 net income: before, the parent's profit (filed
+  `ifrs-full:ProfitLossAttributableToOwnersOfParent` FY2025, 1,697,604,000 thousand TWD) as a
+  stand-in. After, it equals consolidated profit, `ifrs-full:ProfitLoss`
+  2025-01-01..2025-12-31 = 1,695,124,900 thousand TWD (0001628280-26-025362).
+  Accuracy: mismatch to match.
+- The EPS growth series now ends 2025-12-31. The fundamentals aspect covers 100% of its
+  intended signals (it was 80%), so the composite score and completeness move.
+- Quote, market-cap, analyst-count, risk-free and peer rows move with the two-day-newer
+  market capture. These are market inputs, not filed values.
+- Unchanged: FY2025 revenue (`ifrs-full:RevenueFromContractsWithCustomers`, match),
+  operating income, diluted shares (match), capex and FCF (still mismatch, values
+  unchanged), and every TTM and 2026-09-30 balance figure (still not established or gap).
+- Golden files that changed for `tsm-data-only`: stageB.json, payload.txt (fingerprint
+  1.103.0:9230721e to 1.103.0:c6094e4a), report.json, report.md, print.html, audit.md and
+  web-dossier.html. The clock moved to 2026-11-14T17:03:28.420Z. Status ok, reportSchema ok,
+  route general + adr.
+
+### Checks
+
+`golden:run --db <check.db>` was run twice on the new case list with no differences.
+`golden:run --ref bec62776` against the working tree also showed no differences. Old
+case list against new showed differences only in `tsm-data-only`. `accuracy:check`:
+173 match, 5 mismatch, 61 gap, 26 not established. The two TSM improvements are recorded
+with `--update-expectation`, and their notes now state the filed match.
+
 ## D-271 - A home for the business story, for every company type (2026-11-14)
 
 P18, P20, P21 and P22. Owners: `src/report/schema.ts` (fields and the heading

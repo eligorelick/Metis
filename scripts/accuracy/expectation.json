@@ -1493,19 +1493,18 @@
     {
       "case": "tsm-data-only",
       "figure": "netIncome.fy",
-      "status": "mismatch",
-      "valueSha256": "fe0f7f55a57aedf0",
-      "note": "Neither the filed profit attributable to owners of the parent (1,697,604,000k TWD) nor consolidated profit (1,695,124,900k) in the 2025 20-F (0001628280-26-025362); the figure is stated to the thousand while the filing states 100k.",
-      "changeReason": "Reference corrected, no Metis value changed (D-238): the free-cash-flow series' net income and the current-capital window are consolidated profit by definition (D-212, D-238), so they are compared with the filed consolidated profit (ProfitLoss; ifrs-full:ProfitLoss) where the filing states one, not with the parent's line. FIGR, O and RIVN FY and TTM equal the filed consolidated line (the baseline's six 'definition' rows). DUK FY2025 on main still holds the parent's figure the vendor served (fixed by D-238) and TSM FY2025 holds the parent's profit as a disclosed stand-in (D-231 rule 5), so both read mismatch against the consolidated line."
+      "status": "match",
+      "valueSha256": null,
+      "note": "Equals the filed consolidated profit (ifrs-full:ProfitLoss, 2025-01-01..2025-12-31) in the 2025 20-F (0001628280-26-025362, filed 2026-04-16). The 2026-11-14 capture reads that filing's own XBRL instance, which SEC companyfacts still lacks; the earlier capture held the parent's profit as a disclosed stand-in.",
+      "changeReason": "A4: TSM capture refreshed to the 2025 Form 20-F (D-275)"
     },
     {
       "case": "tsm-data-only",
       "figure": "epsDiluted.fy",
-      "status": "mismatch",
-      "valueSha256": "37384224760ac7e6",
-      "cause": "Metis error",
-      "note": "The latest-year EPS row shows FY2024 (it equals the filed FY2024 44.67 per share × 5 per ADS). TSM's 2025 20-F (filed 2026-04-16, before the cutoff) states FY2025 diluted EPS 65.47 per share (327.35 per ADS). A newer compatible filing existed and was not used for this row.",
-      "changeReason": "baseline at afb9cddf: first filed-value accuracy record of the 13 data-only cases"
+      "status": "match",
+      "valueSha256": null,
+      "note": "The latest-year EPS row now shows FY2025 and equals the filed diluted EPS (ifrs-full:DilutedEarningsLossPerShare, 2025-01-01..2025-12-31, 65.47 per share × 5 per ADS) in the 2025 20-F (0001628280-26-025362, filed 2026-04-16). The earlier capture showed FY2024 because its company facts lacked that filing.",
+      "changeReason": "A4: TSM capture refreshed to the 2025 Form 20-F (D-275)"
     },
     {
       "case": "tsm-data-only",
