@@ -5,15 +5,20 @@ import { ReportView } from "@/components/report/ReportView";
 import { reportToAuditMarkdown, reportToMarkdown } from "@/report/export/markdown";
 import { reportToPrintBody } from "@/report/export/printHtml";
 import { filingFactTables, SAME_PASSAGE_AS_ABOVE } from "@/report/filingSupplementPresentation";
+import { groupedWithheldNotes } from "@/report/filingDisclosurePresentation";
 import {
   BRIEF_NOT_ESTABLISHED,
   BRIEF_PART_NOT_ESTABLISHED,
   BUSINESS_BRIEF_HEADING,
   businessBrief,
   DISAGREEMENT_SIDES_NOTE,
+  MODELED_SHIFT_REFERENCE,
   SCORE_DIAGNOSTICS_NOTE,
+  scenarioReaderLists,
+  SEPARATE_CONDITION_PREFIX,
 } from "@/report/presentation";
 import { prepareReportForSurface } from "@/report/readerPreparation";
+import { serializeCitationRef } from "@/pipeline/stageC/citations";
 import { REPORT_SECTION_MANIFEST } from "@/report/sectionManifest";
 import { ReportSchema, type Report, type SourcedClaim, type VerificationLogEntry } from "@/report/schema";
 import { loadTask28Fixture } from "./helpers/task28Report";
@@ -104,10 +109,81 @@ describe("opening business brief (D-273)", () => {
     }
   });
 
-  it("reads a buyer statement from an older field by its words, never a fact about something else", () => {
+  it("reads a report saved before the story fields: buyers only from customers and suppliers, concentration under risks", () => {
     const brief = briefOf(bankBeforeStoryFields());
-    expect(brief.find(part => part.key === "buyers")?.claims.map(claim => claim.text)).toEqual(["Retail customers in two states supply most deposits."]);
+    // Review round 1 (lead decision): a buyer statement comes only from the customers-and-suppliers field.
+    expect(brief.find(part => part.key === "buyers")?.claims).toEqual([]);
+    expect(brief.find(part => part.key === "risks")?.claims.map(claim => claim.text)).toEqual(["Commercial real estate was 41.0% of loans."]);
     expect(brief.find(part => part.key === "sells")?.claims.map(claim => claim.text)).toEqual(["The bank takes deposits and makes commercial loans."]);
+  });
+
+  /** One verified (cited) FACT per listed field entry; every other story field empty. */
+  function storyReport(fields: { sells?: string[]; buyers?: string[]; protection?: string[]; moat?: string[]; coming?: string[]; risks?: string[]; concentration?: string[]; plan?: string[] }): Report {
+    const report = loadTask28Fixture();
+    report.appendix.verificationLog = [];
+    report.business.whatTheySell = (fields.sells ?? []).map(text => fact(text));
+    report.business.customersAndSuppliers = (fields.buyers ?? []).map(text => fact(text));
+    report.business.protection = (fields.protection ?? []).map(text => fact(text));
+    report.business.whatIsComing = (fields.coming ?? []).map(text => fact(text));
+    report.business.managementPlan = (fields.plan ?? []).map(text => fact(text));
+    report.business.concentrationRisks = (fields.concentration ?? []).map(text => fact(text));
+    report.competitive.moatAssessment = fields.moat ? [{ source: "ip", strength: "wide", reasoning: fields.moat.map(text => fact(text)) }] : [];
+    report.competitive.moatGraded.reasoning = [fact("Gross margin was 81.2% for the fiscal year.")];
+    report.catalystsRisks.catalysts = [];
+    report.catalystsRisks.risks = fields.risks ? [{ title: "Pricing", severity: "high", probability: "unknown", source, reasoning: fields.risks.map(text => fact(text)) }] : [];
+    const paths: Array<[string, string[] | undefined]> = [["business.whatTheySell", fields.sells], ["business.customersAndSuppliers", fields.buyers], ["business.protection", fields.protection],
+      ["business.whatIsComing", fields.coming], ["business.managementPlan", fields.plan], ["business.concentrationRisks", fields.concentration],
+      ["competitive.moatAssessment[0].reasoning", fields.moat], ["catalystsRisks.risks[0].reasoning", fields.risks]];
+    for (const [path, list] of paths) (list ?? []).forEach((_, i) => mark(report, `${path}[${i}]`, "cited"));
+    mark(report, "competitive.moatGraded.reasoning[0]", "validated");
+    return ReportSchema.parse(report);
+  }
+  const partTexts = (report: Report) => Object.fromEntries(briefOf(report).map(part => [part.key, part.claims.map(claim => claim.text)]));
+
+  it("never files a verified statement under a part it does not answer (review round 1 reproductions)", () => {
+    const report = storyReport({
+      protection: ["No reviewed source establishes patent protection or switching costs."],
+      buyers: ["The company relies on a single supplier for its active ingredient.", "The company does not disclose its customers."],
+      plan: ["Management plans to expand capacity."],
+      sells: ["The company sells industrial pumps."],
+    });
+    expect(partTexts(report)).toEqual({ sells: ["The company sells industrial pumps."], buyers: [], wins: [], next: [], risks: [] });
+    const markdown = markdownOf(report);
+    for (const heading of ["Why it wins", "Who buys it", "What is next"]) expect(briefLine(markdown, heading)).toBe(`- **${heading}:** ${BRIEF_PART_NOT_ESTABLISHED}`);
+  });
+
+  it("fills each part from the field that answers it (one positive case per part)", () => {
+    const report = storyReport({
+      sells: ["The company sells industrial pumps and spare parts."],
+      buyers: ["Utilities and municipal customers buy most pumps under multi-year contracts.", "The company sources castings from two suppliers."],
+      protection: ["The pump design patents expire in 2031."],
+      coming: ["A larger pump line enters production in 2027."],
+      risks: ["A single utility customer could cancel its framework agreement."],
+    });
+    expect(partTexts(report)).toEqual({
+      sells: ["The company sells industrial pumps and spare parts."],
+      buyers: ["Utilities and municipal customers buy most pumps under multi-year contracts."],
+      wins: ["The pump design patents expire in 2031."],
+      next: ["A larger pump line enters production in 2027."],
+      risks: ["A single utility customer could cancel its framework agreement."],
+    });
+    // The moat assessment answers "why it wins" when protection is empty; concentration answers "what could break it" when risks are.
+    const second = storyReport({ moat: ["Customers retrain staff to switch pump brands, which the filing calls costly."], concentration: ["Two customers were 38.0% of revenue."] });
+    expect(partTexts(second)).toMatchObject({ wins: ["Customers retrain staff to switch pump brands, which the filing calls costly."], risks: ["Two customers were 38.0% of revenue."] });
+    // The moat grade's figure is not a reason the company wins.
+    expect(partTexts(storyReport({}))).toMatchObject({ wins: [] });
+  });
+
+  it("prints a brief claim in the app even when it is a repeat elsewhere (review round 1)", () => {
+    const report = drugMaker();
+    report.verdict.executiveSummary = [fact("The company makes branded prescription medicines.")];
+    mark(report, "verdict.executiveSummary[0]", "cited");
+    const app = renderToStaticMarkup(createElement(ReportView, { report: ReportSchema.parse(report) }));
+    const start = app.indexOf(`aria-label="${BUSINESS_BRIEF_HEADING}"`);
+    expect(start).toBeGreaterThan(-1);
+    const brief = app.slice(start, app.indexOf("dossier-thesis", start));
+    expect(brief).toContain("The company makes branded prescription medicines.");
+    expect(brief).not.toContain("Also stated here");
   });
 
   it("prints one line when nothing passed verification (a data-only or unchecked report)", () => {
@@ -168,6 +244,35 @@ describe("shorter report (D-273)", () => {
     }
   });
 
+  it("keeps both copies when the citations resolve to different dates (review round 1)", () => {
+    const report = drugMaker();
+    const repeated = "Quarterly revenue was $24.40 billion, up 38.6%.";
+    report.verdict.executiveSummary = [{ text: repeated, label: "FACT", source: serializeCitationRef({ sourceId: "edgar:10-K item7", asOf: "2025-02-20" }), asOf: null }];
+    report.fundamentals.commentary = [{ text: repeated, label: "FACT", source: serializeCitationRef({ sourceId: "edgar:10-K item7", asOf: "2026-02-20" }), asOf: null }];
+    mark(report, "verdict.executiveSummary[0]", "validated");
+    mark(report, "fundamentals.commentary[0]", "validated");
+    for (const text of surfaces(ReportSchema.parse(report))) {
+      expect(text.split(repeated).length - 1).toBe(2);
+      expect(text).not.toContain("Also stated here");
+    }
+  });
+
+  it("keeps each score's qualifications beside it in Markdown and print (review round 1, P12)", () => {
+    const report = drugMaker();
+    const qualifications = [
+      "Capital-stewardship proxy, not an assessment of executives",
+      "That income-statement denominator trend is not point-in-time outstanding shares or a measure of economic dilution",
+      "Management quality, guidance execution and governance are not score inputs",
+      "FCF conversion is graded as free cash flow BEFORE stock-based compensation over consolidated net income",
+    ];
+    report.scores!.aspects.leadership.note = `${qualifications[0]}: repurchase timing. ${qualifications[1]}. ${qualifications[2]}; they are assessed only in the analyst grade.`;
+    report.scores!.aspects.balanceSheet.note = `Financial strength. ${qualifications[3]}, the definition used by this unbacktested house-rule band.`;
+    for (const text of [markdownOf(report), printOf(report)]) {
+      for (const sentence of qualifications) expect(text, sentence).toContain(sentence);
+      expect(text).toContain("unbacktested house-rule band");
+    }
+  });
+
   it("keeps both copies when the verification marks differ (not the same statement) — control", () => {
     const report = drugMaker();
     const repeated = "Quarterly revenue was $24.40 billion, up 38.6%.";
@@ -223,4 +328,37 @@ describe("shorter report (D-273)", () => {
     expect(two.note).not.toContain("Source for every row");
   });
 
+
+  it("states a repeated scenario label once and keeps every assumption and condition (review round 1)", () => {
+    const shift = "Year-one shift versus base: revenue growth 15.93 percentage points; both decay to zero by year 10.";
+    const lists = scenarioReaderLists({
+      assumptions: [shift],
+      whatWouldHaveToBeTrue: [`Modeled conditions: ${shift} WACC and terminal assumptions stay at base. Additional qualitative conditions are not numerical prerequisites for this target.`],
+      qualitativeCommentary: ["JUDGMENT: Volume keeps outrunning price.", `${SEPARATE_CONDITION_PREFIX}Gross margin holds near 83.9%.`, `${SEPARATE_CONDITION_PREFIX}Deal payments fall below free cash flow.`],
+    }, [shift]);
+    expect(lists.conditions).toEqual([`Modeled conditions: ${MODELED_SHIFT_REFERENCE} WACC and terminal assumptions stay at base. Additional qualitative conditions are not numerical prerequisites for this target.`]);
+    expect(lists.commentary).toEqual(["JUDGMENT: Volume keeps outrunning price."]);
+    expect(lists.separateConditions).toEqual(["Gross margin holds near 83.9%.", "Deal payments fall below free cash flow."]);
+    // Control: a modeled condition that does not repeat a listed assumption is printed as stored.
+    const other = "Modeled conditions: Cost of equity and payout path stay at base.";
+    expect(scenarioReaderLists({ assumptions: [shift], whatWouldHaveToBeTrue: [other], qualitativeCommentary: [] }, [shift]).conditions).toEqual([other]);
+  });
+
+  it("groups per-quarter withheld notes only where item and cause match, naming every quarter (review round 1)", () => {
+    const cause = "a complete operating-expense total on the revenue's filed basis is not established.";
+    const other = "the provider amount does not bridge gross profit to operating income.";
+    expect(groupedWithheldNotes([
+      "From the quarterly statement rows.",
+      `Operating expenses for 2026-06-30 withheld: ${cause}`,
+      `Operating expenses for 2026-03-31 withheld: ${cause}`,
+      `Operating expenses for 2025-09-30 withheld: ${other}`,
+      `Operating expenses for 2025-06-30 withheld: ${cause}`,
+      `Gross margin for 2025-06-30 withheld: ${cause}`,
+    ])).toEqual([
+      "From the quarterly statement rows.",
+      `Operating expenses for 2026-06-30, 2026-03-31 and 2025-06-30 withheld: ${cause}`,
+      `Operating expenses for 2025-09-30 withheld: ${other}`,
+      `Gross margin for 2025-06-30 withheld: ${cause}`,
+    ]);
+  });
 });

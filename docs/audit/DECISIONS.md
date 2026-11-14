@@ -32,13 +32,16 @@ the section commentary, the bull and bear views and the judge.
    over a writer-authored `brief` field because it works at read time for every
    saved report (P21), needs no schema, prompt or stamp change, and leaves no
    model text that a code drop would have to police (P18). Each part takes at
-   most one claim, in a fixed field order: the D-271 field first, then the older
-   field that holds the same story (sells: what they sell, then product lines;
-   buyers: customers and suppliers, then statements in what they sell or the
-   concentration list that name a buyer, by a fixed word list; wins: protection,
-   then the moat assessment, widest first, then the moat grade's reasoning;
-   next: what is coming, management's plan, catalysts, guidance credibility;
-   risks: the risks, highest severity first). A claim is eligible only when it
+   most one claim, and only from the field that answers it (review round 1,
+   lead decision): sells: product lines, then what they sell; buyers: customers
+   and suppliers claims that name a customer or buyer group (a fixed word list),
+   so a supplier-only statement never enters; wins: protection, then the moat
+   assessment, widest first (the moat grade's figures are not reasons); next:
+   what is coming only; risks: the risks, highest severity first, then the
+   concentration risks. A statement of a limitation or absence ("no reviewed
+   source", "not established", "does not disclose", "not disclosed",
+   "unavailable", "cannot", by a fixed word list) never fills a part. A saved
+   report without the D-271 fields therefore shows fewer parts. A claim is eligible only when it
    is a FACT whose own verification-log entry is validated (a matched figure) or
    cited (a supported statement with no figure, shown "[qualitative]"), the same
    supporting set D-271 uses for product-line headings. Unverified, unchecked
@@ -59,17 +62,17 @@ the section commentary, the bull and bear views and the judge.
    later list (reading order, across a fixed set of reader lists), and that list
    prints one line naming where it is shown ("Also stated here, shown in full
    under Verdict › Executive summary."). The same statement means the same label,
-   text, citation, date and verification mark; when the marks differ both copies
-   print. The brief is exempt: it is a summary by design. Executive cards keep
+   text, stored citation, source id, resolved citation date and verification
+   mark (review round 1: two citations that differ only in their resolved date
+   are different statements); otherwise both copies print. The brief is exempt
+   on every surface, the app included: it is a summary by design. Executive cards keep
    their earlier exact-duplicate rule (they already skip shared company
    actions). The verification log, the header counts and the stored claims are
    unchanged.
 4. *Diagnostics to the audit export.* Moved, with a one-line pointer where they
    were: the score drivers table and factor-family exposure (this revises D-62,
    which kept them in the body; marked there), factor contribution sensitivity
-   (all three were already in the audit export), each aspect's method text (already in
-   the audit export's score tables; the composite method text stays in the body,
-   as D-62 decided), the full
+   (all three were already in the audit export), the full
    bull and bear statements of each disagreement (added to the audit export as
    "Bull/bear statements"; the reader keeps the topic and the judge's
    resolution, which weighs both), the full source list (the audit export already
@@ -86,11 +89,26 @@ the section commentary, the bull and bear views and the judge.
    named once under the table instead of in a Source column on every row; a
    basis cell that repeats the row above word for word reads "Same passage as the
    row above."
+6. *Repeated labels* (review round 1, Markdown and print). In a scenario card a
+   modeled condition that opens with an assumption the card already lists refers
+   to "the year-one shift under Assumptions" instead of repeating it, and the
+   analyst conditions each stored with "Separate qualitative condition, not a
+   modeled input or prerequisite for this target:" print under one heading that
+   keeps that warning once. Quarterly-trend notes that withhold the same item
+   with the same cause in several quarters are stated once, naming every
+   quarter; a quarter with a different cause keeps its own note. The dated
+   reference cell's repeated sentence no longer occurs on main (the reader form
+   is already one sentence), so nothing changes there.
 
-**Kept on purpose (not cut).** The missing-input grade ranges (D-139: they
-qualify the grades), every data gap, refusal note, qualification,
-withheld-value reason, disclaimer and the FRED attribution. The scorecard keeps
-an unscored aspect's reason ("Why not scored"). The DCF assumption basis, the
+**Kept on purpose (not cut).** Each aspect's text in the scorecard ("What it
+measures", review round 1, P12): it states what the score means (leadership is a
+capital-stewardship proxy, not an assessment of executives; the share-count
+trend is not outstanding shares or economic dilution; management quality,
+guidance execution and governance are not score inputs; the FCF-conversion band
+uses before-SBC cash flow over consolidated net income and is unbacktested). The
+composite method text (D-62). The missing-input grade ranges (D-139: they
+qualify the grades). Every data gap, refusal note, qualification,
+withheld-value reason, disclaimer and the FRED attribution. The DCF assumption basis, the
 multiples' basis and limitations, the enterprise-value note and the balance
 sheet's capital-grading basis are the largest remaining blocks; they carry
 qualifications P12 requires where the figure is shown, so moving them needs a
@@ -102,16 +120,16 @@ main 73b9a44a against this change; LLY against f071ed04, whose code main
 
 | Case | Before | After | Change |
 | --- | --- | --- | --- |
-| LLY #63, stored analyst output (`lly-fixed-analyst`) | 34,666 | 31,916 | -7.9% |
-| LLY data-only | 16,350 | 14,432 | -11.7% |
-| AMZN fixed analyst | 19,415 | 17,638 | -9.2% |
-| META fixed analyst | 19,347 | 17,853 | -7.7% |
-| MU fixed analyst | 20,239 | 18,653 | -7.8% |
-| NVDA fixed analyst | 26,090 | 24,246 | -7.1% |
+| LLY #63, stored analyst output (`lly-fixed-analyst`) | 34,666 | 32,098 | -7.4% |
+| LLY data-only | 16,350 | 14,787 | -9.6% |
+| AMZN fixed analyst | 19,415 | 17,981 | -7.4% |
+| META fixed analyst | 19,347 | 18,280 | -5.5% |
+| MU fixed analyst | 20,239 | 18,991 | -6.2% |
+| NVDA fixed analyst | 26,090 | 24,508 | -6.1% |
 
-The 13 data-only golden cases are 9.1% to 13.9% shorter. The composite method
-text stays in the body, as D-62 decided, and the stale-source table keeps its
-Stale column.
+The 13 data-only golden cases are 7.2% to 12.3% shorter. Review round 1 put each
+aspect's scorecard text back (P12), which is most of the difference from the
+first measurement; the stale-source table keeps its Stale column.
 
 The brief's 20% target is not reached; the rest would come from the blocks
 listed under "Kept on purpose".

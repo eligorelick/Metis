@@ -95,16 +95,19 @@ export function ClaimList({
   claims,
   empty = "—",
   numbers,
+  repeats = "reference",
 }: {
   claims: readonly SourcedClaim[];
   empty?: ReactNode;
   numbers?: readonly TracedNumber[];
+  /** D-273: "show" prints every claim (the brief is a summary by design); "reference" skips a repeat shown in full elsewhere. */
+  repeats?: "reference" | "show";
 }) {
   if (claims.length === 0) {
     return <div className="text-[11px] text-faint">{empty}</div>;
   }
   // D-273: a statement shown in full elsewhere is referenced, not repeated.
-  const { shown, homes } = withoutRepeatedClaims(claims);
+  const { shown, homes } = repeats === "show" ? { shown: [...claims], homes: [] } : withoutRepeatedClaims(claims);
   const note = repeatedClaimsNote(homes);
   return (
     <div className="flex flex-col gap-2">

@@ -76,7 +76,7 @@ import {
   establishedCurrency,
   peerColumnKeys,
 } from "@/report/format";
-import { peerTableColumns, scenarioListItem } from "@/report/presentation";
+import { peerTableColumns } from "@/report/presentation";
 import {
   annualSegmentHeading,
   BUSINESS_STORY_HEADING,
@@ -85,6 +85,8 @@ import {
   BRIEF_NOT_ESTABLISHED,
   BRIEF_PART_NOT_ESTABLISHED,
   businessBrief,
+  scenarioReaderLists,
+  SEPARATE_CONDITIONS_HEADING,
   repeatedClaimsNote,
   withoutRepeatedClaims,
   assessmentLine,
@@ -712,11 +714,16 @@ function renderScenario(row: ScenarioRowView): string {
   if (assumptions.length > 0) {
     lines.push("", "Assumptions:", "", assumptions.map((assumption) => `- ${markdownListItem(assumption)}`).join("\n"));
   }
-  if (sc.whatWouldHaveToBeTrue.length > 0) {
-    lines.push("", "What would have to be true:", "", sc.whatWouldHaveToBeTrue.map((condition) => `- ${item(scenarioListItem(condition))}`).join("\n"));
+  // D-273 review round 1: a repeated label is stated once; every condition still prints.
+  const shown = scenarioReaderLists(sc, assumptions);
+  if (shown.conditions.length > 0) {
+    lines.push("", "What would have to be true:", "", shown.conditions.map((condition) => `- ${item(condition)}`).join("\n"));
   }
-  if (sc.qualitativeCommentary?.length) {
-    lines.push("", "Qualitative commentary (not valuation inputs):", "", ...sc.qualitativeCommentary.map((text) => `- ${item(scenarioListItem(text))}`));
+  if (shown.commentary.length > 0) {
+    lines.push("", "Qualitative commentary (not valuation inputs):", "", ...shown.commentary.map((text) => `- ${item(text)}`));
+  }
+  if (shown.separateConditions.length > 0) {
+    lines.push("", `${SEPARATE_CONDITIONS_HEADING}:`, "", ...shown.separateConditions.map((text) => `- ${item(text)}`));
   }
   return lines.join("\n");
 }

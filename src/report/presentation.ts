@@ -90,7 +90,7 @@ import {
 import type { ManifestEntry } from "@/types/core";
 import { BUSINESS_STORY_HEADING, productLineNamingClaims, UNNAMED_PRODUCT_LINE_HEADING } from "@/report/schema";
 import { claimStatusMark } from "@/report/verificationMarks";
-import { citationSourceId } from "@/pipeline/stageC/citations";
+import { citationAsOf, citationSourceId } from "@/pipeline/stageC/citations";
 import { developmentClaims, managementActionClaims, RECENT_DEVELOPMENTS_HEADING } from "@/report/qualitativeAnalysis";
 import type {
   Business,
@@ -706,6 +706,45 @@ export function scenarioListItem(text: string): string {
   return stripped === text || stripped.length === 0 ? text : stripped[0]!.toUpperCase() + stripped.slice(1);
 }
 
+/** The label scenario presentation stores before each analyst condition (applyScenarioPresentation). */
+export const SEPARATE_CONDITION_PREFIX = "Separate qualitative condition, not a modeled input or prerequisite for this target: ";
+export const SEPARATE_CONDITIONS_HEADING = "Separate qualitative conditions (not modeled inputs or prerequisites for this target)";
+const MODELED_CONDITIONS = "Modeled conditions: ";
+/** Stands in for the first assumption a modeled condition repeats word for word. */
+export const MODELED_SHIFT_REFERENCE = "the year-one shift under Assumptions.";
+
+export interface ScenarioReaderLists {
+  conditions: string[];
+  commentary: string[];
+  /** The analyst conditions the stored text prefixed one by one, printed under one heading. */
+  separateConditions: string[];
+}
+
+/**
+ * D-273 review round 1 (P22): the Markdown and print scenario cards state a
+ * repeated label once. A modeled condition that opens with an assumption the
+ * card already lists refers to it instead of repeating it; the conditions each
+ * stored with the same "separate qualitative condition" prefix print under one
+ * heading that keeps that warning once. Every assumption and condition still
+ * prints; stored text is unchanged.
+ */
+export function scenarioReaderLists(scenario: Pick<Scenario, "whatWouldHaveToBeTrue" | "qualitativeCommentary" | "assumptions">, assumptions: readonly string[]): ScenarioReaderLists {
+  const listed = [...new Set([...assumptions, ...scenario.assumptions])].filter(a => a.trim().length > 0).sort((x, y) => y.length - x.length);
+  const conditions = scenario.whatWouldHaveToBeTrue.map(condition => {
+    if (!condition.startsWith(MODELED_CONDITIONS)) return scenarioListItem(condition);
+    const rest = condition.slice(MODELED_CONDITIONS.length);
+    const repeated = listed.find(a => rest.startsWith(a));
+    return repeated === undefined ? condition : `${MODELED_CONDITIONS}${MODELED_SHIFT_REFERENCE}${rest.slice(repeated.length)}`;
+  });
+  const commentary: string[] = [];
+  const separateConditions: string[] = [];
+  for (const text of scenario.qualitativeCommentary ?? []) {
+    if (text.startsWith(SEPARATE_CONDITION_PREFIX) && text.length > SEPARATE_CONDITION_PREFIX.length) separateConditions.push(text.slice(SEPARATE_CONDITION_PREFIX.length));
+    else commentary.push(scenarioListItem(text));
+  }
+  return { conditions, commentary, separateConditions };
+}
+
 /**
  * Peer-table columns keyed by metric (peerColumnKeys) with reader headings:
  * the key of a registry figure is its id's last segment ("pettm-current"),
@@ -854,8 +893,14 @@ export function businessStoryBlocks(
 const claimHomes = new WeakMap<object, string>();
 const echoIndexed = new WeakSet<object>();
 
+/**
+ * Review round 1: the identity keeps the whole citation (the stored source and
+ * source id) and its resolved date, so the same words cited to a different
+ * filing or date are a different statement and print in both places.
+ */
 function claimEchoKey(claim: SourcedClaim): string {
-  return [claim.label, claim.text.trim().replace(/\s+/g, " "), citationSourceId(claim) ?? claim.source, claim.asOf ?? "", claimStatusMark(claim) ?? ""].join("\u0000");
+  return [claim.label, claim.text.trim().replace(/\s+/g, " "), citationSourceId(claim) ?? "", claim.source, claim.sourceId ?? "",
+    citationAsOf(claim) ?? "", claim.asOf ?? "", claimStatusMark(claim) ?? ""].join("\u0000");
 }
 
 /**
@@ -969,8 +1014,18 @@ export interface BusinessBriefPart {
   claims: readonly SourcedClaim[];
 }
 
-/** Words that name who buys; only used to pick buyer statements out of fields that also hold other facts. */
-const BUYER_WORDS = /\b(?:customers?|clients?|distributors?|wholesalers?|buyers?|purchasers?|payers?|resellers?|retailers?|consumers?|subscribers?|advertisers?|patients?|members?|users?)\b/i;
+/**
+ * Review round 1 (lead decision): words that name a customer or buyer group. A
+ * customers-and-suppliers claim enters "Who buys it" only when it names one, so
+ * a supplier-only statement never does.
+ */
+const CUSTOMER_WORDS = /\b(?:customers?|clients?|distributors?|wholesalers?|buyers?|purchasers?|payers?|resellers?|retailers?|consumers?|subscribers?|advertisers?|patients?|tenants?|members?|users?|utilities|hospitals?|governments?)\b/i;
+/**
+ * Review round 1 (lead decision): a statement of a limitation or an absence
+ * ("no reviewed source", "not disclosed") says what is not known; it never
+ * fills a brief part, which then says it is not established.
+ */
+const LIMITATION_WORDS = /\b(?:no (?:reviewed |cited |retained )?(?:sources?|filings?|evidence|data)|not (?:established|disclosed|stated|available|reported|given|known|measured|in the (?:excerpts|filings|evidence))|(?:does|do|did) not (?:disclose|state|report|give|establish)|unavailable|cannot|could not)\b/i;
 const SEVERITY_RANK: Readonly<Record<string, number>> = { high: 0, medium: 1, low: 2 };
 const MOAT_RANK: Readonly<Record<MoatAssessment["strength"], number>> = { wide: 0, narrow: 1, none: 2 };
 
@@ -982,7 +1037,7 @@ const MOAT_RANK: Readonly<Record<MoatAssessment["strength"], number>> = { wide: 
  * no model text raises a claim's standing. Read time, so a saved report obeys too.
  */
 export function isBriefEligible(claim: SourcedClaim): boolean {
-  return claim.label === "FACT" && SUPPORTING_MARKS.has(claimStatusMark(claim) ?? "");
+  return claim.label === "FACT" && SUPPORTING_MARKS.has(claimStatusMark(claim) ?? "") && !LIMITATION_WORDS.test(claim.text);
 }
 
 function briefClaims(...sources: readonly (readonly SourcedClaim[])[]): SourcedClaim[] {
@@ -1005,18 +1060,19 @@ function briefClaims(...sources: readonly (readonly SourcedClaim[])[]): SourcedC
  * marks are indexed (prepareReportForSurface does it); with no marks every
  * part is not established.
  */
-export function businessBrief(report: Pick<Report, "business" | "competitive" | "catalystsRisks" | "outlook">): BusinessBriefPart[] {
+export function businessBrief(report: Pick<Report, "business" | "competitive" | "catalystsRisks">): BusinessBriefPart[] {
   const b = report.business;
   const c = report.competitive;
-  const buyerFacts = (claims: readonly SourcedClaim[] | undefined) => (claims ?? []).filter(claim => BUYER_WORDS.test(claim.text));
+  // Review round 1 (lead decision): each part reads only the field that answers it.
+  const customerFacts = (b.customersAndSuppliers ?? []).filter(claim => CUSTOMER_WORDS.test(claim.text));
   const moats = [...c.moatAssessment].filter(m => m.strength !== "none").sort((x, y) => MOAT_RANK[x.strength] - MOAT_RANK[y.strength]);
   const risks = [...report.catalystsRisks.risks].sort((x, y) => (SEVERITY_RANK[x.severity] ?? 3) - (SEVERITY_RANK[y.severity] ?? 3));
   return [
-    { key: "sells", heading: "What it sells", claims: briefClaims(b.whatTheySell, (b.products ?? []).flatMap(item => item.claims)) },
-    { key: "buyers", heading: "Who buys it", claims: briefClaims(b.customersAndSuppliers ?? [], buyerFacts(b.whatTheySell), buyerFacts(b.concentrationRisks)) },
-    { key: "wins", heading: "Why it wins", claims: briefClaims(b.protection ?? [], moats.flatMap(m => m.reasoning), c.moatGraded.reasoning) },
-    { key: "next", heading: "What is next", claims: briefClaims(b.whatIsComing ?? [], b.managementPlan ?? [], report.catalystsRisks.catalysts.flatMap(item => reasoningClaims(item.reasoning)), report.outlook.guidanceCredibility) },
-    { key: "risks", heading: "What could break it", claims: briefClaims(risks.flatMap(item => reasoningClaims(item.reasoning))) },
+    { key: "sells", heading: "What it sells", claims: briefClaims((b.products ?? []).flatMap(item => item.claims), b.whatTheySell) },
+    { key: "buyers", heading: "Who buys it", claims: briefClaims(customerFacts) },
+    { key: "wins", heading: "Why it wins", claims: briefClaims(b.protection ?? [], moats.flatMap(m => m.reasoning)) },
+    { key: "next", heading: "What is next", claims: briefClaims(b.whatIsComing ?? []) },
+    { key: "risks", heading: "What could break it", claims: briefClaims(risks.flatMap(item => reasoningClaims(item.reasoning)), b.concentrationRisks) },
   ];
 }
 
@@ -2486,25 +2542,19 @@ export function readerSources(sources: Report["appendix"]["sources"]): { summary
   };
 }
 /** D-273 (P22): where the score diagnostics live once they leave the reader body. */
-export const SCORE_DIAGNOSTICS_NOTE = "The method of each aspect, the score drivers and the factor-family exposure and sensitivity tables are in the audit export.";
+export const SCORE_DIAGNOSTICS_NOTE = "The score drivers and the factor-family exposure and sensitivity tables are in the audit export.";
 export const SCORE_BANDS_READER_NOTE = "House scoring bands in force when this report was built; the band version is recorded in the audit export";
 
 /**
  * One row per aspect: score, band, weight and evidence, with what it
  * measures (D-62: replaces the separate weights and aspect-score tables).
  */
-/**
- * `full` keeps each aspect's method text: the app
- * shows them in its collapsed score panel (D-246 frozen facts); the documents
- * point to the audit export instead (D-273).
- */
-export function scorecardTable(scores: NonNullable<Report["scores"]>, detail: "document" | "full" = "document"): BodyTable {
-  const full = detail === "full";
+export function scorecardTable(scores: NonNullable<Report["scores"]>): BodyTable {
   const limited = SCORE_ASPECT_ORDER.filter((key) => hasLimitedEvidence(scores.aspects[key]));
   const table: BodyTable = {
     heading: "Scorecard",
-    // D-273: the method text is in the audit export; only an unscored aspect's reason stays.
-    headers: ["Aspect", "Score", "Band", "Weight", "Evidence (all signal weights)", full ? "What it measures" : "Why not scored"],
+    // D-273 review round 1 (P12): each aspect's text qualifies what its score means, so it stays beside the score.
+    headers: ["Aspect", "Score", "Band", "Weight", "Evidence (all signal weights)", "What it measures"],
     rows: SCORE_ASPECT_ORDER.map((key) => {
       const aspect = scores.aspects[key];
       const weight = scores.composite.weights[key];
@@ -2515,7 +2565,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>, detail: "d
         hasLimitedEvidence(aspect) ? "limited evidence" : aspect.band === null ? "—" : qualifiedGradeLabel(withNeutral(aspect.band, aspect.score), scores.qualification?.aspects[key]),
         `${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}%`,
         evidencePercentText(aspect.dataCompleteness),
-        full || aspect.score === null ? withoutDecisionNumbers(aspect.notApplicableReason ?? aspect.note) : "",
+        withoutDecisionNumbers(aspect.notApplicableReason ?? aspect.note),
       ];
     }),
     note: `Evidence here uses each aspect's full configured signal weight. The reliability table's applicable evidence excludes route-inapplicable inputs. ${limited.map((key) => {
@@ -2530,8 +2580,7 @@ export function scorecardTable(scores: NonNullable<Report["scores"]>, detail: "d
         return `${SCORE_ASPECT_LABEL[key]} has evidence for ${evidencePercentText(scores.aspects[key].dataCompleteness)} of its signal weight, ${why}, so no surface shows one; it enters the composite at ${formatPct(effective, 1)} rather than its ${formatNumber(weight, Number.isInteger(weight) ? 0 : 1)}% route weight.`;
       }).join(" ")}`.trim(),
   };
-  // D-273: every aspect scored, so no row has a reason; the empty column is not printed.
-  return full || table.rows.some(row => row[5] !== "") ? table : { ...table, headers: table.headers.slice(0, 5), rows: table.rows.map(row => row.slice(0, 5)) };
+  return table;
 }
 
 /** The same missing-input interpretation on the app, Markdown and print scorecards. */

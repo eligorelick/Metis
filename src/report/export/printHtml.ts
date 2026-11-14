@@ -105,6 +105,8 @@ import {
   BRIEF_NOT_ESTABLISHED,
   BRIEF_PART_NOT_ESTABLISHED,
   businessBrief,
+  scenarioReaderLists,
+  SEPARATE_CONDITIONS_HEADING,
   repeatedClaimsNote,
   withoutRepeatedClaims,
   assessmentLine,
@@ -154,7 +156,6 @@ import {
   qualitativeScenarioConditions,
   QUALITATIVE_SCENARIO_HEADING,
   peerTableColumns,
-  scenarioListItem,
   evidenceScopeSummary,
   provenanceHeadline,
   trustHeadline,
@@ -697,10 +698,13 @@ function qualitativeScenarioBlock(scenarios: readonly Scenario[]): string {
 function scenarioCard(row: ScenarioRowView): string {
   const { scenario: sc, assumptions } = row;
   const list = (items: readonly string[]): string => `<ul>${items.map((i) => `<li>${prose(i)}</li>`).join("")}</ul>`;
+  const shown = scenarioReaderLists(sc, assumptions);
   const blocks = [
     assumptions.length > 0 ? `<div><em>Assumptions</em>${list(assumptions)}</div>` : "",
-    sc.whatWouldHaveToBeTrue.length > 0 ? `<div><em>What would have to be true</em>${list(sc.whatWouldHaveToBeTrue.map(scenarioListItem))}</div>` : "",
-    sc.qualitativeCommentary?.length ? `<div><em>Qualitative commentary (not valuation inputs)</em>${list(sc.qualitativeCommentary.map(scenarioListItem))}</div>` : "",
+    // D-273 review round 1: a repeated label is stated once; every condition still prints.
+    shown.conditions.length > 0 ? `<div><em>What would have to be true</em>${list(shown.conditions)}</div>` : "",
+    shown.commentary.length > 0 ? `<div><em>Qualitative commentary (not valuation inputs)</em>${list(shown.commentary)}</div>` : "",
+    shown.separateConditions.length > 0 ? `<div><em>${esc(SEPARATE_CONDITIONS_HEADING)}</em>${list(shown.separateConditions)}</div>` : "",
   ].join("");
   return `<div class="scenario ${esc(sc.name)}">
     <div class="scenariohead"><strong>${esc(sc.name.toUpperCase())}</strong>

@@ -492,7 +492,7 @@ export function CompositeScorecard({ scores }: { scores: Scoring }) {
         {assessmentLine(scores) && <p className="text-[11px] text-muted">{assessmentLine(scores)}</p>}
         {/* D-246: the app keeps every frozen fact; its score diagnostics stay in this panel (D-273 shortens the documents). */}
         <ExtraAuditTables tables={[gradeReliabilityTable(scores)]} />
-        <details className="dossier-score-audit"><summary>Score methodology &amp; recorded inputs</summary><p>{SCORE_BANDS_READER_NOTE}.</p><p>{c.methodology}</p><div><ExtraAuditTables tables={[scorecardTable(scores, "full"), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} /></div></details>
+        <details className="dossier-score-audit"><summary>Score methodology &amp; recorded inputs</summary><p>{SCORE_BANDS_READER_NOTE}.</p><p>{c.methodology}</p><div><ExtraAuditTables tables={[scorecardTable(scores), scoreDriverTable(scores), factorExposureTable(scores), factorContributionSensitivityTable(scores)]} /></div></details>
       </div>
     </div>
   );
@@ -529,7 +529,7 @@ export function BusinessBriefBlock({ report }: { report: Report }) {
         {none ? <p className="text-[11px] text-faint">{BRIEF_NOT_ESTABLISHED}</p> : parts.map(part => (
           <div key={part.key}>
             <div className="text-[11px] font-semibold text-fg">{part.heading}</div>
-            <ClaimList claims={part.claims} empty={BRIEF_PART_NOT_ESTABLISHED} />
+            <ClaimList claims={part.claims} empty={BRIEF_PART_NOT_ESTABLISHED} repeats="show" />
           </div>
         ))}
       </div>

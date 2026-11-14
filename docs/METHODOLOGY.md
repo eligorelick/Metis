@@ -8918,12 +8918,16 @@ fundamentals, balance sheet, valuation, quality, technicals, leadership,
 projections, macro and the appendix. The verdict opens with "The business in
 brief": what it sells, who buys it, why it wins, what is next and what could
 break it. Code fills each part with at most one claim from the business fields
-in a fixed order, and only with a FACT whose own verification entry is validated
-or cited; an unverified, unchecked or contradicted claim, or a judgment, never
-enters, and a part with none says "Not established from verified sources." A
+in a fixed order, only from the field that answers it (buyers only from
+customers and suppliers claims that name a customer group; what is next only
+from what is coming; risks from the risks and concentration risks), and only
+with a FACT whose own verification entry is validated or cited; an unverified,
+unchecked or contradicted claim, a judgment, or a statement of a limitation or
+absence never enters, and a part with none says "Not established from verified sources." A
 statement shown in full in one list is referenced, not repeated, in a later
-list when its label, text, citation, date and verification mark all match.
-Score drivers, factor exposure and sensitivity, each aspect's method text, the full bull and bear statements, the full source list and the
+list when its label, text, citation, resolved citation date and verification
+mark all match. Each score keeps its qualifying text beside it. Score drivers,
+factor exposure and sensitivity, the full bull and bear statements, the full source list and the
 manifest reconciliation are in the audit export, not the Markdown or print
 documents (the app keeps them in collapsed panels, D-246); every surface keeps every gap,
 qualification, refusal note, disclaimer and stale-source name. These are
