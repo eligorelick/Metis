@@ -45,16 +45,20 @@ describe("standalone capex on an independently established annual tag basis", ()
     expect(quarter(b).capitalExpenditure).toBe(changed ? null : -189 * M);
     expect(quarter(b).freeCashFlow).toBe(changed ? null : -686 * M);
   });
-  it.each(["currency", "period", "filing", "annual basis", "ambiguous tag", "refusal"])("does not recover from incompatible %s evidence", kind => {
-    const { b, row, facts } = fixture();
+  it.each(["currency", "period", "filing", "refusal"])("does not recover from incompatible %s evidence", kind => {
+    const { b, row } = fixture();
     if (kind === "currency") row.reportedCurrency = "EUR";
     if (kind === "period") row.periodStart = "2025-01-01";
     if (kind === "filing") row.filingDate = "2025-11-08";
-    if (kind === "annual basis" && b.statements.cashflowAnnual.ok) b.statements.cashflowAnnual.value.data.rows[0]!.capitalExpenditure = -999 * M;
-    if (kind === "ambiguous tag") facts.facts["us-gaap"]!.PaymentsToDevelopSoftware = structuredClone(facts.facts["us-gaap"]!.PaymentsToAcquirePropertyPlantAndEquipment);
     if (kind === "refusal") row.fieldConflicts = { capitalExpenditure: { usable: false, vendorValue: 396 * M, secValue: null, reason: "Independent refusal" } };
     expect(quarter(b).capitalExpenditure).not.toBe(-189 * M);
     if (kind === "refusal") expect(quarter(b).freeCashFlow).toBeNull();
+  });
+  it.each(["conflicting annual vendor", "separate software tag"])("D-262: filed PP&E stands independently of %s", kind => {
+    const { b, facts } = fixture();
+    if (kind === "conflicting annual vendor" && b.statements.cashflowAnnual.ok) b.statements.cashflowAnnual.value.data.rows[0]!.capitalExpenditure = -999 * M;
+    if (kind === "separate software tag") facts.facts["us-gaap"]!.PaymentsToDevelopSoftware = structuredClone(facts.facts["us-gaap"]!.PaymentsToAcquirePropertyPlantAndEquipment);
+    expect(quarter(b)).toMatchObject({ capitalExpenditure: -189 * M, freeCashFlow: -686 * M });
   });
 });
 describe("recoverable vendor SBC zero placeholders", () => {

@@ -442,10 +442,10 @@ describe("same-definition income classification", () => {
     expect(result.row.revenue).toBeNull();
     expect(result.row.fieldConflicts?.revenue?.reason).toMatch(/contract.revenue.*not established as consolidated/i);
   });
-  it("does not let a reconciled EBIT prove vendor expense placement", () => {
+  it("D-262: adopts costs from a complete filed operating family, independently of vendor expense placement", () => {
     const result = admit();
-    expect(result.row).toMatchObject({ costOfRevenue: null, grossProfit: null, operatingExpenses: null, operatingIncome: 2000 });
-    expect(result.row.fieldConflicts?.grossProfit).toMatchObject({ usable: false, vendorValue: 5803, secValue: 5903, secEvidence: { periodStart: "2026-02-28", periodEnd: "2026-05-29" } });
+    expect(result.row).toMatchObject({ costOfRevenue: 715, grossProfit: 5903, operatingExpenses: 3903, operatingIncome: 2000 });
+    expect(result.row.fieldConflicts?.grossProfit).toMatchObject({ usable: true, vendorValue: 5803, secValue: 5903, secEvidence: { periodStart: "2026-02-28", periodEnd: "2026-05-29" } });
     expect(result.original.ok && result.original.value.data.rows[0]?.grossProfit).toBe(5803);
     expect(result.result.income.ok && result.result.income.value.data.raw).toEqual(result.original.ok && result.original.value.data.raw);
   });
@@ -458,7 +458,7 @@ describe("same-definition income classification", () => {
   it("checks an untagged gross-profit subtotal only from independent compatible full revenue and cost", () => {
     const f = facts(); delete f.facts["us-gaap"]!.GrossProfit;
     const result = admit({ costOfRevenue: 715 }, f);
-    expect(result.row.grossProfit).toBeNull();
+    expect(result.row.grossProfit).toBe(5903);
     expect(result.row.fieldConflicts?.grossProfit).toMatchObject({ secValue: 5903,
       secEvidence: { calculation: "revenue-minus-cost", tags: ["us-gaap/Revenues", "us-gaap/CostOfRevenue"] } });
   });
@@ -486,7 +486,7 @@ describe("same-definition income classification", () => {
     const unavailable = { ok: false as const, gap: { field: "income", severity: "warn" as const, reason: "unavailable" } };
     expect(enrichIncomeClassification(unavailable, facts(), "quarter", at).income).toBe(unavailable);
     const edgar = input(); if (!edgar.ok) throw Error("fixture"); edgar.value.source = "edgar";
-    expect(enrichIncomeClassification(edgar, facts(), "quarter", at).income).toMatchObject({ ok: true, value: { data: { rows: [{ grossProfit: null, fieldConflicts: { grossProfit: { usable: false } } }] } } });
+    expect(enrichIncomeClassification(edgar, facts(), "quarter", at).income).toMatchObject({ ok: true, value: { data: { rows: [{ grossProfit: 5903, fieldConflicts: { grossProfit: { usable: true } } }] } } });
     expect(edgar.value.data.rows[0]?.grossProfit).toBe(5803);
     const empty = input(); if (!empty.ok) throw Error("fixture"); empty.value.data.rows = [];
     expect(enrichIncomeClassification(empty, facts(), "quarter", at).income).toBe(empty);

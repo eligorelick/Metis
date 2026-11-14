@@ -272,10 +272,10 @@ describe("D-252: a filed cash-flow statement that reconciles replaces a conflict
   });
 
   describe("free cash flow follows the admitted operating figure and the row's own capital spending", () => {
-    it("is operating cash flow plus capital spending, the identity the readers use, whatever line the capital spending came from", () => {
+    it("D-262: is filed operating cash flow plus the independently admitted filed PP&E outflow", () => {
       const other = enrichAnnual({ ...controlVendor(), capitalExpenditure: -260_000_000, freeCashFlow: 690_000_000 }, facts(1, controlTags())).row;
-      expect(other).toMatchObject({ operatingCashFlow: 900_000_000, capitalExpenditure: -260_000_000, freeCashFlow: 640_000_000 });
-      expect(other.fieldConflicts?.freeCashFlow).toMatchObject({ usable: true, resolution: "filed-family", vendorValue: 690_000_000, secValue: 640_000_000 });
+      expect(other).toMatchObject({ operatingCashFlow: 900_000_000, capitalExpenditure: -200_000_000, freeCashFlow: 700_000_000 });
+      expect(other.fieldConflicts?.freeCashFlow).toMatchObject({ usable: true, resolution: "filed-family", vendorValue: 690_000_000, secValue: 700_000_000 });
     });
 
     it("is absent when the row has no usable capital spending, and keeps an earlier refusal of free cash flow (P11)", () => {

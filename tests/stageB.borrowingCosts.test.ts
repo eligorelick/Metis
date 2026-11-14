@@ -101,8 +101,8 @@ describe("capitalized borrowing costs are not income-statement interest", () => 
     expect(JSON.stringify(b)).toBe(original);
   });
 
-  it.each(["lower-priority-match", "latest-preferred-copy", "conflicting-preferred-copies", "legacy-preferred"] as const)(
-    "does not use a superseded or lower-priority match to corroborate expense: %s", mode => {
+  it.each(["lower-priority-match", "latest-preferred-copy", "legacy-preferred"] as const)(
+    "uses the preferred filed expense instead of a superseded or lower-priority vendor match: %s", mode => {
       const b = capitalizedBundle("incurred");
       if (!b.edgar.companyFacts.ok) throw Error("fixture");
       const tags = b.edgar.companyFacts.value.data.facts["us-gaap"]!;
@@ -111,19 +111,40 @@ describe("capitalized borrowing costs are not income-statement interest", () => 
         preferred.push({ ...preferred[0]!, val: 5 * M });
         preferred[0]!.filed = "2026-05-15"; preferred[0]!.accn = "0000000042-26-000002";
       }
-      if (mode === "conflicting-preferred-copies") preferred.push({ ...preferred[0]!, val: 5 * M });
       if (mode === "legacy-preferred") {
         tags.InterestExpense = { units: { USD: [point(4 * M, "2026-03-31", "2026-01-01")] } };
         preferred[0]!.val = 5 * M;
       }
       tags.InterestExpenseNonoperating = { units: { USD: preferred } };
       tags.InterestExpenseOperating = { units: { USD: [point(5 * M, "2026-03-31", "2026-01-01")] } };
-      const c = runStageB(b);
-      expect(c.returns.wacc.waccPct).toBeNull();
-      expect(c.capital.interestCoverage.value).toBeNull();
-      expect(c.gaps.some(g => g.field === "statements.income.2026-03-31.interestExpense" && /capitalized/i.test(g.reason))).toBe(true);
+      const original = JSON.stringify(b), c = runStageB(b);
+      expect(c.returns.wacc.waccPct).not.toBeNull();
+      expect(c.returns.wacc.interestCoverageRatio).toBeGreaterThan(0);
+      expect(c.capital.current?.interestCoverage).toBeGreaterThan(0);
+      const correction = c.gaps.find(g => g.field === "statements.income.2026-03-31.interestExpense");
+      expect(correction?.reason).toContain("corrected from vendor 5M to 4M USD");
+      expect(correction?.reason).toContain(mode === "legacy-preferred" ? "us-gaap/InterestExpense," : "us-gaap/InterestExpenseNonoperating,");
+      expect(correction?.reason).toContain(mode === "latest-preferred-copy" ? "0000000042-26-000002" : accn);
+      const payload = assembleContextPayload(b, c, { checks: [], flags: [], gaps: [] });
+      const quarterly = payload.statements.find(s => s.title === "Income statement — quarterly");
+      expect(quarterly?.lineItems.find(l => l.lineItem === "interest expense")?.byPeriod.find(p => p.period === "2026-03-31")?.value).toBe(4 * M);
+      expect(JSON.stringify(b)).toBe(original);
     },
   );
+
+  it("refuses ambiguous preferred expense copies instead of falling through to a matching lower-priority concept", () => {
+    const b = capitalizedBundle("incurred");
+    if (!b.edgar.companyFacts.ok) throw Error("fixture");
+    const tags = b.edgar.companyFacts.value.data.facts["us-gaap"]!;
+    tags.InterestExpenseNonoperating = { units: { USD: [
+      point(4 * M, "2026-03-31", "2026-01-01"), point(5 * M, "2026-03-31", "2026-01-01"),
+    ] } };
+    tags.InterestExpenseOperating = { units: { USD: [point(5 * M, "2026-03-31", "2026-01-01")] } };
+    const c = runStageB(b);
+    expect(c.returns.wacc.waccPct).toBeNull();
+    expect(c.capital.interestCoverage.value).toBeNull();
+    expect(c.gaps.some(g => g.field === "statements.income.2026-03-31.interestExpense" && /capitalized/i.test(g.reason))).toBe(true);
+  });
 
   it("keeps a minimal legacy bundle without companyfacts usable", () => {
     const b = capitalizedBundle("incurred");

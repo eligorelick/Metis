@@ -11,6 +11,170 @@ considered, the risks across
 correctness, user cost, data integrity, security, backward compatibility and
 reversibility, the choice, and why. Reversible and disclosed beats clever.
 
+## D-262 - Filed additive flows replace conflicting vendor observations (2026-11-13)
+
+Principles P8 (filed beats vendor), P13 (one definition), P1 (exact periods),
+P11 (independent refusals remain binding) and P21 (stored reports are immutable).
+Owners: `src/edgar/financialEnrichment.ts`, the tag family in
+`src/edgar/tagSynonyms.ts`, and the complete operating-family admission in
+`src/edgar/incomeClassification.ts`. The lead expanded this work from the LLY
+example to sibling consumed income and cash-flow fields. No ticker branch,
+tolerance, currency conversion, score band or paid call is added.
+
+Why. The whole-row source switch compared revenue and quarterly CFO, not capex
+or interest. The capex family omitted `PaymentsToAcquireOtherPropertyPlantAndEquipment`,
+and the quarterly recovery required an agreeing annual vendor capex value.
+Annual capex and income-statement interest had no corresponding general
+filed-conflict admission. Several other flows were compared only to refuse a
+conflict, or were never compared. An agreeing vendor amount proves nothing.
+
+Choice. Exact issuer, unit, period and compatible filing evidence settles a
+conflicting additive flow. The existing ordered tag families and component
+floors remain authoritative. Annual figures and direct or cumulative-derived
+quarters use the same rule. A preferred concept with ambiguous copies cannot
+expose another convenient concept. Re-rounded comparative operands may retain
+their original precision only under the existing presentation-lineage rule.
+The existing direct/derived same-observation rules distinguish rounding from
+conflict. Every adopted field records its tag, interval, filings and original
+vendor observation. Capex, its PP&E alias and dependent standardized FCF move
+together; independent CFO/FCF refusals do not clear. The ordinary whole-row CFO
+switch is unchanged. Live acquisition and offline calculation views share the
+same admission functions; source envelopes, raw arrays and stored bytes remain.
+
+The PP&E total precedes other PP&E and productive assets. These alternatives
+are not summed; software, acquired research, businesses and investments are not
+added to PP&E. Missing filed capex leaves the retained convention and its
+disclosure. Interest expense uses expense tags only, never net interest,
+interest paid or costs that include capitalized interest. Unproved expense
+remains vendor-unverified in the report. A separately proved bank interest
+income total is required before a securities-interest component can be its
+counterpart. Common dividends alone establish total dividends only with a
+filed preferred-dividend zero. A separate business-payment tag with unresolved
+overlap prevents treating a component as the full acquisitions line. Primary
+repurchase cash evidence is admitted before bulk repurchase comparisons, so
+cost-inclusive tags cannot displace proved cash scope.
+
+This revises D-150's retained capex convention, D-212's annual-vendor gate and
+its unexplained-conflict refusal, D-239's refusal of a zero contradicted by
+exact filed PP&E, and D-203's cost refusal when a complete operating family
+does establish placement. D-89's CFO rule remains; its sibling value-only
+refusals may clear only when their typed cause and exact recorded evidence
+match the newly admitted fact. Other scope and unknown-cause refusals remain.
+
+### Consumed-flow inventory and sibling disposition
+
+Both annual and quarterly rows were searched through the statement interfaces,
+forensic adapters, capital/growth/valuation consumers, quarterly disclosures
+and chart adapters. YTD facts are operands, not standalone quarters. TTM uses
+the admitted quarters or the existing proved FY + current YTD - prior YTD
+identity. US-GAAP facts in 10-K/10-Q and 20-F/40-F share the rule. IFRS concepts
+are not presumed interchangeable with a similarly named US-GAAP concept.
+
+| Consumed field or family | Filed counterpart and previous admission | D-262 disposition |
+| --- | --- | --- |
+| Cash capex, PP&E alias, standardized FCF | PP&E/productive-assets tags; no annual conflict check, quarterly annual-vendor gate | Added other PP&E; exact filed spending replaces conflicts; aliases and FCF share it |
+| Income interest expense | Five existing ordered expense tags; capitalized-cost refusal only on vendor path | Exact annual/quarter expense replaces conflicts, including vendor zero; missing compatible expense is disclosed unverified |
+| Income and cash-flow D&A | Combined D&A tags with component floors; cash-flow/valuation extracted them but vendor fields were unchecked | Compare full tagged totals on the existing floors; partial depreciation or composed lower bounds do not replace a total |
+| Cash-flow SBC | `ShareBasedCompensation`; some quarterly repairs, annual conflicts could remain refused | Same filed rule for both frequencies; typed value-only refusals reopen only against the identical recorded fact; allocated expense is a separate basis |
+| Common, preferred and total dividends paid | Existing direct dividend chains and common/preferred composition | Correct independently tagged fields; do not infer total from common when preferred is unproved |
+| Common-share cash repurchases | `PaymentsForRepurchaseOfCommonStock`; conflicts previously refused; primary cash/cost bridge has its own scope gate | Correct exact bulk counterparts unless independently refused/proved; primary cash scope has precedence; unresolved excise/commission scope stays with its owner |
+| Common-share issuance | `ProceedsFromIssuanceOfCommonStock`; no general vendor comparison | Correct exact gross common-share flow |
+| Acquisitions, net of acquired cash | `PaymentsToAcquireBusinessesNetOfCashAcquired`; no general vendor comparison | Correct exact counterpart; additional business payment with unresolved overlap stays with D-68 |
+| Working-capital cash change | `IncreaseDecreaseInOperatingCapital`, sign reversed to the cash-flow convention; unchecked vendor value | Correct exact signed flow; no balance-sheet residual or inferred component zero |
+| Cash taxes paid and cash interest paid | Existing net/gross paid-tag chains; not income-statement expense | Correct exact paid flows on the existing ordered convention; never use them as expense synonyms |
+| Finance-lease principal | `FinanceLeasePrincipalPayments`; comparison refused conflicts | Exact compatible principal replaces a fresh value conflict; separate lease scope remains binding |
+| Investing/financing cash-flow totals | Existing total tags; comparison refused conflicts | Exact signed total replaces fresh conflicts; prior independent refusals remain |
+| Operating cash flow and its alias | `NetCashProvidedByUsedInOperatingActivities`; annual reconciliation/admission D-252 and quarterly source-switch comparison already exist | Keep the reconciled cash-family owner, dependent FCF handling and canonical filing-lineage refusal; these fields were already compared |
+| Income R&D, SG&A, selling/marketing, general/administrative | Existing expense tags and R&D component floor; vendor largely unchecked | Correct independently tagged exact totals without inferring untagged placement |
+| Interest income, bank net interest income | Existing industrial/bank interest-income families and `InterestIncomeExpenseNet` | Compare on the route's existing definition; an investment-interest component cannot replace a bank operating total |
+| Revenue, tax expense, pretax and net/common/NCI/continuing/discontinued earnings | Existing revenue and reconciled earnings-family admissions (D-200, D-203, D-237, D-240, D-251, D-257) | Keep those owners and their identity, entity, equity-method and preferred-claim gates; no isolated tax substitution |
+| Cost of revenue, gross profit and operating expenses | Direct tags, compatible revenue-minus-cost identity; isolated conflicts refused | A complete same-scope revenue - cost = gross profit - operating expenses = operating income family on admitted revenue now settles conflicts; incomplete placement still refused |
+| Operating income and EBIT | Existing revenue/operating bridge, non-margin operating evidence and complete earnings dependencies | Keep specialized placement gates; no balancing plug or scalar replacement of a differently scoped EBIT |
+| EBITDA | Existing admitted operating result plus full D&A, with its stated fallback/lower-bound rules | Reads corrected operands; vendor EBITDA alone is not a filed additive fact |
+| Cash-flow net income | D-231/D-238 reconcile annual consolidated profit, including reviewed IFRS profit tags; quarterly scope follows its filed row | Keep entity-scope owner; no parent/common profit substituted for consolidated cash-flow profit |
+| Net debt issuance, debt repayment, net stock issuance | Standard long-term-debt/common-share components exist, but do not prove a vendor all-debt/all-equity total | Left to their scope owner; missing short-term/preferred flows are not zero and components are not total synonyms |
+| Investment purchases, sales/maturities, other investing | D-61 checks a complete same-interval short-term family and refuses mixed generic buckets | Keep classification refusal: long-term investments, intangibles and other assets cannot be guessed from a residual |
+| Cash movement, opening/closing cash, FX | Existing exact cash-scope/period and reconciliation admission | Keep scope owner; unrestricted and restricted-cash totals are not interchangeable |
+| Issuer-defined FCF, acquisitions in other investing, inventory write-downs and operating one-offs | Source-defined release/filing records, D-68 overlap and dedicated event owners | Keep explicit definitions, placement and overlap; standardized flows do not rewrite these records |
+| EPS, weighted shares, per-share growth and provider ratios | Non-additive quantities, independent share and same-basis ratio owners | Outside an additive-flow substitution; derived reports read admitted inputs, not provider ratios as filed facts |
+| IFRS-only or extension-only counterpart not reviewed by an existing owner | No proved mapping for this flow, unit or scope | Vendor observation stays disclosed/unverified or retains its earlier refusal; 20-F/40-F alone does not establish a taxonomy conversion |
+
+Remaining sibling locations: total debt/equity component constructions are in
+`src/edgar/statements.ts:1278` and `:1287`; mixed investment scope is in
+`src/edgar/financialEnrichment.ts:1089`; the distinct acquisition overlap is in
+`src/pipeline/compute.ts:822`; primary cash versus repurchase cost scope is in
+`src/pipeline/primaryCapitalBasis.ts:78`. Partial D&A and unreviewed taxonomy
+counterparts remain unverified at `src/edgar/financialEnrichment.ts:349` and
+`:363`. These are different total/component or presentation claims, not fresh
+value-only conflicts that a scalar admission can settle. The operating-family
+gate remains at `src/edgar/incomeClassification.ts:494` for incomplete or
+financial-company placements.
+
+### Approved report changes
+
+The approved leaf sets, SEC tags/filings for every corrected input, per-case
+effects and exact file hashes are recorded in
+[the D-262 replay record](2026-11-13-filed-flow-deltas.md). The baseline is main
+`9f0d54765a5760e460c53342431c21468dd7c0fc`, fetched and pinned before any replay.
+All inputs were reused offline; application database reads were read-only.
+
+LLY quarterly FCF (USD millions): Q3 2025 8,612 -> 6,748.2, Q2 1,283.0 ->
+1,389.8, Q4 2024 726.6 -> 977.8. Q1 remains withheld by the frozen SEC-row
+investment-scope refusal: the row retains its first-reporter date but its CFO
+comes from a later comparative; an untyped independent refusal is not cleared
+by recognizing a new capex tag alone. Latest four quarters remain 8,219,
+7,757, 3,007 and 677.9. Five-/three-year FCF CAGR changes from
+14.949380%/24.938961% to 11.908940%/16.111753%. Fundamentals 84.24 -> 83.51
+(B); deterministic composite 63.74 -> 63.59 (C). FY2025 interest expense
+795.3 -> 895, coverage 33.071797x -> 29.387709x; Q4 expense 123 -> 222.6,
+trailing expense 1,178 -> 1,277.6. New recognition of the existing filed TTM
+capex identity gives 10,984 rather than the 10,983.7 vendor-quarter sum, so
+TTM FCF is 19,660.6 rather than 19,660.9; the 0.3 difference is the current
+filing's rounded prior-year YTD, not a change to a quarterly fact.
+
+Report 1.76.0, payload 1.95.0 and Stage B
+`STAGE_B_2026_11_FILED_FLOWS_69` identify the changed meaning. Stage C, score
+bands and valuation-method stamps stay: their algorithms are unchanged. Frozen
+synthetic records change only the capex-definition wording, report/payload
+stamps and dependent hashes/lengths, with exact scopes in `refresh-log.json`.
+The fictional current DEMO sample changes exactly five leaves: its two report
+stamps and the capex definition in two commentary entries and one verification
+entry. Its figures and chart bytes remain unchanged.
+No stored report or real vendor fixture is rewritten.
+
+The reviewed golden run changes all 17 cases: 14 have corrected filed input
+observations, while MU data-only, MU fixed-analyst and TSM change only the
+definition, version or explicit coverage disclosures. The two LLY replays have
+the same deterministic figures. The exact comparisons accept 136 golden and
+16 LLY file/manifest changes and nothing else. Leaf-set compression was checked
+by expanding it back to the complete golden-harness path list.
+
+Local delivery checks: `npm run typecheck` passed; `npm run lint` passed with
+one pre-existing unused-variable warning in
+`tests/revenueAdmission.scopeUnresolvedCode.test.ts:88`. The final
+`npx vitest run --config vitest.config.ts --changed origin/main` summary is
+664 files passed, 16,491 tests passed and three skipped, with native exit 0.
+The six explicit tag,
+risk, release, corrected-CLI, stamp and documentation checks also passed
+(175 tests, native exit 0). PowerShell's redirected native-stderr warning made
+the changed-run wrapper return 1 despite the all-green Vitest summary; the
+explicit run captured and returned `$LASTEXITCODE` rather than that wrapper
+status; a final complete changed-suite rerun with that explicit native-exit
+handling confirmed the same green summary and exit 0. Earlier runs exposed
+obsolete refusal/stamp fixtures; their corrected
+expectations preserve independent refusals and preferred-fact ambiguity.
+Failing synthetic regressions preceded each rule correction, including the
+bank object-identity and securities-interest ordering repairs. No full verify
+gate was run locally; CI owns it under this work package's instructions.
+
+Other defect left for the lead: the fixed LLY analyst output still says that
+Q3 2026 FCF was below the year-earlier quarter, now contradicted by the corrected
+cash figures. That statement is saved JUDGMENT prose with an absolute-level
+citation. The direction checker (`stageC/consistency.ts`, direction block)
+requires a cited delta record and an attached numeric observation, so it does
+not establish this comparison. This is a claim-verification defect outside the
+filed-flow admission rule; no model is rerun or prose silently rewritten here.
+
 ## D-259 - Claude Fable 5.2 joins the registry, and the refresh adds newly published models itself (2026-11-13)
 
 Principles P25 (one model registry: models are named and configured in one
@@ -3054,6 +3218,8 @@ FIGR's is.
 
 ## D-239 - A provider zero for capital spending is undisclosed unless the filings state a zero (2026-11-12)
 
+Revised by D-262: An exact compatible filed PP&E amount may replace a conflicting vendor zero; absent proof still means undisclosed.
+
 Principles P7 (a vendor zero is undisclosed, not filed), P10 (withhold, never
 guess), P11 (a figure built on a refused input is refused), P12 (a fallback
 carries its qualification) and P17 (an unscored signal counts at the neutral
@@ -4805,6 +4971,8 @@ bytes are not changed and the feature is not ported. No other saved report and
 no new report changes.
 
 ## D-215 - Restore corroborated operating evidence without relaxing grades (2026-11-08)
+
+Revised by D-262: a compatible directly filed interest-expense fact settles a conflicting vendor observation before the capitalized-borrowing-cost guard; without that expense proof, the scope refusal remains.
 
 The DHI audit reproduced a revenue-scope admission error: a quarterly primary
 statement established operating sales, but the issuer policy then rejected the
@@ -6913,6 +7081,8 @@ behavior; historical measured costs remain the observations recorded below.
 
 ## D-89 Filed CFO conflicts and explicit fraction units (2026-10-18)
 
+Revised by D-262: Independently proved sibling additive fields and typed value-only refusals with identical recorded evidence may resolve; the specialized CFO family and independent scope refusals remain.
+
 - **Problem:** A subsequent acceptance audit found vendor quarterly CFO inconsistent with compatible filed cumulative cash flows. The difference entered current standardized FCF and cash-conversion ratios. Separately, numeric prose correctly expressing a declared fraction as a percentage was classified as a unit contradiction because canonicalization had discarded the fraction declaration.
 - **Cash-flow admission:** Compare only compatible currency, issuer, date and duration evidence available by the observation cutoff. A signed quarter can come from a direct filed quarter or compatible same-start cumulative operands; negative CFO is valid. Ambiguous direct facts must not be bypassed by a different derivation. Preserve original vendor data and conflict records, withhold processed CFO aliases and dependent standardized FCF, and retain independent capital/valuation evidence. Do not silently select the more favorable observation or overwrite an earlier explicit refusal. (Revised by D-252: on an annual row, a conflicting vendor operating cash flow takes the filed figure when the newest filing's own cash-flow statement reconciles around it; every other conflict is still withheld.)
 - **Fraction semantics:** Retain an optional explicit unit-fraction declaration in numeric provenance. It permits percentage prose to be compared after scaling both its value and rounding quantum. Ordinary ratios/multiples, legacy records without that declaration, percentage-point changes, wrong values and hundredfold errors retain their existing refusals. No metric-name heuristic establishes the scale.
@@ -8489,6 +8659,8 @@ ROTE's existing observation-cutoff reason reaches lender reports/audit gaps; no 
 The first exact-head full suite found one forensic-context complete-output hash affected only by the new deduction description. Pin the exact new description once, restore it solely for that old invariant, and keep the old complete-output hash unchanged. No product code, financial value, gate or coverage assertion changes. Record the failed full-suite receipt and rerun all product tests on the final committed head.
 
 ## D-150 - P9: methodology decisions (2026-11-02)
+
+Revised by D-262: Exact-period filed PP&E now replaces a conflicting vendor capex family; absent compatible proof retains this convention.
 
 ### D-150: FIN-306: applicable Piotroski evidence (2026-11-02)
 
@@ -13799,6 +13971,8 @@ replay, independent review, version reconciliation and unchanged release gates.
 
 ## D-203 - Operating revenue and income basis (2026-11-05)
 
+Revised by D-262: Complete same-scope operating identities on admitted revenue can settle conflicting cost, gross-profit and operating-expense fields. Isolated EBIT and incomplete placement remain insufficient.
+
 The round-1 execution receipts and panel counts in this section are historical
 at `61fd3583` / `04741e49`, not final evidence for round 2. The round-2 disposition
 below supersedes their incomplete HON/SLB scope and alternate-bridge conclusions.
@@ -14671,6 +14845,8 @@ Raw live probe data remains in ignored local temporary files. The synthetic samp
 is regenerated through its build script; existing financial golden pins remain fixed.
 
 ## D-212 — EXPE report #1 execution, financial scope and complete evidence (2026-11-06)
+
+Revised by D-262: Standalone filed PP&E does not require an agreeing annual vendor value or an explanation of the vendor error. Compatible filed operands and independent refusals remain binding.
 
 The user supplied a saved EXPE report and requested a complete issue inventory,
 repairs, verification and merge to main. The inventory and execution plan live

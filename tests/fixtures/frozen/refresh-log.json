@@ -215,5 +215,61 @@
       "$.projectionSha256",
       "$.projection.report.meta.specVersion"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-262",
+    "reason": "D-262 changes the declared filed PP&E precedence and report version; synthetic DEMO arithmetic and all unrelated leaves remain pinned.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.stageB.capital.current.cashBridge.definition",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.balanceSheet.coverage.commentary[1].text"
+    ],
+    "beforeSha256": "738cfcfcc5658feaa1e6360c74d36260bc60c7153c36216699d50f7be76ac975",
+    "afterSha256": "dac441547fca213787b1a2ac190cbbb72037fa29740b19185c9295b8369eb9bd",
+    "changedLeaves": 4,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.stageB.capital.current.cashBridge.definition",
+      "$.projection.report.meta.specVersion",
+      "$.projection.report.balanceSheet.coverage.commentary[1].text"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-262",
+    "reason": "D-262 identifies the filed PP&E precedence in the capital definition and advances payload compatibility; numeric synthetic fixture values are unchanged.",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptBytes",
+      "$.summary.promptFnv1a32",
+      "$.prompt.bytes",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.prompt.sections[6].bytes",
+      "$.prompt.sections[6].sha256",
+      "$.payload.payloadVersion",
+      "$.payload.computed[4].notes[1]"
+    ],
+    "beforeSha256": "f90848c2e57a07702d5d2491d00b9cbffb1fd800546aee150cd8f830420fa2da",
+    "afterSha256": "b39c36e6f4d888513e6e368fb6c1e30835bf717bceba773c8862d55126096c67",
+    "changedLeaves": 11,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptBytes",
+      "$.summary.promptFnv1a32",
+      "$.prompt.bytes",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.prompt.sections[6].bytes",
+      "$.prompt.sections[6].sha256",
+      "$.payload.payloadVersion",
+      "$.payload.computed[4].notes[1]"
+    ]
   }
 ]

@@ -30,7 +30,7 @@
  */
 
 export const TAG_SYNONYMS_TAXONOMY = "us-gaap-2025";
-export const TAG_SYNONYMS_REVIEWED_ON = "2026-11-05";
+export const TAG_SYNONYMS_REVIEWED_ON = "2026-11-13";
 
 export interface TagStandIn {
   tag: string;
@@ -138,6 +138,8 @@ export const INCOME_BEFORE_TAX_COMPONENT_TAGS: readonly string[] = [
  * amortization is tagged for the period.
  */
 export const DEPRECIATION_COMPONENT_TAGS: readonly string[] = ["Depreciation", "AmortizationOfIntangibleAssets"];
+/** A separately reported business payment: overlap evidence, never an additive synonym. */
+export const ACQUISITION_OTHER_PAYMENT_TAG = "PaymentsToAcquireBusinessTwoNetOfCashAcquired";
 
 /** Consolidated earnings concepts, before the parent-only NetIncomeLoss fallback. */
 export const CONSOLIDATED_NET_INCOME_TAGS: readonly string[] = [
@@ -588,7 +590,9 @@ export const LINE_ITEM_TAGS = {
     "NetCashProvidedByUsedInOperatingActivities",
     "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
   ]),
-  capitalExpenditure: entry(["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"]),
+  // D-262: the filed PP&E total wins; the other-PP&E line is a fallback,
+  // never an additive component or acquired research or business spending.
+  capitalExpenditure: entry(["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireOtherPropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"]),
   acquisitionsNet: entry(["PaymentsToAcquireBusinessesNetOfCashAcquired"]),
   debtIssuance: entry(["ProceedsFromIssuanceOfLongTermDebt"]),
   debtRepayment: entry(["RepaymentsOfLongTermDebt"]),
