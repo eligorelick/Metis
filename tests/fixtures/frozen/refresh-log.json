@@ -365,5 +365,47 @@
       "$.projection.stageB.capital.netDebtToEbitda.ebitdaComputed",
       "$.projection.stageB.capital.current.ebitdaComputed"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "stagec-payload",
+    "decision": "D-260",
+    "reason": "P1 D-260 retains the payload 1.95.0 income-window meaning after merging D-263 verification; only version header and dependent hashes change.",
+    "scope": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ],
+    "beforeSha256": "d1848e7fd39b37b57ad1e2f70b1804109d0b93110b1c24f8ad0abfff3264c31c",
+    "afterSha256": "9f5ea654cb5564700a49b4e69e506c8564fb4af68f6864c627f7ce06b453bb3d",
+    "changedLeaves": 6,
+    "changedPaths": [
+      "$.payloadVersion",
+      "$.fingerprint",
+      "$.summary.promptFnv1a32",
+      "$.prompt.sha256",
+      "$.prompt.sections[0].sha256",
+      "$.payload.payloadVersion"
+    ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-260",
+    "reason": "P1 D-260 retains report spec 1.77.0 after merging D-263 verification, changing only the current report label and enclosing digest.",
+    "scope": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ],
+    "beforeSha256": "1cdc597504cfb978d82a0d1207f25db7366e72d50e3714ada6c0536b045a2572",
+    "afterSha256": "f23a5cf86488745fe7315b29696c20da560681311dc7bc4526f92cb947109d69",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]
