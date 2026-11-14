@@ -18,17 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
-## Unreleased - Filed balance facts and named score gaps (2026-11-13, D-261)
+## Unreleased - Filed cash recovery and named root gaps (D-261)
 
-- Use unambiguous exact-instant filed cash and lease balances, and complete
-  compatible temporary-equity categories, over conflicting vendor observations.
-  Preserve the observations and filing evidence. Compose liquidity only from
-  proved components; disclose cash-only liquidity without treating missing
-  investments as zero.
-- Name the root input for every withheld applicable scoring signal and every
-  withheld annual ROIC. Withhold capital and model figures when an observed investment cannot be admitted; preserve filed cash. Report 1.79.0, payload 1.97.0
-  and Stage B implementation 71;
-  stored reports and scoring bands keep their original meaning and bytes.
+- Preserve all main-admitted liquidity, figures, qualifications and notes. Recover exact filed cash only where main refused its vendor comparison; dependent capital stays unavailable unless full liquidity is proved.
+- Keep typed refusals, full-debt lease reconciliation, scoped mixed-basis guards, strict assertions and qualifications only for used rows. Dimensioned-investment policy beyond refused-cash explanations is separate work.
+- Report 1.79.0, payload 1.97.0, Stage B FILED_BALANCES_GAPS_71; stored report bytes and scoring conventions are unchanged.
 
 ## Unreleased - Filed operating income and complete trailing income flows (2026-11-13)
 

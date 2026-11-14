@@ -9,6 +9,8 @@ Operating revenue can use a broadly named SEC concept when a primary income stat
 
 An explicit fiscal-year guidance introduction can bind annual revenue and tax-rate bullets. Intervening prose, a new outlook or trailing restrictions cannot silently inherit that annual scope. Unsupported operating measures remain source narrative, and annual guidance is not converted into quarterly guidance. Primary earnings schedules can confirm quarter/date rows under an explicit results-release announcement, with enclosing uncertainty or conflicting rows refused. General evidence selector `section-evidence-8` reserves at most a fifth of the existing excerpt budget for complete calendar passages, merging overlapping selections; notes/risk and event selectors keep their own versions. An unexplained pretax-to-net-income residual is disclosed without diagnosing an unproved equity-method adjustment.
 
+D-261 preserves liquidity already admitted by main, including its notes and qualification. Dimensioned-investment policy for those admitted rows is separate work.
+
 Source-scope recovery (D-210, revised by D-261) preserves original vendor
 observations. An unambiguous exact-instant filed cash or lease balance replaces
 a conflicting vendor observation on the same issuer and currency, at annual
@@ -19,7 +21,7 @@ Independent scope and composition refusals remain authoritative. Net debt is
 recomputed only from admitted debt and cash in the same filing. Combined
 liquidity uses a compatible filed total or same-filing components proved to be
 disjoint by that total or a current-assets reconciliation. Vendor agreement
-proves nothing. An observed investment that cannot be admitted withholds net debt, invested capital, ROIC and dependent model figures. Cash-only arithmetic is allowed only when no investment-family fact is observed at the instant in the retained facts and source-bound filing tables. Otherwise the combined field stays unavailable with a typed
+proves nothing. Only on a cash row newly repaired by D-261, an observed investment that cannot be admitted withholds net debt, invested capital, ROIC and dependent model figures. On that newly computed path, cash-only arithmetic is allowed only when no investment-family fact is observed at the instant in the retained facts and source-bound filing tables. Otherwise the combined field stays unavailable with a typed
 liquidity-not-established cause; a qualified cash-only basis says that short-term
 investments are not established from the undimensioned facts available. This
 does not assert absence from the filing. A bank deposit member is not added
