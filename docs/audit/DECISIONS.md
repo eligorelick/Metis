@@ -31,10 +31,12 @@ source cells; equal amounts alone never prove identity. This extends D-62.
 The segment reader reuses the builder's established subtotal test: agreement in
 all jointly populated quarters, at least two quarters, and the existing rounding
 allowance for candidate generation. Following review, reader candidates must also
-sum exactly in every comparable quarter. Read-time search is capped at 20 members
-and five components. Wider axes show no hierarchy, retain source order and disclose
-the limitation; there is no subset enumeration or quadratic hierarchy ordering on
-that path. The limits bound work rather than relax any arithmetic evidence test.
+sum exactly in every displayed quarter, with no missing parent or component
+values. This proof applies only to additional links: every stored childOf is
+established pipeline structure and must survive missing or rounded arithmetic.
+Inference may never remove or override it. Read-time search is capped at 20
+members and five components. Wider axes keep stored links and source order, with
+no additional inference, subset enumeration or quadratic hierarchy ordering. The limits bound work rather than relax any arithmetic evidence test.
 Four- and five-component controls and a 48-member independent axis cover this;
 the generation default
 remains two/three components. It changes hierarchy and order only, never any
@@ -118,8 +120,47 @@ linked anchor, and Markdown outlook gains its missing anchor. A three-surface
 regression requires both introduced links to have exactly one matching target.
 No stored field, financial value, calculation rule or version stamp changes.
 
-Approved review-follow-up deltas relative to the original PR head: reader hierarchy
-may be withheld where bounded, exact proof is absent; Markdown gets an outlook
+Follow-up 2 corrects the earlier reader regression that erased stored parent links.
+Stored links now survive on every axis, including wide axes; only new links require
+exact proof in every displayed quarter. Notes explicitly warn that subtotal rows
+can appear with their components, that shares must not be added, and that absence
+of indentation does not establish independence. They no longer discuss indented
+rows when there are none. No new rounding tolerance is introduced.
+
+Sibling defect for a separate owner change: src/edgar/segmentFacts.ts,
+buildQuarterlySegments (initializes childOf and calls markSubtotals) and
+markSubtotals (sets childOf) do not admit all parent relationships established by
+the filing's own structure. These include Cardiometabolic Health products and
+regions under Outside U.S. The presentation fix preserves admitted structure but
+does not repair this Stage B extraction/structure omission; the filingDisclosures
+builder only carries the admitted parent into the saved report.
+
+Follow-up 2 verification against pinned main
+9f0d54765a5760e460c53342431c21468dd7c0fc: all 19 case rebuilds preserve
+stageB.json, payload.txt, report.json and audit.md byte for byte. Only report.md,
+print.html and web-dossier.html differ from main (51 regression reader leaves,
+six LLY reader leaves). The additional change since 0a9cfaf7 restores stored
+component indentation and updates each segment table's overlap note. No numbers
+or additional parent links are admitted by issuer rounding.
+
+Indented Markdown row counts, main -> after (label multisets also checked for loss):
+
+- lly-data-only and lly-fixed-analyst: 4 -> 4 each.
+- figr-data-only: 3 -> 3.
+- nvda-data-only and nvda-fixed-analyst: 2 -> 2 each.
+- amzn-data-only, amzn-fixed-analyst, duk-data-only, jpm-data-only,
+  meta-data-only, meta-fixed-analyst, mu-data-only, mu-fixed-analyst,
+  o-data-only, pgr-data-only, qcom-data-only, rivn-data-only,
+  tsm-data-only and vktx-data-only: 0 -> 0 each.
+
+Presentation/currency validation: 23 files, 493 tests pass. TypeScript and lint
+pass, with the same pre-existing unused-variable lint warning. The first full run
+found one assertion pinning the replaced note wording; its expected meaning was
+updated and all nine tests in that file pass. The final full changed-suite run
+passes all 576 files: 14,076 tests passed, one skipped, no failures.
+
+Approved review-follow-up deltas relative to the original PR head: only additional
+reader hierarchy may be withheld where bounded, exact proof is absent; Markdown gets an outlook
 anchor and the web view gets the management-actions anchor. All immutable outputs
 and audit exports must remain byte-identical to the pinned main baseline.
 

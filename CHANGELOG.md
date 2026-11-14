@@ -20,8 +20,10 @@ original versions and bytes; source merge does not deploy or publish a release.
 
 ## Unreleased - Shared reader presentation repairs (P22, P21, D-264)
 
-- Review follow-up bounds hierarchy searches, requires exact subtotal proof,
-  repairs web management-actions and Markdown outlook link targets, and checks
+- Review follow-up preserves every stored segment parent link and bounds
+  additional hierarchy searches with exact proof in every displayed quarter.
+  Notes explain subtotal overlap even when no hierarchy can be inferred.
+- Repairs web management-actions and Markdown outlook link targets, and checks
   the live card's dated/not-current meaning explicitly.
 
 - App, Markdown and print show plain dated-model wording, one dated row for known

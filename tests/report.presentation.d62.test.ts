@@ -341,7 +341,7 @@ it("D-264 renders a wide independent axis without enumerating subsets or inventi
     const started = performance.now();
     for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) {
       expect(text).toContain("Member 47");
-      expect(text).toContain("Hierarchy is not established for this wide segment table");
+      expect(text).toContain("Additional hierarchy is not established for this wide segment table");
       expect(text).not.toContain("is part of");
     }
     expect(performance.now() - started).toBeLessThan(2000);
@@ -355,5 +355,38 @@ it("D-264 refuses a near subtotal that does not sum exactly on the retained numb
   r.filingDisclosures = { version: "1.0.0", currency: "USD", currencyBasis: "synthetic", guidance: null, guidanceChecks: [], freeCashFlow: [], freeCashFlowDefinition: null, capitalReturn: null, events: [], quarterlyTrend: [], notes: [],
     segments: [{ axis: "near", axisLabel: "Near subtotal", currency: "USD", quarters: ["2026-06-30", "2026-03-31"], total: [200,200], sources: ["synthetic filing"], priorPresentation: [], derivedCells: 0,
       rows: [{ label:"Aggregate", childOf:null, values:[100,100] }, {label:"Part A", childOf:null, values:[60,60]}, {label:"Part B", childOf:null, values:[40.01,40.01]}] }] };
-  for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) expect(text).not.toContain("is part of");
+  for (const text of [reportToMarkdown(r), reportToPrintBody(r), renderToStaticMarkup(createElement(ReportView, {report:r}))]) {
+    expect(text).not.toContain("is part of");
+    expect(text).toContain("subtotal rows");
+    expect(text).toContain("shares must not be added");
+    expect(text).not.toContain("Indented component rows");
+  }
+});
+
+
+it.each(["missing", "rounded", "wide"])("D-264 preserves stored parent links when read-time proof is %s", shape => {
+  const r = loadTask28Fixture();
+  r.filingDisclosures = { version: "1.0.0", currency: "USD", currencyBasis: "synthetic", guidance: null, guidanceChecks: [], freeCashFlow: [], freeCashFlowDefinition: null, capitalReturn: null, events: [], quarterlyTrend: [], notes: [],
+    segments: [{axis:"stored",axisLabel:"Stored hierarchy",currency:"USD",quarters:["2026-06-30","2026-03-31"],total:[200,200],sources:["synthetic filing"],priorPresentation:[],derivedCells:0,
+      rows:[{label:"Parent",childOf:null,values:[100,100]}, {label:"Established child",childOf:"Parent",values:shape === "missing" ? [null,null] : [60,60]}, {label:"Other child",childOf:"Parent",values:[39,39]},
+        ...(shape === "wide" ? Array.from({length:45},(_,i)=>({label:`Independent ${i}`,childOf:null,values:[200+i,200+i]})) : [])] }] };
+  const before = JSON.stringify(r);
+  for (const text of [reportToMarkdown(r),reportToPrintBody(r),renderToStaticMarkup(createElement(ReportView,{report:r}))]) {
+    expect(text).toContain("Established child is part of Parent");
+    expect(text).toMatch(/(?:\| |>)(?:  )?\u21b3 Established child/);
+    expect(text).toContain("subtotal rows");
+    expect(text).toContain("shares must not be added");
+  }
+  expect(JSON.stringify(r)).toBe(before);
+});
+
+it("D-264 never overrides a stored parent when another parent has an exact sum", () => {
+  const r = loadTask28Fixture();
+  r.filingDisclosures = { version: "1.0.0", currency: "USD", currencyBasis: "synthetic", guidance: null, guidanceChecks: [], freeCashFlow: [], freeCashFlowDefinition: null, capitalReturn: null, events: [], quarterlyTrend: [], notes: [],
+    segments: [{axis:"competing",axisLabel:"Competing parents",currency:"USD",quarters:["2026-06-30","2026-03-31"],total:[200,200],sources:["synthetic filing"],priorPresentation:[],derivedCells:0,
+      rows:[{label:"Stored parent",childOf:null,values:[null,null]}, {label:"Coincidental parent",childOf:null,values:[100,100]}, {label:"Protected child",childOf:"Stored parent",values:[60,60]}, {label:"Unlinked",childOf:null,values:[40,40]}] }] };
+  for (const text of [reportToMarkdown(r),reportToPrintBody(r),renderToStaticMarkup(createElement(ReportView,{report:r}))]) {
+    expect(text).toContain("Protected child is part of Stored parent");
+    expect(text).not.toContain("Protected child is part of Coincidental parent");
+  }
 });

@@ -369,24 +369,24 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
     // D-264: use the builder's existing multi-quarter subtotal proof at read time.
     // The builder historically tried only two/three components; stored bytes stay intact.
     const wide = s.rows.length > MAX_READER_HIERARCHY_MEMBERS;
-    const members = s.rows.map(r => ({ ...r, member: r.label, childOf: null as string | null }));
+    const members = s.rows.map(r => ({ ...r, member: r.label, storedChildOf: r.childOf }));
     if (!wide) {
       markSubtotals(members, MAX_READER_HIERARCHY_COMPONENTS);
       // Candidate generation uses the builder's existing rounding rule; a reader
-      // relationship additionally requires exact sums in every comparable quarter.
+      // relationship additionally requires exact sums in every displayed quarter.
       for (const parent of members) {
         const children = members.filter(r => r.childOf === parent.label);
-        if (!children.length) continue;
-        let agreeing = 0;
-        const exact = s.quarters.every((_, q) => {
-          if (parent.values[q] == null || children.some(r => r.values[q] == null)) return true;
-          agreeing++;
-          return children.reduce((sum, r) => sum + r.values[q]!, 0) === parent.values[q];
-        });
-        if (!exact || agreeing < 2) for (const child of children) child.childOf = null;
+        const additions = children.filter(r => r.storedChildOf === null);
+        if (!additions.length) continue;
+        const exact = s.quarters.length >= 2 && s.quarters.every((_, q) =>
+          parent.values[q] != null && children.every(r => r.values[q] != null) &&
+          children.reduce((sum, r) => sum + r.values[q]!, 0) === parent.values[q]);
+        // Stored links are established pipeline structure. Only new candidates
+        // can be refused here, including when a displayed quarter is missing.
+        if (!exact) for (const child of additions) child.childOf = null;
       }
     }
-    // Wide axes keep source order with no hierarchy; avoid even quadratic sorting.
+    // Wide axes keep source order and stored links, with no inference or quadratic sorting.
     const ordered: typeof members = wide ? members : [];
     const append = (row: typeof members[number], ancestors: Set<string>) => {
       if (ancestors.has(row.label) || ordered.includes(row)) return;
@@ -409,10 +409,10 @@ function segmentTables(d: FilingDisclosures): ReportAuditTable[] {
     const notes = [
       crossFilingClause(s.quarters.filter((_,i)=>s.totalCrossFilingAt?.includes(i)||s.rows.some(r=>r.crossFilingAt?.includes(i)))).trim(),
       `XBRL revenue facts from ${s.sources.join(", ")}; the newest filing's figure wins where filings overlap (recast comparatives).`,
-      members.some((r) => r.childOf !== null) ? `Component relationships (established across at least two quarters): ${members.filter(r => r.childOf !== null).map(r => `${decodeEntities(r.label)} is part of ${decodeEntities(r.childOf!)}`).join("; ").replace(/\.+$/, "")}.` : "",
-      wide ? "Hierarchy is not established for this wide segment table; rows remain in source order and shares may overlap." : "",
-      "Shares use consolidated revenue as the denominator. Parent rows and their components overlap; shares must not be added across those levels. Other revenue partitions in the same table can also overlap.",
-      `YoY revenue change subtracts the comparable quarter ended ${yearAgo < 0 ? "(unavailable)" : s.quarters[yearAgo]} from ${latest}, on the same presentation. Indented component rows are not added again to their parent; changes are not profit contributions or proof that displayed members exhaust consolidated revenue.`,
+      members.some((r) => r.childOf !== null) ? `Established component relationships: ${members.filter(r => r.childOf !== null).map(r => `${decodeEntities(r.label)} is part of ${decodeEntities(r.childOf!)}`).join("; ").replace(/\.+$/, "")}.` : "",
+      wide ? "Additional hierarchy is not established for this wide segment table; established component relationships remain in source order." : "",
+      "This table can contain subtotal rows alongside the rows they include; shares must not be added. Shares use consolidated revenue as the denominator. Indentation identifies established parent relationships; unindented rows are not necessarily independent.",
+      `YoY revenue change subtracts the comparable quarter ended ${yearAgo < 0 ? "(unavailable)" : s.quarters[yearAgo]} from ${latest}, on the same presentation. Changes are not profit contributions or proof that displayed members exhaust consolidated revenue.`,
       s.priorPresentation.length > 0 ? `Members tagged only in earlier quarters (a prior presentation) are omitted: ${s.priorPresentation.join(", ")}.` : "",
       s.derivedCells > 0 ? `${s.derivedCells} cell(s) are derived as the difference of two reported windows (for example a fiscal year less nine months).` : "",
       // D-67: a segment axis's own filing note sits under its table, not under guidance.
