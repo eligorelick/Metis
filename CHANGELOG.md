@@ -18,6 +18,11 @@ verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
 
+## Unreleased - A4 TSM same-report capture (P2, D-275) (2026-11-14)
+
+- The TSM case in the same-report check now uses a new data-only capture (2026-11-14, AI off, zero cost). Its evidence includes TSM's 2025 Form 20-F (filed 2026-04-16), read from the filing's own XBRL instance.
+- TSM's latest-year diluted EPS now shows FY2025, and FY2025 net income now equals the filed consolidated profit. Both now match the filing in the accuracy check (they were mismatches). No other case changed, and no code or version stamp changed.
+
 ## Unreleased - Analyst web research on the Claude Code sign-in route (P18, P20, P24, P26, D-269) (2026-11-14)
 
 - The bull and bear analysts on a Claude Code connection now each send one separate research request with only the CLI's own WebSearch and WebFetch tools, up to eight actions, as on the ChatGPT connection. Writers and the judge stay tool-free; every other isolation flag is kept, and Metis still never reads the CLI's sign-in files or uses an API key on this route.
