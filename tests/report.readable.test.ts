@@ -86,7 +86,7 @@ describe("opening business brief (D-273)", () => {
   it("admits only FACT claims that passed verification and says so for a part with none", () => {
     const report = drugMaker();
     const brief = briefOf(report);
-    expect(brief.map(part => part.heading)).toEqual(["What it sells", "Who buys it", "Why it wins", "What is next", "What could break it"]);
+    expect(brief.map(part => part.heading)).toEqual(["What it sells", "Customers and suppliers", "Protection and competition", "What is next", "What could break it"]);
     expect(Object.fromEntries(brief.map(part => [part.key, part.claims.map(claim => claim.text)]))).toEqual({
       sells: ["The company makes branded prescription medicines."],
       buyers: ["Three wholesale distributors buy most U.S. product."],
@@ -96,11 +96,11 @@ describe("opening business brief (D-273)", () => {
     });
     const markdown = markdownOf(report);
     expect(briefLine(markdown, "What it sells")).not.toContain("Verandol sales rose");
-    expect(briefLine(markdown, "Who buys it")).not.toContain("Nordhavn");
-    expect(briefLine(markdown, "Why it wins")).toBe(`- **Why it wins:** ${BRIEF_PART_NOT_ESTABLISHED}`);
+    expect(briefLine(markdown, "Customers and suppliers")).not.toContain("Nordhavn");
+    expect(briefLine(markdown, "Protection and competition")).toBe(`- **Protection and competition:** ${BRIEF_PART_NOT_ESTABLISHED}`);
     expect(briefLine(markdown, "What could break it")).toBe(`- **What could break it:** ${BRIEF_PART_NOT_ESTABLISHED}`);
     // Each admitted claim keeps its citation and mark.
-    expect(briefLine(markdown, "Who buys it")).toMatch(/Three wholesale distributors buy most U\.S\. product\. _\(.+\)_ \[validated\]$/);
+    expect(briefLine(markdown, "Customers and suppliers")).toMatch(/Three wholesale distributors buy most U\.S\. product\. _\(.+\)_ \[validated\]$/);
     for (const text of surfaces(report)) {
       expect(text).toContain(BUSINESS_BRIEF_HEADING);
       expect(text.indexOf(BUSINESS_BRIEF_HEADING)).toBeLessThan(text.indexOf("Executive summary") < 0 ? Infinity : text.indexOf("Executive summary"));
@@ -147,9 +147,10 @@ describe("opening business brief (D-273)", () => {
       plan: ["Management plans to expand capacity."],
       sells: ["The company sells industrial pumps."],
     });
-    expect(partTexts(report)).toEqual({ sells: ["The company sells industrial pumps."], buyers: [], wins: [], next: [], risks: [] });
+    // Review round 2 (lead fix): the part is labelled by its field, so a supplier statement is shown as one.
+    expect(partTexts(report)).toEqual({ sells: ["The company sells industrial pumps."], buyers: ["The company relies on a single supplier for its active ingredient."], wins: [], next: [], risks: [] });
     const markdown = markdownOf(report);
-    for (const heading of ["Why it wins", "Who buys it", "What is next"]) expect(briefLine(markdown, heading)).toBe(`- **${heading}:** ${BRIEF_PART_NOT_ESTABLISHED}`);
+    for (const heading of ["Protection and competition", "What is next"]) expect(briefLine(markdown, heading)).toBe(`- **${heading}:** ${BRIEF_PART_NOT_ESTABLISHED}`);
   });
 
   it("fills each part from the field that answers it (one positive case per part)", () => {
@@ -172,6 +173,24 @@ describe("opening business brief (D-273)", () => {
     expect(partTexts(second)).toMatchObject({ wins: ["Customers retrain staff to switch pump brands, which the filing calls costly."], risks: ["Two customers were 38.0% of revenue."] });
     // The moat grade's figure is not a reason the company wins.
     expect(partTexts(storyReport({}))).toMatchObject({ wins: [] });
+  });
+
+  // Review round 2 reproductions: a word match cannot prove whose customer a statement names or that a
+  // protection statement is a strength, so both parts carry labels that describe their field.
+  it("labels the customer and protection parts by their field, never as demand or a strength (review round 2)", () => {
+    const report = storyReport({
+      buyers: ["Competitors serve municipal customers under long-term contracts."],
+      protection: ["The company has no patent protection and competitors can copy its products.", "The reviewed filings provide no details about patent protection or switching costs."],
+    });
+    const headings = briefOf(report).map(part => part.heading);
+    expect(headings).not.toContain("Who buys it");
+    expect(headings).not.toContain("Why it wins");
+    const markdown = markdownOf(report);
+    expect(briefLine(markdown, "Customers and suppliers")).toContain("Competitors serve municipal customers");
+    expect(briefLine(markdown, "Protection and competition")).toContain("The company has no patent protection");
+    // A statement that the filings give no details is a limitation and never fills a part.
+    expect(briefLine(markdown, "Protection and competition")).not.toContain("provide no details");
+    expect(briefOf(report).find(part => part.key === "wins")?.claims.map(claim => claim.text)).toEqual(["The company has no patent protection and competitors can copy its products."]);
   });
 
   it("prints a brief claim in the app even when it is a repeat elsewhere (review round 1)", () => {
@@ -342,6 +361,12 @@ describe("shorter report (D-273)", () => {
     // Control: a modeled condition that does not repeat a listed assumption is printed as stored.
     const other = "Modeled conditions: Cost of equity and payout path stay at base.";
     expect(scenarioReaderLists({ assumptions: [shift], whatWouldHaveToBeTrue: [other], qualitativeCommentary: [] }, [shift]).conditions).toEqual([other]);
+    // Review round 2 reproductions: a prefix of a longer condition, or a non-shift assumption, prints as stored.
+    for (const [assumption, condition] of [["Revenue grows 5%", "Modeled conditions: Revenue grows 5%-10%."], ["WACC remains 8%.", "Modeled conditions: WACC remains 8%. Terminal growth stays at base."]] as const)
+      expect(scenarioReaderLists({ assumptions: [assumption], whatWouldHaveToBeTrue: [condition], qualitativeCommentary: [] }, [assumption]).conditions).toEqual([condition]);
+    // A shift sentence that is only a prefix of a longer sentence is not replaced either.
+    const longer = `Modeled conditions: ${shift.slice(0, -1)} and beyond.`;
+    expect(scenarioReaderLists({ assumptions: [shift], whatWouldHaveToBeTrue: [longer], qualitativeCommentary: [] }, [shift]).conditions).toEqual([longer]);
   });
 
   it("groups per-quarter withheld notes only where item and cause match, naming every quarter (review round 1)", () => {

@@ -733,7 +733,10 @@ export function scenarioReaderLists(scenario: Pick<Scenario, "whatWouldHaveToBeT
   const conditions = scenario.whatWouldHaveToBeTrue.map(condition => {
     if (!condition.startsWith(MODELED_CONDITIONS)) return scenarioListItem(condition);
     const rest = condition.slice(MODELED_CONDITIONS.length);
-    const repeated = listed.find(a => rest.startsWith(a));
+    // Review round 2 (lead fix): only a whole code-written year-one-shift
+    // sentence is replaced, so the reference names what it replaces and a
+    // longer or different condition ("Revenue grows 5%-10%.") prints as stored.
+    const repeated = listed.find(a => /^Year-one shift\b/.test(a) && /\.$/.test(a) && rest.startsWith(a) && (rest.length === a.length || rest[a.length] === " "));
     return repeated === undefined ? condition : `${MODELED_CONDITIONS}${MODELED_SHIFT_REFERENCE}${rest.slice(repeated.length)}`;
   });
   const commentary: string[] = [];
@@ -1015,17 +1018,11 @@ export interface BusinessBriefPart {
 }
 
 /**
- * Review round 1 (lead decision): words that name a customer or buyer group. A
- * customers-and-suppliers claim enters "Who buys it" only when it names one, so
- * a supplier-only statement never does.
- */
-const CUSTOMER_WORDS = /\b(?:customers?|clients?|distributors?|wholesalers?|buyers?|purchasers?|payers?|resellers?|retailers?|consumers?|subscribers?|advertisers?|patients?|tenants?|members?|users?|utilities|hospitals?|governments?)\b/i;
-/**
  * Review round 1 (lead decision): a statement of a limitation or an absence
  * ("no reviewed source", "not disclosed") says what is not known; it never
  * fills a brief part, which then says it is not established.
  */
-const LIMITATION_WORDS = /\b(?:no (?:reviewed |cited |retained )?(?:sources?|filings?|evidence|data)|not (?:established|disclosed|stated|available|reported|given|known|measured|in the (?:excerpts|filings|evidence))|(?:does|do|did) not (?:disclose|state|report|give|establish)|unavailable|cannot|could not)\b/i;
+const LIMITATION_WORDS = /\b(?:no (?:reviewed |cited |retained )?(?:sources?|filings?|evidence|data)|no (?:further )?(?:details|information|disclosure)|not (?:established|disclosed|stated|available|reported|given|known|measured|in the (?:excerpts|filings|evidence))|(?:does|do|did) not (?:disclose|state|report|give|establish)|unavailable|cannot|could not)\b/i;
 const SEVERITY_RANK: Readonly<Record<string, number>> = { high: 0, medium: 1, low: 2 };
 const MOAT_RANK: Readonly<Record<MoatAssessment["strength"], number>> = { wide: 0, narrow: 1, none: 2 };
 
@@ -1064,13 +1061,16 @@ export function businessBrief(report: Pick<Report, "business" | "competitive" | 
   const b = report.business;
   const c = report.competitive;
   // Review round 1 (lead decision): each part reads only the field that answers it.
-  const customerFacts = (b.customersAndSuppliers ?? []).filter(claim => CUSTOMER_WORDS.test(claim.text));
+  // Review round 2 (lead fix, P18): a word match cannot prove whose customer a
+  // statement names or that a protection statement is a strength, so those two
+  // parts carry code-owned labels that describe their field ("Customers and
+  // suppliers", "Protection and competition") instead of an interpretation.
   const moats = [...c.moatAssessment].filter(m => m.strength !== "none").sort((x, y) => MOAT_RANK[x.strength] - MOAT_RANK[y.strength]);
   const risks = [...report.catalystsRisks.risks].sort((x, y) => (SEVERITY_RANK[x.severity] ?? 3) - (SEVERITY_RANK[y.severity] ?? 3));
   return [
     { key: "sells", heading: "What it sells", claims: briefClaims((b.products ?? []).flatMap(item => item.claims), b.whatTheySell) },
-    { key: "buyers", heading: "Who buys it", claims: briefClaims(customerFacts) },
-    { key: "wins", heading: "Why it wins", claims: briefClaims(b.protection ?? [], moats.flatMap(m => m.reasoning)) },
+    { key: "buyers", heading: "Customers and suppliers", claims: briefClaims(b.customersAndSuppliers ?? []) },
+    { key: "wins", heading: "Protection and competition", claims: briefClaims(b.protection ?? [], moats.flatMap(m => m.reasoning)) },
     { key: "next", heading: "What is next", claims: briefClaims(b.whatIsComing ?? []) },
     { key: "risks", heading: "What could break it", claims: briefClaims(risks.flatMap(item => reasoningClaims(item.reasoning)), b.concentrationRisks) },
   ];
