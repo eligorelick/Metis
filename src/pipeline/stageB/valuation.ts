@@ -2363,9 +2363,9 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
   const leaseOut = leaseExcluded || bal === null ? { amount: 0, note: null, clause: null } : operatingLeaseOutOfDebt(bal, inputs.includeLeasesInEv === true);
   const leaseBasis = { fcx1Excluded: leaseExcluded, includeLeasesInEv: inputs.includeLeasesInEv === true, currentRowExcludesLease: leaseOut.note === null };
   const icDebt = bal && bal.fieldConflicts?.totalDebt?.usable !== false && isNum(bal.totalDebt) ? bal.totalDebt - (leaseExcluded ? bal.operatingLeaseLiability as number : leaseOut.amount) : null;
-  const liquidityResolution = resolveNetDebt({ ...bal, totalDebt: icDebt });
+  const liquidityResolution = resolveNetDebt(bal ?? {});
   const admittedLiquidity = liquidityResolution.value !== null;
-  const liquidity = icDebt !== null && liquidityResolution.value !== null ? icDebt - liquidityResolution.value : null;
+  const liquidity = bal && isNum(bal.totalDebt) && liquidityResolution.value !== null ? bal.totalDebt - liquidityResolution.value : null;
   if (liquidityResolution.cashBasis === "cash-only") notes.push(liquidityResolution.reason);
   const equity = resolveConsolidatedEquity(bal ?? {});
   // FIN-119-V1: temporary equity (redeemable preferred and redeemable NCI) is financing capital. A refused operand leaves
@@ -2634,6 +2634,7 @@ export function buildDcfAssumptions(inputs: DcfAssumptionInputs): BuildDcfAssump
     asOf: { statements: ttm?.date ?? null, estimates: analyst.asOf },
     notes,
   };
+  if (liquidityResolution.cashBasis === "cash-only") gaps.push({ field: "valuation.dcf.cashBasis", reason: `${bal?.date}: ${liquidityResolution.reason}`, severity: "info" });
   return { assumptions, notes, gaps };
 }
 

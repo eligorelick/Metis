@@ -46,7 +46,7 @@ export function scoreSignalRefusal(i: ScoringInputs, aspect: ScoreAspect, id: st
     const key = id === "smaGap" ? /sma/i : id === "pctFromHigh52w" ? /52|range/i : /strength|momentum|benchmark/i;
     causes = i.technicals.gaps.filter(g => key.test(g.field)).map(g => g.reason);
   }
-  const missing = evidence.operands.filter(o => o.value === null).map(o => `${o.name} (${o.source}) is missing or refused`);
+  const missing = evidence.operands.filter(o => o.value === null).map(o => `${id === "altmanZOriginalScale" ? "Altman Z-score" : o.name} (${o.source}) is missing or refused`);
   // An undefined ratio can have finite operands (a nonpositive denominator or
   // too few historical points). Name those operands and the required operation.
   const inputs = missing.length ? missing.join("; ") : evidence.operands.length

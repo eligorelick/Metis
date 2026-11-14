@@ -3363,7 +3363,7 @@ function runStageBInContext(bundle: DataBundle, replayConfig?: StageBReplayConfi
   // --- Merge all gaps + notes ------------------------------------------------
   const gaps = mergeManifest(
     newerResultsGaps,
-    bundle.gaps,
+    bundle.gaps.filter(g => !g.field.endsWith(".cashBasis")),
     admittedFacts?.ok === false && bundle.edgar?.companyFacts?.ok ? [admittedFacts.gap] : [],
     ttmGaps,
     route.gaps,

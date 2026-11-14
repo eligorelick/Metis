@@ -149,9 +149,9 @@ describe("new version stamps", () => {
     expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
   });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.79.0"); // D-261: bank revenue and reader labels
+    expect(REPORT_SPEC_VERSION).toBe("1.79.0"); // D-261: filed liquidity and root-input gaps
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
-    expect(PAYLOAD_VERSION).toBe("1.96.0"); // D-261: bank revenue
+    expect(PAYLOAD_VERSION).toBe("1.96.0"); // D-261: filed liquidity
     expect(PIPELINE_VERSION).toBe("stage-c-1.6.44"); // Bound annual schedule evidence and source reconciliation disclosures.
     expect(INSIDER_ROLES_READ_FROM).toBe("1.56.0"); // AI-116 frozen display cutoff
     expect(STAGE_B_IMPLEMENTATION_VERSION).toBe("STAGE_B_2026_11_FILED_BALANCES_GAPS_70"); // D-261 review: filed liquidity and root-input gaps

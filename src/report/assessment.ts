@@ -247,7 +247,7 @@ export function financialEvidenceQualifications(gaps: readonly ManifestEntry[], 
   };
   const result: FinancialEvidenceQualification[] = [];
   for (const gap of gaps) {
-    if (gap.field.startsWith("statements.balance.") && gap.field.endsWith(".cashBasis")) result.push({ code: "cash-only-liquidity", field: gap.field, detail: gap.reason, affectedAspects: ["valuation", "quality", "moat", "balanceSheet"] });
+    if (gap.field.endsWith(".cashBasis")) result.push({ code: "cash-only-liquidity", field: gap.field, detail: gap.reason, affectedAspects: ["valuation", "quality", "moat", "balanceSheet"] });
     const aspects = affected[gap.field.split(".")[0]!];
     if (gap.severity === "critical" && gap.expected !== true && aspects) result.push({
       code: "financial-evidence-blocked", field: gap.field, detail: gap.reason, affectedAspects: aspects,

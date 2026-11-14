@@ -771,6 +771,7 @@ export function computeCapital(
       : inclusiveRefusal !== null && debtScopeRefusal === null && isFiniteNumber(operatingLease);
     const netDebt = debtScopeRefusal ? null
       : leaseExcluded && resolution.value !== null ? resolution.value - (operatingLease as number) : resolution.value;
+    if (netDebt !== null && resolution.cashBasis === "cash-only") gaps.push({ field: "capital.netDebtToEbitda.cashBasis", reason: `${latestBal?.date}: ${resolution.reason}`, severity: "info" });
     if (debtScopeRefusal) ndNotes.push(debtScopeRefusal);
     else if (leaseExcluded && inclusiveRefusal !== null) ndNotes.push(`net debt excludes the disclosed operating-lease portion ${fmt(operatingLease as number)}: ${inclusiveRefusal}`);
     else if (resolution.value === null) { /* no net debt to adjust; the resolution says why */ }

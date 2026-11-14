@@ -667,7 +667,7 @@ function admitCashFields<T extends FmpStatementRow>(row: T, facts: CompanyFacts,
             fieldConflicts[f] = { usable: false, cause: "liquidity-not-established", vendorValue: original(f), secValue: null, reason };
             delete fieldProvenance[f]; continue;
           }
-          fieldConflicts[f] = { usable: amount !== null, vendorValue: original(f), secValue: amount,
+          fieldConflicts[f] = { usable: amount !== null, ...(cashOnly && f === "shortTermInvestments" ? { cause: "liquidity-not-established" as const } : {}), vendorValue: original(f), secValue: amount,
             ...(amount !== null ? { resolution: "filed-family" as const } : {}), reason, secEvidence: evidence };
           if (amount !== null) fieldProvenance[f] = evidence;
           else delete fieldProvenance[f];
@@ -778,13 +778,55 @@ export function admitStockCompensation<T extends FmpStatementRow>(row: T, facts:
     { labels: labelCopies(facts, observedAt), withheld: new Set(), unverified: new Map() }, true);
 }
 
+/** Blocking observations only: a dated primary table can refute absence without admitting its dimensional amount. */
+function investmentObservations(facts: CompanyFacts, unit: string, end: string, observedAt: string, sections: readonly ExtractedSection[]): string[] {
+  const roots = tagsFor("shortTermInvestments").flatMap(tag => points(facts, tag, unit, observedAt)
+    .filter(p => p.end === end && !p.start).map(p => `us-gaap/${tag}, instant ${end}, filing ${p.accn}`));
+  for (const section of sections) {
+    if (!CORE_FACT_FORMS.has(section.form ?? "") || !section.filingDate || section.filingDate > observedAt.slice(0, 10)) continue;
+    try { const url = new URL(section.documentUrl); if (url.origin !== "https://www.sec.gov" ||
+      !url.pathname.startsWith(`/Archives/edgar/data/${Number(facts.cik)}/${section.accession.replaceAll("-", "")}/`)) continue; } catch { continue; }
+    const text = section.text;
+    const dates = [...text.matchAll(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\b/g)];
+    for (let i = 0; i < dates.length; i++) {
+      const match = dates[i]!; const time = Date.parse(match[0]);
+      if (!Number.isFinite(time) || new Date(time).toISOString().slice(0, 10) !== end) continue;
+      const block = text.slice(match.index, (dates[i+1]?.index ?? text.length));
+      if (!/short.term investments\s*(?::|\$|[0-9])/i.test(block)) continue;
+      const tag = /Available.for.sale debt securities/i.test(block) ? "AvailableForSaleSecuritiesDebtSecuritiesCurrent" : "ShortTermInvestments";
+      roots.push(`us-gaap/${tag} investment family, instant ${end}, filing ${section.accession} (dated primary filing table; dimensional context is not admitted)`);
+    }
+  }
+  return [...new Set(roots)];
+}
+
 /** Cash honors field-level SEC lineage; unproved vendor values use their original filing. */
-export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string): { row: T; gaps: ManifestEntry[] } {
+export function admitBalanceCash<T extends FmpStatementRow>(row: T, facts: CompanyFacts, scope: "annual" | "quarter", observedAt: string, sections: readonly ExtractedSection[] = []): { row: T; gaps: ManifestEntry[] } {
   if (!validDay(row.date) || !/^[A-Z]{3}$/.test(row.reportedCurrency ?? "") ||
       (row.cik != null && Number(row.cik) !== facts.cik)) return { row, gaps: [] };
   const leases = admitBalanceLeaseFields(row, facts, row.reportedCurrency!, observedAt);
   const cash = admitCashFields(leases.row, facts, row.reportedCurrency!, scope, observedAt, "balance",
     { labels: [], withheld: new Set(), unverified: new Map() });
+  const investments = investmentObservations(facts, row.reportedCurrency!, row.date!, observedAt, sections);
+  const combinedProof = cash.row.fieldProvenance?.cashAndShortTermInvestments;
+  const filedCombined = combinedProof?.source === "edgar" && typeof cash.row.cashAndShortTermInvestments === "number" &&
+    cash.row.fieldConflicts?.cashAndShortTermInvestments?.usable !== false;
+  const unresolved = !filedCombined && (cash.row.cashBasis === "cash-only" || cash.row.cashAndShortTermInvestments == null ||
+    cash.row.fieldConflicts?.shortTermInvestments?.usable === false || cash.row.shortTermInvestments === 0);
+  if (investments.length && unresolved) {
+    const reason = `shortTermInvestments at ${row.date} withheld: ${investments.join("; ")}; investment scope or separation from cash cannot be admitted; combined liquidity and dependent capital figures are unavailable`;
+    const fieldConflicts = { ...cash.row.fieldConflicts };
+    const fieldProvenance = { ...cash.row.fieldProvenance };
+    for (const field of ["shortTermInvestments", "cashAndShortTermInvestments", "netDebt"]) {
+      const prior = fieldConflicts[field];
+      if (prior?.usable === false && prior.cause !== "liquidity-not-established" && prior.cause !== "vendor-sec-value-conflict") continue;
+      fieldConflicts[field] = { usable: false, cause: "liquidity-not-established", reason,
+        vendorValue: prior?.vendorValue ?? (typeof row[field] === "number" ? row[field] as number : null), secValue: null };
+      delete fieldProvenance[field];
+    }
+    return { row: { ...cash.row, cashBasis: undefined, shortTermInvestments: null, cashAndShortTermInvestments: null, netDebt: null, fieldConflicts, fieldProvenance },
+      gaps: [...leases.gaps, ...cash.gaps.filter(g => !g.field.endsWith(".cashBasis")), { field: `statements.balance.${row.date}.shortTermInvestments`, reason, severity: "info" }] };
+  }
   return { row: cash.row, gaps: [...leases.gaps, ...cash.gaps] };
 }
 
@@ -2267,7 +2309,7 @@ export function enrichFinancialFields(balance: FetchResult<FmpPayload<FmpBalance
         out = nci.row;
         gaps.push(...nci.gaps);
       }
-      const cashAdmission = admitCashFields(out, facts, currency, scope, observedAt, kind, ctx);
+      const cashAdmission = kind === "balance" ? admitBalanceCash(out, facts, scope, observedAt, presentations) : admitCashFields(out, facts, currency, scope, observedAt, kind, ctx);
       out = cashAdmission.row;
       gaps.push(...cashAdmission.gaps);
       return out;

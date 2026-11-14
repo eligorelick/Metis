@@ -1579,7 +1579,7 @@ function investedCapital(
 
   const resolution = resolveNetDebt({
     date: b.date,
-    totalDebt: debt,
+    totalDebt: b.totalDebt,
     cashAndCashEquivalents: b.cashAndCashEquivalents ?? null,
     shortTermInvestments: b.shortTermInvestments ?? null,
     cashAndShortTermInvestments: b.cashAndShortTermInvestments ?? null,
@@ -1589,38 +1589,12 @@ function investedCapital(
   });
   if (resolution.value !== null) {
     if (resolution.cashBasis === "cash-only") notes.push(`${b.date}: invested capital nets cash only (narrower basis); ${resolution.reason}`);
-    return resolution.value + equity.value + temporaryTotal;
+    return resolution.value - (b.totalDebt - debt) + equity.value + temporaryTotal;
   }
 
-  // A CONFLICT refusal is not a missing basis: the vendor's combined cash field
-  // contradicts its own components, so no cash figure is trustworthy. Falling
-  // back to cash-only there would compute invested capital from data the
-  // resolver just rejected, and disclose it as "short-term investments
-  // unreported", which is false.
-  if (resolution.conflict === true || b.cashBasis === "cash-only") {
-    notes.push(
-      `${b.date}: ${resolution.reason ?? "cash components conflict"} — invested capital uncomputable (no trustworthy cash basis)`,
-    );
-    refusals.push({ reason: resolution.reason ?? "cash components conflict", kind: "cash" });
-    return null;
-  }
-
-  // Short-term investments are not established from available facts. Cash alone is then the
-  // best available liquidity figure — no other metric has a better one either —
-  // so disclose the narrower basis rather than suppress a 0.35-weight quality
-  // signal. The defect this replaces was using cash-only even when short-term
-  // investments WERE reported, which overstated invested capital.
-  if (!isFiniteNumber(b.cashAndCashEquivalents)) {
-    const refused = b.fieldConflicts?.cashAndCashEquivalents;
-    refusals.push({ kind: "cash", reason: `cashAndCashEquivalents missing or refused: ${refused?.reason ?? "no admitted cash operand"}` });
-    notes.push(`cashAndCashEquivalents ${refused?.usable === false ? `withheld (${refused.reason ?? "refused at admission"})` : "missing"} on ${b.date} — invested capital uncomputable`);
-    return null;
-  }
-  notes.push(
-    `short-term investments not established from the undimensioned facts available on ${b.date} — invested capital nets cash only ` +
-      "(narrower than the house cash + short-term-investments basis)",
-  );
-  return debt + equity.value + temporaryTotal - b.cashAndCashEquivalents;
+  refusals.push({ reason: resolution.reason, kind: "cash" });
+  notes.push(`${b.date}: ${resolution.reason}; invested capital unavailable`);
+  return null;
 }
 
 /**
@@ -1964,6 +1938,16 @@ export function computeRoic(
         if (i === 0) latestRefusal = { balanceDate: balPrev.date.slice(0, 10), kind: "debt" };
         continue;
       }
+      const priorLiquidity = resolveNetDebt(balPrev);
+      if (priorLiquidity.conflict) {
+        rootCauses.set(row.date, priorLiquidity.reason); yearNotes.push(priorLiquidity.reason); continue;
+      }
+      const basisNow = resolveNetDebt(balNow).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
+      const basisPrev = resolveNetDebt(balPrev).cashBasis === "cash-only" ? "cash-only" : "cash-and-investments";
+      if (basisNow !== basisPrev) {
+        const reason = `liquidity bases differ: ${balNow.date} uses ${basisNow}, ${balPrev.date} uses ${basisPrev}; average invested capital is withheld`;
+        rootCauses.set(row.date, reason); yearNotes.push(reason); continue;
+      }
       const icPrev = investedCapital(balPrev, yearNotes, includeOperatingLeases, undefined, "the prior balance's temporary-equity operand was refused, so this year's average falls back to single-period capital.");
       if (icPrev !== null) {
         icAvg = (icNow + icPrev) / 2;
@@ -1983,6 +1967,10 @@ export function computeRoic(
       );
       entry.investedCapitalAvg = icAvg;
       continue;
+    }
+    for (const used of [balNow, ...(balPrev && balPrev !== balNow ? [balPrev] : [])]) {
+      const liquidity = resolveNetDebt(used);
+      if (liquidity.value !== null && liquidity.cashBasis === "cash-only") gaps.push({ field: "returns.roic.cashBasis", reason: `${used.date}: ${liquidity.reason}`, severity: "info" });
     }
     entry.investedCapitalAvg = icAvg;
     entry.operatingLoss = normalizedEbit <= 0;

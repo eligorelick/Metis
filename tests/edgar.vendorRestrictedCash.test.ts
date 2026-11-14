@@ -42,7 +42,7 @@ describe("vendor cash that exactly matches the same filing's restricted-inclusiv
     const out = admitBalanceCash(row, companyFacts({ [Q2]: tags }), "quarter", OBSERVED).row;
     expect(out.cashAndCashEquivalents).toBe(5413 * M);
     expect(out.netDebt).toBeNull();
-    if (kind !== "debt filing") expect(out.fieldConflicts?.[kind === "debt refusal" ? "totalDebt" : "netDebt"]?.reason).toBe("independent refusal");
+    if (kind !== "debt filing") expect(out.fieldConflicts?.[kind === "debt refusal" ? "totalDebt" : "netDebt"]).toEqual(row.fieldConflicts?.[kind === "debt refusal" ? "totalDebt" : "netDebt"]);
   });
   it.each(["amount", "accession", "future", "currency", "refusal"])("direct cash needs no restricted-inclusive %s bridge, but preserves an independent refusal", kind => {
     const facts = companyFacts({ [Q2]: tags });

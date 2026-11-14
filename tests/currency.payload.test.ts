@@ -204,7 +204,7 @@ describe("verification and rendering of an unknown-currency figure", () => {
     expect(prompt).toMatch(/- est revenue 2026-12-31: \d+ currency \(currency unknown\) \[/);
     // D-261 gaps can name a refused DCF operand and the conflicting currency.
     // The monetary figure itself must still never acquire a USD label.
-    expect(prompt).not.toMatch(/^- DCF per share:[^\n]*USD/m);
+    expect(prompt).not.toMatch(/DCF per share[^\n]*USD/);
 
     const listingPrompt = serializePayloadForPrompt(assemble(UNKNOWN_LISTING).payload);
     expect(listingPrompt).toMatch(/- last close: [\d.]+ currency\/share \(currency unknown\) \[/);

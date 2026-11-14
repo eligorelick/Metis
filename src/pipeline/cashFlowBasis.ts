@@ -51,7 +51,7 @@ export function withCashFlowSbcBasis(bundle: DataBundle): DataBundle {
     const rows = input.value.data.rows.map(row => {
       const temporaryAdmission = temporary ? supplementTemporaryEquity(row, temporary, facts.cik, temporaryEquityFiledEnds(facts)) : { row, gaps: [] };
       gaps.push(...temporaryAdmission.gaps);
-      const admitted = admitBalanceCash(temporaryAdmission.row, facts, key === "balanceAnnual" ? "annual" : "quarter", bundle.builtAt);
+      const admitted = admitBalanceCash(temporaryAdmission.row, facts, key === "balanceAnnual" ? "annual" : "quarter", bundle.builtAt, [bundle.edgar?.tenKNotes, bundle.edgar?.tenQNotes].flatMap(s => s?.ok ? [s.value.data] : []));
       gaps.push(...admitted.gaps);
       for (const field of Object.keys(row.fieldConflicts ?? {})) {
         const prior = row.fieldConflicts?.[field], current = admitted.row.fieldConflicts?.[field];

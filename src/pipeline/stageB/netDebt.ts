@@ -304,20 +304,20 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
     return { ...base, value: null, cashBasis: null, conflict: true, reason: leaseConflict };
   }
 
-  const refusedCash = ["cashAndCashEquivalents", "cashAndShortTermInvestments"].find(f => inputs.fieldConflicts?.[f]?.usable === false &&
-    !(f === "cashAndShortTermInvestments" && inputs.cashBasis === "cash-only" && inputs.fieldConflicts[f]?.cause === "liquidity-not-established"));
+  const refusedCash = ["cashAndCashEquivalents", "cashAndShortTermInvestments", "shortTermInvestments"].find(f => inputs.fieldConflicts?.[f]?.usable === false &&
+    !(f !== "cashAndCashEquivalents" && inputs.cashBasis === "cash-only" && inputs.fieldConflicts[f]?.cause === "liquidity-not-established"));
   if (refusedCash) return { ...base, value: null, cashBasis: null, conflict: true,
     reason: `${refusedCash} refused: ${inputs.fieldConflicts![refusedCash]!.reason ?? "incompatible liquidity evidence"}` };
-  if (inputs.cashBasis === "cash-only" && cash !== null) {
+  if (cash !== null && combinedCash === null && shortTermInvestments === null) {
     const debtProof = inputs.fieldProvenance?.totalDebt;
     // Completing only a vendor lease line does not prove the rest of that vendor debt total.
-    if (debtProof?.source !== "edgar" || debtProof.calculation === "noncurrent-lease-line-completed" ||
-        debtProof.periodEnd !== inputs.date || debtProof.periodStart !== null || !debtProof.filings?.length) {
+    if (inputs.cashBasis === "cash-only" && (debtProof?.source !== "edgar" || debtProof.calculation === "noncurrent-lease-line-completed" ||
+        debtProof.periodEnd !== inputs.date || debtProof.periodStart !== null || !debtProof.filings?.length)) {
       return { ...base, value: null, cashBasis: "cash-only",
         reason: "cash-only liquidity established, but same-instant filed total debt is not established; house net debt unavailable" };
     }
     return { ...base, value: totalDebt - cash, cashBasis: "cash-only",
-      reason: "total debt minus filed cash only (narrower basis); short-term investments not established from the undimensioned facts available" };
+      reason: "total debt minus cash only (narrower basis); no investment fact exists in the retained input facts for this instant" };
   }
 
   if (combinedCash !== null) {
@@ -373,7 +373,7 @@ export function resolveNetDebt(inputs: NetDebtInputs): NetDebtResolution {
     value: null,
     cashBasis: null,
     // Fix round 2, M3: name the row's cash-only net debt only when it carries one (a keyless row often does not).
-    reason: "combined cash-and-short-term-investments unavailable and one or more cash components missing" +
+    reason: "cashAndShortTermInvestments unavailable; cashAndCashEquivalents or shortTermInvestments missing" +
       (vendorNetDebt !== null ? "; the row's cash-only net debt is not used" : ""),
   };
 }
