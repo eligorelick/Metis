@@ -7851,6 +7851,8 @@ Revised by D-267 (part 1, 2026-11-14): the fiscal-year fallback DCF now withhold
 - **Disclosure**: tests in `tests/report.presentation.d67.test.ts`; re-pinned assertions name D-67 (whole amounts, gap labels in the body, the peer summary, the data-warning wording). The audit export gains "How the report body reads this record" (the classification table, the annual provider segments, the peer screen and the source-fact table with ids). `npm run audit:deltas` moves no leaf.
 ## D-66 (NVDA final audit 2026-10-16) Bind prose conservatively and retain the filing evidence behind it
 
+**Revised by D-274:** independently described excerpt figures and explicit count/percentage metric units use the existing per-figure checks; ambiguous lists still fail closed.
+
 - **Evidence**: the final NVDA rerun left 65 numeric FACT claims unmatched, mostly verifier false negatives. Score scales, 12M window labels, equivalent metric heads, comma-scoped executive titles and quarter/year-to-date table columns were not read correctly. Concentration passages, annual business-combination notes, interim financing payments and trading-plan disclosures were omitted or lacked typed records.
 - **Choice**: retain explicit metric synonyms while requiring definition-changing modifiers, units, sign, period and window. Only the three known segment axes may be omitted from a label; arbitrary colon prefixes remain required. A table's declared scale always applies, including amounts stated without a scale word. Explicit `USD millions:` TracedNumber declarations remain supported. Quarter and year-to-date date runs bind separately with or without change columns; ambiguous dates/columns stay unchecked. GAAP and net modifiers stay required in excerpt matches. DSO is checked in days.
 - **Evidence carried**: read 10-K notes from Item 8 or Item 15, 10-Q Part II Item 5, and bounded interim statements. Register investment balances and lock-ups, equity-method/VIE exposure, investment cash flows, Groq consideration/goodwill/intangible and financing payment, supply commitments, financing-platform lower bound, and the two latest CFO commentaries' DSO/outlook. Carry officer transitions, disclosed appointment packages, say-on-pay and trading arrangements as optional typed disclosure fields. Periodic evidence is retained even without an 8-K or quarterly trend.
@@ -8620,6 +8622,8 @@ Original report bytes and production report history are preserved.
   pin loses the two driver records (372 → 370).
 
 ## D-45 (verification 2026-10-13) A number cited to a filing excerpt is read against that excerpt, beside its own description
+
+**Revised by D-274:** independently described excerpt figures and explicit count/percentage metric units use the existing per-figure checks; ambiguous lists still fail closed.
 
 - **Problem**: a TracedNumber citing `edgar:10-K item7` or a transcript could
   never verify. The verifier knew only numeric registry records and never read
@@ -12688,6 +12692,8 @@ history.
 
 ## D-182 - Findings from the first paid test (Haiku, META, 2026-11-03)
 
+**Revised by D-274 review round 1:** basis-specific P/E wording requires the cited record's own denominator formula. A producer id or generic P/E label alone does not establish diluted EPS versus aggregate common income.
+
 The owner allowed up to $25 of paid testing, tiered from cheaper to better models
 so that each tier's findings are fixed before the next. Tier 1 ran META with
 Haiku 4.5 analysts at medium effort (the judge is raised to the Sonnet 5.5 floor)
@@ -13217,6 +13223,8 @@ evidence and verification are in [the evidence report](2026-11-03-valuation-inpu
   its roughly 42% margin at a 7.03% WACC; the report's reverse DCF shows the gap.
 
 ## D-189 - Latest admitted financial book and producer-bound headline wording (2026-11-03)
+
+**Revised by D-274 review round 1:** basis-specific P/E wording requires the cited record's own denominator formula. A producer id or generic P/E label alone does not establish diluted EPS versus aggregate common income.
 
 **Opening book (Task A).** Decouple the financial-route opening balance from
 the availability of a complete trailing return. Select the newest quarterly
@@ -17722,6 +17730,91 @@ Conditional spend estimate using this repository's Opus 5.5 pricing (input $4/M 
 
 **Final merge validation.** After main advanced, also merged bec62776fb0bd31b1db0c063b4bfee1844d96213 (D-269). Replayed all 19 cases again against that main: Stage B byte-identical; before/after payload files are also byte-identical to the earlier measured matrix, so all section counts, growth and pre-launch figures above remain exact. Final focused suite passes 785 tests across 15 files; the stronger single-line long-unit regression also passes. TypeScript, lint, sample, frozen record and accuracy checks pass; final golden diffs contain only the documented evidence outputs (54 changed outputs/manifest fields in the regression set, nine in the LLY pair). All validation statuses remain unchanged. The reviewer can assess round 2 on the pushed head.
 
+## D-274 - Confirm independently bound excerpt figures (P18, P19; 2026-11-14)
+
+The initial implementation and measurements below are superseded by the review-round-1 rule and measurements at the end of this entry.
+
+The stored-report diagnosis found that the verifier refused independently described figures merely because a clause held several figures, and refused an explicit count metric without a suffix. The deterministic owner is claimEvidence.ts. Models do not assign verification or raise confidence. This revises the blanket multi-figure/unit-omission refusal of D-45/D-66, keeping their precision, metric, period and source rules.
+
+Each comma-delimited figure is checked by the ordinary per-figure matcher, and every figure must pass. Grouped digits and dates are preserved. A split that loses a shared period, base, forward-looking status or non-default scope/basis is refused. Unlabelled lists remain ambiguous. The existing two-level ordered-table comparison runs first and is unchanged. Conflicting values/directions remain contradicted; other gaps remain unverified.
+
+Exact omitted-unit rule: only the figure's own metric explicitly saying count, percent or percentage supplies a missing suffix. Count must be an integer at whole-number precision. The source must independently establish the same unit, from its printed suffix or its own explicit count/percentage metric, including a bound table row. Conflicting or absent declarations fail closed. No unit is inferred just because a value matches. Currency, monetary scale, ratios and generic margins without percentage wording remain refused. No tolerance changes.
+
+The single added producer-bound synonym is price to trailing diluted EPS multiple for the existing computed.valuation.multiples.peTtm ratio with peTtm (current) label. Forward, basic, reversed-operand and other-producer near misses remain refused. No generic semantic matcher was added. Qualitative claims retain cited/qualitative treatment, and web/news cannot confirm. Only cited retained excerpts are searched. The traced-number excerpt first gate remains owned by excerptNumbers.ts and unchanged.
+
+Synthetic tests cover financial clauses, employee counts, retail store counts and clinical trial counts, with wrong value, unit, scale, period, scope, unrelated-sentence metric and uncited/web controls. No earlier test assertion is weakened or removed.
+
+Report meaning advances to 1.87.0; payload, Stage B and pipeline stamps stay unchanged because no payload, calculation or orchestration changes. Financial figures are identical before/after for every replay case. Approved report changes and verification measurements are recorded below after replay.
+
+
+**Approved report changes and offline replay (baseline 73b9a44a5634).** All 17 regression cases and both LLY modes completed. Every Stage B output is byte-identical, all payload fingerprints are identical, and no company has a changed computed financial figure. All 19 report JSONs change their spec version only except the following verifier leaves: AMZN adds six diagnostic-note changes (7 JSON leaves including version); MU adds seven notes (8 leaves); NVDA changes two notes and one reason (4 leaves); LLY fixed-analyst changes verification notes/reasons and three record-backed numeric statuses, with mirrored coverage counters/rate (83 leaves). META and all data-only cases have the version leaf only. Reader exports differ only in corresponding version, verification disclosures and derived report identities. No report claim text changes.
+
+| Fixed analyst case | Numeric claims confirmed before to after | Share before to after |
+|---|---|---|
+| amzn-fixed-analyst | 35/125 to 35/125 | 28.00% to 28.00% |
+| meta-fixed-analyst | 44/128 to 44/128 | 34.38% to 34.38% |
+| mu-fixed-analyst | 37/138 to 37/138 | 26.81% to 26.81% |
+| nvda-fixed-analyst | 34/120 to 34/120 | 28.33% to 28.33% |
+| lly-fixed-analyst | 77/319 to 80/319 | 24.14% to 25.08% |
+
+By diagnosed bucket, newly confirmed claims: producer-label paraphrase 3 (LLY only); multi-figure/unit-omission excerpt 0; retained-text mismatch 0; web/news 0. The three LLY locations cite the same existing trailing-P/E computed record; none cites an excerpt, so the newly confirmed excerpt-text list is empty. The local, uncommitted tmp/d274-lly-flips.json records every changed claim, source and match kind; tmp/d274-measurements.json records all cases. Remaining excerpt refusals lack independently established period/metric/unit bindings; they are not forced into matches.
+
+Accuracy: all 265 figures in the 13 configured cases match the existing expectation (173 match, 5 mismatch, 61 gap, 26 not-established); no expectation update is needed. The accuracy CLI does not configure the separate LLY case; its Stage B equality and report-leaf checks are recorded above.
+
+Stamp maintenance revises only exact version assertions in report.versionStamps.test.ts, stageC.payload.passes.test.ts and jobRunner.test.ts (1.86.0 to 1.87.0), with no weaker assertion. The frozen audit receipt changes only report spec and projection digest. Rebuilding the fictional current sample also applies main's already-existing product-heading admission rule to four stale sample headings; no calculation or source record changes. That fixture staleness is inherited, not a new renderer change. The stagec-payload frozen record is unchanged.
+
+Final adversarial check: an omitted suffix beside percentage points or basis points is refused, never read as percent. The new failing compound-unit regression was reproduced and fixed at excerptMetricUnit; no tolerance changes. The final supplemental fixed-analyst replay checks this refusal against all five stored analyst cases.
+
+Local validation: verifier/excerpt/refusal suite 757 passed; focused version/frozen checks 895 passed before the final compound-unit guard, and the verifier suite passed again after it. The required changed run completed 16,260 passing tests and two stale version-pin failures; both exact pins were updated and each failed test passed in a targeted rerun. Typecheck passed and lint has zero errors (one inherited unused-variable warning). The first frozen refresh wrote its two-leaf receipt but timed out in a child-process comparison under load; the ordinary frozen test then passed. A repeat refresh correctly refused a no-op because the record already matched. No test was weakened or skipped to pass.
+
+The supplemental final guard replays produce byte-identical report JSON for AMZN, META, MU, NVDA and LLY, so the measured counters and differing-leaf lists above also describe the final implementation.
+
+
+### D-274 review round 1 - Fail closed on shared qualifiers, units, scale and denominator proof
+
+The adversarial reviewer demonstrated new false confirmations in four classes. All 124 supplied reproductions were copied from the reviewer scratchpad into three verifier test files, replacing output-only loops with assertions and retaining their source/claim text. Before the repair, the assertions reproduced 18 failures across qualifier, percentage-unit and table-count cases. The P/E tests separately cover both denominator constructions, missing declarations, conflicting declarations and near misses.
+
+FC1: a comma split refuses a sentence-opening comma qualifier or a trailing shared both-description. Apart from a closed set of ordinary financial metric-head words, every description word must appear in every figure's own description, using whole-word token equality. Unknown words are potential shared scope/basis, never silently discarded. Shared period, comparison base, modality and the ordered two-level pattern retain their existing checks. Repeated scope has a positive control; segment versus segments has a refusal control. This is a conservative admission gate, not a new semantic matcher.
+
+FC2: omitted-unit inference refuses point/points/pt/pts/ppt/ppts/pp/bp/bps words and any percentage metric describing a change. A percentage change needs explicit units on claim and source. The inference still accepts independently bound, unambiguous level percentages and integer counts.
+
+FC3: no count unit is inferred for a bare table cell under a declared scale, including an undated flattened count passage. Independently established count units obey the existing table scale, as currency and shares already do. Both the incorrect unscaled count and the correctly scaled claim against a bare, unit-unestablished cell remain unverified; the latter is no longer falsely contradicted. No table unit or number is guessed.
+
+FC4: the peTtm producer computes either price over diluted EPS or market capitalization over common income. Its numeric provenance record currently omits valuation.ts's basis text, so the generic label proves neither. Both basis-specific synonyms now require one exact producer formula in the cited record's existing componentDefinitions metadata; missing, conflicting and other definitions refuse. The existing annual diluted-EPS alias is the same sibling defect and now requires the same proof. No basis is reconstructed from the ratio's value or source id. These stored records therefore lose the three initial LLY confirmations instead of gaining unproved formula metadata. Carrying new formula evidence into future registry records is outside this verifier-only repair.
+
+The copied reproductions also expose new inference through fmp:news, www and web: prefixes. These are the same forbidden web/news confirmation class and now share the existing numeric refusal. Numberless qualitative treatment is unchanged.
+
+Test revisions: headline.test.ts's positive annual fixture now explicitly declares its diluted-EPS formula, with new missing/wrong formula refusals. r7.test.ts row 21 now expects unverified because its frozen record lacks denominator proof; a new positive case supplies the exact aggregate formula and a control supplies the wrong formula. recordMetric.test.ts likewise supplies explicit formula proof to the old positive and adds absent/conflicting/opposite-formula cases. No old value/unit/date or near-miss control is removed. These strengthen P19 and supersede D-182/D-189's basis-specific producer-id-only admission. No numerical tolerance, computed figure, confidence status vocabulary, stored database, saved report or version stamp changes in this review repair.
+
+Final clause-order safeguard: run the original per-figure clause rule before trying the new comma admission. A clause that already passes retains its bindings and is never split; the new guard governs only a split needed for confirmation. This preserves the two stored LLY sensitivity claims that already validated on main. A new direct-clause positive control accompanies all reviewer reproductions, whole-word scope and repeated-scope controls (127 copied/extended reproduction cases total).
+
+
+**Final review-round-1 same-report measurements.** Main was fetched and merged normally at 73b9a44a5634. The complete 17-case regression and two LLY cases were replayed against main, then all five fixed-analyst cases were replayed again after the direct-clause safeguard. Every Stage B output and payload fingerprint remains identical. All 19 report JSONs change only version and verifier disclosures: AMZN 7 leaves, META 1, MU 8, NVDA 7, LLY fixed-analyst 64; every data-only case 1. Refusal notes/reasons account for every additional leaf. No claim text, numeric financial value, coverage counter or validation status differs from main. Reader export changes follow those notes/version and report identities.
+
+| Fixed analyst case | Main numeric matches | Final numeric matches | Rate |
+|---|---|---|---|
+| amzn-fixed-analyst | 35/125 | 35/125 | 28.00% |
+| meta-fixed-analyst | 44/128 | 44/128 | 34.38% |
+| mu-fixed-analyst | 37/138 | 37/138 | 26.81% |
+| nvda-fixed-analyst | 34/120 | 34/120 | 28.33% |
+| lly-fixed-analyst | 77/319 | 77/319 | 24.14% |
+
+Compared with the reviewed PR head 5c395faf, LLY falls from 80/319 to 77/319: the three repeated trailing diluted-EPS aliases return to unverified because their record does not prove that formula. All four other analyst rates stay unchanged. Compared with main, no claim flips into or out of confirmation. Each diagnosed bucket has zero new confirmations: computed paraphrase, excerpt multi-figure/unit omission, retained-text mismatch and web/news. The requested list of newly confirmed claims with matched excerpt text is empty; tmp/d274-round1-lly-flips.json and tmp/d274-round1-measurements.json retain the local audit output (uncommitted).
+
+Accuracy matches all existing expectations: 265 figures, 173 match, 5 mismatch, 61 gap, 26 not-established. No expectation update. Focused verifier/excerpt/refusal checks pass 886 tests, including all 124 copied reproductions plus 3 controls, and new formula tests. New-file risk/release checks passed on the run whose only failure was the now-revised frozen row 21 assertion; the final verifier run passes that strengthened row and its new formula controls. Typecheck and lint pass (one inherited unused-variable warning). The required changed sweep is recorded at delivery.
+
+Final changed sweep: 646 test files passed; 16,391 tests passed, one existing skipped test, zero failing tests. PowerShell redirection classified the emitted Vitest configuration warning as NativeCommandError and returned wrapper exit 1, despite the complete passing test summary; no test or timeout was changed for this warning.
+
+
+
+### D-274 independent review, round 2 (lead fix; P3, P19)
+
+Round 2 (Claude Opus 5.5, adversarial) confirmed the four round-1 classes closed for every shape tried, and found two remaining false confirmations from the same omitted-unit inference. Two review rounds were used, so the lead fixed them in `src/pipeline/stageC/claimEvidence.ts`:
+
+- **Omitted-unit inference removed (P3, P19).** Round 2 showed a unitless figure in a percentage-change statement read as percent ("Gross margin percentage widened 2.1." confirmed "... widened 2.1%.") and a count under a scale written as "in millions" read as a plain count. Two lead fixes followed, each answered by a merge-gate confirmation with new shapes: 17 more change verbs and "was 2.1 above the prior year" for percent; a scale in an earlier heading line or sentence, then trillions, standalone M/B, mln/bln/mil/mio, a scale stated after the figure's sentence, and a year read as a figure's own scale for counts. No word or marker list can prove a bare figure's unit, so the rule now fails closed: no omitted unit is inferred anywhere (excerpt narrative, excerpt table and claim). A figure verifies only when the source and the claim each print its unit, which is main's behaviour. The PR's own round-1 positive tests that expected an inferred percent or count ("Gross margin percentage was 53.2.", "Employee count was 12,345.", store and trial counts, percent-of-count, percentage-of-dollars, percent-label-ratio, count-thousands, count-step, and the two count contradictions) now expect unverified. A third merge-gate round found that the round-1 commit had let a table count cell take the declared table scale; a header can scale counts ("(In millions)") or except them ("(In thousands, except subscriber counts)") and only a per-share exception is read, so that change is reverted (`tableScaleFor` is main's again) and a count cell under any declared scale other than 1 now has no established unit and stays unverified, which also removes main's mirror-image error under "(In millions)". What remains of D-274 is the independent per-figure check with shared-qualifier refusals and the guarded P/E aliases (which stay switched off until a producer records the formula).
+All reviewer reproductions from rounds 2 to 4 now stay unverified (`tests/stageC.claimEvidence.review201c.test.ts`), with controls that an explicit unit on both sides still confirms. Of all reviewer reproductions only three still confirm: "Net debt was $5.0 billion, cash was $8.0 billion." (correct) and the two direct shared-scope cases that confirm on main too. Verifier and consistency suites: 883 passed. On the stored LLY analyst output every verification outcome equals main (331 verified, 77 numeric validated), so no stored claim changes status. Not changed, fail-closed limits listed for a later change: the web/news gate also refuses URL-cited primary excerpts (DEF 14A, transcripts) that a sourceEvidence.kind check could admit; a comma before a dated phrase in a multi-sentence claim makes it unverified. Also not changed (pre-existing on main): a shared scope across "and" or ";" in a direct claim ("In the U.S. revenue was ... and operating income was ...") is not carried to each figure.
+
+**Stamp.** D-272 merged first with report 1.87.0, so this entry's report meaning moves to **1.88.0** (pins in the version-stamp, payload-pass and job-runner tests; the DEMO sample and the frozen audit fixture re-recorded under D-274 with only the spec stamp and its digests changing). Payload, Stage B and pipeline stamps are unchanged.
 
 ## D-272 - Annual release tables and provider observation scope (P2, P9, P20)
 

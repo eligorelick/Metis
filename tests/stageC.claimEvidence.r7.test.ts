@@ -14,13 +14,18 @@ const check = (id: number, text = row(id).claim, cited = record(id)) => validate
 describe("R7 FIGR record vocabulary", () => {
   it.each([21, 44, 45, 53, 54, 58, 59, 72, 79, 81, 89, 91, 93, 94, 121, 122, 123, 125, 176, 189])(
     "matches the real metric and quantity in frozen row %i", id => {
-      expect(check(id).status).toBe("validated");
+      // D-274 FC4: this frozen P/E record carries no denominator proof.
+      expect(check(id).status).toBe(id === 21 ? "unchecked" : "validated");
       expect(check(id, row(id).claim, { ...record(id), value: record(id).value + Math.abs(record(id).value) * 0.2 + 1000 }).status).not.toBe("validated");
       const wrongDate = /202[56]-\d\d-\d\d|2026-10/.test(row(id).claim)
         ? row(id).claim.replace(/202[56]-\d\d-\d\d|2026-10/, "2024-01-01") : `For FY2024, ${row(id).claim}`;
       expect(check(id, wrongDate).status).not.toBe("validated");
       expect(check(id, row(id).claim, { ...record(id), unit: "days" }).status).not.toBe("validated");
     });
+  it("D-274 requires aggregate formula proof for frozen row 21", () => {
+    expect(check(21, row(21).claim, { ...record(21), componentDefinitions: ["marketCap / common income"] }).status).toBe("validated");
+    expect(check(21, row(21).claim, { ...record(21), componentDefinitions: ["price / epsDiluted"] }).status).toBe("unchecked");
+  });
   it.each([
     [58, "Filed current assets to related parties at 2026-06-30 were USD 424.64 million."],
     [58, "Filed non-current debt to related parties at 2026-06-30 was USD 424.64 million."],

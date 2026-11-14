@@ -149,7 +149,7 @@ describe("new version stamps", () => {
     expect(specVersionBefore(REPORT_SPEC_VERSION, ANNUALIZATION_CONVENTION_SPEC)).toBe(false);
   });
   it("stamps financial integrity and evidence-context conventions", () => {
-    expect(REPORT_SPEC_VERSION).toBe("1.87.0"); // D-271: optional business-story fields
+    expect(REPORT_SPEC_VERSION).toBe("1.88.0"); // D-274: excerpt claim verification
     expect(N4B_CAGR_DISPLAY_CUTOFF).toBe("1.56.0");
     expect(PAYLOAD_VERSION).toBe("1.105.0"); // D-267 part 1: same-date fallback; D-260 candidate identity
     expect(PIPELINE_VERSION).toBe("stage-c-1.6.45"); // D-271: sector-neutral business checklist and business story
@@ -191,7 +191,7 @@ describe("new version stamps", () => {
   });
 
   it("stamps a newly built report and payload with them", () => {
-    expect(newReport().meta.specVersion).toBe("1.87.0"); // D-271: optional business-story fields
+    expect(newReport().meta.specVersion).toBe("1.88.0"); // D-274: excerpt claim verification
     const bundle = completeCurrencyBundle({});
     const payload = assembleContextPayload(bundle, runStageB(bundle), VALIDATION);
     expect(payload.payloadVersion).toBe("1.105.0"); // D-267 part 1: same-date fallback; D-260 candidate identity

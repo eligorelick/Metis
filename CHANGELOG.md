@@ -6,7 +6,7 @@ in; later entries supersede earlier choices. `Unreleased` records merged work
 not yet identified here as a new tagged/package release. Use
 [README](README.md) and the [methodology](docs/METHODOLOGY.md) for present guidance.
 
-Current source declares application **0.1.0**, report spec **1.87.0** and
+Current source declares application **0.1.0**, report spec **1.88.0** and
 payload **1.105.0** (including the FIG source-reconciliation and disclosure fixes, the P1/B4b equity-method repair, the FIGR paid-run and extra-high audit fixes, the priority fixes, D-173/D-174, the Q round, D-175 to D-181, the annual filing-section recovery, D-184, and the valuation inputs, D-186 and D-188). The
 checked-in
 Claude registry prefers Opus 5.5 for `auto` and Sonnet 5.5 as Haiku's judge floor;
@@ -17,6 +17,14 @@ repository settings, not confirmation of live provider entitlement. The
 verification and the replacement of the stale-PID credential-lock protocol.
 Stored reports retain their
 original versions and bytes; source merge does not deploy or publish a release.
+
+## Unreleased - Excerpt claim confirmation (P18, P19, D-274) (2026-11-14)
+
+- Verify each independently described excerpt figure and confirm only when all pass; preserve shared period, modality and scope refusals and the ordered two-level table rule.
+- No omitted unit is inferred: a figure verifies only when the source and the claim each print its unit (review round 2 removed the count/percentage inference after reviewers kept finding wordings it misread). No inferred currency, scale or new tolerance.
+- Review round 1: retain all reviewer reproductions; refuse shared opening/tail qualifiers and missing shared description words, compare whole words, require explicit percentage-change units, and prevent count inference from bypassing a table scale.
+- Basis-specific diluted-EPS and aggregate common-income aliases require the cited producer record's exact formula; absent proof stays unverified. Annual aliases and alternate web/news citation prefixes obey the same refusal. Qualitative claims keep their treatment.
+- Report 1.88.0 (renumbered after D-272 took 1.87.0); no computed figure changes.
 
 ## Unreleased - A readable report: brief first, business before figures, less repetition (P18, P21, P22, D-273)
 

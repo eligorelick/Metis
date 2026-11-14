@@ -235,7 +235,9 @@
 // 1.86.0 (D-271, P18/P20/P22): optional business-story fields (products, what is coming, customers and suppliers,
 // protection, management plan, industry, competitors by product line); a product-line heading must be named in its
 // own FACT claim. No figure changes; stored reports keep their bytes.
-export const REPORT_SPEC_VERSION = "1.87.0" as const;
+// 1.87.0 (D-272): annual guidance tables, provider results and insider evidence, dividend disclosures.
+// 1.88.0 (D-274, P18/P19): independently verify excerpt figures and explicit metric units.
+export const REPORT_SPEC_VERSION = "1.88.0" as const;
 
 /**
  * Current payload format version.

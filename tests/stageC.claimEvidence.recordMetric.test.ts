@@ -7,6 +7,24 @@ const inc: NumericProvenanceRecord = { id: "computed.forensics.increase-in-goodw
 function check(text: string, record = inc) {
   return validateClaimNumericSupport({ label: "FACT", text, source: record.id, asOf: record.asOf }, { record, excerpts: [], sourceId: record.id, reportingCurrency: "USD" }).status;
 }
+it("D-274 binds trailing diluted EPS wording only to its P/E producer", () => {
+  const pe = { ...inc, id: "computed.valuation.pettm-current", origin: "computed.valuation.multiples.peTtm",
+    label: "peTtm (current)", value: 23.45, unit: "ratio" as const, currency: null, componentDefinitions: ["price / epsDiluted"] };
+  expect(check("Price to trailing diluted EPS multiple was 23.45x.", pe)).toBe("validated");
+  for (const near of ["Price to forward diluted EPS multiple", "Price to trailing basic EPS multiple", "Trailing diluted EPS to price multiple"])
+    expect(check(`${near} was 23.45x.`, pe)).not.toBe("validated");
+  expect(check("Price to trailing diluted EPS multiple was 23.45x.", { ...pe, origin: "computed.other", label: "other" })).not.toBe("validated");
+  const aggregate = { ...pe, componentDefinitions: ["marketCap / common income"] };
+  expect(check("Price to trailing diluted EPS multiple was 23.45x.", aggregate)).not.toBe("validated");
+  expect(check("Price to trailing diluted EPS multiple was 23.45x.", { ...pe, componentDefinitions: undefined })).not.toBe("validated");
+  expect(check("Market capitalization to trailing common earnings was 23.45x.", aggregate)).toBe("validated");
+  expect(check("Market capitalization to trailing common earnings was 23.45x.", pe)).not.toBe("validated");
+  expect(check("Market capitalization to trailing common earnings was 23.45x.", { ...pe, componentDefinitions: undefined })).not.toBe("validated");
+  for (const componentDefinitions of [["price / epsDiluted", "marketCap / common income"], ["price / epsDiluted; diluted EPS not used"]]) {
+    expect(check("Price to trailing diluted EPS multiple was 23.45x.", { ...pe, componentDefinitions })).not.toBe("validated");
+    expect(check("Market capitalization to trailing common earnings was 23.45x.", { ...pe, componentDefinitions })).not.toBe("validated");
+  }
+});
 it.each([inc.id, "computed.forensics.accruals.acquiredGoodwillAndIntangibles"])("AI-501 refuses a level citing increase %s", id => {
   expect(check("Goodwill and other intangible assets as of 2026-01-25 were USD 18.14 billion.", { ...inc, id })).toBe("unchecked");
 });

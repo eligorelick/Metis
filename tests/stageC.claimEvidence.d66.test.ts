@@ -10,6 +10,54 @@ import type { TextExcerpt } from "@/pipeline/stageC/payload";
 import type { NumericProvenanceRecord } from "@/pipeline/stageC/provenance";
 import type { SourcedClaim } from "@/report/schema";
 
+describe("D-274 independent excerpt figures", () => {
+  const source: TextExcerpt = { title: "10-Q Item 2", source: "edgar:10-Q item2", asOf: "2026-06-30",
+    text: "Consolidated revenue was $24.4 billion. Operating income was $12.3 billion. Employee count was 12,345. Gross margin was 53.2%.",
+    truncated: false, originalChars: 200 };
+  const checkExcerpt = (text: string, excerpt = source) => validateClaimNumericSupport(
+    { label: "FACT", text, source: source.source, asOf: source.asOf },
+    { excerpts: [excerpt], sourceId: source.source, reportingCurrency: "USD" });
+  it("checks every independently named comma-separated figure", () => {
+    expect(checkExcerpt("Consolidated revenue was $24.4 billion, operating income was $12.3 billion.").status).toBe("validated");
+    for (const wrong of ["$13.3 billion", "$12.3 million", "12.3%"])
+      expect(checkExcerpt(`Consolidated revenue was $24.4 billion, operating income was ${wrong}.`).status).not.toBe("validated");
+  });
+  it("requires the figure's own metric, sentence, period and entity scope", () => {
+    for (const text of [
+      "Consolidated revenue was $24.4 billion, operating income in FY2025 was $12.3 billion.",
+      "Consolidated revenue was $24.4 billion, segment operating income was $12.3 billion.",
+      "Consolidated revenue was $24.4 billion, operating income was $24.4 billion.",
+      "Consolidated revenue was $24.4 billion and $12.3 billion.",
+      "In FY2025 consolidated revenue was $24.4 billion, operating income was $12.3 billion.",
+      "Segment revenue was $24.4 billion, operating income was $12.3 billion.",
+    ]) expect(checkExcerpt(text).status).not.toBe("validated");
+    expect(checkExcerpt("Consolidated revenue was $24.4 billion, operating income was $12.3 billion.",
+      { ...source, text: "Consolidated revenue was $24.4 billion. Operating income was discussed. Capital spending was $12.3 billion." }).status).not.toBe("validated");
+  });
+  it("never infers an omitted unit (review round 2 lead fix)", () => {
+    expect(checkExcerpt("Employee count was 12,345.").status).toBe("unchecked");
+    // Review round 2 (lead fix): a bare figure under a percentage metric is never read as percent.
+    expect(checkExcerpt("Gross margin percentage was 53.2.").status).toBe("unchecked");
+    expect(checkExcerpt("Gross margin was 53.2.").status).toBe("unchecked");
+    expect(checkExcerpt("Gross margin percentage points was 53.2.").status).not.toBe("validated");
+    expect(checkExcerpt("Employee count was 12,345.", { ...source, text: "Employee count was $12,345." }).status).not.toBe("validated");
+    for (const wrong of ["Employee count in FY2025 was 12,345.", "Segment employee count was 12,345.", "Employee count was 12.345 million.", "Employee count was 53.2."])
+      expect(checkExcerpt(wrong).status).not.toBe("validated");
+    for (const metric of ["Retail store count", "Clinical trial count"]) {
+      const counted = { ...source, text: `${metric} was 12,345.` };
+      expect(checkExcerpt(`${metric} was 12,345.`, counted).status).toBe("unchecked");
+      expect(checkExcerpt(`${metric} was 12,346.`, counted).status).not.toBe("validated");
+    }
+  });
+  it("keeps uncited excerpts, web and qualitative claims outside confirmation", () => {
+    expect(checkExcerpt("Employee count was 12,345.", { ...source, source: "edgar:10-K item1" }).status).toBe("unchecked");
+    expect(checkExcerpt("Demand remains strong.").status).toBe("cited");
+    const web = { ...source, source: "https://example.com/news" };
+    expect(validateClaimNumericSupport({ label: "FACT", text: "Employee count was 12,345.", source: web.source, asOf: web.asOf },
+      { excerpts: [web], sourceId: web.source, reportingCurrency: "USD" }).status).toBe("unchecked");
+  });
+});
+
 const record = (over: Partial<NumericProvenanceRecord> & Pick<NumericProvenanceRecord, "id" | "label" | "value" | "unit">): NumericProvenanceRecord => ({
   kind: "computed", currency: null, period: null, asOf: "2026-10-16", origin: over.id, formulaVersion: null, displayPrecision: 4, ...over,
 });

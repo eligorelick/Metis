@@ -3609,5 +3609,23 @@
       "$.projection.report.marketData.insiderEvidence[2]",
       "$.projection.report.marketData.insiderEvidence[3]"
     ]
+  },
+  {
+    "date": "2026-11-14",
+    "target": "audit-fixture",
+    "decision": "D-274",
+    "reason": "D-274 advances report meaning to 1.88.0 for deterministic excerpt claim verification after D-272 took 1.87.0; only the report version and its projection digests change, no figure.",
+    "scope": [
+      "$.projection.report.meta.specVersion",
+      "$.projectionSha256",
+      "$.fixtureIdentity.reportSha256"
+    ],
+    "beforeSha256": "807c666e8e1f1f8b6cbbf7c125cc0dc1d52bec8ca9948ee05133646e9f8ec785",
+    "afterSha256": "45a52701c13c50a685f23cfe42b2690da73eeea8d040db2d620f4d35f006f313",
+    "changedLeaves": 2,
+    "changedPaths": [
+      "$.projectionSha256",
+      "$.projection.report.meta.specVersion"
+    ]
   }
 ]

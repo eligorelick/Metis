@@ -3,7 +3,7 @@
 What Metis computes, from which inputs, under which conventions, and where a
 convention is this project's own choice rather than a standard.
 
-The current source declares report 1.87.0 / payload 1.105.0, Stage B `STAGE_B_2026_11_DIVIDEND_DISCLOSURES_78` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
+The current source declares report 1.88.0 / payload 1.105.0, Stage B `STAGE_B_2026_11_DIVIDEND_DISCLOSURES_78` and score bands `SCORE_BANDS_2026_10_FINANCIAL_ROUTE_EVIDENCE`; `tests/docs.p8Agreement.test.ts` pins this sentence to the constants. The historical literature citations remain the project's research rationale; a passing test validates implementation behavior, not the predictive validity of a model or a live provider's contract. Final independent review and report acceptance remain gates.
 
 Operating revenue can use a broadly named SEC concept when a primary income statement corroborates that concept as sales on the same filing, duration and currency, without a conflicting retained sales presentation. A concept name alone does not prove that it includes nonoperating income. Evidence floors for grades remain unchanged. Interest capitalized into inventory and interest released through cost of sales are distinct from a period's financing expense; they cannot support an EBIT/interest-coverage ratio by relabeling the provider field. Any historical borrowing-cost fallback must retain its filed period and matching debt scope, and is distinct from an expense-based synthetic credit rating.
 
@@ -8909,6 +8909,10 @@ provider's peer list has no comparable company, the peer note points to the
 competitors by product line in "The business" when the report carries them. App, Markdown and print read the same
 presentation rule (P22); a report saved before this change has none of these
 fields and prints none of these headings (P21).
+
+### Excerpt claim confirmation (D-274)
+
+Every independently described figure in a filing-excerpt claim must pass the existing metric, unit, display-precision, period and direction checks against its cited retained excerpt. Commas may separate figures only when their periods, comparison bases, modality and non-default scope/basis survive. Ambiguous lists remain unverified; the existing ordered two-level table comparison is unchanged. No omitted unit is inferred (D-274 review round 2): a figure verifies only when the source and the claim each print its unit. Money, scale and currency are never inferred from a matching value. Comma admission refuses opening comma qualifiers and shared tails; every remaining description word beyond an ordinary financial metric head must recur as a whole word in each figure's own description. Both diluted-EPS and aggregate common-income P/E aliases require the exact formula in the cited record's own sole component definition; a generic peTtm label establishes neither. Existing records without formula evidence stay unverified, including annual diluted-EPS aliases. Qualitative claims remain qualitative; web/news text never confirms filing figures. No calculation or tolerance changes.
 
 ### Reading order, the opening brief and shown-once (D-273)
 

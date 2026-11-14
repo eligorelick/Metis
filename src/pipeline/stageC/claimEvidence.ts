@@ -983,6 +983,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
   for (const form of [...forms]) { const bare = withoutAxis(form); if (bare !== null) forms.add(bare); }
   for (const form of [...forms]) { const bare = withoutRestatedAcronyms(form); if (bare !== null) forms.add(bare); }
   if (record.kind === "computed") {
+    const peBasis = record.componentDefinitions?.length === 1 ? record.componentDefinitions[0] : undefined;
     // D-187: names belong to these producers, never to arbitrary numeric rows.
     if (record.id === "computed.valuation.dcf-per-share" && record.origin === "computed.valuation.dcf" &&
       record.unit === "currency-per-share" && label === "DCF per share") forms.add("DCF base-case value per share");
@@ -1001,7 +1002,7 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (houseAspectScore(record) && label === "balanceSheet score") forms.add("balance sheet score");
     const annualPe = /^P\/E \(current, (FY\d{4})\)$/.exec(label)?.[1];
     if (annualPe && record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" &&
-      record.id === `computed.valuation.p-e-current-${annualPe.toLowerCase()}` && record.period === annualPe && record.fiscalPeriod === annualPe)
+      record.id === `computed.valuation.p-e-current-${annualPe.toLowerCase()}` && record.period === annualPe && record.fiscalPeriod === annualPe && peBasis === "price / epsDiluted")
       forms.add(`price to earnings on ${annualPe} diluted EPS`);
     if (record.origin === "computed.valuation.multiples.evToEbitda" && record.unit === "ratio" && label === "evToEbitda (current)")
       forms.add("EV/EBITDA");
@@ -1031,9 +1032,12 @@ function labelReadings(record: NumericProvenanceRecord): string[] {
     if (record.unit === "score" && /^computed\.scores\.[a-z]+$/.test(record.origin) &&
       record.id.startsWith("computed.deterministic-aspect-scores.") && /^[a-z]+ score$/.test(label)) forms.add(`quantitative ${label}`);
     if (record.origin === "computed.valuation.multiples.peTtm" && record.unit === "ratio" && label === "peTtm (current)") {
+      // D-274 review FC4: the producer has two different denominators. A generic
+      // P/E label proves neither one; absent a declared formula, neither alias binds.
+      if (peBasis === "price / epsDiluted") forms.add("price to trailing diluted EPS multiple");
       forms.add("P/E TTM (current)");
       forms.add("trailing price to earnings multiple");
-      forms.add("market capitalization to trailing common earnings");
+      if (peBasis === "marketCap / common income") forms.add("market capitalization to trailing common earnings");
       // D-182 (TSM paid run): "The trailing P/E was 26.4x" named this record but read as no metric.
       forms.add("trailing P/E");
       forms.add("trailing price to earnings");
@@ -1583,6 +1587,11 @@ function tableColumns(text: string, found: readonly Quantity[]): Map<Quantity, T
   return out;
 }
 
+// D-274 review round 2 (lead fix, P3, P19): an omitted unit is never inferred.
+// Merge-gate rounds showed that neither a change-word list (for percent) nor a
+// scale-marker list (for counts) can prove a bare figure's unit, so a figure
+// verifies only when the source and the claim each print its unit.
+
 function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
   const bodies = excerpt.spans ?? [{ start: 0, end: excerpt.text.length, text: excerpt.text.split("…[TRUNCATED")[0] }];
   const inherited = excerptPeriods(excerpt);
@@ -1637,7 +1646,12 @@ function sourceBindings(excerpt: TextExcerpt): SourceBinding[] {
         const aliases = column.period.kind === "period" ? (/^Q[1-4]/.test(column.period.key) ? [column.period.key] : []) : inherited.some((period) => period.kind === "date" && period.key === column.period.key) && (column.window === null || column.window.key === "quarter")
           ? inherited.filter((period) => period.kind === "period").map((period) => period.key)
           : [];
-        const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true } : quantity;
+        // D-274 review round 2 (lead fix, P3): a header can scale counts ("(In millions)") or except them
+        // ("(In thousands, except subscriber counts)"), and only a per-share exception is read, so a count cell
+        // under a declared scale has no established unit and stays unverified.
+        const scaledCountCell = quantity.unit === "count" && column.scale !== null && column.scale !== 1;
+        const dollarCell = column.dollars && quantity.unit === null ? { ...quantity, unit: "currency" as const, dollar: true }
+          : scaledCountCell ? { ...quantity, unit: null } : quantity;
         const tableColumn = { scale: column.scale, aliases, date: column.period.key, exceptPerShare: column.exceptPerShare, label: column.label };
         // AI-403: a decimal cell of an "except per share data" table is the per-share line, in dollars, and is never scaled.
         const cell = dollarCell.unit === "currency" && isPerShareCell(dollarCell, tableColumn) ? { ...dollarCell, unit: "currency-per-share" as const } : dollarCell;
@@ -1785,6 +1799,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   index?: ClaimEvidenceIndex;
   seriesLatest?: ReadonlyMap<string, string>;
   registry?: readonly NumericProvenanceRecord[];
+  /** Internal: compare the unchanged clause before attempting a comma split. */
+  independentFigures?: boolean;
 }): ClaimNumericSupport {
   const record = options.record;
   if (record) claim = { ...claim, text: componentContext(claim.text, declaredDefinitions(record)).text };
@@ -1809,6 +1825,8 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
   const stated = quantities(typedText);
   if (stated.length === 0) return support(statesNumberWord(claim.text) ? "unchecked" : "cited", "supported",
     "citation observed; factual content not machine-validated");
+  if (record === undefined && /^(?:https?:|(?:fmp:)?news:|www\.|web:)/i.test(options.sourceId))
+    return support("unchecked", "text-source", "web and news citations cannot establish filing figures");
   if (record !== undefined) {
     if (stated.length !== 1) return support("unchecked", "text-ambiguous", "one numeric record cannot bind multiple prose quantities");
     const quantity = stated[0];
@@ -1980,8 +1998,51 @@ export function validateClaimNumericSupport(claim: SourcedClaim, options: {
     }
   }
   const spans: ClaimSourceSpan[] = [];
-  for (const quantity of stated) {
-    const own = claimContext(claim.text, quantity, stated);
+  // D-274: commas between independently described figures are clause boundaries.
+  // Preserve grouped digits and dates; ordered comparisons above retain their owner.
+  if (stated.length > 1 && options.independentFigures !== false) {
+    const dates = [...claim.text.matchAll(HEADER_DATE)];
+    const separated = claim.text.replace(/,(?=\s+[A-Za-z])/g, (comma, at: number) =>
+      !dates.some(date => at >= date.index && at < date.index + date[0].length) &&
+      stated.some(q => q.end <= at) && stated.some(q => q.start > at) ? ";" : comma);
+    if (separated !== claim.text) {
+      // Preserve a clause the ordinary per-figure rules already establish.
+      // The new admission gate applies only when splitting is needed to verify it.
+      const direct = validateClaimNumericSupport(claim, { ...options, independentFigures: false });
+      if (direct.status === "validated") return direct;
+      const opening = claim.text.slice(0, stated[0]!.start).replace(HEADER_DATE, date => " ".repeat(date.length));
+      if (opening.includes(",") || /\bboth\b/i.test(claim.text.slice(stated.at(-1)!.end)))
+        return support("unchecked", "text-ambiguous", "a shared opening qualifier or trailing description cannot be split between figures");
+      // Only ordinary financial metric heads belong uniquely to a figure here.
+      // All other description words may be shared scope/basis and must recur in
+      // every figure's own description. This is a refusal gate, never a synonym.
+      const descriptions = stated.map(q => ownDescriptionTokens(claimContext(separated, q, stated).own, []));
+      const metricWords = new Set(["consolidated", "total", "revenue", "gross", "operating", "net", "income", "margin",
+        "earnings", "profit", "eps", "cash", "flow", "capital", "expenditure", "asset", "assets", "debt", "equity"]);
+      const shared = descriptions.flat().filter(word => !metricWords.has(word));
+      if (shared.some(word => descriptions.some(words => !words.includes(word))))
+        return support("unchecked", "text-ambiguous", "a shared description word is not established for every figure");
+      // Splitting must never erase a shared period, comparison base or modality.
+      for (const q of stated) {
+        const before = claimContext(claim.text, q, stated);
+        const after = claimContext(separated, q, stated);
+        if (before.periods.some(p => !after.periods.some(a => a.key === p.key)) ||
+          before.bases.some(p => !after.bases.some(a => a.key === p.key)) ||
+          FORWARD_LOOKING.test(before.text) !== FORWARD_LOOKING.test(after.text))
+          return support("unchecked", "text-ambiguous", "independent figures do not retain their shared period or modality");
+        // Non-default scope/basis stated before a list may govern every member.
+        // Require it to be repeated rather than silently dropping it at a comma.
+        const qualifiers = ownDescriptionTokens(before.text, []).filter(word => !metricWords.has(word));
+        const afterWords = ownDescriptionTokens(after.text, []);
+        if (qualifiers.some(word => !afterWords.includes(word)))
+          return support("unchecked", "text-ambiguous", "independent figures do not retain their shared scope or basis");
+      }
+      return validateClaimNumericSupport({ ...claim, text: separated }, { ...options, independentFigures: false });
+    }
+  }
+  for (const printed of stated) {
+    const own = claimContext(claim.text, printed, stated);
+    const quantity = printed;
     if ([...own.periods, ...own.bases].some((period) => period.key.startsWith("unestablished-date:"))) {
       return support("unchecked", "period-mismatch", "the prose exact date is invalid or locale-ambiguous", spans);
     }
